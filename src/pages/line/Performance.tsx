@@ -15,6 +15,8 @@ import { EquityCurveChart } from '@/components/strategy/EquityCurveChart';
 import { PositionsTable } from '@/components/strategy/PositionsTable';
 import { TradeStatsCard } from '@/components/strategy/TradeStatsCard';
 import { RiskSummaryCard } from '@/components/strategy/RiskSummaryCard';
+import { ReturnDistributionChart } from '@/components/strategy/ReturnDistributionChart';
+import { MonthlyHeatmap } from '@/components/strategy/MonthlyHeatmap';
 
 const LinePerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -82,13 +84,27 @@ const LinePerformance = () => {
           isDelayed={isDelayed}
         />
 
-        {/* Section 4: Trade Stats */}
+        {/* Section 4: Monthly Heatmap */}
+        <MonthlyHeatmap 
+          data={strategySystem.equityHistory}
+          isDelayed={isDelayed}
+        />
+
+        {/* Section 5: Return Distribution */}
+        {strategySystem.recentTrades && strategySystem.recentTrades.length > 0 && (
+          <ReturnDistributionChart 
+            trades={strategySystem.recentTrades}
+            isDelayed={isDelayed}
+          />
+        )}
+
+        {/* Section 6: Trade Stats */}
         <TradeStatsCard 
           stats={strategySystem.tradeStats}
           isDelayed={isDelayed}
         />
 
-        {/* Section 5: Current Positions */}
+        {/* Section 7: Current Positions */}
         <Card>
           <CardContent className="pt-4">
             <PositionsTable 
@@ -98,7 +114,7 @@ const LinePerformance = () => {
           </CardContent>
         </Card>
 
-        {/* Section 6: Risk Summary */}
+        {/* Section 8: Risk Summary */}
         <RiskSummaryCard 
           summary={strategySystem.riskSummary}
           isDelayed={isDelayed}
