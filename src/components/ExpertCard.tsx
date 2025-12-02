@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { cn } from '@/lib/utils';
+import { Flame } from 'lucide-react';
 
 interface ExpertCardProps {
   person: PersonWithPlans;
@@ -12,6 +13,7 @@ interface ExpertCardProps {
 
 export function ExpertCard({ person }: ExpertCardProps) {
   const isAdvisor = person.role === PersonRole.ADVISOR;
+  const isFeatured = person.name.includes('趙彭博');
 
   const planLabels = person.plans.map(plan => {
     switch (plan.planType) {
@@ -30,10 +32,20 @@ export function ExpertCard({ person }: ExpertCardProps) {
     <Card 
       variant="interactive"
       className={cn(
-        "overflow-hidden",
-        isAdvisor ? "hover:border-advisor/30" : "hover:border-mentor/30"
+        "overflow-hidden relative",
+        isAdvisor ? "hover:border-advisor/30" : "hover:border-mentor/30",
+        isFeatured && "ring-2 ring-amber-500/50"
       )}
     >
+      {/* Featured Badge */}
+      {isFeatured && (
+        <div className="absolute top-3 right-3 z-10">
+          <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 shadow-lg">
+            <Flame className="h-3 w-3 mr-1" />
+            熱門推薦
+          </Badge>
+        </div>
+      )}
       <CardContent className="p-0">
         <div className="p-5">
           {/* Header */}
