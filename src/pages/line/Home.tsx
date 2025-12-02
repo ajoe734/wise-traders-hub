@@ -201,41 +201,81 @@ const LineHome = () => {
                   </div>
                 )}
                 
-                {/* Core metrics 2x2 grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">累積報酬</p>
-                    <p className={cn(
-                      "text-xl font-bold",
-                      summary.sinceInceptionReturnPct >= 0 ? "text-success" : "text-destructive"
-                    )}>
-                      {summary.sinceInceptionReturnPct >= 0 ? '+' : ''}
-                      {summary.sinceInceptionReturnPct.toFixed(1)}%
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">最大回撤</p>
-                    <p className="text-xl font-bold text-destructive">
-                      {summary.maxDrawdownPct.toFixed(1)}%
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">勝率</p>
-                    <p className="text-xl font-bold">
-                      {summary.winRatePct?.toFixed(0) || '--'}%
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">近 1 月</p>
-                    <p className={cn(
-                      "text-xl font-bold",
-                      (oneMonthPerf?.cumulativeReturnPct ?? 0) >= 0 ? "text-success" : "text-destructive"
-                    )}>
-                      {(oneMonthPerf?.cumulativeReturnPct ?? 0) >= 0 ? '+' : ''}
-                      {oneMonthPerf?.cumulativeReturnPct?.toFixed(1) ?? '--'}%
-                    </p>
-                  </div>
-                </div>
+                {/* Core metrics grid */}
+                {(() => {
+                  // Calculate relative performance vs benchmark
+                  const equityHistory = strategySystem?.equityHistory;
+                  const latestPoint = equityHistory?.[equityHistory.length - 1];
+                  const strategyReturn = latestPoint ? (latestPoint.equity - 100) : summary.sinceInceptionReturnPct;
+                  const benchmarkReturn = latestPoint?.benchmarkEquity ? (latestPoint.benchmarkEquity - 100) : 0;
+                  const relativeReturn = strategyReturn - benchmarkReturn;
+                  
+                  return (
+                    <>
+                      {/* 2x2 core metrics */}
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground">累積報酬</p>
+                          <p className={cn(
+                            "text-xl font-bold",
+                            summary.sinceInceptionReturnPct >= 0 ? "text-success" : "text-destructive"
+                          )}>
+                            {summary.sinceInceptionReturnPct >= 0 ? '+' : ''}
+                            {summary.sinceInceptionReturnPct.toFixed(1)}%
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground">最大回撤</p>
+                          <p className="text-xl font-bold text-destructive">
+                            {summary.maxDrawdownPct.toFixed(1)}%
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground">勝率</p>
+                          <p className="text-xl font-bold">
+                            {summary.winRatePct?.toFixed(0) || '--'}%
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground">近 1 月</p>
+                          <p className={cn(
+                            "text-xl font-bold",
+                            (oneMonthPerf?.cumulativeReturnPct ?? 0) >= 0 ? "text-success" : "text-destructive"
+                          )}>
+                            {(oneMonthPerf?.cumulativeReturnPct ?? 0) >= 0 ? '+' : ''}
+                            {oneMonthPerf?.cumulativeReturnPct?.toFixed(1) ?? '--'}%
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Relative performance vs benchmark */}
+                      <div className={cn(
+                        "p-3 rounded-lg border mb-4",
+                        relativeReturn >= 0 
+                          ? "bg-success/5 border-success/20" 
+                          : "bg-destructive/5 border-destructive/20"
+                      )}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground">相對大盤</p>
+                            <p className="text-xs text-muted-foreground/70">vs 加權指數</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={cn(
+                              "text-lg font-bold",
+                              relativeReturn >= 0 ? "text-success" : "text-destructive"
+                            )}>
+                              {relativeReturn >= 0 ? '+' : ''}{relativeReturn.toFixed(1)}%
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {relativeReturn >= 0 ? '超越' : '落後'}大盤
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
                 
                 {/* CTA Button */}
                 <Button 

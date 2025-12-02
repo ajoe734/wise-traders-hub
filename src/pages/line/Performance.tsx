@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { PerformanceMetrics } from '@/components/strategy/PerformanceMetrics';
 import { PeriodPerformanceTable } from '@/components/strategy/PeriodPerformanceTable';
 import { EquityCurveChart } from '@/components/strategy/EquityCurveChart';
+import { UnderwaterChart } from '@/components/strategy/UnderwaterChart';
 import { PositionsTable } from '@/components/strategy/PositionsTable';
 import { TradeStatsCard } from '@/components/strategy/TradeStatsCard';
 import { RiskSummaryCard } from '@/components/strategy/RiskSummaryCard';
@@ -84,13 +85,19 @@ const LinePerformance = () => {
           isDelayed={isDelayed}
         />
 
-        {/* Section 4: Monthly Heatmap */}
+        {/* Section 4: Underwater Chart (Drawdown) */}
+        <UnderwaterChart 
+          data={strategySystem.equityHistory}
+          isDelayed={isDelayed}
+        />
+
+        {/* Section 5: Monthly Heatmap */}
         <MonthlyHeatmap 
           data={strategySystem.equityHistory}
           isDelayed={isDelayed}
         />
 
-        {/* Section 5: Return Distribution */}
+        {/* Section 6: Return Distribution */}
         {strategySystem.recentTrades && strategySystem.recentTrades.length > 0 && (
           <ReturnDistributionChart 
             trades={strategySystem.recentTrades}
@@ -98,13 +105,13 @@ const LinePerformance = () => {
           />
         )}
 
-        {/* Section 6: Trade Stats */}
+        {/* Section 7: Trade Stats */}
         <TradeStatsCard 
           stats={strategySystem.tradeStats}
           isDelayed={isDelayed}
         />
 
-        {/* Section 7: Current Positions */}
+        {/* Section 8: Current Positions */}
         <Card>
           <CardContent className="pt-4">
             <PositionsTable 
@@ -114,7 +121,7 @@ const LinePerformance = () => {
           </CardContent>
         </Card>
 
-        {/* Section 8: Risk Summary */}
+        {/* Section 9: Risk Summary */}
         <RiskSummaryCard 
           summary={strategySystem.riskSummary}
           isDelayed={isDelayed}
