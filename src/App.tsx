@@ -84,6 +84,7 @@ const App = () => (
             <Route path="/app/account" element={<AppAccount />} />
 
             {/* LINE Mini-App (per expert) */}
+            <Route path="/line/:expertSlug" element={<Navigate to="home" replace />} />
             <Route path="/line/:expertSlug/home" element={<LineHome />} />
             <Route path="/line/:expertSlug/signals" element={<LineSignals />} />
             <Route path="/line/:expertSlug/signal/:signalId" element={<LineSignalDetail />} />

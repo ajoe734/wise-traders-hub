@@ -15,6 +15,7 @@ import {
   BarChart3,
   GraduationCap
 } from 'lucide-react';
+import { WeeklyLimitUpLeaderboard, mockLeaderboardEntries } from '@/components/WeeklyLimitUpLeaderboard';
 
 const Index = () => {
   return (
@@ -140,6 +141,39 @@ const Index = () => {
                 </Button>
               </CardContent>
             </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Weekly Limit Up Leaderboard */}
+      <section className="py-16 md:py-24">
+        <div className="container">
+          <div className="grid lg:grid-cols-2 gap-8 max-w-5xl mx-auto items-start">
+            <div>
+              <Badge variant="advisor" className="mb-4">熱門排行</Badge>
+              <h2 className="text-2xl md:text-3xl font-bold mb-4">
+                本週漲停王排行榜
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                看看哪位投顧分析師本週捕捉最多漲停股！
+                即時更新，展現真實戰績。
+              </p>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-advisor" />
+                  基於實際交易紀錄統計
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-advisor" />
+                  每日盤後即時更新排名
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-advisor" />
+                  公開透明的績效追蹤
+                </li>
+              </ul>
+            </div>
+            <WeeklyLimitUpLeaderboard entries={mockLeaderboardEntries} />
           </div>
         </div>
       </section>
