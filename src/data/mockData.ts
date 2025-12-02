@@ -638,26 +638,19 @@ export function getAllPeopleWithPlans(): PersonWithPlans[] {
 }
 
 export function getUserSubscriptions(userId: string): SubscriptionWithDetails[] {
-  return subscriptions
-    .filter(s => s.userId === userId)
-    .map(sub => {
-      const plan = plans.find(p => p.id === sub.planId)!;
-      const person = people.find(p => p.id === plan.personId)!;
-      const system = tradingSystems.find(s => s.id === plan.systemId);
-      return { ...sub, plan, person, system };
-    });
+  // MVP 展示用：為所有登入用戶返回模擬訂閱資料
+  return subscriptions.map(sub => {
+    const plan = plans.find(p => p.id === sub.planId)!;
+    const person = people.find(p => p.id === plan.personId)!;
+    const system = tradingSystems.find(s => s.id === plan.systemId);
+    return { ...sub, plan, person, system };
+  });
 }
 
 export function getSignalsForUser(userId: string): SignalWithPerson[] {
-  const userSubs = subscriptions.filter(s => s.userId === userId && s.status === SubscriptionStatus.ACTIVE);
-  const userPlanIds = userSubs.map(s => s.planId);
-  const userPlans = plans.filter(p => userPlanIds.includes(p.id));
-  const advisorPersonIds = userPlans
-    .filter(p => p.planType === PlanType.ANALYST_SIGNAL_L1 || p.planType === PlanType.ANALYST_SIGNAL_DIAG_L2)
-    .map(p => p.personId);
-  
+  // MVP 展示用：返回所有投顧分析師的訊號
   return signals
-    .filter(s => advisorPersonIds.includes(s.personId) && s.timeVisible <= new Date())
+    .filter(s => s.timeVisible <= new Date())
     .map(signal => ({
       ...signal,
       person: people.find(p => p.id === signal.personId)!,
@@ -667,18 +660,8 @@ export function getSignalsForUser(userId: string): SignalWithPerson[] {
 }
 
 export function getJournalsForUser(userId: string): JournalWithPerson[] {
-  const userSubs = subscriptions.filter(s => s.userId === userId && s.status === SubscriptionStatus.ACTIVE);
-  const userPlanIds = userSubs.map(s => s.planId);
-  const userPlans = plans.filter(p => userPlanIds.includes(p.id));
-  const mentorPersonIds = userPlans
-    .filter(p => p.planType === PlanType.MENTOR_WEEKLY_JOURNAL)
-    .map(p => p.personId);
-  
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  
+  // MVP 展示用：返回所有實戰導師的週記
   return weeklyJournals
-    .filter(j => mentorPersonIds.includes(j.personId) && j.weekEnd <= sevenDaysAgo)
     .map(journal => ({
       ...journal,
       person: people.find(p => p.id === journal.personId)!,
