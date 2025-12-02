@@ -4,12 +4,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getPersonBySlug, getUserSubscriptions, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
+import { getStrategySystemByExpertSlug } from '@/data/strategyMockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { PersonRole, PlanType } from '@/types';
-import { Radio, BookOpen, TrendingUp, ArrowRight, Calendar } from 'lucide-react';
+import { Radio, BookOpen, TrendingUp, ArrowRight, Calendar, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-
 const LineHome = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const { user } = useAuth();
@@ -29,6 +29,11 @@ const LineHome = () => {
   
   const allJournals = user ? getJournalsForUser(user.id) : [];
   const expertJournals = allJournals.filter(j => j.person.slug === expertSlug).slice(0, 2);
+
+  // Get strategy performance data
+  const strategySystem = expertSlug ? getStrategySystemByExpertSlug(expertSlug) : undefined;
+  const summary = strategySystem?.performanceSummary;
+  const oneMonthPerf = strategySystem?.performanceByPeriod?.find(p => p.period === '1M');
 
   return (
     <LineLayout>
@@ -160,34 +165,89 @@ const LineHome = () => {
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
+              <BarChart3 className={cn("h-4 w-4", isAdvisor ? "text-advisor" : "text-mentor")} />
               策略績效一覽
             </h2>
-            <Link to={`/line/${expertSlug}/performance`} className="text-sm text-muted-foreground">
-              詳細 →
+            <Link 
+              to={`/line/${expertSlug}/performance`} 
+              className={cn("text-sm", isAdvisor ? "text-advisor" : "text-mentor")}
+            >
+              完整成績單 →
             </Link>
           </div>
-          <Card>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-xs text-muted-foreground">近 30 天</p>
-                  <p className="font-bold text-success">+5.2%</p>
+          
+          {summary ? (
+            <Card className={cn(
+              "border",
+              isAdvisor ? "border-advisor/20" : "border-mentor/20"
+            )}>
+              <CardContent className="p-4">
+                {/* T+7 indicator for mentors */}
+                {!isAdvisor && (
+                  <Badge variant="mentor-light" className="mb-3 text-xs">
+                    T+7 教學用資料
+                  </Badge>
+                )}
+                
+                {/* Core metrics 2x2 grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">累積報酬</p>
+                    <p className={cn(
+                      "text-xl font-bold",
+                      summary.sinceInceptionReturnPct >= 0 ? "text-success" : "text-destructive"
+                    )}>
+                      {summary.sinceInceptionReturnPct >= 0 ? '+' : ''}
+                      {summary.sinceInceptionReturnPct.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">最大回撤</p>
+                    <p className="text-xl font-bold text-destructive">
+                      {summary.maxDrawdownPct.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">勝率</p>
+                    <p className="text-xl font-bold">
+                      {summary.winRatePct?.toFixed(0) || '--'}%
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">近 1 月</p>
+                    <p className={cn(
+                      "text-xl font-bold",
+                      (oneMonthPerf?.cumulativeReturnPct ?? 0) >= 0 ? "text-success" : "text-destructive"
+                    )}>
+                      {(oneMonthPerf?.cumulativeReturnPct ?? 0) >= 0 ? '+' : ''}
+                      {oneMonthPerf?.cumulativeReturnPct?.toFixed(1) ?? '--'}%
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">近 6 個月</p>
-                  <p className="font-bold text-success">+18.7%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">YTD</p>
-                  <p className="font-bold text-success">+24.5%</p>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground text-center mt-3">
-                ⚠️ 回測/模擬數據，僅供參考
-              </p>
-            </CardContent>
-          </Card>
+                
+                {/* CTA Button */}
+                <Button 
+                  variant={isAdvisor ? "advisor" : "mentor"} 
+                  size="sm" 
+                  className="w-full mt-4"
+                  asChild
+                >
+                  <Link to={`/line/${expertSlug}/performance`}>
+                    查看完整成績單
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </Link>
+                </Button>
+                
+                <p className="text-xs text-muted-foreground text-center mt-3">
+                  ⚠️ 數據為示意，投資必有風險
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="bg-muted/30 p-4 text-center">
+              <p className="text-sm text-muted-foreground">策略績效資料準備中</p>
+            </Card>
+          )}
         </section>
 
         {/* Teaching Link */}
