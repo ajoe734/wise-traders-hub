@@ -20,7 +20,7 @@ export function SignalCard({ signal }: SignalCardProps) {
   };
 
   return (
-    <Link to={`/app/signal/${signal.id}`}>
+    <Link to={`/line/${signal.person.slug}/signal/${signal.id}`}>
       <Card variant="interactive" className="overflow-hidden">
         <CardContent className="p-4">
           {/* Top Row: Time & Status */}

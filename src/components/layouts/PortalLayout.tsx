@@ -12,7 +12,7 @@ interface PortalLayoutProps {
 
 const navLinks = [
   { href: '/', label: '首頁' },
-  { href: '/explore', label: '探索' },
+  { href: '/experts', label: '探索' },
   { href: '/pricing', label: '方案與價格' },
   { href: '/legal', label: '法律聲明' },
 ];
@@ -58,7 +58,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             {user ? (
               <>
                 <Button variant="ghost" size="sm" asChild>
-                  <Link to="/me">我的帳號</Link>
+                  <Link to="/account/profile">我的帳號</Link>
                 </Button>
                 <Button size="sm" asChild>
                   <Link to="/app">進入會員區</Link>
@@ -112,7 +112,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
                 {user ? (
                   <>
                     <Link
-                      to="/me"
+                      to="/account/profile"
                       className="block px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted"
                       onClick={() => setMobileMenuOpen(false)}
                     >
@@ -171,8 +171,8 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             <div>
               <h4 className="font-semibold mb-4">服務</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link to="/explore?role=advisor" className="hover:text-foreground">投顧分析師</Link></li>
-                <li><Link to="/explore?role=mentor" className="hover:text-foreground">實戰導師</Link></li>
+                <li><Link to="/experts?role=advisor" className="hover:text-foreground">投顧分析師</Link></li>
+                <li><Link to="/experts?role=mentor" className="hover:text-foreground">實戰導師</Link></li>
                 <li><Link to="/pricing" className="hover:text-foreground">方案比較</Link></li>
               </ul>
             </div>

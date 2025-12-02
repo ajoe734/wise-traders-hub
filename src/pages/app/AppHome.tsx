@@ -7,8 +7,7 @@ import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserSubscriptions } from '@/data/mockData';
 import { PersonRole, PlanType } from '@/types';
-import { Radio, BookOpen, ChevronRight, Settings } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Radio, BookOpen, ChevronRight, ExternalLink } from 'lucide-react';
 
 const AppHome = () => {
   const { user } = useAuth();
@@ -56,13 +55,14 @@ const AppHome = () => {
                   <p className="text-sm text-muted-foreground mb-4">即時策略訊號＋每筆操作的教學解說</p>
                   <div className="flex gap-2">
                     <Button variant="advisor" size="sm" className="flex-1" asChild>
-                      <Link to={`/app/signals?personId=${sub.person.id}`}>看即時訊號</Link>
+                      <Link to={`/line/${sub.person.slug}/signals`}>
+                        看即時訊號
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </Link>
                     </Button>
-                    {sub.system && (
-                      <Button variant="outline" size="sm" className="flex-1" asChild>
-                        <Link to={`/app/system/${sub.system.id}`}>策略教學</Link>
-                      </Button>
-                    )}
+                    <Button variant="outline" size="sm" className="flex-1" asChild>
+                      <Link to={`/line/${sub.person.slug}/teaching`}>策略教學</Link>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -92,7 +92,10 @@ const AppHome = () => {
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">每週 T+7 實戰週記，回顧一週前操作</p>
                   <Button variant="mentor" size="sm" className="w-full" asChild>
-                    <Link to={`/app/journals?mentorId=${sub.person.id}`}>看週記教學</Link>
+                    <Link to={`/line/${sub.person.slug}/signals`}>
+                      看週記教學
+                      <ExternalLink className="h-3 w-3 ml-1" />
+                    </Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -105,19 +108,19 @@ const AppHome = () => {
           <Card className="text-center py-8">
             <CardContent>
               <p className="text-muted-foreground mb-4">目前尚未訂閱任何服務</p>
-              <Button asChild><Link to="/explore">探索專家</Link></Button>
+              <Button asChild><Link to="/experts">探索專家</Link></Button>
             </CardContent>
           </Card>
         )}
 
         {/* Quick Links */}
         <div className="pt-4 space-y-2">
-          <Link to="/me/subscriptions" className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-            <span className="text-sm">管理訂閱（桌面版）</span>
+          <Link to="/account/subscriptions" className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+            <span className="text-sm">管理訂閱</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
-          <Link to="/pricing" className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-            <span className="text-sm">查看方案介紹</span>
+          <Link to="/experts" className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+            <span className="text-sm">探索更多專家</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
         </div>

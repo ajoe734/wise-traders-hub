@@ -37,7 +37,7 @@ const Index = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="xl" variant="hero" asChild>
-                <Link to="/explore">
+                <Link to="/experts">
                   開始探索
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>

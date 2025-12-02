@@ -23,6 +23,15 @@ import Register from "./pages/auth/Register";
 import AccountSubscriptions from "./pages/account/Subscriptions";
 import AccountProfile from "./pages/account/Profile";
 
+// App pages (aggregated member view)
+import AppHome from "./pages/app/AppHome";
+import AppSignals from "./pages/app/Signals";
+import AppJournals from "./pages/app/Journals";
+import AppSignalDetail from "./pages/app/SignalDetail";
+import AppJournalDetail from "./pages/app/JournalDetail";
+import AppSystemDetail from "./pages/app/SystemDetail";
+import AppAccount from "./pages/app/Account";
+
 // LINE Mini-App pages (per expert)
 import LineHome from "./pages/line/Home";
 import LineSignals from "./pages/line/Signals";
@@ -65,6 +74,15 @@ const App = () => (
             <Route path="/account/subscriptions" element={<AccountSubscriptions />} />
             <Route path="/account/profile" element={<AccountProfile />} />
 
+            {/* App pages (aggregated member view) */}
+            <Route path="/app" element={<AppHome />} />
+            <Route path="/app/signals" element={<AppSignals />} />
+            <Route path="/app/journals" element={<AppJournals />} />
+            <Route path="/app/signal/:id" element={<AppSignalDetail />} />
+            <Route path="/app/journal/:id" element={<AppJournalDetail />} />
+            <Route path="/app/system/:id" element={<AppSystemDetail />} />
+            <Route path="/app/account" element={<AppAccount />} />
+
             {/* LINE Mini-App (per expert) */}
             <Route path="/line/:expertSlug/home" element={<LineHome />} />
             <Route path="/line/:expertSlug/signals" element={<LineSignals />} />
@@ -76,9 +94,7 @@ const App = () => (
             <Route path="/line/:expertSlug/diagnosis" element={<LineDiagnosis />} />
             <Route path="/line/:expertSlug/account" element={<LineAccount />} />
 
-            {/* Legacy /app routes - redirect to experts for now */}
-            <Route path="/app" element={<Navigate to="/experts" replace />} />
-            <Route path="/app/*" element={<Navigate to="/experts" replace />} />
+            {/* Legacy /me routes - redirect */}
             <Route path="/me" element={<Navigate to="/account/subscriptions" replace />} />
             <Route path="/me/*" element={<Navigate to="/account/subscriptions" replace />} />
 
