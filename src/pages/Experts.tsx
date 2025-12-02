@@ -19,7 +19,7 @@ const Experts = () => {
   const allPeople = getAllPeopleWithPlans();
 
   const filteredPeople = useMemo(() => {
-    return allPeople.filter(person => {
+    const filtered = allPeople.filter(person => {
       // Role filter
       if (roleFilter === 'advisor' && person.role !== PersonRole.ADVISOR) return false;
       if (roleFilter === 'coach' && person.role !== PersonRole.MENTOR) return false;
@@ -37,6 +37,13 @@ const Experts = () => {
       if (marketFilter && !person.markets.includes(marketFilter)) return false;
 
       return true;
+    });
+
+    // Sort: 趙彭博 experts first
+    return filtered.sort((a, b) => {
+      const aIsZhao = a.name.includes('趙彭博') ? 0 : 1;
+      const bIsZhao = b.name.includes('趙彭博') ? 0 : 1;
+      return aIsZhao - bIsZhao;
     });
   }, [allPeople, roleFilter, searchQuery, marketFilter]);
 
