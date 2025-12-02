@@ -1,5 +1,9 @@
 // Domain types for the investment advisory platform
 
+// Expert types - 投顧分析師 (advisor) / 實戰導師 (coach)
+export type ExpertType = 'advisor' | 'coach';
+
+// Legacy enum for backward compatibility
 export enum PersonRole {
   ADVISOR = 'ADVISOR',  // 投顧分析師 - licensed, real-time calls
   MENTOR = 'MENTOR'     // 實戰導師 - non-licensed, T+7 content
@@ -10,6 +14,9 @@ export enum PlanType {
   ANALYST_SIGNAL_DIAG_L2 = 'ANALYST_SIGNAL_DIAG_L2', // 即時策略＋持股健檢
   MENTOR_WEEKLY_JOURNAL = 'MENTOR_WEEKLY_JOURNAL'    // T+7 實戰週記教學
 }
+
+// Plan level for cleaner typing
+export type PlanLevel = 'advisor_L1' | 'advisor_L2' | 'coach_basic';
 
 export enum SubscriptionStatus {
   ACTIVE = 'ACTIVE',
@@ -33,6 +40,41 @@ export interface User {
   lineUserId?: string; // Reserved for LINE binding
 }
 
+// Expert interface (replacing Person)
+export interface Expert {
+  id: string;
+  slug: string;
+  name: string;
+  title: '投顧分析師' | '實戰導師';
+  type: ExpertType;
+  avatarUrl?: string;
+  coverUrl?: string;
+  biography: string;
+  bio: string; // Short intro
+  description: string;
+  styleTags: string[];
+  markets: string[];
+  teachingFocus: string[];
+  riskTolerance?: string;
+  timeframe?: string;
+  lineChannelId?: string; // Reserved for LINE OA
+  strategies: StrategySummary[];
+}
+
+// Strategy summary for expert profiles
+export interface StrategySummary {
+  id: string;
+  name: string;
+  description: string;
+  mainMetrics: {
+    cumulativeReturn: number;
+    annualReturn?: number;
+    maxDrawdown?: number;
+    sharpe?: number;
+  };
+}
+
+// Backward compatible Person type
 export interface Person {
   id: string;
   slug: string;
@@ -45,7 +87,7 @@ export interface Person {
   markets: string[];
   riskTolerance?: string;
   timeframe?: string;
-  lineChannelId?: string; // Reserved for LINE OA
+  lineChannelId?: string;
 }
 
 export interface TradingSystem {
@@ -66,10 +108,12 @@ export interface Plan {
   personId: string;
   systemId?: string;
   planType: PlanType;
+  level?: PlanLevel;
   name: string;
   description: string;
   priceMonthly: number;
   priceYearly: number;
+  features?: string[];
   isActive: boolean;
 }
 
@@ -100,6 +144,8 @@ export interface Signal {
   riskNotes: string[];
   positionNotes: string[];
   learningPoints: string[];
+  delayedUntil?: Date; // For mentor delayed content
+  explanationId?: string; // For XAI reference
 }
 
 export interface WeeklyJournal {
@@ -129,6 +175,11 @@ export interface PersonWithPlans extends Person {
   tradingSystems: TradingSystem[];
 }
 
+export interface ExpertWithPlans extends Expert {
+  plans: Plan[];
+  tradingSystems: TradingSystem[];
+}
+
 export interface SubscriptionWithDetails extends Subscription {
   plan: Plan;
   person: Person;
@@ -143,4 +194,19 @@ export interface SignalWithPerson extends Signal {
 export interface JournalWithPerson extends WeeklyJournal {
   person: Person;
   system?: TradingSystem;
+}
+
+// Helper function to convert PersonRole to ExpertType
+export function roleToExpertType(role: PersonRole): ExpertType {
+  return role === PersonRole.ADVISOR ? 'advisor' : 'coach';
+}
+
+// Helper function to get expert title from role
+export function getExpertTitle(role: PersonRole): '投顧分析師' | '實戰導師' {
+  return role === PersonRole.ADVISOR ? '投顧分析師' : '實戰導師';
+}
+
+// Helper function to check if expert is advisor
+export function isAdvisor(role: PersonRole | ExpertType): boolean {
+  return role === PersonRole.ADVISOR || role === 'advisor';
 }

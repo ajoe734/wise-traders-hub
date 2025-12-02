@@ -6,10 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { getPersonBySlug } from '@/data/mockData';
 import { PersonRole, PlanType } from '@/types';
-import { CheckCircle, AlertTriangle, ArrowRight, Shield } from 'lucide-react';
+import { CheckCircle, AlertTriangle, ArrowRight, Shield, Clock, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const PersonProfile = () => {
+const ExpertProfile = () => {
   const { slug } = useParams<{ slug: string }>();
   const person = slug ? getPersonBySlug(slug) : undefined;
 
@@ -19,7 +19,7 @@ const PersonProfile = () => {
         <div className="container py-12 text-center">
           <h1 className="text-2xl font-bold mb-4">找不到此專家</h1>
           <Button asChild>
-            <Link to="/explore">返回探索頁</Link>
+            <Link to="/experts">返回專家列表</Link>
           </Button>
         </div>
       </PortalLayout>
@@ -32,23 +32,26 @@ const PersonProfile = () => {
     switch (planType) {
       case PlanType.ANALYST_SIGNAL_L1:
         return {
-          title: '分析師即時策略訂閱',
-          description: '即時策略訊號＋每筆操作的教學解說。訊號會出現在會員 app 的「即時訊號牆」，未來可透過 LINE 通知。',
-          features: ['即時策略訊號推播', '每筆操作附帶教學說明', '風險與部位控管解說'],
+          title: '投顧策略訂閱 等級 1',
+          subtitle: '即時策略訊號 + 系統教學',
+          description: '即時策略訊號＋每筆操作的教學解說。訊號會出現在會員專屬的 LINE 頁面。',
+          features: ['即時策略訊號推播', '每筆操作附帶教學說明', '風險與部位控管解說', '交易紀錄查詢'],
           note: '包含具體買賣指示，屬投顧服務，須依規範辦理。'
         };
       case PlanType.ANALYST_SIGNAL_DIAG_L2:
         return {
-          title: '分析師策略＋持股健檢',
-          description: '包含即時訊號與教學，加上持股上傳與診斷報告服務。',
-          features: ['所有 L1 功能', '持股健檢報告', '個人化投資組合建議'],
+          title: '投顧策略訂閱 等級 2',
+          subtitle: '即時策略 + 持股健檢',
+          description: '包含等級 1 所有功能，加上持股上傳與診斷報告服務。',
+          features: ['等級 1 所有功能', '持股健檢報告', '個人化投資組合建議', '風險評估報告'],
           note: '包含具體買賣指示與個人化診斷，屬投顧服務。'
         };
       case PlanType.MENTOR_WEEKLY_JOURNAL:
         return {
-          title: '實戰週記教學訂閱（T+7）',
+          title: '實戰週記教學訂閱',
+          subtitle: 'T+7 延遲・純教學用途',
           description: '每週一次，回顧「一週前」的實戰或模擬操作。顯示買賣紀錄、當時理由、事後檢討。所有內容至少延遲 7 天，僅供歷史案例教學。',
-          features: ['每週實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點'],
+          features: ['每週實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點', '策略教學內容'],
           note: '所有內容至少延遲 7 天發布，不提供即時訊號，不提供個股診斷。'
         };
     }
@@ -61,23 +64,29 @@ const PersonProfile = () => {
   return (
     <PortalLayout>
       <div className="container py-8 md:py-12">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row gap-6 items-start mb-12">
-          <img
-            src={person.avatarUrl || '/placeholder.svg'}
-            alt={person.name}
-            className={cn(
-              "h-24 w-24 md:h-32 md:w-32 rounded-2xl object-cover ring-4",
-              isAdvisor ? "ring-advisor/20" : "ring-mentor/20"
-            )}
-          />
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-3 flex-wrap">
-              <h1 className="text-2xl md:text-3xl font-bold">{person.name}</h1>
-              <RoleBadge role={person.role} size="lg" />
+        {/* Hero Header */}
+        <div className="relative mb-12">
+          <div className={cn(
+            "absolute inset-0 rounded-3xl opacity-5",
+            isAdvisor ? "gradient-advisor" : "gradient-mentor"
+          )} />
+          <div className="relative flex flex-col md:flex-row gap-6 items-start p-6 md:p-8">
+            <img
+              src={person.avatarUrl || '/placeholder.svg'}
+              alt={person.name}
+              className={cn(
+                "h-28 w-28 md:h-36 md:w-36 rounded-2xl object-cover ring-4 shadow-lg",
+                isAdvisor ? "ring-advisor/20" : "ring-mentor/20"
+              )}
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-3 flex-wrap">
+                <h1 className="text-2xl md:text-3xl font-bold">{person.name}</h1>
+                <RoleBadge role={person.role} size="lg" />
+              </div>
+              <p className="text-lg text-muted-foreground mb-4">{person.bio}</p>
+              <p className="text-muted-foreground">{person.description}</p>
             </div>
-            <p className="text-lg text-muted-foreground mb-4">{person.bio}</p>
-            <p className="text-muted-foreground">{person.description}</p>
           </div>
         </div>
 
@@ -128,13 +137,51 @@ const PersonProfile = () => {
             <CardContent className="space-y-3">
               {person.tradingSystems.map(system => (
                 <div key={system.id} className="p-3 rounded-lg bg-muted/50">
-                  <p className="font-medium mb-1">{system.name}</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    <p className="font-medium">{system.name}</p>
+                  </div>
                   <p className="text-sm text-muted-foreground">{system.description}</p>
                 </div>
               ))}
             </CardContent>
           </Card>
         </div>
+
+        {/* Strategy Preview (Demo) */}
+        {person.tradingSystems.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-xl md:text-2xl font-bold mb-6">策略簡介</h2>
+            <Card className="overflow-hidden">
+              <div className={cn(
+                "h-1",
+                isAdvisor ? "gradient-advisor" : "gradient-mentor"
+              )} />
+              <CardContent className="p-6">
+                <div className="grid md:grid-cols-3 gap-6">
+                  <div className="text-center p-4 bg-muted/30 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">近 1 年報酬</p>
+                    <p className="text-2xl font-bold text-success">+24.5%</p>
+                    <p className="text-xs text-muted-foreground">回測/模擬數據，僅供參考</p>
+                  </div>
+                  <div className="text-center p-4 bg-muted/30 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">最大回撤</p>
+                    <p className="text-2xl font-bold text-warning">-12.3%</p>
+                    <p className="text-xs text-muted-foreground">風險指標</p>
+                  </div>
+                  <div className="text-center p-4 bg-muted/30 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">年化報酬</p>
+                    <p className="text-2xl font-bold">18.7%</p>
+                    <p className="text-xs text-muted-foreground">回測數據</p>
+                  </div>
+                </div>
+                <p className="text-center text-xs text-muted-foreground mt-4">
+                  ⚠️ 以上為歷史回測或模擬數據，過去績效不代表未來表現
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Plans Section */}
         <div id="plans" className="scroll-mt-20">
@@ -156,6 +203,7 @@ const PersonProfile = () => {
                   )} />
                   <CardHeader>
                     <CardTitle className="text-lg">{info.title}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{info.subtitle}</p>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <p className="text-muted-foreground text-sm">{info.description}</p>
@@ -182,9 +230,13 @@ const PersonProfile = () => {
 
                     <div className={cn(
                       "flex items-start gap-2 p-3 rounded-lg text-sm",
-                      isAdvisor ? "bg-advisor-light/50 text-advisor" : "bg-mentor-light/50 text-mentor"
+                      isAdvisor ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor"
                     )}>
-                      <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      {isAdvisor ? (
+                        <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      )}
                       <span>{info.note}</span>
                     </div>
 
@@ -193,7 +245,7 @@ const PersonProfile = () => {
                       className="w-full"
                       asChild
                     >
-                      <Link to={`/checkout/${plan.id}`}>
+                      <Link to={`/checkout/${person.slug}/${plan.id}`}>
                         訂閱此方案
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </Link>
@@ -216,12 +268,14 @@ const PersonProfile = () => {
                     本服務為證券投資顧問服務，提供之分析意見與建議僅供參考，不保證獲利。
                     投資一定有風險，申購前應詳閱相關法規及風險揭露說明。
                     本公司已依法取得證券投資顧問事業營業執照。
+                    <strong className="block mt-2">過去績效不代表未來表現，投資有風險，請謹慎評估。</strong>
                   </p>
                 ) : (
                   <p>
                     本服務所有內容均至少延遲 7 天發布，僅作為歷史案例教學之用途，
                     不構成任何即時投資建議，也不提供個別持股診斷。
                     投資決策請自行判斷，風險自負。
+                    <strong className="block mt-2">過去績效不代表未來表現，投資有風險，請謹慎評估。</strong>
                   </p>
                 )}
               </div>
@@ -233,4 +287,4 @@ const PersonProfile = () => {
   );
 };
 
-export default PersonProfile;
+export default ExpertProfile;

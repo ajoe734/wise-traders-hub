@@ -93,7 +93,7 @@ const Index = () => {
                   </li>
                 </ul>
                 <Button variant="advisor" className="w-full" asChild>
-                  <Link to="/explore?role=advisor">
+                  <Link to="/experts?role=advisor">
                     查看投顧分析師與方案
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Link>
@@ -133,7 +133,7 @@ const Index = () => {
                   </li>
                 </ul>
                 <Button variant="mentor" className="w-full" asChild>
-                  <Link to="/explore?role=mentor">
+                  <Link to="/experts?role=coach">
                     查看實戰導師與週記方案
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Link>
@@ -251,7 +251,7 @@ const Index = () => {
                 </Link>
               </Button>
               <Button size="xl" variant="outline" asChild>
-                <Link to="/explore">瀏覽所有專家</Link>
+                <Link to="/experts">瀏覽所有專家</Link>
               </Button>
             </div>
           </div>
