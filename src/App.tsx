@@ -42,6 +42,7 @@ import LinePerformance from "./pages/line/Performance";
 import LineXai from "./pages/line/Xai";
 import LineDiagnosis from "./pages/line/Diagnosis";
 import LineAccount from "./pages/line/Account";
+import LineHistory from "./pages/line/History";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,7 @@ const App = () => (
             <Route path="/line/:expertSlug/performance" element={<LinePerformance />} />
             <Route path="/line/:expertSlug/xai" element={<LineXai />} />
             <Route path="/line/:expertSlug/diagnosis" element={<LineDiagnosis />} />
+            <Route path="/line/:expertSlug/history" element={<LineHistory />} />
             <Route path="/line/:expertSlug/account" element={<LineAccount />} />
 
             {/* Legacy /me routes - redirect */}

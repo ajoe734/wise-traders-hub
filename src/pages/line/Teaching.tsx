@@ -10,6 +10,8 @@ import { Target, ShieldCheck, AlertTriangle, TrendingUp, Users, Lightbulb } from
 import { cn } from '@/lib/utils';
 import { PerformanceMetrics } from '@/components/strategy/PerformanceMetrics';
 import { TradeCard } from '@/components/strategy/TradeCard';
+import { InteractiveFourIndicatorsTrainer } from '@/components/strategy/InteractiveFourIndicatorsTrainer';
+import { SignalNotificationSimulator } from '@/components/strategy/SignalNotificationSimulator';
 
 const LineTeaching = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -40,9 +42,15 @@ const LineTeaching = () => {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={cn(
+            "grid w-full",
+            (expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') ? "grid-cols-3" : "grid-cols-2"
+          )}>
             <TabsTrigger value="overview">策略教學</TabsTrigger>
             <TabsTrigger value="cases">案例解析</TabsTrigger>
+            {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
+              <TabsTrigger value="training">互動訓練</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mt-4">
@@ -220,6 +228,21 @@ const LineTeaching = () => {
               </div>
             )}
           </TabsContent>
+
+          {/* Interactive Training Tab (for Zhao only) */}
+          {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
+            <TabsContent value="training" className="space-y-4 mt-4">
+              {/* Notification Simulator */}
+              <SignalNotificationSimulator />
+
+              {/* Interactive Trainer */}
+              <InteractiveFourIndicatorsTrainer />
+
+              <p className="text-xs text-muted-foreground text-center">
+                透過互動練習，加強對「4有」指標的判斷能力
+              </p>
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Usage Note */}
