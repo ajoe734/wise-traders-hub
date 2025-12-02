@@ -3,7 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { PersonRole } from '@/types';
 import { getPersonBySlug } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
-import { Home, Radio, BookOpen, User } from 'lucide-react';
+import { Home, Radio, BarChart3, BookOpen, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LineLayoutProps {
@@ -36,7 +36,8 @@ export function LineLayout({ children }: LineLayoutProps) {
       icon: Radio, 
       label: isAdvisor ? '即時訊號' : '週報' 
     },
-    { path: `${basePath}/teaching`, icon: BookOpen, label: '策略教學' },
+    { path: `${basePath}/performance`, icon: BarChart3, label: '績效' },
+    { path: `${basePath}/teaching`, icon: BookOpen, label: '教學' },
     { path: `${basePath}/account`, icon: User, label: '帳號' },
   ];
 
