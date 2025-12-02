@@ -7,7 +7,7 @@ import { getPersonBySlug, getUserSubscriptions, getSignalsForUser, getJournalsFo
 import { getStrategySystemByExpertSlug } from '@/data/strategyMockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { PersonRole, PlanType } from '@/types';
-import { Radio, BookOpen, TrendingUp, ArrowRight, Calendar, BarChart3, Flame } from 'lucide-react';
+import { Radio, BookOpen, TrendingUp, ArrowRight, Calendar, BarChart3, Flame, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Sparkline } from '@/components/strategy/Sparkline';
@@ -438,6 +438,34 @@ const LineHome = () => {
             </CardContent>
           </Card>
         </section>
+
+        {/* History Link (for Zhao only) */}
+        {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
+          <section>
+            <Card className="border-2 border-yellow-500/20 bg-gradient-to-br from-yellow-500/5 to-transparent">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Trophy className="h-5 w-5 text-yellow-500" />
+                  <h3 className="font-semibold">漲停捕捉紀錄</h3>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  查看過去6個月的漲停捕捉戰績與月度統計
+                </p>
+                <Button 
+                  variant="outline"
+                  size="sm" 
+                  className="w-full border-yellow-500/30 hover:bg-yellow-500/10"
+                  asChild
+                >
+                  <Link to={`/line/${expertSlug}/history`}>
+                    查看歷史戰績
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
         {/* Compliance */}
         <div className="compliance-disclaimer">

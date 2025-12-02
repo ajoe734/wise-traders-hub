@@ -18,6 +18,7 @@ import { TradeStatsCard } from '@/components/strategy/TradeStatsCard';
 import { RiskSummaryCard } from '@/components/strategy/RiskSummaryCard';
 import { ReturnDistributionChart } from '@/components/strategy/ReturnDistributionChart';
 import { MonthlyHeatmap } from '@/components/strategy/MonthlyHeatmap';
+import { FourIndicatorsBacktest } from '@/components/strategy/FourIndicatorsBacktest';
 
 const LinePerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -103,6 +104,11 @@ const LinePerformance = () => {
             trades={strategySystem.recentTrades}
             isDelayed={isDelayed}
           />
+        )}
+
+        {/* Section 6.5: 4有 Backtest Analysis (for Zhao) */}
+        {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
+          <FourIndicatorsBacktest isDelayed={isDelayed} />
         )}
 
         {/* Section 7: Trade Stats */}
