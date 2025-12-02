@@ -203,8 +203,8 @@ const Index = () => {
               {
                 step: 3,
                 icon: Radio,
-                title: '使用會員 app 閱讀',
-                description: '即時訊號與教學內容隨時可看'
+                title: '使用 LINE 帳號登入',
+                description: '接收最即時的訊號通知'
               },
               {
                 step: 4,
