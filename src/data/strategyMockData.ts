@@ -1,0 +1,655 @@
+// Mock data for Strategy Performance - Complete Data Model
+// This data structure is ready for AI multi-persona system to populate
+
+import {
+  StrategyExpert,
+  StrategySystem,
+  PerformanceSummary,
+  PerformanceSnapshot,
+  EquityPoint,
+  Position,
+  Trade,
+  TradeStats,
+  RiskSummary,
+  XaiSummary,
+  WeeklyReview,
+  StrategyPlan,
+} from '@/types/strategy';
+
+// ============================================
+// Helper: Generate Equity History
+// ============================================
+function generateEquityHistory(
+  startValue: number,
+  endValue: number,
+  days: number,
+  volatility: number = 0.02
+): EquityPoint[] {
+  const points: EquityPoint[] = [];
+  const dailyReturn = Math.pow(endValue / startValue, 1 / days) - 1;
+  let equity = startValue;
+  let peak = startValue;
+  
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  
+  for (let i = 0; i <= days; i++) {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + i);
+    
+    // Add some randomness
+    const randomFactor = 1 + (Math.random() - 0.5) * volatility;
+    equity = equity * (1 + dailyReturn) * randomFactor;
+    peak = Math.max(peak, equity);
+    const drawdownPct = ((equity - peak) / peak) * 100;
+    
+    points.push({
+      date: date.toISOString().split('T')[0],
+      equity: Math.round(equity * 100) / 100,
+      benchmarkEquity: Math.round(100 * Math.pow(1.08, i / 365) * 100) / 100,
+      drawdownPct: Math.round(drawdownPct * 100) / 100,
+    });
+  }
+  
+  return points;
+}
+
+// ============================================
+// Strategy Systems with Full Performance Data
+// ============================================
+
+const chenAdvisorSystem: StrategySystem = {
+  id: 'system-chen-1',
+  expertId: 'person-1',
+  name: '趨勢波段 – 台股',
+  level: 'advisor_t1',
+  summary: '追蹤台股大盤與個股趨勢，在確認趨勢形成後進場，分批加碼，順勢而為。',
+  tags: ['趨勢', '波段', '台股', '中期操作'],
+  delayMode: 'realtime',
+
+  performanceSummary: {
+    sinceInceptionReturnPct: 68.5,
+    annualizedReturnPct: 24.5,
+    maxDrawdownPct: -12.3,
+    volatilityPct: 16.4,
+    sharpeRatio: 1.85,
+    winRatePct: 62.5,
+    profitFactor: 2.15,
+    tradesCount: 48,
+    avgHoldingDays: 18,
+  },
+
+  performanceByPeriod: [
+    { period: '1M', cumulativeReturnPct: 5.2, maxDrawdownPct: -3.1, volatilityPct: 12.5, sharpeRatio: 2.1, tradesCount: 4, winRatePct: 75 },
+    { period: '3M', cumulativeReturnPct: 12.8, maxDrawdownPct: -5.4, volatilityPct: 14.2, sharpeRatio: 1.9, tradesCount: 11, winRatePct: 64 },
+    { period: '6M', cumulativeReturnPct: 18.7, maxDrawdownPct: -8.2, volatilityPct: 15.8, sharpeRatio: 1.75, tradesCount: 22, winRatePct: 59 },
+    { period: '1Y', cumulativeReturnPct: 32.4, annualizedReturnPct: 32.4, maxDrawdownPct: -12.3, volatilityPct: 16.4, sharpeRatio: 1.85, bestMonthReturnPct: 8.5, worstMonthReturnPct: -4.2, tradesCount: 48, winRatePct: 62.5 },
+    { period: 'YTD', cumulativeReturnPct: 28.6, maxDrawdownPct: -10.1, volatilityPct: 15.2, sharpeRatio: 1.92, tradesCount: 42, winRatePct: 64 },
+    { period: 'SI', cumulativeReturnPct: 68.5, annualizedReturnPct: 24.5, maxDrawdownPct: -15.8, volatilityPct: 18.2, sharpeRatio: 1.65, bestMonthReturnPct: 12.3, worstMonthReturnPct: -6.8, tradesCount: 156, winRatePct: 58.3 },
+  ],
+
+  equityHistory: generateEquityHistory(100, 168.5, 365, 0.015),
+
+  tradeStats: {
+    totalTrades: 48,
+    longTrades: 45,
+    shortTrades: 3,
+    winTrades: 30,
+    loseTrades: 18,
+    winRatePct: 62.5,
+    avgWinPct: 8.5,
+    avgLossPct: -4.2,
+    maxWinPct: 25.8,
+    maxLossPct: -8.5,
+    profitFactor: 2.15,
+    avgRMultiple: 1.8,
+    bestTrade: { tradeId: 'trade-best-1', symbol: '2330.TW', pnlPct: 25.8, pnlAmt: 128000 },
+    worstTrade: { tradeId: 'trade-worst-1', symbol: '3008.TW', pnlPct: -8.5, pnlAmt: -42000 },
+  },
+
+  riskSummary: {
+    riskLevel: '中',
+    currentExposurePct: 72,
+    grossExposurePct: 72,
+    netExposurePct: 72,
+    maxSinglePositionPct: 10,
+    sectorConcentrationTop: 35,
+    var1dPct: 2.1,
+    recentAlerts: [
+      { id: 'alert-1', level: 'warning', title: '電子股曝險偏高', description: '電子產業佔比達35%，接近40%上限', createdAt: '2024-11-28T10:00:00Z' },
+      { id: 'alert-2', level: 'info', title: '整體曝險正常', description: '總曝險72%，位於目標範圍內', createdAt: '2024-11-25T10:00:00Z', resolved: true },
+    ],
+  },
+
+  xaiSummary: {
+    lastUpdate: '2024-11-29T08:00:00Z',
+    synopsis: '本策略近期表現優於大盤，主要受惠於正確判斷台積電的突破行情，以及及時減碼獲利了結。目前持股配置偏向電子股，需注意產業集中度風險。',
+    keyPoints: [
+      '趨勢判斷準確率提升至75%',
+      '停損執行紀律良好，平均停損幅度控制在5%以內',
+      '加碼時機選擇得當，順勢加碼的成功率達68%',
+    ],
+    contributingFactors: [
+      { factorId: 'f1', name: '量價突破', description: '當股價突破關鍵壓力並伴隨成交量放大，是強烈的趨勢確認訊號', contributionPct: 35, impact: 'High', direction: '正向' },
+      { factorId: 'f2', name: '均線多頭排列', description: '短中長期均線呈多頭排列，顯示趨勢穩定向上', contributionPct: 25, impact: 'Medium', direction: '正向' },
+      { factorId: 'f3', name: '外資動向', description: '外資連續買超是法人認同的重要指標', contributionPct: 20, impact: 'Medium', direction: '正向' },
+      { factorId: 'f4', name: '產業利多', description: '產業基本面利多支撐股價上漲動能', contributionPct: 20, impact: 'Medium', direction: '正向' },
+    ],
+  },
+
+  positions: [
+    { symbol: '2330.TW', name: '台積電', side: '多', quantity: 2000, avgPrice: 580, lastPrice: 615, marketValue: 1230000, pnlAmt: 70000, pnlPct: 6.03, weightPct: 25, sector: '半導體' },
+    { symbol: '2454.TW', name: '聯發科', side: '多', quantity: 500, avgPrice: 1150, lastPrice: 1285, marketValue: 642500, pnlAmt: 67500, pnlPct: 11.74, weightPct: 13, sector: 'IC設計' },
+    { symbol: '2317.TW', name: '鴻海', side: '多', quantity: 5000, avgPrice: 105, lastPrice: 112, marketValue: 560000, pnlAmt: 35000, pnlPct: 6.67, weightPct: 11, sector: '電子代工' },
+    { symbol: '2881.TW', name: '富邦金', side: '多', quantity: 8000, avgPrice: 68, lastPrice: 72, marketValue: 576000, pnlAmt: 32000, pnlPct: 5.88, weightPct: 12, sector: '金融' },
+    { symbol: '1301.TW', name: '台塑', side: '多', quantity: 3000, avgPrice: 85, lastPrice: 82, marketValue: 246000, pnlAmt: -9000, pnlPct: -3.53, weightPct: 5, sector: '塑化' },
+  ],
+
+  recentTrades: [
+    { id: 'trade-1', strategyId: 'system-chen-1', expertId: 'person-1', openTime: '2024-11-28T09:30:00Z', symbol: '2330.TW', name: '台積電', side: '買進', quantity: 1000, price: 580, reasonShort: '突破季線壓力，外資連續買超', tags: ['突破', '量增', '外資買超'] },
+    { id: 'trade-2', strategyId: 'system-chen-1', expertId: 'person-1', openTime: '2024-11-27T10:15:00Z', symbol: '2454.TW', name: '聯發科', side: '加碼', quantity: 200, price: 1250, reasonShort: '續創新高，5G/AI晶片出貨成長', tags: ['創新高', '基本面利多'] },
+    { id: 'trade-3', strategyId: 'system-chen-1', expertId: 'person-1', openTime: '2024-11-25T11:00:00Z', closeTime: '2024-11-27T10:00:00Z', symbol: '3008.TW', name: '大立光', side: '減碼', quantity: 100, price: 2580, pnlAmt: 28000, pnlPct: 12.2, holdingDays: 15, reasonShort: '達目標價位，量能萎縮先獲利了結', tags: ['目標價', '量縮'] },
+  ],
+
+  teachingIntro: '本系統專注於捕捉台股的中期波段行情。我們不預測頂底，而是等待趨勢確認後順勢進場，並在趨勢轉弱時逐步出場。重點在於風險控管與部位管理，而非追求單一交易的最大獲利。',
+  teachingSections: [
+    {
+      title: '風險與部位控管',
+      bullets: [
+        '單一個股部位不超過總資金 10%',
+        '同產業曝險不超過 40%',
+        '整體持股水位根據大盤位階調整，通常在 50-80%',
+        '當回檔超過 7% 時開始減碼，超過 12% 時大幅降低持股',
+      ],
+    },
+    {
+      title: '進出場 SOP',
+      bullets: [
+        '等待突破關鍵均線（如 20MA）並帶量確認',
+        '首次進場為預定部位的 30-40%',
+        '突破後拉回不破前低則加碼至 60-70%',
+        '續創新高且量能配合再加碼至滿倉',
+        '跌破 20MA 減碼一半，跌破 60MA 全數出場',
+      ],
+    },
+    {
+      title: '常見錯誤與禁止行為',
+      bullets: [
+        '禁止在下跌趨勢中攤平',
+        '不追突破後已漲超過 5% 的標的',
+        '不在大盤明顯弱勢時重倉單一個股',
+        '避免因「覺得便宜」而提早進場',
+      ],
+    },
+  ],
+};
+
+const linAdvisorSystem: StrategySystem = {
+  id: 'system-lin-1',
+  expertId: 'person-2',
+  name: '價值存股 – 高息股',
+  level: 'advisor_t1',
+  summary: '精選高殖利率且營運穩定的存股標的，長期持有收取股息。',
+  tags: ['存股', '價值', '配息', '長期'],
+  delayMode: 'realtime',
+
+  performanceSummary: {
+    sinceInceptionReturnPct: 42.3,
+    annualizedReturnPct: 12.8,
+    maxDrawdownPct: -8.5,
+    volatilityPct: 8.2,
+    sharpeRatio: 1.45,
+    winRatePct: 78.5,
+    profitFactor: 3.2,
+    tradesCount: 28,
+    avgHoldingDays: 180,
+  },
+
+  performanceByPeriod: [
+    { period: '1M', cumulativeReturnPct: 1.8, maxDrawdownPct: -1.2, volatilityPct: 5.5, sharpeRatio: 1.8, tradesCount: 2, winRatePct: 100 },
+    { period: '3M', cumulativeReturnPct: 4.5, maxDrawdownPct: -2.8, volatilityPct: 6.2, sharpeRatio: 1.6, tradesCount: 5, winRatePct: 80 },
+    { period: '6M', cumulativeReturnPct: 8.2, maxDrawdownPct: -4.5, volatilityPct: 7.1, sharpeRatio: 1.5, tradesCount: 10, winRatePct: 80 },
+    { period: '1Y', cumulativeReturnPct: 15.6, annualizedReturnPct: 15.6, maxDrawdownPct: -6.8, volatilityPct: 8.2, sharpeRatio: 1.45, bestMonthReturnPct: 3.5, worstMonthReturnPct: -2.1, tradesCount: 18, winRatePct: 78 },
+    { period: 'YTD', cumulativeReturnPct: 14.2, maxDrawdownPct: -5.5, volatilityPct: 7.8, sharpeRatio: 1.52, tradesCount: 16, winRatePct: 81 },
+    { period: 'SI', cumulativeReturnPct: 42.3, annualizedReturnPct: 12.8, maxDrawdownPct: -8.5, volatilityPct: 9.5, sharpeRatio: 1.35, bestMonthReturnPct: 5.2, worstMonthReturnPct: -3.8, tradesCount: 28, winRatePct: 78.5 },
+  ],
+
+  equityHistory: generateEquityHistory(100, 142.3, 365, 0.008),
+
+  tradeStats: {
+    totalTrades: 28,
+    longTrades: 28,
+    shortTrades: 0,
+    winTrades: 22,
+    loseTrades: 6,
+    winRatePct: 78.5,
+    avgWinPct: 5.2,
+    avgLossPct: -2.8,
+    maxWinPct: 15.2,
+    maxLossPct: -5.5,
+    profitFactor: 3.2,
+    avgRMultiple: 2.1,
+    bestTrade: { tradeId: 'trade-lin-best', symbol: '2882.TW', pnlPct: 15.2, pnlAmt: 45000 },
+    worstTrade: { tradeId: 'trade-lin-worst', symbol: '2801.TW', pnlPct: -5.5, pnlAmt: -16500 },
+  },
+
+  riskSummary: {
+    riskLevel: '低',
+    currentExposurePct: 85,
+    grossExposurePct: 85,
+    netExposurePct: 85,
+    maxSinglePositionPct: 20,
+    sectorConcentrationTop: 45,
+    var1dPct: 0.8,
+    recentAlerts: [
+      { id: 'alert-lin-1', level: 'info', title: '金融股配置達標', description: '金融股佔比45%，達到目標配置', createdAt: '2024-11-28T10:00:00Z' },
+    ],
+  },
+
+  xaiSummary: {
+    lastUpdate: '2024-11-29T08:00:00Z',
+    synopsis: '存股策略持續穩健運作，今年股息收入約佔總報酬40%。目前配置以金融、電信等高殖利率標的為主，整體組合殖利率約4.8%。',
+    keyPoints: [
+      '股息再投資策略有效提升長期報酬',
+      '選股著重配息穩定性而非一次性高殖利率',
+      '分散於金融、電信、傳產等低波動產業',
+    ],
+    contributingFactors: [
+      { factorId: 'f1', name: '殖利率篩選', description: '選擇5年平均殖利率>4%且穩定配息的標的', contributionPct: 40, impact: 'High', direction: '正向' },
+      { factorId: 'f2', name: '營運穩定度', description: '本業獲利穩定，非依靠業外收入', contributionPct: 30, impact: 'High', direction: '正向' },
+      { factorId: 'f3', name: '產業護城河', description: '具備特許權或寡占優勢的產業', contributionPct: 30, impact: 'Medium', direction: '正向' },
+    ],
+  },
+
+  positions: [
+    { symbol: '2412.TW', name: '中華電', side: '多', quantity: 10000, avgPrice: 118, lastPrice: 122, marketValue: 1220000, pnlAmt: 40000, pnlPct: 3.39, weightPct: 20, sector: '電信' },
+    { symbol: '2882.TW', name: '國泰金', side: '多', quantity: 15000, avgPrice: 52, lastPrice: 58, marketValue: 870000, pnlAmt: 90000, pnlPct: 11.54, weightPct: 15, sector: '金融' },
+    { symbol: '2884.TW', name: '玉山金', side: '多', quantity: 20000, avgPrice: 26, lastPrice: 28, marketValue: 560000, pnlAmt: 40000, pnlPct: 7.69, weightPct: 10, sector: '金融' },
+    { symbol: '5880.TW', name: '合庫金', side: '多', quantity: 25000, avgPrice: 28, lastPrice: 29.5, marketValue: 737500, pnlAmt: 37500, pnlPct: 5.36, weightPct: 12, sector: '金融' },
+    { symbol: '9904.TW', name: '寶成', side: '多', quantity: 8000, avgPrice: 35, lastPrice: 36.5, marketValue: 292000, pnlAmt: 12000, pnlPct: 4.29, weightPct: 5, sector: '紡織' },
+  ],
+
+  recentTrades: [
+    { id: 'trade-lin-1', strategyId: 'system-lin-1', expertId: 'person-2', openTime: '2024-11-25T09:30:00Z', symbol: '2412.TW', name: '中華電', side: '買進', quantity: 2000, price: 120, reasonShort: '股價回落至低檔區，殖利率回升至4.5%', tags: ['殖利率提升', '逢低加碼'] },
+    { id: 'trade-lin-2', strategyId: 'system-lin-1', expertId: 'person-2', openTime: '2024-11-20T10:00:00Z', symbol: '2882.TW', name: '國泰金', side: '加碼', quantity: 3000, price: 55, reasonShort: '金控股評價偏低，長期配息穩定', tags: ['價值低估', '定期加碼'] },
+  ],
+
+  teachingIntro: '本系統專注於建立穩定的被動收入來源。我們挑選殖利率穩定、配息紀錄良好且營運穩健的標的，採用定期定額或逢低加碼的方式累積部位，長期持有並再投資股息。',
+  teachingSections: [
+    {
+      title: '選股條件',
+      bullets: [
+        '近 5 年平均殖利率 > 4%',
+        '配息穩定度高，不會大幅波動',
+        '本業獲利穩定，非一次性收益',
+        '產業具護城河或政府特許',
+      ],
+    },
+    {
+      title: '買進策略',
+      bullets: [
+        '定期定額為主，每月固定投入',
+        '股價跌至歷史低檔區時可加碼',
+        '單一標的不超過總存股部位 20%',
+        '至少持有 5-8 檔分散風險',
+      ],
+    },
+    {
+      title: '注意事項',
+      bullets: [
+        '不因股價短期下跌而恐慌賣出',
+        '配息減少或基本面惡化時需重新評估',
+        '避免高殖利率陷阱（一次性配息、借錢配息）',
+      ],
+    },
+  ],
+};
+
+const wuMentorSystem: StrategySystem = {
+  id: 'system-wu-1',
+  expertId: 'person-3',
+  name: '短線動能 – 台股',
+  level: 'coach_weekly',
+  summary: '捕捉短線強勢股的動能行情，快進快出。所有內容延遲一週發布，僅供教學參考。',
+  tags: ['短線', '動能', '技術分析', '教學'],
+  delayMode: 't7',
+
+  performanceSummary: {
+    sinceInceptionReturnPct: 85.2,
+    annualizedReturnPct: 35.8,
+    maxDrawdownPct: -18.5,
+    volatilityPct: 28.5,
+    sharpeRatio: 1.25,
+    winRatePct: 52.5,
+    profitFactor: 1.85,
+    tradesCount: 186,
+    avgHoldingDays: 3,
+  },
+
+  performanceByPeriod: [
+    { period: '1M', cumulativeReturnPct: 8.5, maxDrawdownPct: -5.2, volatilityPct: 22.5, sharpeRatio: 1.5, tradesCount: 18, winRatePct: 55 },
+    { period: '3M', cumulativeReturnPct: 22.5, maxDrawdownPct: -12.8, volatilityPct: 25.2, sharpeRatio: 1.35, tradesCount: 52, winRatePct: 54 },
+    { period: '6M', cumulativeReturnPct: 38.2, maxDrawdownPct: -15.5, volatilityPct: 26.8, sharpeRatio: 1.28, tradesCount: 95, winRatePct: 53 },
+    { period: '1Y', cumulativeReturnPct: 58.5, annualizedReturnPct: 58.5, maxDrawdownPct: -18.5, volatilityPct: 28.5, sharpeRatio: 1.25, bestMonthReturnPct: 15.2, worstMonthReturnPct: -8.5, tradesCount: 186, winRatePct: 52.5 },
+    { period: 'YTD', cumulativeReturnPct: 52.8, maxDrawdownPct: -16.2, volatilityPct: 27.2, sharpeRatio: 1.3, tradesCount: 168, winRatePct: 53 },
+    { period: 'SI', cumulativeReturnPct: 85.2, annualizedReturnPct: 35.8, maxDrawdownPct: -22.5, volatilityPct: 32.5, sharpeRatio: 1.15, bestMonthReturnPct: 18.5, worstMonthReturnPct: -12.2, tradesCount: 420, winRatePct: 51.8 },
+  ],
+
+  equityHistory: generateEquityHistory(100, 185.2, 365, 0.025),
+
+  tradeStats: {
+    totalTrades: 186,
+    longTrades: 165,
+    shortTrades: 21,
+    winTrades: 98,
+    loseTrades: 88,
+    winRatePct: 52.5,
+    avgWinPct: 5.8,
+    avgLossPct: -3.2,
+    maxWinPct: 28.5,
+    maxLossPct: -8.5,
+    profitFactor: 1.85,
+    avgRMultiple: 1.6,
+    bestTrade: { tradeId: 'trade-wu-best', symbol: '3443.TW', pnlPct: 28.5, pnlAmt: 85000 },
+    worstTrade: { tradeId: 'trade-wu-worst', symbol: '6547.TW', pnlPct: -8.5, pnlAmt: -25500 },
+  },
+
+  riskSummary: {
+    riskLevel: '高',
+    currentExposurePct: 45,
+    grossExposurePct: 45,
+    netExposurePct: 38,
+    maxSinglePositionPct: 8,
+    sectorConcentrationTop: 25,
+    var1dPct: 3.5,
+    recentAlerts: [
+      { id: 'alert-wu-1', level: 'warning', title: '連續虧損提醒', description: '近期連續2筆虧損，建議降低部位', createdAt: '2024-11-22T10:00:00Z' },
+      { id: 'alert-wu-2', level: 'info', title: '波動度上升', description: '市場波動加大，已調降單筆風險', createdAt: '2024-11-20T10:00:00Z', resolved: true },
+    ],
+  },
+
+  xaiSummary: {
+    lastUpdate: '2024-11-22T08:00:00Z',
+    synopsis: '短線策略近期表現波動較大，主要受市場震盪影響。但嚴守停損紀律，虧損控制在可接受範圍。本週重點教學：如何在震盪市場中減少交易頻率。',
+    keyPoints: [
+      '嚴格執行 2% 單筆風險上限',
+      '震盪市場中降低交易頻率是正確決策',
+      '量價突破仍是最有效的進場訊號',
+    ],
+    contributingFactors: [
+      { factorId: 'f1', name: '量價突破', description: '突破前高且成交量放大1.5倍以上', contributionPct: 45, impact: 'High', direction: '正向' },
+      { factorId: 'f2', name: '均線支撐', description: '5MA向上且股價站穩其上', contributionPct: 25, impact: 'Medium', direction: '正向' },
+      { factorId: 'f3', name: '市場氛圍', description: '大盤不在明顯空頭格局時勝率較高', contributionPct: 30, impact: 'Medium', direction: '正向' },
+    ],
+  },
+
+  positions: [
+    { symbol: '3443.TW', name: '創意', side: '多', quantity: 500, avgPrice: 1250, lastPrice: 1380, marketValue: 690000, pnlAmt: 65000, pnlPct: 10.4, weightPct: 15, sector: 'IC設計', note: 'T+7 教學用' },
+    { symbol: '6547.TW', name: '高端疫苗', side: '多', quantity: 2000, avgPrice: 125, lastPrice: 118, marketValue: 236000, pnlAmt: -14000, pnlPct: -5.6, weightPct: 5, sector: '生技', note: 'T+7 教學用' },
+  ],
+
+  recentTrades: [
+    { id: 'trade-wu-1', strategyId: 'system-wu-1', expertId: 'person-3', openTime: '2024-11-21T09:30:00Z', closeTime: '2024-11-22T10:00:00Z', symbol: '3443.TW', name: '創意', side: '買進', quantity: 500, price: 1250, pnlAmt: 65000, pnlPct: 10.4, holdingDays: 1, reasonShort: '突破前高，量能放大2倍，AI概念股領漲', tags: ['突破', '量增', 'AI概念'] },
+    { id: 'trade-wu-2', strategyId: 'system-wu-1', expertId: 'person-3', openTime: '2024-11-20T09:30:00Z', closeTime: '2024-11-21T09:00:00Z', symbol: '6547.TW', name: '高端疫苗', side: '停損', quantity: 1000, price: 118, pnlAmt: -7000, pnlPct: -5.6, holdingDays: 1, reasonShort: '跌破停損點，執行紀律出場', tags: ['停損', '紀律'] },
+  ],
+
+  teachingIntro: '本系統專注於捕捉短線的動能行情。我們尋找量價齊揚、突破關鍵壓力的強勢股，快速進場並設定嚴格停損。這個系統強調紀律與執行力，不適合猶豫不決的操作風格。',
+  teachingSections: [
+    {
+      title: '風險控管',
+      bullets: [
+        '單筆交易風險不超過總資金 2%',
+        '每日最多進行 3 筆新交易',
+        '當日虧損達 3% 時停止交易',
+        '連續虧損 3 筆後休息一天',
+      ],
+    },
+    {
+      title: '進場條件',
+      bullets: [
+        '突破近期高點且成交量放大 1.5 倍以上',
+        '5MA 向上且股價站穩其上',
+        '大盤不在明顯空頭格局',
+        '進場後立即設定停損（通常為 3-5%）',
+      ],
+    },
+    {
+      title: '出場原則',
+      bullets: [
+        '達到停損點無條件出場',
+        '獲利達 5-10% 可先出一半',
+        '隔日開盤跳空下跌直接出場',
+        '持有超過 3 天未表態則減碼',
+      ],
+    },
+  ],
+};
+
+const huangMentorSystem: StrategySystem = {
+  id: 'system-huang-1',
+  expertId: 'person-4',
+  name: 'ETF 資產配置',
+  level: 'coach_weekly',
+  summary: '透過美股 ETF 建立全球化的資產配置組合。所有內容延遲一週發布，僅供教學參考。',
+  tags: ['ETF', '資產配置', '被動投資', '長期'],
+  delayMode: 't7',
+
+  performanceSummary: {
+    sinceInceptionReturnPct: 28.5,
+    annualizedReturnPct: 9.2,
+    maxDrawdownPct: -12.5,
+    volatilityPct: 10.5,
+    sharpeRatio: 0.85,
+    winRatePct: 72.5,
+    profitFactor: 2.8,
+    tradesCount: 24,
+    avgHoldingDays: 365,
+  },
+
+  performanceByPeriod: [
+    { period: '1M', cumulativeReturnPct: 2.1, maxDrawdownPct: -1.5, volatilityPct: 8.5, sharpeRatio: 1.2, tradesCount: 1, winRatePct: 100 },
+    { period: '3M', cumulativeReturnPct: 5.8, maxDrawdownPct: -3.2, volatilityPct: 9.2, sharpeRatio: 1.0, tradesCount: 3, winRatePct: 100 },
+    { period: '6M', cumulativeReturnPct: 8.5, maxDrawdownPct: -6.5, volatilityPct: 10.1, sharpeRatio: 0.9, tradesCount: 6, winRatePct: 83 },
+    { period: '1Y', cumulativeReturnPct: 12.8, annualizedReturnPct: 12.8, maxDrawdownPct: -10.2, volatilityPct: 10.5, sharpeRatio: 0.85, bestMonthReturnPct: 4.5, worstMonthReturnPct: -3.8, tradesCount: 12, winRatePct: 75 },
+    { period: 'YTD', cumulativeReturnPct: 11.5, maxDrawdownPct: -8.5, volatilityPct: 10.2, sharpeRatio: 0.88, tradesCount: 10, winRatePct: 80 },
+    { period: 'SI', cumulativeReturnPct: 28.5, annualizedReturnPct: 9.2, maxDrawdownPct: -12.5, volatilityPct: 11.5, sharpeRatio: 0.82, bestMonthReturnPct: 6.2, worstMonthReturnPct: -5.5, tradesCount: 24, winRatePct: 72.5 },
+  ],
+
+  equityHistory: generateEquityHistory(100, 128.5, 365, 0.01),
+
+  tradeStats: {
+    totalTrades: 24,
+    longTrades: 24,
+    shortTrades: 0,
+    winTrades: 18,
+    loseTrades: 6,
+    winRatePct: 72.5,
+    avgWinPct: 3.8,
+    avgLossPct: -2.1,
+    maxWinPct: 8.5,
+    maxLossPct: -4.2,
+    profitFactor: 2.8,
+    avgRMultiple: 1.5,
+    bestTrade: { tradeId: 'trade-huang-best', symbol: 'VTI', pnlPct: 8.5, pnlAmt: 25500 },
+    worstTrade: { tradeId: 'trade-huang-worst', symbol: 'BND', pnlPct: -4.2, pnlAmt: -8400 },
+  },
+
+  riskSummary: {
+    riskLevel: '低',
+    currentExposurePct: 95,
+    grossExposurePct: 95,
+    netExposurePct: 95,
+    maxSinglePositionPct: 50,
+    sectorConcentrationTop: 50,
+    var1dPct: 1.2,
+    recentAlerts: [
+      { id: 'alert-huang-1', level: 'info', title: '再平衡提醒', description: '債券部位偏離目標5%，建議再平衡', createdAt: '2024-11-25T10:00:00Z' },
+    ],
+  },
+
+  xaiSummary: {
+    lastUpdate: '2024-11-22T08:00:00Z',
+    synopsis: 'ETF配置策略持續穩健運作，今年表現略優於60/40基準組合。本月進行了一次再平衡，將美股部位降低5%，增加債券部位以維持目標配置。',
+    keyPoints: [
+      '被動投資核心在於低成本與分散',
+      '再平衡是控制風險的重要工具',
+      '長期持有比擇時進出更有效',
+    ],
+    contributingFactors: [
+      { factorId: 'f1', name: '資產配置', description: '股債配置比例根據風險承受度設定', contributionPct: 50, impact: 'High', direction: '正向' },
+      { factorId: 'f2', name: '定期再平衡', description: '每季檢視，偏離5%以上時再平衡', contributionPct: 30, impact: 'Medium', direction: '正向' },
+      { factorId: 'f3', name: '低成本ETF', description: '選擇費用率<0.1%的指數型ETF', contributionPct: 20, impact: 'Medium', direction: '正向' },
+    ],
+  },
+
+  positions: [
+    { symbol: 'VTI', name: 'Vanguard 全美股票ETF', side: '多', quantity: 150, avgPrice: 220, lastPrice: 245, marketValue: 36750, pnlAmt: 3750, pnlPct: 11.36, weightPct: 45, sector: '美股', note: 'T+7 教學用' },
+    { symbol: 'VXUS', name: 'Vanguard 國際股票ETF', side: '多', quantity: 200, avgPrice: 58, lastPrice: 62, marketValue: 12400, pnlAmt: 800, pnlPct: 6.9, weightPct: 15, sector: '國際股', note: 'T+7 教學用' },
+    { symbol: 'BND', name: 'Vanguard 債券ETF', side: '多', quantity: 180, avgPrice: 75, lastPrice: 73, marketValue: 13140, pnlAmt: -360, pnlPct: -2.67, weightPct: 16, sector: '債券', note: 'T+7 教學用' },
+    { symbol: 'VNQ', name: 'Vanguard REITs ETF', side: '多', quantity: 50, avgPrice: 85, lastPrice: 88, marketValue: 4400, pnlAmt: 150, pnlPct: 3.53, weightPct: 5, sector: 'REITs', note: 'T+7 教學用' },
+  ],
+
+  recentTrades: [
+    { id: 'trade-huang-1', strategyId: 'system-huang-1', expertId: 'person-4', openTime: '2024-11-20T09:30:00Z', symbol: 'BND', name: 'Vanguard 債券ETF', side: '買進', quantity: 30, price: 73, reasonShort: '再平衡：增加債券部位至目標比例', tags: ['再平衡', '定期投入'] },
+    { id: 'trade-huang-2', strategyId: 'system-huang-1', expertId: 'person-4', openTime: '2024-11-20T09:30:00Z', symbol: 'VTI', name: 'Vanguard 全美股票ETF', side: '減碼', quantity: 10, price: 245, reasonShort: '再平衡：美股超配，賣出部分獲利', tags: ['再平衡', '獲利了結'] },
+  ],
+
+  teachingIntro: '本系統採用被動投資的理念，透過低成本的 ETF 建立全球化的資產配置。我們不試圖擇時，而是透過分散投資與定期再平衡來降低風險、追求長期穩定報酬。',
+  teachingSections: [
+    {
+      title: '核心配置',
+      bullets: [
+        '美股大盤 ETF（如 VTI、SPY）佔 40-50%',
+        '國際市場 ETF（如 VXUS）佔 15-25%',
+        '債券 ETF（如 BND、AGG）佔 20-30%',
+        '可選配置：REITs、黃金等佔 0-10%',
+      ],
+    },
+    {
+      title: '執行方式',
+      bullets: [
+        '每月定期投入固定金額',
+        '每季檢視一次配置比例',
+        '偏離目標配置 5% 以上時再平衡',
+        '避免頻繁交易產生額外成本',
+      ],
+    },
+    {
+      title: '心態建設',
+      bullets: [
+        '市場下跌時是加碼好時機',
+        '不因短期波動改變長期計畫',
+        '專注於可控因素：成本、紀律、時間',
+      ],
+    },
+  ],
+};
+
+// ============================================
+// Weekly Reviews (for Coach/Mentor)
+// ============================================
+
+export const weeklyReviews: WeeklyReview[] = [
+  {
+    id: 'review-wu-1',
+    expertId: 'person-3',
+    strategyId: 'system-wu-1',
+    weekStart: '2024-11-18',
+    weekEnd: '2024-11-22',
+    delayMode: 't7',
+    summary: {
+      totalReturnPct: 4.8,
+      maxDrawdownPct: -3.2,
+      tradesCount: 8,
+      winRatePct: 62.5,
+      bestTrade: { tradeId: 'trade-wu-1', symbol: '3443.TW', pnlPct: 10.4, pnlAmt: 65000 },
+      worstTrade: { tradeId: 'trade-wu-2', symbol: '6547.TW', pnlPct: -5.6, pnlAmt: -7000 },
+      comment: '本週市場震盪加劇，策略調整為減少交易頻率，專注於高確定性的突破訊號。最成功的交易是創意（3443），抓住AI概念股的動能；最大的失誤是高端疫苗（6547），在訊號不明確時進場導致虧損。教學重點：震盪市場中「少做」比「多做」更重要。',
+    },
+    equityHistory: generateEquityHistory(100, 104.8, 5, 0.02),
+    trades: [
+      { id: 'trade-wu-1', strategyId: 'system-wu-1', expertId: 'person-3', openTime: '2024-11-21T09:30:00Z', closeTime: '2024-11-22T10:00:00Z', symbol: '3443.TW', name: '創意', side: '買進', quantity: 500, price: 1250, pnlAmt: 65000, pnlPct: 10.4, holdingDays: 1, reasonShort: '突破前高，量能放大2倍', tags: ['突破', '量增'] },
+      { id: 'trade-wu-2', strategyId: 'system-wu-1', expertId: 'person-3', openTime: '2024-11-20T09:30:00Z', closeTime: '2024-11-21T09:00:00Z', symbol: '6547.TW', name: '高端疫苗', side: '停損', quantity: 1000, price: 118, pnlAmt: -7000, pnlPct: -5.6, holdingDays: 1, reasonShort: '跌破停損點，執行紀律出場', tags: ['停損'] },
+    ],
+  },
+  {
+    id: 'review-wu-2',
+    expertId: 'person-3',
+    strategyId: 'system-wu-1',
+    weekStart: '2024-11-11',
+    weekEnd: '2024-11-15',
+    delayMode: 't7',
+    summary: {
+      totalReturnPct: 6.2,
+      maxDrawdownPct: -2.5,
+      tradesCount: 10,
+      winRatePct: 70,
+      bestTrade: { tradeId: 'trade-wu-3', symbol: '2303.TW', pnlPct: 8.5, pnlAmt: 42500 },
+      worstTrade: { tradeId: 'trade-wu-4', symbol: '2301.TW', pnlPct: -3.8, pnlAmt: -11400 },
+      comment: '本週大盤走勢強勁，策略執行順利。多檔電子股突破表現亮眼，特別是聯電的波段操作。教學重點：順勢操作的重要性，當市場趨勢明確時，應該積極把握機會。',
+    },
+    equityHistory: generateEquityHistory(100, 106.2, 5, 0.015),
+    trades: [],
+  },
+  {
+    id: 'review-huang-1',
+    expertId: 'person-4',
+    strategyId: 'system-huang-1',
+    weekStart: '2024-11-18',
+    weekEnd: '2024-11-22',
+    delayMode: 't7',
+    summary: {
+      totalReturnPct: 1.2,
+      maxDrawdownPct: -0.8,
+      tradesCount: 2,
+      winRatePct: 100,
+      comment: '本週進行了季度再平衡操作。由於美股今年表現強勁，VTI部位超配，因此賣出部分並增加BND債券部位。教學重點：再平衡不是預測市場走向，而是維持風險水平的紀律動作。',
+    },
+    equityHistory: generateEquityHistory(100, 101.2, 5, 0.008),
+    trades: [
+      { id: 'trade-huang-1', strategyId: 'system-huang-1', expertId: 'person-4', openTime: '2024-11-20T09:30:00Z', symbol: 'BND', name: 'Vanguard 債券ETF', side: '買進', quantity: 30, price: 73, reasonShort: '再平衡：增加債券部位', tags: ['再平衡'] },
+      { id: 'trade-huang-2', strategyId: 'system-huang-1', expertId: 'person-4', openTime: '2024-11-20T09:30:00Z', symbol: 'VTI', name: 'Vanguard 全美股票ETF', side: '減碼', quantity: 10, price: 245, reasonShort: '再平衡：美股超配', tags: ['再平衡'] },
+    ],
+  },
+];
+
+// ============================================
+// Export Strategy Systems Map
+// ============================================
+
+export const strategySystems: Record<string, StrategySystem> = {
+  'system-chen-1': chenAdvisorSystem,
+  'system-lin-1': linAdvisorSystem,
+  'system-wu-1': wuMentorSystem,
+  'system-huang-1': huangMentorSystem,
+};
+
+// Helper: Get strategy system by expert slug
+export function getStrategySystemByExpertSlug(slug: string): StrategySystem | undefined {
+  const expertIdMap: Record<string, string> = {
+    'chen-advisor': 'person-1',
+    'lin-advisor': 'person-2',
+    'wu-mentor': 'person-3',
+    'huang-mentor': 'person-4',
+  };
+  
+  const expertId = expertIdMap[slug];
+  if (!expertId) return undefined;
+  
+  return Object.values(strategySystems).find(s => s.expertId === expertId);
+}
+
+// Helper: Get all strategy systems for an expert
+export function getStrategySystemsForExpert(expertId: string): StrategySystem[] {
+  return Object.values(strategySystems).filter(s => s.expertId === expertId);
+}
+
+// Helper: Get weekly reviews for expert
+export function getWeeklyReviewsForExpert(expertId: string): WeeklyReview[] {
+  return weeklyReviews.filter(r => r.expertId === expertId);
+}
+
+// Helper: Get weekly review by ID
+export function getWeeklyReviewById(reviewId: string): WeeklyReview | undefined {
+  return weeklyReviews.find(r => r.id === reviewId);
+}
