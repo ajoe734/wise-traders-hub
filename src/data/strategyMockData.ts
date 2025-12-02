@@ -548,6 +548,257 @@ const huangMentorSystem: StrategySystem = {
 // ============================================
 // Weekly Reviews (for Coach/Mentor)
 // ============================================
+// 趙彭博 - 投顧分析師系統
+// ============================================
+
+const zhaoAdvisorSystem: StrategySystem = {
+  id: 'system-zhao-advisor',
+  expertId: 'person-5',
+  name: '漲停8招 – 台股當沖',
+  level: 'advisor_t1',
+  summary: '運用獨創「4有」指標系統，捕捉當日漲停潛力股，快進快出。工商時報台股逐洞賽56屆冠軍。',
+  tags: ['當沖', '漲停', '短線', '技術分析', '台股'],
+  delayMode: 'realtime',
+
+  performanceSummary: {
+    sinceInceptionReturnPct: 680,
+    annualizedReturnPct: 85.5,
+    maxDrawdownPct: -22.8,
+    volatilityPct: 35.2,
+    sharpeRatio: 2.15,
+    winRatePct: 68.5,
+    profitFactor: 3.25,
+    tradesCount: 441,
+    avgHoldingDays: 1.5,
+  },
+
+  performanceByPeriod: [
+    { period: '1M', cumulativeReturnPct: 12.8, maxDrawdownPct: -6.5, volatilityPct: 28.5, sharpeRatio: 2.2, tradesCount: 35, winRatePct: 71 },
+    { period: '3M', cumulativeReturnPct: 38.5, maxDrawdownPct: -12.2, volatilityPct: 32.5, sharpeRatio: 2.1, tradesCount: 98, winRatePct: 69 },
+    { period: '6M', cumulativeReturnPct: 72.8, maxDrawdownPct: -18.5, volatilityPct: 34.2, sharpeRatio: 2.05, tradesCount: 185, winRatePct: 68 },
+    { period: '1Y', cumulativeReturnPct: 125.5, annualizedReturnPct: 125.5, maxDrawdownPct: -22.8, volatilityPct: 35.2, sharpeRatio: 2.15, bestMonthReturnPct: 28.5, worstMonthReturnPct: -12.5, tradesCount: 380, winRatePct: 68.5 },
+    { period: 'YTD', cumulativeReturnPct: 98.5, maxDrawdownPct: -20.2, volatilityPct: 33.8, sharpeRatio: 2.18, tradesCount: 320, winRatePct: 69 },
+    { period: 'SI', cumulativeReturnPct: 680, annualizedReturnPct: 85.5, maxDrawdownPct: -28.5, volatilityPct: 38.2, sharpeRatio: 2.0, bestMonthReturnPct: 45.2, worstMonthReturnPct: -15.8, tradesCount: 441, winRatePct: 68.5 },
+  ],
+
+  equityHistory: generateEquityHistory(100, 780, 365, 0.035),
+
+  tradeStats: {
+    totalTrades: 441,
+    longTrades: 420,
+    shortTrades: 21,
+    winTrades: 302,
+    loseTrades: 139,
+    winRatePct: 68.5,
+    avgWinPct: 8.2,
+    avgLossPct: -3.5,
+    maxWinPct: 45.8,
+    maxLossPct: -10.0,
+    profitFactor: 3.25,
+    avgRMultiple: 2.8,
+    bestTrade: { tradeId: 'trade-zhao-best', symbol: '6770.TW', pnlPct: 45.8, pnlAmt: 458000 },
+    worstTrade: { tradeId: 'trade-zhao-worst', symbol: '3680.TW', pnlPct: -10.0, pnlAmt: -50000 },
+  },
+
+  riskSummary: {
+    riskLevel: '高',
+    currentExposurePct: 55,
+    grossExposurePct: 55,
+    netExposurePct: 50,
+    maxSinglePositionPct: 15,
+    sectorConcentrationTop: 40,
+    var1dPct: 4.5,
+    recentAlerts: [
+      { id: 'alert-zhao-1', level: 'info', title: '今日戰績', description: '今日2勝1負，累積報酬+3.2%', createdAt: '2024-11-29T14:00:00Z' },
+      { id: 'alert-zhao-2', level: 'warning', title: '電子股集中', description: '電子股部位達40%，注意產業集中風險', createdAt: '2024-11-28T10:00:00Z' },
+    ],
+  },
+
+  xaiSummary: {
+    lastUpdate: '2024-11-29T14:00:00Z',
+    synopsis: '漲停8招策略持續展現高勝率與高報酬特性。本月重點捕捉AI概念股與IC設計族群的漲停機會，「4有」指標觸發準確率維持在85%以上。',
+    keyPoints: [
+      '「4有」同步訊號觸發時勝率高達78%',
+      '嚴格執行2%單筆停損，有效控制風險',
+      '盤中快速判斷能力是關鍵成功因素',
+    ],
+    contributingFactors: [
+      { factorId: 'f1', name: '有漲', description: '股價站上均線且盤中表現強勢，突破關鍵價位', contributionPct: 30, impact: 'High', direction: '正向' },
+      { factorId: 'f2', name: '有人', description: '委買量大於委賣量，買盤積極掛單', contributionPct: 25, impact: 'High', direction: '正向' },
+      { factorId: 'f3', name: '有人買', description: '散戶買超訊號，市場人氣聚集', contributionPct: 20, impact: 'Medium', direction: '正向' },
+      { factorId: 'f4', name: '有大人買', description: '大戶/法人連續買超，主力進場跡象', contributionPct: 25, impact: 'High', direction: '正向' },
+    ],
+  },
+
+  positions: [
+    { symbol: '6770.TW', name: '力積電', side: '多', quantity: 5000, avgPrice: 38, lastPrice: 42.5, marketValue: 212500, pnlAmt: 22500, pnlPct: 11.84, weightPct: 18, sector: '半導體' },
+    { symbol: '3661.TW', name: '世芯-KY', side: '多', quantity: 200, avgPrice: 2850, lastPrice: 3050, marketValue: 610000, pnlAmt: 40000, pnlPct: 7.02, weightPct: 25, sector: 'IC設計' },
+    { symbol: '2603.TW', name: '長榮', side: '多', quantity: 3000, avgPrice: 185, lastPrice: 195, marketValue: 585000, pnlAmt: 30000, pnlPct: 5.41, weightPct: 12, sector: '航運' },
+  ],
+
+  recentTrades: [
+    { id: 'trade-zhao-1', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-29T09:15:00Z', closeTime: '2024-11-29T11:30:00Z', symbol: '3443.TW', name: '創意', side: '買進', quantity: 300, price: 1380, pnlAmt: 28500, pnlPct: 6.88, holdingDays: 0, reasonShort: '4有同步觸發，量能放大突破壓力', tags: ['4有', '漲停', '當沖'] },
+    { id: 'trade-zhao-2', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-29T09:30:00Z', closeTime: '2024-11-29T10:45:00Z', symbol: '6770.TW', name: '力積電', side: '加碼', quantity: 2000, price: 40, pnlAmt: 5000, pnlPct: 6.25, holdingDays: 0, reasonShort: '開盤強勢表態，委買張數快速增加', tags: ['開盤強勢', '加碼'] },
+    { id: 'trade-zhao-3', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-28T09:20:00Z', closeTime: '2024-11-28T09:45:00Z', symbol: '3680.TW', name: '家登', side: '停損', quantity: 500, price: 480, pnlAmt: -12000, pnlPct: -5.0, holdingDays: 0, reasonShort: '跌破停損點，執行紀律出場', tags: ['停損'] },
+  ],
+
+  teachingIntro: '漲停8招是本人獨創的當沖選股系統，專注於捕捉當日或短期內有漲停潛力的標的。透過「4有」同步指標——有漲、有人、有人買、有大人買，篩選出最具爆發力的飆股。',
+  teachingSections: [
+    {
+      title: '「4有」選股指標',
+      bullets: [
+        '有漲：股價站上均線、盤中表現強勢、突破關鍵價位',
+        '有人：委買量大於委賣量，買盤積極掛單',
+        '有人買：散戶買超訊號，市場人氣聚集',
+        '有大人買：大戶/法人連續買超，主力進場跡象',
+      ],
+    },
+    {
+      title: '漲停8招進場策略',
+      bullets: [
+        '第一招：量價突破型 – 成交量放大突破壓力區',
+        '第二招：開盤強勢型 – 開盤5分鐘內強勢表態',
+        '第三招：均線糾結突破 – 均線收斂後向上噴出',
+        '第四招：洗盤結束型 – 主力洗盤完畢再啟動',
+      ],
+    },
+    {
+      title: '風險控管',
+      bullets: [
+        '當沖單筆最大虧損 2%，無條件停損',
+        '每日停損上限 3%，達標即停止交易',
+        '連續虧損 3 筆強制休息一天',
+        '獲利達 5% 先出一半，保護利潤',
+      ],
+    },
+  ],
+};
+
+// ============================================
+// 趙彭博 - 實戰導師系統 (T+7)
+// ============================================
+
+const zhaoMentorSystem: StrategySystem = {
+  id: 'system-zhao-mentor',
+  expertId: 'person-6',
+  name: '漲停8招 – 實戰教學',
+  level: 'coach_weekly',
+  summary: '透過 T+7 延遲的實戰案例，完整拆解漲停股的選股邏輯與操作心法。僅供教學參考。',
+  tags: ['當沖', '漲停', '教學', '案例分析', 'T+7'],
+  delayMode: 't7',
+
+  performanceSummary: {
+    sinceInceptionReturnPct: 680,
+    annualizedReturnPct: 85.5,
+    maxDrawdownPct: -22.8,
+    volatilityPct: 35.2,
+    sharpeRatio: 2.15,
+    winRatePct: 68.5,
+    profitFactor: 3.25,
+    tradesCount: 441,
+    avgHoldingDays: 1.5,
+  },
+
+  performanceByPeriod: [
+    { period: '1M', cumulativeReturnPct: 12.8, maxDrawdownPct: -6.5, volatilityPct: 28.5, sharpeRatio: 2.2, tradesCount: 35, winRatePct: 71 },
+    { period: '3M', cumulativeReturnPct: 38.5, maxDrawdownPct: -12.2, volatilityPct: 32.5, sharpeRatio: 2.1, tradesCount: 98, winRatePct: 69 },
+    { period: '6M', cumulativeReturnPct: 72.8, maxDrawdownPct: -18.5, volatilityPct: 34.2, sharpeRatio: 2.05, tradesCount: 185, winRatePct: 68 },
+    { period: '1Y', cumulativeReturnPct: 125.5, annualizedReturnPct: 125.5, maxDrawdownPct: -22.8, volatilityPct: 35.2, sharpeRatio: 2.15, bestMonthReturnPct: 28.5, worstMonthReturnPct: -12.5, tradesCount: 380, winRatePct: 68.5 },
+    { period: 'YTD', cumulativeReturnPct: 98.5, maxDrawdownPct: -20.2, volatilityPct: 33.8, sharpeRatio: 2.18, tradesCount: 320, winRatePct: 69 },
+    { period: 'SI', cumulativeReturnPct: 680, annualizedReturnPct: 85.5, maxDrawdownPct: -28.5, volatilityPct: 38.2, sharpeRatio: 2.0, bestMonthReturnPct: 45.2, worstMonthReturnPct: -15.8, tradesCount: 441, winRatePct: 68.5 },
+  ],
+
+  equityHistory: generateEquityHistory(100, 780, 365, 0.035),
+
+  tradeStats: {
+    totalTrades: 441,
+    longTrades: 420,
+    shortTrades: 21,
+    winTrades: 302,
+    loseTrades: 139,
+    winRatePct: 68.5,
+    avgWinPct: 8.2,
+    avgLossPct: -3.5,
+    maxWinPct: 45.8,
+    maxLossPct: -10.0,
+    profitFactor: 3.25,
+    avgRMultiple: 2.8,
+    bestTrade: { tradeId: 'trade-zhao-m-best', symbol: '6770.TW', pnlPct: 45.8, pnlAmt: 458000 },
+    worstTrade: { tradeId: 'trade-zhao-m-worst', symbol: '3680.TW', pnlPct: -10.0, pnlAmt: -50000 },
+  },
+
+  riskSummary: {
+    riskLevel: '高',
+    currentExposurePct: 55,
+    grossExposurePct: 55,
+    netExposurePct: 50,
+    maxSinglePositionPct: 15,
+    sectorConcentrationTop: 40,
+    var1dPct: 4.5,
+    recentAlerts: [],
+  },
+
+  xaiSummary: {
+    lastUpdate: '2024-11-22T08:00:00Z',
+    synopsis: '本週實戰週記重點：解析3檔成功捕捉漲停的案例，以及1檔停損出場的失敗案例。透過「4有」指標的實際應用，學習辨識真假突破。',
+    keyPoints: [
+      '成功案例：創意(3443)的「4有」同步觸發分析',
+      '失敗案例：家登(3680)的假突破識別',
+      '風控執行：嚴格2%停損的重要性',
+    ],
+    contributingFactors: [
+      { factorId: 'f1', name: '有漲', description: '股價站上均線且盤中表現強勢', contributionPct: 30, impact: 'High', direction: '正向' },
+      { factorId: 'f2', name: '有人', description: '委買量大於委賣量', contributionPct: 25, impact: 'High', direction: '正向' },
+      { factorId: 'f3', name: '有人買', description: '散戶買超訊號', contributionPct: 20, impact: 'Medium', direction: '正向' },
+      { factorId: 'f4', name: '有大人買', description: '大戶/法人買超', contributionPct: 25, impact: 'High', direction: '正向' },
+    ],
+  },
+
+  positions: [
+    { symbol: '6770.TW', name: '力積電', side: '多', quantity: 5000, avgPrice: 38, lastPrice: 42.5, marketValue: 212500, pnlAmt: 22500, pnlPct: 11.84, weightPct: 18, sector: '半導體' },
+    { symbol: '3661.TW', name: '世芯-KY', side: '多', quantity: 200, avgPrice: 2850, lastPrice: 3050, marketValue: 610000, pnlAmt: 40000, pnlPct: 7.02, weightPct: 25, sector: 'IC設計' },
+  ],
+
+  recentTrades: [
+    { id: 'trade-zhao-m-1', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-22T09:15:00Z', closeTime: '2024-11-22T11:30:00Z', symbol: '3443.TW', name: '創意', side: '買進', quantity: 300, price: 1380, pnlAmt: 28500, pnlPct: 6.88, holdingDays: 0, reasonShort: '【教學案例】4有同步觸發，量能放大突破壓力', tags: ['4有', '漲停', '成功案例'] },
+    { id: 'trade-zhao-m-2', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-21T09:20:00Z', closeTime: '2024-11-21T09:45:00Z', symbol: '3680.TW', name: '家登', side: '停損', quantity: 500, price: 480, pnlAmt: -12000, pnlPct: -5.0, holdingDays: 0, reasonShort: '【教學案例】假突破識別失敗，嚴格執行停損', tags: ['停損', '失敗案例'] },
+  ],
+
+  teachingIntro: '本教學系統專注於分享漲停8招的實戰應用。每週透過延遲7天的實戰週記，完整呈現選股過程、進出場時機與事後檢討。所有內容均為歷史案例教學，非即時投資建議。',
+  teachingSections: [
+    {
+      title: '週記教學重點',
+      bullets: [
+        '每週精選 3-5 檔代表性操作案例',
+        '完整記錄「4有」指標觸發條件',
+        '詳細解說進場時機與出場邏輯',
+        '事後檢討成功與失敗原因',
+      ],
+    },
+    {
+      title: '學習目標',
+      bullets: [
+        '培養盤中快速判斷能力',
+        '建立嚴格的停損停利紀律',
+        '理解主力操作手法與跡象',
+        '掌握當沖與短線的風險控管',
+      ],
+    },
+    {
+      title: '注意事項',
+      bullets: [
+        '所有操作紀錄至少延遲 7 天發布',
+        '僅供歷史案例教學，非即時投資建議',
+        '當沖風險極高，需自行評估承受能力',
+        '建議先以小資金練習，熟悉後再加大部位',
+      ],
+    },
+  ],
+};
+
+// ============================================
+// Weekly Reviews
+// ============================================
 
 export const weeklyReviews: WeeklyReview[] = [
   {
@@ -611,6 +862,30 @@ export const weeklyReviews: WeeklyReview[] = [
       { id: 'trade-huang-2', strategyId: 'system-huang-1', expertId: 'person-4', openTime: '2024-11-20T09:30:00Z', symbol: 'VTI', name: 'Vanguard 全美股票ETF', side: '減碼', quantity: 10, price: 245, reasonShort: '再平衡：美股超配', tags: ['再平衡'] },
     ],
   },
+  // 趙彭博週記
+  {
+    id: 'review-zhao-1',
+    expertId: 'person-6',
+    strategyId: 'system-zhao-mentor',
+    weekStart: '2024-11-18',
+    weekEnd: '2024-11-22',
+    delayMode: 't7',
+    summary: {
+      totalReturnPct: 15.8,
+      maxDrawdownPct: -5.2,
+      tradesCount: 12,
+      winRatePct: 75,
+      bestTrade: { tradeId: 'trade-zhao-w-1', symbol: '3443.TW', pnlPct: 12.5, pnlAmt: 75000 },
+      worstTrade: { tradeId: 'trade-zhao-w-2', symbol: '3680.TW', pnlPct: -5.0, pnlAmt: -12000 },
+      comment: '本週戰績亮眼，成功捕捉3檔漲停股。重點教學：AI概念股創意(3443)的「4有」指標同步觸發分析，以及家登(3680)假突破的識別失敗檢討。當沖最重要的是紀律，不是勝率。',
+    },
+    equityHistory: generateEquityHistory(100, 115.8, 5, 0.025),
+    trades: [
+      { id: 'trade-zhao-w-1', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-22T09:15:00Z', closeTime: '2024-11-22T11:30:00Z', symbol: '3443.TW', name: '創意', side: '賣出', quantity: 300, price: 1550, pnlAmt: 75000, pnlPct: 12.5, holdingDays: 0, reasonShort: '4有同步觸發，完美捕捉漲停', tags: ['4有', '漲停', '成功案例'] },
+      { id: 'trade-zhao-w-2', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-21T09:20:00Z', closeTime: '2024-11-21T09:45:00Z', symbol: '3680.TW', name: '家登', side: '停損', quantity: 500, price: 480, pnlAmt: -12000, pnlPct: -5.0, holdingDays: 0, reasonShort: '假突破，嚴格執行停損', tags: ['停損', '失敗案例'] },
+      { id: 'trade-zhao-w-3', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-20T09:30:00Z', closeTime: '2024-11-20T12:00:00Z', symbol: '6770.TW', name: '力積電', side: '賣出', quantity: 3000, price: 42.5, pnlAmt: 45000, pnlPct: 8.8, holdingDays: 0, reasonShort: '開盤強勢，「有人」指標強烈', tags: ['4有', '漲停'] },
+    ],
+  },
 ];
 
 // ============================================
@@ -622,6 +897,8 @@ export const strategySystems: Record<string, StrategySystem> = {
   'system-lin-1': linAdvisorSystem,
   'system-wu-1': wuMentorSystem,
   'system-huang-1': huangMentorSystem,
+  'system-zhao-advisor': zhaoAdvisorSystem,
+  'system-zhao-mentor': zhaoMentorSystem,
 };
 
 // Helper: Get strategy system by expert slug
@@ -631,6 +908,8 @@ export function getStrategySystemByExpertSlug(slug: string): StrategySystem | un
     'lin-advisor': 'person-2',
     'wu-mentor': 'person-3',
     'huang-mentor': 'person-4',
+    'zhao-advisor': 'person-5',
+    'zhao-mentor': 'person-6',
   };
   
   const expertId = expertIdMap[slug];

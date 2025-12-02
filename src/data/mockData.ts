@@ -78,6 +78,34 @@ export const people: Person[] = [
     riskTolerance: '中性',
     timeframe: '中長期',
   },
+  // 趙彭博 - 投顧分析師角色
+  {
+    id: 'person-5',
+    slug: 'zhao-advisor',
+    name: '趙彭博',
+    role: PersonRole.ADVISOR,
+    avatarUrl: '/images/experts/zhao-pengbo.png',
+    bio: '漲停8招創始人，工商時報台股逐洞賽56屆冠軍，累積報酬率680%',
+    description: '「漲停8招」選股系統創始人，獨創「4有」同步指標，專精短線當沖與飆股挖掘。工商時報台股逐洞賽56屆冠軍，累積441支漲停板紀錄，總報酬率高達680%。擁有證券分析師執照，提供即時訊號與策略分析。',
+    styleTags: ['當沖', '短線', '漲停', '技術分析'],
+    markets: ['台股'],
+    riskTolerance: '積極',
+    timeframe: '極短期',
+  },
+  // 趙彭博 - 實戰導師角色
+  {
+    id: 'person-6',
+    slug: 'zhao-mentor',
+    name: '趙彭博',
+    role: PersonRole.MENTOR,
+    avatarUrl: '/images/experts/zhao-pengbo.png',
+    bio: '漲停8招創始人，專精短線當沖教學，透過實戰週記分享操作心法',
+    description: '「漲停8招」選股系統創始人，獨創「4有」同步指標。每週透過 T+7 實戰週記，完整拆解一週的操作邏輯、漲停股篩選心法與事後檢討，幫助學員建立完整的短線交易框架。',
+    styleTags: ['當沖', '短線', '漲停', '教學'],
+    markets: ['台股'],
+    riskTolerance: '積極',
+    timeframe: '極短期',
+  },
 ];
 
 // Trading Systems
@@ -241,6 +269,88 @@ export const tradingSystems: TradingSystem[] = [
       }
     ]
   },
+  // 趙彭博 - 漲停8招系統（投顧分析師）
+  {
+    id: 'system-5',
+    personId: 'person-5',
+    name: '漲停8招 – 台股當沖',
+    description: '運用獨創「4有」指標系統，捕捉當日漲停潛力股，快進快出。',
+    styleTags: ['當沖', '漲停', '短線', '技術分析'],
+    markets: ['台股'],
+    riskProfile: '積極',
+    holdingPeriod: '當日至數天',
+    teachingIntro: '本系統專注於捕捉當日或短期內有漲停潛力的標的。透過獨創「4有」同步指標——有漲、有人、有人買、有大人買，篩選出最具爆發力的飆股，並嚴格執行風控紀律。',
+    teachingSections: [
+      {
+        title: '「4有」選股指標',
+        bullets: [
+          '有漲：股價站上均線、盤中表現強勢、突破關鍵價位',
+          '有人：委買量大於委賣量，買盤積極掛單',
+          '有人買：散戶買超訊號，市場人氣聚集',
+          '有大人買：大戶/法人連續買超，主力進場跡象'
+        ]
+      },
+      {
+        title: '漲停8招進場策略',
+        bullets: [
+          '第一招：量價突破型 – 成交量放大突破壓力區',
+          '第二招：開盤強勢型 – 開盤5分鐘內強勢表態',
+          '第三招：均線糾結突破 – 均線收斂後向上噴出',
+          '第四招：洗盤結束型 – 主力洗盤完畢再啟動'
+        ]
+      },
+      {
+        title: '風險控管',
+        bullets: [
+          '當沖單筆最大虧損 2%，無條件停損',
+          '每日停損上限 3%，達標即停止交易',
+          '連續虧損 3 筆強制休息一天',
+          '獲利達 5% 先出一半，保護利潤'
+        ]
+      }
+    ]
+  },
+  // 趙彭博 - 漲停8招系統（實戰導師 T+7）
+  {
+    id: 'system-6',
+    personId: 'person-6',
+    name: '漲停8招 – 實戰教學',
+    description: '透過 T+7 延遲的實戰案例，完整拆解漲停股的選股邏輯與操作心法。',
+    styleTags: ['當沖', '漲停', '教學', '案例分析'],
+    markets: ['台股'],
+    riskProfile: '積極',
+    holdingPeriod: '教學用樣本帳戶',
+    teachingIntro: '本教學系統專注於分享漲停8招的實戰應用。每週透過延遲7天的實戰週記，完整呈現選股過程、進出場時機與事後檢討。所有內容均為歷史案例教學，非即時投資建議。',
+    teachingSections: [
+      {
+        title: '週記教學重點',
+        bullets: [
+          '每週精選 3-5 檔代表性操作案例',
+          '完整記錄「4有」指標觸發條件',
+          '詳細解說進場時機與出場邏輯',
+          '事後檢討成功與失敗原因'
+        ]
+      },
+      {
+        title: '學習目標',
+        bullets: [
+          '培養盤中快速判斷能力',
+          '建立嚴格的停損停利紀律',
+          '理解主力操作手法與跡象',
+          '掌握當沖與短線的風險控管'
+        ]
+      },
+      {
+        title: '注意事項',
+        bullets: [
+          '所有操作紀錄至少延遲 7 天發布',
+          '僅供歷史案例教學，非即時投資建議',
+          '當沖風險極高，需自行評估承受能力',
+          '建議先以小資金練習，熟悉後再加大部位'
+        ]
+      }
+    ]
+  },
 ];
 
 // Plans
@@ -313,6 +423,41 @@ export const plans: Plan[] = [
     description: '每週分享 ETF 配置調整過程與市場觀察，所有操作紀錄至少延遲 7 天發布。',
     priceMonthly: 799,
     priceYearly: 7990,
+    isActive: true,
+  },
+  // 趙彭博 - 投顧分析師方案
+  {
+    id: 'plan-7',
+    personId: 'person-5',
+    systemId: 'system-5',
+    planType: PlanType.ANALYST_SIGNAL_L1,
+    name: '分析師即時策略訂閱',
+    description: '即時漲停8招訊號＋每筆操作的4有指標解說。捕捉當日飆股機會。',
+    priceMonthly: 2999,
+    priceYearly: 29990,
+    isActive: true,
+  },
+  {
+    id: 'plan-8',
+    personId: 'person-5',
+    systemId: 'system-5',
+    planType: PlanType.ANALYST_SIGNAL_DIAG_L2,
+    name: '分析師策略＋持股健檢',
+    description: '包含即時漲停訊號，加上當沖持股診斷與風險評估服務。',
+    priceMonthly: 4999,
+    priceYearly: 49990,
+    isActive: true,
+  },
+  // 趙彭博 - 實戰導師方案
+  {
+    id: 'plan-9',
+    personId: 'person-6',
+    systemId: 'system-6',
+    planType: PlanType.MENTOR_WEEKLY_JOURNAL,
+    name: '實戰週記教學訂閱（T+7）',
+    description: '每週分享漲停8招實戰案例，包含選股邏輯、進出場時機與事後檢討。所有內容至少延遲 7 天。',
+    priceMonthly: 1499,
+    priceYearly: 14990,
     isActive: true,
   },
 ];
