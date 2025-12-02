@@ -7,10 +7,72 @@ import { getPersonBySlug, getUserSubscriptions, getSignalsForUser, getJournalsFo
 import { getStrategySystemByExpertSlug } from '@/data/strategyMockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { PersonRole, PlanType } from '@/types';
-import { Radio, BookOpen, TrendingUp, ArrowRight, Calendar, BarChart3 } from 'lucide-react';
+import { Radio, BookOpen, TrendingUp, ArrowRight, Calendar, BarChart3, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Sparkline } from '@/components/strategy/Sparkline';
+import { FourIndicatorsDashboard, mockFourIndicators, FourIndicator } from '@/components/strategy/FourIndicatorsDashboard';
+
+// Special 4有 indicators for Zhao's pages - simulating real-time data
+const zhaoLiveIndicators: FourIndicator[] = [
+  {
+    id: '有漲',
+    label: '股價強勢',
+    description: '股價站上均線、盤中表現強勢',
+    status: 'active',
+    value: 88,
+    detail: '突破季線',
+  },
+  {
+    id: '有人',
+    label: '買盤積極',
+    description: '委買量大於委賣量',
+    status: 'active',
+    value: 95,
+    detail: '買賣比 2.3',
+  },
+  {
+    id: '有人買',
+    label: '散戶買超',
+    description: '散戶買超訊號',
+    status: 'active',
+    value: 72,
+    detail: '連2日買超',
+  },
+  {
+    id: '有大人買',
+    label: '主力進場',
+    description: '大戶/法人連續買超',
+    status: 'active',
+    value: 85,
+    detail: '連5日買超',
+  },
+];
+
+// Featured signals for Zhao advisor
+const zhaoFeaturedSignals = [
+  {
+    id: 'zhao-feat-1',
+    symbol: '3443.TW',
+    name: '創意',
+    action: 'BUY',
+    price: 1420,
+    indicatorsActive: 4,
+    time: new Date(),
+    reason: '4有同步觸發，量能放大突破前高',
+  },
+  {
+    id: 'zhao-feat-2',
+    symbol: '6770.TW',
+    name: '力積電',
+    action: 'BUY',
+    price: 43.5,
+    indicatorsActive: 3,
+    time: new Date(Date.now() - 3600000),
+    reason: '開盤強勢表態，委買張數快速增加',
+  },
+];
+
 const LineHome = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const { user } = useAuth();
@@ -90,6 +152,55 @@ const LineHome = () => {
                 查看全部 →
               </Link>
             </div>
+            {/* Special 4有 Dashboard for Zhao */}
+            {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
+              <div className="mb-4">
+                <FourIndicatorsDashboard 
+                  indicators={expertSlug === 'zhao-advisor' ? zhaoLiveIndicators : mockFourIndicators}
+                  symbol={zhaoFeaturedSignals[0]?.symbol}
+                />
+              </div>
+            )}
+            
+            {/* Featured signals for Zhao */}
+            {expertSlug === 'zhao-advisor' && (
+              <div className="space-y-2 mb-4">
+                <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                  <Flame className="h-4 w-4 text-advisor" />
+                  精選漲停訊號
+                </p>
+                {zhaoFeaturedSignals.map(signal => (
+                  <Card key={signal.id} variant="interactive" className="p-3 border-advisor/30">
+                    <Link to={`/line/${expertSlug}/signals`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="advisor" className="text-xs">
+                            {signal.action === 'BUY' ? '買進' : '賣出'}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs font-mono">
+                            {signal.indicatorsActive}/4 有
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {format(signal.time, 'HH:mm')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold">{signal.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{signal.symbol}</p>
+                        </div>
+                        <p className="text-lg font-bold text-advisor">${signal.price}</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-1 mt-1">
+                        {signal.reason}
+                      </p>
+                    </Link>
+                  </Card>
+                ))}
+              </div>
+            )}
+
             {expertSignals.length > 0 ? (
               <div className="space-y-2">
                 {expertSignals.map(signal => (
@@ -114,11 +225,11 @@ const LineHome = () => {
                   </Card>
                 ))}
               </div>
-            ) : (
+            ) : expertSlug !== 'zhao-advisor' ? (
               <Card className="bg-muted/30 p-4 text-center">
                 <p className="text-sm text-muted-foreground">暫無最新訊號</p>
               </Card>
-            )}
+            ) : null}
           </section>
         )}
 
