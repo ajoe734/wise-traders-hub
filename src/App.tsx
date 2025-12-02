@@ -2,13 +2,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 // Portal pages
 import Index from "./pages/Index";
-import Explore from "./pages/Explore";
-import PersonProfile from "./pages/PersonProfile";
+import Experts from "./pages/Experts";
+import ExpertProfile from "./pages/ExpertProfile";
+import PlanDetail from "./pages/PlanDetail";
 import Pricing from "./pages/Pricing";
 import Legal from "./pages/Legal";
 import Checkout from "./pages/Checkout";
@@ -18,14 +19,20 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 
-// App pages (member area)
-import AppHome from "./pages/app/AppHome";
-import Signals from "./pages/app/Signals";
-import SignalDetail from "./pages/app/SignalDetail";
-import Journals from "./pages/app/Journals";
-import JournalDetail from "./pages/app/JournalDetail";
-import SystemDetail from "./pages/app/SystemDetail";
-import Account from "./pages/app/Account";
+// Account pages
+import AccountSubscriptions from "./pages/account/Subscriptions";
+import AccountProfile from "./pages/account/Profile";
+
+// LINE Mini-App pages (per expert)
+import LineHome from "./pages/line/Home";
+import LineSignals from "./pages/line/Signals";
+import LineSignalDetail from "./pages/line/SignalDetail";
+import LineTeaching from "./pages/line/Teaching";
+import LineTrades from "./pages/line/Trades";
+import LinePerformance from "./pages/line/Performance";
+import LineXai from "./pages/line/Xai";
+import LineDiagnosis from "./pages/line/Diagnosis";
+import LineAccount from "./pages/line/Account";
 
 const queryClient = new QueryClient();
 
@@ -39,28 +46,41 @@ const App = () => (
           <Routes>
             {/* Portal (public) */}
             <Route path="/" element={<Index />} />
-            <Route path="/explore" element={<Explore />} />
-            <Route path="/people/:slug" element={<PersonProfile />} />
+            <Route path="/experts" element={<Experts />} />
+            <Route path="/expert/:slug" element={<ExpertProfile />} />
+            <Route path="/plan/:slug/:planId" element={<PlanDetail />} />
+            <Route path="/checkout/:slug/:planId" element={<Checkout />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/legal" element={<Legal />} />
-            <Route path="/checkout/:planId" element={<Checkout />} />
+
+            {/* Legacy routes - redirect */}
+            <Route path="/explore" element={<Navigate to="/experts" replace />} />
+            <Route path="/people/:slug" element={<Navigate to="/experts" replace />} />
 
             {/* Auth */}
             <Route path="/auth/login" element={<Login />} />
             <Route path="/auth/register" element={<Register />} />
 
-            {/* Member App */}
-            <Route path="/app" element={<AppHome />} />
-            <Route path="/app/signals" element={<Signals />} />
-            <Route path="/app/signal/:id" element={<SignalDetail />} />
-            <Route path="/app/journals" element={<Journals />} />
-            <Route path="/app/journal/:id" element={<JournalDetail />} />
-            <Route path="/app/system/:id" element={<SystemDetail />} />
-            <Route path="/app/account" element={<Account />} />
+            {/* Account (aggregated view) */}
+            <Route path="/account/subscriptions" element={<AccountSubscriptions />} />
+            <Route path="/account/profile" element={<AccountProfile />} />
 
-            {/* Desktop member center - redirect to app for now */}
-            <Route path="/me" element={<AppHome />} />
-            <Route path="/me/subscriptions" element={<AppHome />} />
+            {/* LINE Mini-App (per expert) */}
+            <Route path="/line/:expertSlug/home" element={<LineHome />} />
+            <Route path="/line/:expertSlug/signals" element={<LineSignals />} />
+            <Route path="/line/:expertSlug/signal/:signalId" element={<LineSignalDetail />} />
+            <Route path="/line/:expertSlug/teaching" element={<LineTeaching />} />
+            <Route path="/line/:expertSlug/trades" element={<LineTrades />} />
+            <Route path="/line/:expertSlug/performance" element={<LinePerformance />} />
+            <Route path="/line/:expertSlug/xai" element={<LineXai />} />
+            <Route path="/line/:expertSlug/diagnosis" element={<LineDiagnosis />} />
+            <Route path="/line/:expertSlug/account" element={<LineAccount />} />
+
+            {/* Legacy /app routes - redirect to experts for now */}
+            <Route path="/app" element={<Navigate to="/experts" replace />} />
+            <Route path="/app/*" element={<Navigate to="/experts" replace />} />
+            <Route path="/me" element={<Navigate to="/account/subscriptions" replace />} />
+            <Route path="/me/*" element={<Navigate to="/account/subscriptions" replace />} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

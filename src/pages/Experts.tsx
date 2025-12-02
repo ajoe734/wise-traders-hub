@@ -1,17 +1,18 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
-import { PersonCard } from '@/components/PersonCard';
+import { ExpertCard } from '@/components/ExpertCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { getAllPeopleWithPlans } from '@/data/mockData';
 import { PersonRole } from '@/types';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Shield, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const Explore = () => {
+const Experts = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const roleFilter = searchParams.get('role') as 'advisor' | 'mentor' | null;
+  const roleFilter = searchParams.get('role') as 'advisor' | 'coach' | null;
   const [searchQuery, setSearchQuery] = useState('');
   const [marketFilter, setMarketFilter] = useState<string | null>(null);
 
@@ -21,7 +22,7 @@ const Explore = () => {
     return allPeople.filter(person => {
       // Role filter
       if (roleFilter === 'advisor' && person.role !== PersonRole.ADVISOR) return false;
-      if (roleFilter === 'mentor' && person.role !== PersonRole.MENTOR) return false;
+      if (roleFilter === 'coach' && person.role !== PersonRole.MENTOR) return false;
 
       // Search filter
       if (searchQuery) {
@@ -39,7 +40,7 @@ const Explore = () => {
     });
   }, [allPeople, roleFilter, searchQuery, marketFilter]);
 
-  const setRole = (role: 'advisor' | 'mentor' | null) => {
+  const setRole = (role: 'advisor' | 'coach' | null) => {
     if (role) {
       setSearchParams({ role });
     } else {
@@ -52,12 +53,34 @@ const Explore = () => {
   return (
     <PortalLayout>
       <div className="container py-8 md:py-12">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">探索專家</h1>
-          <p className="text-muted-foreground">
-            找到適合你的投顧分析師或實戰導師
-          </p>
+        {/* Platform Intro */}
+        <div className="mb-8 p-6 bg-gradient-to-r from-primary/5 to-advisor/5 rounded-2xl border">
+          <div className="max-w-3xl">
+            <h1 className="text-2xl md:text-3xl font-bold mb-3">找到適合你的專家</h1>
+            <p className="text-muted-foreground mb-4">
+              穩健、風險控管、教育為先。我們提供兩種服務路線：
+            </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-advisor/10 shrink-0">
+                  <Shield className="h-5 w-5 text-advisor" />
+                </div>
+                <div>
+                  <p className="font-medium text-advisor">投顧分析師</p>
+                  <p className="text-sm text-muted-foreground">持有合法執照，提供即時策略訊號與持股診斷</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-mentor/10 shrink-0">
+                  <Clock className="h-5 w-5 text-mentor" />
+                </div>
+                <div>
+                  <p className="font-medium text-mentor">實戰導師</p>
+                  <p className="text-sm text-muted-foreground">T+7 延遲實戰週記，純教學用途，非投資建議</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
@@ -73,7 +96,7 @@ const Explore = () => {
             />
           </div>
 
-          {/* Role Filter */}
+          {/* Role Filter Tabs */}
           <div className="flex flex-wrap gap-2">
             <Button
               variant={roleFilter === null ? 'default' : 'outline'}
@@ -93,11 +116,11 @@ const Explore = () => {
               只看投顧分析師
             </Button>
             <Button
-              variant={roleFilter === 'mentor' ? 'mentor' : 'outline'}
+              variant={roleFilter === 'coach' ? 'mentor' : 'outline'}
               size="sm"
-              onClick={() => setRole('mentor')}
+              onClick={() => setRole('coach')}
               className={cn(
-                roleFilter !== 'mentor' && "hover:border-mentor hover:text-mentor"
+                roleFilter !== 'coach' && "hover:border-mentor hover:text-mentor"
               )}
             >
               只看實戰導師
@@ -132,7 +155,7 @@ const Explore = () => {
         {filteredPeople.length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPeople.map(person => (
-              <PersonCard key={person.id} person={person} />
+              <ExpertCard key={person.id} person={person} />
             ))}
           </div>
         ) : (
@@ -151,9 +174,17 @@ const Explore = () => {
             </Button>
           </div>
         )}
+
+        {/* Compliance Note */}
+        <div className="mt-12 compliance-disclaimer">
+          <p>
+            過去績效不代表未來表現，投資有風險，請謹慎評估。
+            投顧分析師服務依相關法令辦理；實戰導師內容僅供教學參考，不構成投資建議。
+          </p>
+        </div>
       </div>
     </PortalLayout>
   );
 };
 
-export default Explore;
+export default Experts;

@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* Core palette - Professional Financial */
+    /* Core palette - Professional Financial (Red + Deep Blue brand) */
     --background: 210 20% 98%;
     --foreground: 222 47% 11%;
 
@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Primary - Deep Navy */
+    /* Primary - Deep Navy/Blue */
     --primary: 222 47% 18%;
     --primary-foreground: 210 40% 98%;
 
@@ -39,13 +39,15 @@
 
     --radius: 0.75rem;
 
-    /* Custom Colors */
-    --advisor: 217 91% 60%;
-    --advisor-light: 217 91% 95%;
+    /* Custom Colors - Role-based */
+    /* 投顧分析師 = Red */
+    --advisor: 0 72% 51%;
+    --advisor-light: 0 72% 95%;
     --advisor-foreground: 0 0% 100%;
     
-    --mentor: 25 95% 53%;
-    --mentor-light: 25 95% 95%;
+    /* 實戰導師 = Blue */
+    --mentor: 217 91% 60%;
+    --mentor-light: 217 91% 95%;
     --mentor-foreground: 0 0% 100%;
 
     --success: 142 76% 36%;
@@ -55,9 +57,9 @@
     --warning-light: 38 92% 95%;
 
     /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 18%) 0%, hsl(222 47% 28%) 100%);
-    --gradient-advisor: linear-gradient(135deg, hsl(217 91% 55%) 0%, hsl(217 91% 65%) 100%);
-    --gradient-mentor: linear-gradient(135deg, hsl(25 95% 48%) 0%, hsl(25 95% 58%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(222 47% 18%) 0%, hsl(0 72% 45%) 100%);
+    --gradient-advisor: linear-gradient(135deg, hsl(0 72% 46%) 0%, hsl(0 72% 56%) 100%);
+    --gradient-mentor: linear-gradient(135deg, hsl(217 91% 55%) 0%, hsl(217 91% 65%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
 
     /* Shadows */
@@ -107,8 +109,8 @@
     --input: 217 33% 17%;
     --ring: 213 27% 84%;
 
-    --advisor-light: 217 91% 15%;
-    --mentor-light: 25 95% 15%;
+    --advisor-light: 0 72% 15%;
+    --mentor-light: 217 91% 15%;
     --success-light: 142 76% 15%;
     --warning-light: 38 92% 15%;
 
@@ -166,6 +168,11 @@
 
   .mobile-touch-target {
     @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Compliance disclaimer styling */
+  .compliance-disclaimer {
+    @apply text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg border border-border/50;
   }
 }
 
