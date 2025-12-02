@@ -22,7 +22,7 @@ const SystemDetail = () => {
   return (
     <AppLayout>
       <div className="p-4 space-y-4">
-        <Link to="/app" className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+        <Link to={`/line/${person.slug}/home`} className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
           <ArrowLeft className="h-4 w-4" /> 返回首頁
         </Link>
 
@@ -80,10 +80,10 @@ const SystemDetail = () => {
         {/* Actions */}
         <div className="flex gap-2">
           <Button variant="outline" className="flex-1" asChild>
-            <Link to="/app">回到我的服務</Link>
+            <Link to={`/line/${person.slug}/home`}>回到我的服務</Link>
           </Button>
           <Button variant={isAdvisor ? 'advisor' : 'mentor'} className="flex-1" asChild>
-            <Link to={isAdvisor ? '/app/signals' : '/app/journals'}>
+            <Link to={`/line/${person.slug}/signals`}>
               {isAdvisor ? '看即時訊號' : '看週記'}
             </Link>
           </Button>

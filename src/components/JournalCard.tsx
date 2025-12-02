@@ -18,7 +18,7 @@ export function JournalCard({ journal, showPerson = true }: JournalCardProps) {
   };
 
   return (
-    <Link to={`/app/journal/${journal.id}`}>
+    <Link to={`/line/${journal.person.slug}/signals`}>
       <Card variant="interactive" className="overflow-hidden hover:border-mentor/30">
         <CardContent className="p-4">
           {/* Person Info */}

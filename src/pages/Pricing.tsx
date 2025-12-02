@@ -23,7 +23,7 @@ const Pricing = () => {
         { text: '持股健檢報告', included: false },
         { text: 'T+7 週記教學', included: false },
       ],
-      cta: '/explore?role=advisor',
+      cta: '/experts?role=advisor',
       ctaText: '查看投顧分析師',
     },
     {
@@ -42,7 +42,7 @@ const Pricing = () => {
         { text: '持股健檢報告', included: true },
         { text: 'T+7 週記教學', included: false },
       ],
-      cta: '/explore?role=advisor',
+      cta: '/experts?role=advisor',
       ctaText: '查看投顧分析師',
     },
     {
@@ -60,7 +60,7 @@ const Pricing = () => {
         { text: '持股健檢報告', included: false },
         { text: 'T+7 週記教學', included: true },
       ],
-      cta: '/explore?role=mentor',
+      cta: '/experts?role=mentor',
       ctaText: '查看實戰導師',
     },
   ];

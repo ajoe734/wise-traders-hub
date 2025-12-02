@@ -42,9 +42,9 @@ const Account = () => {
 
         <Card>
           <CardContent className="p-4 space-y-2">
-            <Link to="/me/subscriptions" className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors">
+            <Link to="/account/subscriptions" className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors">
               <span className="text-sm flex items-center gap-2">
-                <Settings className="h-4 w-4" /> 管理訂閱（桌面版）
+                <Settings className="h-4 w-4" /> 管理訂閱
               </span>
               <ExternalLink className="h-4 w-4 text-muted-foreground" />
             </Link>

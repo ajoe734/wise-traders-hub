@@ -13,7 +13,7 @@ import { CheckCircle, Loader2, CreditCard, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Checkout = () => {
-  const { planId } = useParams<{ planId: string }>();
+  const { slug, planId } = useParams<{ slug: string; planId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -30,7 +30,7 @@ const Checkout = () => {
         <div className="container py-12 text-center">
           <h1 className="text-2xl font-bold mb-4">找不到此方案</h1>
           <Button asChild>
-            <Link to="/pricing">返回方案頁</Link>
+            <Link to="/experts">返回專家列表</Link>
           </Button>
         </div>
       </PortalLayout>
@@ -68,11 +68,12 @@ const Checkout = () => {
 
     toast({
       title: '訂閱成功！',
-      description: '可在「我的服務」中查看您的訂閱。',
+      description: '請加入專屬 LINE 官方帳號以接收服務。',
     });
 
     setIsProcessing(false);
-    navigate('/app');
+    // Navigate to the expert's LINE mini-app home
+    navigate(`/line/${person.slug}/home`);
   };
 
   return (
@@ -178,6 +179,23 @@ const Checkout = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* LINE OA Notice */}
+              <Card className={cn(
+                "border-2",
+                isAdvisor ? "border-advisor/30 bg-advisor/5" : "border-mentor/30 bg-mentor/5"
+              )}>
+                <CardContent className="p-4">
+                  <p className="text-sm font-medium mb-2">訂閱完成後</p>
+                  <p className="text-sm text-muted-foreground">
+                    您將被導向加入 {person.name} 的專屬 LINE 官方帳號，
+                    {isAdvisor 
+                      ? '即時策略訊號與教學內容將透過 LINE 推播給您。' 
+                      : '每週 T+7 實戰週記將透過 LINE 推播給您。'
+                    }
+                  </p>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Payment */}
@@ -243,6 +261,14 @@ const Checkout = () => {
                 </CardContent>
               </Card>
             </div>
+          </div>
+
+          {/* Compliance */}
+          <div className="mt-8 text-center">
+            <p className="text-xs text-muted-foreground">
+              過去績效不代表未來表現，投資有風險，請謹慎評估。
+              {!isAdvisor && '本服務僅供教育目的，不構成投資建議。'}
+            </p>
           </div>
         </div>
       </div>
