@@ -10,6 +10,7 @@ import { PersonRole, PlanType } from '@/types';
 import { Radio, BookOpen, TrendingUp, ArrowRight, Calendar, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { Sparkline } from '@/components/strategy/Sparkline';
 const LineHome = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const { user } = useAuth();
@@ -187,6 +188,17 @@ const LineHome = () => {
                   <Badge variant="mentor-light" className="mb-3 text-xs">
                     T+7 教學用資料
                   </Badge>
+                )}
+                
+                {/* Mini Sparkline */}
+                {strategySystem?.equityHistory && (
+                  <div className="mb-4">
+                    <p className="text-xs text-muted-foreground mb-1">近期走勢</p>
+                    <Sparkline 
+                      data={strategySystem.equityHistory} 
+                      isPositive={summary.sinceInceptionReturnPct >= 0}
+                    />
+                  </div>
                 )}
                 
                 {/* Core metrics 2x2 grid */}
