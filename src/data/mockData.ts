@@ -612,6 +612,127 @@ export const signals: Signal[] = [
       '分批出場可以兼顧獲利與趨勢延續的可能'
     ]
   },
+  // 趙彭博 投顧分析師 - 漲停8招即時訊號
+  {
+    id: 'signal-zhao-1',
+    personId: 'person-5',
+    systemId: 'system-5',
+    planType: PlanType.ANALYST_SIGNAL_L1,
+    strategyName: '漲停8招 – 台股當沖',
+    instrument: '3661.TW',
+    action: SignalAction.BUY,
+    priceHint: '約 185-190',
+    reasonSummary: '世芯-KY 4有指標全亮，開盤跳空突破前高，量能爆發，鎖定漲停潛力股。',
+    reasonDetail: '世芯今日開盤即強勢表態，9:05 成交量已達昨日全日量的 60%，符合「有漲」指標。委買量大幅超越委賣量近 3 倍（有人），且觀察到散戶買超訊號（有人買）與外資連續三日買超（有大人買）。技術面上突破近期整理區間上緣，屬於「第一招：量價突破型」進場時機。AI 晶片設計題材持續發酵，CoWoS 先進封裝訂單滿載。',
+    timeTrade: oneHourAgo,
+    timeVisible: oneHourAgo,
+    createdAt: oneHourAgo,
+    riskNotes: [
+      '當沖操作，必須盤中嚴格監控，收盤前務必出場',
+      '若跌破開盤價 3%，立即停損出場',
+      '今日若大盤急跌 > 1.5%，優先減碼保護資金'
+    ],
+    positionNotes: [
+      '本次進場為單筆資金的 100%（當沖不留倉）',
+      '第一目標價：漲停鎖定（+10%）',
+      '若無法攻上漲停，尾盤前 30 分鐘全數出場'
+    ],
+    learningPoints: [
+      '這筆示範「4有同步」的選股邏輯，四個指標同時確認',
+      '開盤5分鐘是判斷當日強弱的關鍵觀察期',
+      '量價齊揚是漲停股最基本的特徵'
+    ]
+  },
+  {
+    id: 'signal-zhao-2',
+    personId: 'person-5',
+    systemId: 'system-5',
+    planType: PlanType.ANALYST_SIGNAL_L1,
+    strategyName: '漲停8招 – 台股當沖',
+    instrument: '6409.TW',
+    action: SignalAction.BUY,
+    priceHint: '約 320-328',
+    reasonSummary: '旭隼洗盤結束型態確認，主力重新進場，技術面突破頸線壓力。',
+    reasonDetail: '旭隼經過兩週的震盪洗盤後，今日帶量站上頸線壓力區（約 318），符合「第四招：洗盤結束型」進場條件。觀察籌碼面，主力持股比例回升至高點，「有大人買」訊號明確。委買委賣比例維持健康，散戶買盤也開始進場。儲能題材持續看好，法人目標價上調。',
+    timeTrade: threeHoursAgo,
+    timeVisible: threeHoursAgo,
+    createdAt: threeHoursAgo,
+    riskNotes: [
+      '停損設在頸線下方 3%（約 308）',
+      '若量能萎縮無法突破前高，需提高警覺',
+      '盤中若出現大單倒貨，優先減碼'
+    ],
+    positionNotes: [
+      '可留倉操作，預計持有 1-3 天',
+      '第一目標：前波高點 350（+10%）',
+      '若明日開高可加碼 50%'
+    ],
+    learningPoints: [
+      '洗盤結束型的關鍵在於辨識「假跌破」',
+      '主力洗盤目的是甩掉浮額，累積低成本籌碼',
+      '突破後的量能確認非常重要'
+    ]
+  },
+  {
+    id: 'signal-zhao-3',
+    personId: 'person-5',
+    systemId: 'system-5',
+    planType: PlanType.ANALYST_SIGNAL_L1,
+    strategyName: '漲停8招 – 台股當沖',
+    instrument: '2498.TW',
+    action: SignalAction.EXIT,
+    priceHint: '約 1150-1180',
+    reasonSummary: '宏達電達到第一目標價，獲利出場鎖定利潤。',
+    reasonDetail: '宏達電自昨日進場後，今日開盤即跳空上漲，盤中最高觸及 1195，已達到預設的 +8% 目標區間。觀察到量能雖大但上檔賣壓漸增，且委賣開始大於委買，主力有出貨跡象。依照紀律先行獲利了結，保護利潤。',
+    timeTrade: yesterday,
+    timeVisible: yesterday,
+    createdAt: yesterday,
+    riskNotes: [
+      '獲利出場不留戀，紀律執行是當沖核心',
+      '後續若再符合進場條件可重新評估',
+      '今日已完成獲利目標，建議休息觀望'
+    ],
+    positionNotes: [
+      '本筆交易獲利約 +7.5%',
+      '全數出場，不留任何部位',
+      '累計本週勝率 3/4（75%）'
+    ],
+    learningPoints: [
+      '達標出場不猜頂，讓紀律保護你的獲利',
+      '「有人賣」出現時就是減碼訊號',
+      '短線操作重點在於累積小勝而非追求大賺'
+    ]
+  },
+  {
+    id: 'signal-zhao-4',
+    personId: 'person-5',
+    systemId: 'system-5',
+    planType: PlanType.ANALYST_SIGNAL_L1,
+    strategyName: '漲停8招 – 台股當沖',
+    instrument: '3443.TW',
+    action: SignalAction.BUY,
+    priceHint: '約 750-765',
+    reasonSummary: '創意電子均線糾結後向上突破，4有指標轉強，第三招型態確認。',
+    reasonDetail: '創意電子過去一週均線收斂糾結（5MA、10MA、20MA 幾乎重疊），今日帶量向上噴出，符合「第三招：均線糾結突破」型態。IC 設計族群資金回流，外資連兩日買超（有大人買），盤中委買明顯大於委賣（有人），股價強勢突破所有短均（有漲）。ASIC 設計服務需求持續成長。',
+    timeTrade: twoDaysAgo,
+    timeVisible: twoDaysAgo,
+    createdAt: twoDaysAgo,
+    riskNotes: [
+      '停損設在均線糾結區下方（約 720，-5%）',
+      '若大盤轉弱，IC 設計股通常跌幅較大',
+      '盤中密切觀察量能是否持續'
+    ],
+    positionNotes: [
+      '首次進場 50%，留空間加碼',
+      '若站穩 780 可加碼至 100%',
+      '目標價：前波高點 850（+12%）'
+    ],
+    learningPoints: [
+      '均線糾結代表多空平衡，突破後容易有大行情',
+      '等待突破確認再進場，不提前猜測方向',
+      '這種型態適合留倉操作，不必當沖出場'
+    ]
+  },
 ];
 
 // Weekly Journals (for mentors, T+7)
@@ -737,6 +858,129 @@ export const weeklyJournals: WeeklyJournal[] = [
         action: SignalAction.BUY,
         reason: '提高國際市場曝險',
         outcome: '已完成'
+      },
+    ]
+  },
+  // 趙彭博 實戰導師 - T+7 實戰週記
+  {
+    id: 'journal-zhao-1',
+    personId: 'person-6',
+    systemId: 'system-6',
+    weekStart: weekStartTwoWeeksAgo,
+    weekEnd: weekEndTwoWeeksAgo,
+    title: '漲停8招實戰週記：5漲停3停損，單週報酬+12.3%',
+    summary: '本週市場情緒回溫，電子股資金回流明顯，「4有」指標多次同步確認，共捕捉到 5 支漲停股。其中 3 筆完美鎖定漲停，2 筆盤中攻漲停後回落獲利出場，另有 3 筆因指標背離而停損。整體執行紀律良好，關鍵在於嚴守「盤中不追高」原則。',
+    learningPoints: [
+      '4有指標同步確認的標的勝率明顯較高（本週 5/5）',
+      '開盤15分鐘內的量能決定當日走勢，沒量就不要硬做',
+      '連續獲利後容易放鬆警惕，第6筆就踩雷 — 紀律不能因順境而鬆懈',
+      '週五尾盤不留倉是正確決定，避免週末消息面風險'
+    ],
+    trades: [
+      {
+        id: 'trade-zhao-1',
+        date: weekStartTwoWeeksAgo,
+        instrument: '3661.TW',
+        action: SignalAction.BUY,
+        reason: '世芯 4有同步，開盤強勢突破型',
+        outcome: '漲停 +10%'
+      },
+      {
+        id: 'trade-zhao-2',
+        date: weekStartTwoWeeksAgo,
+        instrument: '6409.TW',
+        action: SignalAction.BUY,
+        reason: '旭隼洗盤結束型，主力重新進場',
+        outcome: '獲利 +6.8%'
+      },
+      {
+        id: 'trade-zhao-3',
+        date: new Date(weekStartTwoWeeksAgo.getTime() + 24 * 60 * 60 * 1000),
+        instrument: '2498.TW',
+        action: SignalAction.BUY,
+        reason: '宏達電均線糾結突破，VR題材',
+        outcome: '漲停 +10%'
+      },
+      {
+        id: 'trade-zhao-4',
+        date: new Date(weekStartTwoWeeksAgo.getTime() + 2 * 24 * 60 * 60 * 1000),
+        instrument: '3443.TW',
+        action: SignalAction.BUY,
+        reason: '創意電子量價突破，IC設計資金回流',
+        outcome: '獲利 +5.2%'
+      },
+      {
+        id: 'trade-zhao-5',
+        date: new Date(weekStartTwoWeeksAgo.getTime() + 2 * 24 * 60 * 60 * 1000),
+        instrument: '6547.TW',
+        action: SignalAction.BUY,
+        reason: '高端疫苗消息面刺激，量能爆發',
+        outcome: '停損 -2.5%（量能不持續）'
+      },
+      {
+        id: 'trade-zhao-6',
+        date: new Date(weekStartTwoWeeksAgo.getTime() + 3 * 24 * 60 * 60 * 1000),
+        instrument: '2618.TW',
+        action: SignalAction.BUY,
+        reason: '長榮航觀光股輪動，嘗試介入',
+        outcome: '停損 -3.0%（主力出貨）'
+      },
+      {
+        id: 'trade-zhao-7',
+        date: new Date(weekStartTwoWeeksAgo.getTime() + 3 * 24 * 60 * 60 * 1000),
+        instrument: '3529.TW',
+        action: SignalAction.BUY,
+        reason: '力旺 IP 矽智財題材，第一招型態',
+        outcome: '漲停 +10%'
+      },
+      {
+        id: 'trade-zhao-8',
+        date: new Date(weekStartTwoWeeksAgo.getTime() + 4 * 24 * 60 * 60 * 1000),
+        instrument: '3324.TW',
+        action: SignalAction.BUY,
+        reason: '雙鴻散熱題材，AI伺服器需求',
+        outcome: '停損 -2.8%（大盤急跌拖累）'
+      },
+    ]
+  },
+  {
+    id: 'journal-zhao-2',
+    personId: 'person-6',
+    systemId: 'system-6',
+    weekStart: weekStartThreeWeeksAgo,
+    weekEnd: weekEndThreeWeeksAgo,
+    title: '漲停8招實戰週記：盤整週的紀律操作，少做多看',
+    summary: '本週大盤陷入狹幅盤整，成交量萎縮明顯，不符合漲停操作的最佳環境。全週僅進行 3 筆交易，嚴格執行「沒有 4有同步就不動手」的原則。雖然只抓到 1 支漲停，但成功避開多次假突破陷阱。這週的重點是：不做也是一種紀律。',
+    learningPoints: [
+      '大盤量縮時，漲停股數量減少，勝率也會下降',
+      '強迫自己在沒訊號時休息，比勉強進場更重要',
+      '這週只有1支漲停但沒虧損，保住本金就是勝利',
+      '「4有」指標的價值在於它會告訴你「不要做」'
+    ],
+    trades: [
+      {
+        id: 'trade-zhao-9',
+        date: weekStartThreeWeeksAgo,
+        instrument: '2303.TW',
+        action: SignalAction.BUY,
+        reason: '聯電開盤強勢，4有中3有確認',
+        outcome: '獲利 +3.5%（未攻漲停，保守出場）'
+      },
+      {
+        id: 'trade-zhao-10',
+        date: new Date(weekStartThreeWeeksAgo.getTime() + 2 * 24 * 60 * 60 * 1000),
+        instrument: '2454.TW',
+        action: SignalAction.BUY,
+        reason: '聯發科量價配合，試單',
+        outcome: '漲停 +10%'
+      },
+      {
+        id: 'trade-zhao-11',
+        date: new Date(weekStartThreeWeeksAgo.getTime() + 4 * 24 * 60 * 60 * 1000),
+        instrument: '3037.TW',
+        action: SignalAction.BUY,
+        reason: '欣興 ABF 題材，量能放大',
+        outcome: '平盤出場 +0.3%（攻擊力道不足）'
       },
     ]
   },
