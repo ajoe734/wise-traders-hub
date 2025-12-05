@@ -465,33 +465,6 @@ export const plans: Plan[] = [
 // Subscriptions (for demo user)
 export const subscriptions: Subscription[] = [
   {
-    id: 'sub-1',
-    userId: 'user-1',
-    planId: 'plan-1', // Advisor 1 L1
-    status: SubscriptionStatus.ACTIVE,
-    startDate: new Date('2024-11-01'),
-    endDate: new Date('2025-11-01'),
-    renewMode: 'AUTO',
-  },
-  {
-    id: 'sub-2',
-    userId: 'user-1',
-    planId: 'plan-4', // Advisor 2 L2
-    status: SubscriptionStatus.ACTIVE,
-    startDate: new Date('2024-10-15'),
-    endDate: new Date('2025-10-15'),
-    renewMode: 'AUTO',
-  },
-  {
-    id: 'sub-3',
-    userId: 'user-1',
-    planId: 'plan-5', // Mentor 1 Weekly Journal
-    status: SubscriptionStatus.ACTIVE,
-    startDate: new Date('2024-12-01'),
-    endDate: new Date('2025-12-01'),
-    renewMode: 'MANUAL',
-  },
-  {
     id: 'sub-4',
     userId: 'user-1',
     planId: 'plan-7', // 趙彭博 投顧分析師 L1
