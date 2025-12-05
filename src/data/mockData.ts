@@ -491,6 +491,24 @@ export const subscriptions: Subscription[] = [
     endDate: new Date('2025-12-01'),
     renewMode: 'MANUAL',
   },
+  {
+    id: 'sub-4',
+    userId: 'user-1',
+    planId: 'plan-7', // 趙彭博 投顧分析師 L1
+    status: SubscriptionStatus.ACTIVE,
+    startDate: new Date('2024-11-15'),
+    endDate: new Date('2025-11-15'),
+    renewMode: 'AUTO',
+  },
+  {
+    id: 'sub-5',
+    userId: 'user-1',
+    planId: 'plan-9', // 趙彭博 實戰導師 Weekly Journal
+    status: SubscriptionStatus.ACTIVE,
+    startDate: new Date('2024-11-20'),
+    endDate: new Date('2025-11-20'),
+    renewMode: 'AUTO',
+  },
 ];
 
 // Signals
