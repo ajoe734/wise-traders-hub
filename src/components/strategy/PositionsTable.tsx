@@ -59,6 +59,10 @@ export function PositionsTable({ positions, isDelayed, className }: PositionsTab
             
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
+                <span className="text-muted-foreground">數量</span>
+                <span className="ml-1">{pos.quantity.toLocaleString()}</span>
+              </div>
+              <div>
                 <span className="text-muted-foreground">成本</span>
                 <span className="ml-1">${pos.avgPrice.toLocaleString()}</span>
               </div>
@@ -102,6 +106,7 @@ export function PositionsTable({ positions, isDelayed, className }: PositionsTab
             <tr className="border-b">
               <th className="text-left py-2 px-2 font-medium text-muted-foreground">標的</th>
               <th className="text-center py-2 px-1 font-medium text-muted-foreground">方向</th>
+              <th className="text-right py-2 px-2 font-medium text-muted-foreground">數量</th>
               <th className="text-right py-2 px-2 font-medium text-muted-foreground">成本</th>
               <th className="text-right py-2 px-2 font-medium text-muted-foreground">現價</th>
               <th className="text-right py-2 px-2 font-medium text-muted-foreground">損益%</th>
@@ -125,6 +130,7 @@ export function PositionsTable({ positions, isDelayed, className }: PositionsTab
                     <TrendingDown className="h-4 w-4 text-destructive inline" />
                   )}
                 </td>
+                <td className="text-right py-2 px-2">{pos.quantity.toLocaleString()}</td>
                 <td className="text-right py-2 px-2">${pos.avgPrice.toLocaleString()}</td>
                 <td className="text-right py-2 px-2">${pos.lastPrice.toLocaleString()}</td>
                 <td className={cn(

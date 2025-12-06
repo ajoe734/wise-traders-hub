@@ -1029,8 +1029,9 @@ export function getUserSubscriptions(userId: string): SubscriptionWithDetails[] 
 
 export function getSignalsForUser(userId: string): SignalWithPerson[] {
   // MVP 展示用：返回所有投顧分析師的訊號
+  const now = new Date();
   return signals
-    .filter(s => s.timeVisible <= new Date())
+    .filter(s => s.timeVisible <= now)
     .map(signal => ({
       ...signal,
       person: people.find(p => p.id === signal.personId)!,
