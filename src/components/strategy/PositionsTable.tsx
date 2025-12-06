@@ -19,6 +19,13 @@ export function PositionsTable({ positions, isDelayed, className }: PositionsTab
     );
   }
 
+  // Calculate totals
+  const totalMarketValue = positions.reduce((sum, pos) => sum + pos.marketValue, 0);
+  const totalPnlAmt = positions.reduce((sum, pos) => sum + pos.pnlAmt, 0);
+  const totalPnlPct = totalMarketValue > 0 
+    ? (totalPnlAmt / (totalMarketValue - totalPnlAmt)) * 100 
+    : 0;
+
   return (
     <div className={cn("space-y-3", className)}>
       <div className="flex items-center justify-between">
@@ -28,6 +35,28 @@ export function PositionsTable({ positions, isDelayed, className }: PositionsTab
             T+7 教學用
           </Badge>
         )}
+      </div>
+
+      {/* Market Value Summary */}
+      <div className="p-3 bg-muted/30 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground">總市值</p>
+            <p className="text-lg font-bold">${totalMarketValue.toLocaleString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">未實現損益</p>
+            <p className={cn(
+              "text-lg font-bold",
+              totalPnlAmt >= 0 ? "text-success" : "text-destructive"
+            )}>
+              {totalPnlAmt >= 0 ? '+' : ''}{totalPnlAmt.toLocaleString()}
+              <span className="text-sm ml-1">
+                ({totalPnlPct >= 0 ? '+' : ''}{totalPnlPct.toFixed(2)}%)
+              </span>
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Mobile: Cards */}
