@@ -20,83 +20,71 @@ import {
   LineChart
 } from 'lucide-react';
 import { WeeklyLimitUpLeaderboard, mockLeaderboardEntries } from '@/components/WeeklyLimitUpLeaderboard';
-import heroDashboardMockup from '@/assets/hero-dashboard-mockup.png';
+import heroBg from '@/assets/hero-bg.png';
 
 const Index = () => {
   return (
     <PortalLayout>
-      {/* Hero Section - Minimalist */}
+      {/* Hero Section - With Background Image */}
       <section className="relative overflow-hidden min-h-[75vh] flex items-center">
-        {/* Gradient Background - Light Gray to White */}
-        <div className="absolute inset-0 gradient-hero" />
+        {/* Background Image */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${heroBg})` }}
+        />
+        {/* Gradient Overlay for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/80 to-background/40" />
         
         <div className="container relative z-10 py-section">
-          <div className="grid lg:grid-cols-[55%_45%] gap-xl lg:gap-3xl items-center">
-            {/* Left Column - Text Content */}
-            <div className="animate-fade-in">
-              <h1 className="text-h1 tracking-tight mb-md text-foreground">
-                專業投顧 × 智慧 AI
-              </h1>
-              
-              <p className="text-base md:text-lg text-muted-foreground mb-lg max-w-lg">
-                透過 LINE 直接接收策略訊號、漲停邏輯與完整教學，把看盤時間變成明確、可複製的投資流程。
-              </p>
-              
-              {/* Selling Points */}
-              <ul className="space-y-sm mb-lg">
-                <li className="flex items-center gap-sm">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-muted">
-                    <Zap className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <span className="text-foreground">即時推播，掌握每一次價量關鍵</span>
-                </li>
-                <li className="flex items-center gap-sm">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-muted">
-                    <Target className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <span className="text-foreground">清楚的漲停策略與教學步驟</span>
-                </li>
-                <li className="flex items-center gap-sm">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-muted">
-                    <LineChart className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <span className="text-foreground">回測、勝率、績效全透明</span>
-                </li>
-              </ul>
-              
-              {/* CTA Buttons - Left Aligned */}
-              <div className="flex flex-col sm:flex-row gap-sm">
-                <Button size="xl" asChild>
-                  <Link to="/experts">
-                    開始探索
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Link>
-                </Button>
-                <Button size="xl" variant="secondary" asChild>
-                  <Link to="/pricing">查看方案比較</Link>
-                </Button>
-              </div>
-              
-              {/* Hint Text */}
-              <p className="text-sm text-muted-foreground mt-md flex items-center gap-2">
-                <ChevronDown className="h-4 w-4 animate-bounce" />
-                下滑比較投顧分析師與實戰導師
-              </p>
+          <div className="max-w-2xl animate-fade-in">
+            <h1 className="text-h1 tracking-tight mb-md text-foreground drop-shadow-sm">
+              專業投顧 × 智慧 AI
+            </h1>
+            
+            <p className="text-base md:text-lg text-muted-foreground mb-lg max-w-lg">
+              透過 LINE 直接接收策略訊號、漲停邏輯與完整教學，把看盤時間變成明確、可複製的投資流程。
+            </p>
+            
+            {/* Selling Points */}
+            <ul className="space-y-sm mb-lg">
+              <li className="flex items-center gap-sm">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-background/80 backdrop-blur-sm">
+                  <Zap className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <span className="text-foreground">即時推播，掌握每一次價量關鍵</span>
+              </li>
+              <li className="flex items-center gap-sm">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-background/80 backdrop-blur-sm">
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <span className="text-foreground">清楚的漲停策略與教學步驟</span>
+              </li>
+              <li className="flex items-center gap-sm">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-background/80 backdrop-blur-sm">
+                  <LineChart className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <span className="text-foreground">回測、勝率、績效全透明</span>
+              </li>
+            </ul>
+            
+            {/* CTA Buttons - Left Aligned */}
+            <div className="flex flex-col sm:flex-row gap-sm">
+              <Button size="xl" asChild>
+                <Link to="/experts">
+                  開始探索
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Link>
+              </Button>
+              <Button size="xl" variant="secondary" asChild>
+                <Link to="/pricing">查看方案比較</Link>
+              </Button>
             </div>
             
-            {/* Right Column - Dashboard Mockup */}
-            <div className="relative order-first lg:order-last flex justify-center lg:justify-end">
-              <div className="relative">
-                <img 
-                  src={heroDashboardMockup} 
-                  alt="投資訊號儀表板示意圖" 
-                  className="relative z-10 w-full max-w-[260px] lg:max-w-[320px] h-auto animate-float"
-                  style={{
-                    filter: 'drop-shadow(0 20px 40px rgba(0, 0, 0, 0.12))'
-                  }}
-                />
-              </div>
-            </div>
+            {/* Hint Text */}
+            <p className="text-sm text-muted-foreground mt-md flex items-center gap-2">
+              <ChevronDown className="h-4 w-4 animate-bounce" />
+              下滑比較投顧分析師與實戰導師
+            </p>
           </div>
         </div>
       </section>
