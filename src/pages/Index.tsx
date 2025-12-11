@@ -20,69 +20,73 @@ import {
   LineChart
 } from 'lucide-react';
 import { WeeklyLimitUpLeaderboard, mockLeaderboardEntries } from '@/components/WeeklyLimitUpLeaderboard';
-import heroMockup from '@/assets/hero-mockup.png';
+import heroDashboardMockup from '@/assets/hero-dashboard-mockup.png';
 
 const Index = () => {
   return (
     <PortalLayout>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden min-h-[85vh] flex items-center">
-        {/* Gradient Background - Red to Blue */}
+      {/* Hero Section - Minimalist */}
+      <section className="relative overflow-hidden min-h-[80vh] flex items-center">
+        {/* Gradient Background - Light Gray to White */}
         <div 
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(135deg, hsl(var(--advisor) / 0.08) 0%, hsl(var(--mentor) / 0.08) 100%)'
+            background: 'linear-gradient(180deg, #F1F1F1 0%, #FFFFFF 100%)'
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/80" />
         
-        <div className="container relative z-10 py-12 md:py-16">
+        <div className="container relative z-10 py-10 md:py-14">
           <div className="grid lg:grid-cols-[55%_45%] gap-8 lg:gap-12 items-center">
             {/* Left Column - Text Content */}
             <div className="animate-fade-in">
-              <Badge variant="secondary" className="mb-4">
-                專業投顧 × AI 教學系統
-              </Badge>
-              
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-4 text-foreground">
                 專業投顧 × 智慧 AI
               </h1>
               
-              <p className="text-lg md:text-xl text-muted-foreground mb-6">
-                使用 LINE 帳號登入，接收最即時的策略訊號通知
+              <p className="text-base md:text-lg text-muted-foreground mb-8 max-w-lg">
+                透過 LINE 直接接收策略訊號、漲停邏輯與完整教學，把看盤時間變成明確、可複製的投資流程。
               </p>
               
               {/* Selling Points */}
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-advisor/10">
-                    <Zap className="h-4 w-4 text-advisor" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground/5">
+                    <Zap className="h-4 w-4 text-foreground" />
                   </div>
-                  <span className="font-medium">即時訊號推播</span>
+                  <span className="text-foreground">即時推播，掌握每一次價量關鍵</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-advisor/10">
-                    <Target className="h-4 w-4 text-advisor" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground/5">
+                    <Target className="h-4 w-4 text-foreground" />
                   </div>
-                  <span className="font-medium">清楚的漲停邏輯與教學</span>
+                  <span className="text-foreground">清楚的漲停策略與教學步驟</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-mentor/10">
-                    <LineChart className="h-4 w-4 text-mentor" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground/5">
+                    <LineChart className="h-4 w-4 text-foreground" />
                   </div>
-                  <span className="font-medium">完整績效、回測與勝率統計</span>
+                  <span className="text-foreground">回測、勝率、績效全透明</span>
                 </li>
               </ul>
               
               {/* CTA Buttons - Left Aligned */}
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button size="xl" className="bg-gradient-to-r from-advisor to-advisor-dark hover:opacity-90 text-white shadow-lg" asChild>
+                <Button 
+                  size="xl" 
+                  className="bg-[#E53935] hover:bg-[#C62828] text-white shadow-lg" 
+                  asChild
+                >
                   <Link to="/experts">
                     開始探索
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Link>
                 </Button>
-                <Button size="xl" variant="outline" className="bg-background/80 backdrop-blur-sm" asChild>
+                <Button 
+                  size="xl" 
+                  variant="outline" 
+                  className="bg-white border-border text-foreground hover:bg-secondary" 
+                  asChild
+                >
                   <Link to="/pricing">查看方案比較</Link>
                 </Button>
               </div>
@@ -90,31 +94,26 @@ const Index = () => {
               {/* Hint Text */}
               <p className="text-sm text-muted-foreground mt-6 flex items-center gap-2">
                 <ChevronDown className="h-4 w-4 animate-bounce" />
-                下滑比較投顧分析師與實戰導師的服務內容
+                下滑比較投顧分析師與實戰導師
               </p>
             </div>
             
-            {/* Right Column - Mockup Image */}
-            <div className="relative animate-slide-up lg:animate-fade-in order-first lg:order-last">
-              <div className="relative mx-auto max-w-[280px] lg:max-w-[360px]">
-                {/* Glow Effect */}
-                <div 
-                  className="absolute -inset-4 rounded-[3rem] opacity-30 blur-2xl"
-                  style={{
-                    background: 'linear-gradient(135deg, hsl(var(--advisor) / 0.5) 0%, hsl(var(--mentor) / 0.5) 100%)'
-                  }}
-                />
+            {/* Right Column - Dashboard Mockup */}
+            <div className="relative order-first lg:order-last flex justify-center lg:justify-end">
+              <div className="relative">
                 <img 
-                  src={heroMockup} 
+                  src={heroDashboardMockup} 
                   alt="投資訊號儀表板示意圖" 
-                  className="relative z-10 w-full h-auto drop-shadow-2xl"
+                  className="relative z-10 w-full max-w-[260px] lg:max-w-[320px] h-auto animate-float"
+                  style={{
+                    filter: 'drop-shadow(0 25px 50px rgba(0, 0, 0, 0.15))'
+                  }}
                 />
               </div>
             </div>
           </div>
         </div>
       </section>
-
       {/* Two Service Lines */}
       <section className="py-16 md:py-24 bg-muted/30">
         <div className="container">
