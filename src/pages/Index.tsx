@@ -190,12 +190,49 @@ const Index = () => {
           <div className="grid md:grid-cols-2 gap-xl max-w-5xl mx-auto">
             {/* Signal List Preview */}
             <div>
-              <div className="bg-muted rounded-lg p-lg mb-md aspect-[4/3] flex items-center justify-center">
-                <div className="text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
-                    <Zap className="h-8 w-8" />
+              <div className="bg-background rounded-lg border border-border p-md mb-md">
+                <div className="flex items-center gap-2 mb-md pb-md border-b border-border">
+                  <Zap className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">即時訊號牆</span>
+                  <Badge variant="outline" className="text-[10px] ml-auto">即時</Badge>
+                </div>
+                <div className="space-y-3">
+                  {/* Sample Signal 1 */}
+                  <div className="p-3 rounded-md bg-muted/50 border-l-2 border-success">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-sm">2330.TW 台積電</span>
+                      <Badge className="bg-success/10 text-success text-[10px]">買進</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">突破季線壓力，外資連續買超</p>
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                      <span>約 580-590</span>
+                      <span>09:32</span>
+                    </div>
                   </div>
-                  <p className="text-muted-foreground text-sm">即時訊號列表預覽</p>
+                  {/* Sample Signal 2 */}
+                  <div className="p-3 rounded-md bg-muted/50 border-l-2 border-primary">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-sm">2454.TW 聯發科</span>
+                      <Badge className="bg-primary/10 text-primary text-[10px]">加碼</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">續創新高，AI 晶片出貨成長</p>
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                      <span>約 1250-1280</span>
+                      <span>10:15</span>
+                    </div>
+                  </div>
+                  {/* Sample Signal 3 */}
+                  <div className="p-3 rounded-md bg-muted/50 border-l-2 border-amber-500">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-sm">3008.TW 大立光</span>
+                      <Badge className="bg-amber-500/10 text-amber-600 text-[10px]">減碼</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">達目標價位，量能萎縮先獲利了結</p>
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                      <span>約 155-160</span>
+                      <span>11:00</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <h4 className="text-h5 mb-xs text-foreground">即時訊號</h4>
@@ -206,12 +243,44 @@ const Index = () => {
 
             {/* Equity Curve Preview */}
             <div>
-              <div className="bg-muted rounded-lg p-lg mb-md aspect-[4/3] flex items-center justify-center">
-                <div className="text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
-                    <TrendingUp className="h-8 w-8" />
+              <div className="bg-background rounded-lg border border-border p-md mb-md">
+                <div className="flex items-center justify-between mb-md pb-md border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">淨值曲線</span>
                   </div>
-                  <p className="text-muted-foreground text-sm">權益曲線預覽</p>
+                  <span className="text-success text-sm font-semibold">+32.4%</span>
+                </div>
+                {/* Simple Chart Visualization */}
+                <div className="h-40 flex items-end gap-1">
+                  {[35, 42, 38, 55, 48, 62, 58, 72, 68, 78, 85, 82, 92, 88, 95, 100].map((height, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 bg-gradient-to-t from-primary/20 to-primary/60 rounded-t"
+                      style={{ height: `${height}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-between mt-3 text-[10px] text-muted-foreground">
+                  <span>1月</span>
+                  <span>4月</span>
+                  <span>7月</span>
+                  <span>10月</span>
+                </div>
+                {/* Stats Row */}
+                <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-border">
+                  <div className="text-center">
+                    <p className="text-[10px] text-muted-foreground">勝率</p>
+                    <p className="text-sm font-semibold">62.5%</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-muted-foreground">夏普值</p>
+                    <p className="text-sm font-semibold">1.85</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-muted-foreground">最大回撤</p>
+                    <p className="text-sm font-semibold text-destructive">-12.3%</p>
+                  </div>
                 </div>
               </div>
               <h4 className="text-h5 mb-xs text-foreground">權益曲線</h4>
