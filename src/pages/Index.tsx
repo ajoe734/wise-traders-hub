@@ -40,7 +40,7 @@ const Index = () => {
               更快看懂市場轉折的方式
             </p>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-md text-primary-foreground leading-[1.15]">
-              專業投顧 × 智慧 AI
+              專業投顧
             </h1>
             
             <p className="text-lg md:text-xl text-primary-foreground/80 mb-xl max-w-md leading-relaxed">
