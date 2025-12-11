@@ -54,7 +54,7 @@ export function ExpertCard({ person }: ExpertCardProps) {
               src={person.avatarUrl || '/placeholder.svg'}
               alt={person.name}
               className={cn(
-                "h-14 w-14 rounded-full object-cover ring-2",
+                "h-16 w-16 rounded-full object-cover object-top ring-2",
                 isAdvisor ? "ring-advisor/20" : "ring-mentor/20"
               )}
             />
