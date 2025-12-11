@@ -5,30 +5,36 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-        // Custom variants
-        advisor: "bg-advisor text-advisor-foreground hover:bg-advisor/90 shadow-sm hover:shadow-md",
-        "advisor-outline": "border-2 border-advisor text-advisor bg-transparent hover:bg-advisor hover:text-advisor-foreground",
-        mentor: "bg-mentor text-mentor-foreground hover:bg-mentor/90 shadow-sm hover:shadow-md",
-        "mentor-outline": "border-2 border-mentor text-mentor bg-transparent hover:bg-mentor hover:text-mentor-foreground",
-        hero: "gradient-hero text-primary-foreground shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
-        "hero-advisor": "gradient-advisor text-advisor-foreground shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
-        "hero-mentor": "gradient-mentor text-mentor-foreground shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
+        // Primary - Red CTA
+        default: "bg-cta text-cta-foreground hover:bg-cta-hover shadow-sm",
+        // Secondary - White with gray border
+        secondary: "bg-card text-foreground border border-border hover:bg-muted",
+        // Ghost - Transparent with black text
+        ghost: "text-foreground hover:bg-muted",
+        // Outline - Same as secondary
+        outline: "border border-border bg-card text-foreground hover:bg-muted",
+        // Destructive
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        // Link
+        link: "text-cta underline-offset-4 hover:underline",
+        // Legacy variants mapped to new system
+        advisor: "bg-cta text-cta-foreground hover:bg-cta-hover shadow-sm",
+        "advisor-outline": "border border-border bg-card text-foreground hover:bg-muted",
+        mentor: "bg-foreground text-background hover:bg-foreground/90 shadow-sm",
+        "mentor-outline": "border border-border bg-card text-foreground hover:bg-muted",
+        hero: "bg-cta text-cta-foreground hover:bg-cta-hover shadow-sm",
+        "hero-advisor": "bg-cta text-cta-foreground hover:bg-cta-hover shadow-sm",
+        "hero-mentor": "bg-foreground text-background hover:bg-foreground/90 shadow-sm",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-lg px-8",
-        xl: "h-12 rounded-lg px-10 text-base",
+        lg: "h-11 rounded-md px-8",
+        xl: "h-12 rounded-md px-10 text-base",
         icon: "h-10 w-10",
         touch: "h-12 min-w-[44px] px-6",
       },
