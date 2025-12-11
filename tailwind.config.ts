@@ -28,6 +28,7 @@ export default {
         foreground: "hsl(var(--foreground))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
+          hover: "hsl(var(--primary-hover))",
           foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
@@ -54,6 +55,12 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        cta: {
+          DEFAULT: "hsl(var(--cta))",
+          hover: "hsl(var(--cta-hover))",
+          foreground: "hsl(var(--cta-foreground))",
+        },
+        // Legacy - mapped to grayscale
         advisor: {
           DEFAULT: "hsl(var(--advisor))",
           dark: "hsl(var(--advisor-dark))",

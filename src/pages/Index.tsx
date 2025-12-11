@@ -28,12 +28,7 @@ const Index = () => {
       {/* Hero Section - Minimalist */}
       <section className="relative overflow-hidden min-h-[80vh] flex items-center">
         {/* Gradient Background - Light Gray to White */}
-        <div 
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(180deg, #F1F1F1 0%, #FFFFFF 100%)'
-          }}
-        />
+        <div className="absolute inset-0 gradient-hero" />
         
         <div className="container relative z-10 py-10 md:py-14">
           <div className="grid lg:grid-cols-[55%_45%] gap-8 lg:gap-12 items-center">
@@ -50,20 +45,20 @@ const Index = () => {
               {/* Selling Points */}
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center gap-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground/5">
-                    <Zap className="h-4 w-4 text-foreground" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-muted">
+                    <Zap className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <span className="text-foreground">即時推播，掌握每一次價量關鍵</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground/5">
-                    <Target className="h-4 w-4 text-foreground" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-muted">
+                    <Target className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <span className="text-foreground">清楚的漲停策略與教學步驟</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground/5">
-                    <LineChart className="h-4 w-4 text-foreground" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-muted">
+                    <LineChart className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <span className="text-foreground">回測、勝率、績效全透明</span>
                 </li>
@@ -71,22 +66,13 @@ const Index = () => {
               
               {/* CTA Buttons - Left Aligned */}
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button 
-                  size="xl" 
-                  className="bg-[#E53935] hover:bg-[#C62828] text-white shadow-lg" 
-                  asChild
-                >
+                <Button size="xl" asChild>
                   <Link to="/experts">
                     開始探索
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Link>
                 </Button>
-                <Button 
-                  size="xl" 
-                  variant="outline" 
-                  className="bg-white border-border text-foreground hover:bg-secondary" 
-                  asChild
-                >
+                <Button size="xl" variant="secondary" asChild>
                   <Link to="/pricing">查看方案比較</Link>
                 </Button>
               </div>
@@ -106,7 +92,7 @@ const Index = () => {
                   alt="投資訊號儀表板示意圖" 
                   className="relative z-10 w-full max-w-[260px] lg:max-w-[320px] h-auto animate-float"
                   style={{
-                    filter: 'drop-shadow(0 25px 50px rgba(0, 0, 0, 0.15))'
+                    filter: 'drop-shadow(0 20px 40px rgba(0, 0, 0, 0.12))'
                   }}
                 />
               </div>
@@ -114,11 +100,12 @@ const Index = () => {
           </div>
         </div>
       </section>
+
       {/* Two Service Lines */}
-      <section className="py-16 md:py-24 bg-muted/30">
+      <section className="py-16 md:py-24 bg-card">
         <div className="container">
           <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">選擇適合你的服務</h2>
+            <h2 className="text-2xl md:text-3xl font-bold mb-4 text-foreground">選擇適合你的服務</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               我們提供兩種服務路線，滿足不同投資人的需求
             </p>
@@ -126,16 +113,16 @@ const Index = () => {
 
           <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
             {/* Advisor Card */}
-            <Card className="relative overflow-hidden border-2 border-advisor/20 hover:border-advisor/40 transition-colors">
-              <div className="absolute top-0 left-0 right-0 h-1.5 gradient-advisor" />
-              <CardContent className="p-8">
+            <Card className="relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-12 bg-foreground/5" />
+              <CardContent className="p-8 pt-16">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-advisor-light">
-                    <Radio className="h-6 w-6 text-advisor" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted">
+                    <Radio className="h-6 w-6 text-muted-foreground" />
                   </div>
-                  <Badge variant="advisor">投顧分析師</Badge>
+                  <Badge variant="secondary">投顧分析師</Badge>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">
+                <h3 className="text-xl font-semibold mb-3 text-foreground">
                   跟投顧分析師走完整策略
                 </h3>
                 <p className="text-muted-foreground mb-6">
@@ -143,39 +130,44 @@ const Index = () => {
                   每一筆操作都有詳細的教學解說。
                 </p>
                 <ul className="space-y-2 mb-6">
-                  <li className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="h-4 w-4 text-advisor" />
+                  <li className="flex items-center gap-2 text-sm text-foreground">
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
                     即時策略訊號推播
                   </li>
-                  <li className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="h-4 w-4 text-advisor" />
+                  <li className="flex items-center gap-2 text-sm text-foreground">
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
                     每筆操作附帶教學說明
                   </li>
-                  <li className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="h-4 w-4 text-advisor" />
+                  <li className="flex items-center gap-2 text-sm text-foreground">
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
                     進階持股健檢報告（L2）
                   </li>
                 </ul>
-                <Button variant="advisor" className="w-full" asChild>
-                  <Link to="/experts?role=advisor">
-                    查看投顧分析師與方案
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Link>
-                </Button>
+                <div className="flex gap-3">
+                  <Button className="flex-1" asChild>
+                    <Link to="/experts?role=advisor">
+                      查看方案
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Link>
+                  </Button>
+                  <Button variant="secondary" asChild>
+                    <Link to="/experts?role=advisor">了解更多</Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
             {/* Mentor Card */}
-            <Card className="relative overflow-hidden border-2 border-mentor/20 hover:border-mentor/40 transition-colors">
-              <div className="absolute top-0 left-0 right-0 h-1.5 gradient-mentor" />
-              <CardContent className="p-8">
+            <Card className="relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-12 bg-foreground/5" />
+              <CardContent className="p-8 pt-16">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-mentor-light">
-                    <BookOpen className="h-6 w-6 text-mentor" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted">
+                    <BookOpen className="h-6 w-6 text-muted-foreground" />
                   </div>
-                  <Badge variant="mentor">實戰導師</Badge>
+                  <Badge variant="secondary">實戰導師</Badge>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">
+                <h3 className="text-xl font-semibold mb-3 text-foreground">
                   跟實戰導師學實戰
                 </h3>
                 <p className="text-muted-foreground mb-6">
@@ -183,25 +175,30 @@ const Index = () => {
                   所有內容至少延遲 7 天，僅供教學參考。
                 </p>
                 <ul className="space-y-2 mb-6">
-                  <li className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="h-4 w-4 text-mentor" />
+                  <li className="flex items-center gap-2 text-sm text-foreground">
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
                     每週實戰週記教學
                   </li>
-                  <li className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="h-4 w-4 text-mentor" />
+                  <li className="flex items-center gap-2 text-sm text-foreground">
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
                     完整操作邏輯拆解
                   </li>
-                  <li className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="h-4 w-4 text-mentor" />
+                  <li className="flex items-center gap-2 text-sm text-foreground">
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
                     歷史案例深度學習
                   </li>
                 </ul>
-                <Button variant="mentor" className="w-full" asChild>
-                  <Link to="/experts?role=coach">
-                    查看實戰導師與週記方案
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Link>
-                </Button>
+                <div className="flex gap-3">
+                  <Button variant="mentor" className="flex-1" asChild>
+                    <Link to="/experts?role=coach">
+                      查看方案
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Link>
+                  </Button>
+                  <Button variant="secondary" asChild>
+                    <Link to="/experts?role=coach">了解更多</Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -209,12 +206,12 @@ const Index = () => {
       </section>
 
       {/* Weekly Limit Up Leaderboard */}
-      <section className="py-16 md:py-24">
+      <section className="py-16 md:py-24 bg-background">
         <div className="container">
           <div className="grid lg:grid-cols-2 gap-8 max-w-5xl mx-auto items-start">
             <div>
-              <Badge variant="advisor" className="mb-4">熱門排行</Badge>
-              <h2 className="text-2xl md:text-3xl font-bold mb-4">
+              <Badge variant="secondary" className="mb-4">熱門排行</Badge>
+              <h2 className="text-2xl md:text-3xl font-bold mb-4 text-foreground">
                 本週漲停王排行榜
               </h2>
               <p className="text-muted-foreground mb-6">
@@ -223,15 +220,15 @@ const Index = () => {
               </p>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-advisor" />
+                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
                   基於實際交易紀錄統計
                 </li>
                 <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-advisor" />
+                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
                   每日盤後即時更新排名
                 </li>
                 <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-advisor" />
+                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
                   公開透明的績效追蹤
                 </li>
               </ul>
@@ -242,10 +239,10 @@ const Index = () => {
       </section>
 
       {/* How It Works */}
-      <section className="py-16 md:py-24">
+      <section className="py-16 md:py-24 bg-card">
         <div className="container">
           <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">如何開始？</h2>
+            <h2 className="text-2xl md:text-3xl font-bold mb-4 text-foreground">如何開始？</h2>
             <p className="text-muted-foreground">四個簡單步驟，開始你的投資學習之旅</p>
           </div>
 
@@ -278,13 +275,13 @@ const Index = () => {
             ].map((item) => (
               <Card key={item.step} variant="elevated" className="text-center">
                 <CardContent className="p-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted text-muted-foreground mx-auto mb-4">
                     <item.icon className="h-6 w-6" />
                   </div>
                   <Badge variant="secondary" className="mb-3">
                     步驟 {item.step}
                   </Badge>
-                  <h3 className="font-semibold mb-2">{item.title}</h3>
+                  <h3 className="font-semibold mb-2 text-foreground">{item.title}</h3>
                   <p className="text-sm text-muted-foreground">{item.description}</p>
                 </CardContent>
               </Card>
@@ -294,33 +291,33 @@ const Index = () => {
       </section>
 
       {/* Trust Section */}
-      <section className="py-16 md:py-24 bg-muted/30">
+      <section className="py-16 md:py-24 bg-background">
         <div className="container">
           <div className="max-w-4xl mx-auto">
             <div className="grid md:grid-cols-3 gap-8 text-center">
               <div>
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mx-auto mb-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-md bg-muted text-muted-foreground mx-auto mb-4">
                   <Shield className="h-7 w-7" />
                 </div>
-                <h3 className="font-semibold mb-2">合規經營</h3>
+                <h3 className="font-semibold mb-2 text-foreground">合規經營</h3>
                 <p className="text-sm text-muted-foreground">
                   投顧分析師持有合法執照，所有服務依法令規範辦理
                 </p>
               </div>
               <div>
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mx-auto mb-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-md bg-muted text-muted-foreground mx-auto mb-4">
                   <GraduationCap className="h-7 w-7" />
                 </div>
-                <h3 className="font-semibold mb-2">教育為本</h3>
+                <h3 className="font-semibold mb-2 text-foreground">教育為本</h3>
                 <p className="text-sm text-muted-foreground">
                   每筆操作都是教學機會，幫助你建立自己的判斷能力
                 </p>
               </div>
               <div>
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mx-auto mb-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-md bg-muted text-muted-foreground mx-auto mb-4">
                   <Calendar className="h-7 w-7" />
                 </div>
-                <h3 className="font-semibold mb-2">透明揭露</h3>
+                <h3 className="font-semibold mb-2 text-foreground">透明揭露</h3>
                 <p className="text-sm text-muted-foreground">
                   實戰導師內容至少 T+7 延遲，明確區分即時與教學
                 </p>
@@ -331,23 +328,23 @@ const Index = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 md:py-24">
+      <section className="py-16 md:py-24 bg-card">
         <div className="container">
           <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold mb-4 text-foreground">
               準備好開始了嗎？
             </h2>
             <p className="text-muted-foreground mb-8">
               立即註冊，探索適合你的投顧分析師或實戰導師
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="xl" variant="hero" asChild>
+              <Button size="xl" asChild>
                 <Link to="/auth/register">
                   免費註冊
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
-              <Button size="xl" variant="outline" asChild>
+              <Button size="xl" variant="secondary" asChild>
                 <Link to="/experts">瀏覽所有專家</Link>
               </Button>
             </div>

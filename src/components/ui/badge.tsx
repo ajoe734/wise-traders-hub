@@ -4,19 +4,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
-        // Custom variants
-        advisor: "border-transparent bg-advisor text-advisor-foreground",
-        "advisor-light": "border-advisor/20 bg-advisor-light text-advisor",
-        mentor: "border-transparent bg-mentor text-mentor-foreground",
-        "mentor-light": "border-mentor/20 bg-mentor-light text-mentor",
+        default: "border-transparent bg-foreground text-background",
+        secondary: "border-border bg-muted text-muted-foreground",
+        destructive: "border-transparent bg-destructive text-destructive-foreground",
+        outline: "border-border text-foreground bg-card",
+        // Role badges - now grayscale
+        advisor: "border-border bg-muted text-foreground",
+        "advisor-light": "border-border bg-muted text-muted-foreground",
+        mentor: "border-border bg-muted text-foreground",
+        "mentor-light": "border-border bg-muted text-muted-foreground",
+        // Status badges
         "success-light": "border-success/20 bg-success-light text-success",
         "warning-light": "border-warning/20 bg-warning-light text-warning",
       },
