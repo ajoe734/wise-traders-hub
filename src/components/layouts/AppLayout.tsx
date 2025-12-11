@@ -55,7 +55,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-hero">
               <TrendingUp className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-foreground">智富投顧</span>
+            <span className="font-semibold text-foreground">智富股市實戰學院</span>
           </Link>
           <button
             onClick={() => {

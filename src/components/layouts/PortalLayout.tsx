@@ -32,7 +32,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground">
               <TrendingUp className="h-5 w-5 text-background" />
             </div>
-            <span className="text-lg font-semibold text-foreground">智富投顧</span>
+            <span className="text-lg font-semibold text-foreground">智富股市實戰學院</span>
           </Link>
 
           {/* Desktop Nav */}
@@ -162,7 +162,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
                 <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground">
                   <TrendingUp className="h-4 w-4 text-background" />
                 </div>
-                <span className="font-semibold text-foreground">智富投顧</span>
+                <span className="font-semibold text-foreground">智富股市實戰學院</span>
               </Link>
               <p className="text-sm text-muted-foreground max-w-sm">
                 穩健專業、誠信為本、教育為先。提供投顧分析師的即時策略服務與實戰導師的週記教學，幫助投資人建立自己的投資系統。
@@ -186,7 +186,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             </div>
           </div>
           <div className="border-t border-border mt-8 pt-8 text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} 智富投顧. 投資一定有風險，基金投資有賺有賠，申購前應詳閱公開說明書。
+            © {new Date().getFullYear()} 智富股市實戰學院. 投資一定有風險，基金投資有賺有賠，申購前應詳閱公開說明書。
           </div>
         </div>
       </footer>
