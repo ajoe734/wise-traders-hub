@@ -17,6 +17,26 @@ export default {
       },
     },
     extend: {
+      spacing: {
+        'xs': '4px',
+        'sm': '8px',
+        'md': '16px',
+        'lg': '24px',
+        'xl': '32px',
+        '2xl': '40px',
+        '3xl': '48px',
+        '4xl': '64px',
+        'section': '48px',
+        'card': '24px',
+      },
+      fontSize: {
+        'h1': ['2.5rem', { lineHeight: '1.2', fontWeight: '700' }],
+        'h2': ['2rem', { lineHeight: '1.25', fontWeight: '600' }],
+        'h3': ['1.5rem', { lineHeight: '1.3', fontWeight: '600' }],
+        'h4': ['1.25rem', { lineHeight: '1.35', fontWeight: '600' }],
+        'h5': ['1.125rem', { lineHeight: '1.4', fontWeight: '600' }],
+        'h6': ['1rem', { lineHeight: '1.4', fontWeight: '600' }],
+      },
       fontFamily: {
         sans: ["'Noto Sans TC'", "'Inter'", "system-ui", "sans-serif"],
       },
