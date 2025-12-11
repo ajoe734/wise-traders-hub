@@ -4,6 +4,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom gap utility aliases */
+@layer utilities {
+  .gap-section {
+    gap: 32px;
+  }
+  .gap-card {
+    gap: 24px;
+  }
+}
+
 @layer base {
   :root {
     /* Core palette - Minimalist Black & White */
