@@ -28,11 +28,11 @@ const Index = () => {
       <section className="relative overflow-hidden min-h-[70vh] flex items-center">
         {/* Background Image with darkened overlay */}
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: `url(${heroBg})` }}
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-fade-in"
+          style={{ backgroundImage: `url(${heroBg})`, animationDuration: '1.5s' }}
         />
         {/* Dark overlay for strong contrast */}
-        <div className="absolute inset-0 bg-foreground/70" />
+        <div className="absolute inset-0 bg-foreground/70 animate-fade-in" style={{ animationDuration: '1.5s' }} />
         
         <div className="container relative z-10 py-section">
           <div className="max-w-xl animate-fade-in">
