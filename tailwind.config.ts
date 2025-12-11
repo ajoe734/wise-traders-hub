@@ -56,11 +56,13 @@ export default {
         },
         advisor: {
           DEFAULT: "hsl(var(--advisor))",
+          dark: "hsl(var(--advisor-dark))",
           light: "hsl(var(--advisor-light))",
           foreground: "hsl(var(--advisor-foreground))",
         },
         mentor: {
           DEFAULT: "hsl(var(--mentor))",
+          dark: "hsl(var(--mentor-dark))",
           light: "hsl(var(--mentor-light))",
           foreground: "hsl(var(--mentor-foreground))",
         },
