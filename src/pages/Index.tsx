@@ -37,7 +37,7 @@ const Index = () => {
         <div className="container relative z-10 py-section">
           <div className="max-w-xl animate-fade-in">
             <p className="text-muted-foreground/80 text-sm mb-sm tracking-wide">
-              用21世紀用更愜意的方式賺錢
+              21世紀用更愜意的方式賺錢
             </p>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-md text-primary-foreground leading-[1.15]">
               不是看得多，是動得對
