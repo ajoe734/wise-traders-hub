@@ -46,7 +46,7 @@ const Index = () => {
               21世紀用更愜意的方式賺錢
             </p>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-md text-primary-foreground leading-[1.15] drop-shadow-lg">
-              不是看得多，是動得對
+              看得多不如動得對
             </h1>
             
             <p className="text-lg md:text-xl text-primary-foreground/80 mb-xl max-w-md leading-relaxed">
