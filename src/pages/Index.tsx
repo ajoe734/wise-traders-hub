@@ -33,19 +33,19 @@ const Index = () => {
           muted
           playsInline
           className="absolute inset-0 w-full h-full object-cover animate-fade-in"
-          style={{ animationDuration: '1.5s', objectPosition: 'center 70%' }}
+          style={{ animationDuration: '1.5s', objectPosition: 'center center' }}
         >
           <source src="/videos/hero-bg.mp4" type="video/mp4" />
         </video>
         {/* Dark overlay for strong contrast */}
-        <div className="absolute inset-0 bg-foreground/60 animate-fade-in" style={{ animationDuration: '1.5s' }} />
+        <div className="absolute inset-0 bg-gradient-to-r from-foreground/80 via-foreground/60 to-foreground/40 animate-fade-in" style={{ animationDuration: '1.5s' }} />
         
         <div className="container relative z-10 py-section">
           <div className="max-w-xl animate-fade-in">
-            <p className="text-muted-foreground/80 text-sm mb-sm tracking-wide">
+            <p className="text-primary-foreground/90 text-sm mb-sm tracking-wide font-medium">
               21世紀用更愜意的方式賺錢
             </p>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-md text-primary-foreground leading-[1.15]">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-md text-primary-foreground leading-[1.15] drop-shadow-lg">
               不是看得多，是動得對
             </h1>
             
