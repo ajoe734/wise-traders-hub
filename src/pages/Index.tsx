@@ -44,7 +44,7 @@ const Index = () => {
             </h1>
             
             <p className="text-lg md:text-xl text-primary-foreground/80 mb-xl max-w-md leading-relaxed">
-              用最直覺的方式接收策略訊號，比手動看盤更快、更透明。
+              盯盤時代已結束，即時Line通知讓你不錯過任何買賣點
             </p>
             
             {/* CTA Buttons */}
