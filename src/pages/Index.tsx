@@ -79,7 +79,7 @@ const Index = () => {
           <div className="grid md:grid-cols-3 gap-lg max-w-5xl mx-auto">
             {/* Feature 1 */}
             <Card variant="elevated" className="text-center">
-              <CardContent className="p-card pt-xl">
+              <CardContent className="p-card pt-10">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
                   <Zap className="h-7 w-7" />
                 </div>
@@ -92,7 +92,7 @@ const Index = () => {
 
             {/* Feature 2 */}
             <Card variant="elevated" className="text-center">
-              <CardContent className="p-card pt-xl">
+              <CardContent className="p-card pt-10">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
                   <Target className="h-7 w-7" />
                 </div>
@@ -105,7 +105,7 @@ const Index = () => {
 
             {/* Feature 3 */}
             <Card variant="elevated" className="text-center">
-              <CardContent className="p-card pt-xl">
+              <CardContent className="p-card pt-10">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
                   <LineChart className="h-7 w-7" />
                 </div>
