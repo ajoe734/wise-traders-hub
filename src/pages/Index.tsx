@@ -42,15 +42,11 @@ const Index = () => {
         
         <div className="container relative z-10 py-section">
           <div className="max-w-xl animate-fade-in">
-            <p className="text-primary-foreground/90 text-sm mb-sm tracking-wide font-medium">
-              21世紀用更愜意的方式賺錢
-            </p>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-md text-primary-foreground leading-[1.15] drop-shadow-lg">
-              看得多不如動得對
-            </h1>
-            
-            <p className="text-lg md:text-xl text-primary-foreground/80 mb-xl max-w-md leading-relaxed">
               讀萬卷書，不如緊跟大戶
+            </h1>
+            <p className="text-lg md:text-xl text-primary-foreground/80 mb-xl max-w-md leading-relaxed">
+              21世紀用更愜意的方式賺錢
             </p>
             
             {/* CTA Buttons */}
