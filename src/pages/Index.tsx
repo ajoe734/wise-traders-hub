@@ -43,7 +43,7 @@ const Index = () => {
         <div className="container relative z-10 py-section">
           <div className="max-w-xl animate-fade-in">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-md text-primary-foreground leading-[1.15] drop-shadow-lg">
-              讀萬卷書，不如緊跟大戶
+              讀萬卷書<br />不如緊跟大戶
             </h1>
             <p className="text-lg md:text-xl text-primary-foreground/80 mb-xl max-w-md leading-relaxed">
               21世紀用更愜意的方式賺錢
