@@ -50,7 +50,7 @@ const Index = () => {
             </h1>
             
             <p className="text-lg md:text-xl text-primary-foreground/80 mb-xl max-w-md leading-relaxed">
-              盯盤時代已結束，即時Line通知讓你不錯過任何買賣點
+              讀萬卷書，不如緊跟大戶
             </p>
             
             {/* CTA Buttons */}
