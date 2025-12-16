@@ -85,10 +85,10 @@ const Index = () => {
             {/* Feature 1 - 仙人指路 */}
             <Card variant="elevated" className="text-center overflow-hidden relative bg-black">
               <div 
-                className="absolute inset-0 bg-cover bg-center opacity-60 brightness-75"
+                className="absolute inset-0 bg-cover bg-center opacity-70"
                 style={{ backgroundImage: `url(${featureXianren})` }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
               <CardContent className="p-card pt-10 relative z-10">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white mx-auto mb-md backdrop-blur-sm">
                   <Zap className="h-7 w-7" />
@@ -103,10 +103,10 @@ const Index = () => {
             {/* Feature 2 - 三派會師 */}
             <Card variant="elevated" className="text-center overflow-hidden relative bg-black">
               <div 
-                className="absolute inset-0 bg-cover bg-center opacity-70 brightness-75"
+                className="absolute inset-0 bg-cover bg-center opacity-75"
                 style={{ backgroundImage: `url(${featureSanpai})` }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/40" />
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
               <CardContent className="p-card pt-10 relative z-10">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white mx-auto mb-md backdrop-blur-sm">
                   <Target className="h-7 w-7" />
@@ -121,10 +121,10 @@ const Index = () => {
             {/* Feature 3 - 招招有交代 */}
             <Card variant="elevated" className="text-center overflow-hidden relative bg-black">
               <div 
-                className="absolute inset-0 bg-cover bg-center opacity-65 brightness-[0.7]"
+                className="absolute inset-0 bg-cover bg-center opacity-70"
                 style={{ backgroundImage: `url(${featureJiaodai})` }}
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/60" />
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
               <CardContent className="p-card pt-10 relative z-10">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white mx-auto mb-md backdrop-blur-sm">
                   <LineChart className="h-7 w-7" />
