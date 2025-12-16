@@ -18,6 +18,9 @@ import {
   LineChart,
   TrendingUp
 } from 'lucide-react';
+import featureXianren from '@/assets/feature-xianren.png';
+import featureSanpai from '@/assets/feature-sanpai.png';
+import featureJiaodai from '@/assets/feature-jiaodai.png';
 import { WeeklyLimitUpLeaderboard, mockLeaderboardEntries } from '@/components/WeeklyLimitUpLeaderboard';
 
 
@@ -79,39 +82,51 @@ const Index = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-lg max-w-5xl mx-auto">
-            {/* Feature 1 */}
-            <Card variant="elevated" className="text-center">
-              <CardContent className="p-card pt-10">
+            {/* Feature 1 - 仙人指路 */}
+            <Card variant="elevated" className="text-center overflow-hidden relative">
+              <div 
+                className="absolute inset-0 bg-cover bg-center opacity-20"
+                style={{ backgroundImage: `url(${featureXianren})` }}
+              />
+              <CardContent className="p-card pt-10 relative z-10">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
                   <Zap className="h-7 w-7" />
                 </div>
-                <h3 className="text-h4 mb-sm text-foreground">即時策略訊號</h3>
+                <h3 className="text-h4 mb-sm text-foreground">仙人指路</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   第一時間推播，掌握每一次漲停或轉折訊號。
                 </p>
               </CardContent>
             </Card>
 
-            {/* Feature 2 */}
-            <Card variant="elevated" className="text-center">
-              <CardContent className="p-card pt-10">
+            {/* Feature 2 - 三派會師 */}
+            <Card variant="elevated" className="text-center overflow-hidden relative">
+              <div 
+                className="absolute inset-0 bg-cover bg-center opacity-20"
+                style={{ backgroundImage: `url(${featureSanpai})` }}
+              />
+              <CardContent className="p-card pt-10 relative z-10">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
                   <Target className="h-7 w-7" />
                 </div>
-                <h3 className="text-h4 mb-sm text-foreground">清楚的漲停邏輯</h3>
+                <h3 className="text-h4 mb-sm text-foreground">三派會師</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   從型態、量價、主力籌碼，完整拆解判斷流程。
                 </p>
               </CardContent>
             </Card>
 
-            {/* Feature 3 */}
-            <Card variant="elevated" className="text-center">
-              <CardContent className="p-card pt-10">
+            {/* Feature 3 - 招招有交代 */}
+            <Card variant="elevated" className="text-center overflow-hidden relative">
+              <div 
+                className="absolute inset-0 bg-cover bg-center opacity-20"
+                style={{ backgroundImage: `url(${featureJiaodai})` }}
+              />
+              <CardContent className="p-card pt-10 relative z-10">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
                   <LineChart className="h-7 w-7" />
                 </div>
-                <h3 className="text-h4 mb-sm text-foreground">透明績效</h3>
+                <h3 className="text-h4 mb-sm text-foreground">招招有交代</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   勝率、報酬、回測全都公開，信息更透明。
                 </p>
