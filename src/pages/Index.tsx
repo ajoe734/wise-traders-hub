@@ -83,16 +83,19 @@ const Index = () => {
 
           <div className="grid md:grid-cols-3 gap-lg max-w-5xl mx-auto">
             {/* Feature 1 - 仙人指路 */}
-            <Card variant="elevated" className="text-center overflow-hidden relative">
+            <Card variant="elevated" className="text-center overflow-hidden relative bg-card/95">
               <div 
-                className="absolute inset-0 bg-cover bg-center opacity-20"
+                className="absolute inset-0 bg-cover bg-center opacity-40 brightness-[0.6] contrast-125"
                 style={{ backgroundImage: `url(${featureXianren})` }}
               />
+              {/* Gradient overlay - light from top-right */}
+              <div className="absolute inset-0 bg-gradient-to-br from-transparent via-background/60 to-background/90" />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
               <CardContent className="p-card pt-10 relative z-10">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md backdrop-blur-sm">
                   <Zap className="h-7 w-7" />
                 </div>
-                <h3 className="text-h4 mb-sm text-foreground">仙人指路</h3>
+                <h3 className="text-h4 mb-sm text-foreground font-bold drop-shadow-sm">仙人指路</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   第一時間推播，掌握每一次漲停或轉折訊號。
                 </p>
@@ -100,16 +103,19 @@ const Index = () => {
             </Card>
 
             {/* Feature 2 - 三派會師 */}
-            <Card variant="elevated" className="text-center overflow-hidden relative">
+            <Card variant="elevated" className="text-center overflow-hidden relative bg-card/95">
               <div 
-                className="absolute inset-0 bg-cover bg-center opacity-20"
+                className="absolute inset-0 bg-cover bg-center opacity-50 brightness-[0.5] contrast-125"
                 style={{ backgroundImage: `url(${featureSanpai})` }}
               />
+              {/* Gradient overlay - light from center-bottom */}
+              <div className="absolute inset-0 bg-gradient-to-t from-transparent via-background/50 to-background/85" />
+              <div className="absolute inset-0 bg-radial-gradient" style={{ background: 'radial-gradient(ellipse at center bottom, transparent 20%, hsl(var(--background) / 0.7) 70%)' }} />
               <CardContent className="p-card pt-10 relative z-10">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md backdrop-blur-sm">
                   <Target className="h-7 w-7" />
                 </div>
-                <h3 className="text-h4 mb-sm text-foreground">三派會師</h3>
+                <h3 className="text-h4 mb-sm text-foreground font-bold drop-shadow-sm">三派會師</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   從型態、量價、主力籌碼，完整拆解判斷流程。
                 </p>
@@ -117,16 +123,19 @@ const Index = () => {
             </Card>
 
             {/* Feature 3 - 招招有交代 */}
-            <Card variant="elevated" className="text-center overflow-hidden relative">
+            <Card variant="elevated" className="text-center overflow-hidden relative bg-card/95">
               <div 
-                className="absolute inset-0 bg-cover bg-center opacity-20"
+                className="absolute inset-0 bg-cover bg-center opacity-45 brightness-[0.55] contrast-110"
                 style={{ backgroundImage: `url(${featureJiaodai})` }}
               />
+              {/* Gradient overlay - light from top-left */}
+              <div className="absolute inset-0 bg-gradient-to-bl from-transparent via-background/55 to-background/90" />
+              <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-transparent to-background/60" />
               <CardContent className="p-card pt-10 relative z-10">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto mb-md backdrop-blur-sm">
                   <LineChart className="h-7 w-7" />
                 </div>
-                <h3 className="text-h4 mb-sm text-foreground">招招有交代</h3>
+                <h3 className="text-h4 mb-sm text-foreground font-bold drop-shadow-sm">招招有交代</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   勝率、報酬、回測全都公開，信息更透明。
                 </p>
