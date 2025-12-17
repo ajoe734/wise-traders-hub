@@ -73,71 +73,134 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Three Core Features Section */}
+      {/* Three Core Features Section - Magazine Layout */}
       <section className="py-section bg-muted/50">
-        <div className="container">
-          <div className="text-center mb-xl">
-            <p className="text-muted-foreground text-sm mb-xs">一站式投資服務</p>
-            <h2 className="text-h2 text-foreground">三大核心功能</h2>
-          </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
+            {/* Left Column - Narrative */}
+            <div className="lg:sticky lg:top-32">
+              <p className="text-muted-foreground text-sm tracking-widest uppercase mb-sm">你會用到的三件事</p>
+              <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-md leading-tight">三招定勝負</h2>
+              <p className="text-lg text-muted-foreground leading-relaxed">
+                即時訊號、判斷路線、戰績回顧，三件事把你從盯盤裡解放。
+              </p>
+            </div>
 
-          <div className="grid md:grid-cols-3 gap-lg max-w-5xl mx-auto">
-            {/* Feature 1 - 仙人指路 */}
-            <Card variant="elevated" className="text-center overflow-hidden relative bg-black">
+            {/* Right Column - Staggered Cards */}
+            <div className="flex flex-col gap-6">
+              {/* Card 01 - 仙人指路 */}
               <div 
-                className="absolute inset-0 bg-cover bg-center opacity-70"
-                style={{ backgroundImage: `url(${featureXianren})` }}
-              />
-              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
-              <CardContent className="p-card pt-10 relative z-10">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white mx-auto mb-md backdrop-blur-sm">
-                  <Zap className="h-7 w-7" />
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-0"
+                style={{ 
+                  animation: 'fadeSlideUp 0.6s ease-out forwards',
+                  animationDelay: '0.1s',
+                  opacity: 0
+                }}
+              >
+                <div 
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  style={{ 
+                    backgroundImage: `url(${featureXianren})`,
+                    opacity: 0.6
+                  }}
+                />
+                <div 
+                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
+                />
+                {/* Large Number Decoration */}
+                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none">01</span>
+                {/* Red Dot */}
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                
+                <div className="relative z-10 p-8 pt-16 pb-10">
+                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">仙人指路</h3>
+                  <p className="text-white/70 leading-relaxed">
+                    第一時間推播，掌握每次漲停或轉折訊號。
+                  </p>
                 </div>
-                <h3 className="text-h4 mb-sm text-white font-bold">仙人指路</h3>
-                <p className="text-white/80 leading-relaxed">
-                  第一時間推播，掌握每一次漲停或轉折訊號。
-                </p>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Feature 2 - 三派會師 */}
-            <Card variant="elevated" className="text-center overflow-hidden relative bg-black">
+              {/* Card 02 - 三派會師 */}
               <div 
-                className="absolute inset-0 bg-cover bg-center opacity-75"
-                style={{ backgroundImage: `url(${featureSanpai})` }}
-              />
-              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
-              <CardContent className="p-card pt-10 relative z-10">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white mx-auto mb-md backdrop-blur-sm">
-                  <Target className="h-7 w-7" />
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-6"
+                style={{ 
+                  animation: 'fadeSlideUp 0.6s ease-out forwards',
+                  animationDelay: '0.25s',
+                  opacity: 0
+                }}
+              >
+                <div 
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  style={{ 
+                    backgroundImage: `url(${featureSanpai})`,
+                    opacity: 0.65
+                  }}
+                />
+                <div 
+                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
+                />
+                {/* Large Number Decoration */}
+                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none">02</span>
+                {/* Red Dot */}
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                
+                <div className="relative z-10 p-8 pt-16 pb-10">
+                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">三派會師</h3>
+                  <p className="text-white/70 leading-relaxed">
+                    把型態、量價、籌碼串成判斷路線。
+                  </p>
                 </div>
-                <h3 className="text-h4 mb-sm text-white font-bold">三派會師</h3>
-                <p className="text-white/80 leading-relaxed">
-                  從型態、量價、主力籌碼，完整拆解判斷流程。
-                </p>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Feature 3 - 招招有交代 */}
-            <Card variant="elevated" className="text-center overflow-hidden relative bg-black">
+              {/* Card 03 - 招招有交代 */}
               <div 
-                className="absolute inset-0 bg-cover bg-center opacity-70"
-                style={{ backgroundImage: `url(${featureJiaodai})` }}
-              />
-              <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
-              <CardContent className="p-card pt-10 relative z-10">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white mx-auto mb-md backdrop-blur-sm">
-                  <LineChart className="h-7 w-7" />
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-12"
+                style={{ 
+                  animation: 'fadeSlideUp 0.6s ease-out forwards',
+                  animationDelay: '0.4s',
+                  opacity: 0
+                }}
+              >
+                <div 
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  style={{ 
+                    backgroundImage: `url(${featureJiaodai})`,
+                    opacity: 0.6
+                  }}
+                />
+                <div 
+                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
+                />
+                {/* Large Number Decoration */}
+                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none">03</span>
+                {/* Red Dot */}
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                
+                <div className="relative z-10 p-8 pt-16 pb-10">
+                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">招招有交代</h3>
+                  <p className="text-white/70 leading-relaxed">
+                    勝率、報酬、回測全都透明公開。
+                  </p>
                 </div>
-                <h3 className="text-h4 mb-sm text-white font-bold">招招有交代</h3>
-                <p className="text-white/80 leading-relaxed">
-                  勝率、報酬、回測全都公開，信息更透明。
-                </p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </div>
       </section>
+
+      {/* Animation Keyframes */}
+      <style>{`
+        @keyframes fadeSlideUp {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
 
       {/* Two Service Lines - Moved Up */}
       <section className="py-section bg-background">
