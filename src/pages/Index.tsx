@@ -202,62 +202,143 @@ const Index = () => {
         }
       `}</style>
 
-      {/* Two Service Lines - Moved Up */}
+      {/* 選門派 Section - Magazine Layout */}
       <section className="py-section bg-background">
-        <div className="container">
-          <div className="text-center mb-xl">
-            <p className="text-muted-foreground text-sm mb-xs">找到適合你的學習路徑</p>
-            <h2 className="text-h2 text-foreground">選擇適合你的服務</h2>
-          </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
+            {/* Left Column - Narrative */}
+            <div className="lg:sticky lg:top-32">
+              <p className="text-muted-foreground text-sm tracking-widest uppercase mb-sm">江湖兩派，各走一招</p>
+              <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-md leading-tight">選一派，先走得下去</h2>
+              <p className="text-lg text-muted-foreground leading-relaxed mb-md">
+                想省時間就走「跟單派」，想練功底就走「修煉派」。兩派都看戰績說話。
+              </p>
+              <p className="text-sm text-muted-foreground/70">
+                不確定？先看週回顧，覺得合，再升級跟單派。
+              </p>
+            </div>
 
-          <div className="grid md:grid-cols-2 gap-lg max-w-5xl mx-auto">
-            {/* Advisor Card */}
-            <Card className="relative overflow-hidden group hover:shadow-lg transition-shadow">
-              <CardContent className="p-card">
-                <div className="flex items-center gap-sm mb-md">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <Radio className="h-6 w-6" />
-                  </div>
-                  <Badge variant="secondary">投顧分析師</Badge>
+            {/* Right Column - Two Sect Cards */}
+            <div className="flex flex-col gap-6">
+              {/* Card 1 - 跟單派 (Primary/Featured) */}
+              <div 
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ring-1 ring-white/20"
+                style={{ 
+                  animation: 'fadeSlideUp 0.6s ease-out forwards',
+                  animationDelay: '0.1s',
+                  opacity: 0,
+                  minHeight: '320px'
+                }}
+              >
+                <div 
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  style={{ 
+                    backgroundImage: `url(${featureXianren})`,
+                    opacity: 0.5
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/40 transition-opacity duration-300 group-hover:opacity-85" />
+                
+                {/* Sect Badge */}
+                <div className="absolute top-5 left-5 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[10px] text-white/70 font-medium transition-all duration-300 group-hover:bg-white/20 group-hover:text-white">門派</span>
+                  <Badge className="bg-primary/80 text-primary-foreground text-[10px]">熱門</Badge>
                 </div>
-                <h3 className="text-h3 mb-sm text-foreground">
-                  即時策略，跟著走
-                </h3>
-                <p className="text-muted-foreground mb-lg leading-relaxed">
-                  即時推播策略訊號，每筆操作附帶完整教學說明。
-                </p>
-                <Button className="w-full sm:w-auto" asChild>
-                  <Link to="/experts?role=advisor">
-                    查看細節
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+                {/* Red Dot */}
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                
+                <div className="relative z-10 p-8 pt-20 pb-8 flex flex-col h-full justify-end">
+                  <p className="text-white/50 text-sm mb-1">跟單派</p>
+                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:drop-shadow-lg">即時策略｜跟著走</h3>
+                  <p className="text-white/70 mb-6">
+                    關鍵時刻才出招，其餘時間你安心。
+                  </p>
+                  
+                  <div className="mb-6">
+                    <p className="text-white/50 text-xs mb-2 uppercase tracking-wider">適合你如果</p>
+                    <ul className="space-y-1.5 text-white/80 text-sm">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <span>你沒空天天盯盤</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <span>你想有人先替你把關時機</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <span>你要的是少犯錯，不是多操作</span>
+                      </li>
+                    </ul>
+                  </div>
+                  
+                  <Button className="w-full sm:w-auto" asChild>
+                    <Link to="/experts?role=advisor">
+                      加入跟單派
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
 
-            {/* Mentor Card */}
-            <Card className="relative overflow-hidden group hover:shadow-lg transition-shadow">
-              <CardContent className="p-card">
-                <div className="flex items-center gap-sm mb-md">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <BookOpen className="h-6 w-6" />
+              {/* Card 2 - 修煉派 (Secondary) */}
+              <div 
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 lg:ml-8"
+                style={{ 
+                  animation: 'fadeSlideUp 0.6s ease-out forwards',
+                  animationDelay: '0.25s',
+                  opacity: 0,
+                  minHeight: '280px'
+                }}
+              >
+                <div 
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  style={{ 
+                    backgroundImage: `url(${featureJiaodai})`,
+                    opacity: 0.45
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/40 transition-opacity duration-300 group-hover:opacity-85" />
+                
+                {/* Sect Badge */}
+                <span className="absolute top-5 left-5 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[10px] text-white/70 font-medium transition-all duration-300 group-hover:bg-white/20 group-hover:text-white">門派</span>
+                {/* Red Dot */}
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                
+                <div className="relative z-10 p-8 pt-20 pb-8 flex flex-col h-full justify-end">
+                  <p className="text-white/50 text-sm mb-1">修煉派</p>
+                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:drop-shadow-lg">週記教學｜學實戰</h3>
+                  <p className="text-white/70 mb-6">
+                    每週復盤練路數，慢慢長出自己的判斷。
+                  </p>
+                  
+                  <div className="mb-6">
+                    <p className="text-white/50 text-xs mb-2 uppercase tracking-wider">適合你如果</p>
+                    <ul className="space-y-1.5 text-white/80 text-sm">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <span>你想先看懂再出手</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <span>你喜歡用紀錄校正自己</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <span>你想建立穩定的投資節奏</span>
+                      </li>
+                    </ul>
                   </div>
-                  <Badge variant="secondary">實戰導師</Badge>
+                  
+                  <Button variant="outline" className="w-full sm:w-auto bg-transparent border-white/30 text-white hover:bg-white/10" asChild>
+                    <Link to="/experts?role=coach">
+                      從修煉派開始
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Link>
+                  </Button>
                 </div>
-                <h3 className="text-h3 mb-sm text-foreground">
-                  週記教學，學實戰
-                </h3>
-                <p className="text-muted-foreground mb-lg leading-relaxed">
-                  每週實戰週記，完整拆解操作邏輯與風險思維。
-                </p>
-                <Button className="w-full sm:w-auto" asChild>
-                  <Link to="/experts?role=coach">
-                    查看細節
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </div>
       </section>
