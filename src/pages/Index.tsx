@@ -21,6 +21,8 @@ import {
 import featureXianren from '@/assets/feature-xianren.png';
 import featureSanpai from '@/assets/feature-sanpai.png';
 import featureJiaodai from '@/assets/feature-jiaodai.png';
+import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
+import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 import { WeeklyLimitUpLeaderboard, mockLeaderboardEntries } from '@/components/WeeklyLimitUpLeaderboard';
 
 
@@ -233,7 +235,7 @@ const Index = () => {
                 <div 
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
                   style={{ 
-                    backgroundImage: `url(${featureXianren})`,
+                    backgroundImage: `url(${cardKungfuSpeed})`,
                     opacity: 0.5
                   }}
                 />
@@ -250,8 +252,8 @@ const Index = () => {
                 <div className="relative z-10 p-8 pt-20 pb-8 flex flex-col h-full justify-end">
                   <p className="text-white/50 text-sm mb-1">跟單派</p>
                   <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:drop-shadow-lg">即時策略｜跟著走</h3>
-                  <p className="text-white/70 mb-6">
-                    關鍵時刻才出招，其餘時間你安心。
+                  <p className="text-white/70 text-sm italic mb-6">
+                    天下武功，唯快不破
                   </p>
                   
                   <div className="mb-6">
@@ -294,7 +296,7 @@ const Index = () => {
                 <div 
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
                   style={{ 
-                    backgroundImage: `url(${featureJiaodai})`,
+                    backgroundImage: `url(${cardKungfuBones})`,
                     opacity: 0.45
                   }}
                 />
@@ -308,8 +310,8 @@ const Index = () => {
                 <div className="relative z-10 p-8 pt-20 pb-8 flex flex-col h-full justify-end">
                   <p className="text-white/50 text-sm mb-1">修煉派</p>
                   <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:drop-shadow-lg">週記教學｜學實戰</h3>
-                  <p className="text-white/70 mb-6">
-                    每週復盤練路數，慢慢長出自己的判斷。
+                  <p className="text-white/70 text-sm italic mb-6">
+                    看你骨骼精奇，是個練武奇才
                   </p>
                   
                   <div className="mb-6">
