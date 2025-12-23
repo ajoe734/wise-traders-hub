@@ -231,8 +231,18 @@ const Index = () => {
               }}
             >
               <div 
-                className="relative overflow-hidden rounded-sm border-4 border-red-600 transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110 group-hover:border-red-500 group-hover:shadow-[0_0_30px_rgba(220,38,38,0.4)]"
-                style={{ minHeight: '380px' }}
+                className="relative overflow-hidden rounded-none transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
+                style={{ 
+                  minHeight: '380px',
+                  border: '6px solid #dc2626',
+                  boxShadow: `
+                    inset 0 0 0 2px rgba(0,0,0,0.3),
+                    -3px -2px 0 0 #b91c1c,
+                    3px 2px 0 0 #991b1b,
+                    -1px 3px 0 0 #b91c1c,
+                    2px -1px 0 0 #991b1b
+                  `
+                }}
               >
                 <div 
                   className="absolute inset-0 bg-cover transition-all duration-500"
@@ -288,8 +298,18 @@ const Index = () => {
               }}
             >
               <div 
-                className="relative overflow-hidden rounded-sm border-4 border-blue-600 transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110 group-hover:border-blue-500 group-hover:shadow-[0_0_30px_rgba(37,99,235,0.4)]"
-                style={{ minHeight: '380px' }}
+                className="relative overflow-hidden rounded-none transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
+                style={{ 
+                  minHeight: '380px',
+                  border: '6px solid #2563eb',
+                  boxShadow: `
+                    inset 0 0 0 2px rgba(0,0,0,0.3),
+                    3px -2px 0 0 #1d4ed8,
+                    -3px 2px 0 0 #1e40af,
+                    1px 3px 0 0 #1d4ed8,
+                    -2px -1px 0 0 #1e40af
+                  `
+                }}
               >
                 <div 
                   className="absolute inset-0 bg-cover transition-all duration-500"
