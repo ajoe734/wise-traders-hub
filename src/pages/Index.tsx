@@ -208,12 +208,11 @@ const Index = () => {
       {/* 選門派 Section - VS Fighting Game Visual Scene */}
       <section className="py-24 relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          {/* Main Title - Battle Declaration - Black Brush Calligraphy */}
+          {/* Main Title - Battle Declaration - Brush Calligraphy Font */}
           <h2 
-            className="text-center text-4xl md:text-5xl lg:text-6xl font-black text-foreground mb-16 tracking-wide"
+            className="text-center text-4xl md:text-5xl lg:text-6xl text-foreground mb-16"
             style={{ 
-              fontFamily: '"Noto Serif TC", "Songti SC", "Ma Shan Zheng", serif',
-              textShadow: '2px 2px 0 rgba(0,0,0,0.1)'
+              fontFamily: '"Ma Shan Zheng", cursive'
             }}
           >
             江湖兩派，各走一招
@@ -265,17 +264,14 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Center VS - Calligraphy Brush Image */}
+            {/* Center VS - Calligraphy Brush Image (Black, transparent bg) */}
             <div 
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 select-none pointer-events-none hidden lg:block"
             >
               <img 
                 src={vsBrush} 
                 alt="" 
-                className="w-32 h-32 lg:w-44 lg:h-44 object-contain"
-                style={{ 
-                  filter: 'invert(1) drop-shadow(0 0 20px rgba(255,255,255,0.3))'
-                }}
+                className="w-32 h-32 lg:w-44 lg:h-44 object-contain mix-blend-multiply"
                 aria-hidden="true"
               />
             </div>
@@ -285,8 +281,7 @@ const Index = () => {
               <img 
                 src={vsBrush} 
                 alt="" 
-                className="w-20 h-20 object-contain"
-                style={{ filter: 'invert(1)' }}
+                className="w-20 h-20 object-contain mix-blend-multiply"
                 aria-hidden="true"
               />
             </div>
