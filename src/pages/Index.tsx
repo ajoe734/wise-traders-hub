@@ -207,21 +207,13 @@ const Index = () => {
 
       {/* 選門派 Section - VS Fighting Game Visual Scene */}
       <section className="py-24 relative overflow-hidden">
-        {/* Localized gradient background - focused on center arena */}
-        <div 
-          className="absolute inset-0"
-          style={{
-            background: 'radial-gradient(ellipse 80% 70% at 50% 50%, hsl(220 10% 12%) 0%, hsl(220 10% 8%) 40%, transparent 70%)'
-          }}
-        />
-        
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          {/* Main Title - Battle Declaration */}
+          {/* Main Title - Battle Declaration - Black Brush Calligraphy */}
           <h2 
-            className="text-center text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-16 tracking-wide"
+            className="text-center text-4xl md:text-5xl lg:text-6xl font-black text-foreground mb-16 tracking-wide"
             style={{ 
-              fontFamily: '"Noto Serif TC", "Songti SC", serif',
-              textShadow: '0 4px 20px rgba(0,0,0,0.5)'
+              fontFamily: '"Noto Serif TC", "Songti SC", "Ma Shan Zheng", serif',
+              textShadow: '2px 2px 0 rgba(0,0,0,0.1)'
             }}
           >
             江湖兩派，各走一招
