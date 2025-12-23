@@ -228,31 +228,20 @@ const Index = () => {
           </h2>
 
           {/* VS Battle Arena */}
-          <div className="relative flex flex-col lg:flex-row items-center justify-center">
+          <div className="relative flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-16">
             
-            {/* Left Fighter - 跟單派 */}
+            {/* Left Fighter - 跟單派 (Red thick border) */}
             <div 
-              className="w-full lg:w-[42%] relative group cursor-pointer transition-all duration-500 lg:translate-x-8 hover:z-20"
+              className="w-full lg:w-[40%] relative group cursor-pointer transition-all duration-500 hover:z-20"
               style={{ 
                 animation: 'vsSlideInLeft 0.8s ease-out forwards',
                 opacity: 0
               }}
             >
               <div 
-                className="relative overflow-hidden rounded-lg transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
+                className="relative overflow-hidden rounded-sm border-4 border-red-600 transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110 group-hover:border-red-500 group-hover:shadow-[0_0_30px_rgba(220,38,38,0.4)]"
                 style={{ minHeight: '380px' }}
               >
-                {/* Red corner mark - top left */}
-                <div className="absolute top-0 left-0 w-16 h-16 z-20 pointer-events-none">
-                  <div className="absolute top-0 left-0 w-full h-[1px] bg-red-500/60" />
-                  <div className="absolute top-0 left-0 h-full w-[1px] bg-red-500/60" />
-                </div>
-                {/* Red corner mark - bottom right */}
-                <div className="absolute bottom-0 right-0 w-16 h-16 z-20 pointer-events-none lg:hidden">
-                  <div className="absolute bottom-0 right-0 w-full h-[1px] bg-red-500/60" />
-                  <div className="absolute bottom-0 right-0 h-full w-[1px] bg-red-500/60" />
-                </div>
-                
                 <div 
                   className="absolute inset-0 bg-cover transition-all duration-500"
                   style={{ 
@@ -274,7 +263,7 @@ const Index = () => {
                     「天下武功，唯快不破」
                   </p>
                   
-                  <Button variant="outline" className="w-fit bg-transparent border-white/20 text-white/80 hover:bg-white/5 hover:border-white/40" asChild>
+                  <Button variant="outline" className="w-fit bg-transparent border-red-600/60 text-red-400 hover:bg-red-600/10 hover:border-red-500" asChild>
                     <Link to="/experts?role=advisor">
                       選擇此派
                       <ArrowRight className="h-4 w-4 ml-2" />
@@ -286,20 +275,33 @@ const Index = () => {
 
             {/* Center VS - Calligraphy Brush Image */}
             <div 
-              className="relative z-30 my-8 lg:my-0 lg:-mx-12 select-none pointer-events-none"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 select-none pointer-events-none hidden lg:block"
             >
               <img 
                 src={vsBrush} 
                 alt="" 
-                className="w-28 h-28 lg:w-40 lg:h-40 object-contain drop-shadow-2xl"
-                style={{ filter: 'drop-shadow(0 0 30px rgba(0,0,0,0.8))' }}
+                className="w-32 h-32 lg:w-44 lg:h-44 object-contain"
+                style={{ 
+                  filter: 'invert(1) drop-shadow(0 0 20px rgba(255,255,255,0.3))'
+                }}
+                aria-hidden="true"
+              />
+            </div>
+            
+            {/* Mobile VS */}
+            <div className="lg:hidden select-none pointer-events-none -my-4">
+              <img 
+                src={vsBrush} 
+                alt="" 
+                className="w-20 h-20 object-contain"
+                style={{ filter: 'invert(1)' }}
                 aria-hidden="true"
               />
             </div>
 
-            {/* Right Fighter - 修煉派 */}
+            {/* Right Fighter - 修煉派 (Blue thick border) */}
             <div 
-              className="w-full lg:w-[42%] relative group cursor-pointer transition-all duration-500 lg:-translate-x-8 hover:z-20"
+              className="w-full lg:w-[40%] relative group cursor-pointer transition-all duration-500 hover:z-20"
               style={{ 
                 animation: 'vsSlideInRight 0.8s ease-out forwards',
                 animationDelay: '0.1s',
@@ -307,20 +309,9 @@ const Index = () => {
               }}
             >
               <div 
-                className="relative overflow-hidden rounded-lg transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
+                className="relative overflow-hidden rounded-sm border-4 border-blue-600 transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110 group-hover:border-blue-500 group-hover:shadow-[0_0_30px_rgba(37,99,235,0.4)]"
                 style={{ minHeight: '380px' }}
               >
-                {/* Blue corner mark - top right */}
-                <div className="absolute top-0 right-0 w-16 h-16 z-20 pointer-events-none">
-                  <div className="absolute top-0 right-0 w-full h-[1px] bg-blue-500/60" />
-                  <div className="absolute top-0 right-0 h-full w-[1px] bg-blue-500/60" />
-                </div>
-                {/* Blue corner mark - bottom left */}
-                <div className="absolute bottom-0 left-0 w-16 h-16 z-20 pointer-events-none lg:hidden">
-                  <div className="absolute bottom-0 left-0 w-full h-[1px] bg-blue-500/60" />
-                  <div className="absolute bottom-0 left-0 h-full w-[1px] bg-blue-500/60" />
-                </div>
-                
                 <div 
                   className="absolute inset-0 bg-cover transition-all duration-500"
                   style={{ 
@@ -342,7 +333,7 @@ const Index = () => {
                     「看你骨骼精奇，是個練武奇才」
                   </p>
                   
-                  <Button variant="outline" className="w-fit bg-transparent border-white/20 text-white/80 hover:bg-white/5 hover:border-white/40" asChild>
+                  <Button variant="outline" className="w-fit bg-transparent border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500" asChild>
                     <Link to="/experts?role=coach">
                       選擇此派
                       <ArrowRight className="h-4 w-4 ml-2" />
@@ -365,31 +356,21 @@ const Index = () => {
         @keyframes vsSlideInLeft {
           from {
             opacity: 0;
-            transform: translateX(-40px);
+            transform: translateX(-50px);
           }
           to {
             opacity: 1;
-            transform: translateX(2rem);
+            transform: translateX(0);
           }
         }
         @keyframes vsSlideInRight {
           from {
             opacity: 0;
-            transform: translateX(40px);
+            transform: translateX(50px);
           }
           to {
             opacity: 1;
-            transform: translateX(-2rem);
-          }
-        }
-        @media (max-width: 1023px) {
-          @keyframes vsSlideInLeft {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
-          }
-          @keyframes vsSlideInRight {
-            from { opacity: 0; transform: translateX(20px); }
-            to { opacity: 1; transform: translateX(0); }
+            transform: translateX(0);
           }
         }
       `}</style>
