@@ -234,13 +234,17 @@ const Index = () => {
                 className="relative overflow-hidden rounded-none transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
                 style={{ 
                   minHeight: '380px',
-                  border: '6px solid #dc2626',
+                  border: '7px solid #dc2626',
+                  borderRadius: '2px',
                   boxShadow: `
-                    inset 0 0 0 2px rgba(0,0,0,0.3),
-                    -3px -2px 0 0 #b91c1c,
-                    3px 2px 0 0 #991b1b,
-                    -1px 3px 0 0 #b91c1c,
-                    2px -1px 0 0 #991b1b
+                    -4px -3px 0 -1px #b91c1c,
+                    4px 3px 0 -1px #7f1d1d,
+                    -2px 4px 0 -1px #991b1b,
+                    3px -2px 0 -1px #b91c1c,
+                    5px 1px 0 -2px #7f1d1d,
+                    -1px -4px 0 -1px #991b1b,
+                    -5px 2px 0 -2px #b91c1c,
+                    2px 5px 0 -2px #7f1d1d
                   `
                 }}
               >
@@ -301,13 +305,17 @@ const Index = () => {
                 className="relative overflow-hidden rounded-none transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
                 style={{ 
                   minHeight: '380px',
-                  border: '6px solid #2563eb',
+                  border: '7px solid #2563eb',
+                  borderRadius: '2px',
                   boxShadow: `
-                    inset 0 0 0 2px rgba(0,0,0,0.3),
-                    3px -2px 0 0 #1d4ed8,
-                    -3px 2px 0 0 #1e40af,
-                    1px 3px 0 0 #1d4ed8,
-                    -2px -1px 0 0 #1e40af
+                    4px -3px 0 -1px #1d4ed8,
+                    -4px 3px 0 -1px #1e3a8a,
+                    2px 4px 0 -1px #1e40af,
+                    -3px -2px 0 -1px #1d4ed8,
+                    -5px 1px 0 -2px #1e3a8a,
+                    1px -4px 0 -1px #1e40af,
+                    5px 2px 0 -2px #1d4ed8,
+                    -2px 5px 0 -2px #1e3a8a
                   `
                 }}
               >
