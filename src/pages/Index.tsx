@@ -220,7 +220,7 @@ const Index = () => {
           </h2>
 
           {/* VS Battle Arena */}
-          <div className="relative flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-16">
+          <div className="relative flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-10">
             
             {/* Left Fighter - 跟單派 (Red thick border) */}
             <div 
@@ -279,12 +279,9 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Center VS - Calligraphy Brush Mark (background removed) */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 select-none pointer-events-none hidden lg:block">
-              <VsBrushMark
-                className="w-32 h-32 lg:w-44 lg:h-44"
-                title="VS"
-              />
+            {/* Center VS - Calligraphy Brush Mark (no overlap) */}
+            <div className="hidden lg:flex items-center justify-center select-none pointer-events-none shrink-0">
+              <VsBrushMark className="w-28 h-28 lg:w-32 lg:h-32 opacity-90" title="VS" />
             </div>
 
             {/* Mobile VS */}
