@@ -210,9 +210,10 @@ const Index = () => {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Main Title - Battle Declaration - Brush Calligraphy Font */}
           <h2 
-            className="text-center text-4xl md:text-5xl lg:text-6xl text-foreground mb-16"
+            className="text-center text-5xl md:text-6xl lg:text-7xl text-foreground mb-16 tracking-widest font-normal"
             style={{ 
-              fontFamily: '"Longyin Brush", cursive'
+              fontFamily: '"Longyin Brush", cursive',
+              letterSpacing: '0.15em'
             }}
           >
             江湖兩派，各走一招
