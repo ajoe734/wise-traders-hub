@@ -23,7 +23,7 @@ import featureSanpai from '@/assets/feature-sanpai.png';
 import featureJiaodai from '@/assets/feature-jiaodai.png';
 import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
 import cardKungfuBones from '@/assets/card-kungfu-bones.png';
-import vsBrush from '@/assets/vs-brush.png';
+import { VsBrushMark } from '@/components/VsBrushMark';
 import { WeeklyLimitUpLeaderboard, mockLeaderboardEntries } from '@/components/WeeklyLimitUpLeaderboard';
 
 
@@ -265,26 +265,17 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Center VS - Calligraphy Brush Image (Black, transparent bg) */}
-            <div 
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 select-none pointer-events-none hidden lg:block"
-            >
-              <img 
-                src={vsBrush} 
-                alt="" 
-                className="w-32 h-32 lg:w-44 lg:h-44 object-contain mix-blend-multiply"
-                aria-hidden="true"
+            {/* Center VS - Calligraphy Brush Mark (background removed) */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 select-none pointer-events-none hidden lg:block">
+              <VsBrushMark
+                className="w-32 h-32 lg:w-44 lg:h-44"
+                title="VS"
               />
             </div>
-            
+
             {/* Mobile VS */}
             <div className="lg:hidden select-none pointer-events-none -my-4">
-              <img 
-                src={vsBrush} 
-                alt="" 
-                className="w-20 h-20 object-contain mix-blend-multiply"
-                aria-hidden="true"
-              />
+              <VsBrushMark className="w-20 h-20" title="VS" />
             </div>
 
             {/* Right Fighter - 修煉派 (Blue thick border) */}
