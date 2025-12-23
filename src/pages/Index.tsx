@@ -246,8 +246,8 @@ const Index = () => {
                 
                 <div className="relative z-10 p-8 flex flex-col h-full justify-center text-left" style={{ minHeight: '380px' }}>
                   <p 
-                    className="text-3xl lg:text-4xl font-bold text-white mb-4"
-                    style={{ fontFamily: '"Noto Serif TC", "Songti SC", serif' }}
+                    className="text-3xl lg:text-4xl text-white mb-4"
+                    style={{ fontFamily: '"Longyin Brush", cursive' }}
                   >
                     跟單派
                   </p>
@@ -303,8 +303,8 @@ const Index = () => {
                 
                 <div className="relative z-10 p-8 flex flex-col h-full justify-center text-right items-end" style={{ minHeight: '380px' }}>
                   <p 
-                    className="text-3xl lg:text-4xl font-bold text-white mb-4"
-                    style={{ fontFamily: '"Noto Serif TC", "Songti SC", serif' }}
+                    className="text-3xl lg:text-4xl text-white mb-4"
+                    style={{ fontFamily: '"Longyin Brush", cursive' }}
                   >
                     修煉派
                   </p>
