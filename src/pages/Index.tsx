@@ -205,25 +205,21 @@ const Index = () => {
       `}</style>
 
       {/* 選門派 Section - VS Fighting Game Style */}
-      <section className="py-section bg-gradient-to-b from-background via-background to-foreground/5 relative overflow-hidden">
-        {/* Background Effects */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-1/4 left-0 w-1/2 h-1/2 bg-gradient-to-r from-red-500/10 to-transparent blur-3xl" />
-          <div className="absolute top-1/4 right-0 w-1/2 h-1/2 bg-gradient-to-l from-blue-500/10 to-transparent blur-3xl" />
-        </div>
+      <section className="py-section bg-foreground relative overflow-hidden">
+        {/* Subtle grid pattern background */}
+        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Top Hint Text */}
           <div className="text-center mb-8">
-            <p className="text-muted-foreground text-xs tracking-[0.3em] uppercase mb-2">江湖兩派，各走一招</p>
-            <p className="text-muted-foreground/60 text-sm">選一派，先走得下去</p>
+            <p className="text-muted text-xs tracking-[0.3em] uppercase mb-2">江湖兩派，各走一招</p>
+            <p className="text-muted/60 text-sm">選一派，先走得下去</p>
           </div>
 
           {/* VS Battle Arena */}
           <div className="relative flex flex-col lg:flex-row items-stretch justify-center gap-4 lg:gap-0">
             
-            {/* Left Fighter - 跟單派 (Red/Warm) */}
+            {/* Left Fighter - 跟單派 (Red border) */}
             <div 
               className="flex-1 max-w-md lg:max-w-none relative group cursor-pointer transition-all duration-500 hover:z-20 lg:hover:scale-[1.02] lg:hover:translate-x-2"
               style={{ 
@@ -232,32 +228,29 @@ const Index = () => {
               }}
             >
               <div 
-                className="relative overflow-hidden rounded-xl lg:rounded-r-none bg-black transition-all duration-500 group-hover:shadow-[0_0_60px_rgba(239,68,68,0.3)]"
+                className="relative overflow-hidden rounded-xl lg:rounded-r-none bg-black/90 border border-red-500/40 transition-all duration-500 group-hover:border-red-500/80 group-hover:shadow-[0_0_40px_rgba(239,68,68,0.15)]"
                 style={{ minHeight: '420px' }}
               >
-                {/* Red Tint Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 via-transparent to-transparent z-[1] transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
-                
                 <div 
                   className="absolute inset-0 bg-cover bg-center transition-all duration-500 group-hover:scale-[1.05] group-hover:brightness-110"
                   style={{ 
                     backgroundImage: `url(${cardKungfuSpeed})`,
-                    opacity: 0.65,
+                    opacity: 0.5,
                     filter: 'brightness(1.15) contrast(1.1)'
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/30 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/40 transition-opacity duration-300" />
                 
                 {/* Fighter Badge */}
                 <div className="absolute top-5 left-5 flex items-center gap-2 z-10">
-                  <span className="px-3 py-1 rounded bg-red-500/80 text-white text-[10px] font-bold uppercase tracking-wider">P1</span>
-                  <Badge className="bg-primary/80 text-primary-foreground text-[10px]">熱門</Badge>
+                  <span className="px-3 py-1 rounded border border-red-500/60 text-red-400 text-[10px] font-bold uppercase tracking-wider bg-black/50">P1</span>
+                  <Badge variant="outline" className="border-primary/50 text-primary text-[10px] bg-transparent">熱門</Badge>
                 </div>
                 
                 {/* Ready Indicator */}
                 <div className="absolute top-5 right-5 flex items-center gap-2 z-10">
-                  <span className="text-[10px] text-green-400 font-medium animate-pulse">READY</span>
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-[10px] text-green-400/80 font-medium animate-pulse">READY</span>
+                  <span className="w-2 h-2 rounded-full bg-green-400/80 animate-pulse" />
                 </div>
                 
                 <div className="relative z-10 p-8 pt-24 pb-8 flex flex-col h-full justify-end text-left lg:text-right lg:items-end">
@@ -265,11 +258,11 @@ const Index = () => {
                   <h3 className="text-3xl lg:text-4xl font-black text-white mb-3 drop-shadow-lg transition-all duration-300 group-hover:text-red-100">
                     即時策略
                   </h3>
-                  <p className="text-white/90 text-lg italic mb-6 font-medium">
+                  <p className="text-white/80 text-lg italic mb-6 font-medium">
                     「天下武功，唯快不破」
                   </p>
                   
-                  <ul className="space-y-2 text-white/80 text-sm mb-8 lg:text-right">
+                  <ul className="space-y-2 text-white/70 text-sm mb-8 lg:text-right">
                     <li className="flex items-center gap-2 lg:flex-row-reverse">
                       <Zap className="h-4 w-4 text-red-400 flex-shrink-0" />
                       <span>沒空盯盤？跟著走</span>
@@ -280,7 +273,7 @@ const Index = () => {
                     </li>
                   </ul>
                   
-                  <Button className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white border-0 shadow-lg shadow-red-500/30" asChild>
+                  <Button variant="outline" className="w-full sm:w-auto bg-transparent border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500/80" asChild>
                     <Link to="/experts?role=advisor">
                       選擇跟單派
                       <ArrowRight className="h-4 w-4 ml-2" />
@@ -288,40 +281,60 @@ const Index = () => {
                   </Button>
                 </div>
               </div>
-              
-              {/* Dim effect when other is hovered */}
-              <div className="absolute inset-0 bg-black/0 transition-all duration-500 pointer-events-none rounded-xl lg:rounded-r-none group-hover:bg-black/0 peer-hover:bg-black/40" />
             </div>
 
-            {/* Center VS Badge */}
+            {/* Center VS Badge - Calligraphy Style */}
             <div 
               className="hidden lg:flex items-center justify-center z-30 relative"
               style={{ 
-                animation: 'vsPulse 2s ease-in-out infinite',
-                marginLeft: '-2rem',
-                marginRight: '-2rem'
+                marginLeft: '-2.5rem',
+                marginRight: '-2.5rem'
               }}
             >
-              <div className="relative">
-                {/* Glow Effect */}
-                <div className="absolute inset-0 blur-xl bg-primary/50 rounded-full scale-150" />
-                <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 flex items-center justify-center shadow-2xl shadow-primary/50 border-4 border-white/20">
-                  <span className="text-3xl font-black text-primary-foreground tracking-tighter">VS</span>
+              <div className="relative select-none">
+                {/* Ink splash effect */}
+                <div className="absolute inset-0 scale-[2] opacity-20">
+                  <svg viewBox="0 0 100 100" className="w-full h-full">
+                    <circle cx="50" cy="50" r="30" fill="black" />
+                    <ellipse cx="30" cy="45" rx="8" ry="12" fill="black" transform="rotate(-20 30 45)" />
+                    <ellipse cx="70" cy="55" rx="6" ry="10" fill="black" transform="rotate(15 70 55)" />
+                  </svg>
                 </div>
+                {/* Main VS text - Brush stroke style */}
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                  <span 
+                    className="text-5xl font-black text-black tracking-tighter"
+                    style={{ 
+                      fontFamily: 'serif',
+                      textShadow: '2px 2px 0 rgba(255,255,255,0.1), -1px -1px 0 rgba(0,0,0,0.8)',
+                      WebkitTextStroke: '1px rgba(50,50,50,0.5)'
+                    }}
+                  >
+                    VS
+                  </span>
+                </div>
+                {/* Brush stroke decorations */}
+                <div className="absolute -top-2 -left-4 w-8 h-1 bg-black/60 transform -rotate-12 rounded-full" />
+                <div className="absolute -bottom-2 -right-4 w-6 h-0.5 bg-black/40 transform rotate-6 rounded-full" />
               </div>
             </div>
             
             {/* Mobile VS */}
             <div className="lg:hidden flex items-center justify-center py-4">
-              <div className="relative">
-                <div className="absolute inset-0 blur-lg bg-primary/40 rounded-full scale-150" />
-                <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-xl shadow-primary/40 border-2 border-white/20">
-                  <span className="text-xl font-black text-primary-foreground">VS</span>
-                </div>
+              <div className="relative select-none">
+                <span 
+                  className="text-3xl font-black text-white/90 tracking-tighter"
+                  style={{ 
+                    fontFamily: 'serif',
+                    textShadow: '1px 1px 0 rgba(0,0,0,0.8)'
+                  }}
+                >
+                  VS
+                </span>
               </div>
             </div>
 
-            {/* Right Fighter - 修煉派 (Blue/Cool) */}
+            {/* Right Fighter - 修煉派 (Blue border) */}
             <div 
               className="flex-1 max-w-md lg:max-w-none relative group cursor-pointer transition-all duration-500 hover:z-20 lg:hover:scale-[1.02] lg:hover:-translate-x-2"
               style={{ 
@@ -331,31 +344,28 @@ const Index = () => {
               }}
             >
               <div 
-                className="relative overflow-hidden rounded-xl lg:rounded-l-none bg-black transition-all duration-500 group-hover:shadow-[0_0_60px_rgba(59,130,246,0.3)]"
+                className="relative overflow-hidden rounded-xl lg:rounded-l-none bg-black/90 border border-blue-500/40 transition-all duration-500 group-hover:border-blue-500/80 group-hover:shadow-[0_0_40px_rgba(59,130,246,0.15)]"
                 style={{ minHeight: '420px' }}
               >
-                {/* Blue Tint Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-bl from-blue-500/20 via-transparent to-transparent z-[1] transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
-                
                 <div 
                   className="absolute inset-0 bg-cover bg-center transition-all duration-500 group-hover:scale-[1.05] group-hover:brightness-110"
                   style={{ 
                     backgroundImage: `url(${cardKungfuBones})`,
-                    opacity: 0.65,
+                    opacity: 0.5,
                     filter: 'brightness(1.15) contrast(1.1)'
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/30 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/40 transition-opacity duration-300" />
                 
                 {/* Fighter Badge */}
                 <div className="absolute top-5 left-5 flex items-center gap-2 z-10">
-                  <span className="px-3 py-1 rounded bg-blue-500/80 text-white text-[10px] font-bold uppercase tracking-wider">P2</span>
+                  <span className="px-3 py-1 rounded border border-blue-500/60 text-blue-400 text-[10px] font-bold uppercase tracking-wider bg-black/50">P2</span>
                 </div>
                 
                 {/* Ready Indicator */}
                 <div className="absolute top-5 right-5 flex items-center gap-2 z-10">
-                  <span className="text-[10px] text-green-400 font-medium animate-pulse">READY</span>
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-[10px] text-green-400/80 font-medium animate-pulse">READY</span>
+                  <span className="w-2 h-2 rounded-full bg-green-400/80 animate-pulse" />
                 </div>
                 
                 <div className="relative z-10 p-8 pt-24 pb-8 flex flex-col h-full justify-end text-left lg:items-start">
@@ -363,11 +373,11 @@ const Index = () => {
                   <h3 className="text-3xl lg:text-4xl font-black text-white mb-3 drop-shadow-lg transition-all duration-300 group-hover:text-blue-100">
                     週記教學
                   </h3>
-                  <p className="text-white/90 text-lg italic mb-6 font-medium">
+                  <p className="text-white/80 text-lg italic mb-6 font-medium">
                     「看你骨骼精奇，是個練武奇才」
                   </p>
                   
-                  <ul className="space-y-2 text-white/80 text-sm mb-8">
+                  <ul className="space-y-2 text-white/70 text-sm mb-8">
                     <li className="flex items-center gap-2">
                       <BookOpen className="h-4 w-4 text-blue-400 flex-shrink-0" />
                       <span>先看懂再出手</span>
@@ -378,7 +388,7 @@ const Index = () => {
                     </li>
                   </ul>
                   
-                  <Button className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white border-0 shadow-lg shadow-blue-500/30" asChild>
+                  <Button variant="outline" className="w-full sm:w-auto bg-transparent border-blue-500/50 text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/80" asChild>
                     <Link to="/experts?role=coach">
                       選擇修煉派
                       <ArrowRight className="h-4 w-4 ml-2" />
@@ -390,7 +400,7 @@ const Index = () => {
           </div>
           
           {/* Bottom Hint */}
-          <p className="text-center text-muted-foreground/50 text-xs mt-8">
+          <p className="text-center text-muted/50 text-xs mt-8">
             不確定？先看週回顧，覺得合，再升級跟單派
           </p>
         </div>
@@ -416,14 +426,6 @@ const Index = () => {
           to {
             opacity: 1;
             transform: translateX(0);
-          }
-        }
-        @keyframes vsPulse {
-          0%, 100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.1);
           }
         }
       `}</style>
