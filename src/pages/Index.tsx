@@ -204,137 +204,183 @@ const Index = () => {
         }
       `}</style>
 
-      {/* 選門派 Section - Magazine Layout */}
-      <section className="py-section bg-background">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
-            {/* Left Column - Narrative */}
-            <div className="lg:sticky lg:top-32">
-              <p className="text-muted-foreground text-sm tracking-widest uppercase mb-sm">江湖兩派，各走一招</p>
-              <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-md leading-tight">選一派，先走得下去</h2>
-              <p className="text-lg text-muted-foreground leading-relaxed mb-md">
-                想省時間就走「跟單派」，想練功底就走「修煉派」。兩派都看戰績說話。
-              </p>
-              <p className="text-sm text-muted-foreground/70">
-                不確定？先看週回顧，覺得合，再升級跟單派。
-              </p>
-            </div>
+      {/* 選門派 Section - VS Fighting Game Style */}
+      <section className="py-section bg-gradient-to-b from-background via-background to-foreground/5 relative overflow-hidden">
+        {/* Background Effects */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-1/4 left-0 w-1/2 h-1/2 bg-gradient-to-r from-red-500/10 to-transparent blur-3xl" />
+          <div className="absolute top-1/4 right-0 w-1/2 h-1/2 bg-gradient-to-l from-blue-500/10 to-transparent blur-3xl" />
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          {/* Top Hint Text */}
+          <div className="text-center mb-8">
+            <p className="text-muted-foreground text-xs tracking-[0.3em] uppercase mb-2">江湖兩派，各走一招</p>
+            <p className="text-muted-foreground/60 text-sm">選一派，先走得下去</p>
+          </div>
 
-            {/* Right Column - Two Sect Cards */}
-            <div className="flex flex-col gap-6">
-              {/* Card 1 - 跟單派 (Primary/Featured) */}
+          {/* VS Battle Arena */}
+          <div className="relative flex flex-col lg:flex-row items-stretch justify-center gap-4 lg:gap-0">
+            
+            {/* Left Fighter - 跟單派 (Red/Warm) */}
+            <div 
+              className="flex-1 max-w-md lg:max-w-none relative group cursor-pointer transition-all duration-500 hover:z-20 lg:hover:scale-[1.02] lg:hover:translate-x-2"
+              style={{ 
+                animation: 'vsSlideInLeft 0.8s ease-out forwards',
+                opacity: 0
+              }}
+            >
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ring-1 ring-white/20"
-                style={{ 
-                  animation: 'fadeSlideUp 0.6s ease-out forwards',
-                  animationDelay: '0.1s',
-                  opacity: 0,
-                  minHeight: '320px'
-                }}
+                className="relative overflow-hidden rounded-xl lg:rounded-r-none bg-black transition-all duration-500 group-hover:shadow-[0_0_60px_rgba(239,68,68,0.3)]"
+                style={{ minHeight: '420px' }}
               >
+                {/* Red Tint Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 via-transparent to-transparent z-[1] transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
+                
                 <div 
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  className="absolute inset-0 bg-cover bg-center transition-all duration-500 group-hover:scale-[1.05] group-hover:brightness-110"
                   style={{ 
                     backgroundImage: `url(${cardKungfuSpeed})`,
-                    opacity: 0.5
+                    opacity: 0.65,
+                    filter: 'brightness(1.15) contrast(1.1)'
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/40 transition-opacity duration-300 group-hover:opacity-85" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/30 transition-opacity duration-300" />
                 
-                {/* Sect Badge */}
-                <div className="absolute top-5 left-5 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[10px] text-white/70 font-medium transition-all duration-300 group-hover:bg-white/20 group-hover:text-white">門派</span>
+                {/* Fighter Badge */}
+                <div className="absolute top-5 left-5 flex items-center gap-2 z-10">
+                  <span className="px-3 py-1 rounded bg-red-500/80 text-white text-[10px] font-bold uppercase tracking-wider">P1</span>
                   <Badge className="bg-primary/80 text-primary-foreground text-[10px]">熱門</Badge>
                 </div>
-                {/* Red Dot */}
-                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
                 
-                <div className="relative z-10 p-8 pt-20 pb-8 flex flex-col h-full justify-end">
-                  <p className="text-white/50 text-sm mb-1">跟單派</p>
-                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:drop-shadow-lg">即時策略｜跟著走</h3>
-                  <p className="text-white/70 text-sm italic mb-6">
-                    天下武功，唯快不破
+                {/* Ready Indicator */}
+                <div className="absolute top-5 right-5 flex items-center gap-2 z-10">
+                  <span className="text-[10px] text-green-400 font-medium animate-pulse">READY</span>
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                </div>
+                
+                <div className="relative z-10 p-8 pt-24 pb-8 flex flex-col h-full justify-end text-left lg:text-right lg:items-end">
+                  <p className="text-red-400/80 text-xs font-bold uppercase tracking-[0.2em] mb-2">跟單派</p>
+                  <h3 className="text-3xl lg:text-4xl font-black text-white mb-3 drop-shadow-lg transition-all duration-300 group-hover:text-red-100">
+                    即時策略
+                  </h3>
+                  <p className="text-white/90 text-lg italic mb-6 font-medium">
+                    「天下武功，唯快不破」
                   </p>
                   
-                  <div className="mb-6">
-                    <p className="text-white/50 text-xs mb-2 uppercase tracking-wider">適合你如果</p>
-                    <ul className="space-y-1.5 text-white/80 text-sm">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                        <span>你沒空天天盯盤</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                        <span>你想有人先替你把關時機</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                        <span>你要的是少犯錯，不是多操作</span>
-                      </li>
-                    </ul>
-                  </div>
+                  <ul className="space-y-2 text-white/80 text-sm mb-8 lg:text-right">
+                    <li className="flex items-center gap-2 lg:flex-row-reverse">
+                      <Zap className="h-4 w-4 text-red-400 flex-shrink-0" />
+                      <span>沒空盯盤？跟著走</span>
+                    </li>
+                    <li className="flex items-center gap-2 lg:flex-row-reverse">
+                      <Zap className="h-4 w-4 text-red-400 flex-shrink-0" />
+                      <span>有人先替你把關時機</span>
+                    </li>
+                  </ul>
                   
-                  <Button className="w-full sm:w-auto" asChild>
+                  <Button className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white border-0 shadow-lg shadow-red-500/30" asChild>
                     <Link to="/experts?role=advisor">
-                      加入跟單派
+                      選擇跟單派
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
                   </Button>
                 </div>
               </div>
+              
+              {/* Dim effect when other is hovered */}
+              <div className="absolute inset-0 bg-black/0 transition-all duration-500 pointer-events-none rounded-xl lg:rounded-r-none group-hover:bg-black/0 peer-hover:bg-black/40" />
+            </div>
 
-              {/* Card 2 - 修煉派 (Secondary) */}
+            {/* Center VS Badge */}
+            <div 
+              className="hidden lg:flex items-center justify-center z-30 relative"
+              style={{ 
+                animation: 'vsPulse 2s ease-in-out infinite',
+                marginLeft: '-2rem',
+                marginRight: '-2rem'
+              }}
+            >
+              <div className="relative">
+                {/* Glow Effect */}
+                <div className="absolute inset-0 blur-xl bg-primary/50 rounded-full scale-150" />
+                <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 flex items-center justify-center shadow-2xl shadow-primary/50 border-4 border-white/20">
+                  <span className="text-3xl font-black text-primary-foreground tracking-tighter">VS</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Mobile VS */}
+            <div className="lg:hidden flex items-center justify-center py-4">
+              <div className="relative">
+                <div className="absolute inset-0 blur-lg bg-primary/40 rounded-full scale-150" />
+                <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-xl shadow-primary/40 border-2 border-white/20">
+                  <span className="text-xl font-black text-primary-foreground">VS</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Fighter - 修煉派 (Blue/Cool) */}
+            <div 
+              className="flex-1 max-w-md lg:max-w-none relative group cursor-pointer transition-all duration-500 hover:z-20 lg:hover:scale-[1.02] lg:hover:-translate-x-2"
+              style={{ 
+                animation: 'vsSlideInRight 0.8s ease-out forwards',
+                animationDelay: '0.1s',
+                opacity: 0
+              }}
+            >
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 lg:ml-8"
-                style={{ 
-                  animation: 'fadeSlideUp 0.6s ease-out forwards',
-                  animationDelay: '0.25s',
-                  opacity: 0,
-                  minHeight: '280px'
-                }}
+                className="relative overflow-hidden rounded-xl lg:rounded-l-none bg-black transition-all duration-500 group-hover:shadow-[0_0_60px_rgba(59,130,246,0.3)]"
+                style={{ minHeight: '420px' }}
               >
+                {/* Blue Tint Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-bl from-blue-500/20 via-transparent to-transparent z-[1] transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
+                
                 <div 
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  className="absolute inset-0 bg-cover bg-center transition-all duration-500 group-hover:scale-[1.05] group-hover:brightness-110"
                   style={{ 
                     backgroundImage: `url(${cardKungfuBones})`,
-                    opacity: 0.45
+                    opacity: 0.65,
+                    filter: 'brightness(1.15) contrast(1.1)'
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/40 transition-opacity duration-300 group-hover:opacity-85" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/30 transition-opacity duration-300" />
                 
-                {/* Sect Badge */}
-                <span className="absolute top-5 left-5 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[10px] text-white/70 font-medium transition-all duration-300 group-hover:bg-white/20 group-hover:text-white">門派</span>
-                {/* Red Dot */}
-                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                {/* Fighter Badge */}
+                <div className="absolute top-5 left-5 flex items-center gap-2 z-10">
+                  <span className="px-3 py-1 rounded bg-blue-500/80 text-white text-[10px] font-bold uppercase tracking-wider">P2</span>
+                </div>
                 
-                <div className="relative z-10 p-8 pt-20 pb-8 flex flex-col h-full justify-end">
-                  <p className="text-white/50 text-sm mb-1">修煉派</p>
-                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:drop-shadow-lg">週記教學｜學實戰</h3>
-                  <p className="text-white/70 text-sm italic mb-6">
-                    看你骨骼精奇，是個練武奇才
+                {/* Ready Indicator */}
+                <div className="absolute top-5 right-5 flex items-center gap-2 z-10">
+                  <span className="text-[10px] text-green-400 font-medium animate-pulse">READY</span>
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                </div>
+                
+                <div className="relative z-10 p-8 pt-24 pb-8 flex flex-col h-full justify-end text-left lg:items-start">
+                  <p className="text-blue-400/80 text-xs font-bold uppercase tracking-[0.2em] mb-2">修煉派</p>
+                  <h3 className="text-3xl lg:text-4xl font-black text-white mb-3 drop-shadow-lg transition-all duration-300 group-hover:text-blue-100">
+                    週記教學
+                  </h3>
+                  <p className="text-white/90 text-lg italic mb-6 font-medium">
+                    「看你骨骼精奇，是個練武奇才」
                   </p>
                   
-                  <div className="mb-6">
-                    <p className="text-white/50 text-xs mb-2 uppercase tracking-wider">適合你如果</p>
-                    <ul className="space-y-1.5 text-white/80 text-sm">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                        <span>你想先看懂再出手</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                        <span>你喜歡用紀錄校正自己</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                        <span>你想建立穩定的投資節奏</span>
-                      </li>
-                    </ul>
-                  </div>
+                  <ul className="space-y-2 text-white/80 text-sm mb-8">
+                    <li className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                      <span>先看懂再出手</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                      <span>用紀錄校正自己</span>
+                    </li>
+                  </ul>
                   
-                  <Button variant="outline" className="w-full sm:w-auto bg-transparent border-white/30 text-white hover:bg-white/10" asChild>
+                  <Button className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white border-0 shadow-lg shadow-blue-500/30" asChild>
                     <Link to="/experts?role=coach">
-                      從修煉派開始
+                      選擇修煉派
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
                   </Button>
@@ -342,8 +388,45 @@ const Index = () => {
               </div>
             </div>
           </div>
+          
+          {/* Bottom Hint */}
+          <p className="text-center text-muted-foreground/50 text-xs mt-8">
+            不確定？先看週回顧，覺得合，再升級跟單派
+          </p>
         </div>
       </section>
+      
+      {/* VS Animation Keyframes */}
+      <style>{`
+        @keyframes vsSlideInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-50px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes vsSlideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(50px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes vsPulse {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.1);
+          }
+        }
+      `}</style>
 
       {/* Real Interface Preview Section */}
       <section className="py-section bg-card">
