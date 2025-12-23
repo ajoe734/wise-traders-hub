@@ -212,7 +212,7 @@ const Index = () => {
           <h2 
             className="text-center text-4xl md:text-5xl lg:text-6xl text-foreground mb-16"
             style={{ 
-              fontFamily: '"Ma Shan Zheng", cursive'
+              fontFamily: '"Longyin Brush", cursive'
             }}
           >
             江湖兩派，各走一招
