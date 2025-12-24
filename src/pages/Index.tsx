@@ -241,8 +241,9 @@ const Index = () => {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
                   }}
                 >
-                  {/* Inner HP fill - RED */}
+                  {/* Inner HP fill - RED with pulse animation */}
                   <div 
+                    className="hp-bar-red"
                     style={{ 
                       width: '100%',
                       height: '100%',
@@ -264,47 +265,25 @@ const Index = () => {
                     }} />
                   </div>
                 </div>
-                {/* Red glow effect */}
+                {/* Red glow effect with pulse */}
                 <div 
-                  className="absolute left-4 right-4 z-10 pointer-events-none"
+                  className="hp-glow-red absolute left-4 right-4 z-10 pointer-events-none"
                   style={{ 
                     top: '16px',
                     height: '32px',
-                    background: 'rgba(255, 0, 0, 0.4)',
+                    background: 'rgba(255, 0, 0, 0.5)',
                     filter: 'blur(12px)',
                     clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
                   }}
                 />
                 
-                {/* L-shaped corner brackets - Right side heavier (pointing toward center) */}
-                {/* Top-left - thin */}
-                <div className="absolute top-0 left-0 w-4 h-4 z-30 pointer-events-none">
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-red-500/50" />
-                  <div className="absolute top-0 left-0 h-full w-[2px] bg-red-500/50" />
-                </div>
-                {/* Top-right - THICK (toward center) */}
-                <div className="absolute top-0 right-0 w-8 h-8 z-30 pointer-events-none">
-                  <div className="absolute top-0 right-0 w-full h-[4px] bg-red-500" />
-                  <div className="absolute top-0 right-0 h-full w-[4px] bg-red-500" />
-                </div>
-                {/* Bottom-left - thin */}
-                <div className="absolute bottom-0 left-0 w-4 h-4 z-30 pointer-events-none">
-                  <div className="absolute bottom-0 left-0 w-full h-[2px] bg-red-500/50" />
-                  <div className="absolute bottom-0 left-0 h-full w-[2px] bg-red-500/50" />
-                </div>
-                {/* Bottom-right - THICK (toward center) */}
-                <div className="absolute bottom-0 right-0 w-8 h-8 z-30 pointer-events-none">
-                  <div className="absolute bottom-0 right-0 w-full h-[4px] bg-red-500" />
-                  <div className="absolute bottom-0 right-0 h-full w-[4px] bg-red-500" />
-                </div>
-
                 {/* Card body - dark background */}
                 <div 
-                  className="relative overflow-hidden w-full h-full"
+                  className="relative overflow-hidden w-full h-full rounded-lg"
                   style={{ 
                     minHeight: '380px',
                     backgroundColor: '#1a1a1a',
-                    border: '1px solid rgba(255,255,255,0.1)'
+                    border: '2px solid rgba(239, 68, 68, 0.4)'
                   }}
                 >
                   <div 
@@ -312,10 +291,10 @@ const Index = () => {
                     style={{ 
                       backgroundImage: `url(${cardKungfuSpeed})`,
                       backgroundPosition: 'center right',
-                      filter: 'brightness(1.1) contrast(1.1)'
+                      filter: 'brightness(1.2) contrast(1.1)'
                     }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-black/40" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/20" />
                   
                   <div className="relative z-10 p-8 pt-10 flex flex-col h-full justify-center text-left" style={{ minHeight: '380px' }}>
                     <p 
@@ -375,8 +354,9 @@ const Index = () => {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
                   }}
                 >
-                  {/* Inner HP fill - BLUE */}
+                  {/* Inner HP fill - BLUE with pulse animation */}
                   <div 
+                    className="hp-bar-blue"
                     style={{ 
                       width: '100%',
                       height: '100%',
@@ -398,47 +378,25 @@ const Index = () => {
                     }} />
                   </div>
                 </div>
-                {/* Blue glow effect */}
+                {/* Blue glow effect with pulse */}
                 <div 
-                  className="absolute left-4 right-4 z-10 pointer-events-none"
+                  className="hp-glow-blue absolute left-4 right-4 z-10 pointer-events-none"
                   style={{ 
                     top: '16px',
                     height: '32px',
-                    background: 'rgba(0, 136, 255, 0.4)',
+                    background: 'rgba(0, 136, 255, 0.5)',
                     filter: 'blur(12px)',
                     clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
                   }}
                 />
                 
-                {/* L-shaped corner brackets - Left side heavier (pointing toward center) */}
-                {/* Top-left - THICK (toward center) */}
-                <div className="absolute top-0 left-0 w-8 h-8 z-30 pointer-events-none">
-                  <div className="absolute top-0 left-0 w-full h-[4px] bg-blue-500" />
-                  <div className="absolute top-0 left-0 h-full w-[4px] bg-blue-500" />
-                </div>
-                {/* Top-right - thin */}
-                <div className="absolute top-0 right-0 w-4 h-4 z-30 pointer-events-none">
-                  <div className="absolute top-0 right-0 w-full h-[2px] bg-blue-500/50" />
-                  <div className="absolute top-0 right-0 h-full w-[2px] bg-blue-500/50" />
-                </div>
-                {/* Bottom-left - THICK (toward center) */}
-                <div className="absolute bottom-0 left-0 w-8 h-8 z-30 pointer-events-none">
-                  <div className="absolute bottom-0 left-0 w-full h-[4px] bg-blue-500" />
-                  <div className="absolute bottom-0 left-0 h-full w-[4px] bg-blue-500" />
-                </div>
-                {/* Bottom-right - thin */}
-                <div className="absolute bottom-0 right-0 w-4 h-4 z-30 pointer-events-none">
-                  <div className="absolute bottom-0 right-0 w-full h-[2px] bg-blue-500/50" />
-                  <div className="absolute bottom-0 right-0 h-full w-[2px] bg-blue-500/50" />
-                </div>
-
                 {/* Card body - dark background */}
                 <div 
-                  className="relative overflow-hidden w-full h-full"
+                  className="relative overflow-hidden w-full h-full rounded-lg"
                   style={{ 
                     minHeight: '380px',
                     backgroundColor: '#1a1a1a',
-                    border: '1px solid rgba(255,255,255,0.1)'
+                    border: '2px solid rgba(59, 130, 246, 0.4)'
                   }}
                 >
                   <div 
@@ -446,10 +404,10 @@ const Index = () => {
                     style={{ 
                       backgroundImage: `url(${cardKungfuBones})`,
                       backgroundPosition: 'center left',
-                      filter: 'brightness(1.1) contrast(1.1)'
+                      filter: 'brightness(1.2) contrast(1.1)'
                     }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-l from-black/95 via-black/60 to-black/40" />
+                  <div className="absolute inset-0 bg-gradient-to-l from-black/80 via-black/40 to-black/20" />
                   
                   <div className="relative z-10 p-8 pt-10 flex flex-col h-full justify-center text-right items-end" style={{ minHeight: '380px' }}>
                     <p 
@@ -504,6 +462,42 @@ const Index = () => {
           }
         }
         
+        /* HP bar pulse animation */
+        @keyframes hpPulseRed {
+          0%, 100% {
+            box-shadow: inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4);
+          }
+          50% {
+            box-shadow: inset 0 3px 0 rgba(255,255,255,0.8), inset 0 -2px 4px rgba(0,0,0,0.4), 0 0 8px rgba(255,0,0,0.6);
+          }
+        }
+        @keyframes hpPulseBlue {
+          0%, 100% {
+            box-shadow: inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4);
+          }
+          50% {
+            box-shadow: inset 0 3px 0 rgba(255,255,255,0.8), inset 0 -2px 4px rgba(0,0,0,0.4), 0 0 8px rgba(0,136,255,0.6);
+          }
+        }
+        @keyframes glowPulse {
+          0%, 100% {
+            opacity: 0.6;
+          }
+          50% {
+            opacity: 1;
+          }
+        }
+        
+        .hp-bar-red {
+          animation: hpPulseRed 2s ease-in-out infinite;
+        }
+        .hp-bar-blue {
+          animation: hpPulseBlue 2s ease-in-out infinite;
+        }
+        .hp-glow-red, .hp-glow-blue {
+          animation: glowPulse 2s ease-in-out infinite;
+        }
+        
         /* Battle hover effect - when one card is hovered, the other dims and shrinks */
         .vs-card {
           transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -518,15 +512,15 @@ const Index = () => {
         /* When left card is hovered, right card dims */
         .vs-arena:has(.vs-card-left:hover) .vs-card-right {
           transform: scale(0.96);
-          filter: brightness(0.6);
-          opacity: 0.8;
+          filter: brightness(0.7);
+          opacity: 0.85;
         }
         
         /* When right card is hovered, left card dims */
         .vs-arena:has(.vs-card-right:hover) .vs-card-left {
           transform: scale(0.96);
-          filter: brightness(0.6);
-          opacity: 0.8;
+          filter: brightness(0.7);
+          opacity: 0.85;
         }
       `}</style>
 
