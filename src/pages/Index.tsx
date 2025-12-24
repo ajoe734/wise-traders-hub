@@ -303,8 +303,8 @@ const Index = () => {
                     >
                       跟單派
                     </p>
-                    <p className="text-white/70 text-lg italic mb-8">
-                      「天下武功，唯快不破」
+                    <p className="text-white/70 text-sm italic mb-6">
+                      唯快不破
                     </p>
                     
                     <Button variant="outline" className="w-fit bg-transparent border-red-600/60 text-red-400 hover:bg-red-600/10 hover:border-red-500" asChild>
@@ -416,8 +416,8 @@ const Index = () => {
                     >
                       修煉派
                     </p>
-                    <p className="text-white/70 text-lg italic mb-8">
-                      「看你骨骼精奇，是個練武奇才」
+                    <p className="text-white/70 text-sm italic mb-6">
+                      骨骼精奇
                     </p>
                     
                     <Button variant="outline" className="w-fit bg-transparent border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500" asChild>
@@ -432,10 +432,6 @@ const Index = () => {
             </div>
           </div>
           
-          {/* Subtle hint */}
-          <p className="text-center text-muted-foreground/40 text-xs mt-12 tracking-wide">
-            選一派，先走得下去
-          </p>
         </div>
       </section>
       
