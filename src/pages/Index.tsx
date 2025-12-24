@@ -303,8 +303,8 @@ const Index = () => {
                     >
                       跟單派
                     </p>
-                    <p className="text-white/70 text-sm italic mb-6">
-                      唯快不破
+                    <p className="text-white/70 text-lg italic mb-8">
+                      「天下武功，唯快不破」
                     </p>
                     
                     <Button variant="outline" className="w-fit bg-transparent border-red-600/60 text-red-400 hover:bg-red-600/10 hover:border-red-500" asChild>
@@ -318,14 +318,21 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Center VS - Calligraphy Brush Mark (no overlap) */}
-            <div className="hidden lg:flex items-center justify-center select-none pointer-events-none shrink-0">
-              <VsBrushMark className="w-28 h-28 lg:w-32 lg:h-32 opacity-90" title="VS" />
+            {/* Center VS - Calligraphy Brush Mark with glow effect */}
+            <div className="hidden lg:flex items-center justify-center select-none pointer-events-none shrink-0 relative">
+              {/* Glow backdrop */}
+              <div className="absolute inset-0 blur-2xl opacity-60" style={{
+                background: 'radial-gradient(circle, rgba(255,100,100,0.4) 0%, rgba(100,150,255,0.4) 100%)'
+              }} />
+              <VsBrushMark className="w-36 h-36 lg:w-40 lg:h-40 drop-shadow-[0_0_30px_rgba(255,200,100,0.8)]" title="VS" />
             </div>
 
             {/* Mobile VS */}
-            <div className="lg:hidden select-none pointer-events-none -my-4">
-              <VsBrushMark className="w-20 h-20" title="VS" />
+            <div className="lg:hidden select-none pointer-events-none -my-4 relative">
+              <div className="absolute inset-0 blur-xl opacity-50" style={{
+                background: 'radial-gradient(circle, rgba(255,100,100,0.5) 0%, rgba(100,150,255,0.5) 100%)'
+              }} />
+              <VsBrushMark className="w-24 h-24 drop-shadow-[0_0_20px_rgba(255,200,100,0.7)]" title="VS" />
             </div>
 
             {/* Right Fighter - 修煉派 (Blue thick border) */}
@@ -416,8 +423,8 @@ const Index = () => {
                     >
                       修煉派
                     </p>
-                    <p className="text-white/70 text-sm italic mb-6">
-                      骨骼精奇
+                    <p className="text-white/70 text-lg italic mb-8">
+                      「看你骨骼精奇，是個練武奇才」
                     </p>
                     
                     <Button variant="outline" className="w-fit bg-transparent border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500" asChild>
