@@ -208,14 +208,8 @@ const Index = () => {
       {/* 選門派 Section - VS Fighting Game Visual Scene */}
       <section className="py-24 relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          {/* Main Title - Battle Declaration - Brush Calligraphy Font */}
-          <h2 
-            className="text-center text-5xl md:text-6xl lg:text-7xl text-foreground mb-16 tracking-widest font-normal"
-            style={{ 
-              fontFamily: '"Longyin Brush", cursive',
-              letterSpacing: '0.15em'
-            }}
-          >
+          {/* Main Title - Battle Declaration */}
+          <h2 className="text-center text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-16">
             江湖兩派，各走一招
           </h2>
 
