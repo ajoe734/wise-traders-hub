@@ -203,6 +203,28 @@ const Index = () => {
             transform: translateY(0);
           }
         }
+        
+        @keyframes vsPulse {
+          0%, 100% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 30px rgba(255,200,100,0.8));
+          }
+          50% {
+            transform: scale(1.08);
+            filter: drop-shadow(0 0 50px rgba(255,150,50,1));
+          }
+        }
+        
+        @keyframes vsGlowPulse {
+          0%, 100% {
+            opacity: 0.6;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.9;
+            transform: scale(1.15);
+          }
+        }
       `}</style>
 
       {/* 選門派 Section - VS Fighting Game Visual Scene */}
@@ -321,18 +343,34 @@ const Index = () => {
             {/* Center VS - Calligraphy Brush Mark with glow effect */}
             <div className="hidden lg:flex items-center justify-center select-none pointer-events-none shrink-0 relative">
               {/* Glow backdrop */}
-              <div className="absolute inset-0 blur-2xl opacity-60" style={{
-                background: 'radial-gradient(circle, rgba(255,100,100,0.4) 0%, rgba(100,150,255,0.4) 100%)'
-              }} />
-              <VsBrushMark className="w-36 h-36 lg:w-40 lg:h-40 drop-shadow-[0_0_30px_rgba(255,200,100,0.8)]" title="VS" />
+              <div 
+                className="absolute inset-0 blur-2xl"
+                style={{
+                  background: 'radial-gradient(circle, rgba(255,100,100,0.4) 0%, rgba(100,150,255,0.4) 100%)',
+                  animation: 'vsGlowPulse 2s ease-in-out infinite'
+                }} 
+              />
+              <VsBrushMark 
+                className="w-36 h-36 lg:w-40 lg:h-40" 
+                title="VS" 
+                style={{ animation: 'vsPulse 2s ease-in-out infinite' }}
+              />
             </div>
 
             {/* Mobile VS */}
             <div className="lg:hidden select-none pointer-events-none -my-4 relative">
-              <div className="absolute inset-0 blur-xl opacity-50" style={{
-                background: 'radial-gradient(circle, rgba(255,100,100,0.5) 0%, rgba(100,150,255,0.5) 100%)'
-              }} />
-              <VsBrushMark className="w-24 h-24 drop-shadow-[0_0_20px_rgba(255,200,100,0.7)]" title="VS" />
+              <div 
+                className="absolute inset-0 blur-xl"
+                style={{
+                  background: 'radial-gradient(circle, rgba(255,100,100,0.5) 0%, rgba(100,150,255,0.5) 100%)',
+                  animation: 'vsGlowPulse 2s ease-in-out infinite'
+                }} 
+              />
+              <VsBrushMark 
+                className="w-24 h-24" 
+                title="VS" 
+                style={{ animation: 'vsPulse 2s ease-in-out infinite' }}
+              />
             </div>
 
             {/* Right Fighter - 修煉派 (Blue thick border) */}
