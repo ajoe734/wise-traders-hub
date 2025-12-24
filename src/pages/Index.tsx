@@ -224,51 +224,58 @@ const Index = () => {
                 opacity: 0
               }}
             >
+              {/* Outer frame - Red 7px + highlight */}
               <div 
-                className="relative overflow-hidden rounded-none transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
+                className="relative transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
                 style={{ 
                   minHeight: '380px',
-                  border: '7px solid #dc2626',
-                  borderRadius: '2px',
+                  padding: '7px',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%)',
+                  clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)',
                   boxShadow: `
-                    -4px -3px 0 -1px #b91c1c,
-                    4px 3px 0 -1px #7f1d1d,
-                    -2px 4px 0 -1px #991b1b,
-                    3px -2px 0 -1px #b91c1c,
-                    5px 1px 0 -2px #7f1d1d,
-                    -1px -4px 0 -1px #991b1b,
-                    -5px 2px 0 -2px #b91c1c,
-                    2px 5px 0 -2px #7f1d1d
+                    inset 1px 1px 0 rgba(255,255,255,0.4),
+                    inset -1px -1px 0 rgba(0,0,0,0.3),
+                    0 0 0 1px rgba(255,200,200,0.3)
                   `
                 }}
               >
+                {/* Inner frame - Dark gray 2px */}
                 <div 
-                  className="absolute inset-0 bg-cover transition-all duration-500"
+                  className="relative overflow-hidden w-full h-full"
                   style={{ 
-                    backgroundImage: `url(${cardKungfuSpeed})`,
-                    backgroundPosition: 'center right',
-                    filter: 'brightness(1.2) contrast(1.15)'
+                    border: '2px solid #374151',
+                    clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)',
+                    minHeight: 'calc(380px - 14px)'
                   }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-black/30" />
-                
-                <div className="relative z-10 p-8 flex flex-col h-full justify-center text-left" style={{ minHeight: '380px' }}>
-                  <p 
-                    className="text-3xl lg:text-4xl text-white mb-4"
-                    style={{ fontFamily: '"Longyin Brush", cursive' }}
-                  >
-                    跟單派
-                  </p>
-                  <p className="text-white/70 text-lg italic mb-8">
-                    「天下武功，唯快不破」
-                  </p>
+                >
+                  <div 
+                    className="absolute inset-0 bg-cover transition-all duration-500"
+                    style={{ 
+                      backgroundImage: `url(${cardKungfuSpeed})`,
+                      backgroundPosition: 'center right',
+                      filter: 'brightness(1.2) contrast(1.15)'
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-black/30" />
                   
-                  <Button variant="outline" className="w-fit bg-transparent border-red-600/60 text-red-400 hover:bg-red-600/10 hover:border-red-500" asChild>
-                    <Link to="/experts?role=advisor">
-                      選擇此派
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Link>
-                  </Button>
+                  <div className="relative z-10 p-8 flex flex-col h-full justify-center text-left" style={{ minHeight: 'calc(380px - 18px)' }}>
+                    <p 
+                      className="text-3xl lg:text-4xl text-white mb-4"
+                      style={{ fontFamily: '"Longyin Brush", cursive' }}
+                    >
+                      跟單派
+                    </p>
+                    <p className="text-white/70 text-lg italic mb-8">
+                      「天下武功，唯快不破」
+                    </p>
+                    
+                    <Button variant="outline" className="w-fit bg-transparent border-red-600/60 text-red-400 hover:bg-red-600/10 hover:border-red-500" asChild>
+                      <Link to="/experts?role=advisor">
+                        選擇此派
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -292,51 +299,58 @@ const Index = () => {
                 opacity: 0
               }}
             >
+              {/* Outer frame - Blue 7px + highlight */}
               <div 
-                className="relative overflow-hidden rounded-none transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
+                className="relative transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
                 style={{ 
                   minHeight: '380px',
-                  border: '7px solid #2563eb',
-                  borderRadius: '2px',
+                  padding: '7px',
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)',
+                  clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)',
                   boxShadow: `
-                    4px -3px 0 -1px #1d4ed8,
-                    -4px 3px 0 -1px #1e3a8a,
-                    2px 4px 0 -1px #1e40af,
-                    -3px -2px 0 -1px #1d4ed8,
-                    -5px 1px 0 -2px #1e3a8a,
-                    1px -4px 0 -1px #1e40af,
-                    5px 2px 0 -2px #1d4ed8,
-                    -2px 5px 0 -2px #1e3a8a
+                    inset 1px 1px 0 rgba(255,255,255,0.4),
+                    inset -1px -1px 0 rgba(0,0,0,0.3),
+                    0 0 0 1px rgba(200,220,255,0.3)
                   `
                 }}
               >
+                {/* Inner frame - Dark gray 2px */}
                 <div 
-                  className="absolute inset-0 bg-cover transition-all duration-500"
+                  className="relative overflow-hidden w-full h-full"
                   style={{ 
-                    backgroundImage: `url(${cardKungfuBones})`,
-                    backgroundPosition: 'center left',
-                    filter: 'brightness(1.2) contrast(1.15)'
+                    border: '2px solid #374151',
+                    clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)',
+                    minHeight: 'calc(380px - 14px)'
                   }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-l from-black/90 via-black/50 to-black/30" />
-                
-                <div className="relative z-10 p-8 flex flex-col h-full justify-center text-right items-end" style={{ minHeight: '380px' }}>
-                  <p 
-                    className="text-3xl lg:text-4xl text-white mb-4"
-                    style={{ fontFamily: '"Longyin Brush", cursive' }}
-                  >
-                    修煉派
-                  </p>
-                  <p className="text-white/70 text-lg italic mb-8">
-                    「看你骨骼精奇，是個練武奇才」
-                  </p>
+                >
+                  <div 
+                    className="absolute inset-0 bg-cover transition-all duration-500"
+                    style={{ 
+                      backgroundImage: `url(${cardKungfuBones})`,
+                      backgroundPosition: 'center left',
+                      filter: 'brightness(1.2) contrast(1.15)'
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-l from-black/90 via-black/50 to-black/30" />
                   
-                  <Button variant="outline" className="w-fit bg-transparent border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500" asChild>
-                    <Link to="/experts?role=coach">
-                      選擇此派
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Link>
-                  </Button>
+                  <div className="relative z-10 p-8 flex flex-col h-full justify-center text-right items-end" style={{ minHeight: 'calc(380px - 18px)' }}>
+                    <p 
+                      className="text-3xl lg:text-4xl text-white mb-4"
+                      style={{ fontFamily: '"Longyin Brush", cursive' }}
+                    >
+                      修煉派
+                    </p>
+                    <p className="text-white/70 text-lg italic mb-8">
+                      「看你骨骼精奇，是個練武奇才」
+                    </p>
+                    
+                    <Button variant="outline" className="w-fit bg-transparent border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500" asChild>
+                      <Link to="/experts?role=coach">
+                        選擇此派
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
