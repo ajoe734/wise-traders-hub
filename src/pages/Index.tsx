@@ -210,7 +210,7 @@ const Index = () => {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Main Title - Battle Declaration */}
           <h2 className="text-center text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-16">
-            江湖兩派，各走一招
+            江湖兩派，選你的模式
           </h2>
 
           {/* VS Battle Arena */}
