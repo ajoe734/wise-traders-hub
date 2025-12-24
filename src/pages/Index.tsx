@@ -85,7 +85,7 @@ const Index = () => {
               <p className="text-muted-foreground text-sm tracking-widest uppercase mb-sm">你會用到的三件事</p>
               <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-md leading-tight">三招定勝負</h2>
               <p className="text-lg text-muted-foreground leading-relaxed">
-                即時訊號、判斷路線、戰績回顧，三件事把你從盯盤裡解放。
+                訊號、路線、戰績，解放盯盤。
               </p>
             </div>
 
