@@ -229,7 +229,7 @@ const Index = () => {
                 className="relative transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-110"
                 style={{ minHeight: '380px' }}
               >
-                {/* Health Bar - KOF style */}
+                {/* Health Bar - KOF style parallelogram */}
                 <div 
                   className="absolute left-4 right-4 z-20"
                   style={{ 
@@ -237,9 +237,8 @@ const Index = () => {
                     height: '32px',
                     padding: '4px',
                     background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-                    border: '3px solid #555',
-                    borderRadius: '6px',
-                    boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.95), 0 4px 12px rgba(0,0,0,0.6)'
+                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
                   }}
                 >
                   {/* Inner HP fill - RED */}
@@ -248,8 +247,8 @@ const Index = () => {
                       width: '100%',
                       height: '100%',
                       background: 'linear-gradient(180deg, #ff4444 0%, #ee0000 40%, #cc0000 70%, #990000 100%)',
-                      boxShadow: '0 0 20px rgba(255, 0, 0, 1), inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
-                      borderRadius: '3px',
+                      boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
+                      clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
                       position: 'relative'
                     }}
                   >
@@ -257,14 +256,25 @@ const Index = () => {
                     <div style={{ 
                       position: 'absolute',
                       top: '3px',
-                      left: '6px',
-                      right: '6px',
+                      left: '16px',
+                      right: '16px',
                       height: '5px',
                       background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,150,150,0.3))',
-                      borderRadius: '3px'
+                      clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
                     }} />
                   </div>
                 </div>
+                {/* Red glow effect */}
+                <div 
+                  className="absolute left-4 right-4 z-10 pointer-events-none"
+                  style={{ 
+                    top: '16px',
+                    height: '32px',
+                    background: 'rgba(255, 0, 0, 0.4)',
+                    filter: 'blur(12px)',
+                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
+                  }}
+                />
                 
                 {/* L-shaped corner brackets */}
                 {/* Top-left */}
@@ -353,7 +363,7 @@ const Index = () => {
                 className="relative transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-110"
                 style={{ minHeight: '380px' }}
               >
-                {/* Health Bar - KOF style */}
+                {/* Health Bar - KOF style parallelogram */}
                 <div 
                   className="absolute left-4 right-4 z-20"
                   style={{ 
@@ -361,9 +371,8 @@ const Index = () => {
                     height: '32px',
                     padding: '4px',
                     background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-                    border: '3px solid #555',
-                    borderRadius: '6px',
-                    boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.95), 0 4px 12px rgba(0,0,0,0.6)'
+                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
                   }}
                 >
                   {/* Inner HP fill - BLUE */}
@@ -372,8 +381,8 @@ const Index = () => {
                       width: '100%',
                       height: '100%',
                       background: 'linear-gradient(180deg, #44aaff 0%, #0088ee 40%, #0066cc 70%, #004499 100%)',
-                      boxShadow: '0 0 20px rgba(0, 136, 255, 1), inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
-                      borderRadius: '3px',
+                      boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
+                      clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
                       position: 'relative'
                     }}
                   >
@@ -381,14 +390,25 @@ const Index = () => {
                     <div style={{ 
                       position: 'absolute',
                       top: '3px',
-                      left: '6px',
-                      right: '6px',
+                      left: '16px',
+                      right: '16px',
                       height: '5px',
                       background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(150,200,255,0.3))',
-                      borderRadius: '3px'
+                      clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
                     }} />
                   </div>
                 </div>
+                {/* Blue glow effect */}
+                <div 
+                  className="absolute left-4 right-4 z-10 pointer-events-none"
+                  style={{ 
+                    top: '16px',
+                    height: '32px',
+                    background: 'rgba(0, 136, 255, 0.4)',
+                    filter: 'blur(12px)',
+                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
+                  }}
+                />
                 
                 {/* L-shaped corner brackets */}
                 {/* Top-left */}
