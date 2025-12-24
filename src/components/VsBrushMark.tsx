@@ -4,19 +4,21 @@ import vsBrush from "@/assets/vs-clean-noseal.png";
 type VsBrushMarkProps = {
   className?: string;
   title?: string;
+  style?: React.CSSProperties;
 };
 
 /**
  * Renders the VS brush mark with a clean background removal using an SVG mask.
  * This avoids the "white box" and keeps edges crisp.
  */
-export function VsBrushMark({ className, title = "VS" }: VsBrushMarkProps) {
+export function VsBrushMark({ className, title = "VS", style }: VsBrushMarkProps) {
   const id = React.useId();
 
   return (
     <svg
       viewBox="0 0 100 100"
       className={className}
+      style={style}
       role="img"
       aria-label={title}
       focusable="false"
