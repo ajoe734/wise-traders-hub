@@ -296,7 +296,7 @@ const Index = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/20" />
                   
-                  <div className="relative z-10 p-8 pt-10 flex flex-col h-full justify-center text-left" style={{ minHeight: '380px' }}>
+                  <div className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end text-left" style={{ minHeight: '380px' }}>
                     <p 
                       className="text-3xl lg:text-4xl text-white mb-4"
                       style={{ fontFamily: '"Longyin Brush", cursive' }}
@@ -409,7 +409,7 @@ const Index = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-l from-black/80 via-black/40 to-black/20" />
                   
-                  <div className="relative z-10 p-8 pt-10 flex flex-col h-full justify-center text-right items-end" style={{ minHeight: '380px' }}>
+                  <div className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end text-right items-end" style={{ minHeight: '380px' }}>
                     <p 
                       className="text-3xl lg:text-4xl text-white mb-4"
                       style={{ fontFamily: '"Longyin Brush", cursive' }}
