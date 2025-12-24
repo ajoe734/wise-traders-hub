@@ -229,52 +229,65 @@ const Index = () => {
                 className="relative transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-110"
                 style={{ minHeight: '380px' }}
               >
-                {/* Health Bar - KOF style parallelogram */}
+                {/* Health Bar - Pixel Arcade HUD style */}
                 <div 
                   className="absolute left-4 right-4 z-20"
-                  style={{ 
-                    top: '16px',
-                    height: '32px',
-                    padding: '4px',
-                    background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
-                  }}
+                  style={{ top: '16px' }}
                 >
-                  {/* Inner HP fill - RED */}
-                  <div 
-                    style={{ 
-                      width: '100%',
-                      height: '100%',
-                      background: 'linear-gradient(180deg, #ff4444 0%, #ee0000 40%, #cc0000 70%, #990000 100%)',
-                      boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
-                      clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
-                      position: 'relative'
-                    }}
-                  >
-                    {/* Highlight line */}
-                    <div style={{ 
+                  {/* Outer frame with pixel gaps */}
+                  <div style={{ position: 'relative', height: '36px' }}>
+                    {/* Main frame background */}
+                    <div style={{
                       position: 'absolute',
-                      top: '3px',
-                      left: '16px',
-                      right: '16px',
-                      height: '5px',
-                      background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,150,150,0.3))',
-                      clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
+                      inset: 0,
+                      background: '#1a1a1a',
+                      border: '3px solid #444',
+                      clipPath: 'polygon(10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0% 50%)'
                     }} />
+                    
+                    {/* Pixel gap notches on border */}
+                    <div style={{ position: 'absolute', top: '-1px', left: '25%', width: '8px', height: '5px', background: '#0a0a0a' }} />
+                    <div style={{ position: 'absolute', top: '-1px', left: '55%', width: '8px', height: '5px', background: '#0a0a0a' }} />
+                    <div style={{ position: 'absolute', bottom: '-1px', left: '40%', width: '8px', height: '5px', background: '#0a0a0a' }} />
+                    <div style={{ position: 'absolute', bottom: '-1px', left: '70%', width: '8px', height: '5px', background: '#0a0a0a' }} />
+                    
+                    {/* Inner HP fill - RED (darker, saturated) */}
+                    <div 
+                      style={{ 
+                        position: 'absolute',
+                        top: '5px',
+                        left: '14px',
+                        right: '14px',
+                        bottom: '5px',
+                        background: 'linear-gradient(180deg, #cc3333 0%, #aa1111 50%, #880000 100%)',
+                        boxShadow: 'inset 0 2px 0 rgba(255,100,100,0.4), inset 0 -2px 0 rgba(0,0,0,0.5)',
+                        clipPath: 'polygon(6px 0%, calc(100% - 6px) 0%, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0% 50%)'
+                      }}
+                    >
+                      {/* Scanline effect */}
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px)',
+                        pointerEvents: 'none'
+                      }} />
+                    </div>
+                    
+                    {/* Corner energy lights - LEFT */}
+                    <div style={{ position: 'absolute', left: '6px', top: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <div style={{ width: '4px', height: '4px', background: '#ff4444', boxShadow: '0 0 3px #ff0000' }} />
+                      <div style={{ width: '4px', height: '4px', background: '#ff4444', boxShadow: '0 0 3px #ff0000' }} />
+                      <div style={{ width: '4px', height: '4px', background: '#ff4444', boxShadow: '0 0 3px #ff0000' }} />
+                    </div>
+                    
+                    {/* Corner energy lights - RIGHT */}
+                    <div style={{ position: 'absolute', right: '6px', top: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <div style={{ width: '4px', height: '4px', background: '#ff4444', boxShadow: '0 0 3px #ff0000' }} />
+                      <div style={{ width: '4px', height: '4px', background: '#ff4444', boxShadow: '0 0 3px #ff0000' }} />
+                      <div style={{ width: '4px', height: '4px', background: '#ff4444', boxShadow: '0 0 3px #ff0000' }} />
+                    </div>
                   </div>
                 </div>
-                {/* Red glow effect */}
-                <div 
-                  className="absolute left-4 right-4 z-10 pointer-events-none"
-                  style={{ 
-                    top: '16px',
-                    height: '32px',
-                    background: 'rgba(255, 0, 0, 0.4)',
-                    filter: 'blur(12px)',
-                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
-                  }}
-                />
                 
                 {/* L-shaped corner brackets */}
                 {/* Top-left */}
@@ -363,52 +376,65 @@ const Index = () => {
                 className="relative transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-110"
                 style={{ minHeight: '380px' }}
               >
-                {/* Health Bar - KOF style parallelogram */}
+                {/* Health Bar - Pixel Arcade HUD style */}
                 <div 
                   className="absolute left-4 right-4 z-20"
-                  style={{ 
-                    top: '16px',
-                    height: '32px',
-                    padding: '4px',
-                    background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
-                  }}
+                  style={{ top: '16px' }}
                 >
-                  {/* Inner HP fill - BLUE */}
-                  <div 
-                    style={{ 
-                      width: '100%',
-                      height: '100%',
-                      background: 'linear-gradient(180deg, #44aaff 0%, #0088ee 40%, #0066cc 70%, #004499 100%)',
-                      boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
-                      clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
-                      position: 'relative'
-                    }}
-                  >
-                    {/* Highlight line */}
-                    <div style={{ 
+                  {/* Outer frame with pixel gaps */}
+                  <div style={{ position: 'relative', height: '36px' }}>
+                    {/* Main frame background */}
+                    <div style={{
                       position: 'absolute',
-                      top: '3px',
-                      left: '16px',
-                      right: '16px',
-                      height: '5px',
-                      background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(150,200,255,0.3))',
-                      clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
+                      inset: 0,
+                      background: '#1a1a1a',
+                      border: '3px solid #444',
+                      clipPath: 'polygon(10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0% 50%)'
                     }} />
+                    
+                    {/* Pixel gap notches on border */}
+                    <div style={{ position: 'absolute', top: '-1px', left: '25%', width: '8px', height: '5px', background: '#0a0a0a' }} />
+                    <div style={{ position: 'absolute', top: '-1px', left: '55%', width: '8px', height: '5px', background: '#0a0a0a' }} />
+                    <div style={{ position: 'absolute', bottom: '-1px', left: '40%', width: '8px', height: '5px', background: '#0a0a0a' }} />
+                    <div style={{ position: 'absolute', bottom: '-1px', left: '70%', width: '8px', height: '5px', background: '#0a0a0a' }} />
+                    
+                    {/* Inner HP fill - BLUE (darker, saturated) */}
+                    <div 
+                      style={{ 
+                        position: 'absolute',
+                        top: '5px',
+                        left: '14px',
+                        right: '14px',
+                        bottom: '5px',
+                        background: 'linear-gradient(180deg, #3388cc 0%, #1166aa 50%, #004488 100%)',
+                        boxShadow: 'inset 0 2px 0 rgba(100,180,255,0.4), inset 0 -2px 0 rgba(0,0,0,0.5)',
+                        clipPath: 'polygon(6px 0%, calc(100% - 6px) 0%, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0% 50%)'
+                      }}
+                    >
+                      {/* Scanline effect */}
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px)',
+                        pointerEvents: 'none'
+                      }} />
+                    </div>
+                    
+                    {/* Corner energy lights - LEFT */}
+                    <div style={{ position: 'absolute', left: '6px', top: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <div style={{ width: '4px', height: '4px', background: '#44aaff', boxShadow: '0 0 3px #0088ff' }} />
+                      <div style={{ width: '4px', height: '4px', background: '#44aaff', boxShadow: '0 0 3px #0088ff' }} />
+                      <div style={{ width: '4px', height: '4px', background: '#44aaff', boxShadow: '0 0 3px #0088ff' }} />
+                    </div>
+                    
+                    {/* Corner energy lights - RIGHT */}
+                    <div style={{ position: 'absolute', right: '6px', top: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <div style={{ width: '4px', height: '4px', background: '#44aaff', boxShadow: '0 0 3px #0088ff' }} />
+                      <div style={{ width: '4px', height: '4px', background: '#44aaff', boxShadow: '0 0 3px #0088ff' }} />
+                      <div style={{ width: '4px', height: '4px', background: '#44aaff', boxShadow: '0 0 3px #0088ff' }} />
+                    </div>
                   </div>
                 </div>
-                {/* Blue glow effect */}
-                <div 
-                  className="absolute left-4 right-4 z-10 pointer-events-none"
-                  style={{ 
-                    top: '16px',
-                    height: '32px',
-                    background: 'rgba(0, 136, 255, 0.4)',
-                    filter: 'blur(12px)',
-                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
-                  }}
-                />
                 
                 {/* L-shaped corner brackets */}
                 {/* Top-left */}
