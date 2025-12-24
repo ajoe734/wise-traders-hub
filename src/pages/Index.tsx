@@ -214,11 +214,11 @@ const Index = () => {
           </h2>
 
           {/* VS Battle Arena */}
-          <div className="relative flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-10">
+          <div className="vs-arena relative flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-10">
             
             {/* Left Fighter - 跟單派 (Red thick border) */}
             <div 
-              className="w-full lg:w-[40%] relative group cursor-pointer transition-all duration-500 hover:z-20"
+              className="vs-card vs-card-left w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
               style={{ 
                 animation: 'vsSlideInLeft 0.8s ease-out forwards',
                 opacity: 0
@@ -226,7 +226,7 @@ const Index = () => {
             >
               {/* Card with HUD style */}
               <div 
-                className="relative transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-110"
+                className="relative transition-all duration-500"
                 style={{ minHeight: '380px' }}
               >
                 {/* Health Bar - KOF style parallelogram */}
@@ -276,26 +276,26 @@ const Index = () => {
                   }}
                 />
                 
-                {/* L-shaped corner brackets */}
-                {/* Top-left */}
-                <div className="absolute top-0 left-0 w-5 h-5 z-30 pointer-events-none">
-                  <div className="absolute top-0 left-0 w-full h-[3px] bg-red-500/80" />
-                  <div className="absolute top-0 left-0 h-full w-[3px] bg-red-500/80" />
+                {/* L-shaped corner brackets - Right side heavier (pointing toward center) */}
+                {/* Top-left - thin */}
+                <div className="absolute top-0 left-0 w-4 h-4 z-30 pointer-events-none">
+                  <div className="absolute top-0 left-0 w-full h-[2px] bg-red-500/50" />
+                  <div className="absolute top-0 left-0 h-full w-[2px] bg-red-500/50" />
                 </div>
-                {/* Top-right */}
-                <div className="absolute top-0 right-0 w-5 h-5 z-30 pointer-events-none">
-                  <div className="absolute top-0 right-0 w-full h-[3px] bg-red-500/80" />
-                  <div className="absolute top-0 right-0 h-full w-[3px] bg-red-500/80" />
+                {/* Top-right - THICK (toward center) */}
+                <div className="absolute top-0 right-0 w-8 h-8 z-30 pointer-events-none">
+                  <div className="absolute top-0 right-0 w-full h-[4px] bg-red-500" />
+                  <div className="absolute top-0 right-0 h-full w-[4px] bg-red-500" />
                 </div>
-                {/* Bottom-left */}
-                <div className="absolute bottom-0 left-0 w-5 h-5 z-30 pointer-events-none">
-                  <div className="absolute bottom-0 left-0 w-full h-[3px] bg-red-500/80" />
-                  <div className="absolute bottom-0 left-0 h-full w-[3px] bg-red-500/80" />
+                {/* Bottom-left - thin */}
+                <div className="absolute bottom-0 left-0 w-4 h-4 z-30 pointer-events-none">
+                  <div className="absolute bottom-0 left-0 w-full h-[2px] bg-red-500/50" />
+                  <div className="absolute bottom-0 left-0 h-full w-[2px] bg-red-500/50" />
                 </div>
-                {/* Bottom-right */}
-                <div className="absolute bottom-0 right-0 w-5 h-5 z-30 pointer-events-none">
-                  <div className="absolute bottom-0 right-0 w-full h-[3px] bg-red-500/80" />
-                  <div className="absolute bottom-0 right-0 h-full w-[3px] bg-red-500/80" />
+                {/* Bottom-right - THICK (toward center) */}
+                <div className="absolute bottom-0 right-0 w-8 h-8 z-30 pointer-events-none">
+                  <div className="absolute bottom-0 right-0 w-full h-[4px] bg-red-500" />
+                  <div className="absolute bottom-0 right-0 h-full w-[4px] bg-red-500" />
                 </div>
 
                 {/* Card body - dark background */}
@@ -351,7 +351,7 @@ const Index = () => {
 
             {/* Right Fighter - 修煉派 (Blue thick border) */}
             <div 
-              className="w-full lg:w-[40%] relative group cursor-pointer transition-all duration-500 hover:z-20"
+              className="vs-card vs-card-right w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
               style={{ 
                 animation: 'vsSlideInRight 0.8s ease-out forwards',
                 animationDelay: '0.1s',
@@ -360,7 +360,7 @@ const Index = () => {
             >
               {/* Card with HUD style */}
               <div 
-                className="relative transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-110"
+                className="relative transition-all duration-500"
                 style={{ minHeight: '380px' }}
               >
                 {/* Health Bar - KOF style parallelogram */}
@@ -410,26 +410,26 @@ const Index = () => {
                   }}
                 />
                 
-                {/* L-shaped corner brackets */}
-                {/* Top-left */}
-                <div className="absolute top-0 left-0 w-5 h-5 z-30 pointer-events-none">
-                  <div className="absolute top-0 left-0 w-full h-[3px] bg-blue-500/80" />
-                  <div className="absolute top-0 left-0 h-full w-[3px] bg-blue-500/80" />
+                {/* L-shaped corner brackets - Left side heavier (pointing toward center) */}
+                {/* Top-left - THICK (toward center) */}
+                <div className="absolute top-0 left-0 w-8 h-8 z-30 pointer-events-none">
+                  <div className="absolute top-0 left-0 w-full h-[4px] bg-blue-500" />
+                  <div className="absolute top-0 left-0 h-full w-[4px] bg-blue-500" />
                 </div>
-                {/* Top-right */}
-                <div className="absolute top-0 right-0 w-5 h-5 z-30 pointer-events-none">
-                  <div className="absolute top-0 right-0 w-full h-[3px] bg-blue-500/80" />
-                  <div className="absolute top-0 right-0 h-full w-[3px] bg-blue-500/80" />
+                {/* Top-right - thin */}
+                <div className="absolute top-0 right-0 w-4 h-4 z-30 pointer-events-none">
+                  <div className="absolute top-0 right-0 w-full h-[2px] bg-blue-500/50" />
+                  <div className="absolute top-0 right-0 h-full w-[2px] bg-blue-500/50" />
                 </div>
-                {/* Bottom-left */}
-                <div className="absolute bottom-0 left-0 w-5 h-5 z-30 pointer-events-none">
-                  <div className="absolute bottom-0 left-0 w-full h-[3px] bg-blue-500/80" />
-                  <div className="absolute bottom-0 left-0 h-full w-[3px] bg-blue-500/80" />
+                {/* Bottom-left - THICK (toward center) */}
+                <div className="absolute bottom-0 left-0 w-8 h-8 z-30 pointer-events-none">
+                  <div className="absolute bottom-0 left-0 w-full h-[4px] bg-blue-500" />
+                  <div className="absolute bottom-0 left-0 h-full w-[4px] bg-blue-500" />
                 </div>
-                {/* Bottom-right */}
-                <div className="absolute bottom-0 right-0 w-5 h-5 z-30 pointer-events-none">
-                  <div className="absolute bottom-0 right-0 w-full h-[3px] bg-blue-500/80" />
-                  <div className="absolute bottom-0 right-0 h-full w-[3px] bg-blue-500/80" />
+                {/* Bottom-right - thin */}
+                <div className="absolute bottom-0 right-0 w-4 h-4 z-30 pointer-events-none">
+                  <div className="absolute bottom-0 right-0 w-full h-[2px] bg-blue-500/50" />
+                  <div className="absolute bottom-0 right-0 h-full w-[2px] bg-blue-500/50" />
                 </div>
 
                 {/* Card body - dark background */}
@@ -481,7 +481,7 @@ const Index = () => {
         </div>
       </section>
       
-      {/* VS Animation Keyframes */}
+      {/* VS Animation Keyframes + Hover Battle Effect */}
       <style>{`
         @keyframes vsSlideInLeft {
           from {
@@ -502,6 +502,31 @@ const Index = () => {
             opacity: 1;
             transform: translateX(0);
           }
+        }
+        
+        /* Battle hover effect - when one card is hovered, the other dims and shrinks */
+        .vs-card {
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .vs-card:hover {
+          z-index: 20;
+          transform: scale(1.03);
+          filter: brightness(1.15);
+        }
+        
+        /* When left card is hovered, right card dims */
+        .vs-arena:has(.vs-card-left:hover) .vs-card-right {
+          transform: scale(0.96);
+          filter: brightness(0.6);
+          opacity: 0.8;
+        }
+        
+        /* When right card is hovered, left card dims */
+        .vs-arena:has(.vs-card-right:hover) .vs-card-left {
+          transform: scale(0.96);
+          filter: brightness(0.6);
+          opacity: 0.8;
         }
       `}</style>
 
