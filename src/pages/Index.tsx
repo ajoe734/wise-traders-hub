@@ -224,28 +224,55 @@ const Index = () => {
                 opacity: 0
               }}
             >
-              {/* Outer frame - Red 7px + highlight */}
+              {/* Card with HUD style */}
               <div 
-                className="relative transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
-                style={{ 
-                  minHeight: '380px',
-                  padding: '7px',
-                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%)',
-                  clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)',
-                  boxShadow: `
-                    inset 1px 1px 0 rgba(255,255,255,0.4),
-                    inset -1px -1px 0 rgba(0,0,0,0.3),
-                    0 0 0 1px rgba(255,200,200,0.3)
-                  `
-                }}
+                className="relative transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-110"
+                style={{ minHeight: '380px' }}
               >
-                {/* Inner frame - Dark gray 2px */}
+                {/* Health Bar - Red gradient with scanlines */}
+                <div 
+                  className="absolute top-0 left-0 right-0 z-20"
+                  style={{ 
+                    height: '12px',
+                    background: 'linear-gradient(90deg, #ef4444 0%, #dc2626 40%, #f87171 60%, #dc2626 100%)',
+                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.5), inset 0 1px 0 rgba(255,255,255,0.3)',
+                    backgroundImage: `
+                      linear-gradient(90deg, #ef4444 0%, #dc2626 40%, #f87171 60%, #dc2626 100%),
+                      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)
+                    `,
+                    backgroundBlendMode: 'overlay'
+                  }}
+                />
+                
+                {/* L-shaped corner brackets */}
+                {/* Top-left */}
+                <div className="absolute top-0 left-0 w-5 h-5 z-30 pointer-events-none">
+                  <div className="absolute top-0 left-0 w-full h-[3px] bg-red-500/80" />
+                  <div className="absolute top-0 left-0 h-full w-[3px] bg-red-500/80" />
+                </div>
+                {/* Top-right */}
+                <div className="absolute top-0 right-0 w-5 h-5 z-30 pointer-events-none">
+                  <div className="absolute top-0 right-0 w-full h-[3px] bg-red-500/80" />
+                  <div className="absolute top-0 right-0 h-full w-[3px] bg-red-500/80" />
+                </div>
+                {/* Bottom-left */}
+                <div className="absolute bottom-0 left-0 w-5 h-5 z-30 pointer-events-none">
+                  <div className="absolute bottom-0 left-0 w-full h-[3px] bg-red-500/80" />
+                  <div className="absolute bottom-0 left-0 h-full w-[3px] bg-red-500/80" />
+                </div>
+                {/* Bottom-right */}
+                <div className="absolute bottom-0 right-0 w-5 h-5 z-30 pointer-events-none">
+                  <div className="absolute bottom-0 right-0 w-full h-[3px] bg-red-500/80" />
+                  <div className="absolute bottom-0 right-0 h-full w-[3px] bg-red-500/80" />
+                </div>
+
+                {/* Card body - dark background */}
                 <div 
                   className="relative overflow-hidden w-full h-full"
                   style={{ 
-                    border: '2px solid #374151',
-                    clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)',
-                    minHeight: 'calc(380px - 14px)'
+                    minHeight: '380px',
+                    backgroundColor: '#1a1a1a',
+                    border: '1px solid rgba(255,255,255,0.1)'
                   }}
                 >
                   <div 
@@ -253,12 +280,12 @@ const Index = () => {
                     style={{ 
                       backgroundImage: `url(${cardKungfuSpeed})`,
                       backgroundPosition: 'center right',
-                      filter: 'brightness(1.2) contrast(1.15)'
+                      filter: 'brightness(1.1) contrast(1.1)'
                     }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-black/30" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-black/40" />
                   
-                  <div className="relative z-10 p-8 flex flex-col h-full justify-center text-left" style={{ minHeight: 'calc(380px - 18px)' }}>
+                  <div className="relative z-10 p-8 pt-10 flex flex-col h-full justify-center text-left" style={{ minHeight: '380px' }}>
                     <p 
                       className="text-3xl lg:text-4xl text-white mb-4"
                       style={{ fontFamily: '"Longyin Brush", cursive' }}
@@ -299,28 +326,55 @@ const Index = () => {
                 opacity: 0
               }}
             >
-              {/* Outer frame - Blue 7px + highlight */}
+              {/* Card with HUD style */}
               <div 
-                className="relative transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
-                style={{ 
-                  minHeight: '380px',
-                  padding: '7px',
-                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)',
-                  clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)',
-                  boxShadow: `
-                    inset 1px 1px 0 rgba(255,255,255,0.4),
-                    inset -1px -1px 0 rgba(0,0,0,0.3),
-                    0 0 0 1px rgba(200,220,255,0.3)
-                  `
-                }}
+                className="relative transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-110"
+                style={{ minHeight: '380px' }}
               >
-                {/* Inner frame - Dark gray 2px */}
+                {/* Health Bar - Blue gradient with scanlines */}
+                <div 
+                  className="absolute top-0 left-0 right-0 z-20"
+                  style={{ 
+                    height: '12px',
+                    background: 'linear-gradient(90deg, #3b82f6 0%, #2563eb 40%, #60a5fa 60%, #2563eb 100%)',
+                    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255,255,255,0.3)',
+                    backgroundImage: `
+                      linear-gradient(90deg, #3b82f6 0%, #2563eb 40%, #60a5fa 60%, #2563eb 100%),
+                      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)
+                    `,
+                    backgroundBlendMode: 'overlay'
+                  }}
+                />
+                
+                {/* L-shaped corner brackets */}
+                {/* Top-left */}
+                <div className="absolute top-0 left-0 w-5 h-5 z-30 pointer-events-none">
+                  <div className="absolute top-0 left-0 w-full h-[3px] bg-blue-500/80" />
+                  <div className="absolute top-0 left-0 h-full w-[3px] bg-blue-500/80" />
+                </div>
+                {/* Top-right */}
+                <div className="absolute top-0 right-0 w-5 h-5 z-30 pointer-events-none">
+                  <div className="absolute top-0 right-0 w-full h-[3px] bg-blue-500/80" />
+                  <div className="absolute top-0 right-0 h-full w-[3px] bg-blue-500/80" />
+                </div>
+                {/* Bottom-left */}
+                <div className="absolute bottom-0 left-0 w-5 h-5 z-30 pointer-events-none">
+                  <div className="absolute bottom-0 left-0 w-full h-[3px] bg-blue-500/80" />
+                  <div className="absolute bottom-0 left-0 h-full w-[3px] bg-blue-500/80" />
+                </div>
+                {/* Bottom-right */}
+                <div className="absolute bottom-0 right-0 w-5 h-5 z-30 pointer-events-none">
+                  <div className="absolute bottom-0 right-0 w-full h-[3px] bg-blue-500/80" />
+                  <div className="absolute bottom-0 right-0 h-full w-[3px] bg-blue-500/80" />
+                </div>
+
+                {/* Card body - dark background */}
                 <div 
                   className="relative overflow-hidden w-full h-full"
                   style={{ 
-                    border: '2px solid #374151',
-                    clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)',
-                    minHeight: 'calc(380px - 14px)'
+                    minHeight: '380px',
+                    backgroundColor: '#1a1a1a',
+                    border: '1px solid rgba(255,255,255,0.1)'
                   }}
                 >
                   <div 
@@ -328,12 +382,12 @@ const Index = () => {
                     style={{ 
                       backgroundImage: `url(${cardKungfuBones})`,
                       backgroundPosition: 'center left',
-                      filter: 'brightness(1.2) contrast(1.15)'
+                      filter: 'brightness(1.1) contrast(1.1)'
                     }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-l from-black/90 via-black/50 to-black/30" />
+                  <div className="absolute inset-0 bg-gradient-to-l from-black/95 via-black/60 to-black/40" />
                   
-                  <div className="relative z-10 p-8 flex flex-col h-full justify-center text-right items-end" style={{ minHeight: 'calc(380px - 18px)' }}>
+                  <div className="relative z-10 p-8 pt-10 flex flex-col h-full justify-center text-right items-end" style={{ minHeight: '380px' }}>
                     <p 
                       className="text-3xl lg:text-4xl text-white mb-4"
                       style={{ fontFamily: '"Longyin Brush", cursive' }}
