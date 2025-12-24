@@ -231,13 +231,15 @@ const Index = () => {
               >
                 {/* Health Bar - Dual layer fighting game style */}
                 <div 
-                  className="absolute top-0 left-0 right-0 z-20"
+                  className="absolute left-4 right-4 z-20"
                   style={{ 
-                    height: '14px',
-                    padding: '2px',
-                    background: 'linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%)',
-                    borderBottom: '1px solid rgba(255,255,255,0.1)',
-                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.8)'
+                    top: '20px',
+                    height: '24px',
+                    padding: '3px',
+                    background: 'linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 50%, #0d0d0d 100%)',
+                    border: '2px solid #333',
+                    borderRadius: '4px',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.5)'
                   }}
                 >
                   {/* Inner HP fill */}
@@ -246,20 +248,20 @@ const Index = () => {
                       width: '100%',
                       height: '100%',
                       background: 'linear-gradient(180deg, #ff6b6b 0%, #ff3333 30%, #ff0000 70%, #cc0000 100%)',
-                      boxShadow: '0 0 12px rgba(255, 0, 0, 0.8), 0 0 20px rgba(255, 50, 50, 0.5), inset 0 1px 0 rgba(255,255,255,0.6)',
-                      backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.08) 3px, rgba(255,255,255,0.08) 4px)`,
+                      boxShadow: '0 0 15px rgba(255, 0, 0, 0.9), inset 0 2px 0 rgba(255,255,255,0.5)',
+                      borderRadius: '2px',
                       position: 'relative'
                     }}
                   >
                     {/* Highlight line */}
                     <div style={{ 
                       position: 'absolute',
-                      top: '1px',
-                      left: '2px',
-                      right: '2px',
-                      height: '3px',
-                      background: 'linear-gradient(90deg, rgba(255,255,255,0.7), rgba(255,200,200,0.4))',
-                      borderRadius: '1px'
+                      top: '2px',
+                      left: '4px',
+                      right: '4px',
+                      height: '4px',
+                      background: 'linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,200,200,0.3))',
+                      borderRadius: '2px'
                     }} />
                   </div>
                 </div>
@@ -353,13 +355,15 @@ const Index = () => {
               >
                 {/* Health Bar - Dual layer fighting game style */}
                 <div 
-                  className="absolute top-0 left-0 right-0 z-20"
+                  className="absolute left-4 right-4 z-20"
                   style={{ 
-                    height: '14px',
-                    padding: '2px',
-                    background: 'linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%)',
-                    borderBottom: '1px solid rgba(255,255,255,0.1)',
-                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.8)'
+                    top: '20px',
+                    height: '24px',
+                    padding: '3px',
+                    background: 'linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 50%, #0d0d0d 100%)',
+                    border: '2px solid #333',
+                    borderRadius: '4px',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.5)'
                   }}
                 >
                   {/* Inner HP fill */}
@@ -368,20 +372,20 @@ const Index = () => {
                       width: '100%',
                       height: '100%',
                       background: 'linear-gradient(180deg, #66d9ff 0%, #00bfff 30%, #0099ff 70%, #0066cc 100%)',
-                      boxShadow: '0 0 12px rgba(0, 191, 255, 0.8), 0 0 20px rgba(0, 150, 255, 0.5), inset 0 1px 0 rgba(255,255,255,0.6)',
-                      backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.08) 3px, rgba(255,255,255,0.08) 4px)`,
+                      boxShadow: '0 0 15px rgba(0, 191, 255, 0.9), inset 0 2px 0 rgba(255,255,255,0.5)',
+                      borderRadius: '2px',
                       position: 'relative'
                     }}
                   >
                     {/* Highlight line */}
                     <div style={{ 
                       position: 'absolute',
-                      top: '1px',
-                      left: '2px',
-                      right: '2px',
-                      height: '3px',
-                      background: 'linear-gradient(90deg, rgba(255,255,255,0.7), rgba(200,240,255,0.4))',
-                      borderRadius: '1px'
+                      top: '2px',
+                      left: '4px',
+                      right: '4px',
+                      height: '4px',
+                      background: 'linear-gradient(90deg, rgba(255,255,255,0.8), rgba(200,240,255,0.3))',
+                      borderRadius: '2px'
                     }} />
                   </div>
                 </div>
