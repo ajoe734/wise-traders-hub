@@ -245,9 +245,9 @@ const Index = () => {
                     style={{ 
                       width: '100%',
                       height: '100%',
-                      background: 'linear-gradient(180deg, #f87171 0%, #ef4444 30%, #dc2626 70%, #b91c1c 100%)',
-                      boxShadow: '0 0 8px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255,255,255,0.4)',
-                      backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.05) 3px, rgba(255,255,255,0.05) 4px)`,
+                      background: 'linear-gradient(180deg, #ff6b6b 0%, #ff3333 30%, #ff0000 70%, #cc0000 100%)',
+                      boxShadow: '0 0 12px rgba(255, 0, 0, 0.8), 0 0 20px rgba(255, 50, 50, 0.5), inset 0 1px 0 rgba(255,255,255,0.6)',
+                      backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.08) 3px, rgba(255,255,255,0.08) 4px)`,
                       position: 'relative'
                     }}
                   >
@@ -257,8 +257,8 @@ const Index = () => {
                       top: '1px',
                       left: '2px',
                       right: '2px',
-                      height: '2px',
-                      background: 'linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.2))',
+                      height: '3px',
+                      background: 'linear-gradient(90deg, rgba(255,255,255,0.7), rgba(255,200,200,0.4))',
                       borderRadius: '1px'
                     }} />
                   </div>
@@ -367,9 +367,9 @@ const Index = () => {
                     style={{ 
                       width: '100%',
                       height: '100%',
-                      background: 'linear-gradient(180deg, #60a5fa 0%, #3b82f6 30%, #2563eb 70%, #1d4ed8 100%)',
-                      boxShadow: '0 0 8px rgba(59, 130, 246, 0.6), inset 0 1px 0 rgba(255,255,255,0.4)',
-                      backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.05) 3px, rgba(255,255,255,0.05) 4px)`,
+                      background: 'linear-gradient(180deg, #66d9ff 0%, #00bfff 30%, #0099ff 70%, #0066cc 100%)',
+                      boxShadow: '0 0 12px rgba(0, 191, 255, 0.8), 0 0 20px rgba(0, 150, 255, 0.5), inset 0 1px 0 rgba(255,255,255,0.6)',
+                      backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.08) 3px, rgba(255,255,255,0.08) 4px)`,
                       position: 'relative'
                     }}
                   >
@@ -379,8 +379,8 @@ const Index = () => {
                       top: '1px',
                       left: '2px',
                       right: '2px',
-                      height: '2px',
-                      background: 'linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.2))',
+                      height: '3px',
+                      background: 'linear-gradient(90deg, rgba(255,255,255,0.7), rgba(200,240,255,0.4))',
                       borderRadius: '1px'
                     }} />
                   </div>
