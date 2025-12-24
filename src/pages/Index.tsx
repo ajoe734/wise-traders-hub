@@ -229,39 +229,39 @@ const Index = () => {
                 className="relative transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-110"
                 style={{ minHeight: '380px' }}
               >
-                {/* Health Bar - Dual layer fighting game style */}
+                {/* Health Bar - KOF style */}
                 <div 
                   className="absolute left-4 right-4 z-20"
                   style={{ 
-                    top: '20px',
-                    height: '24px',
-                    padding: '3px',
-                    background: 'linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 50%, #0d0d0d 100%)',
-                    border: '2px solid #333',
-                    borderRadius: '4px',
-                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.5)'
+                    top: '16px',
+                    height: '32px',
+                    padding: '4px',
+                    background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+                    border: '3px solid #555',
+                    borderRadius: '6px',
+                    boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.95), 0 4px 12px rgba(0,0,0,0.6)'
                   }}
                 >
-                  {/* Inner HP fill */}
+                  {/* Inner HP fill - RED */}
                   <div 
                     style={{ 
                       width: '100%',
                       height: '100%',
-                      background: 'linear-gradient(180deg, #ff6b6b 0%, #ff3333 30%, #ff0000 70%, #cc0000 100%)',
-                      boxShadow: '0 0 15px rgba(255, 0, 0, 0.9), inset 0 2px 0 rgba(255,255,255,0.5)',
-                      borderRadius: '2px',
+                      background: 'linear-gradient(180deg, #ff4444 0%, #ee0000 40%, #cc0000 70%, #990000 100%)',
+                      boxShadow: '0 0 20px rgba(255, 0, 0, 1), inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
+                      borderRadius: '3px',
                       position: 'relative'
                     }}
                   >
                     {/* Highlight line */}
                     <div style={{ 
                       position: 'absolute',
-                      top: '2px',
-                      left: '4px',
-                      right: '4px',
-                      height: '4px',
-                      background: 'linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,200,200,0.3))',
-                      borderRadius: '2px'
+                      top: '3px',
+                      left: '6px',
+                      right: '6px',
+                      height: '5px',
+                      background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,150,150,0.3))',
+                      borderRadius: '3px'
                     }} />
                   </div>
                 </div>
@@ -353,39 +353,39 @@ const Index = () => {
                 className="relative transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-110"
                 style={{ minHeight: '380px' }}
               >
-                {/* Health Bar - Dual layer fighting game style */}
+                {/* Health Bar - KOF style */}
                 <div 
                   className="absolute left-4 right-4 z-20"
                   style={{ 
-                    top: '20px',
-                    height: '24px',
-                    padding: '3px',
-                    background: 'linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 50%, #0d0d0d 100%)',
-                    border: '2px solid #333',
-                    borderRadius: '4px',
-                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.5)'
+                    top: '16px',
+                    height: '32px',
+                    padding: '4px',
+                    background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+                    border: '3px solid #555',
+                    borderRadius: '6px',
+                    boxShadow: 'inset 0 3px 6px rgba(0,0,0,0.95), 0 4px 12px rgba(0,0,0,0.6)'
                   }}
                 >
-                  {/* Inner HP fill */}
+                  {/* Inner HP fill - BLUE */}
                   <div 
                     style={{ 
                       width: '100%',
                       height: '100%',
-                      background: 'linear-gradient(180deg, #66d9ff 0%, #00bfff 30%, #0099ff 70%, #0066cc 100%)',
-                      boxShadow: '0 0 15px rgba(0, 191, 255, 0.9), inset 0 2px 0 rgba(255,255,255,0.5)',
-                      borderRadius: '2px',
+                      background: 'linear-gradient(180deg, #44aaff 0%, #0088ee 40%, #0066cc 70%, #004499 100%)',
+                      boxShadow: '0 0 20px rgba(0, 136, 255, 1), inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
+                      borderRadius: '3px',
                       position: 'relative'
                     }}
                   >
                     {/* Highlight line */}
                     <div style={{ 
                       position: 'absolute',
-                      top: '2px',
-                      left: '4px',
-                      right: '4px',
-                      height: '4px',
-                      background: 'linear-gradient(90deg, rgba(255,255,255,0.8), rgba(200,240,255,0.3))',
-                      borderRadius: '2px'
+                      top: '3px',
+                      left: '6px',
+                      right: '6px',
+                      height: '5px',
+                      background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(150,200,255,0.3))',
+                      borderRadius: '3px'
                     }} />
                   </div>
                 </div>
