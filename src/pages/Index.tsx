@@ -226,276 +226,309 @@ const Index = () => {
           }
         }
         
-        @keyframes flameRiseLeft {
-          0% { 
-            opacity: 0;
-            transform: scale(0.5) translate(0, 0);
+        /* Realistic flame animations */
+        @keyframes flameFlicker {
+          0%, 100% { 
+            opacity: 0.9;
+            transform: scaleY(1) scaleX(1) translateY(0);
           }
-          10% {
+          25% { 
             opacity: 1;
-            transform: scale(1.2) translate(3px, -20px);
+            transform: scaleY(1.15) scaleX(0.9) translateY(-2px);
           }
-          30% {
-            opacity: 0.95;
-            transform: scale(1.1) translate(-8px, -60px);
+          50% { 
+            opacity: 0.85;
+            transform: scaleY(0.95) scaleX(1.05) translateY(1px);
           }
-          50% {
-            opacity: 0.8;
-            transform: scale(0.9) translate(12px, -110px);
-          }
-          70% {
-            opacity: 0.5;
-            transform: scale(0.6) translate(-5px, -160px);
-          }
-          100% { 
-            opacity: 0;
-            transform: scale(0.2) translate(8px, -220px);
+          75% { 
+            opacity: 1;
+            transform: scaleY(1.1) scaleX(0.95) translateY(-1px);
           }
         }
         
-        @keyframes flameRiseRight {
-          0% { 
-            opacity: 0;
-            transform: scale(0.5) translate(0, 0);
+        @keyframes flameSway {
+          0%, 100% { 
+            transform: rotate(-2deg) translateX(0);
           }
-          10% {
-            opacity: 1;
-            transform: scale(1.2) translate(-3px, -20px);
+          33% { 
+            transform: rotate(3deg) translateX(2px);
           }
-          30% {
-            opacity: 0.95;
-            transform: scale(1.1) translate(8px, -60px);
-          }
-          50% {
-            opacity: 0.8;
-            transform: scale(0.9) translate(-12px, -110px);
-          }
-          70% {
-            opacity: 0.5;
-            transform: scale(0.6) translate(5px, -160px);
-          }
-          100% { 
-            opacity: 0;
-            transform: scale(0.2) translate(-8px, -220px);
+          66% { 
+            transform: rotate(-4deg) translateX(-2px);
           }
         }
         
-        @keyframes flameRiseCenter {
+        @keyframes emberFloat {
           0% { 
             opacity: 0;
-            transform: scale(0.6) translate(0, 0) rotate(0deg);
+            transform: translateY(0) translateX(0) scale(0.3);
           }
           15% {
             opacity: 1;
-            transform: scale(1.4) translate(var(--curve-x, 5px), -30px) rotate(30deg);
+            transform: translateY(-15px) translateX(var(--drift, 3px)) scale(1);
           }
-          35% {
-            opacity: 0.9;
-            transform: scale(1.2) translate(calc(var(--curve-x, 5px) * -1), -80px) rotate(60deg);
+          50% {
+            opacity: 0.8;
+            transform: translateY(-50px) translateX(calc(var(--drift, 3px) * -1.5)) scale(0.8);
           }
-          55% {
-            opacity: 0.7;
-            transform: scale(0.9) translate(var(--curve-x, 5px), -130px) rotate(100deg);
-          }
-          75% {
+          80% {
             opacity: 0.4;
-            transform: scale(0.5) translate(calc(var(--curve-x, 5px) * -0.5), -180px) rotate(140deg);
+            transform: translateY(-90px) translateX(var(--drift, 3px)) scale(0.5);
           }
           100% { 
             opacity: 0;
-            transform: scale(0.15) translate(0, -240px) rotate(180deg);
+            transform: translateY(-120px) translateX(0) scale(0.2);
           }
         }
         
-        @keyframes emberGlow {
-          0%, 100% { 
-            filter: brightness(1) blur(0px);
-          }
-          50% { 
-            filter: brightness(1.3) blur(0.5px);
-          }
+        .flame-base {
+          position: absolute;
+          bottom: 0;
+          pointer-events: none;
+          transform-origin: bottom center;
         }
         
-        .spark-left,
-        .spark-right,
-        .spark-center {
+        .flame-tongue {
+          position: absolute;
+          border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+          filter: blur(1px);
+          animation: flameFlicker 0.3s ease-in-out infinite, flameSway 0.8s ease-in-out infinite;
+        }
+        
+        .ember {
           position: absolute;
           border-radius: 50%;
           pointer-events: none;
-        }
-        
-        .spark-left {
-          animation: flameRiseLeft ease-out infinite, emberGlow 0.8s ease-in-out infinite;
-        }
-        
-        .spark-left::before,
-        .spark-left::after {
-          content: '';
-          position: absolute;
-          border-radius: 50%;
-          background: inherit;
-          box-shadow: inherit;
-        }
-        
-        .spark-left::before {
-          width: 80%;
-          height: 80%;
-          top: 8px;
-          left: 50%;
-          transform: translateX(-50%);
-          opacity: 0.5;
-        }
-        
-        .spark-left::after {
-          width: 50%;
-          height: 50%;
-          top: 18px;
-          left: 50%;
-          transform: translateX(-50%);
-          opacity: 0.25;
-        }
-        
-        .spark-right {
-          animation: flameRiseRight ease-out infinite, emberGlow 0.8s ease-in-out infinite;
-        }
-        
-        .spark-right::before,
-        .spark-right::after {
-          content: '';
-          position: absolute;
-          border-radius: 50%;
-          background: inherit;
-          box-shadow: inherit;
-        }
-        
-        .spark-right::before {
-          width: 80%;
-          height: 80%;
-          top: 8px;
-          left: 50%;
-          transform: translateX(-50%);
-          opacity: 0.5;
-        }
-        
-        .spark-right::after {
-          width: 50%;
-          height: 50%;
-          top: 18px;
-          left: 50%;
-          transform: translateX(-50%);
-          opacity: 0.25;
-        }
-        
-        .spark-center {
-          animation: flameRiseCenter ease-out infinite, emberGlow 0.6s ease-in-out infinite;
-        }
-        
-        .spark-center::before,
-        .spark-center::after {
-          content: '';
-          position: absolute;
-          border-radius: 50%;
-          background: inherit;
-          box-shadow: inherit;
-        }
-        
-        .spark-center::before {
-          width: 70%;
-          height: 70%;
-          top: 10px;
-          left: 50%;
-          transform: translateX(-50%);
-          opacity: 0.45;
-        }
-        
-        .spark-center::after {
-          width: 40%;
-          height: 40%;
-          top: 22px;
-          left: 50%;
-          transform: translateX(-50%);
-          opacity: 0.2;
+          animation: emberFloat 2.5s ease-out infinite;
         }
       `}</style>
 
       {/* 選門派 Section - VS Fighting Game Visual Scene */}
       <section className="py-24 relative overflow-hidden">
-        {/* Battle Spark Particles Background - Flame Colors with Trails */}
+        {/* Realistic Flame Background */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {/* Left side flame sparks - rising from bottom */}
-          {[...Array(40)].map((_, i) => {
-            const flameHue = Math.random();
-            const r = 255;
-            const g = Math.floor(80 + flameHue * 120);
-            const b = Math.floor(flameHue * 50);
-            const size = 3 + Math.random() * 8;
+          
+          {/* Left side flames - stacked flame tongues */}
+          {[...Array(12)].map((_, i) => {
+            const baseLeft = 5 + (i * 3.5);
+            const flameHeight = 80 + Math.random() * 120;
+            const flameWidth = 20 + Math.random() * 25;
+            const delay = Math.random() * 0.5;
+            
             return (
               <div 
-                key={`spark-left-${i}`}
-                className="spark-left"
+                key={`flame-left-${i}`}
+                className="flame-base"
                 style={{
-                  left: `${5 + Math.random() * 42}%`,
-                  bottom: `${-5 + Math.random() * 25}%`,
-                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,100,0,0.3) 50%, rgba(255,50,0,0) 70%)`,
-                  width: `${size}px`,
-                  height: `${size}px`,
-                  animationDelay: `${Math.random() * 6}s`,
-                  animationDuration: `${3 + Math.random() * 3}s`,
-                  boxShadow: `0 0 ${6 + size}px rgba(${r},${g},0,0.9), 0 0 ${14 + size}px rgba(255,150,0,0.5)`
+                  left: `${baseLeft}%`,
+                  width: `${flameWidth}px`,
+                  height: `${flameHeight}px`,
+                  animationDelay: `${delay}s`
                 }}
-              />
+              >
+                {/* Outer red-orange layer */}
+                <div 
+                  className="flame-tongue"
+                  style={{
+                    bottom: 0,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(to top, rgba(180,50,0,0.9) 0%, rgba(255,80,0,0.8) 30%, rgba(255,120,0,0.5) 60%, rgba(255,150,50,0) 100%)',
+                    animationDelay: `${delay}s`,
+                    animationDuration: `${0.25 + Math.random() * 0.15}s, ${0.6 + Math.random() * 0.4}s`
+                  }}
+                />
+                {/* Middle orange-yellow layer */}
+                <div 
+                  className="flame-tongue"
+                  style={{
+                    bottom: '5%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '65%',
+                    height: '80%',
+                    background: 'linear-gradient(to top, rgba(255,100,0,0.95) 0%, rgba(255,150,0,0.85) 40%, rgba(255,200,50,0.4) 70%, rgba(255,220,100,0) 100%)',
+                    animationDelay: `${delay + 0.05}s`,
+                    animationDuration: `${0.2 + Math.random() * 0.1}s, ${0.5 + Math.random() * 0.3}s`
+                  }}
+                />
+                {/* Inner yellow-white core */}
+                <div 
+                  className="flame-tongue"
+                  style={{
+                    bottom: '10%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '35%',
+                    height: '55%',
+                    background: 'linear-gradient(to top, rgba(255,200,50,1) 0%, rgba(255,240,150,0.9) 50%, rgba(255,255,200,0) 100%)',
+                    animationDelay: `${delay + 0.1}s`,
+                    animationDuration: `${0.15 + Math.random() * 0.1}s, ${0.4 + Math.random() * 0.2}s`
+                  }}
+                />
+              </div>
             );
           })}
-          {/* Right side flame sparks - rising from bottom */}
-          {[...Array(40)].map((_, i) => {
-            const flameHue = Math.random();
-            const r = 255;
-            const g = Math.floor(60 + flameHue * 140);
-            const b = Math.floor(flameHue * 40);
-            const size = 3 + Math.random() * 8;
+          
+          {/* Right side flames */}
+          {[...Array(12)].map((_, i) => {
+            const baseLeft = 55 + (i * 3.5);
+            const flameHeight = 80 + Math.random() * 120;
+            const flameWidth = 20 + Math.random() * 25;
+            const delay = Math.random() * 0.5;
+            
             return (
               <div 
-                key={`spark-right-${i}`}
-                className="spark-right"
+                key={`flame-right-${i}`}
+                className="flame-base"
                 style={{
-                  left: `${53 + Math.random() * 42}%`,
-                  bottom: `${-5 + Math.random() * 25}%`,
-                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,80,0,0.3) 50%, rgba(255,50,0,0) 70%)`,
-                  width: `${size}px`,
-                  height: `${size}px`,
-                  animationDelay: `${Math.random() * 6}s`,
-                  animationDuration: `${3 + Math.random() * 3}s`,
-                  boxShadow: `0 0 ${6 + size}px rgba(${r},${g},0,0.9), 0 0 ${14 + size}px rgba(255,150,0,0.5)`
+                  left: `${baseLeft}%`,
+                  width: `${flameWidth}px`,
+                  height: `${flameHeight}px`,
+                  animationDelay: `${delay}s`
                 }}
-              />
+              >
+                <div 
+                  className="flame-tongue"
+                  style={{
+                    bottom: 0,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(to top, rgba(180,50,0,0.9) 0%, rgba(255,80,0,0.8) 30%, rgba(255,120,0,0.5) 60%, rgba(255,150,50,0) 100%)',
+                    animationDelay: `${delay}s`,
+                    animationDuration: `${0.25 + Math.random() * 0.15}s, ${0.6 + Math.random() * 0.4}s`
+                  }}
+                />
+                <div 
+                  className="flame-tongue"
+                  style={{
+                    bottom: '5%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '65%',
+                    height: '80%',
+                    background: 'linear-gradient(to top, rgba(255,100,0,0.95) 0%, rgba(255,150,0,0.85) 40%, rgba(255,200,50,0.4) 70%, rgba(255,220,100,0) 100%)',
+                    animationDelay: `${delay + 0.05}s`,
+                    animationDuration: `${0.2 + Math.random() * 0.1}s, ${0.5 + Math.random() * 0.3}s`
+                  }}
+                />
+                <div 
+                  className="flame-tongue"
+                  style={{
+                    bottom: '10%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '35%',
+                    height: '55%',
+                    background: 'linear-gradient(to top, rgba(255,200,50,1) 0%, rgba(255,240,150,0.9) 50%, rgba(255,255,200,0) 100%)',
+                    animationDelay: `${delay + 0.1}s`,
+                    animationDuration: `${0.15 + Math.random() * 0.1}s, ${0.4 + Math.random() * 0.2}s`
+                  }}
+                />
+              </div>
             );
           })}
-          {/* Center clash flame sparks - rising from bottom center */}
-          {[...Array(30)].map((_, i) => {
-            const curveDir = i % 2 === 0 ? 1 : -1;
-            const intensity = Math.random();
-            const r = 255;
-            const g = Math.floor(180 + intensity * 75);
-            const b = Math.floor(50 + intensity * 100);
-            const size = 5 + Math.random() * 10;
+          
+          {/* Center intense flames */}
+          {[...Array(8)].map((_, i) => {
+            const baseLeft = 44 + (i * 1.8);
+            const flameHeight = 100 + Math.random() * 150;
+            const flameWidth = 25 + Math.random() * 30;
+            const delay = Math.random() * 0.4;
+            
             return (
               <div 
-                key={`spark-center-${i}`}
-                className="spark-center"
+                key={`flame-center-${i}`}
+                className="flame-base"
                 style={{
-                  '--curve-x': `${curveDir * (10 + Math.random() * 20)}px`,
-                  left: `${42 + Math.random() * 16}%`,
-                  bottom: `${-8 + Math.random() * 20}%`,
-                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,220,100,0.5) 35%, rgba(255,150,0,0) 70%)`,
+                  left: `${baseLeft}%`,
+                  width: `${flameWidth}px`,
+                  height: `${flameHeight}px`,
+                  animationDelay: `${delay}s`
+                }}
+              >
+                <div 
+                  className="flame-tongue"
+                  style={{
+                    bottom: 0,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(to top, rgba(200,60,0,0.95) 0%, rgba(255,100,0,0.85) 25%, rgba(255,150,30,0.6) 50%, rgba(255,180,80,0) 100%)',
+                    animationDelay: `${delay}s`,
+                    animationDuration: `${0.2 + Math.random() * 0.1}s, ${0.5 + Math.random() * 0.3}s`
+                  }}
+                />
+                <div 
+                  className="flame-tongue"
+                  style={{
+                    bottom: '5%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '60%',
+                    height: '75%',
+                    background: 'linear-gradient(to top, rgba(255,120,0,1) 0%, rgba(255,180,0,0.9) 35%, rgba(255,220,80,0.5) 65%, rgba(255,240,150,0) 100%)',
+                    animationDelay: `${delay + 0.03}s`,
+                    animationDuration: `${0.18 + Math.random() * 0.08}s, ${0.45 + Math.random() * 0.25}s`
+                  }}
+                />
+                <div 
+                  className="flame-tongue"
+                  style={{
+                    bottom: '10%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '30%',
+                    height: '50%',
+                    background: 'linear-gradient(to top, rgba(255,220,100,1) 0%, rgba(255,250,200,0.95) 40%, rgba(255,255,255,0) 100%)',
+                    animationDelay: `${delay + 0.06}s`,
+                    animationDuration: `${0.12 + Math.random() * 0.06}s, ${0.35 + Math.random() * 0.2}s`
+                  }}
+                />
+              </div>
+            );
+          })}
+          
+          {/* Floating embers/sparks */}
+          {[...Array(50)].map((_, i) => {
+            const side = i < 20 ? 'left' : i < 40 ? 'right' : 'center';
+            const leftPos = side === 'left' ? 5 + Math.random() * 40 : 
+                           side === 'right' ? 55 + Math.random() * 40 : 
+                           42 + Math.random() * 16;
+            const size = 2 + Math.random() * 4;
+            const drift = (Math.random() - 0.5) * 20;
+            
+            return (
+              <div 
+                key={`ember-${i}`}
+                className="ember"
+                style={{
+                  '--drift': `${drift}px`,
+                  left: `${leftPos}%`,
+                  bottom: `${5 + Math.random() * 15}%`,
                   width: `${size}px`,
                   height: `${size}px`,
-                  animationDelay: `${Math.random() * 5}s`,
-                  animationDuration: `${2.5 + Math.random() * 2.5}s`,
-                  boxShadow: `0 0 ${10 + size}px rgba(255,${g},50,0.95), 0 0 ${20 + size}px rgba(255,200,100,0.6)`
+                  background: `radial-gradient(circle, rgba(255,${180 + Math.random() * 75},${50 + Math.random() * 50},1) 0%, rgba(255,100,0,0) 70%)`,
+                  boxShadow: `0 0 ${4 + size}px rgba(255,150,0,0.8)`,
+                  animationDelay: `${Math.random() * 3}s`,
+                  animationDuration: `${2 + Math.random() * 2}s`
                 } as React.CSSProperties}
               />
             );
           })}
+          
+          {/* Bottom glow layer */}
+          <div 
+            className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none"
+            style={{
+              background: 'linear-gradient(to top, rgba(255,100,0,0.4) 0%, rgba(255,80,0,0.2) 40%, rgba(255,50,0,0) 100%)'
+            }}
+          />
         </div>
         
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
