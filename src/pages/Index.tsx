@@ -295,99 +295,194 @@ const Index = () => {
           }
         }
         
-        .spark-left {
-          position: absolute;
-          border-radius: 50%;
-          pointer-events: none;
-          animation: sparkleCurveLeft ease-out infinite;
-        }
-        
-        .spark-right {
-          position: absolute;
-          border-radius: 50%;
-          pointer-events: none;
-          animation: sparkleCurveRight ease-out infinite;
-        }
-        
+        .spark-left,
+        .spark-right,
         .spark-center {
           position: absolute;
           border-radius: 50%;
           pointer-events: none;
+        }
+        
+        .spark-left {
+          animation: sparkleCurveLeft ease-out infinite;
+        }
+        
+        .spark-left::before,
+        .spark-left::after {
+          content: '';
+          position: absolute;
+          border-radius: 50%;
+          background: inherit;
+          box-shadow: inherit;
+        }
+        
+        .spark-left::before {
+          width: 70%;
+          height: 70%;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          opacity: 0.6;
+          animation: sparkleCurveLeft ease-out infinite;
+          animation-delay: 0.08s;
+        }
+        
+        .spark-left::after {
+          width: 40%;
+          height: 40%;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          opacity: 0.3;
+          animation: sparkleCurveLeft ease-out infinite;
+          animation-delay: 0.16s;
+        }
+        
+        .spark-right {
+          animation: sparkleCurveRight ease-out infinite;
+        }
+        
+        .spark-right::before,
+        .spark-right::after {
+          content: '';
+          position: absolute;
+          border-radius: 50%;
+          background: inherit;
+          box-shadow: inherit;
+        }
+        
+        .spark-right::before {
+          width: 70%;
+          height: 70%;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          opacity: 0.6;
+          animation: sparkleCurveRight ease-out infinite;
+          animation-delay: 0.08s;
+        }
+        
+        .spark-right::after {
+          width: 40%;
+          height: 40%;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          opacity: 0.3;
+          animation: sparkleCurveRight ease-out infinite;
+          animation-delay: 0.16s;
+        }
+        
+        .spark-center {
           animation: sparkleCurveCenter ease-out infinite;
+        }
+        
+        .spark-center::before,
+        .spark-center::after {
+          content: '';
+          position: absolute;
+          border-radius: 50%;
+          background: inherit;
+          box-shadow: inherit;
+        }
+        
+        .spark-center::before {
+          width: 60%;
+          height: 60%;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          opacity: 0.5;
+          animation: sparkleCurveCenter ease-out infinite;
+          animation-delay: 0.1s;
+        }
+        
+        .spark-center::after {
+          width: 30%;
+          height: 30%;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          opacity: 0.25;
+          animation: sparkleCurveCenter ease-out infinite;
+          animation-delay: 0.2s;
         }
       `}</style>
 
       {/* 選門派 Section - VS Fighting Game Visual Scene */}
       <section className="py-24 relative overflow-hidden">
-        {/* Battle Spark Particles Background - Flame Colors */}
+        {/* Battle Spark Particles Background - Flame Colors with Trails */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {/* Left side flame sparks */}
-          {[...Array(15)].map((_, i) => {
+          {/* Left side flame sparks - increased count */}
+          {[...Array(35)].map((_, i) => {
             const flameHue = Math.random();
             const r = 255;
-            const g = Math.floor(80 + flameHue * 120); // 80-200 for orange to yellow
-            const b = Math.floor(flameHue * 50); // 0-50 for warm tones
+            const g = Math.floor(80 + flameHue * 120);
+            const b = Math.floor(flameHue * 50);
+            const size = 3 + Math.random() * 7;
             return (
               <div 
                 key={`spark-left-${i}`}
                 className="spark-left"
                 style={{
-                  left: `${8 + Math.random() * 35}%`,
-                  top: `${20 + Math.random() * 60}%`,
+                  left: `${5 + Math.random() * 40}%`,
+                  top: `${15 + Math.random() * 70}%`,
                   background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,100,0,0) 70%)`,
-                  width: `${4 + Math.random() * 6}px`,
-                  height: `${4 + Math.random() * 6}px`,
-                  animationDelay: `${Math.random() * 4}s`,
-                  animationDuration: `${2.5 + Math.random() * 2}s`,
-                  boxShadow: `0 0 8px rgba(${r},${g},0,0.9)`
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  animationDelay: `${Math.random() * 5}s`,
+                  animationDuration: `${2 + Math.random() * 2.5}s`,
+                  boxShadow: `0 0 ${6 + size}px rgba(${r},${g},0,0.9), 0 0 ${12 + size}px rgba(255,150,0,0.4)`
                 }}
               />
             );
           })}
-          {/* Right side flame sparks */}
-          {[...Array(15)].map((_, i) => {
+          {/* Right side flame sparks - increased count */}
+          {[...Array(35)].map((_, i) => {
             const flameHue = Math.random();
             const r = 255;
-            const g = Math.floor(60 + flameHue * 140); // 60-200 for red-orange to yellow
-            const b = Math.floor(flameHue * 40); // 0-40 for warm tones
+            const g = Math.floor(60 + flameHue * 140);
+            const b = Math.floor(flameHue * 40);
+            const size = 3 + Math.random() * 7;
             return (
               <div 
                 key={`spark-right-${i}`}
                 className="spark-right"
                 style={{
-                  left: `${57 + Math.random() * 35}%`,
-                  top: `${20 + Math.random() * 60}%`,
+                  left: `${55 + Math.random() * 40}%`,
+                  top: `${15 + Math.random() * 70}%`,
                   background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,80,0,0) 70%)`,
-                  width: `${4 + Math.random() * 6}px`,
-                  height: `${4 + Math.random() * 6}px`,
-                  animationDelay: `${Math.random() * 4}s`,
-                  animationDuration: `${2.5 + Math.random() * 2}s`,
-                  boxShadow: `0 0 8px rgba(${r},${g},0,0.9)`
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  animationDelay: `${Math.random() * 5}s`,
+                  animationDuration: `${2 + Math.random() * 2.5}s`,
+                  boxShadow: `0 0 ${6 + size}px rgba(${r},${g},0,0.9), 0 0 ${12 + size}px rgba(255,150,0,0.4)`
                 }}
               />
             );
           })}
-          {/* Center clash flame sparks - brighter yellows and whites */}
-          {[...Array(10)].map((_, i) => {
+          {/* Center clash flame sparks - increased count with brighter cores */}
+          {[...Array(25)].map((_, i) => {
             const curveDir = i % 2 === 0 ? 1 : -1;
             const intensity = Math.random();
             const r = 255;
-            const g = Math.floor(180 + intensity * 75); // 180-255 for bright yellow/white core
-            const b = Math.floor(50 + intensity * 100); // 50-150 for hot white center
+            const g = Math.floor(180 + intensity * 75);
+            const b = Math.floor(50 + intensity * 100);
+            const size = 5 + Math.random() * 8;
             return (
               <div 
                 key={`spark-center-${i}`}
                 className="spark-center"
                 style={{
-                  '--curve-x': `${curveDir * (15 + Math.random() * 20)}px`,
-                  left: `${46 + Math.random() * 8}%`,
-                  top: `${35 + Math.random() * 30}%`,
-                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,150,0,0) 70%)`,
-                  width: `${6 + Math.random() * 7}px`,
-                  height: `${6 + Math.random() * 7}px`,
-                  animationDelay: `${Math.random() * 3}s`,
-                  animationDuration: `${2 + Math.random() * 2}s`,
-                  boxShadow: `0 0 12px rgba(255,${g},50,0.95)`
+                  '--curve-x': `${curveDir * (15 + Math.random() * 25)}px`,
+                  left: `${44 + Math.random() * 12}%`,
+                  top: `${25 + Math.random() * 50}%`,
+                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,200,50,0.5) 40%, rgba(255,150,0,0) 70%)`,
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  animationDelay: `${Math.random() * 4}s`,
+                  animationDuration: `${1.8 + Math.random() * 2}s`,
+                  boxShadow: `0 0 ${8 + size}px rgba(255,${g},50,0.95), 0 0 ${16 + size}px rgba(255,200,100,0.5)`
                 } as React.CSSProperties}
               />
             );
