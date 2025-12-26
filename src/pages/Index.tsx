@@ -226,72 +226,93 @@ const Index = () => {
           }
         }
         
-        @keyframes sparkleCurveLeft {
+        @keyframes flameRiseLeft {
           0% { 
             opacity: 0;
-            transform: scale(0) translate(0, 0);
+            transform: scale(0.5) translate(0, 0);
           }
-          15% {
+          10% {
             opacity: 1;
-            transform: scale(1.2) translate(5px, -10px);
+            transform: scale(1.2) translate(3px, -20px);
           }
-          40% {
-            opacity: 0.9;
-            transform: scale(1) translate(20px, -35px);
-          }
-          70% {
-            opacity: 0.6;
-            transform: scale(0.7) translate(10px, -60px);
-          }
-          100% { 
-            opacity: 0;
-            transform: scale(0.3) translate(-15px, -80px);
-          }
-        }
-        
-        @keyframes sparkleCurveRight {
-          0% { 
-            opacity: 0;
-            transform: scale(0) translate(0, 0);
-          }
-          15% {
-            opacity: 1;
-            transform: scale(1.2) translate(-5px, -10px);
-          }
-          40% {
-            opacity: 0.9;
-            transform: scale(1) translate(-20px, -35px);
-          }
-          70% {
-            opacity: 0.6;
-            transform: scale(0.7) translate(-10px, -60px);
-          }
-          100% { 
-            opacity: 0;
-            transform: scale(0.3) translate(15px, -80px);
-          }
-        }
-        
-        @keyframes sparkleCurveCenter {
-          0% { 
-            opacity: 0;
-            transform: scale(0) translate(0, 0) rotate(0deg);
-          }
-          20% {
-            opacity: 1;
-            transform: scale(1.5) translate(var(--curve-x, 10px), -15px) rotate(45deg);
+          30% {
+            opacity: 0.95;
+            transform: scale(1.1) translate(-8px, -60px);
           }
           50% {
             opacity: 0.8;
-            transform: scale(1.1) translate(calc(var(--curve-x, 10px) * 1.5), -45px) rotate(90deg);
+            transform: scale(0.9) translate(12px, -110px);
           }
-          80% {
-            opacity: 0.4;
-            transform: scale(0.6) translate(var(--curve-x, 10px), -70px) rotate(135deg);
+          70% {
+            opacity: 0.5;
+            transform: scale(0.6) translate(-5px, -160px);
           }
           100% { 
             opacity: 0;
-            transform: scale(0.2) translate(0, -90px) rotate(180deg);
+            transform: scale(0.2) translate(8px, -220px);
+          }
+        }
+        
+        @keyframes flameRiseRight {
+          0% { 
+            opacity: 0;
+            transform: scale(0.5) translate(0, 0);
+          }
+          10% {
+            opacity: 1;
+            transform: scale(1.2) translate(-3px, -20px);
+          }
+          30% {
+            opacity: 0.95;
+            transform: scale(1.1) translate(8px, -60px);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(0.9) translate(-12px, -110px);
+          }
+          70% {
+            opacity: 0.5;
+            transform: scale(0.6) translate(5px, -160px);
+          }
+          100% { 
+            opacity: 0;
+            transform: scale(0.2) translate(-8px, -220px);
+          }
+        }
+        
+        @keyframes flameRiseCenter {
+          0% { 
+            opacity: 0;
+            transform: scale(0.6) translate(0, 0) rotate(0deg);
+          }
+          15% {
+            opacity: 1;
+            transform: scale(1.4) translate(var(--curve-x, 5px), -30px) rotate(30deg);
+          }
+          35% {
+            opacity: 0.9;
+            transform: scale(1.2) translate(calc(var(--curve-x, 5px) * -1), -80px) rotate(60deg);
+          }
+          55% {
+            opacity: 0.7;
+            transform: scale(0.9) translate(var(--curve-x, 5px), -130px) rotate(100deg);
+          }
+          75% {
+            opacity: 0.4;
+            transform: scale(0.5) translate(calc(var(--curve-x, 5px) * -0.5), -180px) rotate(140deg);
+          }
+          100% { 
+            opacity: 0;
+            transform: scale(0.15) translate(0, -240px) rotate(180deg);
+          }
+        }
+        
+        @keyframes emberGlow {
+          0%, 100% { 
+            filter: brightness(1) blur(0px);
+          }
+          50% { 
+            filter: brightness(1.3) blur(0.5px);
           }
         }
         
@@ -304,7 +325,7 @@ const Index = () => {
         }
         
         .spark-left {
-          animation: sparkleCurveLeft ease-out infinite;
+          animation: flameRiseLeft ease-out infinite, emberGlow 0.8s ease-in-out infinite;
         }
         
         .spark-left::before,
@@ -317,29 +338,25 @@ const Index = () => {
         }
         
         .spark-left::before {
-          width: 70%;
-          height: 70%;
-          top: 50%;
+          width: 80%;
+          height: 80%;
+          top: 8px;
           left: 50%;
-          transform: translate(-50%, -50%);
-          opacity: 0.6;
-          animation: sparkleCurveLeft ease-out infinite;
-          animation-delay: 0.08s;
+          transform: translateX(-50%);
+          opacity: 0.5;
         }
         
         .spark-left::after {
-          width: 40%;
-          height: 40%;
-          top: 50%;
+          width: 50%;
+          height: 50%;
+          top: 18px;
           left: 50%;
-          transform: translate(-50%, -50%);
-          opacity: 0.3;
-          animation: sparkleCurveLeft ease-out infinite;
-          animation-delay: 0.16s;
+          transform: translateX(-50%);
+          opacity: 0.25;
         }
         
         .spark-right {
-          animation: sparkleCurveRight ease-out infinite;
+          animation: flameRiseRight ease-out infinite, emberGlow 0.8s ease-in-out infinite;
         }
         
         .spark-right::before,
@@ -352,29 +369,25 @@ const Index = () => {
         }
         
         .spark-right::before {
-          width: 70%;
-          height: 70%;
-          top: 50%;
+          width: 80%;
+          height: 80%;
+          top: 8px;
           left: 50%;
-          transform: translate(-50%, -50%);
-          opacity: 0.6;
-          animation: sparkleCurveRight ease-out infinite;
-          animation-delay: 0.08s;
+          transform: translateX(-50%);
+          opacity: 0.5;
         }
         
         .spark-right::after {
-          width: 40%;
-          height: 40%;
-          top: 50%;
+          width: 50%;
+          height: 50%;
+          top: 18px;
           left: 50%;
-          transform: translate(-50%, -50%);
-          opacity: 0.3;
-          animation: sparkleCurveRight ease-out infinite;
-          animation-delay: 0.16s;
+          transform: translateX(-50%);
+          opacity: 0.25;
         }
         
         .spark-center {
-          animation: sparkleCurveCenter ease-out infinite;
+          animation: flameRiseCenter ease-out infinite, emberGlow 0.6s ease-in-out infinite;
         }
         
         .spark-center::before,
@@ -387,25 +400,21 @@ const Index = () => {
         }
         
         .spark-center::before {
-          width: 60%;
-          height: 60%;
-          top: 50%;
+          width: 70%;
+          height: 70%;
+          top: 10px;
           left: 50%;
-          transform: translate(-50%, -50%);
-          opacity: 0.5;
-          animation: sparkleCurveCenter ease-out infinite;
-          animation-delay: 0.1s;
+          transform: translateX(-50%);
+          opacity: 0.45;
         }
         
         .spark-center::after {
-          width: 30%;
-          height: 30%;
-          top: 50%;
+          width: 40%;
+          height: 40%;
+          top: 22px;
           left: 50%;
-          transform: translate(-50%, -50%);
-          opacity: 0.25;
-          animation: sparkleCurveCenter ease-out infinite;
-          animation-delay: 0.2s;
+          transform: translateX(-50%);
+          opacity: 0.2;
         }
       `}</style>
 
@@ -413,76 +422,76 @@ const Index = () => {
       <section className="py-24 relative overflow-hidden">
         {/* Battle Spark Particles Background - Flame Colors with Trails */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {/* Left side flame sparks - increased count */}
-          {[...Array(35)].map((_, i) => {
+          {/* Left side flame sparks - rising from bottom */}
+          {[...Array(40)].map((_, i) => {
             const flameHue = Math.random();
             const r = 255;
             const g = Math.floor(80 + flameHue * 120);
             const b = Math.floor(flameHue * 50);
-            const size = 3 + Math.random() * 7;
+            const size = 3 + Math.random() * 8;
             return (
               <div 
                 key={`spark-left-${i}`}
                 className="spark-left"
                 style={{
-                  left: `${5 + Math.random() * 40}%`,
-                  top: `${15 + Math.random() * 70}%`,
-                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,100,0,0) 70%)`,
+                  left: `${5 + Math.random() * 42}%`,
+                  bottom: `${-5 + Math.random() * 25}%`,
+                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,100,0,0.3) 50%, rgba(255,50,0,0) 70%)`,
                   width: `${size}px`,
                   height: `${size}px`,
-                  animationDelay: `${Math.random() * 5}s`,
-                  animationDuration: `${2 + Math.random() * 2.5}s`,
-                  boxShadow: `0 0 ${6 + size}px rgba(${r},${g},0,0.9), 0 0 ${12 + size}px rgba(255,150,0,0.4)`
+                  animationDelay: `${Math.random() * 6}s`,
+                  animationDuration: `${3 + Math.random() * 3}s`,
+                  boxShadow: `0 0 ${6 + size}px rgba(${r},${g},0,0.9), 0 0 ${14 + size}px rgba(255,150,0,0.5)`
                 }}
               />
             );
           })}
-          {/* Right side flame sparks - increased count */}
-          {[...Array(35)].map((_, i) => {
+          {/* Right side flame sparks - rising from bottom */}
+          {[...Array(40)].map((_, i) => {
             const flameHue = Math.random();
             const r = 255;
             const g = Math.floor(60 + flameHue * 140);
             const b = Math.floor(flameHue * 40);
-            const size = 3 + Math.random() * 7;
+            const size = 3 + Math.random() * 8;
             return (
               <div 
                 key={`spark-right-${i}`}
                 className="spark-right"
                 style={{
-                  left: `${55 + Math.random() * 40}%`,
-                  top: `${15 + Math.random() * 70}%`,
-                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,80,0,0) 70%)`,
+                  left: `${53 + Math.random() * 42}%`,
+                  bottom: `${-5 + Math.random() * 25}%`,
+                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,80,0,0.3) 50%, rgba(255,50,0,0) 70%)`,
                   width: `${size}px`,
                   height: `${size}px`,
-                  animationDelay: `${Math.random() * 5}s`,
-                  animationDuration: `${2 + Math.random() * 2.5}s`,
-                  boxShadow: `0 0 ${6 + size}px rgba(${r},${g},0,0.9), 0 0 ${12 + size}px rgba(255,150,0,0.4)`
+                  animationDelay: `${Math.random() * 6}s`,
+                  animationDuration: `${3 + Math.random() * 3}s`,
+                  boxShadow: `0 0 ${6 + size}px rgba(${r},${g},0,0.9), 0 0 ${14 + size}px rgba(255,150,0,0.5)`
                 }}
               />
             );
           })}
-          {/* Center clash flame sparks - increased count with brighter cores */}
-          {[...Array(25)].map((_, i) => {
+          {/* Center clash flame sparks - rising from bottom center */}
+          {[...Array(30)].map((_, i) => {
             const curveDir = i % 2 === 0 ? 1 : -1;
             const intensity = Math.random();
             const r = 255;
             const g = Math.floor(180 + intensity * 75);
             const b = Math.floor(50 + intensity * 100);
-            const size = 5 + Math.random() * 8;
+            const size = 5 + Math.random() * 10;
             return (
               <div 
                 key={`spark-center-${i}`}
                 className="spark-center"
                 style={{
-                  '--curve-x': `${curveDir * (15 + Math.random() * 25)}px`,
-                  left: `${44 + Math.random() * 12}%`,
-                  top: `${25 + Math.random() * 50}%`,
-                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,200,50,0.5) 40%, rgba(255,150,0,0) 70%)`,
+                  '--curve-x': `${curveDir * (10 + Math.random() * 20)}px`,
+                  left: `${42 + Math.random() * 16}%`,
+                  bottom: `${-8 + Math.random() * 20}%`,
+                  background: `radial-gradient(circle, rgba(${r},${g},${b},1) 0%, rgba(255,220,100,0.5) 35%, rgba(255,150,0,0) 70%)`,
                   width: `${size}px`,
                   height: `${size}px`,
-                  animationDelay: `${Math.random() * 4}s`,
-                  animationDuration: `${1.8 + Math.random() * 2}s`,
-                  boxShadow: `0 0 ${8 + size}px rgba(255,${g},50,0.95), 0 0 ${16 + size}px rgba(255,200,100,0.5)`
+                  animationDelay: `${Math.random() * 5}s`,
+                  animationDuration: `${2.5 + Math.random() * 2.5}s`,
+                  boxShadow: `0 0 ${10 + size}px rgba(255,${g},50,0.95), 0 0 ${20 + size}px rgba(255,200,100,0.6)`
                 } as React.CSSProperties}
               />
             );
