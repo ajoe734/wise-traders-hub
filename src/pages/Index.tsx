@@ -225,10 +225,109 @@ const Index = () => {
             transform: scale(1.15);
           }
         }
+        
+        @keyframes hpShake {
+          0%, 100% { transform: translateX(0); }
+          10% { transform: translateX(-3px) rotate(-0.5deg); }
+          20% { transform: translateX(3px) rotate(0.5deg); }
+          30% { transform: translateX(-2px) rotate(-0.3deg); }
+          40% { transform: translateX(2px) rotate(0.3deg); }
+          50% { transform: translateX(-1px); }
+          60% { transform: translateX(1px); }
+        }
+        
+        @keyframes sparkle {
+          0%, 100% { 
+            opacity: 0;
+            transform: scale(0) translateY(0);
+          }
+          10% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          90% {
+            opacity: 0.8;
+            transform: scale(0.5) translateY(-30px);
+          }
+        }
+        
+        .vs-card-left:hover .hp-bar-red,
+        .vs-card-left:hover .hp-glow-red {
+          animation: hpShake 0.4s ease-in-out;
+        }
+        
+        .vs-card-right:hover .hp-bar-blue,
+        .vs-card-right:hover .hp-glow-blue {
+          animation: hpShake 0.4s ease-in-out;
+        }
+        
+        .spark {
+          position: absolute;
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          pointer-events: none;
+          animation: sparkle 2s ease-out infinite;
+        }
       `}</style>
 
       {/* 選門派 Section - VS Fighting Game Visual Scene */}
       <section className="py-24 relative overflow-hidden">
+        {/* Battle Spark Particles Background */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {/* Red side sparks */}
+          {[...Array(12)].map((_, i) => (
+            <div 
+              key={`spark-red-${i}`}
+              className="spark"
+              style={{
+                left: `${5 + Math.random() * 40}%`,
+                top: `${10 + Math.random() * 80}%`,
+                background: `radial-gradient(circle, rgba(255,${150 + Math.random() * 100},${50 + Math.random() * 50},1) 0%, rgba(255,100,50,0) 70%)`,
+                width: `${3 + Math.random() * 5}px`,
+                height: `${3 + Math.random() * 5}px`,
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${1.5 + Math.random() * 2}s`,
+                boxShadow: '0 0 6px rgba(255,150,50,0.8)'
+              }}
+            />
+          ))}
+          {/* Blue side sparks */}
+          {[...Array(12)].map((_, i) => (
+            <div 
+              key={`spark-blue-${i}`}
+              className="spark"
+              style={{
+                left: `${55 + Math.random() * 40}%`,
+                top: `${10 + Math.random() * 80}%`,
+                background: `radial-gradient(circle, rgba(${100 + Math.random() * 100},${180 + Math.random() * 75},255,1) 0%, rgba(50,150,255,0) 70%)`,
+                width: `${3 + Math.random() * 5}px`,
+                height: `${3 + Math.random() * 5}px`,
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${1.5 + Math.random() * 2}s`,
+                boxShadow: '0 0 6px rgba(100,180,255,0.8)'
+              }}
+            />
+          ))}
+          {/* Center clash sparks - brighter, larger */}
+          {[...Array(8)].map((_, i) => (
+            <div 
+              key={`spark-center-${i}`}
+              className="spark"
+              style={{
+                left: `${45 + Math.random() * 10}%`,
+                top: `${30 + Math.random() * 40}%`,
+                background: `radial-gradient(circle, rgba(255,${220 + Math.random() * 35},${150 + Math.random() * 100},1) 0%, rgba(255,200,100,0) 70%)`,
+                width: `${5 + Math.random() * 6}px`,
+                height: `${5 + Math.random() * 6}px`,
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${1 + Math.random() * 1.5}s`,
+                boxShadow: '0 0 10px rgba(255,220,150,0.9)'
+              }}
+            />
+          ))}
+        </div>
+        
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Main Title - Battle Declaration */}
           <h2 className="text-center text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-16">
