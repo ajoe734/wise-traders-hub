@@ -226,48 +226,94 @@ const Index = () => {
           }
         }
         
-        @keyframes hpShake {
-          0%, 100% { transform: translateX(0); }
-          10% { transform: translateX(-3px) rotate(-0.5deg); }
-          20% { transform: translateX(3px) rotate(0.5deg); }
-          30% { transform: translateX(-2px) rotate(-0.3deg); }
-          40% { transform: translateX(2px) rotate(0.3deg); }
-          50% { transform: translateX(-1px); }
-          60% { transform: translateX(1px); }
-        }
-        
-        @keyframes sparkle {
-          0%, 100% { 
+        @keyframes sparkleCurveLeft {
+          0% { 
             opacity: 0;
-            transform: scale(0) translateY(0);
+            transform: scale(0) translate(0, 0);
           }
-          10% {
+          15% {
             opacity: 1;
-            transform: scale(1);
+            transform: scale(1.2) translate(5px, -10px);
           }
-          90% {
+          40% {
+            opacity: 0.9;
+            transform: scale(1) translate(20px, -35px);
+          }
+          70% {
+            opacity: 0.6;
+            transform: scale(0.7) translate(10px, -60px);
+          }
+          100% { 
+            opacity: 0;
+            transform: scale(0.3) translate(-15px, -80px);
+          }
+        }
+        
+        @keyframes sparkleCurveRight {
+          0% { 
+            opacity: 0;
+            transform: scale(0) translate(0, 0);
+          }
+          15% {
+            opacity: 1;
+            transform: scale(1.2) translate(-5px, -10px);
+          }
+          40% {
+            opacity: 0.9;
+            transform: scale(1) translate(-20px, -35px);
+          }
+          70% {
+            opacity: 0.6;
+            transform: scale(0.7) translate(-10px, -60px);
+          }
+          100% { 
+            opacity: 0;
+            transform: scale(0.3) translate(15px, -80px);
+          }
+        }
+        
+        @keyframes sparkleCurveCenter {
+          0% { 
+            opacity: 0;
+            transform: scale(0) translate(0, 0) rotate(0deg);
+          }
+          20% {
+            opacity: 1;
+            transform: scale(1.5) translate(var(--curve-x, 10px), -15px) rotate(45deg);
+          }
+          50% {
             opacity: 0.8;
-            transform: scale(0.5) translateY(-30px);
+            transform: scale(1.1) translate(calc(var(--curve-x, 10px) * 1.5), -45px) rotate(90deg);
+          }
+          80% {
+            opacity: 0.4;
+            transform: scale(0.6) translate(var(--curve-x, 10px), -70px) rotate(135deg);
+          }
+          100% { 
+            opacity: 0;
+            transform: scale(0.2) translate(0, -90px) rotate(180deg);
           }
         }
         
-        .vs-card-left:hover .hp-bar-red,
-        .vs-card-left:hover .hp-glow-red {
-          animation: hpShake 0.4s ease-in-out;
-        }
-        
-        .vs-card-right:hover .hp-bar-blue,
-        .vs-card-right:hover .hp-glow-blue {
-          animation: hpShake 0.4s ease-in-out;
-        }
-        
-        .spark {
+        .spark-left {
           position: absolute;
-          width: 4px;
-          height: 4px;
           border-radius: 50%;
           pointer-events: none;
-          animation: sparkle 2s ease-out infinite;
+          animation: sparkleCurveLeft ease-out infinite;
+        }
+        
+        .spark-right {
+          position: absolute;
+          border-radius: 50%;
+          pointer-events: none;
+          animation: sparkleCurveRight ease-out infinite;
+        }
+        
+        .spark-center {
+          position: absolute;
+          border-radius: 50%;
+          pointer-events: none;
+          animation: sparkleCurveCenter ease-out infinite;
         }
       `}</style>
 
@@ -275,57 +321,61 @@ const Index = () => {
       <section className="py-24 relative overflow-hidden">
         {/* Battle Spark Particles Background */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {/* Red side sparks */}
-          {[...Array(12)].map((_, i) => (
+          {/* Red side sparks - curved trajectory toward center */}
+          {[...Array(15)].map((_, i) => (
             <div 
               key={`spark-red-${i}`}
-              className="spark"
+              className="spark-left"
               style={{
-                left: `${5 + Math.random() * 40}%`,
-                top: `${10 + Math.random() * 80}%`,
+                left: `${8 + Math.random() * 35}%`,
+                top: `${20 + Math.random() * 60}%`,
                 background: `radial-gradient(circle, rgba(255,${150 + Math.random() * 100},${50 + Math.random() * 50},1) 0%, rgba(255,100,50,0) 70%)`,
-                width: `${3 + Math.random() * 5}px`,
-                height: `${3 + Math.random() * 5}px`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${1.5 + Math.random() * 2}s`,
-                boxShadow: '0 0 6px rgba(255,150,50,0.8)'
+                width: `${4 + Math.random() * 6}px`,
+                height: `${4 + Math.random() * 6}px`,
+                animationDelay: `${Math.random() * 4}s`,
+                animationDuration: `${2.5 + Math.random() * 2}s`,
+                boxShadow: '0 0 8px rgba(255,150,50,0.9)'
               }}
             />
           ))}
-          {/* Blue side sparks */}
-          {[...Array(12)].map((_, i) => (
+          {/* Blue side sparks - curved trajectory toward center */}
+          {[...Array(15)].map((_, i) => (
             <div 
               key={`spark-blue-${i}`}
-              className="spark"
+              className="spark-right"
               style={{
-                left: `${55 + Math.random() * 40}%`,
-                top: `${10 + Math.random() * 80}%`,
+                left: `${57 + Math.random() * 35}%`,
+                top: `${20 + Math.random() * 60}%`,
                 background: `radial-gradient(circle, rgba(${100 + Math.random() * 100},${180 + Math.random() * 75},255,1) 0%, rgba(50,150,255,0) 70%)`,
-                width: `${3 + Math.random() * 5}px`,
-                height: `${3 + Math.random() * 5}px`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${1.5 + Math.random() * 2}s`,
-                boxShadow: '0 0 6px rgba(100,180,255,0.8)'
+                width: `${4 + Math.random() * 6}px`,
+                height: `${4 + Math.random() * 6}px`,
+                animationDelay: `${Math.random() * 4}s`,
+                animationDuration: `${2.5 + Math.random() * 2}s`,
+                boxShadow: '0 0 8px rgba(100,180,255,0.9)'
               }}
             />
           ))}
-          {/* Center clash sparks - brighter, larger */}
-          {[...Array(8)].map((_, i) => (
-            <div 
-              key={`spark-center-${i}`}
-              className="spark"
-              style={{
-                left: `${45 + Math.random() * 10}%`,
-                top: `${30 + Math.random() * 40}%`,
-                background: `radial-gradient(circle, rgba(255,${220 + Math.random() * 35},${150 + Math.random() * 100},1) 0%, rgba(255,200,100,0) 70%)`,
-                width: `${5 + Math.random() * 6}px`,
-                height: `${5 + Math.random() * 6}px`,
-                animationDelay: `${Math.random() * 2}s`,
-                animationDuration: `${1 + Math.random() * 1.5}s`,
-                boxShadow: '0 0 10px rgba(255,220,150,0.9)'
-              }}
-            />
-          ))}
+          {/* Center clash sparks - spiral outward with rotation */}
+          {[...Array(10)].map((_, i) => {
+            const curveDir = i % 2 === 0 ? 1 : -1;
+            return (
+              <div 
+                key={`spark-center-${i}`}
+                className="spark-center"
+                style={{
+                  '--curve-x': `${curveDir * (15 + Math.random() * 20)}px`,
+                  left: `${46 + Math.random() * 8}%`,
+                  top: `${35 + Math.random() * 30}%`,
+                  background: `radial-gradient(circle, rgba(255,${220 + Math.random() * 35},${150 + Math.random() * 100},1) 0%, rgba(255,200,100,0) 70%)`,
+                  width: `${6 + Math.random() * 7}px`,
+                  height: `${6 + Math.random() * 7}px`,
+                  animationDelay: `${Math.random() * 3}s`,
+                  animationDuration: `${2 + Math.random() * 2}s`,
+                  boxShadow: '0 0 12px rgba(255,220,150,0.95)'
+                } as React.CSSProperties}
+              />
+            );
+          })}
         </div>
         
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
