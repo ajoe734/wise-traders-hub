@@ -15,6 +15,7 @@ const Pricing = () => {
   const [exampleModalOpen, setExampleModalOpen] = useState(false);
   const [activeExample, setActiveExample] = useState<'follower' | 'cultivator' | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [highlightedCard, setHighlightedCard] = useState<'follower' | 'cultivator' | null>(null);
   
   const followerCardRef = useRef<HTMLDivElement>(null);
   const cultivatorCardRef = useRef<HTMLDivElement>(null);
@@ -36,21 +37,12 @@ const Pricing = () => {
       targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
     
-    // Add highlight effect with glow
+    // Add internal highlight effect
     setTimeout(() => {
-      if (targetRef.current) {
-        const glowColor = cardType === 'follower' 
-          ? '0 0 30px 8px hsl(var(--advisor) / 0.6)' 
-          : '0 0 30px 8px hsl(var(--mentor) / 0.6)';
-        targetRef.current.style.boxShadow = glowColor;
-        targetRef.current.style.transition = 'box-shadow 0.3s ease-in-out';
-        
-        setTimeout(() => {
-          if (targetRef.current) {
-            targetRef.current.style.boxShadow = '';
-          }
-        }, 800);
-      }
+      setHighlightedCard(cardType);
+      setTimeout(() => {
+        setHighlightedCard(null);
+      }, 1200);
     }, 400);
   };
 
@@ -166,6 +158,7 @@ const Pricing = () => {
           {mainPlans.map((plan) => {
             const isAdvisor = plan.color === 'advisor';
             const isExpanded = expandedCards.has(plan.id);
+            const isHighlighted = highlightedCard === plan.id;
             
             return (
               <Card 
@@ -195,6 +188,21 @@ const Pricing = () => {
                     ? "bg-gradient-to-r from-black/95 via-black/85 to-black/50" 
                     : "bg-gradient-to-l from-black/95 via-black/85 to-black/50"
                 )} />
+                {/* Internal highlight glow effect */}
+                <div 
+                  className={cn(
+                    "absolute inset-0 pointer-events-none transition-opacity duration-500",
+                    isHighlighted ? "opacity-100" : "opacity-0"
+                  )}
+                  style={{
+                    background: isAdvisor 
+                      ? 'radial-gradient(ellipse at center, hsl(var(--advisor) / 0.35) 0%, hsl(var(--advisor) / 0.15) 40%, transparent 70%)'
+                      : 'radial-gradient(ellipse at center, hsl(var(--mentor) / 0.35) 0%, hsl(var(--mentor) / 0.15) 40%, transparent 70%)',
+                    boxShadow: isHighlighted 
+                      ? `inset 0 0 60px 20px ${isAdvisor ? 'hsl(var(--advisor) / 0.3)' : 'hsl(var(--mentor) / 0.3)'}`
+                      : 'none'
+                  }}
+                />
                 {/* Top color bar */}
                 <div className={cn(
                   "absolute top-0 left-0 right-0 h-1.5 z-10",
