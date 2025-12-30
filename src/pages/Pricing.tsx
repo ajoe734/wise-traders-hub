@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, ArrowRight, Radio, BookOpen, Stethoscope, Plus, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
+import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 
 const Pricing = () => {
   const mainPlans = [
@@ -65,18 +67,33 @@ const Pricing = () => {
               <Card 
                 key={plan.id}
                 className={cn(
-                  "relative overflow-hidden border-2",
+                  "relative overflow-hidden border-2 min-h-[480px]",
                   isAdvisor ? "border-advisor/30" : "border-mentor/30"
                 )}
               >
+                {/* Background Image */}
+                <div 
+                  className="absolute inset-0 bg-cover bg-no-repeat transition-all duration-500"
+                  style={{ 
+                    backgroundImage: `url(${isAdvisor ? cardKungfuSpeed : cardKungfuBones})`,
+                    backgroundPosition: isAdvisor ? 'center right' : 'center left',
+                    filter: 'brightness(0.9) contrast(1.1)'
+                  }}
+                />
                 <div className={cn(
-                  "absolute top-0 left-0 right-0 h-1.5",
+                  "absolute inset-0",
+                  isAdvisor 
+                    ? "bg-gradient-to-r from-black/85 via-black/60 to-black/30" 
+                    : "bg-gradient-to-l from-black/85 via-black/60 to-black/30"
+                )} />
+                <div className={cn(
+                  "absolute top-0 left-0 right-0 h-1.5 z-10",
                   isAdvisor ? "gradient-advisor" : "gradient-mentor"
                 )} />
-                <CardHeader className="pb-4">
+                <CardHeader className="pb-4 relative z-10">
                   <div className={cn(
-                    "h-14 w-14 rounded-xl flex items-center justify-center mb-4",
-                    isAdvisor ? "bg-advisor-light" : "bg-mentor-light"
+                    "h-14 w-14 rounded-xl flex items-center justify-center mb-4 backdrop-blur-sm",
+                    isAdvisor ? "bg-advisor/20 ring-1 ring-advisor/30" : "bg-mentor/20 ring-1 ring-mentor/30"
                   )}>
                     <plan.icon className={cn(
                       "h-7 w-7",
@@ -89,12 +106,12 @@ const Pricing = () => {
                   >
                     {plan.faction}
                   </Badge>
-                  <CardTitle className="text-xl">{plan.title}</CardTitle>
+                  <CardTitle className="text-xl text-white">{plan.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-5">
-                  <p className="text-muted-foreground">{plan.description}</p>
+                <CardContent className="space-y-5 relative z-10">
+                  <p className="text-white/80">{plan.description}</p>
                   
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-white/60">
                     你會拿到：
                   </div>
                   <ul className="space-y-2.5">
@@ -104,16 +121,16 @@ const Pricing = () => {
                           "h-5 w-5 flex-shrink-0",
                           isAdvisor ? "text-advisor" : "text-mentor"
                         )} />
-                        <span>{feature}</span>
+                        <span className="text-white">{feature}</span>
                       </li>
                     ))}
                   </ul>
 
-                  <div className="pt-2 border-t border-border">
+                  <div className="pt-2 border-t border-white/20">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-sm text-muted-foreground">NT$</span>
-                      <span className="text-3xl font-bold">{plan.price}</span>
-                      <span className="text-muted-foreground">／月</span>
+                      <span className="text-sm text-white/60">NT$</span>
+                      <span className="text-3xl font-bold text-white">{plan.price}</span>
+                      <span className="text-white/60">／月</span>
                     </div>
                   </div>
 
