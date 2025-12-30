@@ -21,36 +21,20 @@ const Pricing = () => {
 
   const comparisonChips = [
     {
-      icon: Clock,
       label: '更新頻率',
-      followerLabel: '跟單派',
-      follower: '即時通知',
-      cultivatorLabel: '修煉派',
-      cultivator: '每週整理',
+      content: '⚡ 即時通知 ／ 📘 每週整理',
     },
     {
-      icon: Target,
-      label: '你的動作',
-      followerLabel: '跟單派',
-      follower: '照訊號做',
-      cultivatorLabel: '修煉派',
-      cultivator: '學會決策',
+      label: '你的做法',
+      content: '⚡ 照訊號做 ／ 📘 學會決策',
     },
     {
-      icon: Lightbulb,
       label: '內容形式',
-      followerLabel: '跟單派',
-      follower: '訊號＋紀錄',
-      cultivatorLabel: '修煉派',
-      cultivator: '復盤＋框架',
+      content: '⚡ 訊號＋紀錄 ／ 📘 復盤＋框架',
     },
     {
-      icon: Zap,
-      label: '適合狀態',
-      followerLabel: '跟單派',
-      follower: '忙到沒空盯盤',
-      cultivatorLabel: '修煉派',
-      cultivator: '想練一套方法',
+      label: '適合情境',
+      content: '⚡ 忙想省時間 ／ 📘 想練成方法',
     },
   ];
 
@@ -105,57 +89,33 @@ const Pricing = () => {
           </p>
         </div>
 
-        {/* Quick Comparison Chips - Left vs Right Layout */}
-        <div className="max-w-5xl mx-auto mb-10">
-          <div className="text-center mb-5">
-            <span className="text-sm text-muted-foreground font-medium">快速對照</span>
+        {/* Quick Comparison Chips - Low Reading Cost Version */}
+        <div className="max-w-5xl mx-auto mb-8">
+          <div className="text-center mb-4">
+            <h2 className="text-base font-semibold mb-1">快速對照</h2>
+            <p className="text-sm text-muted-foreground">左邊跟單派，右邊修煉派。看一眼就知道選哪個。</p>
           </div>
           
-          {/* Desktop: 4 columns, Mobile: horizontal scroll */}
-          <div className="hidden md:grid md:grid-cols-4 gap-4">
+          {/* Desktop: 4 columns */}
+          <div className="hidden md:grid md:grid-cols-4 gap-5">
             {comparisonChips.map((chip, idx) => (
               <div 
                 key={idx}
-                className="group relative bg-card border border-border rounded-xl overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg cursor-default"
+                className="relative bg-card border border-border rounded-xl overflow-hidden transition-shadow duration-200 hover:shadow-md"
               >
-                {/* Split background */}
-                <div className="absolute inset-0 flex">
-                  <div className="w-1/2 bg-advisor/5" />
-                  <div className="w-1/2 bg-mentor/5" />
-                </div>
+                {/* Left color bar hint */}
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-advisor/60 to-advisor/30" />
                 
-                <div className="relative p-4">
-                  {/* Top label with icon */}
-                  <div className="flex items-center justify-center gap-1.5 mb-3">
-                    <chip.icon className="h-3.5 w-3.5 text-muted-foreground/70" />
-                    <span className="text-xs text-muted-foreground/70 font-medium">{chip.label}</span>
+                <div className="pl-4 pr-4 py-4">
+                  {/* Top label */}
+                  <div className="text-xs text-muted-foreground/70 font-medium mb-2">
+                    {chip.label}
                   </div>
                   
-                  {/* Left vs Right content */}
-                  <div className="flex items-center justify-between gap-2">
-                    {/* Left side - Follower */}
-                    <div className="flex-1 text-left">
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <span className="text-xs">⚡</span>
-                        <span className="text-xs text-advisor font-medium">{chip.followerLabel}</span>
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">{chip.follower}</p>
-                    </div>
-                    
-                    {/* VS Badge */}
-                    <div className="flex-shrink-0 px-2 py-0.5 rounded-full bg-muted/80 border border-border group-hover:bg-primary/10 group-hover:border-primary/30 transition-colors">
-                      <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary">VS</span>
-                    </div>
-                    
-                    {/* Right side - Cultivator */}
-                    <div className="flex-1 text-right">
-                      <div className="flex items-center justify-end gap-1 mb-0.5">
-                        <span className="text-xs text-mentor font-medium">{chip.cultivatorLabel}</span>
-                        <span className="text-xs">📘</span>
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">{chip.cultivator}</p>
-                    </div>
-                  </div>
+                  {/* One-line conclusion */}
+                  <p className="text-base font-bold text-foreground leading-snug">
+                    {chip.content}
+                  </p>
                 </div>
               </div>
             ))}
@@ -163,55 +123,35 @@ const Pricing = () => {
           
           {/* Mobile: Horizontal Scroll */}
           <div className="md:hidden overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            <div className="flex gap-3" style={{ width: 'max-content' }}>
+            <div className="flex gap-4" style={{ width: 'max-content' }}>
               {comparisonChips.map((chip, idx) => (
                 <div 
                   key={idx}
-                  className="group relative bg-card border border-border rounded-xl overflow-hidden w-[260px] flex-shrink-0"
+                  className="relative bg-card border border-border rounded-xl overflow-hidden w-[260px] flex-shrink-0"
                 >
-                  {/* Split background */}
-                  <div className="absolute inset-0 flex">
-                    <div className="w-1/2 bg-advisor/5" />
-                    <div className="w-1/2 bg-mentor/5" />
-                  </div>
+                  {/* Left color bar hint */}
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-advisor/60 to-advisor/30" />
                   
-                  <div className="relative p-4">
-                    {/* Top label with icon */}
-                    <div className="flex items-center justify-center gap-1.5 mb-3">
-                      <chip.icon className="h-3.5 w-3.5 text-muted-foreground/70" />
-                      <span className="text-xs text-muted-foreground/70 font-medium">{chip.label}</span>
+                  <div className="pl-4 pr-4 py-4">
+                    {/* Top label */}
+                    <div className="text-xs text-muted-foreground/70 font-medium mb-2">
+                      {chip.label}
                     </div>
                     
-                    {/* Left vs Right content */}
-                    <div className="flex items-center justify-between gap-2">
-                      {/* Left side - Follower */}
-                      <div className="flex-1 text-left">
-                        <div className="flex items-center gap-1 mb-0.5">
-                          <span className="text-xs">⚡</span>
-                          <span className="text-xs text-advisor font-medium">{chip.followerLabel}</span>
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">{chip.follower}</p>
-                      </div>
-                      
-                      {/* VS Badge */}
-                      <div className="flex-shrink-0 px-2 py-0.5 rounded-full bg-muted/80 border border-border">
-                        <span className="text-[10px] font-bold text-muted-foreground">VS</span>
-                      </div>
-                      
-                      {/* Right side - Cultivator */}
-                      <div className="flex-1 text-right">
-                        <div className="flex items-center justify-end gap-1 mb-0.5">
-                          <span className="text-xs text-mentor font-medium">{chip.cultivatorLabel}</span>
-                          <span className="text-xs">📘</span>
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">{chip.cultivator}</p>
-                      </div>
-                    </div>
+                    {/* One-line conclusion */}
+                    <p className="text-base font-bold text-foreground leading-snug">
+                      {chip.content}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Transition hint before plan cards */}
+        <div className="text-center mb-6">
+          <p className="text-sm text-muted-foreground">你想要的是「省時間」還是「練方法」？</p>
         </div>
 
         {/* Main Plans */}
