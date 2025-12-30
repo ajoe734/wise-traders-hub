@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CheckCircle, ArrowRight, Radio, BookOpen, Stethoscope, Plus, AlertCircle, Zap, Clock, Target, Lightbulb, Eye } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { CheckCircle, ArrowRight, Radio, BookOpen, Stethoscope, Plus, AlertCircle, Zap, Clock, Target, Lightbulb, Eye, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
 import cardKungfuBones from '@/assets/card-kungfu-bones.png';
@@ -13,30 +14,44 @@ import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 const Pricing = () => {
   const [exampleModalOpen, setExampleModalOpen] = useState(false);
   const [activeExample, setActiveExample] = useState<'follower' | 'cultivator' | null>(null);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  
+  const followerCardRef = useRef<HTMLDivElement>(null);
+  const cultivatorCardRef = useRef<HTMLDivElement>(null);
 
   const openExample = (type: 'follower' | 'cultivator') => {
     setActiveExample(type);
     setExampleModalOpen(true);
   };
 
-  const scrollToCard = (cardId: string) => {
-    const element = document.getElementById(cardId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.add('ring-2', 'ring-offset-2');
-      if (cardId === 'follower-card') {
-        element.classList.add('ring-advisor');
-      } else {
-        element.classList.add('ring-mentor');
+  const handlePillClick = (cardType: 'follower' | 'cultivator') => {
+    const targetRef = cardType === 'follower' ? followerCardRef : cultivatorCardRef;
+    const cardId = cardType === 'follower' ? 'follower' : 'cultivator';
+    
+    // Expand the clicked card, collapse the other
+    setExpandedCard(cardId);
+    
+    // Smooth scroll to card
+    setTimeout(() => {
+      targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    
+    // Add highlight effect
+    setTimeout(() => {
+      if (targetRef.current) {
+        targetRef.current.classList.add('ring-2', 'ring-offset-2', 'shadow-xl');
+        if (cardType === 'follower') {
+          targetRef.current.classList.add('ring-advisor');
+        } else {
+          targetRef.current.classList.add('ring-mentor');
+        }
+        
+        setTimeout(() => {
+          targetRef.current?.classList.remove('ring-2', 'ring-offset-2', 'ring-advisor', 'ring-mentor', 'shadow-xl');
+        }, 800);
       }
-      setTimeout(() => {
-        element.classList.remove('ring-2', 'ring-offset-2', 'ring-advisor', 'ring-mentor');
-      }, 800);
-    }
+    }, 400);
   };
-
-  const followerChips = ['即時通知', '照做就行', '訊號＋紀錄', '適合很忙'];
-  const cultivatorChips = ['每週整理', '學會決策', '復盤＋框架', '適合想進化'];
 
   const mainPlans = [
     {
@@ -46,18 +61,17 @@ const Pricing = () => {
       icon: Radio,
       price: '1,699',
       painPoint: '選股還在看K線，太慢了。',
-      description: '適合想把時間花在「該出手的那一刻」的人。',
+      quickChips: ['即時通知', '進出場紀錄', '策略拆解'],
       features: [
         '即時訊號通知',
-        '進出場紀錄',
+        '完整進出場紀錄',
         '策略邏輯拆解',
         '戰績定期回顧',
       ],
-      rhythmChips: followerChips,
       cta: '/experts?role=advisor',
       ctaText: '選跟單派',
       color: 'advisor',
-      canAddHealth: true,
+      ref: followerCardRef,
     },
     {
       id: 'cultivator',
@@ -66,18 +80,17 @@ const Pricing = () => {
       icon: BookOpen,
       price: '799',
       painPoint: '用每週復盤縮短學費，練成自己的出手心法。',
-      description: '適合想看別人怎麼做決策，慢慢練成自己的系統的人。',
+      quickChips: ['每週復盤', '決策依據', '框架整理'],
       features: [
         '上週決策復盤',
         '出手依據拆解',
         '避雷交易紀律',
         '框架筆記整理',
       ],
-      rhythmChips: cultivatorChips,
       cta: '/experts?role=mentor',
       ctaText: '選修煉派',
       color: 'mentor',
-      canAddHealth: false,
+      ref: cultivatorCardRef,
     },
   ];
 
@@ -96,15 +109,15 @@ const Pricing = () => {
         <div className="max-w-3xl mx-auto mb-10">
           <div className="text-center mb-5">
             <h2 className="text-base font-semibold mb-1">快速對照</h2>
-            <p className="text-sm text-muted-foreground">只選一個：你現在要省時間，還是要練方法？</p>
+            <p className="text-sm text-muted-foreground">只選一個：省時間／練方法</p>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
             {/* Left Pill - 跟單派 */}
             <button
-              onClick={() => scrollToCard('follower-card')}
-              className="group relative bg-card border border-border rounded-xl p-5 text-left transition-shadow duration-200 hover:shadow-md"
-              style={{ backgroundColor: 'hsl(20, 10%, 98%)' }}
+              onClick={() => handlePillClick('follower')}
+              className="group relative bg-card border border-border rounded-xl p-5 text-left transition-all duration-200 hover:shadow-md hover:border-advisor/40"
+              style={{ backgroundColor: 'hsl(20, 8%, 97%)' }}
             >
               <div className="text-xs text-muted-foreground font-medium mb-2">
                 ⚡ 跟單派
@@ -116,9 +129,9 @@ const Pricing = () => {
 
             {/* Right Pill - 修煉派 */}
             <button
-              onClick={() => scrollToCard('cultivator-card')}
-              className="group relative bg-card border border-border rounded-xl p-5 text-left transition-shadow duration-200 hover:shadow-md"
-              style={{ backgroundColor: 'hsl(210, 10%, 97%)' }}
+              onClick={() => handlePillClick('cultivator')}
+              className="group relative bg-card border border-border rounded-xl p-5 text-left transition-all duration-200 hover:shadow-md hover:border-mentor/40"
+              style={{ backgroundColor: 'hsl(210, 8%, 97%)' }}
             >
               <div className="text-xs text-muted-foreground font-medium mb-2">
                 📘 修煉派
@@ -130,47 +143,60 @@ const Pricing = () => {
           </div>
         </div>
 
+        {/* Hint before plan cards */}
+        <div className="text-center mb-6">
+          <p className="text-sm text-muted-foreground">你想要的是「省時間」還是「練方法」？</p>
+        </div>
+
         {/* Main Plans */}
         <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
           {mainPlans.map((plan) => {
             const isAdvisor = plan.color === 'advisor';
+            const isExpanded = expandedCard === plan.id;
+            const isOtherExpanded = expandedCard && expandedCard !== plan.id;
+            
             return (
               <Card 
                 key={plan.id}
+                ref={plan.ref}
                 id={`${plan.id}-card`}
                 className={cn(
-                  "relative overflow-hidden border-2 min-h-[580px] transition-all duration-300",
-                  isAdvisor ? "border-advisor/30" : "border-mentor/30"
+                  "relative overflow-hidden border-2 transition-all duration-500",
+                  isAdvisor ? "border-advisor/30" : "border-mentor/30",
+                  isOtherExpanded && "opacity-90"
                 )}
               >
-                {/* Background Image */}
-                {/* Background fill color matching image */}
+                {/* Background Image - adjusted positioning */}
                 {isAdvisor && <div className="absolute inset-0 bg-[#1a0a0a]" />}
                 <div 
                   className="absolute inset-0 bg-cover bg-no-repeat transition-all duration-500"
                   style={{ 
                     backgroundImage: `url(${isAdvisor ? cardKungfuSpeed : cardKungfuBones})`,
-                    backgroundPosition: isAdvisor ? 'right -80px center' : 'center left',
-                    filter: 'brightness(0.9) contrast(1.1)'
+                    backgroundPosition: isAdvisor ? 'right -100px center' : 'left -120px center',
+                    filter: 'brightness(0.85) contrast(1.05)',
+                    opacity: 0.7
                   }}
                 />
+                {/* Stronger overlay for better text readability */}
                 <div className={cn(
                   "absolute inset-0",
                   isAdvisor 
-                    ? "bg-gradient-to-r from-black/90 via-black/70 to-black/20" 
-                    : "bg-gradient-to-l from-black/85 via-black/60 to-black/30"
+                    ? "bg-gradient-to-r from-black/95 via-black/85 to-black/50" 
+                    : "bg-gradient-to-l from-black/95 via-black/85 to-black/50"
                 )} />
+                {/* Top color bar */}
                 <div className={cn(
                   "absolute top-0 left-0 right-0 h-1.5 z-10",
                   isAdvisor ? "gradient-advisor" : "gradient-mentor"
                 )} />
+                
                 <CardHeader className="pb-3 relative z-10">
                   <div className={cn(
-                    "h-14 w-14 rounded-xl flex items-center justify-center mb-4 backdrop-blur-sm",
+                    "h-12 w-12 rounded-xl flex items-center justify-center mb-3 backdrop-blur-sm",
                     isAdvisor ? "bg-advisor/20 ring-1 ring-advisor/30" : "bg-mentor/20 ring-1 ring-mentor/30"
                   )}>
                     <plan.icon className={cn(
-                      "h-7 w-7",
+                      "h-6 w-6",
                       isAdvisor ? "text-advisor" : "text-mentor"
                     )} />
                   </div>
@@ -189,80 +215,88 @@ const Pricing = () => {
                     「{plan.painPoint}」
                   </p>
                 </CardHeader>
+                
                 <CardContent className="space-y-4 relative z-10">
-                  <p className="text-white/80 text-sm">{plan.description}</p>
-                  
-                  {/* Rhythm Chips - 2x2 grid */}
-                  <div>
-                    <div className="text-xs text-white/50 mb-2">你會用到的節奏</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {plan.rhythmChips.map((chip, idx) => (
-                        <span 
-                          key={idx}
-                          className={cn(
-                            "text-xs px-2.5 py-1.5 rounded-md text-center",
-                            isAdvisor 
-                              ? "bg-advisor/15 text-white/70 border border-advisor/20" 
-                              : "bg-mentor/15 text-white/70 border border-mentor/20"
-                          )}
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="text-sm text-white/60">
-                    你會拿到：
-                  </div>
-                  <ul className="space-y-2">
-                    {plan.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-center gap-2.5">
-                        <CheckCircle className={cn(
-                          "h-4 w-4 flex-shrink-0",
-                          isAdvisor ? "text-advisor" : "text-mentor"
-                        )} />
-                        <span className="text-white text-sm">{feature}</span>
-                      </li>
+                  {/* Quick Chips - 3 items */}
+                  <div className="flex flex-wrap gap-2">
+                    {plan.quickChips.map((chip, idx) => (
+                      <span 
+                        key={idx}
+                        className={cn(
+                          "text-xs px-3 py-1.5 rounded-full",
+                          isAdvisor 
+                            ? "bg-advisor/20 text-white border border-advisor/30" 
+                            : "bg-mentor/20 text-white border border-mentor/30"
+                        )}
+                      >
+                        {chip}
+                      </span>
                     ))}
-                  </ul>
+                  </div>
 
-                  <div className="pt-2 border-t border-white/20">
-                    <div className="flex items-baseline gap-1">
+                  {/* Price + CTA - Most prominent */}
+                  <div className="pt-4 pb-2 border-t border-white/20">
+                    <div className="flex items-baseline gap-1 mb-4">
                       <span className="text-sm text-white/60">NT$</span>
                       <span className="text-3xl font-bold text-white">{plan.price}</span>
                       <span className="text-white/60">／月</span>
                     </div>
+                    
+                    {/* CTA Buttons */}
+                    <div className="space-y-3">
+                      <Button 
+                        variant={isAdvisor ? 'advisor' : 'mentor'} 
+                        className="w-full"
+                        size="lg"
+                        asChild
+                      >
+                        <Link to={plan.cta}>
+                          {plan.ctaText}
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Link>
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        className="w-full text-white/50 hover:text-white/80 hover:bg-white/5"
+                        size="sm"
+                        onClick={() => openExample(plan.id as 'follower' | 'cultivator')}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        先看範例
+                      </Button>
+                    </div>
                   </div>
 
-                  {/* Two CTAs with more spacing */}
-                  <div className="space-y-3 pt-2">
-                    <Button 
-                      variant={isAdvisor ? 'advisor' : 'mentor'} 
-                      className="w-full"
-                      size="lg"
-                      asChild
-                    >
-                      <Link to={plan.cta}>
-                        {plan.ctaText}
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Link>
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      className={cn(
-                        "w-full",
-                        isAdvisor 
-                          ? "text-white/50 hover:text-white/80 hover:bg-white/5" 
-                          : "text-white/50 hover:text-white/80 hover:bg-white/5"
-                      )}
-                      size="sm"
-                      onClick={() => openExample(plan.id as 'follower' | 'cultivator')}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      先看試閱
-                    </Button>
-                  </div>
+                  {/* Accordion for full details */}
+                  <Accordion 
+                    type="single" 
+                    collapsible 
+                    value={isExpanded ? 'details' : ''}
+                    onValueChange={(val) => setExpandedCard(val ? plan.id : null)}
+                    className="border-t border-white/10 pt-2"
+                  >
+                    <AccordionItem value="details" className="border-none">
+                      <AccordionTrigger className="text-sm text-white/60 hover:text-white/80 py-2 hover:no-underline">
+                        看完整內容
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2">
+                        <div className="text-sm text-white/60 mb-2">
+                          你會拿到：
+                        </div>
+                        <ul className="space-y-2">
+                          {plan.features.map((feature, idx) => (
+                            <li key={idx} className="flex items-center gap-2.5">
+                              <CheckCircle className={cn(
+                                "h-4 w-4 flex-shrink-0",
+                                isAdvisor ? "text-advisor" : "text-mentor"
+                              )} />
+                              <span className="text-white text-sm">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 </CardContent>
               </Card>
             );
