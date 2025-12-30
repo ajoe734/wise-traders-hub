@@ -76,14 +76,14 @@ const Pricing = () => {
                   className="absolute inset-0 bg-cover bg-no-repeat transition-all duration-500"
                   style={{ 
                     backgroundImage: `url(${isAdvisor ? cardKungfuSpeed : cardKungfuBones})`,
-                    backgroundPosition: isAdvisor ? 'center right' : 'center left',
+                    backgroundPosition: isAdvisor ? 'right -20px center' : 'center left',
                     filter: 'brightness(0.9) contrast(1.1)'
                   }}
                 />
                 <div className={cn(
                   "absolute inset-0",
                   isAdvisor 
-                    ? "bg-gradient-to-r from-black/85 via-black/60 to-black/30" 
+                    ? "bg-gradient-to-r from-black/90 via-black/70 to-black/20" 
                     : "bg-gradient-to-l from-black/85 via-black/60 to-black/30"
                 )} />
                 <div className={cn(
