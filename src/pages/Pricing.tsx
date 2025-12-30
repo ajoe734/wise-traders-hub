@@ -1,14 +1,51 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, ArrowRight, Radio, BookOpen, Stethoscope, Plus, AlertCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CheckCircle, ArrowRight, Radio, BookOpen, Stethoscope, Plus, AlertCircle, Zap, Clock, Target, Lightbulb, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
 import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 
 const Pricing = () => {
+  const [exampleModalOpen, setExampleModalOpen] = useState(false);
+  const [activeExample, setActiveExample] = useState<'follower' | 'cultivator' | null>(null);
+
+  const openExample = (type: 'follower' | 'cultivator') => {
+    setActiveExample(type);
+    setExampleModalOpen(true);
+  };
+
+  const comparisonChips = [
+    {
+      icon: Clock,
+      label: '更新頻率',
+      follower: '即時',
+      cultivator: '每週',
+    },
+    {
+      icon: Target,
+      label: '你的做法',
+      follower: '照做',
+      cultivator: '學會',
+    },
+    {
+      icon: Lightbulb,
+      label: '內容給法',
+      follower: '訊號＋紀錄',
+      cultivator: '復盤＋框架',
+    },
+    {
+      icon: Zap,
+      label: '適合情境',
+      follower: '忙、想省時間',
+      cultivator: '想練成一套方法',
+    },
+  ];
+
   const mainPlans = [
     {
       id: 'follower',
@@ -16,15 +53,16 @@ const Pricing = () => {
       title: '分析師即時訊號訂閱',
       icon: Radio,
       price: '1,699',
+      painPoint: '選股還在看K線，太慢了。',
       description: '適合想把時間花在「該出手的那一刻」的人。',
       features: [
-        '即時訊號',
-        '策略邏輯',
-        '進出場紀錄',
-        '戰績回顧',
+        '即時訊號 Line 通知',
+        '進出場紀錄整理',
+        '策略邏輯拆解',
+        '戰績定期回顧',
       ],
       cta: '/experts?role=advisor',
-      ctaText: '選擇分析師',
+      ctaText: '選跟單派',
       color: 'advisor',
       canAddHealth: true,
     },
@@ -34,15 +72,15 @@ const Pricing = () => {
       title: '每週交易紀律與心得拆解',
       icon: BookOpen,
       price: '799',
+      painPoint: '用每週復盤縮短學費，練成自己的出手心法。',
       description: '適合想看別人怎麼做決策，慢慢練成自己的系統的人。',
       features: [
-        '上週操作回顧',
-        '思路拆解',
-        '避雷紀律',
-        '學習框架',
+        '上週決策復盤',
+        '出手依據拆解',
+        '學習框架與邏輯詳解',
       ],
       cta: '/experts?role=mentor',
-      ctaText: '選擇導師',
+      ctaText: '選修煉派',
       color: 'mentor',
       canAddHealth: false,
     },
@@ -52,11 +90,36 @@ const Pricing = () => {
     <PortalLayout>
       <div className="container py-8 md:py-12">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-2xl md:text-3xl font-bold mb-4">方案與價格</h1>
           <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
             先選門派，再決定要不要加購健檢。
           </p>
+        </div>
+
+        {/* Quick Comparison Chips */}
+        <div className="max-w-4xl mx-auto mb-8">
+          <div className="text-center mb-4">
+            <span className="text-sm text-muted-foreground font-medium">快速對照</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {comparisonChips.map((chip, idx) => (
+              <div 
+                key={idx}
+                className="relative bg-card border border-border rounded-xl p-4 text-center"
+              >
+                <div className="flex items-center justify-center gap-1.5 mb-3">
+                  <chip.icon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground font-medium">{chip.label}</span>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm">
+                  <span className="text-advisor font-semibold">{chip.follower}</span>
+                  <span className="text-muted-foreground/50">vs</span>
+                  <span className="text-mentor font-semibold">{chip.cultivator}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Main Plans */}
@@ -67,7 +130,7 @@ const Pricing = () => {
               <Card 
                 key={plan.id}
                 className={cn(
-                  "relative overflow-hidden border-2 min-h-[480px]",
+                  "relative overflow-hidden border-2 min-h-[520px]",
                   isAdvisor ? "border-advisor/30" : "border-mentor/30"
                 )}
               >
@@ -92,7 +155,7 @@ const Pricing = () => {
                   "absolute top-0 left-0 right-0 h-1.5 z-10",
                   isAdvisor ? "gradient-advisor" : "gradient-mentor"
                 )} />
-                <CardHeader className="pb-4 relative z-10">
+                <CardHeader className="pb-3 relative z-10">
                   <div className={cn(
                     "h-14 w-14 rounded-xl flex items-center justify-center mb-4 backdrop-blur-sm",
                     isAdvisor ? "bg-advisor/20 ring-1 ring-advisor/30" : "bg-mentor/20 ring-1 ring-mentor/30"
@@ -109,21 +172,28 @@ const Pricing = () => {
                     {plan.faction}
                   </Badge>
                   <CardTitle className="text-xl text-white">{plan.title}</CardTitle>
+                  {/* Pain Point Sentence */}
+                  <p className={cn(
+                    "text-sm font-medium mt-2 italic",
+                    isAdvisor ? "text-advisor" : "text-mentor"
+                  )}>
+                    「{plan.painPoint}」
+                  </p>
                 </CardHeader>
-                <CardContent className="space-y-5 relative z-10">
-                  <p className="text-white/80">{plan.description}</p>
+                <CardContent className="space-y-4 relative z-10">
+                  <p className="text-white/80 text-sm">{plan.description}</p>
                   
                   <div className="text-sm text-white/60">
                     你會拿到：
                   </div>
-                  <ul className="space-y-2.5">
+                  <ul className="space-y-2">
                     {plan.features.map((feature, idx) => (
                       <li key={idx} className="flex items-center gap-2.5">
                         <CheckCircle className={cn(
-                          "h-5 w-5 flex-shrink-0",
+                          "h-4 w-4 flex-shrink-0",
                           isAdvisor ? "text-advisor" : "text-mentor"
                         )} />
-                        <span className="text-white">{feature}</span>
+                        <span className="text-white text-sm">{feature}</span>
                       </li>
                     ))}
                   </ul>
@@ -136,22 +206,173 @@ const Pricing = () => {
                     </div>
                   </div>
 
-                  <Button 
-                    variant={isAdvisor ? 'advisor' : 'mentor'} 
-                    className="w-full"
-                    size="lg"
-                    asChild
-                  >
-                    <Link to={plan.cta}>
-                      {plan.ctaText}
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Link>
-                  </Button>
+                  {/* Two CTAs */}
+                  <div className="space-y-2 pt-2">
+                    <Button 
+                      variant={isAdvisor ? 'advisor' : 'mentor'} 
+                      className="w-full"
+                      size="lg"
+                      asChild
+                    >
+                      <Link to={plan.cta}>
+                        {plan.ctaText}
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Link>
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full text-white/70 hover:text-white hover:bg-white/10"
+                      size="sm"
+                      onClick={() => openExample(plan.id as 'follower' | 'cultivator')}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      先看範例
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );
           })}
         </div>
+
+        {/* Example Modal */}
+        <Dialog open={exampleModalOpen} onOpenChange={setExampleModalOpen}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {activeExample === 'follower' ? (
+                  <>
+                    <Radio className="h-5 w-5 text-advisor" />
+                    <span>跟單派範例</span>
+                  </>
+                ) : (
+                  <>
+                    <BookOpen className="h-5 w-5 text-mentor" />
+                    <span>修煉派範例</span>
+                  </>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+            
+            {activeExample === 'follower' ? (
+              <div className="space-y-6 mt-4">
+                {/* Signal Notification Example */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">訊號通知樣式</h4>
+                  <Card className="bg-advisor/5 border-advisor/20">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-full bg-advisor/20 flex items-center justify-center flex-shrink-0">
+                          <Zap className="h-5 w-5 text-advisor" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="advisor" className="text-xs">買進訊號</Badge>
+                            <span className="text-xs text-muted-foreground">09:32</span>
+                          </div>
+                          <p className="font-medium">XXXX 電子</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            突破前高壓力，量能放大，短線可留意。
+                          </p>
+                          <div className="flex items-center gap-4 mt-2 text-sm">
+                            <span>建議價位：<span className="text-advisor font-medium">$XX.X</span></span>
+                            <span>目標：<span className="text-green-500">+8%</span></span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Trade Record Example */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">進出場紀錄樣式</h4>
+                  <Card className="bg-muted/30">
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-border">
+                          <span className="font-medium">XXXX 金融</span>
+                          <Badge variant="outline" className="text-green-500 border-green-500/30">+12.5%</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">買進</span>
+                            <p className="font-medium">$XX.X @ 01/15</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">賣出</span>
+                            <p className="font-medium">$XX.X @ 01/22</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          策略邏輯：均線多頭排列，突破整理平台後順勢進場。
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6 mt-4">
+                {/* Weekly Review Example */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">週報拆解樣式</h4>
+                  <Card className="bg-mentor/5 border-mentor/20">
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="mentor" className="text-xs">本週復盤</Badge>
+                          <span className="text-xs text-muted-foreground">Week 03</span>
+                        </div>
+                        <h4 className="font-medium">為什麼這週我選擇觀望？</h4>
+                        <div className="text-sm text-muted-foreground space-y-2">
+                          <p>• 大盤量縮，個股漲跌比偏空</p>
+                          <p>• 手上持股已達部位上限</p>
+                          <p>• 沒有符合進場條件的標的出現</p>
+                        </div>
+                        <div className="pt-2 border-t border-border">
+                          <p className="text-sm">
+                            <span className="text-mentor font-medium">學習重點：</span>
+                            <span className="text-muted-foreground"> 不出手也是一種決策，等待是紀律的一部分。</span>
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Decision Process Example */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">決策流程筆記樣式</h4>
+                  <Card className="bg-muted/30">
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <h4 className="font-medium">進場前我會問自己的 3 個問題</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-start gap-2">
+                            <span className="h-5 w-5 rounded-full bg-mentor/20 text-mentor flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+                            <p>這檔的主力籌碼結構如何？是吸籌還是出貨？</p>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="h-5 w-5 rounded-full bg-mentor/20 text-mentor flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                            <p>現在進場的風險報酬比是否合理？</p>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="h-5 w-5 rounded-full bg-mentor/20 text-mentor flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                            <p>如果錯了，我的停損點在哪？</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground pt-2 border-t border-border">
+                          這個框架幫助我避開衝動交易，每次都能冷靜評估。
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Add-on Module */}
         <div className="max-w-4xl mx-auto mb-12">
@@ -282,8 +503,16 @@ const Pricing = () => {
                 a: '跟單派提供即時訊號，適合想直接跟著操作的人。修煉派則專注於教學，用上週的真實案例幫你理解決策邏輯，適合想培養自己判斷力的人。'
               },
               {
-                q: '持股健檢可以買幾次？',
-                a: '只要你的跟單派訂閱還在有效期間內，就可以隨時加購。每次加購都是獨立的單次服務。'
+                q: '健檢交付形式是什麼？多久拿到？',
+                a: '健檢報告會以 PDF 形式透過 Line 或 Email 寄送，通常在提交資料後 3 個工作天內完成。'
+              },
+              {
+                q: '健檢可以買幾次？',
+                a: '只要你的跟單派訂閱還在有效期間內，就可以隨時加購。每次加購都是獨立的單次服務，沒有次數限制。'
+              },
+              {
+                q: '我該選哪一派？',
+                a: '如果你時間有限、想省去選股研究的功夫，選跟單派。如果你想慢慢建立自己的交易系統、願意花時間學習，選修煉派。'
               },
               {
                 q: '可以隨時取消訂閱嗎？',
