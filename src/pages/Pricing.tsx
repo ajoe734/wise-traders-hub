@@ -72,11 +72,13 @@ const Pricing = () => {
                 )}
               >
                 {/* Background Image */}
+                {/* Background fill color matching image */}
+                {isAdvisor && <div className="absolute inset-0 bg-[#1a0a0a]" />}
                 <div 
                   className="absolute inset-0 bg-cover bg-no-repeat transition-all duration-500"
                   style={{ 
                     backgroundImage: `url(${isAdvisor ? cardKungfuSpeed : cardKungfuBones})`,
-                    backgroundPosition: isAdvisor ? 'right -20px center' : 'center left',
+                    backgroundPosition: isAdvisor ? 'right -80px center' : 'center left',
                     filter: 'brightness(0.9) contrast(1.1)'
                   }}
                 />
