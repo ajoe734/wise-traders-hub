@@ -14,7 +14,7 @@ import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 const Pricing = () => {
   const [exampleModalOpen, setExampleModalOpen] = useState(false);
   const [activeExample, setActiveExample] = useState<'follower' | 'cultivator' | null>(null);
-  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   
   const followerCardRef = useRef<HTMLDivElement>(null);
   const cultivatorCardRef = useRef<HTMLDivElement>(null);
@@ -28,8 +28,8 @@ const Pricing = () => {
     const targetRef = cardType === 'follower' ? followerCardRef : cultivatorCardRef;
     const cardId = cardType === 'follower' ? 'follower' : 'cultivator';
     
-    // Expand the clicked card, collapse the other
-    setExpandedCard(cardId);
+    // Expand the clicked card (don't collapse the other)
+    setExpandedCards(prev => new Set(prev).add(cardId));
     
     // Smooth scroll to card
     setTimeout(() => {
@@ -51,6 +51,18 @@ const Pricing = () => {
         }, 800);
       }
     }, 400);
+  };
+
+  const toggleCardExpansion = (cardId: string, isExpanded: boolean) => {
+    setExpandedCards(prev => {
+      const next = new Set(prev);
+      if (isExpanded) {
+        next.add(cardId);
+      } else {
+        next.delete(cardId);
+      }
+      return next;
+    });
   };
 
   const mainPlans = [
@@ -152,8 +164,7 @@ const Pricing = () => {
         <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
           {mainPlans.map((plan) => {
             const isAdvisor = plan.color === 'advisor';
-            const isExpanded = expandedCard === plan.id;
-            const isOtherExpanded = expandedCard && expandedCard !== plan.id;
+            const isExpanded = expandedCards.has(plan.id);
             
             return (
               <Card 
@@ -162,8 +173,7 @@ const Pricing = () => {
                 id={`${plan.id}-card`}
                 className={cn(
                   "relative overflow-hidden border-2 transition-all duration-500",
-                  isAdvisor ? "border-advisor/30" : "border-mentor/30",
-                  isOtherExpanded && "opacity-90"
+                  isAdvisor ? "border-advisor/30" : "border-mentor/30"
                 )}
               >
                 {/* Background Image - adjusted positioning */}
@@ -272,7 +282,7 @@ const Pricing = () => {
                     type="single" 
                     collapsible 
                     value={isExpanded ? 'details' : ''}
-                    onValueChange={(val) => setExpandedCard(val ? plan.id : null)}
+                    onValueChange={(val) => toggleCardExpansion(plan.id, !!val)}
                     className="border-t border-white/10 pt-2"
                   >
                     <AccordionItem value="details" className="border-none">
