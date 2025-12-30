@@ -36,18 +36,19 @@ const Pricing = () => {
       targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
     
-    // Add highlight effect
+    // Add highlight effect with glow
     setTimeout(() => {
       if (targetRef.current) {
-        targetRef.current.classList.add('ring-2', 'ring-offset-2', 'shadow-xl');
-        if (cardType === 'follower') {
-          targetRef.current.classList.add('ring-advisor');
-        } else {
-          targetRef.current.classList.add('ring-mentor');
-        }
+        const glowColor = cardType === 'follower' 
+          ? '0 0 30px 8px hsl(var(--advisor) / 0.6)' 
+          : '0 0 30px 8px hsl(var(--mentor) / 0.6)';
+        targetRef.current.style.boxShadow = glowColor;
+        targetRef.current.style.transition = 'box-shadow 0.3s ease-in-out';
         
         setTimeout(() => {
-          targetRef.current?.classList.remove('ring-2', 'ring-offset-2', 'ring-advisor', 'ring-mentor', 'shadow-xl');
+          if (targetRef.current) {
+            targetRef.current.style.boxShadow = '';
+          }
         }, 800);
       }
     }, 400);
