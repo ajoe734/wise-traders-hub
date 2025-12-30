@@ -19,24 +19,24 @@ const Pricing = () => {
     setExampleModalOpen(true);
   };
 
-  const comparisonChips = [
-    {
-      label: '更新頻率',
-      content: '⚡ 即時通知 ／ 📘 每週整理',
-    },
-    {
-      label: '你的做法',
-      content: '⚡ 照訊號做 ／ 📘 學會決策',
-    },
-    {
-      label: '內容形式',
-      content: '⚡ 訊號＋紀錄 ／ 📘 復盤＋框架',
-    },
-    {
-      label: '適合情境',
-      content: '⚡ 忙想省時間 ／ 📘 想練成方法',
-    },
-  ];
+  const scrollToCard = (cardId: string) => {
+    const element = document.getElementById(cardId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('ring-2', 'ring-offset-2');
+      if (cardId === 'follower-card') {
+        element.classList.add('ring-advisor');
+      } else {
+        element.classList.add('ring-mentor');
+      }
+      setTimeout(() => {
+        element.classList.remove('ring-2', 'ring-offset-2', 'ring-advisor', 'ring-mentor');
+      }, 800);
+    }
+  };
+
+  const followerChips = ['即時通知', '照做就行', '訊號＋紀錄', '適合很忙'];
+  const cultivatorChips = ['每週整理', '學會決策', '復盤＋框架', '適合想進化'];
 
   const mainPlans = [
     {
@@ -48,11 +48,12 @@ const Pricing = () => {
       painPoint: '選股還在看K線，太慢了。',
       description: '適合想把時間花在「該出手的那一刻」的人。',
       features: [
-        '即時訊號 Line 通知',
-        '進出場紀錄整理',
+        '即時訊號通知',
+        '進出場紀錄',
         '策略邏輯拆解',
         '戰績定期回顧',
       ],
+      rhythmChips: followerChips,
       cta: '/experts?role=advisor',
       ctaText: '選跟單派',
       color: 'advisor',
@@ -69,8 +70,10 @@ const Pricing = () => {
       features: [
         '上週決策復盤',
         '出手依據拆解',
-        '學習框架與邏輯詳解',
+        '避雷交易紀律',
+        '框架筆記整理',
       ],
+      rhythmChips: cultivatorChips,
       cta: '/experts?role=mentor',
       ctaText: '選修煉派',
       color: 'mentor',
@@ -89,69 +92,42 @@ const Pricing = () => {
           </p>
         </div>
 
-        {/* Quick Comparison Chips - Low Reading Cost Version */}
-        <div className="max-w-5xl mx-auto mb-8">
-          <div className="text-center mb-4">
+        {/* Quick Comparison - Two Decision Pills */}
+        <div className="max-w-3xl mx-auto mb-10">
+          <div className="text-center mb-5">
             <h2 className="text-base font-semibold mb-1">快速對照</h2>
-            <p className="text-sm text-muted-foreground">左邊跟單派，右邊修煉派。看一眼就知道選哪個。</p>
+            <p className="text-sm text-muted-foreground">只選一個：你現在要省時間，還是要練方法？</p>
           </div>
           
-          {/* Desktop: 4 columns */}
-          <div className="hidden md:grid md:grid-cols-4 gap-5">
-            {comparisonChips.map((chip, idx) => (
-              <div 
-                key={idx}
-                className="relative bg-card border border-border rounded-xl overflow-hidden transition-shadow duration-200 hover:shadow-md"
-              >
-                {/* Left color bar hint */}
-                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-advisor/60 to-advisor/30" />
-                
-                <div className="pl-4 pr-4 py-4">
-                  {/* Top label */}
-                  <div className="text-xs text-muted-foreground/70 font-medium mb-2">
-                    {chip.label}
-                  </div>
-                  
-                  {/* One-line conclusion */}
-                  <p className="text-base font-bold text-foreground leading-snug">
-                    {chip.content}
-                  </p>
-                </div>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Left Pill - 跟單派 */}
+            <button
+              onClick={() => scrollToCard('follower-card')}
+              className="group relative bg-card border border-border rounded-xl p-5 text-left transition-shadow duration-200 hover:shadow-md"
+              style={{ backgroundColor: 'hsl(20, 10%, 98%)' }}
+            >
+              <div className="text-xs text-muted-foreground font-medium mb-2">
+                ⚡ 跟單派
               </div>
-            ))}
-          </div>
-          
-          {/* Mobile: Horizontal Scroll */}
-          <div className="md:hidden overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            <div className="flex gap-4" style={{ width: 'max-content' }}>
-              {comparisonChips.map((chip, idx) => (
-                <div 
-                  key={idx}
-                  className="relative bg-card border border-border rounded-xl overflow-hidden w-[260px] flex-shrink-0"
-                >
-                  {/* Left color bar hint */}
-                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-advisor/60 to-advisor/30" />
-                  
-                  <div className="pl-4 pr-4 py-4">
-                    {/* Top label */}
-                    <div className="text-xs text-muted-foreground/70 font-medium mb-2">
-                      {chip.label}
-                    </div>
-                    
-                    {/* One-line conclusion */}
-                    <p className="text-base font-bold text-foreground leading-snug">
-                      {chip.content}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+              <p className="text-base md:text-lg font-bold text-foreground leading-snug">
+                我要省時間，照訊號出手
+              </p>
+            </button>
 
-        {/* Transition hint before plan cards */}
-        <div className="text-center mb-6">
-          <p className="text-sm text-muted-foreground">你想要的是「省時間」還是「練方法」？</p>
+            {/* Right Pill - 修煉派 */}
+            <button
+              onClick={() => scrollToCard('cultivator-card')}
+              className="group relative bg-card border border-border rounded-xl p-5 text-left transition-shadow duration-200 hover:shadow-md"
+              style={{ backgroundColor: 'hsl(210, 10%, 97%)' }}
+            >
+              <div className="text-xs text-muted-foreground font-medium mb-2">
+                📘 修煉派
+              </div>
+              <p className="text-base md:text-lg font-bold text-foreground leading-snug">
+                我要練方法，用復盤學決策
+              </p>
+            </button>
+          </div>
         </div>
 
         {/* Main Plans */}
@@ -161,8 +137,9 @@ const Pricing = () => {
             return (
               <Card 
                 key={plan.id}
+                id={`${plan.id}-card`}
                 className={cn(
-                  "relative overflow-hidden border-2 min-h-[520px]",
+                  "relative overflow-hidden border-2 min-h-[580px] transition-all duration-300",
                   isAdvisor ? "border-advisor/30" : "border-mentor/30"
                 )}
               >
@@ -215,6 +192,26 @@ const Pricing = () => {
                 <CardContent className="space-y-4 relative z-10">
                   <p className="text-white/80 text-sm">{plan.description}</p>
                   
+                  {/* Rhythm Chips - 2x2 grid */}
+                  <div>
+                    <div className="text-xs text-white/50 mb-2">你會用到的節奏</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {plan.rhythmChips.map((chip, idx) => (
+                        <span 
+                          key={idx}
+                          className={cn(
+                            "text-xs px-2.5 py-1.5 rounded-md text-center",
+                            isAdvisor 
+                              ? "bg-advisor/15 text-white/70 border border-advisor/20" 
+                              : "bg-mentor/15 text-white/70 border border-mentor/20"
+                          )}
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  
                   <div className="text-sm text-white/60">
                     你會拿到：
                   </div>
@@ -238,8 +235,8 @@ const Pricing = () => {
                     </div>
                   </div>
 
-                  {/* Two CTAs */}
-                  <div className="space-y-2 pt-2">
+                  {/* Two CTAs with more spacing */}
+                  <div className="space-y-3 pt-2">
                     <Button 
                       variant={isAdvisor ? 'advisor' : 'mentor'} 
                       className="w-full"
@@ -253,12 +250,17 @@ const Pricing = () => {
                     </Button>
                     <Button 
                       variant="ghost" 
-                      className="w-full text-white/70 hover:text-white hover:bg-white/10"
+                      className={cn(
+                        "w-full",
+                        isAdvisor 
+                          ? "text-white/50 hover:text-white/80 hover:bg-white/5" 
+                          : "text-white/50 hover:text-white/80 hover:bg-white/5"
+                      )}
                       size="sm"
                       onClick={() => openExample(plan.id as 'follower' | 'cultivator')}
                     >
                       <Eye className="h-4 w-4 mr-2" />
-                      先看範例
+                      先看試閱
                     </Button>
                   </div>
                 </CardContent>
