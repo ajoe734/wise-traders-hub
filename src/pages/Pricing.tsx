@@ -184,18 +184,6 @@ const Pricing = () => {
                     : "bg-gradient-to-l from-black/95 via-black/85 to-black/50",
                   isHighlighted && "opacity-40"
                 )} />
-                {/* Internal highlight glow effect */}
-                <div 
-                  className={cn(
-                    "absolute inset-0 pointer-events-none z-20 transition-opacity duration-300",
-                    isHighlighted ? "opacity-100" : "opacity-0"
-                  )}
-                  style={{
-                    background: isAdvisor 
-                      ? 'radial-gradient(ellipse at center, hsl(var(--advisor) / 0.8) 0%, hsl(var(--advisor) / 0.5) 40%, transparent 75%)'
-                      : 'radial-gradient(ellipse at center, hsl(var(--mentor) / 0.8) 0%, hsl(var(--mentor) / 0.5) 40%, transparent 75%)'
-                  }}
-                />
                 {/* Top color bar */}
                 <div className={cn(
                   "absolute top-0 left-0 right-0 h-1.5 z-10",
