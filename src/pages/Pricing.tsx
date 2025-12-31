@@ -221,10 +221,13 @@ const Pricing = () => {
                   </Badge>
                   <CardTitle className="text-xl text-white">{plan.title}</CardTitle>
                   {/* Pain Point Sentence */}
-                  <p className={cn(
-                    "text-sm font-medium mt-2 italic",
-                    isAdvisor ? "text-advisor" : "text-mentor"
-                  )}>
+                  <p 
+                    className="text-sm font-semibold mt-2 italic drop-shadow-sm"
+                    style={{ 
+                      color: isAdvisor ? 'hsl(30, 100%, 70%)' : 'hsl(200, 100%, 75%)',
+                      textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+                    }}
+                  >
                     「{plan.painPoint}」
                   </p>
                 </CardHeader>
