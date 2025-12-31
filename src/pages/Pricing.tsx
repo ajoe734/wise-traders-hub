@@ -182,7 +182,7 @@ const Pricing = () => {
                   isAdvisor 
                     ? "bg-gradient-to-r from-black/95 via-black/85 to-black/50" 
                     : "bg-gradient-to-l from-black/95 via-black/85 to-black/50",
-                  isHighlighted && "opacity-40"
+                  (isHighlighted || isExpanded) && "opacity-40"
                 )} />
                 {/* Top color bar */}
                 <div className={cn(
