@@ -79,7 +79,7 @@ const Pricing = () => {
       title: '每週交易紀律與心得拆解',
       icon: BookOpen,
       price: '799',
-      painPoint: '用每週復盤縮短學費，練成自己的出手心法。',
+      painPoint: '給我全部，練出自己的投資秘笈',
       quickChips: ['每週復盤', '決策依據', '框架整理'],
       features: [
         '上週決策復盤',
