@@ -37,13 +37,8 @@ const Pricing = () => {
       targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
     
-    // Add internal highlight effect
-    setTimeout(() => {
-      setHighlightedCard(cardType);
-      setTimeout(() => {
-        setHighlightedCard(null);
-      }, 1200);
-    }, 400);
+    // Toggle highlight: clicking same pill again will turn off, clicking other pill switches
+    setHighlightedCard(prev => prev === cardType ? null : cardType);
   };
 
   const toggleCardExpansion = (cardId: string, isExpanded: boolean) => {
