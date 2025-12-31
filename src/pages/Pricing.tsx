@@ -262,7 +262,7 @@ const Pricing = () => {
                     <div className="space-y-3">
                       <Button 
                         variant={isAdvisor ? 'advisor' : 'mentor'} 
-                        className="w-full animate-gold-glow"
+                        className="w-full"
                         size="lg"
                         asChild
                       >

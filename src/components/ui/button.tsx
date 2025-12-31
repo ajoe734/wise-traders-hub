@@ -22,9 +22,9 @@ const buttonVariants = cva(
         // Link
         link: "text-cta underline-offset-4 hover:underline",
         // Legacy variants mapped to new system
-        advisor: "bg-cta text-cta-foreground hover:bg-cta-hover shadow-sm",
+        advisor: "bg-cta text-cta-foreground shadow-sm hover:shadow-[0_0_16px_4px_hsla(45,90%,60%,0.5),0_0_32px_8px_hsla(45,90%,55%,0.3)] hover:brightness-110",
         "advisor-outline": "border border-border bg-card text-foreground hover:bg-muted",
-        mentor: "bg-foreground text-background hover:bg-foreground/90 shadow-sm",
+        mentor: "bg-foreground text-background shadow-sm hover:shadow-[0_0_16px_4px_hsla(45,90%,60%,0.5),0_0_32px_8px_hsla(45,90%,55%,0.3)] hover:brightness-110",
         "mentor-outline": "border border-border bg-card text-foreground hover:bg-muted",
         hero: "bg-cta text-cta-foreground hover:bg-cta-hover shadow-sm",
         "hero-advisor": "bg-cta text-cta-foreground hover:bg-cta-hover shadow-sm",
