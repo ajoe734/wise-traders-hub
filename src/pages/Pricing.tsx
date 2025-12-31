@@ -191,16 +191,17 @@ const Pricing = () => {
                 {/* Internal highlight glow effect */}
                 <div 
                   className={cn(
-                    "absolute inset-0 pointer-events-none transition-opacity duration-500",
-                    isHighlighted ? "opacity-100" : "opacity-0"
+                    "absolute inset-0 pointer-events-none z-20",
+                    isHighlighted ? "animate-pulse opacity-100" : "opacity-0"
                   )}
                   style={{
                     background: isAdvisor 
-                      ? 'radial-gradient(ellipse at center, hsl(var(--advisor) / 0.35) 0%, hsl(var(--advisor) / 0.15) 40%, transparent 70%)'
-                      : 'radial-gradient(ellipse at center, hsl(var(--mentor) / 0.35) 0%, hsl(var(--mentor) / 0.15) 40%, transparent 70%)',
+                      ? 'radial-gradient(ellipse at center, hsl(var(--advisor) / 0.6) 0%, hsl(var(--advisor) / 0.4) 30%, hsl(var(--advisor) / 0.15) 60%, transparent 85%)'
+                      : 'radial-gradient(ellipse at center, hsl(var(--mentor) / 0.6) 0%, hsl(var(--mentor) / 0.4) 30%, hsl(var(--mentor) / 0.15) 60%, transparent 85%)',
                     boxShadow: isHighlighted 
-                      ? `inset 0 0 60px 20px ${isAdvisor ? 'hsl(var(--advisor) / 0.3)' : 'hsl(var(--mentor) / 0.3)'}`
-                      : 'none'
+                      ? `inset 0 0 100px 40px ${isAdvisor ? 'hsl(var(--advisor) / 0.5)' : 'hsl(var(--mentor) / 0.5)'}`
+                      : 'none',
+                    transition: 'opacity 0.3s ease-in-out'
                   }}
                 />
                 {/* Top color bar */}
