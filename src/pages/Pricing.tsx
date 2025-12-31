@@ -183,10 +183,11 @@ const Pricing = () => {
                 />
                 {/* Stronger overlay for better text readability */}
                 <div className={cn(
-                  "absolute inset-0",
+                  "absolute inset-0 transition-opacity duration-300",
                   isAdvisor 
                     ? "bg-gradient-to-r from-black/95 via-black/85 to-black/50" 
-                    : "bg-gradient-to-l from-black/95 via-black/85 to-black/50"
+                    : "bg-gradient-to-l from-black/95 via-black/85 to-black/50",
+                  isHighlighted && "opacity-40"
                 )} />
                 {/* Internal highlight glow effect */}
                 <div 
@@ -196,11 +197,8 @@ const Pricing = () => {
                   )}
                   style={{
                     background: isAdvisor 
-                      ? 'radial-gradient(ellipse at center, hsl(var(--advisor) / 0.6) 0%, hsl(var(--advisor) / 0.4) 30%, hsl(var(--advisor) / 0.15) 60%, transparent 85%)'
-                      : 'radial-gradient(ellipse at center, hsl(var(--mentor) / 0.6) 0%, hsl(var(--mentor) / 0.4) 30%, hsl(var(--mentor) / 0.15) 60%, transparent 85%)',
-                    boxShadow: isHighlighted 
-                      ? `inset 0 0 100px 40px ${isAdvisor ? 'hsl(var(--advisor) / 0.5)' : 'hsl(var(--mentor) / 0.5)'}`
-                      : 'none',
+                      ? 'radial-gradient(ellipse at center, hsl(var(--advisor) / 0.8) 0%, hsl(var(--advisor) / 0.5) 40%, transparent 75%)'
+                      : 'radial-gradient(ellipse at center, hsl(var(--mentor) / 0.8) 0%, hsl(var(--mentor) / 0.5) 40%, transparent 75%)',
                     transition: 'opacity 0.3s ease-in-out'
                   }}
                 />
