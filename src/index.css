@@ -269,34 +269,35 @@
   .animate-float {
     animation: float 4s ease-in-out infinite;
   }
+}
 
-  /* VS Battle Cards - Mobile-only (<= md) battle layout */
-  @media (max-width: 767px) {
-    /* Card 1 (跟單派): shift right + rotate(-4deg) */
-    .vs-card-red-mobile {
-      transform: translateX(10px) rotate(-4deg);
-      transform-origin: center;
-      box-shadow: 12px 16px 32px rgba(0,0,0,0.6);
-      z-index: 10;
-    }
+/* VS Battle Cards - Mobile-only (<= md) battle layout */
+/* Must be outside @layer to work correctly with Tailwind */
+@media (max-width: 767px) {
+  /* Card 1 (跟單派): shift right + rotate(-4deg) */
+  .vs-card-red-mobile {
+    transform: translateX(10px) rotate(-4deg) !important;
+    transform-origin: center;
+    box-shadow: 12px 16px 32px rgba(0,0,0,0.6);
+    z-index: 10;
+  }
 
-    /* Card 2 (修煉派): shift left + rotate(4deg) */
-    .vs-card-blue-mobile {
-      transform: translateX(-10px) rotate(4deg);
-      transform-origin: center;
-      box-shadow: -12px 16px 32px rgba(0,0,0,0.6);
-      z-index: 5;
-    }
+  /* Card 2 (修煉派): shift left + rotate(4deg) */
+  .vs-card-blue-mobile {
+    transform: translateX(-10px) rotate(4deg) !important;
+    transform-origin: center;
+    box-shadow: -12px 16px 32px rgba(0,0,0,0.6);
+    z-index: 5;
+  }
 
-    /* Counter-rotate content to keep text/CTA horizontal */
-    .vs-content-counter-red {
-      transform: rotate(4deg);
-      transform-origin: center;
-    }
+  /* Counter-rotate content to keep text/CTA horizontal */
+  .vs-content-counter-red {
+    transform: rotate(4deg) !important;
+    transform-origin: center;
+  }
 
-    .vs-content-counter-blue {
-      transform: rotate(-4deg);
-      transform-origin: center;
-    }
+  .vs-content-counter-blue {
+    transform: rotate(-4deg) !important;
+    transform-origin: center;
   }
 }
