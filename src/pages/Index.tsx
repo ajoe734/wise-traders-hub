@@ -238,30 +238,41 @@ const Index = () => {
           </h2>
 
           {/* VS Battle Arena */}
-          <div className="vs-arena relative flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-10">
+          <div className="vs-arena relative flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-10">
             
-            {/* Left Fighter - 跟單派 (Red frame with clip-path) */}
+            {/* Left Fighter - 跟單派 (Red frame) */}
             <div 
               className="vs-card vs-card-left w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
               style={{ 
                 animation: 'vsSlideInLeft 0.8s ease-out forwards',
-                opacity: 0
+                opacity: 0,
+                // Mobile: rotate(-4deg) + translateX(8px) for clash effect, shadow to right-bottom
+                transform: 'rotate(-4deg) translateX(8px)',
+                boxShadow: '8px 12px 24px rgba(0,0,0,0.5), 0 0 20px rgba(239,68,68,0.3)'
               }}
+              // Desktop: no rotation
             >
-              {/* Card Frame - clip-path for corner cuts, red border & glow */}
+              <style>{`
+                @media (min-width: 1024px) {
+                  .vs-card-left {
+                    transform: none !important;
+                    box-shadow: 0 0 20px rgba(239,68,68,0.4) !important;
+                  }
+                }
+              `}</style>
+              {/* Card Frame - red border & glow */}
               <div 
-                className="relative p-[6px]"
+                className="relative p-[6px] rounded-lg"
                 style={{ 
-                  clipPath: 'polygon(0% 0%, calc(100% - 16px) 0%, 100% 16px, 100% 100%, 16px 100%, 0% calc(100% - 16px))',
-                  background: 'linear-gradient(135deg, rgba(239,68,68,0.8) 0%, rgba(200,50,50,0.6) 100%)',
-                  boxShadow: '0 0 20px rgba(239,68,68,0.4), inset 0 0 1px rgba(255,255,255,0.3)'
+                  background: 'linear-gradient(135deg, rgba(239,68,68,0.9) 0%, rgba(180,40,40,0.7) 100%)',
+                  boxShadow: 'inset 0 0 2px rgba(255,255,255,0.4)'
                 }}
               >
-                {/* Card Body - normal rectangle, dark background */}
+                {/* Card Body - dark background */}
                 <div 
-                  className="relative overflow-hidden w-full rounded-sm"
+                  className="relative overflow-hidden w-full rounded-md"
                   style={{ 
-                    minHeight: '380px',
+                    minHeight: '340px',
                     backgroundColor: '#1a1a1a'
                   }}
                 >
@@ -277,7 +288,6 @@ const Index = () => {
                       boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
                     }}
                   >
-                    {/* Inner HP fill - RED with pulse animation */}
                     <div 
                       className="hp-bar-red"
                       style={{ 
@@ -289,7 +299,6 @@ const Index = () => {
                         position: 'relative'
                       }}
                     >
-                      {/* Highlight line */}
                       <div style={{ 
                         position: 'absolute',
                         top: '3px',
@@ -301,7 +310,6 @@ const Index = () => {
                       }} />
                     </div>
                   </div>
-                  {/* Red glow effect with pulse */}
                   <div 
                     className="hp-glow-red absolute left-4 right-4 z-10 pointer-events-none"
                     style={{ 
@@ -323,8 +331,21 @@ const Index = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/20" />
                   
-                  <div className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-start text-left" style={{ minHeight: '380px' }}>
-                    {/* Red accent bar - left aligned on mobile */}
+                  {/* Content wrapper - counter-rotate on mobile to keep text horizontal */}
+                  <div 
+                    className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-start text-left lg:rotate-0"
+                    style={{ 
+                      minHeight: '340px',
+                      transform: 'rotate(4deg)'
+                    }}
+                  >
+                    <style>{`
+                      @media (min-width: 1024px) {
+                        .vs-card-left .content-wrapper {
+                          transform: none !important;
+                        }
+                      }
+                    `}</style>
                     <div 
                       className="lg:hidden w-12 h-1 mb-3 rounded-full"
                       style={{ background: 'linear-gradient(90deg, #ff4444, #cc0000)' }}
@@ -350,9 +371,8 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Center VS - Calligraphy Brush Mark with glow effect */}
+            {/* Center VS - Desktop: Calligraphy Brush Mark */}
             <div className="hidden lg:flex items-center justify-center select-none pointer-events-none shrink-0 relative">
-              {/* Glow backdrop */}
               <div 
                 className="absolute inset-0 blur-2xl"
                 style={{
@@ -367,68 +387,79 @@ const Index = () => {
               />
             </div>
 
-            {/* Mobile VS Divider - between cards */}
-            <div className="lg:hidden w-full my-5 pointer-events-none">
+            {/* Mobile VS Badge - ink brush circle with red/blue border */}
+            <div className="lg:hidden flex items-center justify-center select-none pointer-events-none z-20 -my-4">
               <div 
-                className="relative h-10 w-full flex items-center justify-center"
-                style={{ 
-                  background: 'linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 50%, #1a1a1a 100%)',
-                  transform: 'skewX(-8deg)'
+                className="relative w-16 h-16 rounded-full flex items-center justify-center"
+                style={{
+                  background: 'radial-gradient(circle, #1a1a1a 60%, #0a0a0a 100%)',
+                  boxShadow: '0 0 20px rgba(150,100,200,0.5), inset 0 0 10px rgba(0,0,0,0.8)',
+                  border: '2px solid transparent',
+                  backgroundClip: 'padding-box'
                 }}
               >
-                {/* Top red glow line */}
+                {/* Red-blue dual border */}
                 <div 
-                  className="absolute top-0 left-0 right-0 h-[2px]"
+                  className="absolute inset-[-3px] rounded-full pointer-events-none"
                   style={{
-                    background: 'linear-gradient(90deg, transparent, rgba(255,60,60,0.9) 30%, rgba(255,80,80,1) 50%, rgba(255,60,60,0.9) 70%, transparent)',
-                    boxShadow: '0 0 6px rgba(255,50,50,0.5)'
+                    background: 'linear-gradient(180deg, rgba(239,68,68,0.9) 0%, rgba(239,68,68,0.6) 45%, rgba(59,130,246,0.6) 55%, rgba(59,130,246,0.9) 100%)',
+                    zIndex: -1
                   }}
                 />
-                
-                {/* VS Badge - small capsule */}
+                {/* Inner black circle */}
                 <div 
-                  className="relative z-10 px-3 py-0.5 rounded-full bg-black/60 border border-white/20"
-                  style={{ transform: 'skewX(8deg)' }}
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    background: 'radial-gradient(circle, #1a1a1a 50%, #0d0d0d 100%)'
+                  }}
+                />
+                {/* VS text */}
+                <span 
+                  className="relative z-10 text-lg font-bold tracking-wider"
+                  style={{ 
+                    color: 'rgba(255,220,150,0.95)',
+                    textShadow: '0 0 8px rgba(255,200,100,0.6), 0 2px 4px rgba(0,0,0,0.8)',
+                    fontFamily: '"Longyin Brush", cursive'
+                  }}
                 >
-                  <span className="text-xs font-bold tracking-wider text-amber-200/90">
-                    VS
-                  </span>
-                </div>
-                
-                {/* Bottom blue glow line */}
-                <div 
-                  className="absolute bottom-0 left-0 right-0 h-[2px]"
-                  style={{
-                    background: 'linear-gradient(90deg, transparent, rgba(60,130,255,0.9) 30%, rgba(80,150,255,1) 50%, rgba(60,130,255,0.9) 70%, transparent)',
-                    boxShadow: '0 0 6px rgba(50,130,255,0.5)'
-                  }}
-                />
+                  VS
+                </span>
               </div>
             </div>
 
-            {/* Right Fighter - 修煉派 (Blue frame with clip-path) */}
+            {/* Right Fighter - 修煉派 (Blue frame) */}
             <div 
               className="vs-card vs-card-right w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
               style={{ 
                 animation: 'vsSlideInRight 0.8s ease-out forwards',
                 animationDelay: '0.1s',
-                opacity: 0
+                opacity: 0,
+                // Mobile: rotate(4deg) + translateX(-8px) for clash effect, shadow to left-bottom
+                transform: 'rotate(4deg) translateX(-8px)',
+                boxShadow: '-8px 12px 24px rgba(0,0,0,0.5), 0 0 20px rgba(59,130,246,0.3)'
               }}
             >
-              {/* Card Frame - clip-path for corner cuts, blue border & glow */}
+              <style>{`
+                @media (min-width: 1024px) {
+                  .vs-card-right {
+                    transform: none !important;
+                    box-shadow: 0 0 20px rgba(59,130,246,0.4) !important;
+                  }
+                }
+              `}</style>
+              {/* Card Frame - blue border & glow */}
               <div 
-                className="relative p-[6px]"
+                className="relative p-[6px] rounded-lg"
                 style={{ 
-                  clipPath: 'polygon(0% 0%, calc(100% - 16px) 0%, 100% 16px, 100% 100%, 16px 100%, 0% calc(100% - 16px))',
-                  background: 'linear-gradient(135deg, rgba(59,130,246,0.8) 0%, rgba(50,100,200,0.6) 100%)',
-                  boxShadow: '0 0 20px rgba(59,130,246,0.4), inset 0 0 1px rgba(255,255,255,0.3)'
+                  background: 'linear-gradient(135deg, rgba(59,130,246,0.9) 0%, rgba(40,80,180,0.7) 100%)',
+                  boxShadow: 'inset 0 0 2px rgba(255,255,255,0.4)'
                 }}
               >
-                {/* Card Body - normal rectangle, dark background */}
+                {/* Card Body - dark background */}
                 <div 
-                  className="relative overflow-hidden w-full rounded-sm"
+                  className="relative overflow-hidden w-full rounded-md"
                   style={{ 
-                    minHeight: '380px',
+                    minHeight: '340px',
                     backgroundColor: '#1a1a1a'
                   }}
                 >
@@ -444,7 +475,6 @@ const Index = () => {
                       boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
                     }}
                   >
-                    {/* Inner HP fill - BLUE with pulse animation */}
                     <div 
                       className="hp-bar-blue"
                       style={{ 
@@ -456,7 +486,6 @@ const Index = () => {
                         position: 'relative'
                       }}
                     >
-                      {/* Highlight line */}
                       <div style={{ 
                         position: 'absolute',
                         top: '3px',
@@ -468,7 +497,6 @@ const Index = () => {
                       }} />
                     </div>
                   </div>
-                  {/* Blue glow effect with pulse */}
                   <div 
                     className="hp-glow-blue absolute left-4 right-4 z-10 pointer-events-none"
                     style={{ 
@@ -490,8 +518,21 @@ const Index = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-l from-black/80 via-black/40 to-black/20" />
                   
-                  <div className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-end text-right" style={{ minHeight: '380px' }}>
-                    {/* Blue accent bar - right aligned on mobile */}
+                  {/* Content wrapper - counter-rotate on mobile to keep text horizontal */}
+                  <div 
+                    className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-end text-right"
+                    style={{ 
+                      minHeight: '340px',
+                      transform: 'rotate(-4deg)'
+                    }}
+                  >
+                    <style>{`
+                      @media (min-width: 1024px) {
+                        .vs-card-right .content-wrapper {
+                          transform: none !important;
+                        }
+                      }
+                    `}</style>
                     <div 
                       className="lg:hidden w-12 h-1 mb-3 rounded-full"
                       style={{ background: 'linear-gradient(90deg, #0066cc, #44aaff)' }}
