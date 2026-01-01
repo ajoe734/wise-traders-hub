@@ -327,57 +327,92 @@ const Pricing = () => {
             
             {activeExample === 'follower' ? (
               <div className="space-y-6 mt-4">
-                {/* Signal Notification Example */}
+                {/* Signal Notification Example - matching SignalCard style */}
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-3">訊號通知樣式</h4>
-                  <Card className="bg-advisor/5 border-advisor/20">
+                  <Card className="border-border">
                     <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="h-10 w-10 rounded-full bg-advisor/20 flex items-center justify-center flex-shrink-0">
-                          <Zap className="h-5 w-5 text-advisor" />
+                      {/* Top Row: Time & Status */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>01/15 09:05</span>
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="advisor" className="text-xs">買進訊號</Badge>
-                            <span className="text-xs text-muted-foreground">09:32</span>
-                          </div>
-                          <p className="font-medium">XXXX 電子</p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            突破前高壓力，量能放大，短線可留意。
-                          </p>
-                          <div className="flex items-center gap-4 mt-2 text-sm">
-                            <span>建議價位：<span className="text-advisor font-medium">$XX.X</span></span>
-                            <span>目標：<span className="text-green-500">+8%</span></span>
-                          </div>
-                        </div>
+                        <Badge variant="success-light" className="text-[10px]">即時</Badge>
+                      </div>
+
+                      {/* Middle: Instrument & Action */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <Badge variant="advisor" className="text-xs px-2 py-1">買進</Badge>
+                        <span className="font-semibold text-lg">世芯-KY (3661.TW)</span>
+                      </div>
+
+                      {/* Price Hint */}
+                      <div className="text-sm mb-3">
+                        <span className="text-muted-foreground">建議價位：</span>
+                        <span className="font-medium text-advisor">約 185-190</span>
+                      </div>
+
+                      {/* Summary */}
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                        4有指標全亮，開盤跳空突破前高，量能爆發，鎖定漲停潛力股。
+                      </p>
+
+                      {/* Risk Note Preview */}
+                      <div className="bg-warning-light/50 rounded-lg p-2.5 text-xs text-warning mb-3">
+                        💡 當沖操作，必須盤中嚴格監控，收盤前務必出場...
+                      </div>
+
+                      {/* CTA hint */}
+                      <div className="flex items-center justify-end text-sm text-primary font-medium">
+                        查看詳解與教學
+                        <ArrowRight className="h-4 w-4 ml-1" />
                       </div>
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Trade Record Example */}
+                {/* Trade Record Example - position & risk notes */}
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-3">進出場紀錄樣式</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">進出場紀錄 & 風控提示</h4>
                   <Card className="bg-muted/30">
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b border-border">
-                          <span className="font-medium">XXXX 金融</span>
-                          <Badge variant="outline" className="text-green-500 border-green-500/30">+12.5%</Badge>
+                    <CardContent className="p-4 space-y-4">
+                      {/* Risk Notes */}
+                      <div>
+                        <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                          <AlertCircle className="h-4 w-4 text-warning" />
+                          <span>風險提示</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">買進</span>
-                            <p className="font-medium">$XX.X @ 01/15</p>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">賣出</span>
-                            <p className="font-medium">$XX.X @ 01/22</p>
-                          </div>
+                        <ul className="text-sm text-muted-foreground space-y-1.5 pl-6 list-disc">
+                          <li>當沖操作，必須盤中嚴格監控，收盤前務必出場</li>
+                          <li>若跌破開盤價 3%，立即停損出場</li>
+                          <li>今日若大盤急跌 &gt; 1.5%，優先減碼保護資金</li>
+                        </ul>
+                      </div>
+
+                      {/* Position Notes */}
+                      <div className="pt-3 border-t border-border">
+                        <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                          <Target className="h-4 w-4 text-advisor" />
+                          <span>倉位管理</span>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          策略邏輯：均線多頭排列，突破整理平台後順勢進場。
-                        </p>
+                        <ul className="text-sm text-muted-foreground space-y-1.5 pl-6 list-disc">
+                          <li>本次進場為單筆資金的 100%（當沖不留倉）</li>
+                          <li>第一目標價：漲停鎖定（+10%）</li>
+                          <li>若無法攻上漲停，尾盤前 30 分鐘全數出場</li>
+                        </ul>
+                      </div>
+
+                      {/* Learning Points */}
+                      <div className="pt-3 border-t border-border">
+                        <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                          <Lightbulb className="h-4 w-4 text-primary" />
+                          <span>學習重點</span>
+                        </div>
+                        <ul className="text-sm text-muted-foreground space-y-1.5 pl-6 list-disc">
+                          <li>這筆示範「4有同步」的選股邏輯，四個指標同時確認</li>
+                          <li>開盤5分鐘是判斷當日強弱的關鍵觀察期</li>
+                        </ul>
                       </div>
                     </CardContent>
                   </Card>
@@ -385,57 +420,96 @@ const Pricing = () => {
               </div>
             ) : (
               <div className="space-y-6 mt-4">
-                {/* Weekly Review Example */}
+                {/* Weekly Journal Example - matching JournalCard style */}
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-3">週報拆解樣式</h4>
-                  <Card className="bg-mentor/5 border-mentor/20">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">週報教學樣式</h4>
+                  <Card className="border-border hover:border-mentor/30">
                     <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="mentor" className="text-xs">本週復盤</Badge>
-                          <span className="text-xs text-muted-foreground">Week 03</span>
-                        </div>
-                        <h4 className="font-medium">為什麼這週我選擇觀望？</h4>
-                        <div className="text-sm text-muted-foreground space-y-2">
-                          <p>• 大盤量縮，個股漲跌比偏空</p>
-                          <p>• 手上持股已達部位上限</p>
-                          <p>• 沒有符合進場條件的標的出現</p>
-                        </div>
-                        <div className="pt-2 border-t border-border">
-                          <p className="text-sm">
-                            <span className="text-mentor font-medium">學習重點：</span>
-                            <span className="text-muted-foreground"> 不出手也是一種決策，等待是紀律的一部分。</span>
-                          </p>
-                        </div>
+                      {/* Week Range */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">01/06 ~ 01/12</span>
+                        <Badge variant="mentor-light" className="text-[10px] ml-auto">
+                          已解鎖（T+7 歷史）
+                        </Badge>
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="font-semibold mb-2">本週我怎麼看待漲停追價</h3>
+
+                      {/* Summary */}
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                        這週大盤震盪加劇，我選擇只操作有明確籌碼支撐的標的，避開追高風險...
+                      </p>
+
+                      {/* Stats */}
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                        <span className="flex items-center gap-1">
+                          <BookOpen className="h-3.5 w-3.5" />
+                          本週 8 筆操作
+                        </span>
+                      </div>
+
+                      {/* Learning Points Preview */}
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        <Badge variant="secondary" className="text-xs">量價配合判斷...</Badge>
+                        <Badge variant="secondary" className="text-xs">停損紀律執行...</Badge>
+                      </div>
+
+                      {/* CTA hint */}
+                      <div className="flex items-center justify-end text-sm text-mentor font-medium">
+                        查看本週詳細教學
+                        <ArrowRight className="h-4 w-4 ml-1" />
                       </div>
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Decision Process Example */}
+                {/* Trade List Example */}
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-3">決策流程筆記樣式</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">本週交易紀錄樣式</h4>
                   <Card className="bg-muted/30">
                     <CardContent className="p-4">
                       <div className="space-y-3">
-                        <h4 className="font-medium">進場前我會問自己的 3 個問題</h4>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-start gap-2">
-                            <span className="h-5 w-5 rounded-full bg-mentor/20 text-mentor flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
-                            <p>這檔的主力籌碼結構如何？是吸籌還是出貨？</p>
+                        {/* Trade 1 */}
+                        <div className="flex items-center justify-between py-2 border-b border-border">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="mentor" className="text-[10px]">買進</Badge>
+                            <span className="font-medium">台積電 (2330.TW)</span>
                           </div>
-                          <div className="flex items-start gap-2">
-                            <span className="h-5 w-5 rounded-full bg-mentor/20 text-mentor flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
-                            <p>現在進場的風險報酬比是否合理？</p>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span className="h-5 w-5 rounded-full bg-mentor/20 text-mentor flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                            <p>如果錯了，我的停損點在哪？</p>
-                          </div>
+                          <Badge variant="outline" className="text-green-500 border-green-500/30 text-xs">漲停 +10%</Badge>
                         </div>
-                        <p className="text-sm text-muted-foreground pt-2 border-t border-border">
-                          這個框架幫助我避開衝動交易，每次都能冷靜評估。
-                        </p>
+                        
+                        {/* Trade 2 */}
+                        <div className="flex items-center justify-between py-2 border-b border-border">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="destructive" className="text-[10px]">停損</Badge>
+                            <span className="font-medium">聯發科 (2454.TW)</span>
+                          </div>
+                          <Badge variant="outline" className="text-red-500 border-red-500/30 text-xs">-2.8%</Badge>
+                        </div>
+
+                        {/* Trade 3 */}
+                        <div className="flex items-center justify-between py-2 border-b border-border">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="mentor" className="text-[10px]">買進</Badge>
+                            <span className="font-medium">世芯-KY (3661.TW)</span>
+                          </div>
+                          <Badge variant="outline" className="text-green-500 border-green-500/30 text-xs">+6.5%</Badge>
+                        </div>
+
+                        {/* Weekly Summary */}
+                        <div className="pt-3 mt-2">
+                          <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                            <Lightbulb className="h-4 w-4 text-mentor" />
+                            <span>本週學習重點</span>
+                          </div>
+                          <ul className="text-sm text-muted-foreground space-y-1.5 pl-6 list-disc">
+                            <li>量價配合是判斷進場時機的核心</li>
+                            <li>停損紀律比獲利更重要</li>
+                            <li>當沖必須在收盤前完全出場</li>
+                          </ul>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
