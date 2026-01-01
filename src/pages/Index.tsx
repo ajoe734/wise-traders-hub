@@ -242,24 +242,8 @@ const Index = () => {
             
             {/* Left Fighter - 跟單派 (Red frame) */}
             <div 
-              className="vs-card vs-card-left w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
-              style={{ 
-                animation: 'vsSlideInLeft 0.8s ease-out forwards',
-                opacity: 0,
-                // Mobile: rotate(-4deg) + translateX(8px) for clash effect, shadow to right-bottom
-                transform: 'rotate(-4deg) translateX(8px)',
-                boxShadow: '8px 12px 24px rgba(0,0,0,0.5), 0 0 20px rgba(239,68,68,0.3)'
-              }}
-              // Desktop: no rotation
+              className="vs-card vs-card-left vs-card-red-mobile w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
             >
-              <style>{`
-                @media (min-width: 1024px) {
-                  .vs-card-left {
-                    transform: none !important;
-                    box-shadow: 0 0 20px rgba(239,68,68,0.4) !important;
-                  }
-                }
-              `}</style>
               {/* Card Frame - red border & glow */}
               <div 
                 className="relative p-[6px] rounded-lg"
@@ -333,19 +317,9 @@ const Index = () => {
                   
                   {/* Content wrapper - counter-rotate on mobile to keep text horizontal */}
                   <div 
-                    className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-start text-left lg:rotate-0"
-                    style={{ 
-                      minHeight: '340px',
-                      transform: 'rotate(4deg)'
-                    }}
+                    className="vs-content-counter-red relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-start text-left"
+                    style={{ minHeight: '340px' }}
                   >
-                    <style>{`
-                      @media (min-width: 1024px) {
-                        .vs-card-left .content-wrapper {
-                          transform: none !important;
-                        }
-                      }
-                    `}</style>
                     <div 
                       className="lg:hidden w-12 h-1 mb-3 rounded-full"
                       style={{ background: 'linear-gradient(90deg, #ff4444, #cc0000)' }}
@@ -429,24 +403,8 @@ const Index = () => {
 
             {/* Right Fighter - 修煉派 (Blue frame) */}
             <div 
-              className="vs-card vs-card-right w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
-              style={{ 
-                animation: 'vsSlideInRight 0.8s ease-out forwards',
-                animationDelay: '0.1s',
-                opacity: 0,
-                // Mobile: rotate(4deg) + translateX(-8px) for clash effect, shadow to left-bottom
-                transform: 'rotate(4deg) translateX(-8px)',
-                boxShadow: '-8px 12px 24px rgba(0,0,0,0.5), 0 0 20px rgba(59,130,246,0.3)'
-              }}
+              className="vs-card vs-card-right vs-card-blue-mobile w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
             >
-              <style>{`
-                @media (min-width: 1024px) {
-                  .vs-card-right {
-                    transform: none !important;
-                    box-shadow: 0 0 20px rgba(59,130,246,0.4) !important;
-                  }
-                }
-              `}</style>
               {/* Card Frame - blue border & glow */}
               <div 
                 className="relative p-[6px] rounded-lg"
@@ -520,19 +478,9 @@ const Index = () => {
                   
                   {/* Content wrapper - counter-rotate on mobile to keep text horizontal */}
                   <div 
-                    className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-end text-right"
-                    style={{ 
-                      minHeight: '340px',
-                      transform: 'rotate(-4deg)'
-                    }}
+                    className="vs-content-counter-blue relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-end text-right"
+                    style={{ minHeight: '340px' }}
                   >
-                    <style>{`
-                      @media (min-width: 1024px) {
-                        .vs-card-right .content-wrapper {
-                          transform: none !important;
-                        }
-                      }
-                    `}</style>
                     <div 
                       className="lg:hidden w-12 h-1 mb-3 rounded-full"
                       style={{ background: 'linear-gradient(90deg, #0066cc, #44aaff)' }}
