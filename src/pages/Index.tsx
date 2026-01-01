@@ -237,8 +237,8 @@ const Index = () => {
             江湖兩派，選你的模式
           </h2>
 
-          {/* VS Battle Arena */}
-          <div className="vs-arena relative flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-10">
+          {/* VS Battle Arena - Mobile: stacked with overlap, Desktop: side by side */}
+          <div className="vs-arena relative flex flex-col lg:flex-row items-center justify-center gap-2 lg:gap-10">
             
             {/* Left Fighter - 跟單派 (Red frame) */}
             <div 
@@ -361,38 +361,38 @@ const Index = () => {
               />
             </div>
 
-            {/* Mobile VS Badge - ink brush circle with red/blue border */}
-            <div className="lg:hidden flex items-center justify-center select-none pointer-events-none z-20 -my-4">
+            {/* Mobile VS Badge - independent element between cards */}
+            <div 
+              className="lg:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none"
+            >
               <div 
-                className="relative w-16 h-16 rounded-full flex items-center justify-center"
+                className="relative w-14 h-14 rounded-full flex items-center justify-center"
                 style={{
-                  background: 'radial-gradient(circle, #1a1a1a 60%, #0a0a0a 100%)',
-                  boxShadow: '0 0 20px rgba(150,100,200,0.5), inset 0 0 10px rgba(0,0,0,0.8)',
-                  border: '2px solid transparent',
-                  backgroundClip: 'padding-box'
+                  background: 'radial-gradient(circle, #1a1a1a 50%, #0a0a0a 100%)',
+                  boxShadow: '0 0 16px rgba(150,100,200,0.4)'
                 }}
               >
-                {/* Red-blue dual border */}
+                {/* Red-blue dual border (top=red, bottom=blue) */}
                 <div 
-                  className="absolute inset-[-3px] rounded-full pointer-events-none"
+                  className="absolute inset-[-2px] rounded-full"
                   style={{
-                    background: 'linear-gradient(180deg, rgba(239,68,68,0.9) 0%, rgba(239,68,68,0.6) 45%, rgba(59,130,246,0.6) 55%, rgba(59,130,246,0.9) 100%)',
+                    background: 'linear-gradient(180deg, rgba(239,68,68,0.7) 0%, rgba(239,68,68,0.4) 48%, rgba(59,130,246,0.4) 52%, rgba(59,130,246,0.7) 100%)',
                     zIndex: -1
                   }}
                 />
                 {/* Inner black circle */}
                 <div 
-                  className="absolute inset-0 rounded-full"
+                  className="absolute inset-[1px] rounded-full"
                   style={{
-                    background: 'radial-gradient(circle, #1a1a1a 50%, #0d0d0d 100%)'
+                    background: 'radial-gradient(circle, #1a1a1a 40%, #0d0d0d 100%)'
                   }}
                 />
                 {/* VS text */}
                 <span 
-                  className="relative z-10 text-lg font-bold tracking-wider"
+                  className="relative z-10 text-base font-bold"
                   style={{ 
-                    color: 'rgba(255,220,150,0.95)',
-                    textShadow: '0 0 8px rgba(255,200,100,0.6), 0 2px 4px rgba(0,0,0,0.8)',
+                    color: 'rgba(255,220,150,0.9)',
+                    textShadow: '0 0 6px rgba(255,200,100,0.5)',
                     fontFamily: '"Longyin Brush", cursive'
                   }}
                 >

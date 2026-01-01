@@ -271,23 +271,18 @@
   }
 
   /* VS Battle Cards - Mobile rotation effect */
+  /* Card 1 (跟單派): rotate(-4deg), shift right */
   .vs-card-red-mobile {
     transform: rotate(-4deg) translateX(10px);
-    box-shadow: 10px 14px 28px rgba(0,0,0,0.5), 0 0 24px rgba(239,68,68,0.4);
+    box-shadow: 12px 16px 32px rgba(0,0,0,0.6), 0 0 20px rgba(239,68,68,0.35);
+    z-index: 10;
   }
 
+  /* Card 2 (修煉派): rotate(4deg), shift left */
   .vs-card-blue-mobile {
     transform: rotate(4deg) translateX(-10px);
-    box-shadow: -10px 14px 28px rgba(0,0,0,0.5), 0 0 24px rgba(59,130,246,0.4);
-  }
-
-  /* Desktop: no rotation */
-  @media (min-width: 1024px) {
-    .vs-card-red-mobile,
-    .vs-card-blue-mobile {
-      transform: none;
-      box-shadow: 0 0 20px rgba(150,100,200,0.3);
-    }
+    box-shadow: -12px 16px 32px rgba(0,0,0,0.6), 0 0 20px rgba(59,130,246,0.35);
+    z-index: 5;
   }
 
   /* Counter-rotate content to keep text horizontal */
@@ -299,7 +294,14 @@
     transform: rotate(-4deg);
   }
 
+  /* Desktop: reset all transforms */
   @media (min-width: 1024px) {
+    .vs-card-red-mobile,
+    .vs-card-blue-mobile {
+      transform: none;
+      box-shadow: none;
+      z-index: auto;
+    }
     .vs-content-counter-red,
     .vs-content-counter-blue {
       transform: none;
