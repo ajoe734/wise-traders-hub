@@ -269,4 +269,40 @@
   .animate-float {
     animation: float 4s ease-in-out infinite;
   }
+
+  /* VS Battle Cards - Mobile rotation effect */
+  .vs-card-red-mobile {
+    transform: rotate(-4deg) translateX(10px);
+    box-shadow: 10px 14px 28px rgba(0,0,0,0.5), 0 0 24px rgba(239,68,68,0.4);
+  }
+
+  .vs-card-blue-mobile {
+    transform: rotate(4deg) translateX(-10px);
+    box-shadow: -10px 14px 28px rgba(0,0,0,0.5), 0 0 24px rgba(59,130,246,0.4);
+  }
+
+  /* Desktop: no rotation */
+  @media (min-width: 1024px) {
+    .vs-card-red-mobile,
+    .vs-card-blue-mobile {
+      transform: none;
+      box-shadow: 0 0 20px rgba(150,100,200,0.3);
+    }
+  }
+
+  /* Counter-rotate content to keep text horizontal */
+  .vs-content-counter-red {
+    transform: rotate(4deg);
+  }
+
+  .vs-content-counter-blue {
+    transform: rotate(-4deg);
+  }
+
+  @media (min-width: 1024px) {
+    .vs-content-counter-red,
+    .vs-content-counter-blue {
+      transform: none;
+    }
+  }
 }
