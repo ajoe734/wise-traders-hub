@@ -57,7 +57,7 @@ const Pricing = () => {
     {
       id: 'follower',
       faction: '跟單派',
-      title: '分析師即時訊號訂閱',
+      title: '分析師下單即時line通知',
       icon: Radio,
       price: '1,699',
       painPoint: '選股還在看K線，太慢了。',
