@@ -16,7 +16,9 @@ import {
   Zap,
   Target,
   LineChart,
-  TrendingUp
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import featureXianren from '@/assets/feature-xianren.png';
 import featureSanpai from '@/assets/feature-sanpai.png';
@@ -25,7 +27,218 @@ import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
 import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 import { VsBrushMark } from '@/components/VsBrushMark';
 import { WeeklyLimitUpLeaderboard, mockLeaderboardEntries } from '@/components/WeeklyLimitUpLeaderboard';
+import useEmblaCarousel from 'embla-carousel-react';
+import { useCallback, useEffect, useState } from 'react';
 
+
+// Mobile VS Carousel Component
+const MobileVsCarousel = () => {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ 
+    loop: false,
+    align: 'center',
+    containScroll: 'trimSnaps'
+  });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(true);
+
+  const scrollPrev = useCallback(() => emblaApi && emblaApi.scrollPrev(), [emblaApi]);
+  const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setSelectedIndex(emblaApi.selectedScrollSnap());
+    setCanScrollPrev(emblaApi.canScrollPrev());
+    setCanScrollNext(emblaApi.canScrollNext());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on('select', onSelect);
+    return () => { emblaApi.off('select', onSelect); };
+  }, [emblaApi, onSelect]);
+
+  const cards = [
+    {
+      id: 'red',
+      title: '跟單派',
+      subtitle: '「天下武功，唯快不破」',
+      link: '/experts?role=advisor',
+      bgImage: cardKungfuSpeed,
+      bgPosition: 'center right',
+      gradient: 'bg-gradient-to-r from-black/80 via-black/40 to-black/20',
+      frameGradient: 'linear-gradient(135deg, rgba(239,68,68,0.9) 0%, rgba(180,40,40,0.7) 100%)',
+      hpGradient: 'linear-gradient(180deg, #ff4444 0%, #ee0000 40%, #cc0000 70%, #990000 100%)',
+      hpHighlight: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,150,150,0.3))',
+      hpGlow: 'rgba(255, 0, 0, 0.5)',
+      accentBar: 'linear-gradient(90deg, #ff4444, #cc0000)',
+      buttonClass: 'border-red-600/60 text-red-400 hover:bg-red-600/10 hover:border-red-500',
+      textAlign: 'left' as const,
+      itemsAlign: 'items-start' as const,
+    },
+    {
+      id: 'blue',
+      title: '修煉派',
+      subtitle: '「看你骨骼精奇，是個練武奇才」',
+      link: '/experts?role=mentor',
+      bgImage: cardKungfuBones,
+      bgPosition: 'center left',
+      gradient: 'bg-gradient-to-l from-black/80 via-black/40 to-black/20',
+      frameGradient: 'linear-gradient(135deg, rgba(59,130,246,0.9) 0%, rgba(40,80,180,0.7) 100%)',
+      hpGradient: 'linear-gradient(180deg, #44aaff 0%, #0088ee 40%, #0066cc 70%, #004499 100%)',
+      hpHighlight: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(150,200,255,0.3))',
+      hpGlow: 'rgba(0, 136, 255, 0.5)',
+      accentBar: 'linear-gradient(90deg, #0066cc, #44aaff)',
+      buttonClass: 'border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500',
+      textAlign: 'right' as const,
+      itemsAlign: 'items-end' as const,
+    }
+  ];
+
+  return (
+    <div className="md:hidden relative">
+      {/* Carousel */}
+      <div className="overflow-hidden" ref={emblaRef}>
+        <div className="flex gap-4">
+          {cards.map((card) => (
+            <div 
+              key={card.id} 
+              className="flex-[0_0_85%] min-w-0 pl-4 first:pl-4"
+            >
+              <div 
+                className="relative p-[6px] rounded-lg"
+                style={{ 
+                  background: card.frameGradient,
+                  boxShadow: 'inset 0 0 2px rgba(255,255,255,0.4)'
+                }}
+              >
+                <div 
+                  className="relative overflow-hidden w-full rounded-md"
+                  style={{ 
+                    minHeight: '380px',
+                    backgroundColor: '#1a1a1a'
+                  }}
+                >
+                  {/* Health Bar */}
+                  <div 
+                    className="absolute left-4 right-4 z-20"
+                    style={{ 
+                      top: '16px',
+                      height: '32px',
+                      padding: '4px',
+                      background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+                      clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
+                    }}
+                  >
+                    <div 
+                      style={{ 
+                        width: '100%',
+                        height: '100%',
+                        background: card.hpGradient,
+                        boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
+                        clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
+                        position: 'relative'
+                      }}
+                    >
+                      <div style={{ 
+                        position: 'absolute',
+                        top: '3px',
+                        left: '16px',
+                        right: '16px',
+                        height: '5px',
+                        background: card.hpHighlight,
+                        clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
+                      }} />
+                    </div>
+                  </div>
+                  <div 
+                    className="absolute left-4 right-4 z-10 pointer-events-none"
+                    style={{ 
+                      top: '16px',
+                      height: '32px',
+                      background: card.hpGlow,
+                      filter: 'blur(12px)',
+                      clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
+                    }}
+                  />
+                  
+                  <div 
+                    className="absolute inset-0 bg-cover transition-all duration-500"
+                    style={{ 
+                      backgroundImage: `url(${card.bgImage})`,
+                      backgroundPosition: card.bgPosition,
+                      filter: 'brightness(1.2) contrast(1.1)'
+                    }}
+                  />
+                  <div className={`absolute inset-0 ${card.gradient}`} />
+                  
+                  <div 
+                    className={`relative z-10 p-8 pb-10 flex flex-col h-full justify-end ${card.itemsAlign} text-${card.textAlign}`}
+                    style={{ minHeight: '380px' }}
+                  >
+                    <div 
+                      className="w-12 h-1 mb-3 rounded-full"
+                      style={{ background: card.accentBar }}
+                    />
+                    <p 
+                      className={`text-3xl text-white mb-4 text-${card.textAlign} w-full`}
+                      style={{ fontFamily: '"Longyin Brush", cursive' }}
+                    >
+                      {card.title}
+                    </p>
+                    <p className={`text-white/70 text-lg italic mb-8 text-${card.textAlign}`}>
+                      {card.subtitle}
+                    </p>
+                    
+                    <Button variant="outline" className={`w-fit bg-transparent ${card.buttonClass}`} asChild>
+                      <Link to={card.link}>
+                        選擇此派
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Navigation Arrows */}
+      <button
+        onClick={scrollPrev}
+        disabled={!canScrollPrev}
+        className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white transition-opacity ${!canScrollPrev ? 'opacity-30' : 'opacity-100'}`}
+      >
+        <ChevronLeft className="w-6 h-6" />
+      </button>
+      <button
+        onClick={scrollNext}
+        disabled={!canScrollNext}
+        className={`absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white transition-opacity ${!canScrollNext ? 'opacity-30' : 'opacity-100'}`}
+      >
+        <ChevronRight className="w-6 h-6" />
+      </button>
+
+      {/* Dots Indicator */}
+      <div className="flex justify-center gap-2 mt-4">
+        {cards.map((card, index) => (
+          <button
+            key={card.id}
+            onClick={() => emblaApi?.scrollTo(index)}
+            className={`w-2 h-2 rounded-full transition-all ${
+              index === selectedIndex 
+                ? (card.id === 'red' ? 'bg-red-500 w-6' : 'bg-blue-500 w-6')
+                : 'bg-white/30'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const Index = () => {
   return (
@@ -237,13 +450,14 @@ const Index = () => {
             江湖兩派，選你的模式
           </h2>
 
-          {/* VS Battle Arena - Mobile: stacked with overlap, Desktop: side by side */}
-          <div className="vs-arena relative flex flex-col md:flex-row items-center justify-center gap-4 md:gap-10">
+          {/* VS Battle Arena - Mobile: Carousel, Desktop: side by side */}
+          <MobileVsCarousel />
+          
+          {/* Desktop Layout - side by side */}
+          <div className="hidden md:flex vs-arena relative items-center justify-center gap-10">
             
             {/* Left Fighter - 跟單派 (Red frame) */}
-            <div 
-              className="vs-card vs-card-left vs-card-red-mobile w-full md:w-[40%] relative cursor-pointer transition-all duration-500"
-            >
+            <div className="vs-card vs-card-left w-[40%] relative cursor-pointer transition-all duration-500">
               {/* Card Frame - red border & glow */}
               <div 
                 className="relative p-[6px] rounded-lg"
@@ -315,15 +529,10 @@ const Index = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/20" />
                   
-                  {/* Content wrapper - counter-rotate on mobile to keep text horizontal */}
                   <div 
-                    className="vs-content-counter-red relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-start text-left"
+                    className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-start text-left"
                     style={{ minHeight: '340px' }}
                   >
-                    <div 
-                      className="md:hidden w-12 h-1 mb-3 rounded-full"
-                      style={{ background: 'linear-gradient(90deg, #ff4444, #cc0000)' }}
-                    />
                     <p 
                       className="text-3xl lg:text-4xl text-white mb-4 text-left w-full"
                       style={{ fontFamily: '"Longyin Brush", cursive' }}
@@ -346,7 +555,7 @@ const Index = () => {
             </div>
 
             {/* Center VS - Desktop: Calligraphy Brush Mark */}
-            <div className="hidden md:flex items-center justify-center select-none pointer-events-none shrink-0 relative">
+            <div className="flex items-center justify-center select-none pointer-events-none shrink-0 relative">
               <div 
                 className="absolute inset-0 blur-2xl"
                 style={{
@@ -361,30 +570,8 @@ const Index = () => {
               />
             </div>
 
-            {/* Mobile VS Badge - independent element between cards */}
-            <div className="md:hidden -my-4 z-30 pointer-events-none flex items-center justify-center">
-              <div
-                className="rounded-full p-[1px]"
-                style={{
-                  background:
-                    'linear-gradient(180deg, rgba(239,68,68,0.28) 0%, rgba(59,130,246,0.28) 100%)'
-                }}
-              >
-                <div className="w-12 h-12 rounded-full bg-foreground flex items-center justify-center">
-                  <span
-                    className="text-sm font-bold text-background"
-                    style={{ fontFamily: '"Longyin Brush", cursive', letterSpacing: '0.04em' }}
-                  >
-                    VS
-                  </span>
-                </div>
-              </div>
-            </div>
-
             {/* Right Fighter - 修煉派 (Blue frame) */}
-            <div 
-              className="vs-card vs-card-right vs-card-blue-mobile w-full -mt-8 md:mt-0 md:w-[40%] relative cursor-pointer transition-all duration-500"
-            >
+            <div className="vs-card vs-card-right w-[40%] relative cursor-pointer transition-all duration-500">
               {/* Card Frame - blue border & glow */}
               <div 
                 className="relative p-[6px] rounded-lg"
@@ -456,15 +643,10 @@ const Index = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-l from-black/80 via-black/40 to-black/20" />
                   
-                  {/* Content wrapper - counter-rotate on mobile to keep text horizontal */}
                   <div 
-                    className="vs-content-counter-blue relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-end text-right"
+                    className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-end text-right"
                     style={{ minHeight: '340px' }}
                   >
-                    <div 
-                      className="md:hidden w-12 h-1 mb-3 rounded-full"
-                      style={{ background: 'linear-gradient(90deg, #0066cc, #44aaff)' }}
-                    />
                     <p 
                       className="text-3xl lg:text-4xl text-white mb-4 text-right w-full"
                       style={{ fontFamily: '"Longyin Brush", cursive' }}
