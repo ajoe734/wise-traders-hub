@@ -364,76 +364,43 @@ const Index = () => {
               />
             </div>
 
-            {/* Mobile VS - Fighting game round start divider (independent, between cards) */}
-            <div className="lg:hidden flex flex-col items-center justify-center select-none pointer-events-none my-6 relative">
-              {/* VS Divider Bar - skewX for slant effect, horizontal centered */}
+            {/* Mobile VS Divider - between cards */}
+            <div className="lg:hidden w-full my-5 pointer-events-none">
               <div 
-                className="relative flex items-center justify-center w-full"
+                className="relative h-10 w-full flex items-center justify-center"
                 style={{ 
-                  height: '44px',
-                  transform: 'skewX(-12deg)'
+                  background: 'linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 50%, #1a1a1a 100%)',
+                  transform: 'skewX(-8deg)'
                 }}
               >
-                {/* Red highlight on top edge */}
+                {/* Top red glow line */}
                 <div 
-                  className="absolute inset-x-4 top-0 h-[2px]"
+                  className="absolute top-0 left-0 right-0 h-[2px]"
                   style={{
-                    background: 'linear-gradient(90deg, transparent 0%, rgba(255,60,60,0.8) 20%, rgba(255,80,80,1) 50%, rgba(255,60,60,0.8) 80%, transparent 100%)',
-                    boxShadow: '0 0 8px rgba(255,50,50,0.6)'
+                    background: 'linear-gradient(90deg, transparent, rgba(255,60,60,0.9) 30%, rgba(255,80,80,1) 50%, rgba(255,60,60,0.9) 70%, transparent)',
+                    boxShadow: '0 0 6px rgba(255,50,50,0.5)'
                   }}
                 />
                 
-                {/* Main brush stroke bar */}
+                {/* VS Badge - small capsule */}
                 <div 
-                  className="absolute inset-x-4 inset-y-0"
-                  style={{
-                    background: 'linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 50%, #1a1a1a 100%)',
-                    boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.05), inset 0 -2px 4px rgba(0,0,0,0.5)'
-                  }}
-                />
-                
-                {/* Brush texture overlay */}
-                <div 
-                  className="absolute inset-x-4 inset-y-0 opacity-20"
-                  style={{
-                    background: 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.05) 3px, rgba(255,255,255,0.05) 6px)'
-                  }}
-                />
-                
-                {/* VS Badge - small label style */}
-                <div 
-                  className="relative z-10 px-4 py-1 rounded"
-                  style={{ 
-                    background: 'linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%)',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    transform: 'skewX(12deg)' // Counter-skew to keep text upright
-                  }}
+                  className="relative z-10 px-3 py-0.5 rounded-full bg-black/60 border border-white/20"
+                  style={{ transform: 'skewX(8deg)' }}
                 >
-                  <span 
-                    className="text-sm font-bold tracking-wider"
-                    style={{ 
-                      color: 'rgba(255,215,150,0.9)',
-                      textShadow: '0 0 6px rgba(255,200,100,0.4)'
-                    }}
-                  >
+                  <span className="text-xs font-bold tracking-wider text-amber-200/90">
                     VS
                   </span>
                 </div>
                 
-                {/* Blue highlight on bottom edge */}
+                {/* Bottom blue glow line */}
                 <div 
-                  className="absolute inset-x-4 bottom-0 h-[2px]"
+                  className="absolute bottom-0 left-0 right-0 h-[2px]"
                   style={{
-                    background: 'linear-gradient(90deg, transparent 0%, rgba(60,130,255,0.8) 20%, rgba(80,150,255,1) 50%, rgba(60,130,255,0.8) 80%, transparent 100%)',
-                    boxShadow: '0 0 8px rgba(50,130,255,0.6)'
+                    background: 'linear-gradient(90deg, transparent, rgba(60,130,255,0.9) 30%, rgba(80,150,255,1) 50%, rgba(60,130,255,0.9) 70%, transparent)',
+                    boxShadow: '0 0 6px rgba(50,130,255,0.5)'
                   }}
                 />
               </div>
-              
-              {/* Subtitle below divider */}
-              <p className="mt-3 text-xs text-white/50 tracking-[0.25em]">
-                選你的路線
-              </p>
             </div>
 
             {/* Right Fighter - 修煉派 (Blue thick border) */}
