@@ -31,33 +31,9 @@ import useEmblaCarousel from 'embla-carousel-react';
 import { useCallback, useEffect, useState } from 'react';
 
 
-// Mobile VS Carousel Component
+// Mobile VS Carousel Component - Showcase/Turntable style
 const MobileVsCarousel = () => {
-  const [emblaRef, emblaApi] = useEmblaCarousel({ 
-    loop: false,
-    align: 'center',
-    containScroll: 'trimSnaps'
-  });
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [canScrollPrev, setCanScrollPrev] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(true);
-
-  const scrollPrev = useCallback(() => emblaApi && emblaApi.scrollPrev(), [emblaApi]);
-  const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
-
-  const onSelect = useCallback(() => {
-    if (!emblaApi) return;
-    setSelectedIndex(emblaApi.selectedScrollSnap());
-    setCanScrollPrev(emblaApi.canScrollPrev());
-    setCanScrollNext(emblaApi.canScrollNext());
-  }, [emblaApi]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    onSelect();
-    emblaApi.on('select', onSelect);
-    return () => { emblaApi.off('select', onSelect); };
-  }, [emblaApi, onSelect]);
 
   const cards = [
     {
@@ -76,6 +52,7 @@ const MobileVsCarousel = () => {
       buttonClass: 'border-red-600/60 text-red-400 hover:bg-red-600/10 hover:border-red-500',
       textAlign: 'left' as const,
       itemsAlign: 'items-start' as const,
+      accentColor: 'bg-red-500',
     },
     {
       id: 'blue',
@@ -93,24 +70,63 @@ const MobileVsCarousel = () => {
       buttonClass: 'border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500',
       textAlign: 'right' as const,
       itemsAlign: 'items-end' as const,
+      accentColor: 'bg-blue-500',
     }
   ];
 
+  const handleSwipe = (e: React.TouchEvent) => {
+    const touch = e.changedTouches[0];
+    const startX = (e.target as HTMLElement).dataset.startX;
+    if (!startX) return;
+    const diff = touch.clientX - parseFloat(startX);
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && selectedIndex > 0) {
+        setSelectedIndex(0);
+      } else if (diff < 0 && selectedIndex < 1) {
+        setSelectedIndex(1);
+      }
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    (e.currentTarget as HTMLElement).dataset.startX = String(e.touches[0].clientX);
+  };
+
   return (
-    <div className="md:hidden relative">
-      {/* Carousel */}
-      <div className="overflow-hidden" ref={emblaRef}>
-        <div className="flex gap-4">
-          {cards.map((card) => (
-            <div 
-              key={card.id} 
-              className="flex-[0_0_85%] min-w-0 pl-4 first:pl-4"
+    <div className="md:hidden relative px-4">
+      {/* Showcase Container */}
+      <div 
+        className="relative h-[420px] perspective-1000"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleSwipe}
+      >
+        {cards.map((card, index) => {
+          const isActive = index === selectedIndex;
+          const offset = index - selectedIndex;
+          
+          return (
+            <div
+              key={card.id}
+              onClick={() => setSelectedIndex(index)}
+              className="absolute inset-x-0 mx-auto cursor-pointer transition-all duration-500 ease-out"
+              style={{
+                width: isActive ? '92%' : '75%',
+                transform: isActive 
+                  ? 'translateX(0) translateZ(0) rotateY(0deg) scale(1)' 
+                  : `translateX(${offset * 60}%) translateZ(-80px) rotateY(${offset * -8}deg) scale(0.88)`,
+                opacity: isActive ? 1 : 0.5,
+                zIndex: isActive ? 20 : 10,
+                filter: isActive ? 'none' : 'brightness(0.7)',
+                transformStyle: 'preserve-3d',
+              }}
             >
               <div 
-                className="relative p-[6px] rounded-lg"
+                className="relative p-[6px] rounded-lg shadow-2xl"
                 style={{ 
                   background: card.frameGradient,
-                  boxShadow: 'inset 0 0 2px rgba(255,255,255,0.4)'
+                  boxShadow: isActive 
+                    ? `inset 0 0 2px rgba(255,255,255,0.4), 0 20px 50px rgba(0,0,0,0.5)` 
+                    : 'inset 0 0 2px rgba(255,255,255,0.2)'
                 }}
               >
                 <div 
@@ -192,50 +208,57 @@ const MobileVsCarousel = () => {
                       {card.subtitle}
                     </p>
                     
-                    <Button variant="outline" className={`w-fit bg-transparent ${card.buttonClass}`} asChild>
-                      <Link to={card.link}>
-                        選擇此派
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Link>
-                    </Button>
+                    {isActive && (
+                      <Button variant="outline" className={`w-fit bg-transparent ${card.buttonClass}`} asChild>
+                        <Link to={card.link}>
+                          選擇此派
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
       {/* Navigation Arrows */}
       <button
-        onClick={scrollPrev}
-        disabled={!canScrollPrev}
-        className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white transition-opacity ${!canScrollPrev ? 'opacity-30' : 'opacity-100'}`}
+        onClick={() => setSelectedIndex(0)}
+        disabled={selectedIndex === 0}
+        className={`absolute left-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white transition-opacity ${selectedIndex === 0 ? 'opacity-30' : 'opacity-100'}`}
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
       <button
-        onClick={scrollNext}
-        disabled={!canScrollNext}
-        className={`absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white transition-opacity ${!canScrollNext ? 'opacity-30' : 'opacity-100'}`}
+        onClick={() => setSelectedIndex(1)}
+        disabled={selectedIndex === 1}
+        className={`absolute right-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white transition-opacity ${selectedIndex === 1 ? 'opacity-30' : 'opacity-100'}`}
       >
         <ChevronRight className="w-6 h-6" />
       </button>
 
       {/* Dots Indicator */}
-      <div className="flex justify-center gap-2 mt-4">
+      <div className="flex justify-center gap-3 mt-6">
         {cards.map((card, index) => (
           <button
             key={card.id}
-            onClick={() => emblaApi?.scrollTo(index)}
-            className={`w-2 h-2 rounded-full transition-all ${
+            onClick={() => setSelectedIndex(index)}
+            className={`h-2 rounded-full transition-all duration-300 ${
               index === selectedIndex 
-                ? (card.id === 'red' ? 'bg-red-500 w-6' : 'bg-blue-500 w-6')
-                : 'bg-white/30'
+                ? `${card.accentColor} w-8`
+                : 'bg-white/30 w-2'
             }`}
           />
         ))}
       </div>
+      
+      {/* Swipe Hint */}
+      <p className="text-center text-muted-foreground/60 text-xs mt-3">
+        ← 左右滑動選擇 →
+      </p>
     </div>
   );
 };
