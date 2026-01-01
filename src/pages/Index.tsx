@@ -364,74 +364,74 @@ const Index = () => {
               />
             </div>
 
-            {/* Mobile VS - Fighting game round start divider */}
-            <div className="lg:hidden flex flex-col items-center justify-center select-none pointer-events-none -my-2 relative py-4">
-              {/* VS Divider Bar - 15° slanted brush stroke */}
+            {/* Mobile VS - Fighting game round start divider (independent, between cards) */}
+            <div className="lg:hidden flex flex-col items-center justify-center select-none pointer-events-none my-6 relative">
+              {/* VS Divider Bar - skewX for slant effect, horizontal centered */}
               <div 
-                className="relative flex items-center justify-center"
+                className="relative flex items-center justify-center w-full"
                 style={{ 
-                  width: '280px',
-                  height: '56px',
-                  transform: 'rotate(-15deg)'
+                  height: '44px',
+                  transform: 'skewX(-12deg)'
                 }}
               >
-                {/* Red glow on top edge */}
+                {/* Red highlight on top edge */}
                 <div 
-                  className="absolute inset-x-0 -top-1 h-[3px]"
+                  className="absolute inset-x-4 top-0 h-[2px]"
                   style={{
-                    background: 'linear-gradient(90deg, transparent 5%, rgba(255,80,80,0.9) 30%, rgba(255,50,50,1) 50%, rgba(255,80,80,0.9) 70%, transparent 95%)',
-                    filter: 'blur(2px)',
-                    boxShadow: '0 0 12px rgba(255,50,50,0.8), 0 0 24px rgba(255,50,50,0.5)'
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(255,60,60,0.8) 20%, rgba(255,80,80,1) 50%, rgba(255,60,60,0.8) 80%, transparent 100%)',
+                    boxShadow: '0 0 8px rgba(255,50,50,0.6)'
                   }}
                 />
                 
                 {/* Main brush stroke bar */}
                 <div 
-                  className="absolute inset-0"
+                  className="absolute inset-x-4 inset-y-0"
                   style={{
-                    background: 'linear-gradient(180deg, #2a2a2a 0%, #0a0a0a 40%, #1a1a1a 100%)',
-                    clipPath: 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0% 50%)',
-                    boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.1), inset 0 -2px 4px rgba(0,0,0,0.5)'
+                    background: 'linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 50%, #1a1a1a 100%)',
+                    boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.05), inset 0 -2px 4px rgba(0,0,0,0.5)'
                   }}
                 />
                 
                 {/* Brush texture overlay */}
                 <div 
-                  className="absolute inset-0 opacity-30"
+                  className="absolute inset-x-4 inset-y-0 opacity-20"
                   style={{
-                    background: 'repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px)',
-                    clipPath: 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0% 50%)'
+                    background: 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.05) 3px, rgba(255,255,255,0.05) 6px)'
                   }}
                 />
                 
-                {/* VS Text */}
-                <span 
-                  className="relative z-10 text-2xl font-black tracking-widest"
+                {/* VS Badge - small label style */}
+                <div 
+                  className="relative z-10 px-4 py-1 rounded"
                   style={{ 
-                    fontFamily: '"Longyin Brush", cursive',
-                    color: '#fff',
-                    textShadow: '0 0 8px rgba(255,255,255,0.5), 2px 2px 4px rgba(0,0,0,0.8)'
+                    background: 'linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    transform: 'skewX(12deg)' // Counter-skew to keep text upright
                   }}
                 >
-                  VS
-                </span>
+                  <span 
+                    className="text-sm font-bold tracking-wider"
+                    style={{ 
+                      color: 'rgba(255,215,150,0.9)',
+                      textShadow: '0 0 6px rgba(255,200,100,0.4)'
+                    }}
+                  >
+                    VS
+                  </span>
+                </div>
                 
-                {/* Blue glow on bottom edge */}
+                {/* Blue highlight on bottom edge */}
                 <div 
-                  className="absolute inset-x-0 -bottom-1 h-[3px]"
+                  className="absolute inset-x-4 bottom-0 h-[2px]"
                   style={{
-                    background: 'linear-gradient(90deg, transparent 5%, rgba(80,150,255,0.9) 30%, rgba(50,130,255,1) 50%, rgba(80,150,255,0.9) 70%, transparent 95%)',
-                    filter: 'blur(2px)',
-                    boxShadow: '0 0 12px rgba(50,130,255,0.8), 0 0 24px rgba(50,130,255,0.5)'
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(60,130,255,0.8) 20%, rgba(80,150,255,1) 50%, rgba(60,130,255,0.8) 80%, transparent 100%)',
+                    boxShadow: '0 0 8px rgba(50,130,255,0.6)'
                   }}
                 />
               </div>
               
               {/* Subtitle below divider */}
-              <p 
-                className="mt-5 text-xs text-white/60 tracking-[0.3em] uppercase"
-                style={{ transform: 'rotate(0deg)' }}
-              >
+              <p className="mt-3 text-xs text-white/50 tracking-[0.25em]">
                 選你的路線
               </p>
             </div>
