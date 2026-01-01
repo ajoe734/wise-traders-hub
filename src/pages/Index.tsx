@@ -238,11 +238,11 @@ const Index = () => {
           </h2>
 
           {/* VS Battle Arena - Mobile: stacked with overlap, Desktop: side by side */}
-          <div className="vs-arena relative flex flex-col lg:flex-row items-center justify-center gap-2 lg:gap-10">
+          <div className="vs-arena relative flex flex-col md:flex-row items-center justify-center gap-4 md:gap-10">
             
             {/* Left Fighter - 跟單派 (Red frame) */}
             <div 
-              className="vs-card vs-card-left vs-card-red-mobile w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
+              className="vs-card vs-card-left vs-card-red-mobile w-full md:w-[40%] relative cursor-pointer transition-all duration-500"
             >
               {/* Card Frame - red border & glow */}
               <div 
@@ -321,7 +321,7 @@ const Index = () => {
                     style={{ minHeight: '340px' }}
                   >
                     <div 
-                      className="lg:hidden w-12 h-1 mb-3 rounded-full"
+                      className="md:hidden w-12 h-1 mb-3 rounded-full"
                       style={{ background: 'linear-gradient(90deg, #ff4444, #cc0000)' }}
                     />
                     <p 
@@ -346,7 +346,7 @@ const Index = () => {
             </div>
 
             {/* Center VS - Desktop: Calligraphy Brush Mark */}
-            <div className="hidden lg:flex items-center justify-center select-none pointer-events-none shrink-0 relative">
+            <div className="hidden md:flex items-center justify-center select-none pointer-events-none shrink-0 relative">
               <div 
                 className="absolute inset-0 blur-2xl"
                 style={{
@@ -362,48 +362,28 @@ const Index = () => {
             </div>
 
             {/* Mobile VS Badge - independent element between cards */}
-            <div 
-              className="lg:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none"
-            >
-              <div 
-                className="relative w-14 h-14 rounded-full flex items-center justify-center"
+            <div className="md:hidden -my-4 z-30 pointer-events-none flex items-center justify-center">
+              <div
+                className="rounded-full p-[1px]"
                 style={{
-                  background: 'radial-gradient(circle, #1a1a1a 50%, #0a0a0a 100%)',
-                  boxShadow: '0 0 16px rgba(150,100,200,0.4)'
+                  background:
+                    'linear-gradient(180deg, rgba(239,68,68,0.28) 0%, rgba(59,130,246,0.28) 100%)'
                 }}
               >
-                {/* Red-blue dual border (top=red, bottom=blue) */}
-                <div 
-                  className="absolute inset-[-2px] rounded-full"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(239,68,68,0.7) 0%, rgba(239,68,68,0.4) 48%, rgba(59,130,246,0.4) 52%, rgba(59,130,246,0.7) 100%)',
-                    zIndex: -1
-                  }}
-                />
-                {/* Inner black circle */}
-                <div 
-                  className="absolute inset-[1px] rounded-full"
-                  style={{
-                    background: 'radial-gradient(circle, #1a1a1a 40%, #0d0d0d 100%)'
-                  }}
-                />
-                {/* VS text */}
-                <span 
-                  className="relative z-10 text-base font-bold"
-                  style={{ 
-                    color: 'rgba(255,220,150,0.9)',
-                    textShadow: '0 0 6px rgba(255,200,100,0.5)',
-                    fontFamily: '"Longyin Brush", cursive'
-                  }}
-                >
-                  VS
-                </span>
+                <div className="w-12 h-12 rounded-full bg-foreground flex items-center justify-center">
+                  <span
+                    className="text-sm font-bold text-background"
+                    style={{ fontFamily: '"Longyin Brush", cursive', letterSpacing: '0.04em' }}
+                  >
+                    VS
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* Right Fighter - 修煉派 (Blue frame) */}
             <div 
-              className="vs-card vs-card-right vs-card-blue-mobile w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
+              className="vs-card vs-card-right vs-card-blue-mobile w-full -mt-8 md:mt-0 md:w-[40%] relative cursor-pointer transition-all duration-500"
             >
               {/* Card Frame - blue border & glow */}
               <div 
@@ -482,7 +462,7 @@ const Index = () => {
                     style={{ minHeight: '340px' }}
                   >
                     <div 
-                      className="lg:hidden w-12 h-1 mb-3 rounded-full"
+                      className="md:hidden w-12 h-1 mb-3 rounded-full"
                       style={{ background: 'linear-gradient(90deg, #0066cc, #44aaff)' }}
                     />
                     <p 
