@@ -76,7 +76,7 @@ const Pricing = () => {
     {
       id: 'cultivator',
       faction: '修煉派',
-      title: '每週交易紀律與心得拆解',
+      title: '每週交易紀錄與心法公開',
       icon: BookOpen,
       price: '799',
       painPoint: '給我全部，練出自己的投資秘笈',
