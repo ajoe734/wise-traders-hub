@@ -211,7 +211,7 @@ const Pricing = () => {
                   <p 
                     className="text-sm font-semibold mt-2 italic drop-shadow-sm"
                     style={{ 
-                      color: isAdvisor ? 'hsl(30, 100%, 70%)' : 'hsl(200, 100%, 75%)',
+                      color: isAdvisor ? 'hsl(30, 100%, 70%)' : 'hsl(45, 90%, 65%)',
                       textShadow: '0 1px 3px rgba(0,0,0,0.5)'
                     }}
                   >
