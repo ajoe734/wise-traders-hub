@@ -320,14 +320,19 @@ const Index = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/20" />
                   
-                  <div className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end text-left" style={{ minHeight: '380px' }}>
+                  <div className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-start text-left" style={{ minHeight: '380px' }}>
+                    {/* Red accent bar - left aligned on mobile */}
+                    <div 
+                      className="lg:hidden w-12 h-1 mb-3 rounded-full"
+                      style={{ background: 'linear-gradient(90deg, #ff4444, #cc0000)' }}
+                    />
                     <p 
-                      className="text-3xl lg:text-4xl text-white mb-4"
+                      className="text-3xl lg:text-4xl text-white mb-4 text-left w-full"
                       style={{ fontFamily: '"Longyin Brush", cursive' }}
                     >
                       跟單派
                     </p>
-                    <p className="text-white/70 text-lg italic mb-8">
+                    <p className="text-white/70 text-lg italic mb-8 text-left">
                       「天下武功，唯快不破」
                     </p>
                     
@@ -359,20 +364,76 @@ const Index = () => {
               />
             </div>
 
-            {/* Mobile VS */}
-            <div className="lg:hidden select-none pointer-events-none -my-4 relative">
+            {/* Mobile VS - Fighting game round start divider */}
+            <div className="lg:hidden flex flex-col items-center justify-center select-none pointer-events-none -my-2 relative py-4">
+              {/* VS Divider Bar - 15° slanted brush stroke */}
               <div 
-                className="absolute inset-0 blur-xl"
-                style={{
-                  background: 'radial-gradient(circle, rgba(255,100,100,0.5) 0%, rgba(100,150,255,0.5) 100%)',
-                  animation: 'vsGlowPulse 2s ease-in-out infinite'
-                }} 
-              />
-              <VsBrushMark 
-                className="w-24 h-24" 
-                title="VS" 
-                style={{ animation: 'vsPulse 2s ease-in-out infinite' }}
-              />
+                className="relative flex items-center justify-center"
+                style={{ 
+                  width: '280px',
+                  height: '56px',
+                  transform: 'rotate(-15deg)'
+                }}
+              >
+                {/* Red glow on top edge */}
+                <div 
+                  className="absolute inset-x-0 -top-1 h-[3px]"
+                  style={{
+                    background: 'linear-gradient(90deg, transparent 5%, rgba(255,80,80,0.9) 30%, rgba(255,50,50,1) 50%, rgba(255,80,80,0.9) 70%, transparent 95%)',
+                    filter: 'blur(2px)',
+                    boxShadow: '0 0 12px rgba(255,50,50,0.8), 0 0 24px rgba(255,50,50,0.5)'
+                  }}
+                />
+                
+                {/* Main brush stroke bar */}
+                <div 
+                  className="absolute inset-0"
+                  style={{
+                    background: 'linear-gradient(180deg, #2a2a2a 0%, #0a0a0a 40%, #1a1a1a 100%)',
+                    clipPath: 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0% 50%)',
+                    boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.1), inset 0 -2px 4px rgba(0,0,0,0.5)'
+                  }}
+                />
+                
+                {/* Brush texture overlay */}
+                <div 
+                  className="absolute inset-0 opacity-30"
+                  style={{
+                    background: 'repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px)',
+                    clipPath: 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0% 50%)'
+                  }}
+                />
+                
+                {/* VS Text */}
+                <span 
+                  className="relative z-10 text-2xl font-black tracking-widest"
+                  style={{ 
+                    fontFamily: '"Longyin Brush", cursive',
+                    color: '#fff',
+                    textShadow: '0 0 8px rgba(255,255,255,0.5), 2px 2px 4px rgba(0,0,0,0.8)'
+                  }}
+                >
+                  VS
+                </span>
+                
+                {/* Blue glow on bottom edge */}
+                <div 
+                  className="absolute inset-x-0 -bottom-1 h-[3px]"
+                  style={{
+                    background: 'linear-gradient(90deg, transparent 5%, rgba(80,150,255,0.9) 30%, rgba(50,130,255,1) 50%, rgba(80,150,255,0.9) 70%, transparent 95%)',
+                    filter: 'blur(2px)',
+                    boxShadow: '0 0 12px rgba(50,130,255,0.8), 0 0 24px rgba(50,130,255,0.5)'
+                  }}
+                />
+              </div>
+              
+              {/* Subtitle below divider */}
+              <p 
+                className="mt-5 text-xs text-white/60 tracking-[0.3em] uppercase"
+                style={{ transform: 'rotate(0deg)' }}
+              >
+                選你的路線
+              </p>
             </div>
 
             {/* Right Fighter - 修煉派 (Blue thick border) */}
@@ -456,14 +517,19 @@ const Index = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-l from-black/80 via-black/40 to-black/20" />
                   
-                  <div className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end text-right items-end" style={{ minHeight: '380px' }}>
+                  <div className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-end text-right" style={{ minHeight: '380px' }}>
+                    {/* Blue accent bar - right aligned on mobile */}
+                    <div 
+                      className="lg:hidden w-12 h-1 mb-3 rounded-full"
+                      style={{ background: 'linear-gradient(90deg, #0066cc, #44aaff)' }}
+                    />
                     <p 
-                      className="text-3xl lg:text-4xl text-white mb-4"
+                      className="text-3xl lg:text-4xl text-white mb-4 text-right w-full"
                       style={{ fontFamily: '"Longyin Brush", cursive' }}
                     >
                       修煉派
                     </p>
-                    <p className="text-white/70 text-lg italic mb-8">
+                    <p className="text-white/70 text-lg italic mb-8 text-right">
                       「看你骨骼精奇，是個練武奇才」
                     </p>
                     
