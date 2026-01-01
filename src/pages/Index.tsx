@@ -240,7 +240,7 @@ const Index = () => {
           {/* VS Battle Arena */}
           <div className="vs-arena relative flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-10">
             
-            {/* Left Fighter - 跟單派 (Red thick border) */}
+            {/* Left Fighter - 跟單派 (Red frame with clip-path) */}
             <div 
               className="vs-card vs-card-left w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
               style={{ 
@@ -248,68 +248,71 @@ const Index = () => {
                 opacity: 0
               }}
             >
-              {/* Card with HUD style */}
+              {/* Card Frame - clip-path for corner cuts, red border & glow */}
               <div 
-                className="relative transition-all duration-500"
-                style={{ minHeight: '380px' }}
+                className="relative p-[6px]"
+                style={{ 
+                  clipPath: 'polygon(0% 0%, calc(100% - 16px) 0%, 100% 16px, 100% 100%, 16px 100%, 0% calc(100% - 16px))',
+                  background: 'linear-gradient(135deg, rgba(239,68,68,0.8) 0%, rgba(200,50,50,0.6) 100%)',
+                  boxShadow: '0 0 20px rgba(239,68,68,0.4), inset 0 0 1px rgba(255,255,255,0.3)'
+                }}
               >
-                {/* Health Bar - KOF style parallelogram */}
+                {/* Card Body - normal rectangle, dark background */}
                 <div 
-                  className="absolute left-4 right-4 z-20"
-                  style={{ 
-                    top: '16px',
-                    height: '32px',
-                    padding: '4px',
-                    background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
-                  }}
-                >
-                  {/* Inner HP fill - RED with pulse animation */}
-                  <div 
-                    className="hp-bar-red"
-                    style={{ 
-                      width: '100%',
-                      height: '100%',
-                      background: 'linear-gradient(180deg, #ff4444 0%, #ee0000 40%, #cc0000 70%, #990000 100%)',
-                      boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
-                      clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
-                      position: 'relative'
-                    }}
-                  >
-                    {/* Highlight line */}
-                    <div style={{ 
-                      position: 'absolute',
-                      top: '3px',
-                      left: '16px',
-                      right: '16px',
-                      height: '5px',
-                      background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,150,150,0.3))',
-                      clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
-                    }} />
-                  </div>
-                </div>
-                {/* Red glow effect with pulse */}
-                <div 
-                  className="hp-glow-red absolute left-4 right-4 z-10 pointer-events-none"
-                  style={{ 
-                    top: '16px',
-                    height: '32px',
-                    background: 'rgba(255, 0, 0, 0.5)',
-                    filter: 'blur(12px)',
-                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
-                  }}
-                />
-                
-                {/* Card body - dark background */}
-                <div 
-                  className="relative overflow-hidden w-full h-full rounded-lg"
+                  className="relative overflow-hidden w-full rounded-sm"
                   style={{ 
                     minHeight: '380px',
-                    backgroundColor: '#1a1a1a',
-                    border: '2px solid rgba(239, 68, 68, 0.4)'
+                    backgroundColor: '#1a1a1a'
                   }}
                 >
+                  {/* Health Bar - KOF style parallelogram */}
+                  <div 
+                    className="absolute left-4 right-4 z-20"
+                    style={{ 
+                      top: '16px',
+                      height: '32px',
+                      padding: '4px',
+                      background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+                      clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
+                    }}
+                  >
+                    {/* Inner HP fill - RED with pulse animation */}
+                    <div 
+                      className="hp-bar-red"
+                      style={{ 
+                        width: '100%',
+                        height: '100%',
+                        background: 'linear-gradient(180deg, #ff4444 0%, #ee0000 40%, #cc0000 70%, #990000 100%)',
+                        boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
+                        clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
+                        position: 'relative'
+                      }}
+                    >
+                      {/* Highlight line */}
+                      <div style={{ 
+                        position: 'absolute',
+                        top: '3px',
+                        left: '16px',
+                        right: '16px',
+                        height: '5px',
+                        background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,150,150,0.3))',
+                        clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
+                      }} />
+                    </div>
+                  </div>
+                  {/* Red glow effect with pulse */}
+                  <div 
+                    className="hp-glow-red absolute left-4 right-4 z-10 pointer-events-none"
+                    style={{ 
+                      top: '16px',
+                      height: '32px',
+                      background: 'rgba(255, 0, 0, 0.5)',
+                      filter: 'blur(12px)',
+                      clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
+                    }}
+                  />
+                  
                   <div 
                     className="absolute inset-0 bg-cover transition-all duration-500"
                     style={{ 
@@ -403,7 +406,7 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Right Fighter - 修煉派 (Blue thick border) */}
+            {/* Right Fighter - 修煉派 (Blue frame with clip-path) */}
             <div 
               className="vs-card vs-card-right w-full lg:w-[40%] relative cursor-pointer transition-all duration-500"
               style={{ 
@@ -412,68 +415,71 @@ const Index = () => {
                 opacity: 0
               }}
             >
-              {/* Card with HUD style */}
+              {/* Card Frame - clip-path for corner cuts, blue border & glow */}
               <div 
-                className="relative transition-all duration-500"
-                style={{ minHeight: '380px' }}
+                className="relative p-[6px]"
+                style={{ 
+                  clipPath: 'polygon(0% 0%, calc(100% - 16px) 0%, 100% 16px, 100% 100%, 16px 100%, 0% calc(100% - 16px))',
+                  background: 'linear-gradient(135deg, rgba(59,130,246,0.8) 0%, rgba(50,100,200,0.6) 100%)',
+                  boxShadow: '0 0 20px rgba(59,130,246,0.4), inset 0 0 1px rgba(255,255,255,0.3)'
+                }}
               >
-                {/* Health Bar - KOF style parallelogram */}
+                {/* Card Body - normal rectangle, dark background */}
                 <div 
-                  className="absolute left-4 right-4 z-20"
-                  style={{ 
-                    top: '16px',
-                    height: '32px',
-                    padding: '4px',
-                    background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
-                  }}
-                >
-                  {/* Inner HP fill - BLUE with pulse animation */}
-                  <div 
-                    className="hp-bar-blue"
-                    style={{ 
-                      width: '100%',
-                      height: '100%',
-                      background: 'linear-gradient(180deg, #44aaff 0%, #0088ee 40%, #0066cc 70%, #004499 100%)',
-                      boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
-                      clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
-                      position: 'relative'
-                    }}
-                  >
-                    {/* Highlight line */}
-                    <div style={{ 
-                      position: 'absolute',
-                      top: '3px',
-                      left: '16px',
-                      right: '16px',
-                      height: '5px',
-                      background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(150,200,255,0.3))',
-                      clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
-                    }} />
-                  </div>
-                </div>
-                {/* Blue glow effect with pulse */}
-                <div 
-                  className="hp-glow-blue absolute left-4 right-4 z-10 pointer-events-none"
-                  style={{ 
-                    top: '16px',
-                    height: '32px',
-                    background: 'rgba(0, 136, 255, 0.5)',
-                    filter: 'blur(12px)',
-                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
-                  }}
-                />
-                
-                {/* Card body - dark background */}
-                <div 
-                  className="relative overflow-hidden w-full h-full rounded-lg"
+                  className="relative overflow-hidden w-full rounded-sm"
                   style={{ 
                     minHeight: '380px',
-                    backgroundColor: '#1a1a1a',
-                    border: '2px solid rgba(59, 130, 246, 0.4)'
+                    backgroundColor: '#1a1a1a'
                   }}
                 >
+                  {/* Health Bar - KOF style parallelogram */}
+                  <div 
+                    className="absolute left-4 right-4 z-20"
+                    style={{ 
+                      top: '16px',
+                      height: '32px',
+                      padding: '4px',
+                      background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+                      clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
+                    }}
+                  >
+                    {/* Inner HP fill - BLUE with pulse animation */}
+                    <div 
+                      className="hp-bar-blue"
+                      style={{ 
+                        width: '100%',
+                        height: '100%',
+                        background: 'linear-gradient(180deg, #44aaff 0%, #0088ee 40%, #0066cc 70%, #004499 100%)',
+                        boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
+                        clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
+                        position: 'relative'
+                      }}
+                    >
+                      {/* Highlight line */}
+                      <div style={{ 
+                        position: 'absolute',
+                        top: '3px',
+                        left: '16px',
+                        right: '16px',
+                        height: '5px',
+                        background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(150,200,255,0.3))',
+                        clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
+                      }} />
+                    </div>
+                  </div>
+                  {/* Blue glow effect with pulse */}
+                  <div 
+                    className="hp-glow-blue absolute left-4 right-4 z-10 pointer-events-none"
+                    style={{ 
+                      top: '16px',
+                      height: '32px',
+                      background: 'rgba(0, 136, 255, 0.5)',
+                      filter: 'blur(12px)',
+                      clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
+                    }}
+                  />
+                  
                   <div 
                     className="absolute inset-0 bg-cover transition-all duration-500"
                     style={{ 
@@ -501,7 +507,7 @@ const Index = () => {
                     </p>
                     
                     <Button variant="outline" className="w-fit bg-transparent border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500" asChild>
-                      <Link to="/experts?role=coach">
+                      <Link to="/experts?role=mentor">
                         選擇此派
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </Link>
