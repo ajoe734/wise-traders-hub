@@ -20,7 +20,7 @@ const JournalDetail = () => {
   return (
     <AppLayout>
       <div className="p-4 space-y-4">
-        <Link to={`/line/${journal.person.slug}/signals`} className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+        <Link to="/app/journals" className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
           <ArrowLeft className="h-4 w-4" /> 返回週記列表
         </Link>
 
