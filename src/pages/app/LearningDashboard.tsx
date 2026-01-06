@@ -86,7 +86,7 @@ export function LearningDashboard({ subscriptions, userName }: LearningDashboard
           
           {/* Primary Mentor Avatar */}
           {primaryMentor && (
-            <Link to={`/line/${primaryMentor.slug}/home`}>
+            <Link to={`/expert/${primaryMentor.slug}`}>
               <Avatar className="h-12 w-12 border-2 border-learning-accent/50 shadow-[0_0_15px_-5px_hsl(var(--learning-accent)/0.4)]">
                 <AvatarImage src={primaryMentor.avatarUrl} alt={primaryMentor.name} />
                 <AvatarFallback>{primaryMentor.name[0]}</AvatarFallback>
@@ -149,7 +149,7 @@ export function LearningDashboard({ subscriptions, userName }: LearningDashboard
           {thisWeekJournals.map((journal) => (
             <Link 
               key={journal.id} 
-              to={`/line/${journal.person.slug}/home`}
+              to={`/app/journal/${journal.id}`}
             >
               <FeatureCard theme="learning" className="p-4">
                 <div className="flex items-start gap-3">
@@ -298,7 +298,7 @@ export function LearningDashboard({ subscriptions, userName }: LearningDashboard
           {subscriptions.map((sub) => (
             <Link 
               key={sub.id} 
-              to={`/line/${sub.person.slug}/home`}
+              to={`/expert/${sub.person.slug}`}
               className="flex-shrink-0"
             >
               <FeatureCard theme="learning" className="w-32 p-4 text-center">
@@ -317,7 +317,7 @@ export function LearningDashboard({ subscriptions, userName }: LearningDashboard
       {/* Quick Links */}
       <section className="space-y-2 pt-2">
         <Link 
-          to="/account/subscriptions" 
+          to="/app/account" 
           className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors"
         >
           <span className="text-sm text-muted-foreground">管理我的訂閱</span>

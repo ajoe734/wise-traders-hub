@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,10 +9,16 @@ import { getJournalById } from '@/data/mockData';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { ArrowLeft, Calendar, BookOpen, Shield } from 'lucide-react';
+import { markAppJournalsAsRead } from '@/components/layouts/LearningLayout';
 
 const JournalDetail = () => {
   const { id } = useParams<{ id: string }>();
   const journal = id ? getJournalById(id) : undefined;
+
+  // Mark journals as read when entering this page
+  useEffect(() => {
+    markAppJournalsAsRead();
+  }, []);
 
   if (!journal) {
     return <AppLayout><div className="p-4 text-center">找不到此週記</div></AppLayout>;

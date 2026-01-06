@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { JournalCard } from '@/components/JournalCard';
@@ -7,8 +8,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookOpen, ExternalLink } from 'lucide-react';
 import { PlanType } from '@/types';
+import { markAppJournalsAsRead } from '@/components/layouts/LearningLayout';
 
 const Journals = () => {
+  // Mark journals as read when entering this page
+  useEffect(() => {
+    markAppJournalsAsRead();
+  }, []);
   const { user } = useAuth();
   const journals = user ? getJournalsForUser(user.id) : [];
   const subscriptions = user ? getUserSubscriptions(user.id) : [];

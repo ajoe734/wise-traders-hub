@@ -154,7 +154,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
         />
         <div className="flex items-center justify-end -mt-8 mb-3">
           <Link 
-            to={`/line/${primarySub?.person.slug}/signals`} 
+            to="/app/signals" 
             className="text-sm text-signals-accent flex items-center gap-1 hover:underline"
           >
             查看全部
@@ -167,7 +167,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
             {latestSignals.map((signal, index) => (
               <Link 
                 key={signal.id} 
-                to={`/line/${signal.person.slug}/signal/${signal.id}`}
+                to={`/app/signal/${signal.id}`}
               >
                 <FeatureCard theme="signals" className="p-4">
                   <div className="flex items-start justify-between gap-2">
@@ -224,7 +224,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
         />
         <div className="flex items-center justify-end -mt-8 mb-3">
           <Link 
-            to={`/line/${primarySub?.person.slug}/trades`}
+            to="/app/holdings"
             className="text-sm text-signals-accent flex items-center gap-1 hover:underline"
           >
             詳細
@@ -283,7 +283,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
         />
         <div className="flex items-center justify-end -mt-8 mb-3">
           <Link 
-            to={`/line/${primarySub?.person.slug}/performance`}
+            to="/app/performance"
             className="text-sm text-signals-accent flex items-center gap-1 hover:underline"
           >
             完整績效
@@ -339,7 +339,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
         
         <div className="space-y-2">
           {subscriptions.map(sub => (
-            <Link key={sub.id} to={`/line/${sub.person.slug}/home`}>
+            <Link key={sub.id} to={`/expert/${sub.person.slug}`}>
               <FeatureCard theme="signals" className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -372,7 +372,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
       {/* Quick Links */}
       <section className="pt-2 space-y-2 animate-fade-in" style={{ animationDelay: '0.25s' }}>
         <Link 
-          to="/account/subscriptions" 
+          to="/app/account" 
           className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors"
         >
           <span className="text-sm text-muted-foreground">管理訂閱</span>

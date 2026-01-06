@@ -10,9 +10,12 @@ import { zhTW } from 'date-fns/locale';
 
 interface SignalCardProps {
   signal: SignalWithPerson;
+  /** Custom link path. If not provided, defaults to LINE mini-app path */
+  to?: string;
 }
 
-export function SignalCard({ signal }: SignalCardProps) {
+export function SignalCard({ signal, to }: SignalCardProps) {
+  const linkPath = to ?? `/line/${signal.person.slug}/signal/${signal.id}`;
   const isRecent = differenceInHours(new Date(), signal.timeTrade) < 24;
 
   const formatTime = (date: Date) => {
@@ -20,7 +23,7 @@ export function SignalCard({ signal }: SignalCardProps) {
   };
 
   return (
-    <Link to={`/line/${signal.person.slug}/signal/${signal.id}`}>
+    <Link to={linkPath}>
       <Card variant="interactive" className="overflow-hidden">
         <CardContent className="p-4">
           {/* Top Row: Time & Status */}
