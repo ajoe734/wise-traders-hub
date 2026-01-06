@@ -86,7 +86,18 @@ export function LineLayout({ children }: LineLayoutProps) {
     { path: `${basePath}/account`, icon: User, label: '帳號' },
   ];
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    // Exact match for home
+    if (path.endsWith('/home')) {
+      return location.pathname === path;
+    }
+    // For signals, also match signal detail pages
+    if (path.endsWith('/signals')) {
+      return location.pathname === path || location.pathname.includes('/signal/');
+    }
+    // Default: exact match
+    return location.pathname === path;
+  };
 
   // Generate breadcrumbs based on current path
   const breadcrumbs = useMemo(() => 
