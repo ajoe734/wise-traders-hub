@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,22 +9,29 @@ import { FeatureCard } from '@/components/ui/feature-card';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserSubscriptions, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
-import { PlanType, SignalAction, SubscriptionWithDetails } from '@/types';
+import { PlanType, SignalAction } from '@/types';
 import { 
   Target, 
   Compass,
   Radio, 
   TrendingUp, 
   ChevronRight,
-  Briefcase,
-  ArrowUpRight,
   Clock,
   BookOpen,
   Lock,
-  CheckCircle2
+  CheckCircle2,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isToday, differenceInMinutes } from 'date-fns';
+
+// Mock performance data for demo
+const mockPerformance: Record<string, { cumulative: number; annualized: number }> = {
+  'zhao-advisor': { cumulative: 128.5, annualized: 45.2 },
+  'zhao-mentor': { cumulative: 85.2, annualized: 32.1 },
+  'chen-advisor': { cumulative: 92.3, annualized: 38.7 },
+  'lin-advisor': { cumulative: 45.6, annualized: 18.2 },
+};
 
 // Mock holdings data for demo
 const mockHoldings = [
@@ -177,7 +183,47 @@ const AppHome = () => {
                 </Link>
               )}
 
-              {/* Subscribed Advisors */}
+              {/* Teacher Performance Summary */}
+              <FeatureCard theme="signals" className="p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="h-4 w-4 text-signals-accent" />
+                  <span className="text-sm font-medium">老師績效</span>
+                </div>
+                <div className="space-y-2">
+                  {advisorSubs.map(sub => {
+                    const perf = mockPerformance[sub.person.slug] || { cumulative: 0, annualized: 0 };
+                    return (
+                      <Link 
+                        key={sub.id} 
+                        to={`/line/${sub.person.slug}/performance`}
+                        className="flex items-center justify-between py-1.5 hover:bg-foreground/5 rounded-lg px-2 -mx-2 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-7 w-7 border border-signals-accent/30">
+                            <AvatarImage src={sub.person.avatarUrl} alt={sub.person.name} />
+                            <AvatarFallback className="text-xs">{sub.person.name[0]}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm">{sub.person.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className={cn(
+                            "font-medium",
+                            perf.cumulative >= 0 ? "text-success" : "text-destructive"
+                          )}>
+                            累積 {perf.cumulative >= 0 ? '+' : ''}{perf.cumulative}%
+                          </span>
+                          <span className="text-muted-foreground">
+                            年化 {perf.annualized >= 0 ? '+' : ''}{perf.annualized}%
+                          </span>
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </FeatureCard>
+
+              {/* Subscribed Advisors & CTA */}
               <div className="flex items-center gap-2">
                 {advisorSubs.slice(0, 3).map(sub => (
                   <Link key={sub.id} to={`/expert/${sub.person.slug}`}>
@@ -285,7 +331,50 @@ const AppHome = () => {
                 </Link>
               )}
 
-              {/* Subscribed Mentors */}
+              {/* Teacher Performance Summary */}
+              <FeatureCard theme="learning" className="p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="h-4 w-4 text-learning-accent" />
+                  <span className="text-sm font-medium">老師績效</span>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto">
+                    T+7 延遲
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {mentorSubs.map(sub => {
+                    const perf = mockPerformance[sub.person.slug] || { cumulative: 0, annualized: 0 };
+                    return (
+                      <Link 
+                        key={sub.id} 
+                        to={`/line/${sub.person.slug}/performance`}
+                        className="flex items-center justify-between py-1.5 hover:bg-foreground/5 rounded-lg px-2 -mx-2 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-7 w-7 border border-learning-accent/30">
+                            <AvatarImage src={sub.person.avatarUrl} alt={sub.person.name} />
+                            <AvatarFallback className="text-xs">{sub.person.name[0]}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm">{sub.person.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className={cn(
+                            "font-medium",
+                            perf.cumulative >= 0 ? "text-success" : "text-destructive"
+                          )}>
+                            累積 {perf.cumulative >= 0 ? '+' : ''}{perf.cumulative}%
+                          </span>
+                          <span className="text-muted-foreground">
+                            年化 {perf.annualized >= 0 ? '+' : ''}{perf.annualized}%
+                          </span>
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </FeatureCard>
+
+              {/* Subscribed Mentors & CTA */}
               <div className="flex items-center gap-2">
                 {mentorSubs.slice(0, 3).map(sub => (
                   <Link key={sub.id} to={`/expert/${sub.person.slug}`}>
