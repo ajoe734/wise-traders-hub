@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { SignalsLayout } from '@/components/layouts/SignalsLayout';
+import { LearningLayout } from '@/components/layouts/LearningLayout';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { ModeSwitcher } from '@/pages/app/ModeSwitcher';
 import { SignalsDashboard } from '@/pages/app/SignalsDashboard';
@@ -24,31 +26,31 @@ const AppHome = () => {
 
   // Smart routing logic based on subscriptions
   
-  // Only advisor subscriptions → show SignalsDashboard directly
+  // Only advisor subscriptions → show SignalsDashboard with SignalsLayout
   if (advisorSubs.length > 0 && mentorSubs.length === 0) {
     return (
-      <AppLayout>
+      <SignalsLayout>
         <SignalsDashboard 
           subscriptions={advisorSubs}
           userName={user?.name || undefined}
         />
-      </AppLayout>
+      </SignalsLayout>
     );
   }
 
-  // Only mentor subscriptions → show LearningDashboard directly
+  // Only mentor subscriptions → show LearningDashboard with LearningLayout
   if (mentorSubs.length > 0 && advisorSubs.length === 0) {
     return (
-      <AppLayout>
+      <LearningLayout>
         <LearningDashboard 
           subscriptions={mentorSubs}
           userName={user?.name || undefined}
         />
-      </AppLayout>
+      </LearningLayout>
     );
   }
 
-  // Both types → show mode switcher
+  // Both types → show mode switcher with AppLayout
   if (advisorSubs.length > 0 && mentorSubs.length > 0) {
     return (
       <AppLayout>
@@ -61,7 +63,7 @@ const AppHome = () => {
     );
   }
 
-  // No subscriptions → show empty state
+  // No subscriptions → show empty state with AppLayout
   return (
     <AppLayout>
       <div className="p-4 space-y-6">

@@ -101,6 +101,22 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           light: "hsl(var(--warning-light))",
         },
+        // Signals theme colors (跟單派)
+        signals: {
+          accent: "hsl(var(--signals-accent))",
+          "accent-light": "hsl(var(--signals-accent-light))",
+          header: "hsl(var(--signals-header))",
+          nav: "hsl(var(--signals-nav))",
+          border: "hsl(var(--signals-border))",
+        },
+        // Learning theme colors (修煉派)
+        learning: {
+          accent: "hsl(var(--learning-accent))",
+          "accent-light": "hsl(var(--learning-accent-light))",
+          header: "hsl(var(--learning-header))",
+          nav: "hsl(var(--learning-nav))",
+          border: "hsl(var(--learning-border))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
