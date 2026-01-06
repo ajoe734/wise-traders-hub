@@ -62,11 +62,20 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Generate breadcrumbs based on current path - must be before early returns
+  const breadcrumbs = useMemo(() => 
+    getBreadcrumbConfig(location.pathname),
+    [location.pathname]
+  );
+
   useEffect(() => {
     if (!isLoading && !user) {
       navigate('/auth/login', { replace: true });
     }
   }, [user, isLoading, navigate]);
+
+  // Only show breadcrumbs if we're not on the home page
+  const showBreadcrumbs = breadcrumbs.length > 1;
 
   if (isLoading) {
     return (
@@ -86,15 +95,6 @@ export function AppLayout({ children }: AppLayoutProps) {
     }
     return location.pathname.startsWith(href);
   };
-
-  // Generate breadcrumbs based on current path
-  const breadcrumbs = useMemo(() => 
-    getBreadcrumbConfig(location.pathname),
-    [location.pathname]
-  );
-
-  // Only show breadcrumbs if we're not on the home page
-  const showBreadcrumbs = breadcrumbs.length > 1;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
