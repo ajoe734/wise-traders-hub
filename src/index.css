@@ -105,6 +105,20 @@
     --sidebar-accent-foreground: 0 0% 7%;
     --sidebar-border: 0 0% 88%;
     --sidebar-ring: 4 82% 56%;
+
+    /* Signals Theme (跟單派) - Red/Warm */
+    --signals-accent: 4 82% 56%;
+    --signals-accent-light: 4 82% 95%;
+    --signals-header: 0 0% 100%;
+    --signals-nav: 0 0% 100%;
+    --signals-border: 0 0% 88%;
+
+    /* Learning Theme (修煉派) - Blue/Cool */
+    --learning-accent: 210 80% 55%;
+    --learning-accent-light: 210 80% 95%;
+    --learning-header: 0 0% 100%;
+    --learning-nav: 0 0% 100%;
+    --learning-border: 0 0% 88%;
   }
 
   .dark {
@@ -153,6 +167,20 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 20%;
     --sidebar-ring: 4 82% 56%;
+
+    /* Signals Theme (跟單派) - Red/Warm - Dark mode */
+    --signals-accent: 4 82% 56%;
+    --signals-accent-light: 4 82% 15%;
+    --signals-header: 0 0% 7%;
+    --signals-nav: 0 0% 7%;
+    --signals-border: 0 0% 20%;
+
+    /* Learning Theme (修煉派) - Blue/Cool - Dark mode */
+    --learning-accent: 210 80% 60%;
+    --learning-accent-light: 210 80% 15%;
+    --learning-header: 0 0% 7%;
+    --learning-nav: 0 0% 7%;
+    --learning-border: 0 0% 20%;
   }
 }
 
