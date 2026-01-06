@@ -1,9 +1,50 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Home, Radio, BookOpen, User, TrendingUp, LogOut } from 'lucide-react';
+import { Home, Radio, BookOpen, User, TrendingUp, LogOut, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect } from 'react';
+
+// Breadcrumb configuration for different routes
+const getBreadcrumbConfig = (pathname: string) => {
+  const crumbs: { label: string; path: string }[] = [];
+
+  // Always start with 首頁
+  crumbs.push({ label: '首頁', path: '/app' });
+
+  if (pathname === '/app') {
+    return crumbs;
+  }
+
+  const routeLabels: Record<string, string> = {
+    signals: '即時訊號',
+    signal: '訊號詳情',
+    journals: '週記教學',
+    journal: '週記詳情',
+    account: '帳號',
+    system: '策略詳情',
+  };
+
+  const pathSegments = pathname.replace('/app/', '').split('/').filter(Boolean);
+  let currentPath = '/app';
+
+  for (let i = 0; i < pathSegments.length; i++) {
+    const segment = pathSegments[i];
+    currentPath += `/${segment}`;
+
+    // Skip ID segments
+    if (i > 0 && ['signal', 'journal', 'system'].includes(pathSegments[i - 1])) {
+      continue;
+    }
+
+    const label = routeLabels[segment];
+    if (label) {
+      crumbs.push({ label, path: currentPath });
+    }
+  }
+
+  return crumbs;
+};
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -46,6 +87,15 @@ export function AppLayout({ children }: AppLayoutProps) {
     return location.pathname.startsWith(href);
   };
 
+  // Generate breadcrumbs based on current path
+  const breadcrumbs = useMemo(() => 
+    getBreadcrumbConfig(location.pathname),
+    [location.pathname]
+  );
+
+  // Only show breadcrumbs if we're not on the home page
+  const showBreadcrumbs = breadcrumbs.length > 1;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top Header - minimal for mobile */}
@@ -65,9 +115,39 @@ export function AppLayout({ children }: AppLayoutProps) {
             className="p-2 text-muted-foreground hover:text-foreground transition-colors"
             title="登出"
           >
-            <LogOut className="h-5 w-5" />
+          <LogOut className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Breadcrumbs */}
+        {showBreadcrumbs && (
+          <div className="px-4 py-2 bg-muted/30 border-t border-border/50">
+            <nav className="flex items-center gap-1 text-sm overflow-x-auto">
+              {breadcrumbs.map((crumb, index) => {
+                const isLast = index === breadcrumbs.length - 1;
+                return (
+                  <div key={crumb.path} className="flex items-center gap-1 whitespace-nowrap">
+                    {index > 0 && (
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    )}
+                    {isLast ? (
+                      <span className="font-medium text-primary">
+                        {crumb.label}
+                      </span>
+                    ) : (
+                      <Link 
+                        to={crumb.path} 
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {crumb.label}
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Main Content - with bottom padding for nav */}
