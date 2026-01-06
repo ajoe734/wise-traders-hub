@@ -5,7 +5,7 @@ import { getUserSubscriptions, getSignalsForUser, getJournalsForUser } from '@/d
 import { PlanType } from '@/types';
 import { 
   Home, Radio, BookOpen, User, LogOut, ChevronRight, ChevronLeft,
-  Briefcase, Target
+  BarChart3, Target
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -66,7 +66,7 @@ const getBreadcrumbConfig = (pathname: string, mode: 'signals' | 'learning' | 'b
   const routeLabels: Record<string, string> = {
     signals: '即時訊號',
     journals: '週記教學',
-    holdings: '持倉一覽',
+    holdings: '老師戰績',
     performance: '績效統計',
     courses: '課程系統',
     library: '知識庫',
@@ -131,7 +131,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
       { href: '/app', icon: Home, label: '戰情室', group: '/app' },
       { href: '/app/signals', icon: Radio, label: '訊號', group: '/app/signals', badgeKey: 'signals' },
       { href: '/app/journals', icon: BookOpen, label: '週記', group: '/app/journals', badgeKey: 'journals' },
-      { href: '/app/holdings', icon: Briefcase, label: '持倉', group: '/app/holdings' },
+      { href: '/app/holdings', icon: BarChart3, label: '戰績', group: '/app/holdings' },
       { href: '/app/account', icon: User, label: '帳號', group: '/app/account' },
     ];
   }, []);
