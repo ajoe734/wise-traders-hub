@@ -91,7 +91,16 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const isActive = (href: string) => {
     if (href === '/app') {
+      // Home is only active on exact /app path
       return location.pathname === '/app';
+    }
+    if (href === '/app/signals') {
+      // Signals tab covers /app/signals and /app/signal/:id
+      return location.pathname.startsWith('/app/signals') || location.pathname.startsWith('/app/signal/');
+    }
+    if (href === '/app/journals') {
+      // Journals tab covers /app/journals and /app/journal/:id
+      return location.pathname.startsWith('/app/journals') || location.pathname.startsWith('/app/journal/');
     }
     return location.pathname.startsWith(href);
   };
