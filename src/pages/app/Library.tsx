@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { LearningLayout } from '@/components/layouts/LearningLayout';
+import { useState } from 'react';
+import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -17,7 +17,6 @@ import {
   Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 
 // Content categories
 const categories = [
@@ -105,7 +104,7 @@ export default function LibraryPage() {
   const bookmarkedItems = libraryItems.filter(item => item.isBookmarked);
 
   return (
-    <LearningLayout>
+    <UnifiedAppLayout>
       <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
         {/* Header */}
         <div className="relative">
@@ -135,7 +134,7 @@ export default function LibraryPage() {
 
         {/* Category Tabs - Gaming Style */}
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-          {categories.map((category, index) => (
+          {categories.map((category) => (
             <button
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
@@ -287,6 +286,6 @@ export default function LibraryPage() {
           </FeatureCard>
         )}
       </div>
-    </LearningLayout>
+    </UnifiedAppLayout>
   );
 }

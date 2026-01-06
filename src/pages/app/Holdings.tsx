@@ -1,15 +1,13 @@
 import { Link } from 'react-router-dom';
-import { SignalsLayout } from '@/components/layouts/SignalsLayout';
+import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Badge } from '@/components/ui/badge';
 import { SectionHeader } from '@/components/ui/section-header';
-import { StatCard } from '@/components/ui/stat-card';
 import { FeatureCard } from '@/components/ui/feature-card';
 import { GlowProgress } from '@/components/ui/glow-progress';
 import { 
   Briefcase, 
   ArrowUpRight, 
   ArrowDownRight, 
-  TrendingUp,
   ChevronRight,
   Calendar,
   PieChart,
@@ -106,7 +104,7 @@ export default function Holdings() {
   const cashPercentage = (portfolioSummary.cashBalance / portfolioSummary.totalAssets) * 100;
 
   return (
-    <SignalsLayout>
+    <UnifiedAppLayout>
       <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
         {/* Header */}
         <div className="relative">
@@ -312,6 +310,6 @@ export default function Holdings() {
           </Link>
         </section>
       </div>
-    </SignalsLayout>
+    </UnifiedAppLayout>
   );
 }

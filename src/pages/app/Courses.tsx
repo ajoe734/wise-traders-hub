@@ -1,5 +1,4 @@
-import { Link } from 'react-router-dom';
-import { LearningLayout } from '@/components/layouts/LearningLayout';
+import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -104,7 +103,7 @@ export default function Courses() {
   const progressPercent = Math.round((learningStats.completedLessons / learningStats.totalLessons) * 100);
 
   return (
-    <LearningLayout>
+    <UnifiedAppLayout>
       <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
         {/* Header */}
         <div className="relative">
@@ -279,6 +278,6 @@ export default function Courses() {
           </div>
         </section>
       </div>
-    </LearningLayout>
+    </UnifiedAppLayout>
   );
 }

@@ -1,7 +1,5 @@
 import { Link } from 'react-router-dom';
-import { SignalsLayout } from '@/components/layouts/SignalsLayout';
-import { LearningLayout } from '@/components/layouts/LearningLayout';
-import { AppLayout } from '@/components/layouts/AppLayout';
+import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { ModeSwitcher } from '@/pages/app/ModeSwitcher';
 import { SignalsDashboard } from '@/pages/app/SignalsDashboard';
 import { LearningDashboard } from '@/pages/app/LearningDashboard';
@@ -26,46 +24,46 @@ const AppHome = () => {
 
   // Smart routing logic based on subscriptions
   
-  // Only advisor subscriptions → show SignalsDashboard with SignalsLayout
+  // Only advisor subscriptions → show SignalsDashboard
   if (advisorSubs.length > 0 && mentorSubs.length === 0) {
     return (
-      <SignalsLayout>
+      <UnifiedAppLayout>
         <SignalsDashboard 
           subscriptions={advisorSubs}
           userName={user?.name || undefined}
         />
-      </SignalsLayout>
+      </UnifiedAppLayout>
     );
   }
 
-  // Only mentor subscriptions → show LearningDashboard with LearningLayout
+  // Only mentor subscriptions → show LearningDashboard
   if (mentorSubs.length > 0 && advisorSubs.length === 0) {
     return (
-      <LearningLayout>
+      <UnifiedAppLayout>
         <LearningDashboard 
           subscriptions={mentorSubs}
           userName={user?.name || undefined}
         />
-      </LearningLayout>
+      </UnifiedAppLayout>
     );
   }
 
-  // Both types → show mode switcher with AppLayout
+  // Both types → show mode switcher
   if (advisorSubs.length > 0 && mentorSubs.length > 0) {
     return (
-      <AppLayout>
+      <UnifiedAppLayout>
         <ModeSwitcher 
           advisorSubs={advisorSubs}
           mentorSubs={mentorSubs}
           userName={user?.name || undefined}
         />
-      </AppLayout>
+      </UnifiedAppLayout>
     );
   }
 
-  // No subscriptions → show empty state with AppLayout
+  // No subscriptions → show empty state
   return (
-    <AppLayout>
+    <UnifiedAppLayout>
       <div className="p-4 space-y-6">
         {/* Greeting */}
         <div className="animate-fade-in text-center pt-8">
@@ -88,7 +86,7 @@ const AppHome = () => {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </UnifiedAppLayout>
   );
 };
 
