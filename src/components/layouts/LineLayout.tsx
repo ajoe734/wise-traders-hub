@@ -3,7 +3,7 @@ import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { PersonRole } from '@/types';
 import { getPersonBySlug, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
-import { Home, Radio, BarChart3, BookOpen, User, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Home, Radio, BarChart3, BookOpen, User, ChevronRight, ChevronLeft, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -164,7 +164,7 @@ export function LineLayout({ children }: LineLayoutProps) {
       badge: unreadCount
     },
     { path: `${basePath}/performance`, icon: BarChart3, label: '績效', group: 'performance' },
-    { path: `${basePath}/teaching`, icon: BookOpen, label: '教學', group: 'teaching' },
+    { path: '/app/holdings', icon: Trophy, label: '戰績', group: 'records' },
     { path: `${basePath}/account`, icon: User, label: '帳號', group: 'account' },
   ];
 

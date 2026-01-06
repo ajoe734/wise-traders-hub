@@ -27,6 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         localStorage.removeItem('auth_user');
       }
+    } else if (window.location.pathname.startsWith('/line/')) {
+      // Auto-login demo user for LINE version preview
+      setUser(demoUser);
     }
     setIsLoading(false);
   }, []);
