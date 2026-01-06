@@ -1,14 +1,59 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { PersonRole } from '@/types';
 import { getPersonBySlug } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
-import { Home, Radio, BarChart3, BookOpen, User } from 'lucide-react';
+import { Home, Radio, BarChart3, BookOpen, User, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LineLayoutProps {
   children: ReactNode;
 }
+
+// Breadcrumb configuration for different routes
+const getBreadcrumbConfig = (pathname: string, basePath: string, isAdvisor: boolean) => {
+  const pathSegments = pathname.replace(basePath, '').split('/').filter(Boolean);
+  const crumbs: { label: string; path: string }[] = [];
+
+  // Always start with 首頁
+  crumbs.push({ label: '首頁', path: `${basePath}/home` });
+
+  if (pathSegments.length === 0 || pathSegments[0] === 'home') {
+    return crumbs; // Just home, no additional crumbs needed
+  }
+
+  const routeLabels: Record<string, string> = {
+    signals: isAdvisor ? '即時訊號' : '週報',
+    signal: '訊號詳情',
+    performance: '績效',
+    teaching: '教學',
+    trades: '交易紀錄',
+    xai: 'AI 解盤',
+    diagnosis: '持股健檢',
+    history: '歷史紀錄',
+    account: '帳號',
+  };
+
+  // Add intermediate crumbs
+  let currentPath = basePath;
+  for (let i = 0; i < pathSegments.length; i++) {
+    const segment = pathSegments[i];
+    currentPath += `/${segment}`;
+    
+    // Skip ID segments (like signal/:signalId)
+    if (i > 0 && pathSegments[i - 1] === 'signal') {
+      // This is the signal ID, update previous label to include context
+      continue;
+    }
+
+    const label = routeLabels[segment];
+    if (label) {
+      crumbs.push({ label, path: currentPath });
+    }
+  }
+
+  return crumbs;
+};
 
 export function LineLayout({ children }: LineLayoutProps) {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -43,6 +88,15 @@ export function LineLayout({ children }: LineLayoutProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Generate breadcrumbs based on current path
+  const breadcrumbs = useMemo(() => 
+    getBreadcrumbConfig(location.pathname, basePath, isAdvisor),
+    [location.pathname, basePath, isAdvisor]
+  );
+
+  // Only show breadcrumbs if we're not on the home page
+  const showBreadcrumbs = breadcrumbs.length > 1;
+
   return (
     <div className="min-h-screen bg-background flex flex-col pb-16">
       {/* Header */}
@@ -60,6 +114,39 @@ export function LineLayout({ children }: LineLayoutProps) {
             </Badge>
           </div>
         </div>
+
+        {/* Breadcrumbs */}
+        {showBreadcrumbs && (
+          <div className="px-4 py-2 bg-muted/30 border-t border-border/50">
+            <nav className="flex items-center gap-1 text-sm overflow-x-auto">
+              {breadcrumbs.map((crumb, index) => {
+                const isLast = index === breadcrumbs.length - 1;
+                return (
+                  <div key={crumb.path} className="flex items-center gap-1 whitespace-nowrap">
+                    {index > 0 && (
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    )}
+                    {isLast ? (
+                      <span className={cn(
+                        "font-medium",
+                        isAdvisor ? "text-advisor" : "text-mentor"
+                      )}>
+                        {crumb.label}
+                      </span>
+                    ) : (
+                      <Link 
+                        to={crumb.path} 
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {crumb.label}
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Main Content */}
