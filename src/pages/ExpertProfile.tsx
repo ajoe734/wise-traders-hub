@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { getPersonBySlug } from '@/data/mockData';
-import { PersonRole, PlanType } from '@/types';
+import { PersonRole } from '@/types';
 import { CheckCircle, AlertTriangle, ArrowRight, Shield, Clock, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,34 +28,41 @@ const ExpertProfile = () => {
 
   const isAdvisor = person.role === PersonRole.ADVISOR;
 
-  const getPlanInfo = (planType: PlanType) => {
-    switch (planType) {
-      case PlanType.ANALYST_SIGNAL_L1:
-        return {
-          title: '投顧策略訂閱 等級 1',
-          subtitle: '即時策略訊號 + 系統教學',
-          description: '即時策略訊號＋每筆操作的教學解說。訊號會出現在會員專屬的 LINE 頁面。',
-          features: ['即時策略訊號推播', '每筆操作附帶教學說明', '風險與部位控管解說', '交易紀錄查詢'],
-          note: '包含具體買賣指示，屬投顧服務，須依規範辦理。'
-        };
-      case PlanType.ANALYST_SIGNAL_DIAG_L2:
-        return {
-          title: '投顧策略訂閱 等級 2',
-          subtitle: '即時策略 + 持股健檢',
-          description: '包含等級 1 所有功能，加上持股上傳與診斷報告服務。',
-          features: ['等級 1 所有功能', '持股健檢報告', '個人化投資組合建議', '風險評估報告'],
-          note: '包含具體買賣指示與個人化診斷，屬投顧服務。'
-        };
-      case PlanType.MENTOR_WEEKLY_JOURNAL:
-        return {
-          title: '實戰週記教學訂閱',
-          subtitle: 'T+7 延遲・純教學用途',
-          description: '每週一次，回顧「一週前」的實戰或模擬操作。顯示買賣紀錄、當時理由、事後檢討。所有內容至少延遲 7 天，僅供歷史案例教學。',
-          features: ['每週實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點', '策略教學內容'],
-          note: '所有內容至少延遲 7 天發布，不提供即時訊號，不提供個股診斷。'
-        };
-    }
-  };
+  // Unified pricing structure
+  const plans = [
+    {
+      id: 'follower',
+      title: '跟單派',
+      subtitle: '即時訊號通知',
+      description: '每筆交易，第一時間推播通知。即時跟上，不錯失任何機會。',
+      priceMonthly: 1699,
+      priceYearly: 16990,
+      features: [
+        '即時訊號推播通知',
+        '完整買賣理由說明',
+        '風險與部位控管建議',
+        '交易紀錄完整保存',
+      ],
+      note: '包含具體買賣指示，屬投顧服務。',
+      variant: 'advisor' as const,
+    },
+    {
+      id: 'cultivator',
+      title: '修煉派',
+      subtitle: 'T+7 延遲・週記式教學',
+      description: '每週一篇週記，回顧一週前的實戰操作。拆解邏輯、覆盤檢討。',
+      priceMonthly: 799,
+      priceYearly: 7990,
+      features: [
+        '每週實戰週記',
+        '完整操作邏輯拆解',
+        '事後檢討與學習重點',
+        '策略思維培養',
+      ],
+      note: '所有內容延遲 7 天，僅供教學參考。',
+      variant: 'mentor' as const,
+    },
+  ];
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('zh-TW').format(price);
@@ -187,33 +194,33 @@ const ExpertProfile = () => {
         <div id="plans" className="scroll-mt-20">
           <h2 className="text-xl md:text-2xl font-bold mb-6">訂閱方案</h2>
           <div className="grid md:grid-cols-2 gap-6">
-            {person.plans.filter(p => p.isActive).map(plan => {
-              const info = getPlanInfo(plan.planType);
+            {plans.map(plan => {
+              const isFollower = plan.id === 'follower';
               return (
                 <Card 
                   key={plan.id}
                   className={cn(
                     "relative overflow-hidden border-2",
-                    isAdvisor ? "border-advisor/20 hover:border-advisor/40" : "border-mentor/20 hover:border-mentor/40"
+                    isFollower ? "border-advisor/20 hover:border-advisor/40" : "border-mentor/20 hover:border-mentor/40"
                   )}
                 >
                   <div className={cn(
                     "absolute top-0 left-0 right-0 h-1",
-                    isAdvisor ? "gradient-advisor" : "gradient-mentor"
+                    isFollower ? "gradient-advisor" : "gradient-mentor"
                   )} />
                   <CardHeader>
-                    <CardTitle className="text-lg">{info.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{info.subtitle}</p>
+                    <CardTitle className="text-lg">{plan.title}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{plan.subtitle}</p>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <p className="text-muted-foreground text-sm">{info.description}</p>
+                    <p className="text-muted-foreground text-sm">{plan.description}</p>
                     
                     <ul className="space-y-2">
-                      {info.features.map((feature, idx) => (
+                      {plan.features.map((feature, idx) => (
                         <li key={idx} className="flex items-center gap-2 text-sm">
                           <CheckCircle className={cn(
                             "h-4 w-4",
-                            isAdvisor ? "text-advisor" : "text-mentor"
+                            isFollower ? "text-advisor" : "text-mentor"
                           )} />
                           {feature}
                         </li>
@@ -230,22 +237,22 @@ const ExpertProfile = () => {
 
                     <div className={cn(
                       "flex items-start gap-2 p-3 rounded-lg text-sm",
-                      isAdvisor ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor"
+                      isFollower ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor"
                     )}>
-                      {isAdvisor ? (
+                      {isFollower ? (
                         <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       ) : (
                         <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       )}
-                      <span>{info.note}</span>
+                      <span>{plan.note}</span>
                     </div>
 
                     <Button 
-                      variant={isAdvisor ? 'advisor' : 'mentor'} 
+                      variant={plan.variant} 
                       className="w-full"
                       asChild
                     >
-                      <Link to={`/checkout/${person.slug}/${plan.id}`}>
+                      <Link to={`/pricing`}>
                         訂閱此方案
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </Link>
