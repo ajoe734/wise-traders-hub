@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { AppLayout } from '@/components/layouts/AppLayout';
+import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,8 +9,7 @@ import { ActionBadge } from '@/components/ActionBadge';
 import { getSignalById } from '@/data/mockData';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { AlertTriangle, BookOpen, ArrowLeft, Lightbulb, Target, Shield } from 'lucide-react';
-import { markAppSignalsAsRead } from '@/components/layouts/SignalsLayout';
+import { AlertTriangle, BookOpen, Lightbulb, Target, Shield } from 'lucide-react';
 
 const SignalDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,16 +21,12 @@ const SignalDetail = () => {
   }, []);
 
   if (!signal) {
-    return <AppLayout><div className="p-4 text-center">找不到此訊號</div></AppLayout>;
+    return <UnifiedAppLayout><div className="p-4 text-center">找不到此訊號</div></UnifiedAppLayout>;
   }
 
   return (
-    <AppLayout>
+    <UnifiedAppLayout>
       <div className="p-4 space-y-4">
-        <Link to="/app/signals" className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
-          <ArrowLeft className="h-4 w-4" /> 返回訊號牆
-        </Link>
-
         {/* Header */}
         <div className="flex items-center gap-3">
           <ActionBadge action={signal.action} />
@@ -105,7 +100,7 @@ const SignalDetail = () => {
                 ))}
               </ul>
               <Button variant="outline" size="sm" className="w-full" asChild>
-                <Link to={`/line/${signal.person.slug}/teaching`}>看完整交易系統教學</Link>
+                <Link to="/app/library">看完整交易系統教學</Link>
               </Button>
             </CardContent>
           </Card>
@@ -121,7 +116,7 @@ const SignalDetail = () => {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </UnifiedAppLayout>
   );
 };
 
