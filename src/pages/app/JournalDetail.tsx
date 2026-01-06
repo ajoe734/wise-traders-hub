@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { AppLayout } from '@/components/layouts/AppLayout';
+import { useParams } from 'react-router-dom';
+import { UnifiedAppLayout, markAppJournalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
@@ -8,8 +8,7 @@ import { ActionBadge } from '@/components/ActionBadge';
 import { getJournalById } from '@/data/mockData';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { ArrowLeft, Calendar, BookOpen, Shield } from 'lucide-react';
-import { markAppJournalsAsRead } from '@/components/layouts/LearningLayout';
+import { Calendar, BookOpen, Shield } from 'lucide-react';
 
 const JournalDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,16 +20,12 @@ const JournalDetail = () => {
   }, []);
 
   if (!journal) {
-    return <AppLayout><div className="p-4 text-center">找不到此週記</div></AppLayout>;
+    return <UnifiedAppLayout><div className="p-4 text-center">找不到此週記</div></UnifiedAppLayout>;
   }
 
   return (
-    <AppLayout>
+    <UnifiedAppLayout>
       <div className="p-4 space-y-4">
-        <Link to="/app/journals" className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
-          <ArrowLeft className="h-4 w-4" /> 返回週記列表
-        </Link>
-
         {/* Header */}
         <div className="flex items-center gap-3">
           <img src={journal.person.avatarUrl || '/placeholder.svg'} alt={journal.person.name} className="h-10 w-10 rounded-full object-cover" />
@@ -112,7 +107,7 @@ const JournalDetail = () => {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </UnifiedAppLayout>
   );
 };
 
