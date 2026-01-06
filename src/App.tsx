@@ -31,6 +31,11 @@ import AppSignalDetail from "./pages/app/SignalDetail";
 import AppJournalDetail from "./pages/app/JournalDetail";
 import AppSystemDetail from "./pages/app/SystemDetail";
 import AppAccount from "./pages/app/Account";
+import AppHoldings from "./pages/app/Holdings";
+import AppPerformance from "./pages/app/Performance";
+import AppCourses from "./pages/app/Courses";
+import AppLibrary from "./pages/app/Library";
+import ModeSwitcherPage from "./pages/app/ModeSwitcher";
 
 // LINE Mini-App pages (per expert)
 import LineHome from "./pages/line/Home";
@@ -77,12 +82,19 @@ const App = () => (
 
             {/* App pages (aggregated member view) */}
             <Route path="/app" element={<AppHome />} />
+            <Route path="/app/mode-switch" element={<ModeSwitcherPage />} />
             <Route path="/app/signals" element={<AppSignals />} />
             <Route path="/app/journals" element={<AppJournals />} />
             <Route path="/app/signal/:id" element={<AppSignalDetail />} />
             <Route path="/app/journal/:id" element={<AppJournalDetail />} />
             <Route path="/app/system/:id" element={<AppSystemDetail />} />
             <Route path="/app/account" element={<AppAccount />} />
+            {/* Signals Mode pages */}
+            <Route path="/app/holdings" element={<AppHoldings />} />
+            <Route path="/app/performance" element={<AppPerformance />} />
+            {/* Learning Mode pages */}
+            <Route path="/app/courses" element={<AppCourses />} />
+            <Route path="/app/library" element={<AppLibrary />} />
 
             {/* LINE Mini-App (per expert) */}
             <Route path="/line/:expertSlug" element={<Navigate to="home" replace />} />
