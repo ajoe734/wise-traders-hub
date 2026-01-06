@@ -95,22 +95,22 @@ export function LearningLayout({ children }: LearningLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col learning-theme">
-      {/* Top Header - Learning theme (Blue accent) */}
-      <header className="sticky top-0 z-50 border-b border-learning-border bg-learning-header/95 backdrop-blur supports-[backdrop-filter]:bg-learning-header/60">
+      {/* Top Header - Learning theme with subtle gradient */}
+      <header className="sticky top-0 z-50 border-b border-learning-border bg-gradient-to-r from-learning-header via-learning-header to-learning-accent/5 backdrop-blur supports-[backdrop-filter]:bg-learning-header/80">
         <div className="flex h-14 items-center justify-between px-4">
           <Link to="/app" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-learning-accent">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-learning-accent to-learning-accent/80 shadow-[0_0_12px_-3px_hsl(var(--learning-accent)/0.5)]">
               <Compass className="h-4 w-4 text-white" />
             </div>
             <div className="flex flex-col">
               <span className="font-semibold text-foreground text-sm">修煉學習系統</span>
-              <span className="text-[10px] text-learning-accent font-medium">LEARNING MODE</span>
+              <span className="text-[10px] text-learning-accent font-medium tracking-wider">LEARNING MODE</span>
             </div>
           </Link>
           <div className="flex items-center gap-2">
             <Link 
               to="/app/mode-switch"
-              className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded border border-border hover:border-learning-accent/50 transition-colors"
+              className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-foreground/10 hover:border-learning-accent/50 hover:bg-learning-accent/5 transition-all"
             >
               切換模式
             </Link>
@@ -163,8 +163,8 @@ export function LearningLayout({ children }: LearningLayoutProps) {
         {children}
       </main>
 
-      {/* Bottom Navigation - Learning theme */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-learning-border bg-learning-nav/95 backdrop-blur supports-[backdrop-filter]:bg-learning-nav/60 safe-area-bottom">
+      {/* Bottom Navigation - Learning theme with glow effects */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-learning-border bg-gradient-to-t from-learning-nav via-learning-nav to-learning-nav/95 backdrop-blur supports-[backdrop-filter]:bg-learning-nav/80 safe-area-bottom">
         <div className="flex items-center justify-around h-16">
           {bottomNavItems.map((item) => {
             const active = isActive(item.href);
@@ -173,14 +173,22 @@ export function LearningLayout({ children }: LearningLayoutProps) {
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] mobile-touch-target transition-colors",
+                  "flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] mobile-touch-target transition-all",
                   active 
                     ? "text-learning-accent" 
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <item.icon className={cn("h-5 w-5", active && "text-learning-accent")} />
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <div className={cn(
+                  "relative",
+                  active && "drop-shadow-[0_0_8px_hsl(var(--learning-accent)/0.6)]"
+                )}>
+                  <item.icon className={cn("h-5 w-5", active && "text-learning-accent")} />
+                </div>
+                <span className={cn(
+                  "text-[10px] font-medium",
+                  active && "text-learning-accent"
+                )}>{item.label}</span>
               </Link>
             );
           })}

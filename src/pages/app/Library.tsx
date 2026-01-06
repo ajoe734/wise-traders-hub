@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { LearningLayout } from '@/components/layouts/LearningLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { SectionHeader } from '@/components/ui/section-header';
+import { FeatureCard } from '@/components/ui/feature-card';
 import { 
   Library, 
   Search,
@@ -13,7 +14,7 @@ import {
   Target,
   TrendingUp,
   ChevronRight,
-  Tag
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -21,10 +22,10 @@ import { useState } from 'react';
 // Content categories
 const categories = [
   { id: 'all', label: '全部', count: 60 },
-  { id: 'mindset', label: '心法', icon: Lightbulb, count: 12 },
-  { id: 'cases', label: '案例', icon: Target, count: 24 },
-  { id: 'framework', label: '框架', icon: TrendingUp, count: 8 },
-  { id: 'review', label: '復盤', icon: FileText, count: 16 },
+  { id: 'mindset', label: '心法', icon: Lightbulb, count: 12, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+  { id: 'cases', label: '案例', icon: Target, count: 24, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+  { id: 'framework', label: '框架', icon: TrendingUp, count: 8, color: 'text-learning-accent', bg: 'bg-learning-accent/10' },
+  { id: 'review', label: '復盤', icon: FileText, count: 16, color: 'text-purple-500', bg: 'bg-purple-500/10' },
 ];
 
 // Mock library items
@@ -101,96 +102,83 @@ export default function LibraryPage() {
     return type === 'video' ? Video : FileText;
   };
 
+  const bookmarkedItems = libraryItems.filter(item => item.isBookmarked);
+
   return (
     <LearningLayout>
       <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold flex items-center gap-2">
-              <Library className="h-5 w-5 text-learning-accent" />
-              知識庫
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">隨時查閱的學習資源</p>
+        <div className="relative">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-learning-accent to-learning-accent/70 flex items-center justify-center shadow-[0_0_20px_-5px_hsl(var(--learning-accent)/0.5)]">
+                <Library className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-learning-accent font-semibold tracking-wider uppercase">知識庫</p>
+              <h1 className="text-xl font-bold">隨時查閱的學習資源</h1>
+            </div>
           </div>
         </div>
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="搜尋文章、案例..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-11 h-12 bg-foreground/[0.03] border-foreground/[0.08] focus:border-learning-accent/50"
           />
         </div>
 
-        {/* Category Tabs */}
+        {/* Category Tabs - Gaming Style */}
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-          {categories.map(category => (
+          {categories.map((category, index) => (
             <button
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors",
+                "relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm whitespace-nowrap transition-all",
                 selectedCategory === category.id
-                  ? "bg-learning-accent text-white"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  ? "bg-learning-accent text-white shadow-[0_0_15px_-3px_hsl(var(--learning-accent)/0.5)]"
+                  : "bg-foreground/[0.05] text-muted-foreground hover:bg-foreground/[0.08] border border-foreground/[0.08]"
               )}
             >
-              {category.icon && <category.icon className="h-3.5 w-3.5" />}
+              {category.icon && <category.icon className="h-4 w-4" />}
               {category.label}
-              <span className="text-xs opacity-70">({category.count})</span>
+              <span className={cn(
+                "text-xs px-1.5 py-0.5 rounded-full ml-1",
+                selectedCategory === category.id ? "bg-white/20" : "bg-foreground/[0.05]"
+              )}>
+                {category.count}
+              </span>
             </button>
           ))}
         </div>
 
         {/* Bookmarked Section */}
-        {selectedCategory === 'all' && (
-          <section className="space-y-3">
-            <h2 className="font-semibold flex items-center gap-2 text-sm">
-              <BookMarked className="h-4 w-4 text-learning-accent" />
-              我的收藏
-            </h2>
+        {selectedCategory === 'all' && bookmarkedItems.length > 0 && (
+          <section>
+            <SectionHeader
+              number="01"
+              tag="收藏"
+              title="我的收藏"
+              icon={<BookMarked className="h-3.5 w-3.5" />}
+              theme="learning"
+              className="mb-4"
+            />
+            
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
-              {libraryItems.filter(item => item.isBookmarked).map(item => {
+              {bookmarkedItems.map((item, index) => {
                 const TypeIcon = getTypeIcon(item.type);
                 return (
-                  <Card key={item.id} className="flex-shrink-0 w-56 hover:bg-accent/50 transition-colors cursor-pointer">
-                    <CardContent className="p-3">
-                      <div className="flex items-start gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-learning-accent/10 flex items-center justify-center flex-shrink-0">
-                          <TypeIcon className="h-4 w-4 text-learning-accent" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm line-clamp-2">{item.title}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{item.readTime}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* All Items */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-sm">
-              {selectedCategory === 'all' ? '全部內容' : categories.find(c => c.id === selectedCategory)?.label}
-            </h2>
-            <span className="text-xs text-muted-foreground">{filteredItems.length} 篇</span>
-          </div>
-          
-          <div className="space-y-2">
-            {filteredItems.map(item => {
-              const TypeIcon = getTypeIcon(item.type);
-              return (
-                <Card key={item.id} className="hover:bg-accent/50 transition-colors cursor-pointer">
-                  <CardContent className="p-4">
+                  <FeatureCard 
+                    key={item.id} 
+                    theme="learning" 
+                    className="flex-shrink-0 w-60 p-4"
+                  >
                     <div className="flex items-start gap-3">
                       <div className={cn(
                         "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
@@ -202,33 +190,89 @@ export default function LibraryPage() {
                         )} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs">
-                            {item.type === 'video' ? '影片' : '文章'}
-                          </Badge>
-                          {item.isBookmarked && (
-                            <BookMarked className="h-3 w-3 text-amber-500" />
+                        <p className="font-medium text-sm line-clamp-2">{item.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{item.readTime}</p>
+                      </div>
+                    </div>
+                    {/* Number decoration */}
+                    <span className="absolute bottom-2 right-3 text-3xl font-bold opacity-[0.04] text-learning-accent">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                  </FeatureCard>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* All Items */}
+        <section>
+          <SectionHeader
+            number={selectedCategory === 'all' && bookmarkedItems.length > 0 ? "02" : "01"}
+            tag="內容列表"
+            title={selectedCategory === 'all' ? '全部內容' : categories.find(c => c.id === selectedCategory)?.label || ''}
+            icon={<Sparkles className="h-3.5 w-3.5" />}
+            theme="learning"
+            className="mb-4"
+          />
+          <div className="flex items-center justify-end -mt-8 mb-3">
+            <span className="text-xs text-muted-foreground">{filteredItems.length} 篇</span>
+          </div>
+          
+          <div className="space-y-2">
+            {filteredItems.map((item, index) => {
+              const TypeIcon = getTypeIcon(item.type);
+              return (
+                <FeatureCard key={item.id} theme="learning" className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className={cn(
+                      "relative w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0",
+                      item.type === 'video' ? "bg-purple-500/10" : "bg-learning-accent/10"
+                    )}>
+                      <TypeIcon className={cn(
+                        "h-5 w-5",
+                        item.type === 'video' ? "text-purple-500" : "text-learning-accent"
+                      )} />
+                      {/* Index number */}
+                      <span className="absolute -bottom-1 -right-1 text-xs font-bold text-muted-foreground/50">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-xs border-0",
+                            item.type === 'video' 
+                              ? "bg-purple-500/10 text-purple-500" 
+                              : "bg-learning-accent/10 text-learning-accent"
                           )}
-                        </div>
-                        <p className="font-medium text-sm line-clamp-1">{item.title}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-xs text-muted-foreground">{item.readTime}</span>
-                          <div className="flex items-center gap-1">
-                            {item.tags.slice(0, 2).map(tag => (
-                              <span 
-                                key={tag}
-                                className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
-                              >
-                                #{tag}
-                              </span>
-                            ))}
-                          </div>
+                        >
+                          {item.type === 'video' ? '影片' : '文章'}
+                        </Badge>
+                        {item.isBookmarked && (
+                          <BookMarked className="h-3.5 w-3.5 text-amber-500 drop-shadow-[0_0_4px_hsl(38_92%_50%/0.5)]" />
+                        )}
+                      </div>
+                      <p className="font-medium text-sm line-clamp-1">{item.title}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs text-muted-foreground">{item.readTime}</span>
+                        <div className="flex items-center gap-1">
+                          {item.tags.slice(0, 2).map(tag => (
+                            <span 
+                              key={tag}
+                              className="text-xs px-2 py-0.5 rounded-full bg-foreground/[0.05] text-muted-foreground"
+                            >
+                              #{tag}
+                            </span>
+                          ))}
                         </div>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     </div>
-                  </CardContent>
-                </Card>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  </div>
+                </FeatureCard>
               );
             })}
           </div>
@@ -236,11 +280,11 @@ export default function LibraryPage() {
 
         {/* Empty State */}
         {filteredItems.length === 0 && (
-          <Card className="bg-muted/30 p-8 text-center">
+          <FeatureCard theme="learning" className="p-8 text-center">
             <Search className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground mb-2">找不到符合的內容</p>
             <p className="text-sm text-muted-foreground">試試其他關鍵字或分類</p>
-          </Card>
+          </FeatureCard>
         )}
       </div>
     </LearningLayout>
