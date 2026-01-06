@@ -30,7 +30,7 @@ import AppSignalDetail from "./pages/app/SignalDetail";
 import AppJournalDetail from "./pages/app/JournalDetail";
 import AppSystemDetail from "./pages/app/SystemDetail";
 import AppAccount from "./pages/app/Account";
-import AppHoldings from "./pages/app/Holdings";
+// Holdings page removed - integrated into AppHome
 import AppPerformance from "./pages/app/Performance";
 import AppCourses from "./pages/app/Courses";
 import AppLibrary from "./pages/app/Library";
@@ -89,7 +89,7 @@ const App = () => (
             <Route path="/app/system/:id" element={<AppSystemDetail />} />
             <Route path="/app/account" element={<AppAccount />} />
             {/* Signals Mode pages */}
-            <Route path="/app/holdings" element={<AppHoldings />} />
+            <Route path="/app/holdings" element={<Navigate to="/app" replace />} />
             <Route path="/app/performance" element={<AppPerformance />} />
             {/* Learning Mode pages */}
             <Route path="/app/courses" element={<AppCourses />} />

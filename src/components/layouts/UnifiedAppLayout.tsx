@@ -5,7 +5,7 @@ import { getUserSubscriptions, getSignalsForUser, getJournalsForUser } from '@/d
 import { PlanType } from '@/types';
 import { 
   Home, Radio, BookOpen, User, LogOut, ChevronRight, ChevronLeft,
-  BarChart3, Target
+  Target, Compass
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,11 +26,11 @@ const getNavGroup = (pathname: string): string => {
   if (pathname === '/app') return '/app';
   if (pathname === '/app/signals' || pathname.startsWith('/app/signal/')) return '/app/signals';
   if (pathname === '/app/journals' || pathname.startsWith('/app/journal/')) return '/app/journals';
-  if (pathname === '/app/holdings' || pathname.startsWith('/app/holdings')) return '/app/holdings';
   if (pathname === '/app/performance' || pathname.startsWith('/app/performance')) return '/app/performance';
   if (pathname === '/app/courses' || pathname.startsWith('/app/course/')) return '/app/courses';
   if (pathname === '/app/library' || pathname.startsWith('/app/library')) return '/app/library';
   if (pathname === '/app/account' || pathname.startsWith('/app/account')) return '/app/account';
+  if (pathname === '/experts' || pathname.startsWith('/expert/')) return '/experts';
   return '/app';
 };
 
@@ -66,7 +66,6 @@ const getBreadcrumbConfig = (pathname: string, mode: 'signals' | 'learning' | 'b
   const routeLabels: Record<string, string> = {
     signals: '即時訊號',
     journals: '週記教學',
-    holdings: '老師戰績',
     performance: '績效統計',
     courses: '課程系統',
     library: '知識庫',
@@ -126,12 +125,12 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
 
   // Build nav items based on subscription type - unified navigation for all users
   const bottomNavItems: NavItem[] = useMemo(() => {
-    // All users get the same unified navigation: 戰情室, 訊號, 週記, 持倉, 帳號
+    // All users get the same unified navigation: 戰情室, 訊號, 週記, 探索, 帳號
     return [
       { href: '/app', icon: Home, label: '戰情室', group: '/app' },
       { href: '/app/signals', icon: Radio, label: '訊號', group: '/app/signals', badgeKey: 'signals' },
       { href: '/app/journals', icon: BookOpen, label: '週記', group: '/app/journals', badgeKey: 'journals' },
-      { href: '/app/holdings', icon: BarChart3, label: '戰績', group: '/app/holdings' },
+      { href: '/experts', icon: Compass, label: '探索', group: '/experts' },
       { href: '/app/account', icon: User, label: '帳號', group: '/app/account' },
     ];
   }, []);
