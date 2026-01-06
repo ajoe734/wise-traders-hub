@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { LineLayout } from '@/components/layouts/LineLayout';
+import { LineLayout, markSignalsAsRead } from '@/components/layouts/LineLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,14 @@ const LineSignals = () => {
   const { user } = useAuth();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
   const [actionFilter, setActionFilter] = useState<SignalAction | null>(null);
+
+  // Mark as read when component mounts
+  useEffect(() => {
+    if (user && expertSlug && expert) {
+      const isAdvisor = expert.role === PersonRole.ADVISOR;
+      markSignalsAsRead(user.id, expertSlug, isAdvisor);
+    }
+  }, [user, expertSlug, expert]);
 
   if (!expert) {
     return null;
