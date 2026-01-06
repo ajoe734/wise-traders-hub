@@ -7,7 +7,8 @@ import { getPersonBySlug, getUserSubscriptions, getSignalsForUser, getJournalsFo
 import { getStrategySystemByExpertSlug } from '@/data/strategyMockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { PersonRole, PlanType } from '@/types';
-import { Radio, BookOpen, TrendingUp, ArrowRight, Calendar, BarChart3, Flame, Trophy } from 'lucide-react';
+import { Radio, BookOpen, TrendingUp, ArrowRight, Calendar, BarChart3, Flame, Trophy, Target } from 'lucide-react';
+import { SectionHeader } from '@/components/ui/section-header';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Sparkline } from '@/components/strategy/Sparkline';
@@ -152,9 +153,16 @@ const LineHome = () => {
                 查看全部 →
               </Link>
             </div>
-            {/* Special 4有 Dashboard for Zhao */}
+            {/* Special 4有 Dashboard for Zhao - 即時戰情室 */}
             {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
               <div className="mb-4">
+                <SectionHeader
+                  icon={<Target className="h-4 w-4" />}
+                  tag="即時戰情室"
+                  title={`${expert.name} 的盤中即時數據`}
+                  theme="signals"
+                  className="mb-3"
+                />
                 <FourIndicatorsDashboard 
                   indicators={expertSlug === 'zhao-advisor' ? zhaoLiveIndicators : mockFourIndicators}
                   symbol={zhaoFeaturedSignals[0]?.symbol}
