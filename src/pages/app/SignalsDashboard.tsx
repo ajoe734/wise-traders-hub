@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
+import { SectionHeader } from '@/components/ui/section-header';
+import { StatCard } from '@/components/ui/stat-card';
+import { FeatureCard } from '@/components/ui/feature-card';
+import { GlowProgress } from '@/components/ui/glow-progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserSubscriptions, getSignalsForUser } from '@/data/mockData';
 import { PlanType, SignalAction, SubscriptionWithDetails, SignalWithPerson } from '@/types';
@@ -13,11 +16,12 @@ import {
   ChevronRight,
   Flame,
   BarChart3,
-  History,
   Briefcase,
   ArrowUpRight,
   ArrowDownRight,
-  Clock
+  Clock,
+  Zap,
+  Trophy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isToday, differenceInMinutes } from 'date-fns';
@@ -94,68 +98,64 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
 
   return (
     <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Target className="h-5 w-5 text-advisor" />
-            <span className="text-sm font-medium text-advisor">跟單派</span>
+      {/* Header with dramatic styling */}
+      <div className="relative">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-signals-accent to-signals-accent/70 flex items-center justify-center shadow-[0_0_20px_-5px_hsl(var(--signals-accent)/0.5)]">
+              <Target className="h-6 w-6 text-white" />
+            </div>
+            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-success animate-pulse" />
           </div>
-          <h1 className="text-xl font-bold">戰情室</h1>
+          <div>
+            <p className="text-xs text-signals-accent font-semibold tracking-wider uppercase">跟單派 · SIGNALS</p>
+            <h1 className="text-xl font-bold">今日戰況，盡在掌握</h1>
+          </div>
         </div>
-        <Link 
-          to="/app" 
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          切換模式
-        </Link>
       </div>
 
-      {/* Status Overview */}
+      {/* Status Overview - Dramatic Cards */}
       <section className="animate-fade-in">
         <div className="grid grid-cols-3 gap-3">
-          <Card className="border-advisor/20">
-            <CardContent className="p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">今日訊號</p>
-              <p className="text-2xl font-bold text-advisor">
-                {todaySignals.length}
-              </p>
-              <p className="text-xs text-muted-foreground">筆</p>
-            </CardContent>
-          </Card>
-          <Card className="border-advisor/20">
-            <CardContent className="p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">持倉</p>
-              <p className="text-2xl font-bold">
-                {mockHoldings.length}
-              </p>
-              <p className="text-xs text-muted-foreground">檔</p>
-            </CardContent>
-          </Card>
-          <Card className="border-advisor/20">
-            <CardContent className="p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">本週績效</p>
-              <p className={cn(
-                "text-2xl font-bold",
-                mockWeeklyStats.avgReturn >= 0 ? "text-success" : "text-destructive"
-              )}>
-                +{mockWeeklyStats.avgReturn}%
-              </p>
-            </CardContent>
-          </Card>
+          <StatCard
+            number="01"
+            label="今日訊號"
+            value={todaySignals.length}
+            sublabel="筆"
+            theme="signals"
+            glowing={todaySignals.length > 0}
+          />
+          <StatCard
+            number="02"
+            label="持倉"
+            value={mockHoldings.length}
+            sublabel="檔"
+            theme="signals"
+          />
+          <StatCard
+            number="03"
+            label="本週績效"
+            value={`+${mockWeeklyStats.avgReturn}%`}
+            theme="success"
+            glowing
+          />
         </div>
       </section>
 
       {/* Latest Signals */}
       <section className="animate-slide-up">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold flex items-center gap-2">
-            <Radio className="h-4 w-4 text-advisor" />
-            最新訊號
-          </h2>
+        <SectionHeader
+          number="01"
+          tag="即時訊號"
+          title="最新訊號"
+          icon={<Radio className="h-3.5 w-3.5" />}
+          theme="signals"
+          className="mb-4"
+        />
+        <div className="flex items-center justify-end -mt-8 mb-3">
           <Link 
             to={`/line/${primarySub?.person.slug}/signals`} 
-            className="text-sm text-advisor flex items-center gap-1"
+            className="text-sm text-signals-accent flex items-center gap-1 hover:underline"
           >
             查看全部
             <ChevronRight className="h-4 w-4" />
@@ -164,15 +164,15 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
         
         {latestSignals.length > 0 ? (
           <div className="space-y-2">
-            {latestSignals.map(signal => (
+            {latestSignals.map((signal, index) => (
               <Link 
                 key={signal.id} 
                 to={`/line/${signal.person.slug}/signal/${signal.id}`}
               >
-                <Card variant="interactive" className="p-3 border-l-4 border-l-advisor/50 hover:border-l-advisor">
+                <FeatureCard theme="signals" className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1.5">
                         <Badge 
                           variant={signal.action === SignalAction.BUY || signal.action === SignalAction.ADD ? 'advisor' : 'outline'}
                           className="text-xs"
@@ -185,43 +185,47 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
                         </span>
                       </div>
                       <p className="font-semibold truncate">{signal.instrument}</p>
-                      <p className="text-sm text-muted-foreground line-clamp-1">
+                      <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
                         {signal.reasonSummary}
                       </p>
-                      <div className="flex items-center gap-1.5 mt-1.5">
+                      <div className="flex items-center gap-1.5 mt-2">
                         <img 
                           src={signal.person.avatarUrl || '/placeholder.svg'} 
                           alt={signal.person.name}
-                          className="h-4 w-4 rounded-full"
+                          className="h-5 w-5 rounded-full border border-signals-accent/30"
                         />
                         <span className="text-xs text-muted-foreground">{signal.person.name}</span>
                       </div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
                   </div>
-                </Card>
+                </FeatureCard>
               </Link>
             ))}
           </div>
         ) : (
-          <Card className="bg-muted/30 p-6 text-center">
+          <FeatureCard theme="signals" className="p-6 text-center">
             <Radio className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-muted-foreground">今日暫無新訊號</p>
             <p className="text-sm text-muted-foreground mt-1">訊號發出時會即時通知你</p>
-          </Card>
+          </FeatureCard>
         )}
       </section>
 
       {/* My Holdings */}
       <section className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold flex items-center gap-2">
-            <Briefcase className="h-4 w-4 text-advisor" />
-            我的持倉
-          </h2>
+        <SectionHeader
+          number="02"
+          tag="持股狀況"
+          title="我的持倉"
+          icon={<Briefcase className="h-3.5 w-3.5" />}
+          theme="signals"
+          className="mb-4"
+        />
+        <div className="flex items-center justify-end -mt-8 mb-3">
           <Link 
             to={`/line/${primarySub?.person.slug}/trades`}
-            className="text-sm text-advisor flex items-center gap-1"
+            className="text-sm text-signals-accent flex items-center gap-1 hover:underline"
           >
             詳細
             <ChevronRight className="h-4 w-4" />
@@ -229,9 +233,9 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
         </div>
         
         {mockHoldings.length > 0 ? (
-          <Card className="divide-y divide-border">
-            {mockHoldings.map((holding, index) => (
-              <div key={holding.symbol} className="p-3 flex items-center justify-between">
+          <FeatureCard theme="signals" className="divide-y divide-foreground/[0.08]">
+            {mockHoldings.map((holding) => (
+              <div key={holding.symbol} className="p-4 flex items-center justify-between">
                 <div>
                   <p className="font-medium">{holding.name}</p>
                   <p className="text-xs text-muted-foreground font-mono">{holding.symbol}</p>
@@ -246,7 +250,11 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
                     ) : (
                       <ArrowDownRight className="h-3.5 w-3.5" />
                     )}
-                    {holding.pnlPct >= 0 ? '+' : ''}{holding.pnlPct.toFixed(2)}%
+                    <span className={cn(
+                      holding.pnlPct >= 0 && "drop-shadow-[0_0_6px_hsl(var(--success)/0.6)]"
+                    )}>
+                      {holding.pnlPct >= 0 ? '+' : ''}{holding.pnlPct.toFixed(2)}%
+                    </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
                     ${holding.currentPrice}
@@ -254,76 +262,96 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
                 </div>
               </div>
             ))}
-          </Card>
+          </FeatureCard>
         ) : (
-          <Card className="bg-muted/30 p-6 text-center">
+          <FeatureCard theme="signals" className="p-6 text-center">
             <Briefcase className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-muted-foreground">目前沒有持倉</p>
-          </Card>
+          </FeatureCard>
         )}
       </section>
 
-      {/* Weekly Stats */}
+      {/* Weekly Stats - Gaming Style */}
       <section className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-advisor" />
-            本週戰績
-          </h2>
+        <SectionHeader
+          number="03"
+          tag="戰績總覽"
+          title="本週戰績"
+          icon={<Trophy className="h-3.5 w-3.5" />}
+          theme="signals"
+          className="mb-4"
+        />
+        <div className="flex items-center justify-end -mt-8 mb-3">
           <Link 
             to={`/line/${primarySub?.person.slug}/performance`}
-            className="text-sm text-advisor flex items-center gap-1"
+            className="text-sm text-signals-accent flex items-center gap-1 hover:underline"
           >
             完整績效
             <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
         
-        <Card className="border-advisor/20">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground mb-1">訊號數</p>
-                <p className="text-xl font-bold">{mockWeeklyStats.totalSignals}</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground mb-1">勝率</p>
-                <p className="text-xl font-bold">{mockWeeklyStats.winRate}%</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-success/10">
-                <p className="text-xs text-muted-foreground mb-1">平均獲利</p>
-                <p className="text-xl font-bold text-success">+{mockWeeklyStats.avgReturn}%</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-success/10">
-                <p className="text-xs text-muted-foreground mb-1">累計損益</p>
-                <p className="text-xl font-bold text-success">
-                  +${mockWeeklyStats.totalPnl.toLocaleString()}
-                </p>
-              </div>
+        <FeatureCard theme="signals" variant="highlight" className="p-5">
+          {/* Win Rate HP Bar */}
+          <div className="mb-5">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium flex items-center gap-1.5">
+                <Zap className="h-4 w-4 text-signals-accent" />
+                勝率
+              </span>
+              <span className="text-lg font-bold text-signals-accent">{mockWeeklyStats.winRate}%</span>
             </div>
-          </CardContent>
-        </Card>
+            <GlowProgress value={mockWeeklyStats.winRate} theme="signals" size="lg" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="relative p-3 rounded-lg bg-foreground/[0.03] border border-foreground/[0.05]">
+              <span className="number-decoration text-signals-accent">8</span>
+              <p className="text-xs text-muted-foreground relative z-10">訊號數</p>
+              <p className="text-xl font-bold relative z-10">{mockWeeklyStats.totalSignals}</p>
+            </div>
+            <div className="relative p-3 rounded-lg bg-success/10 border border-success/20">
+              <p className="text-xs text-muted-foreground">平均獲利</p>
+              <p className="text-xl font-bold text-success drop-shadow-[0_0_8px_hsl(var(--success)/0.5)]">
+                +{mockWeeklyStats.avgReturn}%
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3 p-3 rounded-lg bg-success/10 border border-success/20 text-center">
+            <p className="text-xs text-muted-foreground">累計損益</p>
+            <p className="text-2xl font-bold text-success drop-shadow-[0_0_10px_hsl(var(--success)/0.6)]">
+              +${mockWeeklyStats.totalPnl.toLocaleString()}
+            </p>
+          </div>
+        </FeatureCard>
       </section>
 
       {/* My Advisors */}
       <section className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold flex items-center gap-2">
-            <Flame className="h-4 w-4 text-advisor" />
-            我的分析師
-          </h2>
-        </div>
+        <SectionHeader
+          tag="訂閱中"
+          title="我的分析師"
+          icon={<Flame className="h-3.5 w-3.5" />}
+          theme="signals"
+          className="mb-4"
+        />
         
         <div className="space-y-2">
           {subscriptions.map(sub => (
             <Link key={sub.id} to={`/line/${sub.person.slug}/home`}>
-              <Card variant="interactive" className="p-3">
+              <FeatureCard theme="signals" className="p-4">
                 <div className="flex items-center gap-3">
-                  <img 
-                    src={sub.person.avatarUrl || '/placeholder.svg'} 
-                    alt={sub.person.name}
-                    className="h-10 w-10 rounded-full object-cover"
-                  />
+                  <div className="relative">
+                    <img 
+                      src={sub.person.avatarUrl || '/placeholder.svg'} 
+                      alt={sub.person.name}
+                      className="h-12 w-12 rounded-full object-cover border-2 border-signals-accent/30"
+                    />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-success border-2 border-background flex items-center justify-center">
+                      <Zap className="h-2.5 w-2.5 text-white" />
+                    </div>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-medium truncate">{sub.person.name}</span>
@@ -335,7 +363,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 </div>
-              </Card>
+              </FeatureCard>
             </Link>
           ))}
         </div>
@@ -345,14 +373,14 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
       <section className="pt-2 space-y-2 animate-fade-in" style={{ animationDelay: '0.25s' }}>
         <Link 
           to="/account/subscriptions" 
-          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+          className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors"
         >
           <span className="text-sm text-muted-foreground">管理訂閱</span>
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </Link>
         <Link 
           to="/experts" 
-          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+          className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors"
         >
           <span className="text-sm text-muted-foreground">探索更多專家</span>
           <ChevronRight className="h-4 w-4 text-muted-foreground" />

@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { SectionHeader } from '@/components/ui/section-header';
+import { FeatureCard } from '@/components/ui/feature-card';
+import { StatCard } from '@/components/ui/stat-card';
+import { GlowProgress } from '@/components/ui/glow-progress';
 import { 
   BookOpen, 
   ChevronRight, 
@@ -14,12 +17,16 @@ import {
   TrendingUp,
   Calendar,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Compass,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { SubscriptionWithDetails } from '@/types';
 import { getJournalsForUser } from '@/data/mockData';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface LearningDashboardProps {
   subscriptions: SubscriptionWithDetails[];
@@ -37,18 +44,18 @@ const mockLearningProgress = {
 
 // Learning roadmap stages
 const roadmapStages = [
-  { id: 'beginner', label: '入門', status: 'completed' as const, lessons: 5 },
-  { id: 'intermediate', label: '進階', status: 'current' as const, lessons: 8 },
-  { id: 'mindset', label: '心法', status: 'locked' as const, lessons: 7 },
-  { id: 'practice', label: '實戰', status: 'locked' as const, lessons: 7 },
+  { id: 'beginner', label: '入門', status: 'completed' as const, lessons: 5, number: '01' },
+  { id: 'intermediate', label: '進階', status: 'current' as const, lessons: 8, number: '02' },
+  { id: 'mindset', label: '心法', status: 'locked' as const, lessons: 7, number: '03' },
+  { id: 'practice', label: '實戰', status: 'locked' as const, lessons: 7, number: '04' },
 ];
 
 // Content categories
 const contentCategories = [
-  { id: 'mindset', label: '心法', icon: Lightbulb, count: 12, color: 'bg-amber-500' },
-  { id: 'cases', label: '案例', icon: Target, count: 24, color: 'bg-emerald-500' },
-  { id: 'framework', label: '框架', icon: TrendingUp, count: 8, color: 'bg-blue-500' },
-  { id: 'review', label: '復盤', icon: FileText, count: 16, color: 'bg-purple-500' },
+  { id: 'mindset', label: '心法', icon: Lightbulb, count: 12, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+  { id: 'cases', label: '案例', icon: Target, count: 24, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+  { id: 'framework', label: '框架', icon: TrendingUp, count: 8, color: 'text-learning-accent', bg: 'bg-learning-accent/10' },
+  { id: 'review', label: '復盤', icon: FileText, count: 16, color: 'text-purple-500', bg: 'bg-purple-500/10' },
 ];
 
 export function LearningDashboard({ subscriptions, userName }: LearningDashboardProps) {
@@ -61,72 +68,79 @@ export function LearningDashboard({ subscriptions, userName }: LearningDashboard
 
   return (
     <div className="p-4 space-y-6 pb-24">
-      {/* Header with blue theme indicator */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
-              <GraduationCap className="w-3 h-3 mr-1" />
-              修煉派
-            </Badge>
+      {/* Header with dramatic styling */}
+      <div className="relative">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-learning-accent to-learning-accent/70 flex items-center justify-center shadow-[0_0_20px_-5px_hsl(var(--learning-accent)/0.5)]">
+                <Compass className="h-6 w-6 text-white" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-learning-accent animate-pulse" />
+            </div>
+            <div>
+              <p className="text-xs text-learning-accent font-semibold tracking-wider uppercase">修煉派 · LEARNING</p>
+              <h1 className="text-xl font-bold">修煉之道，持之以恆</h1>
+            </div>
           </div>
-          <h1 className="text-xl font-bold">
-            嗨，{userName || '學員'}
-          </h1>
-          <p className="text-sm text-muted-foreground">繼續你的修煉之路</p>
+          
+          {/* Primary Mentor Avatar */}
+          {primaryMentor && (
+            <Link to={`/line/${primaryMentor.slug}/home`}>
+              <Avatar className="h-12 w-12 border-2 border-learning-accent/50 shadow-[0_0_15px_-5px_hsl(var(--learning-accent)/0.4)]">
+                <AvatarImage src={primaryMentor.avatarUrl} alt={primaryMentor.name} />
+                <AvatarFallback>{primaryMentor.name[0]}</AvatarFallback>
+              </Avatar>
+            </Link>
+          )}
         </div>
-        
-        {/* Primary Mentor Avatar */}
-        {primaryMentor && (
-          <Link to={`/line/${primaryMentor.slug}/home`}>
-            <Avatar className="h-12 w-12 border-2 border-blue-500/30">
-              <AvatarImage src={primaryMentor.avatarUrl} alt={primaryMentor.name} />
-              <AvatarFallback>{primaryMentor.name[0]}</AvatarFallback>
-            </Avatar>
-          </Link>
-        )}
       </div>
 
       {/* Continue Learning - Most Important */}
-      <Card className="border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-transparent">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-blue-500" />
-            繼續學習
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <FeatureCard theme="learning" variant="highlight" className="p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <BookOpen className="w-5 h-5 text-learning-accent" />
+          <span className="font-semibold">繼續學習</span>
+          <Sparkles className="w-4 h-4 text-learning-accent ml-auto animate-pulse" />
+        </div>
+        
+        <div className="space-y-3">
           <div>
-            <p className="font-medium">{mockLearningProgress.currentChapter}</p>
+            <p className="font-medium text-lg">{mockLearningProgress.currentChapter}</p>
             <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
               <Clock className="w-3 h-3" />
               上次學習：{format(mockLearningProgress.lastAccessedAt, 'MM/dd HH:mm', { locale: zhTW })}
             </p>
           </div>
           
-          <div className="space-y-1">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">學習進度</span>
-              <span className="font-medium">{mockLearningProgress.completedLessons}/{mockLearningProgress.totalLessons} 課</span>
-            </div>
-            <Progress value={mockLearningProgress.progressPercent} className="h-2" />
-          </div>
+          <GlowProgress 
+            value={mockLearningProgress.completedLessons} 
+            max={mockLearningProgress.totalLessons}
+            theme="learning"
+            size="md"
+            showLabel
+            label={`${mockLearningProgress.completedLessons}/${mockLearningProgress.totalLessons} 課`}
+          />
           
-          <Button className="w-full bg-blue-600 hover:bg-blue-700">
+          <Button className="w-full bg-learning-accent hover:bg-learning-accent/90 shadow-[0_0_15px_-3px_hsl(var(--learning-accent)/0.5)]">
             繼續閱讀
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </FeatureCard>
 
       {/* This Week's New Content */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-blue-500" />
-            本週新內容
-          </h2>
-          <Link to="/app/journals" className="text-sm text-blue-600 flex items-center">
+      <section>
+        <SectionHeader
+          number="01"
+          tag="本週更新"
+          title="本週新內容"
+          icon={<Calendar className="h-3.5 w-3.5" />}
+          theme="learning"
+          className="mb-4"
+        />
+        <div className="flex items-center justify-end -mt-8 mb-3">
+          <Link to="/app/journals" className="text-sm text-learning-accent flex items-center hover:underline">
             查看全部 <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
@@ -137,87 +151,96 @@ export function LearningDashboard({ subscriptions, userName }: LearningDashboard
               key={journal.id} 
               to={`/line/${journal.person.slug}/home`}
             >
-              <Card className="hover:bg-accent/50 transition-colors">
-                <CardContent className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-5 h-5 text-blue-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="text-xs">
-                          週記
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(journal.weekStart), 'MM/dd', { locale: zhTW })} - {format(new Date(journal.weekEnd), 'MM/dd', { locale: zhTW })}
-                        </span>
-                      </div>
-                      <p className="font-medium text-sm truncate">{journal.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                        {journal.summary}
-                      </p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <FeatureCard theme="learning" className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-learning-accent/10 flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-learning-accent" />
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="text-xs border-learning-accent/30 text-learning-accent">
+                        週記
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(journal.weekStart), 'MM/dd', { locale: zhTW })} - {format(new Date(journal.weekEnd), 'MM/dd', { locale: zhTW })}
+                      </span>
+                    </div>
+                    <p className="font-medium text-sm truncate">{journal.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                      {journal.summary}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                </div>
+              </FeatureCard>
             </Link>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Learning Roadmap - Super Important */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-blue-500" />
-            學習路線圖
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* Learning Roadmap - Game Style */}
+      <section>
+        <SectionHeader
+          number="02"
+          tag="修煉路徑"
+          title="學習路線圖"
+          icon={<TrendingUp className="h-3.5 w-3.5" />}
+          theme="learning"
+          className="mb-4"
+        />
+        
+        <FeatureCard theme="learning" className="p-5">
           {/* Roadmap Progress Bar */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 mb-6">
             {roadmapStages.map((stage, index) => (
               <div key={stage.id} className="flex-1 flex items-center">
                 <div 
-                  className={`
-                    flex-1 h-2 rounded-full
-                    ${stage.status === 'completed' ? 'bg-blue-500' : ''}
-                    ${stage.status === 'current' ? 'bg-blue-500/50' : ''}
-                    ${stage.status === 'locked' ? 'bg-muted' : ''}
-                  `}
+                  className={cn(
+                    "flex-1 h-2.5 rounded-full transition-all",
+                    stage.status === 'completed' && "bg-learning-accent shadow-[0_0_8px_2px_hsl(var(--learning-accent)/0.4)]",
+                    stage.status === 'current' && "bg-learning-accent/50",
+                    stage.status === 'locked' && "bg-foreground/10"
+                  )}
                 />
                 {index < roadmapStages.length - 1 && (
-                  <ChevronRight className="w-3 h-3 text-muted-foreground mx-0.5" />
+                  <ChevronRight className="w-3 h-3 text-muted-foreground mx-0.5 flex-shrink-0" />
                 )}
               </div>
             ))}
           </div>
           
-          {/* Stage Labels */}
+          {/* Stage Cards */}
           <div className="grid grid-cols-4 gap-2">
             {roadmapStages.map((stage) => (
               <div 
                 key={stage.id}
-                className={`
-                  text-center p-2 rounded-lg
-                  ${stage.status === 'completed' ? 'bg-blue-500/10' : ''}
-                  ${stage.status === 'current' ? 'bg-blue-500/5 ring-1 ring-blue-500/30' : ''}
-                  ${stage.status === 'locked' ? 'bg-muted/50 opacity-60' : ''}
-                `}
+                className={cn(
+                  "relative text-center p-3 rounded-xl transition-all",
+                  stage.status === 'completed' && "bg-learning-accent/10 border border-learning-accent/30",
+                  stage.status === 'current' && "bg-learning-accent/5 ring-2 ring-learning-accent/50 shadow-[0_0_15px_-5px_hsl(var(--learning-accent)/0.4)]",
+                  stage.status === 'locked' && "bg-foreground/[0.03] border border-foreground/[0.08] opacity-60"
+                )}
               >
-                <div className="flex justify-center mb-1">
+                {/* Number decoration */}
+                <span className="absolute -top-1 -left-0.5 text-2xl font-bold opacity-10 text-learning-accent">
+                  {stage.number}
+                </span>
+                
+                <div className="flex justify-center mb-1 relative z-10">
                   {stage.status === 'completed' && (
-                    <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                    <CheckCircle2 className="w-5 h-5 text-learning-accent" />
                   )}
                   {stage.status === 'current' && (
-                    <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500/20" />
+                    <div className="w-5 h-5 rounded-full border-2 border-learning-accent bg-learning-accent/30 animate-pulse" />
                   )}
                   {stage.status === 'locked' && (
-                    <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
+                    <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />
                   )}
                 </div>
-                <p className={`text-xs font-medium ${stage.status === 'locked' ? 'text-muted-foreground' : ''}`}>
+                <p className={cn(
+                  "text-xs font-semibold relative z-10",
+                  stage.status === 'locked' ? 'text-muted-foreground' : 'text-foreground'
+                )}>
                   {stage.label}
                 </p>
                 <p className="text-xs text-muted-foreground">{stage.lessons} 課</p>
@@ -225,43 +248,52 @@ export function LearningDashboard({ subscriptions, userName }: LearningDashboard
             ))}
           </div>
           
-          <div className="text-center pt-2">
+          <div className="text-center pt-4 mt-4 border-t border-foreground/[0.08]">
             <p className="text-sm text-muted-foreground">
-              目前進度：<span className="font-medium text-foreground">{mockLearningProgress.progressPercent}%</span>
+              目前進度：<span className="font-bold text-learning-accent text-lg">{mockLearningProgress.progressPercent}%</span>
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </FeatureCard>
+      </section>
 
       {/* All Content Categories */}
-      <div className="space-y-3">
-        <h2 className="font-semibold flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-blue-500" />
-          全部內容
-        </h2>
+      <section>
+        <SectionHeader
+          number="03"
+          tag="知識分類"
+          title="全部內容"
+          icon={<BookOpen className="h-3.5 w-3.5" />}
+          theme="learning"
+          className="mb-4"
+        />
         
         <div className="grid grid-cols-2 gap-3">
           {contentCategories.map((category) => (
-            <Card key={category.id} className="hover:bg-accent/50 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg ${category.color}/10 flex items-center justify-center`}>
-                    <category.icon className={`w-5 h-5 ${category.color.replace('bg-', 'text-')}`} />
-                  </div>
-                  <div>
-                    <p className="font-medium">{category.label}</p>
-                    <p className="text-xs text-muted-foreground">{category.count} 篇</p>
-                  </div>
+            <FeatureCard key={category.id} theme="learning" className="p-4">
+              <div className="flex items-center gap-3">
+                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", category.bg)}>
+                  <category.icon className={cn("w-5 h-5", category.color)} />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <p className="font-medium">{category.label}</p>
+                  <p className="text-xs text-muted-foreground">{category.count} 篇</p>
+                </div>
+              </div>
+            </FeatureCard>
           ))}
         </div>
-      </div>
+      </section>
 
       {/* My Mentors */}
-      <div className="space-y-3">
-        <h2 className="font-semibold">我的導師</h2>
+      <section>
+        <SectionHeader
+          tag="訂閱中"
+          title="我的導師"
+          icon={<GraduationCap className="h-3.5 w-3.5" />}
+          theme="learning"
+          className="mb-4"
+        />
+        
         <div className="flex gap-3 overflow-x-auto pb-2">
           {subscriptions.map((sub) => (
             <Link 
@@ -269,36 +301,36 @@ export function LearningDashboard({ subscriptions, userName }: LearningDashboard
               to={`/line/${sub.person.slug}/home`}
               className="flex-shrink-0"
             >
-              <Card className="w-32 hover:bg-accent/50 transition-colors">
-                <CardContent className="p-3 text-center">
-                  <Avatar className="h-12 w-12 mx-auto mb-2 border-2 border-blue-500/30">
-                    <AvatarImage src={sub.person.avatarUrl} alt={sub.person.name} />
-                    <AvatarFallback>{sub.person.name[0]}</AvatarFallback>
-                  </Avatar>
-                  <p className="font-medium text-sm">{sub.person.name}</p>
-                  <p className="text-xs text-muted-foreground">導師</p>
-                </CardContent>
-              </Card>
+              <FeatureCard theme="learning" className="w-32 p-4 text-center">
+                <Avatar className="h-14 w-14 mx-auto mb-2 border-2 border-learning-accent/40 shadow-[0_0_12px_-4px_hsl(var(--learning-accent)/0.4)]">
+                  <AvatarImage src={sub.person.avatarUrl} alt={sub.person.name} />
+                  <AvatarFallback>{sub.person.name[0]}</AvatarFallback>
+                </Avatar>
+                <p className="font-medium text-sm">{sub.person.name}</p>
+                <p className="text-xs text-learning-accent">導師</p>
+              </FeatureCard>
             </Link>
           ))}
         </div>
-      </div>
+      </section>
 
       {/* Quick Links */}
-      <div className="space-y-2 pt-2">
-        <Link to="/account/subscriptions" className="block">
-          <Button variant="ghost" className="w-full justify-between text-muted-foreground">
-            管理我的訂閱
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+      <section className="space-y-2 pt-2">
+        <Link 
+          to="/account/subscriptions" 
+          className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors"
+        >
+          <span className="text-sm text-muted-foreground">管理我的訂閱</span>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </Link>
-        <Link to="/experts" className="block">
-          <Button variant="ghost" className="w-full justify-between text-muted-foreground">
-            探索更多導師
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+        <Link 
+          to="/experts" 
+          className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors"
+        >
+          <span className="text-sm text-muted-foreground">探索更多導師</span>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </Link>
-      </div>
+      </section>
     </div>
   );
 }
