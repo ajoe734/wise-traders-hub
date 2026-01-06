@@ -119,8 +119,8 @@ const LineAccount = () => {
           </CardHeader>
           <CardContent className="space-y-2">
             <Button variant="outline" className="w-full justify-between" asChild>
-              <Link to="/account/subscriptions">
-                <span>管理所有訂閱（桌面版）</span>
+              <Link to="/app/account">
+                <span>管理所有訂閱</span>
                 <ExternalLink className="h-4 w-4" />
               </Link>
             </Button>

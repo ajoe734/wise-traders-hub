@@ -20,7 +20,6 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 
 // Account pages
-import AccountSubscriptions from "./pages/account/Subscriptions";
 import AccountProfile from "./pages/account/Profile";
 
 // App pages (aggregated member view)
@@ -77,7 +76,7 @@ const App = () => (
             <Route path="/auth/register" element={<Register />} />
 
             {/* Account (aggregated view) */}
-            <Route path="/account/subscriptions" element={<AccountSubscriptions />} />
+            <Route path="/account/subscriptions" element={<Navigate to="/app/account" replace />} />
             <Route path="/account/profile" element={<AccountProfile />} />
 
             {/* App pages (aggregated member view) */}
