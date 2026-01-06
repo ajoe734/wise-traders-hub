@@ -16,13 +16,16 @@ import {
   GraduationCap
 } from 'lucide-react';
 
+export type AppMode = 'signals' | 'learning';
+
 interface ModeSwitcherContentProps {
   advisorSubs: SubscriptionWithDetails[];
   mentorSubs: SubscriptionWithDetails[];
   userName?: string;
+  onSelectMode: (mode: AppMode) => void;
 }
 
-function ModeSwitcherContent({ advisorSubs, mentorSubs, userName }: ModeSwitcherContentProps) {
+function ModeSwitcherContent({ advisorSubs, mentorSubs, userName, onSelectMode }: ModeSwitcherContentProps) {
   const primaryAdvisorSub = advisorSubs[0];
   const primaryMentorSub = mentorSubs[0];
 
@@ -40,7 +43,7 @@ function ModeSwitcherContent({ advisorSubs, mentorSubs, userName }: ModeSwitcher
       <div className="space-y-4 animate-slide-up">
         {/* 跟單派 - Signals Mode */}
         {primaryAdvisorSub && (
-          <Link to="/app">
+          <div onClick={() => onSelectMode('signals')}>
             <Card className="border-2 border-advisor/30 hover:border-advisor/60 transition-all hover:shadow-lg hover:shadow-advisor/10 group cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
@@ -91,12 +94,12 @@ function ModeSwitcherContent({ advisorSubs, mentorSubs, userName }: ModeSwitcher
                 </div>
               </CardContent>
             </Card>
-          </Link>
+          </div>
         )}
 
         {/* 修煉派 - Learning Mode */}
         {primaryMentorSub && (
-          <Link to="/app">
+          <div onClick={() => onSelectMode('learning')}>
             <Card className="border-2 border-mentor/30 hover:border-mentor/60 transition-all hover:shadow-lg hover:shadow-mentor/10 group cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
@@ -147,7 +150,7 @@ function ModeSwitcherContent({ advisorSubs, mentorSubs, userName }: ModeSwitcher
                 </div>
               </CardContent>
             </Card>
-          </Link>
+          </div>
         )}
       </div>
 
@@ -169,41 +172,6 @@ function ModeSwitcherContent({ advisorSubs, mentorSubs, userName }: ModeSwitcher
         </Link>
       </div>
     </div>
-  );
-}
-
-// Standalone page version that fetches its own data
-export default function ModeSwitcherPage() {
-  const { user } = useAuth();
-  const subscriptions = user ? getUserSubscriptions(user.id) : [];
-  
-  const advisorSubs = subscriptions.filter(s => 
-    s.plan.planType === PlanType.ANALYST_SIGNAL_L1 || 
-    s.plan.planType === PlanType.ANALYST_SIGNAL_DIAG_L2
-  );
-  const mentorSubs = subscriptions.filter(s => 
-    s.plan.planType === PlanType.MENTOR_WEEKLY_JOURNAL
-  );
-
-  // If user has only one type, redirect to appropriate dashboard
-  if (advisorSubs.length > 0 && mentorSubs.length === 0) {
-    return <Navigate to="/app" replace />;
-  }
-  if (mentorSubs.length > 0 && advisorSubs.length === 0) {
-    return <Navigate to="/app" replace />;
-  }
-  if (advisorSubs.length === 0 && mentorSubs.length === 0) {
-    return <Navigate to="/app" replace />;
-  }
-
-  return (
-    <AppLayout>
-      <ModeSwitcherContent 
-        advisorSubs={advisorSubs}
-        mentorSubs={mentorSubs}
-        userName={user?.name || undefined}
-      />
-    </AppLayout>
   );
 }
 
