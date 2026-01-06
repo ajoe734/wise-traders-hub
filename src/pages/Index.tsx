@@ -34,6 +34,23 @@ import { useCallback, useEffect, useState } from 'react';
 // Mobile VS Carousel Component - Showcase/Turntable style
 const MobileVsCarousel = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [showHint, setShowHint] = useState(true);
+
+  // Stop hint animation after first interaction
+  useEffect(() => {
+    if (hasInteracted) {
+      setShowHint(false);
+    }
+  }, [hasInteracted]);
+
+  // Auto-hide hint after 4 seconds even without interaction
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowHint(false);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const cards = [
     {
@@ -104,11 +121,14 @@ const MobileVsCarousel = () => {
           const isActive = index === selectedIndex;
           const offset = index - selectedIndex;
           
+          // Hint animation class for swipe indication
+          const hintClass = showHint && isActive ? 'animate-swipe-hint' : '';
+          
           return (
             <div
               key={card.id}
-              onClick={() => setSelectedIndex(index)}
-              className="absolute inset-x-0 mx-auto cursor-pointer transition-all duration-500 ease-out"
+              onClick={() => { setSelectedIndex(index); setHasInteracted(true); }}
+              className={`absolute inset-x-0 mx-auto cursor-pointer transition-all duration-500 ease-out ${hintClass}`}
               style={{
                 width: isActive ? '92%' : '75%',
                 transform: isActive 
