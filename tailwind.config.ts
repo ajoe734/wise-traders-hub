@@ -146,6 +146,17 @@ export default {
             boxShadow: "0 0 16px 4px hsla(45, 90%, 60%, 0.6), 0 0 32px 8px hsla(45, 90%, 55%, 0.35)",
           },
         },
+        "swipe-hint": {
+          "0%, 100%": { 
+            transform: "translateX(0) translateZ(0) rotateY(0deg) scale(1)",
+          },
+          "25%": { 
+            transform: "translateX(-8px) translateZ(0) rotateY(-2deg) scale(1)",
+          },
+          "75%": { 
+            transform: "translateX(8px) translateZ(0) rotateY(2deg) scale(1)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -153,6 +164,7 @@ export default {
         "fade-in": "fade-in 0.3s ease-out forwards",
         "slide-up": "slide-up 0.4s ease-out forwards",
         "gold-glow": "gold-glow 2s ease-in-out infinite",
+        "swipe-hint": "swipe-hint 1.5s ease-in-out infinite",
       },
     },
   },
