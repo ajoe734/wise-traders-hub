@@ -1,6 +1,7 @@
-import { Navigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { ModeSwitcher } from '@/pages/app/ModeSwitcher';
+import { SignalsDashboard } from '@/pages/app/SignalsDashboard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,17 +21,37 @@ const AppHome = () => {
     s.plan.planType === PlanType.MENTOR_WEEKLY_JOURNAL
   );
 
-  // Smart auto-redirect logic
-  // Only advisor subscriptions → go directly to signals dashboard
+  // Smart routing logic based on subscriptions
+  
+  // Only advisor subscriptions → show SignalsDashboard directly
   if (advisorSubs.length > 0 && mentorSubs.length === 0) {
-    const primaryAdvisor = advisorSubs[0];
-    return <Navigate to={`/line/${primaryAdvisor.person.slug}/home`} replace />;
+    return (
+      <AppLayout>
+        <SignalsDashboard 
+          subscriptions={advisorSubs}
+          userName={user?.name || undefined}
+        />
+      </AppLayout>
+    );
   }
 
-  // Only mentor subscriptions → go directly to learning dashboard
+  // Only mentor subscriptions → go to learning dashboard (Phase 3)
+  // For now, redirect to the mentor's home page
   if (mentorSubs.length > 0 && advisorSubs.length === 0) {
-    const primaryMentor = mentorSubs[0];
-    return <Navigate to={`/line/${primaryMentor.person.slug}/home`} replace />;
+    // TODO: Phase 3 - Replace with LearningDashboard
+    return (
+      <AppLayout>
+        <div className="p-4 space-y-6 text-center pt-8">
+          <h1 className="text-xl font-bold">修煉派｜學習系統</h1>
+          <p className="text-muted-foreground">Phase 3 建置中...</p>
+          <Button asChild>
+            <Link to={`/line/${mentorSubs[0].person.slug}/home`}>
+              進入 {mentorSubs[0].person.name} 的學習區
+            </Link>
+          </Button>
+        </div>
+      </AppLayout>
+    );
   }
 
   // Both types → show mode switcher
