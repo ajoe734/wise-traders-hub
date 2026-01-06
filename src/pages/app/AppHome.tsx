@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { ModeSwitcher } from '@/pages/app/ModeSwitcher';
 import { SignalsDashboard } from '@/pages/app/SignalsDashboard';
+import { LearningDashboard } from '@/pages/app/LearningDashboard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,21 +36,14 @@ const AppHome = () => {
     );
   }
 
-  // Only mentor subscriptions → go to learning dashboard (Phase 3)
-  // For now, redirect to the mentor's home page
+  // Only mentor subscriptions → show LearningDashboard directly
   if (mentorSubs.length > 0 && advisorSubs.length === 0) {
-    // TODO: Phase 3 - Replace with LearningDashboard
     return (
       <AppLayout>
-        <div className="p-4 space-y-6 text-center pt-8">
-          <h1 className="text-xl font-bold">修煉派｜學習系統</h1>
-          <p className="text-muted-foreground">Phase 3 建置中...</p>
-          <Button asChild>
-            <Link to={`/line/${mentorSubs[0].person.slug}/home`}>
-              進入 {mentorSubs[0].person.name} 的學習區
-            </Link>
-          </Button>
-        </div>
+        <LearningDashboard 
+          subscriptions={mentorSubs}
+          userName={user?.name || undefined}
+        />
       </AppLayout>
     );
   }
