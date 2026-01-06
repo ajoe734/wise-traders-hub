@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { CheckCircle, ArrowRight, Radio, BookOpen, Stethoscope, Plus, AlertCircle, Zap, Clock, Target, Lightbulb, Eye, ChevronDown } from 'lucide-react';
+import { CheckCircle, ArrowRight, Radio, BookOpen, Stethoscope, Plus, AlertCircle, Zap, Clock, Target, Lightbulb, Eye, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
 import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 
@@ -16,9 +17,33 @@ const Pricing = () => {
   const [activeExample, setActiveExample] = useState<'follower' | 'cultivator' | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [highlightedCard, setHighlightedCard] = useState<'follower' | 'cultivator' | null>(null);
+  const [mobileSelectedIndex, setMobileSelectedIndex] = useState(0);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [showHint, setShowHint] = useState(true);
   
+  const isMobile = useIsMobile();
   const followerCardRef = useRef<HTMLDivElement>(null);
   const cultivatorCardRef = useRef<HTMLDivElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  
+  // Touch handling for mobile carousel
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+
+  // Stop hint animation after first interaction
+  useEffect(() => {
+    if (hasInteracted) {
+      setShowHint(false);
+    }
+  }, [hasInteracted]);
+
+  // Auto-hide hint after 4 seconds even without interaction
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowHint(false);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const openExample = (type: 'follower' | 'cultivator') => {
     setActiveExample(type);
@@ -26,19 +51,45 @@ const Pricing = () => {
   };
 
   const handlePillClick = (cardType: 'follower' | 'cultivator') => {
-    const targetRef = cardType === 'follower' ? followerCardRef : cultivatorCardRef;
-    const cardId = cardType === 'follower' ? 'follower' : 'cultivator';
+    const targetIndex = cardType === 'follower' ? 0 : 1;
     
-    // Expand the clicked card (don't collapse the other)
-    setExpandedCards(prev => new Set(prev).add(cardId));
-    
-    // Smooth scroll to card
-    setTimeout(() => {
-      targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
+    // On mobile, switch carousel to the selected card
+    if (isMobile) {
+      setMobileSelectedIndex(targetIndex);
+      setHasInteracted(true);
+      // Scroll to carousel section
+      setTimeout(() => {
+        carouselRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    } else {
+      const targetRef = cardType === 'follower' ? followerCardRef : cultivatorCardRef;
+      const cardId = cardType === 'follower' ? 'follower' : 'cultivator';
+      
+      // Expand the clicked card (don't collapse the other)
+      setExpandedCards(prev => new Set(prev).add(cardId));
+      
+      // Smooth scroll to card
+      setTimeout(() => {
+        targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
     
     // Toggle highlight: clicking same pill again will turn off, clicking other pill switches
     setHighlightedCard(prev => prev === cardType ? null : cardType);
+  };
+
+  const handleSwipe = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    const threshold = 50;
+    
+    if (Math.abs(diff) > threshold) {
+      setHasInteracted(true);
+      if (diff > 0 && mobileSelectedIndex < 1) {
+        setMobileSelectedIndex(1);
+      } else if (diff < 0 && mobileSelectedIndex > 0) {
+        setMobileSelectedIndex(0);
+      }
+    }
   };
 
   const toggleCardExpansion = (cardId: string, isExpanded: boolean) => {
@@ -149,162 +200,389 @@ const Pricing = () => {
         </div>
 
         {/* Main Plans */}
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
-          {mainPlans.map((plan) => {
-            const isAdvisor = plan.color === 'advisor';
-            const isExpanded = expandedCards.has(plan.id);
-            const isHighlighted = highlightedCard === plan.id;
-            
-            return (
-              <Card 
-                key={plan.id}
-                ref={plan.ref}
-                id={`${plan.id}-card`}
-                className={cn(
-                  "relative overflow-hidden border-2 transition-all duration-500",
-                  isAdvisor ? "border-advisor/30" : "border-mentor/30"
-                )}
-              >
-                {/* Background Image - adjusted positioning */}
-                {isAdvisor && <div className="absolute inset-0 bg-[#1a0a0a]" />}
-                <div 
-                  className="absolute inset-0 bg-cover bg-no-repeat transition-all duration-500"
-                  style={{ 
-                    backgroundImage: `url(${isAdvisor ? cardKungfuSpeed : cardKungfuBones})`,
-                    backgroundPosition: isAdvisor ? 'right -100px center' : 'left -120px center',
-                    filter: 'brightness(0.85) contrast(1.05)',
-                    opacity: 0.7
-                  }}
-                />
-                {/* Stronger overlay for better text readability */}
-                <div className={cn(
-                  "absolute inset-0 transition-opacity duration-300",
-                  isAdvisor 
-                    ? "bg-gradient-to-r from-black/95 via-black/85 to-black/50" 
-                    : "bg-gradient-to-l from-black/95 via-black/85 to-black/50",
-                  (isHighlighted || isExpanded) && "opacity-40"
-                )} />
-                {/* Top color bar */}
-                <div className={cn(
-                  "absolute top-0 left-0 right-0 h-1.5 z-10",
-                  isAdvisor ? "gradient-advisor" : "gradient-mentor"
-                )} />
+        {isMobile ? (
+          /* Mobile Carousel - Showcase/Turntable Style */
+          <div 
+            ref={carouselRef}
+            className="relative mb-12 px-4"
+            style={{ perspective: '1000px' }}
+          >
+            <div 
+              className="relative h-[520px]"
+              onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+              onTouchEnd={(e) => { touchEndX.current = e.changedTouches[0].clientX; handleSwipe(); }}
+            >
+              {mainPlans.map((plan, index) => {
+                const isActive = index === mobileSelectedIndex;
+                const offset = index - mobileSelectedIndex;
+                const isAdvisor = plan.color === 'advisor';
+                const isExpanded = expandedCards.has(plan.id);
                 
-                <CardHeader className="pb-3 relative z-10">
-                  <div className={cn(
-                    "h-12 w-12 rounded-xl flex items-center justify-center mb-3 backdrop-blur-sm",
-                    isAdvisor ? "bg-advisor/20 ring-1 ring-advisor/30" : "bg-mentor/20 ring-1 ring-mentor/30"
-                  )}>
-                    <plan.icon className={cn(
-                      "h-6 w-6",
-                      isAdvisor ? "text-advisor" : "text-mentor"
-                    )} />
-                  </div>
-                  <Badge 
-                    variant={isAdvisor ? 'advisor' : 'mentor'}
-                    className="w-fit mb-2 text-sm px-3 py-1"
-                  >
-                    {plan.faction}
-                  </Badge>
-                  <CardTitle className="text-xl text-white">{plan.title}</CardTitle>
-                  {/* Pain Point Sentence */}
-                  <p 
-                    className="text-sm font-semibold mt-2 italic drop-shadow-sm"
-                    style={{ 
-                      color: 'hsl(30, 100%, 70%)',
-                      textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+                // Hint animation class for swipe indication
+                const hintClass = showHint && isActive ? 'animate-swipe-hint' : '';
+
+                return (
+                  <div
+                    key={plan.id}
+                    onClick={() => { setMobileSelectedIndex(index); setHasInteracted(true); }}
+                    className={`absolute inset-x-0 mx-auto cursor-pointer transition-all duration-500 ease-out ${hintClass}`}
+                    style={{
+                      width: isActive ? '92%' : '75%',
+                      transform: isActive 
+                        ? 'translateX(0) translateZ(0) scale(1)' 
+                        : `translateX(${offset * 60}%) translateZ(-80px) rotateY(${offset * -8}deg) scale(0.88)`,
+                      opacity: isActive ? 1 : 0.5,
+                      filter: isActive ? 'none' : 'brightness(0.7)',
+                      zIndex: isActive ? 20 : 10,
+                      pointerEvents: isActive ? 'auto' : 'auto',
                     }}
                   >
-                    「{plan.painPoint}」
-                  </p>
-                </CardHeader>
-                
-                <CardContent className="space-y-4 relative z-10">
-                  {/* Quick Chips - 3 items */}
-                  <div className="flex flex-wrap gap-2">
-                    {plan.quickChips.map((chip, idx) => (
-                      <span 
-                        key={idx}
-                        className={cn(
-                          "text-xs px-3 py-1.5 rounded-full",
-                          isAdvisor 
-                            ? "bg-advisor/20 text-white border border-advisor/30" 
-                            : "bg-mentor/20 text-white border border-mentor/30"
-                        )}
-                      >
-                        {chip}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Price + CTA - Most prominent */}
-                  <div className="pt-4 pb-2 border-t border-white/20">
-                    <div className="flex items-baseline gap-1 mb-4">
-                      <span className="text-sm text-white/60">NT$</span>
-                      <span className="text-3xl font-bold text-white">{plan.price}</span>
-                      <span className="text-white/60">／月</span>
-                    </div>
-                    
-                    {/* CTA Buttons */}
-                    <div className="space-y-3">
-                      <Button 
-                        variant={isAdvisor ? 'advisor' : 'mentor'} 
-                        className="w-full"
-                        size="lg"
-                        asChild
-                      >
-                        <Link to={plan.cta}>
-                          {plan.ctaText}
-                          <ArrowRight className="h-4 w-4 ml-2" />
-                        </Link>
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        className="w-full text-white/50 hover:text-white/80 hover:bg-white/5"
-                        size="sm"
-                        onClick={() => openExample(plan.id as 'follower' | 'cultivator')}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        先看範例
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Accordion for full details */}
-                  <Accordion 
-                    type="single" 
-                    collapsible 
-                    value={isExpanded ? 'details' : ''}
-                    onValueChange={(val) => toggleCardExpansion(plan.id, !!val)}
-                    className="border-t border-white/10 pt-2"
-                  >
-                    <AccordionItem value="details" className="border-none">
-                      <AccordionTrigger className="text-sm text-white/60 hover:text-white/80 py-2 hover:no-underline">
-                        看完整內容
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-2">
-                        <div className="text-sm text-white/60 mb-2">
-                          你會拿到：
+                    <Card 
+                      ref={plan.ref}
+                      id={`${plan.id}-card`}
+                      className={cn(
+                        "relative overflow-hidden border-2 transition-all duration-500",
+                        isAdvisor ? "border-advisor/30" : "border-mentor/30"
+                      )}
+                    >
+                      {/* Background Image */}
+                      {isAdvisor && <div className="absolute inset-0 bg-[#1a0a0a]" />}
+                      <div 
+                        className="absolute inset-0 bg-cover bg-no-repeat transition-all duration-500"
+                        style={{ 
+                          backgroundImage: `url(${isAdvisor ? cardKungfuSpeed : cardKungfuBones})`,
+                          backgroundPosition: isAdvisor ? 'right -100px center' : 'left -120px center',
+                          filter: 'brightness(0.85) contrast(1.05)',
+                          opacity: 0.7
+                        }}
+                      />
+                      {/* Overlay for text readability */}
+                      <div className={cn(
+                        "absolute inset-0 transition-opacity duration-300",
+                        isAdvisor 
+                          ? "bg-gradient-to-r from-black/95 via-black/85 to-black/50" 
+                          : "bg-gradient-to-l from-black/95 via-black/85 to-black/50",
+                        isExpanded && "opacity-40"
+                      )} />
+                      {/* Top color bar */}
+                      <div className={cn(
+                        "absolute top-0 left-0 right-0 h-1.5 z-10",
+                        isAdvisor ? "gradient-advisor" : "gradient-mentor"
+                      )} />
+                      
+                      <CardHeader className="pb-3 relative z-10">
+                        <div className={cn(
+                          "h-12 w-12 rounded-xl flex items-center justify-center mb-3 backdrop-blur-sm",
+                          isAdvisor ? "bg-advisor/20 ring-1 ring-advisor/30" : "bg-mentor/20 ring-1 ring-mentor/30"
+                        )}>
+                          <plan.icon className={cn(
+                            "h-6 w-6",
+                            isAdvisor ? "text-advisor" : "text-mentor"
+                          )} />
                         </div>
-                        <ul className="space-y-2">
-                          {plan.features.map((feature, idx) => (
-                            <li key={idx} className="flex items-center gap-2.5">
-                              <CheckCircle className={cn(
-                                "h-4 w-4 flex-shrink-0",
-                                isAdvisor ? "text-advisor" : "text-mentor"
-                              )} />
-                              <span className="text-white text-sm">{feature}</span>
-                            </li>
+                        <Badge 
+                          variant={isAdvisor ? 'advisor' : 'mentor'}
+                          className="w-fit mb-2 text-sm px-3 py-1"
+                        >
+                          {plan.faction}
+                        </Badge>
+                        <CardTitle className="text-xl text-white">{plan.title}</CardTitle>
+                        <p 
+                          className="text-sm font-semibold mt-2 italic drop-shadow-sm"
+                          style={{ 
+                            color: 'hsl(30, 100%, 70%)',
+                            textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+                          }}
+                        >
+                          「{plan.painPoint}」
+                        </p>
+                      </CardHeader>
+                      
+                      <CardContent className="space-y-4 relative z-10">
+                        {/* Quick Chips */}
+                        <div className="flex flex-wrap gap-2">
+                          {plan.quickChips.map((chip, idx) => (
+                            <span 
+                              key={idx}
+                              className={cn(
+                                "text-xs px-3 py-1.5 rounded-full",
+                                isAdvisor 
+                                  ? "bg-advisor/20 text-white border border-advisor/30" 
+                                  : "bg-mentor/20 text-white border border-mentor/30"
+                              )}
+                            >
+                              {chip}
+                            </span>
                           ))}
-                        </ul>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                        </div>
+
+                        {/* Price + CTA */}
+                        <div className="pt-4 pb-2 border-t border-white/20">
+                          <div className="flex items-baseline gap-1 mb-4">
+                            <span className="text-sm text-white/60">NT$</span>
+                            <span className="text-3xl font-bold text-white">{plan.price}</span>
+                            <span className="text-white/60">／月</span>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <Button 
+                              variant={isAdvisor ? 'advisor' : 'mentor'} 
+                              className="w-full"
+                              size="lg"
+                              asChild
+                            >
+                              <Link to={plan.cta}>
+                                {plan.ctaText}
+                                <ArrowRight className="h-4 w-4 ml-2" />
+                              </Link>
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              className="w-full text-white/50 hover:text-white/80 hover:bg-white/5"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); openExample(plan.id as 'follower' | 'cultivator'); }}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              先看範例
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Accordion for details */}
+                        <Accordion 
+                          type="single" 
+                          collapsible 
+                          value={isExpanded ? 'details' : ''}
+                          onValueChange={(val) => toggleCardExpansion(plan.id, !!val)}
+                          className="border-t border-white/10 pt-2"
+                        >
+                          <AccordionItem value="details" className="border-none">
+                            <AccordionTrigger 
+                              className="text-sm text-white/60 hover:text-white/80 py-2 hover:no-underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              看完整內容
+                            </AccordionTrigger>
+                            <AccordionContent className="pt-2">
+                              <div className="text-sm text-white/60 mb-2">你會拿到：</div>
+                              <ul className="space-y-2">
+                                {plan.features.map((feature, idx) => (
+                                  <li key={idx} className="flex items-center gap-2.5">
+                                    <CheckCircle className={cn(
+                                      "h-4 w-4 flex-shrink-0",
+                                      isAdvisor ? "text-advisor" : "text-mentor"
+                                    )} />
+                                    <span className="text-white text-sm">{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Navigation Arrows */}
+            <button
+              onClick={() => { setMobileSelectedIndex(0); setHasInteracted(true); }}
+              className={cn(
+                "absolute left-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-black/40 backdrop-blur-sm transition-opacity",
+                mobileSelectedIndex === 0 ? "opacity-30" : "opacity-100"
+              )}
+              disabled={mobileSelectedIndex === 0}
+            >
+              <ChevronLeft className="h-5 w-5 text-white" />
+            </button>
+            <button
+              onClick={() => { setMobileSelectedIndex(1); setHasInteracted(true); }}
+              className={cn(
+                "absolute right-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-black/40 backdrop-blur-sm transition-opacity",
+                mobileSelectedIndex === 1 ? "opacity-30" : "opacity-100"
+              )}
+              disabled={mobileSelectedIndex === 1}
+            >
+              <ChevronRight className="h-5 w-5 text-white" />
+            </button>
+
+            {/* Dot indicators */}
+            <div className="flex justify-center gap-2 mt-4">
+              {mainPlans.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => { setMobileSelectedIndex(index); setHasInteracted(true); }}
+                  className={cn(
+                    "h-2 rounded-full transition-all duration-300",
+                    index === mobileSelectedIndex 
+                      ? "w-6 bg-primary" 
+                      : "w-2 bg-muted-foreground/30"
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* Desktop Grid */
+          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
+            {mainPlans.map((plan) => {
+              const isAdvisor = plan.color === 'advisor';
+              const isExpanded = expandedCards.has(plan.id);
+              const isHighlighted = highlightedCard === plan.id;
+              
+              return (
+                <Card 
+                  key={plan.id}
+                  ref={plan.ref}
+                  id={`${plan.id}-card`}
+                  className={cn(
+                    "relative overflow-hidden border-2 transition-all duration-500",
+                    isAdvisor ? "border-advisor/30" : "border-mentor/30"
+                  )}
+                >
+                  {/* Background Image - adjusted positioning */}
+                  {isAdvisor && <div className="absolute inset-0 bg-[#1a0a0a]" />}
+                  <div 
+                    className="absolute inset-0 bg-cover bg-no-repeat transition-all duration-500"
+                    style={{ 
+                      backgroundImage: `url(${isAdvisor ? cardKungfuSpeed : cardKungfuBones})`,
+                      backgroundPosition: isAdvisor ? 'right -100px center' : 'left -120px center',
+                      filter: 'brightness(0.85) contrast(1.05)',
+                      opacity: 0.7
+                    }}
+                  />
+                  {/* Stronger overlay for better text readability */}
+                  <div className={cn(
+                    "absolute inset-0 transition-opacity duration-300",
+                    isAdvisor 
+                      ? "bg-gradient-to-r from-black/95 via-black/85 to-black/50" 
+                      : "bg-gradient-to-l from-black/95 via-black/85 to-black/50",
+                    (isHighlighted || isExpanded) && "opacity-40"
+                  )} />
+                  {/* Top color bar */}
+                  <div className={cn(
+                    "absolute top-0 left-0 right-0 h-1.5 z-10",
+                    isAdvisor ? "gradient-advisor" : "gradient-mentor"
+                  )} />
+                  
+                  <CardHeader className="pb-3 relative z-10">
+                    <div className={cn(
+                      "h-12 w-12 rounded-xl flex items-center justify-center mb-3 backdrop-blur-sm",
+                      isAdvisor ? "bg-advisor/20 ring-1 ring-advisor/30" : "bg-mentor/20 ring-1 ring-mentor/30"
+                    )}>
+                      <plan.icon className={cn(
+                        "h-6 w-6",
+                        isAdvisor ? "text-advisor" : "text-mentor"
+                      )} />
+                    </div>
+                    <Badge 
+                      variant={isAdvisor ? 'advisor' : 'mentor'}
+                      className="w-fit mb-2 text-sm px-3 py-1"
+                    >
+                      {plan.faction}
+                    </Badge>
+                    <CardTitle className="text-xl text-white">{plan.title}</CardTitle>
+                    {/* Pain Point Sentence */}
+                    <p 
+                      className="text-sm font-semibold mt-2 italic drop-shadow-sm"
+                      style={{ 
+                        color: 'hsl(30, 100%, 70%)',
+                        textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+                      }}
+                    >
+                      「{plan.painPoint}」
+                    </p>
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-4 relative z-10">
+                    {/* Quick Chips - 3 items */}
+                    <div className="flex flex-wrap gap-2">
+                      {plan.quickChips.map((chip, idx) => (
+                        <span 
+                          key={idx}
+                          className={cn(
+                            "text-xs px-3 py-1.5 rounded-full",
+                            isAdvisor 
+                              ? "bg-advisor/20 text-white border border-advisor/30" 
+                              : "bg-mentor/20 text-white border border-mentor/30"
+                          )}
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Price + CTA - Most prominent */}
+                    <div className="pt-4 pb-2 border-t border-white/20">
+                      <div className="flex items-baseline gap-1 mb-4">
+                        <span className="text-sm text-white/60">NT$</span>
+                        <span className="text-3xl font-bold text-white">{plan.price}</span>
+                        <span className="text-white/60">／月</span>
+                      </div>
+                      
+                      {/* CTA Buttons */}
+                      <div className="space-y-3">
+                        <Button 
+                          variant={isAdvisor ? 'advisor' : 'mentor'} 
+                          className="w-full"
+                          size="lg"
+                          asChild
+                        >
+                          <Link to={plan.cta}>
+                            {plan.ctaText}
+                            <ArrowRight className="h-4 w-4 ml-2" />
+                          </Link>
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          className="w-full text-white/50 hover:text-white/80 hover:bg-white/5"
+                          size="sm"
+                          onClick={() => openExample(plan.id as 'follower' | 'cultivator')}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          先看範例
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Accordion for full details */}
+                    <Accordion 
+                      type="single" 
+                      collapsible 
+                      value={isExpanded ? 'details' : ''}
+                      onValueChange={(val) => toggleCardExpansion(plan.id, !!val)}
+                      className="border-t border-white/10 pt-2"
+                    >
+                      <AccordionItem value="details" className="border-none">
+                        <AccordionTrigger className="text-sm text-white/60 hover:text-white/80 py-2 hover:no-underline">
+                          看完整內容
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-2">
+                          <div className="text-sm text-white/60 mb-2">
+                            你會拿到：
+                          </div>
+                          <ul className="space-y-2">
+                            {plan.features.map((feature, idx) => (
+                              <li key={idx} className="flex items-center gap-2.5">
+                                <CheckCircle className={cn(
+                                  "h-4 w-4 flex-shrink-0",
+                                  isAdvisor ? "text-advisor" : "text-mentor"
+                                )} />
+                                <span className="text-white text-sm">{feature}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         {/* Example Modal */}
         <Dialog open={exampleModalOpen} onOpenChange={setExampleModalOpen}>
