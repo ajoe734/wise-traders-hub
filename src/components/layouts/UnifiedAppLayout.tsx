@@ -4,8 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getUserSubscriptions, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
 import { PlanType } from '@/types';
 import { 
-  Home, Radio, BookOpen, User, TrendingUp, LogOut, ChevronRight, ChevronLeft,
-  Briefcase, BarChart3, GraduationCap, Library, Compass
+  Home, Radio, BookOpen, User, LogOut, ChevronRight, ChevronLeft,
+  Briefcase, Target
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -24,8 +24,6 @@ export function markAppJournalsAsRead() {
 // Get which nav group a path belongs to
 const getNavGroup = (pathname: string): string => {
   if (pathname === '/app') return '/app';
-  if (pathname === '/app/dashboard/signals') return '/app/dashboard/signals';
-  if (pathname === '/app/dashboard/learning') return '/app/dashboard/learning';
   if (pathname === '/app/signals' || pathname.startsWith('/app/signal/')) return '/app/signals';
   if (pathname === '/app/journals' || pathname.startsWith('/app/journal/')) return '/app/journals';
   if (pathname === '/app/holdings' || pathname.startsWith('/app/holdings')) return '/app/holdings';
@@ -126,37 +124,17 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
     hasAdvisor ? 'signals' :
     hasMentor ? 'learning' : 'signals';
 
-  // Build nav items based on subscription type
+  // Build nav items based on subscription type - unified navigation for all users
   const bottomNavItems: NavItem[] = useMemo(() => {
-    if (hasAdvisor && !hasMentor) {
-      // Signals only: 戰情室, 訊號, 持倉, 績效, 帳號
-      return [
-        { href: '/app/dashboard/signals', icon: Home, label: '戰情室', group: '/app/dashboard/signals' },
-        { href: '/app/signals', icon: Radio, label: '訊號', group: '/app/signals', badgeKey: 'signals' },
-        { href: '/app/holdings', icon: Briefcase, label: '持倉', group: '/app/holdings' },
-        { href: '/app/performance', icon: BarChart3, label: '績效', group: '/app/performance' },
-        { href: '/app/account', icon: User, label: '帳號', group: '/app/account' },
-      ];
-    }
-    if (hasMentor && !hasAdvisor) {
-      // Learning only: 學習中心, 週記, 課程, 知識庫, 帳號
-      return [
-        { href: '/app/dashboard/learning', icon: Home, label: '首頁', group: '/app/dashboard/learning' },
-        { href: '/app/journals', icon: BookOpen, label: '週記', group: '/app/journals', badgeKey: 'journals' },
-        { href: '/app/courses', icon: GraduationCap, label: '課程', group: '/app/courses' },
-        { href: '/app/library', icon: Library, label: '知識庫', group: '/app/library' },
-        { href: '/app/account', icon: User, label: '帳號', group: '/app/account' },
-      ];
-    }
-    // Both or no subscriptions: 首頁, 訊號, 週記, 持倉, 帳號
+    // All users get the same unified navigation: 戰情室, 訊號, 週記, 持倉, 帳號
     return [
-      { href: '/app', icon: Home, label: '首頁', group: '/app' },
+      { href: '/app', icon: Home, label: '戰情室', group: '/app' },
       { href: '/app/signals', icon: Radio, label: '訊號', group: '/app/signals', badgeKey: 'signals' },
       { href: '/app/journals', icon: BookOpen, label: '週記', group: '/app/journals', badgeKey: 'journals' },
       { href: '/app/holdings', icon: Briefcase, label: '持倉', group: '/app/holdings' },
       { href: '/app/account', icon: User, label: '帳號', group: '/app/account' },
     ];
-  }, [hasAdvisor, hasMentor]);
+  }, []);
 
   const breadcrumbs = useMemo(() => 
     getBreadcrumbConfig(location.pathname, mode),
@@ -224,26 +202,14 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
     return 0;
   };
 
-  // Theme classes
-  const themeClass = mode === 'learning' ? 'learning-theme' : mode === 'signals' ? 'signals-theme' : '';
-  const accentColor = mode === 'learning' ? 'learning-accent' : mode === 'signals' ? 'signals-accent' : 'primary';
-  const headerBg = mode === 'learning' 
-    ? 'bg-gradient-to-r from-learning-header via-learning-header to-learning-accent/5 border-learning-border'
-    : mode === 'signals'
-    ? 'bg-gradient-to-r from-signals-header via-signals-header to-signals-accent/5 border-signals-border'
-    : 'bg-background/95 border-border';
-  const navBg = mode === 'learning'
-    ? 'bg-gradient-to-t from-learning-nav via-learning-nav to-learning-nav/95 border-learning-border'
-    : mode === 'signals'
-    ? 'bg-gradient-to-t from-signals-nav via-signals-nav to-signals-nav/95 border-signals-border'
-    : 'bg-background/95 border-border';
-
-  const headerTitle = mode === 'learning' ? '修煉學習系統' : mode === 'signals' ? '跟單戰情室' : '智富股市實戰學院';
-  const headerSubtitle = mode === 'learning' ? 'LEARNING MODE' : mode === 'signals' ? 'SIGNALS MODE' : '';
-  const HeaderIcon = mode === 'learning' ? Compass : TrendingUp;
+  // Unified theme - no mode switching
+  const headerBg = 'bg-background/95 border-border';
+  const navBg = 'bg-background/95 border-border';
+  const headerTitle = '會員戰情室';
+  const HeaderIcon = Target;
 
   return (
-    <div className={cn("min-h-screen bg-background flex flex-col", themeClass)}>
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Top Header */}
       <header className={cn(
         "sticky top-0 z-50 border-b backdrop-blur supports-[backdrop-filter]:bg-background/80",
@@ -262,57 +228,27 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
               </button>
             )}
             <Link to="/app" className="flex items-center gap-2">
-              <div className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-xl shadow-lg",
-                mode === 'learning' 
-                  ? "bg-gradient-to-br from-learning-accent to-learning-accent/80 shadow-[0_0_12px_-3px_hsl(var(--learning-accent)/0.5)]"
-                  : mode === 'signals'
-                  ? "bg-gradient-to-br from-signals-accent to-signals-accent/80 shadow-[0_0_12px_-3px_hsl(var(--signals-accent)/0.5)]"
-                  : "gradient-hero"
-              )}>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl shadow-lg gradient-hero">
                 <HeaderIcon className="h-4 w-4 text-white" />
               </div>
-              <div className="flex flex-col">
-                <span className="font-semibold text-foreground text-sm">{headerTitle}</span>
-                {headerSubtitle && (
-                  <span className={cn(
-                    "text-[10px] font-medium tracking-wider",
-                    mode === 'learning' ? 'text-learning-accent' : 'text-signals-accent'
-                  )}>{headerSubtitle}</span>
-                )}
-              </div>
+              <span className="font-semibold text-foreground text-sm">{headerTitle}</span>
             </Link>
           </div>
-          <div className="flex items-center gap-2">
-            {mode === 'both' && (
-              <Link 
-                to="/app/mode-switch"
-                className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-foreground/10 hover:border-primary/50 hover:bg-primary/5 transition-all"
-              >
-                切換模式
-              </Link>
-            )}
-            <button
-              onClick={() => {
-                logout();
-                navigate('/');
-              }}
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-              title="登出"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              logout();
+              navigate('/');
+            }}
+            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+            title="登出"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Breadcrumbs */}
         {showBreadcrumbs && (
-          <div className={cn(
-            "px-4 py-2 border-t",
-            mode === 'learning' ? 'bg-learning-accent/5 border-learning-border/50' :
-            mode === 'signals' ? 'bg-signals-accent/5 border-signals-border/50' :
-            'bg-muted/30 border-border/50'
-          )}>
+          <div className="px-4 py-2 border-t bg-muted/30 border-border/50">
             <nav className="flex items-center gap-1 text-sm overflow-x-auto">
               {breadcrumbs.map((crumb, index) => {
                 const isLast = index === breadcrumbs.length - 1;
@@ -322,13 +258,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
                       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                     )}
                     {isLast ? (
-                      <span className={cn(
-                        "font-medium",
-                        mode === 'learning' ? 'text-learning-accent' :
-                        mode === 'signals' ? 'text-signals-accent' : 'text-primary'
-                      )}>
-                        {crumb.label}
-                      </span>
+                      <span className="font-medium text-primary">{crumb.label}</span>
                     ) : (
                       <Link 
                         to={crumb.path} 
