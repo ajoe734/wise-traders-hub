@@ -24,6 +24,8 @@ import AccountProfile from "./pages/account/Profile";
 
 // App pages (aggregated member view)
 import AppHome from "./pages/app/AppHome";
+import SignalsDashboardPage from "./pages/app/SignalsDashboardPage";
+import LearningDashboardPage from "./pages/app/LearningDashboardPage";
 import AppSignals from "./pages/app/Signals";
 import AppJournals from "./pages/app/Journals";
 import AppSignalDetail from "./pages/app/SignalDetail";
@@ -81,6 +83,8 @@ const App = () => (
 
             {/* App pages (aggregated member view) */}
             <Route path="/app" element={<AppHome />} />
+            <Route path="/app/dashboard/signals" element={<SignalsDashboardPage />} />
+            <Route path="/app/dashboard/learning" element={<LearningDashboardPage />} />
             
             <Route path="/app/signals" element={<AppSignals />} />
             <Route path="/app/journals" element={<AppJournals />} />

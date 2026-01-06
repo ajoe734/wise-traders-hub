@@ -24,6 +24,8 @@ export function markAppJournalsAsRead() {
 // Get which nav group a path belongs to
 const getNavGroup = (pathname: string): string => {
   if (pathname === '/app') return '/app';
+  if (pathname === '/app/dashboard/signals') return '/app/dashboard/signals';
+  if (pathname === '/app/dashboard/learning') return '/app/dashboard/learning';
   if (pathname === '/app/signals' || pathname.startsWith('/app/signal/')) return '/app/signals';
   if (pathname === '/app/journals' || pathname.startsWith('/app/journal/')) return '/app/journals';
   if (pathname === '/app/holdings' || pathname.startsWith('/app/holdings')) return '/app/holdings';
@@ -129,7 +131,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
     if (hasAdvisor && !hasMentor) {
       // Signals only: 戰情室, 訊號, 持倉, 績效, 帳號
       return [
-        { href: '/app', icon: Home, label: '戰情室', group: '/app' },
+        { href: '/app/dashboard/signals', icon: Home, label: '戰情室', group: '/app/dashboard/signals' },
         { href: '/app/signals', icon: Radio, label: '訊號', group: '/app/signals', badgeKey: 'signals' },
         { href: '/app/holdings', icon: Briefcase, label: '持倉', group: '/app/holdings' },
         { href: '/app/performance', icon: BarChart3, label: '績效', group: '/app/performance' },
@@ -139,7 +141,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
     if (hasMentor && !hasAdvisor) {
       // Learning only: 學習中心, 週記, 課程, 知識庫, 帳號
       return [
-        { href: '/app', icon: Home, label: '首頁', group: '/app' },
+        { href: '/app/dashboard/learning', icon: Home, label: '首頁', group: '/app/dashboard/learning' },
         { href: '/app/journals', icon: BookOpen, label: '週記', group: '/app/journals', badgeKey: 'journals' },
         { href: '/app/courses', icon: GraduationCap, label: '課程', group: '/app/courses' },
         { href: '/app/library', icon: Library, label: '知識庫', group: '/app/library' },
