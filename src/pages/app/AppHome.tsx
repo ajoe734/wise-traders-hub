@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { SectionHeader } from '@/components/ui/section-header';
 import { StatCard } from '@/components/ui/stat-card';
 import { FeatureCard } from '@/components/ui/feature-card';
-import { GlowProgress } from '@/components/ui/glow-progress';
+
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserSubscriptions, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
@@ -20,12 +20,8 @@ import {
   Briefcase,
   ArrowUpRight,
   Clock,
-  Zap,
-  Trophy,
   BookOpen,
   Lock,
-  Sparkles,
-  GraduationCap,
   CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -44,13 +40,6 @@ const mockWeeklyStats = {
   avgReturn: 4.2,
 };
 
-// Mock learning progress
-const mockLearningProgress = {
-  currentChapter: '漲停8招 第3章',
-  progressPercent: 45,
-  completedLessons: 12,
-  totalLessons: 27,
-};
 
 const AppHome = () => {
   const { user } = useAuth();
@@ -257,42 +246,40 @@ const AppHome = () => {
           />
 
           {hasMentor ? (
-            // ✅ 已訂閱修煉派
+            // ✅ 已訂閱修煉派 - 週記導向呈現
             <div className="space-y-3">
-              {/* Learning Progress */}
-              <FeatureCard theme="learning" variant="highlight" className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <BookOpen className="w-5 h-5 text-learning-accent" />
-                  <span className="font-semibold">學習進度</span>
-                  <Sparkles className="w-4 h-4 text-learning-accent ml-auto" />
-                </div>
-                
-                <p className="text-sm text-muted-foreground mb-2">{mockLearningProgress.currentChapter}</p>
-                <GlowProgress 
-                  value={mockLearningProgress.completedLessons} 
-                  max={mockLearningProgress.totalLessons}
-                  theme="learning"
-                  size="md"
-                  showLabel
-                  label={`${mockLearningProgress.completedLessons}/${mockLearningProgress.totalLessons} 課`}
-                />
-              </FeatureCard>
-
-              {/* Latest Journal */}
+              {/* Latest Journal Preview - 本週新週記 */}
               {latestJournal && (
                 <Link to={`/app/journal/${latestJournal.id}`}>
-                  <FeatureCard theme="learning" className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-learning-accent/10 flex items-center justify-center flex-shrink-0">
-                        <BookOpen className="w-5 h-5 text-learning-accent" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <Badge variant="outline" className="text-xs border-learning-accent/30 text-learning-accent mb-1">
-                          最新週記
-                        </Badge>
-                        <p className="font-medium text-sm truncate">{latestJournal.title}</p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <FeatureCard theme="learning" variant="highlight" className="p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <BookOpen className="w-5 h-5 text-learning-accent" />
+                      <span className="font-semibold">本週新週記</span>
+                      <Badge variant="mentor" className="ml-auto text-xs">
+                        {journals.length} 篇
+                      </Badge>
+                    </div>
+                    
+                    <p className="font-medium mb-2 line-clamp-1">{latestJournal.title}</p>
+                    
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                      <span>{latestJournal.trades?.length || 0} 筆交易</span>
+                      {latestJournal.learningPoints?.[0] && (
+                        <>
+                          <span>•</span>
+                          <span className="line-clamp-1">{latestJournal.learningPoints[0]}</span>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-1.5">
+                      <img 
+                        src={latestJournal.person.avatarUrl || '/placeholder.svg'} 
+                        alt={latestJournal.person.name}
+                        className="h-5 w-5 rounded-full border border-learning-accent/30"
+                      />
+                      <span className="text-xs text-muted-foreground">{latestJournal.person.name}</span>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
                     </div>
                   </FeatureCard>
                 </Link>
@@ -312,7 +299,7 @@ const AppHome = () => {
                   to="/app/journals" 
                   className="ml-auto text-sm text-learning-accent flex items-center gap-1 hover:underline"
                 >
-                  進入學習中心
+                  進入週記中心
                   <ChevronRight className="h-4 w-4" />
                 </Link>
               </div>
@@ -327,7 +314,7 @@ const AppHome = () => {
                 <div className="flex-1">
                   <h3 className="font-semibold mb-1">解鎖修煉功能</h3>
                   <p className="text-sm text-muted-foreground mb-3">
-                    跟隨導師學習，打造你的交易系統
+                    T+7 實戰週記，跟著導師學操作邏輯
                   </p>
                   <ul className="text-xs text-muted-foreground space-y-1 mb-4">
                     <li className="flex items-center gap-1.5">
@@ -336,11 +323,11 @@ const AppHome = () => {
                     </li>
                     <li className="flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-learning-accent" />
-                      完整課程體系
+                      真實操作邏輯拆解
                     </li>
                     <li className="flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-learning-accent" />
-                      導師心法傳授
+                      買賣點複盤檢討
                     </li>
                   </ul>
                   <Button asChild variant="mentor" size="sm" className="w-full">
