@@ -1,9 +1,17 @@
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useMemo, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Home, Radio, BarChart3, User, TrendingUp, LogOut, ChevronRight, Briefcase } from 'lucide-react';
+import { Home, Radio, BarChart3, User, TrendingUp, LogOut, ChevronRight, Briefcase, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect } from 'react';
+import { getSignalsForUser } from '@/data/mockData';
+import { PlanType } from '@/types';
+
+// localStorage keys for unread tracking
+const SIGNALS_LAST_SEEN_KEY = 'app:lastSeen:signals';
+
+export function markAppSignalsAsRead() {
+  localStorage.setItem(SIGNALS_LAST_SEEN_KEY, Date.now().toString());
+}
 
 // Breadcrumb configuration for signals routes
 const getBreadcrumbConfig = (pathname: string) => {
@@ -14,9 +22,15 @@ const getBreadcrumbConfig = (pathname: string) => {
     return crumbs;
   }
 
+  // Special handling for signal detail - add signals as intermediate
+  if (pathname.startsWith('/app/signal/')) {
+    crumbs.push({ label: '即時訊號', path: '/app/signals' });
+    crumbs.push({ label: '訊號詳情', path: pathname });
+    return crumbs;
+  }
+
   const routeLabels: Record<string, string> = {
     signals: '即時訊號',
-    signal: '訊號詳情',
     holdings: '持倉一覽',
     performance: '績效統計',
     account: '帳號設定',
@@ -29,10 +43,6 @@ const getBreadcrumbConfig = (pathname: string) => {
     const segment = pathSegments[i];
     currentPath += `/${segment}`;
 
-    if (i > 0 && ['signal'].includes(pathSegments[i - 1])) {
-      continue;
-    }
-
     const label = routeLabels[segment];
     if (label) {
       crumbs.push({ label, path: currentPath });
@@ -42,27 +52,58 @@ const getBreadcrumbConfig = (pathname: string) => {
   return crumbs;
 };
 
+// Get which nav group a path belongs to
+const getNavGroup = (pathname: string): string => {
+  if (pathname === '/app') return '/app';
+  if (pathname === '/app/signals' || pathname.startsWith('/app/signal/')) return '/app/signals';
+  if (pathname === '/app/holdings' || pathname.startsWith('/app/holdings')) return '/app/holdings';
+  if (pathname === '/app/performance' || pathname.startsWith('/app/performance')) return '/app/performance';
+  if (pathname === '/app/account' || pathname.startsWith('/app/account')) return '/app/account';
+  return '/app';
+};
+
 interface SignalsLayoutProps {
   children: ReactNode;
 }
 
 const bottomNavItems = [
-  { href: '/app', icon: Home, label: '戰情室' },
-  { href: '/app/signals', icon: Radio, label: '訊號' },
-  { href: '/app/holdings', icon: Briefcase, label: '持倉' },
-  { href: '/app/performance', icon: BarChart3, label: '績效' },
-  { href: '/app/account', icon: User, label: '帳號' },
+  { href: '/app', icon: Home, label: '戰情室', group: '/app' },
+  { href: '/app/signals', icon: Radio, label: '訊號', group: '/app/signals' },
+  { href: '/app/holdings', icon: Briefcase, label: '持倉', group: '/app/holdings' },
+  { href: '/app/performance', icon: BarChart3, label: '績效', group: '/app/performance' },
+  { href: '/app/account', icon: User, label: '帳號', group: '/app/account' },
 ];
 
 export function SignalsLayout({ children }: SignalsLayoutProps) {
   const { user, isLoading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const breadcrumbs = useMemo(() => 
     getBreadcrumbConfig(location.pathname),
     [location.pathname]
   );
+
+  const currentNavGroup = useMemo(() => getNavGroup(location.pathname), [location.pathname]);
+  const isNotHome = location.pathname !== '/app';
+
+  // Calculate unread signals
+  useEffect(() => {
+    if (!user) return;
+    
+    const lastSeenStr = localStorage.getItem(SIGNALS_LAST_SEEN_KEY);
+    const lastSeen = lastSeenStr ? parseInt(lastSeenStr, 10) : 0;
+    
+    const allSignals = getSignalsForUser(user.id);
+    const advisorSignals = allSignals.filter(s => 
+      s.system && 
+      (s.planType === PlanType.ANALYST_SIGNAL_L1 || s.planType === PlanType.ANALYST_SIGNAL_DIAG_L2)
+    );
+    
+    const unread = advisorSignals.filter(s => s.timeTrade.getTime() > lastSeen).length;
+    setUnreadCount(unread);
+  }, [user, location.pathname]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -84,11 +125,17 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
     return null;
   }
 
-  const isActive = (href: string) => {
-    if (href === '/app') {
-      return location.pathname === '/app';
+  const handleBack = () => {
+    // If we have breadcrumbs, go to second to last
+    if (breadcrumbs.length >= 2) {
+      navigate(breadcrumbs[breadcrumbs.length - 2].path);
+    } else {
+      navigate('/app');
     }
-    return location.pathname.startsWith(href);
+  };
+
+  const isActive = (group: string) => {
+    return currentNavGroup === group;
   };
 
   return (
@@ -96,15 +143,27 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
       {/* Top Header - Signals theme with subtle gradient */}
       <header className="sticky top-0 z-50 border-b border-signals-border bg-gradient-to-r from-signals-header via-signals-header to-signals-accent/5 backdrop-blur supports-[backdrop-filter]:bg-signals-header/80">
         <div className="flex h-14 items-center justify-between px-4">
-          <Link to="/app" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-signals-accent to-signals-accent/80 shadow-[0_0_12px_-3px_hsl(var(--signals-accent)/0.5)]">
-              <TrendingUp className="h-4 w-4 text-white" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-semibold text-foreground text-sm">跟單戰情室</span>
-              <span className="text-[10px] text-signals-accent font-medium tracking-wider">SIGNALS MODE</span>
-            </div>
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* Back Button */}
+            {isNotHome && (
+              <button
+                onClick={handleBack}
+                className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="返回"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            <Link to="/app" className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-signals-accent to-signals-accent/80 shadow-[0_0_12px_-3px_hsl(var(--signals-accent)/0.5)]">
+                <TrendingUp className="h-4 w-4 text-white" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-semibold text-foreground text-sm">跟單戰情室</span>
+                <span className="text-[10px] text-signals-accent font-medium tracking-wider">SIGNALS MODE</span>
+              </div>
+            </Link>
+          </div>
           <div className="flex items-center gap-2">
             <Link 
               to="/app/mode-switch"
@@ -165,7 +224,8 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-signals-border bg-gradient-to-t from-signals-nav via-signals-nav to-signals-nav/95 backdrop-blur supports-[backdrop-filter]:bg-signals-nav/80 safe-area-bottom">
         <div className="flex items-center justify-around h-16">
           {bottomNavItems.map((item) => {
-            const active = isActive(item.href);
+            const active = isActive(item.group);
+            const showBadge = item.group === '/app/signals' && unreadCount > 0;
             return (
               <Link
                 key={item.href}
@@ -182,6 +242,11 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
                   active && "drop-shadow-[0_0_8px_hsl(var(--signals-accent)/0.6)]"
                 )}>
                   <item.icon className={cn("h-5 w-5", active && "text-signals-accent")} />
+                  {showBadge && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold text-white bg-destructive rounded-full">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </div>
                 <span className={cn(
                   "text-[10px] font-medium",

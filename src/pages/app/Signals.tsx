@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { SignalCard } from '@/components/SignalCard';
@@ -7,8 +8,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Radio, ExternalLink } from 'lucide-react';
 import { PlanType } from '@/types';
+import { markAppSignalsAsRead } from '@/components/layouts/SignalsLayout';
 
 const Signals = () => {
+  // Mark signals as read when entering this page
+  useEffect(() => {
+    markAppSignalsAsRead();
+  }, []);
   const { user } = useAuth();
   const signals = user ? getSignalsForUser(user.id) : [];
   const subscriptions = user ? getUserSubscriptions(user.id) : [];

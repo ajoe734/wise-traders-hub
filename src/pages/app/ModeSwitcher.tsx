@@ -40,7 +40,7 @@ function ModeSwitcherContent({ advisorSubs, mentorSubs, userName }: ModeSwitcher
       <div className="space-y-4 animate-slide-up">
         {/* 跟單派 - Signals Mode */}
         {primaryAdvisorSub && (
-          <Link to={`/line/${primaryAdvisorSub.person.slug}/home`}>
+          <Link to="/app">
             <Card className="border-2 border-advisor/30 hover:border-advisor/60 transition-all hover:shadow-lg hover:shadow-advisor/10 group cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
@@ -96,7 +96,7 @@ function ModeSwitcherContent({ advisorSubs, mentorSubs, userName }: ModeSwitcher
 
         {/* 修煉派 - Learning Mode */}
         {primaryMentorSub && (
-          <Link to={`/line/${primaryMentorSub.person.slug}/home`}>
+          <Link to="/app">
             <Card className="border-2 border-mentor/30 hover:border-mentor/60 transition-all hover:shadow-lg hover:shadow-mentor/10 group cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
@@ -154,7 +154,7 @@ function ModeSwitcherContent({ advisorSubs, mentorSubs, userName }: ModeSwitcher
       {/* Quick Links */}
       <div className="pt-4 space-y-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
         <Link 
-          to="/account/subscriptions" 
+          to="/app/account" 
           className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
         >
           <span className="text-sm text-muted-foreground">管理訂閱</span>

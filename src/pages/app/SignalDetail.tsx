@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,10 +10,16 @@ import { getSignalById } from '@/data/mockData';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { AlertTriangle, BookOpen, ArrowLeft, Lightbulb, Target, Shield } from 'lucide-react';
+import { markAppSignalsAsRead } from '@/components/layouts/SignalsLayout';
 
 const SignalDetail = () => {
   const { id } = useParams<{ id: string }>();
   const signal = id ? getSignalById(id) : undefined;
+
+  // Mark signals as read when entering this page
+  useEffect(() => {
+    markAppSignalsAsRead();
+  }, []);
 
   if (!signal) {
     return <AppLayout><div className="p-4 text-center">找不到此訊號</div></AppLayout>;

@@ -10,15 +10,19 @@ import { zhTW } from 'date-fns/locale';
 interface JournalCardProps {
   journal: JournalWithPerson;
   showPerson?: boolean;
+  /** Custom link path. If not provided, defaults to LINE mini-app path */
+  to?: string;
 }
 
-export function JournalCard({ journal, showPerson = true }: JournalCardProps) {
+export function JournalCard({ journal, showPerson = true, to }: JournalCardProps) {
+  const linkPath = to ?? `/line/${journal.person.slug}/signals`;
+  
   const formatDate = (date: Date) => {
     return format(date, 'MM/dd', { locale: zhTW });
   };
 
   return (
-    <Link to={`/line/${journal.person.slug}/signals`}>
+    <Link to={linkPath}>
       <Card variant="interactive" className="overflow-hidden hover:border-mentor/30">
         <CardContent className="p-4">
           {/* Person Info */}
