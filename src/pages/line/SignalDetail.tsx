@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
-import { LineLayout } from '@/components/layouts/LineLayout';
+import { useEffect } from 'react';
+import { LineLayout, markSignalsAsRead } from '@/components/layouts/LineLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,11 +9,21 @@ import { PersonRole, SignalAction } from '@/types';
 import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, BookOpen, Target, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 
 const LineSignalDetail = () => {
   const { expertSlug, signalId } = useParams<{ expertSlug: string; signalId: string }>();
+  const { user } = useAuth();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
   const signal = signalId ? getSignalById(signalId) : undefined;
+
+  // Mark as read when viewing signal detail
+  useEffect(() => {
+    if (user && expertSlug && expert) {
+      const isAdvisor = expert.role === PersonRole.ADVISOR;
+      markSignalsAsRead(user.id, expertSlug, isAdvisor);
+    }
+  }, [user, expertSlug, expert]);
 
   if (!expert || !signal) {
     return (
