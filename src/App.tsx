@@ -34,7 +34,7 @@ import AppHoldings from "./pages/app/Holdings";
 import AppPerformance from "./pages/app/Performance";
 import AppCourses from "./pages/app/Courses";
 import AppLibrary from "./pages/app/Library";
-import ModeSwitcherPage from "./pages/app/ModeSwitcher";
+
 
 // LINE Mini-App pages (per expert)
 import LineHome from "./pages/line/Home";
@@ -81,7 +81,7 @@ const App = () => (
 
             {/* App pages (aggregated member view) */}
             <Route path="/app" element={<AppHome />} />
-            <Route path="/app/mode-switch" element={<ModeSwitcherPage />} />
+            
             <Route path="/app/signals" element={<AppSignals />} />
             <Route path="/app/journals" element={<AppJournals />} />
             <Route path="/app/signal/:id" element={<AppSignalDetail />} />

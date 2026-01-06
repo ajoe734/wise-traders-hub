@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
-import { ModeSwitcher } from '@/pages/app/ModeSwitcher';
+import { ModeSwitcher, AppMode } from '@/pages/app/ModeSwitcher';
 import { SignalsDashboard } from '@/pages/app/SignalsDashboard';
 import { LearningDashboard } from '@/pages/app/LearningDashboard';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +13,7 @@ import { PlanType } from '@/types';
 const AppHome = () => {
   const { user } = useAuth();
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
+  const [selectedMode, setSelectedMode] = useState<AppMode | null>(null);
   
   // Filter subscriptions by type
   const advisorSubs = subscriptions.filter(s => 
@@ -48,14 +50,40 @@ const AppHome = () => {
     );
   }
 
-  // Both types → show mode switcher
+  // Both types → show mode switcher or selected dashboard
   if (advisorSubs.length > 0 && mentorSubs.length > 0) {
+    // User selected signals mode
+    if (selectedMode === 'signals') {
+      return (
+        <UnifiedAppLayout>
+          <SignalsDashboard 
+            subscriptions={advisorSubs}
+            userName={user?.name || undefined}
+          />
+        </UnifiedAppLayout>
+      );
+    }
+    
+    // User selected learning mode
+    if (selectedMode === 'learning') {
+      return (
+        <UnifiedAppLayout>
+          <LearningDashboard 
+            subscriptions={mentorSubs}
+            userName={user?.name || undefined}
+          />
+        </UnifiedAppLayout>
+      );
+    }
+    
+    // No mode selected yet → show mode switcher
     return (
       <UnifiedAppLayout>
         <ModeSwitcher 
           advisorSubs={advisorSubs}
           mentorSubs={mentorSubs}
           userName={user?.name || undefined}
+          onSelectMode={setSelectedMode}
         />
       </UnifiedAppLayout>
     );
