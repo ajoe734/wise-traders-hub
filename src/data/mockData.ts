@@ -1028,10 +1028,15 @@ export function getUserSubscriptions(userId: string): SubscriptionWithDetails[] 
 }
 
 export function getSignalsForUser(userId: string): SignalWithPerson[] {
-  // MVP 展示用：返回所有投顧分析師的訊號
+  // 只返回用戶已訂閱專家的訊號
+  const userSubs = getUserSubscriptions(userId);
+  const subscribedPersonIds = userSubs
+    .filter(s => s.plan.planType === PlanType.ANALYST_SIGNAL_L1 || s.plan.planType === PlanType.ANALYST_SIGNAL_DIAG_L2)
+    .map(s => s.person.id);
+  
   const now = new Date();
   return signals
-    .filter(s => s.timeVisible <= now)
+    .filter(s => s.timeVisible <= now && subscribedPersonIds.includes(s.personId))
     .map(signal => ({
       ...signal,
       person: people.find(p => p.id === signal.personId)!,
@@ -1041,8 +1046,14 @@ export function getSignalsForUser(userId: string): SignalWithPerson[] {
 }
 
 export function getJournalsForUser(userId: string): JournalWithPerson[] {
-  // MVP 展示用：返回所有實戰導師的週記
+  // 只返回用戶已訂閱導師的週記
+  const userSubs = getUserSubscriptions(userId);
+  const subscribedPersonIds = userSubs
+    .filter(s => s.plan.planType === PlanType.MENTOR_WEEKLY_JOURNAL)
+    .map(s => s.person.id);
+  
   return weeklyJournals
+    .filter(j => subscribedPersonIds.includes(j.personId))
     .map(journal => ({
       ...journal,
       person: people.find(p => p.id === journal.personId)!,
