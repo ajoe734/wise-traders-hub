@@ -1,11 +1,8 @@
-import { Link, Navigate } from 'react-router-dom';
-import { AppLayout } from '@/components/layouts/AppLayout';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
-import { useAuth } from '@/contexts/AuthContext';
-import { getUserSubscriptions } from '@/data/mockData';
-import { SubscriptionWithDetails, PlanType } from '@/types';
+import { SubscriptionWithDetails } from '@/types';
 import { 
   Radio, 
   BookOpen, 
@@ -22,10 +19,9 @@ interface ModeSwitcherContentProps {
   advisorSubs: SubscriptionWithDetails[];
   mentorSubs: SubscriptionWithDetails[];
   userName?: string;
-  onSelectMode: (mode: AppMode) => void;
 }
 
-function ModeSwitcherContent({ advisorSubs, mentorSubs, userName, onSelectMode }: ModeSwitcherContentProps) {
+function ModeSwitcherContent({ advisorSubs, mentorSubs, userName }: ModeSwitcherContentProps) {
   const primaryAdvisorSub = advisorSubs[0];
   const primaryMentorSub = mentorSubs[0];
 
@@ -43,7 +39,7 @@ function ModeSwitcherContent({ advisorSubs, mentorSubs, userName, onSelectMode }
       <div className="space-y-4 animate-slide-up">
         {/* 跟單派 - Signals Mode */}
         {primaryAdvisorSub && (
-          <div onClick={() => onSelectMode('signals')}>
+          <Link to="/app/dashboard/signals">
             <Card className="border-2 border-advisor/30 hover:border-advisor/60 transition-all hover:shadow-lg hover:shadow-advisor/10 group cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
@@ -94,12 +90,12 @@ function ModeSwitcherContent({ advisorSubs, mentorSubs, userName, onSelectMode }
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </Link>
         )}
 
         {/* 修煉派 - Learning Mode */}
         {primaryMentorSub && (
-          <div onClick={() => onSelectMode('learning')}>
+          <Link to="/app/dashboard/learning">
             <Card className="border-2 border-mentor/30 hover:border-mentor/60 transition-all hover:shadow-lg hover:shadow-mentor/10 group cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
@@ -150,7 +146,7 @@ function ModeSwitcherContent({ advisorSubs, mentorSubs, userName, onSelectMode }
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </Link>
         )}
       </div>
 

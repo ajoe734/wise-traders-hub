@@ -1,9 +1,6 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
-import { ModeSwitcher, AppMode } from '@/pages/app/ModeSwitcher';
-import { SignalsDashboard } from '@/pages/app/SignalsDashboard';
-import { LearningDashboard } from '@/pages/app/LearningDashboard';
+import { ModeSwitcher } from '@/pages/app/ModeSwitcher';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,7 +10,6 @@ import { PlanType } from '@/types';
 const AppHome = () => {
   const { user } = useAuth();
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
-  const [selectedMode, setSelectedMode] = useState<AppMode | null>(null);
   
   // Filter subscriptions by type
   const advisorSubs = subscriptions.filter(s => 
@@ -26,64 +22,24 @@ const AppHome = () => {
 
   // Smart routing logic based on subscriptions
   
-  // Only advisor subscriptions → show SignalsDashboard
+  // Only advisor subscriptions → redirect to signals dashboard
   if (advisorSubs.length > 0 && mentorSubs.length === 0) {
-    return (
-      <UnifiedAppLayout>
-        <SignalsDashboard 
-          subscriptions={advisorSubs}
-          userName={user?.name || undefined}
-        />
-      </UnifiedAppLayout>
-    );
+    return <Navigate to="/app/dashboard/signals" replace />;
   }
 
-  // Only mentor subscriptions → show LearningDashboard
+  // Only mentor subscriptions → redirect to learning dashboard
   if (mentorSubs.length > 0 && advisorSubs.length === 0) {
-    return (
-      <UnifiedAppLayout>
-        <LearningDashboard 
-          subscriptions={mentorSubs}
-          userName={user?.name || undefined}
-        />
-      </UnifiedAppLayout>
-    );
+    return <Navigate to="/app/dashboard/learning" replace />;
   }
 
-  // Both types → show mode switcher or selected dashboard
+  // Both types → show mode switcher
   if (advisorSubs.length > 0 && mentorSubs.length > 0) {
-    // User selected signals mode
-    if (selectedMode === 'signals') {
-      return (
-        <UnifiedAppLayout>
-          <SignalsDashboard 
-            subscriptions={advisorSubs}
-            userName={user?.name || undefined}
-          />
-        </UnifiedAppLayout>
-      );
-    }
-    
-    // User selected learning mode
-    if (selectedMode === 'learning') {
-      return (
-        <UnifiedAppLayout>
-          <LearningDashboard 
-            subscriptions={mentorSubs}
-            userName={user?.name || undefined}
-          />
-        </UnifiedAppLayout>
-      );
-    }
-    
-    // No mode selected yet → show mode switcher
     return (
       <UnifiedAppLayout>
         <ModeSwitcher 
           advisorSubs={advisorSubs}
           mentorSubs={mentorSubs}
           userName={user?.name || undefined}
-          onSelectMode={setSelectedMode}
         />
       </UnifiedAppLayout>
     );
