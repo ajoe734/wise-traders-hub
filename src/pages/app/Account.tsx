@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { AppLayout } from '@/components/layouts/AppLayout';
+import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,13 +11,11 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
 const Account = () => {
-  const { user
-
- } = useAuth();
+  const { user } = useAuth();
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
 
   return (
-    <AppLayout>
+    <UnifiedAppLayout>
       <div className="p-4 space-y-6">
         <h1 className="text-xl font-bold">帳號設定</h1>
 
@@ -86,17 +84,6 @@ const Account = () => {
                           </div>
                         </div>
                       </div>
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        className="w-full mt-3"
-                        asChild
-                      >
-                        <Link to={`/line/${sub.person.slug}/home`}>
-                          進入會員頁面
-                          <ExternalLink className="h-3 w-3 ml-1" />
-                        </Link>
-                      </Button>
                     </CardContent>
                   </Card>
                 );
@@ -150,7 +137,7 @@ const Account = () => {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </UnifiedAppLayout>
   );
 };
 
