@@ -34,6 +34,7 @@ import AppAccount from "./pages/app/Account";
 import AppPerformance from "./pages/app/Performance";
 import AppCourses from "./pages/app/Courses";
 import AppLibrary from "./pages/app/Library";
+import AppExplore from "./pages/app/Explore";
 
 
 // LINE Mini-App pages (per expert)
@@ -94,6 +95,8 @@ const App = () => (
             {/* Learning Mode pages */}
             <Route path="/app/courses" element={<AppCourses />} />
             <Route path="/app/library" element={<AppLibrary />} />
+            {/* Explore page */}
+            <Route path="/app/explore" element={<AppExplore />} />
 
             {/* LINE Mini-App (per expert) */}
             <Route path="/line/:expertSlug" element={<Navigate to="home" replace />} />

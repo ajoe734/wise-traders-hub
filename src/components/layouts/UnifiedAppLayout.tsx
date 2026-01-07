@@ -30,7 +30,7 @@ const getNavGroup = (pathname: string): string => {
   if (pathname === '/app/courses' || pathname.startsWith('/app/course/')) return '/app/courses';
   if (pathname === '/app/library' || pathname.startsWith('/app/library')) return '/app/library';
   if (pathname === '/app/account' || pathname.startsWith('/app/account')) return '/app/account';
-  if (pathname === '/experts' || pathname.startsWith('/expert/')) return '/experts';
+  if (pathname === '/app/explore') return '/app/explore';
   return '/app';
 };
 
@@ -130,7 +130,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
       { href: '/app', icon: Home, label: '戰情室', group: '/app' },
       { href: '/app/signals', icon: Radio, label: '訊號', group: '/app/signals', badgeKey: 'signals' },
       { href: '/app/journals', icon: BookOpen, label: '週記', group: '/app/journals', badgeKey: 'journals' },
-      { href: '/experts', icon: Compass, label: '探索', group: '/experts' },
+      { href: '/app/explore', icon: Compass, label: '探索', group: '/app/explore' },
       { href: '/app/account', icon: User, label: '帳號', group: '/app/account' },
     ];
   }, []);

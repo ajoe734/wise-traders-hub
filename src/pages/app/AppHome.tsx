@@ -420,7 +420,7 @@ const AppHome = () => {
                     </li>
                   </ul>
                   <Button asChild variant="mentor" size="sm" className="w-full">
-                    <Link to="/experts">
+                    <Link to="/app/explore">
                       探索導師
                       <ChevronRight className="h-4 w-4 ml-1" />
                     </Link>
@@ -441,7 +441,7 @@ const AppHome = () => {
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
           <Link 
-            to="/experts" 
+            to="/app/explore" 
             className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors"
           >
             <span className="text-sm text-muted-foreground">探索更多專家</span>
