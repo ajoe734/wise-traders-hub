@@ -68,7 +68,7 @@ const LineDiagnosis = () => {
             持股診斷功能僅限「投顧策略訂閱 等級 2」會員使用
           </p>
           <Button variant="advisor" asChild>
-            <Link to={`/expert/${expertSlug}#plans`}>升級方案</Link>
+            <Link to={`/line/${expertSlug}/account`}>升級方案</Link>
           </Button>
         </div>
       </LineLayout>

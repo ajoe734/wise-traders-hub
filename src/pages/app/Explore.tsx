@@ -126,21 +126,12 @@ const Explore = () => {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2 mt-4">
-                    {isSubscribed ? (
-                      <Button asChild className="flex-1">
-                        <Link to={`/line/${expert.slug}/home`}>
-                          進入老師專區
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Link>
-                      </Button>
-                    ) : (
-                      <Button asChild variant="outline" className="flex-1">
-                        <Link to={`/app/expert/${expert.slug}`}>
-                          查看訂閱方案
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Link>
-                      </Button>
-                    )}
+                    <Button asChild variant={isSubscribed ? "default" : "outline"} className="flex-1">
+                      <Link to={`/app/expert/${expert.slug}`}>
+                        {isSubscribed ? '查看專家詳情' : '查看訂閱方案'}
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Link>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

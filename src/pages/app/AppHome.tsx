@@ -195,7 +195,7 @@ const AppHome = () => {
                     return (
                       <Link 
                         key={sub.id} 
-                        to={`/line/${sub.person.slug}/performance`}
+                        to={`/app/expert/${sub.person.slug}`}
                         className="flex items-center justify-between py-1.5 hover:bg-foreground/5 rounded-lg px-2 -mx-2 transition-colors"
                       >
                         <div className="flex items-center gap-2">
@@ -346,7 +346,7 @@ const AppHome = () => {
                     return (
                       <Link 
                         key={sub.id} 
-                        to={`/line/${sub.person.slug}/performance`}
+                        to={`/app/expert/${sub.person.slug}`}
                         className="flex items-center justify-between py-1.5 hover:bg-foreground/5 rounded-lg px-2 -mx-2 transition-colors"
                       >
                         <div className="flex items-center gap-2">

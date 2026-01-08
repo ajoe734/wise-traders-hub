@@ -148,7 +148,7 @@ export function LineLayout({ children }: LineLayoutProps) {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="text-center">
           <h1 className="text-xl font-bold mb-2">找不到此專家</h1>
-          <Link to="/experts" className="text-primary underline">返回專家列表</Link>
+          <p className="text-muted-foreground">請確認連結是否正確</p>
         </div>
       </div>
     );

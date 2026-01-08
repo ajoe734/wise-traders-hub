@@ -51,8 +51,8 @@ const AppCheckout = () => {
       description: `已成功訂閱 ${expert.name} 的 ${plan.name}`,
     });
     
-    // Navigate to expert's home page
-    navigate(`/line/${expert.slug}/home`);
+    // Navigate back to app home
+    navigate('/app');
   };
 
   return (
