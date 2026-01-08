@@ -135,7 +135,7 @@ const Explore = () => {
                       </Button>
                     ) : (
                       <Button asChild variant="outline" className="flex-1">
-                        <Link to={`/expert/${expert.slug}`}>
+                        <Link to={`/app/expert/${expert.slug}`}>
                           查看訂閱方案
                           <ChevronRight className="h-4 w-4 ml-1" />
                         </Link>
