@@ -100,12 +100,9 @@ const AppExpertDetail = () => {
                 <Check className="h-4 w-4" />
                 <span className="font-medium">已訂閱此專家</span>
               </div>
-              <Button 
-                className="w-full mt-3" 
-                onClick={() => navigate(`/line/${expert.slug}/home`)}
-              >
-                {expert.role === PersonRole.ADVISOR ? '進入分析師專區' : '進入導師專區'}
-              </Button>
+              <p className="text-sm text-muted-foreground mt-2">
+                可在{expert.role === PersonRole.ADVISOR ? '訊號中心' : '週記中心'}查看此專家的最新內容
+              </p>
             </CardContent>
           </Card>
         )}

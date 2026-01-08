@@ -135,7 +135,7 @@ const LineHome = () => {
             <CardContent className="p-4 text-center">
               <p className="text-muted-foreground mb-3">尚未訂閱此專家</p>
               <Button asChild size="sm">
-                <Link to={`/expert/${expertSlug}`}>查看訂閱方案</Link>
+                <Link to={`/line/${expertSlug}/account`}>查看訂閱方案</Link>
               </Button>
             </CardContent>
           </Card>
