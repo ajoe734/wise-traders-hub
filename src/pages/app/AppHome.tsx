@@ -187,7 +187,7 @@ const AppHome = () => {
               <FeatureCard theme="signals" className="p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <BarChart3 className="h-4 w-4 text-signals-accent" />
-                  <span className="text-sm font-medium">老師績效</span>
+                  <span className="text-sm font-medium">分析師績效</span>
                 </div>
                 <div className="space-y-2">
                   {advisorSubs.map(sub => {
@@ -335,7 +335,7 @@ const AppHome = () => {
               <FeatureCard theme="learning" className="p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <BarChart3 className="h-4 w-4 text-learning-accent" />
-                  <span className="text-sm font-medium">老師績效</span>
+                  <span className="text-sm font-medium">導師績效</span>
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto">
                     T+7 延遲
                   </Badge>

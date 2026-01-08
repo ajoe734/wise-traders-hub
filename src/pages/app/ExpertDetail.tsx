@@ -104,7 +104,7 @@ const AppExpertDetail = () => {
                 className="w-full mt-3" 
                 onClick={() => navigate(`/line/${expert.slug}/home`)}
               >
-                進入老師專區
+                {expert.role === PersonRole.ADVISOR ? '進入分析師專區' : '進入導師專區'}
               </Button>
             </CardContent>
           </Card>
