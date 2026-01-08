@@ -44,7 +44,7 @@ const Explore = () => {
       <div className="p-4 pb-24 space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold">探索老師</h1>
+          <h1 className="text-2xl font-bold">探索專家</h1>
           <p className="text-muted-foreground text-sm mt-1">找到適合你的投資專家</p>
         </div>
 

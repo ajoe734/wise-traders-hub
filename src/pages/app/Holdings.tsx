@@ -46,7 +46,7 @@ export default function Holdings() {
             </div>
             <div>
               <p className="text-xs text-primary font-semibold tracking-wider uppercase">Historical Performance</p>
-              <h1 className="text-xl font-bold">老師戰績</h1>
+              <h1 className="text-xl font-bold">專家戰績</h1>
             </div>
           </div>
         </div>
@@ -55,9 +55,9 @@ export default function Holdings() {
         {!hasAnySubscription && (
           <FeatureCard className="p-8 text-center">
             <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-            <p className="font-medium mb-2">尚未訂閱任何老師</p>
+            <p className="font-medium mb-2">尚未訂閱任何專家</p>
             <p className="text-sm text-muted-foreground mb-4">
-              訂閱老師後，可以在這裡查看他們的歷史績效表現
+              訂閱專家後，可以在這裡查看他們的歷史績效表現
             </p>
             <Link 
               to="/experts"
@@ -194,7 +194,7 @@ export default function Holdings() {
         {hasAnySubscription && (
           <FeatureCard className="p-5 text-center">
             <TrendingUp className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="font-medium mb-1">想看更多厲害的老師？</p>
+            <p className="font-medium mb-1">想看更多厲害的專家？</p>
             <p className="text-sm text-muted-foreground mb-4">
               我們有多位專業分析師和導師等你加入
             </p>
@@ -202,7 +202,7 @@ export default function Holdings() {
               to="/experts"
               className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
             >
-              探索更多老師 <ChevronRight className="h-4 w-4" />
+              探索更多專家 <ChevronRight className="h-4 w-4" />
             </Link>
           </FeatureCard>
         )}
