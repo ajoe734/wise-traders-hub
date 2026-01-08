@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Check, TrendingUp, Target, Award } from "lucide-react";
-import { getPersonWithPlans, subscriptions } from "@/data/mockData";
+import { getPersonBySlug, subscriptions } from "@/data/mockData";
 import { PersonRole, SubscriptionStatus } from "@/types";
 import { Link } from "react-router-dom";
 
@@ -13,7 +13,7 @@ const AppExpertDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   
-  const expert = getPersonWithPlans(slug || "");
+  const expert = getPersonBySlug(slug || "");
   
   if (!expert) {
     return (
