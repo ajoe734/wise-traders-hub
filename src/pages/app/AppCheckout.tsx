@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Check, Shield, Lock } from "lucide-react";
-import { getPersonWithPlans, plans } from "@/data/mockData";
+import { getPersonBySlug, plans } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
 
 const AppCheckout = () => {
@@ -17,7 +17,7 @@ const AppCheckout = () => {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const expert = getPersonWithPlans(slug || "");
+  const expert = getPersonBySlug(slug || "");
   const plan = plans.find(p => p.id === planId);
 
   if (!expert || !plan) {
