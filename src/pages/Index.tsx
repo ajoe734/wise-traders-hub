@@ -806,10 +806,10 @@ const Index = () => {
             <p className="text-muted-foreground mt-2">訂閱後，你會在戰情室看到這些內容</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-xl max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-xl max-w-5xl mx-auto items-start">
             {/* Signal List Preview - 跟單派 */}
             <div>
-              <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-md mb-md">
+              <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-md mb-md min-h-[380px] flex flex-col">
                 {/* 派別標籤 */}
                 <div className="flex items-center gap-2 mb-3">
                   <Badge className="bg-signals/10 text-signals border border-signals/20 text-xs font-medium">
@@ -821,7 +821,7 @@ const Index = () => {
                   <span className="text-sm font-medium">即時訊號牆</span>
                   <Badge variant="outline" className="text-[10px] ml-auto bg-signals/10 text-signals border-signals/20">即時</Badge>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-3 flex-1">
                   {/* Sample Signal 1 */}
                   <div className="p-3 rounded-md bg-muted/50 border-l-2 border-success">
                     <div className="flex items-center justify-between mb-1">
@@ -868,7 +868,7 @@ const Index = () => {
 
             {/* 修煉派 - 週記式交易紀錄預覽 */}
             <div>
-              <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-md mb-md">
+              <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-md mb-md min-h-[380px] flex flex-col">
                 {/* 派別標籤 */}
                 <div className="flex items-center gap-2 mb-3">
                   <Badge className="bg-mentor/10 text-mentor border border-mentor/20 text-xs font-medium">
@@ -889,7 +889,7 @@ const Index = () => {
                 </div>
                 
                 {/* 每日交易列表 - 週一到週五 */}
-                <div className="space-y-2">
+                <div className="space-y-2 flex-1">
                   {/* 週一 */}
                   <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
                     <span className="text-xs text-muted-foreground w-8 shrink-0">週一</span>
