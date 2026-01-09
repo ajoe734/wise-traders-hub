@@ -17,11 +17,7 @@ const LineXai = () => {
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
   const signal = signalId ? getSignalById(signalId) : undefined;
 
-  if (!expert) {
-    return null;
-  }
-
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert?.role === PersonRole.ADVISOR;
 
   // Mock factor contributions
   const factorContributions = [

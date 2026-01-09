@@ -14,11 +14,7 @@ const LineTrades = () => {
   const { user } = useAuth();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
 
-  if (!expert) {
-    return null;
-  }
-
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert?.role === PersonRole.ADVISOR;
 
   // Get trades for this expert
   const allSignals = user ? getSignalsForUser(user.id) : [];

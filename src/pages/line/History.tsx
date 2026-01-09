@@ -10,11 +10,7 @@ const LineHistory = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
 
-  if (!expert) {
-    return null;
-  }
-
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert?.role === PersonRole.ADVISOR;
 
   return (
     <LineLayout>

@@ -28,11 +28,7 @@ const LineDiagnosis = () => {
   ]);
   const [submitted, setSubmitted] = useState(false);
 
-  if (!expert) {
-    return null;
-  }
-
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert?.role === PersonRole.ADVISOR;
 
   // Check if user has L2 subscription
   const subscriptions = user ? getUserSubscriptions(user.id) : [];

@@ -25,11 +25,7 @@ const LineSignals = () => {
     }
   }, [user, expertSlug, expert]);
 
-  if (!expert) {
-    return null;
-  }
-
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert?.role === PersonRole.ADVISOR;
 
   // Get signals or journals for this expert
   const allSignals = user ? getSignalsForUser(user.id) : [];

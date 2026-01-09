@@ -18,11 +18,7 @@ const LineTeaching = () => {
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
   const strategySystem = expertSlug ? getStrategySystemByExpertSlug(expertSlug) : undefined;
 
-  if (!expert) {
-    return null;
-  }
-
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert?.role === PersonRole.ADVISOR;
   const isDelayed = strategySystem?.delayMode === 't7';
   const system = expert.tradingSystems[0]; // Primary system
 

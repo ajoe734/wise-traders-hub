@@ -15,11 +15,7 @@ const LineAccount = () => {
   const { user, logout } = useAuth();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
 
-  if (!expert) {
-    return null;
-  }
-
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert?.role === PersonRole.ADVISOR;
 
   // Get subscription for this expert
   const subscriptions = user ? getUserSubscriptions(user.id) : [];

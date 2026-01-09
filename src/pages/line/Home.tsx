@@ -79,11 +79,7 @@ const LineHome = () => {
   const { user } = useAuth();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
 
-  if (!expert) {
-    return null; // LineLayout handles this
-  }
-
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert?.role === PersonRole.ADVISOR;
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
   const expertSub = subscriptions.find(s => s.person.slug === expertSlug);
   
