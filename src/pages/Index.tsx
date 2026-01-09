@@ -821,41 +821,65 @@ const Index = () => {
                   <span className="text-sm font-medium">即時訊號牆</span>
                   <Badge variant="outline" className="text-[10px] ml-auto bg-signals/10 text-signals border-signals/20">即時</Badge>
                 </div>
-                <div className="space-y-3 flex-1">
+                <div className="space-y-2 flex-1">
                   {/* Sample Signal 1 */}
-                  <div className="p-3 rounded-md bg-muted/50 border-l-2 border-success">
+                  <div className="p-2.5 rounded-md bg-muted/50 border-l-2 border-success">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-sm">2330.TW 台積電</span>
+                      <span className="font-semibold text-xs">2330.TW 台積電</span>
                       <Badge className="bg-success/10 text-success text-[10px]">買進</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-2">突破季線壓力，外資連續買超</p>
+                    <p className="text-[10px] text-muted-foreground mb-1">突破季線壓力，外資連續買超</p>
                     <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                       <span>約 580-590</span>
                       <span>09:32</span>
                     </div>
                   </div>
                   {/* Sample Signal 2 */}
-                  <div className="p-3 rounded-md bg-muted/50 border-l-2 border-primary">
+                  <div className="p-2.5 rounded-md bg-muted/50 border-l-2 border-primary">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-sm">2454.TW 聯發科</span>
+                      <span className="font-semibold text-xs">2454.TW 聯發科</span>
                       <Badge className="bg-primary/10 text-primary text-[10px]">加碼</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-2">續創新高，AI 晶片出貨成長</p>
+                    <p className="text-[10px] text-muted-foreground mb-1">續創新高，AI 晶片出貨成長</p>
                     <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                       <span>約 1250-1280</span>
                       <span>10:15</span>
                     </div>
                   </div>
                   {/* Sample Signal 3 */}
-                  <div className="p-3 rounded-md bg-muted/50 border-l-2 border-amber-500">
+                  <div className="p-2.5 rounded-md bg-muted/50 border-l-2 border-amber-500">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-sm">3008.TW 大立光</span>
+                      <span className="font-semibold text-xs">3008.TW 大立光</span>
                       <Badge className="bg-amber-500/10 text-amber-600 text-[10px]">減碼</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-2">達目標價位，量能萎縮先獲利了結</p>
+                    <p className="text-[10px] text-muted-foreground mb-1">達目標價位，量能萎縮先獲利了結</p>
                     <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                       <span>約 155-160</span>
                       <span>11:00</span>
+                    </div>
+                  </div>
+                  {/* Sample Signal 4 */}
+                  <div className="p-2.5 rounded-md bg-muted/50 border-l-2 border-success">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-xs">2317.TW 鴻海</span>
+                      <Badge className="bg-success/10 text-success text-[10px]">買進</Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mb-1">站上所有均線，外資連續買超</p>
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                      <span>約 178-182</span>
+                      <span>13:45</span>
+                    </div>
+                  </div>
+                  {/* Sample Signal 5 */}
+                  <div className="p-2.5 rounded-md bg-muted/50 border-l-2 border-destructive">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-xs">2603.TW 長榮</span>
+                      <Badge className="bg-destructive/10 text-destructive text-[10px]">出場</Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mb-1">跌破支撐，執行停損紀律</p>
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                      <span>約 185-188</span>
+                      <span>14:20</span>
                     </div>
                   </div>
                 </div>
