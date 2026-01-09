@@ -22,7 +22,7 @@ export function ExpertCard({ person }: ExpertCardProps) {
       case PlanType.ANALYST_SIGNAL_DIAG_L2:
         return '策略＋持股健檢';
       case PlanType.MENTOR_WEEKLY_JOURNAL:
-        return '實戰週記教學（T+7）';
+        return '修煉派週記教學（T+7）';
       default:
         return plan.name;
     }

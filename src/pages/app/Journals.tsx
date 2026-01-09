@@ -20,10 +20,10 @@ const Journals = () => {
       <div className="p-4 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <BookOpen className="h-5 w-5 text-learning-accent" />
-          <h1 className="text-xl font-bold">實戰週記教學</h1>
+          <h1 className="text-xl font-bold">修煉派週記教學</h1>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          來自您訂閱的實戰導師的 T+7 週記
+          來自您訂閱導師的 T+7 修煉派週記
         </p>
         
         {journals.length > 0 ? (

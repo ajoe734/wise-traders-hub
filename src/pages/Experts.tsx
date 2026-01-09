@@ -83,7 +83,7 @@ const Experts = () => {
                 </div>
                 <div>
                   <p className="font-medium text-mentor">實戰導師</p>
-                  <p className="text-sm text-muted-foreground">T+7 延遲實戰週記，純教學用途，非投資建議</p>
+                  <p className="text-sm text-muted-foreground">T+7 延遲修煉派週記，純教學用途，非投資建議</p>
                 </div>
               </div>
             </div>

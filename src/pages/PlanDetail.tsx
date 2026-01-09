@@ -47,7 +47,7 @@ const PlanDetail = () => {
         ];
       case PlanType.MENTOR_WEEKLY_JOURNAL:
         return [
-          '每週一次延遲至少 7 天的操作回顧',
+          '每週一篇修煉派週記（T+7 延遲發布）',
           '完整操作邏輯拆解',
           '策略教學內容',
           '問題統整 Q&A（非個別建議）',

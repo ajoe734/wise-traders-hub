@@ -403,12 +403,12 @@ const AppHome = () => {
                 <div className="flex-1">
                   <h3 className="font-semibold mb-1">解鎖修煉功能</h3>
                   <p className="text-sm text-muted-foreground mb-3">
-                    T+7 實戰週記，跟著導師學操作邏輯
+                    T+7 修煉派週記，跟著導師學操作邏輯
                   </p>
                   <ul className="text-xs text-muted-foreground space-y-1 mb-4">
                     <li className="flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-learning-accent" />
-                      每週實戰週記教學
+                      每週修煉派週記教學
                     </li>
                     <li className="flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-learning-accent" />

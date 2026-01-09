@@ -51,7 +51,7 @@ const Checkout = () => {
       case PlanType.ANALYST_SIGNAL_DIAG_L2:
         return ['即時策略訊號推播', '每筆操作教學說明', '風險與部位控管解說', '持股健檢報告'];
       case PlanType.MENTOR_WEEKLY_JOURNAL:
-        return ['每週實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點'];
+        return ['每週修煉派週記', '完整操作邏輯拆解', '事後檢討與學習重點'];
     }
   };
 
