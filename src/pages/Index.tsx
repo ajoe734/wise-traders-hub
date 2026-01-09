@@ -809,13 +809,19 @@ const Index = () => {
           </div>
 
           <div className="grid md:grid-cols-2 gap-xl max-w-5xl mx-auto">
-            {/* Signal List Preview */}
+            {/* Signal List Preview - 跟單派 */}
             <div>
-              <div className="bg-background rounded-lg border border-border p-md mb-md">
+              <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-md mb-md">
+                {/* 派別標籤 */}
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge className="bg-signals/10 text-signals border border-signals/20 text-xs font-medium">
+                    跟單派 · SIGNALS
+                  </Badge>
+                </div>
                 <div className="flex items-center gap-2 mb-md pb-md border-b border-border">
-                  <Zap className="h-4 w-4 text-primary" />
+                  <Zap className="h-4 w-4 text-signals" />
                   <span className="text-sm font-medium">即時訊號牆</span>
-                  <Badge variant="outline" className="text-[10px] ml-auto">即時</Badge>
+                  <Badge variant="outline" className="text-[10px] ml-auto bg-signals/10 text-signals border-signals/20">即時</Badge>
                 </div>
                 <div className="space-y-3">
                   {/* Sample Signal 1 */}
@@ -856,28 +862,37 @@ const Index = () => {
                   </div>
                 </div>
               </div>
-              <h4 className="text-h5 mb-xs text-foreground">即時訊號</h4>
+              <h4 className="text-h5 mb-xs text-foreground">跟單派戰情室</h4>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                包含時間戳、型態、策略、買進價位與理由。
+                即時接收專家買賣訊號，包含價位區間與操作理由。
               </p>
             </div>
 
-            {/* Equity Curve Preview */}
+            {/* Equity Curve Preview - 修煉派 */}
             <div>
-              <div className="bg-background rounded-lg border border-border p-md mb-md">
+              <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-md mb-md">
+                {/* 派別標籤 */}
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge className="bg-mentor/10 text-mentor border border-mentor/20 text-xs font-medium">
+                    修煉派 · LEARNING
+                  </Badge>
+                </div>
                 <div className="flex items-center justify-between mb-md pb-md border-b border-border">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-primary" />
+                    <TrendingUp className="h-4 w-4 text-mentor" />
                     <span className="text-sm font-medium">淨值曲線</span>
                   </div>
-                  <span className="text-success text-sm font-semibold">+32.4%</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] bg-mentor/10 text-mentor border-mentor/20">T+7 延遲</Badge>
+                    <span className="text-success text-sm font-semibold">+32.4%</span>
+                  </div>
                 </div>
                 {/* Simple Chart Visualization */}
                 <div className="h-40 flex items-end gap-1">
                   {[35, 42, 38, 55, 48, 62, 58, 72, 68, 78, 85, 82, 92, 88, 95, 100].map((height, i) => (
                     <div
                       key={i}
-                      className="flex-1 bg-gradient-to-t from-primary/20 to-primary/60 rounded-t"
+                      className="flex-1 bg-gradient-to-t from-mentor/20 to-mentor/60 rounded-t"
                       style={{ height: `${height}%` }}
                     />
                   ))}
@@ -904,9 +919,9 @@ const Index = () => {
                   </div>
                 </div>
               </div>
-              <h4 className="text-h5 mb-xs text-foreground">權益曲線</h4>
+              <h4 className="text-h5 mb-xs text-foreground">修煉派學習紀錄</h4>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                來自真實操作紀錄或策略回測數據。
+                追蹤導師真實績效，搭配延遲週記學習交易邏輯。
               </p>
             </div>
           </div>
