@@ -806,10 +806,10 @@ const Index = () => {
             <p className="text-muted-foreground mt-2">訂閱後，你會在戰情室看到這些內容</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-xl max-w-5xl mx-auto items-start">
+          <div className="grid md:grid-cols-2 gap-xl max-w-5xl mx-auto">
             {/* Signal List Preview - 跟單派 */}
-            <div>
-              <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-md mb-md min-h-[380px] flex flex-col">
+            <div className="flex flex-col">
+              <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-md mb-md flex-1 flex flex-col">
                 {/* 派別標籤 */}
                 <div className="flex items-center gap-2 mb-3">
                   <Badge className="bg-signals/10 text-signals border border-signals/20 text-xs font-medium">
@@ -867,8 +867,8 @@ const Index = () => {
             </div>
 
             {/* 修煉派 - 週記式交易紀錄預覽 */}
-            <div>
-              <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-md mb-md min-h-[380px] flex flex-col">
+            <div className="flex flex-col">
+              <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-md mb-md flex-1 flex flex-col">
                 {/* 派別標籤 */}
                 <div className="flex items-center gap-2 mb-3">
                   <Badge className="bg-mentor/10 text-mentor border border-mentor/20 text-xs font-medium">
