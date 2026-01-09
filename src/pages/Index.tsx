@@ -806,93 +806,93 @@ const Index = () => {
             <p className="text-muted-foreground mt-2">訂閱後，你會在戰情室看到這些內容</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-xl max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-lg md:gap-xl max-w-5xl mx-auto">
             {/* Signal List Preview - 跟單派 */}
             <div className="flex flex-col">
-              <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-md mb-md flex-1 flex flex-col">
+              <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-sm md:p-md mb-sm md:mb-md flex-1 flex flex-col">
                 {/* 派別標籤 */}
                 <div className="flex items-center gap-2 mb-3">
                   <Badge className="bg-signals/10 text-signals border border-signals/20 text-xs font-medium">
                     跟單派 · SIGNALS
                   </Badge>
                 </div>
-                <div className="flex items-center gap-2 mb-md pb-md border-b border-border">
+                <div className="flex items-center gap-2 mb-sm md:mb-md pb-sm md:pb-md border-b border-border">
                   <Zap className="h-4 w-4 text-signals" />
-                  <span className="text-sm font-medium">即時訊號牆</span>
+                  <span className="text-xs md:text-sm font-medium">即時訊號牆</span>
                   <Badge variant="outline" className="text-[10px] ml-auto bg-signals/10 text-signals border-signals/20">即時</Badge>
                 </div>
-                <div className="space-y-2 flex-1">
+                <div className="space-y-1.5 md:space-y-2 flex-1">
                   {/* Sample Signal 1 */}
-                  <div className="p-2.5 rounded-md bg-muted/50 border-l-2 border-success">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-xs">2330.TW 台積電</span>
-                      <Badge className="bg-success/10 text-success text-[10px]">買進</Badge>
+                  <div className="p-2 md:p-2.5 rounded-md bg-muted/50 border-l-2 border-success">
+                    <div className="flex items-center justify-between mb-0.5 md:mb-1">
+                      <span className="font-semibold text-[11px] md:text-xs">2330.TW 台積電</span>
+                      <Badge className="bg-success/10 text-success text-[9px] md:text-[10px]">買進</Badge>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mb-1">突破季線壓力，外資連續買超</p>
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <p className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5 md:mb-1">突破季線壓力，外資連續買超</p>
+                    <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] text-muted-foreground">
                       <span>約 580-590</span>
                       <span>09:32</span>
                     </div>
                   </div>
                   {/* Sample Signal 2 */}
-                  <div className="p-2.5 rounded-md bg-muted/50 border-l-2 border-primary">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-xs">2454.TW 聯發科</span>
-                      <Badge className="bg-primary/10 text-primary text-[10px]">加碼</Badge>
+                  <div className="p-2 md:p-2.5 rounded-md bg-muted/50 border-l-2 border-primary">
+                    <div className="flex items-center justify-between mb-0.5 md:mb-1">
+                      <span className="font-semibold text-[11px] md:text-xs">2454.TW 聯發科</span>
+                      <Badge className="bg-primary/10 text-primary text-[9px] md:text-[10px]">加碼</Badge>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mb-1">續創新高，AI 晶片出貨成長</p>
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <p className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5 md:mb-1">續創新高，AI 晶片出貨成長</p>
+                    <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] text-muted-foreground">
                       <span>約 1250-1280</span>
                       <span>10:15</span>
                     </div>
                   </div>
                   {/* Sample Signal 3 */}
-                  <div className="p-2.5 rounded-md bg-muted/50 border-l-2 border-amber-500">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-xs">3008.TW 大立光</span>
-                      <Badge className="bg-amber-500/10 text-amber-600 text-[10px]">減碼</Badge>
+                  <div className="p-2 md:p-2.5 rounded-md bg-muted/50 border-l-2 border-amber-500">
+                    <div className="flex items-center justify-between mb-0.5 md:mb-1">
+                      <span className="font-semibold text-[11px] md:text-xs">3008.TW 大立光</span>
+                      <Badge className="bg-amber-500/10 text-amber-600 text-[9px] md:text-[10px]">減碼</Badge>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mb-1">達目標價位，量能萎縮先獲利了結</p>
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <p className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5 md:mb-1">達目標價位，量能萎縮先獲利了結</p>
+                    <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] text-muted-foreground">
                       <span>約 155-160</span>
                       <span>11:00</span>
                     </div>
                   </div>
                   {/* Sample Signal 4 */}
-                  <div className="p-2.5 rounded-md bg-muted/50 border-l-2 border-success">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-xs">2317.TW 鴻海</span>
-                      <Badge className="bg-success/10 text-success text-[10px]">買進</Badge>
+                  <div className="p-2 md:p-2.5 rounded-md bg-muted/50 border-l-2 border-success">
+                    <div className="flex items-center justify-between mb-0.5 md:mb-1">
+                      <span className="font-semibold text-[11px] md:text-xs">2317.TW 鴻海</span>
+                      <Badge className="bg-success/10 text-success text-[9px] md:text-[10px]">買進</Badge>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mb-1">站上所有均線，外資連續買超</p>
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <p className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5 md:mb-1">站上所有均線，外資連續買超</p>
+                    <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] text-muted-foreground">
                       <span>約 178-182</span>
                       <span>13:45</span>
                     </div>
                   </div>
                   {/* Sample Signal 5 */}
-                  <div className="p-2.5 rounded-md bg-muted/50 border-l-2 border-destructive">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-xs">2603.TW 長榮</span>
-                      <Badge className="bg-destructive/10 text-destructive text-[10px]">出場</Badge>
+                  <div className="p-2 md:p-2.5 rounded-md bg-muted/50 border-l-2 border-destructive">
+                    <div className="flex items-center justify-between mb-0.5 md:mb-1">
+                      <span className="font-semibold text-[11px] md:text-xs">2603.TW 長榮</span>
+                      <Badge className="bg-destructive/10 text-destructive text-[9px] md:text-[10px]">出場</Badge>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mb-1">跌破支撐，執行停損紀律</p>
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <p className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5 md:mb-1">跌破支撐，執行停損紀律</p>
+                    <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] text-muted-foreground">
                       <span>約 185-188</span>
                       <span>14:20</span>
                     </div>
                   </div>
                 </div>
               </div>
-              <h4 className="text-h5 mb-xs text-foreground">跟單派戰情室</h4>
-              <p className="text-muted-foreground text-sm leading-relaxed">
+              <h4 className="text-base md:text-h5 mb-xs text-foreground">跟單派戰情室</h4>
+              <p className="text-muted-foreground text-xs md:text-sm leading-relaxed">
                 即時接收專家買賣訊號，包含價位區間與操作理由。
               </p>
             </div>
 
             {/* 修煉派 - 週記式交易紀錄預覽 */}
             <div className="flex flex-col">
-              <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-md mb-md flex-1 flex flex-col">
+              <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-sm md:p-md mb-sm md:mb-md flex-1 flex flex-col">
                 {/* 派別標籤 */}
                 <div className="flex items-center gap-2 mb-3">
                   <Badge className="bg-mentor/10 text-mentor border border-mentor/20 text-xs font-medium">
@@ -901,77 +901,77 @@ const Index = () => {
                 </div>
                 
                 {/* 標題區 */}
-                <div className="flex items-center justify-between mb-md pb-md border-b border-border">
+                <div className="flex items-center justify-between mb-sm md:mb-md pb-sm md:pb-md border-b border-border">
                   <div className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4 text-mentor" />
-                    <span className="text-sm font-medium">本週操作紀錄</span>
+                    <span className="text-xs md:text-sm font-medium">本週操作紀錄</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px] bg-mentor/10 text-mentor border-mentor/20">T+7 延遲</Badge>
-                    <span className="text-xs text-muted-foreground">12/23 ~ 12/27</span>
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <Badge variant="outline" className="text-[9px] md:text-[10px] bg-mentor/10 text-mentor border-mentor/20">T+7</Badge>
+                    <span className="text-[10px] md:text-xs text-muted-foreground">12/23~12/27</span>
                   </div>
                 </div>
                 
                 {/* 每日交易列表 - 週一到週五 */}
-                <div className="space-y-2 flex-1">
+                <div className="space-y-1.5 md:space-y-2 flex-1">
                   {/* 週一 */}
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
-                    <span className="text-xs text-muted-foreground w-8 shrink-0">週一</span>
-                    <Badge className="bg-success/10 text-success text-[10px] shrink-0">買進</Badge>
+                  <div className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg bg-muted/30">
+                    <span className="text-[10px] md:text-xs text-muted-foreground w-6 md:w-8 shrink-0">週一</span>
+                    <Badge className="bg-success/10 text-success text-[9px] md:text-[10px] shrink-0">買進</Badge>
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium">2303.TW 聯電</span>
-                      <p className="text-[10px] text-muted-foreground truncate">突破短期壓力，量能放大</p>
+                      <span className="text-[10px] md:text-xs font-medium">2303.TW 聯電</span>
+                      <p className="text-[9px] md:text-[10px] text-muted-foreground truncate">突破短期壓力，量能放大</p>
                     </div>
-                    <Badge variant="outline" className="text-[10px] text-success">+3.5%</Badge>
+                    <Badge variant="outline" className="text-[9px] md:text-[10px] text-success">+3.5%</Badge>
                   </div>
                   
                   {/* 週二 */}
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
-                    <span className="text-xs text-muted-foreground w-8 shrink-0">週二</span>
-                    <Badge className="bg-success/10 text-success text-[10px] shrink-0">買進</Badge>
+                  <div className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg bg-muted/30">
+                    <span className="text-[10px] md:text-xs text-muted-foreground w-6 md:w-8 shrink-0">週二</span>
+                    <Badge className="bg-success/10 text-success text-[9px] md:text-[10px] shrink-0">買進</Badge>
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium">3037.TW 欣興</span>
-                      <p className="text-[10px] text-muted-foreground truncate">跳空上漲，追蹤 ABF 載板題材</p>
+                      <span className="text-[10px] md:text-xs font-medium">3037.TW 欣興</span>
+                      <p className="text-[9px] md:text-[10px] text-muted-foreground truncate">跳空上漲，追蹤 ABF 載板題材</p>
                     </div>
-                    <Badge variant="outline" className="text-[10px] text-destructive">-2.8%</Badge>
+                    <Badge variant="outline" className="text-[9px] md:text-[10px] text-destructive">-2.8%</Badge>
                   </div>
                   
                   {/* 週三 */}
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
-                    <span className="text-xs text-muted-foreground w-8 shrink-0">週三</span>
-                    <Badge className="bg-success/10 text-success text-[10px] shrink-0">買進</Badge>
+                  <div className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg bg-muted/30">
+                    <span className="text-[10px] md:text-xs text-muted-foreground w-6 md:w-8 shrink-0">週三</span>
+                    <Badge className="bg-success/10 text-success text-[9px] md:text-[10px] shrink-0">買進</Badge>
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium">2317.TW 鴻海</span>
-                      <p className="text-[10px] text-muted-foreground truncate">站上所有均線，外資連買</p>
+                      <span className="text-[10px] md:text-xs font-medium">2317.TW 鴻海</span>
+                      <p className="text-[9px] md:text-[10px] text-muted-foreground truncate">站上所有均線，外資連買</p>
                     </div>
-                    <Badge variant="outline" className="text-[10px] text-success">+4.2%</Badge>
+                    <Badge variant="outline" className="text-[9px] md:text-[10px] text-success">+4.2%</Badge>
                   </div>
                   
                   {/* 週四 - 觀望 */}
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/20">
-                    <span className="text-xs text-muted-foreground w-8 shrink-0">週四</span>
-                    <span className="text-[10px] text-muted-foreground italic">— 觀望無操作</span>
+                  <div className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg bg-muted/20">
+                    <span className="text-[10px] md:text-xs text-muted-foreground w-6 md:w-8 shrink-0">週四</span>
+                    <span className="text-[9px] md:text-[10px] text-muted-foreground italic">— 觀望無操作</span>
                   </div>
                   
                   {/* 週五 */}
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
-                    <span className="text-xs text-muted-foreground w-8 shrink-0">週五</span>
-                    <Badge className="bg-amber-500/10 text-amber-600 text-[10px] shrink-0">減碼</Badge>
+                  <div className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg bg-muted/30">
+                    <span className="text-[10px] md:text-xs text-muted-foreground w-6 md:w-8 shrink-0">週五</span>
+                    <Badge className="bg-amber-500/10 text-amber-600 text-[9px] md:text-[10px] shrink-0">減碼</Badge>
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium">2303.TW 聯電</span>
-                      <p className="text-[10px] text-muted-foreground truncate">達目標價位，獲利了結</p>
+                      <span className="text-[10px] md:text-xs font-medium">2303.TW 聯電</span>
+                      <p className="text-[9px] md:text-[10px] text-muted-foreground truncate">達目標價位，獲利了結</p>
                     </div>
-                    <Badge variant="outline" className="text-[10px] text-success">已鎖利</Badge>
+                    <Badge variant="outline" className="text-[9px] md:text-[10px] text-success">已鎖利</Badge>
                   </div>
                 </div>
                 
                 {/* 本週教學重點 */}
-                <div className="mt-4 pt-3 border-t border-border">
-                  <div className="flex items-center gap-1 mb-2">
+                <div className="mt-3 md:mt-4 pt-2 md:pt-3 border-t border-border">
+                  <div className="flex items-center gap-1 mb-1.5 md:mb-2">
                     <Lightbulb className="h-3 w-3 text-mentor" />
-                    <span className="text-[10px] font-medium text-muted-foreground">本週教學重點</span>
+                    <span className="text-[9px] md:text-[10px] font-medium text-muted-foreground">本週教學重點</span>
                   </div>
-                  <ul className="space-y-1 text-[10px] text-muted-foreground">
+                  <ul className="space-y-0.5 md:space-y-1 text-[9px] md:text-[10px] text-muted-foreground">
                     <li className="flex items-start gap-1">
                       <span className="text-mentor">•</span> 嚴格執行停損是短線操作的關鍵
                     </li>
@@ -981,8 +981,8 @@ const Index = () => {
                   </ul>
                 </div>
               </div>
-              <h4 className="text-h5 mb-xs text-foreground">實戰週記教學</h4>
-              <p className="text-muted-foreground text-sm leading-relaxed">
+              <h4 className="text-base md:text-h5 mb-xs text-foreground">實戰週記教學</h4>
+              <p className="text-muted-foreground text-xs md:text-sm leading-relaxed">
                 每週回顧導師的實際操作，包含進出場理由與學習重點（T+7 延遲）。
               </p>
             </div>
