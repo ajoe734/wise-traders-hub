@@ -229,19 +229,6 @@ const MobileVsCarousel = () => {
                       {card.subtitle}
                     </p>
                     
-                    {isActive && (
-                      <Button 
-                        variant="outline" 
-                        className={`w-fit bg-transparent ${card.buttonClass}`}
-                        onClick={() => {
-                          const element = document.getElementById('preview-section');
-                          element?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                      >
-                        {card.id === 'red' ? '看戰情室長什麼樣' : '看學習紀錄長什麼樣'}
-                        <ChevronDown className="h-4 w-4 ml-2" />
-                      </Button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -591,18 +578,6 @@ const Index = () => {
                     <p className="text-white/70 text-lg italic mb-8 text-left">
                       「天下武功，唯快不破」
                     </p>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="w-fit bg-transparent border-red-600/60 text-red-400 hover:bg-red-600/10 hover:border-red-500"
-                      onClick={() => {
-                        const element = document.getElementById('preview-section');
-                        element?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                    >
-                      看戰情室長什麼樣
-                      <ChevronDown className="h-4 w-4 ml-2" />
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -710,24 +685,29 @@ const Index = () => {
                     <p className="text-white/70 text-lg italic mb-8 text-right">
                       「看你骨骼精奇，是個練武奇才」
                     </p>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="w-fit bg-transparent border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500"
-                      onClick={() => {
-                        const element = document.getElementById('preview-section');
-                        element?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                    >
-                      看學習紀錄長什麼樣
-                      <ChevronDown className="h-4 w-4 ml-2" />
-                    </Button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
           
+        </div>
+        
+        {/* Unified Scroll Down Indicator */}
+        <div className="flex flex-col items-center py-8 md:py-12">
+          <button
+            onClick={() => {
+              document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer"
+          >
+            <span className="text-sm">往下看會員畫面</span>
+            <div className="flex flex-col items-center animate-bounce">
+              <ChevronDown className="h-5 w-5 opacity-30" />
+              <ChevronDown className="h-5 w-5 -mt-3 opacity-60" />
+              <ChevronDown className="h-5 w-5 -mt-3 opacity-100" />
+            </div>
+          </button>
         </div>
       </section>
       
@@ -821,7 +801,8 @@ const Index = () => {
         <div className="container">
           <div className="text-center mb-xl">
             <p className="text-muted-foreground text-sm mb-xs">產品真實畫面</p>
-            <h2 className="text-h2 text-foreground">你會看到什麼？</h2>
+            <h2 className="text-h2 text-foreground">會員戰情室一覽</h2>
+            <p className="text-muted-foreground mt-2">訂閱後，你會在戰情室看到這些內容</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-xl max-w-5xl mx-auto">
