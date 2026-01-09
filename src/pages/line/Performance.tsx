@@ -25,11 +25,7 @@ const LinePerformance = () => {
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
   const strategySystem = expertSlug ? getStrategySystemByExpertSlug(expertSlug) : undefined;
 
-  if (!expert || !strategySystem) {
-    return null;
-  }
-
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert?.role === PersonRole.ADVISOR;
   const isDelayed = strategySystem.delayMode === 't7';
 
   return (
