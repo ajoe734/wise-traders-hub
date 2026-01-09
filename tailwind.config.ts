@@ -103,6 +103,7 @@ export default {
         },
         // Signals theme colors (跟單派)
         signals: {
+          DEFAULT: "hsl(var(--signals-accent))",
           accent: "hsl(var(--signals-accent))",
           "accent-light": "hsl(var(--signals-accent-light))",
           header: "hsl(var(--signals-header))",
@@ -111,6 +112,7 @@ export default {
         },
         // Learning theme colors (修煉派)
         learning: {
+          DEFAULT: "hsl(var(--learning-accent))",
           accent: "hsl(var(--learning-accent))",
           "accent-light": "hsl(var(--learning-accent-light))",
           header: "hsl(var(--learning-header))",
