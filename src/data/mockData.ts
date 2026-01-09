@@ -59,7 +59,7 @@ export const people: Person[] = [
     role: PersonRole.MENTOR,
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
     bio: '短線交易教學，分享實戰經驗與檢討',
-    description: '10 年交易經驗，擅長短線與當沖操作。每週透過 T+7 實戰週記，完整拆解一週的操作邏輯、風險控管與事後檢討，幫助學員建立正確的交易觀念。',
+    description: '10 年交易經驗，擅長短線與當沖操作。每週透過 T+7 修煉派週記，完整拆解一週的操作邏輯、風險控管與事後檢討，幫助學員建立正確的交易觀念。',
     styleTags: ['短線', '技術分析', '教學'],
     markets: ['台股'],
     riskTolerance: '積極',
@@ -99,8 +99,8 @@ export const people: Person[] = [
     name: '趙彭博',
     role: PersonRole.MENTOR,
     avatarUrl: '/images/experts/zhao-pengbo.png',
-    bio: '漲停8招創始人，專精短線當沖教學，透過實戰週記分享操作心法',
-    description: '「漲停8招」選股系統創始人，獨創「4有」同步指標。每週透過 T+7 實戰週記，完整拆解一週的操作邏輯、漲停股篩選心法與事後檢討，幫助學員建立完整的短線交易框架。',
+    bio: '漲停8招創始人，專精短線當沖教學，透過修煉派週記分享操作心法',
+    description: '「漲停8招」選股系統創始人，獨創「4有」同步指標。每週透過 T+7 修煉派週記，完整拆解一週的操作邏輯、漲停股篩選心法與事後檢討，幫助學員建立完整的短線交易框架。',
     styleTags: ['當沖', '短線', '漲停', '教學'],
     markets: ['台股'],
     riskTolerance: '積極',
@@ -861,14 +861,14 @@ export const weeklyJournals: WeeklyJournal[] = [
       },
     ]
   },
-  // 趙彭博 實戰導師 - T+7 實戰週記
+  // 趙彭博 實戰導師 - T+7 修煉派週記
   {
     id: 'journal-zhao-1',
     personId: 'person-6',
     systemId: 'system-6',
     weekStart: weekStartTwoWeeksAgo,
     weekEnd: weekEndTwoWeeksAgo,
-    title: '漲停8招實戰週記：5漲停3停損，單週報酬+12.3%',
+    title: '漲停8招修煉派週記：5漲停3停損，單週報酬+12.3%',
     summary: '本週市場情緒回溫，電子股資金回流明顯，「4有」指標多次同步確認，共捕捉到 5 支漲停股。其中 3 筆完美鎖定漲停，2 筆盤中攻漲停後回落獲利出場，另有 3 筆因指標背離而停損。整體執行紀律良好，關鍵在於嚴守「盤中不追高」原則。',
     learningPoints: [
       '4有指標同步確認的標的勝率明顯較高（本週 5/5）',
@@ -949,7 +949,7 @@ export const weeklyJournals: WeeklyJournal[] = [
     systemId: 'system-6',
     weekStart: weekStartThreeWeeksAgo,
     weekEnd: weekEndThreeWeeksAgo,
-    title: '漲停8招實戰週記：盤整週的紀律操作，少做多看',
+    title: '漲停8招修煉派週記：盤整週的紀律操作，少做多看',
     summary: '本週大盤陷入狹幅盤整，成交量萎縮明顯，不符合漲停操作的最佳環境。全週僅進行 3 筆交易，嚴格執行「沒有 4有同步就不動手」的原則。雖然只抓到 1 支漲停，但成功避開多次假突破陷阱。這週的重點是：不做也是一種紀律。',
     learningPoints: [
       '大盤量縮時，漲停股數量減少，勝率也會下降',
@@ -981,6 +981,144 @@ export const weeklyJournals: WeeklyJournal[] = [
         action: SignalAction.BUY,
         reason: '欣興 ABF 題材，量能放大',
         outcome: '平盤出場 +0.3%（攻擊力道不足）'
+      },
+    ]
+  },
+  // 週記 3 - 洗盤手法教學
+  {
+    id: 'journal-zhao-3',
+    personId: 'person-6',
+    systemId: 'system-6',
+    weekStart: new Date(weekStartThreeWeeksAgo.getTime() - 7 * 24 * 60 * 60 * 1000),
+    weekEnd: new Date(weekEndThreeWeeksAgo.getTime() - 7 * 24 * 60 * 60 * 1000),
+    title: '漲停8招修煉派週記：解析主力洗盤手法，3個經典型態實戰',
+    summary: '本週專注於「洗盤結束型」的識別教學。透過 3 檔實際操作案例，詳細拆解主力洗盤的常見手法，以及如何在洗盤結束時精準介入。包含成功案例與失敗檢討，幫助學員建立完整的型態識別能力。',
+    learningPoints: [
+      '洗盤的三大特徵：量縮、假跌破、籌碼不鬆動',
+      '洗盤結束的關鍵訊號：量能突然放大 + 收長紅',
+      '如何區分「洗盤」與「真正出貨」',
+      '錯誤示範：過早進場的代價與正確等待時機',
+      '「有大人買」指標在洗盤末期的特殊表現'
+    ],
+    trades: [
+      {
+        id: 'trade-zhao-12',
+        date: new Date(weekStartThreeWeeksAgo.getTime() - 7 * 24 * 60 * 60 * 1000),
+        instrument: '3443.TW',
+        action: SignalAction.BUY,
+        reason: '創意連續3日量縮後突然放量突破，洗盤結束型態確認',
+        outcome: '漲停 +10%',
+        detailedAnalysis: '開盤前觀察到前三日成交量萎縮至5日均量的40%，但籌碼面顯示主力持股不減反增。9:02 開盤跳空高開2.5%，9:05 成交量已達前日全日量的60%，確認「有人」指標觸發。9:08 突破前高壓力位，「4有」同步亮燈，果斷進場。',
+        lessonsLearned: '洗盤的關鍵不是看股價跌多少，而是看籌碼是否鬆動。本案例籌碼集中度反而上升，是典型的洗盤訊號。'
+      },
+      {
+        id: 'trade-zhao-13',
+        date: new Date(weekStartThreeWeeksAgo.getTime() - 6 * 24 * 60 * 60 * 1000),
+        instrument: '6409.TW',
+        action: SignalAction.BUY,
+        reason: '旭隼假跌破5日線後快速收復，主力吸籌完畢',
+        outcome: '獲利 +7.2%',
+        detailedAnalysis: '前日收盤跌破5日線，散戶恐慌賣出，但當日開盤直接跳空站回。這是典型的「假跌破洗盤」手法，目的是把信心不足的散戶甩下車。9:15 確認站穩後進場，10:30 攻擊漲停未果但維持高檔，尾盤獲利了結。',
+        lessonsLearned: '假跌破後的快速收復是強烈的多頭訊號，但要等站穩確認再進場，不要急於抄底。'
+      },
+      {
+        id: 'trade-zhao-14',
+        date: new Date(weekStartThreeWeeksAgo.getTime() - 5 * 24 * 60 * 60 * 1000),
+        instrument: '2379.TW',
+        action: SignalAction.BUY,
+        reason: '瑞昱連續震盪洗盤後突破，誤判為洗盤結束',
+        outcome: '停損 -3.2%（實為出貨）',
+        detailedAnalysis: '技術型態看似洗盤結束，但忽略了大戶連續3日賣超的警訊。「有大人買」指標實際上是紅燈，我因為過度自信而選擇忽略。進場後股價緩跌，達到停損點果斷出場。',
+        lessonsLearned: '這筆是本週最重要的失敗案例。任何一個「4有」指標亮紅燈都不應該進場，即使其他指標都是綠燈。紀律是獲利的基礎。'
+      },
+      {
+        id: 'trade-zhao-15',
+        date: new Date(weekStartThreeWeeksAgo.getTime() - 4 * 24 * 60 * 60 * 1000),
+        instrument: '3661.TW',
+        action: SignalAction.BUY,
+        reason: '世芯洗盤5日後爆量長紅，4有同步確認',
+        outcome: '漲停 +10%',
+        detailedAnalysis: '這是本週最漂亮的一筆操作。連續5日量縮整理，股價在均線附近窄幅震盪。今日9:01開盤即放量突破，「4有」指標0.5秒內全部亮燈。9:02進場，9:25鎖漲停，持有至收盤。',
+        lessonsLearned: '耐心等待「4有」同步確認是關鍵。寧可少賺也不要因為衝動而虧損。'
+      },
+    ]
+  },
+  // 週記 4 - 大盤急跌防守策略
+  {
+    id: 'journal-zhao-4',
+    personId: 'person-6',
+    systemId: 'system-6',
+    weekStart: new Date(weekStartThreeWeeksAgo.getTime() - 14 * 24 * 60 * 60 * 1000),
+    weekEnd: new Date(weekEndThreeWeeksAgo.getTime() - 14 * 24 * 60 * 60 * 1000),
+    title: '漲停8招修煉派週記：大盤急跌時的防守策略與機會識別',
+    summary: '本週大盤下跌超過 300 點，是測試紀律的最佳時機。本篇週記分享：如何在恐慌中保持冷靜、辨識真正的恐慌底部訊號、以及急跌後的反彈操作策略。包含本週全部 6 筆交易的完整覆盤。',
+    learningPoints: [
+      '急跌時的第一原則：先觀察，不要接刀',
+      '恐慌量出現後，等待縮量確認才是進場時機',
+      '急跌後的反彈往往是最肥的肉，但要有紀律只做一天',
+      '本週停損 2 筆但避開更大跌幅，守住紀律就是獲利',
+      '大盤弱勢時只做強勢股，絕不碰補跌股'
+    ],
+    trades: [
+      {
+        id: 'trade-zhao-16',
+        date: new Date(weekStartThreeWeeksAgo.getTime() - 14 * 24 * 60 * 60 * 1000),
+        instrument: '觀望',
+        action: SignalAction.EXIT,
+        reason: '大盤開低走低，全日觀望不進場',
+        outcome: '零交易（正確決策）',
+        detailedAnalysis: '開盤大盤跳空下跌150點，恐慌情緒蔓延。雖然盤中有多檔股票觸發「有漲」指標，但「有大人買」全面紅燈。嚴格執行「4有不同步就不做」的原則，全日零交易。',
+        lessonsLearned: '空手也是一種持倉。在不確定的環境中保護本金是第一優先。'
+      },
+      {
+        id: 'trade-zhao-17',
+        date: new Date(weekStartThreeWeeksAgo.getTime() - 13 * 24 * 60 * 60 * 1000),
+        instrument: '2330.TW',
+        action: SignalAction.BUY,
+        reason: '台積電盤中翻紅，資金避風港效應',
+        outcome: '獲利 +2.8%',
+        detailedAnalysis: '大盤持續弱勢，但台積電逆勢走強。9:30 確認「4有」指標亮燈後小量進場（僅正常倉位的50%）。由於是弱勢盤中操作，設定更嚴格的停損（2%）。午盤後獲利了結，不貪心。',
+        lessonsLearned: '弱勢中做強勢股可以，但要降低倉位並提早獲利了結。'
+      },
+      {
+        id: 'trade-zhao-18',
+        date: new Date(weekStartThreeWeeksAgo.getTime() - 12 * 24 * 60 * 60 * 1000),
+        instrument: '3037.TW',
+        action: SignalAction.BUY,
+        reason: '欣興嘗試抄底，誤判底部',
+        outcome: '停損 -2.5%',
+        detailedAnalysis: '看到連續下跌後的長下影線，誤以為是底部訊號。但進場後股價繼續走弱，「有人買」指標從綠轉紅。果斷在達到停損點時出場，事後證明股價又跌了5%。',
+        lessonsLearned: '永遠不要試圖抄底。下影線不代表底部，要等站穩再說。這筆虧損提醒我：紀律停損讓我少虧了一半。'
+      },
+      {
+        id: 'trade-zhao-19',
+        date: new Date(weekStartThreeWeeksAgo.getTime() - 11 * 24 * 60 * 60 * 1000),
+        instrument: '6770.TW',
+        action: SignalAction.BUY,
+        reason: '力積電恐慌量後反彈，短線搶反彈',
+        outcome: '漲停 +10%',
+        detailedAnalysis: '前日出現恐慌性賣壓，成交量放大至10日均量的3倍。今日開盤直接跳空高開，「4有」同步確認。這是典型的「恐慌後反彈」型態，果斷進場。10:15鎖漲停。',
+        lessonsLearned: '恐慌量出現後的隔日反彈往往很強，但要注意這是短線操作，不能戀戰。'
+      },
+      {
+        id: 'trade-zhao-20',
+        date: new Date(weekStartThreeWeeksAgo.getTime() - 11 * 24 * 60 * 60 * 1000),
+        instrument: '3661.TW',
+        action: SignalAction.BUY,
+        reason: '世芯同日搶反彈，IC設計龍頭',
+        outcome: '獲利 +6.5%',
+        detailedAnalysis: '與力積電同日操作，同樣是恐慌後反彈型態。由於已經有一筆滿倉，這筆只做半倉。攻擊漲停未果，午盤後見好就收。',
+        lessonsLearned: '同時操作兩檔時要控制總曝險，不能兩檔都滿倉。'
+      },
+      {
+        id: 'trade-zhao-21',
+        date: new Date(weekStartThreeWeeksAgo.getTime() - 10 * 24 * 60 * 60 * 1000),
+        instrument: '2618.TW',
+        action: SignalAction.BUY,
+        reason: '長榮航跟風搶反彈，貪心多做一筆',
+        outcome: '停損 -2.0%',
+        detailedAnalysis: '前兩日的成功讓我有點飄了，看到長榮航開盤強勢就進場，忽略了「有大人買」指標沒有確認。結果主力是借反彈出貨，股價快速回落。',
+        lessonsLearned: '連續獲利後最容易放鬆警惕。這筆虧損是貪心的代價，提醒自己永遠要遵守「4有」紀律。'
       },
     ]
   },

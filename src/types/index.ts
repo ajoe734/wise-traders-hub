@@ -167,6 +167,8 @@ export interface JournalTrade {
   action: SignalAction;
   reason: string;
   outcome?: string;
+  detailedAnalysis?: string; // 詳細分析（修煉派週記擴充欄位）
+  lessonsLearned?: string;   // 學習心得（修煉派週記擴充欄位）
 }
 
 // Extended types with relations for UI

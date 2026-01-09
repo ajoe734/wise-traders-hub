@@ -100,7 +100,7 @@ const LineSignalDetail = () => {
 
         {/* Plan Badge */}
         <div className="text-xs text-muted-foreground">
-          透過「{isAdvisor ? '投顧策略訂閱' : '實戰週記教學訂閱'}」取得此{isAdvisor ? '訊號' : '案例'}
+          透過「{isAdvisor ? '投顧策略訂閱' : '修煉派週記教學訂閱'}」取得此{isAdvisor ? '訊號' : '案例'}
         </div>
 
         {/* Why Section */}

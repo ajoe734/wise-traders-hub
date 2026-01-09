@@ -67,7 +67,7 @@ const LineSignals = () => {
         {/* Header */}
         <div className="mb-4">
           <h1 className="text-xl font-bold">
-            {isAdvisor ? '即時訊號牆' : '實戰週記'}
+            {isAdvisor ? '即時訊號牆' : '修煉派週記'}
           </h1>
           <p className="text-sm text-muted-foreground">
             {isAdvisor 
