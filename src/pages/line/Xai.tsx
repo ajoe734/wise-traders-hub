@@ -39,6 +39,7 @@ const LineXai = () => {
 
   return (
     <LineLayout>
+      {expert && (
       <div className="p-4 space-y-4">
         {/* Back Link if from signal */}
         {signal && (
@@ -219,6 +220,7 @@ const LineXai = () => {
           以上分析由 AI 系統輔助產出，僅供教學參考，不構成投資建議。
         </div>
       </div>
+      )}
     </LineLayout>
   );
 };
