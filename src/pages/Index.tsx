@@ -19,7 +19,8 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Lightbulb
 } from 'lucide-react';
 import featureXianren from '@/assets/feature-xianren.png';
 import featureSanpai from '@/assets/feature-sanpai.png';
@@ -865,7 +866,7 @@ const Index = () => {
               </p>
             </div>
 
-            {/* Equity Curve Preview - 修煉派 */}
+            {/* 修煉派 - 週記式交易紀錄預覽 */}
             <div>
               <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-md mb-md">
                 {/* 派別標籤 */}
@@ -874,51 +875,91 @@ const Index = () => {
                     修煉派 · LEARNING
                   </Badge>
                 </div>
+                
+                {/* 標題區 */}
                 <div className="flex items-center justify-between mb-md pb-md border-b border-border">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-mentor" />
-                    <span className="text-sm font-medium">淨值曲線</span>
+                    <BookOpen className="h-4 w-4 text-mentor" />
+                    <span className="text-sm font-medium">本週操作紀錄</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] bg-mentor/10 text-mentor border-mentor/20">T+7 延遲</Badge>
-                    <span className="text-success text-sm font-semibold">+32.4%</span>
+                    <span className="text-xs text-muted-foreground">12/23 ~ 12/27</span>
                   </div>
                 </div>
-                {/* Simple Chart Visualization */}
-                <div className="h-40 flex items-end gap-1">
-                  {[35, 42, 38, 55, 48, 62, 58, 72, 68, 78, 85, 82, 92, 88, 95, 100].map((height, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-gradient-to-t from-mentor/20 to-mentor/60 rounded-t"
-                      style={{ height: `${height}%` }}
-                    />
-                  ))}
+                
+                {/* 每日交易列表 - 週一到週五 */}
+                <div className="space-y-2">
+                  {/* 週一 */}
+                  <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                    <span className="text-xs text-muted-foreground w-8 shrink-0">週一</span>
+                    <Badge className="bg-success/10 text-success text-[10px] shrink-0">買進</Badge>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-medium">2303.TW 聯電</span>
+                      <p className="text-[10px] text-muted-foreground truncate">突破短期壓力，量能放大</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] text-success">+3.5%</Badge>
+                  </div>
+                  
+                  {/* 週二 */}
+                  <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                    <span className="text-xs text-muted-foreground w-8 shrink-0">週二</span>
+                    <Badge className="bg-success/10 text-success text-[10px] shrink-0">買進</Badge>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-medium">3037.TW 欣興</span>
+                      <p className="text-[10px] text-muted-foreground truncate">跳空上漲，追蹤 ABF 載板題材</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] text-destructive">-2.8%</Badge>
+                  </div>
+                  
+                  {/* 週三 */}
+                  <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                    <span className="text-xs text-muted-foreground w-8 shrink-0">週三</span>
+                    <Badge className="bg-success/10 text-success text-[10px] shrink-0">買進</Badge>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-medium">2317.TW 鴻海</span>
+                      <p className="text-[10px] text-muted-foreground truncate">站上所有均線，外資連買</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] text-success">+4.2%</Badge>
+                  </div>
+                  
+                  {/* 週四 - 觀望 */}
+                  <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/20">
+                    <span className="text-xs text-muted-foreground w-8 shrink-0">週四</span>
+                    <span className="text-[10px] text-muted-foreground italic">— 觀望無操作</span>
+                  </div>
+                  
+                  {/* 週五 */}
+                  <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                    <span className="text-xs text-muted-foreground w-8 shrink-0">週五</span>
+                    <Badge className="bg-amber-500/10 text-amber-600 text-[10px] shrink-0">減碼</Badge>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-medium">2303.TW 聯電</span>
+                      <p className="text-[10px] text-muted-foreground truncate">達目標價位，獲利了結</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] text-success">已鎖利</Badge>
+                  </div>
                 </div>
-                <div className="flex justify-between mt-3 text-[10px] text-muted-foreground">
-                  <span>1月</span>
-                  <span>4月</span>
-                  <span>7月</span>
-                  <span>10月</span>
-                </div>
-                {/* Stats Row */}
-                <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-border">
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground">勝率</p>
-                    <p className="text-sm font-semibold">62.5%</p>
+                
+                {/* 本週教學重點 */}
+                <div className="mt-4 pt-3 border-t border-border">
+                  <div className="flex items-center gap-1 mb-2">
+                    <Lightbulb className="h-3 w-3 text-mentor" />
+                    <span className="text-[10px] font-medium text-muted-foreground">本週教學重點</span>
                   </div>
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground">夏普值</p>
-                    <p className="text-sm font-semibold">1.85</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground">最大回撤</p>
-                    <p className="text-sm font-semibold text-destructive">-12.3%</p>
-                  </div>
+                  <ul className="space-y-1 text-[10px] text-muted-foreground">
+                    <li className="flex items-start gap-1">
+                      <span className="text-mentor">•</span> 嚴格執行停損是短線操作的關鍵
+                    </li>
+                    <li className="flex items-start gap-1">
+                      <span className="text-mentor">•</span> 量能確認後再進場可提高勝率
+                    </li>
+                  </ul>
                 </div>
               </div>
-              <h4 className="text-h5 mb-xs text-foreground">修煉派學習紀錄</h4>
+              <h4 className="text-h5 mb-xs text-foreground">實戰週記教學</h4>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                追蹤導師真實績效，搭配延遲週記學習交易邏輯。
+                每週回顧導師的實際操作，包含進出場理由與學習重點（T+7 延遲）。
               </p>
             </div>
           </div>
