@@ -280,15 +280,6 @@ const MobileVsCarousel = () => {
 // Mobile Preview Carousel Component
 const MobilePreviewCarousel = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [showHint, setShowHint] = useState(true);
-
-  // Auto-hide hint after 3 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowHint(false);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleSwipe = (e: React.TouchEvent) => {
     const touch = e.changedTouches[0];
@@ -298,10 +289,8 @@ const MobilePreviewCarousel = () => {
     if (Math.abs(diff) > 50) {
       if (diff > 0 && selectedIndex > 0) {
         setSelectedIndex(0);
-        setShowHint(false);
       } else if (diff < 0 && selectedIndex < 1) {
         setSelectedIndex(1);
-        setShowHint(false);
       }
     }
   };
@@ -311,7 +300,7 @@ const MobilePreviewCarousel = () => {
   };
 
   return (
-    <div className="md:hidden">
+    <div className="md:hidden relative">
       {/* Swipe Container */}
       <div 
         className="relative overflow-hidden"
@@ -452,30 +441,45 @@ const MobilePreviewCarousel = () => {
         </div>
       </div>
 
-      {/* Indicator Dots */}
-      <div className="flex justify-center gap-2 mt-4">
-        {[0, 1].map((index) => (
-          <button
-            key={index}
-            onClick={() => {
-              setSelectedIndex(index);
-              setShowHint(false);
-            }}
-            className={`w-2 h-2 rounded-full transition-all ${
-              selectedIndex === index 
-                ? index === 0 ? 'bg-signals w-6' : 'bg-mentor w-6'
-                : 'bg-muted-foreground/30'
-            }`}
-          />
-        ))}
-      </div>
+      {/* Navigation Arrows */}
+      <button
+        onClick={() => setSelectedIndex(0)}
+        className={`absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white transition-opacity ${selectedIndex === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        aria-label="上一個"
+      >
+        <ChevronLeft className="w-5 h-5" />
+      </button>
+      <button
+        onClick={() => setSelectedIndex(1)}
+        className={`absolute right-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white transition-opacity ${selectedIndex === 1 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        aria-label="下一個"
+      >
+        <ChevronRight className="w-5 h-5" />
+      </button>
 
-      {/* Swipe Hint */}
-      {showHint && (
-        <p className="text-center text-muted-foreground/60 text-xs mt-2 animate-pulse">
+      {/* Indicator Dots & Label */}
+      <div className="flex flex-col items-center gap-2 mt-4">
+        <div className="flex justify-center gap-3">
+          {[0, 1].map((index) => (
+            <button
+              key={index}
+              onClick={() => setSelectedIndex(index)}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                selectedIndex === index 
+                  ? index === 0 ? 'bg-signals w-8' : 'bg-mentor w-8'
+                  : 'bg-white/40 w-2 hover:bg-white/60'
+              }`}
+              aria-label={index === 0 ? '跟單派戰情室' : '修煉派週記教學'}
+            />
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {selectedIndex === 0 ? '跟單派戰情室' : '修煉派週記教學'} · {selectedIndex + 1}/2
+        </p>
+        <p className="text-muted-foreground/60 text-xs animate-pulse">
           ← 左右滑動切換 →
         </p>
-      )}
+      </div>
     </div>
   );
 };
