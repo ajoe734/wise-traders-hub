@@ -130,7 +130,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
       { href: '/app', icon: Home, label: '戰情室', group: '/app' },
       { href: '/app/signals', icon: Radio, label: '訊號', group: '/app/signals', badgeKey: 'signals' },
       { href: '/app/journals', icon: BookOpen, label: '週記', group: '/app/journals', badgeKey: 'journals' },
-      { href: '/app/explore', icon: Compass, label: '探索', group: '/app/explore' },
+      { href: '/app/explore', icon: Compass, label: '探索名師', group: '/app/explore' },
       { href: '/app/account', icon: User, label: '帳號', group: '/app/account' },
     ];
   }, []);

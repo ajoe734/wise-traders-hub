@@ -12,7 +12,7 @@ interface PortalLayoutProps {
 
 const navLinks = [
   { href: '/', label: '首頁' },
-  { href: '/experts', label: '探索' },
+  { href: '/experts', label: '探索名師' },
   { href: '/pricing', label: '方案與價格' },
   { href: '/legal', label: '法律聲明' },
 ];
