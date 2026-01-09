@@ -23,6 +23,7 @@ const LineAccount = () => {
 
   return (
     <LineLayout>
+      {expert && (
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="mb-4">
@@ -167,6 +168,7 @@ const LineAccount = () => {
           </p>
         </div>
       </div>
+      )}
     </LineLayout>
   );
 };

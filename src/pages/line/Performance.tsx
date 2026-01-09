@@ -26,10 +26,11 @@ const LinePerformance = () => {
   const strategySystem = expertSlug ? getStrategySystemByExpertSlug(expertSlug) : undefined;
 
   const isAdvisor = expert?.role === PersonRole.ADVISOR;
-  const isDelayed = strategySystem.delayMode === 't7';
+  const isDelayed = strategySystem?.delayMode === 't7';
 
   return (
     <LineLayout>
+      {expert && strategySystem && (
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="mb-4">
@@ -156,6 +157,7 @@ const LinePerformance = () => {
           過去績效不代表未來表現，投資有風險，請謹慎評估。
         </div>
       </div>
+      )}
     </LineLayout>
   );
 };

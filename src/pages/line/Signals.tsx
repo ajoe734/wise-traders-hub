@@ -62,6 +62,7 @@ const LineSignals = () => {
 
   return (
     <LineLayout>
+      {expert && (
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="mb-4">
@@ -247,6 +248,7 @@ const LineSignals = () => {
           {!isAdvisor && '所有內容至少延遲 7 天發布，僅供教學參考。'}
         </div>
       </div>
+      )}
     </LineLayout>
   );
 };

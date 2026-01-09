@@ -44,6 +44,7 @@ const LineTrades = () => {
 
   return (
     <LineLayout>
+      {expert && (
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="mb-4">
@@ -118,6 +119,7 @@ const LineTrades = () => {
           過去績效不代表未來表現，投資有風險，請謹慎評估。
         </div>
       </div>
+      )}
     </LineLayout>
   );
 };

@@ -97,6 +97,7 @@ const LineHome = () => {
 
   return (
     <LineLayout>
+      {expert && (
       <div className="p-4 space-y-6">
         {/* Greeting */}
         <div className="mb-6">
@@ -477,6 +478,7 @@ const LineHome = () => {
           {!isAdvisor && '本頁內容僅供教學參考，不構成投資建議。'}
         </div>
       </div>
+      )}
     </LineLayout>
   );
 };

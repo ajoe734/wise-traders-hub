@@ -14,6 +14,7 @@ const LineHistory = () => {
 
   return (
     <LineLayout>
+      {expert && (
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="mb-4">
@@ -48,6 +49,7 @@ const LineHistory = () => {
           {!isAdvisor && '本頁內容僅供教學參考，不構成投資建議。'}
         </div>
       </div>
+      )}
     </LineLayout>
   );
 };
