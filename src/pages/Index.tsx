@@ -277,6 +277,209 @@ const MobileVsCarousel = () => {
   );
 };
 
+// Mobile Preview Carousel Component
+const MobilePreviewCarousel = () => {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showHint, setShowHint] = useState(true);
+
+  // Auto-hide hint after 3 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowHint(false);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleSwipe = (e: React.TouchEvent) => {
+    const touch = e.changedTouches[0];
+    const startX = (e.target as HTMLElement).dataset.startX;
+    if (!startX) return;
+    const diff = touch.clientX - parseFloat(startX);
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && selectedIndex > 0) {
+        setSelectedIndex(0);
+        setShowHint(false);
+      } else if (diff < 0 && selectedIndex < 1) {
+        setSelectedIndex(1);
+        setShowHint(false);
+      }
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    (e.currentTarget as HTMLElement).dataset.startX = String(e.touches[0].clientX);
+  };
+
+  return (
+    <div className="md:hidden">
+      {/* Swipe Container */}
+      <div 
+        className="relative overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleSwipe}
+      >
+        <div 
+          className="flex transition-transform duration-300 ease-out"
+          style={{ transform: `translateX(-${selectedIndex * 100}%)` }}
+        >
+          {/* 跟單派 Card */}
+          <div className="w-full flex-shrink-0 px-4">
+            <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Badge className="bg-signals/10 text-signals border border-signals/20 text-xs font-medium">
+                  跟單派 · SIGNALS
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2 mb-sm pb-sm border-b border-border">
+                <Zap className="h-4 w-4 text-signals" />
+                <span className="text-xs font-medium">即時訊號牆</span>
+                <Badge variant="outline" className="text-[10px] ml-auto bg-signals/10 text-signals border-signals/20">即時</Badge>
+              </div>
+              <div className="space-y-1.5">
+                <div className="p-2 rounded-md bg-muted/50 border-l-2 border-success">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="font-semibold text-[11px]">2330.TW 台積電</span>
+                    <Badge className="bg-success/10 text-success text-[9px]">買進</Badge>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground">突破季線壓力，外資連續買超</p>
+                </div>
+                <div className="p-2 rounded-md bg-muted/50 border-l-2 border-primary">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="font-semibold text-[11px]">2454.TW 聯發科</span>
+                    <Badge className="bg-primary/10 text-primary text-[9px]">加碼</Badge>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground">續創新高，AI 晶片出貨成長</p>
+                </div>
+                <div className="p-2 rounded-md bg-muted/50 border-l-2 border-amber-500">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="font-semibold text-[11px]">3008.TW 大立光</span>
+                    <Badge className="bg-amber-500/10 text-amber-600 text-[9px]">減碼</Badge>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground">達目標價位，量能萎縮先獲利了結</p>
+                </div>
+                <div className="p-2 rounded-md bg-muted/50 border-l-2 border-success">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="font-semibold text-[11px]">2317.TW 鴻海</span>
+                    <Badge className="bg-success/10 text-success text-[9px]">買進</Badge>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground">站上所有均線，外資連續買超</p>
+                </div>
+              </div>
+            </div>
+            <h4 className="text-base mt-sm mb-xs text-foreground">跟單派戰情室</h4>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              即時接收專家買賣訊號，包含價位區間與操作理由。
+            </p>
+          </div>
+
+          {/* 修煉派 Card */}
+          <div className="w-full flex-shrink-0 px-4">
+            <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Badge className="bg-mentor/10 text-mentor border border-mentor/20 text-xs font-medium">
+                  修煉派 · LEARNING
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between mb-sm pb-sm border-b border-border">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-mentor" />
+                  <span className="text-xs font-medium">本週操作紀錄</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="outline" className="text-[9px] bg-mentor/10 text-mentor border-mentor/20">T+7</Badge>
+                  <span className="text-[10px] text-muted-foreground">12/23~12/27</span>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30">
+                  <span className="text-[10px] text-muted-foreground w-6 shrink-0">週一</span>
+                  <Badge className="bg-success/10 text-success text-[9px] shrink-0">買進</Badge>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] font-medium">2303.TW 聯電</span>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] text-success">+3.5%</Badge>
+                </div>
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30">
+                  <span className="text-[10px] text-muted-foreground w-6 shrink-0">週二</span>
+                  <Badge className="bg-success/10 text-success text-[9px] shrink-0">買進</Badge>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] font-medium">3037.TW 欣興</span>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] text-destructive">-2.8%</Badge>
+                </div>
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30">
+                  <span className="text-[10px] text-muted-foreground w-6 shrink-0">週三</span>
+                  <Badge className="bg-success/10 text-success text-[9px] shrink-0">買進</Badge>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] font-medium">2317.TW 鴻海</span>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] text-success">+4.2%</Badge>
+                </div>
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/20">
+                  <span className="text-[10px] text-muted-foreground w-6 shrink-0">週四</span>
+                  <span className="text-[9px] text-muted-foreground italic">— 觀望無操作</span>
+                </div>
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30">
+                  <span className="text-[10px] text-muted-foreground w-6 shrink-0">週五</span>
+                  <Badge className="bg-amber-500/10 text-amber-600 text-[9px] shrink-0">減碼</Badge>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] font-medium">2303.TW 聯電</span>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] text-success">已鎖利</Badge>
+                </div>
+              </div>
+              {/* 本週教學重點 */}
+              <div className="mt-3 pt-2 border-t border-border">
+                <div className="flex items-center gap-1 mb-1.5">
+                  <Lightbulb className="h-3 w-3 text-mentor" />
+                  <span className="text-[9px] font-medium text-muted-foreground">本週教學重點</span>
+                </div>
+                <ul className="space-y-0.5 text-[9px] text-muted-foreground">
+                  <li className="flex items-start gap-1">
+                    <span className="text-mentor">•</span> 嚴格執行停損是短線操作的關鍵
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <span className="text-mentor">•</span> 量能確認後再進場可提高勝率
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <h4 className="text-base mt-sm mb-xs text-foreground">實戰週記教學</h4>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              每週回顧導師的實際操作，包含進出場理由與學習重點。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Indicator Dots */}
+      <div className="flex justify-center gap-2 mt-4">
+        {[0, 1].map((index) => (
+          <button
+            key={index}
+            onClick={() => {
+              setSelectedIndex(index);
+              setShowHint(false);
+            }}
+            className={`w-2 h-2 rounded-full transition-all ${
+              selectedIndex === index 
+                ? index === 0 ? 'bg-signals w-6' : 'bg-mentor w-6'
+                : 'bg-muted-foreground/30'
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Swipe Hint */}
+      {showHint && (
+        <p className="text-center text-muted-foreground/60 text-xs mt-2 animate-pulse">
+          ← 左右滑動切換 →
+        </p>
+      )}
+    </div>
+  );
+};
+
 const Index = () => {
   return (
     <PortalLayout>
@@ -806,7 +1009,11 @@ const Index = () => {
             <p className="text-muted-foreground mt-2">訂閱後，你會在戰情室看到這些內容</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-lg md:gap-xl max-w-5xl mx-auto">
+          {/* Mobile Swipeable Carousel */}
+          <MobilePreviewCarousel />
+
+          {/* Desktop Grid View */}
+          <div className="hidden md:grid md:grid-cols-2 gap-lg md:gap-xl max-w-5xl mx-auto">
             {/* Signal List Preview - 跟單派 */}
             <div className="flex flex-col">
               <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-sm md:p-md mb-sm md:mb-md flex-1 flex flex-col">
@@ -986,6 +1193,16 @@ const Index = () => {
                 每週回顧導師的實際操作，包含進出場理由與學習重點（T+7 延遲）。
               </p>
             </div>
+          </div>
+
+          {/* CTA Button */}
+          <div className="text-center mt-lg md:mt-xl">
+            <Link to="/pricing">
+              <Button size="lg" className="bg-primary hover:bg-primary/90">
+                <ArrowRight className="mr-2 h-4 w-4" />
+                方案說明
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
