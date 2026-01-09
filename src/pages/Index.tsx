@@ -18,7 +18,8 @@ import {
   LineChart,
   TrendingUp,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 import featureXianren from '@/assets/feature-xianren.png';
 import featureSanpai from '@/assets/feature-sanpai.png';
@@ -229,11 +230,16 @@ const MobileVsCarousel = () => {
                     </p>
                     
                     {isActive && (
-                      <Button variant="outline" className={`w-fit bg-transparent ${card.buttonClass}`} asChild>
-                        <Link to={card.link}>
-                          選擇此派
-                          <ArrowRight className="h-4 w-4 ml-2" />
-                        </Link>
+                      <Button 
+                        variant="outline" 
+                        className={`w-fit bg-transparent ${card.buttonClass}`}
+                        onClick={() => {
+                          const element = document.getElementById('preview-section');
+                          element?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        {card.id === 'red' ? '看戰情室長什麼樣' : '看學習紀錄長什麼樣'}
+                        <ChevronDown className="h-4 w-4 ml-2" />
                       </Button>
                     )}
                   </div>
@@ -586,11 +592,16 @@ const Index = () => {
                       「天下武功，唯快不破」
                     </p>
                     
-                    <Button variant="outline" className="w-fit bg-transparent border-red-600/60 text-red-400 hover:bg-red-600/10 hover:border-red-500" asChild>
-                      <Link to="/experts?role=advisor">
-                        選擇此派
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Link>
+                    <Button 
+                      variant="outline" 
+                      className="w-fit bg-transparent border-red-600/60 text-red-400 hover:bg-red-600/10 hover:border-red-500"
+                      onClick={() => {
+                        const element = document.getElementById('preview-section');
+                        element?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      看戰情室長什麼樣
+                      <ChevronDown className="h-4 w-4 ml-2" />
                     </Button>
                   </div>
                 </div>
@@ -700,11 +711,16 @@ const Index = () => {
                       「看你骨骼精奇，是個練武奇才」
                     </p>
                     
-                    <Button variant="outline" className="w-fit bg-transparent border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500" asChild>
-                      <Link to="/experts?role=mentor">
-                        選擇此派
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Link>
+                    <Button 
+                      variant="outline" 
+                      className="w-fit bg-transparent border-blue-600/60 text-blue-400 hover:bg-blue-600/10 hover:border-blue-500"
+                      onClick={() => {
+                        const element = document.getElementById('preview-section');
+                        element?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      看學習紀錄長什麼樣
+                      <ChevronDown className="h-4 w-4 ml-2" />
                     </Button>
                   </div>
                 </div>
@@ -801,7 +817,7 @@ const Index = () => {
       `}</style>
 
       {/* Real Interface Preview Section */}
-      <section className="py-section bg-card">
+      <section id="preview-section" className="py-section bg-card">
         <div className="container">
           <div className="text-center mb-xl">
             <p className="text-muted-foreground text-sm mb-xs">產品真實畫面</p>
