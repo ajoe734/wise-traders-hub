@@ -25,6 +25,7 @@ import {
 import featureXianren from '@/assets/feature-xianren.png';
 import featureSanpai from '@/assets/feature-sanpai.png';
 import featureJiaodai from '@/assets/feature-jiaodai.png';
+import featureFiveFactions from '@/assets/feature-five-factions.png';
 import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
 import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 import { VsBrushMark } from '@/components/VsBrushMark';
@@ -601,8 +602,8 @@ const Index = () => {
                 <div 
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
                   style={{ 
-                    backgroundImage: `url(${featureSanpai})`,
-                    opacity: 0.65
+                    backgroundImage: `url(${featureFiveFactions})`,
+                    opacity: 0.75
                   }}
                 />
                 <div 
