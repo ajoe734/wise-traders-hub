@@ -10,11 +10,11 @@ interface ActionBadgeProps {
 const actionConfig: Record<SignalAction, { label: string; className: string }> = {
   [SignalAction.BUY]: { 
     label: '買進', 
-    className: 'bg-emerald-500 text-emerald-50 border-emerald-500' 
+    className: 'bg-success text-white border-success' 
   },
   [SignalAction.SELL]: { 
     label: '賣出', 
-    className: 'bg-rose-500 text-rose-50 border-rose-500' 
+    className: 'bg-destructive text-white border-destructive' 
   },
   [SignalAction.ADD]: { 
     label: '加碼', 
