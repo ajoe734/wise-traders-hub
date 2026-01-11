@@ -1,9 +1,9 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Menu, X, TrendingUp } from 'lucide-react';
-import { useState } from 'react';
+import { Menu, X, TrendingUp, Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
 interface PortalLayoutProps {
@@ -21,6 +21,12 @@ export function PortalLayout({ children }: PortalLayoutProps) {
   const { user } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,8 +59,34 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             ))}
           </nav>
 
-          {/* Auth Buttons */}
+          {/* Theme Toggle + Auth Buttons */}
           <div className="hidden md:flex items-center gap-3">
+            {/* Theme Toggle */}
+            {mounted && (
+              <button
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all",
+                  "border text-sm font-medium",
+                  resolvedTheme === 'dark' 
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                    : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
+                )}
+                aria-label={resolvedTheme === 'dark' ? '切換至淺色模式' : '切換至深色模式'}
+              >
+                {resolvedTheme === 'dark' ? (
+                  <>
+                    <Sun className="h-4 w-4" />
+                    <span className="text-xs">淺色</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="h-4 w-4" />
+                    <span className="text-xs">夜間</span>
+                  </>
+                )}
+              </button>
+            )}
             {user ? (
               <>
                 <Button variant="ghost" size="sm" asChild>
@@ -93,6 +125,31 @@ export function PortalLayout({ children }: PortalLayoutProps) {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border bg-card">
             <nav className="container py-4 space-y-2">
+              {/* Theme Toggle - Mobile */}
+              {mounted && (
+                <button
+                  onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md transition-all",
+                    "border text-sm font-medium mb-2",
+                    resolvedTheme === 'dark' 
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                      : "bg-slate-100 border-slate-200 text-slate-600"
+                  )}
+                >
+                  {resolvedTheme === 'dark' ? (
+                    <>
+                      <Sun className="h-4 w-4" />
+                      <span>切換至淺色模式</span>
+                    </>
+                  ) : (
+                    <>
+                      <Moon className="h-4 w-4" />
+                      <span>切換至夜間模式</span>
+                    </>
+                  )}
+                </button>
+              )}
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
