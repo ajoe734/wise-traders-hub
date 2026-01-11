@@ -1296,47 +1296,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Trust Section */}
-      <section className="py-section bg-background">
-        <div className="container">
-          <div className="text-center mb-xl">
-            <p className="text-muted-foreground text-sm mb-xs">安心使用，透明經營</p>
-            <h2 className="text-h2 text-foreground">我們的承諾</h2>
-          </div>
-          <div className="max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-3 gap-xl text-center">
-              <div>
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground mx-auto mb-md">
-                  <Shield className="h-7 w-7" />
-                </div>
-                <h4 className="text-h5 mb-xs text-foreground">合規經營</h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  持有合法執照，依法令規範辦理
-                </p>
-              </div>
-              <div>
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground mx-auto mb-md">
-                  <GraduationCap className="h-7 w-7" />
-                </div>
-                <h4 className="text-h5 mb-xs text-foreground">教育為本</h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  每筆操作都是教學機會
-                </p>
-              </div>
-              <div>
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground mx-auto mb-md">
-                  <Calendar className="h-7 w-7" />
-                </div>
-                <h4 className="text-h5 mb-xs text-foreground">透明揭露</h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  明確區分即時與教學內容
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* CTA Section */}
       <section className="py-section bg-card">
         <div className="container">
