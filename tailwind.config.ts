@@ -175,6 +175,14 @@ export default {
             transform: "translateX(8px) translateZ(0) rotateY(2deg) scale(1)",
           },
         },
+        "page-enter": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "page-exit": {
+          from: { opacity: "1", transform: "translateY(0)" },
+          to: { opacity: "0", transform: "translateY(-8px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -183,6 +191,8 @@ export default {
         "slide-up": "slide-up 0.4s ease-out forwards",
         "gold-glow": "gold-glow 2s ease-in-out infinite",
         "swipe-hint": "swipe-hint 1.5s ease-in-out infinite",
+        "page-enter": "page-enter 0.25s ease-out forwards",
+        "page-exit": "page-exit 0.15s ease-in forwards",
       },
     },
   },
