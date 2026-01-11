@@ -155,7 +155,7 @@ export function FourIndicatorsDashboard({
                 </div>
               </div>
               {/* Progress bar */}
-              <div className="mt-2 h-1.5 bg-background/50 rounded-full overflow-hidden">
+              <div className="mt-2 h-1.5 bg-border/50 dark:bg-white/10 rounded-full overflow-hidden">
                 <div
                   className={cn("h-full rounded-full transition-all", colors.fill)}
                   style={{ width: `${indicator.value}%` }}

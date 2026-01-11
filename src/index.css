@@ -135,27 +135,31 @@
     --primary-hover: 4 82% 65%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 15%;
+    --secondary: 0 0% 18%;
     --secondary-foreground: 0 0% 98%;
 
     --text-primary: 0 0% 98%;
-    --text-secondary: 0 0% 65%;
+    --text-secondary: 0 0% 70%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 70%;
 
-    --accent: 0 0% 15%;
+    --accent: 0 0% 18%;
     --accent-foreground: 0 0% 98%;
 
-    --destructive: 4 82% 56%;
+    --destructive: 4 82% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
     --ring: 4 82% 56%;
 
-    --advisor-light: 0 0% 15%;
-    --mentor-light: 0 0% 15%;
+    /* Status colors - brighter for dark mode */
+    --success: 142 76% 50%;
+    --warning: 38 92% 60%;
+
+    --advisor-light: 4 82% 15%;
+    --mentor-light: 210 80% 15%;
     --success-light: 142 76% 15%;
     --warning-light: 38 92% 15%;
 

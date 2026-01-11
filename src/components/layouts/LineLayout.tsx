@@ -3,9 +3,10 @@ import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { PersonRole } from '@/types';
 import { getPersonBySlug, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
-import { Home, Radio, BarChart3, BookOpen, User, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Home, Radio, BarChart3, BookOpen, User, ChevronRight, ChevronLeft, Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from 'next-themes';
 
 interface LineLayoutProps {
   children: ReactNode;
@@ -112,6 +113,8 @@ export function LineLayout({ children }: LineLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
   const [unreadCount, setUnreadCount] = useState(0);
   
@@ -119,6 +122,11 @@ export function LineLayout({ children }: LineLayoutProps) {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [displayedChildren, setDisplayedChildren] = useState(children);
   const prevPathRef = useRef(location.pathname);
+
+  // Avoid hydration mismatch for theme
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isAdvisor = expert?.role === PersonRole.ADVISOR;
   const basePath = `/line/${expertSlug}`;
@@ -239,10 +247,29 @@ export function LineLayout({ children }: LineLayoutProps) {
               className="h-8 w-8 rounded-full object-cover"
             />
             <span className="font-semibold">{expert.name}</span>
-            <Badge variant={isAdvisor ? 'advisor' : 'mentor'} className="text-[10px] px-1.5 py-0">
+          <Badge variant={isAdvisor ? 'advisor' : 'mentor'} className="text-[10px] px-1.5 py-0">
               {isAdvisor ? '投顧分析師' : '實戰導師'}
             </Badge>
           </div>
+          
+          {/* Theme Toggle Button */}
+          {mounted && (
+            <button
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              className={cn(
+                "w-9 h-9 flex items-center justify-center rounded-full transition-colors",
+                "hover:bg-muted active:bg-muted/80",
+                "text-muted-foreground hover:text-foreground"
+              )}
+              aria-label={resolvedTheme === 'dark' ? '切換至淺色模式' : '切換至深色模式'}
+            >
+              {resolvedTheme === 'dark' ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Breadcrumbs */}
