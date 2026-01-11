@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useEffect, useState } from 'react';
+import { ReactNode, useMemo, useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { PersonRole } from '@/types';
 import { getPersonBySlug, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
@@ -114,6 +114,11 @@ export function LineLayout({ children }: LineLayoutProps) {
   const { user } = useAuth();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Page transition state
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [displayedChildren, setDisplayedChildren] = useState(children);
+  const prevPathRef = useRef(location.pathname);
 
   const isAdvisor = expert?.role === PersonRole.ADVISOR;
   const basePath = `/line/${expertSlug}`;
@@ -142,6 +147,24 @@ export function LineLayout({ children }: LineLayoutProps) {
       setUnreadCount(unread);
     }
   }, [user, expert, expertSlug, isAdvisor, location.pathname]);
+
+  // Handle page transitions
+  useEffect(() => {
+    if (prevPathRef.current !== location.pathname) {
+      setIsTransitioning(true);
+      
+      // Wait for exit animation to complete before updating content
+      const timer = setTimeout(() => {
+        setDisplayedChildren(children);
+        setIsTransitioning(false);
+        prevPathRef.current = location.pathname;
+      }, 150); // Match page-exit animation duration
+      
+      return () => clearTimeout(timer);
+    } else {
+      setDisplayedChildren(children);
+    }
+  }, [location.pathname, children]);
 
   if (!expert) {
     return (
@@ -257,8 +280,11 @@ export function LineLayout({ children }: LineLayoutProps) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        {children}
+      <main className={cn(
+        "flex-1 overflow-auto",
+        isTransitioning ? "animate-page-exit" : "animate-page-enter"
+      )}>
+        {displayedChildren}
       </main>
 
       {/* Bottom Tab Bar */}
