@@ -252,21 +252,29 @@ export function LineLayout({ children }: LineLayoutProps) {
             </Badge>
           </div>
           
-          {/* Theme Toggle Button */}
+          {/* Theme Toggle Button - 更明顯的設計 */}
           {mounted && (
             <button
               onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
               className={cn(
-                "w-9 h-9 flex items-center justify-center rounded-full transition-colors",
-                "hover:bg-muted active:bg-muted/80",
-                "text-muted-foreground hover:text-foreground"
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all",
+                "border text-sm font-medium",
+                resolvedTheme === 'dark' 
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                  : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
               )}
               aria-label={resolvedTheme === 'dark' ? '切換至淺色模式' : '切換至深色模式'}
             >
               {resolvedTheme === 'dark' ? (
-                <Sun className="h-5 w-5" />
+                <>
+                  <Sun className="h-4 w-4" />
+                  <span className="text-xs">淺色</span>
+                </>
               ) : (
-                <Moon className="h-5 w-5" />
+                <>
+                  <Moon className="h-4 w-4" />
+                  <span className="text-xs">夜間</span>
+                </>
               )}
             </button>
           )}

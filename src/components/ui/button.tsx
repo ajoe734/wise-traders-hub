@@ -11,21 +11,36 @@ const buttonVariants = cva(
       variant: {
         // Primary - Red CTA
         default: "bg-cta text-cta-foreground hover:bg-cta-hover shadow-sm",
-        // Secondary - White with gray border
-        secondary: "bg-card text-foreground border border-border hover:bg-muted",
-        // Ghost - Transparent with black text
-        ghost: "text-foreground hover:bg-muted",
-        // Outline - Same as secondary
-        outline: "border border-border bg-card text-foreground hover:bg-muted",
+        // Secondary - White with gray border, enhanced for dark mode
+        secondary: cn(
+          "bg-card text-foreground border border-border hover:bg-muted",
+          "dark:bg-white/10 dark:border-white/20 dark:hover:bg-white/15"
+        ),
+        // Ghost - Transparent with black text, enhanced for dark mode
+        ghost: cn(
+          "text-foreground hover:bg-muted",
+          "dark:hover:bg-white/10"
+        ),
+        // Outline - Same as secondary, enhanced for dark mode
+        outline: cn(
+          "border border-border bg-card text-foreground hover:bg-muted",
+          "dark:bg-transparent dark:border-white/20 dark:hover:bg-white/10"
+        ),
         // Destructive
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         // Link
         link: "text-cta underline-offset-4 hover:underline",
         // Legacy variants mapped to new system
         advisor: "bg-advisor text-advisor-foreground shadow-sm hover:shadow-[0_0_16px_4px_hsla(4,82%,60%,0.5),0_0_32px_8px_hsla(4,82%,55%,0.3)] hover:brightness-110",
-        "advisor-outline": "border border-border bg-card text-foreground hover:bg-muted",
+        "advisor-outline": cn(
+          "border border-border bg-card text-foreground hover:bg-muted",
+          "dark:border-advisor/30 dark:text-advisor dark:hover:bg-advisor/10"
+        ),
         mentor: "bg-mentor text-mentor-foreground shadow-sm hover:shadow-[0_0_16px_4px_hsla(210,80%,60%,0.5),0_0_32px_8px_hsla(210,80%,55%,0.3)] hover:brightness-110",
-        "mentor-outline": "border border-border bg-card text-foreground hover:bg-muted",
+        "mentor-outline": cn(
+          "border border-border bg-card text-foreground hover:bg-muted",
+          "dark:border-mentor/30 dark:text-mentor dark:hover:bg-mentor/10"
+        ),
         hero: "bg-cta text-cta-foreground hover:bg-cta-hover shadow-sm",
         "hero-advisor": "bg-cta text-cta-foreground hover:bg-cta-hover shadow-sm",
         "hero-mentor": "bg-foreground text-background hover:bg-foreground/90 shadow-sm",
