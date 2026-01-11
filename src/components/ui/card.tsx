@@ -4,16 +4,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const cardVariants = cva(
-  "rounded-md border bg-card text-card-foreground transition-all duration-200",
+  cn(
+    "rounded-md border bg-card text-card-foreground transition-all duration-200",
+    "dark:border-white/10 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.05)]"
+  ),
   {
     variants: {
       variant: {
-        default: "border-border shadow-card",
-        elevated: "border-border shadow-card hover:shadow-card-hover",
-        interactive: "border-border shadow-card hover:shadow-card-hover cursor-pointer hover:-translate-y-0.5",
+        default: "border-border shadow-card dark:bg-white/[0.03]",
+        elevated: "border-border shadow-card hover:shadow-card-hover dark:bg-white/[0.03] dark:hover:bg-white/[0.06]",
+        interactive: cn(
+          "border-border shadow-card hover:shadow-card-hover cursor-pointer hover:-translate-y-0.5",
+          "dark:bg-white/[0.03] dark:hover:bg-white/[0.08] dark:border-white/10"
+        ),
         // Legacy variants - mapped to minimalist style
-        advisor: "border-border bg-card",
-        mentor: "border-border bg-card",
+        advisor: "border-border bg-card dark:bg-advisor/5 dark:border-advisor/20",
+        mentor: "border-border bg-card dark:bg-mentor/5 dark:border-mentor/20",
         ghost: "border-transparent shadow-none bg-transparent",
       },
     },
