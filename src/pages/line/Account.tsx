@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { getPersonBySlug, getUserSubscriptions } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { PersonRole, SubscriptionStatus } from '@/types';
-import { User, Calendar, ExternalLink, Settings, LogOut } from 'lucide-react';
+import { User, Calendar, ExternalLink, Settings, LogOut, Moon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const LineAccount = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -133,6 +134,22 @@ const LineAccount = () => {
                 <ExternalLink className="h-4 w-4" />
               </Link>
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Theme Settings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Moon className="h-4 w-4" />
+              外觀設定
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">主題模式</span>
+              <ThemeToggle />
+            </div>
           </CardContent>
         </Card>
 
