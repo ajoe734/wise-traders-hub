@@ -278,7 +278,7 @@ export function LineLayout({ children }: LineLayoutProps) {
               <div className="relative">
                 <item.icon className="h-5 w-5" />
                 {/* Unread badge */}
-                {item.badge && item.badge > 0 && (
+                {item.badge > 0 && (
                   <span className={cn(
                     "absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center",
                     "text-[10px] font-bold rounded-full",
