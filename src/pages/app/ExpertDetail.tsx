@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Check, TrendingUp, Target, Stethoscope, Zap, BookOpen } from "lucide-react";
+import { ArrowLeft, Check, TrendingUp, Target, Stethoscope, Zap, BookOpen, Lock } from "lucide-react";
 import { getPersonBySlug, subscriptions } from "@/data/mockData";
 import { PersonRole, SubscriptionStatus, PlanType } from "@/types";
 import { Link } from "react-router-dom";
@@ -266,21 +266,35 @@ const AppExpertDetail = () => {
           </div>
         )}
 
-        {/* 持股健檢加購 - 只對已訂閱跟單派但尚未加購健檢的用戶顯示 */}
-        {isSubscribedToFollower && !hasHealthCheck && isAdvisor && (
+        {/* 持股健檢區塊 - 對投顧分析師頁面顯示（未加購時） */}
+        {!hasHealthCheck && isAdvisor && (
           <div>
             <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
               <Stethoscope className="h-5 w-5 text-advisor" />
               加購服務
             </h2>
-            <Card className="border-2 border-dashed border-advisor/40 bg-advisor/5">
+            <Card className={`border-2 border-dashed ${
+              isSubscribedToFollower 
+                ? 'border-advisor/40 bg-advisor/5' 
+                : 'border-muted bg-muted/30'
+            }`}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-3 mb-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-advisor/10 text-advisor">
-                    <Stethoscope className="h-5 w-5" />
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                    isSubscribedToFollower 
+                      ? 'bg-advisor/10 text-advisor' 
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {isSubscribedToFollower ? (
+                      <Stethoscope className="h-5 w-5" />
+                    ) : (
+                      <Lock className="h-5 w-5" />
+                    )}
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold">{standardPlans.healthCheck.title}</h3>
+                    <h3 className={`font-semibold ${!isSubscribedToFollower && 'text-muted-foreground'}`}>
+                      {standardPlans.healthCheck.title}
+                    </h3>
                     <p className="text-sm text-muted-foreground mt-1">
                       {standardPlans.healthCheck.description}
                     </p>
@@ -288,16 +302,24 @@ const AppExpertDetail = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold">NT$ {standardPlans.healthCheck.price}</span>
+                    <span className={`text-2xl font-bold ${!isSubscribedToFollower && 'text-muted-foreground'}`}>
+                      NT$ {standardPlans.healthCheck.price}
+                    </span>
                     <span className="text-sm text-muted-foreground">/次</span>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    className="border-advisor text-advisor hover:bg-advisor hover:text-white"
-                    onClick={() => navigate('/pricing')}
-                  >
-                    加購
-                  </Button>
+                  {isSubscribedToFollower ? (
+                    <Button 
+                      variant="outline" 
+                      className="border-advisor text-advisor hover:bg-advisor hover:text-white"
+                      onClick={() => navigate('/pricing')}
+                    >
+                      加購
+                    </Button>
+                  ) : (
+                    <Button variant="outline" disabled className="text-muted-foreground">
+                      訂閱跟單派解鎖
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
