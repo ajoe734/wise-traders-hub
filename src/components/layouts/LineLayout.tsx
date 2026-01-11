@@ -270,19 +270,26 @@ export function LineLayout({ children }: LineLayoutProps) {
               to={item.path}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 flex-1 h-full mobile-touch-target relative",
+                // 點擊動畫：縮放 + 背景變化
+                "transition-all duration-150 ease-out",
+                "active:scale-95 active:bg-muted/30",
                 isActive(item.group)
                   ? isAdvisor ? "text-advisor" : "text-mentor"
                   : "text-muted-foreground"
               )}
             >
-              <div className="relative">
+              <div className={cn(
+                "relative transition-transform duration-150",
+                "active:scale-90"
+              )}>
                 <item.icon className="h-5 w-5" />
                 {/* Unread badge */}
                 {item.badge > 0 && (
                   <span className={cn(
                     "absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center",
                     "text-[10px] font-bold rounded-full",
-                    "bg-destructive text-destructive-foreground"
+                    "bg-destructive text-destructive-foreground",
+                    "animate-pulse"
                   )}>
                     {item.badge > 9 ? '9+' : item.badge}
                   </span>
