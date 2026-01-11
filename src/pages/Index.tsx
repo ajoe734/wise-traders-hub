@@ -614,7 +614,7 @@ const Index = () => {
                 <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
                 
                 <div className="relative z-10 p-8 pt-16 pb-10">
-                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">五大門派</h3>
+                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">五大派系</h3>
                   <p className="text-white/70 leading-relaxed">
                     集結價值派、籌碼派、技術派、策略派、系統派，任你挑選最對味的交易門派。
                   </p>
