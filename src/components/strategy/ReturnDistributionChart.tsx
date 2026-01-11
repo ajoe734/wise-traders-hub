@@ -129,7 +129,7 @@ export function ReturnDistributionChart({ trades, isDelayed, className }: Return
         </div>
 
         <p className="text-xs text-muted-foreground text-center mt-3">
-          綠色為獲利交易，紅色為虧損交易
+          紅色為獲利交易，綠色為虧損交易
         </p>
       </CardContent>
     </Card>

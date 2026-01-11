@@ -110,13 +110,13 @@ const Explore = () => {
                       <div className="flex gap-4 text-sm">
                         <div>
                           <span className="text-muted-foreground">累積</span>
-                          <span className={`ml-1 font-medium ${performance.cumulative >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          <span className={`ml-1 font-medium ${performance.cumulative >= 0 ? 'text-success' : 'text-destructive'}`}>
                             {performance.cumulative >= 0 ? '+' : ''}{performance.cumulative}%
                           </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground">年化</span>
-                          <span className={`ml-1 font-medium ${performance.annualized >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          <span className={`ml-1 font-medium ${performance.annualized >= 0 ? 'text-success' : 'text-destructive'}`}>
                             {performance.annualized >= 0 ? '+' : ''}{performance.annualized}%
                           </span>
                         </div>

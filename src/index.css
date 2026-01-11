@@ -53,7 +53,8 @@
     --accent: 0 0% 96%;
     --accent-foreground: 0 0% 7%;
 
-    --destructive: 4 82% 56%;
+    /* 台股慣例：綠色代表下跌/虧損 */
+    --destructive: 142 76% 36%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 0 0% 88%; /* #E0E0E0 */
@@ -78,8 +79,9 @@
     --mentor-light: 210 80% 95%;
     --mentor-foreground: 0 0% 100%;
 
-    --success: 142 76% 36%;
-    --success-light: 142 76% 95%;
+    /* 台股慣例：紅漲綠跌 */
+    --success: 4 82% 56%; /* 紅色 - 上漲/獲利 */
+    --success-light: 4 82% 95%;
     
     --warning: 38 92% 50%;
     --warning-light: 38 92% 95%;
@@ -147,7 +149,8 @@
     --accent: 0 0% 18%;
     --accent-foreground: 0 0% 98%;
 
-    --destructive: 4 82% 60%;
+    /* 台股慣例：綠色代表下跌/虧損 */
+    --destructive: 142 76% 50%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 0 0% 25%;
@@ -155,7 +158,8 @@
     --ring: 4 82% 56%;
 
     /* Status colors - brighter for dark mode */
-    --success: 142 76% 50%;
+    /* 台股慣例：紅漲綠跌 */
+    --success: 4 82% 60%; /* 紅色 - 上漲/獲利 */
     --warning: 38 92% 60%;
 
     --advisor-light: 4 82% 15%;
