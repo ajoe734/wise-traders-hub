@@ -544,6 +544,15 @@ const Index = () => {
               <p className="text-lg text-muted-foreground leading-relaxed">
                 訊號、路線、戰績，解放盯盤。
               </p>
+              {/* Desktop CTA - Only visible on lg: */}
+              <div className="hidden lg:block mt-8">
+                <Button asChild size="lg" className="group">
+                  <Link to="/pricing">
+                    查看方案說明
+                    <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </Button>
+              </div>
             </div>
 
             {/* Right Column - Staggered Cards */}
@@ -642,6 +651,16 @@ const Index = () => {
                     勝率、報酬、回測全都透明公開。
                   </p>
                 </div>
+              </div>
+
+              {/* Mobile CTA - Only visible below lg: */}
+              <div className="lg:hidden flex justify-center mt-4">
+                <Button asChild size="lg" className="group">
+                  <Link to="/pricing">
+                    查看方案說明
+                    <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
