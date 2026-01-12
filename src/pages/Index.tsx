@@ -243,14 +243,14 @@ const MobileVsCarousel = () => {
       <button
         onClick={() => setSelectedIndex(0)}
         disabled={selectedIndex === 0}
-        className={`absolute left-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white transition-opacity ${selectedIndex === 0 ? 'opacity-30' : 'opacity-100'}`}
+        className={`absolute left-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/60 dark:bg-white/20 dark:backdrop-blur-sm flex items-center justify-center text-white transition-opacity ${selectedIndex === 0 ? 'opacity-30' : 'opacity-100'}`}
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
       <button
         onClick={() => setSelectedIndex(1)}
         disabled={selectedIndex === 1}
-        className={`absolute right-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white transition-opacity ${selectedIndex === 1 ? 'opacity-30' : 'opacity-100'}`}
+        className={`absolute right-0 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/60 dark:bg-white/20 dark:backdrop-blur-sm flex items-center justify-center text-white transition-opacity ${selectedIndex === 1 ? 'opacity-30' : 'opacity-100'}`}
       >
         <ChevronRight className="w-6 h-6" />
       </button>
@@ -264,14 +264,14 @@ const MobileVsCarousel = () => {
             className={`h-2 rounded-full transition-all duration-300 ${
               index === selectedIndex 
                 ? `${card.accentColor} w-8`
-                : 'bg-white/30 w-2'
+                : 'bg-black/30 dark:bg-white/30 w-2'
             }`}
           />
         ))}
       </div>
       
       {/* Swipe Hint */}
-      <p className="text-center text-muted-foreground/60 text-xs mt-3">
+      <p className="text-center text-muted-foreground dark:text-white/50 text-xs mt-3">
         ← 左右滑動選擇 →
       </p>
     </div>
@@ -314,104 +314,104 @@ const MobilePreviewCarousel = () => {
         >
           {/* 跟單派 Card */}
           <div className="w-full flex-shrink-0 px-4">
-            <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-sm">
+            <div className="bg-background dark:bg-white/5 rounded-lg border border-border dark:border-white/10 border-t-4 border-t-signals p-sm">
               <div className="flex items-center gap-2 mb-3">
                 <Badge className="bg-signals/10 text-signals border border-signals/20 text-xs font-medium">
                   跟單派 · SIGNALS
                 </Badge>
               </div>
-              <div className="flex items-center gap-2 mb-sm pb-sm border-b border-border">
+              <div className="flex items-center gap-2 mb-sm pb-sm border-b border-border dark:border-white/10">
                 <Zap className="h-4 w-4 text-signals" />
                 <span className="text-xs font-medium">即時訊號牆</span>
                 <Badge variant="outline" className="text-[10px] ml-auto bg-signals/10 text-signals border-signals/20">即時</Badge>
               </div>
               <div className="space-y-1.5">
-                <div className="p-2 rounded-md bg-muted/50 border-l-2 border-success">
+                <div className="p-2 rounded-md bg-muted/50 dark:bg-white/5 border-l-2 border-success">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="font-semibold text-[11px]">2330.TW 台積電</span>
                     <Badge className="bg-success/10 text-success text-[9px]">買進</Badge>
                   </div>
-                  <p className="text-[9px] text-muted-foreground">突破季線壓力，外資連續買超</p>
+                  <p className="text-[9px] text-muted-foreground dark:text-white/50">突破季線壓力，外資連續買超</p>
                 </div>
-                <div className="p-2 rounded-md bg-muted/50 border-l-2 border-primary">
+                <div className="p-2 rounded-md bg-muted/50 dark:bg-white/5 border-l-2 border-primary">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="font-semibold text-[11px]">2454.TW 聯發科</span>
                     <Badge className="bg-primary/10 text-primary text-[9px]">加碼</Badge>
                   </div>
-                  <p className="text-[9px] text-muted-foreground">續創新高，AI 晶片出貨成長</p>
+                  <p className="text-[9px] text-muted-foreground dark:text-white/50">續創新高，AI 晶片出貨成長</p>
                 </div>
-                <div className="p-2 rounded-md bg-muted/50 border-l-2 border-amber-500">
+                <div className="p-2 rounded-md bg-muted/50 dark:bg-white/5 border-l-2 border-amber-500">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="font-semibold text-[11px]">3008.TW 大立光</span>
-                    <Badge className="bg-amber-500/10 text-amber-600 text-[9px]">減碼</Badge>
+                    <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px]">減碼</Badge>
                   </div>
-                  <p className="text-[9px] text-muted-foreground">達目標價位，量能萎縮先獲利了結</p>
+                  <p className="text-[9px] text-muted-foreground dark:text-white/50">達目標價位，量能萎縮先獲利了結</p>
                 </div>
-                <div className="p-2 rounded-md bg-muted/50 border-l-2 border-success">
+                <div className="p-2 rounded-md bg-muted/50 dark:bg-white/5 border-l-2 border-success">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="font-semibold text-[11px]">2317.TW 鴻海</span>
                     <Badge className="bg-success/10 text-success text-[9px]">買進</Badge>
                   </div>
-                  <p className="text-[9px] text-muted-foreground">站上所有均線，外資連續買超</p>
+                  <p className="text-[9px] text-muted-foreground dark:text-white/50">站上所有均線，外資連續買超</p>
                 </div>
               </div>
             </div>
             <h4 className="text-base mt-sm mb-xs text-foreground">跟單派戰情室</h4>
-            <p className="text-muted-foreground text-xs leading-relaxed">
+            <p className="text-muted-foreground dark:text-white/60 text-xs leading-relaxed">
               即時接收專家買賣訊號，包含價位區間與操作理由。
             </p>
           </div>
 
           {/* 修煉派 Card */}
           <div className="w-full flex-shrink-0 px-4">
-            <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-sm">
+            <div className="bg-background dark:bg-white/5 rounded-lg border border-border dark:border-white/10 border-t-4 border-t-mentor p-sm">
               <div className="flex items-center gap-2 mb-3">
                 <Badge className="bg-mentor/10 text-mentor border border-mentor/20 text-xs font-medium">
                   修煉派 · LEARNING
                 </Badge>
               </div>
-              <div className="flex items-center justify-between mb-sm pb-sm border-b border-border">
+              <div className="flex items-center justify-between mb-sm pb-sm border-b border-border dark:border-white/10">
                 <div className="flex items-center gap-2">
                   <BookOpen className="h-4 w-4 text-mentor" />
                   <span className="text-xs font-medium">本週操作紀錄</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Badge variant="outline" className="text-[9px] bg-mentor/10 text-mentor border-mentor/20">T+7</Badge>
-                  <span className="text-[10px] text-muted-foreground">12/23~12/27</span>
+                  <span className="text-[10px] text-muted-foreground dark:text-white/50">12/23~12/27</span>
                 </div>
               </div>
               <div className="space-y-1.5">
-                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30">
-                  <span className="text-[10px] text-muted-foreground w-6 shrink-0">週一</span>
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30 dark:bg-white/5">
+                  <span className="text-[10px] text-muted-foreground dark:text-white/50 w-6 shrink-0">週一</span>
                   <Badge className="bg-success/10 text-success text-[9px] shrink-0">買進</Badge>
                   <div className="flex-1 min-w-0">
                     <span className="text-[10px] font-medium">2303.TW 聯電</span>
                   </div>
                   <Badge variant="outline" className="text-[9px] text-success">+3.5%</Badge>
                 </div>
-                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30">
-                  <span className="text-[10px] text-muted-foreground w-6 shrink-0">週二</span>
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30 dark:bg-white/5">
+                  <span className="text-[10px] text-muted-foreground dark:text-white/50 w-6 shrink-0">週二</span>
                   <Badge className="bg-success/10 text-success text-[9px] shrink-0">買進</Badge>
                   <div className="flex-1 min-w-0">
                     <span className="text-[10px] font-medium">3037.TW 欣興</span>
                   </div>
                   <Badge variant="outline" className="text-[9px] text-destructive">-2.8%</Badge>
                 </div>
-                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30">
-                  <span className="text-[10px] text-muted-foreground w-6 shrink-0">週三</span>
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30 dark:bg-white/5">
+                  <span className="text-[10px] text-muted-foreground dark:text-white/50 w-6 shrink-0">週三</span>
                   <Badge className="bg-success/10 text-success text-[9px] shrink-0">買進</Badge>
                   <div className="flex-1 min-w-0">
                     <span className="text-[10px] font-medium">2317.TW 鴻海</span>
                   </div>
                   <Badge variant="outline" className="text-[9px] text-success">+4.2%</Badge>
                 </div>
-                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/20">
-                  <span className="text-[10px] text-muted-foreground w-6 shrink-0">週四</span>
-                  <span className="text-[9px] text-muted-foreground italic">— 觀望無操作</span>
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/20 dark:bg-white/[0.03]">
+                  <span className="text-[10px] text-muted-foreground dark:text-white/50 w-6 shrink-0">週四</span>
+                  <span className="text-[9px] text-muted-foreground dark:text-white/40 italic">— 觀望無操作</span>
                 </div>
-                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30">
-                  <span className="text-[10px] text-muted-foreground w-6 shrink-0">週五</span>
-                  <Badge className="bg-amber-500/10 text-amber-600 text-[9px] shrink-0">減碼</Badge>
+                <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30 dark:bg-white/5">
+                  <span className="text-[10px] text-muted-foreground dark:text-white/50 w-6 shrink-0">週五</span>
+                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px] shrink-0">減碼</Badge>
                   <div className="flex-1 min-w-0">
                     <span className="text-[10px] font-medium">2303.TW 聯電</span>
                   </div>
@@ -419,12 +419,12 @@ const MobilePreviewCarousel = () => {
                 </div>
               </div>
               {/* 本週教學重點 */}
-              <div className="mt-3 pt-2 border-t border-border">
+              <div className="mt-3 pt-2 border-t border-border dark:border-white/10">
                 <div className="flex items-center gap-1 mb-1.5">
                   <Lightbulb className="h-3 w-3 text-mentor" />
-                  <span className="text-[9px] font-medium text-muted-foreground">本週教學重點</span>
+                  <span className="text-[9px] font-medium text-muted-foreground dark:text-white/60">本週教學重點</span>
                 </div>
-                <ul className="space-y-0.5 text-[9px] text-muted-foreground">
+                <ul className="space-y-0.5 text-[9px] text-muted-foreground dark:text-white/50">
                   <li className="flex items-start gap-1">
                     <span className="text-mentor">•</span> 嚴格執行停損是短線操作的關鍵
                   </li>
@@ -435,7 +435,7 @@ const MobilePreviewCarousel = () => {
               </div>
             </div>
             <h4 className="text-base mt-sm mb-xs text-foreground">修煉派週記教學</h4>
-            <p className="text-muted-foreground text-xs leading-relaxed">
+            <p className="text-muted-foreground dark:text-white/60 text-xs leading-relaxed">
               每週回顧導師的實際操作，包含進出場理由與學習重點。
             </p>
           </div>
@@ -445,14 +445,14 @@ const MobilePreviewCarousel = () => {
       {/* Navigation Arrows */}
       <button
         onClick={() => setSelectedIndex(0)}
-        className={`absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white transition-opacity ${selectedIndex === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        className={`absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/50 dark:bg-white/20 dark:backdrop-blur-sm flex items-center justify-center text-white transition-opacity ${selectedIndex === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         aria-label="上一個"
       >
         <ChevronLeft className="w-5 h-5" />
       </button>
       <button
         onClick={() => setSelectedIndex(1)}
-        className={`absolute right-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white transition-opacity ${selectedIndex === 1 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        className={`absolute right-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-black/50 dark:bg-white/20 dark:backdrop-blur-sm flex items-center justify-center text-white transition-opacity ${selectedIndex === 1 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         aria-label="下一個"
       >
         <ChevronRight className="w-5 h-5" />
@@ -468,16 +468,16 @@ const MobilePreviewCarousel = () => {
               className={`h-2 rounded-full transition-all duration-300 ${
                 selectedIndex === index 
                   ? index === 0 ? 'bg-signals w-8' : 'bg-mentor w-8'
-                  : 'bg-white/40 w-2 hover:bg-white/60'
+                  : 'bg-black/30 dark:bg-white/40 w-2 hover:bg-black/50 dark:hover:bg-white/60'
               }`}
               aria-label={index === 0 ? '跟單派戰情室' : '修煉派週記教學'}
             />
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground dark:text-white/60">
           {selectedIndex === 0 ? '跟單派戰情室' : '修煉派週記教學'} · {selectedIndex + 1}/2
         </p>
-        <p className="text-muted-foreground/60 text-xs animate-pulse">
+        <p className="text-muted-foreground dark:text-white/50 text-xs animate-pulse">
           ← 左右滑動切換 →
         </p>
       </div>
