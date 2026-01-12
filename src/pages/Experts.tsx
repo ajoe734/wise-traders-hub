@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { getAllPeopleWithPlans } from '@/data/mockData';
 import { PersonRole } from '@/types';
-import { Search, Filter, Shield, Clock } from 'lucide-react';
+import { Search, Filter, Shield, Clock, Zap, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Experts = () => {
@@ -61,29 +61,29 @@ const Experts = () => {
     <PortalLayout>
       <div className="container py-8 md:py-12">
         {/* Platform Intro */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-primary/5 to-advisor/5 rounded-2xl border">
+        <div className="mb-8 p-6 bg-gradient-to-r from-primary/5 to-advisor/5 dark:from-primary/10 dark:to-advisor/10 rounded-2xl border dark:border-white/10">
           <div className="max-w-3xl">
             <h1 className="text-2xl md:text-3xl font-bold mb-3">找到適合你的專家</h1>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground dark:text-white/60 mb-4">
               穩健、風險控管、教育為先。我們提供兩種服務路線：
             </p>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-advisor/10 shrink-0">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-advisor/10 dark:bg-advisor/20 dark:ring-1 dark:ring-advisor/30 shrink-0">
                   <Shield className="h-5 w-5 text-advisor" />
                 </div>
                 <div>
                   <p className="font-medium text-advisor">投顧分析師</p>
-                  <p className="text-sm text-muted-foreground">持有合法執照，提供即時策略訊號與持股診斷</p>
+                  <p className="text-sm text-muted-foreground dark:text-white/60">持有合法執照，提供即時策略訊號與持股診斷</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-mentor/10 shrink-0">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-mentor/10 dark:bg-mentor/20 dark:ring-1 dark:ring-mentor/30 shrink-0">
                   <Clock className="h-5 w-5 text-mentor" />
                 </div>
                 <div>
                   <p className="font-medium text-mentor">實戰導師</p>
-                  <p className="text-sm text-muted-foreground">T+7 延遲修煉派週記，純教學用途，非投資建議</p>
+                  <p className="text-sm text-muted-foreground dark:text-white/60">T+7 延遲修煉派週記，純教學用途，非投資建議</p>
                 </div>
               </div>
             </div>

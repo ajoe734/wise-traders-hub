@@ -16,10 +16,10 @@ const Legal = () => {
 
         <div className="max-w-4xl space-y-8">
           {/* Investment Advisory Service */}
-          <Card>
+          <Card className="dark:border-white/10">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-advisor-light flex items-center justify-center">
+                <div className="h-10 w-10 rounded-lg bg-advisor-light dark:bg-advisor/20 dark:ring-1 dark:ring-advisor/30 flex items-center justify-center">
                   <Shield className="h-5 w-5 text-advisor" />
                 </div>
                 <CardTitle>投顧分析師服務說明</CardTitle>
@@ -45,10 +45,10 @@ const Legal = () => {
           </Card>
 
           {/* Mentor Teaching Service */}
-          <Card>
+          <Card className="dark:border-white/10">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-mentor-light flex items-center justify-center">
+                <div className="h-10 w-10 rounded-lg bg-mentor-light dark:bg-mentor/20 dark:ring-1 dark:ring-mentor/30 flex items-center justify-center">
                   <Clock className="h-5 w-5 text-mentor" />
                 </div>
                 <CardTitle>實戰導師教學服務說明</CardTitle>
@@ -75,10 +75,10 @@ const Legal = () => {
           </Card>
 
           {/* Risk Disclosure */}
-          <Card>
+          <Card className="dark:border-white/10">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-warning-light flex items-center justify-center">
+                <div className="h-10 w-10 rounded-lg bg-warning-light dark:bg-warning/20 dark:ring-1 dark:ring-warning/30 flex items-center justify-center">
                   <AlertTriangle className="h-5 w-5 text-warning" />
                 </div>
                 <CardTitle>風險揭露</CardTitle>
@@ -105,10 +105,10 @@ const Legal = () => {
           </Card>
 
           {/* Privacy */}
-          <Card>
+          <Card className="dark:border-white/10">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 dark:bg-primary/20 dark:ring-1 dark:ring-primary/30 flex items-center justify-center">
                   <Lock className="h-5 w-5 text-primary" />
                 </div>
                 <CardTitle>隱私權與資料保護</CardTitle>
@@ -134,7 +134,7 @@ const Legal = () => {
           </Card>
 
           {/* Contact */}
-          <Card className="bg-muted/30">
+          <Card className="bg-muted/30 dark:bg-white/[0.03] dark:border-white/10">
             <CardContent className="p-6">
               <h3 className="font-semibold mb-2">聯絡我們</h3>
               <p className="text-sm text-muted-foreground mb-4">
