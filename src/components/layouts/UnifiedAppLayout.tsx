@@ -1,11 +1,12 @@
 import { ReactNode, useMemo, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from 'next-themes';
 import { getUserSubscriptions, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
 import { PlanType } from '@/types';
 import { 
   Home, Radio, BookOpen, User, LogOut, ChevronRight, ChevronLeft,
-  Target, Compass
+  Target, Compass, Moon, Sun
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -99,6 +100,37 @@ type NavItem = {
   group: string;
   badgeKey?: 'signals' | 'journals';
 };
+
+// Theme toggle button component
+function ThemeToggleButton() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return <div className="w-9 h-9" />;
+
+  return (
+    <button
+      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+      className={cn(
+        "p-2 rounded-lg transition-colors",
+        resolvedTheme === 'dark' 
+          ? "text-amber-400 hover:bg-amber-500/10"
+          : "text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"
+      )}
+      aria-label={resolvedTheme === 'dark' ? '切換至淺色模式' : '切換至深色模式'}
+    >
+      {resolvedTheme === 'dark' ? (
+        <Sun className="h-5 w-5" />
+      ) : (
+        <Moon className="h-5 w-5" />
+      )}
+    </button>
+  );
+}
 
 export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   const { user, isLoading, logout } = useAuth();
@@ -233,16 +265,22 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
               <span className="font-semibold text-foreground text-sm">{headerTitle}</span>
             </Link>
           </div>
-          <button
-            onClick={() => {
-              logout();
-              navigate('/');
-            }}
-            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            title="登出"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Theme Toggle */}
+            <ThemeToggleButton />
+            
+            {/* Logout Button */}
+            <button
+              onClick={() => {
+                logout();
+                navigate('/');
+              }}
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              title="登出"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Breadcrumbs */}

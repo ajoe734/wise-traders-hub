@@ -167,10 +167,9 @@ const Pricing = () => {
             {/* Left Pill - 跟單派 */}
             <button
               onClick={() => handlePillClick('follower')}
-              className="group relative bg-card border border-border rounded-xl p-5 text-left transition-all duration-200 hover:shadow-md hover:border-advisor/40"
-              style={{ backgroundColor: 'hsl(20, 8%, 97%)' }}
+              className="group relative bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-xl p-5 text-left transition-all duration-200 hover:shadow-md hover:border-advisor/40"
             >
-              <div className="text-xs text-muted-foreground font-medium mb-2">
+              <div className="text-xs text-muted-foreground dark:text-white/60 font-medium mb-2">
                 ⚡ 跟單派
               </div>
               <p className="text-base md:text-lg font-bold text-foreground leading-snug">
@@ -181,10 +180,9 @@ const Pricing = () => {
             {/* Right Pill - 修煉派 */}
             <button
               onClick={() => handlePillClick('cultivator')}
-              className="group relative bg-card border border-border rounded-xl p-5 text-left transition-all duration-200 hover:shadow-md hover:border-mentor/40"
-              style={{ backgroundColor: 'hsl(210, 8%, 97%)' }}
+              className="group relative bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-xl p-5 text-left transition-all duration-200 hover:shadow-md hover:border-mentor/40"
             >
-              <div className="text-xs text-muted-foreground font-medium mb-2">
+              <div className="text-xs text-muted-foreground dark:text-white/60 font-medium mb-2">
                 📘 修煉派
               </div>
               <p className="text-base md:text-lg font-bold text-foreground leading-snug">
