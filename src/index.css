@@ -226,8 +226,16 @@
     box-shadow: var(--shadow-card);
   }
 
+  .dark .shadow-card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+
   .shadow-card-hover {
     box-shadow: var(--shadow-card-hover);
+  }
+
+  .dark .shadow-card-hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
   }
 
   .mobile-touch-target {
