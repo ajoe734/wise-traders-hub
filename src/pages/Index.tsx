@@ -502,7 +502,7 @@ const Index = () => {
           <source src="/videos/hero-bg.mp4" type="video/mp4" />
         </video>
         {/* Dark overlay for strong contrast */}
-        <div className="absolute inset-0 bg-gradient-to-r from-foreground/80 via-foreground/60 to-foreground/40 animate-fade-in" style={{ animationDuration: '1.5s' }} />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40 animate-fade-in" style={{ animationDuration: '1.5s' }} />
         
         <div className="container relative z-10 py-section">
           <div className="max-w-xl animate-fade-in">
@@ -535,7 +535,7 @@ const Index = () => {
       </section>
 
       {/* Three Core Features Section - Magazine Layout */}
-      <section className="py-section bg-muted/50">
+      <section className="py-section bg-muted/50 dark:bg-white/[0.02]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
             {/* Left Column - Narrative */}
@@ -1025,7 +1025,7 @@ const Index = () => {
       `}</style>
 
       {/* Real Interface Preview Section */}
-      <section id="preview-section" className="py-section bg-card">
+      <section id="preview-section" className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
             <p className="text-muted-foreground text-sm mb-xs">產品真實畫面</p>
@@ -1040,7 +1040,7 @@ const Index = () => {
           <div className="hidden md:grid md:grid-cols-2 gap-lg md:gap-xl max-w-5xl mx-auto">
             {/* Signal List Preview - 跟單派 */}
             <div className="flex flex-col">
-              <div className="bg-background rounded-lg border border-border border-t-4 border-t-signals p-sm md:p-md mb-sm md:mb-md flex-1 flex flex-col">
+              <div className="bg-background dark:bg-white/5 rounded-lg border border-border dark:border-white/10 border-t-4 border-t-signals p-sm md:p-md mb-sm md:mb-md flex-1 flex flex-col">
                 {/* 派別標籤 */}
                 <div className="flex items-center gap-2 mb-3">
                   <Badge className="bg-signals/10 text-signals border border-signals/20 text-xs font-medium">
@@ -1123,7 +1123,7 @@ const Index = () => {
 
             {/* 修煉派 - 週記式交易紀錄預覽 */}
             <div className="flex flex-col">
-              <div className="bg-background rounded-lg border border-border border-t-4 border-t-mentor p-sm md:p-md mb-sm md:mb-md flex-1 flex flex-col">
+              <div className="bg-background dark:bg-white/5 rounded-lg border border-border dark:border-white/10 border-t-4 border-t-mentor p-sm md:p-md mb-sm md:mb-md flex-1 flex flex-col">
                 {/* 派別標籤 */}
                 <div className="flex items-center gap-2 mb-3">
                   <Badge className="bg-mentor/10 text-mentor border border-mentor/20 text-xs font-medium">
@@ -1245,7 +1245,7 @@ const Index = () => {
       </section>
 
       {/* How It Works */}
-      <section className="py-section bg-card">
+      <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
             <p className="text-muted-foreground text-sm mb-xs">簡單四步驟，開始學習</p>
@@ -1284,7 +1284,7 @@ const Index = () => {
                   <Badge variant="secondary" className="mb-md">
                     {item.step}
                   </Badge>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground mx-auto mb-md">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted dark:bg-white/10 text-muted-foreground dark:text-white/70 mx-auto mb-md">
                     <item.icon className="h-6 w-6" />
                   </div>
                   <h4 className="text-h5 mb-xs text-foreground">{item.title}</h4>
@@ -1297,7 +1297,7 @@ const Index = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-section bg-card">
+      <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="max-w-2xl mx-auto text-center">
             <p className="text-muted-foreground text-sm mb-xs">立即開始你的投資學習之旅</p>

@@ -55,7 +55,7 @@ export function VsBrushMark({ className, title = "VS", style }: VsBrushMarkProps
         </mask>
       </defs>
 
-      <rect x="0" y="0" width="100" height="100" fill="black" mask={`url(#${id}-alpha)`} />
+      <rect x="0" y="0" width="100" height="100" className="fill-foreground" mask={`url(#${id}-alpha)`} />
     </svg>
   );
 }
