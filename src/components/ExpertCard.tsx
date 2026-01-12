@@ -32,9 +32,9 @@ export function ExpertCard({ person }: ExpertCardProps) {
     <Card 
       variant="interactive"
       className={cn(
-        "overflow-hidden relative",
-        isAdvisor ? "hover:border-advisor/30" : "hover:border-mentor/30",
-        isFeatured && "ring-2 ring-amber-500/50"
+        "overflow-hidden relative dark:border-white/10",
+        isAdvisor ? "hover:border-advisor/30 dark:hover:border-advisor/50" : "hover:border-mentor/30 dark:hover:border-mentor/50",
+        isFeatured && "ring-2 ring-amber-500/50 dark:ring-amber-400/60"
       )}
     >
       {/* Featured Badge */}
@@ -55,7 +55,7 @@ export function ExpertCard({ person }: ExpertCardProps) {
               alt={person.name}
               className={cn(
                 "h-20 w-20 rounded-full object-cover object-[center_15%] ring-2",
-                isAdvisor ? "ring-advisor/20" : "ring-mentor/20"
+                isAdvisor ? "ring-advisor/20 dark:ring-advisor/40" : "ring-mentor/20 dark:ring-mentor/40"
               )}
             />
             <div className="flex-1 min-w-0">
@@ -63,7 +63,7 @@ export function ExpertCard({ person }: ExpertCardProps) {
                 <h3 className="font-semibold text-lg">{person.name}</h3>
                 <RoleBadge role={person.role} />
               </div>
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+              <p className="text-sm text-muted-foreground dark:text-white/60 mt-1 line-clamp-2">
                 {person.bio}
               </p>
             </div>
@@ -98,7 +98,7 @@ export function ExpertCard({ person }: ExpertCardProps) {
         </div>
 
         {/* Actions */}
-        <div className="border-t bg-muted/30 p-4 flex gap-2">
+        <div className="border-t dark:border-white/10 bg-muted/30 dark:bg-white/[0.03] p-4 flex gap-2">
           <Button 
             variant="outline" 
             size="sm" 
