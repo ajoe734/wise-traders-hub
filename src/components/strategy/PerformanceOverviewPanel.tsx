@@ -208,10 +208,16 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
         </div>
 
         {/* Collapsible Stock Ranking */}
-        <Collapsible open={isExpanded && !!selectedPoint}>
+        <Collapsible 
+          open={isExpanded && !!selectedPoint}
+          onOpenChange={(open) => {
+            if (selectedPoint) {
+              setIsExpanded(open);
+            }
+          }}
+        >
           <CollapsibleTrigger 
             className="flex items-center justify-between w-full py-2 px-3 rounded-lg bg-muted/30 dark:bg-white/[0.03] border dark:border-white/10 text-sm hover:bg-muted/50 dark:hover:bg-white/[0.06] transition-colors"
-            onClick={() => setIsExpanded(!isExpanded)}
           >
             <span className="font-medium text-foreground">
               {selectedPoint ? `${selectedPoint} 個股排名` : "點擊圖表查看個股"}
