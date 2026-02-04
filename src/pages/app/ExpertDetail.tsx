@@ -8,6 +8,7 @@ import { ArrowLeft, Check, TrendingUp, Target, Stethoscope, Zap, BookOpen, Lock 
 import { getPersonBySlug, subscriptions } from "@/data/mockData";
 import { PersonRole, SubscriptionStatus, PlanType } from "@/types";
 import { Link } from "react-router-dom";
+import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverviewPanel";
 
 // 統一定價結構（與 Pricing.tsx 一致）
 const standardPlans = {
@@ -171,46 +172,13 @@ const AppExpertDetail = () => {
           </Card>
         )}
 
-        {/* Performance Summary */}
+        {/* Performance Overview Panel */}
         <div>
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
-            績效摘要
+            績效總覽
           </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <Card>
-              <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-success">
-                  +{performanceData.cumulativeReturn}%
-                </p>
-                <p className="text-xs text-muted-foreground">累積報酬</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-primary">
-                  +{performanceData.annualizedReturn}%
-                </p>
-                <p className="text-xs text-muted-foreground">年化報酬</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold">
-                  {performanceData.winRate}%
-                </p>
-                <p className="text-xs text-muted-foreground">勝率</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold">
-                  {performanceData.totalTrades}
-                </p>
-                <p className="text-xs text-muted-foreground">總交易數</p>
-              </CardContent>
-            </Card>
-          </div>
+          <PerformanceOverviewPanel expertSlug={slug || ""} />
         </div>
 
         {/* Subscription Plan - 統一定價顯示 */}

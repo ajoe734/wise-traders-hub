@@ -953,3 +953,138 @@ export function getWeeklyReviewsForExpert(expertId: string): WeeklyReview[] {
 export function getWeeklyReviewById(reviewId: string): WeeklyReview | undefined {
   return weeklyReviews.find(r => r.id === reviewId);
 }
+
+// ============================================
+// Period Performance Data Types & Helpers
+// ============================================
+
+export interface StockPerf {
+  symbol: string;
+  name: string;
+  returnPct: number;
+}
+
+export interface PeriodPerformance {
+  label: string;        // "2024", "2024-11", "W48"
+  date: string;         // 用於排序
+  returnPct: number;    // 報酬率
+  topStock?: StockPerf; // 最佳個股
+  bottomStock?: StockPerf; // 最差個股
+  stocks?: StockPerf[]; // 完整個股列表（用於展開）
+}
+
+// Mock 個股資料 pool
+const stockPool: StockPerf[] = [
+  { symbol: '2330.TW', name: '台積電', returnPct: 0 },
+  { symbol: '2454.TW', name: '聯發科', returnPct: 0 },
+  { symbol: '2317.TW', name: '鴻海', returnPct: 0 },
+  { symbol: '2881.TW', name: '富邦金', returnPct: 0 },
+  { symbol: '2882.TW', name: '國泰金', returnPct: 0 },
+  { symbol: '2412.TW', name: '中華電', returnPct: 0 },
+  { symbol: '1301.TW', name: '台塑', returnPct: 0 },
+  { symbol: '3008.TW', name: '大立光', returnPct: 0 },
+  { symbol: '2308.TW', name: '台達電', returnPct: 0 },
+  { symbol: '3443.TW', name: '創意', returnPct: 0 },
+  { symbol: '6770.TW', name: '力積電', returnPct: 0 },
+  { symbol: '2303.TW', name: '聯電', returnPct: 0 },
+];
+
+// 生成隨機個股績效
+function generateRandomStocks(baseReturn: number): StockPerf[] {
+  return stockPool.map(stock => ({
+    ...stock,
+    returnPct: Math.round((baseReturn + (Math.random() - 0.5) * 20) * 10) / 10,
+  })).sort((a, b) => b.returnPct - a.returnPct);
+}
+
+// 生成年度績效數據
+function generateYearlyPerformance(system: StrategySystem): PeriodPerformance[] {
+  const years = [2022, 2023, 2024, 2025];
+  const baseReturns = [12.5, 25.8, 32.4, 8.2];
+  
+  return years.map((year, idx) => {
+    const stocks = generateRandomStocks(baseReturns[idx]);
+    return {
+      label: year.toString(),
+      date: `${year}-12-31`,
+      returnPct: baseReturns[idx],
+      topStock: stocks[0],
+      bottomStock: stocks[stocks.length - 1],
+      stocks,
+    };
+  });
+}
+
+// 生成月度績效數據
+function generateMonthlyPerformance(system: StrategySystem): PeriodPerformance[] {
+  const months: PeriodPerformance[] = [];
+  const now = new Date();
+  
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthStr = date.toISOString().slice(0, 7); // "2024-11"
+    const monthLabel = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
+    // 基於 system 績效生成月報酬（加點隨機性）
+    const baseReturn = (system.performanceSummary.annualizedReturnPct || 20) / 12;
+    const returnPct = Math.round((baseReturn + (Math.random() - 0.5) * 8) * 10) / 10;
+    const stocks = generateRandomStocks(returnPct);
+    
+    months.push({
+      label: monthLabel,
+      date: monthStr,
+      returnPct,
+      topStock: stocks[0],
+      bottomStock: stocks[stocks.length - 1],
+      stocks,
+    });
+  }
+  
+  return months;
+}
+
+// 生成週度績效數據
+function generateWeeklyPerformance(system: StrategySystem): PeriodPerformance[] {
+  const weeks: PeriodPerformance[] = [];
+  const now = new Date();
+  
+  for (let i = 11; i >= 0; i--) {
+    const weekDate = new Date(now);
+    weekDate.setDate(weekDate.getDate() - i * 7);
+    const weekNum = Math.ceil((weekDate.getDate() + new Date(weekDate.getFullYear(), weekDate.getMonth(), 1).getDay()) / 7);
+    const weekLabel = `W${String(52 - i).padStart(2, '0')}`;
+    
+    const baseReturn = (system.performanceSummary.annualizedReturnPct || 20) / 52;
+    const returnPct = Math.round((baseReturn + (Math.random() - 0.5) * 4) * 10) / 10;
+    const stocks = generateRandomStocks(returnPct);
+    
+    weeks.push({
+      label: weekLabel,
+      date: weekDate.toISOString().slice(0, 10),
+      returnPct,
+      topStock: stocks[0],
+      bottomStock: stocks[stocks.length - 1],
+      stocks,
+    });
+  }
+  
+  return weeks;
+}
+
+// 取得指定維度的績效資料
+export function getPerformanceByPeriod(
+  expertSlug: string,
+  period: 'yearly' | 'monthly' | 'weekly'
+): PeriodPerformance[] {
+  const system = getStrategySystemByExpertSlug(expertSlug);
+  if (!system) return [];
+  
+  switch (period) {
+    case 'yearly':
+      return generateYearlyPerformance(system);
+    case 'monthly':
+      return generateMonthlyPerformance(system);
+    case 'weekly':
+      return generateWeeklyPerformance(system);
+  }
+}
