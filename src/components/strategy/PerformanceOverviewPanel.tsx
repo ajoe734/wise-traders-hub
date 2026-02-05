@@ -18,6 +18,9 @@ import { cn } from "@/lib/utils";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
 
+// 起始資金（固定值）
+const INITIAL_CAPITAL = 1000000;
+
 interface PerformanceOverviewPanelProps {
   expertSlug: string;
 }
@@ -33,6 +36,20 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
   const performanceData = useMemo(() => {
     return getPerformanceByPeriod(expertSlug, period);
   }, [expertSlug, period]);
+
+  // 計算該維度的累積報酬率（複利計算）
+  const cumulativeReturn = useMemo(() => {
+    if (!performanceData.length) return 0;
+    const totalReturn = performanceData.reduce((acc, p) => {
+      return acc * (1 + p.returnPct / 100);
+    }, 1);
+    return (totalReturn - 1) * 100;
+  }, [performanceData]);
+
+  // 計算目前資產
+  const currentAsset = useMemo(() => {
+    return Math.round(INITIAL_CAPITAL * (1 + cumulativeReturn / 100));
+  }, [cumulativeReturn]);
 
   // Calculate overall trend for dynamic chart color
   const overallTrend = useMemo(() => {
@@ -173,6 +190,36 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
             </TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* Capital Snapshot Bar */}
+        <div className="flex items-center justify-between px-4 py-3 bg-muted/40 dark:bg-white/[0.04] rounded-lg">
+          {/* 起始資金 - 左側 */}
+          <div className="text-center min-w-0">
+            <p className="text-xs text-muted-foreground mb-0.5">起始資金</p>
+            <p className="text-sm font-medium tabular-nums text-foreground">
+              ${INITIAL_CAPITAL.toLocaleString()}
+            </p>
+          </div>
+          
+          {/* 目前資產 - 中間 */}
+          <div className="text-center min-w-0">
+            <p className="text-xs text-muted-foreground mb-0.5">目前資產</p>
+            <p className="text-base font-semibold tabular-nums text-foreground">
+              ${currentAsset.toLocaleString()}
+            </p>
+          </div>
+          
+          {/* 總報酬率 - 右側 */}
+          <div className="text-center min-w-0">
+            <p className="text-xs text-muted-foreground mb-0.5">總報酬率</p>
+            <p className={cn(
+              "text-lg font-bold tabular-nums",
+              cumulativeReturn >= 0 ? "text-success" : "text-destructive"
+            )}>
+              {cumulativeReturn >= 0 ? "+" : ""}{cumulativeReturn.toFixed(2)}%
+            </p>
+          </div>
+        </div>
 
         {/* Chart Area with Floating Card */}
         <div className="space-y-3">
