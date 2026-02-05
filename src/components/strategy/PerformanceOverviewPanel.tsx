@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, TrendingUp, TrendingDown } from "lucide-react";
+ import { ChevronDown, ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -12,7 +12,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { FloatingStatCard, StockPerf } from "./FloatingStatCard";
-import { getPerformanceByPeriod, PeriodPerformance } from "@/data/strategyMockData";
+ import { getPerformanceByPeriod, PeriodPerformance, StockTradeDetail } from "@/data/strategyMockData";
+ import { StockTradeDetailSheet } from "./StockTradeDetailSheet";
 import { cn } from "@/lib/utils";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
@@ -25,6 +26,8 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
   const [period, setPeriod] = useState<ViewPeriod>("monthly");
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+   const [selectedStock, setSelectedStock] = useState<StockTradeDetail | null>(null);
+   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   // Get performance data based on period
   const performanceData = useMemo(() => {
@@ -98,6 +101,12 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
     }
   };
 
+   // Handle stock click to open sheet
+   const handleStockClick = (stock: StockTradeDetail) => {
+     setSelectedStock(stock);
+     setIsSheetOpen(true);
+   };
+ 
   // Top/Bottom 5 stocks for selected point
   const { top5, bottom5 } = useMemo(() => {
     if (!selectedData?.stocks) return { top5: [], bottom5: [] };
@@ -284,18 +293,22 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
                   </h4>
                   <div className="space-y-1.5">
                     {top5.map((stock, idx) => (
-                      <div 
+                       <button
                         key={stock.symbol}
-                        className="flex items-center justify-between text-xs py-1"
+                         onClick={() => handleStockClick(stock)}
+                         className="flex items-center justify-between w-full text-xs py-1.5 px-1 -mx-1 rounded hover:bg-success/10 dark:hover:bg-success/20 transition-colors cursor-pointer text-left"
                       >
                         <span className="text-foreground">
                           <span className="text-muted-foreground/70 mr-1.5 tabular-nums">{idx + 1}.</span>
                           {stock.name}
                         </span>
-                        <span className="text-success font-medium tabular-nums">
+                         <div className="flex items-center gap-1">
+                           <span className="text-success font-medium tabular-nums">
                           +{stock.returnPct.toFixed(1)}%
-                        </span>
-                      </div>
+                           </span>
+                           <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+                         </div>
+                       </button>
                     ))}
                     {top5.length === 0 && (
                       <p className="text-xs text-muted-foreground">無資料</p>
@@ -311,18 +324,22 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
                   </h4>
                   <div className="space-y-1.5">
                     {bottom5.map((stock, idx) => (
-                      <div 
+                       <button
                         key={stock.symbol}
-                        className="flex items-center justify-between text-xs py-1"
+                         onClick={() => handleStockClick(stock)}
+                         className="flex items-center justify-between w-full text-xs py-1.5 px-1 -mx-1 rounded hover:bg-destructive/10 dark:hover:bg-destructive/20 transition-colors cursor-pointer text-left"
                       >
                         <span className="text-foreground">
                           <span className="text-muted-foreground/70 mr-1.5 tabular-nums">{idx + 1}.</span>
                           {stock.name}
                         </span>
-                        <span className="text-destructive font-medium tabular-nums">
+                         <div className="flex items-center gap-1">
+                           <span className="text-destructive font-medium tabular-nums">
                           {stock.returnPct.toFixed(1)}%
-                        </span>
-                      </div>
+                           </span>
+                           <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+                         </div>
+                       </button>
                     ))}
                     {bottom5.length === 0 && (
                       <p className="text-xs text-muted-foreground">無資料</p>
@@ -334,6 +351,14 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
           </Collapsible>
         )}
       </CardContent>
+       
+       {/* Stock Trade Detail Sheet */}
+       <StockTradeDetailSheet
+         stock={selectedStock}
+         open={isSheetOpen}
+         onOpenChange={setIsSheetOpen}
+         periodLabel={selectedPoint || undefined}
+       />
     </Card>
   );
 }

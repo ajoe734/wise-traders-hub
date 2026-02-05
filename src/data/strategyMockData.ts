@@ -964,13 +964,24 @@ export interface StockPerf {
   returnPct: number;
 }
 
+ export interface StockTradeDetail extends StockPerf {
+   entryDate: string;
+   entryPrice: number;
+   currentPrice: number;
+   holdingDays: number;
+   quantity?: number;
+   marketValue?: number;
+   pnlAmt?: number;
+   contributionNote: string;
+ }
+ 
 export interface PeriodPerformance {
   label: string;        // "2024", "2024-11", "W48"
   date: string;         // 用於排序
   returnPct: number;    // 報酬率
   topStock?: StockPerf; // 最佳個股
   bottomStock?: StockPerf; // 最差個股
-  stocks?: StockPerf[]; // 完整個股列表（用於展開）
+   stocks?: StockTradeDetail[]; // 完整個股列表（用於展開）
 }
 
 // Mock 個股資料 pool
@@ -990,11 +1001,45 @@ const stockPool: StockPerf[] = [
 ];
 
 // 生成隨機個股績效
-function generateRandomStocks(baseReturn: number): StockPerf[] {
-  return stockPool.map(stock => ({
-    ...stock,
-    returnPct: Math.round((baseReturn + (Math.random() - 0.5) * 20) * 10) / 10,
-  })).sort((a, b) => b.returnPct - a.returnPct);
+ function generateRandomStocks(baseReturn: number, periodDate: string): StockTradeDetail[] {
+   return stockPool.map(stock => {
+     const returnPct = Math.round((baseReturn + (Math.random() - 0.5) * 20) * 10) / 10;
+     const entryPrice = Math.round((100 + Math.random() * 500) * 10) / 10;
+     const currentPrice = Math.round(entryPrice * (1 + returnPct / 100) * 10) / 10;
+     const holdingDays = Math.floor(Math.random() * 60) + 5;
+     const quantity = Math.floor(Math.random() * 5 + 1) * 1000;
+     
+     // 動態生成貢獻說明
+     let contributionNote: string;
+     if (returnPct > 10) {
+       contributionNote = `本期獲利主力，貢獻整體績效約 ${Math.abs(returnPct * 0.15).toFixed(1)}%。股價突破關鍵壓力區後持續走高，外資持續買超支撐。`;
+     } else if (returnPct > 0) {
+       contributionNote = `穩定貢獻正報酬，符合策略預期。維持原有部位配置，持續觀察趨勢變化。`;
+     } else if (returnPct > -5) {
+       contributionNote = `小幅回檔整理中，尚在停損線之上。密切關注支撐位守住情況。`;
+     } else {
+       contributionNote = `本期拖累績效主因，已觸及停損條件。檢討進場時機與部位控管，作為後續教學案例。`;
+     }
+     
+     return {
+       ...stock,
+       returnPct,
+       entryDate: generateEntryDate(periodDate, holdingDays),
+       entryPrice,
+       currentPrice,
+       holdingDays,
+       quantity,
+       pnlAmt: Math.round((currentPrice - entryPrice) * quantity),
+       contributionNote,
+     };
+   }).sort((a, b) => b.returnPct - a.returnPct);
+ }
+ 
+ function generateEntryDate(periodDate: string, holdingDays: number): string {
+   const endDate = new Date(periodDate);
+   const entryDate = new Date(endDate);
+   entryDate.setDate(endDate.getDate() - holdingDays);
+   return entryDate.toISOString().split('T')[0];
 }
 
 // 生成年度績效數據
@@ -1003,10 +1048,11 @@ function generateYearlyPerformance(system: StrategySystem): PeriodPerformance[] 
   const baseReturns = [12.5, 25.8, 32.4, 8.2];
   
   return years.map((year, idx) => {
-    const stocks = generateRandomStocks(baseReturns[idx]);
+     const periodDate = `${year}-12-31`;
+     const stocks = generateRandomStocks(baseReturns[idx], periodDate);
     return {
       label: year.toString(),
-      date: `${year}-12-31`,
+       date: periodDate,
       returnPct: baseReturns[idx],
       topStock: stocks[0],
       bottomStock: stocks[stocks.length - 1],
@@ -1028,7 +1074,7 @@ function generateMonthlyPerformance(system: StrategySystem): PeriodPerformance[]
     // 基於 system 績效生成月報酬（加點隨機性）
     const baseReturn = (system.performanceSummary.annualizedReturnPct || 20) / 12;
     const returnPct = Math.round((baseReturn + (Math.random() - 0.5) * 8) * 10) / 10;
-    const stocks = generateRandomStocks(returnPct);
+     const stocks = generateRandomStocks(returnPct, monthStr);
     
     months.push({
       label: monthLabel,
@@ -1056,11 +1102,12 @@ function generateWeeklyPerformance(system: StrategySystem): PeriodPerformance[] 
     
     const baseReturn = (system.performanceSummary.annualizedReturnPct || 20) / 52;
     const returnPct = Math.round((baseReturn + (Math.random() - 0.5) * 4) * 10) / 10;
-    const stocks = generateRandomStocks(returnPct);
+     const weekDateStr = weekDate.toISOString().slice(0, 10);
+     const stocks = generateRandomStocks(returnPct, weekDateStr);
     
     weeks.push({
       label: weekLabel,
-      date: weekDate.toISOString().slice(0, 10),
+       date: weekDateStr,
       returnPct,
       topStock: stocks[0],
       bottomStock: stocks[stocks.length - 1],
