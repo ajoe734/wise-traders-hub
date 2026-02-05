@@ -142,6 +142,11 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
               <AreaChart
                 data={chartData}
                 margin={{ top: 10, right: 100, left: -10, bottom: 0 }}
+                onClick={(e) => {
+                  if (e && e.activePayload && e.activePayload[0]) {
+                    handlePointClick(e.activePayload[0].payload);
+                  }
+                }}
               >
                 <defs>
                   <linearGradient id="colorReturn" x1="0" y1="0" x2="0" y2="1">
@@ -170,7 +175,7 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
                   strokeWidth={2}
                   fill="url(#colorReturn)"
                   animationDuration={500}
-                  dot={(props) => {
+                  dot={(props: any) => {
                     const { cx, cy, payload } = props;
                     const isSelected = payload.label === selectedPoint;
                     return (
@@ -182,8 +187,8 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
                         fill={isSelected ? "hsl(var(--primary))" : "hsl(var(--background))"}
                         stroke="hsl(var(--primary))"
                         strokeWidth={2}
-                        className="cursor-pointer transition-all duration-200"
-                        onClick={() => handlePointClick(payload)}
+                        style={{ cursor: 'pointer' }}
+                        className="transition-all duration-200"
                       />
                     );
                   }}
@@ -193,6 +198,11 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
                     stroke: "hsl(var(--background))",
                     strokeWidth: 2,
                     cursor: "pointer",
+                    onClick: (e: any) => {
+                      if (e && e.payload) {
+                        handlePointClick(e.payload);
+                      }
+                    },
                   }}
                 />
               </AreaChart>
