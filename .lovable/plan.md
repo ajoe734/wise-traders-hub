@@ -1,345 +1,445 @@
 
+# 個股交易細節側滑面板（Stock Trade Detail Slide-over）設計計畫
 
-# 績效儀表板優化計畫
+## 需求分析
 
-## 現況分析
-
-目前 `PerformanceOverviewPanel` 已實現基本功能，但仍有以下可優化之處：
-
-1. **Segmented Control** - 選取狀態視覺指示不夠明顯
-2. **圖表色彩** - 無論正負值皆使用固定 primary 色
-3. **間距與邊距** - 圖表稍嵌貼邊，資訊卡覆蓋曲線範圍
-4. **收合區塊** - 觸發器一直顯示，不夠精簡
-5. **頁面間距** - 專家介紹與績效區塊間距可再優化
+使用者點擊 Top/Bottom 5 個股排名中的任一股票時，應從右側滑入一個完整的交易細節卡片，而非在原地展開文字。
 
 ---
 
 ## 設計目標
 
 ```text
-┌────────────────────────────────────────────────────────────┐
-│  ┌──────────┬──────────┬──────────┐                        │
-│  │  年績效   │   月績效  │  週績效   │  ← 明確選取狀態       │
-│  └──────────┴──────────┴──────────┘    (底線 + 色彩變化)    │
-│                                                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │   ┌──────────┐                                       │  │
-│  │   │ 最佳/最差 │  ← 固定右上角外側，不覆蓋曲線          │  │
-│  │   └──────────┘                                       │  │
-│  │                                                      │  │
-│  │     ~~~~暖色~/\~~~~/\~~~~   ← 正值：暖色系            │  │
-│  │  ~~冷色~~~/         \~~~~   ← 負值：冷色系            │  │
-│  │ ~/               \~~~~                               │  │
-│  │                                                      │  │
-│  │         適度邊距 (padding 增加)                        │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                            │
-│  點擊圖表節點查看個股排名 ← 提示文字（點擊前顯示）           │
-│                                                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ ▼ 2024年11月 個股排名                                 │  │ ← 點擊後展開
-│  │ ┌────────────────┬─────────────────┐                 │  │
-│  │ │ TOP 5          │ BOTTOM 5        │                 │  │
-│  │ └────────────────┴─────────────────┘                 │  │
-│  └──────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ 主畫面（不被撐開）                              │ Slide-over Panel │
+│                                                 │ ┌──────────────┐ │
+│  ┌─────────────────────────────────────────┐    │ │ 台積電 2330  │ │
+│  │ ▼ 2024/11 個股排名                      │    │ │              │ │
+│  │ ┌────────────┬────────────┐             │    │ │ 建倉時間     │ │
+│  │ │ TOP 5      │ BOTTOM 5   │             │    │ │ 2024/10/15   │ │
+│  │ │            │            │             │    │ │              │ │
+│  │ │ 台積電 ←── │            │  點擊觸發 ──┼────│ │ 持有天數     │ │
+│  │ │ 聯發科     │ 台塑       │             │    │ │ 45 天        │ │
+│  │ │ ...        │ ...        │             │    │ │              │ │
+│  │ └────────────┴────────────┘             │    │ │ 進場價格     │ │
+│  └─────────────────────────────────────────┘    │ │ $580         │ │
+│                                                 │ │              │ │
+│                                                 │ │ 目前價格     │ │
+│  ┌──────────────────────────────────────────┐   │ │ $615         │ │
+│  │ 背景：點擊可關閉（半透明遮罩）            │   │ │              │ │
+│  └──────────────────────────────────────────┘   │ │ 報酬率       │ │
+│                                                 │ │ +6.03%       │ │
+│                                                 │ │              │ │
+│                                                 │ │ 績效貢獻說明 │ │
+│                                                 │ │ 本月最大獲利 │ │
+│                                                 │ │ 來源...      │ │
+│                                                 │ └──────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 資料模型擴展
+
+### 擴展 `StockPerf` 介面
+
+現有的 `StockPerf` 只包含 `symbol`、`name`、`returnPct`，需擴展以支援交易細節：
+
+```tsx
+// 在 src/data/strategyMockData.ts 中擴展
+export interface StockTradeDetail extends StockPerf {
+  // 基礎資訊
+  symbol: string;
+  name: string;
+  returnPct: number;
+  
+  // 交易細節
+  entryDate: string;           // 建倉時間
+  entryPrice: number;          // 進場價格
+  currentPrice: number;        // 目前價格
+  holdingDays: number;         // 持有天數（自動計算）
+  quantity?: number;           // 持有股數
+  marketValue?: number;        // 市值
+  pnlAmt?: number;             // 損益金額
+  
+  // 績效貢獻說明
+  contributionNote: string;    // 例如：「本月最大獲利來源」「拖累本週績效主因」
+}
 ```
 
 ---
 
 ## 檔案變更
 
-### 1. 修改 `src/components/strategy/PerformanceOverviewPanel.tsx`
+### 1. 新增元件：`src/components/strategy/StockTradeDetailSheet.tsx`
 
-#### 1.1 Segmented Control 優化
-
-強化選取狀態視覺指示，加入底線效果：
+使用現有的 `Sheet` 元件實現右側滑入面板：
 
 ```tsx
-<TabsList className="grid w-full grid-cols-3 bg-muted/30 dark:bg-white/[0.02] p-1 h-11">
-  <TabsTrigger 
-    value="yearly" 
-    className="text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary font-medium"
-  >
-    年績效
-  </TabsTrigger>
-  {/* monthly, weekly 同樣處理 */}
-</TabsList>
-```
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Calendar, Clock, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
+import { StockTradeDetail } from "@/data/strategyMockData";
+import { cn } from "@/lib/utils";
 
-**變化：**
-- `bg-muted/30` 降低背景對比，讓選取狀態更明顯
-- 加入 `data-[state=active]:border-b-2 data-[state=active]:border-primary`
-- 選取時文字變為 `text-primary`
-- 高度增加至 `h-11` 提升觸控友善度
+interface StockTradeDetailSheetProps {
+  stock: StockTradeDetail | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  periodLabel?: string;  // 顯示所屬時間區間，例如 "2024/11"
+}
 
-#### 1.2 圖表顏色根據正負值變化
+export function StockTradeDetailSheet({
+  stock,
+  open,
+  onOpenChange,
+  periodLabel,
+}: StockTradeDetailSheetProps) {
+  if (!stock) return null;
 
-新增動態漸層定義，根據資料整體走勢調整色調：
-
-```tsx
-// 計算整體收益傾向
-const overallTrend = useMemo(() => {
-  if (!performanceData.length) return 'neutral';
-  const avgReturn = performanceData.reduce((sum, p) => sum + p.returnPct, 0) / performanceData.length;
-  return avgReturn >= 0 ? 'positive' : 'negative';
-}, [performanceData]);
-
-// 色彩定義
-const chartColors = useMemo(() => {
-  if (overallTrend === 'positive') {
-    return {
-      stroke: 'hsl(4 82% 56%)',         // 紅色暖系（台股上漲色）
-      gradientStart: 'hsl(4 82% 56%)',
-      gradientEnd: 'hsl(4 82% 56%)',
-    };
-  } else {
-    return {
-      stroke: 'hsl(142 76% 46%)',       // 綠色冷系（台股下跌色）
-      gradientStart: 'hsl(142 76% 46%)',
-      gradientEnd: 'hsl(142 76% 46%)',
-    };
-  }
-}, [overallTrend]);
-```
-
-圖表渲染時使用動態 ID 避免漸層衝突：
-
-```tsx
-<defs>
-  <linearGradient id={`colorReturn-${period}`} x1="0" y1="0" x2="0" y2="1">
-    <stop offset="5%" stopColor={chartColors.gradientStart} stopOpacity={0.25} />
-    <stop offset="95%" stopColor={chartColors.gradientEnd} stopOpacity={0} />
-  </linearGradient>
-</defs>
-<Area
-  stroke={chartColors.stroke}
-  fill={`url(#colorReturn-${period})`}
-  // ...
-/>
-```
-
-#### 1.3 圖表邊距與資訊卡位置優化
-
-增加圖表容器內邊距，將資訊卡移至圖表外側：
-
-```tsx
-{/* 主圖表容器 - 增加 padding */}
-<div className="relative pt-2 pb-4 px-2">
-  {/* 圖表區域 */}
-  <div className="h-52">
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart
-        data={chartData}
-        margin={{ top: 16, right: 16, left: 8, bottom: 8 }}
-        // ...
-      >
-```
-
-資訊卡改為固定於右上角外側，不覆蓋曲線：
-
-```tsx
-{/* 浮動資訊卡 - 移至圖表容器上方右側 */}
-<div className="flex justify-end mb-2">
-  <FloatingStatCard 
-    bestStock={periodStats.best}
-    worstStock={periodStats.worst}
-    className="w-auto"
-  />
-</div>
-```
-
-#### 1.4 收合區塊互動優化
-
-預設完全隱藏 trigger，僅在選取節點後顯示：
-
-```tsx
-{/* 只有選取節點後才顯示收合區塊 */}
-{selectedPoint && (
-  <Collapsible 
-    open={isExpanded}
-    onOpenChange={setIsExpanded}
-  >
-    <CollapsibleTrigger 
-      className="flex items-center justify-between w-full py-2.5 px-4 rounded-lg 
-                 bg-muted/40 dark:bg-white/[0.04] 
-                 border border-transparent dark:border-white/10 
-                 text-sm hover:bg-muted/60 dark:hover:bg-white/[0.08] 
-                 transition-colors"
-    >
-      <span className="font-medium text-foreground">
-        {selectedPoint} 個股排名
-      </span>
-      <ChevronDown className={cn(
-        "h-4 w-4 text-muted-foreground transition-transform duration-200",
-        isExpanded && "rotate-180"
-      )} />
-    </CollapsibleTrigger>
-    
-    <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-      {/* Top/Bottom 5 內容 */}
-    </CollapsibleContent>
-  </Collapsible>
-)}
-
-{/* 未選取時顯示提示 */}
-{!selectedPoint && (
-  <p className="text-xs text-muted-foreground dark:text-white/50 text-center py-3">
-    點擊圖表節點查看個股排名
-  </p>
-)}
-```
-
-#### 1.5 個股排名卡片樣式優化
-
-以卡片形式呈現，保持簡潔：
-
-```tsx
-<CollapsibleContent className="pt-3">
-  <div className="grid grid-cols-2 gap-4">
-    {/* Top 5 */}
-    <div className="bg-success/5 dark:bg-success/10 rounded-lg p-3 space-y-2">
-      <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-        <TrendingUp className="h-3.5 w-3.5 text-success" />
-        表現最佳
-      </h4>
-      <div className="space-y-1.5">
-        {top5.map((stock, idx) => (
-          <div 
-            key={stock.symbol}
-            className="flex items-center justify-between text-xs py-1"
-          >
-            <span className="text-foreground">
-              <span className="text-muted-foreground/70 mr-1.5 tabular-nums">{idx + 1}.</span>
-              {stock.name}
-            </span>
-            <span className="text-success font-medium tabular-nums">
-              +{stock.returnPct.toFixed(1)}%
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-
-    {/* Bottom 5 - 同樣處理 */}
-  </div>
-</CollapsibleContent>
-```
-
----
-
-### 2. 修改 `src/components/strategy/FloatingStatCard.tsx`
-
-優化外觀，使其更簡潔並適應 inline 佈局：
-
-```tsx
-export function FloatingStatCard({ bestStock, worstStock, className }: FloatingStatCardProps) {
-  if (!bestStock && !worstStock) return null;
+  const isPositive = stock.returnPct >= 0;
 
   return (
-    <div 
-      className={cn(
-        "inline-flex items-center gap-4 bg-muted/50 dark:bg-white/[0.05]",
-        "backdrop-blur-sm rounded-lg px-3 py-2",
-        "border border-border/50 dark:border-white/10",
-        "animate-fade-in",
-        className
-      )}
-    >
-      {/* 最佳個股 */}
-      {bestStock && (
-        <div className="flex items-center gap-2 text-xs">
-          <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-          <span className="text-muted-foreground">最佳</span>
-          <span className="font-medium text-foreground">{bestStock.name}</span>
-          <span className="text-success font-semibold tabular-nums">
-            +{bestStock.returnPct.toFixed(1)}%
-          </span>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-[320px] sm:w-[380px] overflow-y-auto">
+        <SheetHeader className="space-y-1 pb-4">
+          <div className="flex items-center gap-2">
+            <SheetTitle className="text-xl">{stock.name}</SheetTitle>
+            <Badge variant="outline" className="font-mono text-xs">
+              {stock.symbol}
+            </Badge>
+          </div>
+          {periodLabel && (
+            <SheetDescription>
+              {periodLabel} 績效表現
+            </SheetDescription>
+          )}
+        </SheetHeader>
+
+        <Separator />
+
+        {/* 報酬率 Highlight */}
+        <div className={cn(
+          "my-6 p-4 rounded-lg text-center",
+          isPositive 
+            ? "bg-success/10 dark:bg-success/20" 
+            : "bg-destructive/10 dark:bg-destructive/20"
+        )}>
+          <p className="text-sm text-muted-foreground mb-1">本期報酬率</p>
+          <p className={cn(
+            "text-3xl font-bold tabular-nums",
+            isPositive ? "text-success" : "text-destructive"
+          )}>
+            {isPositive ? "+" : ""}{stock.returnPct.toFixed(2)}%
+          </p>
         </div>
-      )}
-      
-      {/* 分隔線 */}
-      {bestStock && worstStock && (
-        <div className="w-px h-4 bg-border dark:bg-white/20" />
-      )}
-      
-      {/* 最差個股 */}
-      {worstStock && (
-        <div className="flex items-center gap-2 text-xs">
-          <TrendingDown className="h-3.5 w-3.5 text-destructive shrink-0" />
-          <span className="text-muted-foreground">最差</span>
-          <span className="font-medium text-foreground">{worstStock.name}</span>
-          <span className="text-destructive font-semibold tabular-nums">
-            {worstStock.returnPct.toFixed(1)}%
-          </span>
+
+        {/* 交易細節列表 */}
+        <div className="space-y-4">
+          {/* 建倉時間 */}
+          <DetailRow
+            icon={<Calendar className="h-4 w-4" />}
+            label="建倉時間"
+            value={formatDate(stock.entryDate)}
+          />
+
+          {/* 持有天數 */}
+          <DetailRow
+            icon={<Clock className="h-4 w-4" />}
+            label="持有天數"
+            value={`${stock.holdingDays} 天`}
+          />
+
+          <Separator />
+
+          {/* 進場價格 */}
+          <DetailRow
+            icon={<DollarSign className="h-4 w-4" />}
+            label="進場價格"
+            value={`$${stock.entryPrice.toLocaleString()}`}
+          />
+
+          {/* 目前價格 */}
+          <DetailRow
+            icon={isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+            label="目前價格"
+            value={`$${stock.currentPrice.toLocaleString()}`}
+            valueClassName={isPositive ? "text-success" : "text-destructive"}
+          />
+
+          {/* 損益金額（可選） */}
+          {stock.pnlAmt !== undefined && (
+            <DetailRow
+              icon={<BarChart3 className="h-4 w-4" />}
+              label="損益金額"
+              value={`${stock.pnlAmt >= 0 ? "+" : ""}$${stock.pnlAmt.toLocaleString()}`}
+              valueClassName={stock.pnlAmt >= 0 ? "text-success" : "text-destructive"}
+            />
+          )}
         </div>
-      )}
+
+        <Separator className="my-6" />
+
+        {/* 績效貢獻說明 */}
+        <div className="space-y-2">
+          <h4 className="text-sm font-semibold flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            績效貢獻說明
+          </h4>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {stock.contributionNote}
+          </p>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// 輔助元件：細節列
+function DetailRow({ 
+  icon, 
+  label, 
+  value, 
+  valueClassName 
+}: { 
+  icon: React.ReactNode; 
+  label: string; 
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        {icon}
+        <span className="text-sm">{label}</span>
+      </div>
+      <span className={cn("font-medium tabular-nums", valueClassName)}>
+        {value}
+      </span>
     </div>
   );
+}
+
+// 日期格式化
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
 }
 ```
 
 ---
 
-### 3. 修改 `src/pages/app/ExpertDetail.tsx`
+### 2. 修改 `src/data/strategyMockData.ts`
 
-增加專家介紹區與績效區塊之間的間距：
+#### 2.1 新增 `StockTradeDetail` 介面
 
 ```tsx
-{/* Expert Header */}
-<div className="flex items-start gap-4">
-  {/* ... */}
-</div>
+export interface StockTradeDetail {
+  symbol: string;
+  name: string;
+  returnPct: number;
+  entryDate: string;
+  entryPrice: number;
+  currentPrice: number;
+  holdingDays: number;
+  quantity?: number;
+  marketValue?: number;
+  pnlAmt?: number;
+  contributionNote: string;
+}
+```
 
-{/* 增加間距 */}
-<div className="h-2" />
+#### 2.2 修改 `PeriodPerformance.stocks` 類型
 
-{/* Subscription Status */}
-{isSubscribed && (
-  <Card className="border-primary/30 bg-primary/5">
-    {/* ... */}
-  </Card>
-)}
+```tsx
+export interface PeriodPerformance {
+  label: string;
+  date: string;
+  returnPct: number;
+  topStock?: StockPerf;
+  bottomStock?: StockPerf;
+  stocks?: StockTradeDetail[];  // 改為使用擴展版本
+}
+```
 
-{/* 績效區塊標題優化 */}
-<div className="pt-2">
-  <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
-    <TrendingUp className="h-4 w-4" />
-    <span>績效總覽</span>
-  </h2>
-  <PerformanceOverviewPanel expertSlug={slug || ""} />
+#### 2.3 修改 `generateRandomStocks` 函數
+
+生成包含交易細節的 Mock 資料：
+
+```tsx
+function generateRandomStocks(baseReturn: number, periodDate: string): StockTradeDetail[] {
+  return stockPool.map((stock, idx) => {
+    const returnPct = Math.round((baseReturn + (Math.random() - 0.5) * 20) * 10) / 10;
+    const entryPrice = Math.round((100 + Math.random() * 500) * 10) / 10;
+    const currentPrice = Math.round(entryPrice * (1 + returnPct / 100) * 10) / 10;
+    const holdingDays = Math.floor(Math.random() * 60) + 5;
+    
+    // 動態生成貢獻說明
+    let contributionNote: string;
+    if (returnPct > 10) {
+      contributionNote = `本期獲利主力，貢獻整體績效約 ${Math.abs(returnPct * 0.15).toFixed(1)}%。股價突破關鍵壓力區後持續走高，外資持續買超支撐。`;
+    } else if (returnPct > 0) {
+      contributionNote = `穩定貢獻正報酬，符合策略預期。維持原有部位配置，持續觀察趨勢變化。`;
+    } else if (returnPct > -5) {
+      contributionNote = `小幅回檔整理中，尚在停損線之上。密切關注支撐位守住情況。`;
+    } else {
+      contributionNote = `本期拖累績效主因，已觸及停損條件。檢討進場時機與部位控管，作為後續教學案例。`;
+    }
+    
+    return {
+      ...stock,
+      returnPct,
+      entryDate: generateEntryDate(periodDate, holdingDays),
+      entryPrice,
+      currentPrice,
+      holdingDays,
+      quantity: Math.floor(Math.random() * 5 + 1) * 1000,
+      pnlAmt: Math.round((currentPrice - entryPrice) * (Math.floor(Math.random() * 5 + 1) * 1000)),
+      contributionNote,
+    };
+  }).sort((a, b) => b.returnPct - a.returnPct);
+}
+
+function generateEntryDate(periodDate: string, holdingDays: number): string {
+  const endDate = new Date(periodDate);
+  const entryDate = new Date(endDate);
+  entryDate.setDate(endDate.getDate() - holdingDays);
+  return entryDate.toISOString().split('T')[0];
+}
+```
+
+---
+
+### 3. 修改 `src/components/strategy/PerformanceOverviewPanel.tsx`
+
+整合 Slide-over 互動：
+
+#### 3.1 新增 State
+
+```tsx
+import { StockTradeDetailSheet } from "./StockTradeDetailSheet";
+import { StockTradeDetail } from "@/data/strategyMockData";
+
+// 新增 state
+const [selectedStock, setSelectedStock] = useState<StockTradeDetail | null>(null);
+const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+// 處理個股點擊
+const handleStockClick = (stock: StockTradeDetail) => {
+  setSelectedStock(stock);
+  setIsSheetOpen(true);
+};
+```
+
+#### 3.2 修改個股列表渲染
+
+將 Top/Bottom 5 個股改為可點擊：
+
+```tsx
+{/* Top 5 */}
+<div className="bg-success/5 dark:bg-success/10 rounded-lg p-3 space-y-2">
+  <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+    <TrendingUp className="h-3.5 w-3.5 text-success" />
+    表現最佳
+  </h4>
+  <div className="space-y-1">
+    {top5.map((stock, idx) => (
+      <button
+        key={stock.symbol}
+        onClick={() => handleStockClick(stock as StockTradeDetail)}
+        className="flex items-center justify-between w-full text-xs py-1.5 px-1 -mx-1 rounded hover:bg-success/10 dark:hover:bg-success/20 transition-colors cursor-pointer text-left"
+      >
+        <span className="text-foreground">
+          <span className="text-muted-foreground/70 mr-1.5 tabular-nums">{idx + 1}.</span>
+          {stock.name}
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-success font-medium tabular-nums">
+            +{stock.returnPct.toFixed(1)}%
+          </span>
+          <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+        </div>
+      </button>
+    ))}
+  </div>
 </div>
 ```
 
-**變化：**
-- 標題改為 `text-base`（較小字體）
-- 文字色彩改為 `text-muted-foreground`（灰階）
-- 整體區塊加入 `pt-2` 頂部間距
+#### 3.3 新增 Sheet 元件
+
+在元件最後加入 Sheet：
+
+```tsx
+return (
+  <Card className="overflow-hidden">
+    <CardContent className="p-4 space-y-4">
+      {/* ... 現有內容 ... */}
+    </CardContent>
+
+    {/* Stock Trade Detail Sheet */}
+    <StockTradeDetailSheet
+      stock={selectedStock}
+      open={isSheetOpen}
+      onOpenChange={setIsSheetOpen}
+      periodLabel={selectedPoint || undefined}
+    />
+  </Card>
+);
+```
 
 ---
 
-## 互動邏輯總結
+## 動畫效果
 
-| 狀態 | 顯示內容 |
-|------|----------|
-| **初始** | Segmented Control + 圖表 + 資訊卡 + 提示文字 |
-| **點擊節點** | 展開收合區塊顯示 Top/Bottom 5 |
-| **切換維度** | 圖表平滑過渡 + 資訊卡更新 + 重置選取狀態 |
-| **再次點擊** | 收合個股排名 |
+Sheet 元件已內建平滑動畫：
+
+```tsx
+// 來自 sheet.tsx 的 sheetVariants
+"data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
+"data-[state=closed]:duration-300 data-[state=open]:duration-500"
+```
+
+背景遮罩淡入淡出：
+```tsx
+// SheetOverlay
+"data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+```
 
 ---
 
-## 視覺優化對照表
+## 互動行為總結
 
-| 項目 | 現況 | 優化後 |
-|------|------|--------|
-| Segmented Control | 基本樣式 | 加入底線 + primary 色彩標示 |
-| 圖表顏色 | 固定 primary | 正值暖色、負值冷色 |
-| 圖表邊距 | `margin: 10/100/-10/0` | `margin: 16/16/8/8` + 容器 padding |
-| 資訊卡位置 | 絕對定位覆蓋曲線 | 圖表上方水平排列 |
-| 收合觸發器 | 一直顯示 | 選取節點後才出現 |
-| 個股卡片 | 基本列表 | 圓角卡片 + 背景色區分 |
-| 區塊間距 | 預設 `space-y-6` | 標題灰階 + 頂部加距 |
+| 操作 | 結果 |
+|------|------|
+| **點擊個股名稱** | 從右側滑入交易細節面板 |
+| **點擊背景遮罩** | 關閉面板（Sheet 內建行為） |
+| **點擊右上角 X** | 關閉面板 |
+| **滑動手勢（行動裝置）** | Sheet 內建支援 |
+| **切換時間維度** | 自動關閉 Sheet，清空選取 |
+
+---
+
+## 視覺設計規範
+
+| 項目 | 規格 |
+|------|------|
+| **面板寬度** | 320px（行動）/ 380px（桌面） |
+| **報酬率區塊** | 置中、大字體、背景色區分正負 |
+| **細節列表** | icon + label 左對齊，value 右對齊 |
+| **績效說明** | 獨立區塊，bullet point 標示 |
+| **動畫時長** | 開啟 500ms / 關閉 300ms |
+
+---
+
+## 深色模式支援
+
+沿用現有設計系統：
+
+- 面板背景：`bg-background`（自動適應）
+- 成功色：`text-success` / `bg-success/10 dark:bg-success/20`
+- 失敗色：`text-destructive` / `bg-destructive/10 dark:bg-destructive/20`
+- 邊框：`border dark:border-white/10`
 
 ---
 
@@ -347,7 +447,6 @@ export function FloatingStatCard({ bestStock, worstStock, className }: FloatingS
 
 | 檔案 | 操作 | 說明 |
 |------|------|------|
-| `src/components/strategy/PerformanceOverviewPanel.tsx` | 修改 | Segmented Control、圖表色彩、邊距、收合區塊優化 |
-| `src/components/strategy/FloatingStatCard.tsx` | 修改 | 改為 inline 水平排列，簡化外觀 |
-| `src/pages/app/ExpertDetail.tsx` | 修改 | 標題樣式調整、區塊間距優化 |
-
+| `src/components/strategy/StockTradeDetailSheet.tsx` | 新增 | 右側滑入交易細節面板 |
+| `src/data/strategyMockData.ts` | 修改 | 新增 `StockTradeDetail` 介面與生成函數 |
+| `src/components/strategy/PerformanceOverviewPanel.tsx` | 修改 | 整合 Sheet 互動，個股改為可點擊 |
