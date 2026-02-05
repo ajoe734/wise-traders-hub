@@ -10,10 +10,10 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  ReferenceDot,
 } from "recharts";
 import { FloatingStatCard, StockPerf } from "./FloatingStatCard";
 import { getPerformanceByPeriod, PeriodPerformance } from "@/data/strategyMockData";
+import { cn } from "@/lib/utils";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
 
@@ -30,6 +30,30 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
   const performanceData = useMemo(() => {
     return getPerformanceByPeriod(expertSlug, period);
   }, [expertSlug, period]);
+
+  // Calculate overall trend for dynamic chart color
+  const overallTrend = useMemo(() => {
+    if (!performanceData.length) return 'neutral';
+    const avgReturn = performanceData.reduce((sum, p) => sum + p.returnPct, 0) / performanceData.length;
+    return avgReturn >= 0 ? 'positive' : 'negative';
+  }, [performanceData]);
+
+  // Dynamic chart colors based on trend (Taiwan stock market: red=up, green=down)
+  const chartColors = useMemo(() => {
+    if (overallTrend === 'positive') {
+      return {
+        stroke: 'hsl(4 82% 56%)',         // Warm red for positive
+        gradientStart: 'hsl(4 82% 56%)',
+        gradientEnd: 'hsl(4 82% 56%)',
+      };
+    } else {
+      return {
+        stroke: 'hsl(142 76% 46%)',       // Cool green for negative
+        gradientStart: 'hsl(142 76% 46%)',
+        gradientEnd: 'hsl(142 76% 46%)',
+      };
+    }
+  }, [overallTrend]);
 
   // Calculate current period best/worst stocks (across all data points)
   const periodStats = useMemo(() => {
@@ -119,17 +143,32 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
             setIsExpanded(false);
           }}
         >
-          <TabsList className="grid w-full grid-cols-3 bg-muted/50 dark:bg-white/[0.03]">
-            <TabsTrigger value="yearly" className="text-sm">年績效</TabsTrigger>
-            <TabsTrigger value="monthly" className="text-sm">月績效</TabsTrigger>
-            <TabsTrigger value="weekly" className="text-sm">週績效</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 bg-muted/30 dark:bg-white/[0.02] p-1 h-11">
+            <TabsTrigger 
+              value="yearly" 
+              className="text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary"
+            >
+              年績效
+            </TabsTrigger>
+            <TabsTrigger 
+              value="monthly" 
+              className="text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary"
+            >
+              月績效
+            </TabsTrigger>
+            <TabsTrigger 
+              value="weekly" 
+              className="text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary"
+            >
+              週績效
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
         {/* Chart Area with Floating Card */}
-        <div className="relative">
-          {/* Floating Stat Card */}
-          <div className="absolute top-0 right-0 z-10 w-28">
+        <div className="space-y-3">
+          {/* Floating Stat Card - moved above chart */}
+          <div className="flex justify-end">
             <FloatingStatCard 
               bestStock={periodStats.best}
               worstStock={periodStats.worst}
@@ -137,11 +176,11 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
           </div>
 
           {/* Area Chart */}
-          <div className="h-48">
+          <div className="h-52 px-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={chartData}
-                margin={{ top: 10, right: 100, left: -10, bottom: 0 }}
+                margin={{ top: 16, right: 16, left: 8, bottom: 8 }}
                 onClick={(e) => {
                   if (e && e.activePayload && e.activePayload[0]) {
                     handlePointClick(e.activePayload[0].payload);
@@ -149,9 +188,9 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
                 }}
               >
                 <defs>
-                  <linearGradient id="colorReturn" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <linearGradient id={`colorReturn-${period}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={chartColors.gradientStart} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={chartColors.gradientEnd} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis 
@@ -171,9 +210,9 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
                 <Area
                   type="monotone"
                   dataKey="returnPct"
-                  stroke="hsl(var(--primary))"
+                  stroke={chartColors.stroke}
                   strokeWidth={2}
-                  fill="url(#colorReturn)"
+                  fill={`url(#colorReturn-${period})`}
                   animationDuration={500}
                   dot={(props: any) => {
                     const { cx, cy, payload } = props;
@@ -184,8 +223,8 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
                         cx={cx}
                         cy={cy}
                         r={isSelected ? 6 : 4}
-                        fill={isSelected ? "hsl(var(--primary))" : "hsl(var(--background))"}
-                        stroke="hsl(var(--primary))"
+                        fill={isSelected ? chartColors.stroke : "hsl(var(--background))"}
+                        stroke={chartColors.stroke}
                         strokeWidth={2}
                         style={{ cursor: 'pointer' }}
                         className="transition-all duration-200"
@@ -194,7 +233,7 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
                   }}
                   activeDot={{
                     r: 6,
-                    fill: "hsl(var(--primary))",
+                    fill: chartColors.stroke,
                     stroke: "hsl(var(--background))",
                     strokeWidth: 2,
                     cursor: "pointer",
@@ -211,88 +250,89 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
 
           {/* Click hint */}
           {!selectedPoint && (
-            <p className="text-xs text-muted-foreground dark:text-white/50 text-center mt-2">
+            <p className="text-xs text-muted-foreground dark:text-white/50 text-center py-2">
               點擊圖表節點查看個股排名
             </p>
           )}
         </div>
 
         {/* Collapsible Stock Ranking */}
-        <Collapsible 
-          open={isExpanded && !!selectedPoint}
-          onOpenChange={(open) => {
-            if (selectedPoint) {
-              setIsExpanded(open);
-            }
-          }}
-        >
-          <CollapsibleTrigger 
-            className="flex items-center justify-between w-full py-2 px-3 rounded-lg bg-muted/30 dark:bg-white/[0.03] border dark:border-white/10 text-sm hover:bg-muted/50 dark:hover:bg-white/[0.06] transition-colors"
+        {selectedPoint && (
+          <Collapsible 
+            open={isExpanded}
+            onOpenChange={setIsExpanded}
           >
-            <span className="font-medium text-foreground">
-              {selectedPoint ? `${selectedPoint} 個股排名` : "點擊圖表查看個股"}
-            </span>
-            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isExpanded && selectedPoint ? "rotate-180" : ""}`} />
-          </CollapsibleTrigger>
-          
-          <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
-            <div className="grid grid-cols-2 gap-3 pt-3">
-              {/* Top 5 */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground dark:text-white/60 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3 text-success" />
-                  表現最佳
-                </h4>
-                <div className="space-y-1">
-                  {top5.map((stock, idx) => (
-                    <div 
-                      key={stock.symbol}
-                      className="flex items-center justify-between text-xs py-1 px-2 rounded bg-success/5 dark:bg-success/10"
-                    >
-                      <span className="text-foreground">
-                        <span className="text-muted-foreground mr-1">{idx + 1}.</span>
-                        {stock.name}
-                      </span>
-                      <span className="text-success font-medium">
-                        +{stock.returnPct.toFixed(1)}%
-                      </span>
-                    </div>
-                  ))}
-                  {top5.length === 0 && (
-                    <p className="text-xs text-muted-foreground">無資料</p>
-                  )}
+            <CollapsibleTrigger 
+              className="flex items-center justify-between w-full py-2.5 px-4 rounded-lg bg-muted/40 dark:bg-white/[0.04] border border-transparent dark:border-white/10 text-sm hover:bg-muted/60 dark:hover:bg-white/[0.08] transition-colors"
+            >
+              <span className="font-medium text-foreground">
+                {selectedPoint} 個股排名
+              </span>
+              <ChevronDown className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                isExpanded && "rotate-180"
+              )} />
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
+              <div className="grid grid-cols-2 gap-4 pt-3">
+                {/* Top 5 */}
+                <div className="bg-success/5 dark:bg-success/10 rounded-lg p-3 space-y-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5 text-success" />
+                    表現最佳
+                  </h4>
+                  <div className="space-y-1.5">
+                    {top5.map((stock, idx) => (
+                      <div 
+                        key={stock.symbol}
+                        className="flex items-center justify-between text-xs py-1"
+                      >
+                        <span className="text-foreground">
+                          <span className="text-muted-foreground/70 mr-1.5 tabular-nums">{idx + 1}.</span>
+                          {stock.name}
+                        </span>
+                        <span className="text-success font-medium tabular-nums">
+                          +{stock.returnPct.toFixed(1)}%
+                        </span>
+                      </div>
+                    ))}
+                    {top5.length === 0 && (
+                      <p className="text-xs text-muted-foreground">無資料</p>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Bottom 5 */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground dark:text-white/60 flex items-center gap-1">
-                  <TrendingDown className="h-3 w-3 text-destructive" />
-                  表現最差
-                </h4>
-                <div className="space-y-1">
-                  {bottom5.map((stock, idx) => (
-                    <div 
-                      key={stock.symbol}
-                      className="flex items-center justify-between text-xs py-1 px-2 rounded bg-destructive/5 dark:bg-destructive/10"
-                    >
-                      <span className="text-foreground">
-                        <span className="text-muted-foreground mr-1">{idx + 1}.</span>
-                        {stock.name}
-                      </span>
-                      <span className="text-destructive font-medium">
-                        {stock.returnPct.toFixed(1)}%
-                      </span>
-                    </div>
-                  ))}
-                  {bottom5.length === 0 && (
-                    <p className="text-xs text-muted-foreground">無資料</p>
-                  )}
+                {/* Bottom 5 */}
+                <div className="bg-destructive/5 dark:bg-destructive/10 rounded-lg p-3 space-y-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <TrendingDown className="h-3.5 w-3.5 text-destructive" />
+                    表現最差
+                  </h4>
+                  <div className="space-y-1.5">
+                    {bottom5.map((stock, idx) => (
+                      <div 
+                        key={stock.symbol}
+                        className="flex items-center justify-between text-xs py-1"
+                      >
+                        <span className="text-foreground">
+                          <span className="text-muted-foreground/70 mr-1.5 tabular-nums">{idx + 1}.</span>
+                          {stock.name}
+                        </span>
+                        <span className="text-destructive font-medium tabular-nums">
+                          {stock.returnPct.toFixed(1)}%
+                        </span>
+                      </div>
+                    ))}
+                    {bottom5.length === 0 && (
+                      <p className="text-xs text-muted-foreground">無資料</p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </CardContent>
     </Card>
   );

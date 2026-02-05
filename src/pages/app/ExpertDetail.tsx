@@ -173,9 +173,9 @@ const AppExpertDetail = () => {
         )}
 
         {/* Performance Overview Panel */}
-        <div>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
+        <div className="pt-2">
+          <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
+            <TrendingUp className="h-4 w-4" />
             績效總覽
           </h2>
           <PerformanceOverviewPanel expertSlug={slug || ""} />
