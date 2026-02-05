@@ -1,4 +1,5 @@
 import { Trophy, TrendingDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface StockPerf {
   symbol: string;
@@ -17,37 +18,40 @@ export function FloatingStatCard({ bestStock, worstStock, className }: FloatingS
 
   return (
     <div 
-      className={`bg-background/80 dark:bg-white/10 backdrop-blur-sm border rounded-lg p-2 shadow-lg space-y-2 dark:border-white/10 animate-fade-in ${className || ''}`}
+      className={cn(
+        "inline-flex items-center gap-4 bg-muted/50 dark:bg-white/[0.05]",
+        "backdrop-blur-sm rounded-lg px-3 py-2",
+        "border border-border/50 dark:border-white/10",
+        "animate-fade-in",
+        className
+      )}
     >
       {/* 最佳個股 */}
       {bestStock && (
-        <div className="text-xs">
-          <div className="text-muted-foreground dark:text-white/60 flex items-center gap-1">
-            <Trophy className="h-3 w-3 text-amber-500" />
-            <span>本期最佳</span>
-          </div>
-          <div className="font-medium text-foreground">
-            {bestStock.name}
-            <span className="text-success ml-1">
-              +{bestStock.returnPct.toFixed(1)}%
-            </span>
-          </div>
+        <div className="flex items-center gap-2 text-xs">
+          <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+          <span className="text-muted-foreground">最佳</span>
+          <span className="font-medium text-foreground">{bestStock.name}</span>
+          <span className="text-success font-semibold tabular-nums">
+            +{bestStock.returnPct.toFixed(1)}%
+          </span>
         </div>
+      )}
+      
+      {/* 分隔線 */}
+      {bestStock && worstStock && (
+        <div className="w-px h-4 bg-border dark:bg-white/20" />
       )}
       
       {/* 最差個股 */}
       {worstStock && (
-        <div className="text-xs">
-          <div className="text-muted-foreground dark:text-white/60 flex items-center gap-1">
-            <TrendingDown className="h-3 w-3 text-destructive" />
-            <span>本期最差</span>
-          </div>
-          <div className="font-medium text-foreground">
-            {worstStock.name}
-            <span className="text-destructive ml-1">
-              {worstStock.returnPct.toFixed(1)}%
-            </span>
-          </div>
+        <div className="flex items-center gap-2 text-xs">
+          <TrendingDown className="h-3.5 w-3.5 text-destructive shrink-0" />
+          <span className="text-muted-foreground">最差</span>
+          <span className="font-medium text-foreground">{worstStock.name}</span>
+          <span className="text-destructive font-semibold tabular-nums">
+            {worstStock.returnPct.toFixed(1)}%
+          </span>
         </div>
       )}
     </div>
