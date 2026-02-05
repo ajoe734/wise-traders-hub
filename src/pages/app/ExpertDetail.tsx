@@ -61,8 +61,8 @@ const AppExpertDetail = () => {
       <UnifiedAppLayout>
         <div className="flex flex-col items-center justify-center py-16">
           <p className="text-muted-foreground">找不到此專家</p>
-          <Button variant="ghost" onClick={() => navigate("/app/explore")} className="mt-4">
-            返回探索
+          <Button variant="ghost" onClick={() => navigate("/app")} className="mt-4">
+            返回戰情室
           </Button>
         </div>
       </UnifiedAppLayout>
@@ -122,11 +122,11 @@ const AppExpertDetail = () => {
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={() => navigate("/app/explore")}
+          onClick={() => navigate("/app")}
           className="gap-2 -ml-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回探索
+          返回戰情室
         </Button>
 
         {/* Expert Header */}
