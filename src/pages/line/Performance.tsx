@@ -49,13 +49,13 @@ const LinePerformance = () => {
            href="https://wise-traders-hub.lovable.app/app/performance"
            target="_blank"
            rel="noopener noreferrer"
-            className="flex items-center gap-3 px-3 py-2.5 bg-foreground dark:bg-white rounded-lg hover:opacity-90 transition-opacity"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity"
          >
-            <Monitor className="h-4 w-4 text-background dark:text-foreground shrink-0" />
-            <span className="text-sm text-background dark:text-foreground flex-1">
+            <Monitor className="h-4 w-4 shrink-0" />
+            <span className="text-sm flex-1">
              想看更詳細？網頁版有完整圖表分析
            </span>
-            <ChevronRight className="h-4 w-4 text-background dark:text-foreground shrink-0" />
+            <ChevronRight className="h-4 w-4 shrink-0" />
          </a>
  
           {isDelayed && (
