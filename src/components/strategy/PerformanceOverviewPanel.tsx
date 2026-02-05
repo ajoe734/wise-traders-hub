@@ -12,8 +12,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { FloatingStatCard, StockPerf } from "./FloatingStatCard";
- import { getPerformanceByPeriod, PeriodPerformance, StockTradeDetail } from "@/data/strategyMockData";
- import { StockTradeDetailSheet } from "./StockTradeDetailSheet";
+import { getPerformanceByPeriod, getStrategySystemByExpertSlug, PeriodPerformance, StockTradeDetail } from "@/data/strategyMockData";
+import { StockTradeDetailSheet } from "./StockTradeDetailSheet";
 import { cn } from "@/lib/utils";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
@@ -30,26 +30,25 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
    const [selectedStock, setSelectedStock] = useState<StockTradeDetail | null>(null);
-   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  // Get performance data based on period
+  // Get strategy system for fixed since-inception return
+  const strategySystem = useMemo(() => {
+    return getStrategySystemByExpertSlug(expertSlug);
+  }, [expertSlug]);
+
+  // Fixed since-inception return (doesn't change with period toggle)
+  const sinceInceptionReturn = strategySystem?.performanceSummary.sinceInceptionReturnPct ?? 0;
+
+  // Get performance data based on period (for chart only)
   const performanceData = useMemo(() => {
     return getPerformanceByPeriod(expertSlug, period);
   }, [expertSlug, period]);
 
-  // 計算該維度的累積報酬率（複利計算）
-  const cumulativeReturn = useMemo(() => {
-    if (!performanceData.length) return 0;
-    const totalReturn = performanceData.reduce((acc, p) => {
-      return acc * (1 + p.returnPct / 100);
-    }, 1);
-    return (totalReturn - 1) * 100;
-  }, [performanceData]);
-
-  // 計算目前資產
+  // 計算目前資產（使用固定的 sinceInceptionReturn）
   const currentAsset = useMemo(() => {
-    return Math.round(INITIAL_CAPITAL * (1 + cumulativeReturn / 100));
-  }, [cumulativeReturn]);
+    return Math.round(INITIAL_CAPITAL * (1 + sinceInceptionReturn / 100));
+  }, [sinceInceptionReturn]);
 
   // Calculate overall trend for dynamic chart color
   const overallTrend = useMemo(() => {
@@ -214,9 +213,9 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
             <p className="text-xs text-muted-foreground mb-0.5">總報酬率</p>
             <p className={cn(
               "text-lg font-bold tabular-nums",
-              cumulativeReturn >= 0 ? "text-success" : "text-destructive"
+              sinceInceptionReturn >= 0 ? "text-success" : "text-destructive"
             )}>
-              {cumulativeReturn >= 0 ? "+" : ""}{cumulativeReturn.toFixed(2)}%
+              {sinceInceptionReturn >= 0 ? "+" : ""}{sinceInceptionReturn.toFixed(2)}%
             </p>
           </div>
         </div>
