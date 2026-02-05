@@ -7,6 +7,7 @@ import { getPersonBySlug } from '@/data/mockData';
 import { getStrategySystemByExpertSlug } from '@/data/strategyMockData';
 import { PersonRole } from '@/types';
 import { BarChart3, FileCheck } from 'lucide-react';
+ import { Monitor, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import { PerformanceMetrics } from '@/components/strategy/PerformanceMetrics';
@@ -41,6 +42,22 @@ const LinePerformance = () => {
           <p className="text-sm text-muted-foreground">
             {expert.name} • {strategySystem.name}
           </p>
+         </div>
+ 
+         {/* Web Version Hint */}
+         <a
+           href="https://wise-traders-hub.lovable.app/app/performance"
+           target="_blank"
+           rel="noopener noreferrer"
+           className="flex items-center gap-3 px-3 py-2.5 bg-muted/30 dark:bg-white/[0.04] border border-border/50 rounded-lg hover:bg-muted/50 dark:hover:bg-white/[0.08] transition-colors"
+         >
+           <Monitor className="h-4 w-4 text-muted-foreground shrink-0" />
+           <span className="text-sm text-muted-foreground flex-1">
+             想看更詳細？網頁版有完整圖表分析
+           </span>
+           <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+         </a>
+ 
           {isDelayed && (
             <div className="mt-2 p-3 bg-mentor/5 rounded-lg text-sm">
               <p className="text-mentor font-medium">📋 T+7 教學用資料</p>
@@ -49,7 +66,6 @@ const LinePerformance = () => {
               </p>
             </div>
           )}
-        </div>
 
         {/* Section 1: Overall Performance Summary */}
         <Card>
