@@ -552,7 +552,7 @@ const huangMentorSystem: StrategySystem = {
 // ============================================
 
 const zhaoAdvisorSystem: StrategySystem = {
-  id: 'system-zhao-advisor',
+  id: 'system-zhao-pengbo',
   expertId: 'person-5',
   name: '漲停8招 – 台股當沖',
   level: 'advisor_t1',
@@ -639,21 +639,21 @@ const zhaoAdvisorSystem: StrategySystem = {
   ],
 
   recentTrades: [
-    { id: 'trade-zhao-1', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-29T09:15:00Z', closeTime: '2024-11-29T11:30:00Z', symbol: '3443.TW', name: '創意', side: '買進', quantity: 300, price: 1380, pnlAmt: 28500, pnlPct: 6.88, holdingDays: 0, reasonShort: '4有同步觸發，量能放大突破壓力', tags: ['4有', '漲停', '當沖'] },
-    { id: 'trade-zhao-2', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-29T09:30:00Z', closeTime: '2024-11-29T10:45:00Z', symbol: '6770.TW', name: '力積電', side: '加碼', quantity: 2000, price: 40, pnlAmt: 5000, pnlPct: 6.25, holdingDays: 0, reasonShort: '開盤強勢表態，委買張數快速增加', tags: ['開盤強勢', '加碼'] },
-    { id: 'trade-zhao-3', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-28T09:20:00Z', closeTime: '2024-11-28T09:45:00Z', symbol: '3680.TW', name: '家登', side: '停損', quantity: 500, price: 480, pnlAmt: -12000, pnlPct: -5.0, holdingDays: 0, reasonShort: '跌破停損點，執行紀律出場', tags: ['停損'] },
-    { id: 'trade-zhao-4', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-27T09:10:00Z', closeTime: '2024-11-27T10:30:00Z', symbol: '3661.TW', name: '世芯-KY', side: '買進', quantity: 100, price: 2850, pnlAmt: 45000, pnlPct: 10.0, holdingDays: 0, reasonShort: '4有全亮，漲停鎖定', tags: ['4有', '漲停'] },
-    { id: 'trade-zhao-5', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-27T13:00:00Z', closeTime: '2024-11-27T13:25:00Z', symbol: '2498.TW', name: '宏達電', side: '買進', quantity: 1000, price: 85, pnlAmt: 8500, pnlPct: 8.5, holdingDays: 0, reasonShort: 'VR題材發酵，量能爆發', tags: ['題材股', '漲停'] },
-    { id: 'trade-zhao-6', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-26T09:15:00Z', closeTime: '2024-11-26T10:00:00Z', symbol: '6409.TW', name: '旭隼', side: '買進', quantity: 300, price: 320, pnlAmt: 12000, pnlPct: 7.5, holdingDays: 0, reasonShort: '儲能股洗盤結束，主力進場', tags: ['洗盤結束', '4有'] },
-    { id: 'trade-zhao-7', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-26T09:30:00Z', closeTime: '2024-11-26T09:50:00Z', symbol: '3324.TW', name: '雙鴻', side: '停損', quantity: 500, price: 285, pnlAmt: -7000, pnlPct: -2.8, holdingDays: 0, reasonShort: '大盤急跌拖累，停損出場', tags: ['停損'] },
-    { id: 'trade-zhao-8', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-25T09:20:00Z', closeTime: '2024-11-25T11:00:00Z', symbol: '3529.TW', name: '力旺', side: '買進', quantity: 200, price: 1850, pnlAmt: 35000, pnlPct: 10.0, holdingDays: 0, reasonShort: 'IP矽智財題材，量價突破', tags: ['漲停', '量價突破'] },
-    { id: 'trade-zhao-9', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-25T13:10:00Z', closeTime: '2024-11-25T13:25:00Z', symbol: '2303.TW', name: '聯電', side: '買進', quantity: 5000, price: 52, pnlAmt: 8500, pnlPct: 4.2, holdingDays: 0, reasonShort: '開盤強勢，4有中3有確認', tags: ['4有', '獲利出場'] },
-    { id: 'trade-zhao-10', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-22T09:15:00Z', closeTime: '2024-11-22T10:30:00Z', symbol: '2454.TW', name: '聯發科', side: '買進', quantity: 200, price: 1250, pnlAmt: 38000, pnlPct: 10.0, holdingDays: 0, reasonShort: 'IC設計資金回流，量能放大', tags: ['漲停', '量價突破'] },
-    { id: 'trade-zhao-11', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-22T09:30:00Z', closeTime: '2024-11-22T09:55:00Z', symbol: '6547.TW', name: '高端疫苗', side: '停損', quantity: 2000, price: 125, pnlAmt: -6500, pnlPct: -2.5, holdingDays: 0, reasonShort: '消息面炒作，量能不持續', tags: ['停損', '假突破'] },
-    { id: 'trade-zhao-12', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-21T09:10:00Z', closeTime: '2024-11-21T11:30:00Z', symbol: '3037.TW', name: '欣興', side: '買進', quantity: 500, price: 185, pnlAmt: 15000, pnlPct: 6.5, holdingDays: 0, reasonShort: 'ABF載板需求回溫', tags: ['4有', '獲利出場'] },
-    { id: 'trade-zhao-13', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-20T09:15:00Z', closeTime: '2024-11-20T10:45:00Z', symbol: '2382.TW', name: '廣達', side: '買進', quantity: 1000, price: 285, pnlAmt: 25000, pnlPct: 8.8, holdingDays: 0, reasonShort: 'AI伺服器代工龍頭，量價齊揚', tags: ['4有', '漲停'] },
-    { id: 'trade-zhao-14', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-20T13:00:00Z', closeTime: '2024-11-20T13:20:00Z', symbol: '2618.TW', name: '長榮航', side: '停損', quantity: 3000, price: 38, pnlAmt: -4800, pnlPct: -3.0, holdingDays: 0, reasonShort: '觀光股輪動結束，主力出貨', tags: ['停損'] },
-    { id: 'trade-zhao-15', strategyId: 'system-zhao-advisor', expertId: 'person-5', openTime: '2024-11-19T09:20:00Z', closeTime: '2024-11-19T11:00:00Z', symbol: '2357.TW', name: '華碩', side: '買進', quantity: 200, price: 485, pnlAmt: 18000, pnlPct: 7.2, holdingDays: 0, reasonShort: 'AI PC題材，均線糾結突破', tags: ['均線突破', '獲利出場'] },
+    { id: 'trade-zhao-1', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-29T09:15:00Z', closeTime: '2024-11-29T11:30:00Z', symbol: '3443.TW', name: '創意', side: '買進', quantity: 300, price: 1380, pnlAmt: 28500, pnlPct: 6.88, holdingDays: 0, reasonShort: '4有同步觸發，量能放大突破壓力', tags: ['4有', '漲停', '當沖'] },
+    { id: 'trade-zhao-2', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-29T09:30:00Z', closeTime: '2024-11-29T10:45:00Z', symbol: '6770.TW', name: '力積電', side: '加碼', quantity: 2000, price: 40, pnlAmt: 5000, pnlPct: 6.25, holdingDays: 0, reasonShort: '開盤強勢表態，委買張數快速增加', tags: ['開盤強勢', '加碼'] },
+    { id: 'trade-zhao-3', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-28T09:20:00Z', closeTime: '2024-11-28T09:45:00Z', symbol: '3680.TW', name: '家登', side: '停損', quantity: 500, price: 480, pnlAmt: -12000, pnlPct: -5.0, holdingDays: 0, reasonShort: '跌破停損點，執行紀律出場', tags: ['停損'] },
+    { id: 'trade-zhao-4', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-27T09:10:00Z', closeTime: '2024-11-27T10:30:00Z', symbol: '3661.TW', name: '世芯-KY', side: '買進', quantity: 100, price: 2850, pnlAmt: 45000, pnlPct: 10.0, holdingDays: 0, reasonShort: '4有全亮，漲停鎖定', tags: ['4有', '漲停'] },
+    { id: 'trade-zhao-5', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-27T13:00:00Z', closeTime: '2024-11-27T13:25:00Z', symbol: '2498.TW', name: '宏達電', side: '買進', quantity: 1000, price: 85, pnlAmt: 8500, pnlPct: 8.5, holdingDays: 0, reasonShort: 'VR題材發酵，量能爆發', tags: ['題材股', '漲停'] },
+    { id: 'trade-zhao-6', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-26T09:15:00Z', closeTime: '2024-11-26T10:00:00Z', symbol: '6409.TW', name: '旭隼', side: '買進', quantity: 300, price: 320, pnlAmt: 12000, pnlPct: 7.5, holdingDays: 0, reasonShort: '儲能股洗盤結束，主力進場', tags: ['洗盤結束', '4有'] },
+    { id: 'trade-zhao-7', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-26T09:30:00Z', closeTime: '2024-11-26T09:50:00Z', symbol: '3324.TW', name: '雙鴻', side: '停損', quantity: 500, price: 285, pnlAmt: -7000, pnlPct: -2.8, holdingDays: 0, reasonShort: '大盤急跌拖累，停損出場', tags: ['停損'] },
+    { id: 'trade-zhao-8', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-25T09:20:00Z', closeTime: '2024-11-25T11:00:00Z', symbol: '3529.TW', name: '力旺', side: '買進', quantity: 200, price: 1850, pnlAmt: 35000, pnlPct: 10.0, holdingDays: 0, reasonShort: 'IP矽智財題材，量價突破', tags: ['漲停', '量價突破'] },
+    { id: 'trade-zhao-9', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-25T13:10:00Z', closeTime: '2024-11-25T13:25:00Z', symbol: '2303.TW', name: '聯電', side: '買進', quantity: 5000, price: 52, pnlAmt: 8500, pnlPct: 4.2, holdingDays: 0, reasonShort: '開盤強勢，4有中3有確認', tags: ['4有', '獲利出場'] },
+    { id: 'trade-zhao-10', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-22T09:15:00Z', closeTime: '2024-11-22T10:30:00Z', symbol: '2454.TW', name: '聯發科', side: '買進', quantity: 200, price: 1250, pnlAmt: 38000, pnlPct: 10.0, holdingDays: 0, reasonShort: 'IC設計資金回流，量能放大', tags: ['漲停', '量價突破'] },
+    { id: 'trade-zhao-11', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-22T09:30:00Z', closeTime: '2024-11-22T09:55:00Z', symbol: '6547.TW', name: '高端疫苗', side: '停損', quantity: 2000, price: 125, pnlAmt: -6500, pnlPct: -2.5, holdingDays: 0, reasonShort: '消息面炒作，量能不持續', tags: ['停損', '假突破'] },
+    { id: 'trade-zhao-12', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-21T09:10:00Z', closeTime: '2024-11-21T11:30:00Z', symbol: '3037.TW', name: '欣興', side: '買進', quantity: 500, price: 185, pnlAmt: 15000, pnlPct: 6.5, holdingDays: 0, reasonShort: 'ABF載板需求回溫', tags: ['4有', '獲利出場'] },
+    { id: 'trade-zhao-13', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-20T09:15:00Z', closeTime: '2024-11-20T10:45:00Z', symbol: '2382.TW', name: '廣達', side: '買進', quantity: 1000, price: 285, pnlAmt: 25000, pnlPct: 8.8, holdingDays: 0, reasonShort: 'AI伺服器代工龍頭，量價齊揚', tags: ['4有', '漲停'] },
+    { id: 'trade-zhao-14', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-20T13:00:00Z', closeTime: '2024-11-20T13:20:00Z', symbol: '2618.TW', name: '長榮航', side: '停損', quantity: 3000, price: 38, pnlAmt: -4800, pnlPct: -3.0, holdingDays: 0, reasonShort: '觀光股輪動結束，主力出貨', tags: ['停損'] },
+    { id: 'trade-zhao-15', strategyId: 'system-zhao-pengbo', expertId: 'person-5', openTime: '2024-11-19T09:20:00Z', closeTime: '2024-11-19T11:00:00Z', symbol: '2357.TW', name: '華碩', side: '買進', quantity: 200, price: 485, pnlAmt: 18000, pnlPct: 7.2, holdingDays: 0, reasonShort: 'AI PC題材，均線糾結突破', tags: ['均線突破', '獲利出場'] },
   ],
 
   teachingIntro: '漲停8招是本人獨創的當沖選股系統，專注於捕捉當日或短期內有漲停潛力的標的。透過「4有」同步指標——有漲、有人、有人買、有大人買，篩選出最具爆發力的飆股。',
@@ -693,7 +693,7 @@ const zhaoAdvisorSystem: StrategySystem = {
 // ============================================
 
 const zhaoMentorSystem: StrategySystem = {
-  id: 'system-zhao-mentor',
+  id: 'system-zhao-pengbo-mentor',
   expertId: 'person-6',
   name: '漲停8招 – 實戰教學',
   level: 'coach_weekly',
@@ -775,14 +775,14 @@ const zhaoMentorSystem: StrategySystem = {
   ],
 
   recentTrades: [
-    { id: 'trade-zhao-m-1', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-22T09:15:00Z', closeTime: '2024-11-22T11:30:00Z', symbol: '3443.TW', name: '創意', side: '買進', quantity: 300, price: 1380, pnlAmt: 28500, pnlPct: 6.88, holdingDays: 0, reasonShort: '【教學案例】4有同步觸發，量能放大突破壓力', tags: ['4有', '漲停', '成功案例'] },
-    { id: 'trade-zhao-m-2', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-21T09:20:00Z', closeTime: '2024-11-21T09:45:00Z', symbol: '3680.TW', name: '家登', side: '停損', quantity: 500, price: 480, pnlAmt: -12000, pnlPct: -5.0, holdingDays: 0, reasonShort: '【教學案例】假突破識別失敗，嚴格執行停損', tags: ['停損', '失敗案例'] },
-    { id: 'trade-zhao-m-3', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-20T09:30:00Z', closeTime: '2024-11-20T12:00:00Z', symbol: '6770.TW', name: '力積電', side: '買進', quantity: 3000, price: 42.5, pnlAmt: 45000, pnlPct: 8.8, holdingDays: 0, reasonShort: '【教學案例】開盤強勢，「有人」指標強烈', tags: ['4有', '漲停', '成功案例'] },
-    { id: 'trade-zhao-m-4', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-19T09:15:00Z', closeTime: '2024-11-19T10:30:00Z', symbol: '2454.TW', name: '聯發科', side: '買進', quantity: 100, price: 1250, pnlAmt: 15000, pnlPct: 10.0, holdingDays: 0, reasonShort: '【教學案例】4有全亮漲停鎖定', tags: ['4有', '漲停', '成功案例'] },
-    { id: 'trade-zhao-m-5', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-18T09:20:00Z', closeTime: '2024-11-18T09:50:00Z', symbol: '6547.TW', name: '高端疫苗', side: '停損', quantity: 2000, price: 125, pnlAmt: -6500, pnlPct: -2.5, holdingDays: 0, reasonShort: '【教學案例】消息面炒作量能不續，紀律停損', tags: ['停損', '失敗案例'] },
-    { id: 'trade-zhao-m-6', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-18T09:10:00Z', closeTime: '2024-11-18T11:00:00Z', symbol: '3661.TW', name: '世芯-KY', side: '買進', quantity: 100, price: 2800, pnlAmt: 28000, pnlPct: 10.0, holdingDays: 0, reasonShort: '【教學案例】AI晶片龍頭，4有同步漲停', tags: ['4有', '漲停', '成功案例'] },
-    { id: 'trade-zhao-m-7', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-15T09:25:00Z', closeTime: '2024-11-15T10:15:00Z', symbol: '3037.TW', name: '欣興', side: '買進', quantity: 500, price: 185, pnlAmt: 12000, pnlPct: 5.8, holdingDays: 0, reasonShort: '【教學案例】ABF載板回溫，量價突破', tags: ['4有', '獲利出場'] },
-    { id: 'trade-zhao-m-8', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-15T13:10:00Z', closeTime: '2024-11-15T13:25:00Z', symbol: '2618.TW', name: '長榮航', side: '停損', quantity: 3000, price: 38, pnlAmt: -4800, pnlPct: -3.0, holdingDays: 0, reasonShort: '【教學案例】輪動股跟單失敗，主力出貨', tags: ['停損', '失敗案例'] },
+    { id: 'trade-zhao-m-1', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-22T09:15:00Z', closeTime: '2024-11-22T11:30:00Z', symbol: '3443.TW', name: '創意', side: '買進', quantity: 300, price: 1380, pnlAmt: 28500, pnlPct: 6.88, holdingDays: 0, reasonShort: '【教學案例】4有同步觸發，量能放大突破壓力', tags: ['4有', '漲停', '成功案例'] },
+    { id: 'trade-zhao-m-2', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-21T09:20:00Z', closeTime: '2024-11-21T09:45:00Z', symbol: '3680.TW', name: '家登', side: '停損', quantity: 500, price: 480, pnlAmt: -12000, pnlPct: -5.0, holdingDays: 0, reasonShort: '【教學案例】假突破識別失敗，嚴格執行停損', tags: ['停損', '失敗案例'] },
+    { id: 'trade-zhao-m-3', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-20T09:30:00Z', closeTime: '2024-11-20T12:00:00Z', symbol: '6770.TW', name: '力積電', side: '買進', quantity: 3000, price: 42.5, pnlAmt: 45000, pnlPct: 8.8, holdingDays: 0, reasonShort: '【教學案例】開盤強勢，「有人」指標強烈', tags: ['4有', '漲停', '成功案例'] },
+    { id: 'trade-zhao-m-4', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-19T09:15:00Z', closeTime: '2024-11-19T10:30:00Z', symbol: '2454.TW', name: '聯發科', side: '買進', quantity: 100, price: 1250, pnlAmt: 15000, pnlPct: 10.0, holdingDays: 0, reasonShort: '【教學案例】4有全亮漲停鎖定', tags: ['4有', '漲停', '成功案例'] },
+    { id: 'trade-zhao-m-5', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-18T09:20:00Z', closeTime: '2024-11-18T09:50:00Z', symbol: '6547.TW', name: '高端疫苗', side: '停損', quantity: 2000, price: 125, pnlAmt: -6500, pnlPct: -2.5, holdingDays: 0, reasonShort: '【教學案例】消息面炒作量能不續，紀律停損', tags: ['停損', '失敗案例'] },
+    { id: 'trade-zhao-m-6', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-18T09:10:00Z', closeTime: '2024-11-18T11:00:00Z', symbol: '3661.TW', name: '世芯-KY', side: '買進', quantity: 100, price: 2800, pnlAmt: 28000, pnlPct: 10.0, holdingDays: 0, reasonShort: '【教學案例】AI晶片龍頭，4有同步漲停', tags: ['4有', '漲停', '成功案例'] },
+    { id: 'trade-zhao-m-7', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-15T09:25:00Z', closeTime: '2024-11-15T10:15:00Z', symbol: '3037.TW', name: '欣興', side: '買進', quantity: 500, price: 185, pnlAmt: 12000, pnlPct: 5.8, holdingDays: 0, reasonShort: '【教學案例】ABF載板回溫，量價突破', tags: ['4有', '獲利出場'] },
+    { id: 'trade-zhao-m-8', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-15T13:10:00Z', closeTime: '2024-11-15T13:25:00Z', symbol: '2618.TW', name: '長榮航', side: '停損', quantity: 3000, price: 38, pnlAmt: -4800, pnlPct: -3.0, holdingDays: 0, reasonShort: '【教學案例】輪動股跟單失敗，主力出貨', tags: ['停損', '失敗案例'] },
   ],
 
   teachingIntro: '本教學系統專注於分享漲停8招的實戰應用。每週透過延遲7天的實戰週記，完整呈現選股過程、進出場時機與事後檢討。所有內容均為歷史案例教學，非即時投資建議。',
@@ -887,7 +887,7 @@ export const weeklyReviews: WeeklyReview[] = [
   {
     id: 'review-zhao-1',
     expertId: 'person-6',
-    strategyId: 'system-zhao-mentor',
+    strategyId: 'system-zhao-pengbo-mentor',
     weekStart: '2024-11-18',
     weekEnd: '2024-11-22',
     delayMode: 't7',
@@ -902,9 +902,9 @@ export const weeklyReviews: WeeklyReview[] = [
     },
     equityHistory: generateEquityHistory(100, 115.8, 5, 0.025),
     trades: [
-      { id: 'trade-zhao-w-1', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-22T09:15:00Z', closeTime: '2024-11-22T11:30:00Z', symbol: '3443.TW', name: '創意', side: '賣出', quantity: 300, price: 1550, pnlAmt: 75000, pnlPct: 12.5, holdingDays: 0, reasonShort: '4有同步觸發，完美捕捉漲停', tags: ['4有', '漲停', '成功案例'] },
-      { id: 'trade-zhao-w-2', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-21T09:20:00Z', closeTime: '2024-11-21T09:45:00Z', symbol: '3680.TW', name: '家登', side: '停損', quantity: 500, price: 480, pnlAmt: -12000, pnlPct: -5.0, holdingDays: 0, reasonShort: '假突破，嚴格執行停損', tags: ['停損', '失敗案例'] },
-      { id: 'trade-zhao-w-3', strategyId: 'system-zhao-mentor', expertId: 'person-6', openTime: '2024-11-20T09:30:00Z', closeTime: '2024-11-20T12:00:00Z', symbol: '6770.TW', name: '力積電', side: '賣出', quantity: 3000, price: 42.5, pnlAmt: 45000, pnlPct: 8.8, holdingDays: 0, reasonShort: '開盤強勢，「有人」指標強烈', tags: ['4有', '漲停'] },
+      { id: 'trade-zhao-w-1', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-22T09:15:00Z', closeTime: '2024-11-22T11:30:00Z', symbol: '3443.TW', name: '創意', side: '賣出', quantity: 300, price: 1550, pnlAmt: 75000, pnlPct: 12.5, holdingDays: 0, reasonShort: '4有同步觸發，完美捕捉漲停', tags: ['4有', '漲停', '成功案例'] },
+      { id: 'trade-zhao-w-2', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-21T09:20:00Z', closeTime: '2024-11-21T09:45:00Z', symbol: '3680.TW', name: '家登', side: '停損', quantity: 500, price: 480, pnlAmt: -12000, pnlPct: -5.0, holdingDays: 0, reasonShort: '假突破，嚴格執行停損', tags: ['停損', '失敗案例'] },
+      { id: 'trade-zhao-w-3', strategyId: 'system-zhao-pengbo-mentor', expertId: 'person-6', openTime: '2024-11-20T09:30:00Z', closeTime: '2024-11-20T12:00:00Z', symbol: '6770.TW', name: '力積電', side: '賣出', quantity: 3000, price: 42.5, pnlAmt: 45000, pnlPct: 8.8, holdingDays: 0, reasonShort: '開盤強勢，「有人」指標強烈', tags: ['4有', '漲停'] },
     ],
   },
 ];
@@ -918,8 +918,8 @@ export const strategySystems: Record<string, StrategySystem> = {
   'system-lin-1': linAdvisorSystem,
   'system-wu-1': wuMentorSystem,
   'system-huang-1': huangMentorSystem,
-  'system-zhao-advisor': zhaoAdvisorSystem,
-  'system-zhao-mentor': zhaoMentorSystem,
+  'system-zhao-pengbo': zhaoAdvisorSystem,
+  'system-zhao-pengbo-mentor': zhaoMentorSystem,
 };
 
 // Helper: Get strategy system by expert slug
@@ -929,8 +929,8 @@ export function getStrategySystemByExpertSlug(slug: string): StrategySystem | un
     'lin-advisor': 'person-2',
     'wu-mentor': 'person-3',
     'huang-mentor': 'person-4',
-    'zhao-advisor': 'person-5',
-    'zhao-mentor': 'person-6',
+    'zhao-pengbo': 'person-5',
+    'zhao-pengbo-mentor': 'person-6',
   };
   
   const expertId = expertIdMap[slug];

@@ -27,8 +27,8 @@ import { isToday, differenceInMinutes } from 'date-fns';
 
 // Mock performance data for demo
 const mockPerformance: Record<string, { cumulative: number; annualized: number }> = {
-  'zhao-advisor': { cumulative: 128.5, annualized: 45.2 },
-  'zhao-mentor': { cumulative: 85.2, annualized: 32.1 },
+  'zhao-pengbo': { cumulative: 128.5, annualized: 45.2 },
+  'zhao-pengbo-mentor': { cumulative: 85.2, annualized: 32.1 },
   'chen-advisor': { cumulative: 92.3, annualized: 38.7 },
   'lin-advisor': { cumulative: 45.6, annualized: 18.2 },
 };

@@ -152,7 +152,7 @@ export const mockLeaderboardEntries: LeaderboardEntry[] = [
   {
     rank: 1,
     expertId: 'person-5',
-    expertSlug: 'zhao-advisor',
+    expertSlug: 'zhao-pengbo',
     name: '趙彭博',
     avatarUrl: '/images/experts/zhao-pengbo.png',
     limitUpCount: 8,

@@ -151,7 +151,7 @@ const LineHome = () => {
               </Link>
             </div>
             {/* Special 4有 Dashboard for Zhao - 即時戰情室 */}
-            {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
+            {(expertSlug === 'zhao-pengbo' || expertSlug === 'zhao-pengbo-mentor') && (
               <div className="mb-4">
                 <SectionHeader
                   icon={<Target className="h-4 w-4" />}
@@ -161,14 +161,14 @@ const LineHome = () => {
                   className="mb-3"
                 />
                 <FourIndicatorsDashboard 
-                  indicators={expertSlug === 'zhao-advisor' ? zhaoLiveIndicators : mockFourIndicators}
+                  indicators={expertSlug === 'zhao-pengbo' ? zhaoLiveIndicators : mockFourIndicators}
                   symbol={zhaoFeaturedSignals[0]?.symbol}
                 />
               </div>
             )}
             
             {/* Featured signals for Zhao */}
-            {expertSlug === 'zhao-advisor' && (
+            {expertSlug === 'zhao-pengbo' && (
               <div className="space-y-2 mb-4">
                 <p className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                   <Flame className="h-4 w-4 text-advisor" />
@@ -230,7 +230,7 @@ const LineHome = () => {
                   </Card>
                 ))}
               </div>
-            ) : expertSlug !== 'zhao-advisor' ? (
+            ) : expertSlug !== 'zhao-pengbo' ? (
               <Card className="bg-muted/30 p-4 text-center">
                 <p className="text-sm text-muted-foreground">暫無最新訊號</p>
               </Card>
@@ -445,7 +445,7 @@ const LineHome = () => {
         </section>
 
         {/* History Link (for Zhao only) */}
-        {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
+        {(expertSlug === 'zhao-pengbo' || expertSlug === 'zhao-pengbo-mentor') && (
           <section>
             <Card className="border-2 border-yellow-500/20 bg-gradient-to-br from-yellow-500/5 to-transparent">
               <CardContent className="p-4">
