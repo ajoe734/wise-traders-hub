@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,7 @@ import { format } from 'date-fns';
 const AdminDashboard = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
+  const [revenueMode, setRevenueMode] = useState<'month' | 'year'>('month');
 
   if (!expert) return <AdminLayout><div /></AdminLayout>;
 
@@ -25,6 +27,7 @@ const AdminDashboard = () => {
   // Mock additional stats
   const totalRevenue = 128500;
   const monthlyRevenue = 32800;
+  const yearlyRevenue = 398600;
   const totalSignals = 47;
   const thisMonthSignals = 12;
 
@@ -37,11 +40,14 @@ const AdminDashboard = () => {
       icon: Users,
     },
     {
-      label: '本月營收',
-      value: `NT$${monthlyRevenue.toLocaleString()}`,
-    change: '+12%',
-    changeType: 'up',
+      label: revenueMode === 'month' ? '本月營收' : '年度營收',
+      value: revenueMode === 'month' 
+        ? `NT$${monthlyRevenue.toLocaleString()}` 
+        : `NT$${yearlyRevenue.toLocaleString()}`,
+      change: revenueMode === 'month' ? '+12%' : '+28%',
+      changeType: 'up',
       icon: DollarSign,
+      hasToggle: true,
     },
     {
       label: '累計發布訊號',
@@ -85,7 +91,31 @@ const AdminDashboard = () => {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground">{stat.label}</span>
-                  <stat.icon className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex items-center gap-1">
+                    {stat.hasToggle && (
+                      <div className="flex items-center bg-muted rounded-md p-0.5 mr-1">
+                        <button
+                          onClick={() => setRevenueMode('month')}
+                          className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded transition-colors",
+                            revenueMode === 'month' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                          )}
+                        >
+                          月
+                        </button>
+                        <button
+                          onClick={() => setRevenueMode('year')}
+                          className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded transition-colors",
+                            revenueMode === 'year' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                          )}
+                        >
+                          年
+                        </button>
+                      </div>
+                    )}
+                    <stat.icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
                 </div>
                 <div className="text-2xl font-bold">{stat.value}</div>
                 <div className={cn(
