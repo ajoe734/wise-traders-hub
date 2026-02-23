@@ -8,6 +8,7 @@ import { PersonRole, SubscriptionStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { Users, Radio, TrendingUp, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { StockTickerCard } from '@/components/strategy/StockTickerCard';
 
 const AdminDashboard = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -132,6 +133,9 @@ const AdminDashboard = () => {
             </Card>
           ))}
         </div>
+
+        {/* Stock Ticker */}
+        <StockTickerCard symbol="2330.TW" />
 
         {/* Recent Signals */}
         <Card>
