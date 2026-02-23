@@ -53,7 +53,7 @@ export function StockTickerCard({ symbol = '2330.TW', className }: StockTickerCa
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">
-            {quote.shortName || '台積電'} ({quote.symbol})
+            台積電 ({quote.symbol})
           </span>
           <div className="flex items-center gap-1.5">
             <Badge
