@@ -40,6 +40,13 @@ import AppExpertDetail from "./pages/app/ExpertDetail";
 import AppCheckout from "./pages/app/AppCheckout";
 
 
+// Admin pages (expert backend)
+import AdminDashboard from "./pages/admin/Dashboard";
+import AdminSignals from "./pages/admin/Signals";
+import AdminSubscribers from "./pages/admin/Subscribers";
+import AdminProfile from "./pages/admin/Profile";
+import AdminPerformance from "./pages/admin/Performance";
+
 // LINE Mini-App pages (per expert)
 import LineHome from "./pages/line/Home";
 import LineSignals from "./pages/line/Signals";
@@ -103,6 +110,13 @@ const App = () => (
             <Route path="/app/explore" element={<AppExplore />} />
             <Route path="/app/expert/:slug" element={<AppExpertDetail />} />
             <Route path="/app/checkout/:slug/:planId" element={<AppCheckout />} />
+
+            {/* Admin (expert backend) */}
+            <Route path="/admin/:expertSlug" element={<AdminDashboard />} />
+            <Route path="/admin/:expertSlug/signals" element={<AdminSignals />} />
+            <Route path="/admin/:expertSlug/subscribers" element={<AdminSubscribers />} />
+            <Route path="/admin/:expertSlug/profile" element={<AdminProfile />} />
+            <Route path="/admin/:expertSlug/performance" element={<AdminPerformance />} />
 
             {/* LINE Mini-App (per expert) */}
             <Route path="/line/:expertSlug" element={<Navigate to="home" replace />} />
