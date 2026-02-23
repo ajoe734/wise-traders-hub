@@ -41,11 +41,11 @@ const LineTeaching = () => {
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className={cn(
             "grid w-full",
-            (expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') ? "grid-cols-3" : "grid-cols-2"
+            (expertSlug === 'zhao-pengbo' || expertSlug === 'zhao-pengbo-mentor') ? "grid-cols-3" : "grid-cols-2"
           )}>
             <TabsTrigger value="overview">策略教學</TabsTrigger>
             <TabsTrigger value="cases">案例解析</TabsTrigger>
-            {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
+            {(expertSlug === 'zhao-pengbo' || expertSlug === 'zhao-pengbo-mentor') && (
               <TabsTrigger value="training">互動訓練</TabsTrigger>
             )}
           </TabsList>
@@ -227,7 +227,7 @@ const LineTeaching = () => {
           </TabsContent>
 
           {/* Interactive Training Tab (for Zhao only) */}
-          {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
+          {(expertSlug === 'zhao-pengbo' || expertSlug === 'zhao-pengbo-mentor') && (
             <TabsContent value="training" className="space-y-4 mt-4">
               {/* Notification Simulator */}
               <SignalNotificationSimulator />

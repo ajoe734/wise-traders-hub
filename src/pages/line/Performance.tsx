@@ -120,7 +120,7 @@ const LinePerformance = () => {
         )}
 
         {/* Section 6.5: 4有 Backtest Analysis (for Zhao) */}
-        {(expertSlug === 'zhao-advisor' || expertSlug === 'zhao-mentor') && (
+        {(expertSlug === 'zhao-pengbo' || expertSlug === 'zhao-pengbo-mentor') && (
           <FourIndicatorsBacktest isDelayed={isDelayed} />
         )}
 

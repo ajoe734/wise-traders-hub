@@ -81,7 +81,7 @@ export const people: Person[] = [
   // 趙彭博 - 投顧分析師角色
   {
     id: 'person-5',
-    slug: 'zhao-advisor',
+    slug: 'zhao-pengbo',
     name: '趙彭博',
     role: PersonRole.ADVISOR,
     avatarUrl: '/images/experts/zhao-pengbo.png',
@@ -95,7 +95,7 @@ export const people: Person[] = [
   // 趙彭博 - 實戰導師角色
   {
     id: 'person-6',
-    slug: 'zhao-mentor',
+    slug: 'zhao-pengbo-mentor',
     name: '趙彭博',
     role: PersonRole.MENTOR,
     avatarUrl: '/images/experts/zhao-pengbo.png',
