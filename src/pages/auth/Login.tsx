@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
@@ -13,12 +13,29 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [pendingRedirect, setPendingRedirect] = useState(false);
+  const { login, user, isAuthenticated, hasRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
 
-  const from = (location.state as any)?.from?.pathname || '/app';
+  const from = (location.state as any)?.from?.pathname;
+
+  // When user state loads after login, redirect based on role
+  useEffect(() => {
+    if (pendingRedirect && isAuthenticated && user) {
+      if (from) {
+        navigate(from, { replace: true });
+      } else if (hasRole('company_admin')) {
+        navigate('/company', { replace: true });
+      } else if (user.expertSlug) {
+        navigate(`/admin/${user.expertSlug}`, { replace: true });
+      } else {
+        navigate('/app', { replace: true });
+      }
+      setPendingRedirect(false);
+    }
+  }, [pendingRedirect, isAuthenticated, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,16 +48,15 @@ const Login = () => {
         title: '登入成功',
         description: '歡迎回來！',
       });
-      navigate(from, { replace: true });
+      setPendingRedirect(true);
     } else {
       toast({
         title: '登入失敗',
         description: result.error,
         variant: 'destructive',
       });
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const handleLineLogin = () => {
@@ -127,10 +143,12 @@ const Login = () => {
 
               {/* Demo hint */}
               <div className="mt-6 p-3 rounded-lg bg-muted text-sm">
-                <p className="font-medium mb-1">測試帳號</p>
+                <p className="font-medium mb-2">測試帳號</p>
                 <p className="text-muted-foreground">
-                  Email: demo@example.com<br />
-                  密碼: demo1234
+                  <span className="font-medium text-foreground">訂閱者：</span> demo@example.com / demo1234
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  <span className="font-medium text-foreground">管理員：</span> analyst@example.com / analyst1234
                 </p>
               </div>
             </CardContent>
