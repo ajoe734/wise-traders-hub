@@ -148,7 +148,10 @@ const Login = () => {
                   <span className="font-medium text-foreground">訂閱者：</span> demo@example.com / demo1234
                 </p>
                 <p className="text-muted-foreground mt-1">
-                  <span className="font-medium text-foreground">管理員：</span> analyst@example.com / analyst1234
+                  <span className="font-medium text-foreground">分析師：</span> analyst@example.com / analyst1234
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  <span className="font-medium text-foreground">公司管理員：</span> admin@example.com / admin1234
                 </p>
               </div>
             </CardContent>
