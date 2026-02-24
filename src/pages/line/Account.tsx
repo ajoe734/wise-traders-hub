@@ -42,7 +42,7 @@ const LineAccount = () => {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">姓名</span>
-              <span className="font-medium">{user?.name || '未設定'}</span>
+              <span className="font-medium">{user?.displayName || '未設定'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Email</span>

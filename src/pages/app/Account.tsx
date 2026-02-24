@@ -27,7 +27,7 @@ const Account = () => {
                 <User className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="font-semibold">{user?.name || '會員'}</p>
+                <p className="font-semibold">{user?.displayName || '會員'}</p>
                 <p className="text-sm text-muted-foreground">{user?.email}</p>
               </div>
             </div>

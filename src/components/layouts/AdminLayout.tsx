@@ -122,7 +122,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-destructive hover:text-destructive"
-            onClick={logout}
+            onClick={() => logout()}
           >
             <LogOut className="h-4 w-4" />
             登出
