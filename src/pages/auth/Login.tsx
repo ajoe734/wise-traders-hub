@@ -21,10 +21,10 @@ const Login = () => {
 
   const from = (location.state as any)?.from?.pathname;
 
-  // When user state loads after login, redirect based on role
+  // Auto-redirect if already authenticated or after login
   useEffect(() => {
-    if (pendingRedirect && isAuthenticated && user) {
-      if (from) {
+    if ((pendingRedirect || !isLoading) && isAuthenticated && user) {
+      if (from && pendingRedirect) {
         navigate(from, { replace: true });
       } else if (hasRole('company_admin')) {
         navigate('/company', { replace: true });
