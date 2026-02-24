@@ -50,6 +50,7 @@ import AdminPerformance from "./pages/admin/Performance";
 // Company pages (internal backend)
 import CompanyDashboard from "./pages/company/Dashboard";
 import CompanyAnalysts from "./pages/company/Analysts";
+import CompanySubscribers from "./pages/company/Subscribers";
 import CompanyRevenue from "./pages/company/Revenue";
 import CompanyReview from "./pages/company/Review";
 
@@ -122,6 +123,7 @@ const App = () => (
             {/* Company (internal backend) */}
             <Route path="/company" element={<ProtectedRoute requiredRole="company_admin"><CompanyDashboard /></ProtectedRoute>} />
             <Route path="/company/analysts" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnalysts /></ProtectedRoute>} />
+            <Route path="/company/subscribers" element={<ProtectedRoute requiredRole="company_admin"><CompanySubscribers /></ProtectedRoute>} />
             <Route path="/company/revenue" element={<ProtectedRoute requiredRole="company_admin"><CompanyRevenue /></ProtectedRoute>} />
             <Route path="/company/review" element={<ProtectedRoute requiredRole="company_admin"><CompanyReview /></ProtectedRoute>} />
 

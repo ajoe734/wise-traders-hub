@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
-  LayoutDashboard, Users, BarChart3, ShieldCheck,
+  LayoutDashboard, Users, UserCheck, BarChart3, ShieldCheck,
   LogOut, Moon, Sun, Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ interface CompanyLayoutProps {
 const navItems = [
   { path: '/company', icon: LayoutDashboard, label: '總覽', exact: true },
   { path: '/company/analysts', icon: Users, label: '分析師管理' },
+  { path: '/company/subscribers', icon: UserCheck, label: '訂閱者管理' },
   { path: '/company/revenue', icon: BarChart3, label: '營收數據' },
   { path: '/company/review', icon: ShieldCheck, label: '內容審核' },
 ];
