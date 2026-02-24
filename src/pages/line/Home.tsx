@@ -102,7 +102,7 @@ const LineHome = () => {
         {/* Greeting */}
         <div className="mb-6">
           <h1 className="text-xl font-bold mb-1">
-            嗨，{user?.name || '會員'}
+            嗨，{user?.displayName || '會員'}
           </h1>
           <p className="text-muted-foreground">
             歡迎來到 {expert.name} 的會員專區

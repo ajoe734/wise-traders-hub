@@ -46,7 +46,7 @@ const AccountProfile = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">姓名</Label>
-                <Input id="name" defaultValue={user.name || ''} />
+                <Input id="name" defaultValue={user.displayName || ''} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>

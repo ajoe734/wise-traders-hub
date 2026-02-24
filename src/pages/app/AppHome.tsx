@@ -107,7 +107,7 @@ const AppHome = () => {
             <div>
               <p className="text-xs text-primary font-semibold tracking-wider uppercase">會員戰情室</p>
               <h1 className="text-xl font-bold">
-                嗨，{user?.name || '會員'}
+                嗨，{user?.displayName || '會員'}
               </h1>
             </div>
           </div>

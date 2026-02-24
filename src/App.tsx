@@ -47,6 +47,14 @@ import AdminSubscribers from "./pages/admin/Subscribers";
 import AdminProfile from "./pages/admin/Profile";
 import AdminPerformance from "./pages/admin/Performance";
 
+// Company pages (internal backend)
+import CompanyDashboard from "./pages/company/Dashboard";
+import CompanyAnalysts from "./pages/company/Analysts";
+import CompanyRevenue from "./pages/company/Revenue";
+import CompanyReview from "./pages/company/Review";
+
+import { ProtectedRoute } from "./components/ProtectedRoute";
+
 // LINE Mini-App pages (per expert)
 import LineHome from "./pages/line/Home";
 import LineSignals from "./pages/line/Signals";
@@ -111,12 +119,18 @@ const App = () => (
             <Route path="/app/expert/:slug" element={<AppExpertDetail />} />
             <Route path="/app/checkout/:slug/:planId" element={<AppCheckout />} />
 
+            {/* Company (internal backend) */}
+            <Route path="/company" element={<ProtectedRoute requiredRole="company_admin"><CompanyDashboard /></ProtectedRoute>} />
+            <Route path="/company/analysts" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnalysts /></ProtectedRoute>} />
+            <Route path="/company/revenue" element={<ProtectedRoute requiredRole="company_admin"><CompanyRevenue /></ProtectedRoute>} />
+            <Route path="/company/review" element={<ProtectedRoute requiredRole="company_admin"><CompanyReview /></ProtectedRoute>} />
+
             {/* Admin (expert backend) */}
-            <Route path="/admin/:expertSlug" element={<AdminDashboard />} />
-            <Route path="/admin/:expertSlug/signals" element={<AdminSignals />} />
-            <Route path="/admin/:expertSlug/subscribers" element={<AdminSubscribers />} />
-            <Route path="/admin/:expertSlug/profile" element={<AdminProfile />} />
-            <Route path="/admin/:expertSlug/performance" element={<AdminPerformance />} />
+            <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/signals" element={<ProtectedRoute><AdminSignals /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute><AdminSubscribers /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />
 
             {/* LINE Mini-App (per expert) */}
             <Route path="/line/:expertSlug" element={<Navigate to="home" replace />} />
