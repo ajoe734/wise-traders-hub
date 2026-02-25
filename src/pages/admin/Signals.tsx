@@ -48,14 +48,20 @@ const AdminSignals = () => {
     const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
     setExpert(exp);
     if (exp) {
-      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const { data: s } = await supabase
         .from('expert_signals')
         .select('*')
         .eq('expert_id', exp.id)
-        .or(`status.neq.taken_down,created_at.gte.${fiveMinAgo}`)
         .order('created_at', { ascending: false });
-      setSignals(s || []);
+      // Show taken_down signals for 5 minutes after publish, then auto-hide
+      const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+      const filtered = (s || []).filter(sig => {
+        if (sig.status !== 'taken_down') return true;
+        // Use published_at as proxy for visibility window
+        const publishedTime = sig.published_at ? new Date(sig.published_at).getTime() : 0;
+        return publishedTime > fiveMinAgo;
+      });
+      setSignals(filtered);
       const { data: p } = await supabase.from('expert_plans').select('id, name').eq('expert_id', exp.id).eq('is_active', true);
       setPlans(p || []);
     }
@@ -207,7 +213,10 @@ const AdminSignals = () => {
                     filtered.map((signal) => {
                       const ai = actionLabels[signal.action] || actionLabels.buy;
                       return (
-                        <tr key={signal.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={signal.id} className={cn(
+                          "border-b last:border-0 hover:bg-muted/30",
+                          signal.status === 'taken_down' && "bg-destructive/5"
+                        )}>
                           <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW') : '-'}</td>
                           <td className="p-3 text-sm font-medium">{signal.instrument}</td>
                           <td className="p-3"><Badge variant={ai.variant} className="text-xs">{ai.label}</Badge></td>
@@ -215,7 +224,14 @@ const AdminSignals = () => {
                           <td className="p-3 text-sm text-muted-foreground max-w-[200px] truncate">{signal.reason_summary || '-'}</td>
                           <td className="p-3">
                             {signal.status === 'taken_down' ? (
-                              <Badge variant="destructive" className="text-xs">已下架</Badge>
+                              <div className="space-y-1">
+                                <Badge variant="destructive" className="text-xs">已下架</Badge>
+                                {signal.taken_down_reason && (
+                                  <p className="text-xs text-destructive/80 max-w-[180px]">
+                                    {signal.taken_down_reason}
+                                  </p>
+                                )}
+                              </div>
                             ) : (
                               <Badge variant="secondary" className="text-xs">已發布</Badge>
                             )}
