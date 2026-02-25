@@ -42,7 +42,7 @@ const BulletList = ({ text, dotClassName }: { text: string; dotClassName: string
     <ul className="space-y-1.5">
       {lines.map((line, i) => (
         <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-          <span className={cn('mt-1.5 h-2 w-2 rounded-full flex-shrink-0', dotClassName)} />
+          <span className={cn('mt-[7px] h-1.5 w-1.5 rounded-full flex-shrink-0', dotClassName)} />
           {line}
         </li>
       ))}
@@ -123,7 +123,7 @@ const SignalDetail = () => {
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
-                <Lightbulb className="h-4 w-4 text-primary" /> 1. 為什麼這樣操作？
+                <Lightbulb className="h-4 w-4 text-primary" /> 為什麼這樣操作？
               </h2>
               <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.reason_detail}</p>
             </CardContent>
@@ -135,7 +135,7 @@ const SignalDetail = () => {
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
-                <Target className="h-4 w-4 text-primary" /> 2. 部位控管想法
+                <Target className="h-4 w-4 text-primary" /> 部位控管想法
               </h2>
               <BulletList text={signal.reason_summary} dotClassName="bg-primary" />
             </CardContent>
@@ -147,7 +147,7 @@ const SignalDetail = () => {
           <Card className="bg-warning-light/30 border-warning/20">
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning" /> 3. 風險提醒
+                <AlertTriangle className="h-4 w-4 text-warning" /> 風險提醒
               </h2>
               <BulletList text={signal.risk_notes} dotClassName="bg-warning" />
             </CardContent>
@@ -159,7 +159,7 @@ const SignalDetail = () => {
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-mentor" /> 4. 延伸學習
+                <BookOpen className="h-4 w-4 text-mentor" /> 延伸學習
               </h2>
               <BulletList text={signal.learning_points} dotClassName="bg-mentor" />
             </CardContent>
