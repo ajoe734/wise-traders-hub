@@ -228,7 +228,7 @@ const AdminSignals = () => {
                                 <Badge variant="destructive" className="text-xs">已下架</Badge>
                                 {signal.taken_down_reason && (
                                   <p className="text-xs text-destructive/80 max-w-[180px]">
-                                    {signal.taken_down_reason}
+                                    {signal.taken_down_reason.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '')}
                                   </p>
                                 )}
                               </div>
