@@ -70,9 +70,9 @@ const CompanyAnalysts = () => {
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    setExperts(prev => prev.map(e => e.id === id ? { ...e, status: newStatus } : e));
     await supabase.from('experts').update({ status: newStatus }).eq('id', id);
     toast.success(newStatus === 'active' ? '已啟用' : '已停用');
-    fetchExperts();
   };
 
   // Plan management

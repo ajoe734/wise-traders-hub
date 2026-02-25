@@ -112,7 +112,6 @@ const CompanyPayments = () => {
                         <SelectContent>
                           <SelectItem value="ecpay">綠界 ECPay</SelectItem>
                           <SelectItem value="newebpay">藍新 NewebPay</SelectItem>
-                          <SelectItem value="stripe">Stripe</SelectItem>
                           <SelectItem value="line_pay">LINE Pay</SelectItem>
                         </SelectContent>
                       </Select>
