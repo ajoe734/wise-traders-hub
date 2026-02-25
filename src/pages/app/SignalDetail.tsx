@@ -6,9 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { AlertTriangle, BookOpen, Lightbulb, Shield, Target } from 'lucide-react';
+import { AlertTriangle, BookOpen, Lightbulb, Shield, Target, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStockQuote } from '@/hooks/useStockQuote';
+import { Button } from '@/components/ui/button';
+import { tradingSystems, people } from '@/data/mockData';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -155,16 +157,30 @@ const SignalDetail = () => {
         )}
 
         {/* 4. 延伸學習 */}
-        {signal.learning_points && (
-          <Card>
-            <CardContent className="p-4">
-              <h2 className="font-semibold mb-2 flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-mentor" /> 延伸學習
-              </h2>
-              <BulletList text={signal.learning_points} dotClassName="bg-mentor" />
-            </CardContent>
-          </Card>
-        )}
+        {signal.learning_points && (() => {
+          const expertSlug = signal.experts?.slug;
+          const person = expertSlug ? people.find(p => p.slug === expertSlug) : undefined;
+          const system = person ? tradingSystems.find(s => s.personId === person.id) : undefined;
+
+          return (
+            <Card>
+              <CardContent className="p-4">
+                <h2 className="font-semibold mb-2 flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-mentor" /> 延伸學習
+                </h2>
+                <BulletList text={signal.learning_points} dotClassName="bg-mentor" />
+                {system && (
+                  <Button variant="outline" className="w-full mt-4" asChild>
+                    <Link to={`/app/system/${system.id}`}>
+                      看完整交易系統教學
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Link>
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Disclaimer */}
         <Card className="bg-muted/30">
