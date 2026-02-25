@@ -42,7 +42,7 @@ const BulletList = ({ text, dotClassName }: { text: string; dotClassName: string
     <ul className="space-y-1.5">
       {lines.map((line, i) => (
         <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-          <span className={cn('mt-[6px] ml-0.5 h-1 w-1 rounded-full flex-shrink-0', dotClassName)} />
+          <span className={cn('mt-[6px] ml-1 h-1 w-1 rounded-full flex-shrink-0', dotClassName)} />
           {line}
         </li>
       ))}
@@ -104,7 +104,7 @@ const SignalDetail = () => {
             <>
               <span>•</span>
               <span className="font-medium text-foreground">{signal.experts.name}</span>
-              <Badge className="text-[10px] bg-[hsl(0,40%,12%)] text-white border border-[hsl(0,50%,25%)] px-2 py-0.5">
+              <Badge className="text-[10px] bg-[hsl(0,35%,10%)] text-white/70 border border-[hsl(0,45%,20%)] px-2 py-0.5">
                 {signal.experts.role === 'advisor' ? '投顧分析師' : '實戰導師'}
               </Badge>
             </>
