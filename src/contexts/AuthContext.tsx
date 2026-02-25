@@ -88,8 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (session?.user) {
-        // If the user ID changed (account switch), clear immediately
-        if (supabaseUser?.id && supabaseUser.id !== session.user.id) {
+        // If account changed during session switch, clear stale state first
+        if (loadingUserRef.current && loadingUserRef.current !== session.user.id) {
           clearAuth();
         }
         // Defer profile loading to avoid Supabase client deadlock

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,27 +16,23 @@ const Login = () => {
   const [pendingRedirect, setPendingRedirect] = useState(false);
   const { login, user, isAuthenticated, hasRole } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
 
-  const from = (location.state as any)?.from?.pathname;
-
-  // Auto-redirect when authenticated and profile is fully loaded
+  // Auto-redirect only after successful login/profile load
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
+    if (!pendingRedirect || !isAuthenticated || !user) return;
 
-    if (from && pendingRedirect) {
-      navigate(from, { replace: true });
-    } else if (hasRole('company_admin')) {
+    if (hasRole('company_admin')) {
       navigate('/company', { replace: true });
     } else if (user.expertSlug) {
       navigate(`/admin/${user.expertSlug}`, { replace: true });
     } else {
       navigate('/app', { replace: true });
     }
+
     setPendingRedirect(false);
     setIsLoading(false);
-  }, [isAuthenticated, user]);
+  }, [pendingRedirect, isAuthenticated, user, hasRole, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
