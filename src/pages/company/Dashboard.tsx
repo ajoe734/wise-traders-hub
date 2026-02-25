@@ -35,7 +35,7 @@ const CompanyDashboard = () => {
     { label: '總分析師數', value: expertCount, icon: Users },
     { label: '活躍訂閱者', value: subCount, icon: Users },
     { label: '已發布訊號', value: signalCount, icon: Radio },
-    { label: '上架方案數', value: planCount, icon: Activity },
+    { label: '總上架方案數', value: planCount, icon: Activity },
   ];
 
   return (
