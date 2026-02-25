@@ -41,7 +41,11 @@ const CompanyPayments = () => {
 
   const fetchProviders = async () => {
     const { data } = await supabase.from('payment_providers').select('*').order('created_at');
-    setProviders((data || []).filter((p) => p.provider_type !== 'stripe'));
+    const filtered = (data || []).filter((p) => p.provider_type !== 'stripe');
+    // Custom sort: line_pay first, then ecpay, then others
+    const order: Record<string, number> = { line_pay: 0, ecpay: 1, newebpay: 2 };
+    filtered.sort((a, b) => (order[a.provider_type] ?? 99) - (order[b.provider_type] ?? 99));
+    setProviders(filtered);
   };
 
   const fetchTransactions = async () => {
