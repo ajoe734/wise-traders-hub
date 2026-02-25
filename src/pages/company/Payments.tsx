@@ -16,7 +16,6 @@ import { toast } from 'sonner';
 const providerLabels: Record<string, string> = {
   ecpay: '綠界 ECPay',
   newebpay: '藍新 NewebPay',
-  stripe: 'Stripe',
   line_pay: 'LINE Pay',
 };
 
