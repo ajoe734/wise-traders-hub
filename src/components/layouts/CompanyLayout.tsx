@@ -73,7 +73,7 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-3 border-t space-y-2">
+        <div className="p-3 border-t space-y-1">
           <Button
             variant="ghost"
             size="sm"
