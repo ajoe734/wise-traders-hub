@@ -34,7 +34,7 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex pb-16">
+    <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
       <aside className="w-64 border-r bg-card flex flex-col shrink-0 sticky top-0 h-screen">
         {/* Header */}
@@ -71,6 +71,28 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
             );
           })}
         </nav>
+
+        {/* Footer */}
+        <div className="p-3 border-t space-y-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-muted-foreground"
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+          >
+            {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {resolvedTheme === 'dark' ? '淺色模式' : '深色模式'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+            onClick={() => { logout(); navigate('/auth/login'); }}
+          >
+            <LogOut className="h-4 w-4" />
+            登出
+          </Button>
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -79,41 +101,6 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
           {children}
         </div>
       </main>
-
-      {/* Bottom Tab Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t z-50 safe-area-bottom">
-        <div className="flex items-center justify-around h-16">
-          <button
-            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-            className={cn(
-              "flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] mobile-touch-target relative",
-              "transition-all duration-150 ease-out",
-              "active:scale-95",
-              "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <div className="relative transition-transform duration-150 active:scale-90">
-              {resolvedTheme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </div>
-            <span className="text-xs">{resolvedTheme === 'dark' ? '淺色模式' : '深色模式'}</span>
-          </button>
-
-          <button
-            onClick={() => { logout(); navigate('/auth/login'); }}
-            className={cn(
-              "flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] mobile-touch-target relative",
-              "transition-all duration-150 ease-out",
-              "active:scale-95",
-              "text-destructive hover:text-destructive"
-            )}
-          >
-            <div className="relative transition-transform duration-150 active:scale-90">
-              <LogOut className="h-5 w-5" />
-            </div>
-            <span className="text-xs">登出</span>
-          </button>
-        </div>
-      </nav>
     </div>
   );
 }

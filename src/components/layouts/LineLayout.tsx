@@ -3,7 +3,7 @@ import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { PersonRole } from '@/types';
 import { getPersonBySlug, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
-import { Home, Radio, BarChart3, BookOpen, User, ChevronRight, ChevronLeft, Moon, Sun, Settings } from 'lucide-react';
+import { Home, Radio, BarChart3, BookOpen, User, ChevronRight, ChevronLeft, Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
@@ -113,7 +113,6 @@ export function LineLayout({ children }: LineLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAnalystOwner = user?.roles?.includes('analyst') && user?.expertSlug === expertSlug;
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
@@ -220,9 +219,7 @@ export function LineLayout({ children }: LineLayoutProps) {
     return `${basePath}/home`;
   };
 
-  const isTopLevelPage = ['/home', '', '/', '/signals', '/performance', '/teaching', '/account'].some(
-    p => location.pathname === `${basePath}${p}` || location.pathname === basePath
-  );
+  const isHomePage = location.pathname === `${basePath}/home` || location.pathname === basePath;
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-16">
@@ -231,7 +228,7 @@ export function LineLayout({ children }: LineLayoutProps) {
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
             {/* Back button - only show when not on home */}
-            {!isTopLevelPage && (
+            {!isHomePage && (
               <button
                 onClick={() => navigate(getBackPath())}
                 className={cn(
@@ -255,50 +252,32 @@ export function LineLayout({ children }: LineLayoutProps) {
             </Badge>
           </div>
           
-          <div className="flex items-center gap-2">
-            {/* Back to admin backend for analyst owner */}
-            {isAnalystOwner && (
-              <button
-                onClick={() => navigate(`/admin/${expertSlug}`)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all",
-                  "border text-sm font-medium",
-                  isAdvisor
-                    ? "bg-advisor/10 border-advisor/30 text-advisor hover:bg-advisor/20"
-                    : "bg-mentor/10 border-mentor/30 text-mentor hover:bg-mentor/20"
-                )}
-              >
-                <Settings className="h-4 w-4" />
-                <span className="text-xs">後台</span>
-              </button>
-            )}
-            {/* Theme Toggle Button */}
-            {mounted && (
-              <button
-                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all",
-                  "border text-sm font-medium",
-                  resolvedTheme === 'dark' 
-                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-                    : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
-                )}
-                aria-label={resolvedTheme === 'dark' ? '切換至淺色模式' : '切換至深色模式'}
-              >
-                {resolvedTheme === 'dark' ? (
-                  <>
-                    <Sun className="h-4 w-4" />
-                    <span className="text-xs">淺色</span>
-                  </>
-                ) : (
-                  <>
-                    <Moon className="h-4 w-4" />
-                    <span className="text-xs">夜間</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+          {/* Theme Toggle Button - 更明顯的設計 */}
+          {mounted && (
+            <button
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all",
+                "border text-sm font-medium",
+                resolvedTheme === 'dark' 
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                  : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
+              )}
+              aria-label={resolvedTheme === 'dark' ? '切換至淺色模式' : '切換至深色模式'}
+            >
+              {resolvedTheme === 'dark' ? (
+                <>
+                  <Sun className="h-4 w-4" />
+                  <span className="text-xs">淺色</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="h-4 w-4" />
+                  <span className="text-xs">夜間</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Breadcrumbs */}
@@ -344,19 +323,20 @@ export function LineLayout({ children }: LineLayoutProps) {
       </main>
 
       {/* Bottom Tab Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t z-50 safe-area-bottom">
-        <div className="flex items-center justify-around h-16">
+      <nav className="fixed bottom-0 left-0 right-0 bg-background border-t z-50">
+        <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
           {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] mobile-touch-target relative",
+                "flex flex-col items-center justify-center gap-1 flex-1 h-full mobile-touch-target relative",
+                // 點擊動畫：縮放 + 背景變化
                 "transition-all duration-150 ease-out",
-                "active:scale-95",
+                "active:scale-95 active:bg-muted/30",
                 isActive(item.group)
                   ? isAdvisor ? "text-advisor" : "text-mentor"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground"
               )}
             >
               <div className={cn(
