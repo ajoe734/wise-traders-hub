@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.create-analyst]
 verify_jwt = false
+
+[functions.daily-performance]
+verify_jwt = false

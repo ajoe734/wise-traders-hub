@@ -81,7 +81,7 @@ const AdminPerformance = () => {
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">標的</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">進場價</th>
-                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">出場價</th>
+                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">現價/出場價</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">損益</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">狀態</th>
                   </tr>
@@ -94,7 +94,9 @@ const AdminPerformance = () => {
                       <tr key={trade.id} className="border-b last:border-0 hover:bg-muted/30">
                         <td className="p-3 text-sm font-medium">{trade.instrument}</td>
                         <td className="p-3 text-sm">{trade.entry_price || '-'}</td>
-                        <td className="p-3 text-sm">{trade.exit_price || '-'}</td>
+                        <td className="p-3 text-sm">
+                          {trade.status === 'open' ? (trade.current_price || '-') : (trade.exit_price || '-')}
+                        </td>
                         <td className={cn("p-3 text-sm font-medium", trade.pnl_percent > 0 ? "text-green-600 dark:text-green-400" : trade.pnl_percent < 0 ? "text-red-600 dark:text-red-400" : "")}>
                           {trade.pnl_percent != null ? `${trade.pnl_percent > 0 ? '+' : ''}${trade.pnl_percent}%` : '-'}
                         </td>

@@ -388,6 +388,7 @@ export type Database = {
       trade_records: {
         Row: {
           created_at: string
+          current_price: number | null
           entry_date: string | null
           entry_price: number | null
           exit_date: string | null
@@ -396,11 +397,13 @@ export type Database = {
           id: string
           instrument: string
           pnl_percent: number | null
+          price_updated_at: string | null
           signal_id: string | null
           status: Database["public"]["Enums"]["trade_status"]
         }
         Insert: {
           created_at?: string
+          current_price?: number | null
           entry_date?: string | null
           entry_price?: number | null
           exit_date?: string | null
@@ -409,11 +412,13 @@ export type Database = {
           id?: string
           instrument: string
           pnl_percent?: number | null
+          price_updated_at?: string | null
           signal_id?: string | null
           status?: Database["public"]["Enums"]["trade_status"]
         }
         Update: {
           created_at?: string
+          current_price?: number | null
           entry_date?: string | null
           entry_price?: number | null
           exit_date?: string | null
@@ -422,6 +427,7 @@ export type Database = {
           id?: string
           instrument?: string
           pnl_percent?: number | null
+          price_updated_at?: string | null
           signal_id?: string | null
           status?: Database["public"]["Enums"]["trade_status"]
         }
