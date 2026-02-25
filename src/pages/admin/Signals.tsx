@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
@@ -26,6 +27,8 @@ const actionLabels: Record<string, { label: string; variant: 'default' | 'destru
 
 const AdminSignals = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
+  const { hasRole } = useAuth();
+  const isReadOnly = hasRole('company_admin');
   const [expert, setExpert] = useState<any>(null);
   const [signals, setSignals] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
@@ -118,6 +121,7 @@ const AdminSignals = () => {
             <h1 className="text-2xl font-bold">訊號管理</h1>
             <p className="text-muted-foreground text-sm mt-1">發布即上線，管理者可事後下架</p>
           </div>
+          {!isReadOnly && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
@@ -186,6 +190,7 @@ const AdminSignals = () => {
               </div>
             </DialogContent>
           </Dialog>
+          )}
         </div>
 
         <div className="flex gap-3">
