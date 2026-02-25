@@ -168,16 +168,6 @@ const LineAccount = () => {
           </CardContent>
         </Card>
 
-        {/* Logout */}
-        <Button 
-          variant="outline" 
-          className="w-full text-destructive hover:text-destructive"
-          onClick={logout}
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          登出
-        </Button>
-
         {/* Support */}
         <div className="text-center">
           <p className="text-xs text-muted-foreground">
