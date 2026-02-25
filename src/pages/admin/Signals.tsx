@@ -222,28 +222,30 @@ const AdminSignals = () => {
                      filtered.map((signal) => {
                        const ai = actionLabels[signal.action] || actionLabels.buy;
                        const isExpanded = expandedId === signal.id;
-                       const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary;
+                       const isTakenDown = signal.status === 'taken_down';
+                       const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || (isTakenDown && signal.taken_down_reason);
                        return (
                          <React.Fragment key={signal.id}>
                            <tr className={cn(
                              "border-b last:border-0 hover:bg-muted/30",
-                             signal.status === 'taken_down' && "bg-destructive/5"
+                             isTakenDown && "bg-destructive/5"
                            )}>
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW') : '-'}</td>
                              <td className="p-3 text-sm font-medium">{signal.instrument}</td>
                              <td className="p-3"><Badge variant={ai.variant} className="text-xs">{ai.label}</Badge></td>
                              <td className="p-3 text-sm">{signal.price_hint || '-'}</td>
-                             <td className="p-3 text-sm text-muted-foreground max-w-[200px] truncate">{stripDotPrefix(signal.reason_summary || '-')}</td>
+                             <td className="p-3 text-sm max-w-[240px]">
+                               {isTakenDown && signal.taken_down_reason ? (
+                                 <p className="text-destructive truncate text-xs">
+                                   <span className="font-medium">下架理由：</span>{stripDotPrefix(signal.taken_down_reason)}
+                                 </p>
+                               ) : (
+                                 <p className="text-muted-foreground truncate">{stripDotPrefix(signal.reason_summary || '-')}</p>
+                               )}
+                             </td>
                              <td className="p-3">
-                               {signal.status === 'taken_down' ? (
-                                 <div className="space-y-1">
-                                   <Badge variant="destructive" className="text-xs">已下架</Badge>
-                                   {signal.taken_down_reason && (
-                                     <p className="text-xs text-destructive/80 max-w-[180px]">
-                                       {stripDotPrefix(signal.taken_down_reason)}
-                                     </p>
-                                   )}
-                                 </div>
+                               {isTakenDown ? (
+                                 <Badge variant="outline" className="text-xs border-destructive/50 text-destructive">已下架</Badge>
                                ) : (
                                  <Badge variant="secondary" className="text-xs">已發布</Badge>
                                )}
@@ -261,28 +263,34 @@ const AdminSignals = () => {
                              <tr className="border-b last:border-0">
                                <td colSpan={7} className="p-0">
                                  <div className="bg-muted/30 px-6 py-3 text-xs space-y-2">
-                                   {signal.reason_summary && (
-                                     <div>
-                                       <span className="font-medium text-foreground">摘要</span>
-                                       <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.reason_summary)}</p>
-                                     </div>
-                                   )}
-                                   {signal.reason_detail && (
-                                     <div>
-                                       <span className="font-medium text-foreground">詳細分析</span>
-                                       <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.reason_detail)}</p>
-                                     </div>
-                                   )}
-                                   {signal.risk_notes && (
-                                     <div>
-                                       <span className="font-medium text-foreground">風險提示</span>
-                                       <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.risk_notes)}</p>
-                                     </div>
-                                   )}
-                                 </div>
-                               </td>
-                             </tr>
-                           )}
+                                    {isTakenDown && signal.taken_down_reason && (
+                                      <div>
+                                        <span className="font-medium text-destructive">下架理由</span>
+                                        <p className="text-destructive/80 mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.taken_down_reason)}</p>
+                                      </div>
+                                    )}
+                                    {signal.reason_summary && (
+                                      <div>
+                                        <span className="font-medium text-foreground">摘要</span>
+                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.reason_summary)}</p>
+                                      </div>
+                                    )}
+                                    {signal.reason_detail && (
+                                      <div>
+                                        <span className="font-medium text-foreground">詳細分析</span>
+                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.reason_detail)}</p>
+                                      </div>
+                                    )}
+                                    {signal.risk_notes && (
+                                      <div>
+                                        <span className="font-medium text-foreground">風險提示</span>
+                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.risk_notes)}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
                          </React.Fragment>
                        );
                      })
