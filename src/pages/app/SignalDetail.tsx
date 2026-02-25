@@ -37,17 +37,14 @@ interface DbSignal {
   } | null;
 }
 
-const BulletList = ({ text, dotClassName }: { text: string; dotClassName: string }) => {
+const TextBlock = ({ text }: { text: string }) => {
   const lines = text.split('\n').map(l => l.replace(/^[•·]\s*/, '').trim()).filter(Boolean);
   return (
-    <ul className="space-y-1.5">
+    <div className="space-y-1.5">
       {lines.map((line, i) => (
-        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-          <span className={cn('mt-[6px] ml-[5px] h-1 w-1 rounded-full flex-shrink-0', dotClassName)} />
-          {line}
-        </li>
+        <p key={i} className="text-sm text-muted-foreground">{line}</p>
       ))}
-    </ul>
+    </div>
   );
 };
 
@@ -138,7 +135,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <Target className="h-4 w-4 text-primary" /> 部位控管想法
               </h2>
-              <BulletList text={signal.reason_summary} dotClassName="bg-primary" />
+              <TextBlock text={signal.reason_summary} />
             </CardContent>
           </Card>
         )}
@@ -150,7 +147,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-warning" /> 風險提醒
               </h2>
-              <BulletList text={signal.risk_notes} dotClassName="bg-warning" />
+              <TextBlock text={signal.risk_notes} />
             </CardContent>
           </Card>
         )}
@@ -162,7 +159,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-mentor" /> 延伸學習
               </h2>
-              <BulletList text={signal.learning_points} dotClassName="bg-mentor" />
+              <TextBlock text={signal.learning_points} />
               <Button variant="outline" className="w-full mt-4" asChild>
                 <Link to="/app/library">
                   看完整交易系統教學
