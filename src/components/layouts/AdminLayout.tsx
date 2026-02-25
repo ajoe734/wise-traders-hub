@@ -5,7 +5,7 @@ import { getPersonBySlug } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  LayoutDashboard, Radio, Users, UserCog, BarChart3, Package,
+  LayoutDashboard, Radio, Users, UserCog, BarChart3,
   ChevronLeft, LogOut, Moon, Sun, Building2 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -41,7 +41,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const navItems = [
     { path: basePath, icon: LayoutDashboard, label: '總覽', exact: true },
-    { path: `${basePath}/plans`, icon: Package, label: '方案管理' },
     { path: `${basePath}/signals`, icon: Radio, label: '訊號管理' },
     { path: `${basePath}/subscribers`, icon: Users, label: '訂閱者' },
     { path: `${basePath}/profile`, icon: UserCog, label: '個人檔案' },

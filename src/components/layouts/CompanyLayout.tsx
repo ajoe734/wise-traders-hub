@@ -19,7 +19,7 @@ const navItems = [
   { path: '/company/subscribers', icon: UserCheck, label: '訂閱者管理' },
   { path: '/company/revenue', icon: BarChart3, label: '營收數據' },
   { path: '/company/payments', icon: CreditCard, label: '金流管理' },
-  { path: '/company/review', icon: ShieldCheck, label: '內容審核' },
+  { path: '/company/review', icon: ShieldCheck, label: '內容監管' },
 ];
 
 export function CompanyLayout({ children }: CompanyLayoutProps) {
