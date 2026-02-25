@@ -236,7 +236,7 @@ const AdminSignals = () => {
                              <td className="p-3 text-sm">{signal.price_hint || '-'}</td>
                              <td className="p-3 text-sm max-w-[240px]">
                                {isTakenDown && signal.taken_down_reason ? (
-                                 <p className="text-destructive truncate text-xs">
+                                 <p className="text-primary truncate text-xs">
                                    <span className="font-medium">下架理由：</span>{stripDotPrefix(signal.taken_down_reason)}
                                  </p>
                                ) : (
@@ -245,7 +245,7 @@ const AdminSignals = () => {
                              </td>
                              <td className="p-3">
                                {isTakenDown ? (
-                                 <Badge className="text-xs border border-destructive/50 bg-destructive/10 text-destructive">已下架</Badge>
+                                 <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已下架</Badge>
                                ) : (
                                  <Badge variant="secondary" className="text-xs">已發布</Badge>
                                )}
@@ -265,8 +265,8 @@ const AdminSignals = () => {
                                  <div className="bg-muted/30 px-6 py-3 text-xs space-y-2">
                                     {isTakenDown && signal.taken_down_reason && (
                                       <div>
-                                        <span className="font-medium text-destructive">下架理由</span>
-                                        <p className="text-destructive/80 mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.taken_down_reason)}</p>
+                                        <span className="font-medium text-primary">下架理由</span>
+                                        <p className="text-primary/90 mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.taken_down_reason)}</p>
                                       </div>
                                     )}
                                     {signal.reason_summary && (
