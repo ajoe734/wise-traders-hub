@@ -111,7 +111,7 @@ const AdminSignals = () => {
             </DialogTrigger>
             <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
               <DialogHeader><DialogTitle>發布新訊號</DialogTitle></DialogHeader>
-              <div className="space-y-4 mt-4 overflow-y-auto flex-1 pr-1">
+              <div className="space-y-4 mt-4 overflow-y-auto flex-1 px-1 -mx-1">
                 <div className="space-y-2">
                   <Label>標的（代碼+名稱）</Label>
                   <Input value={instrument} onChange={e => setInstrument(e.target.value)} placeholder="例：2330 台積電" />
