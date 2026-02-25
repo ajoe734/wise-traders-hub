@@ -48,7 +48,13 @@ const AdminSignals = () => {
     const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
     setExpert(exp);
     if (exp) {
-      const { data: s } = await supabase.from('expert_signals').select('*').eq('expert_id', exp.id).order('created_at', { ascending: false });
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: s } = await supabase
+        .from('expert_signals')
+        .select('*')
+        .eq('expert_id', exp.id)
+        .or(`status.neq.taken_down,created_at.gte.${oneDayAgo}`)
+        .order('created_at', { ascending: false });
       setSignals(s || []);
       const { data: p } = await supabase.from('expert_plans').select('id, name').eq('expert_id', exp.id).eq('is_active', true);
       setPlans(p || []);
