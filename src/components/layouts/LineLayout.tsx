@@ -220,7 +220,9 @@ export function LineLayout({ children }: LineLayoutProps) {
     return `${basePath}/home`;
   };
 
-  const isHomePage = location.pathname === `${basePath}/home` || location.pathname === basePath;
+  const isTopLevelPage = ['/home', '', '/', '/signals', '/performance', '/teaching', '/account'].some(
+    p => location.pathname === `${basePath}${p}` || location.pathname === basePath
+  );
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-16">
@@ -229,7 +231,7 @@ export function LineLayout({ children }: LineLayoutProps) {
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
             {/* Back button - only show when not on home */}
-            {!isHomePage && (
+            {!isTopLevelPage && (
               <button
                 onClick={() => navigate(getBackPath())}
                 className={cn(
