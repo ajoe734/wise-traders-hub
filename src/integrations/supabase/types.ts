@@ -14,6 +14,347 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          detail: Json | null
+          id: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: []
+      }
+      expert_plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          expert_id: string
+          features: Json | null
+          id: string
+          is_active: boolean
+          name: string
+          plan_type: Database["public"]["Enums"]["plan_type"]
+          price_monthly: number
+          price_yearly: number | null
+          review_note: string | null
+          review_status: Database["public"]["Enums"]["review_status"]
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          expert_id: string
+          features?: Json | null
+          id?: string
+          is_active?: boolean
+          name: string
+          plan_type: Database["public"]["Enums"]["plan_type"]
+          price_monthly?: number
+          price_yearly?: number | null
+          review_note?: string | null
+          review_status?: Database["public"]["Enums"]["review_status"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          expert_id?: string
+          features?: Json | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          plan_type?: Database["public"]["Enums"]["plan_type"]
+          price_monthly?: number
+          price_yearly?: number | null
+          review_note?: string | null
+          review_status?: Database["public"]["Enums"]["review_status"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_plans_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expert_signals: {
+        Row: {
+          action: Database["public"]["Enums"]["signal_action"]
+          created_at: string
+          expert_id: string
+          id: string
+          instrument: string
+          learning_points: string | null
+          plan_id: string | null
+          price_hint: number | null
+          published_at: string | null
+          reason_detail: string | null
+          reason_summary: string | null
+          risk_notes: string | null
+          status: Database["public"]["Enums"]["signal_status"]
+          taken_down_by: string | null
+          taken_down_reason: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["signal_action"]
+          created_at?: string
+          expert_id: string
+          id?: string
+          instrument: string
+          learning_points?: string | null
+          plan_id?: string | null
+          price_hint?: number | null
+          published_at?: string | null
+          reason_detail?: string | null
+          reason_summary?: string | null
+          risk_notes?: string | null
+          status?: Database["public"]["Enums"]["signal_status"]
+          taken_down_by?: string | null
+          taken_down_reason?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["signal_action"]
+          created_at?: string
+          expert_id?: string
+          id?: string
+          instrument?: string
+          learning_points?: string | null
+          plan_id?: string | null
+          price_hint?: number | null
+          published_at?: string | null
+          reason_detail?: string | null
+          reason_summary?: string | null
+          risk_notes?: string | null
+          status?: Database["public"]["Enums"]["signal_status"]
+          taken_down_by?: string | null
+          taken_down_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_signals_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_signals_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "expert_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experts: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          markets: string[] | null
+          name: string
+          role: Database["public"]["Enums"]["expert_role"]
+          slug: string
+          status: string
+          style_tags: string[] | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          markets?: string[] | null
+          name: string
+          role: Database["public"]["Enums"]["expert_role"]
+          slug: string
+          status?: string
+          style_tags?: string[] | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          markets?: string[] | null
+          name?: string
+          role?: Database["public"]["Enums"]["expert_role"]
+          slug?: string
+          status?: string
+          style_tags?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      member_subscriptions: {
+        Row: {
+          auto_renew: boolean
+          canceled_at: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          plan_id: string
+          provider_id: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          user_id: string
+        }
+        Insert: {
+          auto_renew?: boolean
+          canceled_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          plan_id: string
+          provider_id?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          user_id: string
+        }
+        Update: {
+          auto_renew?: boolean
+          canceled_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          plan_id?: string
+          provider_id?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_member_subscriptions_provider"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "payment_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "expert_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_providers: {
+        Row: {
+          config: Json | null
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          provider_type: Database["public"]["Enums"]["provider_type"]
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          provider_type: Database["public"]["Enums"]["provider_type"]
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          provider_type?: Database["public"]["Enums"]["provider_type"]
+        }
+        Relationships: []
+      }
+      payment_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          paid_at: string | null
+          provider_id: string | null
+          provider_tx_id: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          subscription_id: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          paid_at?: string | null
+          provider_id?: string | null
+          provider_tx_id?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          subscription_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          paid_at?: string | null
+          provider_id?: string | null
+          provider_tx_id?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "payment_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "member_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -44,6 +385,63 @@ export type Database = {
         }
         Relationships: []
       }
+      trade_records: {
+        Row: {
+          created_at: string
+          entry_date: string | null
+          entry_price: number | null
+          exit_date: string | null
+          exit_price: number | null
+          expert_id: string
+          id: string
+          instrument: string
+          pnl_percent: number | null
+          signal_id: string | null
+          status: Database["public"]["Enums"]["trade_status"]
+        }
+        Insert: {
+          created_at?: string
+          entry_date?: string | null
+          entry_price?: number | null
+          exit_date?: string | null
+          exit_price?: number | null
+          expert_id: string
+          id?: string
+          instrument: string
+          pnl_percent?: number | null
+          signal_id?: string | null
+          status?: Database["public"]["Enums"]["trade_status"]
+        }
+        Update: {
+          created_at?: string
+          entry_date?: string | null
+          entry_price?: number | null
+          exit_date?: string | null
+          exit_price?: number | null
+          expert_id?: string
+          id?: string
+          instrument?: string
+          pnl_percent?: number | null
+          signal_id?: string | null
+          status?: Database["public"]["Enums"]["trade_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_records_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_records_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "expert_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -67,6 +465,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_expert_performance: {
+        Args: { _expert_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -77,6 +479,18 @@ export type Database = {
     }
     Enums: {
       app_role: "company_admin" | "analyst"
+      expert_role: "advisor" | "mentor"
+      payment_status: "pending" | "paid" | "failed" | "refunded"
+      plan_type:
+        | "analyst_signal_l1"
+        | "analyst_signal_diag_l2"
+        | "mentor_weekly_journal"
+      provider_type: "ecpay" | "newebpay" | "stripe" | "line_pay"
+      review_status: "draft" | "pending" | "approved" | "rejected"
+      signal_action: "buy" | "sell" | "add" | "trim" | "exit"
+      signal_status: "published" | "taken_down"
+      subscription_status: "active" | "canceled" | "expired"
+      trade_status: "open" | "closed" | "stopped"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -205,6 +619,19 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["company_admin", "analyst"],
+      expert_role: ["advisor", "mentor"],
+      payment_status: ["pending", "paid", "failed", "refunded"],
+      plan_type: [
+        "analyst_signal_l1",
+        "analyst_signal_diag_l2",
+        "mentor_weekly_journal",
+      ],
+      provider_type: ["ecpay", "newebpay", "stripe", "line_pay"],
+      review_status: ["draft", "pending", "approved", "rejected"],
+      signal_action: ["buy", "sell", "add", "trim", "exit"],
+      signal_status: ["published", "taken_down"],
+      subscription_status: ["active", "canceled", "expired"],
+      trade_status: ["open", "closed", "stopped"],
     },
   },
 } as const

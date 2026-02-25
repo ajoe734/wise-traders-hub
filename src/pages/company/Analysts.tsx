@@ -1,31 +1,65 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { people, plans, subscriptions } from '@/data/mockData';
-import { PersonRole, SubscriptionStatus } from '@/types';
-import { Eye, UserPlus, Radio, TrendingUp, BarChart3, Settings } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
+import { Eye, UserPlus, BarChart3, Radio } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const CompanyAnalysts = () => {
-  const analystData = people.map((person) => {
-    const personPlans = plans.filter((p) => p.personId === person.id);
-    const activeSubs = subscriptions.filter(
-      (s) => personPlans.some((p) => p.id === s.planId) && s.status === SubscriptionStatus.ACTIVE
-    ).length;
-    const mockMonthlyRevenue = activeSubs * (person.role === PersonRole.ADVISOR ? 3980 : 1980);
-    return { 
-      person, 
-      planCount: personPlans.length, 
-      activeSubs: activeSubs || Math.floor(Math.random() * 20 + 5),
-      monthlyRevenue: mockMonthlyRevenue || Math.floor(Math.random() * 80000 + 20000),
-      totalSignals: Math.floor(Math.random() * 50 + 10),
-      cumulativeReturn: `${(Math.random() * 500 + 100).toFixed(0)}%`,
-      status: 'active' as const,
-    };
-  });
+  const [experts, setExperts] = useState<any[]>([]);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Form
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [role, setRole] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => { fetchExperts(); }, []);
+
+  const fetchExperts = async () => {
+    setLoading(true);
+    const { data } = await supabase.from('experts').select('*').order('created_at', { ascending: false });
+    setExperts(data || []);
+    setLoading(false);
+  };
+
+  const handleCreate = async () => {
+    if (!email || !password || !name || !slug || !role) {
+      toast.error('請填寫所有必填欄位');
+      return;
+    }
+    setCreating(true);
+    const { data, error } = await supabase.functions.invoke('create-analyst', {
+      body: { email, password, name, slug, role },
+    });
+    setCreating(false);
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || '建立失敗');
+      return;
+    }
+    toast.success('分析師已建立');
+    setIsCreateOpen(false);
+    setEmail(''); setPassword(''); setName(''); setSlug(''); setRole('');
+    fetchExperts();
+  };
+
+  const toggleStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    await supabase.from('experts').update({ status: newStatus }).eq('id', id);
+    toast.success(newStatus === 'active' ? '已啟用' : '已停用');
+    fetchExperts();
+  };
 
   return (
     <CompanyLayout>
@@ -35,10 +69,48 @@ const CompanyAnalysts = () => {
             <h1 className="text-2xl font-bold">分析師管理</h1>
             <p className="text-muted-foreground text-sm mt-1">管理所有分析師帳號、權限與績效</p>
           </div>
-          <Button size="sm">
-            <UserPlus className="h-4 w-4 mr-2" />
-            新增分析師
-          </Button>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm"><UserPlus className="h-4 w-4 mr-2" />新增分析師</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>新增分析師帳號</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="analyst@example.com" type="email" />
+                </div>
+                <div className="space-y-2">
+                  <Label>密碼</Label>
+                  <Input value={password} onChange={e => setPassword(e.target.value)} placeholder="至少 6 位" type="password" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>姓名</Label>
+                    <Input value={name} onChange={e => setName(e.target.value)} placeholder="趙彭博" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Slug（URL識別）</Label>
+                    <Input value={slug} onChange={e => setSlug(e.target.value)} placeholder="zhao-pengbo" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>角色</Label>
+                  <Select value={role} onValueChange={setRole}>
+                    <SelectTrigger><SelectValue placeholder="選擇角色" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="advisor">投顧分析師</SelectItem>
+                      <SelectItem value="mentor">實戰導師</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>取消</Button>
+                  <Button onClick={handleCreate} disabled={creating}>{creating ? '建立中...' : '建立帳號'}</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <Card>
@@ -48,70 +120,49 @@ const CompanyAnalysts = () => {
                 <tr className="border-b text-left text-sm text-muted-foreground">
                   <th className="p-4">分析師</th>
                   <th className="p-4">角色</th>
-                  <th className="p-4">方案</th>
-                  <th className="p-4">訂閱</th>
-                  <th className="p-4">月營收</th>
-                  <th className="p-4">累計訊號</th>
-                  <th className="p-4">累計報酬</th>
+                  <th className="p-4">Slug</th>
                   <th className="p-4">狀態</th>
                   <th className="p-4">操作</th>
                 </tr>
               </thead>
               <tbody>
-                {analystData.map(({ person, planCount, activeSubs, monthlyRevenue, totalSignals, cumulativeReturn, status }) => (
-                  <tr key={person.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={person.avatarUrl || '/placeholder.svg'}
-                          alt={person.name}
-                          className="h-8 w-8 rounded-full object-cover"
-                        />
-                        <div>
-                          <p className="font-medium text-sm">{person.name}</p>
-                          <p className="text-xs text-muted-foreground">{person.slug}</p>
+                {loading ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                ) : experts.length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">尚無分析師</td></tr>
+                ) : (
+                  experts.map(exp => (
+                    <tr key={exp.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <img src={exp.avatar_url || '/placeholder.svg'} alt={exp.name} className="h-8 w-8 rounded-full object-cover" />
+                          <p className="font-medium text-sm">{exp.name}</p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant={person.role === PersonRole.ADVISOR ? 'default' : 'secondary'} className="text-xs">
-                        {person.role === PersonRole.ADVISOR ? '投顧分析師' : '實戰導師'}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-sm">{planCount}</td>
-                    <td className="p-4 text-sm font-medium">{activeSubs}</td>
-                    <td className="p-4 text-sm font-medium">NT${monthlyRevenue.toLocaleString()}</td>
-                    <td className="p-4 text-sm">{totalSignals}</td>
-                    <td className="p-4">
-                      <span className="text-sm font-medium text-green-600 dark:text-green-400">{cumulativeReturn}</span>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant="outline" className="text-xs text-green-600">啟用中</Badge>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                          <Link to={`/admin/${person.slug}`}>
-                            <Eye className="h-3 w-3 mr-1" />
-                            後台
-                          </Link>
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                          <Link to={`/admin/${person.slug}/performance`}>
-                            <BarChart3 className="h-3 w-3 mr-1" />
-                            績效
-                          </Link>
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                          <Link to={`/admin/${person.slug}/signals`}>
-                            <Radio className="h-3 w-3 mr-1" />
-                            訊號
-                          </Link>
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="p-4">
+                        <Badge variant={exp.role === 'advisor' ? 'default' : 'secondary'} className="text-xs">
+                          {exp.role === 'advisor' ? '投顧分析師' : '實戰導師'}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-sm text-muted-foreground">{exp.slug}</td>
+                      <td className="p-4">
+                        <Badge variant={exp.status === 'active' ? 'outline' : 'destructive'} className="text-xs">
+                          {exp.status === 'active' ? '啟用中' : '已停用'}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+                            <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleStatus(exp.id, exp.status)}>
+                            {exp.status === 'active' ? '停用' : '啟用'}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </CardContent>

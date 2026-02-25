@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -9,112 +9,148 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { getPersonBySlug } from '@/data/mockData';
-import { PersonRole } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Plus, Search, Filter, Edit2, Trash2, Eye } from 'lucide-react';
-import { format } from 'date-fns';
+import { Plus, Search, Filter, Eye } from 'lucide-react';
+import { toast } from 'sonner';
+
+const actionLabels: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
+  buy: { label: '買進', variant: 'default' },
+  sell: { label: '賣出', variant: 'destructive' },
+  add: { label: '加碼', variant: 'secondary' },
+  trim: { label: '減碼', variant: 'outline' },
+  exit: { label: '出場', variant: 'destructive' },
+};
 
 const AdminSignals = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
-  const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
+  const [expert, setExpert] = useState<any>(null);
+  const [signals, setSignals] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  if (!expert) return <AdminLayout><div /></AdminLayout>;
+  // Form
+  const [instrument, setInstrument] = useState('');
+  const [action, setAction] = useState('');
+  const [priceHint, setPriceHint] = useState('');
+  const [reasonSummary, setReasonSummary] = useState('');
+  const [reasonDetail, setReasonDetail] = useState('');
+  const [riskNotes, setRiskNotes] = useState('');
+  const [planId, setPlanId] = useState('');
 
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  useEffect(() => { fetchData(); }, [expertSlug]);
 
-  // Mock signals data
-  const mockSignals = [
-    { id: '1', instrument: '2330 台積電', action: 'BUY', price: '890', reason: '突破前高，量能放大，符合4有指標', time: '2025-02-20 09:15', status: 'published' },
-    { id: '2', instrument: '2454 聯發科', action: 'SELL', price: '1250', reason: '跌破20MA支撐，量縮價跌', time: '2025-02-19 13:20', status: 'published' },
-    { id: '3', instrument: '3661 世芯-KY', action: 'ADD', price: '2100', reason: '突破盤整區，主力連續買超3天', time: '2025-02-18 10:05', status: 'published' },
-    { id: '4', instrument: '2603 長榮', action: 'TRIM', price: '178', reason: '航運類股轉弱，先減碼保利潤', time: '2025-02-17 11:30', status: 'published' },
-    { id: '5', instrument: '6505 台塑化', action: 'EXIT', price: '68.5', reason: '跌破停損點，無條件出場', time: '2025-02-16 10:45', status: 'published' },
-    { id: '6', instrument: '2881 富邦金', action: 'BUY', price: '82', reason: '金融股回測支撐完成，有大人買訊號', time: '2025-02-15 09:30', status: 'draft' },
-  ];
-
-  const actionLabels: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
-    BUY: { label: '買進', variant: 'default' },
-    SELL: { label: '賣出', variant: 'destructive' },
-    ADD: { label: '加碼', variant: 'secondary' },
-    TRIM: { label: '減碼', variant: 'outline' },
-    EXIT: { label: '出場', variant: 'destructive' },
+  const fetchData = async () => {
+    if (!expertSlug) return;
+    setLoading(true);
+    const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
+    setExpert(exp);
+    if (exp) {
+      const { data: s } = await supabase.from('expert_signals').select('*').eq('expert_id', exp.id).order('created_at', { ascending: false });
+      setSignals(s || []);
+      const { data: p } = await supabase.from('expert_plans').select('id, name').eq('expert_id', exp.id).eq('is_active', true);
+      setPlans(p || []);
+    }
+    setLoading(false);
   };
 
-  const filteredSignals = mockSignals.filter(s => 
-    s.instrument.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.reason.toLowerCase().includes(searchQuery.toLowerCase())
+  const handlePublish = async () => {
+    if (!expert || !instrument || !action) return;
+    const { error } = await supabase.from('expert_signals').insert({
+      expert_id: expert.id,
+      plan_id: planId || null,
+      instrument,
+      action: action as any,
+      price_hint: priceHint ? parseFloat(priceHint) : null,
+      reason_summary: reasonSummary,
+      reason_detail: reasonDetail,
+      risk_notes: riskNotes,
+      status: 'published' as any,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success('訊號已發布');
+    setIsCreateOpen(false);
+    setInstrument(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setPlanId('');
+    fetchData();
+  };
+
+  const isAdvisor = expert?.role === 'advisor';
+
+  const filtered = signals.filter(s =>
+    s.instrument?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.reason_summary?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">訊號管理</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              管理您發布的交易訊號
-            </p>
+            <p className="text-muted-foreground text-sm mt-1">發布即上線，管理者可事後下架</p>
           </div>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
-                <Plus className="h-4 w-4 mr-2" />
-                發布新訊號
+                <Plus className="h-4 w-4 mr-2" />發布新訊號
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>發布新訊號</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>發布新訊號</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>股票代碼</Label>
-                    <Input placeholder="例：2330" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>股票名稱</Label>
-                    <Input placeholder="例：台積電" />
-                  </div>
+                <div className="space-y-2">
+                  <Label>標的（代碼+名稱）</Label>
+                  <Input value={instrument} onChange={e => setInstrument(e.target.value)} placeholder="例：2330 台積電" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>操作方向</Label>
-                    <Select>
+                    <Select value={action} onValueChange={setAction}>
                       <SelectTrigger><SelectValue placeholder="選擇" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="BUY">買進</SelectItem>
-                        <SelectItem value="SELL">賣出</SelectItem>
-                        <SelectItem value="ADD">加碼</SelectItem>
-                        <SelectItem value="TRIM">減碼</SelectItem>
-                        <SelectItem value="EXIT">出場</SelectItem>
+                        <SelectItem value="buy">買進</SelectItem>
+                        <SelectItem value="sell">賣出</SelectItem>
+                        <SelectItem value="add">加碼</SelectItem>
+                        <SelectItem value="trim">減碼</SelectItem>
+                        <SelectItem value="exit">出場</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>參考價位</Label>
-                    <Input placeholder="例：890" type="number" />
+                    <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
                   </div>
                 </div>
+                {plans.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>對應方案</Label>
+                    <Select value={planId} onValueChange={setPlanId}>
+                      <SelectTrigger><SelectValue placeholder="選擇方案（可選）" /></SelectTrigger>
+                      <SelectContent>
+                        {plans.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>操作理由（摘要）</Label>
-                  <Textarea placeholder="簡述操作原因..." rows={2} />
+                  <Textarea value={reasonSummary} onChange={e => setReasonSummary(e.target.value)} placeholder="簡述操作原因..." rows={2} />
                 </div>
                 <div className="space-y-2">
                   <Label>詳細分析</Label>
-                  <Textarea placeholder="詳細的技術面/基本面分析..." rows={4} />
+                  <Textarea value={reasonDetail} onChange={e => setReasonDetail(e.target.value)} placeholder="詳細分析..." rows={3} />
                 </div>
                 <div className="space-y-2">
                   <Label>風險提示</Label>
-                  <Textarea placeholder="停損點、注意事項..." rows={2} />
+                  <Textarea value={riskNotes} onChange={e => setRiskNotes(e.target.value)} placeholder="停損點、注意事項..." rows={2} />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>存為草稿</Button>
-                  <Button className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
+                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>取消</Button>
+                  <Button onClick={handlePublish} className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
                     立即發布
                   </Button>
                 </div>
@@ -123,23 +159,13 @@ const AdminSignals = () => {
           </Dialog>
         </div>
 
-        {/* Search & Filter */}
         <div className="flex gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="搜尋股票代碼或理由..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+            <Input placeholder="搜尋標的或理由..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
-          <Button variant="outline" size="icon">
-            <Filter className="h-4 w-4" />
-          </Button>
         </div>
 
-        {/* Signals Table */}
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -152,44 +178,32 @@ const AdminSignals = () => {
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">價位</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">理由</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">狀態</th>
-                    <th className="text-right p-3 text-xs font-medium text-muted-foreground">操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSignals.map((signal) => {
-                    const actionInfo = actionLabels[signal.action];
-                    return (
-                      <tr key={signal.id} className="border-b last:border-0 hover:bg-muted/30">
-                        <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.time}</td>
-                        <td className="p-3 text-sm font-medium">{signal.instrument}</td>
-                        <td className="p-3">
-                          <Badge variant={actionInfo.variant} className="text-xs">
-                            {actionInfo.label}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-sm">{signal.price}</td>
-                        <td className="p-3 text-sm text-muted-foreground max-w-[200px] truncate">{signal.reason}</td>
-                        <td className="p-3">
-                          <Badge variant={signal.status === 'published' ? 'secondary' : 'outline'} className="text-xs">
-                            {signal.status === 'published' ? '已發布' : '草稿'}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {filtered.length === 0 ? (
+                    <tr><td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">尚無訊號</td></tr>
+                  ) : (
+                    filtered.map((signal) => {
+                      const ai = actionLabels[signal.action] || actionLabels.buy;
+                      return (
+                        <tr key={signal.id} className="border-b last:border-0 hover:bg-muted/30">
+                          <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW') : '-'}</td>
+                          <td className="p-3 text-sm font-medium">{signal.instrument}</td>
+                          <td className="p-3"><Badge variant={ai.variant} className="text-xs">{ai.label}</Badge></td>
+                          <td className="p-3 text-sm">{signal.price_hint || '-'}</td>
+                          <td className="p-3 text-sm text-muted-foreground max-w-[200px] truncate">{signal.reason_summary || '-'}</td>
+                          <td className="p-3">
+                            {signal.status === 'taken_down' ? (
+                              <Badge variant="destructive" className="text-xs">已下架</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">已發布</Badge>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

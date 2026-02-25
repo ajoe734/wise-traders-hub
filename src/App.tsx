@@ -46,6 +46,7 @@ import AdminSignals from "./pages/admin/Signals";
 import AdminSubscribers from "./pages/admin/Subscribers";
 import AdminProfile from "./pages/admin/Profile";
 import AdminPerformance from "./pages/admin/Performance";
+import AdminPlans from "./pages/admin/Plans";
 
 // Company pages (internal backend)
 import CompanyDashboard from "./pages/company/Dashboard";
@@ -53,6 +54,7 @@ import CompanyAnalysts from "./pages/company/Analysts";
 import CompanySubscribers from "./pages/company/Subscribers";
 import CompanyRevenue from "./pages/company/Revenue";
 import CompanyReview from "./pages/company/Review";
+import CompanyPayments from "./pages/company/Payments";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -126,6 +128,7 @@ const App = () => (
             <Route path="/company/subscribers" element={<ProtectedRoute requiredRole="company_admin"><CompanySubscribers /></ProtectedRoute>} />
             <Route path="/company/revenue" element={<ProtectedRoute requiredRole="company_admin"><CompanyRevenue /></ProtectedRoute>} />
             <Route path="/company/review" element={<ProtectedRoute requiredRole="company_admin"><CompanyReview /></ProtectedRoute>} />
+            <Route path="/company/payments" element={<ProtectedRoute requiredRole="company_admin"><CompanyPayments /></ProtectedRoute>} />
 
             {/* Admin (expert backend) */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
@@ -133,6 +136,7 @@ const App = () => (
             <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute><AdminSubscribers /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/plans" element={<ProtectedRoute><AdminPlans /></ProtectedRoute>} />
 
             {/* LINE Mini-App (per expert) */}
             <Route path="/line/:expertSlug" element={<Navigate to="home" replace />} />
