@@ -36,6 +36,20 @@ interface DbSignal {
   } | null;
 }
 
+const BulletList = ({ text, dotClassName }: { text: string; dotClassName: string }) => {
+  const lines = text.split('\n').map(l => l.replace(/^[•·]\s*/, '').trim()).filter(Boolean);
+  return (
+    <ul className="space-y-1.5">
+      {lines.map((line, i) => (
+        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+          <span className={cn('mt-1.5 h-2 w-2 rounded-full flex-shrink-0', dotClassName)} />
+          {line}
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 const SignalDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [signal, setSignal] = useState<DbSignal | null>(null);
@@ -123,7 +137,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <Target className="h-4 w-4 text-primary" /> 2. 部位控管想法
               </h2>
-              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.reason_summary}</p>
+              <BulletList text={signal.reason_summary} dotClassName="bg-primary" />
             </CardContent>
           </Card>
         )}
@@ -135,7 +149,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-warning" /> 3. 風險提醒
               </h2>
-              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.risk_notes}</p>
+              <BulletList text={signal.risk_notes} dotClassName="bg-warning" />
             </CardContent>
           </Card>
         )}
@@ -147,7 +161,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-mentor" /> 4. 延伸學習
               </h2>
-              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.learning_points}</p>
+              <BulletList text={signal.learning_points} dotClassName="bg-mentor" />
             </CardContent>
           </Card>
         )}
