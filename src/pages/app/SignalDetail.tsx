@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { AlertTriangle, BookOpen, Lightbulb, Shield } from 'lucide-react';
+import { AlertTriangle, BookOpen, Lightbulb, Shield, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useStockQuote } from '@/hooks/useStockQuote';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -40,6 +41,11 @@ const SignalDetail = () => {
   const [signal, setSignal] = useState<DbSignal | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Extract stock ticker for price lookup (e.g. "2330 台積電" → "2330")
+  const ticker = signal?.instrument?.match(/^\d+/)?.[0];
+  const twSymbol = ticker ? `${ticker}.TW` : '';
+  const { quote } = useStockQuote(twSymbol || '2330.TW');
+
   useEffect(() => {
     markAppSignalsAsRead();
     if (id) fetchSignal(id);
@@ -66,16 +72,21 @@ const SignalDetail = () => {
 
   const ac = actionConfig[signal.action] || actionConfig.buy;
   const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
+  const priceDisplay = twSymbol && quote ? `${twSymbol} $${quote.price}` : twSymbol || '';
 
   return (
     <UnifiedAppLayout>
       <div className="p-4 space-y-4">
-        {/* Header */}
+        {/* Header: instrument + expert name + stock price */}
         <div className="flex items-center gap-3">
           <Badge className={cn(ac.className, 'text-xs px-2 py-0.5')}>{ac.label}</Badge>
           <span className="text-2xl font-bold">{signal.instrument}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          {signal.experts && <span className="font-medium text-foreground">{signal.experts.name}</span>}
+          {priceDisplay && <span className="text-xs bg-muted px-2 py-0.5 rounded">{priceDisplay}</span>}
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {publishedAt && <span>{format(publishedAt, 'yyyy/MM/dd HH:mm', { locale: zhTW })}</span>}
           {signal.experts && (
             <>
@@ -85,7 +96,6 @@ const SignalDetail = () => {
                 alt={signal.experts.name}
                 className="h-5 w-5 rounded-full object-cover"
               />
-              <span>{signal.experts.name}</span>
               <Badge variant="outline" className="text-[10px]">
                 {signal.experts.role === 'advisor' ? '投顧分析師' : '實戰導師'}
               </Badge>
@@ -100,45 +110,48 @@ const SignalDetail = () => {
           </div>
         )}
 
-        {/* Reason summary */}
-        {signal.reason_summary && (
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">{signal.reason_summary}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Reason detail */}
+        {/* 1. 為什麼這樣操作？ */}
         {signal.reason_detail && (
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
-                <Lightbulb className="h-4 w-4 text-primary" /> 為什麼這樣操作？
+                <Lightbulb className="h-4 w-4 text-primary" /> 1. 為什麼這樣操作？
               </h2>
               <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.reason_detail}</p>
             </CardContent>
           </Card>
         )}
 
-        {/* Risk Notes */}
+        {/* 2. 部位控管想法 */}
+        {signal.reason_summary && (
+          <Card>
+            <CardContent className="p-4">
+              <h2 className="font-semibold mb-2 flex items-center gap-2">
+                <Target className="h-4 w-4 text-primary" /> 2. 部位控管想法
+              </h2>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.reason_summary}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 3. 風險提醒 */}
         {signal.risk_notes && (
           <Card className="bg-warning-light/30 border-warning/20">
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning" /> 風險提醒
+                <AlertTriangle className="h-4 w-4 text-warning" /> 3. 風險提醒
               </h2>
               <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.risk_notes}</p>
             </CardContent>
           </Card>
         )}
 
-        {/* Learning Points */}
+        {/* 4. 延伸學習 */}
         {signal.learning_points && (
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-mentor" /> 延伸學習
+                <BookOpen className="h-4 w-4 text-mentor" /> 4. 延伸學習
               </h2>
               <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.learning_points}</p>
             </CardContent>
