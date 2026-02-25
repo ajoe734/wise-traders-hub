@@ -2,7 +2,8 @@ import { ReactNode, useMemo, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
-import { getUserSubscriptions, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
+import { getUserSubscriptions, getJournalsForUser } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import { PlanType } from '@/types';
 import { 
   Home, Radio, BookOpen, User, LogOut, ChevronRight, ChevronLeft,
@@ -179,24 +180,30 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   // Calculate unread counts
   useEffect(() => {
     if (!user) return;
-    
-    // Signals
-    const signalsLastSeenStr = localStorage.getItem(SIGNALS_LAST_SEEN_KEY);
-    const signalsLastSeen = signalsLastSeenStr ? parseInt(signalsLastSeenStr, 10) : 0;
-    const allSignals = getSignalsForUser(user.id);
-    const advisorSignals = allSignals.filter(s => 
-      s.system && 
-      (s.planType === PlanType.ANALYST_SIGNAL_L1 || s.planType === PlanType.ANALYST_SIGNAL_DIAG_L2)
-    );
-    const unreadS = advisorSignals.filter(s => s.timeTrade.getTime() > signalsLastSeen).length;
-    setUnreadSignals(unreadS);
 
-    // Journals
-    const journalsLastSeenStr = localStorage.getItem(JOURNALS_LAST_SEEN_KEY);
-    const journalsLastSeen = journalsLastSeenStr ? parseInt(journalsLastSeenStr, 10) : 0;
-    const journals = getJournalsForUser(user.id);
-    const unreadJ = journals.filter(j => j.weekEnd.getTime() > journalsLastSeen).length;
-    setUnreadJournals(unreadJ);
+    const loadUnreadCounts = async () => {
+      // Signals (database-backed to match actual visibility)
+      const signalsLastSeenStr = localStorage.getItem(SIGNALS_LAST_SEEN_KEY);
+      const signalsLastSeen = signalsLastSeenStr ? parseInt(signalsLastSeenStr, 10) : 0;
+      const sinceIso = signalsLastSeen > 0 ? new Date(signalsLastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
+
+      const { count: unreadSignalsCount } = await supabase
+        .from('expert_signals')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'published')
+        .gt('published_at', sinceIso);
+
+      setUnreadSignals(unreadSignalsCount ?? 0);
+
+      // Journals
+      const journalsLastSeenStr = localStorage.getItem(JOURNALS_LAST_SEEN_KEY);
+      const journalsLastSeen = journalsLastSeenStr ? parseInt(journalsLastSeenStr, 10) : 0;
+      const journals = getJournalsForUser(user.id);
+      const unreadJ = journals.filter(j => j.weekEnd.getTime() > journalsLastSeen).length;
+      setUnreadJournals(unreadJ);
+    };
+
+    loadUnreadCounts();
   }, [user, location.pathname]);
 
   useEffect(() => {
