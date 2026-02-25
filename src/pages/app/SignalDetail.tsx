@@ -78,13 +78,13 @@ const SignalDetail = () => {
     <UnifiedAppLayout>
       <div className="p-4 space-y-4">
         {/* Header: instrument + expert name + stock price */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Badge className={cn(ac.className, 'text-xs px-2 py-0.5')}>{ac.label}</Badge>
-          <span className="text-2xl font-bold">{signal.instrument}</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          {signal.experts && <span className="font-medium text-foreground">{signal.experts.name}</span>}
-          {priceDisplay && <span className="text-xs bg-muted px-2 py-0.5 rounded">{priceDisplay}</span>}
+          <span className="text-2xl font-bold">
+            {signal.instrument}
+            {signal.experts && <span className="ml-2">{signal.experts.name}</span>}
+            {priceDisplay && <span className="ml-2 text-lg text-muted-foreground font-normal">{priceDisplay}</span>}
+          </span>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {publishedAt && <span>{format(publishedAt, 'yyyy/MM/dd HH:mm', { locale: zhTW })}</span>}
