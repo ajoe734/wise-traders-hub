@@ -1,135 +1,215 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle, XCircle, Clock, Eye, MessageSquare } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { CheckCircle, XCircle, Clock, Eye, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
-const allItems = [
-  { id: '1', type: '訊號', analyst: '趙彭博（投顧）', slug: 'zhao-pengbo', title: '買進 2330 台積電', detail: '看好 AI 伺服器需求持續成長，技術面突破月線', time: '2026-02-24 09:15', status: 'pending' },
-  { id: '2', type: '週記', analyst: '趙彭博（導師）', slug: 'zhao-pengbo-mentor', title: '第8週實戰週記：AI 族群輪動', detail: '本週重點拆解 AI 概念股的族群輪動邏輯', time: '2026-02-23 18:00', status: 'pending' },
-  { id: '3', type: '訊號', analyst: '趙彭博（投顧）', slug: 'zhao-pengbo', title: '減碼 2454 聯發科', detail: '短線漲幅已大，先減碼鎖利', time: '2026-02-22 13:20', status: 'approved' },
-  { id: '4', type: '訊號', analyst: '趙彭博（投顧）', slug: 'zhao-pengbo', title: '賣出 2603 長榮', detail: '航運景氣反轉訊號明確，獲利了結', time: '2026-02-21 10:05', status: 'rejected' },
-  { id: '5', type: '訊號', analyst: '陳建宏', slug: 'chen-advisor', title: '買進 2881 富邦金', detail: '金融股估值偏低，殖利率具吸引力', time: '2026-02-20 14:30', status: 'approved' },
-  { id: '6', type: '週記', analyst: '吳志明（導師）', slug: 'wu-mentor', title: '第7週教學：均線戰法實戰', detail: '利用 5MA/20MA 交叉判斷短線進出場', time: '2026-02-19 17:00', status: 'approved' },
-  { id: '7', type: '訊號', analyst: '林美玲', slug: 'lin-advisor', title: '加碼 0056 高股息', detail: '除息後回填空間大，逢低加碼', time: '2026-02-18 09:45', status: 'approved' },
-  { id: '8', type: '訊號', analyst: '黃雅琪（導師）', slug: 'huang-mentor', title: '觀察 3037 欣興', detail: 'ABF 載板需求回溫，技術面打底完成', time: '2026-02-17 11:00', status: 'pending' },
-];
+const actionLabels: Record<string, string> = {
+  buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '出場',
+};
 
 const CompanyReview = () => {
-  const [tab, setTab] = useState('pending');
+  const { user } = useAuth();
+  const [tab, setTab] = useState('plans');
+  const [pendingPlans, setPendingPlans] = useState<any[]>([]);
+  const [signals, setSignals] = useState<any[]>([]);
+  const [rejectNote, setRejectNote] = useState('');
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [takedownNote, setTakedownNote] = useState('');
+  const [takedownId, setTakedownId] = useState<string | null>(null);
 
-  const pendingItems = allItems.filter(i => i.status === 'pending');
-  const approvedItems = allItems.filter(i => i.status === 'approved');
-  const rejectedItems = allItems.filter(i => i.status === 'rejected');
+  useEffect(() => { fetchData(); }, []);
 
-  const renderItems = (items: typeof allItems) => (
-    <div className="space-y-3">
-      {items.map((item) => (
-        <div key={item.id} className="flex items-start justify-between py-3 border-b last:border-0">
-          <div className="flex items-start gap-3 flex-1 min-w-0">
-            <Badge variant={item.type === '訊號' ? 'default' : 'secondary'} className="text-xs w-12 justify-center mt-0.5 shrink-0">
-              {item.type}
-            </Badge>
-            <div className="min-w-0">
-              <p className="font-medium text-sm">{item.title}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{item.detail}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-muted-foreground">{item.analyst}</span>
-                <span className="text-xs text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground">{item.time}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 ml-3">
-            {item.status === 'pending' ? (
-              <>
-                <Button size="sm" variant="ghost" className="h-7 text-xs" asChild>
-                  <a href={`/admin/${item.slug}/signals`}>
-                    <Eye className="h-3 w-3 mr-1" />查看
-                  </a>
-                </Button>
-                <Button size="sm" variant="outline" className="text-green-600 border-green-600/30 hover:bg-green-500/10 h-7 text-xs">
-                  <CheckCircle className="h-3 w-3 mr-1" />通過
-                </Button>
-                <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-xs">
-                  <XCircle className="h-3 w-3 mr-1" />退回
-                </Button>
-              </>
-            ) : (
-              <Badge variant={item.status === 'approved' ? 'outline' : 'destructive'} className="text-xs">
-                {item.status === 'approved' ? '已通過' : '已退回'}
-              </Badge>
-            )}
-          </div>
-        </div>
-      ))}
-      {items.length === 0 && (
-        <div className="py-8 text-center text-muted-foreground text-sm">
-          暫無項目
-        </div>
-      )}
-    </div>
-  );
+  const fetchData = async () => {
+    const { data: plans } = await supabase
+      .from('expert_plans')
+      .select('*, experts(name, slug, role)')
+      .eq('review_status', 'pending')
+      .order('created_at', { ascending: false });
+    setPendingPlans(plans || []);
+
+    const { data: sigs } = await supabase
+      .from('expert_signals')
+      .select('*, experts(name, slug)')
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .limit(30);
+    setSignals(sigs || []);
+  };
+
+  const approvePlan = async (id: string) => {
+    await supabase.from('expert_plans').update({
+      review_status: 'approved' as any,
+      is_active: true,
+      reviewed_by: user?.id,
+      reviewed_at: new Date().toISOString(),
+    }).eq('id', id);
+    toast.success('方案已核准');
+    fetchData();
+  };
+
+  const rejectPlan = async () => {
+    if (!rejectingId) return;
+    await supabase.from('expert_plans').update({
+      review_status: 'rejected' as any,
+      review_note: rejectNote,
+      reviewed_by: user?.id,
+      reviewed_at: new Date().toISOString(),
+    }).eq('id', rejectingId);
+    toast.success('方案已退回');
+    setRejectingId(null);
+    setRejectNote('');
+    fetchData();
+  };
+
+  const takedownSignal = async () => {
+    if (!takedownId) return;
+    await supabase.from('expert_signals').update({
+      status: 'taken_down' as any,
+      taken_down_reason: takedownNote,
+      taken_down_by: user?.id,
+    }).eq('id', takedownId);
+    toast.success('訊號已下架');
+    setTakedownId(null);
+    setTakedownNote('');
+    fetchData();
+  };
 
   return (
     <CompanyLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">內容審核</h1>
-          <p className="text-muted-foreground text-sm mt-1">審核分析師發布的訊號與內容</p>
+          <p className="text-muted-foreground text-sm mt-1">方案審核與訊號監管</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
               <Clock className="h-5 w-5 text-yellow-500" />
               <div>
-                <div className="text-2xl font-bold">{pendingItems.length}</div>
-                <div className="text-xs text-muted-foreground">待審核</div>
+                <div className="text-2xl font-bold">{pendingPlans.length}</div>
+                <div className="text-xs text-muted-foreground">待審核方案</div>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-green-500" />
+              <AlertTriangle className="h-5 w-5 text-muted-foreground" />
               <div>
-                <div className="text-2xl font-bold">{approvedItems.length}</div>
-                <div className="text-xs text-muted-foreground">已通過</div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <XCircle className="h-5 w-5 text-destructive" />
-              <div>
-                <div className="text-2xl font-bold">{rejectedItems.length}</div>
-                <div className="text-xs text-muted-foreground">已退回</div>
+                <div className="text-2xl font-bold">{signals.length}</div>
+                <div className="text-xs text-muted-foreground">已發布訊號</div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs */}
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="pending">
-              待審核 {pendingItems.length > 0 && <Badge variant="destructive" className="ml-1.5 h-4 px-1.5 text-[10px]">{pendingItems.length}</Badge>}
+            <TabsTrigger value="plans">
+              方案審核 {pendingPlans.length > 0 && <Badge variant="destructive" className="ml-1.5 h-4 px-1.5 text-[10px]">{pendingPlans.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="approved">已通過</TabsTrigger>
-            <TabsTrigger value="rejected">已退回</TabsTrigger>
+            <TabsTrigger value="signals">內容監管</TabsTrigger>
           </TabsList>
-          <Card className="mt-4">
-            <CardContent className="pt-4">
-              <TabsContent value="pending" className="mt-0">{renderItems(pendingItems)}</TabsContent>
-              <TabsContent value="approved" className="mt-0">{renderItems(approvedItems)}</TabsContent>
-              <TabsContent value="rejected" className="mt-0">{renderItems(rejectedItems)}</TabsContent>
-            </CardContent>
-          </Card>
+
+          <TabsContent value="plans" className="mt-4">
+            <Card>
+              <CardContent className="pt-4">
+                {pendingPlans.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground text-sm">無待審核方案</div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingPlans.map(plan => (
+                      <div key={plan.id} className="flex items-start justify-between py-3 border-b last:border-0">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm">{plan.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {plan.experts?.name} · {plan.experts?.role === 'advisor' ? '投顧分析師' : '實戰導師'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">月費 NT${plan.price_monthly?.toLocaleString()}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-3">
+                          <Button size="sm" variant="outline" className="text-green-600 border-green-600/30 hover:bg-green-500/10 h-7 text-xs" onClick={() => approvePlan(plan.id)}>
+                            <CheckCircle className="h-3 w-3 mr-1" />通過
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-xs" onClick={() => setRejectingId(plan.id)}>
+                            <XCircle className="h-3 w-3 mr-1" />退回
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="signals" className="mt-4">
+            <Card>
+              <CardContent className="pt-4">
+                {signals.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground text-sm">無已發布訊號</div>
+                ) : (
+                  <div className="space-y-3">
+                    {signals.map(sig => (
+                      <div key={sig.id} className="flex items-start justify-between py-3 border-b last:border-0">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">{actionLabels[sig.action] || sig.action}</Badge>
+                            <span className="font-medium text-sm">{sig.instrument}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{sig.reason_summary}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {sig.experts?.name} · {sig.published_at ? new Date(sig.published_at).toLocaleString('zh-TW') : ''}
+                          </p>
+                        </div>
+                        <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-xs shrink-0 ml-3" onClick={() => setTakedownId(sig.id)}>
+                          下架
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Reject Dialog */}
+      <Dialog open={!!rejectingId} onOpenChange={() => setRejectingId(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>退回方案</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <Textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="請填寫退回理由..." rows={3} />
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setRejectingId(null)}>取消</Button>
+              <Button variant="destructive" onClick={rejectPlan}>確認退回</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Takedown Dialog */}
+      <Dialog open={!!takedownId} onOpenChange={() => setTakedownId(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>下架訊號</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <Textarea value={takedownNote} onChange={e => setTakedownNote(e.target.value)} placeholder="請填寫下架理由..." rows={3} />
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setTakedownId(null)}>取消</Button>
+              <Button variant="destructive" onClick={takedownSignal}>確認下架</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </CompanyLayout>
   );
 };
