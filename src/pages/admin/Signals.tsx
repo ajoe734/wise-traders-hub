@@ -245,7 +245,7 @@ const AdminSignals = () => {
                              </td>
                              <td className="p-3">
                                {isTakenDown ? (
-                                 <Badge variant="outline" className="text-xs border-destructive/50 text-destructive">已下架</Badge>
+                                 <Badge className="text-xs border border-destructive/50 bg-destructive/10 text-destructive">已下架</Badge>
                                ) : (
                                  <Badge variant="secondary" className="text-xs">已發布</Badge>
                                )}
