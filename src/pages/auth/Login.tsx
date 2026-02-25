@@ -21,21 +21,22 @@ const Login = () => {
 
   const from = (location.state as any)?.from?.pathname;
 
-  // Auto-redirect if already authenticated or after login
+  // Auto-redirect when authenticated and profile is fully loaded
   useEffect(() => {
-    if ((pendingRedirect || !isLoading) && isAuthenticated && user) {
-      if (from && pendingRedirect) {
-        navigate(from, { replace: true });
-      } else if (hasRole('company_admin')) {
-        navigate('/company', { replace: true });
-      } else if (user.expertSlug) {
-        navigate(`/admin/${user.expertSlug}`, { replace: true });
-      } else {
-        navigate('/app', { replace: true });
-      }
-      setPendingRedirect(false);
+    if (!isAuthenticated || !user) return;
+
+    if (from && pendingRedirect) {
+      navigate(from, { replace: true });
+    } else if (hasRole('company_admin')) {
+      navigate('/company', { replace: true });
+    } else if (user.expertSlug) {
+      navigate(`/admin/${user.expertSlug}`, { replace: true });
+    } else {
+      navigate('/app', { replace: true });
     }
-  }, [pendingRedirect, isAuthenticated, user]);
+    setPendingRedirect(false);
+    setIsLoading(false);
+  }, [isAuthenticated, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
