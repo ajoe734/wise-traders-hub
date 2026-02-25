@@ -227,8 +227,7 @@ const AdminSignals = () => {
                        return (
                          <React.Fragment key={signal.id}>
                            <tr className={cn(
-                             "border-b last:border-0 hover:bg-muted/30",
-                             isTakenDown && "bg-destructive/5"
+                             "border-b last:border-0 hover:bg-muted/30"
                            )}>
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW') : '-'}</td>
                              <td className="p-3 text-sm font-medium">{signal.instrument}</td>
