@@ -98,13 +98,14 @@ const AdminPerformance = () => {
                           {trade.status === 'open' ? (trade.current_price || '-') : (trade.exit_price || '-')}
                         </td>
                         {(() => {
-                          // For open trades, calculate unrealized P&L from current_price vs entry_price
-                          const pnl = trade.status === 'open' && trade.current_price && trade.entry_price
-                            ? Number(((trade.current_price - trade.entry_price) / trade.entry_price * 100).toFixed(2))
-                            : trade.pnl_percent;
+                          // Calculate P&L as price difference
+                          const currentOrExit = trade.status === 'open' ? trade.current_price : trade.exit_price;
+                          const pnl = currentOrExit && trade.entry_price
+                            ? Number((currentOrExit - trade.entry_price).toFixed(2))
+                            : null;
                           return (
                             <td className={cn("p-3 text-sm font-medium", pnl != null && pnl > 0 ? "text-green-600 dark:text-green-400" : pnl != null && pnl < 0 ? "text-red-600 dark:text-red-400" : "")}>
-                              {pnl != null ? `${pnl > 0 ? '+' : ''}${pnl}%` : '-'}
+                              {pnl != null ? `${pnl > 0 ? '+' : ''}${pnl}` : '-'}
                             </td>
                           );
                         })()}
