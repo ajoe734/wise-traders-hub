@@ -104,7 +104,7 @@ const SignalDetail = () => {
             <>
               <span>•</span>
               <span className="font-medium text-foreground">{signal.experts.name}</span>
-              <Badge className="text-[10px] bg-[hsl(0,35%,10%)] text-white/70 border border-[hsl(0,45%,20%)] px-2 py-0.5">
+              <Badge className="text-[10px] bg-[hsl(0,35%,10%)] text-white border border-[hsl(0,45%,20%)] px-2 py-0.5">
                 {signal.experts.role === 'advisor' ? '投顧分析師' : '實戰導師'}
               </Badge>
             </>
