@@ -109,6 +109,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             {resolvedTheme === 'dark' ? '淺色模式' : '深色模式'}
           </Button>
+          {hasRole('company_admin') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2 text-muted-foreground"
+              onClick={() => navigate('/company')}
+            >
+              <Building2 className="h-4 w-4" />
+              返回管理後台
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
