@@ -112,7 +112,7 @@ const Signals = () => {
                             className="h-6 w-6 rounded-full object-cover"
                           />
                           <span className="text-sm text-muted-foreground">{signal.experts.name}</span>
-                          <Badge variant="outline" className="text-[10px]">
+                         <Badge className="text-[10px] bg-[hsl(0,60%,15%)] text-white border border-primary/60 px-2 py-0.5">
                             {signal.experts.role === 'advisor' ? '投顧分析師' : '實戰導師'}
                           </Badge>
                         </div>
@@ -124,7 +124,7 @@ const Signals = () => {
 
                       {signal.risk_notes && (
                         <div className="bg-warning-light/50 rounded-lg p-2.5 text-xs text-warning mb-3">
-                          💡 {signal.risk_notes.slice(0, 50)}{signal.risk_notes.length > 50 ? '...' : ''}
+                          💡 {signal.risk_notes.replace(/^[•·]\s*/gm, '').slice(0, 50)}{signal.risk_notes.length > 50 ? '...' : ''}
                         </div>
                       )}
 
