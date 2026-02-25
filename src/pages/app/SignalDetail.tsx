@@ -1,107 +1,146 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RoleBadge } from '@/components/RoleBadge';
-import { ActionBadge } from '@/components/ActionBadge';
-import { getSignalById } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { AlertTriangle, BookOpen, Lightbulb, Target, Shield } from 'lucide-react';
+import { AlertTriangle, BookOpen, Lightbulb, Shield } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const actionConfig: Record<string, { label: string; className: string }> = {
+  buy: { label: '買進', className: 'bg-success text-white border-success' },
+  sell: { label: '賣出', className: 'bg-destructive text-white border-destructive' },
+  add: { label: '加碼', className: 'bg-blue-500 text-blue-50 border-blue-500' },
+  trim: { label: '減碼', className: 'bg-amber-500 text-amber-50 border-amber-500' },
+  exit: { label: '出場', className: 'bg-slate-500 text-slate-50 border-slate-500' },
+};
+
+interface DbSignal {
+  id: string;
+  instrument: string;
+  action: string;
+  price_hint: number | null;
+  reason_summary: string | null;
+  reason_detail: string | null;
+  risk_notes: string | null;
+  learning_points: string | null;
+  published_at: string | null;
+  experts: {
+    name: string;
+    slug: string;
+    role: string;
+    avatar_url: string | null;
+  } | null;
+}
 
 const SignalDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const signal = id ? getSignalById(id) : undefined;
+  const [signal, setSignal] = useState<DbSignal | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mark signals as read when entering this page
   useEffect(() => {
     markAppSignalsAsRead();
-  }, []);
+    if (id) fetchSignal(id);
+  }, [id]);
+
+  const fetchSignal = async (signalId: string) => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('expert_signals')
+      .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url)')
+      .eq('id', signalId)
+      .single();
+    setSignal(data as unknown as DbSignal | null);
+    setLoading(false);
+  };
+
+  if (loading) {
+    return <UnifiedAppLayout><div className="p-4 text-center text-muted-foreground">載入中...</div></UnifiedAppLayout>;
+  }
 
   if (!signal) {
-    return <UnifiedAppLayout><div className="p-4 text-center">找不到此訊號</div></UnifiedAppLayout>;
+    return <UnifiedAppLayout><div className="p-4 text-center text-muted-foreground">找不到此訊號</div></UnifiedAppLayout>;
   }
+
+  const ac = actionConfig[signal.action] || actionConfig.buy;
+  const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
 
   return (
     <UnifiedAppLayout>
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <ActionBadge action={signal.action} />
+          <Badge className={cn(ac.className, 'text-xs px-2 py-0.5')}>{ac.label}</Badge>
           <span className="text-2xl font-bold">{signal.instrument}</span>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>{format(signal.timeTrade, 'yyyy/MM/dd HH:mm', { locale: zhTW })}</span>
-          <span>•</span>
-          <span>{signal.person.name}</span>
-          <RoleBadge role={signal.person.role} size="sm" />
+          {publishedAt && <span>{format(publishedAt, 'yyyy/MM/dd HH:mm', { locale: zhTW })}</span>}
+          {signal.experts && (
+            <>
+              <span>•</span>
+              <img
+                src={signal.experts.avatar_url || '/placeholder.svg'}
+                alt={signal.experts.name}
+                className="h-5 w-5 rounded-full object-cover"
+              />
+              <span>{signal.experts.name}</span>
+              <Badge variant="outline" className="text-[10px]">
+                {signal.experts.role === 'advisor' ? '投顧分析師' : '實戰導師'}
+              </Badge>
+            </>
+          )}
         </div>
 
-        {/* Why */}
-        <Card>
-          <CardContent className="p-4">
-            <h2 className="font-semibold mb-2 flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-primary" /> 為什麼這樣操作？
-            </h2>
-            <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.reasonDetail}</p>
-          </CardContent>
-        </Card>
+        {/* Price hint */}
+        {signal.price_hint != null && (
+          <div className="text-sm text-muted-foreground">
+            參考價位：<span className="font-medium text-foreground">{signal.price_hint}</span>
+          </div>
+        )}
 
-        {/* Position Notes */}
-        {signal.positionNotes.length > 0 && (
+        {/* Reason summary */}
+        {signal.reason_summary && (
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">{signal.reason_summary}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Reason detail */}
+        {signal.reason_detail && (
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
-                <Target className="h-4 w-4 text-advisor" /> 部位控管想法
+                <Lightbulb className="h-4 w-4 text-primary" /> 為什麼這樣操作？
               </h2>
-              <ul className="space-y-2">
-                {signal.positionNotes.map((note, idx) => (
-                  <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <span className="text-advisor">•</span> {note}
-                  </li>
-                ))}
-              </ul>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.reason_detail}</p>
             </CardContent>
           </Card>
         )}
 
         {/* Risk Notes */}
-        {signal.riskNotes.length > 0 && (
+        {signal.risk_notes && (
           <Card className="bg-warning-light/30 border-warning/20">
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-warning" /> 風險提醒
               </h2>
-              <ul className="space-y-2">
-                {signal.riskNotes.map((note, idx) => (
-                  <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <span className="text-warning">•</span> {note}
-                  </li>
-                ))}
-              </ul>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.risk_notes}</p>
             </CardContent>
           </Card>
         )}
 
         {/* Learning Points */}
-        {signal.learningPoints.length > 0 && (
+        {signal.learning_points && (
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-mentor" /> 延伸學習
               </h2>
-              <ul className="space-y-2 mb-4">
-                {signal.learningPoints.map((point, idx) => (
-                  <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <span className="text-mentor">•</span> {point}
-                  </li>
-                ))}
-              </ul>
-              <Button variant="outline" size="sm" className="w-full" asChild>
-                <Link to="/app/library">看完整交易系統教學</Link>
-              </Button>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.learning_points}</p>
             </CardContent>
           </Card>
         )}
