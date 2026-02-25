@@ -97,9 +97,17 @@ const AdminPerformance = () => {
                         <td className="p-3 text-sm">
                           {trade.status === 'open' ? (trade.current_price || '-') : (trade.exit_price || '-')}
                         </td>
-                        <td className={cn("p-3 text-sm font-medium", trade.pnl_percent > 0 ? "text-green-600 dark:text-green-400" : trade.pnl_percent < 0 ? "text-red-600 dark:text-red-400" : "")}>
-                          {trade.pnl_percent != null ? `${trade.pnl_percent > 0 ? '+' : ''}${trade.pnl_percent}%` : '-'}
-                        </td>
+                        {(() => {
+                          // For open trades, calculate unrealized P&L from current_price vs entry_price
+                          const pnl = trade.status === 'open' && trade.current_price && trade.entry_price
+                            ? Number(((trade.current_price - trade.entry_price) / trade.entry_price * 100).toFixed(2))
+                            : trade.pnl_percent;
+                          return (
+                            <td className={cn("p-3 text-sm font-medium", pnl != null && pnl > 0 ? "text-green-600 dark:text-green-400" : pnl != null && pnl < 0 ? "text-red-600 dark:text-red-400" : "")}>
+                              {pnl != null ? `${pnl > 0 ? '+' : ''}${pnl}%` : '-'}
+                            </td>
+                          );
+                        })()}
                         <td className="p-3">
                           <Badge variant={trade.status === 'open' ? 'default' : trade.status === 'closed' ? 'secondary' : 'destructive'} className="text-xs">
                             {trade.status === 'open' ? '持有中' : trade.status === 'closed' ? '已平倉' : '已停損'}
