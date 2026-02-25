@@ -13,8 +13,8 @@ import { Link } from 'react-router-dom';
 const CompanyDashboard = () => {
   const [expertCount, setExpertCount] = useState(0);
   const [subCount, setSubCount] = useState(0);
-  const [pendingPlans, setPendingPlans] = useState(0);
   const [signalCount, setSignalCount] = useState(0);
+  const [planCount, setPlanCount] = useState(0);
 
   useEffect(() => {
     fetchStats();
@@ -25,8 +25,8 @@ const CompanyDashboard = () => {
     setExpertCount(ec || 0);
     const { count: sc } = await supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active');
     setSubCount(sc || 0);
-    const { count: pc } = await supabase.from('expert_plans').select('*', { count: 'exact', head: true }).eq('review_status', 'pending');
-    setPendingPlans(pc || 0);
+    const { count: pc } = await supabase.from('expert_plans').select('*', { count: 'exact', head: true }).eq('is_active', true);
+    setPlanCount(pc || 0);
     const { count: sigc } = await supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published');
     setSignalCount(sigc || 0);
   };
@@ -35,7 +35,7 @@ const CompanyDashboard = () => {
     { label: '總分析師數', value: expertCount, icon: Users },
     { label: '活躍訂閱者', value: subCount, icon: Users },
     { label: '已發布訊號', value: signalCount, icon: Radio },
-    { label: '待審核方案', value: pendingPlans, icon: AlertTriangle, highlight: pendingPlans > 0 },
+    { label: '上架方案數', value: planCount, icon: Activity },
   ];
 
   return (
@@ -79,7 +79,7 @@ const CompanyDashboard = () => {
                 <Link to="/company/payments"><CreditCard className="h-5 w-5" /><span className="text-xs">金流管理</span></Link>
               </Button>
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-                <Link to="/company/review"><Clock className="h-5 w-5" /><span className="text-xs">內容審核</span></Link>
+                <Link to="/company/review"><Clock className="h-5 w-5" /><span className="text-xs">內容監管</span></Link>
               </Button>
             </div>
           </CardContent>
