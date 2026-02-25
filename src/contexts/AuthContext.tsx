@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -26,14 +26,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 AuthContext.displayName = 'AuthContext';
 
-async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
+async function fetchUserProfile(userId: string, email: string): Promise<AuthUser> {
   const [profileRes, rolesRes] = await Promise.all([
     supabase.from('profiles').select('display_name, expert_slug').eq('user_id', userId).single(),
     supabase.from('user_roles').select('role').eq('user_id', userId),
   ]);
-
-  const { data: sessionData } = await supabase.auth.getUser();
-  const email = sessionData?.user?.email || '';
 
   return {
     id: userId,
@@ -49,32 +46,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Track which user ID we're currently loading to avoid stale updates
+  const loadingUserRef = React.useRef<string | null>(null);
+
+  const clearAuth = useCallback(() => {
+    loadingUserRef.current = null;
+    setSupabaseUser(null);
+    setUser(null);
+  }, []);
+
+  const loadProfile = useCallback(async (sbUser: SupabaseUser) => {
+    const userId = sbUser.id;
+    loadingUserRef.current = userId;
+    setSupabaseUser(sbUser);
+    // Clear previous user immediately to prevent stale redirects
+    setUser(null);
+    setIsLoading(true);
+
+    try {
+      const profile = await fetchUserProfile(userId, sbUser.email || '');
+      // Only apply if this is still the user we're loading
+      if (loadingUserRef.current === userId) {
+        setUser(profile);
+      }
+    } catch (e) {
+      console.error('Failed to load user profile:', e);
+    } finally {
+      if (loadingUserRef.current === userId) {
+        setIsLoading(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     // Listen for auth state changes FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        setSupabaseUser(session.user);
-        // Use setTimeout to avoid deadlock with Supabase client
-        setTimeout(async () => {
-          const profile = await fetchUserProfile(session.user.id);
-          setUser(profile);
-          setIsLoading(false);
-        }, 0);
-      } else {
-        setSupabaseUser(null);
-        setUser(null);
+      if (event === 'SIGNED_OUT') {
+        clearAuth();
         setIsLoading(false);
+        return;
+      }
+
+      if (session?.user) {
+        // If the user ID changed (account switch), clear immediately
+        if (supabaseUser?.id && supabaseUser.id !== session.user.id) {
+          clearAuth();
+        }
+        // Defer profile loading to avoid Supabase client deadlock
+        setTimeout(() => loadProfile(session.user), 0);
       }
     });
 
     // Then check existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        setSupabaseUser(session.user);
-        const profile = await fetchUserProfile(session.user.id);
-        setUser(profile);
+        await loadProfile(session.user);
+      } else {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -83,8 +112,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasRole = (role: AppRole) => user?.roles.includes(role) ?? false;
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    // Clear state before login to prevent stale data
+    clearAuth();
+    setIsLoading(true);
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      setIsLoading(false);
+      return { success: false, error: error.message };
+    }
+    // Profile loading happens via onAuthStateChange
     return { success: true };
   };
 
@@ -102,12 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    clearAuth();
+    setIsLoading(true);
     await supabase.auth.signOut();
-    setUser(null);
-    setSupabaseUser(null);
+    setIsLoading(false);
   };
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = !!user && !isLoading;
 
   return (
     <AuthContext.Provider value={{ user, supabaseUser, isLoading, isAuthenticated, hasRole, login, register, logout }}>
