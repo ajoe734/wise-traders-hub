@@ -65,8 +65,8 @@ const CompanyPayments = () => {
   };
 
   const toggleProvider = async (id: string, isActive: boolean) => {
+    setProviders(prev => prev.map(p => p.id === id ? { ...p, is_active: !isActive } : p));
     await supabase.from('payment_providers').update({ is_active: !isActive }).eq('id', id);
-    fetchProviders();
   };
 
   const setDefault = async (id: string) => {
