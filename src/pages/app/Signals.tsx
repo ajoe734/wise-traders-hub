@@ -119,7 +119,7 @@ const Signals = () => {
                       )}
 
                       {signal.reason_summary && (
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{signal.reason_summary}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{signal.reason_summary.replace(/^[•·]\s*/gm, '')}</p>
                       )}
 
                       {signal.risk_notes && (
