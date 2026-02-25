@@ -78,24 +78,18 @@ const SignalDetail = () => {
     <UnifiedAppLayout>
       <div className="p-4 space-y-4">
         {/* Header: instrument + expert name + stock price */}
-        <div className="flex items-center gap-3 flex-wrap">
+        {/* Row 1: Badge + ticker.TW */}
+        <div className="flex items-center gap-3">
           <Badge className={cn(ac.className, 'text-xs px-2 py-0.5')}>{ac.label}</Badge>
-          <span className="text-2xl font-bold">
-            {signal.instrument}
-            {signal.experts && <span className="ml-2">{signal.experts.name}</span>}
-            {priceDisplay && <span className="ml-2 text-lg text-muted-foreground font-normal">{priceDisplay}</span>}
-          </span>
+          <span className="text-2xl font-bold">{twSymbol || signal.instrument}</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        {/* Row 2: date + expert name + role badge */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           {publishedAt && <span>{format(publishedAt, 'yyyy/MM/dd HH:mm', { locale: zhTW })}</span>}
           {signal.experts && (
             <>
               <span>•</span>
-              <img
-                src={signal.experts.avatar_url || '/placeholder.svg'}
-                alt={signal.experts.name}
-                className="h-5 w-5 rounded-full object-cover"
-              />
+              <span className="font-medium text-foreground">{signal.experts.name}</span>
               <Badge variant="outline" className="text-[10px]">
                 {signal.experts.role === 'advisor' ? '投顧分析師' : '實戰導師'}
               </Badge>
