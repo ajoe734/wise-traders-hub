@@ -160,7 +160,9 @@ const SignalDetail = () => {
         {signal.learning_points && (() => {
           const expertSlug = signal.experts?.slug;
           const person = expertSlug ? people.find(p => p.slug === expertSlug) : undefined;
-          const system = person ? tradingSystems.find(s => s.personId === person.id) : undefined;
+          const system = person
+            ? tradingSystems.find(s => s.personId === person.id)
+            : tradingSystems[0]; // fallback to first system
 
           return (
             <Card>
@@ -169,14 +171,12 @@ const SignalDetail = () => {
                   <BookOpen className="h-4 w-4 text-mentor" /> 延伸學習
                 </h2>
                 <BulletList text={signal.learning_points} dotClassName="bg-mentor" />
-                {system && (
-                  <Button variant="outline" className="w-full mt-4" asChild>
-                    <Link to={`/app/system/${system.id}`}>
-                      看完整交易系統教學
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Link>
-                  </Button>
-                )}
+                <Button variant="outline" className="w-full mt-4" asChild>
+                  <Link to={`/app/system/${system?.id || 'system-1'}`}>
+                    看完整交易系統教學
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           );
