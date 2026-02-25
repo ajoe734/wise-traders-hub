@@ -57,11 +57,20 @@ const AdminSignals = () => {
   };
 
   const handlePublish = async () => {
-    if (!expert || !instrument || !action) return;
+    if (!expert) {
+      toast.error('找不到分析師資料，請重新整理後再試');
+      return;
+    }
+
+    if (!instrument.trim() || !action) {
+      toast.error('請先填寫「標的」與「操作方向」');
+      return;
+    }
+
     const { error } = await supabase.from('expert_signals').insert({
       expert_id: expert.id,
       plan_id: planId || null,
-      instrument,
+      instrument: instrument.trim(),
       action: action as any,
       price_hint: priceHint ? parseFloat(priceHint) : null,
       reason_summary: reasonSummary,
@@ -77,6 +86,7 @@ const AdminSignals = () => {
   };
 
   const isAdvisor = expert?.role === 'advisor';
+  const canPublish = !!expert && !!instrument.trim() && !!action;
 
   const filtered = signals.filter(s =>
     s.instrument?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -150,7 +160,11 @@ const AdminSignals = () => {
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={() => setIsCreateOpen(false)}>取消</Button>
-                  <Button onClick={handlePublish} className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
+                  <Button
+                    onClick={handlePublish}
+                    disabled={!canPublish}
+                    className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
+                  >
                     立即發布
                   </Button>
                 </div>
