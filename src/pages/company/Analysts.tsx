@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Eye, UserPlus, BarChart3, Radio } from 'lucide-react';
+import { Eye, UserPlus, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -17,13 +19,25 @@ const CompanyAnalysts = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Form
+  // Create analyst form
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [role, setRole] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // Plan management
+  const [planExpert, setPlanExpert] = useState<any>(null);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
+  const [planName, setPlanName] = useState('');
+  const [planType, setPlanType] = useState('');
+  const [planMonthly, setPlanMonthly] = useState('');
+  const [planYearly, setPlanYearly] = useState('');
+  const [planDesc, setPlanDesc] = useState('');
+  const [savingPlan, setSavingPlan] = useState(false);
 
   useEffect(() => { fetchExperts(); }, []);
 
@@ -61,13 +75,85 @@ const CompanyAnalysts = () => {
     fetchExperts();
   };
 
+  // Plan management
+  const openPlans = async (expert: any) => {
+    setPlanExpert(expert);
+    setPlansLoading(true);
+    const { data } = await supabase
+      .from('expert_plans')
+      .select('*')
+      .eq('expert_id', expert.id)
+      .order('created_at', { ascending: false });
+    setPlans(data || []);
+    setPlansLoading(false);
+  };
+
+  const closePlans = () => {
+    setPlanExpert(null);
+    setPlans([]);
+  };
+
+  const togglePlanActive = async (planId: string, currentActive: boolean) => {
+    await supabase.from('expert_plans').update({ is_active: !currentActive }).eq('id', planId);
+    toast.success(!currentActive ? '方案已上架' : '方案已下架');
+    if (planExpert) openPlans(planExpert);
+  };
+
+  const handleAddPlan = async () => {
+    if (!planName || !planType || !planMonthly || !planExpert) {
+      toast.error('請填寫必填欄位');
+      return;
+    }
+    setSavingPlan(true);
+    const { error } = await supabase.from('expert_plans').insert({
+      expert_id: planExpert.id,
+      name: planName,
+      plan_type: planType as any,
+      price_monthly: parseInt(planMonthly),
+      price_yearly: planYearly ? parseInt(planYearly) : null,
+      description: planDesc || null,
+      review_status: 'approved' as any,
+      is_active: true,
+    });
+    setSavingPlan(false);
+    if (error) {
+      toast.error('建立方案失敗');
+      return;
+    }
+    toast.success('方案已建立');
+    setIsAddPlanOpen(false);
+    setPlanName(''); setPlanType(''); setPlanMonthly(''); setPlanYearly(''); setPlanDesc('');
+    openPlans(planExpert);
+  };
+
+  const planTypeLabel = (t: string) => {
+    switch (t) {
+      case 'analyst_signal_l1': return '跟單派 L1';
+      case 'analyst_signal_diag_l2': return '跟單派 L2';
+      case 'mentor_weekly_journal': return '修煉派';
+      default: return t;
+    }
+  };
+
+  const getPlanTypeOptions = (expertRole: string) => {
+    if (expertRole === 'advisor') {
+      return [
+        { value: 'analyst_signal_l1', label: '跟單派 L1（即時訊號）' },
+        { value: 'analyst_signal_diag_l2', label: '跟單派 L2（訊號 + 持股健檢）' },
+      ];
+    }
+    return [
+      { value: 'mentor_weekly_journal', label: '修煉派（週記）' },
+    ];
+  };
+
   return (
     <CompanyLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">分析師管理</h1>
-            <p className="text-muted-foreground text-sm mt-1">管理所有分析師帳號、權限與績效</p>
+            <p className="text-muted-foreground text-sm mt-1">管理所有分析師帳號、權限與方案</p>
           </div>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
@@ -152,6 +238,9 @@ const CompanyAnalysts = () => {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openPlans(exp)}>
+                            <Package className="h-3 w-3 mr-1" />方案
+                          </Button>
                           <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
                             <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
                           </Button>
@@ -168,6 +257,86 @@ const CompanyAnalysts = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Plan Management Dialog */}
+      <Dialog open={!!planExpert} onOpenChange={(open) => { if (!open) closePlans(); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{planExpert?.name} — 方案管理</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            {plansLoading ? (
+              <p className="text-sm text-muted-foreground text-center py-4">載入中...</p>
+            ) : plans.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">尚無方案</p>
+            ) : (
+              <div className="space-y-3">
+                {plans.map(plan => (
+                  <div key={plan.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm">{plan.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {planTypeLabel(plan.plan_type)} · NT${plan.price_monthly?.toLocaleString()}/月
+                        {plan.price_yearly ? ` · NT$${plan.price_yearly.toLocaleString()}/年` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <span className="text-xs text-muted-foreground">{plan.is_active ? '上架' : '下架'}</span>
+                      <Switch checked={plan.is_active} onCheckedChange={() => togglePlanActive(plan.id, plan.is_active)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Button variant="outline" size="sm" className="w-full" onClick={() => setIsAddPlanOpen(true)}>
+              + 新增方案
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Plan Dialog */}
+      <Dialog open={isAddPlanOpen} onOpenChange={setIsAddPlanOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>新增方案 — {planExpert?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>方案名稱</Label>
+              <Input value={planName} onChange={e => setPlanName(e.target.value)} placeholder="例：跟單派 基礎方案" />
+            </div>
+            <div className="space-y-2">
+              <Label>方案類型</Label>
+              <Select value={planType} onValueChange={setPlanType}>
+                <SelectTrigger><SelectValue placeholder="選擇類型" /></SelectTrigger>
+                <SelectContent>
+                  {planExpert && getPlanTypeOptions(planExpert.role).map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>月費（NT$）</Label>
+                <Input type="number" value={planMonthly} onChange={e => setPlanMonthly(e.target.value)} placeholder="1699" />
+              </div>
+              <div className="space-y-2">
+                <Label>年費（NT$，選填）</Label>
+                <Input type="number" value={planYearly} onChange={e => setPlanYearly(e.target.value)} placeholder="16990" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>描述（選填）</Label>
+              <Textarea value={planDesc} onChange={e => setPlanDesc(e.target.value)} placeholder="方案描述..." rows={2} />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setIsAddPlanOpen(false)}>取消</Button>
+              <Button onClick={handleAddPlan} disabled={savingPlan}>{savingPlan ? '建立中...' : '建立方案'}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </CompanyLayout>
   );
 };
