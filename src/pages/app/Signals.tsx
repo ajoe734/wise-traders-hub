@@ -112,7 +112,7 @@ const Signals = () => {
                             className="h-6 w-6 rounded-full object-cover"
                           />
                           <span className="text-sm text-muted-foreground">{signal.experts.name}</span>
-                         <Badge className="text-[10px] px-2 py-0.5" style={{ backgroundColor: 'hsl(0,30%,14%)', color: '#ffffff', borderColor: 'hsl(0,40%,25%)' }}>
+                         <Badge className="text-[10px] px-2 py-0.5" style={{ backgroundColor: 'hsl(0,25%,18%)', color: '#ffffff', borderColor: 'hsl(0,35%,30%)' }}>
                             {signal.experts.role === 'advisor' ? '投顧分析師' : '實戰導師'}
                           </Badge>
                         </div>
