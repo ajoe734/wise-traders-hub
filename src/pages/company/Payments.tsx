@@ -41,7 +41,7 @@ const CompanyPayments = () => {
 
   const fetchProviders = async () => {
     const { data } = await supabase.from('payment_providers').select('*').order('created_at');
-    setProviders(data || []);
+    setProviders((data || []).filter((p) => p.provider_type !== 'stripe'));
   };
 
   const fetchTransactions = async () => {
