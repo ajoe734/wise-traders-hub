@@ -10,10 +10,14 @@ import { getPersonBySlug } from '@/data/mockData';
 import { PersonRole } from '@/types';
 import { cn } from '@/lib/utils';
 import { Save, Upload } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AdminProfile = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
+
+  const { hasRole } = useAuth();
+  const isReadOnly = hasRole('company_admin');
 
   if (!expert) return <AdminLayout><div /></AdminLayout>;
 
@@ -27,10 +31,12 @@ const AdminProfile = () => {
             <h1 className="text-2xl font-bold">個人檔案</h1>
             <p className="text-muted-foreground text-sm mt-1">編輯您的公開資訊</p>
           </div>
-          <Button className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
-            <Save className="h-4 w-4 mr-2" />
-            儲存變更
-          </Button>
+          {!isReadOnly && (
+            <Button className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
+              <Save className="h-4 w-4 mr-2" />
+              儲存變更
+            </Button>
+          )}
         </div>
 
         {/* Avatar */}
@@ -46,10 +52,12 @@ const AdminProfile = () => {
                 className="h-20 w-20 rounded-full object-cover border-2 border-border"
               />
               <div>
-                <Button variant="outline" size="sm">
-                  <Upload className="h-4 w-4 mr-2" />
-                  更換頭像
-                </Button>
+                {!isReadOnly && (
+                  <Button variant="outline" size="sm">
+                    <Upload className="h-4 w-4 mr-2" />
+                    更換頭像
+                  </Button>
+                )}
                 <p className="text-xs text-muted-foreground mt-2">建議尺寸 400x400px，JPG 或 PNG</p>
               </div>
             </div>
@@ -65,7 +73,7 @@ const AdminProfile = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>姓名</Label>
-                <Input defaultValue={expert.name} />
+                <Input defaultValue={expert.name} disabled={isReadOnly} />
               </div>
               <div className="space-y-2">
                 <Label>角色</Label>
@@ -78,11 +86,11 @@ const AdminProfile = () => {
             </div>
             <div className="space-y-2">
               <Label>簡介</Label>
-              <Input defaultValue={expert.bio} />
+              <Input defaultValue={expert.bio} disabled={isReadOnly} />
             </div>
             <div className="space-y-2">
               <Label>詳細介紹</Label>
-              <Textarea defaultValue={expert.description} rows={4} />
+              <Textarea defaultValue={expert.description} rows={4} disabled={isReadOnly} />
             </div>
           </CardContent>
         </Card>
@@ -99,7 +107,7 @@ const AdminProfile = () => {
                 {expert.styleTags.map((tag) => (
                   <Badge key={tag} variant="secondary">{tag}</Badge>
                 ))}
-                <Button variant="outline" size="sm" className="h-6 text-xs">+ 新增</Button>
+                {!isReadOnly && <Button variant="outline" size="sm" className="h-6 text-xs">+ 新增</Button>}
               </div>
             </div>
             <div className="space-y-2">
@@ -108,17 +116,17 @@ const AdminProfile = () => {
                 {expert.markets.map((market) => (
                   <Badge key={market} variant="outline">{market}</Badge>
                 ))}
-                <Button variant="outline" size="sm" className="h-6 text-xs">+ 新增</Button>
+                {!isReadOnly && <Button variant="outline" size="sm" className="h-6 text-xs">+ 新增</Button>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>風險屬性</Label>
-                <Input defaultValue={expert.riskTolerance || ''} />
+                <Input defaultValue={expert.riskTolerance || ''} disabled={isReadOnly} />
               </div>
               <div className="space-y-2">
                 <Label>交易週期</Label>
-                <Input defaultValue={expert.timeframe || ''} />
+                <Input defaultValue={expert.timeframe || ''} disabled={isReadOnly} />
               </div>
             </div>
           </CardContent>
