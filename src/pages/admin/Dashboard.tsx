@@ -165,29 +165,6 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Active Plans */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">上架方案</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {expertPlans.map((plan) => (
-                <div key={plan.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                  <div>
-                    <p className="font-medium text-sm">{plan.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      NT${plan.priceMonthly.toLocaleString()}/月
-                    </p>
-                  </div>
-                  <Badge variant={plan.isActive ? 'secondary' : 'outline'}>
-                    {plan.isActive ? '上架中' : '已下架'}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </AdminLayout>
   );
