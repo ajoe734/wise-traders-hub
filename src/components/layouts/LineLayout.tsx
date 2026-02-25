@@ -227,20 +227,6 @@ export function LineLayout({ children }: LineLayoutProps) {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
-            {/* Back button - only show when not on home */}
-            {!isHomePage && (
-              <button
-                onClick={() => navigate(getBackPath())}
-                className={cn(
-                  "flex items-center justify-center w-8 h-8 -ml-2 rounded-full transition-colors",
-                  "hover:bg-muted active:bg-muted/80",
-                  isAdvisor ? "text-advisor" : "text-mentor"
-                )}
-                aria-label="返回"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-            )}
             <img
               src={expert.avatarUrl || '/placeholder.svg'}
               alt={expert.name}
@@ -252,32 +238,46 @@ export function LineLayout({ children }: LineLayoutProps) {
             </Badge>
           </div>
           
-          {/* Theme Toggle Button - 更明顯的設計 */}
-          {mounted && (
+          <div className="flex items-center gap-2">
+            {/* 返回後台 */}
             <button
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              onClick={() => navigate(`/admin/${expertSlug}`)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all",
+                "flex items-center gap-1 px-2.5 py-1.5 rounded-full transition-all",
                 "border text-sm font-medium",
-                resolvedTheme === 'dark' 
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-                  : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
+                "bg-muted/50 border-border text-muted-foreground hover:bg-muted"
               )}
-              aria-label={resolvedTheme === 'dark' ? '切換至淺色模式' : '切換至深色模式'}
             >
-              {resolvedTheme === 'dark' ? (
-                <>
-                  <Sun className="h-4 w-4" />
-                  <span className="text-xs">淺色</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="h-4 w-4" />
-                  <span className="text-xs">夜間</span>
-                </>
-              )}
+              <ChevronLeft className="h-3.5 w-3.5" />
+              <span className="text-xs">後台</span>
             </button>
-          )}
+            {/* Theme Toggle */}
+            {mounted && (
+              <button
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all",
+                  "border text-sm font-medium",
+                  resolvedTheme === 'dark' 
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                    : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
+                )}
+                aria-label={resolvedTheme === 'dark' ? '切換至淺色模式' : '切換至深色模式'}
+              >
+                {resolvedTheme === 'dark' ? (
+                  <>
+                    <Sun className="h-4 w-4" />
+                    <span className="text-xs">淺色</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="h-4 w-4" />
+                    <span className="text-xs">夜間</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Breadcrumbs */}
@@ -324,14 +324,13 @@ export function LineLayout({ children }: LineLayoutProps) {
 
       {/* Bottom Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-background border-t z-50">
-        <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
+        <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
           {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 flex-1 h-full mobile-touch-target relative",
-                // 點擊動畫：縮放 + 背景變化
+                "flex flex-col items-center justify-center gap-0.5 flex-1 h-full relative",
                 "transition-all duration-150 ease-out",
                 "active:scale-95 active:bg-muted/30",
                 isActive(item.group)
@@ -339,12 +338,8 @@ export function LineLayout({ children }: LineLayoutProps) {
                   : "text-muted-foreground"
               )}
             >
-              <div className={cn(
-                "relative transition-transform duration-150",
-                "active:scale-90"
-              )}>
+              <div className="relative">
                 <item.icon className="h-5 w-5" />
-                {/* Unread badge */}
                 {item.badge > 0 && (
                   <span className={cn(
                     "absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center",
