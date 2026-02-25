@@ -14,11 +14,14 @@ const actionLabels: Record<string, string> = {
   buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '出場',
 };
 
+const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
+
 const CompanyReview = () => {
   const { user } = useAuth();
   const [signals, setSignals] = useState<any[]>([]);
   const [takedownNote, setTakedownNote] = useState('');
   const [takedownId, setTakedownId] = useState<string | null>(null);
+  const [viewReasonId, setViewReasonId] = useState<string | null>(null);
 
   useEffect(() => { fetchSignals(); }, []);
 
@@ -69,21 +72,52 @@ const CompanyReview = () => {
               <div className="py-8 text-center text-muted-foreground text-sm">無已發布訊號</div>
             ) : (
               <div className="space-y-3">
-                {signals.map(sig => (
-                  <div key={sig.id} className="flex items-start justify-between py-3 border-b last:border-0">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">{actionLabels[sig.action] || sig.action}</Badge>
-                        <span className="font-medium text-sm">{sig.instrument}</span>
+                  {signals.map(sig => (
+                  <div key={sig.id} className="py-3 border-b last:border-0 space-y-1">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{actionLabels[sig.action] || sig.action}</Badge>
+                          <span className="font-medium text-sm">{sig.instrument}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{stripDotPrefix(sig.reason_summary || '')}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {sig.experts?.name} · {sig.published_at ? new Date(sig.published_at).toLocaleString('zh-TW') : ''}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{sig.reason_summary}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {sig.experts?.name} · {sig.published_at ? new Date(sig.published_at).toLocaleString('zh-TW') : ''}
-                      </p>
+                      <div className="flex items-center gap-2 shrink-0 ml-3">
+                        {(sig.reason_detail || sig.risk_notes) && (
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setViewReasonId(viewReasonId === sig.id ? null : sig.id)}>
+                            {viewReasonId === sig.id ? '收起' : '查看理由'}
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-xs" onClick={() => setTakedownId(sig.id)}>
+                          下架
+                        </Button>
+                      </div>
                     </div>
-                    <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-xs shrink-0 ml-3" onClick={() => setTakedownId(sig.id)}>
-                      下架
-                    </Button>
+                    {viewReasonId === sig.id && (
+                      <div className="bg-muted/50 rounded-md p-3 text-xs space-y-2">
+                        {sig.reason_summary && (
+                          <div>
+                            <span className="font-medium text-foreground">摘要</span>
+                            <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(sig.reason_summary)}</p>
+                          </div>
+                        )}
+                        {sig.reason_detail && (
+                          <div>
+                            <span className="font-medium text-foreground">詳細分析</span>
+                            <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(sig.reason_detail)}</p>
+                          </div>
+                        )}
+                        {sig.risk_notes && (
+                          <div>
+                            <span className="font-medium text-foreground">風險提示</span>
+                            <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(sig.risk_notes)}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
