@@ -3,7 +3,7 @@ import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { PersonRole } from '@/types';
 import { getPersonBySlug, getSignalsForUser, getJournalsForUser } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
-import { Home, Radio, BarChart3, BookOpen, User, ChevronRight, ChevronLeft, Moon, Sun } from 'lucide-react';
+import { Home, Radio, BarChart3, BookOpen, User, ChevronRight, ChevronLeft, Moon, Sun, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
@@ -113,6 +113,7 @@ export function LineLayout({ children }: LineLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAnalystOwner = user?.roles?.includes('analyst') && user?.expertSlug === expertSlug;
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
@@ -252,32 +253,50 @@ export function LineLayout({ children }: LineLayoutProps) {
             </Badge>
           </div>
           
-          {/* Theme Toggle Button - 更明顯的設計 */}
-          {mounted && (
-            <button
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all",
-                "border text-sm font-medium",
-                resolvedTheme === 'dark' 
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-                  : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
-              )}
-              aria-label={resolvedTheme === 'dark' ? '切換至淺色模式' : '切換至深色模式'}
-            >
-              {resolvedTheme === 'dark' ? (
-                <>
-                  <Sun className="h-4 w-4" />
-                  <span className="text-xs">淺色</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="h-4 w-4" />
-                  <span className="text-xs">夜間</span>
-                </>
-              )}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Back to admin backend for analyst owner */}
+            {isAnalystOwner && (
+              <button
+                onClick={() => navigate(`/admin/${expertSlug}`)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all",
+                  "border text-sm font-medium",
+                  isAdvisor
+                    ? "bg-advisor/10 border-advisor/30 text-advisor hover:bg-advisor/20"
+                    : "bg-mentor/10 border-mentor/30 text-mentor hover:bg-mentor/20"
+                )}
+              >
+                <Settings className="h-4 w-4" />
+                <span className="text-xs">後台</span>
+              </button>
+            )}
+            {/* Theme Toggle Button */}
+            {mounted && (
+              <button
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all",
+                  "border text-sm font-medium",
+                  resolvedTheme === 'dark' 
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                    : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
+                )}
+                aria-label={resolvedTheme === 'dark' ? '切換至淺色模式' : '切換至深色模式'}
+              >
+                {resolvedTheme === 'dark' ? (
+                  <>
+                    <Sun className="h-4 w-4" />
+                    <span className="text-xs">淺色</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="h-4 w-4" />
+                    <span className="text-xs">夜間</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Breadcrumbs */}
