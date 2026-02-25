@@ -324,22 +324,20 @@ export function LineLayout({ children }: LineLayoutProps) {
 
       {/* Bottom Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-background border-t z-50">
-        <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
+        <div className="flex items-center justify-around h-16">
           {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 flex-1 h-full relative",
-                "transition-all duration-150 ease-out",
-                "active:scale-95 active:bg-muted/30",
+                "flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] mobile-touch-target transition-colors",
                 isActive(item.group)
                   ? isAdvisor ? "text-advisor" : "text-mentor"
-                  : "text-muted-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               <div className="relative">
-                <item.icon className="h-5 w-5" />
+                <item.icon className={cn("h-5 w-5", isActive(item.group) && (isAdvisor ? "text-advisor" : "text-mentor"))} />
                 {item.badge > 0 && (
                   <span className={cn(
                     "absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center",
@@ -351,7 +349,7 @@ export function LineLayout({ children }: LineLayoutProps) {
                   </span>
                 )}
               </div>
-              <span className="text-xs">{item.label}</span>
+              <span className="text-[10px] font-medium">{item.label}</span>
             </Link>
           ))}
         </div>
