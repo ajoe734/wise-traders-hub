@@ -42,7 +42,7 @@ const BulletList = ({ text, dotClassName }: { text: string; dotClassName: string
     <ul className="space-y-1.5">
       {lines.map((line, i) => (
         <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-          <span className={cn('mt-[6px] ml-1 h-1 w-1 rounded-full flex-shrink-0', dotClassName)} />
+          <span className={cn('mt-[6px] ml-[5px] h-1 w-1 rounded-full flex-shrink-0', dotClassName)} />
           {line}
         </li>
       ))}
