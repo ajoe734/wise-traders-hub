@@ -1,89 +1,125 @@
 
 
-# 方案管理權限調整計劃
+# LINE@ 訊號推播整合計劃
 
-## 需求理解
+## 概述
 
-目前的設計是「分析師建立方案 → 送審 → 管理者核准」，需要調整為：
+每位分析師擁有一個由公司統一申辦的 LINE Official Account（LINE@）。分析師發布新訊號時，系統自動透過該分析師的 LINE@ 推播通知給已綁定的訂閱者。
 
-1. **分析師不能管理方案** — 移除分析師後台的「方案管理」頁面和導航
-2. **公司後台不需要審核方案** — 移除 Review.tsx 中的「方案審核」Tab，因為方案由管理者直接建立，無需審核流程
-3. **方案只有兩種固定訂閱制**（跟單派 / 修煉派），管理者可以新增新的訂閱制
-4. **方案由管理者在公司後台直接建立和管理**
+## LINE 帳號管理架構
 
-## 改動內容
+```text
+公司 LINE Business ID（所有權歸公司）
+  |
+  +-- 分析師 A 的 LINE Official Account
+  |     操作員：分析師 A（只能回覆訊息）
+  |     管理員：公司管理者（掌控設定與 Token）
+  |
+  +-- 分析師 B 的 LINE Official Account
+  |     操作員：分析師 B
+  |     管理員：公司管理者
+```
 
-### 1. 分析師後台 — 移除方案管理
+- 所有 LINE OA 由公司 Business ID 建立，所有權歸公司
+- 分析師為「操作員」，只能回覆訊息
+- Channel Access Token 由管理者在系統後台統一設定
+- 員工離職移除操作員權限即可，帳號與好友名單保留
 
-**`src/components/layouts/AdminLayout.tsx`**
-- 從 navItems 移除 `{ path: basePath/plans, icon: Package, label: '方案管理' }`
+## 推播流程
 
-**`src/App.tsx`**
-- 移除 `/admin/:expertSlug/plans` 路由
-- 移除 `AdminPlans` 的 import
+```text
+分析師發布訊號 (insert expert_signals)
+       |
+       v
+前端呼叫 Edge Function: line-push-signal
+       |
+       v
+  1. 查 expert_line_channels 取得 channel_access_token
+  2. 查 member_line_bindings + member_subscriptions 取得活躍訂閱者 LINE UID
+  3. LINE Messaging API multicast 推播 Flex Message
+       |
+       v
+訂閱者 LINE 收到通知
+```
 
-**`src/pages/admin/Plans.tsx`**
-- 此檔案不再需要（可保留但不會被路由引用，或直接刪除）
+## 實作步驟
 
-### 2. 公司後台 — Review.tsx 簡化
+### 1. 資料庫 — 新增兩張表
 
-由於方案由管理者直接建立，不存在「送審」流程，因此：
+**`expert_line_channels`** — 每位分析師的 LINE OA 設定（僅 company_admin 可讀寫）
 
-**`src/pages/company/Review.tsx`**
-- 移除「方案審核」Tab，只保留「內容監管」（訊號事後下架）
-- 頁面標題改為「內容監管」
-- 移除方案審核相關的 state、函式（pendingPlans, approvePlan, rejectPlan, rejectingId 等）
-- 移除退回方案的 Dialog
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | uuid PK | |
+| expert_id | uuid UNIQUE | FK -> experts.id |
+| channel_id | text | LINE Channel ID |
+| channel_access_token | text | 長期 Token |
+| channel_name | text | 顯示名稱 |
+| is_active | boolean | 是否啟用推播 |
+| created_at / updated_at | timestamptz | |
 
-### 3. 公司後台 — 新增方案管理功能
+**`member_line_bindings`** — 訂閱者的 LINE 綁定（預留，後續用戶加好友時寫入）
 
-管理者需要一個地方來建立和管理方案（為特定分析師建立訂閱方案）。有兩種放置方式：
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | uuid PK | |
+| user_id | uuid | FK |
+| expert_id | uuid | FK |
+| line_user_id | text | 該用戶在此 OA 的 UID |
+| display_name | text | LINE 顯示名 |
+| is_active | boolean | |
+| bound_at | timestamptz | |
 
-- **方案一**：在「分析師管理」頁面（Analysts.tsx）中，點擊某個分析師後可以管理其方案
-- **方案二**：在公司後台新增一個獨立的「方案管理」頁面
+UNIQUE: (user_id, expert_id)
 
-建議採用**方案一**，因為方案本來就是綁定在分析師身上的，在分析師管理頁面內操作最直覺。
+### 2. Edge Function — `line-push-signal`
 
-**`src/pages/company/Analysts.tsx`**
-- 每個分析師卡片新增「管理方案」按鈕
-- 點擊後開啟 Dialog 或展開區塊，顯示該分析師目前的方案列表
-- 管理者可新增方案（名稱、類型、月費、年費、描述）
-- 新增的方案直接設為 `review_status: 'approved'`, `is_active: true`（無需審核流程）
-- 可停用/啟用方案
+- 接收 `{ signal_id, expert_id }`
+- 從 `expert_line_channels` 取 token（若無設定回傳 `{ pushed: false, reason: 'no_channel' }`）
+- 從 `member_line_bindings` JOIN `member_subscriptions` 查活躍且已綁定的 LINE UID
+- 呼叫 `POST https://api.line.me/v2/bot/message/multicast` 推播 Flex Message
+- 每批最多 500 人，分批發送
+- 回傳 `{ pushed: true, count: N }`
 
-### 4. 資料庫 — 簡化 review_status
+### 3. 前端 — 分析師訊號發布後自動推播
 
-由於方案不再需要審核流程，`expert_plans` 表的 `review_status` 欄位變得不必要。但為了避免破壞性變更，建議：
-- 保留欄位但管理者建立方案時直接設為 `approved`
-- 前端不再顯示審核狀態相關 UI
+**`src/pages/admin/Signals.tsx`** 的 `handlePublish` 函式：
+- 訊號 insert 成功後，呼叫 `supabase.functions.invoke('line-push-signal', { body: { signal_id, expert_id } })`
+- 成功 → toast「已推播給 N 位訂閱者」
+- 無 LINE 設定 → 靜默跳過（不影響訊號發布）
+- 推播失敗 → toast「LINE 推播失敗，訊號已發布」
 
-### 5. CompanyLayout 導航調整
+### 4. 前端 — 公司管理後台 LINE 設定
 
-**`src/components/layouts/CompanyLayout.tsx`**
-- 將「內容審核」改名為「內容監管」（因為已不涉及審核，只有事後監管）
+**`src/pages/company/Analysts.tsx`**：
+- 每位分析師操作列新增「LINE」按鈕（與現有「方案」按鈕並列）
+- 點擊開啟 Dialog，可設定：
+  - Channel ID
+  - Channel Access Token
+  - 顯示名稱
+  - 啟用/停用推播
+- 顯示已綁定訂閱者人數
 
----
-
-## 技術細節
-
-### 修改檔案清單
+## 修改檔案清單
 
 | 檔案 | 操作 | 說明 |
 |------|------|------|
-| `src/components/layouts/AdminLayout.tsx` | 修改 | 移除「方案管理」導航項目 |
-| `src/App.tsx` | 修改 | 移除 `/admin/:expertSlug/plans` 路由和 import |
-| `src/pages/company/Review.tsx` | 修改 | 移除方案審核 Tab，只保留內容監管 |
-| `src/pages/company/Analysts.tsx` | 修改 | 新增「管理方案」功能（Dialog 內可 CRUD 方案） |
-| `src/components/layouts/CompanyLayout.tsx` | 修改 | 「內容審核」改為「內容監管」 |
+| DB migration | 新增 | 建立 expert_line_channels 和 member_line_bindings 表 + RLS |
+| `supabase/functions/line-push-signal/index.ts` | 新增 | LINE 推播 Edge Function |
+| `supabase/config.toml` | 修改 | 新增 line-push-signal 設定 |
+| `src/pages/admin/Signals.tsx` | 修改 | 發布訊號後呼叫推播 |
+| `src/pages/company/Analysts.tsx` | 修改 | 新增 LINE 設定管理 Dialog |
 
-### 方案建立邏輯
+## 安全性
 
-管理者在分析師管理頁建立方案時：
-- `expert_id` 綁定該分析師
-- `review_status` 直接設為 `approved`
-- `is_active` 直接設為 `true`
-- 無需送審流程
+- Channel Access Token 僅存資料庫（RLS 保護，僅 company_admin）和 Edge Function，前端不接觸
+- 推播 API 僅在後端 Edge Function 執行
+- 分析師無法查看或修改 LINE Channel 設定
 
-### 不需要資料庫變更
+## 前置作業（需人工完成）
 
-`expert_plans` 表結構不需修改，只是使用方式改變（管理者直接建立已核准的方案）。
+1. 用公司 LINE Business ID 為每位分析師建立 LINE Official Account
+2. 在 LINE Developers Console 啟用 Messaging API
+3. 發行長期 Channel Access Token
+4. 在系統後台（分析師管理頁）輸入 Token
+
