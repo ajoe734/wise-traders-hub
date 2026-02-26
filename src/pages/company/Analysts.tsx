@@ -207,7 +207,7 @@ const CompanyAnalysts = () => {
     closeLineSettings();
   };
 
-
+  const planTypeLabel = (t: string) => {
     switch (t) {
       case 'analyst_signal_l1': return '跟單派 L1';
       case 'analyst_signal_diag_l2': return '跟單派 L2';
