@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Eye, UserPlus, Package } from 'lucide-react';
+import { Eye, UserPlus, Package, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -38,6 +38,17 @@ const CompanyAnalysts = () => {
   const [planYearly, setPlanYearly] = useState('');
   const [planDesc, setPlanDesc] = useState('');
   const [savingPlan, setSavingPlan] = useState(false);
+
+  // LINE channel management
+  const [lineExpert, setLineExpert] = useState<any>(null);
+  const [lineChannel, setLineChannel] = useState<any>(null);
+  const [lineLoading, setLineLoading] = useState(false);
+  const [lineChannelId, setLineChannelId] = useState('');
+  const [lineToken, setLineToken] = useState('');
+  const [lineChannelName, setLineChannelName] = useState('');
+  const [lineActive, setLineActive] = useState(true);
+  const [savingLine, setSavingLine] = useState(false);
+  const [lineBindingsCount, setLineBindingsCount] = useState(0);
 
   useEffect(() => { fetchExperts(); }, []);
 
@@ -125,8 +136,78 @@ const CompanyAnalysts = () => {
     setPlanName(''); setPlanType(''); setPlanMonthly(''); setPlanYearly(''); setPlanDesc('');
     openPlans(planExpert);
   };
+  // LINE channel management
+  const openLineSettings = async (expert: any) => {
+    setLineExpert(expert);
+    setLineLoading(true);
+    const { data: ch } = await supabase
+      .from('expert_line_channels')
+      .select('*')
+      .eq('expert_id', expert.id)
+      .single();
+    if (ch) {
+      setLineChannel(ch);
+      setLineChannelId(ch.channel_id);
+      setLineToken(ch.channel_access_token);
+      setLineChannelName(ch.channel_name || '');
+      setLineActive(ch.is_active);
+    } else {
+      setLineChannel(null);
+      setLineChannelId('');
+      setLineToken('');
+      setLineChannelName('');
+      setLineActive(true);
+    }
+    const { count } = await supabase
+      .from('member_line_bindings')
+      .select('id', { count: 'exact', head: true })
+      .eq('expert_id', expert.id)
+      .eq('is_active', true);
+    setLineBindingsCount(count || 0);
+    setLineLoading(false);
+  };
 
-  const planTypeLabel = (t: string) => {
+  const closeLineSettings = () => {
+    setLineExpert(null);
+    setLineChannel(null);
+  };
+
+  const handleSaveLine = async () => {
+    if (!lineExpert || !lineChannelId || !lineToken) {
+      toast.error('請填寫 Channel ID 和 Access Token');
+      return;
+    }
+    setSavingLine(true);
+    if (lineChannel) {
+      const { error } = await supabase
+        .from('expert_line_channels')
+        .update({
+          channel_id: lineChannelId,
+          channel_access_token: lineToken,
+          channel_name: lineChannelName || null,
+          is_active: lineActive,
+        })
+        .eq('id', lineChannel.id);
+      if (error) { toast.error('更新失敗'); setSavingLine(false); return; }
+      toast.success('LINE 設定已更新');
+    } else {
+      const { error } = await supabase
+        .from('expert_line_channels')
+        .insert({
+          expert_id: lineExpert.id,
+          channel_id: lineChannelId,
+          channel_access_token: lineToken,
+          channel_name: lineChannelName || null,
+          is_active: lineActive,
+        });
+      if (error) { toast.error('建立失敗'); setSavingLine(false); return; }
+      toast.success('LINE 設定已儲存');
+    }
+    setSavingLine(false);
+    closeLineSettings();
+  };
+
+
     switch (t) {
       case 'analyst_signal_l1': return '跟單派 L1';
       case 'analyst_signal_diag_l2': return '跟單派 L2';
@@ -241,6 +322,9 @@ const CompanyAnalysts = () => {
                           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openPlans(exp)}>
                             <Package className="h-3 w-3 mr-1" />方案
                           </Button>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openLineSettings(exp)}>
+                            <MessageCircle className="h-3 w-3 mr-1" />LINE
+                          </Button>
                           <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
                             <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
                           </Button>
@@ -335,6 +419,46 @@ const CompanyAnalysts = () => {
               <Button onClick={handleAddPlan} disabled={savingPlan}>{savingPlan ? '建立中...' : '建立方案'}</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* LINE Channel Settings Dialog */}
+      <Dialog open={!!lineExpert} onOpenChange={(open) => { if (!open) closeLineSettings(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{lineExpert?.name} — LINE 設定</DialogTitle>
+          </DialogHeader>
+          {lineLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-4">載入中...</p>
+          ) : (
+            <div className="space-y-4 mt-2">
+              <div className="space-y-2">
+                <Label>Channel ID</Label>
+                <Input value={lineChannelId} onChange={e => setLineChannelId(e.target.value)} placeholder="LINE Channel ID" />
+              </div>
+              <div className="space-y-2">
+                <Label>Channel Access Token</Label>
+                <Input value={lineToken} onChange={e => setLineToken(e.target.value)} placeholder="長期 Channel Access Token" type="password" />
+              </div>
+              <div className="space-y-2">
+                <Label>顯示名稱（選填）</Label>
+                <Input value={lineChannelName} onChange={e => setLineChannelName(e.target.value)} placeholder="例：趙彭博｜訊號通知" />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label>啟用推播</Label>
+                <Switch checked={lineActive} onCheckedChange={setLineActive} />
+              </div>
+              <div className="text-xs text-muted-foreground">
+                已綁定訂閱者：{lineBindingsCount} 人
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={closeLineSettings}>取消</Button>
+                <Button onClick={handleSaveLine} disabled={savingLine}>
+                  {savingLine ? '儲存中...' : lineChannel ? '更新設定' : '儲存設定'}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </CompanyLayout>

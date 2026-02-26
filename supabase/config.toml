@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.daily-performance]
 verify_jwt = false
+
+[functions.line-push-signal]
+verify_jwt = false
