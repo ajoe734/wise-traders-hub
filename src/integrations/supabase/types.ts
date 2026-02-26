@@ -44,6 +44,47 @@ export type Database = {
         }
         Relationships: []
       }
+      expert_line_channels: {
+        Row: {
+          channel_access_token: string
+          channel_id: string
+          channel_name: string | null
+          created_at: string
+          expert_id: string
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          channel_access_token: string
+          channel_id: string
+          channel_name?: string | null
+          created_at?: string
+          expert_id: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          channel_access_token?: string
+          channel_id?: string
+          channel_name?: string | null
+          created_at?: string
+          expert_id?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_line_channels_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_plans: {
         Row: {
           created_at: string
@@ -219,6 +260,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      member_line_bindings: {
+        Row: {
+          bound_at: string
+          display_name: string | null
+          expert_id: string
+          id: string
+          is_active: boolean
+          line_user_id: string
+          user_id: string
+        }
+        Insert: {
+          bound_at?: string
+          display_name?: string | null
+          expert_id: string
+          id?: string
+          is_active?: boolean
+          line_user_id: string
+          user_id: string
+        }
+        Update: {
+          bound_at?: string
+          display_name?: string | null
+          expert_id?: string
+          id?: string
+          is_active?: boolean
+          line_user_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_line_bindings_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       member_subscriptions: {
         Row: {

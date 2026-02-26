@@ -85,7 +85,7 @@ const AdminSignals = () => {
       return;
     }
 
-    const { error } = await supabase.from('expert_signals').insert({
+    const { data: inserted, error } = await supabase.from('expert_signals').insert({
       expert_id: expert.id,
       plan_id: planId || null,
       instrument: instrument.trim(),
@@ -95,11 +95,23 @@ const AdminSignals = () => {
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
       status: 'published' as any,
-    });
+    }).select('id').single();
     if (error) { toast.error(error.message); return; }
     toast.success('訊號已發布');
     setIsCreateOpen(false);
     setInstrument(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setPlanId('');
+
+    // Trigger LINE push notification (non-blocking)
+    if (inserted?.id) {
+      supabase.functions.invoke('line-push-signal', {
+        body: { signal_id: inserted.id, expert_id: expert.id },
+      }).then(({ data: pushData }) => {
+        if (pushData?.pushed) {
+          toast.success(`已推播給 ${pushData.count} 位訂閱者`);
+        }
+      }).catch(() => {});
+    }
+
     fetchData();
   };
 
