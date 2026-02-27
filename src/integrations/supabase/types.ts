@@ -53,6 +53,7 @@ export type Database = {
           expert_id: string
           id: string
           is_active: boolean
+          line_oa_id: string | null
           updated_at: string
         }
         Insert: {
@@ -63,6 +64,7 @@ export type Database = {
           expert_id: string
           id?: string
           is_active?: boolean
+          line_oa_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -73,6 +75,7 @@ export type Database = {
           expert_id?: string
           id?: string
           is_active?: boolean
+          line_oa_id?: string | null
           updated_at?: string
         }
         Relationships: [

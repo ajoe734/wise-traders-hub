@@ -1,0 +1,1 @@
+ALTER TABLE public.expert_line_channels ADD COLUMN line_oa_id text;
