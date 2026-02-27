@@ -177,6 +177,18 @@ const Account = () => {
                 <MessageCircle className="h-5 w-5" />
                 LINE 綁定
               </h2>
+              <p className="text-sm text-muted-foreground">
+                綁定 LINE 後，可即時收到訊號推播通知
+              </p>
+              <div className="space-y-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+                <p className="font-medium text-foreground text-sm">綁定步驟：</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>點擊下方按鈕取得驗證碼</li>
+                  <li>加入分析師的 LINE 官方帳號</li>
+                  <li>在 LINE 聊天中傳送驗證碼</li>
+                  <li>收到綁定成功通知即完成</li>
+                </ol>
+              </div>
 
               {/* 跟單派 */}
               <div className="space-y-3">
