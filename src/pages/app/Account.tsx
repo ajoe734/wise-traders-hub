@@ -157,8 +157,9 @@ const Account = () => {
                 key={expert.id}
                 expertId={expert.id}
                 expertSlug={expert.slug}
-                expertName={expert.name}
+                expertName={expert.role === 'advisor' ? '跟單派' : '修煉派'}
                 isAdvisor={expert.role === 'advisor'}
+                compact
               />
             ))}
           </div>

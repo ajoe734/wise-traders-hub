@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Copy, Check, RefreshCw, Unlink } from 'lucide-react';
+import { MessageCircle, Copy, Check, RefreshCw, Unlink, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -12,9 +13,10 @@ interface LineBindingCardProps {
   expertSlug: string;
   expertName?: string;
   isAdvisor?: boolean;
+  compact?: boolean;
 }
 
-export const LineBindingCard = ({ expertId, expertSlug, expertName, isAdvisor = false }: LineBindingCardProps) => {
+export const LineBindingCard = ({ expertId, expertSlug, expertName, isAdvisor = false, compact = false }: LineBindingCardProps) => {
   const { user } = useAuth();
   const [binding, setBinding] = useState<any>(null);
   const [bindingCode, setBindingCode] = useState<string | null>(null);
@@ -132,6 +134,30 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, isAdvisor = 
       <Card>
         <CardContent className="p-4">
           <div className="animate-pulse h-16 bg-muted rounded" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Compact mode: show summary + "查看" button
+  if (compact) {
+    return (
+      <Card>
+        <CardContent className="p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium text-sm">LINE 綁定 — {expertName}</span>
+            {binding && (
+              <Badge variant="secondary" className="text-xs">
+                <Check className="h-3 w-3 mr-1" />已綁定
+              </Badge>
+            )}
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/line/${expertSlug}/account`}>
+              查看 <ExternalLink className="h-3 w-3 ml-1" />
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     );
