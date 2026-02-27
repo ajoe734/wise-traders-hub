@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,10 +10,31 @@ import { SubscriptionStatus } from '@/types';
 import { User, MessageCircle, Calendar, ExternalLink, Radio, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { LineBindingCard } from '@/components/LineBindingCard';
+import { supabase } from '@/integrations/supabase/client';
 
 const Account = () => {
   const { user } = useAuth();
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
+  const [subscribedExperts, setSubscribedExperts] = useState<{ id: string; slug: string; name: string; role: string }[]>([]);
+
+  // Fetch experts the user is subscribed to (for LINE binding)
+  useEffect(() => {
+    if (!user) return;
+    const fetchSubscribedExperts = async () => {
+      const { data } = await supabase
+        .rpc('has_active_subscription', { _user_id: user.id });
+      if (!data || data.length === 0) return;
+
+      const expertIds = [...new Set(data.map((d: any) => d.expert_id))];
+      const { data: experts } = await supabase
+        .from('experts')
+        .select('id, slug, name, role')
+        .in('id', expertIds);
+      if (experts) setSubscribedExperts(experts);
+    };
+    fetchSubscribedExperts();
+  }, [user]);
 
   return (
     <UnifiedAppLayout>
@@ -123,19 +145,23 @@ const Account = () => {
           </CardContent>
         </Card>
 
-        {/* LINE Binding */}
-        <Card>
-          <CardContent className="p-4">
-            <h2 className="font-semibold mb-3 flex items-center gap-2">
-              <MessageCircle className="h-4 w-4" /> LINE 綁定
+        {/* LINE Binding - per subscribed expert */}
+        {subscribedExperts.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <MessageCircle className="h-5 w-5" />
+              LINE 綁定
             </h2>
-            <p className="text-sm text-muted-foreground mb-3">尚未綁定</p>
-            <Button variant="outline" size="sm" disabled className="w-full">
-              預留：綁定 LINE（尚未開放）
-            </Button>
-            <p className="text-xs text-muted-foreground mt-2">未來將提供 LINE 推播通知與快速登入</p>
-          </CardContent>
-        </Card>
+            {subscribedExperts.map(expert => (
+              <LineBindingCard
+                key={expert.id}
+                expertId={expert.id}
+                expertSlug={expert.slug}
+                isAdvisor={expert.role === 'advisor'}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </UnifiedAppLayout>
   );
