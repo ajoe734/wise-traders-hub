@@ -148,9 +148,29 @@ const Account = () => {
         </Card>
 
         {/* LINE Binding */}
-        {subscribedExperts.length > 0 && (() => {
-          const advisors = subscribedExperts.filter(e => e.role === 'advisor');
-          const mentors = subscribedExperts.filter(e => e.role === 'mentor');
+        {(() => {
+          // Mock demo experts for design preview
+          const mockAdvisors = [
+            { id: 'a1000000-0000-0000-0000-000000000001', slug: 'zhao-pengbo', name: '趙鵬博', role: 'advisor' },
+            { id: 'mock-adv-2', slug: 'chen-weiming', name: '陳威銘', role: 'advisor' },
+            { id: 'mock-adv-3', slug: 'wang-junhao', name: '王俊豪', role: 'advisor' },
+          ];
+          const mockMentors = [
+            { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor' },
+            { id: 'mock-mnt-2', slug: 'huang-zhiwei', name: '黃志偉', role: 'mentor' },
+            { id: 'mock-mnt-3', slug: 'liu-yating', name: '劉雅婷', role: 'mentor' },
+            { id: 'mock-mnt-4', slug: 'zhang-mingxuan', name: '張銘軒', role: 'mentor' },
+          ];
+
+          const realAdvisors = subscribedExperts.filter(e => e.role === 'advisor');
+          const realMentors = subscribedExperts.filter(e => e.role === 'mentor');
+
+          // Merge real + mock (avoid duplicates by id)
+          const realAdvisorIds = new Set(realAdvisors.map(e => e.id));
+          const realMentorIds = new Set(realMentors.map(e => e.id));
+          const advisors = [...realAdvisors, ...mockAdvisors.filter(m => !realAdvisorIds.has(m.id))];
+          const mentors = [...realMentors, ...mockMentors.filter(m => !realMentorIds.has(m.id))];
+
           return (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -159,66 +179,72 @@ const Account = () => {
               </h2>
 
               {/* 跟單派 */}
-              {advisors.length > 0 && (
-                <div className="space-y-3">
-                  {!showAdvisors ? (
-                    <Card className="border-red-500/30">
-                      <CardContent className="p-4 space-y-3">
-                        <h3 className="text-lg font-bold text-red-500 text-center">跟單派</h3>
-                        <Button variant="default" className="w-full bg-red-500 hover:bg-red-600" onClick={() => setShowAdvisors(true)}>
-                          查看所有老師
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="space-y-3">
-                      {advisors.map(expert => (
-                        <LineBindingCard
-                          key={expert.id}
-                          expertId={expert.id}
-                          expertSlug={expert.slug}
-                          expertName={expert.name}
-                          isAdvisor
-                        />
-                      ))}
-                      <Button variant="outline" className="w-full" onClick={() => setShowAdvisors(false)}>
+              <div className="space-y-3">
+                {!showAdvisors ? (
+                  <Card className="border-red-500/30">
+                    <CardContent className="p-4 space-y-3">
+                      <h3 className="text-lg font-bold text-red-500 text-center">跟單派</h3>
+                      <Button variant="default" className="w-full bg-red-500 hover:bg-red-600" onClick={() => setShowAdvisors(true)}>
+                        查看所有老師
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className="border-red-500/30">
+                    <CardContent className="p-4 space-y-3">
+                      <h3 className="text-lg font-bold text-red-500 text-center mb-2">跟單派</h3>
+                      <div className="space-y-3">
+                        {advisors.map(expert => (
+                          <LineBindingCard
+                            key={expert.id}
+                            expertId={expert.id}
+                            expertSlug={expert.slug}
+                            expertName={expert.name}
+                            isAdvisor
+                          />
+                        ))}
+                      </div>
+                      <Button variant="outline" className="w-full mt-2" onClick={() => setShowAdvisors(false)}>
                         收起
                       </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
 
               {/* 修煉派 */}
-              {mentors.length > 0 && (
-                <div className="space-y-3">
-                  {!showMentors ? (
-                    <Card className="border-blue-500/30">
-                      <CardContent className="p-4 space-y-3">
-                        <h3 className="text-lg font-bold text-blue-500 text-center">修煉派</h3>
-                        <Button variant="default" className="w-full bg-blue-500 hover:bg-blue-600" onClick={() => setShowMentors(true)}>
-                          查看所有老師
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="space-y-3">
-                      {mentors.map(expert => (
-                        <LineBindingCard
-                          key={expert.id}
-                          expertId={expert.id}
-                          expertSlug={expert.slug}
-                          expertName={expert.name}
-                          isAdvisor={false}
-                        />
-                      ))}
-                      <Button variant="outline" className="w-full" onClick={() => setShowMentors(false)}>
+              <div className="space-y-3">
+                {!showMentors ? (
+                  <Card className="border-blue-500/30">
+                    <CardContent className="p-4 space-y-3">
+                      <h3 className="text-lg font-bold text-blue-500 text-center">修煉派</h3>
+                      <Button variant="default" className="w-full bg-blue-500 hover:bg-blue-600" onClick={() => setShowMentors(true)}>
+                        查看所有老師
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className="border-blue-500/30">
+                    <CardContent className="p-4 space-y-3">
+                      <h3 className="text-lg font-bold text-blue-500 text-center mb-2">修煉派</h3>
+                      <div className="space-y-3">
+                        {mentors.map(expert => (
+                          <LineBindingCard
+                            key={expert.id}
+                            expertId={expert.id}
+                            expertSlug={expert.slug}
+                            expertName={expert.name}
+                            isAdvisor={false}
+                          />
+                        ))}
+                      </div>
+                      <Button variant="outline" className="w-full mt-2" onClick={() => setShowMentors(false)}>
                         收起
                       </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </div>
           );
         })()}
