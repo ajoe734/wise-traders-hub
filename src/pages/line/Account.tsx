@@ -11,30 +11,12 @@ import { User, Calendar, ExternalLink, Settings, LogOut, Moon } from 'lucide-rea
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { LineBindingCard } from '@/components/LineBindingCard';
-import { supabase } from '@/integrations/supabase/client';
 
 const LineAccount = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const { user, logout } = useAuth();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
-  const [expertId, setExpertId] = useState<string | null>(null);
-
   const isAdvisor = expert?.role === PersonRole.ADVISOR;
-
-  // Fetch real expert_id from DB
-  useEffect(() => {
-    if (!expertSlug) return;
-    const fetchExpertId = async () => {
-      const { data } = await supabase
-        .from('experts')
-        .select('id')
-        .eq('slug', expertSlug)
-        .maybeSingle();
-      if (data) setExpertId(data.id);
-    };
-    fetchExpertId();
-  }, [expertSlug]);
 
   // Get subscription for this expert
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
@@ -171,14 +153,6 @@ const LineAccount = () => {
           </CardContent>
         </Card>
 
-        {/* LINE Binding */}
-        {expertId && expertSlug && (
-          <LineBindingCard
-            expertId={expertId}
-            expertSlug={expertSlug}
-            isAdvisor={isAdvisor}
-          />
-        )}
 
         {/* Support */}
         <div className="text-center">
