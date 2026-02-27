@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,8 @@ const CompanyReview = () => {
   const [takedownNote, setTakedownNote] = useState('');
   const [takedownId, setTakedownId] = useState<string | null>(null);
   const [viewReasonId, setViewReasonId] = useState<string | null>(null);
+  const [isTakingDown, setIsTakingDown] = useState(false);
+  const takedownInProgress = useRef(false);
 
   useEffect(() => { fetchSignals(); }, []);
 
@@ -36,32 +38,58 @@ const CompanyReview = () => {
   };
 
   const takedownSignal = async () => {
-    if (!takedownId) return;
-    const target = signals.find(s => s.id === takedownId);
-    await supabase.from('expert_signals').update({
-      status: 'taken_down' as any,
-      taken_down_reason: takedownNote,
-      taken_down_by: user?.id,
-    }).eq('id', takedownId);
-    toast.success('訊號已下架');
+    if (!takedownId || takedownInProgress.current) return;
+    takedownInProgress.current = true;
+    setIsTakingDown(true);
 
-    // Push takedown notification via LINE
-    if (target) {
-      try {
-        const { data } = await supabase.functions.invoke('line-push-signal', {
-          body: { signal_id: takedownId, expert_id: target.expert_id, type: 'takedown' },
-        });
-        if (data?.pushed) {
-          toast.success(`已推播下架通知給 ${data.count} 位訂閱者`);
-        }
-      } catch (e) {
-        console.error('Takedown push failed:', e);
+    try {
+      const target = signals.find(s => s.id === takedownId);
+
+      // Check fresh status to prevent duplicate
+      const { data: fresh } = await supabase
+        .from('expert_signals')
+        .select('status')
+        .eq('id', takedownId)
+        .single();
+
+      if (fresh?.status === 'taken_down') {
+        toast.info('此訊號已被下架');
+        setTakedownId(null);
+        setTakedownNote('');
+        fetchSignals();
+        return;
       }
-    }
 
-    setTakedownId(null);
-    setTakedownNote('');
-    fetchSignals();
+      await supabase.from('expert_signals').update({
+        status: 'taken_down' as any,
+        taken_down_reason: takedownNote,
+        taken_down_by: user?.id,
+      }).eq('id', takedownId);
+      toast.success('訊號已下架');
+
+      // Close dialog immediately to prevent re-click
+      setTakedownId(null);
+      setTakedownNote('');
+
+      // Push takedown notification via LINE (non-blocking)
+      if (target) {
+        supabase.functions.invoke('line-push-signal', {
+          body: { signal_id: target.id, expert_id: target.expert_id, type: 'takedown' },
+        }).then(({ data }) => {
+          if (data?.pushed) {
+            toast.success(`已推播下架通知給 ${data.count} 位訂閱者`);
+          }
+        }).catch(() => {});
+      }
+
+      fetchSignals();
+    } catch (error) {
+      console.error('Takedown failed:', error);
+      toast.error('下架失敗，請重試');
+    } finally {
+      takedownInProgress.current = false;
+      setIsTakingDown(false);
+    }
   };
 
   return (
@@ -149,7 +177,9 @@ const CompanyReview = () => {
             <Textarea value={takedownNote} onChange={e => setTakedownNote(e.target.value)} placeholder="請填寫下架理由..." rows={3} />
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setTakedownId(null)}>取消</Button>
-              <Button variant="destructive" onClick={takedownSignal}>確認下架</Button>
+              <Button variant="destructive" onClick={takedownSignal} disabled={isTakingDown}>
+                {isTakingDown ? '下架中...' : '確認下架'}
+              </Button>
             </div>
           </div>
         </DialogContent>
