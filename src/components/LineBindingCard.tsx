@@ -225,8 +225,10 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
             <div className="flex-1 min-w-0">
               <span className="font-semibold truncate block">{expertName}</span>
               {lineOaId && (
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-xs text-muted-foreground">{lineOaId}</span>
+                <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+                  <span>加入好友：</span>
+                  <span>{lineOaId}</span>
+                  <span className="mx-0.5">或</span>
                   <a
                     href={`https://line.me/R/ti/p/${lineOaId}`}
                     target="_blank"
