@@ -46,6 +46,8 @@ const CompanyAnalysts = () => {
   const [lineChannelId, setLineChannelId] = useState('');
   const [lineToken, setLineToken] = useState('');
   const [lineChannelName, setLineChannelName] = useState('');
+  const [lineOaId, setLineOaId] = useState('');
+  const [lineQrCodeUrl, setLineQrCodeUrl] = useState('');
   const [lineActive, setLineActive] = useState(true);
   const [savingLine, setSavingLine] = useState(false);
   const [lineBindingsCount, setLineBindingsCount] = useState(0);
@@ -150,12 +152,16 @@ const CompanyAnalysts = () => {
       setLineChannelId(ch.channel_id);
       setLineToken(ch.channel_access_token);
       setLineChannelName(ch.channel_name || '');
+      setLineOaId(ch.line_oa_id || '');
+      setLineQrCodeUrl(ch.qr_code_url || '');
       setLineActive(ch.is_active);
     } else {
       setLineChannel(null);
       setLineChannelId('');
       setLineToken('');
       setLineChannelName('');
+      setLineOaId('');
+      setLineQrCodeUrl('');
       setLineActive(true);
     }
     const { count } = await supabase
@@ -185,6 +191,8 @@ const CompanyAnalysts = () => {
           channel_id: lineChannelId,
           channel_access_token: lineToken,
           channel_name: lineChannelName || null,
+          line_oa_id: lineOaId || null,
+          qr_code_url: lineQrCodeUrl || null,
           is_active: lineActive,
         })
         .eq('id', lineChannel.id);
@@ -198,6 +206,8 @@ const CompanyAnalysts = () => {
           channel_id: lineChannelId,
           channel_access_token: lineToken,
           channel_name: lineChannelName || null,
+          line_oa_id: lineOaId || null,
+          qr_code_url: lineQrCodeUrl || null,
           is_active: lineActive,
         });
       if (error) { toast.error('建立失敗'); setSavingLine(false); return; }
@@ -443,6 +453,16 @@ const CompanyAnalysts = () => {
               <div className="space-y-2">
                 <Label>顯示名稱（選填）</Label>
                 <Input value={lineChannelName} onChange={e => setLineChannelName(e.target.value)} placeholder="例：趙彭博｜訊號通知" />
+              </div>
+              <div className="space-y-2">
+                <Label>Bot Basic ID</Label>
+                <Input value={lineOaId} onChange={e => setLineOaId(e.target.value)} placeholder="例：@zhao-pengbo" />
+                <p className="text-xs text-muted-foreground">訂閱者透過此 ID 搜尋並加入官方帳號</p>
+              </div>
+              <div className="space-y-2">
+                <Label>QR Code 網址（選填）</Label>
+                <Input value={lineQrCodeUrl} onChange={e => setLineQrCodeUrl(e.target.value)} placeholder="https://qr-official.line.me/..." />
+                <p className="text-xs text-muted-foreground">訂閱者可掃描 QR Code 加入官方帳號</p>
               </div>
               <div className="flex items-center justify-between">
                 <Label>啟用推播</Label>

@@ -14,11 +14,12 @@ interface LineBindingCardProps {
   expertName?: string;
   expertAvatarUrl?: string;
   lineOaId?: string;
+  qrCodeUrl?: string;
   isAdvisor?: boolean;
   compact?: boolean;
 }
 
-export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatarUrl, lineOaId, isAdvisor = false, compact = false }: LineBindingCardProps) => {
+export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatarUrl, lineOaId, qrCodeUrl, isAdvisor = false, compact = false }: LineBindingCardProps) => {
   const { user } = useAuth();
   const [binding, setBinding] = useState<any>(null);
   const [bindingCode, setBindingCode] = useState<string | null>(null);
@@ -182,7 +183,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
                   <span>{lineOaId}</span>
                   <span className="mx-0.5">或</span>
                   <a
-                    href={`https://line.me/R/ti/p/${lineOaId}`}
+                    href={qrCodeUrl || `https://line.me/R/ti/p/${lineOaId}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     title="掃描 QR Code 加入官方帳號"
@@ -247,7 +248,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
                   <span>{lineOaId}</span>
                   <span className="mx-0.5">或</span>
                   <a
-                    href={`https://line.me/R/ti/p/${lineOaId}`}
+                    href={qrCodeUrl || `https://line.me/R/ti/p/${lineOaId}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     title="掃描 QR Code 加入官方帳號"
