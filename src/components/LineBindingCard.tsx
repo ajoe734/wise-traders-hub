@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Copy, Check, RefreshCw, Unlink, ExternalLink } from 'lucide-react';
+import { MessageCircle, Copy, Check, RefreshCw, Unlink, ExternalLink, QrCode } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -214,41 +214,46 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
     <Card>
       <CardContent className="p-4">
         {!bindingCode ? (
-          <div className="flex items-center gap-3">
-            {expertAvatarUrl ? (
-              <img src={expertAvatarUrl} alt={expertName} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
-            ) : (
-              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                <MessageCircle className="h-5 w-5 text-muted-foreground" />
-              </div>
-            )}
-            <span className="font-semibold flex-1 min-w-0 truncate">{expertName}</span>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {lineOaId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                >
-                  <a href={`https://line.me/R/ti/p/${lineOaId}`} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                    加好友
-                  </a>
-                </Button>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              {expertAvatarUrl ? (
+                <img src={expertAvatarUrl} alt={expertName} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                </div>
               )}
-              <Button
-                variant={isAdvisor ? 'advisor' : 'mentor'}
-                size="sm"
-                onClick={generateCode}
-                disabled={generating}
-              >
-                {generating ? (
-                  <><RefreshCw className="h-4 w-4 mr-1 animate-spin" />生成中...</>
-                ) : (
-                  '取得驗證碼'
+              <div className="flex-1 min-w-0">
+                <span className="font-semibold truncate block">{expertName}</span>
+                {lineOaId && (
+                  <span className="text-xs text-muted-foreground">{lineOaId}</span>
                 )}
-              </Button>
+              </div>
+              {lineOaId && (
+                <a
+                  href={`https://line.me/R/ti/p/${lineOaId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 p-2 rounded-md hover:bg-muted transition-colors"
+                  title="掃描 QR Code 加入官方帳號"
+                >
+                  <QrCode className="h-5 w-5 text-muted-foreground" />
+                </a>
+              )}
             </div>
+            <Button
+              variant={isAdvisor ? 'advisor' : 'mentor'}
+              size="sm"
+              className="w-full"
+              onClick={generateCode}
+              disabled={generating}
+            >
+              {generating ? (
+                <><RefreshCw className="h-4 w-4 mr-1 animate-spin" />生成中...</>
+              ) : (
+                '取得驗證碼'
+              )}
+            </Button>
           </div>
         ) : (
           <div className="space-y-4">
