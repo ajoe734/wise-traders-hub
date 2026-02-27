@@ -211,23 +211,20 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
   // Not bound - show binding flow
   return (
     <Card>
-      <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-3">
-            {expertAvatarUrl && (
-              <img src={expertAvatarUrl} alt={expertName} className="h-8 w-8 rounded-full object-cover" />
-            )}
-            {expertName || 'LINE 綁定'}
-          </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="p-4">
         {!bindingCode ? (
-          <>
-            <p className="text-sm text-muted-foreground">
-              綁定 LINE 後，可即時收到訊號推播通知
-            </p>
+          <div className="flex items-center gap-3">
+            {expertAvatarUrl ? (
+              <img src={expertAvatarUrl} alt={expertName} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                <MessageCircle className="h-5 w-5 text-muted-foreground" />
+              </div>
+            )}
+            <span className="font-semibold flex-1 min-w-0 truncate">{expertName}</span>
             <Button
               variant={isAdvisor ? 'advisor' : 'mentor'}
-              className="w-full"
+              size="sm"
               onClick={generateCode}
               disabled={generating}
             >
@@ -237,9 +234,9 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
                 '取得驗證碼'
               )}
             </Button>
-          </>
+          </div>
         ) : (
-          <>
+          <div className="space-y-4">
             <div className="text-center space-y-3">
               <p className="text-sm text-muted-foreground">請在 LINE 中傳送以下驗證碼</p>
               <div className="flex items-center justify-center gap-2">
@@ -263,7 +260,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
               <RefreshCw className="h-4 w-4 mr-1" />
               重新取得驗證碼
             </Button>
-          </>
+          </div>
         )}
       </CardContent>
     </Card>
