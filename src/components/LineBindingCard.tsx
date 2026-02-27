@@ -14,12 +14,13 @@ interface LineBindingCardProps {
   expertName?: string;
   expertAvatarUrl?: string;
   lineOaId?: string;
+  lineChannelName?: string;
   qrCodeUrl?: string;
   isAdvisor?: boolean;
   compact?: boolean;
 }
 
-export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatarUrl, lineOaId, qrCodeUrl, isAdvisor = false, compact = false }: LineBindingCardProps) => {
+export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatarUrl, lineOaId, lineChannelName, qrCodeUrl, isAdvisor = false, compact = false }: LineBindingCardProps) => {
   const { user } = useAuth();
   const [binding, setBinding] = useState<any>(null);
   const [bindingCode, setBindingCode] = useState<string | null>(null);
@@ -176,7 +177,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
               <img src={expertAvatarUrl} alt={expertName} className="h-8 w-8 rounded-full object-cover" />
             )}
             <div className="min-w-0">
-              <span className="block">{expertName || 'LINE 綁定'}</span>
+              <span className="block">{lineChannelName || expertName || 'LINE 綁定'}</span>
               {lineOaId && (
                 <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground font-normal">
                   <span>加入好友：</span>
@@ -241,7 +242,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <span className="font-semibold truncate block">{expertName}</span>
+              <span className="font-semibold truncate block">{lineChannelName || expertName}</span>
               {lineOaId && (
                 <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
                   <span>加入好友：</span>

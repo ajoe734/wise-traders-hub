@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 const Account = () => {
   const { user } = useAuth();
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
-  const [subscribedExperts, setSubscribedExperts] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null }[]>([]);
+  const [subscribedExperts, setSubscribedExperts] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null; channel_name?: string | null }[]>([]);
   const [showAdvisors, setShowAdvisors] = useState(false);
   const [showMentors, setShowMentors] = useState(false);
 
@@ -37,10 +37,10 @@ const Account = () => {
         // Fetch line_oa_id for these experts
         const { data: channels } = await supabase
           .from('expert_line_channels')
-          .select('expert_id, line_oa_id, qr_code_url')
+          .select('expert_id, line_oa_id, qr_code_url, channel_name')
           .in('expert_id', expertIds);
-        const channelMap = new Map((channels || []).map((c: any) => [c.expert_id, { line_oa_id: c.line_oa_id, qr_code_url: c.qr_code_url }]));
-        setSubscribedExperts(experts.map(e => ({ ...e, line_oa_id: channelMap.get(e.id)?.line_oa_id || null, qr_code_url: channelMap.get(e.id)?.qr_code_url || null })));
+        const channelMap = new Map((channels || []).map((c: any) => [c.expert_id, { line_oa_id: c.line_oa_id, qr_code_url: c.qr_code_url, channel_name: c.channel_name }]));
+        setSubscribedExperts(experts.map(e => ({ ...e, line_oa_id: channelMap.get(e.id)?.line_oa_id || null, qr_code_url: channelMap.get(e.id)?.qr_code_url || null, channel_name: channelMap.get(e.id)?.channel_name || null })));
       }
     };
     fetchSubscribedExperts();
@@ -230,6 +230,7 @@ const Account = () => {
                             expertName={expert.name}
                             expertAvatarUrl={expert.avatar_url || undefined}
                             lineOaId={(expert as any).line_oa_id || undefined}
+                            lineChannelName={(expert as any).channel_name || undefined}
                             qrCodeUrl={(expert as any).qr_code_url || undefined}
                             isAdvisor
                           />
@@ -267,6 +268,7 @@ const Account = () => {
                             expertName={expert.name}
                             expertAvatarUrl={expert.avatar_url || undefined}
                             lineOaId={(expert as any).line_oa_id || undefined}
+                            lineChannelName={(expert as any).channel_name || undefined}
                             qrCodeUrl={(expert as any).qr_code_url || undefined}
                             isAdvisor={false}
                           />
