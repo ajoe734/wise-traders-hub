@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 const Account = () => {
   const { user } = useAuth();
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
-  const [subscribedExperts, setSubscribedExperts] = useState<{ id: string; slug: string; name: string; role: string }[]>([]);
+  const [subscribedExperts, setSubscribedExperts] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null }[]>([]);
   const [showAdvisors, setShowAdvisors] = useState(false);
   const [showMentors, setShowMentors] = useState(false);
 
@@ -31,7 +31,7 @@ const Account = () => {
       const expertIds = [...new Set(data.map((d: any) => d.expert_id))];
       const { data: experts } = await supabase
         .from('experts')
-        .select('id, slug, name, role')
+        .select('id, slug, name, role, avatar_url')
         .in('id', expertIds);
       if (experts) setSubscribedExperts(experts);
     };
@@ -151,15 +151,15 @@ const Account = () => {
         {(() => {
           // Mock demo experts for design preview
           const mockAdvisors = [
-            { id: 'a1000000-0000-0000-0000-000000000001', slug: 'zhao-pengbo', name: '趙鵬博', role: 'advisor' },
-            { id: 'mock-adv-2', slug: 'chen-weiming', name: '陳威銘', role: 'advisor' },
-            { id: 'mock-adv-3', slug: 'wang-junhao', name: '王俊豪', role: 'advisor' },
+            { id: 'a1000000-0000-0000-0000-000000000001', slug: 'zhao-pengbo', name: '趙鵬博', role: 'advisor', avatar_url: '/images/experts/zhao-pengbo.png' },
+            { id: 'mock-adv-2', slug: 'chen-weiming', name: '陳威銘', role: 'advisor', avatar_url: null },
+            { id: 'mock-adv-3', slug: 'wang-junhao', name: '王俊豪', role: 'advisor', avatar_url: null },
           ];
           const mockMentors = [
-            { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor' },
-            { id: 'mock-mnt-2', slug: 'huang-zhiwei', name: '黃志偉', role: 'mentor' },
-            { id: 'mock-mnt-3', slug: 'liu-yating', name: '劉雅婷', role: 'mentor' },
-            { id: 'mock-mnt-4', slug: 'zhang-mingxuan', name: '張銘軒', role: 'mentor' },
+            { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor', avatar_url: null },
+            { id: 'mock-mnt-2', slug: 'huang-zhiwei', name: '黃志偉', role: 'mentor', avatar_url: null },
+            { id: 'mock-mnt-3', slug: 'liu-yating', name: '劉雅婷', role: 'mentor', avatar_url: null },
+            { id: 'mock-mnt-4', slug: 'zhang-mingxuan', name: '張銘軒', role: 'mentor', avatar_url: null },
           ];
 
           const realAdvisors = subscribedExperts.filter(e => e.role === 'advisor');
@@ -200,6 +200,7 @@ const Account = () => {
                             expertId={expert.id}
                             expertSlug={expert.slug}
                             expertName={expert.name}
+                            expertAvatarUrl={expert.avatar_url || undefined}
                             isAdvisor
                           />
                         ))}
@@ -234,6 +235,7 @@ const Account = () => {
                             expertId={expert.id}
                             expertSlug={expert.slug}
                             expertName={expert.name}
+                            expertAvatarUrl={expert.avatar_url || undefined}
                             isAdvisor={false}
                           />
                         ))}
