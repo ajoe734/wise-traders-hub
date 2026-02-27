@@ -153,7 +153,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, isAdvisor = 
               </Badge>
             )}
           </div>
-          <Button variant="outline" size="sm" asChild>
+          <Button variant={isAdvisor ? 'advisor' : 'mentor'} size="sm" asChild>
             <Link to={`/line/${expertSlug}/account`}>
               查看 <ExternalLink className="h-3 w-3 ml-1" />
             </Link>
