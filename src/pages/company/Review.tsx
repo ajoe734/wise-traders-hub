@@ -37,12 +37,28 @@ const CompanyReview = () => {
 
   const takedownSignal = async () => {
     if (!takedownId) return;
+    const target = signals.find(s => s.id === takedownId);
     await supabase.from('expert_signals').update({
       status: 'taken_down' as any,
       taken_down_reason: takedownNote,
       taken_down_by: user?.id,
     }).eq('id', takedownId);
     toast.success('訊號已下架');
+
+    // Push takedown notification via LINE
+    if (target) {
+      try {
+        const { data } = await supabase.functions.invoke('line-push-signal', {
+          body: { signal_id: takedownId, expert_id: target.expert_id, type: 'takedown' },
+        });
+        if (data?.pushed) {
+          toast.success(`已推播下架通知給 ${data.count} 位訂閱者`);
+        }
+      } catch (e) {
+        console.error('Takedown push failed:', e);
+      }
+    }
+
     setTakedownId(null);
     setTakedownNote('');
     fetchSignals();
