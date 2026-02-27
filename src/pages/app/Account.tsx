@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,7 +17,6 @@ const Account = () => {
   const { user } = useAuth();
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
   const [subscribedExperts, setSubscribedExperts] = useState<{ id: string; slug: string; name: string; role: string }[]>([]);
-  const [showLineBinding, setShowLineBinding] = useState(false);
 
   // Fetch experts the user is subscribed to (for LINE binding)
   useEffect(() => {
@@ -146,35 +145,23 @@ const Account = () => {
           </CardContent>
         </Card>
 
-        {/* LINE Binding */}
+        {/* LINE Binding - per subscribed expert */}
         {subscribedExperts.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <MessageCircle className="h-5 w-5" />
               LINE 綁定
             </h2>
-            {!showLineBinding ? (
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    綁定 LINE 後，可即時收到訊號推播通知
-                  </p>
-                  <Button className="w-full" onClick={() => setShowLineBinding(true)}>
-                    查看所有老師
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              subscribedExperts.map(expert => (
-                <LineBindingCard
-                  key={expert.id}
-                  expertId={expert.id}
-                  expertSlug={expert.slug}
-                  expertName={expert.role === 'advisor' ? '跟單派' : '修煉派'}
-                  isAdvisor={expert.role === 'advisor'}
-                />
-              ))
-            )}
+            {subscribedExperts.map(expert => (
+              <LineBindingCard
+                key={expert.id}
+                expertId={expert.id}
+                expertSlug={expert.slug}
+                expertName={expert.role === 'advisor' ? '跟單派' : '修煉派'}
+                isAdvisor={expert.role === 'advisor'}
+                compact
+              />
+            ))}
           </div>
         )}
       </div>
