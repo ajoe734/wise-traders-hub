@@ -38,7 +38,8 @@ const AdminSignals = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Form
-  const [instrument, setInstrument] = useState('');
+  const [stockCode, setStockCode] = useState('');
+  const [stockName, setStockName] = useState('');
   const [action, setAction] = useState('');
   const [priceHint, setPriceHint] = useState('');
   const [reasonSummary, setReasonSummary] = useState('');
@@ -80,15 +81,16 @@ const AdminSignals = () => {
       return;
     }
 
-    if (!instrument.trim() || !action) {
-      toast.error('請先填寫「標的」與「操作方向」');
+    if (!stockCode.trim() || !action) {
+      toast.error('請先填寫「代碼」與「操作方向」');
       return;
     }
 
+    const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
     const { data: inserted, error } = await supabase.from('expert_signals').insert({
       expert_id: expert.id,
       plan_id: planId || null,
-      instrument: instrument.trim(),
+      instrument,
       action: action as any,
       price_hint: priceHint ? parseFloat(priceHint) : null,
       reason_summary: reasonSummary,
@@ -99,7 +101,7 @@ const AdminSignals = () => {
     if (error) { toast.error(error.message); return; }
     toast.success('訊號已發布');
     setIsCreateOpen(false);
-    setInstrument(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setPlanId('');
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setPlanId('');
 
     // Trigger LINE push notification (non-blocking)
     if (inserted?.id) {
@@ -116,7 +118,7 @@ const AdminSignals = () => {
   };
 
   const isAdvisor = expert?.role === 'advisor';
-  const canPublish = !!expert && !!instrument.trim() && !!action;
+  const canPublish = !!expert && !!stockCode.trim() && !!action;
 
   const filtered = signals.filter(s =>
     s.instrument?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -143,9 +145,15 @@ const AdminSignals = () => {
             <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
               <DialogHeader><DialogTitle>發布新訊號</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4 overflow-y-auto flex-1 px-1 -mx-1">
-                <div className="space-y-2">
-                  <Label>標的（代碼+名稱）</Label>
-                  <Input value={instrument} onChange={e => setInstrument(e.target.value)} placeholder="例：2330 台積電" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>股票代碼</Label>
+                    <Input value={stockCode} onChange={e => setStockCode(e.target.value)} placeholder="例：2330" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>股票名稱</Label>
+                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="例：台積電" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
