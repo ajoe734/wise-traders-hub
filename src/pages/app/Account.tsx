@@ -10,7 +10,6 @@ import { SubscriptionStatus } from '@/types';
 import { User, MessageCircle, Calendar, ExternalLink, Radio, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { LineBindingCard } from '@/components/LineBindingCard';
 import { supabase } from '@/integrations/supabase/client';
 
 const Account = () => {
@@ -222,17 +221,28 @@ const Account = () => {
                   <Card className="border-red-500/30">
                     <CardContent className="p-4 space-y-3">
                       <h3 className="text-lg font-bold text-red-500 text-center mb-2">跟單派</h3>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {advisors.map(expert => (
-                          <LineBindingCard
-                            key={expert.id}
-                            expertId={expert.id}
-                            expertSlug={expert.slug}
-                            expertName={expert.name}
-                            expertAvatarUrl={expert.avatar_url || undefined}
-                            lineOaId={(expert as any).line_oa_id || undefined}
-                            isAdvisor
-                          />
+                          <div key={expert.id} className="flex items-center gap-3 p-3 rounded-lg border">
+                            {expert.avatar_url ? (
+                              <img src={expert.avatar_url} alt={expert.name} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                                <User className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <span className="font-semibold flex-1 min-w-0 truncate">{expert.name}</span>
+                            {(expert as any).line_oa_id ? (
+                              <Button variant="outline" size="sm" asChild>
+                                <a href={`https://line.me/R/ti/p/${(expert as any).line_oa_id}`} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                                  加入好友
+                                </a>
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">掃 QR Code 加入</span>
+                            )}
+                          </div>
                         ))}
                       </div>
                       <Button variant="outline" className="w-full mt-2" onClick={() => setShowAdvisors(false)}>
@@ -258,17 +268,28 @@ const Account = () => {
                   <Card className="border-blue-500/30">
                     <CardContent className="p-4 space-y-3">
                       <h3 className="text-lg font-bold text-blue-500 text-center mb-2">修煉派</h3>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {mentors.map(expert => (
-                          <LineBindingCard
-                            key={expert.id}
-                            expertId={expert.id}
-                            expertSlug={expert.slug}
-                            expertName={expert.name}
-                            expertAvatarUrl={expert.avatar_url || undefined}
-                            lineOaId={(expert as any).line_oa_id || undefined}
-                            isAdvisor={false}
-                          />
+                          <div key={expert.id} className="flex items-center gap-3 p-3 rounded-lg border">
+                            {expert.avatar_url ? (
+                              <img src={expert.avatar_url} alt={expert.name} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                                <User className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <span className="font-semibold flex-1 min-w-0 truncate">{expert.name}</span>
+                            {(expert as any).line_oa_id ? (
+                              <Button variant="outline" size="sm" asChild>
+                                <a href={`https://line.me/R/ti/p/${(expert as any).line_oa_id}`} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                                  加入好友
+                                </a>
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">掃 QR Code 加入</span>
+                            )}
+                          </div>
                         ))}
                       </div>
                       <Button variant="outline" className="w-full mt-2" onClick={() => setShowMentors(false)}>
