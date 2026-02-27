@@ -157,6 +157,7 @@ const Account = () => {
                 key={expert.id}
                 expertId={expert.id}
                 expertSlug={expert.slug}
+                expertName={expert.name}
                 isAdvisor={expert.role === 'advisor'}
               />
             ))}

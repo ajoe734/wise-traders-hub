@@ -10,10 +10,11 @@ import { toast } from '@/hooks/use-toast';
 interface LineBindingCardProps {
   expertId: string;
   expertSlug: string;
+  expertName?: string;
   isAdvisor?: boolean;
 }
 
-export const LineBindingCard = ({ expertId, expertSlug, isAdvisor = false }: LineBindingCardProps) => {
+export const LineBindingCard = ({ expertId, expertSlug, expertName, isAdvisor = false }: LineBindingCardProps) => {
   const { user } = useAuth();
   const [binding, setBinding] = useState<any>(null);
   const [bindingCode, setBindingCode] = useState<string | null>(null);
@@ -143,7 +144,7 @@ export const LineBindingCard = ({ expertId, expertSlug, isAdvisor = false }: Lin
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
-            LINE 綁定
+            LINE 綁定{expertName ? ` — ${expertName}` : ''}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -184,7 +185,7 @@ export const LineBindingCard = ({ expertId, expertSlug, isAdvisor = false }: Lin
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <MessageCircle className="h-4 w-4" />
-          LINE 綁定
+          LINE 綁定{expertName ? ` — ${expertName}` : ''}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
