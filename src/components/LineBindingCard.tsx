@@ -214,37 +214,34 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
     <Card>
       <CardContent className="p-4">
         {!bindingCode ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              {expertAvatarUrl ? (
-                <img src={expertAvatarUrl} alt={expertName} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
-              ) : (
-                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                  <MessageCircle className="h-5 w-5 text-muted-foreground" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <span className="font-semibold truncate block">{expertName}</span>
-                {lineOaId && (
-                  <span className="text-xs text-muted-foreground">{lineOaId}</span>
-                )}
+          <div className="flex items-center gap-3">
+            {expertAvatarUrl ? (
+              <img src={expertAvatarUrl} alt={expertName} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                <MessageCircle className="h-5 w-5 text-muted-foreground" />
               </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <span className="font-semibold truncate block">{expertName}</span>
               {lineOaId && (
-                <a
-                  href={`https://line.me/R/ti/p/${lineOaId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-shrink-0 p-2 rounded-md hover:bg-muted transition-colors"
-                  title="掃描 QR Code 加入官方帳號"
-                >
-                  <QrCode className="h-5 w-5 text-muted-foreground" />
-                </a>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xs text-muted-foreground">{lineOaId}</span>
+                  <a
+                    href={`https://line.me/R/ti/p/${lineOaId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="掃描 QR Code 加入官方帳號"
+                  >
+                    <QrCode className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+                  </a>
+                </div>
               )}
             </div>
             <Button
               variant={isAdvisor ? 'advisor' : 'mentor'}
               size="sm"
-              className="w-full"
+              className="flex-shrink-0"
               onClick={generateCode}
               disabled={generating}
             >
