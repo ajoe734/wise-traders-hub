@@ -161,11 +161,11 @@ const Account = () => {
               {/* 跟單派 */}
               {advisors.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="font-semibold text-sm text-muted-foreground">跟單派</h3>
                   {!showAdvisors ? (
-                    <Card>
-                      <CardContent className="p-4">
-                        <Button variant="default" className="w-full" onClick={() => setShowAdvisors(true)}>
+                    <Card className="border-red-500/30">
+                      <CardContent className="p-4 space-y-3">
+                        <h3 className="text-lg font-bold text-red-500 text-center">跟單派</h3>
+                        <Button variant="default" className="w-full bg-red-500 hover:bg-red-600" onClick={() => setShowAdvisors(true)}>
                           查看所有老師
                         </Button>
                       </CardContent>
@@ -192,11 +192,11 @@ const Account = () => {
               {/* 修煉派 */}
               {mentors.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="font-semibold text-sm text-muted-foreground">修煉派</h3>
                   {!showMentors ? (
-                    <Card>
-                      <CardContent className="p-4">
-                        <Button variant="default" className="w-full" onClick={() => setShowMentors(true)}>
+                    <Card className="border-blue-500/30">
+                      <CardContent className="p-4 space-y-3">
+                        <h3 className="text-lg font-bold text-blue-500 text-center">修煉派</h3>
+                        <Button variant="default" className="w-full bg-blue-500 hover:bg-blue-600" onClick={() => setShowMentors(true)}>
                           查看所有老師
                         </Button>
                       </CardContent>
