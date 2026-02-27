@@ -174,7 +174,24 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
             {expertAvatarUrl && (
               <img src={expertAvatarUrl} alt={expertName} className="h-8 w-8 rounded-full object-cover" />
             )}
-            {expertName || 'LINE 綁定'}
+            <div className="min-w-0">
+              <span className="block">{expertName || 'LINE 綁定'}</span>
+              {lineOaId && (
+                <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground font-normal">
+                  <span>加入好友：</span>
+                  <span>{lineOaId}</span>
+                  <span className="mx-0.5">或</span>
+                  <a
+                    href={`https://line.me/R/ti/p/${lineOaId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="掃描 QR Code 加入官方帳號"
+                  >
+                    <QrCode className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+                  </a>
+                </div>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
