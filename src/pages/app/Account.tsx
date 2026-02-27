@@ -179,11 +179,11 @@ const Account = () => {
           const realAdvisorIds = new Set(realAdvisors.map(e => e.id));
           const realMentorIds = new Set(realMentors.map(e => e.id));
           const advisors = [
-            ...realAdvisors.map(e => ({ ...e, avatar_url: e.avatar_url || mockAdvisorMap.get(e.id)?.avatar_url || null })),
+            ...realAdvisors.map(e => ({ ...e, avatar_url: e.avatar_url || mockAdvisorMap.get(e.id)?.avatar_url || null, line_oa_id: e.line_oa_id || mockAdvisorMap.get(e.id)?.line_oa_id || null })),
             ...mockAdvisors.filter(m => !realAdvisorIds.has(m.id)),
           ];
           const mentors = [
-            ...realMentors.map(e => ({ ...e, avatar_url: e.avatar_url || mockMentorMap.get(e.id)?.avatar_url || null })),
+            ...realMentors.map(e => ({ ...e, avatar_url: e.avatar_url || mockMentorMap.get(e.id)?.avatar_url || null, line_oa_id: e.line_oa_id || mockMentorMap.get(e.id)?.line_oa_id || null })),
             ...mockMentors.filter(m => !realMentorIds.has(m.id)),
           ];
 
