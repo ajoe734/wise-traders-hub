@@ -152,14 +152,14 @@ const Account = () => {
           // Mock demo experts for design preview
           const mockAdvisors = [
             { id: 'a1000000-0000-0000-0000-000000000001', slug: 'zhao-pengbo', name: '趙鵬博', role: 'advisor', avatar_url: '/images/experts/zhao-pengbo.png' },
-            { id: 'mock-adv-2', slug: 'chen-weiming', name: '陳威銘', role: 'advisor', avatar_url: null },
-            { id: 'mock-adv-3', slug: 'wang-junhao', name: '王俊豪', role: 'advisor', avatar_url: null },
+            { id: 'mock-adv-2', slug: 'chen-weiming', name: '陳威銘', role: 'advisor', avatar_url: 'https://i.pravatar.cc/80?u=chen-weiming' },
+            { id: 'mock-adv-3', slug: 'wang-junhao', name: '王俊豪', role: 'advisor', avatar_url: 'https://i.pravatar.cc/80?u=wang-junhao' },
           ];
           const mockMentors = [
-            { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor', avatar_url: null },
-            { id: 'mock-mnt-2', slug: 'huang-zhiwei', name: '黃志偉', role: 'mentor', avatar_url: null },
-            { id: 'mock-mnt-3', slug: 'liu-yating', name: '劉雅婷', role: 'mentor', avatar_url: null },
-            { id: 'mock-mnt-4', slug: 'zhang-mingxuan', name: '張銘軒', role: 'mentor', avatar_url: null },
+            { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor', avatar_url: 'https://i.pravatar.cc/80?u=lin-xiuqi' },
+            { id: 'mock-mnt-2', slug: 'huang-zhiwei', name: '黃志偉', role: 'mentor', avatar_url: 'https://i.pravatar.cc/80?u=huang-zhiwei' },
+            { id: 'mock-mnt-3', slug: 'liu-yating', name: '劉雅婷', role: 'mentor', avatar_url: 'https://i.pravatar.cc/80?u=liu-yating' },
+            { id: 'mock-mnt-4', slug: 'zhang-mingxuan', name: '張銘軒', role: 'mentor', avatar_url: 'https://i.pravatar.cc/80?u=zhang-mingxuan' },
           ];
 
           const realAdvisors = subscribedExperts.filter(e => e.role === 'advisor');
