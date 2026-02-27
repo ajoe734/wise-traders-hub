@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { LineLayout } from '@/components/layouts/LineLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,13 +11,30 @@ import { User, Calendar, ExternalLink, Settings, LogOut, Moon } from 'lucide-rea
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { LineBindingCard } from '@/components/LineBindingCard';
+import { supabase } from '@/integrations/supabase/client';
 
 const LineAccount = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const { user, logout } = useAuth();
   const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
+  const [expertId, setExpertId] = useState<string | null>(null);
 
   const isAdvisor = expert?.role === PersonRole.ADVISOR;
+
+  // Fetch real expert_id from DB
+  useEffect(() => {
+    if (!expertSlug) return;
+    const fetchExpertId = async () => {
+      const { data } = await supabase
+        .from('experts')
+        .select('id')
+        .eq('slug', expertSlug)
+        .maybeSingle();
+      if (data) setExpertId(data.id);
+    };
+    fetchExpertId();
+  }, [expertSlug]);
 
   // Get subscription for this expert
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
@@ -153,20 +171,14 @@ const LineAccount = () => {
           </CardContent>
         </Card>
 
-        {/* LINE Status */}
-        <Card className="bg-muted/30">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">LINE 綁定</p>
-                <p className="text-xs text-muted-foreground">尚未綁定</p>
-              </div>
-              <Button variant="outline" size="sm" disabled>
-                綁定（即將開放）
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* LINE Binding */}
+        {expertId && expertSlug && (
+          <LineBindingCard
+            expertId={expertId}
+            expertSlug={expertSlug}
+            isAdvisor={isAdvisor}
+          />
+        )}
 
         {/* Support */}
         <div className="text-center">

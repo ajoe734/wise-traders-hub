@@ -1,0 +1,160 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply'
+
+async function replyMessage(replyToken: string, channelAccessToken: string, text: string) {
+  await fetch(LINE_REPLY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${channelAccessToken}`,
+    },
+    body: JSON.stringify({
+      replyToken,
+      messages: [{ type: 'text', text }],
+    }),
+  })
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  // LINE webhook sends GET for verification
+  if (req.method === 'GET') {
+    return new Response('OK', { headers: corsHeaders })
+  }
+
+  try {
+    const url = new URL(req.url)
+    const expertId = url.searchParams.get('expert_id')
+
+    if (!expertId) {
+      return new Response(JSON.stringify({ error: 'Missing expert_id' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+
+    // Get channel config for this expert
+    const { data: channel } = await supabase
+      .from('expert_line_channels')
+      .select('channel_access_token, is_active')
+      .eq('expert_id', expertId)
+      .single()
+
+    if (!channel || !channel.is_active) {
+      console.error('No active LINE channel for expert:', expertId)
+      return new Response(JSON.stringify({ ok: false }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const body = await req.json()
+    const events = body.events || []
+
+    for (const event of events) {
+      const lineUserId = event.source?.userId
+      if (!lineUserId) continue
+
+      // Handle follow event - welcome message
+      if (event.type === 'follow' && event.replyToken) {
+        await replyMessage(
+          event.replyToken,
+          channel.channel_access_token,
+          '歡迎加入！請在網站上點擊「綁定 LINE」取得驗證碼，然後在此輸入驗證碼完成綁定。',
+        )
+        continue
+      }
+
+      // Handle text message - check for binding code
+      if (event.type === 'message' && event.message?.type === 'text' && event.replyToken) {
+        const code = event.message.text.trim().toUpperCase()
+
+        // Look up valid binding code
+        const { data: bindingCode } = await supabase
+          .from('line_binding_codes')
+          .select('*')
+          .eq('code', code)
+          .eq('expert_id', expertId)
+          .eq('used', false)
+          .gt('expires_at', new Date().toISOString())
+          .single()
+
+        if (!bindingCode) {
+          await replyMessage(
+            event.replyToken,
+            channel.channel_access_token,
+            '驗證碼無效或已過期，請重新取得驗證碼。',
+          )
+          continue
+        }
+
+        // Check if already bound
+        const { data: existingBinding } = await supabase
+          .from('member_line_bindings')
+          .select('id')
+          .eq('user_id', bindingCode.user_id)
+          .eq('expert_id', expertId)
+          .single()
+
+        if (existingBinding) {
+          // Update existing binding
+          await supabase
+            .from('member_line_bindings')
+            .update({
+              line_user_id: lineUserId,
+              display_name: event.source?.displayName || null,
+              is_active: true,
+              bound_at: new Date().toISOString(),
+            })
+            .eq('id', existingBinding.id)
+        } else {
+          // Create new binding
+          await supabase
+            .from('member_line_bindings')
+            .insert({
+              user_id: bindingCode.user_id,
+              expert_id: expertId,
+              line_user_id: lineUserId,
+              display_name: event.source?.displayName || null,
+              is_active: true,
+            })
+        }
+
+        // Mark code as used
+        await supabase
+          .from('line_binding_codes')
+          .update({ used: true })
+          .eq('id', bindingCode.id)
+
+        await replyMessage(
+          event.replyToken,
+          channel.channel_access_token,
+          '✅ 綁定成功！您將會收到此分析師的即時訊號通知。',
+        )
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  } catch (err) {
+    console.error('line-webhook error:', err)
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+})
