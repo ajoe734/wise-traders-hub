@@ -143,7 +143,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, isAdvisor = 
   if (compact) {
     return (
       <Card>
-        <CardContent className="p-4 flex items-center justify-between">
+        <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium text-sm">LINE 綁定 — {expertName}</span>
@@ -153,9 +153,9 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, isAdvisor = 
               </Badge>
             )}
           </div>
-          <Button variant={isAdvisor ? 'advisor' : 'mentor'} size="sm" asChild>
+          <Button variant={isAdvisor ? 'advisor' : 'mentor'} className="w-full" asChild>
             <Link to={`/line/${expertSlug}/account`}>
-              查看 <ExternalLink className="h-3 w-3 ml-1" />
+              查看
             </Link>
           </Button>
         </CardContent>
