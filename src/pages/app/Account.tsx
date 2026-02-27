@@ -18,7 +18,6 @@ const Account = () => {
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
   const [subscribedExperts, setSubscribedExperts] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null; channel_name?: string | null }[]>([]);
   const [showAdvisors, setShowAdvisors] = useState(false);
-  const [showMentors, setShowMentors] = useState(false);
 
   // Fetch experts the user is subscribed to (for LINE binding)
   useEffect(() => {
@@ -157,33 +156,18 @@ const Account = () => {
 
         {/* LINE Binding */}
         {(() => {
-          // Mock demo experts for design preview
           const mockAdvisors = [
             { id: 'a1000000-0000-0000-0000-000000000001', slug: 'zhao-pengbo', name: '趙鵬博', role: 'advisor', avatar_url: '/images/experts/zhao-pengbo.png', line_oa_id: '@zhao-pengbo' },
             { id: 'a2000000-0000-0000-0000-000000000001', slug: 'chen-weiming', name: '陳威明', role: 'advisor', avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face', line_oa_id: '@chen-weiming' },
             { id: 'a2000000-0000-0000-0000-000000000002', slug: 'wang-junhao', name: '王俊豪', role: 'advisor', avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face', line_oa_id: '@wang-junhao' },
           ];
-          const mockMentors = [
-            { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face', line_oa_id: '@lin-xiuqi' },
-            { id: 'a2000000-0000-0000-0000-000000000003', slug: 'li-mingzhe', name: '李明哲', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&h=80&fit=crop&crop=face', line_oa_id: '@li-mingzhe' },
-            { id: 'a2000000-0000-0000-0000-000000000004', slug: 'huang-yating', name: '黃雅婷', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face', line_oa_id: '@huang-yating' },
-          ];
 
           const realAdvisors = subscribedExperts.filter(e => e.role === 'advisor');
-          const realMentors = subscribedExperts.filter(e => e.role === 'mentor');
-
-          // Merge real + mock (avoid duplicates by id, fill missing avatars from mock)
           const mockAdvisorMap = new Map(mockAdvisors.map(m => [m.id, m]));
-          const mockMentorMap = new Map(mockMentors.map(m => [m.id, m]));
           const realAdvisorIds = new Set(realAdvisors.map(e => e.id));
-          const realMentorIds = new Set(realMentors.map(e => e.id));
           const advisors = [
             ...realAdvisors.map(e => ({ ...e, avatar_url: e.avatar_url || mockAdvisorMap.get(e.id)?.avatar_url || null, line_oa_id: e.line_oa_id || mockAdvisorMap.get(e.id)?.line_oa_id || null })),
             ...mockAdvisors.filter(m => !realAdvisorIds.has(m.id)),
-          ];
-          const mentors = [
-            ...realMentors.map(e => ({ ...e, avatar_url: e.avatar_url || mockMentorMap.get(e.id)?.avatar_url || null, line_oa_id: e.line_oa_id || mockMentorMap.get(e.id)?.line_oa_id || null })),
-            ...mockMentors.filter(m => !realMentorIds.has(m.id)),
           ];
 
           return (
@@ -193,7 +177,7 @@ const Account = () => {
                 LINE 綁定
               </h2>
               <p className="text-sm text-muted-foreground">
-                綁定 LINE 後，可即時收到訊號推播通知
+                綁定 LINE 後，可即時收到訊號推播通知（僅限跟單派）
               </p>
               <div className="space-y-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
                 <p className="font-medium text-foreground text-sm">綁定步驟：</p>
@@ -237,44 +221,6 @@ const Account = () => {
                         ))}
                       </div>
                       <Button variant="outline" className="w-full mt-2" onClick={() => setShowAdvisors(false)}>
-                        收起
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-
-              {/* 修煉派 */}
-              <div className="space-y-3">
-                {!showMentors ? (
-                  <Card className="border-blue-500/30">
-                    <CardContent className="p-4 space-y-3">
-                      <h3 className="text-lg font-bold text-blue-500 text-center">修煉派</h3>
-                      <Button variant="default" className="w-full bg-blue-500 hover:bg-blue-600" onClick={() => setShowMentors(true)}>
-                        查看所有老師
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card className="border-blue-500/30">
-                    <CardContent className="p-4 space-y-3">
-                      <h3 className="text-lg font-bold text-blue-500 text-center mb-2">修煉派</h3>
-                      <div className="space-y-3">
-                        {mentors.map(expert => (
-                          <LineBindingCard
-                            key={expert.id}
-                            expertId={expert.id}
-                            expertSlug={expert.slug}
-                            expertName={expert.name}
-                            expertAvatarUrl={expert.avatar_url || undefined}
-                            lineOaId={(expert as any).line_oa_id || undefined}
-                            lineChannelName={(expert as any).channel_name || undefined}
-                            qrCodeUrl={(expert as any).qr_code_url || undefined}
-                            isAdvisor={false}
-                          />
-                        ))}
-                      </div>
-                      <Button variant="outline" className="w-full mt-2" onClick={() => setShowMentors(false)}>
                         收起
                       </Button>
                     </CardContent>
