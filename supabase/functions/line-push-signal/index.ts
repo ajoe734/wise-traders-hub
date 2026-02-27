@@ -7,13 +7,68 @@ const corsHeaders = {
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
-function buildFlexMessage(signal: any) {
-  const isBullish = ['buy', 'add'].includes(signal.action)
+function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish') {
   const actionLabel: Record<string, string> = {
     buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '出場',
   }
-  const color = isBullish ? '#00B900' : '#DC3545'
   const label = actionLabel[signal.action] || signal.action
+
+  if (type === 'takedown') {
+    const bodyContents: any[] = [
+      {
+        type: 'text',
+        text: '⚠️ 訊號已撤回',
+        weight: 'bold',
+        size: 'lg',
+        color: '#DC3545',
+      },
+      {
+        type: 'text',
+        text: `${label} ${signal.instrument}`,
+        size: 'md',
+        color: '#444444',
+        margin: 'md',
+        weight: 'bold',
+      },
+    ]
+
+    if (signal.taken_down_reason) {
+      bodyContents.push({
+        type: 'text',
+        text: `撤回原因：${signal.taken_down_reason}`,
+        size: 'sm',
+        color: '#666666',
+        margin: 'md',
+        wrap: true,
+      })
+    }
+
+    bodyContents.push({
+      type: 'text',
+      text: '請留意此訊號已不再有效，如有疑問請聯繫客服。',
+      size: 'xs',
+      color: '#999999',
+      margin: 'lg',
+      wrap: true,
+    })
+
+    return {
+      type: 'flex',
+      altText: `⚠️ 訊號已撤回：${label} ${signal.instrument}`,
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: bodyContents,
+        },
+      },
+    }
+  }
+
+  // Default: publish message
+  const isBullish = ['buy', 'add'].includes(signal.action)
+  const color = isBullish ? '#00B900' : '#DC3545'
 
   const bodyContents: any[] = [
     {
@@ -104,7 +159,8 @@ Deno.serve(async (req) => {
     }
     const userId = claimsData.claims.sub as string
 
-    const { signal_id, expert_id } = await req.json()
+    const { signal_id, expert_id, type } = await req.json()
+    const pushType = type === 'takedown' ? 'takedown' : 'publish'
     if (!signal_id || !expert_id) {
       return new Response(JSON.stringify({ error: 'Missing signal_id or expert_id' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -192,7 +248,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const message = buildFlexMessage(signal)
+    const message = buildFlexMessage(signal, pushType)
     let totalPushed = 0
 
     // Send in batches of 500
