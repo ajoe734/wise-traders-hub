@@ -275,11 +275,11 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
           <div className="space-y-4">
             <div className="flex flex-col items-center space-y-3">
               <p className="text-sm text-muted-foreground">請在 LINE 中傳送以下驗證碼</p>
-              <div className="flex items-center gap-2">
+              <div className="relative flex justify-center">
                 <code className="text-3xl font-mono font-bold tracking-[0.3em] bg-muted px-4 py-3 rounded-lg">
                   {bindingCode}
                 </code>
-                <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={copyCode}>
+                <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 -mr-10" onClick={copyCode}>
                   {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
