@@ -160,14 +160,13 @@ const Account = () => {
           // Mock demo experts for design preview
           const mockAdvisors = [
             { id: 'a1000000-0000-0000-0000-000000000001', slug: 'zhao-pengbo', name: '趙鵬博', role: 'advisor', avatar_url: '/images/experts/zhao-pengbo.png', line_oa_id: '@zhao-pengbo' },
-            { id: 'mock-adv-2', slug: 'chen-weiming', name: '陳威銘', role: 'advisor', avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face', line_oa_id: '@chen-weiming' },
-            { id: 'mock-adv-3', slug: 'wang-junhao', name: '王俊豪', role: 'advisor', avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face', line_oa_id: '@wang-junhao' },
+            { id: 'a2000000-0000-0000-0000-000000000001', slug: 'chen-weiming', name: '陳威明', role: 'advisor', avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face', line_oa_id: '@chen-weiming' },
+            { id: 'a2000000-0000-0000-0000-000000000002', slug: 'wang-junhao', name: '王俊豪', role: 'advisor', avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face', line_oa_id: '@wang-junhao' },
           ];
           const mockMentors = [
             { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face', line_oa_id: '@lin-xiuqi' },
-            { id: 'mock-mnt-2', slug: 'huang-zhiwei', name: '黃志偉', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&h=80&fit=crop&crop=face', line_oa_id: '@huang-zhiwei' },
-            { id: 'mock-mnt-3', slug: 'liu-yating', name: '劉雅婷', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face', line_oa_id: '@liu-yating' },
-            { id: 'mock-mnt-4', slug: 'zhang-mingxuan', name: '張銘軒', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=80&h=80&fit=crop&crop=face', line_oa_id: '@zhang-mingxuan' },
+            { id: 'a2000000-0000-0000-0000-000000000003', slug: 'li-mingzhe', name: '李明哲', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&h=80&fit=crop&crop=face', line_oa_id: '@li-mingzhe' },
+            { id: 'a2000000-0000-0000-0000-000000000004', slug: 'huang-yating', name: '黃雅婷', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face', line_oa_id: '@huang-yating' },
           ];
 
           const realAdvisors = subscribedExperts.filter(e => e.role === 'advisor');
