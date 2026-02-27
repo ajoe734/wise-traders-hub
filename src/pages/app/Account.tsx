@@ -165,11 +165,19 @@ const Account = () => {
           const realAdvisors = subscribedExperts.filter(e => e.role === 'advisor');
           const realMentors = subscribedExperts.filter(e => e.role === 'mentor');
 
-          // Merge real + mock (avoid duplicates by id)
+          // Merge real + mock (avoid duplicates by id, fill missing avatars from mock)
+          const mockAdvisorMap = new Map(mockAdvisors.map(m => [m.id, m]));
+          const mockMentorMap = new Map(mockMentors.map(m => [m.id, m]));
           const realAdvisorIds = new Set(realAdvisors.map(e => e.id));
           const realMentorIds = new Set(realMentors.map(e => e.id));
-          const advisors = [...realAdvisors, ...mockAdvisors.filter(m => !realAdvisorIds.has(m.id))];
-          const mentors = [...realMentors, ...mockMentors.filter(m => !realMentorIds.has(m.id))];
+          const advisors = [
+            ...realAdvisors.map(e => ({ ...e, avatar_url: e.avatar_url || mockAdvisorMap.get(e.id)?.avatar_url || null })),
+            ...mockAdvisors.filter(m => !realAdvisorIds.has(m.id)),
+          ];
+          const mentors = [
+            ...realMentors.map(e => ({ ...e, avatar_url: e.avatar_url || mockMentorMap.get(e.id)?.avatar_url || null })),
+            ...mockMentors.filter(m => !realMentorIds.has(m.id)),
+          ];
 
           return (
             <div className="space-y-4">
