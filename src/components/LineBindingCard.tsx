@@ -287,15 +287,24 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
                 驗證碼將在 10 分鐘後過期
               </p>
             </div>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={generateCode}
-              disabled={generating}
-            >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              重新取得驗證碼
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => { setBindingCode(null); setCodeExpiresAt(null); }}
+              >
+                取消
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={generateCode}
+                disabled={generating}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                重新取得
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
