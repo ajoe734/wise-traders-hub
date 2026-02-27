@@ -323,7 +323,9 @@ const CompanyAnalysts = () => {
                       </td>
                       <td className="p-4 text-sm text-muted-foreground">{exp.slug}</td>
                       <td className="p-4">
-                        <Badge variant={exp.status === 'active' ? 'outline' : 'destructive'} className="text-xs">
+                        <Badge 
+                          className={`text-xs ${exp.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'}`}
+                        >
                           {exp.status === 'active' ? '啟用中' : '已停用'}
                         </Badge>
                       </td>
