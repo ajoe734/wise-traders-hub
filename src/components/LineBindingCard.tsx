@@ -13,11 +13,12 @@ interface LineBindingCardProps {
   expertSlug: string;
   expertName?: string;
   expertAvatarUrl?: string;
+  lineOaId?: string;
   isAdvisor?: boolean;
   compact?: boolean;
 }
 
-export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatarUrl, isAdvisor = false, compact = false }: LineBindingCardProps) => {
+export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatarUrl, lineOaId, isAdvisor = false, compact = false }: LineBindingCardProps) => {
   const { user } = useAuth();
   const [binding, setBinding] = useState<any>(null);
   const [bindingCode, setBindingCode] = useState<string | null>(null);
@@ -222,18 +223,32 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
               </div>
             )}
             <span className="font-semibold flex-1 min-w-0 truncate">{expertName}</span>
-            <Button
-              variant={isAdvisor ? 'advisor' : 'mentor'}
-              size="sm"
-              onClick={generateCode}
-              disabled={generating}
-            >
-              {generating ? (
-                <><RefreshCw className="h-4 w-4 mr-1 animate-spin" />生成中...</>
-              ) : (
-                '取得驗證碼'
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {lineOaId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                >
+                  <a href={`https://line.me/R/ti/p/${lineOaId}`} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                    加好友
+                  </a>
+                </Button>
               )}
-            </Button>
+              <Button
+                variant={isAdvisor ? 'advisor' : 'mentor'}
+                size="sm"
+                onClick={generateCode}
+                disabled={generating}
+              >
+                {generating ? (
+                  <><RefreshCw className="h-4 w-4 mr-1 animate-spin" />生成中...</>
+                ) : (
+                  '取得驗證碼'
+                )}
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
