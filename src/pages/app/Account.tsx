@@ -17,6 +17,7 @@ const Account = () => {
   const { user } = useAuth();
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
   const [subscribedExperts, setSubscribedExperts] = useState<{ id: string; slug: string; name: string; role: string }[]>([]);
+  const [showAllExperts, setShowAllExperts] = useState(false);
 
   // Fetch experts the user is subscribed to (for LINE binding)
   useEffect(() => {
@@ -145,23 +146,45 @@ const Account = () => {
           </CardContent>
         </Card>
 
-        {/* LINE Binding - per subscribed expert */}
+        {/* LINE Binding */}
         {subscribedExperts.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <MessageCircle className="h-5 w-5" />
               LINE 綁定
             </h2>
-            {subscribedExperts.map(expert => (
-              <LineBindingCard
-                key={expert.id}
-                expertId={expert.id}
-                expertSlug={expert.slug}
-                expertName={expert.role === 'advisor' ? '跟單派' : '修煉派'}
-                isAdvisor={expert.role === 'advisor'}
-                compact
-              />
-            ))}
+            {!showAllExperts ? (
+              <Card>
+                <CardContent className="p-4">
+                  <Button
+                    variant="default"
+                    className="w-full"
+                    onClick={() => setShowAllExperts(true)}
+                  >
+                    查看所有老師
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {subscribedExperts.map(expert => (
+                  <LineBindingCard
+                    key={expert.id}
+                    expertId={expert.id}
+                    expertSlug={expert.slug}
+                    expertName={expert.name}
+                    isAdvisor={expert.role === 'advisor'}
+                  />
+                ))}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowAllExperts(false)}
+                >
+                  收起
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
