@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.line-push-signal]
 verify_jwt = false
+
+[functions.line-webhook]
+verify_jwt = false
