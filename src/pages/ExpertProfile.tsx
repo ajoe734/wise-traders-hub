@@ -449,7 +449,7 @@ const ExpertProfile = () => {
                           className="w-full"
                           asChild
                         >
-                          <Link to={`/checkout/${slug}/${plan.id}`}>
+                          <Link to={`/checkout/${slug}/${plan.id}${fromAccount ? '?from=account' : ''}`}>
                             訂閱此方案
                             <ArrowRight className="h-4 w-4 ml-2" />
                           </Link>
