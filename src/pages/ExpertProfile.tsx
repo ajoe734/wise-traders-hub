@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { PersonRole } from '@/types';
-import { CheckCircle, ArrowRight, Shield, Clock, TrendingUp, Check, Loader2 } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Clock, TrendingUp, Check, Loader2, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getPersonBySlug } from '@/data/mockData';
 
@@ -24,8 +24,11 @@ interface DbPlan {
 
 const ExpertProfile = () => {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const person = slug ? getPersonBySlug(slug) : undefined;
+  const fromAccount = searchParams.get('from') === 'account';
 
   const [dbPlans, setDbPlans] = useState<DbPlan[]>([]);
   const [subscribedPlanIds, setSubscribedPlanIds] = useState<Set<string>>(new Set());
@@ -149,6 +152,18 @@ const ExpertProfile = () => {
   return (
     <PortalLayout>
       <div className="container py-8 md:py-12">
+        {/* Back to account */}
+        {fromAccount && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mb-4"
+            onClick={() => navigate('/app/account')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            返回帳號設定
+          </Button>
+        )}
         {/* Hero Header */}
         <div className="relative mb-12">
           <div className={cn(
