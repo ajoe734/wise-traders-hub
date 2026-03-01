@@ -18,9 +18,10 @@ interface LineBindingCardProps {
   qrCodeUrl?: string;
   isAdvisor?: boolean;
   compact?: boolean;
+  isSubscribed?: boolean;
 }
 
-export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatarUrl, lineOaId, lineChannelName, qrCodeUrl, isAdvisor = false, compact = false }: LineBindingCardProps) => {
+export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatarUrl, lineOaId, lineChannelName, qrCodeUrl, isAdvisor = false, compact = false, isSubscribed = true }: LineBindingCardProps) => {
   const { user } = useAuth();
   const [binding, setBinding] = useState<any>(null);
   const [bindingCode, setBindingCode] = useState<string | null>(null);
@@ -223,6 +224,37 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
             <Unlink className="h-4 w-4 mr-1" />
             {unbinding ? '處理中...' : '解除綁定'}
           </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Not subscribed - show unsubscribed state
+  if (!isSubscribed) {
+    return (
+      <Card className="border-muted-foreground/20">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            {expertAvatarUrl ? (
+              <img src={expertAvatarUrl} alt={expertName} className="h-10 w-10 rounded-full object-cover flex-shrink-0 opacity-60" />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                <MessageCircle className="h-5 w-5 text-muted-foreground" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <span className="font-semibold truncate block">{lineChannelName || expertName}</span>
+              <span className="text-xs text-muted-foreground">尚未訂閱</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-shrink-0"
+              asChild
+            >
+              <Link to={`/expert/${expertSlug}#plans`}>前往訂閱</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
