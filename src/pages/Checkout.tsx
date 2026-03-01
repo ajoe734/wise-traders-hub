@@ -317,7 +317,7 @@ const Checkout = () => {
                       disabled={!plan.price_yearly}
                     >
                       {plan.price_yearly && (
-                        <Badge className={cn(!isAdvisor && "bg-mentor hover:bg-mentor-dark")}>
+                        <Badge className={cn("absolute -top-2 -right-2 rotate-12", !isAdvisor && "bg-mentor hover:bg-mentor-dark")}>
                           省 {Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100)}%
                         </Badge>
                       )}
