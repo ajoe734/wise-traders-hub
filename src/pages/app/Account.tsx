@@ -18,6 +18,7 @@ const Account = () => {
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
   const [subscribedExperts, setSubscribedExperts] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null; channel_name?: string | null }[]>([]);
   const [showAdvisors, setShowAdvisors] = useState(false);
+  const [showMentors, setShowMentors] = useState(false);
 
   // Fetch experts the user is subscribed to (for LINE binding)
   useEffect(() => {
@@ -162,12 +163,28 @@ const Account = () => {
             { id: 'a2000000-0000-0000-0000-000000000002', slug: 'wang-junhao', name: '王俊豪', role: 'advisor', avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face', line_oa_id: '@wang-junhao' },
           ];
 
+          const mockMentors = [
+            { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=80&h=80&fit=crop&crop=face', line_oa_id: '@lin-xiuqi' },
+            { id: 'a2000000-0000-0000-0000-000000000003', slug: 'li-mingzhe', name: '李明哲', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&h=80&fit=crop&crop=face', line_oa_id: '@li-mingzhe' },
+            { id: 'a2000000-0000-0000-0000-000000000004', slug: 'huang-yating', name: '黃雅婷', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=80&h=80&fit=crop&crop=face', line_oa_id: '@huang-yating' },
+          ];
+
+          // Build advisor list
           const realAdvisors = subscribedExperts.filter(e => e.role === 'advisor');
           const mockAdvisorMap = new Map(mockAdvisors.map(m => [m.id, m]));
           const realAdvisorIds = new Set(realAdvisors.map(e => e.id));
           const advisors = [
             ...realAdvisors.map(e => ({ ...e, avatar_url: e.avatar_url || mockAdvisorMap.get(e.id)?.avatar_url || null, line_oa_id: e.line_oa_id || mockAdvisorMap.get(e.id)?.line_oa_id || null, isSubscribed: true })),
             ...mockAdvisors.filter(m => !realAdvisorIds.has(m.id)).map(m => ({ ...m, isSubscribed: false })),
+          ];
+
+          // Build mentor list
+          const realMentors = subscribedExperts.filter(e => e.role === 'mentor');
+          const mockMentorMap = new Map(mockMentors.map(m => [m.id, m]));
+          const realMentorIds = new Set(realMentors.map(e => e.id));
+          const mentors = [
+            ...realMentors.map(e => ({ ...e, avatar_url: e.avatar_url || mockMentorMap.get(e.id)?.avatar_url || null, line_oa_id: e.line_oa_id || mockMentorMap.get(e.id)?.line_oa_id || null, isSubscribed: true })),
+            ...mockMentors.filter(m => !realMentorIds.has(m.id)).map(m => ({ ...m, isSubscribed: false })),
           ];
 
           return (
@@ -177,7 +194,7 @@ const Account = () => {
                 LINE 綁定
               </h2>
               <p className="text-sm text-muted-foreground">
-                綁定 LINE 後，可即時收到訊號推播通知（僅限跟單派）
+                綁定 LINE 後，可即時收到訊號推播或週記通知
               </p>
               <div className="space-y-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
                 <p className="font-medium text-foreground text-sm">綁定步驟：</p>
@@ -193,18 +210,19 @@ const Account = () => {
               {/* 跟單派 */}
               <div className="space-y-3">
                 {!showAdvisors ? (
-                  <Card className="border-red-500/30">
+                  <Card className="border-advisor/30">
                     <CardContent className="p-4 space-y-3">
-                      <h3 className="text-lg font-bold text-red-500 text-center">跟單派</h3>
-                      <Button variant="default" className="w-full bg-red-500 hover:bg-red-600" onClick={() => setShowAdvisors(true)}>
+                      <h3 className="text-lg font-bold text-advisor text-center">跟單派</h3>
+                      <p className="text-xs text-muted-foreground text-center">即時訊號推播通知</p>
+                      <Button variant="default" className="w-full bg-advisor hover:bg-advisor/90" onClick={() => setShowAdvisors(true)}>
                         查看所有老師
                       </Button>
                     </CardContent>
                   </Card>
                 ) : (
-                  <Card className="border-red-500/30">
+                  <Card className="border-advisor/30">
                     <CardContent className="p-4 space-y-3">
-                      <h3 className="text-lg font-bold text-red-500 text-center mb-2">跟單派</h3>
+                      <h3 className="text-lg font-bold text-advisor text-center mb-2">跟單派</h3>
                       <div className="space-y-3">
                         {advisors.map(expert => (
                           <LineBindingCard
@@ -222,6 +240,45 @@ const Account = () => {
                         ))}
                       </div>
                       <Button variant="outline" className="w-full mt-2" onClick={() => setShowAdvisors(false)}>
+                        收起
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* 修煉派 */}
+              <div className="space-y-3">
+                {!showMentors ? (
+                  <Card className="border-mentor/30">
+                    <CardContent className="p-4 space-y-3">
+                      <h3 className="text-lg font-bold text-mentor text-center">修煉派</h3>
+                      <p className="text-xs text-muted-foreground text-center">每週實戰週記通知</p>
+                      <Button variant="default" className="w-full bg-mentor hover:bg-mentor/90" onClick={() => setShowMentors(true)}>
+                        查看所有老師
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className="border-mentor/30">
+                    <CardContent className="p-4 space-y-3">
+                      <h3 className="text-lg font-bold text-mentor text-center mb-2">修煉派</h3>
+                      <div className="space-y-3">
+                        {mentors.map(expert => (
+                          <LineBindingCard
+                            key={expert.id}
+                            expertId={expert.id}
+                            expertSlug={expert.slug}
+                            expertName={expert.name}
+                            expertAvatarUrl={expert.avatar_url || undefined}
+                            lineOaId={(expert as any).line_oa_id || undefined}
+                            lineChannelName={(expert as any).channel_name || undefined}
+                            qrCodeUrl={(expert as any).qr_code_url || undefined}
+                            isSubscribed={(expert as any).isSubscribed}
+                          />
+                        ))}
+                      </div>
+                      <Button variant="outline" className="w-full mt-2" onClick={() => setShowMentors(false)}>
                         收起
                       </Button>
                     </CardContent>
