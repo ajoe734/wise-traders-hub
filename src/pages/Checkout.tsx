@@ -7,7 +7,16 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, Loader2, CreditCard, Shield, ArrowLeft, Check } from 'lucide-react';
+import { CheckCircle, Loader2, CreditCard, Shield, ArrowLeft, Check, XCircle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 interface DbPlan {
@@ -53,6 +62,7 @@ const Checkout = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
+  const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -198,20 +208,10 @@ const Checkout = () => {
 
       if (subError) throw subError;
 
-      toast({
-        title: '訂閱成功！🎉',
-        description: `已成功訂閱 ${expert.name} 的 ${plan.name}（沙盒模式）`,
-      });
-
-      // Navigate to expert profile
-      navigate(`/expert/${expert.slug}#plans`);
+      setResultDialog({ open: true, success: true });
     } catch (err: any) {
       console.error('Checkout error:', err);
-      toast({
-        title: '訂閱失敗',
-        description: err.message || '請稍後再試',
-        variant: 'destructive',
-      });
+      setResultDialog({ open: true, success: false, message: err.message || '請稍後再試' });
     } finally {
       setIsProcessing(false);
     }
@@ -465,6 +465,56 @@ const Checkout = () => {
           </div>
         </div>
       </div>
+
+      {/* Result Dialog */}
+      <AlertDialog open={resultDialog?.open ?? false} onOpenChange={() => {}}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {resultDialog?.success ? (
+                <><CheckCircle className="h-5 w-5 text-green-500" />訂閱成功 🎉</>
+              ) : (
+                <><XCircle className="h-5 w-5 text-destructive" />訂閱失敗</>
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={expert?.avatar_url || '/placeholder.svg'}
+                    alt={expert?.name}
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                  <div>
+                    <p className="font-medium text-foreground">{expert?.name}</p>
+                    <p className="text-sm text-muted-foreground">{plan?.name}</p>
+                  </div>
+                </div>
+                <div className="text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">付款週期</span>
+                    <span className="text-foreground">{billingCycle === 'monthly' ? '月繳' : '年繳'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">金額</span>
+                    <span className="text-foreground font-medium">NT$ {formatPrice(price)}</span>
+                  </div>
+                </div>
+                {resultDialog?.success ? (
+                  <p className="text-sm text-muted-foreground">您現在可以前往帳號頁面綁定 LINE 以接收即時通知。</p>
+                ) : (
+                  <p className="text-sm text-destructive">{resultDialog?.message || '付款處理時發生錯誤，請稍後再試。'}</p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => navigate('/app/account')}>
+              確定
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PortalLayout>
   );
 };
