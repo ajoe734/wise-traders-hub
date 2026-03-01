@@ -5,61 +5,197 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserSubscriptions } from '@/data/mockData';
-import { SubscriptionStatus } from '@/types';
-import { User, MessageCircle, Calendar, ExternalLink, Radio, Settings } from 'lucide-react';
+import { User, MessageCircle, Calendar, ExternalLink, Radio, Settings, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { LineBindingCard } from '@/components/LineBindingCard';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
+interface DbSubscription {
+  id: string;
+  plan_id: string;
+  status: string;
+  auto_renew: boolean;
+  started_at: string;
+  expires_at: string | null;
+  canceled_at: string | null;
+  plan: {
+    id: string;
+    name: string;
+    plan_type: string;
+    price_monthly: number;
+  };
+  expert: {
+    id: string;
+    slug: string;
+    name: string;
+    role: string;
+    avatar_url: string | null;
+  };
+}
 
 const Account = () => {
   const { user } = useAuth();
-  const subscriptions = user ? getUserSubscriptions(user.id) : [];
+  const { toast } = useToast();
+  const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
+  const [loadingSubs, setLoadingSubs] = useState(true);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [subscribedExpertIds, setSubscribedExpertIds] = useState<Set<string>>(new Set());
   const [allAdvisors, setAllAdvisors] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null; channel_name?: string | null }[]>([]);
   const [allMentors, setAllMentors] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null; channel_name?: string | null }[]>([]);
   const [showAdvisors, setShowAdvisors] = useState(false);
   const [showMentors, setShowMentors] = useState(false);
 
-  // Fetch all active experts + LINE channels + user subscriptions
+  const fetchSubscriptions = async () => {
+    if (!user) return;
+    setLoadingSubs(true);
+
+    // Fetch user's subscriptions with plan info
+    const { data: subs } = await supabase
+      .from('member_subscriptions')
+      .select('id, plan_id, status, auto_renew, started_at, expires_at, canceled_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (!subs || subs.length === 0) {
+      setSubscriptions([]);
+      setSubscribedExpertIds(new Set());
+      setLoadingSubs(false);
+      return;
+    }
+
+    // Fetch plan details
+    const planIds = [...new Set(subs.map(s => s.plan_id))];
+    const { data: plans } = await supabase
+      .from('expert_plans')
+      .select('id, name, plan_type, price_monthly, expert_id')
+      .in('id', planIds);
+
+    if (!plans) {
+      setLoadingSubs(false);
+      return;
+    }
+
+    // Fetch expert details
+    const expertIds = [...new Set(plans.map(p => p.expert_id))];
+    const { data: experts } = await supabase
+      .from('experts')
+      .select('id, slug, name, role, avatar_url')
+      .in('id', expertIds);
+
+    const planMap = new Map(plans.map(p => [p.id, p]));
+    const expertMap = new Map((experts || []).map(e => [e.id, e]));
+
+    const enriched: DbSubscription[] = subs.map(sub => {
+      const plan = planMap.get(sub.plan_id);
+      const expert = plan ? expertMap.get(plan.expert_id) : null;
+      return {
+        ...sub,
+        plan: plan ? { id: plan.id, name: plan.name, plan_type: plan.plan_type, price_monthly: plan.price_monthly } : { id: '', name: '未知方案', plan_type: '', price_monthly: 0 },
+        expert: expert ? { id: expert.id, slug: expert.slug, name: expert.name, role: expert.role, avatar_url: expert.avatar_url } : { id: '', slug: '', name: '未知', role: '', avatar_url: null },
+      };
+    });
+
+    setSubscriptions(enriched);
+    const activeExpertIds = new Set(enriched.filter(s => s.status === 'active').map(s => s.expert.id));
+    setSubscribedExpertIds(activeExpertIds);
+    setLoadingSubs(false);
+  };
+
+  // Fetch all active experts + LINE channels
+  const fetchExperts = async () => {
+    if (!user) return;
+
+    const { data: experts } = await supabase
+      .from('experts')
+      .select('id, slug, name, role, avatar_url')
+      .eq('status', 'active');
+
+    if (!experts) return;
+
+    const expertIds = experts.map(e => e.id);
+    const { data: channels } = await supabase
+      .from('expert_line_channels')
+      .select('expert_id, line_oa_id, qr_code_url, channel_name')
+      .in('expert_id', expertIds);
+
+    const channelMap = new Map((channels || []).map((c: any) => [c.expert_id, { line_oa_id: c.line_oa_id, qr_code_url: c.qr_code_url, channel_name: c.channel_name }]));
+
+    const enriched = experts.map(e => ({
+      ...e,
+      line_oa_id: channelMap.get(e.id)?.line_oa_id || null,
+      qr_code_url: channelMap.get(e.id)?.qr_code_url || null,
+      channel_name: channelMap.get(e.id)?.channel_name || null,
+    }));
+
+    setAllAdvisors(enriched.filter(e => e.role === 'advisor'));
+    setAllMentors(enriched.filter(e => e.role === 'mentor'));
+  };
+
   useEffect(() => {
     if (!user) return;
-    const fetchData = async () => {
-      // Fetch subscribed expert IDs
-      const { data: subData } = await supabase
-        .rpc('has_active_subscription', { _user_id: user.id });
-      const subIds = new Set((subData || []).map((d: any) => d.expert_id));
-      setSubscribedExpertIds(subIds);
-
-      // Fetch all active experts
-      const { data: experts } = await supabase
-        .from('experts')
-        .select('id, slug, name, role, avatar_url')
-        .eq('status', 'active');
-
-      if (!experts) return;
-
-      // Fetch LINE channels for all experts
-      const expertIds = experts.map(e => e.id);
-      const { data: channels } = await supabase
-        .from('expert_line_channels')
-        .select('expert_id, line_oa_id, qr_code_url, channel_name')
-        .in('expert_id', expertIds);
-      const channelMap = new Map((channels || []).map((c: any) => [c.expert_id, { line_oa_id: c.line_oa_id, qr_code_url: c.qr_code_url, channel_name: c.channel_name }]));
-
-      const enriched = experts.map(e => ({
-        ...e,
-        line_oa_id: channelMap.get(e.id)?.line_oa_id || null,
-        qr_code_url: channelMap.get(e.id)?.qr_code_url || null,
-        channel_name: channelMap.get(e.id)?.channel_name || null,
-      }));
-
-      setAllAdvisors(enriched.filter(e => e.role === 'advisor'));
-      setAllMentors(enriched.filter(e => e.role === 'mentor'));
-    };
-    fetchData();
+    fetchSubscriptions();
+    fetchExperts();
   }, [user]);
+
+  const handleCancelSubscription = async (subId: string) => {
+    setCancelingId(subId);
+    try {
+      const { error } = await supabase
+        .from('member_subscriptions')
+        .update({
+          status: 'canceled',
+          canceled_at: new Date().toISOString(),
+          auto_renew: false,
+        })
+        .eq('id', subId)
+        .eq('user_id', user!.id);
+
+      if (error) throw error;
+
+      toast({
+        title: '已取消訂閱',
+        description: '您的訂閱已成功取消。',
+      });
+
+      // Refresh data
+      await fetchSubscriptions();
+    } catch (err: any) {
+      toast({
+        title: '取消失敗',
+        description: err.message || '請稍後再試',
+        variant: 'destructive',
+      });
+    } finally {
+      setCancelingId(null);
+    }
+  };
+
+  const activeSubs = subscriptions.filter(s => s.status === 'active');
+  const inactiveSubs = subscriptions.filter(s => s.status !== 'active');
+
+  const getPlanTypeLabel = (planType: string) => {
+    switch (planType) {
+      case 'analyst_signal_l1': return '跟單派 基礎';
+      case 'analyst_signal_diag_l2': return '跟單派 進階';
+      case 'mentor_weekly_journal': return '修煉派';
+      default: return planType;
+    }
+  };
+
+  const isAdvisorPlan = (planType: string) => planType !== 'mentor_weekly_journal';
 
   return (
     <UnifiedAppLayout>
@@ -87,54 +223,141 @@ const Account = () => {
             <Calendar className="h-5 w-5" />
             我的訂閱
           </h2>
-          
-          {subscriptions.length > 0 ? (
+
+          {loadingSubs ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : subscriptions.length > 0 ? (
             <div className="space-y-3">
-              {subscriptions.map((sub) => {
-                const isActive = sub.status === SubscriptionStatus.ACTIVE;
-                
+              {/* Active subscriptions */}
+              {activeSubs.map((sub) => {
+                const advisor = isAdvisorPlan(sub.plan.plan_type);
                 return (
-                  <Card 
-                    key={sub.id} 
+                  <Card
+                    key={sub.id}
                     className={cn(
                       "overflow-hidden border-2",
-                      isActive ? "border-green-500/50" : "border-border opacity-60"
+                      advisor ? "border-advisor/50" : "border-mentor/50"
                     )}
                   >
-                    <div className="h-1 bg-gradient-to-r from-primary to-primary/50" />
+                    <div className={cn(
+                      "h-1 bg-gradient-to-r",
+                      advisor ? "from-advisor to-advisor/50" : "from-mentor to-mentor/50"
+                    )} />
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <img
-                          src={sub.person.avatarUrl || '/placeholder.svg'}
-                          alt={sub.person.name}
+                          src={sub.expert.avatar_url || '/placeholder.svg'}
+                          alt={sub.expert.name}
                           className="h-12 w-12 rounded-full object-cover"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className="font-semibold">{sub.person.name}</h3>
-                            <Badge variant={isActive ? 'secondary' : 'outline'} className={cn(
-                              isActive && "bg-green-500/20 text-green-400 border-green-500/30"
+                            <h3 className="font-semibold">{sub.expert.name}</h3>
+                            <Badge variant="secondary" className={cn(
+                              advisor
+                                ? "bg-advisor/20 text-advisor border-advisor/30"
+                                : "bg-mentor/20 text-mentor border-mentor/30"
                             )}>
-                              {isActive ? '有效' : '已到期'}
+                              有效
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">{sub.plan.name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {getPlanTypeLabel(sub.plan.plan_type)} · NT$ {sub.plan.price_monthly.toLocaleString()}/月
+                          </p>
                           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
                             <span>
-                              {format(sub.startDate, 'yyyy/MM/dd')} - {format(sub.endDate, 'yyyy/MM/dd')}
+                              {format(new Date(sub.started_at), 'yyyy/MM/dd')}
+                              {sub.expires_at && ` - ${format(new Date(sub.expires_at), 'yyyy/MM/dd')}`}
                             </span>
-                            {sub.renewMode && (
-                              <span className="text-primary/70">
-                                {sub.renewMode === 'AUTO' ? '自動續訂' : '手動續訂'}
-                              </span>
-                            )}
+                            <span className={cn(advisor ? "text-advisor/70" : "text-mentor/70")}>
+                              {sub.auto_renew ? '自動續訂' : '手動續訂'}
+                            </span>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Cancel button */}
+                      <div className="mt-3 pt-3 border-t flex justify-end">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                              disabled={cancelingId === sub.id}
+                            >
+                              {cancelingId === sub.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <XCircle className="h-3.5 w-3.5" />
+                              )}
+                              取消訂閱
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>確認取消訂閱？</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                您確定要取消 {sub.expert.name} 的 {sub.plan.name} 訂閱嗎？
+                                取消後將無法繼續接收該專家的服務內容。
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>返回</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleCancelSubscription(sub.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                確認取消
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </CardContent>
                   </Card>
                 );
               })}
+
+              {/* Inactive/canceled subscriptions */}
+              {inactiveSubs.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium mt-4">已過期 / 已取消</p>
+                  {inactiveSubs.map((sub) => (
+                    <Card key={sub.id} className="overflow-hidden opacity-60">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <img
+                            src={sub.expert.avatar_url || '/placeholder.svg'}
+                            alt={sub.expert.name}
+                            className="h-10 w-10 rounded-full object-cover grayscale"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <h3 className="font-semibold text-sm">{sub.expert.name}</h3>
+                              <Badge variant="outline" className="text-xs">
+                                {sub.status === 'canceled' ? '已取消' : '已到期'}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{sub.plan.name}</p>
+                            {sub.canceled_at && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                取消於 {format(new Date(sub.canceled_at), 'yyyy/MM/dd')}
+                              </p>
+                            )}
+                          </div>
+                          <Button variant="outline" size="sm" asChild>
+                            <Link to={`/expert/${sub.expert.slug}`}>重新訂閱</Link>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <Card>
