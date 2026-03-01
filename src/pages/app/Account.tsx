@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { LineBindingCard } from '@/components/LineBindingCard';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,7 +48,7 @@ interface DbSubscription {
 
 const Account = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
+  
   const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(true);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
@@ -165,19 +165,10 @@ const Account = () => {
 
       if (error) throw error;
 
-      toast({
-        title: '已取消訂閱',
-        description: '您的訂閱已成功取消。',
-      });
-
       // Refresh data
       await fetchSubscriptions();
     } catch (err: any) {
-      toast({
-        title: '取消失敗',
-        description: err.message || '請稍後再試',
-        variant: 'destructive',
-      });
+      console.error('Cancel subscription error:', err);
     } finally {
       setCancelingId(null);
     }
