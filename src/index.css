@@ -20,6 +20,12 @@
   .gap-card {
     gap: 24px;
   }
+  .gradient-advisor {
+    background: linear-gradient(135deg, hsl(var(--advisor)) 0%, hsl(var(--advisor-dark)) 100%);
+  }
+  .gradient-mentor {
+    background: linear-gradient(135deg, hsl(var(--mentor)) 0%, hsl(var(--mentor-dark)) 100%);
+  }
 }
 
 @layer base {
