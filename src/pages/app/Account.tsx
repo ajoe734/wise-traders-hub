@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserSubscriptions } from '@/data/mockData';
 import { SubscriptionStatus } from '@/types';
-import { User, MessageCircle, Calendar, ExternalLink, Radio, Settings, ArrowLeft } from 'lucide-react';
+import { User, MessageCircle, Calendar, ExternalLink, Radio, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { LineBindingCard } from '@/components/LineBindingCard';
@@ -164,7 +164,7 @@ const Account = () => {
           ];
 
           const mockMentors = [
-            { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face', line_oa_id: '@lin-xiuqi' },
+            { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=80&h=80&fit=crop&crop=face', line_oa_id: '@lin-xiuqi' },
             { id: 'a2000000-0000-0000-0000-000000000003', slug: 'li-mingzhe', name: '李明哲', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&h=80&fit=crop&crop=face', line_oa_id: '@li-mingzhe' },
             { id: 'a2000000-0000-0000-0000-000000000004', slug: 'huang-yating', name: '黃雅婷', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=80&h=80&fit=crop&crop=face', line_oa_id: '@huang-yating' },
           ];
@@ -239,9 +239,8 @@ const Account = () => {
                           />
                         ))}
                       </div>
-                      <Button variant="ghost" className="w-full mt-2 text-muted-foreground" onClick={() => setShowAdvisors(false)}>
-                        <ArrowLeft className="h-4 w-4 mr-1" />
-                        返回
+                      <Button variant="outline" className="w-full mt-2" onClick={() => setShowAdvisors(false)}>
+                        收起
                       </Button>
                     </CardContent>
                   </Card>
@@ -279,9 +278,8 @@ const Account = () => {
                           />
                         ))}
                       </div>
-                      <Button variant="ghost" className="w-full mt-2 text-muted-foreground" onClick={() => setShowMentors(false)}>
-                        <ArrowLeft className="h-4 w-4 mr-1" />
-                        返回
+                      <Button variant="outline" className="w-full mt-2" onClick={() => setShowMentors(false)}>
+                        收起
                       </Button>
                     </CardContent>
                   </Card>
