@@ -373,7 +373,7 @@ const ExpertProfile = () => {
                   >
                     <div className={cn(
                       "absolute top-0 left-0 right-0 h-1",
-                      isSubscribed ? "bg-success" : isFollowerType ? "gradient-advisor" : "gradient-mentor"
+                      isFollowerType ? "gradient-advisor" : "gradient-mentor"
                     )} />
                     {isSubscribed && (
                       <Badge className="absolute top-3 right-3 bg-success text-success-foreground">
@@ -395,7 +395,7 @@ const ExpertProfile = () => {
                           <li key={idx} className="flex items-center gap-2 text-sm">
                             <CheckCircle className={cn(
                               "h-4 w-4",
-                              isSubscribed ? "text-success" : isFollowerType ? "text-advisor" : "text-mentor"
+                              isFollowerType ? "text-advisor" : "text-mentor"
                             )} />
                             {feature}
                           </li>
@@ -414,7 +414,7 @@ const ExpertProfile = () => {
 
                       <div className={cn(
                         "flex items-start gap-2 p-3 rounded-lg text-sm",
-                        isSubscribed ? "bg-success/10 text-success" : isFollowerType ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor"
+                        isFollowerType ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor"
                       )}>
                         {isFollowerType ? (
                           <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" />
