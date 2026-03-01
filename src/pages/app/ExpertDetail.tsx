@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,8 @@ const standardPlans = {
 const AppExpertDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromAccount = searchParams.get('from') === 'account';
   
   const expert = getPersonBySlug(slug || "");
   
@@ -122,11 +124,11 @@ const AppExpertDetail = () => {
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={() => navigate("/app")}
+          onClick={() => navigate(fromAccount ? "/app/account" : "/app")}
           className="gap-2 -ml-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回戰情室
+          {fromAccount ? "返回帳號設定" : "返回戰情室"}
         </Button>
 
         {/* Expert Header */}

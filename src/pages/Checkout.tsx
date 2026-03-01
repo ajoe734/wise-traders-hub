@@ -203,8 +203,8 @@ const Checkout = () => {
         description: `已成功訂閱 ${expert.name} 的 ${plan.name}（沙盒模式）`,
       });
 
-      // Navigate to expert profile
-      navigate(`/expert/${expert.slug}#plans`);
+      // Navigate back to expert profile, preserving from=account
+      navigate(`/expert/${expert.slug}${fromAccount ? '?from=account' : ''}#plans`);
     } catch (err: any) {
       console.error('Checkout error:', err);
       toast({
