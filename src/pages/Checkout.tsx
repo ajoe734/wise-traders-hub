@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,7 +41,9 @@ const Checkout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const fromAccount = searchParams.get('from') === 'account';
 
   const [plan, setPlan] = useState<DbPlan | null>(null);
   const [expert, setExpert] = useState<DbExpert | null>(null);
@@ -221,7 +223,7 @@ const Checkout = () => {
         <div className="max-w-4xl mx-auto">
           {/* Back */}
           <Button variant="ghost" size="sm" className="mb-6 gap-2" asChild>
-            <Link to={`/expert/${slug}#plans`}>
+            <Link to={`/expert/${slug}${fromAccount ? '?from=account' : ''}#plans`}>
               <ArrowLeft className="h-4 w-4" />
               返回方案
             </Link>

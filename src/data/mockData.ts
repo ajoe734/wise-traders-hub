@@ -106,6 +106,20 @@ export const people: Person[] = [
     riskTolerance: '積極',
     timeframe: '極短期',
   },
+  // 林修齊 - 實戰導師
+  {
+    id: 'person-7',
+    slug: 'lin-xiuqi',
+    name: '林修齊',
+    role: PersonRole.MENTOR,
+    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&h=150&fit=crop&crop=face',
+    bio: '價值投資教學',
+    description: '15年投資經驗，專注於教授價值投資策略。從基本面分析到長期持有，幫助學員建立穩健的投資框架，在波動市場中保持理性決策。',
+    styleTags: ['價值投資', '長線'],
+    markets: ['台股', '美股'],
+    riskTolerance: '保守',
+    timeframe: '長期',
+  },
 ];
 
 // Trading Systems
@@ -351,6 +365,47 @@ export const tradingSystems: TradingSystem[] = [
       }
     ]
   },
+  // 林修齊 - 價值投資教學系統
+  {
+    id: 'system-7',
+    personId: 'person-7',
+    name: '價值投資心法 – 長線佈局',
+    description: '從基本面分析出發，挑選被低估的優質企業，長期持有等待價值回歸。',
+    styleTags: ['價值投資', '基本面', '長線'],
+    markets: ['台股', '美股'],
+    riskProfile: '保守',
+    holdingPeriod: '半年至數年',
+    teachingIntro: '本系統專注於教授價值投資的核心理念與實踐方法。透過深入的基本面分析，找出被市場低估的優質企業，並以合理價格建立部位，耐心持有直到市場認知修正。',
+    teachingSections: [
+      {
+        title: '選股框架',
+        bullets: [
+          '營收與獲利連續成長 3 年以上',
+          '本益比低於同業平均或歷史中位數',
+          '自由現金流為正且穩定',
+          '具護城河（品牌、技術、規模優勢）'
+        ]
+      },
+      {
+        title: '買進與持有策略',
+        bullets: [
+          '股價低於內在價值 20% 以上時開始建倉',
+          '分 3-4 批進場，降低時機風險',
+          '單一標的不超過總資金 15%',
+          '持有期間定期追蹤財報與產業變化'
+        ]
+      },
+      {
+        title: '賣出條件',
+        bullets: [
+          '基本面出現結構性惡化',
+          '股價達到合理估值上緣',
+          '發現更具價值的替代標的',
+          '不因短期市場波動而賣出'
+        ]
+      }
+    ]
+  },
 ];
 
 // Plans
@@ -458,6 +513,18 @@ export const plans: Plan[] = [
     description: '每週分享漲停8招實戰案例，包含選股邏輯、進出場時機與事後檢討。所有內容至少延遲 7 天。',
     priceMonthly: 1499,
     priceYearly: 14990,
+    isActive: true,
+  },
+  // 林修齊 - 實戰導師方案
+  {
+    id: 'plan-10',
+    personId: 'person-7',
+    systemId: 'system-7',
+    planType: PlanType.MENTOR_WEEKLY_JOURNAL,
+    name: '修煉派 學習方案',
+    description: '每週分享價值投資實戰案例，包含選股邏輯、估值分析與持有策略。所有內容至少延遲 7 天。',
+    priceMonthly: 799,
+    priceYearly: 7990,
     isActive: true,
   },
 ];
