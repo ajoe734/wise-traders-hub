@@ -1,30 +1,126 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { RoleBadge } from '@/components/RoleBadge';
-import { getPlanById, people, tradingSystems } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { PersonRole, PlanType } from '@/types';
-import { CheckCircle, Loader2, CreditCard, Shield } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { CheckCircle, Loader2, CreditCard, Shield, ArrowLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface DbPlan {
+  id: string;
+  name: string;
+  plan_type: string;
+  price_monthly: number;
+  price_yearly: number | null;
+  description: string | null;
+  features: any;
+  expert_id: string;
+}
+
+interface DbExpert {
+  id: string;
+  name: string;
+  slug: string;
+  avatar_url: string | null;
+  role: string;
+}
+
+interface PaymentProvider {
+  id: string;
+  display_name: string;
+  provider_type: string;
+  is_active: boolean;
+  is_default: boolean;
+}
 
 const Checkout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isProcessing, setIsProcessing] = useState(false);
+
+  const [plan, setPlan] = useState<DbPlan | null>(null);
+  const [expert, setExpert] = useState<DbExpert | null>(null);
+  const [providers, setProviders] = useState<PaymentProvider[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [alreadySubscribed, setAlreadySubscribed] = useState(false);
 
-  const plan = planId ? getPlanById(planId) : undefined;
-  const person = plan ? people.find(p => p.id === plan.personId) : undefined;
-  const system = plan?.systemId ? tradingSystems.find(s => s.id === plan.systemId) : undefined;
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!planId || !slug) return;
 
-  if (!plan || !person) {
+      // Fetch plan
+      const { data: planData } = await supabase
+        .from('expert_plans')
+        .select('id, name, plan_type, price_monthly, price_yearly, description, features, expert_id')
+        .eq('id', planId)
+        .single();
+
+      if (!planData) {
+        setLoading(false);
+        return;
+      }
+      setPlan(planData);
+
+      // Fetch expert
+      const { data: expertData } = await supabase
+        .from('experts')
+        .select('id, name, slug, avatar_url, role')
+        .eq('id', planData.expert_id)
+        .single();
+
+      setExpert(expertData);
+
+      // Fetch active payment providers
+      const { data: providerData } = await supabase
+        .from('payment_providers')
+        .select('id, display_name, provider_type, is_active, is_default')
+        .eq('is_active', true)
+        .order('is_default', { ascending: false });
+
+      if (providerData && providerData.length > 0) {
+        setProviders(providerData);
+        setSelectedProvider(providerData[0].id);
+      }
+
+      // Check if already subscribed
+      if (user) {
+        const { data: subs } = await supabase
+          .from('member_subscriptions')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('plan_id', planId)
+          .eq('status', 'active');
+
+        if (subs && subs.length > 0) {
+          setAlreadySubscribed(true);
+        }
+      }
+
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [planId, slug, user]);
+
+  if (loading) {
+    return (
+      <PortalLayout>
+        <div className="flex justify-center items-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </PortalLayout>
+    );
+  }
+
+  if (!plan || !expert) {
     return (
       <PortalLayout>
         <div className="container py-12 text-center">
@@ -37,21 +133,30 @@ const Checkout = () => {
     );
   }
 
-  const isAdvisor = person.role === PersonRole.ADVISOR;
-  const price = billingCycle === 'monthly' ? plan.priceMonthly : plan.priceYearly;
+  const isAdvisor = plan.plan_type !== 'mentor_weekly_journal';
+  const price = billingCycle === 'monthly' ? plan.price_monthly : (plan.price_yearly || plan.price_monthly * 12);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('zh-TW').format(price);
+  const formatPrice = (p: number) => new Intl.NumberFormat('zh-TW').format(p);
+
+  const getPlanFeatures = (planType: string): string[] => {
+    switch (planType) {
+      case 'analyst_signal_l1':
+        return ['即時策略訊號推播', '每筆操作教學說明', '風險與部位控管解說'];
+      case 'analyst_signal_diag_l2':
+        return ['即時策略訊號推播', '每筆操作教學說明', '風險與部位控管解說', '持股健檢報告'];
+      case 'mentor_weekly_journal':
+        return ['每週修煉派週記', '完整操作邏輯拆解', '事後檢討與學習重點'];
+      default:
+        return [];
+    }
   };
 
-  const getPlanFeatures = (planType: PlanType) => {
-    switch (planType) {
-      case PlanType.ANALYST_SIGNAL_L1:
-        return ['即時策略訊號推播', '每筆操作教學說明', '風險與部位控管解說'];
-      case PlanType.ANALYST_SIGNAL_DIAG_L2:
-        return ['即時策略訊號推播', '每筆操作教學說明', '風險與部位控管解說', '持股健檢報告'];
-      case PlanType.MENTOR_WEEKLY_JOURNAL:
-        return ['每週修煉派週記', '完整操作邏輯拆解', '事後檢討與學習重點'];
+  const getProviderIcon = (providerType: string) => {
+    switch (providerType) {
+      case 'ecpay': return '🏦';
+      case 'line_pay': return '💚';
+      case 'newebpay': return '🔵';
+      default: return '💳';
     }
   };
 
@@ -61,60 +166,112 @@ const Checkout = () => {
       return;
     }
 
+    if (!selectedProvider) {
+      toast({ title: '請選擇付款方式', variant: 'destructive' });
+      return;
+    }
+
     setIsProcessing(true);
 
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // Sandbox mode: simulate payment and create subscription directly
+      const expiresAt = new Date();
+      if (billingCycle === 'monthly') {
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
+      } else {
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+      }
 
-    toast({
-      title: '訂閱成功！',
-      description: '請加入專屬 LINE 官方帳號以接收服務。',
-    });
+      // Create subscription
+      const { error: subError } = await supabase
+        .from('member_subscriptions')
+        .insert({
+          user_id: user.id,
+          plan_id: plan.id,
+          status: 'active',
+          provider_id: selectedProvider,
+          started_at: new Date().toISOString(),
+          expires_at: expiresAt.toISOString(),
+        });
 
-    setIsProcessing(false);
-    // Navigate to the expert's LINE mini-app home
-    navigate(`/line/${person.slug}/home`);
+      if (subError) throw subError;
+
+      toast({
+        title: '訂閱成功！🎉',
+        description: `已成功訂閱 ${expert.name} 的 ${plan.name}（沙盒模式）`,
+      });
+
+      // Navigate to expert profile
+      navigate(`/expert/${expert.slug}#plans`);
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      toast({
+        title: '訂閱失敗',
+        description: err.message || '請稍後再試',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
     <PortalLayout>
       <div className="container py-8 md:py-12">
         <div className="max-w-4xl mx-auto">
+          {/* Back */}
+          <Button variant="ghost" size="sm" className="mb-6 gap-2" asChild>
+            <Link to={`/expert/${slug}#plans`}>
+              <ArrowLeft className="h-4 w-4" />
+              返回方案
+            </Link>
+          </Button>
+
           <h1 className="text-2xl md:text-3xl font-bold mb-8 text-center">確認訂閱</h1>
 
+          {alreadySubscribed && (
+            <Card className="mb-6 border-success/40 bg-success/5">
+              <CardContent className="p-4 flex items-center gap-3">
+                <Check className="h-5 w-5 text-success" />
+                <span className="text-success font-medium">您已訂閱此方案，無需重複訂閱。</span>
+                <Button variant="outline" size="sm" asChild className="ml-auto">
+                  <Link to={`/expert/${slug}#plans`}>返回</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid md:grid-cols-5 gap-8">
-            {/* Order Summary */}
+            {/* Left: Order Summary */}
             <div className="md:col-span-3 space-y-6">
+              {/* Expert + Plan Info */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">訂閱內容</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Person Info */}
                   <div className="flex items-center gap-4">
                     <img
-                      src={person.avatarUrl || '/placeholder.svg'}
-                      alt={person.name}
+                      src={expert.avatar_url || '/placeholder.svg'}
+                      alt={expert.name}
                       className="h-14 w-14 rounded-xl object-cover"
                     />
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{person.name}</span>
-                        <RoleBadge role={person.role} size="sm" />
-                      </div>
-                      <p className="text-sm text-muted-foreground">{person.bio}</p>
+                      <span className="font-semibold">{expert.name}</span>
+                      <p className="text-sm text-muted-foreground">{plan.name}</p>
                     </div>
                   </div>
 
-                  {/* Plan Info */}
                   <div className={cn(
                     "p-4 rounded-lg border-2",
                     isAdvisor ? "border-advisor/20 bg-advisor-light/30" : "border-mentor/20 bg-mentor-light/30"
                   )}>
                     <h3 className="font-semibold mb-2">{plan.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
+                    {plan.description && (
+                      <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
+                    )}
                     <ul className="space-y-2">
-                      {getPlanFeatures(plan.planType).map((feature, idx) => (
+                      {getPlanFeatures(plan.plan_type).map((feature, idx) => (
                         <li key={idx} className="flex items-center gap-2 text-sm">
                           <CheckCircle className={cn(
                             "h-4 w-4",
@@ -125,14 +282,6 @@ const Checkout = () => {
                       ))}
                     </ul>
                   </div>
-
-                  {/* Trading System */}
-                  {system && (
-                    <div className="p-3 rounded-lg bg-muted/50">
-                      <p className="text-sm font-medium mb-1">包含交易系統教學</p>
-                      <p className="text-sm text-muted-foreground">{system.name}</p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 
@@ -147,58 +296,93 @@ const Checkout = () => {
                       onClick={() => setBillingCycle('monthly')}
                       className={cn(
                         "p-4 rounded-lg border-2 text-left transition-colors",
-                        billingCycle === 'monthly' 
-                          ? "border-primary bg-primary/5" 
+                        billingCycle === 'monthly'
+                          ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
                       )}
                     >
                       <p className="font-semibold">月繳</p>
-                      <p className="text-2xl font-bold mt-1">
-                        NT$ {formatPrice(plan.priceMonthly)}
-                      </p>
+                      <p className="text-2xl font-bold mt-1">NT$ {formatPrice(plan.price_monthly)}</p>
                       <p className="text-sm text-muted-foreground">每月</p>
                     </button>
                     <button
                       onClick={() => setBillingCycle('yearly')}
                       className={cn(
                         "p-4 rounded-lg border-2 text-left transition-colors relative",
-                        billingCycle === 'yearly' 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border hover:border-primary/50"
+                        billingCycle === 'yearly'
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50",
+                        !plan.price_yearly && "opacity-50 cursor-not-allowed"
                       )}
+                      disabled={!plan.price_yearly}
                     >
-                      <Badge className="absolute -top-2 right-2">
-                        省 {Math.round((1 - plan.priceYearly / (plan.priceMonthly * 12)) * 100)}%
-                      </Badge>
+                      {plan.price_yearly && (
+                        <Badge className="absolute -top-2 right-2">
+                          省 {Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100)}%
+                        </Badge>
+                      )}
                       <p className="font-semibold">年繳</p>
                       <p className="text-2xl font-bold mt-1">
-                        NT$ {formatPrice(plan.priceYearly)}
+                        NT$ {formatPrice(plan.price_yearly || plan.price_monthly * 12)}
                       </p>
-                      <p className="text-sm text-muted-foreground">每年</p>
+                      <p className="text-sm text-muted-foreground">
+                        {plan.price_yearly ? '每年' : '尚未開放'}
+                      </p>
                     </button>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* LINE OA Notice */}
-              <Card className={cn(
-                "border-2",
-                isAdvisor ? "border-advisor/30 bg-advisor/5" : "border-mentor/30 bg-mentor/5"
-              )}>
-                <CardContent className="p-4">
-                  <p className="text-sm font-medium mb-2">訂閱完成後</p>
-                  <p className="text-sm text-muted-foreground">
-                    您將被導向加入 {person.name} 的專屬 LINE 官方帳號，
-                    {isAdvisor 
-                      ? '即時策略訊號與教學內容將透過 LINE 推播給您。' 
-                      : '每週 T+7 實戰週記將透過 LINE 推播給您。'
-                    }
-                  </p>
+              {/* Payment Method Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">選擇付款方式</CardTitle>
+                  <p className="text-xs text-muted-foreground">🧪 目前為沙盒測試模式</p>
+                </CardHeader>
+                <CardContent>
+                  {providers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">尚未設定可用的付款方式</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {providers.map(provider => (
+                        <button
+                          key={provider.id}
+                          onClick={() => setSelectedProvider(provider.id)}
+                          className={cn(
+                            "w-full flex items-center gap-4 p-4 rounded-lg border-2 text-left transition-colors",
+                            selectedProvider === provider.id
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/50"
+                          )}
+                        >
+                          <span className="text-2xl">{getProviderIcon(provider.provider_type)}</span>
+                          <div className="flex-1">
+                            <p className="font-semibold">{provider.display_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {provider.provider_type === 'ecpay' && '信用卡 / ATM / 超商代碼'}
+                              {provider.provider_type === 'line_pay' && 'LINE Pay 行動支付'}
+                              {provider.provider_type === 'newebpay' && '信用卡 / WebATM'}
+                            </p>
+                          </div>
+                          <div className={cn(
+                            "w-5 h-5 rounded-full border-2 flex items-center justify-center",
+                            selectedProvider === provider.id
+                              ? "border-primary bg-primary"
+                              : "border-muted-foreground/30"
+                          )}>
+                            {selectedProvider === provider.id && (
+                              <Check className="h-3 w-3 text-primary-foreground" />
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
 
-            {/* Payment */}
+            {/* Right: Payment Summary */}
             <div className="md:col-span-2">
               <Card className="sticky top-24">
                 <CardHeader>
@@ -213,6 +397,10 @@ const Checkout = () => {
                     <span className="text-muted-foreground">週期</span>
                     <span>{billingCycle === 'monthly' ? '月繳' : '年繳'}</span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">付款方式</span>
+                    <span>{providers.find(p => p.id === selectedProvider)?.display_name || '-'}</span>
+                  </div>
                   <div className="border-t pt-4">
                     <div className="flex justify-between font-semibold">
                       <span>總計</span>
@@ -223,12 +411,16 @@ const Checkout = () => {
                     </p>
                   </div>
 
+                  <Badge variant="outline" className="w-full justify-center py-1">
+                    🧪 沙盒測試模式 — 不會實際扣款
+                  </Badge>
+
                   {user ? (
-                    <Button 
-                      className="w-full" 
+                    <Button
+                      className="w-full"
                       size="lg"
                       onClick={handleCheckout}
-                      disabled={isProcessing}
+                      disabled={isProcessing || alreadySubscribed || !selectedProvider}
                     >
                       {isProcessing ? (
                         <>
@@ -238,7 +430,7 @@ const Checkout = () => {
                       ) : (
                         <>
                           <CreditCard className="h-4 w-4 mr-2" />
-                          確認付款
+                          確認付款（沙盒）
                         </>
                       )}
                     </Button>
@@ -267,7 +459,6 @@ const Checkout = () => {
           <div className="mt-8 text-center">
             <p className="text-xs text-muted-foreground">
               過去績效不代表未來表現，投資有風險，請謹慎評估。
-              {!isAdvisor && '本服務僅供教育目的，不構成投資建議。'}
             </p>
           </div>
         </div>

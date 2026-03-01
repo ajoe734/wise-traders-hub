@@ -1,27 +1,82 @@
 import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
-import { getPersonBySlug, getUserSubscriptions } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { PersonRole } from '@/types';
-import { CheckCircle, ArrowRight, Shield, Clock, TrendingUp, Check } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Clock, TrendingUp, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getPersonBySlug } from '@/data/mockData';
+
+interface DbPlan {
+  id: string;
+  name: string;
+  plan_type: string;
+  price_monthly: number;
+  price_yearly: number | null;
+  description: string | null;
+  features: any;
+}
 
 const ExpertProfile = () => {
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
   const person = slug ? getPersonBySlug(slug) : undefined;
-  
-  // Check user subscriptions
-  const subscriptions = user ? getUserSubscriptions(user.id) : [];
-  const expertSub = subscriptions.find(s => s.person.slug === slug);
-  
-  // Determine which plan the user is subscribed to (if any)
-  const isSubscribedToFollower = expertSub?.plan.name?.includes('跟單') || expertSub?.plan.name?.includes('即時');
-  const isSubscribedToCultivator = expertSub?.plan.name?.includes('修煉') || expertSub?.plan.name?.includes('週記');
+
+  const [dbPlans, setDbPlans] = useState<DbPlan[]>([]);
+  const [subscribedPlanIds, setSubscribedPlanIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+
+  // Fetch plans from DB for this expert
+  useEffect(() => {
+    const fetchPlans = async () => {
+      if (!slug) return;
+      
+      // Find expert by slug
+      const { data: expert } = await supabase
+        .from('experts')
+        .select('id')
+        .eq('slug', slug)
+        .single();
+
+      if (!expert) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch active approved plans
+      const { data: plans } = await supabase
+        .from('expert_plans')
+        .select('id, name, plan_type, price_monthly, price_yearly, description, features')
+        .eq('expert_id', expert.id)
+        .eq('is_active', true)
+        .eq('review_status', 'approved')
+        .order('price_monthly');
+
+      setDbPlans(plans || []);
+
+      // Check subscriptions if user is logged in
+      if (user) {
+        const { data: subs } = await supabase
+          .from('member_subscriptions')
+          .select('plan_id')
+          .eq('user_id', user.id)
+          .eq('status', 'active');
+
+        if (subs) {
+          setSubscribedPlanIds(new Set(subs.map(s => s.plan_id)));
+        }
+      }
+
+      setLoading(false);
+    };
+
+    fetchPlans();
+  }, [slug, user]);
 
   if (!person) {
     return (
@@ -38,44 +93,57 @@ const ExpertProfile = () => {
 
   const isAdvisor = person.role === PersonRole.ADVISOR;
 
-  // Unified pricing structure
-  const plans = [
-    {
-      id: 'follower',
-      title: '跟單派',
-      subtitle: '即時訊號通知',
-      description: '每筆交易，第一時間推播通知。即時跟上，不錯失任何機會。',
-      priceMonthly: 1699,
-      priceYearly: 16990,
-      features: [
-        '即時訊號推播通知',
-        '完整買賣理由說明',
-        '風險與部位控管建議',
-        '交易紀錄完整保存',
-      ],
-      note: '包含具體買賣指示，屬投顧服務。',
-      variant: 'advisor' as const,
-    },
-    {
-      id: 'cultivator',
-      title: '修煉派',
-      subtitle: 'T+7 延遲・週記式教學',
-      description: '每週一篇週記，回顧一週前的實戰操作。拆解邏輯、覆盤檢討。',
-      priceMonthly: 799,
-      priceYearly: 7990,
-      features: [
-        '每週實戰週記',
-        '完整操作邏輯拆解',
-        '事後檢討與學習重點',
-        '策略思維培養',
-      ],
-      note: '所有內容延遲 7 天，僅供教學參考。',
-      variant: 'mentor' as const,
-    },
-  ];
-
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('zh-TW').format(price);
+  };
+
+  const getPlanFeatures = (planType: string): string[] => {
+    switch (planType) {
+      case 'analyst_signal_l1':
+        return [
+          '即時訊號推播通知',
+          '完整買賣理由說明',
+          '風險與部位控管建議',
+          '交易紀錄完整保存',
+        ];
+      case 'analyst_signal_diag_l2':
+        return [
+          '等級 1 所有功能',
+          '持股診斷報告',
+          '個人化投資組合建議',
+          '專屬風險評估',
+        ];
+      case 'mentor_weekly_journal':
+        return [
+          '每週實戰週記',
+          '完整操作邏輯拆解',
+          '事後檢討與學習重點',
+          '策略思維培養',
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const getPlanVariant = (planType: string) => {
+    if (planType === 'mentor_weekly_journal') return 'mentor' as const;
+    return 'advisor' as const;
+  };
+
+  const getPlanLabel = (planType: string) => {
+    switch (planType) {
+      case 'analyst_signal_l1': return '即時訊號通知';
+      case 'analyst_signal_diag_l2': return '訊號 + 持股健檢';
+      case 'mentor_weekly_journal': return 'T+7 延遲・週記式教學';
+      default: return '';
+    }
+  };
+
+  const getPlanNote = (planType: string) => {
+    if (planType === 'mentor_weekly_journal') {
+      return '所有內容延遲 7 天，僅供教學參考。';
+    }
+    return '包含具體買賣指示，屬投顧服務。';
   };
 
   return (
@@ -165,15 +233,12 @@ const ExpertProfile = () => {
           </Card>
         </div>
 
-        {/* Strategy Preview (Demo) */}
+        {/* Strategy Preview */}
         {person.tradingSystems.length > 0 && (
           <div className="mb-12">
             <h2 className="text-xl md:text-2xl font-bold mb-6">策略簡介</h2>
             <Card className="overflow-hidden">
-              <div className={cn(
-                "h-1",
-                isAdvisor ? "gradient-advisor" : "gradient-mentor"
-              )} />
+              <div className={cn("h-1", isAdvisor ? "gradient-advisor" : "gradient-mentor")} />
               <CardContent className="p-6">
                 <div className="grid md:grid-cols-3 gap-6">
                   <div className="text-center p-4 bg-muted/30 rounded-lg">
@@ -200,101 +265,119 @@ const ExpertProfile = () => {
           </div>
         )}
 
-        {/* Plans Section */}
+        {/* Plans Section - from DB */}
         <div id="plans" className="scroll-mt-20">
           <h2 className="text-xl md:text-2xl font-bold mb-6">訂閱方案</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            {plans.map(plan => {
-              const isFollower = plan.id === 'follower';
-              const isSubscribed = isFollower ? isSubscribedToFollower : isSubscribedToCultivator;
-              
-              return (
-                <Card 
-                  key={plan.id}
-                  className={cn(
-                    "relative overflow-hidden border-2",
-                    isSubscribed 
-                      ? "border-success/40 bg-success/5" 
-                      : isFollower 
-                        ? "border-advisor/20 hover:border-advisor/40" 
-                        : "border-mentor/20 hover:border-mentor/40"
-                  )}
-                >
-                  <div className={cn(
-                    "absolute top-0 left-0 right-0 h-1",
-                    isSubscribed ? "bg-success" : isFollower ? "gradient-advisor" : "gradient-mentor"
-                  )} />
-                  {isSubscribed && (
-                    <Badge className="absolute top-3 right-3 bg-success text-success-foreground">
-                      <Check className="h-3 w-3 mr-1" />
-                      已訂閱
-                    </Badge>
-                  )}
-                  <CardHeader>
-                    <CardTitle className="text-lg">{plan.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{plan.subtitle}</p>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-muted-foreground text-sm">{plan.description}</p>
-                    
-                    <ul className="space-y-2">
-                      {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-center gap-2 text-sm">
-                          <CheckCircle className={cn(
-                            "h-4 w-4",
-                            isSubscribed ? "text-success" : isFollower ? "text-advisor" : "text-mentor"
-                          )} />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
+          
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : dbPlans.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-center text-muted-foreground">
+                目前尚無可訂閱的方案
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-6">
+              {dbPlans.map(plan => {
+                const isSubscribed = subscribedPlanIds.has(plan.id);
+                const variant = getPlanVariant(plan.plan_type);
+                const isFollowerType = plan.plan_type !== 'mentor_weekly_journal';
 
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold">NT$ {formatPrice(plan.priceMonthly)}</span>
-                      <span className="text-muted-foreground">/ 月</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      年繳 NT$ {formatPrice(plan.priceYearly)}（省 {Math.round((1 - plan.priceYearly / (plan.priceMonthly * 12)) * 100)}%）
-                    </p>
-
-                    <div className={cn(
-                      "flex items-start gap-2 p-3 rounded-lg text-sm",
-                      isSubscribed ? "bg-success/10 text-success" : isFollower ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor"
-                    )}>
-                      {isFollower ? (
-                        <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      ) : (
-                        <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      )}
-                      <span>{plan.note}</span>
-                    </div>
-
-                    {isSubscribed ? (
-                      <Button 
-                        variant="outline" 
-                        className="w-full border-success text-success hover:bg-success/10"
-                        disabled
-                      >
-                        <Check className="h-4 w-4 mr-2" />
-                        已訂閱此方案
-                      </Button>
-                    ) : (
-                      <Button 
-                        variant={plan.variant} 
-                        className="w-full"
-                        asChild
-                      >
-                        <Link to={`/pricing`}>
-                          訂閱此方案
-                          <ArrowRight className="h-4 w-4 ml-2" />
-                        </Link>
-                      </Button>
+                return (
+                  <Card
+                    key={plan.id}
+                    className={cn(
+                      "relative overflow-hidden border-2",
+                      isSubscribed
+                        ? "border-success/40 bg-success/5"
+                        : isFollowerType
+                          ? "border-advisor/20 hover:border-advisor/40"
+                          : "border-mentor/20 hover:border-mentor/40"
                     )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                  >
+                    <div className={cn(
+                      "absolute top-0 left-0 right-0 h-1",
+                      isSubscribed ? "bg-success" : isFollowerType ? "gradient-advisor" : "gradient-mentor"
+                    )} />
+                    {isSubscribed && (
+                      <Badge className="absolute top-3 right-3 bg-success text-success-foreground">
+                        <Check className="h-3 w-3 mr-1" />
+                        已訂閱
+                      </Badge>
+                    )}
+                    <CardHeader>
+                      <CardTitle className="text-lg">{plan.name}</CardTitle>
+                      <p className="text-sm text-muted-foreground">{getPlanLabel(plan.plan_type)}</p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {plan.description && (
+                        <p className="text-muted-foreground text-sm">{plan.description}</p>
+                      )}
+
+                      <ul className="space-y-2">
+                        {getPlanFeatures(plan.plan_type).map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-sm">
+                            <CheckCircle className={cn(
+                              "h-4 w-4",
+                              isSubscribed ? "text-success" : isFollowerType ? "text-advisor" : "text-mentor"
+                            )} />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold">NT$ {formatPrice(plan.price_monthly)}</span>
+                        <span className="text-muted-foreground">/ 月</span>
+                      </div>
+                      {plan.price_yearly && (
+                        <p className="text-xs text-muted-foreground">
+                          年繳 NT$ {formatPrice(plan.price_yearly)}（省 {Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100)}%）
+                        </p>
+                      )}
+
+                      <div className={cn(
+                        "flex items-start gap-2 p-3 rounded-lg text-sm",
+                        isSubscribed ? "bg-success/10 text-success" : isFollowerType ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor"
+                      )}>
+                        {isFollowerType ? (
+                          <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        )}
+                        <span>{getPlanNote(plan.plan_type)}</span>
+                      </div>
+
+                      {isSubscribed ? (
+                        <Button
+                          variant="outline"
+                          className="w-full border-success text-success hover:bg-success/10"
+                          disabled
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          已訂閱此方案
+                        </Button>
+                      ) : (
+                        <Button
+                          variant={variant}
+                          className="w-full"
+                          asChild
+                        >
+                          <Link to={`/checkout/${slug}/${plan.id}`}>
+                            訂閱此方案
+                            <ArrowRight className="h-4 w-4 ml-2" />
+                          </Link>
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Disclaimer */}
@@ -307,14 +390,12 @@ const ExpertProfile = () => {
                   <p>
                     本服務為證券投資顧問服務，提供之分析意見與建議僅供參考，不保證獲利。
                     投資一定有風險，申購前應詳閱相關法規及風險揭露說明。
-                    本公司已依法取得證券投資顧問事業營業執照。
                     <strong className="block mt-2">過去績效不代表未來表現，投資有風險，請謹慎評估。</strong>
                   </p>
                 ) : (
                   <p>
                     本服務所有內容均至少延遲 7 天發布，僅作為歷史案例教學之用途，
-                    不構成任何即時投資建議，也不提供個別持股診斷。
-                    投資決策請自行判斷，風險自負。
+                    不構成任何即時投資建議。
                     <strong className="block mt-2">過去績效不代表未來表現，投資有風險，請謹慎評估。</strong>
                   </p>
                 )}
