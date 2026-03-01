@@ -51,8 +51,10 @@ const AppCheckout = () => {
       description: `已成功訂閱 ${expert.name} 的 ${plan.name}`,
     });
     
-    // Navigate back to app home
-    navigate('/app');
+    // Navigate back to expert detail with from=account preserved
+    const searchParams = new URLSearchParams(window.location.search);
+    const fromAccount = searchParams.get('from') === 'account';
+    navigate(`/app/expert/${expert.slug}${fromAccount ? '?from=account' : ''}`);
   };
 
   return (
