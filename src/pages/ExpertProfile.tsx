@@ -22,66 +22,114 @@ interface DbPlan {
   features: any;
 }
 
+interface ExpertInfo {
+  name: string;
+  bio: string;
+  description: string;
+  avatarUrl: string;
+  role: 'advisor' | 'mentor';
+  styleTags: string[];
+  markets: string[];
+  riskTolerance?: string;
+  timeframe?: string;
+  tradingSystems: { id: string; name: string; description: string }[];
+}
+
 const ExpertProfile = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const person = slug ? getPersonBySlug(slug) : undefined;
   const fromAccount = searchParams.get('from') === 'account';
 
+  const [expertInfo, setExpertInfo] = useState<ExpertInfo | null>(null);
+  const [expertNotFound, setExpertNotFound] = useState(false);
   const [dbPlans, setDbPlans] = useState<DbPlan[]>([]);
   const [subscribedPlanIds, setSubscribedPlanIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  // Fetch plans from DB for this expert
+  // Try mock data first, then DB
   useEffect(() => {
-    const fetchPlans = async () => {
+    const fetchData = async () => {
       if (!slug) return;
-      
-      // Find expert by slug
+
+      // Try mock data first
+      const person = getPersonBySlug(slug);
+      if (person) {
+        setExpertInfo({
+          name: person.name,
+          bio: person.bio || '',
+          description: person.description || '',
+          avatarUrl: person.avatarUrl || '/placeholder.svg',
+          role: person.role === PersonRole.ADVISOR ? 'advisor' : 'mentor',
+          styleTags: person.styleTags || [],
+          markets: person.markets || [],
+          riskTolerance: person.riskTolerance,
+          timeframe: person.timeframe,
+          tradingSystems: person.tradingSystems || [],
+        });
+      }
+
+      // Find expert by slug in DB
       const { data: expert } = await supabase
         .from('experts')
-        .select('id')
+        .select('id, name, bio, description, avatar_url, role, style_tags, markets')
         .eq('slug', slug)
         .single();
 
-      if (!expert) {
+      if (!expert && !person) {
+        setExpertNotFound(true);
         setLoading(false);
         return;
       }
 
-      // Fetch active approved plans
-      const { data: plans } = await supabase
-        .from('expert_plans')
-        .select('id, name, plan_type, price_monthly, price_yearly, description, features')
-        .eq('expert_id', expert.id)
-        .eq('is_active', true)
-        .eq('review_status', 'approved')
-        .order('price_monthly');
+      // If no mock data, use DB data
+      if (!person && expert) {
+        setExpertInfo({
+          name: expert.name,
+          bio: expert.bio || '',
+          description: expert.description || '',
+          avatarUrl: expert.avatar_url || '/placeholder.svg',
+          role: expert.role as 'advisor' | 'mentor',
+          styleTags: expert.style_tags || [],
+          markets: expert.markets || [],
+          tradingSystems: [],
+        });
+      }
 
-      setDbPlans(plans || []);
+      if (expert) {
+        // Fetch active approved plans
+        const { data: plans } = await supabase
+          .from('expert_plans')
+          .select('id, name, plan_type, price_monthly, price_yearly, description, features')
+          .eq('expert_id', expert.id)
+          .eq('is_active', true)
+          .eq('review_status', 'approved')
+          .order('price_monthly');
 
-      // Check subscriptions if user is logged in
-      if (user) {
-        const { data: subs } = await supabase
-          .from('member_subscriptions')
-          .select('plan_id')
-          .eq('user_id', user.id)
-          .eq('status', 'active');
+        setDbPlans(plans || []);
 
-        if (subs) {
-          setSubscribedPlanIds(new Set(subs.map(s => s.plan_id)));
+        // Check subscriptions if user is logged in
+        if (user) {
+          const { data: subs } = await supabase
+            .from('member_subscriptions')
+            .select('plan_id')
+            .eq('user_id', user.id)
+            .eq('status', 'active');
+
+          if (subs) {
+            setSubscribedPlanIds(new Set(subs.map(s => s.plan_id)));
+          }
         }
       }
 
       setLoading(false);
     };
 
-    fetchPlans();
+    fetchData();
   }, [slug, user]);
 
-  if (!person) {
+  if (expertNotFound) {
     return (
       <PortalLayout>
         <div className="container py-12 text-center">
@@ -94,7 +142,17 @@ const ExpertProfile = () => {
     );
   }
 
-  const isAdvisor = person.role === PersonRole.ADVISOR;
+  if (!expertInfo) {
+    return (
+      <PortalLayout>
+        <div className="container py-12 flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </PortalLayout>
+    );
+  }
+
+  const isAdvisor = expertInfo.role === 'advisor';
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('zh-TW').format(price);
@@ -172,8 +230,8 @@ const ExpertProfile = () => {
           )} />
           <div className="relative flex flex-col md:flex-row gap-6 items-start p-6 md:p-8">
             <img
-              src={person.avatarUrl || '/placeholder.svg'}
-              alt={person.name}
+              src={expertInfo.avatarUrl}
+              alt={expertInfo.name}
               className={cn(
                 "h-28 w-28 md:h-36 md:w-36 rounded-2xl object-cover ring-4 shadow-lg",
                 isAdvisor ? "ring-advisor/20" : "ring-mentor/20"
@@ -181,11 +239,11 @@ const ExpertProfile = () => {
             />
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3 flex-wrap">
-                <h1 className="text-2xl md:text-3xl font-bold">{person.name}</h1>
-                <RoleBadge role={person.role} size="lg" />
+                <h1 className="text-2xl md:text-3xl font-bold">{expertInfo.name}</h1>
+                <RoleBadge role={isAdvisor ? PersonRole.ADVISOR : PersonRole.MENTOR} size="lg" />
               </div>
-              <p className="text-lg text-muted-foreground mb-4">{person.bio}</p>
-              <p className="text-muted-foreground">{person.description}</p>
+              <p className="text-lg text-muted-foreground mb-4">{expertInfo.bio}</p>
+              <p className="text-muted-foreground">{expertInfo.description}</p>
             </div>
           </div>
         </div>
@@ -200,7 +258,7 @@ const ExpertProfile = () => {
               <div>
                 <p className="text-sm text-muted-foreground mb-2">風格標籤</p>
                 <div className="flex flex-wrap gap-2">
-                  {person.styleTags.map(tag => (
+                  {expertInfo.styleTags.map(tag => (
                     <Badge key={tag} variant="secondary">{tag}</Badge>
                   ))}
                 </div>
@@ -209,22 +267,22 @@ const ExpertProfile = () => {
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">主要市場</p>
                   <div className="flex flex-wrap gap-1">
-                    {person.markets.map(market => (
+                    {expertInfo.markets.map(market => (
                       <Badge key={market} variant="outline">{market}</Badge>
                     ))}
                   </div>
                 </div>
-                {person.riskTolerance && (
+                {expertInfo.riskTolerance && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">風險偏好</p>
-                    <p className="font-medium">{person.riskTolerance}</p>
+                    <p className="font-medium">{expertInfo.riskTolerance}</p>
                   </div>
                 )}
               </div>
-              {person.timeframe && (
+              {expertInfo.timeframe && (
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">操作週期</p>
-                  <p className="font-medium">{person.timeframe}</p>
+                  <p className="font-medium">{expertInfo.timeframe}</p>
                 </div>
               )}
             </CardContent>
@@ -235,7 +293,7 @@ const ExpertProfile = () => {
               <CardTitle className="text-lg">交易系統</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {person.tradingSystems.map(system => (
+              {expertInfo.tradingSystems.map(system => (
                 <div key={system.id} className="p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 mb-1">
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -249,7 +307,7 @@ const ExpertProfile = () => {
         </div>
 
         {/* Strategy Preview */}
-        {person.tradingSystems.length > 0 && (
+        {expertInfo.tradingSystems.length > 0 && (
           <div className="mb-12">
             <h2 className="text-xl md:text-2xl font-bold mb-6">策略簡介</h2>
             <Card className="overflow-hidden">
