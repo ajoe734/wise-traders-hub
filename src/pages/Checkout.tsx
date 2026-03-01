@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, Loader2, CreditCard, Shield, ArrowLeft, Check, XCircle } from 'lucide-react';
 import {
@@ -51,7 +51,7 @@ const Checkout = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { toast } = useToast();
+  
   const fromAccount = searchParams.get('from') === 'account';
 
   const [plan, setPlan] = useState<DbPlan | null>(null);
@@ -179,7 +179,7 @@ const Checkout = () => {
     }
 
     if (!selectedProvider) {
-      toast({ title: '請選擇付款方式', variant: 'destructive' });
+      setResultDialog({ open: true, success: false, message: '請選擇付款方式' });
       return;
     }
 
