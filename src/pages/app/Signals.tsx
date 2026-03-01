@@ -59,21 +59,30 @@ const Signals = () => {
         .eq('user_id', user.id)
         .eq('status', 'active')
         .limit(1);
-      setHasSubscription(!!subs && subs.length > 0);
+      
+      const hasSub = !!subs && subs.length > 0;
+      setHasSubscription(hasSub);
+
+      // Only fetch signals if user has an active subscription
+      if (hasSub) {
+        const { data, error } = await supabase
+          .from('expert_signals')
+          .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url)')
+          .eq('status', 'published')
+          .order('published_at', { ascending: false })
+          .limit(50);
+
+        if (!error && data) {
+          setSignals(data as unknown as DbSignal[]);
+        }
+      } else {
+        setSignals([]);
+      }
     } else {
       setHasSubscription(false);
+      setSignals([]);
     }
 
-    const { data, error } = await supabase
-      .from('expert_signals')
-      .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url)')
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .limit(50);
-
-    if (!error && data) {
-      setSignals(data as unknown as DbSignal[]);
-    }
     setLoading(false);
   };
 
