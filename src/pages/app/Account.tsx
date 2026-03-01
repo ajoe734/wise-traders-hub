@@ -166,8 +166,8 @@ const Account = () => {
           const mockAdvisorMap = new Map(mockAdvisors.map(m => [m.id, m]));
           const realAdvisorIds = new Set(realAdvisors.map(e => e.id));
           const advisors = [
-            ...realAdvisors.map(e => ({ ...e, avatar_url: e.avatar_url || mockAdvisorMap.get(e.id)?.avatar_url || null, line_oa_id: e.line_oa_id || mockAdvisorMap.get(e.id)?.line_oa_id || null })),
-            ...mockAdvisors.filter(m => !realAdvisorIds.has(m.id)),
+            ...realAdvisors.map(e => ({ ...e, avatar_url: e.avatar_url || mockAdvisorMap.get(e.id)?.avatar_url || null, line_oa_id: e.line_oa_id || mockAdvisorMap.get(e.id)?.line_oa_id || null, isSubscribed: true })),
+            ...mockAdvisors.filter(m => !realAdvisorIds.has(m.id)).map(m => ({ ...m, isSubscribed: false })),
           ];
 
           return (
@@ -217,6 +217,7 @@ const Account = () => {
                             lineChannelName={(expert as any).channel_name || undefined}
                             qrCodeUrl={(expert as any).qr_code_url || undefined}
                             isAdvisor
+                            isSubscribed={(expert as any).isSubscribed}
                           />
                         ))}
                       </div>
