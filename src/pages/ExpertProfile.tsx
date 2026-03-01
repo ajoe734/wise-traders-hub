@@ -365,7 +365,9 @@ const ExpertProfile = () => {
                     className={cn(
                       "relative overflow-hidden border-2",
                       isSubscribed
-                        ? "border-success/40 bg-success/5"
+                        ? isFollowerType
+                          ? "border-advisor/40 bg-advisor/5"
+                          : "border-mentor/40 bg-mentor/5"
                         : isFollowerType
                           ? "border-advisor/20 hover:border-advisor/40"
                           : "border-mentor/20 hover:border-mentor/40"
@@ -376,7 +378,10 @@ const ExpertProfile = () => {
                       isFollowerType ? "gradient-advisor" : "gradient-mentor"
                     )} />
                     {isSubscribed && (
-                      <Badge className="absolute top-3 right-3 bg-success text-success-foreground">
+                      <Badge className={cn(
+                        "absolute top-3 right-3",
+                        isFollowerType ? "bg-advisor text-advisor-foreground" : "bg-mentor text-mentor-foreground"
+                      )}>
                         <Check className="h-3 w-3 mr-1" />
                         已訂閱
                       </Badge>
@@ -427,7 +432,12 @@ const ExpertProfile = () => {
                       {isSubscribed ? (
                         <Button
                           variant="outline"
-                          className="w-full border-success text-success hover:bg-success/10"
+                          className={cn(
+                            "w-full",
+                            isFollowerType 
+                              ? "border-advisor text-advisor hover:bg-advisor/10" 
+                              : "border-mentor text-mentor hover:bg-mentor/10"
+                          )}
                           disabled
                         >
                           <Check className="h-4 w-4 mr-2" />
