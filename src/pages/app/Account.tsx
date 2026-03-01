@@ -362,7 +362,7 @@ const Account = () => {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <MessageCircle className="h-5 w-5" />
             LINE 綁定
-            <span className="text-sm font-normal text-muted-foreground">（請先訂閱）</span>
+            <span className="font-normal text-muted-foreground">（請先訂閱）</span>
           </h2>
           <p className="text-sm text-muted-foreground">
             綁定 LINE 後，可即時收到訊號推播或週記通知
