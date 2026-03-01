@@ -112,7 +112,7 @@ export const people: Person[] = [
     slug: 'lin-xiuqi',
     name: '林修齊',
     role: PersonRole.MENTOR,
-    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&h=150&fit=crop&crop=face',
+    avatarUrl: '/images/experts/lin-xiuqi.png',
     bio: '價值投資教學',
     description: '15年投資經驗，專注於教授價值投資策略。從基本面分析到長期持有，幫助學員建立穩健的投資框架，在波動市場中保持理性決策。',
     styleTags: ['價值投資', '長線'],
