@@ -65,15 +65,31 @@ const Signals = () => {
 
       // Only fetch signals if user has an active subscription
       if (hasSub) {
-        const { data, error } = await supabase
-          .from('expert_signals')
-          .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url)')
-          .eq('status', 'published')
-          .order('published_at', { ascending: false })
-          .limit(50);
+        // Get subscribed expert IDs first
+        const { data: activeSubs } = await supabase
+          .from('member_subscriptions')
+          .select('plan_id, expert_plans(expert_id)')
+          .eq('user_id', user.id)
+          .eq('status', 'active');
 
-        if (!error && data) {
-          setSignals(data as unknown as DbSignal[]);
+        const expertIds = (activeSubs || [])
+          .map((s: any) => s.expert_plans?.expert_id)
+          .filter(Boolean);
+
+        if (expertIds.length > 0) {
+          const { data, error } = await supabase
+            .from('expert_signals')
+            .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url)')
+            .eq('status', 'published')
+            .in('expert_id', expertIds)
+            .order('published_at', { ascending: false })
+            .limit(50);
+
+          if (!error && data) {
+            setSignals(data as unknown as DbSignal[]);
+          }
+        } else {
+          setSignals([]);
         }
       } else {
         setSignals([]);
