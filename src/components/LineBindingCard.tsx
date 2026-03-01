@@ -252,7 +252,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
               className="flex-shrink-0"
               asChild
             >
-              <Link to={`/expert/${expertSlug}#plans`}>前往訂閱</Link>
+              <Link to={`/expert/${expertSlug}?from=account#plans`}>前往訂閱</Link>
             </Button>
           </div>
         </CardContent>
