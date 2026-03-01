@@ -51,8 +51,8 @@ const AppCheckout = () => {
       description: `已成功訂閱 ${expert.name} 的 ${plan.name}`,
     });
     
-    // Navigate back to app home
-    navigate('/app');
+    // Navigate to account page so user can proceed with LINE binding
+    navigate('/app/account');
   };
 
   return (
