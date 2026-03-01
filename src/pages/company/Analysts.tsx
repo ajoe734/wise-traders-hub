@@ -462,7 +462,7 @@ const CompanyAnalysts = () => {
                 <p className="text-xs text-muted-foreground">訂閱者透過此 ID 搜尋並加入官方帳號</p>
               </div>
               <div className="space-y-2">
-                <Label>QR Code 網址（選填）</Label>
+                <Label>QR Code 網址</Label>
                 <Input value={lineQrCodeUrl} onChange={e => setLineQrCodeUrl(e.target.value)} placeholder="https://qr-official.line.me/..." />
                 <p className="text-xs text-muted-foreground">訂閱者可掃描 QR Code 加入官方帳號</p>
               </div>
