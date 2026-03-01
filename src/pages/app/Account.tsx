@@ -322,42 +322,6 @@ const Account = () => {
                 );
               })}
 
-              {/* Inactive/canceled subscriptions */}
-              {inactiveSubs.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium mt-4">已過期 / 已取消</p>
-                  {inactiveSubs.map((sub) => (
-                    <Card key={sub.id} className="overflow-hidden opacity-60">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <img
-                            src={sub.expert.avatar_url || '/placeholder.svg'}
-                            alt={sub.expert.name}
-                            className="h-10 w-10 rounded-full object-cover grayscale"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <h3 className="font-semibold text-sm">{sub.expert.name}</h3>
-                              <Badge variant="outline" className="text-xs">
-                                {sub.status === 'canceled' ? '已取消' : '已到期'}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">{sub.plan.name}</p>
-                            {sub.canceled_at && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                取消於 {format(new Date(sub.canceled_at), 'yyyy/MM/dd')}
-                              </p>
-                            )}
-                          </div>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to={`/expert/${sub.expert.slug}`}>重新訂閱</Link>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
             </div>
           ) : (
             <Card>
