@@ -16,34 +16,49 @@ import { supabase } from '@/integrations/supabase/client';
 const Account = () => {
   const { user } = useAuth();
   const subscriptions = user ? getUserSubscriptions(user.id) : [];
-  const [subscribedExperts, setSubscribedExperts] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null; channel_name?: string | null }[]>([]);
+  const [subscribedExpertIds, setSubscribedExpertIds] = useState<Set<string>>(new Set());
+  const [allAdvisors, setAllAdvisors] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null; channel_name?: string | null }[]>([]);
+  const [allMentors, setAllMentors] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null; channel_name?: string | null }[]>([]);
   const [showAdvisors, setShowAdvisors] = useState(false);
   const [showMentors, setShowMentors] = useState(false);
 
-  // Fetch experts the user is subscribed to (for LINE binding)
+  // Fetch all active experts + LINE channels + user subscriptions
   useEffect(() => {
     if (!user) return;
-    const fetchSubscribedExperts = async () => {
-      const { data } = await supabase
+    const fetchData = async () => {
+      // Fetch subscribed expert IDs
+      const { data: subData } = await supabase
         .rpc('has_active_subscription', { _user_id: user.id });
-      if (!data || data.length === 0) return;
+      const subIds = new Set((subData || []).map((d: any) => d.expert_id));
+      setSubscribedExpertIds(subIds);
 
-      const expertIds = [...new Set(data.map((d: any) => d.expert_id))];
+      // Fetch all active experts
       const { data: experts } = await supabase
         .from('experts')
         .select('id, slug, name, role, avatar_url')
-        .in('id', expertIds);
-      if (experts) {
-        // Fetch line_oa_id for these experts
-        const { data: channels } = await supabase
-          .from('expert_line_channels')
-          .select('expert_id, line_oa_id, qr_code_url, channel_name')
-          .in('expert_id', expertIds);
-        const channelMap = new Map((channels || []).map((c: any) => [c.expert_id, { line_oa_id: c.line_oa_id, qr_code_url: c.qr_code_url, channel_name: c.channel_name }]));
-        setSubscribedExperts(experts.map(e => ({ ...e, line_oa_id: channelMap.get(e.id)?.line_oa_id || null, qr_code_url: channelMap.get(e.id)?.qr_code_url || null, channel_name: channelMap.get(e.id)?.channel_name || null })));
-      }
+        .eq('status', 'active');
+
+      if (!experts) return;
+
+      // Fetch LINE channels for all experts
+      const expertIds = experts.map(e => e.id);
+      const { data: channels } = await supabase
+        .from('expert_line_channels')
+        .select('expert_id, line_oa_id, qr_code_url, channel_name')
+        .in('expert_id', expertIds);
+      const channelMap = new Map((channels || []).map((c: any) => [c.expert_id, { line_oa_id: c.line_oa_id, qr_code_url: c.qr_code_url, channel_name: c.channel_name }]));
+
+      const enriched = experts.map(e => ({
+        ...e,
+        line_oa_id: channelMap.get(e.id)?.line_oa_id || null,
+        qr_code_url: channelMap.get(e.id)?.qr_code_url || null,
+        channel_name: channelMap.get(e.id)?.channel_name || null,
+      }));
+
+      setAllAdvisors(enriched.filter(e => e.role === 'advisor'));
+      setAllMentors(enriched.filter(e => e.role === 'mentor'));
     };
-    fetchSubscribedExperts();
+    fetchData();
   }, [user]);
 
   return (
@@ -156,160 +171,126 @@ const Account = () => {
         </Card>
 
         {/* LINE Binding */}
-        {(() => {
-          const mockAdvisors = [
-            { id: 'a1000000-0000-0000-0000-000000000001', slug: 'zhao-pengbo', name: '趙鵬博', role: 'advisor', avatar_url: '/images/experts/zhao-pengbo.png', line_oa_id: '@zhao-pengbo' },
-            { id: 'a2000000-0000-0000-0000-000000000001', slug: 'chen-weiming', name: '陳威明', role: 'advisor', avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face', line_oa_id: '@chen-weiming' },
-            { id: 'a2000000-0000-0000-0000-000000000002', slug: 'wang-junhao', name: '王俊豪', role: 'advisor', avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face', line_oa_id: '@wang-junhao' },
-          ];
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <MessageCircle className="h-5 w-5" />
+            LINE 綁定
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            綁定 LINE 後，可即時收到訊號推播或週記通知
+          </p>
+          <div className="space-y-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+            <p className="font-medium text-foreground text-sm">綁定步驟：</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>查看所有老師</li>
+              <li>加入官方帳號</li>
+              <li>點擊右側按鈕取得驗證碼</li>
+              <li>在 LINE 聊天中傳送驗證碼</li>
+              <li>收到綁定成功通知即完成</li>
+            </ol>
+          </div>
 
-          const mockMentors = [
-            { id: 'b1000000-0000-0000-0000-000000000001', slug: 'lin-xiuqi', name: '林修齊', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=80&h=80&fit=crop&crop=face', line_oa_id: '@lin-xiuqi' },
-            { id: 'a2000000-0000-0000-0000-000000000003', slug: 'li-mingzhe', name: '李明哲', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&h=80&fit=crop&crop=face', line_oa_id: '@li-mingzhe' },
-            { id: 'a2000000-0000-0000-0000-000000000004', slug: 'huang-yating', name: '黃雅婷', role: 'mentor', avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=80&h=80&fit=crop&crop=face', line_oa_id: '@huang-yating' },
-          ];
-
-          // Build advisor list
-          const realAdvisors = subscribedExperts.filter(e => e.role === 'advisor');
-          const mockAdvisorMap = new Map(mockAdvisors.map(m => [m.id, m]));
-          const realAdvisorIds = new Set(realAdvisors.map(e => e.id));
-          const advisors = [
-            ...realAdvisors.map(e => ({ ...e, avatar_url: e.avatar_url || mockAdvisorMap.get(e.id)?.avatar_url || null, line_oa_id: e.line_oa_id || mockAdvisorMap.get(e.id)?.line_oa_id || null, isSubscribed: true })),
-            ...mockAdvisors.filter(m => !realAdvisorIds.has(m.id)).map(m => ({ ...m, isSubscribed: false })),
-          ];
-
-          // Build mentor list
-          const realMentors = subscribedExperts.filter(e => e.role === 'mentor');
-          const mockMentorMap = new Map(mockMentors.map(m => [m.id, m]));
-          const realMentorIds = new Set(realMentors.map(e => e.id));
-          const mentors = [
-            ...realMentors.map(e => ({ ...e, avatar_url: e.avatar_url || mockMentorMap.get(e.id)?.avatar_url || null, line_oa_id: e.line_oa_id || mockMentorMap.get(e.id)?.line_oa_id || null, isSubscribed: true })),
-            ...mockMentors.filter(m => !realMentorIds.has(m.id)).map(m => ({ ...m, isSubscribed: false })),
-          ];
-
-          return (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <MessageCircle className="h-5 w-5" />
-                LINE 綁定
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                綁定 LINE 後，可即時收到訊號推播或週記通知
-              </p>
-              <div className="space-y-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
-                <p className="font-medium text-foreground text-sm">綁定步驟：</p>
-                <ol className="list-decimal list-inside space-y-1">
-                  <li>查看所有老師</li>
-                  <li>加入官方帳號</li>
-                  <li>點擊右側按鈕取得驗證碼</li>
-                  <li>在 LINE 聊天中傳送驗證碼</li>
-                  <li>收到綁定成功通知即完成</li>
-                </ol>
-              </div>
-
-              {/* 跟單派 */}
-              <div className="space-y-3">
-                {!showAdvisors ? (
-                  <Card className="border-advisor/30">
-                    <CardContent className="p-4 space-y-3">
-                      <h3 className="text-lg font-bold text-advisor text-center">跟單派</h3>
-                      <p className="text-xs text-muted-foreground text-center">即時訊號推播通知</p>
-                      <Button variant="default" className="w-full bg-advisor hover:bg-advisor/90" onClick={() => setShowAdvisors(true)}>
-                        查看所有老師
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card className="border-advisor/30">
-                    <CardContent className="p-4 space-y-3">
-                      <h3 className="text-lg font-bold text-advisor text-center mb-2">跟單派</h3>
-                      <div className="space-y-3">
-                        {advisors.map(expert => (
-                          <LineBindingCard
-                            key={expert.id}
-                            expertId={expert.id}
-                            expertSlug={expert.slug}
-                            expertName={expert.name}
-                            expertAvatarUrl={expert.avatar_url || undefined}
-                            lineOaId={(expert as any).line_oa_id || undefined}
-                            lineChannelName={(expert as any).channel_name || undefined}
-                            qrCodeUrl={(expert as any).qr_code_url || undefined}
-                            isAdvisor
-                            isSubscribed={(expert as any).isSubscribed}
-                          />
-                        ))}
-                      </div>
-                      <Button variant="outline" className="w-full mt-2" onClick={() => setShowAdvisors(false)}>
-                        收起
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-
-              {/* 修煉派 */}
-              <div className="space-y-3">
-                {!showMentors ? (
-                  <Card className="border-mentor/30">
-                    <CardContent className="p-4 space-y-3">
-                      <h3 className="text-lg font-bold text-mentor text-center">修煉派</h3>
-                      <p className="text-xs text-muted-foreground text-center">每週實戰週記通知</p>
-                      <Button variant="default" className="w-full bg-mentor hover:bg-mentor/90" onClick={() => setShowMentors(true)}>
-                        查看所有老師
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card className="border-mentor/30">
-                    <CardContent className="p-4 space-y-3">
-                      <h3 className="text-lg font-bold text-mentor text-center mb-2">修煉派</h3>
-                      <div className="space-y-3">
-                        {mentors.map(expert => (
-                          <LineBindingCard
-                            key={expert.id}
-                            expertId={expert.id}
-                            expertSlug={expert.slug}
-                            expertName={expert.name}
-                            expertAvatarUrl={expert.avatar_url || undefined}
-                            lineOaId={(expert as any).line_oa_id || undefined}
-                            lineChannelName={(expert as any).channel_name || undefined}
-                            qrCodeUrl={(expert as any).qr_code_url || undefined}
-                            isSubscribed={(expert as any).isSubscribed}
-                          />
-                        ))}
-                      </div>
-                      <Button variant="outline" className="w-full mt-2" onClick={() => setShowMentors(false)}>
-                        收起
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-
-              {/* 綁定機制規劃筆記 */}
-              <Card className="border-dashed border-muted-foreground/30 bg-muted/30">
-                <CardContent className="p-4 space-y-2 text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground">📌 綁定機制規劃</p>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="font-semibold">現行：手動綁定</p>
-                      <p>目前用 Email 登入，系統不知道用戶的 LINE user ID，需透過「加好友 → 傳驗證碼」步驟建立對應關係。</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold">未來：自動化綁定（LINE Login）</p>
-                      <ol className="list-decimal list-inside space-y-0.5 ml-1">
-                        <li>用戶點擊「LINE 登入」→ LINE OAuth 授權</li>
-                        <li>系統自動取得用戶的 LINE user ID</li>
-                        <li>LINE Login 的「Bot Link」功能可在授權畫面同時提示加入 OA 好友</li>
-                        <li>用戶授權 + 加好友 → 自動完成綁定，不需要驗證碼</li>
-                      </ol>
-                    </div>
-                  </div>
+          {/* 跟單派 */}
+          <div className="space-y-3">
+            {!showAdvisors ? (
+              <Card className="border-advisor/30">
+                <CardContent className="p-4 space-y-3">
+                  <h3 className="text-lg font-bold text-advisor text-center">跟單派</h3>
+                  <p className="text-xs text-muted-foreground text-center">即時訊號推播通知</p>
+                  <Button variant="default" className="w-full bg-advisor hover:bg-advisor/90" onClick={() => setShowAdvisors(true)}>
+                    查看所有老師
+                  </Button>
                 </CardContent>
               </Card>
-            </div>
-          );
-        })()}
+            ) : (
+              <Card className="border-advisor/30">
+                <CardContent className="p-4 space-y-3">
+                  <h3 className="text-lg font-bold text-advisor text-center mb-2">跟單派</h3>
+                  <div className="space-y-3">
+                    {allAdvisors.map(expert => (
+                      <LineBindingCard
+                        key={expert.id}
+                        expertId={expert.id}
+                        expertSlug={expert.slug}
+                        expertName={expert.name}
+                        expertAvatarUrl={expert.avatar_url || undefined}
+                        lineOaId={expert.line_oa_id || undefined}
+                        lineChannelName={expert.channel_name || undefined}
+                        qrCodeUrl={expert.qr_code_url || undefined}
+                        isAdvisor
+                        isSubscribed={subscribedExpertIds.has(expert.id)}
+                      />
+                    ))}
+                  </div>
+                  <Button variant="outline" className="w-full mt-2" onClick={() => setShowAdvisors(false)}>
+                    收起
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* 修煉派 */}
+          <div className="space-y-3">
+            {!showMentors ? (
+              <Card className="border-mentor/30">
+                <CardContent className="p-4 space-y-3">
+                  <h3 className="text-lg font-bold text-mentor text-center">修煉派</h3>
+                  <p className="text-xs text-muted-foreground text-center">每週實戰週記通知</p>
+                  <Button variant="default" className="w-full bg-mentor hover:bg-mentor/90" onClick={() => setShowMentors(true)}>
+                    查看所有老師
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-mentor/30">
+                <CardContent className="p-4 space-y-3">
+                  <h3 className="text-lg font-bold text-mentor text-center mb-2">修煉派</h3>
+                  <div className="space-y-3">
+                    {allMentors.map(expert => (
+                      <LineBindingCard
+                        key={expert.id}
+                        expertId={expert.id}
+                        expertSlug={expert.slug}
+                        expertName={expert.name}
+                        expertAvatarUrl={expert.avatar_url || undefined}
+                        lineOaId={expert.line_oa_id || undefined}
+                        lineChannelName={expert.channel_name || undefined}
+                        qrCodeUrl={expert.qr_code_url || undefined}
+                        isSubscribed={subscribedExpertIds.has(expert.id)}
+                      />
+                    ))}
+                  </div>
+                  <Button variant="outline" className="w-full mt-2" onClick={() => setShowMentors(false)}>
+                    收起
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* 綁定機制規劃筆記 */}
+          <Card className="border-dashed border-muted-foreground/30 bg-muted/30">
+            <CardContent className="p-4 space-y-2 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">📌 綁定機制規劃</p>
+              <div className="space-y-2">
+                <div>
+                  <p className="font-semibold">現行：手動綁定</p>
+                  <p>目前用 Email 登入，系統不知道用戶的 LINE user ID，需透過「加好友 → 傳驗證碼」步驟建立對應關係。</p>
+                </div>
+                <div>
+                  <p className="font-semibold">未來：自動化綁定（LINE Login）</p>
+                  <ol className="list-decimal list-inside space-y-0.5 ml-1">
+                    <li>用戶點擊「LINE 登入」→ LINE OAuth 授權</li>
+                    <li>系統自動取得用戶的 LINE user ID</li>
+                    <li>LINE Login 的「Bot Link」功能可在授權畫面同時提示加入 OA 好友</li>
+                    <li>用戶授權 + 加好友 → 自動完成綁定，不需要驗證碼</li>
+                  </ol>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </UnifiedAppLayout>
   );
