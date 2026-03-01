@@ -5,17 +5,25 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Check, Shield, Lock } from "lucide-react";
+import { ArrowLeft, Check, Shield, Lock, CheckCircle2, XCircle } from "lucide-react";
 import { getPersonBySlug, plans } from "@/data/mockData";
-import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 const AppCheckout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
   
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean } | null>(null);
 
   const expert = getPersonBySlug(slug || "");
   const plan = plans.find(p => p.id === planId);
@@ -43,16 +51,15 @@ const AppCheckout = () => {
   const handleCheckout = async () => {
     setIsProcessing(true);
     
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "訂閱成功！",
-      description: `已成功訂閱 ${expert.name} 的 ${plan.name}`,
-    });
-    
-    // Navigate to account page so user can proceed with LINE binding
-    navigate('/app/account');
+    try {
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setResultDialog({ open: true, success: true });
+    } catch {
+      setResultDialog({ open: true, success: false });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -217,6 +224,55 @@ const AppCheckout = () => {
           <Shield className="h-3 w-3" />
           <span>SSL 加密安全付款</span>
         </div>
+
+        {/* Result Dialog */}
+        <AlertDialog open={resultDialog?.open ?? false} onOpenChange={() => {}}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                {resultDialog?.success ? (
+                  <><CheckCircle2 className="h-5 w-5 text-green-500" />訂閱成功</>
+                ) : (
+                  <><XCircle className="h-5 w-5 text-destructive" />訂閱失敗</>
+                )}
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={expert.avatarUrl} alt={expert.name} />
+                      <AvatarFallback>{expert.name[0]}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-foreground">{expert.name}</p>
+                      <p className="text-sm text-muted-foreground">{plan.name}</p>
+                    </div>
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">付款週期</span>
+                      <span className="text-foreground">{billingCycle === "monthly" ? "月繳" : "年繳"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">金額</span>
+                      <span className="text-foreground font-medium">NT$ {currentPrice.toLocaleString()}{billingLabel}</span>
+                    </div>
+                  </div>
+                  {resultDialog?.success ? (
+                    <p className="text-sm text-muted-foreground">您現在可以前往帳號頁面綁定 LINE 以接收即時通知。</p>
+                  ) : (
+                    <p className="text-sm text-destructive">付款處理時發生錯誤，請稍後再試。</p>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => navigate('/app/account')}>
+                確定
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </UnifiedAppLayout>
   );
