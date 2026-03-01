@@ -38,16 +38,32 @@ interface DbSignal {
 }
 
 const Signals = () => {
+  const { user } = useAuth();
   const [signals, setSignals] = useState<DbSignal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasSubscription, setHasSubscription] = useState<boolean | null>(null);
 
   useEffect(() => {
     markAppSignalsAsRead();
-    fetchSignals();
-  }, []);
+    fetchData();
+  }, [user]);
 
-  const fetchSignals = async () => {
+  const fetchData = async () => {
     setLoading(true);
+
+    // Check if user has any active subscription
+    if (user) {
+      const { data: subs } = await supabase
+        .from('member_subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1);
+      setHasSubscription(!!subs && subs.length > 0);
+    } else {
+      setHasSubscription(false);
+    }
+
     const { data, error } = await supabase
       .from('expert_signals')
       .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url)')
@@ -138,6 +154,18 @@ const Signals = () => {
               );
             })}
           </div>
+        ) : hasSubscription === false ? (
+          <Card>
+            <CardContent className="p-6 text-center space-y-3">
+              <p className="text-muted-foreground">您尚未訂閱任何分析師</p>
+              <p className="text-sm text-muted-foreground">訂閱後即可在此查看即時投顧訊號</p>
+              <Link to="/app/explore">
+                <button className="mt-2 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                  前往探索分析師
+                </button>
+              </Link>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
