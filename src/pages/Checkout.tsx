@@ -509,9 +509,12 @@ const Checkout = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => navigate('/app/account')}>
-              確定
-            </AlertDialogAction>
+              <AlertDialogAction
+                onClick={() => navigate('/app/account')}
+                className={cn(!isAdvisor && "bg-mentor hover:bg-mentor/90")}
+              >
+                確定
+              </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
