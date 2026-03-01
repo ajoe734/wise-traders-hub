@@ -153,6 +153,10 @@ const Account = () => {
   const handleCancelSubscription = async (subId: string) => {
     setCancelingId(subId);
     try {
+      // Find the expert_id for this subscription
+      const sub = subscriptions.find(s => s.id === subId);
+      const expertId = sub?.expert?.id;
+
       const { error } = await supabase
         .from('member_subscriptions')
         .update({
@@ -164,6 +168,15 @@ const Account = () => {
         .eq('user_id', user!.id);
 
       if (error) throw error;
+
+      // Auto-unbind LINE for this expert
+      if (expertId) {
+        await supabase
+          .from('member_line_bindings')
+          .update({ is_active: false })
+          .eq('user_id', user!.id)
+          .eq('expert_id', expertId);
+      }
 
       // Refresh data
       await fetchSubscriptions();
@@ -293,7 +306,7 @@ const Account = () => {
                               <AlertDialogTitle>確認取消訂閱？</AlertDialogTitle>
                               <AlertDialogDescription>
                                 您確定要取消 {sub.expert.name} 的 {sub.plan.name} 訂閱嗎？
-                                取消後將無法繼續接收該專家的服務內容。
+                                取消後將無法繼續接收該專家的服務內容，LINE 綁定也會同步解除。
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
