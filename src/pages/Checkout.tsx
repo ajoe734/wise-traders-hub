@@ -297,8 +297,8 @@ const Checkout = () => {
                       className={cn(
                         "p-4 rounded-lg border-2 text-left transition-colors",
                         billingCycle === 'monthly'
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
+                          ? isAdvisor ? "border-primary bg-primary/5" : "border-mentor bg-mentor-light/30"
+                          : isAdvisor ? "border-border hover:border-primary/50" : "border-border hover:border-mentor/50"
                       )}
                     >
                       <p className="font-semibold">月繳</p>
@@ -310,14 +310,14 @@ const Checkout = () => {
                       className={cn(
                         "p-4 rounded-lg border-2 text-left transition-colors relative",
                         billingCycle === 'yearly'
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50",
+                          ? isAdvisor ? "border-primary bg-primary/5" : "border-mentor bg-mentor-light/30"
+                          : isAdvisor ? "border-border hover:border-primary/50" : "border-border hover:border-mentor/50",
                         !plan.price_yearly && "opacity-50 cursor-not-allowed"
                       )}
                       disabled={!plan.price_yearly}
                     >
                       {plan.price_yearly && (
-                        <Badge className="absolute -top-2 right-2">
+                        <Badge className={cn(!isAdvisor && "bg-mentor hover:bg-mentor-dark")}>
                           省 {Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100)}%
                         </Badge>
                       )}
@@ -351,8 +351,8 @@ const Checkout = () => {
                           className={cn(
                             "w-full flex items-center gap-4 p-4 rounded-lg border-2 text-left transition-colors",
                             selectedProvider === provider.id
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
+                              ? isAdvisor ? "border-primary bg-primary/5" : "border-mentor bg-mentor-light/30"
+                              : isAdvisor ? "border-border hover:border-primary/50" : "border-border hover:border-mentor/50"
                           )}
                         >
                           <span className="text-2xl">{getProviderIcon(provider.provider_type)}</span>
@@ -367,7 +367,7 @@ const Checkout = () => {
                           <div className={cn(
                             "w-5 h-5 rounded-full border-2 flex items-center justify-center",
                             selectedProvider === provider.id
-                              ? "border-primary bg-primary"
+                              ? isAdvisor ? "border-primary bg-primary" : "border-mentor bg-mentor"
                               : "border-muted-foreground/30"
                           )}>
                             {selectedProvider === provider.id && (
@@ -417,7 +417,7 @@ const Checkout = () => {
 
                   {user ? (
                     <Button
-                      className="w-full"
+                      className={cn("w-full", !isAdvisor && "bg-mentor hover:bg-mentor-dark")}
                       size="lg"
                       onClick={handleCheckout}
                       disabled={isProcessing || alreadySubscribed || !selectedProvider}
