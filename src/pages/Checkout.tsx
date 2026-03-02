@@ -60,9 +60,58 @@ const Checkout = () => {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [loading, setLoading] = useState(true);
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string } | null>(null);
+
+  // Handle LINE Pay return
+  useEffect(() => {
+    const linepay = searchParams.get('linepay');
+    const transactionId = searchParams.get('transactionId');
+    const txOrderId = searchParams.get('orderId');
+
+    if (linepay === 'confirm' && transactionId && !isConfirming && !resultDialog) {
+      const confirmPayment = async () => {
+        setIsConfirming(true);
+        try {
+          const returnedBillingCycle = searchParams.get('billingCycle') || billingCycle;
+          // We need plan data to know the price - wait for it
+          if (!plan) return; // will re-trigger when plan loads
+          
+          const currentPrice = returnedBillingCycle === 'yearly'
+            ? (plan.price_yearly || plan.price_monthly * 12)
+            : plan.price_monthly;
+
+          const { data, error } = await supabase.functions.invoke('confirm-linepay', {
+            body: {
+              transactionId,
+              orderId: txOrderId || '',
+              amount: currentPrice,
+              planId,
+              billingCycle: returnedBillingCycle,
+              userId: user?.id || null,
+            },
+          });
+
+          if (error || !data?.success) {
+            console.error('LINE Pay confirm error:', error || data);
+            setResultDialog({ open: true, success: false, message: '付款確認失敗' });
+          } else {
+            setResultDialog({ open: true, success: true });
+          }
+        } catch (err) {
+          console.error('LINE Pay confirm exception:', err);
+          setResultDialog({ open: true, success: false, message: '付款確認時發生錯誤' });
+        } finally {
+          setIsConfirming(false);
+        }
+      };
+      confirmPayment();
+    } else if (linepay === 'cancel') {
+      setResultDialog({ open: true, success: false, message: '您已取消付款' });
+    }
+  }, [searchParams, plan, user]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -186,7 +235,35 @@ const Checkout = () => {
     setIsProcessing(true);
 
     try {
-      // Sandbox mode: simulate payment and create subscription directly
+      // Check if selected provider is LINE Pay
+      const provider = providers.find(p => p.id === selectedProvider);
+      
+      if (provider?.provider_type === 'line_pay') {
+        // Call create-linepay-order edge function
+        const { data, error } = await supabase.functions.invoke('create-linepay-order', {
+          body: {
+            planId: plan.id,
+            billingCycle,
+            slug,
+            amount: price,
+            planName: plan.name,
+            expertName: expert.name,
+            origin: window.location.origin,
+          },
+        });
+
+        if (error || !data?.paymentUrl) {
+          console.error('Create LINE Pay order error:', error || data);
+          setResultDialog({ open: true, success: false, message: '建立 LINE Pay 訂單失敗，請稍後再試' });
+          return;
+        }
+
+        // Redirect to LINE Pay
+        window.location.href = data.paymentUrl;
+        return;
+      }
+
+      // Non-LINE Pay: simulate payment and create subscription directly
       const expiresAt = new Date();
       if (billingCycle === 'monthly') {
         expiresAt.setMonth(expiresAt.getMonth() + 1);
@@ -194,7 +271,6 @@ const Checkout = () => {
         expiresAt.setFullYear(expiresAt.getFullYear() + 1);
       }
 
-      // Create subscription
       const { error: subError } = await supabase
         .from('member_subscriptions')
         .insert({
