@@ -142,10 +142,10 @@ const Login = () => {
               <div className="mt-6 p-3 rounded-lg bg-muted text-sm">
                 <p className="font-medium mb-2">測試帳號</p>
                 <p className="text-muted-foreground">
-                  <span className="font-medium text-foreground">訂閱者：</span> demo@example.com / demo1234
+                  <span className="font-medium text-foreground">跟單派分析師：</span> analyst@example.com / analyst1234
                 </p>
                 <p className="text-muted-foreground mt-1">
-                  <span className="font-medium text-foreground">分析師：</span> analyst@example.com / analyst1234
+                  <span className="font-medium text-foreground">修煉派分析師：</span> demo@example.com / demo1234
                 </p>
                 <p className="text-muted-foreground mt-1">
                   <span className="font-medium text-foreground">公司管理員：</span> admin@example.com / admin1234
