@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { transactionId, orderId, amount, planId, billingCycle, userId } = await req.json();
+    const { transactionId, orderId, amount, planId, billingCycle, userId, simulate } = await req.json();
 
     if (!transactionId || !orderId || !amount) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -37,32 +37,36 @@ Deno.serve(async (req) => {
     const channelId = Deno.env.get("LINEPAY_CHANNEL_ID")!;
     const channelSecret = Deno.env.get("LINEPAY_CHANNEL_SECRET")!;
 
-    const nonce = crypto.randomUUID();
-    const confirmBody = { amount, currency: "TWD" };
-    const apiUri = `/v3/payments/${transactionId}/confirm`;
-    const bodyStr = JSON.stringify(confirmBody);
-    const signatureMessage = channelSecret + apiUri + bodyStr + nonce;
-    const signature = await hmacSha256Base64(channelSecret, signatureMessage);
+    if (!simulate) {
+      const nonce = crypto.randomUUID();
+      const confirmBody = { amount, currency: "TWD" };
+      const apiUri = `/v3/payments/${transactionId}/confirm`;
+      const bodyStr = JSON.stringify(confirmBody);
+      const signatureMessage = channelSecret + apiUri + bodyStr + nonce;
+      const signature = await hmacSha256Base64(channelSecret, signatureMessage);
 
-    const response = await fetch(`https://sandbox-api-pay.line.me${apiUri}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-LINE-ChannelId": channelId,
-        "X-LINE-Authorization-Nonce": nonce,
-        "X-LINE-Authorization": signature,
-      },
-      body: bodyStr,
-    });
-
-    const result = await response.json();
-
-    if (result.returnCode !== "0000") {
-      console.error("LINE Pay Confirm API error:", result);
-      return new Response(JSON.stringify({ error: result.returnMessage || "Confirm failed", returnCode: result.returnCode }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const response = await fetch(`https://sandbox-api-pay.line.me${apiUri}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-LINE-ChannelId": channelId,
+          "X-LINE-Authorization-Nonce": nonce,
+          "X-LINE-Authorization": signature,
+        },
+        body: bodyStr,
       });
+
+      const result = await response.json();
+
+      if (result.returnCode !== "0000") {
+        console.error("LINE Pay Confirm API error:", result);
+        return new Response(JSON.stringify({ error: result.returnMessage || "Confirm failed", returnCode: result.returnCode }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      console.log("SIMULATE MODE: skipping LINE Pay Confirm API call");
     }
 
     // Write to DB using service role
