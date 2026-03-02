@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.line-webhook]
 verify_jwt = false
+
+[functions.create-linepay-order]
+verify_jwt = false
+
+[functions.confirm-linepay]
+verify_jwt = false

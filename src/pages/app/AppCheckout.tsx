@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Check, Shield, Lock, CheckCircle2, XCircle } from "lucide-react";
 import { getPersonBySlug, plans } from "@/data/mockData";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -20,13 +21,66 @@ import {
 const AppCheckout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
+    (searchParams.get("billingCycle") as "monthly" | "yearly") || "monthly"
+  );
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean } | null>(null);
 
   const expert = getPersonBySlug(slug || "");
   const plan = plans.find(p => p.id === planId);
+
+  // Handle LINE Pay return (confirm flow)
+  useEffect(() => {
+    const linepay = searchParams.get("linepay");
+    const transactionId = searchParams.get("transactionId");
+    const txOrderId = searchParams.get("orderId");
+
+    if (linepay === "confirm" && transactionId && !isConfirming && !resultDialog) {
+      confirmLinePayPayment(transactionId, txOrderId || "");
+    } else if (linepay === "cancel") {
+      setResultDialog({ open: true, success: false });
+    }
+  }, [searchParams]);
+
+  const confirmLinePayPayment = async (transactionId: string, orderId: string) => {
+    setIsConfirming(true);
+    try {
+      const returnedBillingCycle = searchParams.get("billingCycle") || billingCycle;
+      const currentPrice = returnedBillingCycle === "yearly"
+        ? (plan?.priceYearly ?? 0)
+        : (plan?.priceMonthly ?? 0);
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data, error } = await supabase.functions.invoke("confirm-linepay", {
+        body: {
+          transactionId,
+          orderId,
+          amount: currentPrice,
+          planId,
+          billingCycle: returnedBillingCycle,
+          userId: user?.id || null,
+        },
+      });
+
+      if (error || !data?.success) {
+        console.error("Confirm error:", error || data);
+        setResultDialog({ open: true, success: false });
+      } else {
+        setResultDialog({ open: true, success: true });
+      }
+    } catch (err) {
+      console.error("Confirm exception:", err);
+      setResultDialog({ open: true, success: false });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
 
   if (!expert || !plan) {
     return (
@@ -52,15 +106,45 @@ const AppCheckout = () => {
     setIsProcessing(true);
     
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setResultDialog({ open: true, success: true });
-    } catch {
+      const { data, error } = await supabase.functions.invoke("create-linepay-order", {
+        body: {
+          planId,
+          billingCycle,
+          slug,
+          amount: currentPrice,
+          planName: plan.name,
+          expertName: expert.name,
+          origin: window.location.origin,
+        },
+      });
+
+      if (error || !data?.paymentUrl) {
+        console.error("Create order error:", error || data);
+        setResultDialog({ open: true, success: false });
+        return;
+      }
+
+      // Redirect to LINE Pay
+      window.location.href = data.paymentUrl;
+    } catch (err) {
+      console.error("Checkout exception:", err);
       setResultDialog({ open: true, success: false });
     } finally {
       setIsProcessing(false);
     }
   };
+
+  // Show loading state when confirming LINE Pay return
+  if (isConfirming) {
+    return (
+      <UnifiedAppLayout>
+        <div className="flex flex-col items-center justify-center py-16 gap-4">
+          <span className="animate-spin text-3xl">⏳</span>
+          <p className="text-muted-foreground">正在確認付款結果...</p>
+        </div>
+      </UnifiedAppLayout>
+    );
+  }
 
   return (
     <UnifiedAppLayout>
@@ -214,7 +298,7 @@ const AppCheckout = () => {
           ) : (
             <span className="flex items-center gap-2">
               <Lock className="h-4 w-4" />
-              確認付款
+              LINE Pay 付款
             </span>
           )}
         </Button>
