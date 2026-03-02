@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom';
 
 const CompanySubscribers = () => {
   const [subs, setSubs] = useState<any[]>([]);
+  const [profileMap, setProfileMap] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
@@ -23,7 +24,20 @@ const CompanySubscribers = () => {
       .from('member_subscriptions')
       .select('*, expert_plans(name, experts(name))')
       .order('created_at', { ascending: false });
-    setSubs(data || []);
+    const subData = data || [];
+    setSubs(subData);
+
+    // Fetch display names for subscribers
+    const userIds = [...new Set(subData.map(s => s.user_id).filter(Boolean))];
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, display_name')
+        .in('user_id', userIds);
+      const map: Record<string, string> = {};
+      (profiles || []).forEach(p => { map[p.user_id] = p.display_name || ''; });
+      setProfileMap(map);
+    }
     setLoading(false);
   };
 
@@ -80,7 +94,7 @@ const CompanySubscribers = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b text-left text-sm text-muted-foreground">
-                  <th className="p-4">訂閱者 ID</th>
+                  <th className="p-4">訂閱者</th>
                   <th className="p-4">方案</th>
                   <th className="p-4">開始日</th>
                   <th className="p-4">到期日</th>
@@ -100,7 +114,7 @@ const CompanySubscribers = () => {
                     const remaining = getRemainingDays(sub.expires_at);
                     return (
                       <tr key={sub.id} className="border-b last:border-0">
-                        <td className="p-4 text-sm font-mono text-muted-foreground">{sub.user_id?.slice(0, 8)}</td>
+                        <td className="p-4 text-sm">{profileMap[sub.user_id] || sub.user_id?.slice(0, 8)}</td>
                         <td className="p-4 text-sm">{sub.expert_plans?.name || '-'}</td>
                         <td className="p-4 text-sm text-muted-foreground">{sub.started_at ? new Date(sub.started_at).toLocaleDateString('zh-TW') : '-'}</td>
                         <td className="p-4 text-sm text-muted-foreground">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('zh-TW') : '-'}</td>
