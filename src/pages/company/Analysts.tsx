@@ -248,7 +248,7 @@ const CompanyAnalysts = () => {
           </div>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button size="sm"><UserPlus className="h-4 w-4 mr-2" />新增分析師</Button>
+              <Button size="sm" className="bg-company hover:bg-company/90 text-white"><UserPlus className="h-4 w-4 mr-2" />新增分析師</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>新增分析師帳號</DialogTitle></DialogHeader>
