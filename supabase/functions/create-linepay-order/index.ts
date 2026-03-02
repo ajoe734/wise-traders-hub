@@ -59,8 +59,8 @@ Deno.serve(async (req) => {
         },
       ],
       redirectUrls: {
-        confirmUrl: `${origin}/app/checkout/${slug}/${planId}?linepay=confirm&billingCycle=${billingCycle}`,
-        cancelUrl: `${origin}/app/checkout/${slug}/${planId}?linepay=cancel`,
+        confirmUrl: `${origin}/checkout/${slug}/${planId}?linepay=confirm&billingCycle=${billingCycle}`,
+        cancelUrl: `${origin}/checkout/${slug}/${planId}?linepay=cancel`,
       },
     };
 
