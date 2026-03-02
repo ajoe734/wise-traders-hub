@@ -101,6 +101,10 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           light: "hsl(var(--warning-light))",
         },
+        company: {
+          DEFAULT: "hsl(var(--company))",
+          light: "hsl(var(--company-light))",
+        },
         // Signals theme colors (跟單派)
         signals: {
           DEFAULT: "hsl(var(--signals-accent))",
