@@ -102,7 +102,7 @@ const CompanyPayments = () => {
             <div className="flex justify-end">
               <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="h-4 w-4 mr-2" />新增金流工具</Button>
+                  <Button size="sm" className="bg-company hover:bg-company/90 text-white"><Plus className="h-4 w-4 mr-2" />新增金流工具</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>新增金流工具</DialogTitle></DialogHeader>

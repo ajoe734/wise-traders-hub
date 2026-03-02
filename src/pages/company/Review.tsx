@@ -135,9 +135,9 @@ const CompanyReview = () => {
                             {viewReasonId === sig.id ? '收起' : '查看理由'}
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-xs" onClick={() => setTakedownId(sig.id)}>
-                          下架
-                        </Button>
+                         <Button size="sm" className="bg-company hover:bg-company/90 text-white h-7 text-xs" onClick={() => setTakedownId(sig.id)}>
+                           下架
+                         </Button>
                       </div>
                     </div>
                     {viewReasonId === sig.id && (
