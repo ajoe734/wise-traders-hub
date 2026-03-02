@@ -1,29 +1,71 @@
 
-
-# LINE 綁定加入訂閱狀態檢查
+# LINE Pay Sandbox 付款整合
 
 ## 目標
-未訂閱該分析師的用戶，在 LINE 綁定欄位顯示「尚未訂閱」，無法取得驗證碼。只有付費訂閱後才能進行綁定。
+按下「確認付款」後，導向 LINE Pay Sandbox 付款頁面，付完款後回到 `/checkout/zhao-pengbo/...` 頁面，沿用現有的「訂閱成功」AlertDialog。
 
-## 變更內容
+## 流程
 
-### 1. LineBindingCard 元件新增 `isSubscribed` 屬性
-- 新增 `isSubscribed?: boolean` prop（預設 `true` 以向下相容）
-- 當 `isSubscribed === false` 時，顯示「尚未訂閱」狀態卡片，隱藏「取得驗證碼」按鈕，改為引導用戶前往訂閱頁面
+```text
+[結帳頁: 確認付款] 
+    → 呼叫 Edge Function: create-linepay-order
+    → 取得 LINE Pay 付款頁面 URL
+    → window.location.href 導向 LINE Pay
 
-### 2. Account 頁面傳入訂閱狀態
-- 目前 `advisors` 列表混合了真實訂閱的專家與 mock 專家
-- 為每位專家標記 `isSubscribed` 屬性：真實訂閱的為 `true`，mock 的為 `false`
-- 將此屬性傳入 `LineBindingCard`
+[LINE Pay 付款完成]
+    → 導回 /checkout/:slug/:planId?transactionId=xxx&orderId=xxx
+    → 前端偵測 URL 參數，自動呼叫 Edge Function: confirm-linepay
+    → 確認成功 → 建立訂閱 → 顯示「訂閱成功」AlertDialog
+```
 
-### 3. LINE mini-app 帳號頁面同步處理
-- `src/pages/line/Account.tsx` 中如果有 LINE 綁定相關元件，也需加入相同的訂閱檢查邏輯
+## 需要儲存的密鑰
 
-## 未訂閱狀態 UI
-- 顯示專家頭像、名稱（維持現有佈局）
-- 「取得驗證碼」按鈕替換為灰色「尚未訂閱」文字
-- 下方提供「前往訂閱」連結，導向該專家的方案頁面
+- `LINEPAY_CHANNEL_ID`: `2009283010`
+- `LINEPAY_CHANNEL_SECRET`: `fde0ea4a5eda7b0d6de04597af5ddc0c`
+
+## 實作內容
+
+### 1. Edge Function: `create-linepay-order`
+
+接收前端請求（planId, billingCycle, slug），執行：
+- 產生唯一 orderId
+- 計算金額（查詢 expert_plans 表）
+- 使用 HMAC-SHA256 簽章呼叫 LINE Pay Sandbox Request API (`https://sandbox-api-pay.line.me/v3/payments/request`)
+- 設定 confirmUrl 為 `/checkout/:slug/:planId?linepay=confirm`
+- 回傳 LINE Pay 的 `paymentUrl` 給前端
+
+### 2. Edge Function: `confirm-linepay`
+
+接收前端的 transactionId 和 orderId，執行：
+- 呼叫 LINE Pay Confirm API (`https://sandbox-api-pay.line.me/v3/payments/{transactionId}/confirm`)
+- 驗證 returnCode === '0000'
+- 用 service_role_key 寫入 `payment_transactions`（status: paid）
+- 用 service_role_key 寫入 `member_subscriptions`（status: active）
+- 回傳成功/失敗結果
+
+### 3. 修改 `src/pages/Checkout.tsx`
+
+- 在 `useEffect` 中偵測 URL 是否帶有 `transactionId` 參數
+- 如果有，自動呼叫 `confirm-linepay` Edge Function
+- 確認成功後，顯示現有的「訂閱成功」AlertDialog（完全沿用）
+- 修改 `handleCheckout`：當選擇的 provider 是 `line_pay` 類型時，呼叫 `create-linepay-order` 取得付款 URL 並跳轉
+
+### 4. 更新 `supabase/config.toml`
+
+新增兩個 Edge Function 設定（verify_jwt = false）。
 
 ## 技術細節
-- **修改檔案**：`src/components/LineBindingCard.tsx`、`src/pages/app/Account.tsx`
-- 不需要資料庫或 RLS 變更，訂閱檢查已在前端透過 `has_active_subscription` RPC 完成
+
+### LINE Pay 簽章方式
+- Nonce: 隨機 UUID
+- 簽章字串: `{ChannelSecret}{API_URI}{RequestBody}{Nonce}`
+- HMAC-SHA256 → Base64
+- Headers: `X-LINE-ChannelId`, `X-LINE-Authorization-Nonce`, `X-LINE-Authorization`
+
+### LINE Pay Sandbox Request API 參數
+- amount, currency (TWD), orderId
+- packages: 商品明細
+- redirectUrls: confirmUrl, cancelUrl
+
+### 不需要新增路由
+付款完成後直接回到現有的 `/checkout/:slug/:planId` 頁面，透過 query parameter 觸發確認流程。
