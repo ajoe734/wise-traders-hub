@@ -182,18 +182,34 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
     if (!user) return;
 
     const loadUnreadCounts = async () => {
-      // Signals (database-backed to match actual visibility)
+      // Signals: only count from subscribed experts
       const signalsLastSeenStr = localStorage.getItem(SIGNALS_LAST_SEEN_KEY);
       const signalsLastSeen = signalsLastSeenStr ? parseInt(signalsLastSeenStr, 10) : 0;
       const sinceIso = signalsLastSeen > 0 ? new Date(signalsLastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
 
-      const { count: unreadSignalsCount } = await supabase
-        .from('expert_signals')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'published')
-        .gt('published_at', sinceIso);
+      // Get subscribed expert IDs first
+      const { data: activeSubs } = await supabase
+        .from('member_subscriptions')
+        .select('plan_id, expert_plans(expert_id)')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
 
-      setUnreadSignals(unreadSignalsCount ?? 0);
+      const expertIds = (activeSubs || [])
+        .map((s: any) => s.expert_plans?.expert_id)
+        .filter(Boolean);
+
+      if (expertIds.length > 0) {
+        const { count: unreadSignalsCount } = await supabase
+          .from('expert_signals')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'published')
+          .in('expert_id', expertIds)
+          .gt('published_at', sinceIso);
+
+        setUnreadSignals(unreadSignalsCount ?? 0);
+      } else {
+        setUnreadSignals(0);
+      }
 
       // Journals
       const journalsLastSeenStr = localStorage.getItem(JOURNALS_LAST_SEEN_KEY);
