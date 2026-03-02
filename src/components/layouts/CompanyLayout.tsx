@@ -40,8 +40,8 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
         {/* Header */}
         <div className="p-4 border-b">
           <div className="flex items-center gap-3 mb-1">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-primary" />
+            <div className="h-10 w-10 rounded-lg bg-company/10 flex items-center justify-center">
+              <Building2 className="h-5 w-5 text-company" />
             </div>
             <div className="min-w-0">
               <h2 className="font-semibold truncate">公司管理後台</h2>
@@ -61,7 +61,7 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                   active
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-company/10 text-company"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
               >

@@ -85,6 +85,10 @@
     --mentor-light: 210 80% 95%;
     --mentor-foreground: 0 0% 100%;
 
+    /* Company Admin accent - Warm Amber */
+    --company: 40 55% 50%;
+    --company-light: 40 55% 94%;
+
     /* 台股慣例：紅漲綠跌 */
     --success: 4 82% 56%; /* 紅色 - 上漲/獲利 */
     --success-light: 4 82% 95%;
@@ -172,6 +176,9 @@
     --mentor-light: 210 80% 15%;
     --success-light: 142 76% 15%;
     --warning-light: 38 92% 15%;
+
+    --company: 40 55% 55%;
+    --company-light: 40 55% 15%;
 
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 98%;
