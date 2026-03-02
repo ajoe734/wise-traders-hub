@@ -57,6 +57,7 @@ const AppCheckout = () => {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
 
+      const isSimulate = searchParams.get("simulate") === "true";
       const { data, error } = await supabase.functions.invoke("confirm-linepay", {
         body: {
           transactionId,
@@ -65,6 +66,7 @@ const AppCheckout = () => {
           planId,
           billingCycle: returnedBillingCycle,
           userId: user?.id || null,
+          simulate: isSimulate,
         },
       });
 

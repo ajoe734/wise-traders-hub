@@ -83,6 +83,7 @@ const Checkout = () => {
             ? (plan.price_yearly || plan.price_monthly * 12)
             : plan.price_monthly;
 
+          const isSimulate = searchParams.get('simulate') === 'true';
           const { data, error } = await supabase.functions.invoke('confirm-linepay', {
             body: {
               transactionId,
@@ -91,6 +92,7 @@ const Checkout = () => {
               planId,
               billingCycle: returnedBillingCycle,
               userId: user?.id || null,
+              simulate: isSimulate,
             },
           });
 
