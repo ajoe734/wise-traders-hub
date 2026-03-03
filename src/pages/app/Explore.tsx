@@ -141,12 +141,21 @@ const Explore = () => {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2 mt-4">
-                    <Button asChild variant={isSubscribed ? "default" : "outline"} className="flex-1">
-                      <Link to={isSubscribed ? `/app/expert/${expert.slug}` : `/expert/${expert.slug}?from=explore`}>
-                        {isSubscribed ? '查看專家詳情' : '查看訂閱方案'}
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </Link>
-                    </Button>
+                    {isSubscribed ? (
+                      <Button asChild className={`flex-1 ${expert.role === PersonRole.ADVISOR ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90'} text-white`}>
+                        <Link to={`/app/expert/${expert.slug}`}>
+                          查看專家詳情
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button asChild variant="outline" className="flex-1">
+                        <Link to={`/expert/${expert.slug}?from=explore`}>
+                          查看訂閱方案
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
