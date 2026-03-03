@@ -185,7 +185,7 @@ const AppExpertDetail = () => {
         {!isSubscribed && (
           <div>
             <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
+              <Target className={`h-5 w-5 ${isAdvisor ? 'text-advisor' : 'text-mentor'}`} />
               訂閱方案
             </h2>
             <Card className={`overflow-hidden border-2 ${isAdvisor ? 'border-advisor/30' : 'border-mentor/30'}`}>
@@ -224,7 +224,7 @@ const AppExpertDetail = () => {
                 </ul>
 
                 <Button 
-                  className="w-full" 
+                  className={`w-full ${isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90'} text-white`}
                   onClick={() => navigate(`/expert/${slug}`)}
                 >
                   立即訂閱
