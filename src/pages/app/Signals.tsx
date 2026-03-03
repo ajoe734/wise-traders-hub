@@ -169,7 +169,7 @@ const Signals = () => {
                         </div>
                       )}
 
-                      <div className="flex items-center justify-end text-sm text-primary font-medium">
+                      <div className="flex items-center justify-end text-sm text-muted-foreground font-medium">
                         查看詳解與教學
                         <ChevronRight className="h-4 w-4 ml-1" />
                       </div>
