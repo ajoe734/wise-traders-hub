@@ -231,7 +231,7 @@ const CompanyPayments = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 text-xs text-destructive hover:text-destructive"
+                                  className="h-7 text-xs text-company hover:text-company hover:bg-company/10"
                                   onClick={() => { setRefundingTx(tx); setRefundReason(''); }}
                                 >
                                   <Undo2 className="h-3.5 w-3.5 mr-1" />退款
@@ -264,7 +264,7 @@ const CompanyPayments = () => {
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction onClick={handleRefund} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">確認退款</AlertDialogAction>
+              <AlertDialogAction onClick={handleRefund} className="bg-company hover:bg-company/90 text-white">確認退款</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
