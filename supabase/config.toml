@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.confirm-linepay]
 verify_jwt = false
+
+[functions.create-ecpay-order]
+verify_jwt = false
+
+[functions.ecpay-callback]
+verify_jwt = false
