@@ -146,7 +146,7 @@ const AppExpertDetail = () => {
 
         {/* Expert Header */}
         <div className="flex items-start gap-4">
-          <Avatar className="h-20 w-20 border-2 border-primary/20">
+          <Avatar className={`h-20 w-20 border-2 ${isAdvisor ? 'border-advisor/20' : 'border-mentor/20'}`}>
             <AvatarImage src={expert.avatarUrl} alt={expert.name} />
             <AvatarFallback>{expert.name[0]}</AvatarFallback>
           </Avatar>
@@ -174,9 +174,9 @@ const AppExpertDetail = () => {
 
         {/* Subscription Status */}
         {isSubscribed && (
-          <Card className="border-primary/30 bg-primary/5">
+          <Card className={`${isAdvisor ? 'border-advisor/30 bg-advisor/5' : 'border-mentor/30 bg-mentor/5'}`}>
             <CardContent className="py-3 px-4">
-              <div className="flex items-center gap-2 text-primary">
+              <div className={`flex items-center gap-2 ${isAdvisor ? 'text-advisor' : 'text-mentor'}`}>
                 <Check className="h-4 w-4" />
                 <span className="font-medium">已訂閱此專家</span>
               </div>
@@ -193,7 +193,7 @@ const AppExpertDetail = () => {
             <TrendingUp className="h-4 w-4" />
             績效總覽
           </h2>
-          <PerformanceOverviewPanel expertSlug={slug || ""} />
+          <PerformanceOverviewPanel expertSlug={slug || ""} variant={isAdvisor ? 'advisor' : 'mentor'} />
         </div>
 
         {/* Subscription Plan - 統一定價顯示 */}
