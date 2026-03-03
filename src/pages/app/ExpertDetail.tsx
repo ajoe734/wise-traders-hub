@@ -137,11 +137,11 @@ const AppExpertDetail = () => {
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={() => navigate("/app")}
+          onClick={() => navigate("/app/explore")}
           className="gap-2 -ml-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回戰情室
+          返回探索名師
         </Button>
 
         {/* Expert Header */}
