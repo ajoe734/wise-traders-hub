@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { AlertTriangle, BookOpen, Lightbulb, Shield, Target, ChevronRight } from 'lucide-react';
+import { AlertTriangle, BookOpen, Lightbulb, Shield, Target, ChevronRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStockQuote } from '@/hooks/useStockQuote';
 import { Button } from '@/components/ui/button';
@@ -53,6 +53,7 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
 
 const SignalDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [signal, setSignal] = useState<DbSignal | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -92,6 +93,16 @@ const SignalDetail = () => {
   return (
     <UnifiedAppLayout>
       <div className="p-4 space-y-4">
+        {/* Back button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2 -ml-2"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          返回訊號中心
+        </Button>
         {/* Header: instrument + expert name + stock price */}
         {/* Row 1: Badge + ticker.TW */}
         <div className="flex items-center gap-3">
