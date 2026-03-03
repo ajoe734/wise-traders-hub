@@ -605,6 +605,12 @@ export type Database = {
           plan_id: string
         }[]
       }
+      has_active_subscription_after: {
+        Args: { _published_at: string; _user_id: string }
+        Returns: {
+          expert_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
