@@ -134,7 +134,7 @@ function ThemeToggleButton() {
 }
 
 export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
-  const { user, isLoading, logout } = useAuth();
+  const { user, supabaseUser, isLoading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [unreadSignals, setUnreadSignals] = useState(0);
@@ -223,10 +223,10 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   }, [user, location.pathname]);
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isLoading && !user && !supabaseUser) {
       navigate('/auth/login', { replace: true });
     }
-  }, [user, isLoading, navigate]);
+  }, [user, isLoading, supabaseUser, navigate]);
 
   if (isLoading) {
     return (
