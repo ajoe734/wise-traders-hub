@@ -84,6 +84,7 @@ const Signals = () => {
     queryKey: ['app-signals', user?.id],
     queryFn: () => fetchSignalsData(user?.id),
     staleTime: 30_000,
+    refetchOnMount: 'always',
   });
 
   const signals = data?.signals ?? [];
