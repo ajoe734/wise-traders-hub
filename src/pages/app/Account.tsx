@@ -329,15 +329,9 @@ const Account = () => {
             </div>
           ) : (
             <Card>
-              <CardContent className="py-8 text-center">
-                <Radio className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">尚無訂閱</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  探索投顧分析師或實戰導師，開始你的投資學習之旅
-                </p>
-                <Button asChild>
-                  <Link to="/pricing">瀏覽方案</Link>
-                </Button>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <Radio className="h-8 w-8 mx-auto mb-3 opacity-50" />
+                <p>尚無訂閱</p>
               </CardContent>
             </Card>
           )}
