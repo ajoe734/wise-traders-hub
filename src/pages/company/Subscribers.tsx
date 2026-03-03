@@ -5,9 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw, Calendar } from 'lucide-react';
+import { Search, Users, UserCheck, UserX, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
 
 const CompanySubscribers = () => {
   const [subs, setSubs] = useState<any[]>([]);
@@ -53,7 +52,16 @@ const CompanySubscribers = () => {
 
   const filtered = subs.filter(s => {
     const matchStatus = statusFilter === 'all' || s.status === statusFilter;
-    const matchSearch = !search || s.user_id?.includes(search) || s.expert_plans?.name?.includes(search);
+    if (!search) return matchStatus;
+    const q = search.toLowerCase();
+    const displayName = (profileMap[s.user_id] || '').toLowerCase();
+    const planName = (s.expert_plans?.name || '').toLowerCase();
+    const startDate = s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '';
+    const endDate = s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '';
+    const remaining = getRemainingDays(s.expires_at);
+    const remainingStr = remaining != null ? (remaining > 0 ? `${remaining} 天` : '已到期') : '';
+    const renewStr = s.auto_renew ? '自動' : '手動';
+    const matchSearch = displayName.includes(q) || planName.includes(q) || startDate.includes(q) || endDate.includes(q) || remainingStr.includes(q) || renewStr.includes(q);
     return matchStatus && matchSearch;
   });
 
@@ -78,7 +86,7 @@ const CompanySubscribers = () => {
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="搜尋方案名稱..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="搜尋名稱、方案、日期、天數、續訂方式..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
           <div className="flex items-center bg-muted rounded-lg p-1">
             {[{ key: 'all', label: '全部' }, { key: 'active', label: '活躍' }, { key: 'expired', label: '到期' }, { key: 'canceled', label: '取消' }].map(f => (
@@ -101,8 +109,7 @@ const CompanySubscribers = () => {
                   <th className="p-4">剩餘天數</th>
                   <th className="p-4">續訂</th>
                   <th className="p-4">狀態</th>
-                  <th className="p-4">操作</th>
-                </tr>
+                 </tr>
               </thead>
               <tbody>
                 {loading ? (
@@ -132,11 +139,6 @@ const CompanySubscribers = () => {
                           <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">
                             {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
                           </Badge>
-                        </td>
-                        <td className="p-4">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                            <Link to={`/company/payments`}>查看付款</Link>
-                          </Button>
                         </td>
                       </tr>
                     );
