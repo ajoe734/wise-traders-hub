@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { planId, billingCycle, slug, amount, planName, expertName, origin } =
+    const { planId, billingCycle, slug, amount, planName, expertName, origin, userId } =
       await req.json();
 
     if (!planId || !billingCycle || !slug || !amount || !origin) {
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
 
     // Callback and return URLs
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const returnUrl = `${origin}/app/checkout/${slug}/${planId}?ecpay=result&billingCycle=${billingCycle}`;
+    const returnUrl = `${origin}/checkout/${slug}/${planId}?ecpay=result&billingCycle=${billingCycle}`;
     const notifyUrl = `${supabaseUrl}/functions/v1/ecpay-callback`;
 
     const itemName = `${expertName} - ${planName} (${billingCycle === "yearly" ? "年繳" : "月繳"})`;
@@ -125,6 +125,7 @@ Deno.serve(async (req) => {
       CustomField1: planId,
       CustomField2: billingCycle,
       CustomField3: slug,
+      CustomField4: userId || "",
     };
 
     const checkMacValue = await generateCheckMacValueAsync(params, hashKey, hashIV);

@@ -76,8 +76,7 @@ const Checkout = () => {
         setIsConfirming(true);
         try {
           const returnedBillingCycle = searchParams.get('billingCycle') || billingCycle;
-          // We need plan data to know the price - wait for it
-          if (!plan) return; // will re-trigger when plan loads
+          if (!plan) return;
           
           const currentPrice = returnedBillingCycle === 'yearly'
             ? (plan.price_yearly || plan.price_monthly * 12)
@@ -114,6 +113,35 @@ const Checkout = () => {
       setResultDialog({ open: true, success: false, message: '您已取消付款' });
     }
   }, [searchParams, plan, user]);
+
+  // Handle ECPay return
+  useEffect(() => {
+    const ecpayResult = searchParams.get('ecpay');
+    if (ecpayResult !== 'result' || !user || !planId || resultDialog) return;
+
+    // Poll for subscription created by ecpay-callback
+    let attempts = 0;
+    const maxAttempts = 10;
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      const { data: subs } = await supabase
+        .from('member_subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('plan_id', planId)
+        .eq('status', 'active');
+
+      if (subs && subs.length > 0) {
+        clearInterval(pollInterval);
+        setResultDialog({ open: true, success: true });
+      } else if (attempts >= maxAttempts) {
+        clearInterval(pollInterval);
+        setResultDialog({ open: true, success: true, message: '付款處理中，訂閱將在數分鐘內生效' });
+      }
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [searchParams, user, planId]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -276,6 +304,7 @@ const Checkout = () => {
             planName: plan.name,
             expertName: expert.name,
             origin: window.location.origin,
+            userId: user.id,
           },
         });
 
