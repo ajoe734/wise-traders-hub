@@ -265,7 +265,48 @@ const Checkout = () => {
         return;
       }
 
-      // Non-LINE Pay: simulate payment and create subscription directly
+      if (provider?.provider_type === 'ecpay') {
+        // Call create-ecpay-order edge function
+        const { data, error } = await supabase.functions.invoke('create-ecpay-order', {
+          body: {
+            planId: plan.id,
+            billingCycle,
+            slug,
+            amount: price,
+            planName: plan.name,
+            expertName: expert.name,
+            origin: window.location.origin,
+          },
+        });
+
+        if (error || !data?.actionUrl || !data?.params) {
+          console.error('Create ECPay order error:', error || data);
+          setResultDialog({ open: true, success: false, message: '建立綠界訂單失敗，請稍後再試' });
+          return;
+        }
+
+        // Create and submit a hidden form to ECPay in a new window
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = data.actionUrl;
+        form.target = '_blank';
+        form.style.display = 'none';
+
+        for (const [key, value] of Object.entries(data.params)) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = String(value);
+          form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+        return;
+      }
+
+      // Other providers: simulate payment and create subscription directly
       const expiresAt = new Date();
       if (billingCycle === 'monthly') {
         expiresAt.setMonth(expiresAt.getMonth() + 1);
