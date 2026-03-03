@@ -1,14 +1,16 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Check, TrendingUp, Target, Stethoscope, Zap, BookOpen, Lock } from "lucide-react";
-import { getPersonBySlug, subscriptions } from "@/data/mockData";
-import { PersonRole, SubscriptionStatus, PlanType } from "@/types";
+import { getPersonBySlug } from "@/data/mockData";
+import { PersonRole } from "@/types";
 import { Link } from "react-router-dom";
 import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverviewPanel";
+import { supabase } from "@/integrations/supabase/client";
 
 // 統一定價結構（與 Pricing.tsx 一致）
 const standardPlans = {
@@ -53,9 +55,38 @@ const standardPlans = {
 const AppExpertDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const [subscribedPlanTypes, setSubscribedPlanTypes] = useState<string[]>([]);
   
   const expert = getPersonBySlug(slug || "");
-  
+
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !expert) return;
+      
+      // Get expert's DB id by slug
+      const { data: dbExpert } = await supabase
+        .from("experts")
+        .select("id")
+        .eq("slug", slug || "")
+        .single();
+      if (!dbExpert) return;
+
+      // Get user's active subscriptions for this expert
+      const { data: subs } = await supabase
+        .from("member_subscriptions")
+        .select("plan_id, expert_plans(plan_type)")
+        .eq("user_id", user.id)
+        .eq("status", "active");
+
+      const types = (subs || [])
+        .filter((s: any) => s.expert_plans)
+        .map((s: any) => s.expert_plans.plan_type as string);
+      setSubscribedPlanTypes(types);
+    };
+    fetchSubscription();
+  }, [slug, expert]);
+
   if (!expert) {
     return (
       <UnifiedAppLayout>
@@ -73,28 +104,12 @@ const AppExpertDetail = () => {
   const isAdvisor = expert.role === PersonRole.ADVISOR;
   const displayPlan = isAdvisor ? standardPlans.follower : standardPlans.cultivator;
 
-  // 檢查訂閱狀態
-  const userSubscriptions = subscriptions.filter(sub => sub.status === SubscriptionStatus.ACTIVE);
-  
-  // 檢查是否訂閱跟單派（即時策略）
-  const isSubscribedToFollower = userSubscriptions.some(sub => {
-    const plan = expert.plans.find(p => p.id === sub.planId);
-    return plan && (plan.planType === PlanType.ANALYST_SIGNAL_L1 || plan.planType === PlanType.ANALYST_SIGNAL_DIAG_L2);
-  });
-  
-  // 檢查是否已有持股健檢
-  const hasHealthCheck = userSubscriptions.some(sub => {
-    const plan = expert.plans.find(p => p.id === sub.planId);
-    return plan && plan.planType === PlanType.ANALYST_SIGNAL_DIAG_L2;
-  });
-  
-  // 檢查是否訂閱修煉派
-  const isSubscribedToCultivator = userSubscriptions.some(sub => {
-    const plan = expert.plans.find(p => p.id === sub.planId);
-    return plan && plan.planType === PlanType.MENTOR_WEEKLY_JOURNAL;
-  });
-
-  // 判斷是否已訂閱此專家的對應方案
+  // 檢查訂閱狀態 (from DB)
+  const isSubscribedToFollower = subscribedPlanTypes.some(t => 
+    t === 'analyst_signal_l1' || t === 'analyst_signal_diag_l2'
+  );
+  const hasHealthCheck = subscribedPlanTypes.includes('analyst_signal_diag_l2');
+  const isSubscribedToCultivator = subscribedPlanTypes.includes('mentor_weekly_journal');
   const isSubscribed = isAdvisor ? isSubscribedToFollower : isSubscribedToCultivator;
 
   const getRoleLabel = (role: PersonRole) => {
