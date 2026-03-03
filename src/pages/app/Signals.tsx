@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,7 @@ import { Radio, Clock, ChevronRight } from 'lucide-react';
 import { format, isToday, differenceInHours } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -37,70 +38,60 @@ interface DbSignal {
   } | null;
 }
 
+const fetchSignalsData = async (userId: string | undefined) => {
+  if (!userId) return { signals: [] as DbSignal[], hasSubscription: false };
+
+  const { data: subs } = await supabase
+    .from('member_subscriptions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .limit(1);
+
+  const hasSub = !!subs && subs.length > 0;
+  if (!hasSub) return { signals: [] as DbSignal[], hasSubscription: false };
+
+  const { data: activeSubs } = await supabase
+    .from('member_subscriptions')
+    .select('plan_id, expert_plans(expert_id)')
+    .eq('user_id', userId)
+    .eq('status', 'active');
+
+  const expertIds = (activeSubs || [])
+    .map((s: any) => s.expert_plans?.expert_id)
+    .filter(Boolean);
+
+  if (expertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: true };
+
+  const { data, error } = await supabase
+    .from('expert_signals')
+    .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url)')
+    .eq('status', 'published')
+    .in('expert_id', expertIds)
+    .order('published_at', { ascending: false })
+    .limit(50);
+
+  return {
+    signals: (!error && data ? data : []) as unknown as DbSignal[],
+    hasSubscription: true,
+  };
+};
+
 const Signals = () => {
   const { user } = useAuth();
-  const [signals, setSignals] = useState<DbSignal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasSubscription, setHasSubscription] = useState<boolean | null>(null);
+
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['app-signals', user?.id],
+    queryFn: () => fetchSignalsData(user?.id),
+    staleTime: 5 * 60 * 1000, // 5 min cache — keeps data on back navigation
+  });
+
+  const signals = data?.signals ?? [];
+  const hasSubscription = data?.hasSubscription ?? null;
 
   useEffect(() => {
     markAppSignalsAsRead();
-    fetchData();
-  }, [user]);
-
-  const fetchData = async () => {
-    setLoading(true);
-
-    // Check if user has any active subscription
-    if (user) {
-      const { data: subs } = await supabase
-        .from('member_subscriptions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .limit(1);
-      
-      const hasSub = !!subs && subs.length > 0;
-      setHasSubscription(hasSub);
-
-      // Only fetch signals if user has an active subscription
-      if (hasSub) {
-        // Get subscribed expert IDs first
-        const { data: activeSubs } = await supabase
-          .from('member_subscriptions')
-          .select('plan_id, expert_plans(expert_id)')
-          .eq('user_id', user.id)
-          .eq('status', 'active');
-
-        const expertIds = (activeSubs || [])
-          .map((s: any) => s.expert_plans?.expert_id)
-          .filter(Boolean);
-
-        if (expertIds.length > 0) {
-          const { data, error } = await supabase
-            .from('expert_signals')
-            .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url)')
-            .eq('status', 'published')
-            .in('expert_id', expertIds)
-            .order('published_at', { ascending: false })
-            .limit(50);
-
-          if (!error && data) {
-            setSignals(data as unknown as DbSignal[]);
-          }
-        } else {
-          setSignals([]);
-        }
-      } else {
-        setSignals([]);
-      }
-    } else {
-      setHasSubscription(false);
-      setSignals([]);
-    }
-
-    setLoading(false);
-  };
+  }, []);
 
   return (
     <UnifiedAppLayout>
