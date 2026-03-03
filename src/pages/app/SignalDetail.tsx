@@ -43,7 +43,7 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
     <div className="space-y-1.5">
       {lines.map((line, i) => (
         <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-          {dotColor && <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${dotColor}`} />}
+          {dotColor && <span className={`mt-1.5 ml-[3px] h-1.5 w-1.5 rounded-full shrink-0 ${dotColor}`} />}
           <p>{line}</p>
         </div>
       ))}
