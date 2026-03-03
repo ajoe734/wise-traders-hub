@@ -37,12 +37,7 @@ const Explore = () => {
     fetchSubscribedSlugs();
   }, []);
 
-  // Mock performance data
-  const mockPerformance: Record<string, { cumulative: number; annualized: number }> = {
-    "zhao-pengbo": { cumulative: 128.5, annualized: 45.2 },
-    "chen-jianhong": { cumulative: 85.3, annualized: 32.1 },
-    "li-mingzhe": { cumulative: 156.8, annualized: 52.4 },
-  };
+  const mockPerformance: Record<string, { cumulative: number; annualized: number }> = {};
 
   const allowedSlugs = ["zhao-pengbo", "zhao-pengbo-mentor", "lin-xiuqi"];
   const filteredExperts = allExperts.filter((expert) => {
