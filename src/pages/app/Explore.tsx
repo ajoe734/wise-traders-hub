@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,15 +9,33 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, ChevronRight, TrendingUp } from "lucide-react";
 import { getAllPeopleWithPlans } from "@/data/mockData";
 import { PersonRole } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 
 type RoleFilter = "all" | PersonRole.ADVISOR | PersonRole.MENTOR;
 
 const Explore = () => {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [subscribedSlugs, setSubscribedSlugs] = useState<string[]>([]);
   const allExperts = getAllPeopleWithPlans();
 
-  // Mock subscribed expert slugs (in real app, this comes from user's subscription data)
-  const subscribedSlugs = ["zhao-pengbo"];
+  useEffect(() => {
+    const fetchSubscribedSlugs = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("member_subscriptions")
+        .select("plan_id, expert_plans(expert_id, experts(slug))")
+        .eq("user_id", user.id)
+        .eq("status", "active");
+      if (data) {
+        const slugs = data
+          .map((sub: any) => sub.expert_plans?.experts?.slug)
+          .filter(Boolean) as string[];
+        setSubscribedSlugs(slugs);
+      }
+    };
+    fetchSubscribedSlugs();
+  }, []);
 
   // Mock performance data
   const mockPerformance: Record<string, { cumulative: number; annualized: number }> = {
@@ -129,7 +147,7 @@ const Explore = () => {
                   {/* Action Buttons */}
                   <div className="flex gap-2 mt-4">
                     <Button asChild variant={isSubscribed ? "default" : "outline"} className="flex-1">
-                      <Link to={`/app/expert/${expert.slug}`}>
+                      <Link to={isSubscribed ? `/app/expert/${expert.slug}` : `/expert/${expert.slug}`}>
                         {isSubscribed ? '查看專家詳情' : '查看訂閱方案'}
                         <ChevronRight className="h-4 w-4 ml-1" />
                       </Link>
