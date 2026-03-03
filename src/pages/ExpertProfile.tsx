@@ -212,7 +212,7 @@ const ExpertProfile = () => {
     <PortalLayout>
       <div className="container py-8 md:py-12">
         {/* Back navigation */}
-        {fromExplore && (
+        {fromExplore ? (
           <Button
             variant="ghost"
             size="sm"
@@ -222,8 +222,7 @@ const ExpertProfile = () => {
             <ArrowLeft className="h-4 w-4 mr-1" />
             返回探索專家
           </Button>
-        )}
-        {fromAccount && (
+        ) : fromAccount ? (
           <Button
             variant="ghost"
             size="sm"
@@ -232,6 +231,16 @@ const ExpertProfile = () => {
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
             返回帳號設定
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mb-4"
+            onClick={() => navigate('/experts')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            返回專家列表
           </Button>
         )}
         {/* Hero Header */}
