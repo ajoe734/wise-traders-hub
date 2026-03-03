@@ -74,9 +74,11 @@ Deno.serve(async (req) => {
     const rtnCode = params.RtnCode;
     const tradeNo = params.MerchantTradeNo;
     const tradeAmt = parseInt(params.TradeAmt || "0");
-    const ecpayTxId = params.TradeNo; // ECPay's transaction ID
+    const ecpayTxId = params.TradeNo;
     const planId = params.CustomField1;
     const billingCycle = params.CustomField2;
+    const slug = params.CustomField3;
+    const userId = params.CustomField4;
 
     // Only process successful payments
     if (rtnCode !== "1") {
@@ -106,8 +108,31 @@ Deno.serve(async (req) => {
       expiresAt.setMonth(expiresAt.getMonth() + 1);
     }
 
-    // We need user_id - store it in CustomField4 or look up via tradeNo
-    // For now, create transaction record; subscription created when user returns
+    // Create subscription if we have user_id
+    let subscriptionId: string | null = null;
+    if (userId && planId) {
+      const { data: subData, error: subError } = await supabase
+        .from("member_subscriptions")
+        .insert({
+          user_id: userId,
+          plan_id: planId,
+          status: "active",
+          provider_id: provider?.id || null,
+          started_at: now.toISOString(),
+          expires_at: expiresAt.toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (subError) {
+        console.error("Subscription insert error:", subError);
+      } else {
+        subscriptionId = subData?.id || null;
+        console.log("Subscription created:", subscriptionId);
+      }
+    }
+
+    // Create transaction record
     const { error: txError } = await supabase
       .from("payment_transactions")
       .insert({
@@ -117,6 +142,7 @@ Deno.serve(async (req) => {
         paid_at: now.toISOString(),
         provider_id: provider?.id || null,
         provider_tx_id: ecpayTxId || tradeNo,
+        subscription_id: subscriptionId,
       });
 
     if (txError) {
