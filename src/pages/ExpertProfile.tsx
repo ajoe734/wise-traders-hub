@@ -41,6 +41,7 @@ const ExpertProfile = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const fromAccount = searchParams.get('from') === 'account';
+  const fromExplore = searchParams.get('from') === 'explore';
 
   const [expertInfo, setExpertInfo] = useState<ExpertInfo | null>(null);
   const [expertNotFound, setExpertNotFound] = useState(false);
@@ -210,7 +211,18 @@ const ExpertProfile = () => {
   return (
     <PortalLayout>
       <div className="container py-8 md:py-12">
-        {/* Back to account */}
+        {/* Back navigation */}
+        {fromExplore && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mb-4"
+            onClick={() => navigate('/app/explore')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            返回探索專家
+          </Button>
+        )}
         {fromAccount && (
           <Button
             variant="ghost"

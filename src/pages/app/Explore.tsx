@@ -147,7 +147,7 @@ const Explore = () => {
                   {/* Action Buttons */}
                   <div className="flex gap-2 mt-4">
                     <Button asChild variant={isSubscribed ? "default" : "outline"} className="flex-1">
-                      <Link to={isSubscribed ? `/app/expert/${expert.slug}` : `/expert/${expert.slug}`}>
+                      <Link to={isSubscribed ? `/app/expert/${expert.slug}` : `/expert/${expert.slug}?from=explore`}>
                         {isSubscribed ? '查看專家詳情' : '查看訂閱方案'}
                         <ChevronRight className="h-4 w-4 ml-1" />
                       </Link>
