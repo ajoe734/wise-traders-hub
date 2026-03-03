@@ -26,7 +26,9 @@ const Explore = () => {
     "li-mingzhe": { cumulative: 156.8, annualized: 52.4 },
   };
 
+  const allowedSlugs = ["zhao-pengbo", "zhao-pengbo-mentor", "lin-xiuqi"];
   const filteredExperts = allExperts.filter((expert) => {
+    if (!allowedSlugs.includes(expert.slug)) return false;
     if (roleFilter === "all") return true;
     return expert.role === roleFilter;
   });
