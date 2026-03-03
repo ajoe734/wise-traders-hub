@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,32 +10,34 @@ import { Check, ChevronRight, TrendingUp } from "lucide-react";
 import { getAllPeopleWithPlans } from "@/data/mockData";
 import { PersonRole } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 
 type RoleFilter = "all" | PersonRole.ADVISOR | PersonRole.MENTOR;
 
+const fetchSubscribedSlugs = async (userId: string | undefined) => {
+  if (!userId) return [];
+  const { data } = await supabase
+    .from("member_subscriptions")
+    .select("plan_id, expert_plans(expert_id, experts(slug))")
+    .eq("user_id", userId)
+    .eq("status", "active");
+  if (!data) return [];
+  return data
+    .map((sub: any) => sub.expert_plans?.experts?.slug)
+    .filter(Boolean) as string[];
+};
+
 const Explore = () => {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const [subscribedSlugs, setSubscribedSlugs] = useState<string[]>([]);
+  const { user } = useAuth();
   const allExperts = getAllPeopleWithPlans();
 
-  useEffect(() => {
-    const fetchSubscribedSlugs = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase
-        .from("member_subscriptions")
-        .select("plan_id, expert_plans(expert_id, experts(slug))")
-        .eq("user_id", user.id)
-        .eq("status", "active");
-      if (data) {
-        const slugs = data
-          .map((sub: any) => sub.expert_plans?.experts?.slug)
-          .filter(Boolean) as string[];
-        setSubscribedSlugs(slugs);
-      }
-    };
-    fetchSubscribedSlugs();
-  }, []);
+  const { data: subscribedSlugs = [] } = useQuery({
+    queryKey: ['explore-subscribed-slugs', user?.id],
+    queryFn: () => fetchSubscribedSlugs(user?.id),
+    staleTime: Infinity,
+  });
 
   const mockPerformance: Record<string, { cumulative: number; annualized: number }> = {};
 
