@@ -1,27 +1,62 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { DollarSign, TrendingUp, ArrowUpRight, Users, Download } from 'lucide-react';
+import { DollarSign, TrendingUp, Users, Download, Repeat } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+
+const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
 const CompanyRevenue = () => {
   const [experts, setExperts] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const { data: exp } = await supabase.from('experts').select('*').order('name');
+    const [{ data: exp }, { data: tx }, { data: subs }] = await Promise.all([
+      supabase.from('experts').select('*').order('name'),
+      supabase.from('payment_transactions').select('*, payment_providers(display_name)').eq('status', 'paid'),
+      supabase.from('member_subscriptions').select('*, expert_plans(expert_id, name, price_monthly)').eq('status', 'active'),
+    ]);
     setExperts(exp || []);
-    const { data: tx } = await supabase.from('payment_transactions').select('*').eq('status', 'paid');
     setTransactions(tx || []);
+    setSubscriptions(subs || []);
   };
 
   const totalRevenue = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+  // MRR from active subscriptions
+  const mrr = subscriptions.reduce((sum, s) => sum + (s.expert_plans?.price_monthly || 0), 0);
+
+  // Monthly revenue trend
+  const monthlyData = useMemo(() => {
+    const map: Record<string, number> = {};
+    transactions.forEach(tx => {
+      if (!tx.paid_at && !tx.created_at) return;
+      const d = new Date(tx.paid_at || tx.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      map[key] = (map[key] || 0) + (tx.amount || 0);
+    });
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([month, amount]) => ({ month, amount }));
+  }, [transactions]);
+
+  // Analyst revenue pie
+  const analystPieData = useMemo(() => {
+    const map: Record<string, number> = {};
+    subscriptions.forEach(s => {
+      const expertId = s.expert_plans?.expert_id;
+      if (!expertId) return;
+      map[expertId] = (map[expertId] || 0) + (s.expert_plans?.price_monthly || 0);
+    });
+    return Object.entries(map).map(([expertId, value]) => {
+      const expert = experts.find(e => e.id === expertId);
+      return { name: expert?.name || expertId.slice(0, 6), value };
+    }).sort((a, b) => b.value - a.value);
+  }, [subscriptions, experts]);
 
   return (
     <CompanyLayout>
@@ -36,7 +71,8 @@ const CompanyRevenue = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
@@ -44,6 +80,16 @@ const CompanyRevenue = () => {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="text-2xl font-bold">NT${totalRevenue.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">MRR</span>
+                <Repeat className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="text-2xl font-bold">NT${mrr.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground mt-1">{subscriptions.length} 位活躍訂閱</p>
             </CardContent>
           </Card>
           <Card>
@@ -66,6 +112,50 @@ const CompanyRevenue = () => {
           </Card>
         </div>
 
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader><CardTitle className="text-base">月營收趨勢</CardTitle></CardHeader>
+            <CardContent>
+              {monthlyData.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">尚無交易數據</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+                    <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+                    <Tooltip formatter={(v: number) => [`NT$${v.toLocaleString()}`, '營收']} />
+                    <Line type="monotone" dataKey="amount" stroke="hsl(var(--company))" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">分析師 MRR 貢獻</CardTitle></CardHeader>
+            <CardContent>
+              {analystPieData.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">尚無訂閱數據</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie data={analystPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {analystPieData.map((_, i) => (
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v: number) => [`NT$${v.toLocaleString()}`, 'MRR']} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Analyst table */}
         <Card>
           <CardHeader><CardTitle className="text-base">分析師一覽</CardTitle></CardHeader>
           <CardContent className="p-0">

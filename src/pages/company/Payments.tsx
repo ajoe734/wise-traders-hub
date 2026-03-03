@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { CreditCard, Plus, Search, Download, RefreshCw, Settings } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { CreditCard, Plus, Search, Download, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const providerLabels: Record<string, string> = {
@@ -27,12 +30,15 @@ const paymentStatusLabels: Record<string, { label: string; variant: 'default' | 
 };
 
 const CompanyPayments = () => {
+  const { user } = useAuth();
   const [providers, setProviders] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newProviderType, setNewProviderType] = useState('');
   const [newDisplayName, setNewDisplayName] = useState('');
+  const [refundingTx, setRefundingTx] = useState<any>(null);
+  const [refundReason, setRefundReason] = useState('');
 
   useEffect(() => {
     fetchProviders();
@@ -72,11 +78,30 @@ const CompanyPayments = () => {
   };
 
   const setDefault = async (id: string) => {
-    // Reset all defaults first
     await supabase.from('payment_providers').update({ is_default: false }).neq('id', '00000000-0000-0000-0000-000000000000');
     await supabase.from('payment_providers').update({ is_default: true }).eq('id', id);
     toast.success('已設為預設金流');
     fetchProviders();
+  };
+
+  const handleRefund = async () => {
+    if (!refundingTx) return;
+    const { error } = await supabase.from('payment_transactions').update({ status: 'refunded' as any }).eq('id', refundingTx.id);
+    if (error) { toast.error(error.message); return; }
+
+    // Log to audit
+    await supabase.from('audit_logs').insert({
+      action: 'refund',
+      actor_id: user?.id,
+      target_type: 'payment_transaction',
+      target_id: refundingTx.id,
+      detail: { reason: refundReason, amount: refundingTx.amount, tx_id: refundingTx.provider_tx_id },
+    });
+
+    toast.success('退款完成');
+    setRefundingTx(null);
+    setRefundReason('');
+    fetchTransactions();
   };
 
   return (
@@ -185,11 +210,12 @@ const CompanyPayments = () => {
                       <th className="p-4">狀態</th>
                       <th className="p-4">金流工具</th>
                       <th className="p-4">時間</th>
+                      <th className="p-4">操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     {transactions.length === 0 ? (
-                      <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">暫無交易紀錄</td></tr>
+                      <tr><td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">暫無交易紀錄</td></tr>
                     ) : (
                       transactions.map(tx => {
                         const si = paymentStatusLabels[tx.status] || paymentStatusLabels.pending;
@@ -200,6 +226,18 @@ const CompanyPayments = () => {
                             <td className="p-4"><Badge variant={si.variant} className="text-xs">{si.label}</Badge></td>
                             <td className="p-4 text-sm text-muted-foreground">{tx.provider_id?.slice(0, 8) || '-'}</td>
                             <td className="p-4 text-sm text-muted-foreground">{tx.created_at ? new Date(tx.created_at).toLocaleString('zh-TW') : '-'}</td>
+                            <td className="p-4">
+                              {tx.status === 'paid' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-destructive hover:text-destructive"
+                                  onClick={() => { setRefundingTx(tx); setRefundReason(''); }}
+                                >
+                                  <Undo2 className="h-3.5 w-3.5 mr-1" />退款
+                                </Button>
+                              )}
+                            </td>
                           </tr>
                         );
                       })
@@ -210,6 +248,26 @@ const CompanyPayments = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Refund Dialog */}
+        <AlertDialog open={!!refundingTx} onOpenChange={(open) => { if (!open) setRefundingTx(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>確認退款</AlertDialogTitle>
+              <AlertDialogDescription>
+                將對交易 {refundingTx?.provider_tx_id || refundingTx?.id?.slice(0, 8)} 進行退款，金額 NT${refundingTx?.amount?.toLocaleString()}。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-2 py-2">
+              <Label>退款原因</Label>
+              <Textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} placeholder="請填寫退款原因..." rows={3} />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={handleRefund} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">確認退款</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </CompanyLayout>
   );
