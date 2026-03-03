@@ -83,7 +83,7 @@ const Signals = () => {
   const { data, isLoading: loading } = useQuery({
     queryKey: ['app-signals', user?.id],
     queryFn: () => fetchSignalsData(user?.id),
-    staleTime: Infinity,
+    staleTime: 30_000,
   });
 
   const signals = data?.signals ?? [];
