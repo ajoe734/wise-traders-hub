@@ -296,6 +296,20 @@ const Checkout = () => {
       return;
     }
 
+    // Double-check subscription status before proceeding
+    const { data: activeSubs } = await supabase
+      .from('member_subscriptions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('plan_id', plan!.id)
+      .eq('status', 'active');
+
+    if (activeSubs && activeSubs.length > 0) {
+      setAlreadySubscribed(true);
+      setResultDialog({ open: true, success: false, message: '您已訂閱此方案，無法重複付款' });
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
