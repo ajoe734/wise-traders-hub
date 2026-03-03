@@ -249,33 +249,33 @@ const AppExpertDetail = () => {
           </div>
         )}
 
-        {/* 持股健檢區塊 - 對投顧分析師頁面顯示（未加購時） */}
-        {!hasHealthCheck && isAdvisor && (
+        {/* 持股健檢區塊 - 未加購時顯示 */}
+        {!hasHealthCheck && (
           <div>
             <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Stethoscope className="h-5 w-5 text-advisor" />
+              <Stethoscope className={`h-5 w-5 ${isAdvisor ? 'text-advisor' : 'text-mentor'}`} />
               加購服務
             </h2>
             <Card className={`border-2 border-dashed ${
-              isSubscribedToFollower 
-                ? 'border-advisor/40 bg-advisor/5' 
+              isSubscribed
+                ? isAdvisor ? 'border-advisor/40 bg-advisor/5' : 'border-mentor/40 bg-mentor/5'
                 : 'border-muted bg-muted/30'
             }`}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-3 mb-3">
                   <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                    isSubscribedToFollower 
-                      ? 'bg-advisor/10 text-advisor' 
+                    isSubscribed
+                      ? isAdvisor ? 'bg-advisor/10 text-advisor' : 'bg-mentor/10 text-mentor'
                       : 'bg-muted text-muted-foreground'
                   }`}>
-                    {isSubscribedToFollower ? (
+                    {isSubscribed ? (
                       <Stethoscope className="h-5 w-5" />
                     ) : (
                       <Lock className="h-5 w-5" />
                     )}
                   </div>
                   <div className="flex-1">
-                    <h3 className={`font-semibold ${!isSubscribedToFollower && 'text-muted-foreground'}`}>
+                    <h3 className={`font-semibold ${!isSubscribed && 'text-muted-foreground'}`}>
                       {standardPlans.healthCheck.title}
                     </h3>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -285,22 +285,24 @@ const AppExpertDetail = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-2xl font-bold ${!isSubscribedToFollower && 'text-muted-foreground'}`}>
+                    <span className={`text-2xl font-bold ${!isSubscribed && 'text-muted-foreground'}`}>
                       NT$ {standardPlans.healthCheck.price}
                     </span>
                     <span className="text-sm text-muted-foreground">/次</span>
                   </div>
-                  {isSubscribedToFollower ? (
+                  {isSubscribed ? (
                     <Button 
                       variant="outline" 
-                      className="border-advisor text-advisor hover:bg-advisor hover:text-white"
+                      className={isAdvisor 
+                        ? "border-advisor text-advisor hover:bg-advisor hover:text-white" 
+                        : "border-mentor text-mentor hover:bg-mentor hover:text-white"}
                       onClick={() => navigate(`/expert/${slug}`)}
                     >
                       加購
                     </Button>
                   ) : (
                     <Button variant="outline" disabled className="text-muted-foreground">
-                      訂閱跟單派解鎖
+                      訂閱後解鎖
                     </Button>
                   )}
                 </div>
