@@ -23,9 +23,10 @@ const INITIAL_CAPITAL = 1000000;
 
 interface PerformanceOverviewPanelProps {
   expertSlug: string;
+  variant?: 'advisor' | 'mentor';
 }
 
-export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPanelProps) {
+export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: PerformanceOverviewPanelProps) {
   const [period, setPeriod] = useState<ViewPeriod>("monthly");
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -171,19 +172,19 @@ export function PerformanceOverviewPanel({ expertSlug }: PerformanceOverviewPane
           <TabsList className="grid w-full grid-cols-3 bg-muted/30 dark:bg-white/[0.02] p-1 h-11">
             <TabsTrigger 
               value="yearly" 
-              className="text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary"
+              className={`text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 ${variant === 'mentor' ? 'data-[state=active]:border-mentor data-[state=active]:text-mentor' : 'data-[state=active]:border-advisor data-[state=active]:text-advisor'}`}
             >
               年績效
             </TabsTrigger>
             <TabsTrigger 
               value="monthly" 
-              className="text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary"
+              className={`text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 ${variant === 'mentor' ? 'data-[state=active]:border-mentor data-[state=active]:text-mentor' : 'data-[state=active]:border-advisor data-[state=active]:text-advisor'}`}
             >
               月績效
             </TabsTrigger>
             <TabsTrigger 
               value="weekly" 
-              className="text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary"
+              className={`text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 ${variant === 'mentor' ? 'data-[state=active]:border-mentor data-[state=active]:text-mentor' : 'data-[state=active]:border-advisor data-[state=active]:text-advisor'}`}
             >
               週績效
             </TabsTrigger>
