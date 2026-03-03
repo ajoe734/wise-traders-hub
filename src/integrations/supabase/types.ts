@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          published_at: string | null
+          status: Database["public"]["Enums"]["announcement_status"]
+          title: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["announcement_status"]
+          title: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["announcement_status"]
+          title?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -624,6 +654,7 @@ export type Database = {
       }
     }
     Enums: {
+      announcement_status: "draft" | "published"
       app_role: "company_admin" | "analyst"
       expert_role: "advisor" | "mentor"
       payment_status: "pending" | "paid" | "failed" | "refunded"
@@ -764,6 +795,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      announcement_status: ["draft", "published"],
       app_role: ["company_admin", "analyst"],
       expert_role: ["advisor", "mentor"],
       payment_status: ["pending", "paid", "failed", "refunded"],
