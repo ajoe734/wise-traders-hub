@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Check, Shield, Lock, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, Check, Shield, Lock, CheckCircle2, XCircle, CreditCard } from "lucide-react";
 import { getPersonBySlug, plans } from "@/data/mockData";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -26,6 +26,7 @@ const AppCheckout = () => {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
     (searchParams.get("billingCycle") as "monthly" | "yearly") || "monthly"
   );
+  const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay">("line_pay");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean } | null>(null);
@@ -38,11 +39,15 @@ const AppCheckout = () => {
     const linepay = searchParams.get("linepay");
     const transactionId = searchParams.get("transactionId");
     const txOrderId = searchParams.get("orderId");
+    const ecpay = searchParams.get("ecpay");
 
     if (linepay === "confirm" && transactionId && !isConfirming && !resultDialog) {
       confirmLinePayPayment(transactionId, txOrderId || "");
     } else if (linepay === "cancel") {
       setResultDialog({ open: true, success: false });
+    } else if (ecpay === "result") {
+      // ECPay redirects back after payment — callback already handled server-side
+      setResultDialog({ open: true, success: true });
     }
   }, [searchParams]);
 
@@ -108,32 +113,76 @@ const AppCheckout = () => {
     setIsProcessing(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke("create-linepay-order", {
-        body: {
-          planId,
-          billingCycle,
-          slug,
-          amount: currentPrice,
-          planName: plan.name,
-          expertName: expert.name,
-          origin: window.location.origin,
-        },
-      });
-
-      if (error || !data?.paymentUrl) {
-        console.error("Create order error:", error || data);
-        setResultDialog({ open: true, success: false });
-        return;
+      if (paymentMethod === "ecpay") {
+        await handleEcpayCheckout();
+      } else {
+        await handleLinePayCheckout();
       }
-
-      // Redirect to LINE Pay
-      window.location.href = data.paymentUrl;
     } catch (err) {
       console.error("Checkout exception:", err);
       setResultDialog({ open: true, success: false });
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleLinePayCheckout = async () => {
+    const { data, error } = await supabase.functions.invoke("create-linepay-order", {
+      body: {
+        planId,
+        billingCycle,
+        slug,
+        amount: currentPrice,
+        planName: plan.name,
+        expertName: expert.name,
+        origin: window.location.origin,
+      },
+    });
+
+    if (error || !data?.paymentUrl) {
+      console.error("Create order error:", error || data);
+      setResultDialog({ open: true, success: false });
+      return;
+    }
+
+    window.location.href = data.paymentUrl;
+  };
+
+  const handleEcpayCheckout = async () => {
+    const { data, error } = await supabase.functions.invoke("create-ecpay-order", {
+      body: {
+        planId,
+        billingCycle,
+        slug,
+        amount: currentPrice,
+        planName: plan.name,
+        expertName: expert.name,
+        origin: window.location.origin,
+      },
+    });
+
+    if (error || !data?.actionUrl || !data?.params) {
+      console.error("Create ECPay order error:", error || data);
+      setResultDialog({ open: true, success: false });
+      return;
+    }
+
+    // Create and submit a hidden form to ECPay
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = data.actionUrl;
+    form.style.display = "none";
+
+    for (const [key, value] of Object.entries(data.params)) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = key;
+      input.value = String(value);
+      form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
   };
 
   // Show loading state when confirming LINE Pay return
@@ -286,6 +335,57 @@ const AppCheckout = () => {
           </CardContent>
         </Card>
 
+        {/* Payment Method Selection */}
+        <div>
+          <h2 className="text-sm font-medium mb-3">選擇付款方式</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Card
+              className={`cursor-pointer transition-all ${
+                paymentMethod === "line_pay"
+                  ? "border-primary ring-2 ring-primary/20"
+                  : "hover:border-muted-foreground/30"
+              }`}
+              onClick={() => setPaymentMethod("line_pay")}
+            >
+              <CardContent className="p-4 text-center">
+                <div className={`w-4 h-4 rounded-full border-2 mx-auto mb-2 ${
+                  paymentMethod === "line_pay"
+                    ? "border-primary bg-primary"
+                    : "border-muted-foreground/30"
+                }`}>
+                  {paymentMethod === "line_pay" && (
+                    <Check className="h-3 w-3 text-primary-foreground m-auto" />
+                  )}
+                </div>
+                <p className="font-semibold text-sm">LINE Pay</p>
+              </CardContent>
+            </Card>
+
+            <Card
+              className={`cursor-pointer transition-all ${
+                paymentMethod === "ecpay"
+                  ? "border-primary ring-2 ring-primary/20"
+                  : "hover:border-muted-foreground/30"
+              }`}
+              onClick={() => setPaymentMethod("ecpay")}
+            >
+              <CardContent className="p-4 text-center">
+                <div className={`w-4 h-4 rounded-full border-2 mx-auto mb-2 ${
+                  paymentMethod === "ecpay"
+                    ? "border-primary bg-primary"
+                    : "border-muted-foreground/30"
+                }`}>
+                  {paymentMethod === "ecpay" && (
+                    <Check className="h-3 w-3 text-primary-foreground m-auto" />
+                  )}
+                </div>
+                <p className="font-semibold text-sm">綠界 ECPay</p>
+                <p className="text-xs text-muted-foreground">信用卡/ATM</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
         {/* Checkout Button */}
         <Button 
           className="w-full h-12 text-base"
@@ -300,7 +400,7 @@ const AppCheckout = () => {
           ) : (
             <span className="flex items-center gap-2">
               <Lock className="h-4 w-4" />
-              LINE Pay 付款
+              {paymentMethod === "line_pay" ? "LINE Pay 付款" : "綠界付款"}
             </span>
           )}
         </Button>
