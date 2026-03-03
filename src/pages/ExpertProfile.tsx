@@ -237,10 +237,10 @@ const ExpertProfile = () => {
             variant="ghost"
             size="sm"
             className="mb-4"
-            onClick={() => navigate('/experts')}
+            onClick={() => navigate('/app/explore')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            返回專家列表
+            返回探索名師
           </Button>
         )}
         {/* Hero Header */}
