@@ -39,7 +39,7 @@ const Explore = () => {
 
   const mockPerformance: Record<string, { cumulative: number; annualized: number }> = {};
 
-  const allowedSlugs = ["zhao-pengbo", "zhao-pengbo-mentor", "lin-xiuqi"];
+  const allowedSlugs = ["zhao-pengbo", "lin-xiuqi"];
   const filteredExperts = allExperts.filter((expert) => {
     if (!allowedSlugs.includes(expert.slug)) return false;
     if (roleFilter === "all") return true;
