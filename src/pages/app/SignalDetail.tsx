@@ -37,12 +37,15 @@ interface DbSignal {
   } | null;
 }
 
-const TextBlock = ({ text }: { text: string }) => {
+const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
   const lines = text.split('\n').map(l => l.replace(/^[•·]\s*/, '').trim()).filter(Boolean);
   return (
     <div className="space-y-1.5">
       {lines.map((line, i) => (
-        <p key={i} className="text-sm text-muted-foreground">{line}</p>
+        <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+          {dotColor && <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${dotColor}`} />}
+          <p>{line}</p>
+        </div>
       ))}
     </div>
   );
@@ -123,7 +126,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <Lightbulb className="h-4 w-4 text-primary" /> 為什麼這樣操作？
               </h2>
-              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.reason_detail}</p>
+              <TextBlock text={signal.reason_detail} dotColor="bg-primary" />
             </CardContent>
           </Card>
         )}
@@ -135,7 +138,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <Target className="h-4 w-4 text-primary" /> 部位控管想法
               </h2>
-              <TextBlock text={signal.reason_summary} />
+              <TextBlock text={signal.reason_summary} dotColor="bg-primary" />
             </CardContent>
           </Card>
         )}
@@ -147,7 +150,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-warning" /> 風險提醒
               </h2>
-              <TextBlock text={signal.risk_notes} />
+              <TextBlock text={signal.risk_notes} dotColor="bg-warning" />
             </CardContent>
           </Card>
         )}
@@ -159,7 +162,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-mentor" /> 延伸學習
               </h2>
-              <TextBlock text={signal.learning_points} />
+              <TextBlock text={signal.learning_points} dotColor="bg-mentor" />
               <Button variant="outline" className="w-full mt-4" asChild>
                 <Link to="/app/library">
                   看完整交易系統教學
