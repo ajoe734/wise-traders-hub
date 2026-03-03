@@ -400,6 +400,14 @@ const Checkout = () => {
 
   return (
     <PortalLayout>
+      {/* Blocking overlay while confirming payment */}
+      {isConfirming && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+          <p className="text-lg font-medium">付款確認中，請稍候...</p>
+          <p className="text-sm text-muted-foreground mt-1">請勿關閉此頁面</p>
+        </div>
+      )}
       <div className="container py-8 md:py-12">
         <div className="max-w-4xl mx-auto">
           {/* Back */}
