@@ -225,7 +225,7 @@ const AppExpertDetail = () => {
 
                 <Button 
                   className="w-full" 
-                  onClick={() => navigate('/pricing')}
+                  onClick={() => navigate(`/expert/${slug}`)}
                 >
                   立即訂閱
                 </Button>
@@ -279,7 +279,7 @@ const AppExpertDetail = () => {
                     <Button 
                       variant="outline" 
                       className="border-advisor text-advisor hover:bg-advisor hover:text-white"
-                      onClick={() => navigate('/pricing')}
+                      onClick={() => navigate(`/expert/${slug}`)}
                     >
                       加購
                     </Button>
