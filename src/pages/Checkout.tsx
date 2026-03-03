@@ -114,50 +114,66 @@ const Checkout = () => {
     }
   }, [searchParams, plan, user]);
 
-  // Handle ECPay return
+  // Handle ECPay return — use Realtime to detect subscription created by server callback
   useEffect(() => {
     const ecpayResult = searchParams.get('ecpay');
     if (ecpayResult !== 'result' || !user || !planId || resultDialog) return;
 
-    // Poll for subscription created by ecpay-callback
-    let attempts = 0;
-    const maxAttempts = 30;
-    const checkSubscription = async () => {
+    setIsConfirming(true);
+
+    // First, check if subscription already exists (callback may have already fired)
+    const checkExisting = async () => {
       const { data: subs } = await supabase
         .from('member_subscriptions')
         .select('id')
         .eq('user_id', user.id)
         .eq('plan_id', planId)
         .eq('status', 'active');
-      return subs && subs.length > 0;
+      if (subs && subs.length > 0) {
+        setIsConfirming(false);
+        setResultDialog({ open: true, success: true });
+        return true;
+      }
+      return false;
     };
 
-    // Immediate first check
-    checkSubscription().then(found => {
-      if (found) {
-        setResultDialog({ open: true, success: true });
-        return;
-      }
-      // If not found yet, poll every 500ms
-      const pollInterval = setInterval(async () => {
-        attempts++;
-        const found = await checkSubscription();
-        if (found) {
-          clearInterval(pollInterval);
-          setResultDialog({ open: true, success: true });
-        } else if (attempts >= maxAttempts) {
-          clearInterval(pollInterval);
-          setResultDialog({ open: true, success: true, message: '付款處理中，訂閱將在數分鐘內生效' });
-        }
-      }, 500);
-      // Store for cleanup
-      (window as any).__ecpayPoll = pollInterval;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    checkExisting().then(found => {
+      if (found) return;
+
+      // Listen for realtime INSERT on member_subscriptions for this user+plan
+      channel = supabase
+        .channel('ecpay-sub-confirm')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'member_subscriptions',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const row = payload.new as any;
+            if (row.plan_id === planId && row.status === 'active') {
+              setIsConfirming(false);
+              setResultDialog({ open: true, success: true });
+            }
+          }
+        )
+        .subscribe();
+
+      // Timeout after 60 seconds
+      timeout = setTimeout(() => {
+        setIsConfirming(false);
+        setResultDialog({ open: true, success: false, message: '付款確認逾時，如已扣款請聯繫客服' });
+      }, 60000);
     });
 
     return () => {
-      if ((window as any).__ecpayPoll) {
-        clearInterval((window as any).__ecpayPoll);
-      }
+      if (channel) supabase.removeChannel(channel);
+      if (timeout) clearTimeout(timeout);
     };
   }, [searchParams, user, planId]);
 
