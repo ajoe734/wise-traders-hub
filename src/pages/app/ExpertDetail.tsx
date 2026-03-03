@@ -309,17 +309,6 @@ const AppExpertDetail = () => {
           </div>
         )}
 
-        {/* Already subscribed - show manage link */}
-        {isSubscribed && (
-          <div className="text-center pt-4">
-            <Link 
-              to="/app/account" 
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              管理訂閱方案 →
-            </Link>
-          </div>
-        )}
       </div>
     </UnifiedAppLayout>
   );
