@@ -43,7 +43,7 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
     <div className="space-y-1.5">
       {lines.map((line, i) => (
         <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-          {dotColor && <span className={`mt-1.5 ml-[3px] h-1.5 w-1.5 rounded-full shrink-0 ${dotColor}`} />}
+          {dotColor && <span className={`mt-1.5 ml-1 h-1.5 w-1.5 rounded-full shrink-0 ${dotColor}`} />}
           <p>{line}</p>
         </div>
       ))}
@@ -126,7 +126,7 @@ const SignalDetail = () => {
               <h2 className="font-semibold mb-2 flex items-center gap-2">
                 <Lightbulb className="h-4 w-4 text-primary" /> 為什麼這樣操作？
               </h2>
-              <TextBlock text={signal.reason_detail} dotColor="bg-primary" />
+              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.reason_detail}</p>
             </CardContent>
           </Card>
         )}
