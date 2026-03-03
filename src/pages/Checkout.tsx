@@ -318,7 +318,6 @@ const Checkout = () => {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = data.actionUrl;
-        form.target = '_blank';
         form.style.display = 'none';
 
         for (const [key, value] of Object.entries(data.params)) {
