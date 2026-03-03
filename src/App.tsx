@@ -57,6 +57,7 @@ import CompanyReview from "./pages/company/Review";
 import CompanyPayments from "./pages/company/Payments";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ScrollToTop } from "./components/ScrollToTop";
 
 // LINE Mini-App pages (per expert)
 import LineHome from "./pages/line/Home";
@@ -80,6 +81,7 @@ const App = () => (
           <Toaster />
           <Sonner />
         <BrowserRouter>
+          <ScrollToTop />
           <Routes>
             {/* Portal (public) */}
             <Route path="/" element={<Index />} />
