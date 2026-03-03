@@ -60,12 +60,21 @@ const CompanyReview = () => {
         return;
       }
 
-      await supabase.from('expert_signals').update({
+      const { error: updateError } = await supabase.from('expert_signals').update({
         status: 'taken_down' as any,
         taken_down_reason: takedownNote,
         taken_down_by: user?.id,
       }).eq('id', takedownId);
+
+      if (updateError) {
+        toast.error('下架失敗：' + updateError.message);
+        return;
+      }
+
       toast.success('訊號已下架');
+
+      // Optimistically remove from local state immediately
+      setSignals(prev => prev.filter(s => s.id !== takedownId));
 
       // Close dialog immediately to prevent re-click
       setTakedownId(null);
@@ -81,8 +90,6 @@ const CompanyReview = () => {
           }
         }).catch(() => {});
       }
-
-      fetchSignals();
     } catch (error) {
       console.error('Takedown failed:', error);
       toast.error('下架失敗，請重試');
