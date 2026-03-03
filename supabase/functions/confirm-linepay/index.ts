@@ -91,39 +91,26 @@ Deno.serve(async (req) => {
       expiresAt.setMonth(expiresAt.getMonth() + 1);
     }
 
-    // Create subscription if userId and planId provided (skip if already subscribed)
+    // Create subscription if userId and planId provided
     let subscriptionId: string | null = null;
     if (userId && planId) {
-      // Check for existing active subscription to prevent duplicates
-      const { data: existing } = await supabase
+      const { data: sub, error: subError } = await supabase
         .from("member_subscriptions")
+        .insert({
+          user_id: userId,
+          plan_id: planId,
+          status: "active",
+          started_at: now.toISOString(),
+          expires_at: expiresAt.toISOString(),
+          provider_id: provider?.id || null,
+        })
         .select("id")
-        .eq("user_id", userId)
-        .eq("plan_id", planId)
-        .eq("status", "active");
+        .single();
 
-      if (existing && existing.length > 0) {
-        console.log("User already has active subscription, skipping:", existing[0].id);
-        subscriptionId = existing[0].id;
+      if (subError) {
+        console.error("Subscription insert error:", subError);
       } else {
-        const { data: sub, error: subError } = await supabase
-          .from("member_subscriptions")
-          .insert({
-            user_id: userId,
-            plan_id: planId,
-            status: "active",
-            started_at: now.toISOString(),
-            expires_at: expiresAt.toISOString(),
-            provider_id: provider?.id || null,
-          })
-          .select("id")
-          .single();
-
-        if (subError) {
-          console.error("Subscription insert error:", subError);
-        } else {
-          subscriptionId = sub.id;
-        }
+        subscriptionId = sub.id;
       }
     }
 
