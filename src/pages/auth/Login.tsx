@@ -41,10 +41,6 @@ const Login = () => {
     const result = await login(email, password);
 
     if (result.success) {
-      toast({
-        title: '登入成功',
-        description: '歡迎回來！',
-      });
       setPendingRedirect(true);
     } else {
       toast({
