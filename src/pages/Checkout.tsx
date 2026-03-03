@@ -121,26 +121,44 @@ const Checkout = () => {
 
     // Poll for subscription created by ecpay-callback
     let attempts = 0;
-    const maxAttempts = 10;
-    const pollInterval = setInterval(async () => {
-      attempts++;
+    const maxAttempts = 30;
+    const checkSubscription = async () => {
       const { data: subs } = await supabase
         .from('member_subscriptions')
         .select('id')
         .eq('user_id', user.id)
         .eq('plan_id', planId)
         .eq('status', 'active');
+      return subs && subs.length > 0;
+    };
 
-      if (subs && subs.length > 0) {
-        clearInterval(pollInterval);
+    // Immediate first check
+    checkSubscription().then(found => {
+      if (found) {
         setResultDialog({ open: true, success: true });
-      } else if (attempts >= maxAttempts) {
-        clearInterval(pollInterval);
-        setResultDialog({ open: true, success: true, message: '付款處理中，訂閱將在數分鐘內生效' });
+        return;
       }
-    }, 2000);
+      // If not found yet, poll every 500ms
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        const found = await checkSubscription();
+        if (found) {
+          clearInterval(pollInterval);
+          setResultDialog({ open: true, success: true });
+        } else if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          setResultDialog({ open: true, success: true, message: '付款處理中，訂閱將在數分鐘內生效' });
+        }
+      }, 500);
+      // Store for cleanup
+      (window as any).__ecpayPoll = pollInterval;
+    });
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      if ((window as any).__ecpayPoll) {
+        clearInterval((window as any).__ecpayPoll);
+      }
+    };
   }, [searchParams, user, planId]);
 
   useEffect(() => {
