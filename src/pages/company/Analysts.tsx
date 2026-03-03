@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Eye, UserPlus, Package, MessageCircle } from 'lucide-react';
+import { Eye, UserPlus, Package, MessageCircle, Search, Users, UserCheck, UserX, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -18,6 +18,14 @@ const CompanyAnalysts = () => {
   const [experts, setExperts] = useState<any[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // KPI data maps
+  const [subCountMap, setSubCountMap] = useState<Record<string, number>>({});
+  const [revenueMap, setRevenueMap] = useState<Record<string, number>>({});
+  const [signalCountMap, setSignalCountMap] = useState<Record<string, number>>({});
+  const [perfMap, setPerfMap] = useState<Record<string, any>>({});
+  const [totalActiveSubs, setTotalActiveSubs] = useState(0);
 
   // Create analyst form
   const [email, setEmail] = useState('');
@@ -52,14 +60,84 @@ const CompanyAnalysts = () => {
   const [savingLine, setSavingLine] = useState(false);
   const [lineBindingsCount, setLineBindingsCount] = useState(0);
 
-  useEffect(() => { fetchExperts(); }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  const fetchExperts = async () => {
+  const fetchAll = async () => {
     setLoading(true);
-    const { data } = await supabase.from('experts').select('*').order('created_at', { ascending: false });
-    setExperts(data || []);
+    const [expertsRes, subsRes, signalsRes, txRes] = await Promise.all([
+      supabase.from('experts').select('*').order('created_at', { ascending: false }),
+      supabase.from('member_subscriptions').select('plan_id, expert_plans!inner(expert_id)').eq('status', 'active'),
+      supabase.from('expert_signals').select('expert_id').eq('status', 'published'),
+      (() => {
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        return supabase.from('payment_transactions')
+          .select('amount, subscription_id, member_subscriptions!inner(plan_id, expert_plans!inner(expert_id))')
+          .eq('status', 'paid')
+          .gte('paid_at', monthStart);
+      })(),
+    ]);
+
+    const expertsList = expertsRes.data || [];
+    setExperts(expertsList);
+
+    // Subscriber count per expert
+    const scMap: Record<string, number> = {};
+    let totalSubs = 0;
+    (subsRes.data || []).forEach((s: any) => {
+      const eid = s.expert_plans?.expert_id;
+      if (eid) { scMap[eid] = (scMap[eid] || 0) + 1; totalSubs++; }
+    });
+    setSubCountMap(scMap);
+    setTotalActiveSubs(totalSubs);
+
+    // Signal count per expert
+    const sigMap: Record<string, number> = {};
+    (signalsRes.data || []).forEach((s: any) => {
+      if (s.expert_id) sigMap[s.expert_id] = (sigMap[s.expert_id] || 0) + 1;
+    });
+    setSignalCountMap(sigMap);
+
+    // Revenue per expert (current month)
+    const revMap: Record<string, number> = {};
+    (txRes.data || []).forEach((t: any) => {
+      const eid = t.member_subscriptions?.expert_plans?.expert_id;
+      if (eid) revMap[eid] = (revMap[eid] || 0) + t.amount;
+    });
+    setRevenueMap(revMap);
+
+    // Performance per expert (RPC)
+    const pMap: Record<string, any> = {};
+    await Promise.all(
+      expertsList.map(async (exp) => {
+        const { data } = await supabase.rpc('calculate_expert_performance', { _expert_id: exp.id });
+        if (data) pMap[exp.id] = data;
+      })
+    );
+    setPerfMap(pMap);
+
     setLoading(false);
   };
+
+  // Search / filter
+  const filteredExperts = useMemo(() => {
+    if (!searchQuery.trim()) return experts;
+    const q = searchQuery.toLowerCase();
+    return experts.filter(exp => {
+      const roleLabel = exp.role === 'advisor' ? '投顧分析師' : '實戰導師';
+      const statusLabel = exp.status === 'active' ? '啟用' : '停用';
+      return (
+        exp.name?.toLowerCase().includes(q) ||
+        exp.slug?.toLowerCase().includes(q) ||
+        roleLabel.includes(q) ||
+        statusLabel.includes(q)
+      );
+    });
+  }, [experts, searchQuery]);
+
+  // Stats
+  const activeCount = experts.filter(e => e.status === 'active').length;
+  const suspendedCount = experts.filter(e => e.status !== 'active').length;
 
   const handleCreate = async () => {
     if (!email || !password || !name || !slug || !role) {
@@ -78,7 +156,7 @@ const CompanyAnalysts = () => {
     toast.success('分析師已建立');
     setIsCreateOpen(false);
     setEmail(''); setPassword(''); setName(''); setSlug(''); setRole('');
-    fetchExperts();
+    fetchAll();
   };
 
   const toggleStatus = async (id: string, currentStatus: string) => {
@@ -138,6 +216,7 @@ const CompanyAnalysts = () => {
     setPlanName(''); setPlanType(''); setPlanMonthly(''); setPlanYearly(''); setPlanDesc('');
     openPlans(planExpert);
   };
+
   // LINE channel management
   const openLineSettings = async (expert: any) => {
     setLineExpert(expert);
@@ -238,6 +317,13 @@ const CompanyAnalysts = () => {
     ];
   };
 
+  const statCards = [
+    { label: '總分析師', value: experts.length, icon: Users, color: 'text-company' },
+    { label: '啟用中', value: activeCount, icon: UserCheck, color: 'text-emerald-500' },
+    { label: '已停用', value: suspendedCount, icon: UserX, color: 'text-red-500' },
+    { label: '活躍訂閱者', value: totalActiveSubs, icon: TrendingUp, color: 'text-company' },
+  ];
+
   return (
     <CompanyLayout>
       <div className="space-y-6">
@@ -290,63 +376,109 @@ const CompanyAnalysts = () => {
           </Dialog>
         </div>
 
+        {/* Stat Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {statCards.map(s => (
+            <Card key={s.label}>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className={`p-2 rounded-lg bg-muted ${s.color}`}>
+                  <s.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{s.value}</p>
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="搜尋分析師名稱、角色、slug..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        {/* Table */}
         <Card>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b text-left text-sm text-muted-foreground">
                   <th className="p-4">分析師</th>
                   <th className="p-4">角色</th>
-                  <th className="p-4">Slug</th>
+                  <th className="p-4 text-right">訂閱者</th>
+                  <th className="p-4 text-right">月營收</th>
+                  <th className="p-4 text-right">訊號數</th>
+                  <th className="p-4 text-right">勝率</th>
                   <th className="p-4">狀態</th>
                   <th className="p-4">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
-                ) : experts.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">尚無分析師</td></tr>
+                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
+                ) : filteredExperts.length === 0 ? (
+                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-sm">{searchQuery ? '無符合結果' : '尚無分析師'}</td></tr>
                 ) : (
-                  experts.map(exp => (
-                    <tr key={exp.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <img src={exp.avatar_url || '/placeholder.svg'} alt={exp.name} className="h-8 w-8 rounded-full object-cover" />
-                          <p className="font-medium text-sm">{exp.name}</p>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <Badge variant={exp.role === 'advisor' ? 'default' : 'secondary'} className="text-xs">
-                          {exp.role === 'advisor' ? '投顧分析師' : '實戰導師'}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-sm text-muted-foreground">{exp.slug}</td>
-                      <td className="p-4">
-                        <Badge 
-                          className={`text-xs ${exp.status === 'active' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}
-                        >
-                          {exp.status === 'active' ? '啟用中' : '已停用'}
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openPlans(exp)}>
-                            <Package className="h-3 w-3 mr-1" />方案
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openLineSettings(exp)}>
-                            <MessageCircle className="h-3 w-3 mr-1" />LINE
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                            <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleStatus(exp.id, exp.status)}>
-                            {exp.status === 'active' ? '停用' : '啟用'}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filteredExperts.map(exp => {
+                    const perf = perfMap[exp.id];
+                    const winRate = perf?.win_rate ?? '-';
+                    return (
+                      <tr key={exp.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <img src={exp.avatar_url || '/placeholder.svg'} alt={exp.name} className="h-8 w-8 rounded-full object-cover" />
+                            <div>
+                              <p className="font-medium text-sm">{exp.name}</p>
+                              <p className="text-xs text-muted-foreground">{exp.slug}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <Badge variant={exp.role === 'advisor' ? 'default' : 'secondary'} className="text-xs">
+                            {exp.role === 'advisor' ? '投顧分析師' : '實戰導師'}
+                          </Badge>
+                        </td>
+                        <td className="p-4 text-right text-sm font-medium">{subCountMap[exp.id] || 0}</td>
+                        <td className="p-4 text-right text-sm font-medium">
+                          NT${(revenueMap[exp.id] || 0).toLocaleString()}
+                        </td>
+                        <td className="p-4 text-right text-sm font-medium">{signalCountMap[exp.id] || 0}</td>
+                        <td className="p-4 text-right text-sm font-medium">
+                          {winRate !== '-' ? `${winRate}%` : '-'}
+                        </td>
+                        <td className="p-4">
+                          <Badge
+                            className={`text-xs ${exp.status === 'active' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}
+                          >
+                            {exp.status === 'active' ? '啟用中' : '已停用'}
+                          </Badge>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openPlans(exp)}>
+                              <Package className="h-3 w-3 mr-1" />方案
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openLineSettings(exp)}>
+                              <MessageCircle className="h-3 w-3 mr-1" />LINE
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+                              <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleStatus(exp.id, exp.status)}>
+                              {exp.status === 'active' ? '停用' : '啟用'}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
