@@ -46,8 +46,8 @@ const AppCheckout = () => {
     } else if (linepay === "cancel") {
       setResultDialog({ open: true, success: false });
     } else if (ecpay === "result") {
-      // ECPay redirects back after payment — callback already handled server-side
-      setResultDialog({ open: true, success: true });
+      // ECPay redirects back after payment — create subscription
+      handleEcpayReturn();
     }
   }, [searchParams]);
 
@@ -83,6 +83,69 @@ const AppCheckout = () => {
       }
     } catch (err) {
       console.error("Confirm exception:", err);
+      setResultDialog({ open: true, success: false });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  const handleEcpayReturn = async () => {
+    setIsConfirming(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const returnedBillingCycle = searchParams.get("billingCycle") || billingCycle;
+
+      // Check if already subscribed
+      const { data: existing } = await supabase
+        .from("member_subscriptions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("plan_id", planId!)
+        .eq("status", "active");
+
+      if (existing && existing.length > 0) {
+        setResultDialog({ open: true, success: true });
+        return;
+      }
+
+      // Get ECPay provider
+      const { data: providers } = await supabase
+        .from("payment_providers")
+        .select("id")
+        .eq("provider_type", "ecpay")
+        .eq("is_active", true)
+        .limit(1);
+
+      const providerId = providers?.[0]?.id || null;
+      const now = new Date();
+      const expiresAt = new Date(now);
+      if (returnedBillingCycle === "yearly") {
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+      } else {
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
+      }
+
+      const { error: subError } = await supabase
+        .from("member_subscriptions")
+        .insert({
+          user_id: user.id,
+          plan_id: planId!,
+          status: "active",
+          provider_id: providerId,
+          started_at: now.toISOString(),
+          expires_at: expiresAt.toISOString(),
+        });
+
+      if (subError) {
+        console.error("Subscription create error:", subError);
+        setResultDialog({ open: true, success: false });
+      } else {
+        setResultDialog({ open: true, success: true });
+      }
+    } catch (err) {
+      console.error("ECPay return error:", err);
       setResultDialog({ open: true, success: false });
     } finally {
       setIsConfirming(false);
@@ -167,10 +230,11 @@ const AppCheckout = () => {
       return;
     }
 
-    // Create and submit a hidden form to ECPay
+    // Create and submit a hidden form to ECPay in a new window
     const form = document.createElement("form");
     form.method = "POST";
     form.action = data.actionUrl;
+    form.target = "_blank";
     form.style.display = "none";
 
     for (const [key, value] of Object.entries(data.params)) {
@@ -183,6 +247,7 @@ const AppCheckout = () => {
 
     document.body.appendChild(form);
     form.submit();
+    document.body.removeChild(form);
   };
 
   // Show loading state when confirming LINE Pay return
