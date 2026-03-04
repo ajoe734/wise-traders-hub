@@ -7,9 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ExpertRole } from '@/types';
-import { CheckCircle, ArrowRight, Shield, Clock, TrendingUp, Check, Loader2, ArrowLeft } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
 
 interface DbPlan {
   id: string;
@@ -22,6 +22,7 @@ interface DbPlan {
 }
 
 interface ExpertInfo {
+  id: string;
   name: string;
   bio: string;
   description: string;
@@ -29,8 +30,6 @@ interface ExpertInfo {
   role: 'advisor' | 'mentor';
   styleTags: string[];
   markets: string[];
-  riskTolerance?: string;
-  timeframe?: string;
 }
 
 const ExpertProfile = () => {
@@ -45,13 +44,13 @@ const ExpertProfile = () => {
   const [expertNotFound, setExpertNotFound] = useState(false);
   const [dbPlans, setDbPlans] = useState<DbPlan[]>([]);
   const [subscribedPlanIds, setSubscribedPlanIds] = useState<Set<string>>(new Set());
+  const [subscriberCount, setSubscriberCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!slug) return;
 
-      // Find expert by slug in DB
       const { data: expert } = await supabase
         .from('experts')
         .select('id, name, bio, description, avatar_url, role, style_tags, markets, status')
@@ -65,6 +64,7 @@ const ExpertProfile = () => {
       }
 
       setExpertInfo({
+        id: expert.id,
         name: expert.name,
         bio: expert.bio || '',
         description: expert.description || '',
@@ -74,7 +74,6 @@ const ExpertProfile = () => {
         markets: expert.markets || [],
       });
 
-      // Fetch active approved plans
       const { data: plans } = await supabase
         .from('expert_plans')
         .select('id, name, plan_type, price_monthly, price_yearly, description, features')
@@ -85,7 +84,17 @@ const ExpertProfile = () => {
 
       setDbPlans(plans || []);
 
-      // Check subscriptions if user is logged in
+      // Count active subscribers
+      if (plans && plans.length > 0) {
+        const planIds = plans.map(p => p.id);
+        const { count } = await supabase
+          .from('member_subscriptions')
+          .select('id', { count: 'exact', head: true })
+          .in('plan_id', planIds)
+          .eq('status', 'active');
+        setSubscriberCount(count || 0);
+      }
+
       if (user) {
         const { data: subs } = await supabase
           .from('member_subscriptions')
@@ -115,7 +124,7 @@ const ExpertProfile = () => {
     );
   }
 
-  if (!expertInfo) {
+  if (!expertInfo || loading) {
     return (
       <PortalLayout>
         <div className="container py-12 flex justify-center">
@@ -126,7 +135,6 @@ const ExpertProfile = () => {
   }
 
   const isAdvisor = expertInfo.role === 'advisor';
-
   const formatPrice = (price: number) => new Intl.NumberFormat('zh-TW').format(price);
 
   const getPlanFeatures = (planType: string): string[] => {
@@ -138,7 +146,6 @@ const ExpertProfile = () => {
     }
   };
 
-  const getPlanVariant = (planType: string) => planType === 'mentor_weekly_journal' ? 'mentor' as const : 'advisor' as const;
   const getPlanLabel = (planType: string) => {
     switch (planType) {
       case 'analyst_signal_l1': return '即時訊號通知';
@@ -149,79 +156,113 @@ const ExpertProfile = () => {
   };
   const getPlanNote = (planType: string) => planType === 'mentor_weekly_journal' ? '所有內容延遲 7 天，僅供教學參考。' : '包含具體買賣指示，屬投顧服務。';
 
+  const backButton = fromAccount
+    ? <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/app/account')}><ArrowLeft className="h-4 w-4 mr-1" />返回帳號設定</Button>
+    : fromExplore
+      ? <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/app/explore')}><ArrowLeft className="h-4 w-4 mr-1" />返回探索專家</Button>
+      : <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/experts')}><ArrowLeft className="h-4 w-4 mr-1" />返回專家列表</Button>;
+
   return (
     <PortalLayout>
-      <div className="container py-8 md:py-12">
-        {fromExplore ? (
-          <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/app/explore')}><ArrowLeft className="h-4 w-4 mr-1" />返回探索專家</Button>
-        ) : fromAccount ? (
-          <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/app/account')}><ArrowLeft className="h-4 w-4 mr-1" />返回帳號設定</Button>
-        ) : (
-          <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/app/explore')}><ArrowLeft className="h-4 w-4 mr-1" />返回探索名師</Button>
-        )}
+      <div className="container py-8 md:py-12 space-y-12">
+        {backButton}
 
-        {/* Hero Header */}
-        <div className="relative mb-12">
-          <div className={cn("absolute inset-0 rounded-3xl opacity-5", isAdvisor ? "gradient-advisor" : "gradient-mentor")} />
-          <div className="relative flex flex-col md:flex-row gap-6 items-start p-6 md:p-8">
-            <img src={expertInfo.avatarUrl} alt={expertInfo.name} className={cn("h-28 w-28 md:h-36 md:w-36 rounded-2xl object-cover ring-4 shadow-lg", isAdvisor ? "ring-advisor/20" : "ring-mentor/20")} />
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3 flex-wrap">
-                <h1 className="text-2xl md:text-3xl font-bold">{expertInfo.name}</h1>
-                <RoleBadge role={isAdvisor ? 'advisor' : 'mentor'} size="lg" />
+        {/* ── Hero Section ── */}
+        <section className="relative overflow-hidden rounded-2xl">
+          <div className={cn(
+            "absolute inset-0 opacity-[0.07]",
+            isAdvisor ? "gradient-advisor" : "gradient-mentor"
+          )} />
+          <div className="relative px-6 py-10 md:px-10 md:py-14">
+            <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-start">
+              <img
+                src={expertInfo.avatarUrl}
+                alt={expertInfo.name}
+                className={cn(
+                  "h-32 w-32 md:h-40 md:w-40 rounded-2xl object-cover ring-4 shadow-xl",
+                  isAdvisor ? "ring-advisor/30" : "ring-mentor/30"
+                )}
+              />
+              <div className="flex-1 space-y-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-h2 md:text-h1">{expertInfo.name}</h1>
+                  <RoleBadge role={expertInfo.role} size="lg" />
+                </div>
+                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl">
+                  {expertInfo.bio}
+                </p>
+                {/* Quick Stats */}
+                <div className="flex flex-wrap gap-4 pt-2">
+                  {expertInfo.styleTags.map(tag => (
+                    <Badge key={tag} variant="secondary" className="text-sm px-3 py-1">{tag}</Badge>
+                  ))}
+                  {expertInfo.markets.map(market => (
+                    <Badge key={market} variant="outline" className="text-sm px-3 py-1">{market}</Badge>
+                  ))}
+                </div>
+                {/* Social Proof */}
+                {subscriberCount !== null && subscriberCount > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+                    <Users className="h-4 w-4" />
+                    <span>已有 <strong className="text-foreground">{subscriberCount}</strong> 人訂閱</span>
+                  </div>
+                )}
               </div>
-              <p className="text-lg text-muted-foreground mb-4">{expertInfo.bio}</p>
-              <p className="text-muted-foreground">{expertInfo.description}</p>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Style & Info */}
-        <div className="grid md:grid-cols-2 gap-6 mb-12">
-          <Card>
-            <CardHeader><CardTitle className="text-lg">投資風格</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">風格標籤</p>
-                <div className="flex flex-wrap gap-2">
-                  {expertInfo.styleTags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
-                </div>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">主要市場</p>
-                <div className="flex flex-wrap gap-1">
-                  {expertInfo.markets.map(market => <Badge key={market} variant="outline">{market}</Badge>)}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="text-lg">服務說明</CardTitle></CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                {isAdvisor ? '提供即時策略訊號與持股診斷服務，協助投資人做出更好的投資決策。' : '透過 T+7 延遲週記教學，分享實戰操作邏輯與策略思維。'}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* ── Performance Section ── */}
+        <section>
+          <div className="flex items-center gap-2 mb-6">
+            <Target className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
+            <h2 className="text-h3">績效總覽</h2>
+          </div>
+          <PerformanceOverviewPanel
+            expertSlug={slug || ""}
+            variant={isAdvisor ? 'advisor' : 'mentor'}
+          />
+        </section>
 
-        {/* Plans Section - from DB */}
-        <div id="plans" className="scroll-mt-20">
-          <h2 className="text-xl md:text-2xl font-bold mb-6">訂閱方案</h2>
-          
-          {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-          ) : dbPlans.length === 0 ? (
+        {/* ── About Section ── */}
+        {expertInfo.description && (
+          <section>
+            <div className="flex items-center gap-2 mb-6">
+              <Award className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
+              <h2 className="text-h3">關於{expertInfo.name}</h2>
+            </div>
+            <Card>
+              <CardContent className="p-6 md:p-8">
+                <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {expertInfo.description}
+                </p>
+              </CardContent>
+            </Card>
+          </section>
+        )}
+
+        {/* ── Plans Section ── */}
+        <section id="plans" className="scroll-mt-20">
+          <div className="flex items-center gap-2 mb-6">
+            <TrendingUp className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
+            <h2 className="text-h3">訂閱方案</h2>
+          </div>
+
+          {dbPlans.length === 0 ? (
             <Card><CardContent className="p-6 text-center text-muted-foreground">目前尚無可訂閱的方案</CardContent></Card>
           ) : (
             <div className="grid md:grid-cols-2 gap-6">
               {dbPlans.map(plan => {
                 const isSubscribed = subscribedPlanIds.has(plan.id);
-                const variant = getPlanVariant(plan.plan_type);
                 const isFollowerType = plan.plan_type !== 'mentor_weekly_journal';
 
                 return (
-                  <Card key={plan.id} className={cn("relative overflow-hidden border-2", isSubscribed ? isFollowerType ? "border-advisor/40 bg-advisor/5" : "border-mentor/40 bg-mentor/5" : isFollowerType ? "border-advisor/20 hover:border-advisor/40" : "border-mentor/20 hover:border-mentor/40")}>
+                  <Card key={plan.id} className={cn(
+                    "relative overflow-hidden border-2 transition-all",
+                    isSubscribed
+                      ? isFollowerType ? "border-advisor/40 bg-advisor/5" : "border-mentor/40 bg-mentor/5"
+                      : isFollowerType ? "border-advisor/20 hover:border-advisor/40 hover:shadow-lg" : "border-mentor/20 hover:border-mentor/40 hover:shadow-lg"
+                  )}>
                     <div className={cn("absolute top-0 left-0 right-0 h-1", isFollowerType ? "gradient-advisor" : "gradient-mentor")} />
                     {isSubscribed && (
                       <Badge className={cn("absolute top-3 right-3", isFollowerType ? "bg-advisor text-advisor-foreground" : "bg-mentor text-mentor-foreground")}>
@@ -237,7 +278,7 @@ const ExpertProfile = () => {
                       <ul className="space-y-2">
                         {getPlanFeatures(plan.plan_type).map((feature, idx) => (
                           <li key={idx} className="flex items-center gap-2 text-sm">
-                            <CheckCircle className={cn("h-4 w-4", isFollowerType ? "text-advisor" : "text-mentor")} />
+                            <CheckCircle className={cn("h-4 w-4 shrink-0", isFollowerType ? "text-advisor" : "text-mentor")} />
                             {feature}
                           </li>
                         ))}
@@ -252,7 +293,7 @@ const ExpertProfile = () => {
                         </p>
                       )}
                       <div className={cn("flex items-start gap-2 p-3 rounded-lg text-sm", isFollowerType ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor")}>
-                        {isFollowerType ? <Shield className="h-4 w-4 mt-0.5 flex-shrink-0" /> : <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />}
+                        {isFollowerType ? <Shield className="h-4 w-4 mt-0.5 shrink-0" /> : <Clock className="h-4 w-4 mt-0.5 shrink-0" />}
                         <span>{getPlanNote(plan.plan_type)}</span>
                       </div>
                       {isSubscribed ? (
@@ -260,7 +301,7 @@ const ExpertProfile = () => {
                           <Check className="h-4 w-4 mr-1" />已訂閱
                         </Button>
                       ) : (
-                        <Button variant={variant} size="xl" className="w-full" asChild>
+                        <Button variant={isFollowerType ? 'advisor' as any : 'mentor' as any} size="xl" className="w-full" asChild>
                           <Link to={`/checkout/${slug}/${plan.id}`}>立即訂閱<ArrowRight className="h-4 w-4 ml-2" /></Link>
                         </Button>
                       )}
@@ -270,9 +311,10 @@ const ExpertProfile = () => {
               })}
             </div>
           )}
-        </div>
+        </section>
 
-        <div className="mt-12 compliance-disclaimer">
+        {/* Compliance Disclaimer */}
+        <div className="compliance-disclaimer">
           <p>過去績效不代表未來表現，投資有風險，請謹慎評估。</p>
         </div>
       </div>
