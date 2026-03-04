@@ -76,7 +76,7 @@ const CompanyDashboard = () => {
             <CardTitle className="text-base">快捷操作</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
                 <Link to="/company/analysts"><Users className="h-5 w-5" /><span className="text-xs">分析師管理</span></Link>
               </Button>
@@ -91,9 +91,6 @@ const CompanyDashboard = () => {
               </Button>
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
                 <Link to="/company/review"><Clock className="h-5 w-5" /><span className="text-xs">內容監管</span></Link>
-              </Button>
-              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-                <Link to="/company/plans"><Activity className="h-5 w-5" /><span className="text-xs">方案管理</span></Link>
               </Button>
             </div>
           </CardContent>
