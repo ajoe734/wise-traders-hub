@@ -73,6 +73,9 @@ export interface Person {
   styleTags: string[];
   markets: string[];
   strategySummary?: string;
+  backtestReturn1y?: number | null;
+  backtestMaxDrawdown?: number | null;
+  backtestAnnualReturn?: number | null;
   riskTolerance?: string;
   timeframe?: string;
   lineChannelId?: string;
