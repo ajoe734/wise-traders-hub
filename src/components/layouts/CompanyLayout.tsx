@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard, Users, UserCheck, BarChart3, ShieldCheck, CreditCard,
-  LogOut, Moon, Sun, Building2, ScrollText, Megaphone
+  LogOut, Moon, Sun, Building2, Megaphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,7 +21,7 @@ const navItems = [
   { path: '/company/revenue', icon: BarChart3, label: '營收數據' },
   { path: '/company/payments', icon: CreditCard, label: '金流管理' },
   { path: '/company/review', icon: ShieldCheck, label: '內容監管' },
-  { path: '/company/audit-logs', icon: ScrollText, label: '操作紀錄' },
+  
   { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
 ];
 
