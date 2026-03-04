@@ -230,10 +230,24 @@ const CompanyPayments = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.length === 0 ? (
+                    {transactions.filter(tx => {
+                      if (!search.trim()) return true;
+                      const q = search.trim().toLowerCase();
+                      return (tx.provider_tx_id || '').toLowerCase().includes(q) ||
+                             tx.id.toLowerCase().includes(q) ||
+                             String(tx.amount).includes(q) ||
+                             (tx.status || '').toLowerCase().includes(q);
+                    }).length === 0 ? (
                       <tr><td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">暫無交易紀錄</td></tr>
                     ) : (
-                      transactions.map(tx => {
+                      transactions.filter(tx => {
+                        if (!search.trim()) return true;
+                        const q = search.trim().toLowerCase();
+                        return (tx.provider_tx_id || '').toLowerCase().includes(q) ||
+                               tx.id.toLowerCase().includes(q) ||
+                               String(tx.amount).includes(q) ||
+                               (tx.status || '').toLowerCase().includes(q);
+                      }).map(tx => {
                         const si = paymentStatusLabels[tx.status] || paymentStatusLabels.pending;
                         return (
                           <tr key={tx.id} className="border-b last:border-0">
