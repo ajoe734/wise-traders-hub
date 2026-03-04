@@ -72,6 +72,7 @@ export interface Person {
   description: string;
   styleTags: string[];
   markets: string[];
+  strategySummary?: string;
   riskTolerance?: string;
   timeframe?: string;
   lineChannelId?: string;

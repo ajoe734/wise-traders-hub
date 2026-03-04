@@ -13,6 +13,7 @@ export function mapToPersonWithPlans(row: any): PersonWithPlans {
     description: row.description || '',
     styleTags: row.style_tags || [],
     markets: row.markets || [],
+    strategySummary: row.strategy_summary || '',
     plans: (row.expert_plans || [])
       .filter((p: any) => p.is_active && p.review_status === 'approved')
       .map((p: any): Plan => ({

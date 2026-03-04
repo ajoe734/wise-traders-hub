@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
 
@@ -26,6 +26,7 @@ interface ExpertInfo {
   name: string;
   bio: string;
   description: string;
+  strategySummary: string;
   avatarUrl: string;
   role: 'advisor' | 'mentor';
   styleTags: string[];
@@ -53,7 +54,7 @@ const ExpertProfile = () => {
 
       const { data: expert } = await supabase
         .from('experts')
-        .select('id, name, bio, description, avatar_url, role, style_tags, markets, status')
+        .select('id, name, bio, description, avatar_url, role, style_tags, markets, status, strategy_summary')
         .eq('slug', slug)
         .single();
 
@@ -68,6 +69,7 @@ const ExpertProfile = () => {
         name: expert.name,
         bio: expert.bio || '',
         description: expert.description || '',
+        strategySummary: (expert as any).strategy_summary || '',
         avatarUrl: expert.avatar_url || '/placeholder.svg',
         role: expert.role as 'advisor' | 'mentor',
         styleTags: expert.style_tags || [],
@@ -210,6 +212,21 @@ const ExpertProfile = () => {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* ── Strategy Introduction ── */}
+        <section>
+          <div className="flex items-center gap-2 mb-6">
+            <Lightbulb className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
+            <h2 className="text-h3">策略簡介</h2>
+          </div>
+          <Card>
+            <CardContent className="p-6 md:p-8">
+              <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+                {expertInfo.strategySummary || '尚未設定策略簡介'}
+              </p>
+            </CardContent>
+          </Card>
         </section>
 
         {/* ── Performance Section ── */}
