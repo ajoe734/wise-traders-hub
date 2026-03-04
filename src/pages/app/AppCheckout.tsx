@@ -70,17 +70,27 @@ const AppCheckout = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
-      const returnedBillingCycle = searchParams.get("billingCycle") || billingCycle;
+      // Check if the server-side callback already created the subscription
       const { data: existing } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
       if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); return; }
-      const { data: providers } = await supabase.from("payment_providers").select("id").eq("provider_type", "ecpay").eq("is_active", true).limit(1);
-      const providerId = providers?.[0]?.id || null;
-      const now = new Date();
-      const expiresAt = new Date(now);
-      if (returnedBillingCycle === "yearly") { expiresAt.setFullYear(expiresAt.getFullYear() + 1); } else { expiresAt.setMonth(expiresAt.getMonth() + 1); }
-      const { error: subError } = await supabase.from("member_subscriptions").insert({ user_id: user.id, plan_id: planId!, status: "active", provider_id: providerId, started_at: now.toISOString(), expires_at: expiresAt.toISOString() });
-      if (subError) { setResultDialog({ open: true, success: false }); } else { setResultDialog({ open: true, success: true }); }
-    } catch { setResultDialog({ open: true, success: false }); } finally { setIsConfirming(false); }
+      // If not yet created, listen via Realtime for the server callback to complete
+      const channel = supabase
+        .channel('ecpay-app-confirm')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'member_subscriptions', filter: `user_id=eq.${user.id}` }, (payload) => {
+          const row = payload.new as any;
+          if (row.plan_id === planId && row.status === 'active') {
+            setIsConfirming(false);
+            setResultDialog({ open: true, success: true });
+          }
+        })
+        .subscribe();
+      // Timeout after 60 seconds
+      setTimeout(() => {
+        supabase.removeChannel(channel);
+        setIsConfirming(false);
+        setResultDialog({ open: true, success: false });
+      }, 60000);
+    } catch { setIsConfirming(false); setResultDialog({ open: true, success: false }); }
   };
 
   if (isLoading) {

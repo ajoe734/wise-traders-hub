@@ -31,8 +31,9 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
     queryFn: async () => {
       const { data } = await supabase
         .from('expert_signals')
-        .select('*, experts(name, avatar_url, slug)')
+        .select('*, experts!inner(name, avatar_url, slug, status)')
         .eq('status', 'published')
+        .eq('experts.status', 'active')
         .order('published_at', { ascending: false })
         .limit(5);
       return data || [];

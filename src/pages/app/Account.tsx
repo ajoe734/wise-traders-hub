@@ -127,7 +127,7 @@ const Account = () => {
 
     const expertIds = experts.map(e => e.id);
     const { data: channels } = await supabase
-      .from('expert_line_channels')
+      .from('expert_line_channels_public')
       .select('expert_id, line_oa_id, qr_code_url, channel_name')
       .in('expert_id', expertIds);
 

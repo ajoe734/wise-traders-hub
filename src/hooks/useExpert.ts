@@ -55,9 +55,9 @@ export function useExpert(slug: string | undefined) {
         .from('experts')
         .select('*, expert_plans(*)')
         .eq('slug', slug)
-        .single();
-      if (error || !data) return null;
-      return mapToPersonWithPlans(data);
+        .eq('status', 'active');
+      if (error || !data || data.length === 0) return null;
+      return mapToPersonWithPlans(data[0]);
     },
     enabled: !!slug,
     staleTime: 30_000,
