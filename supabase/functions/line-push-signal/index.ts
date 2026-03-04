@@ -311,31 +311,28 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Filter to only users with active subscriptions to THIS expert
+    // Filter to only users with active subscriptions to THIS expert (single query)
+    const bindingUserIds = bindings.map(b => b.user_id)
+    const { data: activeSubs } = await supabaseAdmin
+      .from('member_subscriptions')
+      .select('user_id, plan_id')
+      .in('user_id', bindingUserIds)
+      .eq('status', 'active')
+
+    // Get expert plan IDs
     const { data: expertPlans } = await supabaseAdmin
       .from('expert_plans')
       .select('id')
       .eq('expert_id', expert_id)
 
-    const expertPlanIds = (expertPlans || []).map(p => p.id)
-    console.log('Expert plan IDs:', expertPlanIds)
+    const expertPlanIds = new Set((expertPlans || []).map(p => p.id))
+    const subscribedUserIds = new Set(
+      (activeSubs || []).filter(s => expertPlanIds.has(s.plan_id)).map(s => s.user_id)
+    )
 
-    const targets: string[] = []
-    if (expertPlanIds.length > 0) {
-      for (const b of bindings) {
-        const { data: subs } = await supabaseAdmin
-          .from('member_subscriptions')
-          .select('id')
-          .eq('user_id', b.user_id)
-          .eq('status', 'active')
-          .in('plan_id', expertPlanIds)
-          .limit(1)
-
-        if (subs && subs.length > 0) {
-          targets.push(b.line_user_id)
-        }
-      }
-    }
+    const targets = bindings
+      .filter(b => subscribedUserIds.has(b.user_id))
+      .map(b => b.line_user_id)
 
     console.log('Targets with active subs:', targets.length)
 
