@@ -31,8 +31,6 @@ import AppSignalDetail from "./pages/app/SignalDetail";
 import AppJournalDetail from "./pages/app/JournalDetail";
 import AppAccount from "./pages/app/Account";
 import AppPerformance from "./pages/app/Performance";
-import AppCourses from "./pages/app/Courses";
-import AppLibrary from "./pages/app/Library";
 import AppExplore from "./pages/app/Explore";
 import AppExpertDetail from "./pages/app/ExpertDetail";
 import AppCheckout from "./pages/app/AppCheckout";
@@ -101,8 +99,6 @@ const App = () => (
             <Route path="/app/account" element={<AppAccount />} />
             <Route path="/app/holdings" element={<Navigate to="/app" replace />} />
             <Route path="/app/performance" element={<AppPerformance />} />
-            <Route path="/app/courses" element={<AppCourses />} />
-            <Route path="/app/library" element={<AppLibrary />} />
             <Route path="/app/explore" element={<AppExplore />} />
             <Route path="/app/expert/:slug" element={<AppExpertDetail />} />
             <Route path="/app/checkout/:slug/:planId" element={<AppCheckout />} />
