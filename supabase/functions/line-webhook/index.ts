@@ -80,13 +80,20 @@ Deno.serve(async (req) => {
 
       // Handle text message - check for binding code
       if (event.type === 'message' && event.message?.type === 'text' && event.replyToken) {
-        const code = event.message.text.trim().toUpperCase()
+        const rawText = event.message.text.trim().toUpperCase()
+
+        // Only treat 6-char alphanumeric strings as binding codes; ignore everything else
+        const isBindingCode = /^[A-Z0-9]{6}$/.test(rawText)
+        if (!isBindingCode) {
+          // Not a binding code — silently ignore normal chat messages
+          continue
+        }
 
         // Look up valid binding code
         const { data: bindingCode } = await supabase
           .from('line_binding_codes')
           .select('*')
-          .eq('code', code)
+          .eq('code', rawText)
           .eq('expert_id', expertId)
           .eq('used', false)
           .gt('expires_at', new Date().toISOString())
