@@ -112,7 +112,23 @@ const CompanyPayments = () => {
             <h1 className="text-2xl font-bold">金流管理</h1>
             <p className="text-muted-foreground text-sm mt-1">管理金流工具與交易紀錄</p>
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => {
+            const headers = ['交易編號', '金額', '狀態', '時間'];
+            const rows = transactions.map(tx => [
+              tx.provider_tx_id || tx.id.slice(0, 8),
+              tx.amount,
+              tx.status,
+              tx.created_at ? new Date(tx.created_at).toLocaleString('zh-TW') : '',
+            ]);
+            const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `payments-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}>
             <Download className="h-4 w-4 mr-2" />匯出對帳報表
           </Button>
         </div>

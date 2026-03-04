@@ -122,14 +122,10 @@ const AdminPerformance = () => {
                           {trade.status === 'open' ? (trade.current_price || '-') : (trade.exit_price || '-')}
                         </td>
                         {(() => {
-                          // Calculate P&L as price difference
-                          const currentOrExit = trade.status === 'open' ? trade.current_price : trade.exit_price;
-                          const pnl = currentOrExit && trade.entry_price
-                            ? Number((currentOrExit - trade.entry_price).toFixed(2))
-                            : null;
+                          const pnl = trade.pnl_percent != null ? Number(trade.pnl_percent) : null;
                           return (
                             <td className={cn("p-3 text-sm font-medium", pnl != null && pnl > 0 ? "text-green-600 dark:text-green-400" : pnl != null && pnl < 0 ? "text-red-600 dark:text-red-400" : "")}>
-                              {pnl != null ? `${pnl > 0 ? '+' : ''}${pnl}` : '-'}
+                              {pnl != null ? `${pnl > 0 ? '+' : ''}${pnl}%` : '-'}
                             </td>
                           );
                         })()}

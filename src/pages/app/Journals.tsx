@@ -73,12 +73,13 @@ const Journals = () => {
 
     const expertIds = subs.map((s: any) => s.expert_id);
 
-    // Filter to mentor experts only
+    // Filter to active mentor experts only
     const { data: mentorExperts } = await supabase
       .from('experts')
       .select('id')
       .in('id', expertIds)
-      .eq('role', 'mentor');
+      .eq('role', 'mentor')
+      .eq('status', 'active');
 
     const mentorIds = (mentorExperts || []).map(e => e.id);
     if (mentorIds.length === 0) {
