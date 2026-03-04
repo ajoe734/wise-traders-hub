@@ -4,9 +4,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { Search, Users, UserCheck, UserX, RefreshCw, Eye, Download } from 'lucide-react';
 
 const CompanySubscribers = () => {
   const [subs, setSubs] = useState<any[]>([]);
@@ -14,6 +14,7 @@ const CompanySubscribers = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [detailUser, setDetailUser] = useState<string | null>(null);
 
   useEffect(() => { fetchSubs(); }, []);
 
@@ -26,7 +27,6 @@ const CompanySubscribers = () => {
     const subData = data || [];
     setSubs(subData);
 
-    // Fetch display names for subscribers
     const userIds = [...new Set(subData.map(s => s.user_id).filter(Boolean))];
     if (userIds.length > 0) {
       const { data: profiles } = await supabase
@@ -46,8 +46,7 @@ const CompanySubscribers = () => {
 
   const getRemainingDays = (expiresAt: string | null) => {
     if (!expiresAt) return null;
-    const diff = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    return diff;
+    return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
   const filtered = subs.filter(s => {
@@ -67,12 +66,40 @@ const CompanySubscribers = () => {
 
   const renewalRate = subs.length > 0 ? Math.round((subs.filter(s => s.auto_renew).length / subs.length) * 100) : 0;
 
+  const handleExport = () => {
+    const headers = ['訂閱者', '方案', '開始日', '到期日', '狀態', '續訂'];
+    const rows = filtered.map(s => [
+      profileMap[s.user_id] || s.user_id?.slice(0, 8),
+      s.expert_plans?.name || '-',
+      s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '-',
+      s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '-',
+      s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
+      s.auto_renew ? '自動' : '手動',
+    ]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Detail: all subscriptions for a user
+  const detailSubs = detailUser ? subs.filter(s => s.user_id === detailUser) : [];
+
   return (
     <CompanyLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">訂閱者管理</h1>
-          <p className="text-muted-foreground text-sm mt-1">查看與管理所有平台訂閱者</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">訂閱者管理</h1>
+            <p className="text-muted-foreground text-sm mt-1">查看與管理所有平台訂閱者</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />匯出對帳報表
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
@@ -109,7 +136,8 @@ const CompanySubscribers = () => {
                   <th className="p-4">剩餘天數</th>
                   <th className="p-4">續訂</th>
                   <th className="p-4">狀態</th>
-                 </tr>
+                  <th className="p-4"></th>
+                </tr>
               </thead>
               <tbody>
                 {loading ? (
@@ -140,6 +168,11 @@ const CompanySubscribers = () => {
                             {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
                           </Badge>
                         </td>
+                        <td className="p-4">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setDetailUser(sub.user_id)}>
+                            <Eye className="h-3 w-3 mr-1" />詳情
+                          </Button>
+                        </td>
                       </tr>
                     );
                   })
@@ -149,6 +182,43 @@ const CompanySubscribers = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Subscriber Detail Dialog */}
+      <Dialog open={!!detailUser} onOpenChange={(open) => { if (!open) setDetailUser(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{profileMap[detailUser || ''] || '訂閱者'} — 訂閱歷程</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            {detailSubs.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">無訂閱紀錄</p>
+            ) : (
+              detailSubs.map(sub => {
+                const remaining = getRemainingDays(sub.expires_at);
+                return (
+                  <Card key={sub.id}>
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{sub.expert_plans?.name || '-'}</span>
+                        <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">
+                          {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                        <div>開始：{sub.started_at ? new Date(sub.started_at).toLocaleDateString('zh-TW') : '-'}</div>
+                        <div>到期：{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('zh-TW') : '-'}</div>
+                        <div>續訂：{sub.auto_renew ? '自動' : '手動'}</div>
+                        <div>剩餘：{remaining != null ? (remaining > 0 ? `${remaining} 天` : '已到期') : '-'}</div>
+                        {sub.canceled_at && <div className="col-span-2">取消時間：{new Date(sub.canceled_at).toLocaleDateString('zh-TW')}</div>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </CompanyLayout>
   );
 };

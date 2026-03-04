@@ -3,11 +3,12 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard, Users, UserCheck, BarChart3, ShieldCheck, CreditCard,
-  LogOut, Moon, Sun, Building2, ScrollText, Megaphone
+  LogOut, Moon, Sun, Building2, ScrollText, Megaphone, Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
+import { NotificationBell } from '@/components/NotificationBell';
 
 interface CompanyLayoutProps {
   children: ReactNode;
@@ -22,6 +23,7 @@ const navItems = [
   { path: '/company/review', icon: ShieldCheck, label: '內容監管' },
   { path: '/company/audit-logs', icon: ScrollText, label: '操作紀錄' },
   { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
+  { path: '/company/plans', icon: Package, label: '方案管理' },
 ];
 
 export function CompanyLayout({ children }: CompanyLayoutProps) {
@@ -49,6 +51,7 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
               <h2 className="font-semibold truncate">公司管理後台</h2>
               <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             </div>
+            <NotificationBell />
           </div>
         </div>
 

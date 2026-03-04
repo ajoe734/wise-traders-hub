@@ -45,6 +45,7 @@ const AdminSignals = () => {
   const [reasonSummary, setReasonSummary] = useState('');
   const [reasonDetail, setReasonDetail] = useState('');
   const [riskNotes, setRiskNotes] = useState('');
+  const [learningPoints, setLearningPoints] = useState('');
   const [planId, setPlanId] = useState('');
 
   useEffect(() => { fetchData(); }, [expertSlug]);
@@ -96,12 +97,13 @@ const AdminSignals = () => {
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
+      learning_points: learningPoints || null,
       status: 'published' as any,
     }).select('id').single();
     if (error) { toast.error(error.message); return; }
     toast.success(isMentor ? '週記已發布，將於 7 天後自動推播' : '訊號已發布');
     setIsCreateOpen(false);
-    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setPlanId('');
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints(''); setPlanId('');
 
     // Trigger LINE push notification (non-blocking)
     if (inserted?.id) {
@@ -209,6 +211,28 @@ const AdminSignals = () => {
                   <Label>風險提示</Label>
                   <Textarea value={riskNotes} onChange={e => setRiskNotes(e.target.value)} placeholder="停損點、注意事項..." rows={2} />
                 </div>
+                {isMentor && (
+                  <div className="space-y-2">
+                    <Label>教學重點</Label>
+                    <Textarea value={learningPoints} onChange={e => setLearningPoints(e.target.value)} placeholder="本週學習要點..." rows={3} />
+                  </div>
+                )}
+                {isMentor && canPublish && (
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-4 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">📋 訂閱者預覽（T+7 後顯示）</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
+                        <span className="font-medium text-sm">{stockCode} {stockName}</span>
+                        {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
+                      </div>
+                      {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
+                      {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
+                      {riskNotes && <p className="text-xs text-destructive">⚠️ {riskNotes}</p>}
+                      {learningPoints && <p className="text-xs text-primary">📌 {learningPoints}</p>}
+                    </CardContent>
+                  </Card>
+                )}
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={() => setIsCreateOpen(false)}>取消</Button>
                   <Button

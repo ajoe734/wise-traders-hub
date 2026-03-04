@@ -58,6 +58,19 @@ const CompanyRevenue = () => {
     }).sort((a, b) => b.value - a.value);
   }, [subscriptions, experts]);
 
+  const handleExport = () => {
+    const headers = ['月份', '營收(NT$)'];
+    const rows = monthlyData.map(d => [d.month, d.amount]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `revenue-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <CompanyLayout>
       <div className="space-y-6">
@@ -66,7 +79,7 @@ const CompanyRevenue = () => {
             <h1 className="text-2xl font-bold">營收數據</h1>
             <p className="text-muted-foreground text-sm mt-1">全平台營收與訂閱數據分析</p>
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />匯出報表
           </Button>
         </div>

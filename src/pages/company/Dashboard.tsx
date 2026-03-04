@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { 
-  Users, DollarSign, Radio, TrendingUp, ArrowUpRight,
-  Activity, Clock, AlertTriangle, CreditCard
+  Users, DollarSign, Radio, Activity, CreditCard, Clock,
+  Repeat
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -15,20 +14,30 @@ const CompanyDashboard = () => {
   const [subCount, setSubCount] = useState(0);
   const [signalCount, setSignalCount] = useState(0);
   const [planCount, setPlanCount] = useState(0);
+  const [mrr, setMrr] = useState(0);
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useEffect(() => { fetchStats(); }, []);
 
   const fetchStats = async () => {
-    const { count: ec } = await supabase.from('experts').select('*', { count: 'exact', head: true });
-    setExpertCount(ec || 0);
-    const { count: sc } = await supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active');
-    setSubCount(sc || 0);
-    const { count: pc } = await supabase.from('expert_plans').select('*', { count: 'exact', head: true }).eq('is_active', true);
-    setPlanCount(pc || 0);
-    const { count: sigc } = await supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published');
-    setSignalCount(sigc || 0);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    const [ecRes, scRes, pcRes, sigRes, subsRes, txRes] = await Promise.all([
+      supabase.from('experts').select('*', { count: 'exact', head: true }),
+      supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('expert_plans').select('*', { count: 'exact', head: true }).eq('is_active', true),
+      supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published'),
+      supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active'),
+      supabase.from('payment_transactions').select('amount').eq('status', 'paid').gte('paid_at', monthStart),
+    ]);
+
+    setExpertCount(ecRes.count || 0);
+    setSubCount(scRes.count || 0);
+    setPlanCount(pcRes.count || 0);
+    setSignalCount(sigRes.count || 0);
+    setMrr((subsRes.data || []).reduce((s, sub) => s + (sub.expert_plans?.price_monthly || 0), 0));
+    setMonthlyRevenue((txRes.data || []).reduce((s, tx) => s + (tx.amount || 0), 0));
   };
 
   const stats = [
@@ -36,6 +45,8 @@ const CompanyDashboard = () => {
     { label: '活躍訂閱者', value: subCount, icon: Users },
     { label: '已發布訊號', value: signalCount, icon: Radio },
     { label: '總上架方案數', value: planCount, icon: Activity },
+    { label: 'MRR', value: `NT$${mrr.toLocaleString()}`, icon: Repeat },
+    { label: '本月營收', value: `NT$${monthlyRevenue.toLocaleString()}`, icon: DollarSign },
   ];
 
   return (
@@ -46,7 +57,7 @@ const CompanyDashboard = () => {
           <p className="text-muted-foreground text-sm mt-1">全平台營運數據一覽</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {stats.map((stat) => (
             <Card key={stat.label}>
               <CardContent className="p-4">
@@ -65,7 +76,7 @@ const CompanyDashboard = () => {
             <CardTitle className="text-base">快捷操作</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
                 <Link to="/company/analysts"><Users className="h-5 w-5" /><span className="text-xs">分析師管理</span></Link>
               </Button>
@@ -80,6 +91,9 @@ const CompanyDashboard = () => {
               </Button>
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
                 <Link to="/company/review"><Clock className="h-5 w-5" /><span className="text-xs">內容監管</span></Link>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+                <Link to="/company/plans"><Activity className="h-5 w-5" /><span className="text-xs">方案管理</span></Link>
               </Button>
             </div>
           </CardContent>
