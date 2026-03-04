@@ -5,7 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { DollarSign, TrendingUp, Users, Download, Repeat } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -44,8 +46,10 @@ const CompanyRevenue = () => {
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([month, amount]) => ({ month, amount }));
   }, [transactions]);
 
-  // Analyst revenue pie
-  const analystPieData = useMemo(() => {
+  const [mrrFilter, setMrrFilter] = useState<'all' | 'advisor' | 'mentor'>('all');
+
+  // Analyst MRR bar data with role
+  const analystBarData = useMemo(() => {
     const map: Record<string, number> = {};
     subscriptions.forEach(s => {
       const expertId = s.expert_plans?.expert_id;
@@ -54,9 +58,14 @@ const CompanyRevenue = () => {
     });
     return Object.entries(map).map(([expertId, value]) => {
       const expert = experts.find(e => e.id === expertId);
-      return { name: expert?.name || expertId.slice(0, 6), value };
+      return { name: expert?.name || expertId.slice(0, 6), value, role: expert?.role || 'advisor' };
     }).sort((a, b) => b.value - a.value);
   }, [subscriptions, experts]);
+
+  const filteredBarData = useMemo(() => {
+    if (mrrFilter === 'all') return analystBarData;
+    return analystBarData.filter(d => d.role === mrrFilter);
+  }, [analystBarData, mrrFilter]);
 
   const handleExport = () => {
     const headers = ['月份', '營收(NT$)'];
@@ -147,22 +156,37 @@ const CompanyRevenue = () => {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">分析師 MRR 貢獻</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-base">MRR 貢獻</CardTitle>
+              <Tabs value={mrrFilter} onValueChange={(v) => setMrrFilter(v as any)}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="all" className="text-xs px-3 h-6">全部</TabsTrigger>
+                  <TabsTrigger value="advisor" className="text-xs px-3 h-6">分析師</TabsTrigger>
+                  <TabsTrigger value="mentor" className="text-xs px-3 h-6">實戰導師</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </CardHeader>
             <CardContent>
-              {analystPieData.length === 0 ? (
+              {filteredBarData.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">尚無訂閱數據</p>
               ) : (
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={analystPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                      {analystPieData.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v: number) => [`NT$${v.toLocaleString()}`, 'MRR']} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                <ScrollArea className="w-full" style={{ height: Math.max(160, filteredBarData.length * 44 + 20) > 300 ? 300 : Math.max(160, filteredBarData.length * 44 + 20) }}>
+                  <div style={{ height: Math.max(160, filteredBarData.length * 44 + 20) }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={filteredBarData} layout="vertical" margin={{ left: 10, right: 30, top: 5, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 12 }} className="fill-muted-foreground" tickFormatter={(v: number) => `$${v.toLocaleString()}`} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} className="fill-muted-foreground" width={70} />
+                        <Tooltip formatter={(v: number) => [`NT$${v.toLocaleString()}`, 'MRR']} />
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={28}>
+                          {filteredBarData.map((entry, i) => (
+                            <Cell key={i} fill={entry.role === 'advisor' ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-3))'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </ScrollArea>
               )}
             </CardContent>
           </Card>
