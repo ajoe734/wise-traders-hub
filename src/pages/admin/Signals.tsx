@@ -122,8 +122,7 @@ const AdminSignals = () => {
           toast.error(`LINE 推播失敗：${pushError.message}`);
         } else if (pushData?.pushed) {
           toast.success(`已推播給 ${pushData.count} 位訂閱者`);
-        } else if (pushData?.reason) {
-        } else if (pushData?.reason) {
+      } else if (pushData?.reason) {
           toast.info(`LINE 推播略過：${pushData.reason}`);
         }
       }).catch((err) => {

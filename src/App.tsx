@@ -88,7 +88,7 @@ const App = () => (
 
             {/* Account (aggregated view) */}
             <Route path="/account/subscriptions" element={<Navigate to="/app/account" replace />} />
-            <Route path="/account/profile" element={<AccountProfile />} />
+            <Route path="/account/profile" element={<ProtectedRoute><AccountProfile /></ProtectedRoute>} />
 
             {/* App pages (aggregated member view) */}
             <Route path="/app" element={<AppHome />} />
@@ -125,8 +125,8 @@ const App = () => (
             <Route path="/admin/:expertSlug/signal-templates" element={<ProtectedRoute><AdminSignalTemplates /></ProtectedRoute>} />
 
             {/* Legacy /me routes - redirect */}
-            <Route path="/me" element={<Navigate to="/account/subscriptions" replace />} />
-            <Route path="/me/*" element={<Navigate to="/account/subscriptions" replace />} />
+            <Route path="/me" element={<Navigate to="/app/account" replace />} />
+            <Route path="/me/*" element={<Navigate to="/app/account" replace />} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

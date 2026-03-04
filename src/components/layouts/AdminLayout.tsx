@@ -25,6 +25,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const { data: expert, isLoading } = useExpert(expertSlug);
 
+  // Ownership check: user must be company_admin OR the expert's owner (matching expert_slug)
+  const isCompanyAdmin = hasRole('company_admin');
+  const isOwner = !!user?.expertSlug && user.expertSlug === expertSlug;
+  const hasAccess = isCompanyAdmin || isOwner;
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -39,6 +44,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <div className="text-center">
           <h1 className="text-xl font-bold mb-2">找不到此專家</h1>
           <p className="text-muted-foreground mb-4">請確認連結是否正確</p>
+          <Button variant="ghost" onClick={() => navigate('/')}>返回首頁</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center">
+          <h1 className="text-xl font-bold mb-2">權限不足</h1>
+          <p className="text-muted-foreground mb-4">您沒有存取此後台的權限</p>
           <Button variant="ghost" onClick={() => navigate('/')}>返回首頁</Button>
         </div>
       </div>
