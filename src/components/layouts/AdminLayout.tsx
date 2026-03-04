@@ -1,12 +1,12 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
+import { useExpert } from '@/hooks/useExpert';
 import { PersonRole } from '@/types';
-import { getPersonBySlug } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, Radio, Users, UserCog, BarChart3,
-  ChevronLeft, LogOut, Moon, Sun, Building2, FileText 
+  ChevronLeft, LogOut, Moon, Sun, Building2, FileText, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,7 +23,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const navigate = useNavigate();
   const { user, logout, hasRole } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
-  const expert = expertSlug ? getPersonBySlug(expertSlug) : undefined;
+  const { data: expert, isLoading } = useExpert(expertSlug);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!expert) {
     return (
@@ -129,7 +137,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-muted-foreground"
-            onClick={() => navigate(`/line/${expertSlug}/home`)}
+            onClick={() => navigate(`/expert/${expertSlug}`)}
           >
             <ChevronLeft className="h-4 w-4" />
             前往前台
