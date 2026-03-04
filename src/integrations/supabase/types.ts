@@ -215,6 +215,50 @@ export type Database = {
           },
         ]
       }
+      expert_signal_templates: {
+        Row: {
+          action: string
+          created_at: string
+          expert_id: string
+          id: string
+          reason: string
+          risk_note: string
+          sort_order: number
+          strategy_note: string
+          title: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          expert_id: string
+          id?: string
+          reason?: string
+          risk_note?: string
+          sort_order?: number
+          strategy_note?: string
+          title: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          expert_id?: string
+          id?: string
+          reason?: string
+          risk_note?: string
+          sort_order?: number
+          strategy_note?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_signal_templates_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_signals: {
         Row: {
           action: Database["public"]["Enums"]["signal_action"]

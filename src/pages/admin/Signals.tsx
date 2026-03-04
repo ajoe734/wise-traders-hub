@@ -32,7 +32,7 @@ const AdminSignals = () => {
   const [expert, setExpert] = useState<any>(null);
   const [signals, setSignals] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
-  const [reasonTemplates, setReasonTemplates] = useState<{ id: string; title: string; content: string }[]>([]);
+  const [signalTemplates, setSignalTemplates] = useState<{ id: string; title: string; action: string; reason: string; risk_note: string; strategy_note: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -74,11 +74,11 @@ const AdminSignals = () => {
       const { data: p } = await supabase.from('expert_plans').select('id, name').eq('expert_id', exp.id).eq('is_active', true);
       setPlans(p || []);
       const { data: tpl } = await supabase
-        .from('expert_reason_templates' as any)
-        .select('id, title, content')
+        .from('expert_signal_templates' as any)
+        .select('id, title, action, reason, risk_note, strategy_note')
         .eq('expert_id', exp.id)
         .order('sort_order', { ascending: true });
-      setReasonTemplates((tpl as any) || []);
+      setSignalTemplates((tpl as any) || []);
     }
     setLoading(false);
   };
@@ -176,6 +176,39 @@ const AdminSignals = () => {
                     <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="例：台積電" />
                   </div>
                 </div>
+                {signalTemplates.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">訊號模板</Label>
+                    <div className="flex flex-wrap gap-1.5 max-h-16 overflow-y-auto">
+                      {signalTemplates.map(tpl => {
+                        const actionColor: Record<string, string> = {
+                          buy: 'border-success text-success hover:bg-success/10',
+                          sell: 'border-destructive text-destructive hover:bg-destructive/10',
+                          add: 'border-blue-500 text-blue-500 hover:bg-blue-500/10',
+                          trim: 'border-amber-500 text-amber-500 hover:bg-amber-500/10',
+                          exit: 'border-slate-500 text-slate-500 hover:bg-slate-500/10',
+                        };
+                        return (
+                          <Button
+                            key={tpl.id}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={cn("h-6 text-xs px-2", actionColor[tpl.action] || '')}
+                            onClick={() => {
+                              if (!action) setAction(tpl.action);
+                              if (!reasonSummary) setReasonSummary(tpl.reason);
+                              if (!riskNotes) setRiskNotes(tpl.risk_note);
+                              if (!reasonDetail) setReasonDetail(tpl.strategy_note);
+                            }}
+                          >
+                            {tpl.title}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>操作方向</Label>
@@ -197,22 +230,6 @@ const AdminSignals = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>操作理由（摘要）</Label>
-                  {reasonTemplates.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {reasonTemplates.map(tpl => (
-                        <Button
-                          key={tpl.id}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-6 text-xs px-2"
-                          onClick={() => setReasonSummary(prev => prev ? `${prev}\n${tpl.content}` : tpl.content)}
-                        >
-                          {tpl.title}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
                   <Textarea value={reasonSummary} onChange={e => setReasonSummary(e.target.value)} placeholder="簡述操作原因..." rows={2} />
                 </div>
                 <div className="space-y-2">

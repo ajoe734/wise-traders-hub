@@ -1,0 +1,222 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
+import { AdminLayout } from '@/components/layouts/AdminLayout';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import { Plus, GripVertical, Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+interface SignalTemplate {
+  id: string;
+  expert_id: string;
+  title: string;
+  action: string;
+  reason: string;
+  risk_note: string;
+  strategy_note: string;
+  sort_order: number;
+}
+
+const actionOptions = [
+  { value: 'buy', label: '買進', className: 'bg-success text-white' },
+  { value: 'sell', label: '賣出', className: 'bg-destructive text-white' },
+  { value: 'add', label: '加碼', className: 'bg-blue-500 text-white' },
+  { value: 'trim', label: '減碼', className: 'bg-amber-500 text-white' },
+  { value: 'exit', label: '平損', className: 'bg-slate-500 text-white' },
+];
+
+const getActionLabel = (val: string) => actionOptions.find(o => o.value === val)?.label ?? val;
+const getActionClass = (val: string) => actionOptions.find(o => o.value === val)?.className ?? '';
+
+const emptyForm = { title: '', action: 'buy', reason: '', risk_note: '', strategy_note: '' };
+
+const AdminSignalTemplates = () => {
+  const { expertSlug } = useParams<{ expertSlug: string }>();
+  const [expert, setExpert] = useState<any>(null);
+  const [templates, setTemplates] = useState<SignalTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!expertSlug) return;
+    setLoading(true);
+    const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
+    setExpert(exp);
+    if (exp) {
+      const { data } = await supabase
+        .from('expert_signal_templates' as any)
+        .select('*')
+        .eq('expert_id', exp.id)
+        .order('sort_order', { ascending: true });
+      setTemplates((data as any) || []);
+    }
+    setLoading(false);
+  }, [expertSlug]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const openCreate = () => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); };
+  const openEdit = (t: SignalTemplate) => {
+    setEditingId(t.id);
+    setForm({ title: t.title, action: t.action, reason: t.reason, risk_note: t.risk_note, strategy_note: t.strategy_note });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!expert || !form.title.trim()) { toast.error('請填寫模板標題'); return; }
+    if (editingId) {
+      const { error } = await (supabase.from('expert_signal_templates' as any) as any)
+        .update({ title: form.title, action: form.action, reason: form.reason, risk_note: form.risk_note, strategy_note: form.strategy_note })
+        .eq('id', editingId);
+      if (error) { toast.error(error.message); return; }
+      toast.success('模板已更新');
+    } else {
+      const { error } = await (supabase.from('expert_signal_templates' as any) as any)
+        .insert({ expert_id: expert.id, title: form.title, action: form.action, reason: form.reason, risk_note: form.risk_note, strategy_note: form.strategy_note, sort_order: templates.length });
+      if (error) { toast.error(error.message); return; }
+      toast.success('模板已新增');
+    }
+    setDialogOpen(false);
+    fetchData();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('確定刪除此模板？')) return;
+    const { error } = await (supabase.from('expert_signal_templates' as any) as any).delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('模板已刪除');
+    fetchData();
+  };
+
+  // Drag reorder
+  const handleDragStart = (idx: number) => setDragIdx(idx);
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    const updated = [...templates];
+    const [moved] = updated.splice(dragIdx, 1);
+    updated.splice(idx, 0, moved);
+    setTemplates(updated);
+    setDragIdx(idx);
+  };
+  const handleDragEnd = async () => {
+    setDragIdx(null);
+    // Persist new sort_order
+    for (let i = 0; i < templates.length; i++) {
+      if (templates[i].sort_order !== i) {
+        await (supabase.from('expert_signal_templates' as any) as any).update({ sort_order: i }).eq('id', templates[i].id);
+      }
+    }
+  };
+
+  if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
+
+  return (
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">訊號模板管理</h1>
+            <p className="text-muted-foreground text-sm mt-1">建立常用訊號模板，發布時一鍵填入完整內容</p>
+          </div>
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />新增模板
+          </Button>
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            {templates.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground text-sm">尚未建立任何訊號模板</div>
+            ) : (
+              <div className="divide-y">
+                {templates.map((t, idx) => (
+                  <div
+                    key={t.id}
+                    draggable
+                    onDragStart={() => handleDragStart(idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors",
+                      dragIdx === idx && "opacity-50"
+                    )}
+                  >
+                    <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />
+                    <span className="font-medium text-sm min-w-[80px]">{t.title}</span>
+                    <Badge className={cn('text-[10px] px-1.5 py-0 shrink-0', getActionClass(t.action))}>
+                      {getActionLabel(t.action)}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground truncate flex-1">{t.reason || '-'}</span>
+                    <div className="flex gap-1 shrink-0">
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(t)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingId ? '編輯模板' : '新增模板'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label>模板名稱 *</Label>
+              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="例：突破壓力位" />
+            </div>
+            <div className="space-y-2">
+              <Label>操作方向 *</Label>
+              <Select value={form.action} onValueChange={v => setForm(f => ({ ...f, action: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {actionOptions.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>操作理由</Label>
+              <Textarea value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} placeholder="突破壓力位，順勢做多" rows={2} />
+            </div>
+            <div className="space-y-2">
+              <Label>風險提示</Label>
+              <Textarea value={form.risk_note} onChange={e => setForm(f => ({ ...f, risk_note: e.target.value }))} placeholder="跌破前低停損" rows={2} />
+            </div>
+            <div className="space-y-2">
+              <Label>策略說明</Label>
+              <Textarea value={form.strategy_note} onChange={e => setForm(f => ({ ...f, strategy_note: e.target.value }))} placeholder="短線波段" rows={2} />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
+              <Button onClick={handleSave} disabled={!form.title.trim()}>儲存</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </AdminLayout>
+  );
+};
+
+export default AdminSignalTemplates;
