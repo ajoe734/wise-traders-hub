@@ -1,107 +1,111 @@
 
 
-# 三個後台功能評估報告
+## Quick-Template Feature for Signal Reason Summary
 
-以下是根據程式碼實際狀態整理的功能清單。每個功能標註「已完成」（可用）、「半成品」（有 UI 但用 mock 資料或功能不完整）、「尚未做」（完全沒有）。
+### Overview
 
----
+Add a per-analyst "reason template" system so analysts can one-click insert pre-written reason text when publishing signals, reducing publish time.
 
-## 一、投顧分析師後台（/admin/:slug）— 即時訊號
+### 1. Database Schema
 
-| 功能 | 狀態 | 說明 |
-|------|------|------|
-| **總覽儀表板** | 半成品 | 有 UI，但數據全部是寫死的假資料（營收 NT$32,800、累計報酬 680% 等），沒有串接資料庫 |
-| **訊號發布** | 已完成 | 可新增訊號（代碼、方向、價位、摘要、分析、風險），發布後寫入 DB 並觸發 LINE 即時推播 |
-| **訊號列表** | 已完成 | 查詢真實 DB，展開可看摘要/分析/風險，已下架的 5 分鐘後自動隱藏 |
-| **訂閱者管理** | 半成品 | 有表格 UI，但全部是寫死的假資料（王小明、李小華...），沒有串接真實訂閱紀錄 |
-| **個人檔案編輯** | 半成品 | 有表單 UI，但讀取的是前端 mock 的 `getPersonBySlug`，不是 DB 的 experts 表；儲存按鈕沒有功能 |
-| **績效總覽** | 已完成 | 串接 DB 的 `calculate_expert_performance` 函數，顯示勝率、累計報酬、最大回撤等真實數據 |
-| **交易紀錄** | 已完成 | 顯示 trade_records 表的真實資料，含持有中/已平倉/已停損狀態 |
+New table `expert_reason_templates`:
 
-### 需要補做的功能
+```sql
+CREATE TABLE public.expert_reason_templates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  expert_id uuid NOT NULL,
+  title text NOT NULL,        -- chip label, e.g. "突破壓力位"
+  content text NOT NULL,      -- full text inserted into textarea
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 
-1. **總覽儀表板串接真實數據**：活躍訂閱者數、本月營收、累計訊號數，目前全是假的
-2. **訂閱者列表串接 DB**：查詢 `member_subscriptions` + `expert_plans` + `profiles`，取代假資料
-3. **個人檔案串接 DB**：讀取/寫入 `experts` 表的真實欄位（name, bio, description, style_tags, markets, avatar_url）
-4. **頭像上傳功能**：需要建立 Storage bucket，目前「更換頭像」按鈕沒有功能
+ALTER TABLE public.expert_reason_templates ENABLE ROW LEVEL SECURITY;
 
----
+-- Analysts manage own templates
+CREATE POLICY "Analysts can manage own templates"
+  ON public.expert_reason_templates FOR ALL TO authenticated
+  USING (expert_id IN (SELECT id FROM experts WHERE user_id = auth.uid()))
+  WITH CHECK (expert_id IN (SELECT id FROM experts WHERE user_id = auth.uid()));
 
-## 二、實戰導師後台（/admin/:slug）— T+7 週記
-
-導師和分析師共用同一套 AdminLayout 和頁面，差異是 UI 文字會根據 `role` 切換（「訊號」→「週記」）。
-
-| 功能 | 狀態 | 說明 |
-|------|------|------|
-| **週記發布** | 已完成 | 共用訊號發布表單，發布後標記為 mentor 內容，LINE 推播會跳過即時發送，改由 cron 7 天後推 |
-| **週記列表** | 已完成 | 同訊號列表，顯示真實 DB 資料 |
-| **教學重點欄位** | 尚未做 | DB 有 `learning_points` 欄位，但發布表單沒有對應輸入框 |
-| **總覽/訂閱者/個人檔案** | 半成品 | 同分析師，一樣是假資料 |
-| **績效總覽** | 已完成 | 同分析師，真實數據 |
-
-### 導師特有需要補做的功能
-
-1. **發布表單增加「教學重點」欄位**：讓導師填寫本週學習要點（DB 已有 `learning_points` 欄位）
-2. **週記預覽**：發布前預覽訂閱者會看到的內容樣貌
-3. **TWSE 數據自動帶入**：發布時自動從 TWSE API 帶入相關股票的收盤價、本益比等（twse-proxy 已建好但未串到發布流程）
-
----
-
-## 三、公司管理員後台（/company/*）
-
-| 功能 | 狀態 | 說明 |
-|------|------|------|
-| **總覽儀表板** | 已完成 | 串接真實 DB：分析師數、活躍訂閱、已發布訊號數、上架方案數 |
-| **分析師管理** | 已完成 | 新增帳號（Edge Function）、LINE 設定（CRUD）、啟用/停用、連結到分析師後台（唯讀） |
-| **訂閱者管理** | 已完成 | 真實 DB 資料，支援多欄位搜尋、狀態篩選、剩餘天數顯示、續訂率計算 |
-| **營收數據** | 已完成 | 月營收趨勢圖、分析師 MRR 貢獻圓餅圖、MRR 計算，全部串接真實交易和訂閱資料 |
-| **金流管理** | 已完成 | 金流工具 CRUD、交易紀錄列表、退款功能（含審計日誌） |
-| **內容監管** | 已完成 | 查看所有已發布訊號、下架功能（含理由）、下架後 LINE 推播通知 |
-| **操作紀錄** | 已完成 | 審計日誌列表，actor UUID 轉顯示名稱 |
-| **系統公告** | 已完成 | 公告 CRUD，支援草稿/發布狀態 |
-| **方案管理** | 部分 | 方案透過 DB 建立，但目前沒有獨立的方案管理 UI 頁面（之前從分析師管理頁移除了） |
-
-### 需要補做的功能
-
-1. **獨立的方案管理頁面**：目前方案只能直接操作 DB，沒有給管理員用的 UI 來建立/編輯/審核方案
-2. **總覽補充 MRR 和本月營收**：目前只有計數，沒有金額摘要
-3. **匯出報表功能**：「匯出報表」和「匯出對帳報表」按鈕目前沒有實作
-4. **訂閱者詳情**：點擊訂閱者查看該用戶的完整訂閱歷程
-
----
-
-## 四、跨後台共通問題
-
-| 問題 | 影響範圍 | 說明 |
-|------|---------|------|
-| **mock 資料殘留** | 分析師/導師後台 | Dashboard、Subscribers、Profile 三個頁面仍在讀 `mockData.ts` 的假資料，正式上線前必須全部改為 DB 查詢 |
-| **頭像上傳** | 所有後台 | 沒有 Storage bucket，無法上傳圖片 |
-| **密碼修改** | 分析師/導師 | 分析師帳號由管理員建立，但分析師自己無法改密碼 |
-| **通知中心** | 所有後台 | 沒有站內通知系統（下架通知、新訂閱通知等只靠 LINE） |
-
----
-
-## 五、建議跟老闆討論的優先順序
-
-```text
-必須做（上線前）:
-├── 1. 分析師/導師後台：Dashboard、Subscribers、Profile 串接真實 DB
-├── 2. 公司後台：獨立方案管理頁面（建立/編輯/上下架方案）
-├── 3. 導師發布表單加上「教學重點」欄位
-└── 4. 頭像上傳功能（建 Storage bucket）
-
-應該做（提升價值）:
-├── 5. TWSE 數據串進週記詳情頁（已建好 proxy，差前端串接）
-├── 6. 總覽儀表板加入營收摘要和趨勢微圖
-└── 7. 匯出報表功能（CSV/PDF）
-
-可以之後做:
-├── 8. 站內通知中心
-├── 9. 分析師密碼重設功能
-└── 10. 週記預覽功能
+-- Company admins full access
+CREATE POLICY "Company admins full access reason templates"
+  ON public.expert_reason_templates FOR ALL TO authenticated
+  USING (has_role(auth.uid(), 'company_admin'))
+  WITH CHECK (has_role(auth.uid(), 'company_admin'));
 ```
 
----
+No edge functions needed -- all CRUD goes directly through the Supabase client, protected by RLS. This matches the existing pattern used for `expert_signals`, `expert_plans`, etc.
 
-以上都是根據程式碼實際狀態整理的，沒有灌水。半成品的部分表面看起來有東西，但點進去都是假資料，正式面對客戶之前必須處理。
+### 2. Files to Create / Modify
+
+**New file: `src/pages/admin/ReasonTemplates.tsx`**
+- Full CRUD page at `/admin/:expertSlug/reason-templates`
+- List templates ordered by `sort_order`
+- Inline add/edit via dialog (title + content fields)
+- Delete with confirmation
+- Drag-to-reorder using native HTML drag events (no extra library needed), updating `sort_order` in batch
+
+**Modify: `src/App.tsx`**
+- Import `ReasonTemplates` page
+- Add route: `/admin/:expertSlug/reason-templates`
+
+**Modify: `src/components/layouts/AdminLayout.tsx`**
+- Add nav item "理由模板" with a `FileText` icon linking to `${basePath}/reason-templates`
+
+**Modify: `src/pages/admin/Signals.tsx`**
+- Fetch `expert_reason_templates` when dialog opens (ordered by `sort_order`)
+- Render a row of chip buttons above the "操作理由（摘要）" textarea
+- On click: set `reasonSummary` to the template's `content`
+
+### 3. UI Behavior
+
+#### Signal Publish Dialog (Signals.tsx)
+
+```text
+┌──────────────────────────────────┐
+│ 股票代碼        股票名稱          │
+│ 操作方向        參考價位          │
+│                                  │
+│ 快速模板：                        │
+│ [突破壓力位] [回測支撐] [停利]     │
+│                                  │
+│ 操作理由（摘要）                   │
+│ ┌──────────────────────────────┐ │
+│ │ (auto-filled on click)       │ │
+│ └──────────────────────────────┘ │
+│ ...                              │
+└──────────────────────────────────┘
+```
+
+- Chips styled as small outline buttons, scrollable if many
+- Clicking a chip **replaces** the textarea content (simple and fast for real-time use)
+- If no templates exist, the chip row is hidden
+
+#### Template Management Page (`/admin/:expertSlug/reason-templates`)
+
+```text
+┌─────────────────────────────────────────┐
+│ 理由模板管理              [+ 新增模板]   │
+│─────────────────────────────────────────│
+│ ≡  突破壓力位  │ 突破壓力位，順勢做多  [✏️][🗑] │
+│ ≡  回測支撐    │ 回測支撐位，短線布局  [✏️][🗑] │
+│ ≡  停利       │ 技術面轉弱，先行停利  [✏️][🗑] │
+│ ≡  減碼       │ 風險控管，先減碼      [✏️][🗑] │
+└─────────────────────────────────────────┘
+```
+
+- Drag handle (≡) on left for reorder
+- Edit opens a dialog with title + content fields
+- Delete with confirmation toast
+- Reorder updates `sort_order` via batch update
+
+### 4. Implementation Summary
+
+| Step | What |
+|------|------|
+| 1 | Create `expert_reason_templates` table + RLS via migration |
+| 2 | Create `ReasonTemplates.tsx` page with full CRUD + drag sort |
+| 3 | Add route in `App.tsx` and nav item in `AdminLayout.tsx` |
+| 4 | Add template chips to signal publish dialog in `Signals.tsx` |
 
