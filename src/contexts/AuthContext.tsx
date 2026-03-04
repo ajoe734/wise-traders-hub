@@ -55,12 +55,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const loadProfile = useCallback(async (sbUser: SupabaseUser) => {
+  const loadProfile = useCallback(async (sbUser: SupabaseUser, forceReload = false) => {
     const userId = sbUser.id;
+
+    // If same user is already loaded, just update supabaseUser (token refresh) and skip
+    if (!forceReload && loadingUserRef.current === userId && user) {
+      setSupabaseUser(sbUser);
+      return;
+    }
+
+    // Different user — clear stale state
+    if (loadingUserRef.current && loadingUserRef.current !== userId) {
+      setUser(null);
+    }
+
     loadingUserRef.current = userId;
     setSupabaseUser(sbUser);
-    // Clear previous user immediately to prevent stale redirects
-    setUser(null);
     setIsLoading(true);
 
     try {
@@ -76,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     // Listen for auth state changes FIRST
@@ -88,11 +98,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (session?.user) {
-        // If account changed during session switch, clear stale state first
-        if (loadingUserRef.current && loadingUserRef.current !== session.user.id) {
-          clearAuth();
+        const isSameUser = loadingUserRef.current === session.user.id;
+        const isTokenRefresh = event === 'TOKEN_REFRESHED';
+
+        // For token refresh of same user, just update the supabase user ref
+        if (isSameUser && isTokenRefresh) {
+          setSupabaseUser(session.user);
+          return;
         }
-        // Defer profile loading to avoid Supabase client deadlock
+
+        // For INITIAL_SESSION or SIGNED_IN, load profile (skip if already loaded)
         setTimeout(() => loadProfile(session.user), 0);
       }
     });
@@ -121,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return { success: false, error: error.message };
     }
-    // Profile loading happens via onAuthStateChange
+    // Profile loading happens via onAuthStateChange — force reload for new login
     return { success: true };
   };
 
