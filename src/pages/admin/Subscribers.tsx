@@ -64,8 +64,9 @@ const AdminSubscribers = () => {
     return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
+  const nonCanceled = subs.filter(s => s.status !== 'canceled');
   const activeCount = subs.filter(s => s.status === 'active').length;
-  const renewalRate = subs.length > 0 ? Math.round((subs.filter(s => s.auto_renew).length / subs.length) * 100) : 0;
+  const renewalRate = nonCanceled.length > 0 ? Math.round((nonCanceled.filter(s => s.auto_renew).length / nonCanceled.length) * 100) : 0;
 
   const filtered = subs.filter(s => {
     if (!searchQuery) return true;
@@ -76,9 +77,9 @@ const AdminSubscribers = () => {
   });
 
   const stats = [
-    { label: '總訂閱人數', value: subs.length, icon: Users },
+    { label: '總訂閱人數', value: nonCanceled.length, icon: Users },
     { label: '活躍訂閱', value: activeCount, icon: UserPlus },
-    { label: '已到期/取消', value: subs.length - activeCount, icon: UserMinus },
+    { label: '已到期', value: nonCanceled.length - activeCount, icon: UserMinus },
     { label: '續訂率', value: `${renewalRate}%`, icon: RefreshCw },
   ];
 
