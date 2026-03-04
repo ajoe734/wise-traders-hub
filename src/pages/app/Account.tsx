@@ -346,12 +346,6 @@ const Account = () => {
               </span>
               <ExternalLink className="h-4 w-4 text-muted-foreground" />
             </Link>
-            <Link to="/pricing" className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors">
-              <span className="text-sm flex items-center gap-2">
-                <Radio className="h-4 w-4" /> 探索更多方案
-              </span>
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
-            </Link>
           </CardContent>
         </Card>
 
