@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
-import { PersonRole } from "@/types";
+import { ExpertRole } from "@/types";
 import { useExperts } from "@/hooks/useExpert";
 import { useSubscribedExpertSlugs } from "@/hooks/useSubscriptions";
 
-type RoleFilter = "all" | PersonRole.ADVISOR | PersonRole.MENTOR;
+type RoleFilter = "all" | "advisor" | "mentor";
 
 const Explore = () => {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
@@ -23,8 +23,8 @@ const Explore = () => {
     return expert.role === roleFilter;
   });
 
-  const getRoleLabel = (role: PersonRole) => role === PersonRole.ADVISOR ? "投顧分析師" : "實戰導師";
-  const getRoleBadgeVariant = (role: PersonRole) => role === PersonRole.ADVISOR ? "default" : "secondary";
+  const getRoleLabel = (role: ExpertRole) => role === 'advisor' ? "投顧分析師" : "實戰導師";
+  const getRoleBadgeVariant = (role: ExpertRole) => role === 'advisor' ? "default" as const : "secondary" as const;
 
   return (
     <UnifiedAppLayout>
@@ -37,8 +37,8 @@ const Explore = () => {
         <Tabs value={roleFilter} onValueChange={(v) => setRoleFilter(v as RoleFilter)}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="all">全部</TabsTrigger>
-            <TabsTrigger value={PersonRole.ADVISOR}>投顧分析師</TabsTrigger>
-            <TabsTrigger value={PersonRole.MENTOR}>實戰導師</TabsTrigger>
+            <TabsTrigger value="advisor">投顧分析師</TabsTrigger>
+            <TabsTrigger value="mentor">實戰導師</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -78,7 +78,7 @@ const Explore = () => {
                     )}
                     <div className="flex gap-2 mt-4">
                       {isSubscribed ? (
-                        <Button asChild className={`flex-1 ${expert.role === PersonRole.ADVISOR ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90'} text-white`}>
+                        <Button asChild className={`flex-1 ${expert.role === 'advisor' ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90'} text-white`}>
                           <Link to={`/app/expert/${expert.slug}`}>查看專家詳情<ChevronRight className="h-4 w-4 ml-1" /></Link>
                         </Button>
                       ) : (

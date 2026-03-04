@@ -1,13 +1,13 @@
-import { PersonRole } from '@/types';
+import { ExpertRole } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
 interface RoleBadgeProps {
-  role: PersonRole;
+  role: ExpertRole;
   size?: 'sm' | 'default' | 'lg';
 }
 
 export function RoleBadge({ role, size = 'default' }: RoleBadgeProps) {
-  const isAdvisor = role === PersonRole.ADVISOR;
+  const isAdv = role === 'advisor';
   
   const sizeClasses = {
     sm: 'text-[10px] px-2 py-0.5',
@@ -17,10 +17,10 @@ export function RoleBadge({ role, size = 'default' }: RoleBadgeProps) {
 
   return (
     <Badge 
-      variant={isAdvisor ? 'advisor' : 'mentor'}
+      variant={isAdv ? 'advisor' : 'mentor'}
       className={sizeClasses[size]}
     >
-      {isAdvisor ? '投顧分析師' : '實戰導師'}
+      {isAdv ? '投顧分析師' : '實戰導師'}
     </Badge>
   );
 }

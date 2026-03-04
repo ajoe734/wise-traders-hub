@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { SignalWithPerson, PersonRole } from '@/types';
+import { SignalWithPerson } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';

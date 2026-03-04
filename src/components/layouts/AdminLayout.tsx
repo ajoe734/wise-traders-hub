@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useExpert } from '@/hooks/useExpert';
-import { PersonRole } from '@/types';
+import { ExpertRole } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
@@ -45,7 +45,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert.role === 'advisor';
   const basePath = `/admin/${expertSlug}`;
 
   const navItems = [

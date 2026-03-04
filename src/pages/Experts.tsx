@@ -4,7 +4,7 @@ import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { ExpertCard } from '@/components/ExpertCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PersonRole } from '@/types';
+import { ExpertRole } from '@/types';
 import { Search, Filter, Shield, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useExperts } from '@/hooks/useExpert';
@@ -20,8 +20,8 @@ const Experts = () => {
 
   const filteredPeople = useMemo(() => {
     const filtered = allPeople.filter(person => {
-      if (roleFilter === 'advisor' && person.role !== PersonRole.ADVISOR) return false;
-      if (roleFilter === 'coach' && person.role !== PersonRole.MENTOR) return false;
+      if (roleFilter === 'advisor' && person.role !== 'advisor') return false;
+      if (roleFilter === 'coach' && person.role !== 'mentor') return false;
 
       if (searchQuery) {
         const query = searchQuery.toLowerCase();

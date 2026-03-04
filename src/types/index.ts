@@ -1,36 +1,23 @@
 // Domain types for the investment advisory platform
+// All string literal types align with Supabase DB enums
 
-// Expert types - 投顧分析師 (advisor) / 實戰導師 (coach)
-export type ExpertType = 'advisor' | 'coach';
+// Expert role — maps to DB enum expert_role
+export type ExpertRole = 'advisor' | 'mentor';
 
-// Legacy enum for backward compatibility
-export enum PersonRole {
-  ADVISOR = 'ADVISOR',  // 投顧分析師 - licensed, real-time calls
-  MENTOR = 'MENTOR'     // 實戰導師 - non-licensed, T+7 content
-}
+// Legacy alias
+export type ExpertType = ExpertRole;
 
-export enum PlanType {
-  ANALYST_SIGNAL_L1 = 'ANALYST_SIGNAL_L1',           // 即時策略訂閱
-  ANALYST_SIGNAL_DIAG_L2 = 'ANALYST_SIGNAL_DIAG_L2', // 即時策略＋持股健檢
-  MENTOR_WEEKLY_JOURNAL = 'MENTOR_WEEKLY_JOURNAL'    // T+7 實戰週記教學
-}
+// Plan type — maps to DB enum plan_type
+export type PlanType = 'analyst_signal_l1' | 'analyst_signal_diag_l2' | 'mentor_weekly_journal';
 
 // Plan level for cleaner typing
 export type PlanLevel = 'advisor_L1' | 'advisor_L2' | 'coach_basic';
 
-export enum SubscriptionStatus {
-  ACTIVE = 'ACTIVE',
-  CANCELED = 'CANCELED',
-  EXPIRED = 'EXPIRED'
-}
+// Subscription status — maps to DB enum subscription_status
+export type SubscriptionStatus = 'active' | 'canceled' | 'expired';
 
-export enum SignalAction {
-  BUY = 'BUY',
-  SELL = 'SELL',
-  ADD = 'ADD',
-  TRIM = 'TRIM',
-  EXIT = 'EXIT'
-}
+// Signal action — maps to DB enum signal_action
+export type SignalAction = 'buy' | 'sell' | 'add' | 'trim' | 'exit';
 
 export interface User {
   id: string;
@@ -46,7 +33,7 @@ export interface Expert {
   slug: string;
   name: string;
   title: '投顧分析師' | '實戰導師';
-  type: ExpertType;
+  type: ExpertRole;
   avatarUrl?: string;
   coverUrl?: string;
   biography: string;
@@ -74,12 +61,12 @@ export interface StrategySummary {
   };
 }
 
-// Backward compatible Person type
+// Person type — role uses DB string
 export interface Person {
   id: string;
   slug: string;
   name: string;
-  role: PersonRole;
+  role: ExpertRole;
   avatarUrl?: string;
   bio: string;
   description: string;
@@ -198,17 +185,12 @@ export interface JournalWithPerson extends WeeklyJournal {
   system?: TradingSystem;
 }
 
-// Helper function to convert PersonRole to ExpertType
-export function roleToExpertType(role: PersonRole): ExpertType {
-  return role === PersonRole.ADVISOR ? 'advisor' : 'coach';
-}
-
 // Helper function to get expert title from role
-export function getExpertTitle(role: PersonRole): '投顧分析師' | '實戰導師' {
-  return role === PersonRole.ADVISOR ? '投顧分析師' : '實戰導師';
+export function getExpertTitle(role: ExpertRole): '投顧分析師' | '實戰導師' {
+  return role === 'advisor' ? '投顧分析師' : '實戰導師';
 }
 
 // Helper function to check if expert is advisor
-export function isAdvisor(role: PersonRole | ExpertType): boolean {
-  return role === PersonRole.ADVISOR || role === 'advisor';
+export function isAdvisor(role: ExpertRole): boolean {
+  return role === 'advisor';
 }
