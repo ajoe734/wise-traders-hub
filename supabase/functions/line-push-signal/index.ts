@@ -134,6 +134,7 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader?.startsWith('Bearer ')) {
+      console.error('No auth header')
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -144,23 +145,23 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } },
-    )
-
-    const { data: { user: callerUser }, error: userError } = await supabaseUser.auth.getUser()
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user: callerUser }, error: userError } = await supabaseAdmin.auth.getUser(token)
     if (userError || !callerUser) {
+      console.error('Auth failed:', userError?.message)
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
     const userId = callerUser.id
+    console.log('Caller:', userId)
 
     const { signal_id, expert_id, type } = await req.json()
     const pushType = type === 'takedown' ? 'takedown' : 'publish'
+    console.log('Push request:', { signal_id, expert_id, pushType })
+
     if (!signal_id || !expert_id) {
+      console.error('Missing params')
       return new Response(JSON.stringify({ error: 'Missing signal_id or expert_id' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -171,6 +172,7 @@ Deno.serve(async (req) => {
       .from('experts').select('id, user_id').eq('id', expert_id).single()
 
     if (!expertRow) {
+      console.error('Expert not found:', expert_id)
       return new Response(JSON.stringify({ error: 'Expert not found' }), {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -181,6 +183,7 @@ Deno.serve(async (req) => {
     })
 
     if (expertRow.user_id !== userId && !isAdmin) {
+      console.error('Forbidden: caller is not expert owner or admin')
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -194,6 +197,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (!channel || !channel.is_active || !channel.channel_access_token) {
+      console.log('No active LINE channel for expert')
       return new Response(JSON.stringify({ pushed: false, reason: 'no_channel' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -207,18 +211,20 @@ Deno.serve(async (req) => {
       .single()
 
     if (!signal) {
+      console.error('Signal not found:', signal_id)
       return new Response(JSON.stringify({ error: 'Signal not found' }), {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     // Get active LINE bindings for this expert
-    // Then filter to users who have active subscriptions for this expert
     const { data: bindings } = await supabaseAdmin
       .from('member_line_bindings')
       .select('line_user_id, user_id')
       .eq('expert_id', expert_id)
       .eq('is_active', true)
+
+    console.log('Bindings found:', bindings?.length || 0)
 
     if (!bindings || bindings.length === 0) {
       return new Response(JSON.stringify({ pushed: false, reason: 'no_bindings', count: 0 }), {
@@ -227,13 +233,13 @@ Deno.serve(async (req) => {
     }
 
     // Filter to only users with active subscriptions to THIS expert
-    // Get all plan_ids belonging to this expert
     const { data: expertPlans } = await supabaseAdmin
       .from('expert_plans')
       .select('id')
       .eq('expert_id', expert_id)
 
     const expertPlanIds = (expertPlans || []).map(p => p.id)
+    console.log('Expert plan IDs:', expertPlanIds)
 
     const targets: string[] = []
     if (expertPlanIds.length > 0) {
@@ -252,6 +258,8 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log('Targets with active subs:', targets.length)
+
     if (targets.length === 0) {
       return new Response(JSON.stringify({ pushed: false, reason: 'no_active_subscribers', count: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -264,6 +272,7 @@ Deno.serve(async (req) => {
     // Send in batches of 500
     for (let i = 0; i < targets.length; i += 500) {
       const batch = targets.slice(i, i + 500)
+      console.log(`Sending batch ${i} to ${batch.length} users`)
       const res = await fetch(LINE_MULTICAST_URL, {
         method: 'POST',
         headers: {
@@ -275,12 +284,14 @@ Deno.serve(async (req) => {
 
       if (res.ok) {
         totalPushed += batch.length
+        console.log(`Batch ${i} sent OK`)
       } else {
         const errBody = await res.text()
-        console.error(`LINE multicast failed for batch ${i}:`, errBody)
+        console.error(`LINE multicast failed for batch ${i}:`, res.status, errBody)
       }
     }
 
+    console.log('Total pushed:', totalPushed)
     return new Response(JSON.stringify({ pushed: true, count: totalPushed }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
