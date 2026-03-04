@@ -150,7 +150,7 @@ const ExpertProfile = () => {
     switch (planType) {
       case 'analyst_signal_l1': return ['即時訊號推播通知', '完整買賣理由說明', '風險與部位控管建議', '交易紀錄完整保存'];
       case 'analyst_signal_diag_l2': return ['等級 1 所有功能', '持股診斷報告', '個人化投資組合建議', '專屬風險評估'];
-      case 'mentor_weekly_journal': return ['每週實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點', '策略思維培養'];
+      case 'mentor_weekly_journal': return ['T+7 延遲實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點', '策略思維培養'];
       default: return [];
     }
   };
@@ -159,11 +159,11 @@ const ExpertProfile = () => {
     switch (planType) {
       case 'analyst_signal_l1': return '即時訊號通知';
       case 'analyst_signal_diag_l2': return '訊號 + 持股健檢';
-      case 'mentor_weekly_journal': return '每週六發布・週記式教學';
+      case 'mentor_weekly_journal': return 'T+7 延遲・週記式教學';
       default: return '';
     }
   };
-  const getPlanNote = (planType: string) => planType === 'mentor_weekly_journal' ? '每週六由導師親自發布，僅供教學參考。' : '包含具體買賣指示，屬投顧服務。';
+  const getPlanNote = (planType: string) => planType === 'mentor_weekly_journal' ? '所有內容均延遲 7 天以上（T+7），僅作為歷史案例教學用途，不構成即時投資建議。' : '包含具體買賣指示，屬投顧服務。';
 
   const backButton = fromAccount
     ? <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/app/account')}><ArrowLeft className="h-4 w-4 mr-1" />返回帳號設定</Button>
