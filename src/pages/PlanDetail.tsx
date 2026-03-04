@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
-import { PersonRole } from '@/types';
+import { ExpertRole } from '@/types';
 import { CheckCircle, ArrowRight, Shield, Clock, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePlan } from '@/hooks/useExpertPlans';
@@ -36,7 +36,7 @@ const PlanDetail = () => {
 
   const expert = planData.experts as any;
   const isAdvisor = expert.role === 'advisor';
-  const role = isAdvisor ? PersonRole.ADVISOR : PersonRole.MENTOR;
+  const role: ExpertRole = isAdvisor ? 'advisor' : 'mentor';
 
   const getPlanFeatures = (planType: string): string[] => {
     switch (planType) {

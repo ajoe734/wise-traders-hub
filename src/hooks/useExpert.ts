@@ -1,22 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { PersonWithPlans, PersonRole, PlanType, Plan } from '@/types';
-
-function mapPlanType(dbType: string): PlanType {
-  switch (dbType) {
-    case 'analyst_signal_l1': return PlanType.ANALYST_SIGNAL_L1;
-    case 'analyst_signal_diag_l2': return PlanType.ANALYST_SIGNAL_DIAG_L2;
-    case 'mentor_weekly_journal': return PlanType.MENTOR_WEEKLY_JOURNAL;
-    default: return PlanType.ANALYST_SIGNAL_L1;
-  }
-}
+import { PersonWithPlans, PlanType, Plan } from '@/types';
 
 export function mapToPersonWithPlans(row: any): PersonWithPlans {
   return {
     id: row.id,
     slug: row.slug,
     name: row.name,
-    role: row.role === 'advisor' ? PersonRole.ADVISOR : PersonRole.MENTOR,
+    role: row.role as 'advisor' | 'mentor',
     avatarUrl: row.avatar_url || undefined,
     bio: row.bio || '',
     description: row.description || '',
@@ -27,7 +18,7 @@ export function mapToPersonWithPlans(row: any): PersonWithPlans {
       .map((p: any): Plan => ({
         id: p.id,
         personId: row.id,
-        planType: mapPlanType(p.plan_type),
+        planType: p.plan_type as PlanType,
         name: p.name,
         description: p.description || '',
         priceMonthly: p.price_monthly,

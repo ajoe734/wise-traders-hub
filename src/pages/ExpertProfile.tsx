@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { PersonRole } from '@/types';
+import { ExpertRole } from '@/types';
 import { CheckCircle, ArrowRight, Shield, Clock, TrendingUp, Check, Loader2, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -168,7 +168,7 @@ const ExpertProfile = () => {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3 flex-wrap">
                 <h1 className="text-2xl md:text-3xl font-bold">{expertInfo.name}</h1>
-                <RoleBadge role={isAdvisor ? PersonRole.ADVISOR : PersonRole.MENTOR} size="lg" />
+                <RoleBadge role={isAdvisor ? 'advisor' : 'mentor'} size="lg" />
               </div>
               <p className="text-lg text-muted-foreground mb-4">{expertInfo.bio}</p>
               <p className="text-muted-foreground">{expertInfo.description}</p>

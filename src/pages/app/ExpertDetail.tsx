@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Check, Target, Stethoscope, Zap, BookOpen, Lock } from "lucide-react";
-import { PersonRole } from "@/types";
+import { ExpertRole } from "@/types";
 import { Link } from "react-router-dom";
 import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverviewPanel";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,7 +86,7 @@ const AppExpertDetail = () => {
     );
   }
 
-  const isAdvisor = expert.role === PersonRole.ADVISOR;
+  const isAdvisor = expert.role === 'advisor';
   const displayPlan = isAdvisor ? standardPlans.follower : standardPlans.cultivator;
 
   const isSubscribedToFollower = subscribedPlanTypes.some(t => t === 'analyst_signal_l1' || t === 'analyst_signal_diag_l2');
@@ -94,8 +94,8 @@ const AppExpertDetail = () => {
   const isSubscribedToCultivator = subscribedPlanTypes.includes('mentor_weekly_journal');
   const isSubscribed = isAdvisor ? isSubscribedToFollower : isSubscribedToCultivator;
 
-  const getRoleLabel = (role: PersonRole) => role === PersonRole.ADVISOR ? "投顧分析師" : "實戰導師";
-  const getRoleBadgeVariant = (role: PersonRole) => role === PersonRole.ADVISOR ? "default" : "secondary";
+  const getRoleLabel = (role: ExpertRole) => role === 'advisor' ? "投顧分析師" : "實戰導師";
+  const getRoleBadgeVariant = (role: ExpertRole) => role === 'advisor' ? "default" as const : "secondary" as const;
 
   const PlanIcon = displayPlan.icon;
 
