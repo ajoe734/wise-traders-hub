@@ -379,6 +379,7 @@ export type Database = {
           role: Database["public"]["Enums"]["expert_role"]
           slug: string
           status: string
+          strategy_summary: string | null
           style_tags: string[] | null
           user_id: string
         }
@@ -394,6 +395,7 @@ export type Database = {
           role: Database["public"]["Enums"]["expert_role"]
           slug: string
           status?: string
+          strategy_summary?: string | null
           style_tags?: string[] | null
           user_id: string
         }
@@ -409,6 +411,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["expert_role"]
           slug?: string
           status?: string
+          strategy_summary?: string | null
           style_tags?: string[] | null
           user_id?: string
         }
