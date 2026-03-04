@@ -14,6 +14,9 @@ export function mapToPersonWithPlans(row: any): PersonWithPlans {
     styleTags: row.style_tags || [],
     markets: row.markets || [],
     strategySummary: row.strategy_summary || '',
+    backtestReturn1y: row.backtest_1y_return ?? null,
+    backtestMaxDrawdown: row.backtest_max_drawdown ?? null,
+    backtestAnnualReturn: row.backtest_annual_return ?? null,
     plans: (row.expert_plans || [])
       .filter((p: any) => p.is_active && p.review_status === 'approved')
       .map((p: any): Plan => ({

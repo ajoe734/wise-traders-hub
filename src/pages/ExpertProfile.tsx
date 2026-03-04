@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
+import { StrategyIntroSection } from '@/components/strategy/StrategyIntroSection';
 
 interface DbPlan {
   id: string;
@@ -31,6 +32,9 @@ interface ExpertInfo {
   role: 'advisor' | 'mentor';
   styleTags: string[];
   markets: string[];
+  backtestReturn1y: number | null;
+  backtestMaxDrawdown: number | null;
+  backtestAnnualReturn: number | null;
 }
 
 const ExpertProfile = () => {
@@ -54,7 +58,7 @@ const ExpertProfile = () => {
 
       const { data: expert } = await supabase
         .from('experts')
-        .select('id, name, bio, description, avatar_url, role, style_tags, markets, status, strategy_summary')
+        .select('id, name, bio, description, avatar_url, role, style_tags, markets, status, strategy_summary, backtest_1y_return, backtest_max_drawdown, backtest_annual_return')
         .eq('slug', slug)
         .single();
 
@@ -74,6 +78,9 @@ const ExpertProfile = () => {
         role: expert.role as 'advisor' | 'mentor',
         styleTags: expert.style_tags || [],
         markets: expert.markets || [],
+        backtestReturn1y: (expert as any).backtest_1y_return ?? null,
+        backtestMaxDrawdown: (expert as any).backtest_max_drawdown ?? null,
+        backtestAnnualReturn: (expert as any).backtest_annual_return ?? null,
       });
 
       const { data: plans } = await supabase
@@ -220,13 +227,15 @@ const ExpertProfile = () => {
             <Lightbulb className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
             <h2 className="text-h3">策略簡介</h2>
           </div>
-          <Card>
-            <CardContent className="p-6 md:p-8">
-              <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                {expertInfo.strategySummary || '尚未設定策略簡介'}
-              </p>
-            </CardContent>
-          </Card>
+          <StrategyIntroSection
+            summary={expertInfo.strategySummary || ''}
+            metrics={{
+              return1y: expertInfo.backtestReturn1y,
+              maxDrawdown: expertInfo.backtestMaxDrawdown,
+              annualReturn: expertInfo.backtestAnnualReturn,
+            }}
+            variant={isAdvisor ? 'advisor' : 'mentor'}
+          />
         </section>
 
         {/* ── Performance Section ── */}

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Check, Target, Stethoscope, Zap, BookOpen, Lock, Lightbulb } from "lucide-react";
+import { StrategyIntroSection } from "@/components/strategy/StrategyIntroSection";
 import { ExpertRole } from "@/types";
 import { Link } from "react-router-dom";
 import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverviewPanel";
@@ -161,18 +162,20 @@ const AppExpertDetail = () => {
         )}
 
         {/* Strategy Introduction */}
-        {expert.strategySummary && (
-          <div className="pt-2">
-            <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
-              <Lightbulb className="h-4 w-4" />策略簡介
-            </h2>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{expert.strategySummary}</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <div className="pt-2">
+          <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
+            <Lightbulb className="h-4 w-4" />策略簡介
+          </h2>
+          <StrategyIntroSection
+            summary={expert.strategySummary}
+            metrics={{
+              return1y: expert.backtestReturn1y,
+              maxDrawdown: expert.backtestMaxDrawdown,
+              annualReturn: expert.backtestAnnualReturn,
+            }}
+            variant={isAdvisor ? 'advisor' : 'mentor'}
+          />
+        </div>
 
         <div className="pt-2">
           <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">

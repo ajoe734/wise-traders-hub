@@ -369,6 +369,9 @@ export type Database = {
       experts: {
         Row: {
           avatar_url: string | null
+          backtest_1y_return: number | null
+          backtest_annual_return: number | null
+          backtest_max_drawdown: number | null
           bio: string | null
           created_at: string
           created_by: string | null
@@ -385,6 +388,9 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          backtest_1y_return?: number | null
+          backtest_annual_return?: number | null
+          backtest_max_drawdown?: number | null
           bio?: string | null
           created_at?: string
           created_by?: string | null
@@ -401,6 +407,9 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          backtest_1y_return?: number | null
+          backtest_annual_return?: number | null
+          backtest_max_drawdown?: number | null
           bio?: string | null
           created_at?: string
           created_by?: string | null
