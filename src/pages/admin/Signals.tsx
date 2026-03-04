@@ -108,7 +108,7 @@ const AdminSignals = () => {
       status: 'published' as any,
     }).select('id').single();
     if (error) { toast.error(error.message); return; }
-    toast.success(isMentor ? '週記已發布，將於 7 天後自動推播' : '訊號已發布');
+    toast.success(isMentor ? '週記已發布' : '訊號已發布');
     setIsCreateOpen(false);
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
 
@@ -152,7 +152,7 @@ const AdminSignals = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
-            <p className="text-muted-foreground text-sm mt-1">{isMentor ? '發布後將於 7 天後自動推播給訂閱者' : '發布即上線，管理者可事後下架'}</p>
+            <p className="text-muted-foreground text-sm mt-1">{isMentor ? '發布即上線，訂閱者將收到推播通知' : '發布即上線，管理者可事後下架'}</p>
           </div>
           {!isReadOnly && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
