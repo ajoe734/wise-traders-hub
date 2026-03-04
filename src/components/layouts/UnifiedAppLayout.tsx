@@ -137,9 +137,13 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   const navigate = useNavigate();
   const [unreadSignals, setUnreadSignals] = useState(0);
   const [unreadJournals, setUnreadJournals] = useState(0);
+  const [hasAdvisor, setHasAdvisor] = useState(false);
+  const [hasMentor, setHasMentor] = useState(false);
 
-  // Determine mode — default to 'signals' (no mock dependency)
-  const mode = 'signals' as 'signals' | 'learning' | 'both';
+  // Determine mode from real subscription data
+  const mode = (hasAdvisor && hasMentor ? 'both' :
+    hasMentor ? 'learning' :
+    'signals') as 'signals' | 'learning' | 'both';
 
   // Build nav items based on subscription type - unified navigation for all users
   const bottomNavItems: NavItem[] = useMemo(() => {
@@ -172,16 +176,24 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
       const signalsLastSeen = signalsLastSeenStr ? parseInt(signalsLastSeenStr, 10) : 0;
       const sinceIso = signalsLastSeen > 0 ? new Date(signalsLastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
 
-      // Get subscribed expert IDs first
+      // Get subscribed plans with expert role info
       const { data: activeSubs } = await supabase
         .from('member_subscriptions')
-        .select('plan_id, expert_plans(expert_id)')
+        .select('plan_id, expert_plans(expert_id, plan_type, experts(role))')
         .eq('user_id', user.id)
         .eq('status', 'active');
 
-      const expertIds = (activeSubs || [])
+      const subs = activeSubs || [];
+      const expertIds = subs
         .map((s: any) => s.expert_plans?.expert_id)
         .filter(Boolean);
+
+      // Determine subscription mode from expert roles
+      const roles = subs
+        .map((s: any) => s.expert_plans?.experts?.role)
+        .filter(Boolean);
+      setHasAdvisor(roles.includes('advisor'));
+      setHasMentor(roles.includes('mentor'));
 
       if (expertIds.length > 0) {
         const { count: unreadSignalsCount } = await supabase
