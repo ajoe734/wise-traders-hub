@@ -62,13 +62,13 @@ const AdminSignals = () => {
         .select('*')
         .eq('expert_id', exp.id)
         .order('created_at', { ascending: false });
-      // Show taken_down signals for 5 minutes after takedown, then auto-hide
+      // Show taken_down signals for 5 minutes after publish, then auto-hide
       const fiveMinAgo = Date.now() - 5 * 60 * 1000;
       const filtered = (s || []).filter(sig => {
         if (sig.status !== 'taken_down') return true;
-        // Use created_at of the most recent update as proxy; for taken_down signals we keep them briefly
-        const createdTime = sig.created_at ? new Date(sig.created_at).getTime() : 0;
-        return createdTime > fiveMinAgo;
+        // Use published_at as proxy for visibility window
+        const publishedTime = sig.published_at ? new Date(sig.published_at).getTime() : 0;
+        return publishedTime > fiveMinAgo;
       });
       setSignals(filtered);
       const { data: p } = await supabase.from('expert_plans').select('id, name').eq('expert_id', exp.id).eq('is_active', true);
@@ -108,7 +108,7 @@ const AdminSignals = () => {
       status: 'published' as any,
     }).select('id').single();
     if (error) { toast.error(error.message); return; }
-    toast.success(isMentor ? '週記已發布' : '訊號已發布');
+    toast.success(isMentor ? '週記已發布，將於 7 天後自動推播' : '訊號已發布');
     setIsCreateOpen(false);
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
 
@@ -120,8 +120,9 @@ const AdminSignals = () => {
         console.log('LINE push response:', pushData, pushError);
         if (pushError) {
           toast.error(`LINE 推播失敗：${pushError.message}`);
-      } else if (pushData?.pushed) {
+        } else if (pushData?.pushed) {
           toast.success(`已推播給 ${pushData.count} 位訂閱者`);
+        } else if (pushData?.reason) {
         } else if (pushData?.reason) {
           toast.info(`LINE 推播略過：${pushData.reason}`);
         }
@@ -152,7 +153,7 @@ const AdminSignals = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
-            <p className="text-muted-foreground text-sm mt-1">{isMentor ? '發布後即時推播給訂閱者' : '發布即上線，管理者可事後下架'}</p>
+            <p className="text-muted-foreground text-sm mt-1">{isMentor ? '發布後將於 7 天後自動推播給訂閱者' : '發布即上線，管理者可事後下架'}</p>
           </div>
           {!isReadOnly && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
