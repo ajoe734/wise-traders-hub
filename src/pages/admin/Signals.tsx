@@ -206,7 +206,7 @@ const AdminSignals = () => {
                           variant="outline"
                           size="sm"
                           className="h-6 text-xs px-2"
-                          onClick={() => setReasonSummary(tpl.content)}
+                          onClick={() => setReasonSummary(prev => prev ? `${prev}，${tpl.content}` : tpl.content)}
                         >
                           {tpl.title}
                         </Button>
