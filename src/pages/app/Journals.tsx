@@ -2,44 +2,136 @@ import { useState, useEffect, useMemo } from 'react';
 import { UnifiedAppLayout, markAppJournalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { JournalCard } from '@/components/JournalCard';
 import { useAuth } from '@/contexts/AuthContext';
-import { getJournalsForUser } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
-import { BookOpen, CalendarDays } from 'lucide-react';
-import { format } from 'date-fns';
+import { BookOpen, CalendarDays, Loader2 } from 'lucide-react';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 
+interface JournalSignal {
+  id: string;
+  instrument: string;
+  action: string;
+  price_hint: number | null;
+  reason_summary: string | null;
+  reason_detail: string | null;
+  risk_notes: string | null;
+  learning_points: string | null;
+  published_at: string;
+  expert_id: string;
+  experts: {
+    name: string;
+    slug: string;
+    role: string;
+    avatar_url: string | null;
+  };
+}
+
+interface WeekGroup {
+  weekStart: Date;
+  weekEnd: Date;
+  signals: JournalSignal[];
+  expert: JournalSignal['experts'];
+}
+
 const Journals = () => {
+  const [signals, setSignals] = useState<JournalSignal[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
-  // Mark journals as read when entering this page
   useEffect(() => {
     markAppJournalsAsRead();
   }, []);
 
   const { user } = useAuth();
-  const journals = user ? getJournalsForUser(user.id) : [];
 
-  // Calculate available months from journals
+  useEffect(() => {
+    if (!user) return;
+    fetchJournals();
+  }, [user]);
+
+  const fetchJournals = async () => {
+    if (!user) return;
+    setLoading(true);
+
+    // 1. Get mentor expert_ids the user is subscribed to
+    const { data: subs } = await supabase
+      .rpc('has_active_subscription', { _user_id: user.id });
+
+    if (!subs || subs.length === 0) {
+      setSignals([]);
+      setLoading(false);
+      return;
+    }
+
+    const expertIds = subs.map((s: any) => s.expert_id);
+
+    // Filter to mentor experts only
+    const { data: mentorExperts } = await supabase
+      .from('experts')
+      .select('id')
+      .in('id', expertIds)
+      .eq('role', 'mentor');
+
+    const mentorIds = (mentorExperts || []).map(e => e.id);
+    if (mentorIds.length === 0) {
+      setSignals([]);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Query expert_signals with T+7 delay
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const { data, error } = await supabase
+      .from('expert_signals')
+      .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+      .eq('status', 'published')
+      .in('expert_id', mentorIds)
+      .lte('published_at', sevenDaysAgo.toISOString())
+      .order('published_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error('Error fetching journals:', error);
+    }
+    setSignals((data as any) || []);
+    setLoading(false);
+  };
+
+  // Group signals by week
+  const weekGroups = useMemo(() => {
+    const groups: Map<string, WeekGroup> = new Map();
+    signals.forEach(signal => {
+      const pubDate = new Date(signal.published_at);
+      const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
+      const we = endOfWeek(pubDate, { weekStartsOn: 1 });
+      const key = `${signal.expert_id}-${format(ws, 'yyyy-MM-dd')}`;
+      if (!groups.has(key)) {
+        groups.set(key, { weekStart: ws, weekEnd: we, signals: [], expert: signal.experts });
+      }
+      groups.get(key)!.signals.push(signal);
+    });
+    return Array.from(groups.values()).sort((a, b) => b.weekStart.getTime() - a.weekStart.getTime());
+  }, [signals]);
+
+  // Available months
   const availableMonths = useMemo(() => {
     const monthSet = new Set<string>();
-    journals.forEach(journal => {
-      const monthKey = format(journal.weekStart, 'yyyy-MM');
-      monthSet.add(monthKey);
+    weekGroups.forEach(g => {
+      monthSet.add(format(g.weekStart, 'yyyy-MM'));
     });
-    return Array.from(monthSet).sort().reverse(); // newest first
-  }, [journals]);
+    return Array.from(monthSet).sort().reverse();
+  }, [weekGroups]);
 
-  // Filter journals by selected month
-  const filteredJournals = useMemo(() => {
-    if (selectedMonth === 'all') return journals;
-    
-    return journals.filter(journal => {
-      const journalMonth = format(journal.weekStart, 'yyyy-MM');
-      return journalMonth === selectedMonth;
-    });
-  }, [journals, selectedMonth]);
+  // Filter by month
+  const filteredGroups = useMemo(() => {
+    if (selectedMonth === 'all') return weekGroups;
+    return weekGroups.filter(g => format(g.weekStart, 'yyyy-MM') === selectedMonth);
+  }, [weekGroups, selectedMonth]);
 
   return (
     <UnifiedAppLayout>
@@ -54,7 +146,7 @@ const Journals = () => {
             來自您訂閱導師的 T+7 修煉派週記
           </p>
           
-          {journals.length > 0 && (
+          {weekGroups.length > 0 && (
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
               <SelectTrigger className="w-[140px] h-8 text-sm">
                 <CalendarDays className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -72,11 +164,22 @@ const Journals = () => {
           )}
         </div>
         
-        {journals.length > 0 ? (
-          filteredJournals.length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : weekGroups.length > 0 ? (
+          filteredGroups.length > 0 ? (
             <div className="space-y-3">
-              {filteredJournals.map(journal => (
-                <JournalCard key={journal.id} journal={journal} to={`/app/journal/${journal.id}`} />
+              {filteredGroups.map(group => (
+                <JournalCard
+                  key={`${group.expert.slug}-${format(group.weekStart, 'yyyy-MM-dd')}`}
+                  weekStart={group.weekStart}
+                  weekEnd={group.weekEnd}
+                  signals={group.signals}
+                  expert={group.expert}
+                  to={`/app/journal/${group.signals[0].id}`}
+                />
               ))}
             </div>
           ) : (
@@ -93,7 +196,7 @@ const Journals = () => {
         ) : (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
-              目前尚未訂閱任何實戰導師
+              目前尚未訂閱任何實戰導師，或尚無已發布的週記
             </CardContent>
           </Card>
         )}

@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.ecpay-callback]
 verify_jwt = false
+
+[functions.twse-proxy]
+verify_jwt = false
