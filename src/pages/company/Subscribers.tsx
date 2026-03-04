@@ -4,9 +4,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw, Eye, Download } from 'lucide-react';
+import { Search, Users, UserCheck, UserX, RefreshCw, Download } from 'lucide-react';
 
 const CompanySubscribers = () => {
   const [subs, setSubs] = useState<any[]>([]);
@@ -14,7 +13,7 @@ const CompanySubscribers = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
-  const [detailUser, setDetailUser] = useState<string | null>(null);
+  
 
   useEffect(() => { fetchSubs(); }, []);
 
@@ -87,8 +86,6 @@ const CompanySubscribers = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Detail: all subscriptions for a user
-  const detailSubs = detailUser ? subs.filter(s => s.user_id === detailUser) : [];
 
   return (
     <CompanyLayout>
@@ -137,7 +134,7 @@ const CompanySubscribers = () => {
                   <th className="p-4">剩餘天數</th>
                   <th className="p-4">續訂</th>
                   <th className="p-4">狀態</th>
-                  <th className="p-4"></th>
+                  
                 </tr>
               </thead>
               <tbody>
@@ -169,11 +166,6 @@ const CompanySubscribers = () => {
                             {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
                           </Badge>
                         </td>
-                        <td className="p-4">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setDetailUser(sub.user_id)}>
-                            <Eye className="h-3 w-3 mr-1" />詳情
-                          </Button>
-                        </td>
                       </tr>
                     );
                   })
@@ -184,42 +176,6 @@ const CompanySubscribers = () => {
         </Card>
       </div>
 
-      {/* Subscriber Detail Dialog */}
-      <Dialog open={!!detailUser} onOpenChange={(open) => { if (!open) setDetailUser(null); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{profileMap[detailUser || ''] || '訂閱者'} — 訂閱歷程</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 mt-2">
-            {detailSubs.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">無訂閱紀錄</p>
-            ) : (
-              detailSubs.map(sub => {
-                const remaining = getRemainingDays(sub.expires_at);
-                return (
-                  <Card key={sub.id}>
-                    <CardContent className="p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{sub.expert_plans?.name || '-'}</span>
-                        <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">
-                          {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                        <div>開始：{sub.started_at ? new Date(sub.started_at).toLocaleDateString('zh-TW') : '-'}</div>
-                        <div>到期：{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('zh-TW') : '-'}</div>
-                        <div>續訂：{sub.auto_renew ? '自動' : '手動'}</div>
-                        <div>剩餘：{remaining != null ? (remaining > 0 ? `${remaining} 天` : '已到期') : '-'}</div>
-                        {sub.canceled_at && <div className="col-span-2">取消時間：{new Date(sub.canceled_at).toLocaleDateString('zh-TW')}</div>}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </CompanyLayout>
   );
 };
