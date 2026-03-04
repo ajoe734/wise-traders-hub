@@ -188,6 +188,7 @@ export type Database = {
           id: string
           instrument: string
           learning_points: string | null
+          line_pushed_at: string | null
           plan_id: string | null
           price_hint: number | null
           published_at: string | null
@@ -205,6 +206,7 @@ export type Database = {
           id?: string
           instrument: string
           learning_points?: string | null
+          line_pushed_at?: string | null
           plan_id?: string | null
           price_hint?: number | null
           published_at?: string | null
@@ -222,6 +224,7 @@ export type Database = {
           id?: string
           instrument?: string
           learning_points?: string | null
+          line_pushed_at?: string | null
           plan_id?: string | null
           price_hint?: number | null
           published_at?: string | null

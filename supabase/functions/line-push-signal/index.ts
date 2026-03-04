@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
 
     // Verify caller is analyst of this expert OR company_admin
     const { data: expertRow } = await supabaseAdmin
-      .from('experts').select('id, user_id').eq('id', expert_id).single()
+      .from('experts').select('id, user_id, role').eq('id', expert_id).single()
 
     if (!expertRow) {
       console.error('Expert not found:', expert_id)
@@ -265,6 +265,14 @@ Deno.serve(async (req) => {
       console.error('Forbidden: caller is not expert owner or admin')
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Mentor signals use delayed push (T+7), not immediate push
+    if (expertRow.role === 'mentor' && pushType === 'publish') {
+      console.log('Mentor signal: skipping immediate push (T+7 delayed)')
+      return new Response(JSON.stringify({ pushed: false, reason: 'mentor_delayed', message: '修煉派訊號將於 7 天後自動推播' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
