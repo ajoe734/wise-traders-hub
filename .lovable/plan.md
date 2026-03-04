@@ -1,79 +1,107 @@
 
 
-# 計畫：週記功能串接真實數據 + TWSE API + 移除方案管理
+# 三個後台功能評估報告
 
-## 要做的事
+以下是根據程式碼實際狀態整理的功能清單。每個功能標註「已完成」（可用）、「半成品」（有 UI 但用 mock 資料或功能不完整）、「尚未做」（完全沒有）。
 
-### 1. 移除分析師管理頁的「方案」按鈕和彈窗
-從 `src/pages/company/Analysts.tsx` 移除：
-- 操作欄的「方案」按鈕（第 334-336 行）
-- Plan Management Dialog（第 357-393 行）
-- Add Plan Dialog（第 395-435 行）
-- 所有方案相關 state 和函數（`planExpert`, `plans`, `openPlans`, `closePlans`, `togglePlanActive`, `handleAddPlan`, `getPlanTypeOptions`, `planTypeLabel` 等，第 31-40 行、91-140 行、220-239 行）
+---
 
-保留：LINE 設定、後台連結、啟用/停用。
+## 一、投顧分析師後台（/admin/:slug）— 即時訊號
 
-### 2. 建立 `twse-proxy` Edge Function
-建立 `supabase/functions/twse-proxy/index.ts`，代理 TWSE OpenAPI 呼叫：
+| 功能 | 狀態 | 說明 |
+|------|------|------|
+| **總覽儀表板** | 半成品 | 有 UI，但數據全部是寫死的假資料（營收 NT$32,800、累計報酬 680% 等），沒有串接資料庫 |
+| **訊號發布** | 已完成 | 可新增訊號（代碼、方向、價位、摘要、分析、風險），發布後寫入 DB 並觸發 LINE 即時推播 |
+| **訊號列表** | 已完成 | 查詢真實 DB，展開可看摘要/分析/風險，已下架的 5 分鐘後自動隱藏 |
+| **訂閱者管理** | 半成品 | 有表格 UI，但全部是寫死的假資料（王小明、李小華...），沒有串接真實訂閱紀錄 |
+| **個人檔案編輯** | 半成品 | 有表單 UI，但讀取的是前端 mock 的 `getPersonBySlug`，不是 DB 的 experts 表；儲存按鈕沒有功能 |
+| **績效總覽** | 已完成 | 串接 DB 的 `calculate_expert_performance` 函數，顯示勝率、累計報酬、最大回撤等真實數據 |
+| **交易紀錄** | 已完成 | 顯示 trade_records 表的真實資料，含持有中/已平倉/已停損狀態 |
 
-- 支援查詢參數 `endpoint`（如 `STOCK_DAY_ALL`, `BWIBBU_ALL`）和 `code`（股票代碼篩選）
-- 從 TWSE 拿完整資料後依 `code` 過濾，只回傳需要的個股
-- 加上 `config.toml` 設定 `verify_jwt = false`
+### 需要補做的功能
 
-已確認的 TWSE API 回傳格式：
-- `STOCK_DAY_ALL`：`{Code, Name, ClosingPrice, Change, TradeVolume, OpeningPrice, HighestPrice, LowestPrice, Transaction}`
-- `BWIBBU_ALL`：`{Code, Name, PEratio, DividendYield, PBratio}`
+1. **總覽儀表板串接真實數據**：活躍訂閱者數、本月營收、累計訊號數，目前全是假的
+2. **訂閱者列表串接 DB**：查詢 `member_subscriptions` + `expert_plans` + `profiles`，取代假資料
+3. **個人檔案串接 DB**：讀取/寫入 `experts` 表的真實欄位（name, bio, description, style_tags, markets, avatar_url）
+4. **頭像上傳功能**：需要建立 Storage bucket，目前「更換頭像」按鈕沒有功能
 
-### 3. 週記列表頁串接真實資料（`app/Journals.tsx`）
-- 移除 `getJournalsForUser` mock 呼叫
-- 改為查詢 `expert_signals` 表，篩選條件：
-  - 使用者有訂閱的 mentor 的 expert_id（透過 `member_subscriptions` + `expert_plans` + `experts WHERE role='mentor'`）
-  - `status = 'published'`
-  - `published_at <= now() - 7 days`（T+7 延遲）
-- 按 `published_at` 降序排列
-- 以週為單位分組顯示（用 `date-fns` 的 `startOfWeek`/`endOfWeek`）
+---
 
-### 4. 週記詳情頁串接真實資料（`app/JournalDetail.tsx`）
-- 移除 `getJournalById` mock
-- 改為查詢單一 `expert_signals` 記錄（by id），同時 join `experts` 取得導師資訊
-- 查詢同一 expert 同一週的 `trade_records` 作為「本週操作列表」
-- 呼叫 `twse-proxy` Edge Function，傳入該週操作的股票代碼，取得本益比、殖利率等基本面資料，附在週記下方作為「市場數據參考」區塊
+## 二、實戰導師後台（/admin/:slug）— T+7 週記
 
-### 5. 週記詳情新增「TWSE 市場數據」區塊
-在 `JournalDetail` 頁面底部（disclaimer 之前），新增一個卡片：
-- 標題：「本週相關個股數據（TWSE）」
-- 顯示該週記涉及的每檔股票的：收盤價、漲跌、本益比、殖利率、股價淨值比
-- 資料來自 `twse-proxy` Edge Function
+導師和分析師共用同一套 AdminLayout 和頁面，差異是 UI 文字會根據 `role` 切換（「訊號」→「週記」）。
 
-### 6. 更新 JournalCard 元件
-- 調整 `JournalCard` 接受 DB 格式的資料（`expert_signals` 欄位），不再依賴 mock 的 `JournalWithPerson` 型別
-- 或建立一個轉換層將 DB 資料映射為 JournalCard 所需的格式
+| 功能 | 狀態 | 說明 |
+|------|------|------|
+| **週記發布** | 已完成 | 共用訊號發布表單，發布後標記為 mentor 內容，LINE 推播會跳過即時發送，改由 cron 7 天後推 |
+| **週記列表** | 已完成 | 同訊號列表，顯示真實 DB 資料 |
+| **教學重點欄位** | 尚未做 | DB 有 `learning_points` 欄位，但發布表單沒有對應輸入框 |
+| **總覽/訂閱者/個人檔案** | 半成品 | 同分析師，一樣是假資料 |
+| **績效總覽** | 已完成 | 同分析師，真實數據 |
 
-## 技術細節
+### 導師特有需要補做的功能
 
-### TWSE Proxy Edge Function 架構
+1. **發布表單增加「教學重點」欄位**：讓導師填寫本週學習要點（DB 已有 `learning_points` 欄位）
+2. **週記預覽**：發布前預覽訂閱者會看到的內容樣貌
+3. **TWSE 數據自動帶入**：發布時自動從 TWSE API 帶入相關股票的收盤價、本益比等（twse-proxy 已建好但未串到發布流程）
+
+---
+
+## 三、公司管理員後台（/company/*）
+
+| 功能 | 狀態 | 說明 |
+|------|------|------|
+| **總覽儀表板** | 已完成 | 串接真實 DB：分析師數、活躍訂閱、已發布訊號數、上架方案數 |
+| **分析師管理** | 已完成 | 新增帳號（Edge Function）、LINE 設定（CRUD）、啟用/停用、連結到分析師後台（唯讀） |
+| **訂閱者管理** | 已完成 | 真實 DB 資料，支援多欄位搜尋、狀態篩選、剩餘天數顯示、續訂率計算 |
+| **營收數據** | 已完成 | 月營收趨勢圖、分析師 MRR 貢獻圓餅圖、MRR 計算，全部串接真實交易和訂閱資料 |
+| **金流管理** | 已完成 | 金流工具 CRUD、交易紀錄列表、退款功能（含審計日誌） |
+| **內容監管** | 已完成 | 查看所有已發布訊號、下架功能（含理由）、下架後 LINE 推播通知 |
+| **操作紀錄** | 已完成 | 審計日誌列表，actor UUID 轉顯示名稱 |
+| **系統公告** | 已完成 | 公告 CRUD，支援草稿/發布狀態 |
+| **方案管理** | 部分 | 方案透過 DB 建立，但目前沒有獨立的方案管理 UI 頁面（之前從分析師管理頁移除了） |
+
+### 需要補做的功能
+
+1. **獨立的方案管理頁面**：目前方案只能直接操作 DB，沒有給管理員用的 UI 來建立/編輯/審核方案
+2. **總覽補充 MRR 和本月營收**：目前只有計數，沒有金額摘要
+3. **匯出報表功能**：「匯出報表」和「匯出對帳報表」按鈕目前沒有實作
+4. **訂閱者詳情**：點擊訂閱者查看該用戶的完整訂閱歷程
+
+---
+
+## 四、跨後台共通問題
+
+| 問題 | 影響範圍 | 說明 |
+|------|---------|------|
+| **mock 資料殘留** | 分析師/導師後台 | Dashboard、Subscribers、Profile 三個頁面仍在讀 `mockData.ts` 的假資料，正式上線前必須全部改為 DB 查詢 |
+| **頭像上傳** | 所有後台 | 沒有 Storage bucket，無法上傳圖片 |
+| **密碼修改** | 分析師/導師 | 分析師帳號由管理員建立，但分析師自己無法改密碼 |
+| **通知中心** | 所有後台 | 沒有站內通知系統（下架通知、新訂閱通知等只靠 LINE） |
+
+---
+
+## 五、建議跟老闆討論的優先順序
+
 ```text
-GET /twse-proxy?endpoint=STOCK_DAY_ALL&codes=2330,2317
-GET /twse-proxy?endpoint=BWIBBU_ALL&codes=2330,2317
+必須做（上線前）:
+├── 1. 分析師/導師後台：Dashboard、Subscribers、Profile 串接真實 DB
+├── 2. 公司後台：獨立方案管理頁面（建立/編輯/上下架方案）
+├── 3. 導師發布表單加上「教學重點」欄位
+└── 4. 頭像上傳功能（建 Storage bucket）
 
-回傳：過濾後的 JSON 陣列
-快取：同一交易日內的資料可重複使用（TWSE 每日收盤後更新一次）
+應該做（提升價值）:
+├── 5. TWSE 數據串進週記詳情頁（已建好 proxy，差前端串接）
+├── 6. 總覽儀表板加入營收摘要和趨勢微圖
+└── 7. 匯出報表功能（CSV/PDF）
+
+可以之後做:
+├── 8. 站內通知中心
+├── 9. 分析師密碼重設功能
+└── 10. 週記預覽功能
 ```
 
-### 資料庫查詢邏輯（Journals 頁面）
-```text
-1. 取得使用者訂閱的 mentor expert_ids
-   member_subscriptions (active) → expert_plans → experts (role=mentor)
+---
 
-2. 查詢 expert_signals
-   WHERE expert_id IN (mentor_ids)
-   AND status = 'published'
-   AND published_at <= now() - 7 days
-   ORDER BY published_at DESC
-
-3. 前端按週分組顯示
-```
-
-### 不需要新增資料庫表格
-現有的 `expert_signals` + `trade_records` + `experts` 已足夠支撐所有週記功能。
+以上都是根據程式碼實際狀態整理的，沒有灌水。半成品的部分表面看起來有東西，但點進去都是假資料，正式面對客戶之前必須處理。
 
