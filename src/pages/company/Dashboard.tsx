@@ -43,7 +43,7 @@ const CompanyDashboard = () => {
     { label: '已發布訊號', value: signalCount, icon: Radio },
     { label: '總上架方案數', value: planCount, icon: Activity },
     { label: 'MRR', value: `NT$${mrr.toLocaleString()}`, icon: Repeat },
-    { label: '本月營收', value: '—', icon: DollarSign },
+    { label: '本月營收', value: 'NT$0', icon: DollarSign },
   ];
 
   return (

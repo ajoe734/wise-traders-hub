@@ -64,11 +64,13 @@ const fetchSignalsData = async (userId: string | undefined) => {
   if (expertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: true };
 
   // Only show advisor signals in the signal wall, not mentor weekly reviews
+  // Also filter out suspended experts
   const { data: advisorExperts } = await supabase
     .from('experts')
     .select('id')
     .in('id', expertIds)
-    .eq('role', 'advisor');
+    .eq('role', 'advisor')
+    .eq('status', 'active');
 
   const advisorExpertIds = (advisorExperts || []).map(e => e.id);
   if (advisorExpertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: true };

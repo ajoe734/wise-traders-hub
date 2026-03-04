@@ -35,16 +35,8 @@ const CompanyRevenue = () => {
   const mrr = subscriptions.reduce((sum, s) => sum + (s.expert_plans?.price_monthly || 0), 0);
 
   // Monthly revenue trend
-  const monthlyData = useMemo(() => {
-    const map: Record<string, number> = {};
-    transactions.forEach(tx => {
-      if (!tx.paid_at && !tx.created_at) return;
-      const d = new Date(tx.paid_at || tx.created_at);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      map[key] = (map[key] || 0) + (tx.amount || 0);
-    });
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([month, amount]) => ({ month, amount }));
-  }, [transactions]);
+  // Monthly revenue trend - empty for now (no transaction data)
+  const monthlyData: { month: string; amount: number }[] = [];
 
   const [mrrFilter, setMrrFilter] = useState<'all' | 'advisor' | 'mentor'>('all');
 
@@ -120,7 +112,7 @@ const CompanyRevenue = () => {
                 <span className="text-sm text-muted-foreground">總交易筆數</span>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </div>
-              <div className="text-2xl font-bold">—</div>
+              <div className="text-2xl font-bold">0</div>
             </CardContent>
           </Card>
           <Card>
