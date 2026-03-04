@@ -2,7 +2,18 @@
  import { Badge } from "@/components/ui/badge";
  import { Separator } from "@/components/ui/separator";
  import { Calendar, Clock, TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
- import { StockTradeDetail } from "@/data/strategyMockData";
+
+export interface StockTradeDetail {
+  symbol: string;
+  name: string;
+  returnPct: number;
+  entryDate: string;
+  holdingDays: number;
+  entryPrice: number;
+  currentPrice: number;
+  pnlAmt?: number;
+  contributionNote: string;
+}
  import { cn } from "@/lib/utils";
  
  interface StockTradeDetailSheetProps {

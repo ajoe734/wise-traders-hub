@@ -12,7 +12,15 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { FloatingStatCard, StockPerf } from "./FloatingStatCard";
-import { getPerformanceByPeriod, getStrategySystemByExpertSlug, PeriodPerformance, StockTradeDetail } from "@/data/strategyMockData";
+import { StockTradeDetail } from "./StockTradeDetailSheet";
+
+export interface PeriodPerformance {
+  label: string;
+  returnPct: number;
+  topStock?: { symbol: string; name: string; returnPct: number };
+  bottomStock?: { symbol: string; name: string; returnPct: number };
+  stocks?: StockTradeDetail[];
+}
 import { StockTradeDetailSheet } from "./StockTradeDetailSheet";
 import { cn } from "@/lib/utils";
 
@@ -33,18 +41,9 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
    const [selectedStock, setSelectedStock] = useState<StockTradeDetail | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  // Get strategy system for fixed since-inception return
-  const strategySystem = useMemo(() => {
-    return getStrategySystemByExpertSlug(expertSlug);
-  }, [expertSlug]);
-
-  // Fixed since-inception return (doesn't change with period toggle)
-  const sinceInceptionReturn = strategySystem?.performanceSummary.sinceInceptionReturnPct ?? 0;
-
-  // Get performance data based on period (for chart only)
-  const performanceData = useMemo(() => {
-    return getPerformanceByPeriod(expertSlug, period);
-  }, [expertSlug, period]);
+  // TODO: fetch real performance data from DB
+  const sinceInceptionReturn = 0;
+  const performanceData: PeriodPerformance[] = [];
 
   // 計算目前資產（使用固定的 sinceInceptionReturn）
   const currentAsset = useMemo(() => {

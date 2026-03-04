@@ -2,9 +2,7 @@ import { ReactNode, useMemo, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
-import { getUserSubscriptions, getJournalsForUser } from '@/data/mockData';
 import { supabase } from '@/integrations/supabase/client';
-import { PlanType } from '@/types';
 import { 
   Home, Radio, BookOpen, User, LogOut, ChevronRight, ChevronLeft,
   Target, Compass, Moon, Sun
@@ -140,21 +138,8 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   const [unreadSignals, setUnreadSignals] = useState(0);
   const [unreadJournals, setUnreadJournals] = useState(0);
 
-  // Determine user's subscription type
-  const subscriptions = user ? getUserSubscriptions(user.id) : [];
-  const hasAdvisor = subscriptions.some(s => 
-    s.plan.planType === PlanType.ANALYST_SIGNAL_L1 || 
-    s.plan.planType === PlanType.ANALYST_SIGNAL_DIAG_L2
-  );
-  const hasMentor = subscriptions.some(s => 
-    s.plan.planType === PlanType.MENTOR_WEEKLY_JOURNAL
-  );
-
-  // Determine mode and theme
-  const mode: 'signals' | 'learning' | 'both' = 
-    hasAdvisor && hasMentor ? 'both' :
-    hasAdvisor ? 'signals' :
-    hasMentor ? 'learning' : 'signals';
+  // Determine mode — default to 'signals' (no mock dependency)
+  const mode = 'signals' as 'signals' | 'learning' | 'both';
 
   // Build nav items based on subscription type - unified navigation for all users
   const bottomNavItems: NavItem[] = useMemo(() => {
@@ -211,12 +196,8 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
         setUnreadSignals(0);
       }
 
-      // Journals
-      const journalsLastSeenStr = localStorage.getItem(JOURNALS_LAST_SEEN_KEY);
-      const journalsLastSeen = journalsLastSeenStr ? parseInt(journalsLastSeenStr, 10) : 0;
-      const journals = getJournalsForUser(user.id);
-      const unreadJ = journals.filter(j => j.weekEnd.getTime() > journalsLastSeen).length;
-      setUnreadJournals(unreadJ);
+      // Journals unread — TODO: implement with real journals table
+      setUnreadJournals(0);
     };
 
     loadUnreadCounts();
