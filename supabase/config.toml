@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.twse-proxy]
 verify_jwt = false
+
+[functions.line-push-renewal-reminder]
+verify_jwt = false
