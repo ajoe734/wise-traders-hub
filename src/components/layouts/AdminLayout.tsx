@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
+import { NotificationBell } from '@/components/NotificationBell';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -71,7 +72,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </Badge>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">分析師後台管理</p>
+          <div className="flex items-center gap-2 mt-2">
+            <NotificationBell />
+            <p className="text-xs text-muted-foreground">分析師後台管理</p>
+          </div>
         </div>
 
         {/* Navigation */}

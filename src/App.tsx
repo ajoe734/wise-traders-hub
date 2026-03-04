@@ -57,6 +57,7 @@ import CompanyReview from "./pages/company/Review";
 import CompanyPayments from "./pages/company/Payments";
 import CompanyAuditLogs from "./pages/company/AuditLogs";
 import CompanyAnnouncements from "./pages/company/Announcements";
+import CompanyPlans from "./pages/company/Plans";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ScrollToTop } from "./components/ScrollToTop";
@@ -135,6 +136,7 @@ const App = () => (
             <Route path="/company/payments" element={<ProtectedRoute requiredRole="company_admin"><CompanyPayments /></ProtectedRoute>} />
             <Route path="/company/audit-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyAuditLogs /></ProtectedRoute>} />
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />
+            <Route path="/company/plans" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlans /></ProtectedRoute>} />
 
             {/* Admin (expert backend) */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
