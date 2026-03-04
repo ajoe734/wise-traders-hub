@@ -134,6 +134,22 @@ const Login = () => {
                 </Link>
               </p>
 
+              {/* Demo hint */}
+              <div className="mt-6 p-3 rounded-lg bg-muted text-sm space-y-1.5">
+                <p className="font-medium mb-2">測試帳號</p>
+                <button type="button" className="w-full text-left text-muted-foreground hover:bg-background rounded px-2 py-1 -mx-2 transition-colors" onClick={() => { setEmail('demo@example.com'); setPassword('demo1234'); }}>
+                  <span className="font-medium text-foreground">訂閱者：</span> demo@example.com / demo1234
+                </button>
+                <button type="button" className="w-full text-left text-muted-foreground hover:bg-background rounded px-2 py-1 -mx-2 transition-colors" onClick={() => { setEmail('analyst@example.com'); setPassword('analyst1234'); }}>
+                  <span className="font-medium text-foreground">跟單派分析師：</span> analyst@example.com / analyst1234
+                </button>
+                <button type="button" className="w-full text-left text-muted-foreground hover:bg-background rounded px-2 py-1 -mx-2 transition-colors" onClick={() => { setEmail('analyst2@example.com'); setPassword('analyst1234'); }}>
+                  <span className="font-medium text-foreground">修煉派分析師：</span> analyst2@example.com / analyst1234
+                </button>
+                <button type="button" className="w-full text-left text-muted-foreground hover:bg-background rounded px-2 py-1 -mx-2 transition-colors" onClick={() => { setEmail('admin@example.com'); setPassword('admin1234'); }}>
+                  <span className="font-medium text-foreground">公司管理員：</span> admin@example.com / admin1234
+                </button>
+              </div>
             </CardContent>
           </Card>
         </div>

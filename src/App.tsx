@@ -115,14 +115,14 @@ const App = () => (
             
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />
 
-            {/* Admin (expert backend) — requires analyst role + slug ownership */}
-            <Route path="/admin/:expertSlug" element={<ProtectedRoute requiredRole="analyst" requireSlugOwnership><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin/:expertSlug/signals" element={<ProtectedRoute requiredRole="analyst" requireSlugOwnership><AdminSignals /></ProtectedRoute>} />
-            <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute requiredRole="analyst" requireSlugOwnership><AdminSubscribers /></ProtectedRoute>} />
-            <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute requiredRole="analyst" requireSlugOwnership><AdminProfile /></ProtectedRoute>} />
-            <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute requiredRole="analyst" requireSlugOwnership><AdminPerformance /></ProtectedRoute>} />
-            <Route path="/admin/:expertSlug/reason-templates" element={<ProtectedRoute requiredRole="analyst" requireSlugOwnership><AdminReasonTemplates /></ProtectedRoute>} />
-            <Route path="/admin/:expertSlug/signal-templates" element={<ProtectedRoute requiredRole="analyst" requireSlugOwnership><AdminSignalTemplates /></ProtectedRoute>} />
+            {/* Admin (expert backend) */}
+            <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/signals" element={<ProtectedRoute><AdminSignals /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute><AdminSubscribers /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/reason-templates" element={<ProtectedRoute><AdminReasonTemplates /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/signal-templates" element={<ProtectedRoute><AdminSignalTemplates /></ProtectedRoute>} />
 
             {/* Legacy /me routes - redirect */}
             <Route path="/me" element={<Navigate to="/account/subscriptions" replace />} />

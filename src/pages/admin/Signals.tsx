@@ -89,12 +89,6 @@ const AdminSignals = () => {
       return;
     }
 
-    // Block publishing if expert is suspended
-    if (expert.status !== 'active') {
-      toast.error('此分析師已被停用，無法發布新訊號');
-      return;
-    }
-
     if (!stockCode.trim() || !action) {
       toast.error('請先填寫「代碼」與「操作方向」');
       return;

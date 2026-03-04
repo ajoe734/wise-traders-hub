@@ -208,28 +208,8 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
         setUnreadSignals(0);
       }
 
-      // Journals unread: count mentor signals published after last seen
-      const journalsLastSeenStr = localStorage.getItem(JOURNALS_LAST_SEEN_KEY);
-      const journalsLastSeen = journalsLastSeenStr ? parseInt(journalsLastSeenStr, 10) : 0;
-      const journalsSinceIso = journalsLastSeen > 0 ? new Date(journalsLastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
-
-      const mentorExpertIds = subs
-        .filter((s: any) => s.expert_plans?.plan_type === 'mentor_weekly_journal')
-        .map((s: any) => s.expert_plans?.expert_id)
-        .filter(Boolean);
-
-      if (mentorExpertIds.length > 0) {
-        const { count: unreadJournalsCount } = await supabase
-          .from('expert_signals')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'published')
-          .in('expert_id', mentorExpertIds)
-          .gt('published_at', journalsSinceIso);
-
-        setUnreadJournals(unreadJournalsCount ?? 0);
-      } else {
-        setUnreadJournals(0);
-      }
+      // Journals unread — TODO: implement with real journals table
+      setUnreadJournals(0);
     };
 
     loadUnreadCounts();
