@@ -174,12 +174,6 @@ const SignalDetail = () => {
                 <BookOpen className="h-4 w-4 text-mentor" /> 延伸學習
               </h2>
               <TextBlock text={signal.learning_points} dotColor="bg-mentor" />
-              <Button variant="outline" className="w-full mt-4" asChild>
-                <Link to="/app/library">
-                  看完整交易系統教學
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Link>
-              </Button>
             </CardContent>
           </Card>
         )}

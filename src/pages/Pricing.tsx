@@ -9,6 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { CheckCircle, ArrowRight, Radio, BookOpen, Stethoscope, Plus, AlertCircle, Zap, Clock, Target, Lightbulb, Eye, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
 import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
 import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 
@@ -20,6 +21,8 @@ const Pricing = () => {
   const [mobileSelectedIndex, setMobileSelectedIndex] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showHint, setShowHint] = useState(true);
+  
+  const [dbPrices, setDbPrices] = useState<Record<string, number>>({});
   
   const isMobile = useIsMobile();
   const followerCardRef = useRef<HTMLDivElement>(null);
@@ -43,6 +46,27 @@ const Pricing = () => {
       setShowHint(false);
     }, 4000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Fetch lowest plan prices from DB
+  useEffect(() => {
+    const fetchPrices = async () => {
+      const { data } = await supabase
+        .from('expert_plans')
+        .select('plan_type, price_monthly')
+        .eq('is_active', true)
+        .eq('review_status', 'approved');
+      if (data && data.length > 0) {
+        // Group by plan_type category and find lowest price
+        const advisorPlans = data.filter(p => p.plan_type.startsWith('analyst_'));
+        const mentorPlans = data.filter(p => p.plan_type === 'mentor_weekly_journal');
+        const prices: Record<string, number> = {};
+        if (advisorPlans.length > 0) prices.follower = Math.min(...advisorPlans.map(p => p.price_monthly));
+        if (mentorPlans.length > 0) prices.cultivator = Math.min(...mentorPlans.map(p => p.price_monthly));
+        setDbPrices(prices);
+      }
+    };
+    fetchPrices();
   }, []);
 
   const openExample = (type: 'follower' | 'cultivator') => {
@@ -110,7 +134,7 @@ const Pricing = () => {
       faction: '跟單派',
       title: '分析師下單即時line通知',
       icon: Radio,
-      price: '1,699',
+      price: dbPrices.follower ? dbPrices.follower.toLocaleString() : '1,699',
       painPoint: '選股還在看K線，太慢了。',
       quickChips: ['即時通知', '進出場紀錄', '策略拆解'],
       features: [
@@ -129,7 +153,7 @@ const Pricing = () => {
       faction: '修煉派',
       title: '每週交易紀錄與心法公開',
       icon: BookOpen,
-      price: '799',
+      price: dbPrices.cultivator ? dbPrices.cultivator.toLocaleString() : '799',
       painPoint: '給我全部，練出自己的投資秘笈',
       quickChips: ['每週復盤', '決策依據', '框架整理'],
       features: [
