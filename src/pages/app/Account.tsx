@@ -106,6 +106,13 @@ const Account = () => {
         plan: plan ? { id: plan.id, name: plan.name, plan_type: plan.plan_type, price_monthly: plan.price_monthly } : { id: '', name: '未知方案', plan_type: '', price_monthly: 0 },
         expert: expert ? { id: expert.id, slug: expert.slug, name: expert.name, role: expert.role, avatar_url: expert.avatar_url } : { id: '', slug: '', name: '未知', role: '', avatar_url: null },
       };
+    }).filter(sub => {
+      // Filter out subscriptions for suspended/inactive experts
+      const expert = sub.expert;
+      if (!expert.id) return true; // keep unknown for display
+      const fullExpert = (experts || []).find(e => e.id === expert.id);
+      // If expert wasn't returned by the query (might be suspended and RLS hides it), hide from active list
+      return !!fullExpert;
     });
 
     setSubscriptions(enriched);
