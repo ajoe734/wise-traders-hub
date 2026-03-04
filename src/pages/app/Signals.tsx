@@ -63,11 +63,21 @@ const fetchSignalsData = async (userId: string | undefined) => {
 
   if (expertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: true };
 
+  // Only show advisor signals in the signal wall, not mentor weekly reviews
+  const { data: advisorExperts } = await supabase
+    .from('experts')
+    .select('id')
+    .in('id', expertIds)
+    .eq('role', 'advisor');
+
+  const advisorExpertIds = (advisorExperts || []).map(e => e.id);
+  if (advisorExpertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: true };
+
   const { data, error } = await supabase
     .from('expert_signals')
     .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url)')
     .eq('status', 'published')
-    .in('expert_id', expertIds)
+    .in('expert_id', advisorExpertIds)
     .order('published_at', { ascending: false })
     .limit(50);
 

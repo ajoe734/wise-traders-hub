@@ -41,7 +41,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const navItems = [
     { path: basePath, icon: LayoutDashboard, label: '總覽', exact: true },
-    { path: `${basePath}/signals`, icon: Radio, label: '訊號管理' },
+    { path: `${basePath}/signals`, icon: Radio, label: isAdvisor ? '訊號管理' : '週記管理' },
     { path: `${basePath}/subscribers`, icon: Users, label: '訂閱者' },
     { path: `${basePath}/profile`, icon: UserCog, label: '個人檔案' },
     { path: `${basePath}/performance`, icon: BarChart3, label: '績效總覽' },

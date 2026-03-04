@@ -99,7 +99,7 @@ const AdminSignals = () => {
       status: 'published' as any,
     }).select('id').single();
     if (error) { toast.error(error.message); return; }
-    toast.success('訊號已發布');
+    toast.success(isMentor ? '週記已發布，將於 7 天後自動推播' : '訊號已發布');
     setIsCreateOpen(false);
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setPlanId('');
 
@@ -113,6 +113,8 @@ const AdminSignals = () => {
           toast.error(`LINE 推播失敗：${pushError.message}`);
         } else if (pushData?.pushed) {
           toast.success(`已推播給 ${pushData.count} 位訂閱者`);
+        } else if (pushData?.reason === 'mentor_delayed') {
+          toast.info('修煉派訊號將於 7 天後自動推播');
         } else if (pushData?.reason) {
           toast.info(`LINE 推播略過：${pushData.reason}`);
         }
@@ -126,6 +128,8 @@ const AdminSignals = () => {
   };
 
   const isAdvisor = expert?.role === 'advisor';
+  const isMentor = expert?.role === 'mentor';
+  const contentLabel = isMentor ? '週記' : '訊號';
   const canPublish = !!expert && !!stockCode.trim() && !!action;
 
   const filtered = signals.filter(s =>
@@ -140,18 +144,18 @@ const AdminSignals = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">訊號管理</h1>
-            <p className="text-muted-foreground text-sm mt-1">發布即上線，管理者可事後下架</p>
+            <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
+            <p className="text-muted-foreground text-sm mt-1">{isMentor ? '發布後將於 7 天後自動推播給訂閱者' : '發布即上線，管理者可事後下架'}</p>
           </div>
           {!isReadOnly && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
-                <Plus className="h-4 w-4 mr-2" />發布新訊號
+                <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
-              <DialogHeader><DialogTitle>發布新訊號</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>發布新{contentLabel}</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4 overflow-y-auto flex-1 px-1 -mx-1">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -245,7 +249,7 @@ const AdminSignals = () => {
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
-                     <tr><td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">尚無訊號</td></tr>
+                     <tr><td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">尚無{contentLabel}</td></tr>
                   ) : (
                      filtered.map((signal) => {
                        const ai = actionLabels[signal.action] || actionLabels.buy;
