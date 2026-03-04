@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { DollarSign, Download, Repeat, Users } from 'lucide-react';
+import { DollarSign, TrendingUp, Users, Download, Repeat } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -29,7 +29,7 @@ const CompanyRevenue = () => {
     setSubscriptions(subs || []);
   };
 
-  
+  const totalRevenue = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
   // MRR from active subscriptions
   const mrr = subscriptions.reduce((sum, s) => sum + (s.expert_plans?.price_monthly || 0), 0);
@@ -94,7 +94,16 @@ const CompanyRevenue = () => {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">總營收</span>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="text-2xl font-bold">NT${totalRevenue.toLocaleString()}</div>
+            </CardContent>
+          </Card>
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
@@ -103,6 +112,15 @@ const CompanyRevenue = () => {
               </div>
               <div className="text-2xl font-bold">NT${mrr.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground mt-1">{subscriptions.length} 位活躍訂閱</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">總交易筆數</span>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="text-2xl font-bold">{transactions.length}</div>
             </CardContent>
           </Card>
           <Card>
