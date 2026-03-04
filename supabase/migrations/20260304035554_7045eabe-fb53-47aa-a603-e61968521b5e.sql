@@ -1,0 +1,1 @@
+ALTER TABLE public.expert_signals ADD COLUMN line_pushed_at timestamp with time zone DEFAULT NULL;
