@@ -369,6 +369,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Update line_pushed_at timestamp
+    if (totalPushed > 0) {
+      await supabaseAdmin
+        .from('expert_signals')
+        .update({ line_pushed_at: new Date().toISOString() })
+        .eq('id', signal_id)
+    }
+
     console.log('Total pushed:', totalPushed)
     return new Response(JSON.stringify({ pushed: true, count: totalPushed }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -13,48 +13,67 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useExpertPerformance } from '@/hooks/usePerformance';
+import { useState } from 'react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+
+interface SubExpert {
+  expert_id: string;
+  expert_name: string;
+  expert_slug: string;
+  expert_avatar: string | null;
+}
 
 export default function Performance() {
   const { user } = useAuth();
+  const [selectedIdx, setSelectedIdx] = useState(0);
 
-  // Get user's first subscribed expert ID
-  const { data: subData } = useQuery({
-    queryKey: ['perf-sub-expert', user?.id],
+  // Get ALL subscribed expert IDs (not just first)
+  const { data: subExperts = [], isLoading: subsLoading } = useQuery({
+    queryKey: ['perf-sub-experts', user?.id],
     queryFn: async () => {
-      if (!user) return null;
+      if (!user) return [];
       const { data } = await supabase
         .from('member_subscriptions')
-        .select('expert_plans(expert_id, experts(status))')
+        .select('expert_plans(expert_id, experts(name, slug, avatar_url, status))')
         .eq('user_id', user.id)
-        .eq('status', 'active')
-        .limit(10);
-      // Find first subscription whose expert is active
-      const activeSub = (data || []).find((d: any) => d.expert_plans?.experts?.status === 'active');
-      return (activeSub as any)?.expert_plans?.expert_id || null;
+        .eq('status', 'active');
+      return (data || [])
+        .map((d: any) => ({
+          expert_id: d.expert_plans?.expert_id,
+          expert_name: d.expert_plans?.experts?.name,
+          expert_slug: d.expert_plans?.experts?.slug,
+          expert_avatar: d.expert_plans?.experts?.avatar_url,
+          expert_status: d.expert_plans?.experts?.status,
+        }))
+        .filter((e: any) => e.expert_id && e.expert_status === 'active') as SubExpert[];
     },
     enabled: !!user,
     staleTime: 60_000,
   });
 
-  const { data: perf, isLoading } = useExpertPerformance(subData || undefined);
+  const currentExpert = subExperts[selectedIdx] || null;
+  const { data: perf, isLoading: perfLoading } = useExpertPerformance(currentExpert?.expert_id || undefined);
 
-  // Fetch recent closed trades
+  // Fetch recent closed trades for selected expert
   const { data: recentTrades = [] } = useQuery({
-    queryKey: ['perf-recent-trades', subData],
+    queryKey: ['perf-recent-trades', currentExpert?.expert_id],
     queryFn: async () => {
-      if (!subData) return [];
+      if (!currentExpert?.expert_id) return [];
       const { data } = await supabase
         .from('trade_records')
         .select('*')
-        .eq('expert_id', subData)
+        .eq('expert_id', currentExpert.expert_id)
         .in('status', ['closed', 'stopped'])
         .order('exit_date', { ascending: false })
         .limit(5);
       return data || [];
     },
-    enabled: !!subData,
+    enabled: !!currentExpert?.expert_id,
     staleTime: 60_000,
   });
+
+  const isLoading = subsLoading || perfLoading;
 
   const stats = perf || {
     total_trades: 0, win_rate: 0, cumulative_return: 0,
@@ -81,8 +100,36 @@ export default function Performance() {
           </div>
         </div>
 
+        {/* Expert Selector - show when multiple experts */}
+        {subExperts.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {subExperts.map((exp, idx) => (
+              <button
+                key={exp.expert_id}
+                onClick={() => setSelectedIdx(idx)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm whitespace-nowrap transition-colors",
+                  idx === selectedIdx
+                    ? "border-signals-accent bg-signals-accent/10 text-signals-accent"
+                    : "border-border text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={exp.expert_avatar || '/placeholder.svg'} />
+                  <AvatarFallback className="text-xs">{exp.expert_name?.[0]}</AvatarFallback>
+                </Avatar>
+                {exp.expert_name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+        ) : subExperts.length === 0 ? (
+          <FeatureCard theme="signals" className="p-6 text-center">
+            <p className="text-muted-foreground">尚未訂閱任何分析師，訂閱後即可查看績效統計</p>
+          </FeatureCard>
         ) : (
           <>
             {/* Total Return */}

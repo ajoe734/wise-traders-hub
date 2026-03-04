@@ -88,7 +88,7 @@ const App = () => (
 
             {/* Account (aggregated view) */}
             <Route path="/account/subscriptions" element={<Navigate to="/app/account" replace />} />
-            <Route path="/account/profile" element={<AccountProfile />} />
+            <Route path="/account/profile" element={<ProtectedRoute><AccountProfile /></ProtectedRoute>} />
 
             {/* App pages (aggregated member view) */}
             <Route path="/app" element={<AppHome />} />
