@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, Radio, Users, UserCog, BarChart3,
-  ChevronLeft, LogOut, Moon, Sun, Building2, FileText, Loader2
+  LogOut, Moon, Sun, Building2, FileText, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -133,15 +133,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               返回管理後台
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-muted-foreground"
-            onClick={() => navigate(`/expert/${expertSlug}`)}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            前往前台
-          </Button>
           <Button
             variant="ghost"
             size="sm"
