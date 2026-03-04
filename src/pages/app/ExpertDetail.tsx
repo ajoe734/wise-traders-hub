@@ -12,37 +12,42 @@ import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverv
 import { supabase } from "@/integrations/supabase/client";
 import { useExpert } from "@/hooks/useExpert";
 import { Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
-const standardPlans = {
-  follower: {
-    id: 'follower',
+const planMeta: Record<string, { title: string; subtitle: string; description: string; features: string[]; icon: any; variant: 'advisor' | 'mentor' }> = {
+  analyst_signal_l1: {
     title: '跟單派',
     subtitle: '即時訊號通知',
     description: '每筆交易，第一時間推播通知。即時跟上，不錯失任何機會。',
-    priceMonthly: 1699,
     features: ['即時訊號推播通知', '完整買賣理由說明', '風險與部位控管建議'],
     icon: Zap,
-    variant: 'advisor' as const,
+    variant: 'advisor',
   },
-  cultivator: {
-    id: 'cultivator',
+  analyst_signal_diag_l2: {
+    title: '跟單派 + 持股健檢',
+    subtitle: '訊號 + 持股健檢',
+    description: '包含即時訊號通知，加上個人化持股診斷服務。',
+    features: ['即時訊號推播通知', '完整買賣理由說明', '持股診斷報告', '個人化投資建議'],
+    icon: Zap,
+    variant: 'advisor',
+  },
+  mentor_weekly_journal: {
     title: '修煉派',
     subtitle: 'T+7 延遲・週記式教學',
     description: '每週一篇週記，回顧一週前的實戰操作。透過延遲的資訊，專注學習策略邏輯。',
-    priceMonthly: 799,
     features: ['每週實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點'],
     icon: BookOpen,
-    variant: 'mentor' as const,
+    variant: 'mentor',
   },
-  healthCheck: {
-    id: 'health-check',
-    title: '持股健檢',
-    subtitle: '單次加購',
-    description: '把你手上的持股做一次完整體檢：風險、部位、策略方向與調整建議。',
-    price: 500,
-    requiresFollower: true,
-  }
 };
+
+interface DbPlan {
+  id: string;
+  plan_type: string;
+  price_monthly: number;
+  name: string;
+  description: string | null;
+}
 
 const AppExpertDetail = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -51,13 +56,30 @@ const AppExpertDetail = () => {
   
   const { data: expert, isLoading } = useExpert(slug);
 
+  // Fetch expert plans from DB
+  const { data: dbPlans = [] } = useQuery({
+    queryKey: ['expert-plans-detail', slug],
+    queryFn: async () => {
+      if (!slug) return [];
+      const { data: dbExpert } = await supabase.from("experts").select("id").eq("slug", slug).single();
+      if (!dbExpert) return [];
+      const { data: plans } = await supabase
+        .from("expert_plans")
+        .select("id, plan_type, price_monthly, name, description")
+        .eq("expert_id", dbExpert.id)
+        .eq("is_active", true)
+        .eq("review_status", "approved")
+        .order("price_monthly");
+      return (plans || []) as DbPlan[];
+    },
+    enabled: !!slug,
+    staleTime: 60_000,
+  });
+
   useEffect(() => {
     const fetchSubscription = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !slug) return;
-      
-      const { data: dbExpert } = await supabase.from("experts").select("id").eq("slug", slug).single();
-      if (!dbExpert) return;
 
       const { data: subs } = await supabase
         .from("member_subscriptions")
@@ -87,7 +109,9 @@ const AppExpertDetail = () => {
   }
 
   const isAdvisor = expert.role === 'advisor';
-  const displayPlan = isAdvisor ? standardPlans.follower : standardPlans.cultivator;
+  // Use first DB plan, fallback to meta
+  const mainPlan = dbPlans[0] || null;
+  const mainMeta = mainPlan ? planMeta[mainPlan.plan_type] : (isAdvisor ? planMeta.analyst_signal_l1 : planMeta.mentor_weekly_journal);
 
   const isSubscribedToFollower = subscribedPlanTypes.some(t => t === 'analyst_signal_l1' || t === 'analyst_signal_diag_l2');
   const hasHealthCheck = subscribedPlanTypes.includes('analyst_signal_diag_l2');
@@ -97,7 +121,7 @@ const AppExpertDetail = () => {
   const getRoleLabel = (role: ExpertRole) => role === 'advisor' ? "投顧分析師" : "實戰導師";
   const getRoleBadgeVariant = (role: ExpertRole) => role === 'advisor' ? "default" as const : "secondary" as const;
 
-  const PlanIcon = displayPlan.icon;
+  const PlanIcon = mainMeta?.icon || Zap;
 
   return (
     <UnifiedAppLayout>
@@ -143,7 +167,7 @@ const AppExpertDetail = () => {
           <PerformanceOverviewPanel expertSlug={slug || ""} variant={isAdvisor ? 'advisor' : 'mentor'} />
         </div>
 
-        {!isSubscribed && (
+        {!isSubscribed && mainPlan && mainMeta && (
           <div>
             <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
               <Target className={`h-5 w-5 ${isAdvisor ? 'text-advisor' : 'text-mentor'}`} />訂閱方案
@@ -156,18 +180,18 @@ const AppExpertDetail = () => {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-lg">{displayPlan.title}</h3>
-                      <Badge variant="outline" className="text-xs">{displayPlan.subtitle}</Badge>
+                      <h3 className="font-semibold text-lg">{mainMeta.title}</h3>
+                      <Badge variant="outline" className="text-xs">{mainMeta.subtitle}</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">{displayPlan.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{mainPlan.description || mainMeta.description}</p>
                   </div>
                 </div>
                 <div className="flex items-baseline gap-1 mb-4">
-                  <span className="text-3xl font-bold">NT$ {displayPlan.priceMonthly.toLocaleString()}</span>
+                  <span className="text-3xl font-bold">NT$ {mainPlan.price_monthly.toLocaleString()}</span>
                   <span className="text-sm text-muted-foreground">/月</span>
                 </div>
                 <ul className="space-y-2 mb-4">
-                  {displayPlan.features.map((feature, idx) => (
+                  {mainMeta.features.map((feature, idx) => (
                     <li key={idx} className="flex items-center gap-2 text-sm">
                       <Check className={`h-4 w-4 shrink-0 ${isAdvisor ? 'text-advisor' : 'text-mentor'}`} /><span>{feature}</span>
                     </li>
@@ -181,37 +205,7 @@ const AppExpertDetail = () => {
           </div>
         )}
 
-        {!hasHealthCheck && (
-          <div>
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Stethoscope className={`h-5 w-5 ${isAdvisor ? 'text-advisor' : 'text-mentor'}`} />加購服務
-            </h2>
-            <Card className={`border-2 border-dashed ${isSubscribed ? isAdvisor ? 'border-advisor/40 bg-advisor/5' : 'border-mentor/40 bg-mentor/5' : 'border-muted bg-muted/30'}`}>
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3 mb-3">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isSubscribed ? isAdvisor ? 'bg-advisor/10 text-advisor' : 'bg-mentor/10 text-mentor' : 'bg-muted text-muted-foreground'}`}>
-                    {isSubscribed ? <Stethoscope className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className={`font-semibold ${!isSubscribed && 'text-muted-foreground'}`}>{standardPlans.healthCheck.title}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{standardPlans.healthCheck.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-2xl font-bold ${!isSubscribed && 'text-muted-foreground'}`}>NT$ {standardPlans.healthCheck.price}</span>
-                    <span className="text-sm text-muted-foreground">/次</span>
-                  </div>
-                  {isSubscribed ? (
-                    <Button variant="outline" className={isAdvisor ? "border-advisor text-advisor hover:bg-advisor hover:text-white" : "border-mentor text-mentor hover:bg-mentor hover:text-white"} onClick={() => navigate(`/expert/${slug}`)}>加購</Button>
-                  ) : (
-                    <Button variant="outline" disabled className="text-muted-foreground">訂閱後解鎖</Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {/* Health check add-on removed — use full checkout page instead */}
       </div>
     </UnifiedAppLayout>
   );

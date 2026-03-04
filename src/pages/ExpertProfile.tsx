@@ -54,11 +54,11 @@ const ExpertProfile = () => {
       // Find expert by slug in DB
       const { data: expert } = await supabase
         .from('experts')
-        .select('id, name, bio, description, avatar_url, role, style_tags, markets')
+        .select('id, name, bio, description, avatar_url, role, style_tags, markets, status')
         .eq('slug', slug)
         .single();
 
-      if (!expert) {
+      if (!expert || expert.status !== 'active') {
         setExpertNotFound(true);
         setLoading(false);
         return;

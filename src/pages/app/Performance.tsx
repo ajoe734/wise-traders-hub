@@ -24,11 +24,13 @@ export default function Performance() {
       if (!user) return null;
       const { data } = await supabase
         .from('member_subscriptions')
-        .select('expert_plans(expert_id)')
+        .select('expert_plans(expert_id, experts(status))')
         .eq('user_id', user.id)
         .eq('status', 'active')
-        .limit(1);
-      return (data?.[0] as any)?.expert_plans?.expert_id || null;
+        .limit(10);
+      // Find first subscription whose expert is active
+      const activeSub = (data || []).find((d: any) => d.expert_plans?.experts?.status === 'active');
+      return (activeSub as any)?.expert_plans?.expert_id || null;
     },
     enabled: !!user,
     staleTime: 60_000,

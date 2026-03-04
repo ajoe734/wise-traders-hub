@@ -21,6 +21,7 @@ interface SubExpert {
   avatar_url: string | null;
   role: string;
   id: string;
+  status?: string;
 }
 
 interface DbSubscription {
@@ -34,7 +35,7 @@ const fetchHomeData = async (userId: string | undefined) => {
 
   const { data: subs } = await supabase
     .from('member_subscriptions')
-    .select('plan_id, expert_plans(plan_type, expert_id, experts(id, slug, name, avatar_url, role))')
+    .select('plan_id, expert_plans(plan_type, expert_id, experts(id, slug, name, avatar_url, role, status))')
     .eq('user_id', userId)
     .eq('status', 'active');
 
@@ -47,8 +48,9 @@ const fetchHomeData = async (userId: string | undefined) => {
       name: s.expert_plans?.experts?.name || '',
       avatar_url: s.expert_plans?.experts?.avatar_url || null,
       role: s.expert_plans?.experts?.role || '',
+      status: s.expert_plans?.experts?.status || 'active',
     },
-  })).filter(s => s.expert.slug);
+  })).filter(s => s.expert.slug && s.expert.status === 'active');
 
   const advisorSubs = allSubs.filter(s => s.plan_type === 'analyst_signal_l1' || s.plan_type === 'analyst_signal_diag_l2');
   const mentorSubs = allSubs.filter(s => s.plan_type === 'mentor_weekly_journal');
