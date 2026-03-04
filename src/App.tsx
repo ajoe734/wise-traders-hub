@@ -30,7 +30,7 @@ import AppJournals from "./pages/app/Journals";
 import AppSignalDetail from "./pages/app/SignalDetail";
 import AppJournalDetail from "./pages/app/JournalDetail";
 import AppAccount from "./pages/app/Account";
-import AppPerformance from "./pages/app/Performance";
+
 import AppExplore from "./pages/app/Explore";
 import AppExpertDetail from "./pages/app/ExpertDetail";
 import AppCheckout from "./pages/app/AppCheckout";
@@ -40,7 +40,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminSignals from "./pages/admin/Signals";
 import AdminSubscribers from "./pages/admin/Subscribers";
 import AdminProfile from "./pages/admin/Profile";
-import AdminPerformance from "./pages/admin/Performance";
+
 import AdminReasonTemplates from "./pages/admin/ReasonTemplates";
 import AdminSignalTemplates from "./pages/admin/SignalTemplates";
 
@@ -98,7 +98,7 @@ const App = () => (
             <Route path="/app/journal/:id" element={<AppJournalDetail />} />
             <Route path="/app/account" element={<AppAccount />} />
             <Route path="/app/holdings" element={<Navigate to="/app" replace />} />
-            <Route path="/app/performance" element={<AppPerformance />} />
+            <Route path="/app/performance" element={<Navigate to="/app" replace />} />
             <Route path="/app/explore" element={<AppExplore />} />
             <Route path="/app/expert/:slug" element={<AppExpertDetail />} />
             <Route path="/app/checkout/:slug/:planId" element={<AppCheckout />} />
@@ -120,7 +120,7 @@ const App = () => (
             <Route path="/admin/:expertSlug/signals" element={<ProtectedRoute><AdminSignals /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute><AdminSubscribers /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>} />
-            <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/performance" element={<Navigate to="/admin" replace />} />
             <Route path="/admin/:expertSlug/reason-templates" element={<ProtectedRoute><AdminReasonTemplates /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signal-templates" element={<ProtectedRoute><AdminSignalTemplates /></ProtectedRoute>} />
 
