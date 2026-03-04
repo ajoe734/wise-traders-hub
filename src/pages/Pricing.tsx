@@ -134,7 +134,7 @@ const Pricing = () => {
       faction: '跟單派',
       title: '分析師下單即時line通知',
       icon: Radio,
-      price: dbPrices.follower ? dbPrices.follower.toLocaleString() : '1,699',
+      price: dbPrices.follower ? dbPrices.follower.toLocaleString() : '請洽詢',
       painPoint: '選股還在看K線，太慢了。',
       quickChips: ['即時通知', '進出場紀錄', '策略拆解'],
       features: [
@@ -153,7 +153,7 @@ const Pricing = () => {
       faction: '修煉派',
       title: '每週交易紀錄與心法公開',
       icon: BookOpen,
-      price: dbPrices.cultivator ? dbPrices.cultivator.toLocaleString() : '799',
+      price: dbPrices.cultivator ? dbPrices.cultivator.toLocaleString() : '請洽詢',
       painPoint: '給我全部，練出自己的投資秘笈',
       quickChips: ['每週復盤', '決策依據', '框架整理'],
       features: [
@@ -341,9 +341,9 @@ const Pricing = () => {
                         {/* Price + CTA */}
                         <div className="pt-4 pb-2 border-t border-white/20">
                           <div className="flex items-baseline gap-1 mb-4">
-                            <span className="text-sm text-white/60">NT$</span>
+                            {plan.price !== '請洽詢' && <span className="text-sm text-white/60">NT$</span>}
                             <span className="text-3xl font-bold text-white">{plan.price}</span>
-                            <span className="text-white/60">／月</span>
+                            {plan.price !== '請洽詢' && <span className="text-white/60">／月</span>}
                           </div>
                           
                           <div className="space-y-3">
@@ -539,9 +539,9 @@ const Pricing = () => {
                     {/* Price + CTA - Most prominent */}
                     <div className="pt-4 pb-2 border-t border-white/20">
                       <div className="flex items-baseline gap-1 mb-4">
-                        <span className="text-sm text-white/60">NT$</span>
+                        {plan.price !== '請洽詢' && <span className="text-sm text-white/60">NT$</span>}
                         <span className="text-3xl font-bold text-white">{plan.price}</span>
-                        <span className="text-white/60">／月</span>
+                        {plan.price !== '請洽詢' && <span className="text-white/60">／月</span>}
                       </div>
                       
                       {/* CTA Buttons */}

@@ -36,11 +36,7 @@ const Experts = () => {
       return true;
     });
 
-    return filtered.sort((a, b) => {
-      const aIsZhao = a.name.includes('趙彭博') ? 0 : 1;
-      const bIsZhao = b.name.includes('趙彭博') ? 0 : 1;
-      return aIsZhao - bIsZhao;
-    });
+    return filtered;
   }, [allPeople, roleFilter, searchQuery, marketFilter]);
 
   const setRole = (role: 'advisor' | 'coach' | null) => {
