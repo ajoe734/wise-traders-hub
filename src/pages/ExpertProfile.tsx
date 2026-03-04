@@ -250,22 +250,6 @@ const ExpertProfile = () => {
           />
         </section>
 
-        {/* ── About Section ── */}
-        {expertInfo.description && (
-          <section>
-            <div className="flex items-center gap-2 mb-6">
-              <Award className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
-              <h2 className="text-h3">關於{expertInfo.name}</h2>
-            </div>
-            <Card>
-              <CardContent className="p-6 md:p-8">
-                <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {expertInfo.description}
-                </p>
-              </CardContent>
-            </Card>
-          </section>
-        )}
 
         {/* ── Plans Section ── */}
         <section id="plans" className="scroll-mt-20">
