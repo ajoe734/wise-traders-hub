@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppJournalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { JournalCard } from '@/components/JournalCard';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,6 +40,7 @@ interface WeekGroup {
 const Journals = () => {
   const [signals, setSignals] = useState<JournalSignal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasSubscription, setHasSubscription] = useState<boolean | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   useEffect(() => {
@@ -62,9 +64,12 @@ const Journals = () => {
 
     if (!subs || subs.length === 0) {
       setSignals([]);
+      setHasSubscription(false);
       setLoading(false);
       return;
     }
+
+    setHasSubscription(true);
 
     const expertIds = subs.map((s: any) => s.expert_id);
 
@@ -193,10 +198,22 @@ const Journals = () => {
               </CardContent>
             </Card>
           )
+        ) : hasSubscription === false ? (
+          <Card>
+            <CardContent className="p-6 text-center space-y-3">
+              <p className="text-muted-foreground">您尚未訂閱任何實戰導師</p>
+              <p className="text-sm text-muted-foreground">訂閱後即可在此查看 T+7 修煉派週記教學</p>
+              <Link to="/app/explore">
+                <button className="mt-2 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                  前往探索導師
+                </button>
+              </Link>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
-              目前尚未訂閱任何實戰導師，或尚無已發布的週記
+              目前沒有新的週記
             </CardContent>
           </Card>
         )}
