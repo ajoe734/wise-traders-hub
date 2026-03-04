@@ -172,7 +172,7 @@ const AppHome = () => {
               <FeatureCard theme="learning" className="p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <BarChart3 className="h-4 w-4 text-learning-accent" /><span className="text-sm font-medium">導師績效</span>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto">每週六</Badge>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto">T+7 延遲</Badge>
                 </div>
                 <div className="space-y-2">
                   {mentorSubs.map(sub => <ExpertPerfRow key={sub.plan_id} sub={sub} />)}
@@ -198,7 +198,7 @@ const AppHome = () => {
                 <div className="w-12 h-12 rounded-xl bg-learning-accent/10 flex items-center justify-center flex-shrink-0"><Lock className="h-6 w-6 text-learning-accent/60" /></div>
                 <div className="flex-1">
                   <h3 className="font-semibold mb-1">解鎖修煉功能</h3>
-                  <p className="text-sm text-muted-foreground mb-3">每週六發布週記，跟著導師學操作邏輯</p>
+                  <p className="text-sm text-muted-foreground mb-3">T+7 修煉派週記，跟著導師學操作邏輯</p>
                   <ul className="text-xs text-muted-foreground space-y-1 mb-4">
                     <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-learning-accent" />每週修煉派週記教學</li>
                     <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-learning-accent" />真實操作邏輯拆解</li>
