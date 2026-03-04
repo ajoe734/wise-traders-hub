@@ -1214,7 +1214,7 @@ const Index = () => {
               </div>
               <h4 className="text-base md:text-h5 mb-xs text-foreground">修煉派週記教學</h4>
               <p className="text-muted-foreground text-xs md:text-sm leading-relaxed">
-                每週六由導師發布實戰操作回顧，包含進出場理由與學習重點。
+                每週回顧導師的實際操作，包含進出場理由與學習重點（T+7 延遲）。
               </p>
             </div>
           </div>
