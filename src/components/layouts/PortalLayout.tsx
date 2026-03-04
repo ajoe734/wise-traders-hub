@@ -88,14 +88,9 @@ export function PortalLayout({ children }: PortalLayoutProps) {
               </button>
             )}
             {user ? (
-              <>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/account/profile">我的帳號</Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link to="/app">進入會員區</Link>
-                </Button>
-              </>
+              <Button size="sm" asChild>
+                <Link to="/app">進入會員區</Link>
+              </Button>
             ) : (
               <>
                 <Button variant="ghost" size="sm" asChild>
@@ -165,22 +160,13 @@ export function PortalLayout({ children }: PortalLayoutProps) {
               ))}
               <div className="border-t border-border pt-4 mt-4 space-y-2">
                 {user ? (
-                  <>
-                    <Link
-                      to="/account/profile"
-                      className="block px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      我的帳號
-                    </Link>
-                    <Link
-                      to="/app"
-                      className="block px-3 py-2 rounded-md text-sm font-medium bg-cta text-cta-foreground text-center"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      進入會員區
-                    </Link>
-                  </>
+                  <Link
+                    to="/app"
+                    className="block px-3 py-2 rounded-md text-sm font-medium bg-cta text-cta-foreground text-center"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    進入會員區
+                  </Link>
                 ) : (
                   <>
                     <Link
