@@ -9,7 +9,7 @@ const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
 function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish') {
   const actionLabel: Record<string, string> = {
-    buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '出場',
+    buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
   }
   const label = actionLabel[signal.action] || signal.action
 
@@ -70,6 +70,16 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
   const isBullish = ['buy', 'add'].includes(signal.action)
   const color = isBullish ? '#00B900' : '#DC3545'
 
+  // Build copy text for one-click copy
+  const copyLines: string[] = [
+    `${label} ${signal.instrument}`,
+  ]
+  if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}`)
+  if (signal.reason_summary) copyLines.push(`摘要：${signal.reason_summary}`)
+  if (signal.reason_detail) copyLines.push(`分析：${signal.reason_detail}`)
+  if (signal.risk_notes) copyLines.push(`風險：${signal.risk_notes}`)
+  const copyText = copyLines.join('\n')
+
   const bodyContents: any[] = [
     {
       type: 'text',
@@ -101,6 +111,17 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
     })
   }
 
+  if (signal.reason_detail) {
+    bodyContents.push({
+      type: 'text',
+      text: signal.reason_detail,
+      size: 'sm',
+      color: '#444444',
+      margin: 'md',
+      wrap: true,
+    })
+  }
+
   if (signal.risk_notes) {
     bodyContents.push({
       type: 'text',
@@ -110,6 +131,27 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
       margin: 'md',
       wrap: true,
     })
+  }
+
+  // Footer with copy button
+  const footer = {
+    type: 'box',
+    layout: 'vertical',
+    contents: [
+      {
+        type: 'button',
+        action: {
+          type: 'clipboard',
+          label: '📋 一鍵複製',
+          clipboardText: copyText,
+        },
+        style: 'secondary',
+        height: 'sm',
+        color: '#F0F0F0',
+      },
+    ],
+    spacing: 'sm',
+    paddingAll: 'lg',
   }
 
   return {
@@ -122,6 +164,7 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
         layout: 'vertical',
         contents: bodyContents,
       },
+      footer,
     },
   }
 }

@@ -22,7 +22,7 @@ const actionLabels: Record<string, { label: string; variant: 'default' | 'destru
   sell: { label: '賣出', variant: 'destructive' },
   add: { label: '加碼', variant: 'secondary' },
   trim: { label: '減碼', variant: 'outline' },
-  exit: { label: '出場', variant: 'destructive' },
+  exit: { label: '平損', variant: 'destructive' },
 };
 
 const AdminSignals = () => {
@@ -173,7 +173,7 @@ const AdminSignals = () => {
                         <SelectItem value="sell">賣出</SelectItem>
                         <SelectItem value="add">加碼</SelectItem>
                         <SelectItem value="trim">減碼</SelectItem>
-                        <SelectItem value="exit">出場</SelectItem>
+                        <SelectItem value="exit">平損</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
