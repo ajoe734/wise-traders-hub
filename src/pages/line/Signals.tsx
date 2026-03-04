@@ -44,7 +44,7 @@ const LineSignals = () => {
       case SignalAction.SELL: return '賣出';
       case SignalAction.ADD: return '加碼';
       case SignalAction.TRIM: return '減碼';
-      case SignalAction.EXIT: return '出場';
+      case SignalAction.EXIT: return '平損';
     }
   };
 

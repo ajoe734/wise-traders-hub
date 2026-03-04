@@ -11,7 +11,7 @@ import { AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const actionLabels: Record<string, string> = {
-  buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '出場',
+  buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
 };
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');

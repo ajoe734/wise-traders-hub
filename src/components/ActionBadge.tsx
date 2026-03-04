@@ -25,7 +25,7 @@ const actionConfig: Record<SignalAction, { label: string; className: string }> =
     className: 'bg-amber-500 text-amber-50 border-amber-500' 
   },
   [SignalAction.EXIT]: { 
-    label: '出場', 
+    label: '平損', 
     className: 'bg-slate-500 text-slate-50 border-slate-500' 
   },
 };
