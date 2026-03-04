@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, Radio, Users, UserCog, BarChart3,
-  ChevronLeft, LogOut, Moon, Sun, Building2 
+  ChevronLeft, LogOut, Moon, Sun, Building2, FileText 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,6 +44,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { path: basePath, icon: LayoutDashboard, label: '總覽', exact: true },
     { path: `${basePath}/signals`, icon: Radio, label: isAdvisor ? '訊號管理' : '週記管理' },
     { path: `${basePath}/subscribers`, icon: Users, label: '訂閱者' },
+    { path: `${basePath}/reason-templates`, icon: FileText, label: '理由模板' },
     { path: `${basePath}/profile`, icon: UserCog, label: '個人檔案' },
     { path: `${basePath}/performance`, icon: BarChart3, label: '績效總覽' },
   ];

@@ -46,6 +46,7 @@ import AdminSignals from "./pages/admin/Signals";
 import AdminSubscribers from "./pages/admin/Subscribers";
 import AdminProfile from "./pages/admin/Profile";
 import AdminPerformance from "./pages/admin/Performance";
+import AdminReasonTemplates from "./pages/admin/ReasonTemplates";
 
 
 // Company pages (internal backend)
@@ -142,6 +143,7 @@ const App = () => (
             <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute><AdminSubscribers /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/reason-templates" element={<ProtectedRoute><AdminReasonTemplates /></ProtectedRoute>} />
             
 
             {/* LINE Mini-App (per expert) */}
