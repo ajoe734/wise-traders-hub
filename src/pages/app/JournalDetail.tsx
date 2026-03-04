@@ -179,7 +179,7 @@ const JournalDetail = () => {
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm">{format(ws, 'MM/dd', { locale: zhTW })} ~ {format(we, 'MM/dd', { locale: zhTW })}</span>
-          <Badge variant="mentor-light" className="text-[10px]">T+7 歷史</Badge>
+          <Badge variant="mentor-light" className="text-[10px]">週記</Badge>
         </div>
 
         <h1 className="text-xl font-bold">本週操作回顧</h1>
@@ -308,7 +308,7 @@ const JournalDetail = () => {
           <CardContent className="p-4 flex items-start gap-2">
             <Shield className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
             <p className="text-xs text-muted-foreground">
-              本頁內容為一週前之操作回顧（T+7），僅供教學用途，不構成任何即時投資建議。
+              本頁內容為操作回顧，僅供教學用途，不構成任何即時投資建議。
             </p>
           </CardContent>
         </Card>

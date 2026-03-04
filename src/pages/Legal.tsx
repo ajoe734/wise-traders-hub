@@ -56,12 +56,12 @@ const Legal = () => {
             </CardHeader>
             <CardContent className="prose prose-sm max-w-none text-muted-foreground">
               <p>
-                本平台的「實戰導師」服務為純教學性質，所有內容均至少延遲 7 天（T+7）發布，
+                本平台的「實戰導師」服務為純教學性質，所有內容由導師於每週六發布，
                 僅作為歷史案例教學之用途。
               </p>
               <h4 className="text-foreground">服務特性：</h4>
               <ul>
-                <li>所有操作紀錄至少延遲 7 天發布</li>
+                <li>每週六由導師發布操作回顧週記</li>
                 <li>不提供即時投資建議或策略訊號</li>
                 <li>不提供個別持股診斷或投資組合建議</li>
                 <li>內容僅供歷史案例學習與風險思維教育</li>

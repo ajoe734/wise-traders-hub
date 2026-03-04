@@ -376,7 +376,7 @@ const MobilePreviewCarousel = () => {
                   <span className="text-xs font-medium">本週操作紀錄</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Badge variant="outline" className="text-[9px] bg-mentor/10 text-mentor border-mentor/20">T+7</Badge>
+                  <Badge variant="outline" className="text-[9px] bg-mentor/10 text-mentor border-mentor/20">週記</Badge>
                   <span className="text-[10px] text-muted-foreground dark:text-white/50">12/23~12/27</span>
                 </div>
               </div>
@@ -1138,7 +1138,7 @@ const Index = () => {
                     <span className="text-xs md:text-sm font-medium">本週操作紀錄</span>
                   </div>
                   <div className="flex items-center gap-1.5 md:gap-2">
-                    <Badge variant="outline" className="text-[9px] md:text-[10px] bg-mentor/10 text-mentor border-mentor/20">T+7</Badge>
+                    <Badge variant="outline" className="text-[9px] md:text-[10px] bg-mentor/10 text-mentor border-mentor/20">週記</Badge>
                     <span className="text-[10px] md:text-xs text-muted-foreground">12/23~12/27</span>
                   </div>
                 </div>
@@ -1214,7 +1214,7 @@ const Index = () => {
               </div>
               <h4 className="text-base md:text-h5 mb-xs text-foreground">修煉派週記教學</h4>
               <p className="text-muted-foreground text-xs md:text-sm leading-relaxed">
-                每週回顧導師的實際操作，包含進出場理由與學習重點（T+7 延遲）。
+                每週六由導師發布實戰操作回顧，包含進出場理由與學習重點。
               </p>
             </div>
           </div>

@@ -159,11 +159,11 @@ const ExpertProfile = () => {
     switch (planType) {
       case 'analyst_signal_l1': return '即時訊號通知';
       case 'analyst_signal_diag_l2': return '訊號 + 持股健檢';
-      case 'mentor_weekly_journal': return 'T+7 延遲・週記式教學';
+      case 'mentor_weekly_journal': return '每週六發布・週記式教學';
       default: return '';
     }
   };
-  const getPlanNote = (planType: string) => planType === 'mentor_weekly_journal' ? '所有內容延遲 7 天，僅供教學參考。' : '包含具體買賣指示，屬投顧服務。';
+  const getPlanNote = (planType: string) => planType === 'mentor_weekly_journal' ? '每週六由導師親自發布，僅供教學參考。' : '包含具體買賣指示，屬投顧服務。';
 
   const backButton = fromAccount
     ? <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/app/account')}><ArrowLeft className="h-4 w-4 mr-1" />返回帳號設定</Button>

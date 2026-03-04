@@ -5,11 +5,10 @@ import { TrendingUp, TrendingDown, Target, BarChart3, Trophy, Clock } from 'luci
 
 interface PerformanceMetricsProps {
   summary: PerformanceSummary;
-  isDelayed?: boolean;
   className?: string;
 }
 
-export function PerformanceMetrics({ summary, isDelayed, className }: PerformanceMetricsProps) {
+export function PerformanceMetrics({ summary, className }: PerformanceMetricsProps) {
   const metrics = [
     {
       label: '累積報酬',
@@ -83,11 +82,6 @@ export function PerformanceMetrics({ summary, isDelayed, className }: Performanc
             key={idx}
             className="p-3 bg-muted/30 rounded-lg text-center relative"
           >
-            {isDelayed && idx === 0 && (
-              <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 bg-mentor/10 text-mentor rounded">
-                T+7
-              </span>
-            )}
             <div className="flex items-center justify-center gap-1 mb-1">
               <Icon className="h-3 w-3 text-muted-foreground" />
               <p className="text-xs text-muted-foreground">{metric.label}</p>

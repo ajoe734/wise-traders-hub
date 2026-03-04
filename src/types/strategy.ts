@@ -241,17 +241,16 @@ export interface FactorContribution {
 }
 
 // ============================================
-// Weekly Review (Coach T+7)
+// Weekly Review (Coach)
 // ============================================
 
-/** 實戰導師的週回顧資料（延遲一週） */
+/** 實戰導師的週回顧資料（每週六發布） */
 export interface WeeklyReview {
   id: string;
   expertId: string;
   strategyId: string;
   weekStart: string;   // 週起日
   weekEnd: string;     // 週迄日
-  delayMode: 't7';     // 固定 T+7
 
   summary: WeeklyReviewSummary;
   equityHistory: EquityPoint[];  // 該週 equity 走勢
