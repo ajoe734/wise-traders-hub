@@ -72,12 +72,12 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
 
   // Build copy text for one-click copy
   const copyLines: string[] = [
-    `${label} ${signal.instrument}`,
+    `【${label} ${signal.instrument}】`,
   ]
   if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}`)
-  if (signal.reason_summary) copyLines.push(`摘要：${signal.reason_summary}`)
-  if (signal.reason_detail) copyLines.push(`分析：${signal.reason_detail}`)
-  if (signal.risk_notes) copyLines.push(`風險：${signal.risk_notes}`)
+  if (signal.reason_summary) copyLines.push(`\n📌 摘要：\n${signal.reason_summary}`)
+  if (signal.reason_detail) copyLines.push(`\n📊 詳細分析：\n${signal.reason_detail}`)
+  if (signal.risk_notes) copyLines.push(`\n⚠️ 風險提示：\n${signal.risk_notes}`)
   const copyText = copyLines.join('\n')
 
   const bodyContents: any[] = [
@@ -101,36 +101,66 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
   }
 
   if (signal.reason_summary) {
-    bodyContents.push({
-      type: 'text',
-      text: signal.reason_summary,
-      size: 'sm',
-      color: '#444444',
-      margin: 'md',
-      wrap: true,
-    })
+    bodyContents.push(
+      {
+        type: 'text',
+        text: '📌 摘要',
+        size: 'sm',
+        color: '#333333',
+        margin: 'lg',
+        weight: 'bold',
+      },
+      {
+        type: 'text',
+        text: signal.reason_summary,
+        size: 'sm',
+        color: '#444444',
+        margin: 'sm',
+        wrap: true,
+      },
+    )
   }
 
   if (signal.reason_detail) {
-    bodyContents.push({
-      type: 'text',
-      text: signal.reason_detail,
-      size: 'sm',
-      color: '#444444',
-      margin: 'md',
-      wrap: true,
-    })
+    bodyContents.push(
+      {
+        type: 'text',
+        text: '📊 詳細分析',
+        size: 'sm',
+        color: '#333333',
+        margin: 'lg',
+        weight: 'bold',
+      },
+      {
+        type: 'text',
+        text: signal.reason_detail,
+        size: 'sm',
+        color: '#444444',
+        margin: 'sm',
+        wrap: true,
+      },
+    )
   }
 
   if (signal.risk_notes) {
-    bodyContents.push({
-      type: 'text',
-      text: `⚠️ ${signal.risk_notes}`,
-      size: 'xs',
-      color: '#999999',
-      margin: 'md',
-      wrap: true,
-    })
+    bodyContents.push(
+      {
+        type: 'text',
+        text: '⚠️ 風險提示',
+        size: 'sm',
+        color: '#DC3545',
+        margin: 'lg',
+        weight: 'bold',
+      },
+      {
+        type: 'text',
+        text: signal.risk_notes,
+        size: 'xs',
+        color: '#999999',
+        margin: 'sm',
+        wrap: true,
+      },
+    )
   }
 
   // Footer with copy button
