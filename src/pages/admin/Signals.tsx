@@ -107,11 +107,19 @@ const AdminSignals = () => {
     if (inserted?.id) {
       supabase.functions.invoke('line-push-signal', {
         body: { signal_id: inserted.id, expert_id: expert.id },
-      }).then(({ data: pushData }) => {
-        if (pushData?.pushed) {
+      }).then(({ data: pushData, error: pushError }) => {
+        console.log('LINE push response:', pushData, pushError);
+        if (pushError) {
+          toast.error(`LINE 推播失敗：${pushError.message}`);
+        } else if (pushData?.pushed) {
           toast.success(`已推播給 ${pushData.count} 位訂閱者`);
+        } else if (pushData?.reason) {
+          toast.info(`LINE 推播略過：${pushData.reason}`);
         }
-      }).catch(() => {});
+      }).catch((err) => {
+        console.error('LINE push invoke error:', err);
+        toast.error('LINE 推播呼叫失敗');
+      });
     }
 
     fetchData();
