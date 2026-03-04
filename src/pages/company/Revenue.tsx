@@ -29,7 +29,7 @@ const CompanyRevenue = () => {
     setSubscriptions(subs || []);
   };
 
-  const totalRevenue = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+  const totalRevenue = 0; // reserved
 
   // MRR from active subscriptions
   const mrr = subscriptions.reduce((sum, s) => sum + (s.expert_plans?.price_monthly || 0), 0);
@@ -120,7 +120,7 @@ const CompanyRevenue = () => {
                 <span className="text-sm text-muted-foreground">總交易筆數</span>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </div>
-              <div className="text-2xl font-bold">{transactions.length}</div>
+              <div className="text-2xl font-bold">—</div>
             </CardContent>
           </Card>
           <Card>
