@@ -41,6 +41,7 @@ const CompanySubscribers = () => {
   };
 
   const activeCount = subs.filter(s => s.status === 'active').length;
+  const totalCount = subs.filter(s => s.status !== 'canceled').length;
   const expiredCount = subs.filter(s => s.status === 'expired').length;
   const canceledCount = subs.filter(s => s.status === 'canceled').length;
 
@@ -64,7 +65,7 @@ const CompanySubscribers = () => {
     return matchStatus && matchSearch;
   });
 
-  const renewalRate = subs.length > 0 ? Math.round((subs.filter(s => s.auto_renew).length / subs.length) * 100) : 0;
+  const renewalRate = totalCount > 0 ? Math.round((subs.filter(s => s.auto_renew && s.status !== 'canceled').length / totalCount) * 100) : 0;
 
   const handleExport = () => {
     const headers = ['訂閱者', '方案', '開始日', '到期日', '狀態', '續訂'];
@@ -103,7 +104,7 @@ const CompanySubscribers = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-          <Card><CardContent className="p-4 flex items-center gap-3"><Users className="h-5 w-5 text-muted-foreground" /><div><div className="text-2xl font-bold">{subs.length}</div><div className="text-xs text-muted-foreground">總訂閱</div></div></CardContent></Card>
+          <Card><CardContent className="p-4 flex items-center gap-3"><Users className="h-5 w-5 text-muted-foreground" /><div><div className="text-2xl font-bold">{totalCount}</div><div className="text-xs text-muted-foreground">總訂閱</div></div></CardContent></Card>
           <Card><CardContent className="p-4 flex items-center gap-3"><UserCheck className="h-5 w-5 text-green-500" /><div><div className="text-2xl font-bold">{activeCount}</div><div className="text-xs text-muted-foreground">活躍中</div></div></CardContent></Card>
           <Card><CardContent className="p-4 flex items-center gap-3"><UserX className="h-5 w-5 text-muted-foreground" /><div><div className="text-2xl font-bold">{expiredCount}</div><div className="text-xs text-muted-foreground">已到期</div></div></CardContent></Card>
           <Card><CardContent className="p-4 flex items-center gap-3"><UserX className="h-5 w-5 text-destructive" /><div><div className="text-2xl font-bold">{canceledCount}</div><div className="text-xs text-muted-foreground">已取消</div></div></CardContent></Card>
