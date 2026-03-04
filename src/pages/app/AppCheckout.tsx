@@ -219,8 +219,8 @@ const AppCheckout = () => {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogAction onClick={() => { setResultDialog(null); if (resultDialog?.success) navigate("/app"); }}>
-                {resultDialog?.success ? "前往戰情室" : "關閉"}
+              <AlertDialogAction onClick={() => { setResultDialog(null); if (resultDialog?.success) navigate("/app/account"); }}>
+                {resultDialog?.success ? "前往帳號設定" : "關閉"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ interface DbSubscription {
 const Account = () => {
   const { user } = useAuth();
   
+  const queryClient = useQueryClient();
   const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(true);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
@@ -178,8 +180,13 @@ const Account = () => {
           .eq('expert_id', expertId);
       }
 
-      // Refresh data
+      // Refresh data + invalidate caches
       await fetchSubscriptions();
+      await fetchExperts();
+      // Invalidate react-query caches for subscription-dependent data
+      queryClient.invalidateQueries({ queryKey: ['my-subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['subscribed-slugs'] });
+      queryClient.invalidateQueries({ queryKey: ['app-home'] });
     } catch (err: any) {
       console.error('Cancel subscription error:', err);
     } finally {
