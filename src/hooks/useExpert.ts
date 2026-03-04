@@ -38,7 +38,7 @@ export function useExperts() {
         .from('experts')
         .select('*, expert_plans(*)')
         .eq('status', 'active')
-        .order('name');
+        .order('created_at');
       if (error) throw error;
       return (data || []).map(mapToPersonWithPlans);
     },
