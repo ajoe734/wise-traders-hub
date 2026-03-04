@@ -40,7 +40,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminSignals from "./pages/admin/Signals";
 import AdminSubscribers from "./pages/admin/Subscribers";
 import AdminProfile from "./pages/admin/Profile";
-
+import AdminPerformance from "./pages/admin/Performance";
 import AdminReasonTemplates from "./pages/admin/ReasonTemplates";
 import AdminSignalTemplates from "./pages/admin/SignalTemplates";
 
@@ -120,7 +120,7 @@ const App = () => (
             <Route path="/admin/:expertSlug/signals" element={<ProtectedRoute><AdminSignals /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute><AdminSubscribers /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>} />
-            <Route path="/admin/:expertSlug/performance" element={<Navigate to="/admin" replace />} />
+            <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/reason-templates" element={<ProtectedRoute><AdminReasonTemplates /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signal-templates" element={<ProtectedRoute><AdminSignalTemplates /></ProtectedRoute>} />
 
