@@ -268,13 +268,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Mentor signals use delayed push (T+7), not immediate push
-    if (expertRow.role === 'mentor' && pushType === 'publish') {
-      console.log('Mentor signal: skipping immediate push (T+7 delayed)')
-      return new Response(JSON.stringify({ pushed: false, reason: 'mentor_delayed', message: '修煉派訊號將於 7 天後自動推播' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    // All experts (advisor and mentor) use immediate push
 
     // Get LINE channel config
     const { data: channel } = await supabaseAdmin

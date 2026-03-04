@@ -122,8 +122,7 @@ const AdminSignals = () => {
           toast.error(`LINE 推播失敗：${pushError.message}`);
         } else if (pushData?.pushed) {
           toast.success(`已推播給 ${pushData.count} 位訂閱者`);
-        } else if (pushData?.reason === 'mentor_delayed') {
-          toast.info('修煉派訊號將於 7 天後自動推播');
+        } else if (pushData?.reason) {
         } else if (pushData?.reason) {
           toast.info(`LINE 推播略過：${pushData.reason}`);
         }
@@ -249,7 +248,7 @@ const AdminSignals = () => {
                 {isMentor && canPublish && (
                   <Card className="bg-muted/50">
                     <CardContent className="p-4 space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">📋 訂閱者預覽（T+7 後顯示）</p>
+                      <p className="text-xs font-medium text-muted-foreground">📋 訂閱者預覽</p>
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
                         <span className="font-medium text-sm">{stockCode} {stockName}</span>

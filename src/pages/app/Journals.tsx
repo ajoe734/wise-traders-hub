@@ -88,16 +88,12 @@ const Journals = () => {
       return;
     }
 
-    // 2. Query expert_signals with T+7 delay
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
+    // 2. Query expert_signals for mentor journals
     const { data, error } = await supabase
       .from('expert_signals')
       .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
       .eq('status', 'published')
       .in('expert_id', mentorIds)
-      .lte('published_at', sevenDaysAgo.toISOString())
       .order('published_at', { ascending: false })
       .limit(100);
 
@@ -149,7 +145,7 @@ const Journals = () => {
         
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            來自您訂閱導師的 T+7 修煉派週記
+            來自您訂閱導師的修煉派週記
           </p>
           
           {weekGroups.length > 0 && (
@@ -203,7 +199,7 @@ const Journals = () => {
           <Card>
             <CardContent className="p-6 text-center space-y-3">
               <p className="text-muted-foreground">您尚未訂閱任何實戰導師</p>
-              <p className="text-sm text-muted-foreground">訂閱後即可在此查看 T+7 修煉派週記教學</p>
+              <p className="text-sm text-muted-foreground">訂閱後即可在此查看修煉派週記教學</p>
               <Link to="/app/explore">
                 <button className="mt-2 inline-flex items-center gap-2 rounded-md bg-mentor px-4 py-2 text-sm font-medium text-white hover:bg-mentor/90">
                   前往探索導師

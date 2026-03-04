@@ -17,7 +17,7 @@ export function PersonCard({ person }: PersonCardProps) {
     switch (plan.planType as PlanType) {
       case 'analyst_signal_l1': return '分析師即時策略訂閱';
       case 'analyst_signal_diag_l2': return '策略＋持股健檢';
-      case 'mentor_weekly_journal': return '修煉派週記教學訂閱（T+7）';
+      case 'mentor_weekly_journal': return '修煉派週記教學訂閱';
       default: return plan.name;
     }
   });
