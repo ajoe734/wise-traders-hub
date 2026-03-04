@@ -119,6 +119,13 @@ export type Database = {
             referencedRelation: "experts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expert_line_channels_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       expert_plans: {
@@ -178,6 +185,13 @@ export type Database = {
             referencedRelation: "experts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expert_plans_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       expert_reason_templates: {
@@ -211,6 +225,13 @@ export type Database = {
             columns: ["expert_id"]
             isOneToOne: false
             referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_reason_templates_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
         ]
@@ -255,6 +276,13 @@ export type Database = {
             columns: ["expert_id"]
             isOneToOne: false
             referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_signal_templates_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
         ]
@@ -320,6 +348,13 @@ export type Database = {
             columns: ["expert_id"]
             isOneToOne: false
             referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_signals_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
           {
@@ -415,6 +450,13 @@ export type Database = {
             referencedRelation: "experts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "line_binding_codes_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       member_line_bindings: {
@@ -451,6 +493,13 @@ export type Database = {
             columns: ["expert_id"]
             isOneToOne: false
             referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_line_bindings_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
             referencedColumns: ["id"]
           },
         ]
@@ -708,6 +757,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "trade_records_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "trade_records_signal_id_fkey"
             columns: ["signal_id"]
             isOneToOne: false
@@ -736,7 +792,99 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      expert_line_channels_public: {
+        Row: {
+          channel_id: string | null
+          channel_name: string | null
+          created_at: string | null
+          expert_id: string | null
+          id: string | null
+          is_active: boolean | null
+          line_oa_id: string | null
+          qr_code_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          channel_id?: string | null
+          channel_name?: string | null
+          created_at?: string | null
+          expert_id?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          line_oa_id?: string | null
+          qr_code_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          channel_id?: string | null
+          channel_name?: string | null
+          created_at?: string | null
+          expert_id?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          line_oa_id?: string | null
+          qr_code_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_line_channels_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_line_channels_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: true
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experts_public: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          markets: string[] | null
+          name: string | null
+          role: Database["public"]["Enums"]["expert_role"] | null
+          slug: string | null
+          status: string | null
+          style_tags: string[] | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          markets?: string[] | null
+          name?: string | null
+          role?: Database["public"]["Enums"]["expert_role"] | null
+          slug?: string | null
+          status?: string | null
+          style_tags?: string[] | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          markets?: string[] | null
+          name?: string | null
+          role?: Database["public"]["Enums"]["expert_role"] | null
+          slug?: string | null
+          status?: string | null
+          style_tags?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_expert_performance: {
