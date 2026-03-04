@@ -180,7 +180,7 @@ const CompanyRevenue = () => {
                         <Tooltip formatter={(v: number) => [`NT$${v.toLocaleString()}`, 'MRR']} />
                         <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={28}>
                           {filteredBarData.map((entry, i) => (
-                            <Cell key={i} fill={entry.role === 'advisor' ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-3))'} />
+                            <Cell key={i} fill="hsl(var(--company))" />
                           ))}
                         </Bar>
                       </BarChart>
