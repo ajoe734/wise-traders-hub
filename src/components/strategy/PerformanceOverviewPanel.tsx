@@ -26,8 +26,8 @@ import { cn } from "@/lib/utils";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
 
-// 起始資金（固定值）
-const INITIAL_CAPITAL = 0;
+// 起始資金（固定值，模擬 100 萬台幣）
+const INITIAL_CAPITAL = 1_000_000;
 
 interface PerformanceOverviewPanelProps {
   expertSlug: string;

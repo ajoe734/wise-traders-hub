@@ -189,18 +189,25 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
         .filter(Boolean);
 
       // Determine subscription mode from expert roles
-      const roles = subs
-        .map((s: any) => s.expert_plans?.experts?.role)
-        .filter(Boolean);
-      setHasAdvisor(roles.includes('advisor'));
-      setHasMentor(roles.includes('mentor'));
+      const advisorExpertIds: string[] = [];
+      const mentorExpertIds: string[] = [];
+      subs.forEach((s: any) => {
+        const role = s.expert_plans?.experts?.role;
+        const eid = s.expert_plans?.expert_id;
+        if (!role || !eid) return;
+        if (role === 'advisor') advisorExpertIds.push(eid);
+        if (role === 'mentor') mentorExpertIds.push(eid);
+      });
+      setHasAdvisor(advisorExpertIds.length > 0);
+      setHasMentor(mentorExpertIds.length > 0);
 
-      if (expertIds.length > 0) {
+      // Unread signals: only advisor signals
+      if (advisorExpertIds.length > 0) {
         const { count: unreadSignalsCount } = await supabase
           .from('expert_signals')
           .select('id', { count: 'exact', head: true })
           .eq('status', 'published')
-          .in('expert_id', expertIds)
+          .in('expert_id', advisorExpertIds)
           .gt('published_at', sinceIso);
 
         setUnreadSignals(unreadSignalsCount ?? 0);
@@ -208,8 +215,23 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
         setUnreadSignals(0);
       }
 
-      // Journals unread — TODO: implement with real journals table
-      setUnreadJournals(0);
+      // Unread journals: only mentor signals
+      if (mentorExpertIds.length > 0) {
+        const journalsLastSeenStr = localStorage.getItem(JOURNALS_LAST_SEEN_KEY);
+        const journalsLastSeen = journalsLastSeenStr ? parseInt(journalsLastSeenStr, 10) : 0;
+        const journalsSinceIso = journalsLastSeen > 0 ? new Date(journalsLastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
+
+        const { count: unreadJournalsCount } = await supabase
+          .from('expert_signals')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'published')
+          .in('expert_id', mentorExpertIds)
+          .gt('published_at', journalsSinceIso);
+
+        setUnreadJournals(unreadJournalsCount ?? 0);
+      } else {
+        setUnreadJournals(0);
+      }
     };
 
     loadUnreadCounts();
