@@ -46,7 +46,7 @@ const AdminSignals = () => {
   const [reasonDetail, setReasonDetail] = useState('');
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
-  const [planId, setPlanId] = useState('');
+  
 
   useEffect(() => { fetchData(); }, [expertSlug]);
 
@@ -90,7 +90,7 @@ const AdminSignals = () => {
     const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
     const { data: inserted, error } = await supabase.from('expert_signals').insert({
       expert_id: expert.id,
-      plan_id: planId || null,
+      plan_id: null,
       instrument,
       action: action as any,
       price_hint: priceHint ? parseFloat(priceHint) : null,
@@ -103,7 +103,7 @@ const AdminSignals = () => {
     if (error) { toast.error(error.message); return; }
     toast.success(isMentor ? '週記已發布，將於 7 天後自動推播' : '訊號已發布');
     setIsCreateOpen(false);
-    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints(''); setPlanId('');
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
 
     // Trigger LINE push notification (non-blocking)
     if (inserted?.id) {
@@ -188,17 +188,6 @@ const AdminSignals = () => {
                     <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
                   </div>
                 </div>
-                {plans.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>對應方案</Label>
-                    <Select value={planId} onValueChange={setPlanId}>
-                      <SelectTrigger><SelectValue placeholder="選擇方案（可選）" /></SelectTrigger>
-                      <SelectContent>
-                        {plans.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
                 <div className="space-y-2">
                   <Label>操作理由（摘要）</Label>
                   <Textarea value={reasonSummary} onChange={e => setReasonSummary(e.target.value)} placeholder="簡述操作原因..." rows={2} />
