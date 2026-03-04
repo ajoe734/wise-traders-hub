@@ -42,7 +42,7 @@ const PlanDetail = () => {
     switch (planType) {
       case 'analyst_signal_l1': return ['即時策略訊號（透過 LINE OA）', '策略教學頁面', '交易紀錄查詢', '風險與部位控管說明'];
       case 'analyst_signal_diag_l2': return ['等級 1 所有功能', '持股診斷報告', '個人化投資組合建議', '專屬風險評估'];
-      case 'mentor_weekly_journal': return ['每週六修煉派週記', '完整操作邏輯拆解', '策略教學內容', '問題統整 Q&A（非個別建議）'];
+      case 'mentor_weekly_journal': return ['T+7 延遲修煉派週記', '完整操作邏輯拆解', '策略教學內容', '問題統整 Q&A（非個別建議）'];
       default: return [];
     }
   };

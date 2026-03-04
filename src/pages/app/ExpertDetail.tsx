@@ -34,9 +34,9 @@ const planMeta: Record<string, { title: string; subtitle: string; description: s
   },
   mentor_weekly_journal: {
     title: '修煉派',
-    subtitle: '每週六發布・週記式教學',
-    description: '每週六由導師親自發布週記，回顧一週的實戰操作。專注學習策略邏輯與操作紀律。',
-    features: ['每週實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點'],
+    subtitle: 'T+7 延遲・週記式教學',
+    description: '每週六由導師親自發布週記，所有內容均延遲 7 天以上。專注學習策略邏輯與操作紀律，非即時投資建議。',
+    features: ['T+7 延遲實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點'],
     icon: BookOpen,
     variant: 'mentor',
   },
