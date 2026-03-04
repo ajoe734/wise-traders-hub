@@ -180,6 +180,41 @@ export type Database = {
           },
         ]
       }
+      expert_reason_templates: {
+        Row: {
+          content: string
+          created_at: string
+          expert_id: string
+          id: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          expert_id: string
+          id?: string
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          expert_id?: string
+          id?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_reason_templates_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_signals: {
         Row: {
           action: Database["public"]["Enums"]["signal_action"]

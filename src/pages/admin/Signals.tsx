@@ -32,6 +32,7 @@ const AdminSignals = () => {
   const [expert, setExpert] = useState<any>(null);
   const [signals, setSignals] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
+  const [reasonTemplates, setReasonTemplates] = useState<{ id: string; title: string; content: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -72,6 +73,12 @@ const AdminSignals = () => {
       setSignals(filtered);
       const { data: p } = await supabase.from('expert_plans').select('id, name').eq('expert_id', exp.id).eq('is_active', true);
       setPlans(p || []);
+      const { data: tpl } = await supabase
+        .from('expert_reason_templates' as any)
+        .select('id, title, content')
+        .eq('expert_id', exp.id)
+        .order('sort_order', { ascending: true });
+      setReasonTemplates((tpl as any) || []);
     }
     setLoading(false);
   };
@@ -190,6 +197,22 @@ const AdminSignals = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>操作理由（摘要）</Label>
+                  {reasonTemplates.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {reasonTemplates.map(tpl => (
+                        <Button
+                          key={tpl.id}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-xs px-2"
+                          onClick={() => setReasonSummary(tpl.content)}
+                        >
+                          {tpl.title}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                   <Textarea value={reasonSummary} onChange={e => setReasonSummary(e.target.value)} placeholder="簡述操作原因..." rows={2} />
                 </div>
                 <div className="space-y-2">
