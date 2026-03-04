@@ -150,14 +150,13 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     )
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token)
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user: callerUser }, error: userError } = await supabaseUser.auth.getUser()
+    if (userError || !callerUser) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    const userId = claimsData.claims.sub as string
+    const userId = callerUser.id
 
     const { signal_id, expert_id, type } = await req.json()
     const pushType = type === 'takedown' ? 'takedown' : 'publish'
