@@ -1,111 +1,114 @@
 
 
-## Quick-Template Feature for Signal Reason Summary
+## Upgrade to Signal Templates (完整訊號模板系統)
 
 ### Overview
 
-Add a per-analyst "reason template" system so analysts can one-click insert pre-written reason text when publishing signals, reducing publish time.
+Evolve the existing `expert_reason_templates` (single-field text) into `expert_signal_templates` (multi-field signal templates) that auto-fill action, reason_summary, reason_detail, and risk_notes in one click. Keep the old reason templates table for backward compatibility but replace the UI with the new system.
 
-### 1. Database Schema
+### 1. Database Migration
 
-New table `expert_reason_templates`:
+New table `expert_signal_templates`:
 
 ```sql
-CREATE TABLE public.expert_reason_templates (
+CREATE TABLE public.expert_signal_templates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   expert_id uuid NOT NULL,
-  title text NOT NULL,        -- chip label, e.g. "突破壓力位"
-  content text NOT NULL,      -- full text inserted into textarea
+  title text NOT NULL,           -- chip label
+  action text NOT NULL,          -- buy/sell/add/trim/exit
+  reason text NOT NULL DEFAULT '',          -- → reason_summary
+  risk_note text NOT NULL DEFAULT '',       -- → risk_notes
+  strategy_note text NOT NULL DEFAULT '',   -- → reason_detail
   sort_order integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE public.expert_reason_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.expert_signal_templates ENABLE ROW LEVEL SECURITY;
 
--- Analysts manage own templates
-CREATE POLICY "Analysts can manage own templates"
-  ON public.expert_reason_templates FOR ALL TO authenticated
+-- Same RLS pattern as expert_reason_templates
+CREATE POLICY "Analysts can manage own signal templates"
+  ON public.expert_signal_templates FOR ALL TO authenticated
   USING (expert_id IN (SELECT id FROM experts WHERE user_id = auth.uid()))
   WITH CHECK (expert_id IN (SELECT id FROM experts WHERE user_id = auth.uid()));
 
--- Company admins full access
-CREATE POLICY "Company admins full access reason templates"
-  ON public.expert_reason_templates FOR ALL TO authenticated
+CREATE POLICY "Company admins full access signal templates"
+  ON public.expert_signal_templates FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'company_admin'))
   WITH CHECK (has_role(auth.uid(), 'company_admin'));
 ```
 
-No edge functions needed -- all CRUD goes directly through the Supabase client, protected by RLS. This matches the existing pattern used for `expert_signals`, `expert_plans`, etc.
+No edge functions needed — direct client CRUD via RLS.
 
 ### 2. Files to Create / Modify
 
-**New file: `src/pages/admin/ReasonTemplates.tsx`**
-- Full CRUD page at `/admin/:expertSlug/reason-templates`
-- List templates ordered by `sort_order`
-- Inline add/edit via dialog (title + content fields)
-- Delete with confirmation
-- Drag-to-reorder using native HTML drag events (no extra library needed), updating `sort_order` in batch
+| File | Action | Description |
+|------|--------|-------------|
+| `src/pages/admin/SignalTemplates.tsx` | **Create** | Full CRUD + drag-reorder page for signal templates (title, action, reason, risk_note, strategy_note) |
+| `src/pages/admin/Signals.tsx` | **Modify** | Replace reason template chips with signal template chips; apply multi-field autofill logic |
+| `src/App.tsx` | **Modify** | Add route `/admin/:expertSlug/signal-templates` |
+| `src/components/layouts/AdminLayout.tsx` | **Modify** | Replace "理由模板" nav item with "訊號模板" pointing to new route |
 
-**Modify: `src/App.tsx`**
-- Import `ReasonTemplates` page
-- Add route: `/admin/:expertSlug/reason-templates`
+The old `ReasonTemplates.tsx` page and `expert_reason_templates` table remain untouched (no breaking change), but the nav link will point to the new page instead.
 
-**Modify: `src/components/layouts/AdminLayout.tsx`**
-- Add nav item "理由模板" with a `FileText` icon linking to `${basePath}/reason-templates`
+### 3. Autofill Logic (Signals.tsx)
 
-**Modify: `src/pages/admin/Signals.tsx`**
-- Fetch `expert_reason_templates` when dialog opens (ordered by `sort_order`)
-- Render a row of chip buttons above the "操作理由（摘要）" textarea
-- On click: set `reasonSummary` to the template's `content`
+When a signal template chip is clicked:
 
-### 3. UI Behavior
-
-#### Signal Publish Dialog (Signals.tsx)
-
-```text
-┌──────────────────────────────────┐
-│ 股票代碼        股票名稱          │
-│ 操作方向        參考價位          │
-│                                  │
-│ 快速模板：                        │
-│ [突破壓力位] [回測支撐] [停利]     │
-│                                  │
-│ 操作理由（摘要）                   │
-│ ┌──────────────────────────────┐ │
-│ │ (auto-filled on click)       │ │
-│ └──────────────────────────────┘ │
-│ ...                              │
-└──────────────────────────────────┘
+```typescript
+const applyTemplate = (tpl: SignalTemplate) => {
+  // Only fill empty fields — never overwrite existing content
+  if (!action) setAction(tpl.action);
+  if (!reasonSummary) setReasonSummary(tpl.reason);
+  if (!riskNotes) setRiskNotes(tpl.risk_note);
+  if (!reasonDetail) setReasonDetail(tpl.strategy_note);
+};
 ```
 
-- Chips styled as small outline buttons, scrollable if many
-- Clicking a chip **replaces** the textarea content (simple and fast for real-time use)
-- If no templates exist, the chip row is hidden
+This preserves any manually entered data while filling blanks.
 
-#### Template Management Page (`/admin/:expertSlug/reason-templates`)
+### 4. UI Behavior
+
+#### Signal Publish Dialog
 
 ```text
-┌─────────────────────────────────────────┐
-│ 理由模板管理              [+ 新增模板]   │
-│─────────────────────────────────────────│
-│ ≡  突破壓力位  │ 突破壓力位，順勢做多  [✏️][🗑] │
-│ ≡  回測支撐    │ 回測支撐位，短線布局  [✏️][🗑] │
-│ ≡  停利       │ 技術面轉弱，先行停利  [✏️][🗑] │
-│ ≡  減碼       │ 風險控管，先減碼      [✏️][🗑] │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────┐
+│ 股票代碼        股票名稱              │
+│                                      │
+│ 訊號模板：                            │
+│ [突破壓力位] [回測支撐] [停利] [減碼]  │  ← scrollable
+│                                      │
+│ 操作方向 (auto-filled)  參考價位      │
+│ 操作理由 (auto-filled)               │
+│ 詳細分析 (auto-filled)               │
+│ 風險提示 (auto-filled)               │
+└──────────────────────────────────────┘
 ```
 
-- Drag handle (≡) on left for reorder
-- Edit opens a dialog with title + content fields
-- Delete with confirmation toast
-- Reorder updates `sort_order` via batch update
+- Template chips render **above** the action selector (moved up from old position)
+- Chips show action badge color to hint direction (e.g., green for buy, red for sell)
+- If >6 templates, row becomes horizontally scrollable
 
-### 4. Implementation Summary
+#### Template Management Page (`/admin/:expertSlug/signal-templates`)
 
-| Step | What |
+```text
+┌──────────────────────────────────────────────────────────┐
+│ 訊號模板管理                              [+ 新增模板]   │
+│──────────────────────────────────────────────────────────│
+│ ≡  突破壓力位  │ 買進 │ 突破壓力位，順勢做多  │ [✏️][🗑] │
+│ ≡  回測支撐    │ 買進 │ 回測支撐位，短線布局  │ [✏️][🗑] │
+│ ≡  停利       │ 賣出 │ 技術面轉弱，先行停利  │ [✏️][🗑] │
+│ ≡  減碼       │ 減碼 │ 風險控管，先減碼      │ [✏️][🗑] │
+└──────────────────────────────────────────────────────────┘
+```
+
+Create/edit dialog fields: title, action (dropdown), reason, risk_note, strategy_note.
+
+### 5. Implementation Order
+
+| Step | Task |
 |------|------|
-| 1 | Create `expert_reason_templates` table + RLS via migration |
-| 2 | Create `ReasonTemplates.tsx` page with full CRUD + drag sort |
-| 3 | Add route in `App.tsx` and nav item in `AdminLayout.tsx` |
-| 4 | Add template chips to signal publish dialog in `Signals.tsx` |
+| 1 | Create `expert_signal_templates` table + RLS via migration |
+| 2 | Create `SignalTemplates.tsx` management page with CRUD + drag sort |
+| 3 | Update routing (`App.tsx`) and nav (`AdminLayout.tsx`) |
+| 4 | Update `Signals.tsx`: fetch signal templates, render chips, implement multi-field autofill |
 
