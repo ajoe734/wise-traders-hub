@@ -51,7 +51,7 @@ import CompanySubscribers from "./pages/company/Subscribers";
 import CompanyRevenue from "./pages/company/Revenue";
 import CompanyReview from "./pages/company/Review";
 import CompanyPayments from "./pages/company/Payments";
-import CompanyAuditLogs from "./pages/company/AuditLogs";
+
 import CompanyAnnouncements from "./pages/company/Announcements";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -112,7 +112,7 @@ const App = () => (
             <Route path="/company/revenue" element={<ProtectedRoute requiredRole="company_admin"><CompanyRevenue /></ProtectedRoute>} />
             <Route path="/company/review" element={<ProtectedRoute requiredRole="company_admin"><CompanyReview /></ProtectedRoute>} />
             <Route path="/company/payments" element={<ProtectedRoute requiredRole="company_admin"><CompanyPayments /></ProtectedRoute>} />
-            <Route path="/company/audit-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyAuditLogs /></ProtectedRoute>} />
+            
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />
 
             {/* Admin (expert backend) */}

@@ -192,42 +192,6 @@ const CompanyRevenue = () => {
           </Card>
         </div>
 
-        {/* Analyst table */}
-        <Card>
-          <CardHeader><CardTitle className="text-base">分析師一覽</CardTitle></CardHeader>
-          <CardContent className="p-0">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-sm text-muted-foreground">
-                  <th className="p-4">分析師</th>
-                  <th className="p-4">角色</th>
-                  <th className="p-4">狀態</th>
-                </tr>
-              </thead>
-              <tbody>
-                {experts.length === 0 ? (
-                  <tr><td colSpan={3} className="p-8 text-center text-muted-foreground text-sm">尚無分析師</td></tr>
-                ) : (
-                  experts.map(exp => (
-                    <tr key={exp.id} className="border-b last:border-0">
-                      <td className="p-4 font-medium text-sm">{exp.name}</td>
-                      <td className="p-4">
-                        <Badge variant={exp.role === 'advisor' ? 'default' : 'secondary'} className="text-xs">
-                          {exp.role === 'advisor' ? '投顧分析師' : '實戰導師'}
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        <Badge variant={exp.status === 'active' ? 'outline' : 'destructive'} className="text-xs">
-                          {exp.status === 'active' ? '啟用中' : '已停用'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
       </div>
     </CompanyLayout>
   );
