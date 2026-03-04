@@ -6,12 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const AdminPerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const [expert, setExpert] = useState<any>(null);
   const [perf, setPerf] = useState<any>(null);
   const [trades, setTrades] = useState<any[]>([]);
+  const [tradePeriod, setTradePeriod] = useState<'week' | 'month' | 'year'>('week');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,7 +31,7 @@ const AdminPerformance = () => {
       setPerf(perfData);
 
       // Fetch recent trades
-      const { data: t } = await supabase.from('trade_records').select('*').eq('expert_id', exp.id).order('created_at', { ascending: false }).limit(10);
+      const { data: t } = await supabase.from('trade_records').select('*').eq('expert_id', exp.id).order('created_at', { ascending: false });
       setTrades(t || []);
     }
     setLoading(false);
@@ -38,6 +40,21 @@ const AdminPerformance = () => {
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
 
   const summary = perf || { cumulative_return: 0, win_rate: 0, max_drawdown: 0, profit_factor: 0, avg_hold_days: 0, total_trades: 0 };
+
+  const getFilteredTrades = () => {
+    const now = new Date();
+    let cutoff: Date;
+    if (tradePeriod === 'week') {
+      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else if (tradePeriod === 'month') {
+      cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else {
+      cutoff = new Date(now.getFullYear(), 0, 1);
+    }
+    return trades.filter(t => new Date(t.created_at) >= cutoff);
+  };
+
+  const filteredTrades = getFilteredTrades();
 
   const metricCards = [
     { label: '累計報酬率', value: `${summary.cumulative_return}%`, icon: TrendingUp, color: 'text-green-600 dark:text-green-400' },
@@ -72,8 +89,15 @@ const AdminPerformance = () => {
 
         <Card>
           <CardContent className="p-0">
-            <div className="p-4 border-b">
-              <h3 className="font-semibold text-sm">近期交易紀錄</h3>
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="font-semibold text-sm">交易紀錄</h3>
+              <Tabs value={tradePeriod} onValueChange={(v) => setTradePeriod(v as any)}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="week" className="text-xs px-3 h-7">本週</TabsTrigger>
+                  <TabsTrigger value="month" className="text-xs px-3 h-7">本月</TabsTrigger>
+                  <TabsTrigger value="year" className="text-xs px-3 h-7">本年</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -87,10 +111,10 @@ const AdminPerformance = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {trades.length === 0 ? (
-                    <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">尚無交易紀錄</td></tr>
+                  {filteredTrades.length === 0 ? (
+                    <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">此期間尚無交易紀錄</td></tr>
                   ) : (
-                    trades.map((trade) => (
+                    filteredTrades.map((trade) => (
                       <tr key={trade.id} className="border-b last:border-0 hover:bg-muted/30">
                         <td className="p-3 text-sm font-medium">{trade.instrument}</td>
                         <td className="p-3 text-sm">{trade.entry_price || '-'}</td>
