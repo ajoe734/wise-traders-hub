@@ -55,6 +55,7 @@ import CompanyPayments from "./pages/company/Payments";
 import CompanyAnnouncements from "./pages/company/Announcements";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
@@ -70,7 +71,7 @@ const App = () => (
           <ScrollToTop />
           <Routes>
             {/* Portal (public) */}
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<SmartHomeRedirect><Index /></SmartHomeRedirect>} />
             <Route path="/experts" element={<Experts />} />
             <Route path="/expert/:slug" element={<ExpertProfile />} />
             <Route path="/plan/:slug/:planId" element={<PlanDetail />} />
