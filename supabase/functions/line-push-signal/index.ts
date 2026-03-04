@@ -227,18 +227,29 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Filter to only users with active subscriptions to this expert
-    const targets: string[] = []
-    for (const b of bindings) {
-      const { data: subs } = await supabaseAdmin
-        .from('member_subscriptions')
-        .select('id')
-        .eq('user_id', b.user_id)
-        .eq('status', 'active')
-        .limit(1)
+    // Filter to only users with active subscriptions to THIS expert
+    // Get all plan_ids belonging to this expert
+    const { data: expertPlans } = await supabaseAdmin
+      .from('expert_plans')
+      .select('id')
+      .eq('expert_id', expert_id)
 
-      if (subs && subs.length > 0) {
-        targets.push(b.line_user_id)
+    const expertPlanIds = (expertPlans || []).map(p => p.id)
+
+    const targets: string[] = []
+    if (expertPlanIds.length > 0) {
+      for (const b of bindings) {
+        const { data: subs } = await supabaseAdmin
+          .from('member_subscriptions')
+          .select('id')
+          .eq('user_id', b.user_id)
+          .eq('status', 'active')
+          .in('plan_id', expertPlanIds)
+          .limit(1)
+
+        if (subs && subs.length > 0) {
+          targets.push(b.line_user_id)
+        }
       }
     }
 
