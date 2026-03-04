@@ -204,7 +204,7 @@ const Journals = () => {
               <p className="text-muted-foreground">您尚未訂閱任何實戰導師</p>
               <p className="text-sm text-muted-foreground">訂閱後即可在此查看 T+7 修煉派週記教學</p>
               <Link to="/app/explore">
-                <button className="mt-2 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                <button className="mt-2 inline-flex items-center gap-2 rounded-md bg-mentor px-4 py-2 text-sm font-medium text-white hover:bg-mentor/90">
                   前往探索導師
                 </button>
               </Link>
