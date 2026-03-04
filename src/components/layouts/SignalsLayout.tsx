@@ -3,8 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Home, Radio, BarChart3, User, TrendingUp, LogOut, ChevronRight, Briefcase, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getSignalsForUser } from '@/data/mockData';
-import { PlanType } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 
 // localStorage keys for unread tracking
 const SIGNALS_LAST_SEEN_KEY = 'app:lastSeen:signals';
@@ -22,7 +21,6 @@ const getBreadcrumbConfig = (pathname: string) => {
     return crumbs;
   }
 
-  // Special handling for signal detail - add signals as intermediate
   if (pathname.startsWith('/app/signal/')) {
     crumbs.push({ label: '即時訊號', path: '/app/signals' });
     crumbs.push({ label: '訊號詳情', path: pathname });
@@ -42,7 +40,6 @@ const getBreadcrumbConfig = (pathname: string) => {
   for (let i = 0; i < pathSegments.length; i++) {
     const segment = pathSegments[i];
     currentPath += `/${segment}`;
-
     const label = routeLabels[segment];
     if (label) {
       crumbs.push({ label, path: currentPath });
@@ -88,21 +85,22 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
   const currentNavGroup = useMemo(() => getNavGroup(location.pathname), [location.pathname]);
   const isNotHome = location.pathname !== '/app';
 
-  // Calculate unread signals
+  // Calculate unread signals from DB
   useEffect(() => {
     if (!user) return;
     
     const lastSeenStr = localStorage.getItem(SIGNALS_LAST_SEEN_KEY);
     const lastSeen = lastSeenStr ? parseInt(lastSeenStr, 10) : 0;
+    const lastSeenDate = new Date(lastSeen).toISOString();
     
-    const allSignals = getSignalsForUser(user.id);
-    const advisorSignals = allSignals.filter(s => 
-      s.system && 
-      (s.planType === PlanType.ANALYST_SIGNAL_L1 || s.planType === PlanType.ANALYST_SIGNAL_DIAG_L2)
-    );
-    
-    const unread = advisorSignals.filter(s => s.timeTrade.getTime() > lastSeen).length;
-    setUnreadCount(unread);
+    supabase
+      .from('expert_signals')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'published')
+      .gt('published_at', lastSeenDate)
+      .then(({ count }) => {
+        setUnreadCount(count || 0);
+      });
   }, [user, location.pathname]);
 
   useEffect(() => {
@@ -126,7 +124,6 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
   }
 
   const handleBack = () => {
-    // If we have breadcrumbs, go to second to last
     if (breadcrumbs.length >= 2) {
       navigate(breadcrumbs[breadcrumbs.length - 2].path);
     } else {
@@ -140,17 +137,12 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col signals-theme">
-      {/* Top Header - Signals theme with subtle gradient */}
+      {/* Top Header */}
       <header className="sticky top-0 z-50 border-b border-signals-border bg-gradient-to-r from-signals-header via-signals-header to-signals-accent/5 backdrop-blur supports-[backdrop-filter]:bg-signals-header/80">
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            {/* Back Button */}
             {isNotHome && (
-              <button
-                onClick={handleBack}
-                className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="返回"
-              >
+              <button onClick={handleBack} className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors" aria-label="返回">
                 <ChevronLeft className="h-5 w-5" />
               </button>
             )}
@@ -165,26 +157,15 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            <Link 
-              to="/app/mode-switch"
-              className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-foreground/10 hover:border-signals-accent/50 hover:bg-signals-accent/5 transition-all"
-            >
+            <Link to="/app/mode-switch" className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-foreground/10 hover:border-signals-accent/50 hover:bg-signals-accent/5 transition-all">
               切換模式
             </Link>
-            <button
-              onClick={() => {
-                logout();
-                navigate('/');
-              }}
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-              title="登出"
-            >
+            <button onClick={() => { logout(); navigate('/'); }} className="p-2 text-muted-foreground hover:text-foreground transition-colors" title="登出">
               <LogOut className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Breadcrumbs */}
         {showBreadcrumbs && (
           <div className="px-4 py-2 bg-signals-accent/5 border-t border-signals-border/50">
             <nav className="flex items-center gap-1 text-sm overflow-x-auto">
@@ -192,20 +173,11 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
                 const isLast = index === breadcrumbs.length - 1;
                 return (
                   <div key={crumb.path} className="flex items-center gap-1 whitespace-nowrap">
-                    {index > 0 && (
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    )}
+                    {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
                     {isLast ? (
-                      <span className="font-medium text-signals-accent">
-                        {crumb.label}
-                      </span>
+                      <span className="font-medium text-signals-accent">{crumb.label}</span>
                     ) : (
-                      <Link 
-                        to={crumb.path} 
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {crumb.label}
-                      </Link>
+                      <Link to={crumb.path} className="text-muted-foreground hover:text-foreground transition-colors">{crumb.label}</Link>
                     )}
                   </div>
                 );
@@ -215,32 +187,17 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
         )}
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 pb-20">
-        {children}
-      </main>
+      <main className="flex-1 pb-20">{children}</main>
 
-      {/* Bottom Navigation - Signals theme with glow effects */}
+      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-signals-border bg-gradient-to-t from-signals-nav via-signals-nav to-signals-nav/95 backdrop-blur supports-[backdrop-filter]:bg-signals-nav/80 safe-area-bottom">
         <div className="flex items-center justify-around h-16">
           {bottomNavItems.map((item) => {
             const active = isActive(item.group);
             const showBadge = item.group === '/app/signals' && unreadCount > 0;
             return (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] mobile-touch-target transition-all",
-                  active 
-                    ? "text-signals-accent" 
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <div className={cn(
-                  "relative",
-                  active && "drop-shadow-[0_0_8px_hsl(var(--signals-accent)/0.6)]"
-                )}>
+              <Link key={item.href} to={item.href} className={cn("flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] mobile-touch-target transition-all", active ? "text-signals-accent" : "text-muted-foreground hover:text-foreground")}>
+                <div className={cn("relative", active && "drop-shadow-[0_0_8px_hsl(var(--signals-accent)/0.6)]")}>
                   <item.icon className={cn("h-5 w-5", active && "text-signals-accent")} />
                   {showBadge && (
                     <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold text-white bg-destructive rounded-full">
@@ -248,10 +205,7 @@ export function SignalsLayout({ children }: SignalsLayoutProps) {
                     </span>
                   )}
                 </div>
-                <span className={cn(
-                  "text-[10px] font-medium",
-                  active && "text-signals-accent"
-                )}>{item.label}</span>
+                <span className={cn("text-[10px] font-medium", active && "text-signals-accent")}>{item.label}</span>
               </Link>
             );
           })}

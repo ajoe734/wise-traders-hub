@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Home, BookOpen, GraduationCap, User, Compass, LogOut, ChevronRight, Library, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getJournalsForUser } from '@/data/mockData';
 
 // localStorage keys for unread tracking
 const JOURNALS_LAST_SEEN_KEY = 'app:lastSeen:journals';
@@ -17,18 +16,14 @@ const getBreadcrumbConfig = (pathname: string) => {
   const crumbs: { label: string; path: string }[] = [];
   crumbs.push({ label: '學習中心', path: '/app' });
 
-  if (pathname === '/app' || pathname === '/app/learning-home') {
-    return crumbs;
-  }
+  if (pathname === '/app' || pathname === '/app/learning-home') return crumbs;
 
-  // Special handling for journal detail - add journals as intermediate
   if (pathname.startsWith('/app/journal/')) {
     crumbs.push({ label: '週記教學', path: '/app/journals' });
     crumbs.push({ label: '週記詳情', path: pathname });
     return crumbs;
   }
 
-  // Special handling for course detail
   if (pathname.startsWith('/app/course/')) {
     crumbs.push({ label: '課程系統', path: '/app/courses' });
     crumbs.push({ label: '課程詳情', path: pathname });
@@ -49,17 +44,13 @@ const getBreadcrumbConfig = (pathname: string) => {
   for (let i = 0; i < pathSegments.length; i++) {
     const segment = pathSegments[i];
     currentPath += `/${segment}`;
-
     const label = routeLabels[segment];
-    if (label) {
-      crumbs.push({ label, path: currentPath });
-    }
+    if (label) crumbs.push({ label, path: currentPath });
   }
 
   return crumbs;
 };
 
-// Get which nav group a path belongs to
 const getNavGroup = (pathname: string): string => {
   if (pathname === '/app') return '/app';
   if (pathname === '/app/journals' || pathname.startsWith('/app/journal/')) return '/app/journals';
@@ -85,27 +76,12 @@ export function LearningLayout({ children }: LearningLayoutProps) {
   const { user, isLoading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [unreadCount, setUnreadCount] = useState(0);
+  // No journals table yet, so unread count is 0
+  const unreadCount = 0;
 
-  const breadcrumbs = useMemo(() => 
-    getBreadcrumbConfig(location.pathname),
-    [location.pathname]
-  );
-
+  const breadcrumbs = useMemo(() => getBreadcrumbConfig(location.pathname), [location.pathname]);
   const currentNavGroup = useMemo(() => getNavGroup(location.pathname), [location.pathname]);
   const isNotHome = location.pathname !== '/app';
-
-  // Calculate unread journals
-  useEffect(() => {
-    if (!user) return;
-    
-    const lastSeenStr = localStorage.getItem(JOURNALS_LAST_SEEN_KEY);
-    const lastSeen = lastSeenStr ? parseInt(lastSeenStr, 10) : 0;
-    
-    const journals = getJournalsForUser(user.id);
-    const unread = journals.filter(j => j.weekEnd.getTime() > lastSeen).length;
-    setUnreadCount(unread);
-  }, [user, location.pathname]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -123,12 +99,9 @@ export function LearningLayout({ children }: LearningLayoutProps) {
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   const handleBack = () => {
-    // If we have breadcrumbs, go to second to last
     if (breadcrumbs.length >= 2) {
       navigate(breadcrumbs[breadcrumbs.length - 2].path);
     } else {
@@ -136,23 +109,15 @@ export function LearningLayout({ children }: LearningLayoutProps) {
     }
   };
 
-  const isActive = (group: string) => {
-    return currentNavGroup === group;
-  };
+  const isActive = (group: string) => currentNavGroup === group;
 
   return (
     <div className="min-h-screen bg-background flex flex-col learning-theme">
-      {/* Top Header - Learning theme with subtle gradient */}
       <header className="sticky top-0 z-50 border-b border-learning-border bg-gradient-to-r from-learning-header via-learning-header to-learning-accent/5 backdrop-blur supports-[backdrop-filter]:bg-learning-header/80">
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            {/* Back Button */}
             {isNotHome && (
-              <button
-                onClick={handleBack}
-                className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="返回"
-              >
+              <button onClick={handleBack} className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors" aria-label="返回">
                 <ChevronLeft className="h-5 w-5" />
               </button>
             )}
@@ -167,26 +132,15 @@ export function LearningLayout({ children }: LearningLayoutProps) {
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            <Link 
-              to="/app/mode-switch"
-              className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-foreground/10 hover:border-learning-accent/50 hover:bg-learning-accent/5 transition-all"
-            >
+            <Link to="/app/mode-switch" className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-foreground/10 hover:border-learning-accent/50 hover:bg-learning-accent/5 transition-all">
               切換模式
             </Link>
-            <button
-              onClick={() => {
-                logout();
-                navigate('/');
-              }}
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-              title="登出"
-            >
+            <button onClick={() => { logout(); navigate('/'); }} className="p-2 text-muted-foreground hover:text-foreground transition-colors" title="登出">
               <LogOut className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Breadcrumbs */}
         {showBreadcrumbs && (
           <div className="px-4 py-2 bg-learning-accent/5 border-t border-learning-border/50">
             <nav className="flex items-center gap-1 text-sm overflow-x-auto">
@@ -194,20 +148,11 @@ export function LearningLayout({ children }: LearningLayoutProps) {
                 const isLast = index === breadcrumbs.length - 1;
                 return (
                   <div key={crumb.path} className="flex items-center gap-1 whitespace-nowrap">
-                    {index > 0 && (
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    )}
+                    {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
                     {isLast ? (
-                      <span className="font-medium text-learning-accent">
-                        {crumb.label}
-                      </span>
+                      <span className="font-medium text-learning-accent">{crumb.label}</span>
                     ) : (
-                      <Link 
-                        to={crumb.path} 
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {crumb.label}
-                      </Link>
+                      <Link to={crumb.path} className="text-muted-foreground hover:text-foreground transition-colors">{crumb.label}</Link>
                     )}
                   </div>
                 );
@@ -217,32 +162,16 @@ export function LearningLayout({ children }: LearningLayoutProps) {
         )}
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 pb-20">
-        {children}
-      </main>
+      <main className="flex-1 pb-20">{children}</main>
 
-      {/* Bottom Navigation - Learning theme with glow effects */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-learning-border bg-gradient-to-t from-learning-nav via-learning-nav to-learning-nav/95 backdrop-blur supports-[backdrop-filter]:bg-learning-nav/80 safe-area-bottom">
         <div className="flex items-center justify-around h-16">
           {bottomNavItems.map((item) => {
             const active = isActive(item.group);
             const showBadge = item.group === '/app/journals' && unreadCount > 0;
             return (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] mobile-touch-target transition-all",
-                  active 
-                    ? "text-learning-accent" 
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <div className={cn(
-                  "relative",
-                  active && "drop-shadow-[0_0_8px_hsl(var(--learning-accent)/0.6)]"
-                )}>
+              <Link key={item.href} to={item.href} className={cn("flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] mobile-touch-target transition-all", active ? "text-learning-accent" : "text-muted-foreground hover:text-foreground")}>
+                <div className={cn("relative", active && "drop-shadow-[0_0_8px_hsl(var(--learning-accent)/0.6)]")}>
                   <item.icon className={cn("h-5 w-5", active && "text-learning-accent")} />
                   {showBadge && (
                     <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold text-white bg-destructive rounded-full">
@@ -250,10 +179,7 @@ export function LearningLayout({ children }: LearningLayoutProps) {
                     </span>
                   )}
                 </div>
-                <span className={cn(
-                  "text-[10px] font-medium",
-                  active && "text-learning-accent"
-                )}>{item.label}</span>
+                <span className={cn("text-[10px] font-medium", active && "text-learning-accent")}>{item.label}</span>
               </Link>
             );
           })}

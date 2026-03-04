@@ -29,16 +29,13 @@ import AppSignals from "./pages/app/Signals";
 import AppJournals from "./pages/app/Journals";
 import AppSignalDetail from "./pages/app/SignalDetail";
 import AppJournalDetail from "./pages/app/JournalDetail";
-import AppSystemDetail from "./pages/app/SystemDetail";
 import AppAccount from "./pages/app/Account";
-// Holdings page removed - integrated into AppHome
 import AppPerformance from "./pages/app/Performance";
 import AppCourses from "./pages/app/Courses";
 import AppLibrary from "./pages/app/Library";
 import AppExplore from "./pages/app/Explore";
 import AppExpertDetail from "./pages/app/ExpertDetail";
 import AppCheckout from "./pages/app/AppCheckout";
-
 
 // Admin pages (expert backend)
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -48,7 +45,6 @@ import AdminProfile from "./pages/admin/Profile";
 import AdminPerformance from "./pages/admin/Performance";
 import AdminReasonTemplates from "./pages/admin/ReasonTemplates";
 import AdminSignalTemplates from "./pages/admin/SignalTemplates";
-
 
 // Company pages (internal backend)
 import CompanyDashboard from "./pages/company/Dashboard";
@@ -62,18 +58,6 @@ import CompanyAnnouncements from "./pages/company/Announcements";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ScrollToTop } from "./components/ScrollToTop";
-
-// LINE Mini-App pages (per expert)
-import LineHome from "./pages/line/Home";
-import LineSignals from "./pages/line/Signals";
-import LineSignalDetail from "./pages/line/SignalDetail";
-import LineTeaching from "./pages/line/Teaching";
-import LineTrades from "./pages/line/Trades";
-import LinePerformance from "./pages/line/Performance";
-import LineXai from "./pages/line/Xai";
-import LineDiagnosis from "./pages/line/Diagnosis";
-import LineAccount from "./pages/line/Account";
-import LineHistory from "./pages/line/History";
 
 const queryClient = new QueryClient();
 
@@ -110,23 +94,20 @@ const App = () => (
 
             {/* App pages (aggregated member view) */}
             <Route path="/app" element={<AppHome />} />
-            
             <Route path="/app/signals" element={<AppSignals />} />
             <Route path="/app/journals" element={<AppJournals />} />
             <Route path="/app/signal/:id" element={<AppSignalDetail />} />
             <Route path="/app/journal/:id" element={<AppJournalDetail />} />
-            <Route path="/app/system/:id" element={<AppSystemDetail />} />
             <Route path="/app/account" element={<AppAccount />} />
-            {/* Signals Mode pages */}
             <Route path="/app/holdings" element={<Navigate to="/app" replace />} />
             <Route path="/app/performance" element={<AppPerformance />} />
-            {/* Learning Mode pages */}
             <Route path="/app/courses" element={<AppCourses />} />
             <Route path="/app/library" element={<AppLibrary />} />
-            {/* Explore page */}
             <Route path="/app/explore" element={<AppExplore />} />
             <Route path="/app/expert/:slug" element={<AppExpertDetail />} />
             <Route path="/app/checkout/:slug/:planId" element={<AppCheckout />} />
+            {/* SystemDetail removed - no trading_systems table */}
+            <Route path="/app/system/:id" element={<Navigate to="/app" replace />} />
 
             {/* Company (internal backend) */}
             <Route path="/company" element={<ProtectedRoute requiredRole="company_admin"><CompanyDashboard /></ProtectedRoute>} />
@@ -146,20 +127,6 @@ const App = () => (
             <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/reason-templates" element={<ProtectedRoute><AdminReasonTemplates /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signal-templates" element={<ProtectedRoute><AdminSignalTemplates /></ProtectedRoute>} />
-            
-
-            {/* LINE Mini-App (per expert) */}
-            <Route path="/line/:expertSlug" element={<Navigate to="home" replace />} />
-            <Route path="/line/:expertSlug/home" element={<LineHome />} />
-            <Route path="/line/:expertSlug/signals" element={<LineSignals />} />
-            <Route path="/line/:expertSlug/signal/:signalId" element={<LineSignalDetail />} />
-            <Route path="/line/:expertSlug/teaching" element={<LineTeaching />} />
-            <Route path="/line/:expertSlug/trades" element={<LineTrades />} />
-            <Route path="/line/:expertSlug/performance" element={<LinePerformance />} />
-            <Route path="/line/:expertSlug/xai" element={<LineXai />} />
-            <Route path="/line/:expertSlug/diagnosis" element={<LineDiagnosis />} />
-            <Route path="/line/:expertSlug/history" element={<LineHistory />} />
-            <Route path="/line/:expertSlug/account" element={<LineAccount />} />
 
             {/* Legacy /me routes - redirect */}
             <Route path="/me" element={<Navigate to="/account/subscriptions" replace />} />

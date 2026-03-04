@@ -4,11 +4,11 @@ import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { ExpertCard } from '@/components/ExpertCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { getAllPeopleWithPlans } from '@/data/mockData';
 import { PersonRole } from '@/types';
-import { Search, Filter, Shield, Clock, Zap, GraduationCap } from 'lucide-react';
+import { Search, Filter, Shield, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useExperts } from '@/hooks/useExpert';
+import { Loader2 } from 'lucide-react';
 
 const Experts = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -16,15 +16,13 @@ const Experts = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [marketFilter, setMarketFilter] = useState<string | null>(null);
 
-  const allPeople = getAllPeopleWithPlans();
+  const { data: allPeople = [], isLoading } = useExperts();
 
   const filteredPeople = useMemo(() => {
     const filtered = allPeople.filter(person => {
-      // Role filter
       if (roleFilter === 'advisor' && person.role !== PersonRole.ADVISOR) return false;
       if (roleFilter === 'coach' && person.role !== PersonRole.MENTOR) return false;
 
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesName = person.name.toLowerCase().includes(query);
@@ -33,13 +31,11 @@ const Experts = () => {
         if (!matchesName && !matchesBio && !matchesTags) return false;
       }
 
-      // Market filter
       if (marketFilter && !person.markets.includes(marketFilter)) return false;
 
       return true;
     });
 
-    // Sort: 趙彭博 experts first
     return filtered.sort((a, b) => {
       const aIsZhao = a.name.includes('趙彭博') ? 0 : 1;
       const bIsZhao = b.name.includes('趙彭博') ? 0 : 1;
@@ -92,74 +88,33 @@ const Experts = () => {
 
         {/* Filters */}
         <div className="space-y-4 mb-8">
-          {/* Search */}
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="搜尋名稱、風格標籤..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
+            <Input placeholder="搜尋名稱、風格標籤..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
           </div>
 
-          {/* Role Filter Tabs */}
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant={roleFilter === null ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setRole(null)}
-            >
-              全部
-            </Button>
-            <Button
-              variant={roleFilter === 'advisor' ? 'advisor' : 'outline'}
-              size="sm"
-              onClick={() => setRole('advisor')}
-              className={cn(
-                roleFilter !== 'advisor' && "hover:border-advisor hover:text-advisor"
-              )}
-            >
-              只看投顧分析師
-            </Button>
-            <Button
-              variant={roleFilter === 'coach' ? 'mentor' : 'outline'}
-              size="sm"
-              onClick={() => setRole('coach')}
-              className={cn(
-                roleFilter !== 'coach' && "hover:border-mentor hover:text-mentor"
-              )}
-            >
-              只看實戰導師
-            </Button>
+            <Button variant={roleFilter === null ? 'default' : 'outline'} size="sm" onClick={() => setRole(null)}>全部</Button>
+            <Button variant={roleFilter === 'advisor' ? 'advisor' : 'outline'} size="sm" onClick={() => setRole('advisor')} className={cn(roleFilter !== 'advisor' && "hover:border-advisor hover:text-advisor")}>只看投顧分析師</Button>
+            <Button variant={roleFilter === 'coach' ? 'mentor' : 'outline'} size="sm" onClick={() => setRole('coach')} className={cn(roleFilter !== 'coach' && "hover:border-mentor hover:text-mentor")}>只看實戰導師</Button>
           </div>
 
-          {/* Market Filter */}
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground mr-2">市場：</span>
-            <Button
-              variant={marketFilter === null ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setMarketFilter(null)}
-            >
-              全部
-            </Button>
+            <Button variant={marketFilter === null ? 'secondary' : 'ghost'} size="sm" onClick={() => setMarketFilter(null)}>全部</Button>
             {markets.map(market => (
-              <Button
-                key={market}
-                variant={marketFilter === market ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setMarketFilter(market)}
-              >
-                {market}
-              </Button>
+              <Button key={market} variant={marketFilter === market ? 'secondary' : 'ghost'} size="sm" onClick={() => setMarketFilter(market)}>{market}</Button>
             ))}
           </div>
         </div>
 
         {/* Results */}
-        {filteredPeople.length > 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredPeople.length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPeople.map(person => (
               <ExpertCard key={person.id} person={person} />
@@ -168,26 +123,14 @@ const Experts = () => {
         ) : (
           <div className="text-center py-12">
             <p className="text-muted-foreground">沒有找到符合條件的專家</p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => {
-                setSearchQuery('');
-                setMarketFilter(null);
-                setSearchParams({});
-              }}
-            >
+            <Button variant="outline" className="mt-4" onClick={() => { setSearchQuery(''); setMarketFilter(null); setSearchParams({}); }}>
               清除篩選條件
             </Button>
           </div>
         )}
 
-        {/* Compliance Note */}
         <div className="mt-12 compliance-disclaimer">
-          <p>
-            過去績效不代表未來表現，投資有風險，請謹慎評估。
-            投顧分析師服務依相關法令辦理；實戰導師內容僅供教學參考，不構成投資建議。
-          </p>
+          <p>過去績效不代表未來表現，投資有風險，請謹慎評估。投顧分析師服務依相關法令辦理；實戰導師內容僅供教學參考，不構成投資建議。</p>
         </div>
       </div>
     </PortalLayout>
