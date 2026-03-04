@@ -15,7 +15,7 @@ const CompanyDashboard = () => {
   const [signalCount, setSignalCount] = useState(0);
   const [planCount, setPlanCount] = useState(0);
   const [mrr, setMrr] = useState(0);
-  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  
 
   useEffect(() => { fetchStats(); }, []);
 
@@ -29,7 +29,7 @@ const CompanyDashboard = () => {
       supabase.from('expert_plans').select('*', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published'),
       supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active'),
-      supabase.from('payment_transactions').select('amount').eq('status', 'paid').gte('paid_at', monthStart),
+      supabase.from('payment_transactions').select('amount', { count: 'exact', head: true }).eq('status', 'paid').gte('paid_at', monthStart),
     ]);
 
     setExpertCount(ecRes.count || 0);
@@ -37,7 +37,7 @@ const CompanyDashboard = () => {
     setPlanCount(pcRes.count || 0);
     setSignalCount(sigRes.count || 0);
     setMrr((subsRes.data || []).reduce((s, sub) => s + (sub.expert_plans?.price_monthly || 0), 0));
-    setMonthlyRevenue((txRes.data || []).reduce((s, tx) => s + (tx.amount || 0), 0));
+    // monthlyRevenue removed - keep field but no data
   };
 
   const stats = [
@@ -46,7 +46,7 @@ const CompanyDashboard = () => {
     { label: '已發布訊號', value: signalCount, icon: Radio },
     { label: '總上架方案數', value: planCount, icon: Activity },
     { label: 'MRR', value: `NT$${mrr.toLocaleString()}`, icon: Repeat },
-    { label: '本月營收', value: `NT$${monthlyRevenue.toLocaleString()}`, icon: DollarSign },
+    
   ];
 
   return (
