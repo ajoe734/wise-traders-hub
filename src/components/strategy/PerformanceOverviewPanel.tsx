@@ -234,10 +234,10 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
           <div className="h-52 px-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
-                data={chartData}
+                data={chartData.length > 0 ? chartData : [{ label: '', returnPct: 0 }]}
                 margin={{ top: 16, right: 16, left: 8, bottom: 8 }}
                 onClick={(e) => {
-                  if (e && e.activePayload && e.activePayload[0]) {
+                  if (e && e.activePayload && e.activePayload[0] && chartData.length > 0) {
                     handlePointClick(e.activePayload[0].payload);
                   }
                 }}
@@ -259,46 +259,48 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v) => `${v}%`}
-                  domain={['dataMin - 2', 'dataMax + 2']}
+                  domain={chartData.length > 0 ? ['dataMin - 2', 'dataMax + 2'] : [-5, 5]}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="returnPct"
-                  stroke={chartColors.stroke}
-                  strokeWidth={2}
-                  fill={`url(#colorReturn-${period})`}
-                  animationDuration={500}
-                  dot={(props: any) => {
-                    const { cx, cy, payload } = props;
-                    const isSelected = payload.label === selectedPoint;
-                    return (
-                      <circle
-                        key={payload.label}
-                        cx={cx}
-                        cy={cy}
-                        r={isSelected ? 6 : 4}
-                        fill={isSelected ? chartColors.stroke : "hsl(var(--background))"}
-                        stroke={chartColors.stroke}
-                        strokeWidth={2}
-                        style={{ cursor: 'pointer' }}
-                        className="transition-all duration-200"
-                      />
-                    );
-                  }}
-                  activeDot={{
-                    r: 6,
-                    fill: chartColors.stroke,
-                    stroke: "hsl(var(--background))",
-                    strokeWidth: 2,
-                    cursor: "pointer",
-                    onClick: (e: any) => {
-                      if (e && e.payload) {
-                        handlePointClick(e.payload);
-                      }
-                    },
-                  }}
-                />
+                {chartData.length > 0 && (
+                  <Area
+                    type="monotone"
+                    dataKey="returnPct"
+                    stroke={chartColors.stroke}
+                    strokeWidth={2}
+                    fill={`url(#colorReturn-${period})`}
+                    animationDuration={500}
+                    dot={(props: any) => {
+                      const { cx, cy, payload } = props;
+                      const isSelected = payload.label === selectedPoint;
+                      return (
+                        <circle
+                          key={payload.label}
+                          cx={cx}
+                          cy={cy}
+                          r={isSelected ? 6 : 4}
+                          fill={isSelected ? chartColors.stroke : "hsl(var(--background))"}
+                          stroke={chartColors.stroke}
+                          strokeWidth={2}
+                          style={{ cursor: 'pointer' }}
+                          className="transition-all duration-200"
+                        />
+                      );
+                    }}
+                    activeDot={{
+                      r: 6,
+                      fill: chartColors.stroke,
+                      stroke: "hsl(var(--background))",
+                      strokeWidth: 2,
+                      cursor: "pointer",
+                      onClick: (e: any) => {
+                        if (e && e.payload) {
+                          handlePointClick(e.payload);
+                        }
+                      },
+                    }}
+                  />
+                )}
               </AreaChart>
             </ResponsiveContainer>
           </div>
