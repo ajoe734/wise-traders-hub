@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Users, Radio, TrendingUp, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { StockTickerCard } from '@/components/strategy/StockTickerCard';
+
 
 const actionLabels: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
   buy: { label: '買進', variant: 'default' },
@@ -192,7 +192,7 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        <StockTickerCard symbol="2330.TW" />
+        
 
         <Card>
           <CardHeader>
