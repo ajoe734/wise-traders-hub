@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
     // Return form params for client to submit
     return new Response(
       JSON.stringify({
-        actionUrl: "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5",
+        actionUrl: Deno.env.get("ECPAY_API_URL") || "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5",
         params,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

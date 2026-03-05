@@ -27,7 +27,7 @@ const AppCheckout = () => {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
     (searchParams.get("billingCycle") as "monthly" | "yearly") || "monthly"
   );
-  const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay">("line_pay");
+  const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay" | "acpay">("line_pay");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean } | null>(null);
@@ -41,6 +41,7 @@ const AppCheckout = () => {
     const transactionId = searchParams.get("transactionId");
     const txOrderId = searchParams.get("orderId");
     const ecpay = searchParams.get("ecpay");
+    const acpay = searchParams.get("acpay");
 
     if (linepay === "confirm" && transactionId && !isConfirming && !resultDialog && planData) {
       confirmLinePayPayment(transactionId, txOrderId || "");
@@ -48,6 +49,8 @@ const AppCheckout = () => {
       setResultDialog({ open: true, success: false });
     } else if (ecpay === "result") {
       handleEcpayReturn();
+    } else if (acpay === "result") {
+      handleAcpayReturn();
     }
   }, [searchParams, planData]);
 
@@ -114,10 +117,37 @@ const AppCheckout = () => {
   const currentPrice = billingCycle === "monthly" ? monthlyPrice : yearlyPrice;
   const billingLabel = billingCycle === "monthly" ? "/月" : "/年";
 
+  const handleAcpayReturn = async () => {
+    setIsConfirming(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      const { data: existing } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
+      if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); return; }
+      const channel = supabase
+        .channel('acpay-app-confirm')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'member_subscriptions', filter: `user_id=eq.${user.id}` }, (payload) => {
+          const row = payload.new as any;
+          if (row.plan_id === planId && row.status === 'active') {
+            setIsConfirming(false);
+            setResultDialog({ open: true, success: true });
+          }
+        })
+        .subscribe();
+      setTimeout(() => {
+        supabase.removeChannel(channel);
+        setIsConfirming(false);
+        setResultDialog({ open: true, success: false });
+      }, 60000);
+    } catch { setIsConfirming(false); setResultDialog({ open: true, success: false }); }
+  };
+
   const handleCheckout = async () => {
     setIsProcessing(true);
     try {
-      if (paymentMethod === "ecpay") { await handleEcpayCheckout(); } else { await handleLinePayCheckout(); }
+      if (paymentMethod === "ecpay") { await handleEcpayCheckout(); }
+      else if (paymentMethod === "acpay") { await handleAcpayCheckout(); }
+      else { await handleLinePayCheckout(); }
     } catch { setResultDialog({ open: true, success: false }); } finally { setIsProcessing(false); }
   };
 
@@ -140,6 +170,15 @@ const AppCheckout = () => {
       const input = document.createElement("input"); input.type = "hidden"; input.name = key; input.value = String(value); form.appendChild(input);
     }
     document.body.appendChild(form); form.submit(); document.body.removeChild(form);
+  };
+
+  const handleAcpayCheckout = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase.functions.invoke("confirm-acpay", {
+      body: { prime: null, amount: currentPrice, planId, billingCycle, userId: user?.id || null, orderId: `AC${Date.now()}`, simulate: true },
+    });
+    if (error || !data?.success) { setResultDialog({ open: true, success: false }); return; }
+    setResultDialog({ open: true, success: true });
   };
 
   if (isConfirming) {
@@ -192,18 +231,21 @@ const AppCheckout = () => {
 
         <div>
           <h2 className="text-sm font-medium mb-3">選擇付款方式</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Card className={`cursor-pointer transition-all ${paymentMethod === "line_pay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("line_pay")}>
               <CardContent className="p-4 text-center"><p className="font-semibold text-sm">LINE Pay</p></CardContent>
             </Card>
             <Card className={`cursor-pointer transition-all ${paymentMethod === "ecpay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("ecpay")}>
               <CardContent className="p-4 text-center"><p className="font-semibold text-sm">綠界 ECPay</p><p className="text-xs text-muted-foreground">信用卡/ATM</p></CardContent>
             </Card>
+            <Card className={`cursor-pointer transition-all ${paymentMethod === "acpay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("acpay")}>
+              <CardContent className="p-4 text-center"><p className="font-semibold text-sm">ACpay</p><p className="text-xs text-muted-foreground">信用卡</p></CardContent>
+            </Card>
           </div>
         </div>
 
         <Button className="w-full h-12 text-base" onClick={handleCheckout} disabled={isProcessing}>
-          {isProcessing ? <span className="flex items-center gap-2"><span className="animate-spin">⏳</span>處理中...</span> : <span className="flex items-center gap-2"><Lock className="h-4 w-4" />{paymentMethod === "line_pay" ? "LINE Pay 付款" : "綠界付款"}</span>}
+          {isProcessing ? <span className="flex items-center gap-2"><span className="animate-spin">⏳</span>處理中...</span> : <span className="flex items-center gap-2"><Lock className="h-4 w-4" />{paymentMethod === "line_pay" ? "LINE Pay 付款" : paymentMethod === "ecpay" ? "綠界付款" : "ACpay 付款"}</span>}
         </Button>
 
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground"><Shield className="h-3 w-3" /><span>SSL 加密安全付款</span></div>
