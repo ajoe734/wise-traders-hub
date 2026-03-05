@@ -92,17 +92,17 @@ const App = () => (
             <Route path="/account/profile" element={<ProtectedRoute><AccountProfile /></ProtectedRoute>} />
 
             {/* App pages (aggregated member view) */}
-            <Route path="/app" element={<ProtectedRoute><AppHome /></ProtectedRoute>} />
-            <Route path="/app/signals" element={<ProtectedRoute><AppSignals /></ProtectedRoute>} />
-            <Route path="/app/journals" element={<ProtectedRoute><AppJournals /></ProtectedRoute>} />
-            <Route path="/app/signal/:id" element={<ProtectedRoute><AppSignalDetail /></ProtectedRoute>} />
-            <Route path="/app/journal/:id" element={<ProtectedRoute><AppJournalDetail /></ProtectedRoute>} />
-            <Route path="/app/account" element={<ProtectedRoute><AppAccount /></ProtectedRoute>} />
+            <Route path="/app" element={<ProtectedRoute subscriberOnly><AppHome /></ProtectedRoute>} />
+            <Route path="/app/signals" element={<ProtectedRoute subscriberOnly><AppSignals /></ProtectedRoute>} />
+            <Route path="/app/journals" element={<ProtectedRoute subscriberOnly><AppJournals /></ProtectedRoute>} />
+            <Route path="/app/signal/:id" element={<ProtectedRoute subscriberOnly><AppSignalDetail /></ProtectedRoute>} />
+            <Route path="/app/journal/:id" element={<ProtectedRoute subscriberOnly><AppJournalDetail /></ProtectedRoute>} />
+            <Route path="/app/account" element={<ProtectedRoute subscriberOnly><AppAccount /></ProtectedRoute>} />
             <Route path="/app/holdings" element={<Navigate to="/app" replace />} />
             <Route path="/app/performance" element={<Navigate to="/app" replace />} />
-            <Route path="/app/explore" element={<ProtectedRoute><AppExplore /></ProtectedRoute>} />
-            <Route path="/app/expert/:slug" element={<ProtectedRoute><AppExpertDetail /></ProtectedRoute>} />
-            <Route path="/app/checkout/:slug/:planId" element={<ProtectedRoute><AppCheckout /></ProtectedRoute>} />
+            <Route path="/app/explore" element={<ProtectedRoute subscriberOnly><AppExplore /></ProtectedRoute>} />
+            <Route path="/app/expert/:slug" element={<ProtectedRoute subscriberOnly><AppExpertDetail /></ProtectedRoute>} />
+            <Route path="/app/checkout/:slug/:planId" element={<ProtectedRoute subscriberOnly><AppCheckout /></ProtectedRoute>} />
             {/* SystemDetail removed - no trading_systems table */}
             <Route path="/app/system/:id" element={<Navigate to="/app" replace />} />
 
