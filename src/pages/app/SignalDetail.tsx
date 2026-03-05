@@ -60,7 +60,11 @@ const SignalDetail = () => {
   // Extract stock ticker for price lookup (e.g. "2330 台積電" → "2330")
   const ticker = signal?.instrument?.match(/^\d+/)?.[0];
   const twSymbol = ticker ? `${ticker}.TW` : '';
-  const { quote } = useStockQuote(twSymbol || '2330.TW');
+  const twoSymbol = ticker ? `${ticker}.TWO` : '';
+  const { quote: twQuote } = useStockQuote(twSymbol || '2330.TW');
+  const { quote: twoQuote } = useStockQuote(twoSymbol || '');
+  // Use .TW quote if available, fallback to .TWO for OTC stocks
+  const quote = twQuote?.price ? twQuote : twoQuote;
 
   useEffect(() => {
     markAppSignalsAsRead();

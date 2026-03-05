@@ -17,6 +17,10 @@ export function useStockQuote(symbol: string = '2330.TW', refreshInterval: numbe
   const [error, setError] = useState<string | null>(null);
 
   const fetchQuote = useCallback(async () => {
+    if (!symbol) {
+      setLoading(false);
+      return;
+    }
     try {
       setError(null);
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
