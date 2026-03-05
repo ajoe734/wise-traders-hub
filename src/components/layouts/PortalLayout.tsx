@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 interface PortalLayoutProps {
   children: ReactNode;
   hideAppEntry?: boolean;
+  hideHeader?: boolean;
 }
 
 const navLinks = [
@@ -18,7 +19,7 @@ const navLinks = [
   { href: '/legal', label: '法律聲明' },
 ];
 
-export function PortalLayout({ children, hideAppEntry = false }: PortalLayoutProps) {
+export function PortalLayout({ children, hideAppEntry = false, hideHeader = false }: PortalLayoutProps) {
   const { user } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -31,7 +32,8 @@ export function PortalLayout({ children, hideAppEntry = false }: PortalLayoutPro
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header - White background */}
+      {/* Header */}
+      {!hideHeader && (
       <header className="sticky top-0 z-50 border-b border-border bg-card">
         <div className="container flex h-16 items-center justify-between">
           {/* Logo */}
@@ -191,6 +193,7 @@ export function PortalLayout({ children, hideAppEntry = false }: PortalLayoutPro
           </div>
         )}
       </header>
+      )}
 
       {/* Main Content */}
       <main>{children}</main>
