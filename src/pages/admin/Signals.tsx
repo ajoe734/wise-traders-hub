@@ -53,23 +53,52 @@ const AdminSignals = () => {
   // Auto-fetch stock name & price when 4-digit code entered
   const fetchQuote = useCallback(async (code: string) => {
     setQuoteFetching(true);
+    // Clear previous auto-filled values before fetching new ones
+    setStockName('');
+    setPriceHint('');
     try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const headers = { 'Authorization': `Bearer ${apiKey}`, 'apikey': apiKey };
+
+      // Fetch price from stock-quote (.TW then .TWO)
+      let price: number | null = null;
       for (const suffix of ['.TW', '.TWO']) {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stock-quote?symbol=${code}${suffix}`;
-        const res = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-        });
-        if (!res.ok) continue;
-        const quote = await res.json();
-        if (quote.error) continue;
-        if (quote.shortName) setStockName(prev => prev || quote.shortName);
-        if (quote.price) setPriceHint(prev => prev || String(quote.price));
-        setQuoteFetching(false);
-        return;
+        try {
+          const res = await fetch(`${supabaseUrl}/functions/v1/stock-quote?symbol=${code}${suffix}`, { headers });
+          if (!res.ok) continue;
+          const quote = await res.json();
+          if (quote.error) continue;
+          if (quote.price) { price = quote.price; break; }
+        } catch { /* try next */ }
       }
+
+      // Fetch Chinese name from TWSE, fallback to TPEX
+      let chineseName: string | null = null;
+      try {
+        const twseRes = await fetch(`${supabaseUrl}/functions/v1/twse-proxy?endpoint=STOCK_DAY_ALL&codes=${code}`, { headers });
+        if (twseRes.ok) {
+          const twseData = await twseRes.json();
+          if (Array.isArray(twseData) && twseData.length > 0) {
+            chineseName = twseData[0].Name || null;
+          }
+        }
+      } catch { /* ignore */ }
+
+      if (!chineseName) {
+        try {
+          const tpexRes = await fetch(`${supabaseUrl}/functions/v1/tpex-proxy?endpoint=SQUOTE_EW_QUOTAS_ALL&codes=${code}`, { headers });
+          if (tpexRes.ok) {
+            const tpexData = await tpexRes.json();
+            if (Array.isArray(tpexData) && tpexData.length > 0) {
+              chineseName = tpexData[0].CompanyName || tpexData[0].Name || null;
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (chineseName) setStockName(chineseName);
+      if (price) setPriceHint(String(price));
     } catch (err) {
       console.error('Auto-quote fetch failed:', err);
     }
@@ -80,7 +109,7 @@ const AdminSignals = () => {
     setStockCode(value);
     if (quoteTimerRef.current) clearTimeout(quoteTimerRef.current);
     if (/^\d{4}$/.test(value.trim())) {
-      quoteTimerRef.current = setTimeout(() => fetchQuote(value.trim()), 500);
+      quoteTimerRef.current = setTimeout(() => fetchQuote(value.trim()), 300);
     }
   };
 
@@ -209,7 +238,7 @@ const AdminSignals = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>股票名稱</Label>
-                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="自動帶入或手動輸入" />
+                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="例：台積電" />
                   </div>
                 </div>
                 {signalTemplates.length > 0 && (
