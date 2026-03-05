@@ -214,7 +214,7 @@ const AppExpertDetail = () => {
                     </li>
                   ))}
                 </ul>
-                <Button className={`w-full ${isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90'} text-white`} onClick={() => navigate(`/app/checkout/${slug}/${mainPlan.id}`)}>
+                <Button className={`w-full ${isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90'} text-white`} onClick={() => navigate(`/expert/${slug}`)}>
                   立即訂閱
                 </Button>
               </CardContent>
