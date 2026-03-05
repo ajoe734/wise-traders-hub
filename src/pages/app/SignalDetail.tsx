@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,7 +8,6 @@ import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { AlertTriangle, BookOpen, Lightbulb, Shield, Target, ChevronRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useStockQuote } from '@/hooks/useStockQuote';
 import { Button } from '@/components/ui/button';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
@@ -37,6 +36,12 @@ interface DbSignal {
   } | null;
 }
 
+interface StockQuote {
+  price: number;
+  change: number;
+  changePercent: number;
+}
+
 const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
   const lines = text.split('\n').map(l => l.replace(/^[•·]\s*/, '').trim()).filter(Boolean);
   return (
@@ -56,15 +61,42 @@ const SignalDetail = () => {
   const navigate = useNavigate();
   const [signal, setSignal] = useState<DbSignal | null>(null);
   const [loading, setLoading] = useState(true);
+  const [quote, setQuote] = useState<StockQuote | null>(null);
 
-  // Extract stock ticker for price lookup (e.g. "2330 台積電" → "2330")
+  // Extract stock ticker (e.g. "2330 台積電" → "2330")
   const ticker = signal?.instrument?.match(/^\d+/)?.[0];
-  const twSymbol = ticker ? `${ticker}.TW` : '';
-  const twoSymbol = ticker ? `${ticker}.TWO` : '';
-  const { quote: twQuote } = useStockQuote(twSymbol || '2330.TW');
-  const { quote: twoQuote } = useStockQuote(twoSymbol || '');
-  // Use .TW quote if available, fallback to .TWO for OTC stocks
-  const quote = twQuote?.price ? twQuote : twoQuote;
+
+  // Fetch stock quote with .TW → .TWO fallback, only when ticker is known
+  const fetchQuote = useCallback(async () => {
+    if (!ticker) return;
+
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    for (const suffix of ['.TW', '.TWO']) {
+      try {
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/stock-quote?symbol=${ticker}${suffix}`,
+          { headers: { apikey: anonKey } }
+        );
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (data.error || !data.price) continue;
+        setQuote({ price: data.price, change: data.change, changePercent: data.changePercent });
+        return; // Found valid quote, stop
+      } catch {
+        // Try next suffix
+      }
+    }
+  }, [ticker]);
+
+  // Poll every 30s, only when ticker is available
+  useEffect(() => {
+    if (!ticker) return;
+    fetchQuote();
+    const interval = setInterval(fetchQuote, 30000);
+    return () => clearInterval(interval);
+  }, [ticker, fetchQuote]);
 
   useEffect(() => {
     markAppSignalsAsRead();
@@ -92,7 +124,7 @@ const SignalDetail = () => {
 
   const ac = actionConfig[signal.action] || actionConfig.buy;
   const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
-  const priceDisplay = twSymbol && quote ? `${twSymbol} $${quote.price}` : twSymbol || '';
+  const displaySymbol = ticker ? `${ticker}.TW` : signal.instrument;
 
   return (
     <UnifiedAppLayout>
@@ -108,10 +140,10 @@ const SignalDetail = () => {
           返回訊號中心
         </Button>
         {/* Header: instrument + expert name + stock price */}
-        {/* Row 1: Badge + ticker.TW */}
+        {/* Row 1: Badge + ticker */}
         <div className="flex items-center gap-3">
           <Badge className={cn(ac.className, 'text-xs px-2 py-0.5')}>{ac.label}</Badge>
-          <span className="text-2xl font-bold">{twSymbol || signal.instrument}</span>
+          <span className="text-2xl font-bold">{displaySymbol}</span>
         </div>
         {/* Row 2: date + expert name + role badge */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -126,6 +158,24 @@ const SignalDetail = () => {
             </>
           )}
         </div>
+
+        {/* Live quote */}
+        {quote && (
+          <Card className="bg-muted/30">
+            <CardContent className="p-3 flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">即時報價</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">${quote.price.toFixed(2)}</span>
+                <span className={cn(
+                  "text-sm font-medium",
+                  quote.change >= 0 ? "text-success" : "text-destructive"
+                )}>
+                  {quote.change >= 0 ? '+' : ''}{quote.change.toFixed(2)} ({quote.changePercent.toFixed(2)}%)
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Price hint */}
         {signal.price_hint != null && (

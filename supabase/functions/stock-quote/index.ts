@@ -10,6 +10,11 @@ const corsHeaders = {
 const cache = new Map<string, { data: any; expiry: number }>();
 const CACHE_TTL = 30_000; // 30 seconds
 
+// Rate limiting: sliding window per IP
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 30; // max 30 requests per minute per IP
+
 function getCached(symbol: string) {
   const entry = cache.get(symbol);
   if (entry && Date.now() < entry.expiry) return entry.data;
@@ -28,16 +33,59 @@ function setCache(symbol: string, data: any) {
   }
 }
 
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW) {
+    rateLimitMap.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+
+  // Periodic cleanup
+}
+
+// Cleanup stale rate limit entries every 5 minutes
+let lastCleanup = Date.now();
+function cleanupRateLimits() {
+  const now = Date.now();
+  if (now - lastCleanup < 300_000) return;
+  lastCleanup = now;
+  for (const [key, val] of rateLimitMap) {
+    if (now - val.windowStart > RATE_LIMIT_WINDOW) rateLimitMap.delete(key);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Rate limiting
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+                     req.headers.get('cf-connecting-ip') || 'unknown';
+    
+    cleanupRateLimits();
+
+    if (!checkRateLimit(clientIp)) {
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' } }
+      );
+    }
+
     const url = new URL(req.url);
     const symbol = url.searchParams.get('symbol') || '2330.TW';
 
-    // Check cache first
+    // Check cache first (cache hit does NOT count towards Yahoo API calls)
     const cached = getCached(symbol);
     if (cached) {
       return new Response(JSON.stringify(cached), {
