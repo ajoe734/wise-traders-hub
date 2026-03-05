@@ -311,7 +311,7 @@ const AdminSignals = () => {
                     <Textarea value={learningPoints} onChange={e => setLearningPoints(e.target.value)} placeholder="本週學習要點..." rows={3} />
                   </div>
                 )}
-                {isMentor && canPublish && (
+                {canPublish && (
                   <Card className="bg-muted/50">
                     <CardContent className="p-4 space-y-2">
                       <p className="text-xs font-medium text-muted-foreground">📋 訂閱者預覽</p>
@@ -323,7 +323,7 @@ const AdminSignals = () => {
                       {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
                       {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
                       {riskNotes && <p className="text-xs text-destructive">⚠️ {riskNotes}</p>}
-                      {learningPoints && <p className="text-xs text-primary">📌 {learningPoints}</p>}
+                      {isMentor && learningPoints && <p className="text-xs text-primary">📌 {learningPoints}</p>}
                     </CardContent>
                   </Card>
                 )}
