@@ -124,7 +124,7 @@ const ExpertProfile = () => {
 
   if (expertNotFound) {
     return (
-      <PortalLayout>
+      <PortalLayout hideAppEntry>
         <div className="container py-12 text-center">
           <h1 className="text-2xl font-bold mb-4">找不到此專家</h1>
           <Button asChild><Link to="/experts">返回專家列表</Link></Button>
@@ -135,7 +135,7 @@ const ExpertProfile = () => {
 
   if (!expertInfo || loading) {
     return (
-      <PortalLayout>
+      <PortalLayout hideAppEntry>
         <div className="container py-12 flex justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -172,7 +172,7 @@ const ExpertProfile = () => {
       : <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/experts')}><ArrowLeft className="h-4 w-4 mr-1" />返回專家列表</Button>;
 
   return (
-    <PortalLayout>
+    <PortalLayout hideAppEntry>
       <div className="container py-8 md:py-12 space-y-12">
         {backButton}
 
