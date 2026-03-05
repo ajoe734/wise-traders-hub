@@ -237,7 +237,7 @@ const Checkout = () => {
 
   if (loading) {
     return (
-      <PortalLayout>
+       <PortalLayout hideAppEntry>
         <div className="flex justify-center items-center py-24">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -247,7 +247,7 @@ const Checkout = () => {
 
   if (!plan || !expert) {
     return (
-      <PortalLayout>
+       <PortalLayout hideAppEntry>
         <div className="container py-12 text-center">
           <h1 className="text-2xl font-bold mb-4">找不到此方案</h1>
           <Button asChild>
@@ -399,7 +399,7 @@ const Checkout = () => {
   };
 
   return (
-    <PortalLayout>
+    <PortalLayout hideAppEntry>
       {/* Blocking overlay while confirming payment */}
       {isConfirming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">

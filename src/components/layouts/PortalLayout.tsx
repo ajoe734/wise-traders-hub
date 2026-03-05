@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 
 interface PortalLayoutProps {
   children: ReactNode;
+  hideAppEntry?: boolean;
 }
 
 const navLinks = [
@@ -17,7 +18,7 @@ const navLinks = [
   { href: '/legal', label: '法律聲明' },
 ];
 
-export function PortalLayout({ children }: PortalLayoutProps) {
+export function PortalLayout({ children, hideAppEntry = false }: PortalLayoutProps) {
   const { user } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -87,7 +88,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
                 )}
               </button>
             )}
-            {user ? (
+            {user && !hideAppEntry ? (
               <Button size="sm" asChild>
                 <Link to="/app">進入會員區</Link>
               </Button>
@@ -159,7 +160,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
                 </Link>
               ))}
               <div className="border-t border-border pt-4 mt-4 space-y-2">
-                {user ? (
+                {user && !hideAppEntry ? (
                   <Link
                     to="/app"
                     className="block px-3 py-2 rounded-md text-sm font-medium bg-cta text-cta-foreground text-center"
