@@ -77,28 +77,6 @@ Deno.serve(async (req) => {
       const lineUserId = event.source?.userId
       if (!lineUserId) continue
 
-      // Handle follow event - welcome message with LINE profile
-      if (event.type === 'follow' && event.replyToken) {
-        // Fetch LINE user profile to get display name
-        let displayName = '您'
-        try {
-          const profileRes = await fetch(`https://api.line.me/v2/bot/profile/${lineUserId}`, {
-            headers: { 'Authorization': `Bearer ${channel.channel_access_token}` },
-          })
-          if (profileRes.ok) {
-            const profile = await profileRes.json()
-            displayName = profile.displayName || '您'
-          }
-        } catch (_) { /* fallback to default */ }
-
-        await replyMessage(
-          event.replyToken,
-          channel.channel_access_token,
-          `${displayName}您好！\n\n我是${expertName}。\n\n感謝您加入好友🌝\n\n請在網站上點擊「綁定 LINE」取得驗證碼，然後在此輸入驗證碼完成綁定。`,
-        )
-        continue
-      }
-
       // Handle text message - check for binding code
       if (event.type === 'message' && event.message?.type === 'text' && event.replyToken) {
         const rawText = event.message.text.trim().toUpperCase()
