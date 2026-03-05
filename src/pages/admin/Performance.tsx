@@ -1,12 +1,14 @@
 import { useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
 const AdminPerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -15,6 +17,8 @@ const AdminPerformance = () => {
   const [trades, setTrades] = useState<any[]>([]);
   const [tradePeriod, setTradePeriod] = useState<'week' | 'month' | 'year'>('week');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; changePercent: number }>>({});
 
   useEffect(() => {
     fetchData();
@@ -26,15 +30,57 @@ const AdminPerformance = () => {
     const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
     setExpert(exp);
     if (exp) {
-      // Fetch performance via DB function
       const { data: perfData } = await supabase.rpc('calculate_expert_performance', { _expert_id: exp.id });
       setPerf(perfData);
-
-      // Fetch recent trades
       const { data: t } = await supabase.from('trade_records').select('*').eq('expert_id', exp.id).order('created_at', { ascending: false });
       setTrades(t || []);
     }
     setLoading(false);
+  };
+
+  // Real-time price refresh for open trades
+
+  const refreshOpenPrices = useCallback(async () => {
+    const openTrades = trades.filter(t => t.status === 'open');
+    if (openTrades.length === 0) return;
+    setRefreshing(true);
+    const uniqueInstruments = [...new Set(openTrades.map(t => {
+      // Extract stock code (first 4 digits)
+      const match = t.instrument?.match(/^(\d{4})/);
+      return match ? match[1] : null;
+    }).filter(Boolean))] as string[];
+
+    const prices: Record<string, { price: number; change: number; changePercent: number }> = {};
+    for (const code of uniqueInstruments) {
+      for (const suffix of ['.TW', '.TWO']) {
+        try {
+          const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stock-quote?symbol=${code}${suffix}`;
+          const res = await fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+          });
+          if (!res.ok) continue;
+          const quote = await res.json();
+          if (quote.error) continue;
+          prices[code] = { price: quote.price, change: quote.change, changePercent: quote.changePercent };
+          break;
+        } catch { /* skip */ }
+      }
+    }
+    setLivePrices(prices);
+    setRefreshing(false);
+    if (Object.keys(prices).length > 0) {
+      toast.success(`已更新 ${Object.keys(prices).length} 檔即時報價`);
+    }
+  }, [trades]);
+
+  // Helper to get live price for a trade
+  const getLivePrice = (trade: any) => {
+    const match = trade.instrument?.match(/^(\d{4})/);
+    if (!match) return null;
+    return livePrices[match[1]] || null;
   };
 
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
@@ -91,13 +137,25 @@ const AdminPerformance = () => {
           <CardContent className="p-0">
             <div className="p-4 border-b flex items-center justify-between">
               <h3 className="font-semibold text-sm">交易紀錄</h3>
-              <Tabs value={tradePeriod} onValueChange={(v) => setTradePeriod(v as any)}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="week" className="text-xs px-3 h-7">本週</TabsTrigger>
-                  <TabsTrigger value="month" className="text-xs px-3 h-7">本月</TabsTrigger>
-                  <TabsTrigger value="year" className="text-xs px-3 h-7">本年</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  onClick={refreshOpenPrices}
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={cn("h-3 w-3", refreshing && "animate-spin")} />
+                  即時報價
+                </Button>
+                <Tabs value={tradePeriod} onValueChange={(v) => setTradePeriod(v as any)}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="week" className="text-xs px-3 h-7">本週</TabsTrigger>
+                    <TabsTrigger value="month" className="text-xs px-3 h-7">本月</TabsTrigger>
+                    <TabsTrigger value="year" className="text-xs px-3 h-7">本年</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -114,28 +172,30 @@ const AdminPerformance = () => {
                   {filteredTrades.length === 0 ? (
                     <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">此期間尚無交易紀錄</td></tr>
                   ) : (
-                    filteredTrades.map((trade) => (
+                    filteredTrades.map((trade) => {
+                      const live = trade.status === 'open' ? getLivePrice(trade) : null;
+                      const displayPrice = live ? live.price : (trade.status === 'open' ? trade.current_price : trade.exit_price);
+                      const livePnl = live && trade.entry_price ? Number(((live.price - trade.entry_price) / trade.entry_price * 100).toFixed(2)) : null;
+                      const pnl = livePnl ?? (trade.pnl_percent != null ? Number(trade.pnl_percent) : null);
+                      return (
                       <tr key={trade.id} className="border-b last:border-0 hover:bg-muted/30">
                         <td className="p-3 text-sm font-medium">{trade.instrument}</td>
                         <td className="p-3 text-sm">{trade.entry_price || '-'}</td>
                         <td className="p-3 text-sm">
-                          {trade.status === 'open' ? (trade.current_price || '-') : (trade.exit_price || '-')}
+                          {displayPrice || '-'}
+                          {live && <span className="ml-1 text-[10px] text-muted-foreground">⚡</span>}
                         </td>
-                        {(() => {
-                          const pnl = trade.pnl_percent != null ? Number(trade.pnl_percent) : null;
-                          return (
-                            <td className={cn("p-3 text-sm font-medium", pnl != null && pnl > 0 ? "text-green-600 dark:text-green-400" : pnl != null && pnl < 0 ? "text-red-600 dark:text-red-400" : "")}>
-                              {pnl != null ? `${pnl > 0 ? '+' : ''}${pnl}%` : '-'}
-                            </td>
-                          );
-                        })()}
+                        <td className={cn("p-3 text-sm font-medium", pnl != null && pnl > 0 ? "text-green-600 dark:text-green-400" : pnl != null && pnl < 0 ? "text-red-600 dark:text-red-400" : "")}>
+                          {pnl != null ? `${pnl > 0 ? '+' : ''}${pnl}%` : '-'}
+                        </td>
                         <td className="p-3">
                           <Badge variant={trade.status === 'open' ? 'default' : trade.status === 'closed' ? 'secondary' : 'destructive'} className="text-xs">
                             {trade.status === 'open' ? '持有中' : trade.status === 'closed' ? '已平倉' : '已停損'}
                           </Badge>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
