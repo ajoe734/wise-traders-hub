@@ -116,10 +116,12 @@ const JournalDetail = () => {
     const codesStr = codes.join(',');
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const headers = { apikey: anonKey };
     try {
       const [priceRes, fundRes] = await Promise.all([
-        fetch(`https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=STOCK_DAY_ALL&codes=${codesStr}`),
-        fetch(`https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=BWIBBU_ALL&codes=${codesStr}`),
+        fetch(`https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=STOCK_DAY_ALL&codes=${codesStr}`, { headers }),
+        fetch(`https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=BWIBBU_ALL&codes=${codesStr}`, { headers }),
       ]);
 
       if (priceRes.ok) {
