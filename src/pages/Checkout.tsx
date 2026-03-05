@@ -71,12 +71,11 @@ const Checkout = () => {
     const transactionId = searchParams.get('transactionId');
     const txOrderId = searchParams.get('orderId');
 
-    if (linepay === 'confirm' && transactionId && !isConfirming && !resultDialog) {
+    if (linepay === 'confirm' && transactionId && !isConfirming && !resultDialog && plan) {
       const confirmPayment = async () => {
         setIsConfirming(true);
         try {
           const returnedBillingCycle = searchParams.get('billingCycle') || billingCycle;
-          if (!plan) return;
           
           const currentPrice = returnedBillingCycle === 'yearly'
             ? (plan.price_yearly || plan.price_monthly * 12)

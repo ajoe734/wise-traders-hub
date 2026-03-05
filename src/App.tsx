@@ -92,17 +92,17 @@ const App = () => (
             <Route path="/account/profile" element={<ProtectedRoute><AccountProfile /></ProtectedRoute>} />
 
             {/* App pages (aggregated member view) */}
-            <Route path="/app" element={<AppHome />} />
-            <Route path="/app/signals" element={<AppSignals />} />
-            <Route path="/app/journals" element={<AppJournals />} />
-            <Route path="/app/signal/:id" element={<AppSignalDetail />} />
-            <Route path="/app/journal/:id" element={<AppJournalDetail />} />
-            <Route path="/app/account" element={<AppAccount />} />
+            <Route path="/app" element={<ProtectedRoute><AppHome /></ProtectedRoute>} />
+            <Route path="/app/signals" element={<ProtectedRoute><AppSignals /></ProtectedRoute>} />
+            <Route path="/app/journals" element={<ProtectedRoute><AppJournals /></ProtectedRoute>} />
+            <Route path="/app/signal/:id" element={<ProtectedRoute><AppSignalDetail /></ProtectedRoute>} />
+            <Route path="/app/journal/:id" element={<ProtectedRoute><AppJournalDetail /></ProtectedRoute>} />
+            <Route path="/app/account" element={<ProtectedRoute><AppAccount /></ProtectedRoute>} />
             <Route path="/app/holdings" element={<Navigate to="/app" replace />} />
             <Route path="/app/performance" element={<Navigate to="/app" replace />} />
-            <Route path="/app/explore" element={<AppExplore />} />
-            <Route path="/app/expert/:slug" element={<AppExpertDetail />} />
-            <Route path="/app/checkout/:slug/:planId" element={<AppCheckout />} />
+            <Route path="/app/explore" element={<ProtectedRoute><AppExplore /></ProtectedRoute>} />
+            <Route path="/app/expert/:slug" element={<ProtectedRoute><AppExpertDetail /></ProtectedRoute>} />
+            <Route path="/app/checkout/:slug/:planId" element={<ProtectedRoute><AppCheckout /></ProtectedRoute>} />
             {/* SystemDetail removed - no trading_systems table */}
             <Route path="/app/system/:id" element={<Navigate to="/app" replace />} />
 

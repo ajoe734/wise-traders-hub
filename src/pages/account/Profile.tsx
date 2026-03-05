@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,10 +7,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { User, Mail, MessageCircle } from 'lucide-react';
+import { User, Mail, MessageCircle, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const AccountProfile = () => {
   const { user, isAuthenticated, logout } = useAuth();
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: displayName })
+      .eq('user_id', user.id);
+    setIsSaving(false);
+    if (error) {
+      toast.error('儲存失敗：' + error.message);
+    } else {
+      toast.success('已儲存');
+    }
+  };
 
   if (!isAuthenticated || !user) {
     return (
@@ -46,14 +66,17 @@ const AccountProfile = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">姓名</Label>
-                <Input id="name" defaultValue={user.displayName || ''} />
+                <Input id="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input id="email" defaultValue={user.email} disabled />
                 <p className="text-xs text-muted-foreground">Email 無法修改</p>
               </div>
-              <Button>儲存變更</Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                儲存變更
+              </Button>
             </CardContent>
           </Card>
 
