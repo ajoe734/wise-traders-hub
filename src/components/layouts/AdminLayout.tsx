@@ -70,8 +70,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { path: `${basePath}/signals`, icon: Radio, label: isAdvisor ? '訊號管理' : '週記管理' },
     { path: `${basePath}/subscribers`, icon: Users, label: '訂閱者' },
     { path: `${basePath}/signal-templates`, icon: FileText, label: '訊號模板' },
-    { path: `${basePath}/profile`, icon: UserCog, label: '個人檔案' },
     { path: `${basePath}/performance`, icon: BarChart3, label: '績效總覽' },
+    { path: `${basePath}/profile`, icon: UserCog, label: '個人檔案' },
   ];
 
   const isActive = (path: string, exact?: boolean) => {
