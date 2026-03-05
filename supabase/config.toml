@@ -32,3 +32,12 @@ verify_jwt = false
 
 [functions.line-push-renewal-reminder]
 verify_jwt = false
+
+[functions.create-acpay-order]
+verify_jwt = false
+
+[functions.acpay-callback]
+verify_jwt = false
+
+[functions.confirm-acpay]
+verify_jwt = false

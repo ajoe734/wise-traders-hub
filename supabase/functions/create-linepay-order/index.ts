@@ -64,12 +64,13 @@ Deno.serve(async (req) => {
       },
     };
 
+    const linepayApiUrl = Deno.env.get("LINEPAY_API_URL") || "https://sandbox-api-pay.line.me";
     const apiUri = "/v3/payments/request";
     const bodyStr = JSON.stringify(requestBody);
     const signatureMessage = channelSecret + apiUri + bodyStr + nonce;
     const signature = await hmacSha256Base64(channelSecret, signatureMessage);
 
-    const response = await fetch(`https://sandbox-api-pay.line.me${apiUri}`, {
+    const response = await fetch(`${linepayApiUrl}${apiUri}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

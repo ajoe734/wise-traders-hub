@@ -937,7 +937,7 @@ export type Database = {
         | "analyst_signal_l1"
         | "analyst_signal_diag_l2"
         | "mentor_weekly_journal"
-      provider_type: "ecpay" | "newebpay" | "stripe" | "line_pay"
+      provider_type: "ecpay" | "newebpay" | "stripe" | "line_pay" | "acpay"
       review_status: "draft" | "pending" | "approved" | "rejected"
       signal_action: "buy" | "sell" | "add" | "trim" | "exit"
       signal_status: "published" | "taken_down"
@@ -1079,7 +1079,7 @@ export const Constants = {
         "analyst_signal_diag_l2",
         "mentor_weekly_journal",
       ],
-      provider_type: ["ecpay", "newebpay", "stripe", "line_pay"],
+      provider_type: ["ecpay", "newebpay", "stripe", "line_pay", "acpay"],
       review_status: ["draft", "pending", "approved", "rejected"],
       signal_action: ["buy", "sell", "add", "trim", "exit"],
       signal_status: ["published", "taken_down"],
