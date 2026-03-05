@@ -109,7 +109,7 @@ const AdminSignals = () => {
     setStockCode(value);
     if (quoteTimerRef.current) clearTimeout(quoteTimerRef.current);
     if (/^\d{4}$/.test(value.trim())) {
-      quoteTimerRef.current = setTimeout(() => fetchQuote(value.trim()), 300);
+      quoteTimerRef.current = setTimeout(() => fetchQuote(value.trim()), 50);
     }
   };
 
@@ -238,7 +238,7 @@ const AdminSignals = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>股票名稱</Label>
-                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="例：台積電" />
+                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="系統自動填入" />
                   </div>
                 </div>
                 {signalTemplates.length > 0 && (
