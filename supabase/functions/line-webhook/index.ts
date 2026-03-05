@@ -47,12 +47,21 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Get channel config for this expert
-    const { data: channel } = await supabase
-      .from('expert_line_channels')
-      .select('channel_access_token, is_active')
-      .eq('expert_id', expertId)
-      .single()
+    // Get channel config + expert name for this expert
+    const [{ data: channel }, { data: expert }] = await Promise.all([
+      supabase
+        .from('expert_line_channels')
+        .select('channel_access_token, is_active')
+        .eq('expert_id', expertId)
+        .single(),
+      supabase
+        .from('experts')
+        .select('name')
+        .eq('id', expertId)
+        .single(),
+    ])
+
+    const expertName = expert?.name || '分析師'
 
     if (!channel || !channel.is_active) {
       console.error('No active LINE channel for expert:', expertId)
@@ -68,12 +77,24 @@ Deno.serve(async (req) => {
       const lineUserId = event.source?.userId
       if (!lineUserId) continue
 
-      // Handle follow event - welcome message
+      // Handle follow event - welcome message with LINE profile
       if (event.type === 'follow' && event.replyToken) {
+        // Fetch LINE user profile to get display name
+        let displayName = '您'
+        try {
+          const profileRes = await fetch(`https://api.line.me/v2/bot/profile/${lineUserId}`, {
+            headers: { 'Authorization': `Bearer ${channel.channel_access_token}` },
+          })
+          if (profileRes.ok) {
+            const profile = await profileRes.json()
+            displayName = profile.displayName || '您'
+          }
+        } catch (_) { /* fallback to default */ }
+
         await replyMessage(
           event.replyToken,
           channel.channel_access_token,
-          '歡迎加入！請在網站上點擊「綁定 LINE」取得驗證碼，然後在此輸入驗證碼完成綁定。',
+          `${displayName}您好！\n\n我是${expertName}。\n\n感謝您加入好友🌝\n\n請在網站上點擊「綁定 LINE」取得驗證碼，然後在此輸入驗證碼完成綁定。`,
         )
         continue
       }
@@ -149,7 +170,7 @@ Deno.serve(async (req) => {
         await replyMessage(
           event.replyToken,
           channel.channel_access_token,
-          '✅ 綁定成功！您將會收到此分析師的即時訊號通知。',
+          `✅ 綁定成功！您將會收到${expertName}的即時訊號通知。`,
         )
       }
     }
