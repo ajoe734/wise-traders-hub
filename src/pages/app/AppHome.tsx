@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useExpertPerformance } from '@/hooks/usePerformance';
 import { 
-  Target, Compass, Radio, ChevronRight, BookOpen, Lock, CheckCircle2, BarChart3, QrCode, MessageCircle
+  Target, Compass, Radio, ChevronRight, BookOpen, Lock, CheckCircle2, BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,9 +22,6 @@ interface SubExpert {
   role: string;
   id: string;
   status?: string;
-  line_oa_id?: string | null;
-  qr_code_url?: string | null;
-  channel_name?: string | null;
 }
 
 interface DbSubscription {
@@ -55,30 +52,8 @@ const fetchHomeData = async (userId: string | undefined) => {
     },
   })).filter(s => s.expert.slug && s.expert.status === 'active');
 
-  // Fetch LINE channel info for subscribed experts
-  const expertIds = allSubs.map(s => s.expert.id).filter(Boolean);
-  let channelMap = new Map<string, { line_oa_id: string | null; qr_code_url: string | null; channel_name: string | null }>();
-  if (expertIds.length > 0) {
-    const { data: channels } = await supabase
-      .from('expert_line_channels_public')
-      .select('expert_id, line_oa_id, qr_code_url, channel_name')
-      .in('expert_id', expertIds);
-    channelMap = new Map((channels || []).map((c: any) => [c.expert_id, { line_oa_id: c.line_oa_id, qr_code_url: c.qr_code_url, channel_name: c.channel_name }]));
-  }
-
-  // Enrich with LINE info
-  const enrichedSubs = allSubs.map(s => ({
-    ...s,
-    expert: {
-      ...s.expert,
-      line_oa_id: channelMap.get(s.expert.id)?.line_oa_id || null,
-      qr_code_url: channelMap.get(s.expert.id)?.qr_code_url || null,
-      channel_name: channelMap.get(s.expert.id)?.channel_name || null,
-    },
-  }));
-
-  const advisorSubs = enrichedSubs.filter(s => s.plan_type === 'analyst_signal_l1' || s.plan_type === 'analyst_signal_diag_l2');
-  const mentorSubs = enrichedSubs.filter(s => s.plan_type === 'mentor_weekly_journal');
+  const advisorSubs = allSubs.filter(s => s.plan_type === 'analyst_signal_l1' || s.plan_type === 'analyst_signal_diag_l2');
+  const mentorSubs = allSubs.filter(s => s.plan_type === 'mentor_weekly_journal');
 
   return { advisorSubs, mentorSubs, hasAdvisor: advisorSubs.length > 0, hasMentor: mentorSubs.length > 0 };
 };
@@ -107,29 +82,6 @@ function ExpertPerfRow({ sub }: { sub: DbSubscription }) {
         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
     </Link>
-  );
-}
-
-function LineOaCard({ expert, theme }: { expert: SubExpert; theme: 'signals' | 'learning' }) {
-  const accentClass = theme === 'signals' ? 'text-signals-accent' : 'text-learning-accent';
-  const borderClass = theme === 'signals' ? 'border-signals-accent/20' : 'border-learning-accent/20';
-  return (
-    <div className={cn("flex items-center gap-3 p-3 rounded-xl border bg-foreground/[0.02]", borderClass)}>
-      <MessageCircle className={cn("h-4 w-4 flex-shrink-0", accentClass)} />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-muted-foreground">加入 LINE 好友接收通知</p>
-        <p className="text-sm font-medium truncate">{expert.channel_name || expert.name}：{expert.line_oa_id}</p>
-      </div>
-      <a
-        href={expert.qr_code_url || `https://line.me/R/ti/p/${expert.line_oa_id}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cn("flex-shrink-0 p-1.5 rounded-lg hover:bg-foreground/5 transition-colors", accentClass)}
-        title="掃描 QR Code 加入好友"
-      >
-        <QrCode className="h-5 w-5" />
-      </a>
-    </div>
   );
 }
 
@@ -177,10 +129,6 @@ const AppHome = () => {
                   {advisorSubs.map(sub => <ExpertPerfRow key={sub.plan_id} sub={sub} />)}
                 </div>
               </FeatureCard>
-              {/* LINE 加好友提示 */}
-              {advisorSubs.filter(s => s.expert.line_oa_id).map(sub => (
-                <LineOaCard key={`line-${sub.plan_id}`} expert={sub.expert} theme="signals" />
-              ))}
               <div className="flex items-center gap-2">
                 {advisorSubs.slice(0, 3).map(sub => (
                   <Link key={sub.plan_id} to={`/app/expert/${sub.expert.slug}`}>
@@ -230,10 +178,6 @@ const AppHome = () => {
                   {mentorSubs.map(sub => <ExpertPerfRow key={sub.plan_id} sub={sub} />)}
                 </div>
               </FeatureCard>
-              {/* LINE 加好友提示 */}
-              {mentorSubs.filter(s => s.expert.line_oa_id).map(sub => (
-                <LineOaCard key={`line-${sub.plan_id}`} expert={sub.expert} theme="learning" />
-              ))}
               <div className="flex items-center gap-2">
                 {mentorSubs.slice(0, 3).map(sub => (
                   <Link key={sub.plan_id} to={`/app/expert/${sub.expert.slug}`}>
