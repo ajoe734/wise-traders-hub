@@ -25,7 +25,7 @@ const AccountProfile = () => {
   }
 
   return (
-    <PortalLayout>
+    <PortalLayout hideHeader>
       <div className="container py-8 md:py-12 max-w-2xl">
         <div className="mb-8">
           <h1 className="text-2xl md:text-3xl font-bold mb-2">個人資料</h1>
