@@ -165,11 +165,13 @@ const ExpertProfile = () => {
   };
   const getPlanNote = (planType: string) => planType === 'mentor_weekly_journal' ? '所有內容均延遲 7 天以上（T+7），僅作為歷史案例教學用途，不構成即時投資建議。' : '包含具體買賣指示，屬投顧服務。';
 
+  const defaultBack = user ? '/app/explore' : '/experts';
+  const defaultBackLabel = user ? '返回探索專家' : '返回專家列表';
   const backButton = fromAccount
     ? <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/app/account')}><ArrowLeft className="h-4 w-4 mr-1" />返回帳號設定</Button>
     : fromExplore
       ? <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/app/explore')}><ArrowLeft className="h-4 w-4 mr-1" />返回探索專家</Button>
-      : <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/experts')}><ArrowLeft className="h-4 w-4 mr-1" />返回專家列表</Button>;
+      : <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate(defaultBack)}><ArrowLeft className="h-4 w-4 mr-1" />{defaultBackLabel}</Button>;
 
   return (
     <PortalLayout hideAppEntry hideHeader={!!user}>
