@@ -42,14 +42,14 @@ const AppCheckout = () => {
     const txOrderId = searchParams.get("orderId");
     const ecpay = searchParams.get("ecpay");
 
-    if (linepay === "confirm" && transactionId && !isConfirming && !resultDialog) {
+    if (linepay === "confirm" && transactionId && !isConfirming && !resultDialog && planData) {
       confirmLinePayPayment(transactionId, txOrderId || "");
     } else if (linepay === "cancel") {
       setResultDialog({ open: true, success: false });
     } else if (ecpay === "result") {
       handleEcpayReturn();
     }
-  }, [searchParams]);
+  }, [searchParams, planData]);
 
   const confirmLinePayPayment = async (transactionId: string, orderId: string) => {
     setIsConfirming(true);

@@ -18,6 +18,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   hasRole: (role: AppRole) => boolean;
+  refreshProfile: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -126,6 +127,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasRole = (role: AppRole) => user?.roles.includes(role) ?? false;
 
+  const refreshProfile = useCallback(async () => {
+    if (!supabaseUser) return;
+    await loadProfile(supabaseUser, true);
+  }, [supabaseUser, loadProfile]);
+
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     // Clear state before login to prevent stale data
     clearAuth();
@@ -163,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!user && !isLoading;
 
   return (
-    <AuthContext.Provider value={{ user, supabaseUser, isLoading, isAuthenticated, hasRole, login, register, logout }}>
+    <AuthContext.Provider value={{ user, supabaseUser, isLoading, isAuthenticated, hasRole, refreshProfile, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

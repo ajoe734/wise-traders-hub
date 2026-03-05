@@ -14,7 +14,10 @@ export function useMySubscriptions() {
         .eq('user_id', user.id)
         .eq('status', 'active');
       if (error) throw error;
-      return data || [];
+      return (data || []).filter((sub: any) => {
+        const expert = sub.expert_plans?.experts;
+        return expert && expert.status === 'active';
+      });
     },
     enabled: !!user,
     staleTime: 30_000,
@@ -34,6 +37,7 @@ export function useSubscribedExpertSlugs() {
         .eq('status', 'active');
       if (!data) return [];
       return data
+        .filter((sub: any) => sub.expert_plans?.experts?.status === 'active')
         .map((sub: any) => sub.expert_plans?.experts?.slug)
         .filter(Boolean) as string[];
     },

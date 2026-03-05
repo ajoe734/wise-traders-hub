@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const AccountProfile = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, refreshProfile } = useAuth();
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -27,6 +27,7 @@ const AccountProfile = () => {
     if (error) {
       toast.error('儲存失敗：' + error.message);
     } else {
+      await refreshProfile();
       toast.success('已儲存');
     }
   };
