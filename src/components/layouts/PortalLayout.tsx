@@ -160,7 +160,7 @@ export function PortalLayout({ children, hideAppEntry = false }: PortalLayoutPro
                 </Link>
               ))}
               <div className="border-t border-border pt-4 mt-4 space-y-2">
-                {user && !hideAppEntry ? (
+                {user ? (
                   <Link
                     to="/app"
                     className="block px-3 py-2 rounded-md text-sm font-medium bg-cta text-cta-foreground text-center"
