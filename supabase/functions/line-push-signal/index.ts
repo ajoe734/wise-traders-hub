@@ -78,6 +78,7 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
   if (signal.reason_summary) copyLines.push(`\n📌 摘要：\n${signal.reason_summary}`)
   if (signal.reason_detail) copyLines.push(`\n📊 詳細分析：\n${signal.reason_detail}`)
   if (signal.risk_notes) copyLines.push(`\n⚠️ 風險提示：\n${signal.risk_notes}`)
+  if (signal.learning_points) copyLines.push(`\n🎯 教學重點：\n${signal.learning_points}`)
   const copyText = copyLines.join('\n')
 
   const bodyContents: any[] = [
@@ -157,6 +158,27 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
         text: signal.risk_notes,
         size: 'xs',
         color: '#999999',
+        margin: 'sm',
+        wrap: true,
+      },
+    )
+  }
+
+  if (signal.learning_points) {
+    bodyContents.push(
+      {
+        type: 'text',
+        text: '🎯 教學重點',
+        size: 'sm',
+        color: '#333333',
+        margin: 'lg',
+        weight: 'bold',
+      },
+      {
+        type: 'text',
+        text: signal.learning_points,
+        size: 'sm',
+        color: '#444444',
         margin: 'sm',
         wrap: true,
       },
