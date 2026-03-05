@@ -28,18 +28,19 @@ interface SignalDetail {
   };
 }
 
-interface TwseStockData {
+interface StockRow {
   Code: string;
   Name: string;
   ClosingPrice: string;
   Change: string;
-  TradeVolume: string;
+  TradeVolume?: string;
   OpeningPrice?: string;
   HighestPrice?: string;
   LowestPrice?: string;
+  MonthlyAveragePrice?: string;
 }
 
-interface TwseFundamental {
+interface FundamentalRow {
   Code: string;
   Name: string;
   PEratio: string;
@@ -55,8 +56,8 @@ const JournalDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [signal, setSignal] = useState<SignalDetail | null>(null);
   const [weekSignals, setWeekSignals] = useState<SignalDetail[]>([]);
-  const [stockData, setStockData] = useState<TwseStockData[]>([]);
-  const [fundamentals, setFundamentals] = useState<TwseFundamental[]>([]);
+  const [stockData, setStockData] = useState<StockRow[]>([]);
+  const [fundamentals, setFundamentals] = useState<FundamentalRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [twseLoading, setTwseLoading] = useState(false);
 
@@ -102,39 +103,104 @@ const JournalDetail = () => {
     setWeekSignals(allWeek);
     setLoading(false);
 
-    // Fetch TWSE data for instruments in this week
+    // Fetch market data for instruments in this week
     const instruments = [...new Set(allWeek.map((sig: SignalDetail) => sig.instrument))];
-    // Extract stock codes (remove .TW suffix)
-    const codes = instruments.map((i: string) => i.replace('.TW', '').replace('.TWO', ''));
+    const codes = instruments.map((i: string) => i.replace('.TW', '').replace('.TWO', '').match(/^\d+/)?.[0]).filter(Boolean) as string[];
     if (codes.length > 0) {
-      fetchTwseData(codes);
+      fetchMarketData(codes);
     }
   };
 
-  const fetchTwseData = async (codes: string[]) => {
+  const fetchMarketData = async (codes: string[]) => {
     setTwseLoading(true);
     const codesStr = codes.join(',');
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     const headers = { apikey: anonKey };
+
+    const allStockData: StockRow[] = [];
+    const allFundamentals: FundamentalRow[] = [];
+
     try {
-      const [priceRes, fundRes] = await Promise.all([
+      // Fetch TWSE price + fundamentals + monthly avg in parallel
+      const [priceRes, fundRes, avgRes] = await Promise.all([
         fetch(`https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=STOCK_DAY_ALL&codes=${codesStr}`, { headers }),
         fetch(`https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=BWIBBU_ALL&codes=${codesStr}`, { headers }),
+        fetch(`https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=STOCK_DAY_AVG_ALL&codes=${codesStr}`, { headers }),
       ]);
+
+      const twsePriceCodes = new Set<string>();
 
       if (priceRes.ok) {
         const priceData = await priceRes.json();
-        if (Array.isArray(priceData)) setStockData(priceData);
+        if (Array.isArray(priceData)) {
+          priceData.forEach((d: any) => twsePriceCodes.add(d.Code));
+          allStockData.push(...priceData);
+        }
       }
       if (fundRes.ok) {
         const fundData = await fundRes.json();
-        if (Array.isArray(fundData)) setFundamentals(fundData);
+        if (Array.isArray(fundData)) allFundamentals.push(...fundData);
+      }
+
+      // Merge monthly average prices into stock data
+      if (avgRes.ok) {
+        const avgData = await avgRes.json();
+        if (Array.isArray(avgData)) {
+          for (const avg of avgData) {
+            const existing = allStockData.find(s => s.Code === avg.Code);
+            if (existing) {
+              existing.MonthlyAveragePrice = avg.MonthlyAveragePrice || avg.ClosingPrice;
+            }
+          }
+        }
+      }
+
+      // Find codes not found in TWSE → query TPEX as fallback
+      const missingCodes = codes.filter(c => !twsePriceCodes.has(c));
+      if (missingCodes.length > 0) {
+        const tpexCodesStr = missingCodes.join(',');
+        const [tpexPriceRes, tpexFundRes] = await Promise.all([
+          fetch(`https://${projectId}.supabase.co/functions/v1/tpex-proxy?endpoint=SQUOTE_EW_QUOTAS_ALL&codes=${tpexCodesStr}`, { headers }),
+          fetch(`https://${projectId}.supabase.co/functions/v1/tpex-proxy?endpoint=SQUOTE_EW_PEBR_ALL&codes=${tpexCodesStr}`, { headers }),
+        ]);
+
+        if (tpexPriceRes.ok) {
+          const tpexPriceData = await tpexPriceRes.json();
+          if (Array.isArray(tpexPriceData)) {
+            // Normalize TPEX fields to match TWSE structure
+            for (const item of tpexPriceData) {
+              allStockData.push({
+                Code: item.SecuritiesCompanyCode || item.Code,
+                Name: item.CompanyName || item.Name || '-',
+                ClosingPrice: item.Close || item.ClosingPrice || '-',
+                Change: item.Change || '-',
+                TradeVolume: item.TradeVolume || '-',
+              });
+            }
+          }
+        }
+        if (tpexFundRes.ok) {
+          const tpexFundData = await tpexFundRes.json();
+          if (Array.isArray(tpexFundData)) {
+            for (const item of tpexFundData) {
+              allFundamentals.push({
+                Code: item.SecuritiesCompanyCode || item.Code,
+                Name: item.CompanyName || item.Name || '-',
+                PEratio: item.PriceEarningRatio || item.PEratio || '-',
+                DividendYield: item.DividendYield || '-',
+                PBratio: item.PriceBookRatio || item.PBratio || '-',
+              });
+            }
+          }
+        }
       }
     } catch (e) {
-      console.error('TWSE data fetch error:', e);
+      console.error('Market data fetch error:', e);
     }
+
+    setStockData(allStockData);
+    setFundamentals(allFundamentals);
     setTwseLoading(false);
   };
 
@@ -242,12 +308,12 @@ const JournalDetail = () => {
           </Card>
         )}
 
-        {/* TWSE Market Data */}
+        {/* Market Data (TWSE + TPEX) */}
         {(stockData.length > 0 || fundamentals.length > 0) && (
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-3 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-mentor" /> 本週相關個股數據（TWSE）
+                <TrendingUp className="h-4 w-4 text-mentor" /> 本週相關個股數據
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -257,6 +323,7 @@ const JournalDetail = () => {
                       <th className="pb-2 pr-3">名稱</th>
                       <th className="pb-2 pr-3 text-right">收盤價</th>
                       <th className="pb-2 pr-3 text-right">漲跌</th>
+                      <th className="pb-2 pr-3 text-right">月均價</th>
                       <th className="pb-2 pr-3 text-right">本益比</th>
                       <th className="pb-2 pr-3 text-right">殖利率</th>
                       <th className="pb-2 text-right">股淨比</th>
@@ -264,7 +331,6 @@ const JournalDetail = () => {
                   </thead>
                   <tbody>
                     {(() => {
-                      // Merge price + fundamental data by Code
                       const allCodes = new Set([
                         ...stockData.map(d => d.Code),
                         ...fundamentals.map(d => d.Code),
@@ -281,6 +347,7 @@ const JournalDetail = () => {
                             <td className={`py-2 pr-3 text-right ${change > 0 ? 'text-red-500' : change < 0 ? 'text-green-500' : ''}`}>
                               {change > 0 ? '+' : ''}{price?.Change || '-'}
                             </td>
+                            <td className="py-2 pr-3 text-right">{price?.MonthlyAveragePrice || '-'}</td>
                             <td className="py-2 pr-3 text-right">{fund?.PEratio || '-'}</td>
                             <td className="py-2 pr-3 text-right">{fund?.DividendYield ? `${fund.DividendYield}%` : '-'}</td>
                             <td className="py-2 text-right">{fund?.PBratio || '-'}</td>
@@ -292,7 +359,7 @@ const JournalDetail = () => {
                 </table>
               </div>
               <p className="text-[10px] text-muted-foreground mt-2">
-                資料來源：臺灣證券交易所 OpenAPI（收盤後更新）
+                資料來源：臺灣證券交易所 / 櫃買中心 OpenAPI（收盤後更新）
               </p>
             </CardContent>
           </Card>

@@ -1,14 +1,15 @@
 import { useParams } from 'react-router-dom';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { TrendingUp, TrendingDown, BarChart3, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+
+const POLL_INTERVAL = 30_000; // 30 seconds
 
 const AdminPerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -17,8 +18,9 @@ const AdminPerformance = () => {
   const [trades, setTrades] = useState<any[]>([]);
   const [tradePeriod, setTradePeriod] = useState<'week' | 'month' | 'year'>('week');
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; changePercent: number }>>({});
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -38,14 +40,12 @@ const AdminPerformance = () => {
     setLoading(false);
   };
 
-  // Real-time price refresh for open trades
-
+  // Auto-polling for open trade prices
   const refreshOpenPrices = useCallback(async () => {
     const openTrades = trades.filter(t => t.status === 'open');
     if (openTrades.length === 0) return;
-    setRefreshing(true);
+
     const uniqueInstruments = [...new Set(openTrades.map(t => {
-      // Extract stock code (first 4 digits)
       const match = t.instrument?.match(/^(\d{4})/);
       return match ? match[1] : null;
     }).filter(Boolean))] as string[];
@@ -70,11 +70,24 @@ const AdminPerformance = () => {
       }
     }
     setLivePrices(prices);
-    setRefreshing(false);
-    if (Object.keys(prices).length > 0) {
-      toast.success(`已更新 ${Object.keys(prices).length} 檔即時報價`);
-    }
+    setLastUpdated(new Date());
   }, [trades]);
+
+  // Start auto-polling when trades are loaded
+  useEffect(() => {
+    const hasOpenTrades = trades.some(t => t.status === 'open');
+    if (!hasOpenTrades) return;
+
+    // Fetch immediately
+    refreshOpenPrices();
+
+    // Then poll every 30s
+    pollingRef.current = setInterval(refreshOpenPrices, POLL_INTERVAL);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [trades, refreshOpenPrices]);
 
   // Helper to get live price for a trade
   const getLivePrice = (trade: any) => {
@@ -101,6 +114,7 @@ const AdminPerformance = () => {
   };
 
   const filteredTrades = getFilteredTrades();
+  const hasOpenTrades = trades.some(t => t.status === 'open');
 
   const metricCards = [
     { label: '累計報酬率', value: `${summary.cumulative_return}%`, icon: TrendingUp, color: 'text-green-600 dark:text-green-400' },
@@ -136,26 +150,21 @@ const AdminPerformance = () => {
         <Card>
           <CardContent className="p-0">
             <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="font-semibold text-sm">交易紀錄</h3>
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1"
-                  onClick={refreshOpenPrices}
-                  disabled={refreshing}
-                >
-                  <RefreshCw className={cn("h-3 w-3", refreshing && "animate-spin")} />
-                  即時報價
-                </Button>
-                <Tabs value={tradePeriod} onValueChange={(v) => setTradePeriod(v as any)}>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="week" className="text-xs px-3 h-7">本週</TabsTrigger>
-                    <TabsTrigger value="month" className="text-xs px-3 h-7">本月</TabsTrigger>
-                    <TabsTrigger value="year" className="text-xs px-3 h-7">本年</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <h3 className="font-semibold text-sm">交易紀錄</h3>
+                {hasOpenTrades && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {lastUpdated ? `⚡ ${lastUpdated.toLocaleTimeString('zh-TW')} 更新` : '⚡ 即時報價載入中...'}
+                  </span>
+                )}
               </div>
+              <Tabs value={tradePeriod} onValueChange={(v) => setTradePeriod(v as any)}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="week" className="text-xs px-3 h-7">本週</TabsTrigger>
+                  <TabsTrigger value="month" className="text-xs px-3 h-7">本月</TabsTrigger>
+                  <TabsTrigger value="year" className="text-xs px-3 h-7">本年</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">

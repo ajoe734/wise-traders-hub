@@ -7,22 +7,26 @@ const corsHeaders = {
 
 async function fetchClosingPrice(symbol: string): Promise<number | null> {
   try {
-    // Extract stock code from instrument string like "2330 台積電" → "2330.TW"
     const code = symbol.match(/^\d+/)?.[0]
     if (!code) return null
 
-    const yahooSymbol = `${code}.TW`
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=1d`
+    // Try .TW (listed) first, then .TWO (OTC) as fallback
+    for (const suffix of ['.TW', '.TWO']) {
+      const yahooSymbol = `${code}${suffix}`
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=1d`
 
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    })
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      })
 
-    if (!res.ok) return null
+      if (!res.ok) continue
 
-    const data = await res.json()
-    const price = data.chart?.result?.[0]?.meta?.regularMarketPrice
-    return price || null
+      const data = await res.json()
+      const price = data.chart?.result?.[0]?.meta?.regularMarketPrice
+      if (price) return price
+    }
+
+    return null
   } catch {
     return null
   }

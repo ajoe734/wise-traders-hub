@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Users, Radio, TrendingUp, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-
+import { Users, Radio, TrendingUp, TrendingDown, DollarSign, ArrowUpRight, ArrowDownRight, BarChart3, Loader2 } from 'lucide-react';
 
 const actionLabels: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
   buy: { label: '買進', variant: 'default' },
@@ -15,6 +14,14 @@ const actionLabels: Record<string, { label: string; variant: 'default' | 'destru
   trim: { label: '減碼', variant: 'outline' },
   exit: { label: '平損', variant: 'destructive' },
 };
+
+interface MarketIndex {
+  IndexName: string;
+  ClosingIndex: string;
+  Change: string;
+  ChangePercent?: string;
+  TradeVolume?: string;
+}
 
 const AdminDashboard = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -28,6 +35,8 @@ const AdminDashboard = () => {
   const [recentSignals, setRecentSignals] = useState<any[]>([]);
   const [revenueMode, setRevenueMode] = useState<'month' | 'year'>('month');
   const [yearlyRevenue, setYearlyRevenue] = useState(0);
+  const [marketIndices, setMarketIndices] = useState<MarketIndex[]>([]);
+  const [indicesLoading, setIndicesLoading] = useState(false);
 
   useEffect(() => { fetchData(); }, [expertSlug]);
 
@@ -46,40 +55,33 @@ const AdminDashboard = () => {
     const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
 
     const [subsRes, signalsRes, monthSignalsRes, perfRes, recentRes, txMonthRes, txYearRes] = await Promise.all([
-      // Active subscribers count
       supabase.from('member_subscriptions')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'active')
         .in('plan_id', 
           (await supabase.from('expert_plans').select('id').eq('expert_id', exp.id)).data?.map(p => p.id) || []
         ),
-      // Total signals count
       supabase.from('expert_signals')
         .select('id', { count: 'exact', head: true })
         .eq('expert_id', exp.id)
         .eq('status', 'published'),
-      // This month signals
       supabase.from('expert_signals')
         .select('id', { count: 'exact', head: true })
         .eq('expert_id', exp.id)
         .eq('status', 'published')
         .gte('published_at', monthStart),
-      // Performance
       supabase.rpc('calculate_expert_performance', { _expert_id: exp.id }),
-      // Recent signals
       supabase.from('expert_signals')
         .select('*')
         .eq('expert_id', exp.id)
         .eq('status', 'published')
         .order('published_at', { ascending: false })
         .limit(5),
-      // Monthly revenue (transactions from this month for this expert's plans)
       supabase.from('payment_transactions')
         .select('amount, subscription_id, member_subscriptions!inner(plan_id, expert_plans!inner(expert_id))')
         .eq('status', 'paid')
         .eq('member_subscriptions.expert_plans.expert_id', exp.id)
         .gte('paid_at', monthStart),
-      // Yearly revenue
       supabase.from('payment_transactions')
         .select('amount, subscription_id, member_subscriptions!inner(plan_id, expert_plans!inner(expert_id))')
         .eq('status', 'paid')
@@ -104,7 +106,44 @@ const AdminDashboard = () => {
     setYearlyRevenue(yRevenue);
 
     setLoading(false);
+
+    // Fetch market indices separately (non-blocking)
+    fetchMarketIndices();
   };
+
+  const fetchMarketIndices = useCallback(async () => {
+    setIndicesLoading(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=MI_INDEX`,
+        { headers: { apikey: anonKey } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          // Filter to key indices: 加權指數, 電子類指數, 金融保險類指數
+          const targetNames = ['發行量加權股價指數', '電子類指數', '金融保險類指數', '半導體類指數'];
+          const filtered = data.filter((item: any) =>
+            targetNames.some(name => item.指數 === name || item.IndexName === name)
+          );
+          // Normalize fields
+          const normalized: MarketIndex[] = filtered.map((item: any) => ({
+            IndexName: item.指數 || item.IndexName || '-',
+            ClosingIndex: item.收盤指數 || item.ClosingIndex || '-',
+            Change: item.漲跌點數 || item.Change || '0',
+            ChangePercent: item.漲跌百分比 || item.ChangePercent,
+            TradeVolume: item.成交金額 || item.TradeVolume,
+          }));
+          setMarketIndices(normalized);
+        }
+      }
+    } catch (e) {
+      console.error('MI_INDEX fetch error:', e);
+    }
+    setIndicesLoading(false);
+  }, []);
 
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
   if (!expert) return <AdminLayout><div /></AdminLayout>;
@@ -192,7 +231,53 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        
+        {/* Market Index Widget */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              大盤指數
+              <span className="text-[10px] text-muted-foreground font-normal">（收盤後更新）</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {indicesLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
+                <span className="text-sm text-muted-foreground">載入指數資料...</span>
+              </div>
+            ) : marketIndices.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">尚無指數資料（盤中或非交易日）</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {marketIndices.map((idx) => {
+                  const change = parseFloat(idx.Change) || 0;
+                  const isUp = change > 0;
+                  const isDown = change < 0;
+                  return (
+                    <div key={idx.IndexName} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <div>
+                        <p className="text-xs text-muted-foreground">{idx.IndexName}</p>
+                        <p className="text-lg font-bold">{idx.ClosingIndex}</p>
+                      </div>
+                      <div className={cn(
+                        "flex items-center gap-1 text-sm font-semibold",
+                        isUp ? "text-red-500" : isDown ? "text-green-500" : "text-muted-foreground"
+                      )}>
+                        {isUp && <ArrowUpRight className="h-4 w-4" />}
+                        {isDown && <ArrowDownRight className="h-4 w-4" />}
+                        <span>{isUp ? '+' : ''}{idx.Change}</span>
+                        {idx.ChangePercent && (
+                          <span className="text-xs">({isUp ? '+' : ''}{idx.ChangePercent}%)</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
