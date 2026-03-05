@@ -6,10 +6,11 @@ import { Loader2 } from 'lucide-react';
 interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: 'company_admin' | 'analyst';
+  subscriberOnly?: boolean;
 }
 
-export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, hasRole } = useAuth();
+export function ProtectedRoute({ children, requiredRole, subscriberOnly }: ProtectedRouteProps) {
+  const { user, isAuthenticated, isLoading, hasRole } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -33,6 +34,16 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
         </div>
       </div>
     );
+  }
+
+  // subscriberOnly: redirect analysts/admins to their own dashboards
+  if (subscriberOnly && user) {
+    if (hasRole('company_admin')) {
+      return <Navigate to="/company" replace />;
+    }
+    if (hasRole('analyst') && user.expertSlug) {
+      return <Navigate to={`/admin/${user.expertSlug}`} replace />;
+    }
   }
 
   return <>{children}</>;
