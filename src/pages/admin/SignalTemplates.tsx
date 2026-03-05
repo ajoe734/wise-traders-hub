@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Plus, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SignalTemplate {
   id: string;
@@ -40,6 +41,8 @@ const emptyForm = { title: '', action: 'buy', reason: '', risk_note: '', strateg
 
 const AdminSignalTemplates = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
+  const { hasRole } = useAuth();
+  const isCompanyAdmin = hasRole('company_admin');
   const [expert, setExpert] = useState<any>(null);
   const [templates, setTemplates] = useState<SignalTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,9 +133,11 @@ const AdminSignalTemplates = () => {
             <h1 className="text-2xl font-bold">訊號模板管理</h1>
             <p className="text-muted-foreground text-sm mt-1">建立常用訊號模板，發布時一鍵填入完整內容</p>
           </div>
-          <Button onClick={openCreate} className={cn(expert?.role === 'mentor' ? "bg-mentor hover:bg-mentor/90" : "bg-advisor hover:bg-advisor/90")}>
-            <Plus className="h-4 w-4 mr-2" />新增模板
-          </Button>
+          {!isCompanyAdmin && (
+            <Button onClick={openCreate} className={cn(expert?.role === 'mentor' ? "bg-mentor hover:bg-mentor/90" : "bg-advisor hover:bg-advisor/90")}>
+              <Plus className="h-4 w-4 mr-2" />新增模板
+            </Button>
+          )}
         </div>
 
         <Card>
@@ -153,20 +158,22 @@ const AdminSignalTemplates = () => {
                       dragIdx === idx && "opacity-50"
                     )}
                   >
-                    <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />
+                    {!isCompanyAdmin && <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />}
                     <span className="font-medium text-sm min-w-[80px]">{t.title}</span>
                     <Badge className={cn('text-[10px] px-1.5 py-0 shrink-0', getActionClass(t.action))}>
                       {getActionLabel(t.action)}
                     </Badge>
                     <span className="text-sm text-muted-foreground truncate flex-1">{t.reason || '-'}</span>
-                    <div className="flex gap-1 shrink-0">
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(t)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    {!isCompanyAdmin && (
+                      <div className="flex gap-1 shrink-0">
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(t)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
