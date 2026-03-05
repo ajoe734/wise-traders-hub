@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -47,7 +47,42 @@ const AdminSignals = () => {
   const [reasonDetail, setReasonDetail] = useState('');
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
-  
+  const [quoteFetching, setQuoteFetching] = useState(false);
+  const quoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-fetch stock name & price when 4-digit code entered
+  const fetchQuote = useCallback(async (code: string) => {
+    setQuoteFetching(true);
+    try {
+      for (const suffix of ['.TW', '.TWO']) {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stock-quote?symbol=${code}${suffix}`;
+        const res = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        });
+        if (!res.ok) continue;
+        const quote = await res.json();
+        if (quote.error) continue;
+        if (quote.shortName) setStockName(prev => prev || quote.shortName);
+        if (quote.price) setPriceHint(prev => prev || String(quote.price));
+        setQuoteFetching(false);
+        return;
+      }
+    } catch (err) {
+      console.error('Auto-quote fetch failed:', err);
+    }
+    setQuoteFetching(false);
+  }, []);
+
+  const handleStockCodeChange = (value: string) => {
+    setStockCode(value);
+    if (quoteTimerRef.current) clearTimeout(quoteTimerRef.current);
+    if (/^\d{4}$/.test(value.trim())) {
+      quoteTimerRef.current = setTimeout(() => fetchQuote(value.trim()), 500);
+    }
+  };
 
   useEffect(() => { fetchData(); }, [expertSlug]);
 
@@ -167,11 +202,14 @@ const AdminSignals = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>股票代碼</Label>
-                    <Input value={stockCode} onChange={e => setStockCode(e.target.value)} placeholder="例：2330" />
+                    <div className="relative">
+                      <Input value={stockCode} onChange={e => handleStockCodeChange(e.target.value)} placeholder="例：2330" />
+                      {quoteFetching && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>股票名稱</Label>
-                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="例：台積電" />
+                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="自動帶入或手動輸入" />
                   </div>
                 </div>
                 {signalTemplates.length > 0 && (
