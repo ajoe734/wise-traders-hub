@@ -66,36 +66,43 @@ const SignalDetail = () => {
   // Extract stock ticker (e.g. "2330 台積電" → "2330")
   const ticker = signal?.instrument?.match(/^\d+/)?.[0];
 
-  // Fetch stock quote with .TW → .TWO fallback, only when ticker is known
+  // Fetch stock quote from current_prices table + Realtime subscription
   const fetchQuote = useCallback(async () => {
     if (!ticker) return;
-
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-    for (const suffix of ['.TW', '.TWO']) {
-      try {
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/stock-quote?symbol=${ticker}${suffix}`,
-          { headers: { apikey: anonKey } }
-        );
-        if (!res.ok) continue;
-        const data = await res.json();
-        if (data.error || !data.price) continue;
-        setQuote({ price: data.price, change: data.change, changePercent: data.changePercent });
-        return; // Found valid quote, stop
-      } catch {
-        // Try next suffix
-      }
+    const { data } = await supabase
+      .from('current_prices')
+      .select('*')
+      .eq('symbol', ticker)
+      .maybeSingle();
+    if (data) {
+      const price = Number(data.price);
+      const changePercent = Number(data.change_percent || 0);
+      const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
+      setQuote({ price, change: Number(change.toFixed(2)), changePercent });
     }
   }, [ticker]);
 
-  // Poll every 30s, only when ticker is available
   useEffect(() => {
     if (!ticker) return;
     fetchQuote();
-    const interval = setInterval(fetchQuote, 30000);
-    return () => clearInterval(interval);
+
+    const channel = supabase
+      .channel(`signal-price-${ticker}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'current_prices',
+        filter: `symbol=eq.${ticker}`,
+      }, (payload) => {
+        const row = payload.new as any;
+        const price = Number(row.price);
+        const changePercent = Number(row.change_percent || 0);
+        const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
+        setQuote({ price, change: Number(change.toFixed(2)), changePercent });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [ticker, fetchQuote]);
 
   useEffect(() => {

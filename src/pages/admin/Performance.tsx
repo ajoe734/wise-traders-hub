@@ -40,56 +40,65 @@ const AdminPerformance = () => {
     setLoading(false);
   };
 
-  // Auto-polling for open trade prices
+  // Fetch current prices from DB for open trades
   const refreshOpenPrices = useCallback(async () => {
     const openTrades = trades.filter(t => t.status === 'open');
     if (openTrades.length === 0) return;
 
-    const uniqueInstruments = [...new Set(openTrades.map(t => {
+    const uniqueCodes = [...new Set(openTrades.map(t => {
       const match = t.instrument?.match(/^(\d{4})/);
       return match ? match[1] : null;
     }).filter(Boolean))] as string[];
 
-    const prices: Record<string, { price: number; change: number; changePercent: number }> = {};
-    for (const code of uniqueInstruments) {
-      for (const suffix of ['.TW', '.TWO']) {
-        try {
-          const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stock-quote?symbol=${code}${suffix}`;
-          const res = await fetch(url, {
-            headers: {
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-          });
-          if (!res.ok) continue;
-          const quote = await res.json();
-          if (quote.error) continue;
-          prices[code] = { price: quote.price, change: quote.change, changePercent: quote.changePercent };
-          break;
-        } catch { /* skip */ }
+    if (uniqueCodes.length === 0) return;
+
+    const { data } = await supabase
+      .from('current_prices')
+      .select('*')
+      .in('symbol', uniqueCodes);
+
+    if (data) {
+      const prices: Record<string, { price: number; change: number; changePercent: number }> = {};
+      for (const row of data) {
+        const price = Number(row.price);
+        const changePercent = Number(row.change_percent || 0);
+        const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
+        prices[row.symbol] = { price, change: Number(change.toFixed(2)), changePercent };
       }
+      setLivePrices(prices);
+      setLastUpdated(new Date());
     }
-    setLivePrices(prices);
-    setLastUpdated(new Date());
   }, [trades]);
 
-  // Start auto-polling when trades are loaded
+  // Subscribe to Realtime for open trade prices
   useEffect(() => {
     const hasOpenTrades = trades.some(t => t.status === 'open');
     if (!hasOpenTrades) return;
 
-    // Fetch immediately
     refreshOpenPrices();
 
-    // Then poll every 30s
-    pollingRef.current = setInterval(refreshOpenPrices, POLL_INTERVAL);
+    const channel = supabase
+      .channel('perf-current-prices')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'current_prices',
+      }, (payload) => {
+        const row = payload.new as any;
+        const price = Number(row.price);
+        const changePercent = Number(row.change_percent || 0);
+        const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
+        setLivePrices(prev => ({
+          ...prev,
+          [row.symbol]: { price, change: Number(change.toFixed(2)), changePercent },
+        }));
+        setLastUpdated(new Date());
+      })
+      .subscribe();
 
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [trades, refreshOpenPrices]);
 
-  // Helper to get live price for a trade
   const getLivePrice = (trade: any) => {
     const match = trade.instrument?.match(/^(\d{4})/);
     if (!match) return null;
