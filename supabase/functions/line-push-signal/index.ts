@@ -7,28 +7,29 @@ const corsHeaders = {
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
-// Fetch live price change from Yahoo Finance via stock-quote edge function
+// Fetch live price from current_prices table
 async function fetchLivePriceChange(instrument: string): Promise<{ price: number; change: number; changePercent: number } | null> {
   try {
     const code = instrument.match(/^\d+/)?.[0]
     if (!code) return null
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseClient = createClient(supabaseUrl, serviceKey)
 
-    for (const suffix of ['.TW', '.TWO']) {
-      const res = await fetch(
-        `${supabaseUrl}/functions/v1/stock-quote?symbol=${code}${suffix}`,
-        { headers: { 'apikey': anonKey, 'Content-Type': 'application/json' } }
-      )
-      if (!res.ok) continue
-      const data = await res.json()
-      if (data.error) continue
-      if (data.price) {
-        return { price: data.price, change: data.change, changePercent: data.changePercent }
-      }
-    }
-    return null
+    const { data, error } = await supabaseClient
+      .from('current_prices')
+      .select('price, change_percent')
+      .eq('symbol', code)
+      .maybeSingle()
+
+    if (error || !data) return null
+
+    const price = Number(data.price)
+    const changePercent = Number(data.change_percent || 0)
+    const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0
+
+    return { price, change: Number(change.toFixed(2)), changePercent }
   } catch {
     return null
   }

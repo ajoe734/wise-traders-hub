@@ -53,27 +53,23 @@ const AdminSignals = () => {
   // Auto-fetch stock name & price when 4-digit code entered
   const fetchQuote = useCallback(async (code: string) => {
     setQuoteFetching(true);
-    // Clear previous auto-filled values before fetching new ones
     setStockName('');
     setPriceHint('');
     try {
+      // Fetch price from current_prices table
+      const { data: priceData } = await supabase
+        .from('current_prices')
+        .select('price')
+        .eq('symbol', code)
+        .maybeSingle();
+
+      if (priceData?.price) setPriceHint(String(priceData.price));
+
+      // Fetch Chinese name from TWSE, fallback to TPEX
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const headers = { 'Authorization': `Bearer ${apiKey}`, 'apikey': apiKey };
 
-      // Fetch price from stock-quote (.TW then .TWO)
-      let price: number | null = null;
-      for (const suffix of ['.TW', '.TWO']) {
-        try {
-          const res = await fetch(`${supabaseUrl}/functions/v1/stock-quote?symbol=${code}${suffix}`, { headers });
-          if (!res.ok) continue;
-          const quote = await res.json();
-          if (quote.error) continue;
-          if (quote.price) { price = quote.price; break; }
-        } catch { /* try next */ }
-      }
-
-      // Fetch Chinese name from TWSE, fallback to TPEX
       let chineseName: string | null = null;
       try {
         const twseRes = await fetch(`${supabaseUrl}/functions/v1/twse-proxy?endpoint=STOCK_DAY_ALL&codes=${code}`, { headers });
@@ -98,7 +94,6 @@ const AdminSignals = () => {
       }
 
       if (chineseName) setStockName(chineseName);
-      if (price) setPriceHint(String(price));
     } catch (err) {
       console.error('Auto-quote fetch failed:', err);
     }
