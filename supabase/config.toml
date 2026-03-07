@@ -1,8 +1,5 @@
 project_id = "yqacmrgdjlenbijclngi"
 
-[functions.stock-quote]
-verify_jwt = false
-
 [functions.create-analyst]
 verify_jwt = false
 
