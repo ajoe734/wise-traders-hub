@@ -20,7 +20,6 @@ const AdminPerformance = () => {
   const [loading, setLoading] = useState(true);
   const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; changePercent: number }>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchData();
