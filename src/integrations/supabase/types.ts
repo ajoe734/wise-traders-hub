@@ -74,6 +74,30 @@ export type Database = {
         }
         Relationships: []
       }
+      current_prices: {
+        Row: {
+          change_percent: number | null
+          price: number
+          symbol: string
+          updated_at: string | null
+          volume: number | null
+        }
+        Insert: {
+          change_percent?: number | null
+          price: number
+          symbol: string
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Update: {
+          change_percent?: number | null
+          price?: number
+          symbol?: string
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Relationships: []
+      }
       expert_line_channels: {
         Row: {
           channel_access_token: string
@@ -784,6 +808,33 @@ export type Database = {
           },
         ]
       }
+      trade_signals: {
+        Row: {
+          analyst_id: string
+          created_at: string | null
+          entry_price: number | null
+          id: string
+          status: string | null
+          symbol: string
+        }
+        Insert: {
+          analyst_id: string
+          created_at?: string | null
+          entry_price?: number | null
+          id?: string
+          status?: string | null
+          symbol: string
+        }
+        Update: {
+          analyst_id?: string
+          created_at?: string | null
+          entry_price?: number | null
+          id?: string
+          status?: string | null
+          symbol?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -804,6 +855,14 @@ export type Database = {
       }
     }
     Views: {
+      analyst_performance_cache: {
+        Row: {
+          analyst_id: string | null
+          total_signals: number | null
+          win_rate: number | null
+        }
+        Relationships: []
+      }
       expert_line_channels_public: {
         Row: {
           channel_id: string | null
@@ -903,6 +962,7 @@ export type Database = {
         Args: { _expert_id: string }
         Returns: Json
       }
+      delete_old_prices: { Args: never; Returns: undefined }
       has_active_subscription: {
         Args: { _user_id: string }
         Returns: {
