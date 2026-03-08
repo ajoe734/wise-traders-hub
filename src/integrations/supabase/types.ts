@@ -844,6 +844,66 @@ export type Database = {
           },
         ]
       }
+      trade_signals: {
+        Row: {
+          created_at: string | null
+          entry_price: number
+          id: number
+          name: string | null
+          status: string | null
+          symbol: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entry_price: number
+          id?: number
+          name?: string | null
+          status?: string | null
+          symbol: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entry_price?: number
+          id?: number
+          name?: string | null
+          status?: string | null
+          symbol?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_performances: {
+        Row: {
+          current_price: number | null
+          name: string | null
+          pnl: number | null
+          pnl_percent: number | null
+          symbol: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          current_price?: number | null
+          name?: string | null
+          pnl?: number | null
+          pnl_percent?: number | null
+          symbol: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          current_price?: number | null
+          name?: string | null
+          pnl?: number | null
+          pnl_percent?: number | null
+          symbol?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
