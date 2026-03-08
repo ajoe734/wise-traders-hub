@@ -18,67 +18,68 @@ interface PerfRow {
   status: string | null;
 }
 
+/* ─── 數字跳動元件 ─── */
+function AnimatedNumber({
+  value,
+  format,
+  className,
+}: {
+  value: number | null;
+  format: (v: number) => string;
+  className?: string;
+}) {
+  const [display, setDisplay] = useState(value);
+  const prevRef = useRef(value);
+  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+
+  useEffect(() => {
+    if (value == null) { setDisplay(value); return; }
+    const prev = prevRef.current;
+    prevRef.current = value;
+
+    if (prev == null || prev === value) { setDisplay(value); return; }
+
+    // Determine direction
+    setFlash(value > prev ? 'up' : 'down');
+
+    // Animate in ~6 steps over 350ms
+    const steps = 6;
+    const diff = value - prev;
+    let step = 0;
+    const interval = setInterval(() => {
+      step++;
+      if (step >= steps) {
+        setDisplay(value);
+        clearInterval(interval);
+      } else {
+        setDisplay(prev + (diff * step) / steps);
+      }
+    }, 350 / steps);
+
+    const flashTimer = setTimeout(() => setFlash(null), 700);
+    return () => { clearInterval(interval); clearTimeout(flashTimer); };
+  }, [value]);
+
+  if (display == null) return <span className={className}>-</span>;
+
+  return (
+    <span
+      className={cn(
+        className,
+        'transition-colors duration-300',
+        flash === 'up' && 'text-red-500 dark:text-red-400',
+        flash === 'down' && 'text-green-500 dark:text-green-400',
+      )}
+    >
+      {format(display)}
+    </span>
+  );
+}
+
 const AdminPerformance = () => {
   const { user } = useAuth();
   const [rows, setRows] = useState<PerfRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [flashSet, setFlashSet] = useState<Set<number>>(new Set());
-  const prevDataRef = useRef<Map<number, PerfRow>>(new Map());
-
-  const applyFlash = useCallback((changedIds: number[]) => {
-    if (changedIds.length === 0) return;
-    setFlashSet(new Set(changedIds));
-    setTimeout(() => setFlashSet(new Set()), 700);
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-    const [perfRes, sigRes] = await Promise.all([
-      supabase
-        .from('user_performances')
-        .select('signal_id, symbol, name, entry_price, current_price, pnl, pnl_percent')
-        .eq('user_id', user.id),
-      supabase
-        .from('trade_signals')
-        .select('id, status')
-        .eq('user_id', user.id),
-    ]);
-
-    if (!perfRes.error) {
-      const statusMap = new Map<number, string>();
-      (sigRes.data || []).forEach(s => statusMap.set(s.id, s.status || 'open'));
-
-      const mapped: PerfRow[] = (perfRes.data || []).map(p => ({
-        ...p,
-        status: statusMap.get(p.signal_id) || 'open',
-      }));
-
-      // Flash detection
-      const changedIds: number[] = [];
-      for (const row of mapped) {
-        const prev = prevDataRef.current.get(row.signal_id);
-        if (prev && (prev.current_price !== row.current_price || prev.pnl !== row.pnl)) {
-          changedIds.push(row.signal_id);
-        }
-      }
-
-      setRows(mapped);
-      const map = new Map<number, PerfRow>();
-      mapped.forEach(r => map.set(r.signal_id, r));
-      prevDataRef.current = map;
-      setError(null);
-
-      if (changedIds.length > 0) applyFlash(changedIds);
-    }
-    setLoading(false);
-  }, [user, applyFlash]);
-
-  useEffect(() => {
-    fetchData();
-    const timer = setInterval(fetchData, 30_000);
-    return () => clearInterval(timer);
-  }, [fetchData]);
 
   const pnlColor = (val: number | null) =>
     val != null && val > 0
@@ -87,13 +88,95 @@ const AdminPerformance = () => {
         ? 'text-green-600 dark:text-green-400'
         : 'text-foreground';
 
+  // 初始載入 + Realtime 訂閱
+  useEffect(() => {
+    if (!user) return;
+
+    // 首次載入
+    const fetchInitial = async () => {
+      const [perfRes, sigRes] = await Promise.all([
+        supabase
+          .from('user_performances')
+          .select('signal_id, symbol, name, entry_price, current_price, pnl, pnl_percent')
+          .eq('user_id', user.id),
+        supabase
+          .from('trade_signals')
+          .select('id, status')
+          .eq('user_id', user.id),
+      ]);
+
+      if (!perfRes.error) {
+        const statusMap = new Map<number, string>();
+        (sigRes.data || []).forEach(s => statusMap.set(s.id, s.status || 'open'));
+
+        setRows(
+          (perfRes.data || []).map(p => ({
+            ...p,
+            status: statusMap.get(p.signal_id) || 'open',
+          })),
+        );
+      }
+      setLoading(false);
+    };
+
+    fetchInitial();
+
+    // Realtime 訂閱 user_performances
+    const channel = supabase
+      .channel('admin-perf-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_performances',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const row = payload.new as any;
+            setRows(prev => {
+              const idx = prev.findIndex(r => r.signal_id === row.signal_id);
+              const updated: PerfRow = {
+                signal_id: row.signal_id,
+                symbol: row.symbol,
+                name: row.name,
+                entry_price: row.entry_price,
+                current_price: row.current_price,
+                pnl: row.pnl,
+                pnl_percent: row.pnl_percent,
+                status: idx >= 0 ? prev[idx].status : 'open',
+              };
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = updated;
+                return next;
+              }
+              return [...prev, updated];
+            });
+          } else if (payload.eventType === 'DELETE') {
+            const old = payload.old as any;
+            setRows(prev => prev.filter(r => r.signal_id !== old.signal_id));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const fmtPrice = (v: number) => v.toLocaleString();
+  const fmtPnl = (v: number) => `${v > 0 ? '+' : ''}${v.toLocaleString()}`;
+  const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
+
   return (
     <AdminLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">績效總覽</h1>
         </div>
-
 
         <Card>
           <CardContent className="p-0">
@@ -120,56 +203,48 @@ const AdminPerformance = () => {
                   ) : rows.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
-                        目前無倉位
+                        目前無持倉
                       </td>
                     </tr>
                   ) : (
-                    rows.map(row => {
-                      const isFlashing = flashSet.has(row.signal_id);
-                      return (
-                        <tr
-                          key={row.signal_id}
-                          className={cn(
-                            'border-b last:border-0 transition-colors',
-                            isFlashing && 'animate-pulse bg-accent/30'
-                          )}
-                        >
-                          <td className="p-3">
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium">{row.name || '-'}</span>
-                              <span className="text-xs text-muted-foreground">{row.symbol}</span>
-                            </div>
-                          </td>
-                          <td className="text-right p-3 text-sm tabular-nums">
-                            {row.entry_price != null ? row.entry_price.toLocaleString() : '-'}
-                          </td>
-                          <td className={cn(
-                            'text-right p-3 text-sm font-medium tabular-nums',
-                            isFlashing && 'text-primary'
-                          )}>
-                            {row.current_price != null ? row.current_price.toLocaleString() : '-'}
-                          </td>
-                          <td className={cn('text-right p-3 text-sm font-medium tabular-nums', pnlColor(row.pnl))}>
-                            {row.pnl != null
-                              ? `${row.pnl > 0 ? '+' : ''}${row.pnl.toLocaleString()}`
-                              : '-'}
-                          </td>
-                          <td className={cn('text-right p-3 text-sm font-medium tabular-nums', pnlColor(row.pnl_percent))}>
-                            {row.pnl_percent != null
-                              ? `${row.pnl_percent > 0 ? '+' : ''}${row.pnl_percent.toFixed(2)}%`
-                              : '-'}
-                          </td>
-                          <td className="text-center p-3">
-                            <Badge
-                              variant={row.status === 'closed' ? 'destructive' : 'default'}
-                              className="text-xs"
-                            >
-                              {row.status === 'closed' ? '已停損' : '持有中'}
-                            </Badge>
-                          </td>
-                        </tr>
-                      );
-                    })
+                    rows.map(row => (
+                      <tr key={row.signal_id} className="border-b last:border-0">
+                        <td className="p-3">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{row.name || '-'}</span>
+                            <span className="text-xs text-muted-foreground">{row.symbol}</span>
+                          </div>
+                        </td>
+                        <td className="text-right p-3 text-sm tabular-nums">
+                          {row.entry_price != null ? row.entry_price.toLocaleString() : '-'}
+                        </td>
+                        <td className="text-right p-3 text-sm font-medium tabular-nums">
+                          <AnimatedNumber value={row.current_price} format={fmtPrice} />
+                        </td>
+                        <td className="text-right p-3 text-sm font-medium tabular-nums">
+                          <AnimatedNumber
+                            value={row.pnl}
+                            format={fmtPnl}
+                            className={pnlColor(row.pnl)}
+                          />
+                        </td>
+                        <td className="text-right p-3 text-sm font-medium tabular-nums">
+                          <AnimatedNumber
+                            value={row.pnl_percent}
+                            format={fmtPct}
+                            className={pnlColor(row.pnl_percent)}
+                          />
+                        </td>
+                        <td className="text-center p-3">
+                          <Badge
+                            variant={row.status === 'closed' ? 'destructive' : 'default'}
+                            className="text-xs"
+                          >
+                            {row.status === 'closed' ? '已停損' : '持有中'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
