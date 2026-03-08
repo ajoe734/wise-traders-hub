@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,8 +8,7 @@ import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-
-const POLL_INTERVAL = 30_000; // 30 seconds
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const AdminPerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
