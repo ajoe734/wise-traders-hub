@@ -16,7 +16,7 @@ interface PerformanceRow {
   status: string;
 }
 
-const API_URL = 'http://127.0.0.1:8000/get_all_performance';
+const API_URL = 'https://2afd8fae475ce0.lhr.life/get_all_performance';
 const POLL_INTERVAL = 30_000;
 
 const AdminPerformance = () => {
