@@ -207,6 +207,14 @@ const AdminPerformance = () => {
                               ? `${row.pnl_percent > 0 ? '+' : ''}${row.pnl_percent.toFixed(2)}%`
                               : '-'}
                           </td>
+                          <td className="text-center p-3">
+                            <Badge
+                              variant={row.status === 'closed' ? 'destructive' : 'default'}
+                              className="text-xs"
+                            >
+                              {row.status === 'closed' ? '已停損' : '持倉中'}
+                            </Badge>
+                          </td>
                         </tr>
                       );
                     })
