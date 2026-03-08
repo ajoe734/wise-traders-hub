@@ -76,25 +76,46 @@ export type Database = {
       }
       current_prices: {
         Row: {
+          best_ask: number | null
+          best_bid: number | null
           change_percent: number | null
+          high_price: number | null
+          low_price: number | null
+          open_price: number | null
           price: number
           symbol: string
+          tick_volume: number | null
           updated_at: string | null
           volume: number | null
+          yesterday_close: number | null
         }
         Insert: {
+          best_ask?: number | null
+          best_bid?: number | null
           change_percent?: number | null
+          high_price?: number | null
+          low_price?: number | null
+          open_price?: number | null
           price: number
           symbol: string
+          tick_volume?: number | null
           updated_at?: string | null
           volume?: number | null
+          yesterday_close?: number | null
         }
         Update: {
+          best_ask?: number | null
+          best_bid?: number | null
           change_percent?: number | null
+          high_price?: number | null
+          low_price?: number | null
+          open_price?: number | null
           price?: number
           symbol?: string
+          tick_volume?: number | null
           updated_at?: string | null
           volume?: number | null
+          yesterday_close?: number | null
         }
         Relationships: []
       }
