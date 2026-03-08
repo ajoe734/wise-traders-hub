@@ -47,24 +47,24 @@ const AdminPerformance = () => {
         return;
       }
 
-      // 2. 取得開倉部位的即時績效 (由 Python 腳本更新)
-      const openSymbols = [...new Set(signals.filter(s => s.status === 'open').map(s => s.symbol))];
-      let perfMap = new Map<string, { current_price: number | null; pnl: number | null; pnl_percent: number | null }>();
+      // 2. 取得開倉部位的即時績效 (由 Python 腳本更新，以 signal_id 為 key)
+      const openSignalIds = signals.filter(s => s.status === 'open').map(s => s.id);
+      let perfMap = new Map<number, { current_price: number | null; pnl: number | null; pnl_percent: number | null }>();
 
-      if (openSymbols.length > 0) {
+      if (openSignalIds.length > 0) {
         const { data: perfs } = await supabase
           .from('user_performances')
-          .select('symbol, current_price, pnl, pnl_percent')
+          .select('signal_id, current_price, pnl, pnl_percent')
           .eq('user_id', userId)
-          .in('symbol', openSymbols);
+          .in('signal_id', openSignalIds);
 
-        perfMap = new Map((perfs || []).map(p => [p.symbol, p]));
+        perfMap = new Map((perfs || []).map(p => [p.signal_id, p]));
       }
 
       // 3. 合併資料
       const merged: PerformanceRow[] = signals.map(sig => {
         const isOpen = sig.status === 'open';
-        const perf = isOpen ? perfMap.get(sig.symbol) : null;
+        const perf = isOpen ? perfMap.get(sig.id) : null;
 
         return {
           symbol: sig.symbol,
