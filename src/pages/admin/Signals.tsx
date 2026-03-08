@@ -163,8 +163,10 @@ const AdminSignals = () => {
     }).select('id').single();
     if (error) { toast.error(error.message); return; }
 
-    // 同步寫入 trade_signals
+    // 同步寫入 trade_signals + user_performances
     if (expert.user_id) {
+      const entryPrice = latestPrice ? parseFloat(latestPrice) : 0;
+
       if (action === 'sell' || action === 'trim' || action === 'exit') {
         // 賣出/減碼/平損：將該股票的 open 狀態更新為 closed
         const { error: tsError } = await supabase
@@ -177,18 +179,39 @@ const AdminSignals = () => {
           console.error('trade_signals update failed:', tsError);
           toast.error('持倉狀態更新失敗');
         }
+
+        // 移除 user_performances 中的對應紀錄
+        await supabase
+          .from('user_performances')
+          .delete()
+          .eq('user_id', expert.user_id)
+          .eq('symbol', stockCode.trim());
       } else {
         // 買進/加碼：新增一筆 open 紀錄
-        const { error: tsError } = await supabase.from('trade_signals').insert({
+        const { data: tsData, error: tsError } = await supabase.from('trade_signals').insert({
           user_id: expert.user_id,
           symbol: stockCode.trim(),
           name: latestName || null,
-          entry_price: latestPrice ? parseFloat(latestPrice) : 0,
+          entry_price: entryPrice,
           status: 'open',
-        } as any);
+        } as any).select('id').single();
         if (tsError) {
           console.error('trade_signals insert failed:', tsError);
           toast.error('持倉記錄寫入失敗');
+        }
+
+        // 同步寫入 user_performances 讓績效頁面立即顯示
+        if (tsData) {
+          await supabase.from('user_performances').insert({
+            user_id: expert.user_id,
+            signal_id: (tsData as any).id,
+            symbol: stockCode.trim(),
+            name: latestName || null,
+            entry_price: entryPrice,
+            current_price: entryPrice,
+            pnl: 0,
+            pnl_percent: 0,
+          } as any);
         }
       }
     }
