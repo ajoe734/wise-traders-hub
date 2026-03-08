@@ -134,13 +134,27 @@ const AdminSignals = () => {
       return;
     }
 
-    const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
+    // 發布時重新取得最新股價與名稱
+    let latestName = stockName.trim();
+    let latestPrice = priceHint;
+    try {
+      const res = await fetch(`https://3a0fc45831af8f.lhr.life/stock_info?symbol=${stockCode.trim()}`);
+      const json = await res.json();
+      if (!json.error) {
+        if (json.name) latestName = json.name;
+        if (json.price != null) latestPrice = String(json.price);
+      }
+    } catch (err) {
+      console.warn('Publish-time quote fetch failed, using form values:', err);
+    }
+
+    const instrument = latestName ? `${stockCode.trim()} ${latestName}` : stockCode.trim();
     const { data: inserted, error } = await supabase.from('expert_signals').insert({
       expert_id: expert.id,
       plan_id: null,
       instrument,
       action: action as any,
-      price_hint: priceHint ? parseFloat(priceHint) : null,
+      price_hint: latestPrice ? parseFloat(latestPrice) : null,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
@@ -154,8 +168,8 @@ const AdminSignals = () => {
       const { error: tsError } = await supabase.from('trade_signals').insert({
         user_id: expert.user_id,
         symbol: stockCode.trim(),
-        name: stockName.trim() || null,
-        entry_price: priceHint ? parseFloat(priceHint) : 0,
+        name: latestName || null,
+        entry_price: latestPrice ? parseFloat(latestPrice) : 0,
         status: 'open',
       } as any);
       if (tsError) {
