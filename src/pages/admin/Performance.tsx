@@ -15,6 +15,7 @@ interface PerfRow {
   current_price: number | null;
   pnl: number | null;
   pnl_percent: number | null;
+  status: string | null;
 }
 
 const AdminPerformance = () => {
@@ -36,15 +37,27 @@ const AdminPerformance = () => {
     if (!user) return;
 
     const fetchData = async () => {
-      const { data, error: err } = await supabase
-        .from('user_performances')
-        .select('signal_id, symbol, name, entry_price, current_price, pnl, pnl_percent')
-        .eq('user_id', user.id);
+      const [perfRes, sigRes] = await Promise.all([
+        supabase
+          .from('user_performances')
+          .select('signal_id, symbol, name, entry_price, current_price, pnl, pnl_percent')
+          .eq('user_id', user.id),
+        supabase
+          .from('trade_signals')
+          .select('id, status')
+          .eq('user_id', user.id),
+      ]);
 
-      if (err) {
-        setError(err.message);
+      if (perfRes.error) {
+        setError(perfRes.error.message);
       } else {
-        const mapped = (data || []) as PerfRow[];
+        const statusMap = new Map<number, string>();
+        (sigRes.data || []).forEach(s => statusMap.set(s.id, s.status || 'open'));
+
+        const mapped: PerfRow[] = (perfRes.data || []).map(p => ({
+          ...p,
+          status: statusMap.get(p.signal_id) || 'open',
+        }));
         setRows(mapped);
         const map = new Map<number, PerfRow>();
         mapped.forEach(r => map.set(r.signal_id, r));
@@ -153,19 +166,20 @@ const AdminPerformance = () => {
                     <th className="text-right p-3 text-xs font-medium text-muted-foreground">現價</th>
                     <th className="text-right p-3 text-xs font-medium text-muted-foreground">損益</th>
                     <th className="text-right p-3 text-xs font-medium text-muted-foreground">績效</th>
+                    <th className="text-center p-3 text-xs font-medium text-muted-foreground">狀態</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
                         <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
                         載入中...
                       </td>
                     </tr>
                   ) : rows.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
                         尚無績效資料
                       </td>
                     </tr>
@@ -204,6 +218,14 @@ const AdminPerformance = () => {
                             {row.pnl_percent != null
                               ? `${row.pnl_percent > 0 ? '+' : ''}${row.pnl_percent.toFixed(2)}%`
                               : '-'}
+                          </td>
+                          <td className="text-center p-3">
+                            <Badge
+                              variant={row.status === 'closed' ? 'destructive' : 'default'}
+                              className="text-xs"
+                            >
+                              {row.status === 'closed' ? '已停損' : '持倉中'}
+                            </Badge>
                           </td>
                         </tr>
                       );
