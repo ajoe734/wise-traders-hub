@@ -58,10 +58,11 @@ const AdminPerformance = () => {
     if (data) {
       const prices: Record<string, { price: number; change: number; changePercent: number }> = {};
       for (const row of data) {
-        const price = Number(row.price);
-        const changePercent = Number(row.change_percent || 0);
-        const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
-        prices[row.symbol] = { price, change: Number(change.toFixed(2)), changePercent };
+        prices[row.symbol] = {
+          price: Number(row.price),
+          change: Number(row.change_value || 0),
+          changePercent: Number(row.change_percent || 0),
+        };
       }
       setLivePrices(prices);
       setLastUpdated(new Date());

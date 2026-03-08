@@ -50,61 +50,42 @@ const AdminSignals = () => {
   const [quoteFetching, setQuoteFetching] = useState(false);
   const quoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-fetch stock name & price when 4-digit code entered
+  const [quoteError, setQuoteError] = useState('');
+
+  // Auto-fetch stock name & price from local API
   const fetchQuote = useCallback(async (code: string) => {
     setQuoteFetching(true);
     setStockName('');
     setPriceHint('');
+    setQuoteError('');
     try {
-      // Fetch price from current_prices table
-      const { data: priceData } = await supabase
-        .from('current_prices')
-        .select('price')
-        .eq('symbol', code)
-        .maybeSingle();
-
-      if (priceData?.price) setPriceHint(String(priceData.price));
-
-      // Fetch Chinese name from TWSE, fallback to TPEX
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const headers = { 'Authorization': `Bearer ${apiKey}`, 'apikey': apiKey };
-
-      let chineseName: string | null = null;
-      try {
-        const twseRes = await fetch(`${supabaseUrl}/functions/v1/twse-proxy?endpoint=STOCK_DAY_ALL&codes=${code}`, { headers });
-        if (twseRes.ok) {
-          const twseData = await twseRes.json();
-          if (Array.isArray(twseData) && twseData.length > 0) {
-            chineseName = twseData[0].Name || null;
-          }
-        }
-      } catch { /* ignore */ }
-
-      if (!chineseName) {
-        try {
-          const tpexRes = await fetch(`${supabaseUrl}/functions/v1/tpex-proxy?endpoint=SQUOTE_EW_QUOTAS_ALL&codes=${code}`, { headers });
-          if (tpexRes.ok) {
-            const tpexData = await tpexRes.json();
-            if (Array.isArray(tpexData) && tpexData.length > 0) {
-              chineseName = tpexData[0].CompanyName || tpexData[0].Name || null;
-            }
-          }
-        } catch { /* ignore */ }
+      const res = await fetch(`http://127.0.0.1:8000/stock_info?symbol=${code}`);
+      const json = await res.json();
+      if (json.error) {
+        setQuoteError('查無此代碼');
+      } else {
+        if (json.name) setStockName(json.name);
+        if (json.price != null) setPriceHint(String(json.price));
       }
-
-      if (chineseName) setStockName(chineseName);
     } catch (err) {
       console.error('Auto-quote fetch failed:', err);
+      setQuoteError('查無此代碼');
     }
     setQuoteFetching(false);
   }, []);
 
   const handleStockCodeChange = (value: string) => {
     setStockCode(value);
+    setQuoteError('');
     if (quoteTimerRef.current) clearTimeout(quoteTimerRef.current);
-    if (/^\d{4}$/.test(value.trim())) {
-      quoteTimerRef.current = setTimeout(() => fetchQuote(value.trim()), 50);
+    if (/^\d{4,5}$/.test(value.trim())) {
+      quoteTimerRef.current = setTimeout(() => fetchQuote(value.trim()), 300);
+    }
+  };
+
+  const handleStockCodeBlur = () => {
+    if (/^\d{4,5}$/.test(stockCode.trim()) && !stockName && !quoteFetching) {
+      fetchQuote(stockCode.trim());
     }
   };
 
