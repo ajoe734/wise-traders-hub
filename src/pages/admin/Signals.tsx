@@ -134,7 +134,21 @@ const AdminSignals = () => {
       return;
     }
 
-    const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
+    // 發布時重新取得最新股價與名稱
+    let latestName = stockName.trim();
+    let latestPrice = priceHint;
+    try {
+      const res = await fetch(`https://3a0fc45831af8f.lhr.life/stock_info?symbol=${stockCode.trim()}`);
+      const json = await res.json();
+      if (!json.error) {
+        if (json.name) latestName = json.name;
+        if (json.price != null) latestPrice = String(json.price);
+      }
+    } catch (err) {
+      console.warn('Publish-time quote fetch failed, using form values:', err);
+    }
+
+    const instrument = latestName ? `${stockCode.trim()} ${latestName}` : stockCode.trim();
     const { data: inserted, error } = await supabase.from('expert_signals').insert({
       expert_id: expert.id,
       plan_id: null,
