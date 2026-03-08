@@ -1,257 +1,202 @@
 import { useParams } from 'react-router-dom';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
-import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import { Loader2 } from 'lucide-react';
+
+interface PerformanceRow {
+  symbol: string;
+  name: string;
+  entry_price: number | null;
+  current_price: number | null;
+  pnl: number | null;
+  pnl_percent: number | null;
+  status: string;
+}
+
+const API_URL = 'http://127.0.0.1:8000/get_all_performance';
+const POLL_INTERVAL = 30_000;
 
 const AdminPerformance = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
-  const [expert, setExpert] = useState<any>(null);
-  const [perf, setPerf] = useState<any>(null);
-  const [trades, setTrades] = useState<any[]>([]);
-  const [tradePeriod, setTradePeriod] = useState<'week' | 'month' | 'year'>('week');
+  const [rows, setRows] = useState<PerformanceRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; changePercent: number }>>({});
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Track previous current_price per symbol for flash animation
+  const prevPricesRef = useRef<Record<string, number | null>>({});
+  const [flashMap, setFlashMap] = useState<Record<string, 'up' | 'down' | null>>({});
 
-  useEffect(() => {
-    fetchData();
-  }, [expertSlug]);
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch(API_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: PerformanceRow[] = await res.json();
 
-  const fetchData = async () => {
-    if (!expertSlug) return;
-    setLoading(true);
-    const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
-    setExpert(exp);
-    if (exp) {
-      const { data: perfData } = await supabase.rpc('calculate_expert_performance', { _expert_id: exp.id });
-      setPerf(perfData);
-      const { data: t } = await supabase.from('trade_records').select('*').eq('expert_id', exp.id).order('created_at', { ascending: false });
-      setTrades(t || []);
-    }
-    setLoading(false);
-  };
-
-  // Fetch current prices from DB for open trades
-  const refreshOpenPrices = useCallback(async () => {
-    const openTrades = trades.filter(t => t.status === 'open');
-    if (openTrades.length === 0) return;
-
-    const uniqueCodes = [...new Set(openTrades.map(t => {
-      const match = t.instrument?.match(/^(\d{4})/);
-      return match ? match[1] : null;
-    }).filter(Boolean))] as string[];
-
-    if (uniqueCodes.length === 0) return;
-
-    const { data } = await supabase
-      .from('current_prices')
-      .select('*')
-      .in('symbol', uniqueCodes);
-
-    if (data) {
-      const prices: Record<string, { price: number; change: number; changePercent: number }> = {};
-      for (const row of data) {
-        prices[row.symbol] = {
-          price: Number(row.price),
-          change: Number(row.change_value || 0),
-          changePercent: Number(row.change_percent || 0),
-        };
+      // Detect price changes for flash
+      const newFlash: Record<string, 'up' | 'down' | null> = {};
+      for (const row of json) {
+        const prev = prevPricesRef.current[row.symbol];
+        if (prev != null && row.current_price != null && prev !== row.current_price) {
+          newFlash[row.symbol] = row.current_price > prev ? 'up' : 'down';
+        }
       }
-      setLivePrices(prices);
-      setLastUpdated(new Date());
-    }
-  }, [trades]);
 
-  // Visibility-aware Realtime subscription
-  const channelRef = useRef<RealtimeChannel | null>(null);
+      // Update prev prices
+      const priceMap: Record<string, number | null> = {};
+      for (const row of json) {
+        priceMap[row.symbol] = row.current_price;
+      }
+      prevPricesRef.current = priceMap;
 
-  const subscribeRealtime = useCallback(() => {
-    if (channelRef.current) return; // already subscribed
-    const openTrades = trades.filter(t => t.status === 'open');
-    if (openTrades.length === 0) return;
+      setRows(json);
+      setError(null);
 
-    const uniqueCodes = [...new Set(openTrades.map(t => {
-      const match = t.instrument?.match(/^(\d{4,5})/);
-      return match ? match[1] : null;
-    }).filter(Boolean))] as string[];
-
-    if (uniqueCodes.length === 0) return;
-
-    const channel = supabase
-      .channel('perf-current-prices')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'current_prices',
-      }, (payload) => {
-        const row = payload.new as any;
-        if (!uniqueCodes.includes(row.symbol)) return;
-        const price = Number(row.price);
-        const changePercent = Number(row.change_percent || 0);
-        const changeValue = Number(row.change_value || 0);
-        setLivePrices(prev => ({
-          ...prev,
-          [row.symbol]: { price, change: changeValue, changePercent },
-        }));
-        setLastUpdated(new Date());
-      })
-      .subscribe();
-
-    channelRef.current = channel;
-  }, [trades]);
-
-  const unsubscribeRealtime = useCallback(() => {
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
+      if (Object.keys(newFlash).length > 0) {
+        setFlashMap(newFlash);
+        // Clear flash after animation
+        setTimeout(() => setFlashMap({}), 700);
+      }
+    } catch (e: any) {
+      setError(e.message || '無法連線');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const hasOpenTrades = trades.some(t => t.status === 'open');
-    if (!hasOpenTrades) return;
+    fetchData();
+    const timer = setInterval(fetchData, POLL_INTERVAL);
+    return () => clearInterval(timer);
+  }, [fetchData]);
 
-    // Initial fetch + subscribe
-    refreshOpenPrices();
-    subscribeRealtime();
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        unsubscribeRealtime();
-      } else {
-        refreshOpenPrices();
-        subscribeRealtime();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      unsubscribeRealtime();
-    };
-  }, [trades, refreshOpenPrices, subscribeRealtime, unsubscribeRealtime]);
-
-  const getLivePrice = (trade: any) => {
-    const match = trade.instrument?.match(/^(\d{4})/);
-    if (!match) return null;
-    return livePrices[match[1]] || null;
-  };
-
-  if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
-
-  const summary = perf || { cumulative_return: 0, win_rate: 0, max_drawdown: 0, profit_factor: 0, avg_hold_days: 0, total_trades: 0 };
-
-  const getFilteredTrades = () => {
-    const now = new Date();
-    let cutoff: Date;
-    if (tradePeriod === 'week') {
-      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    } else if (tradePeriod === 'month') {
-      cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else {
-      cutoff = new Date(now.getFullYear(), 0, 1);
+  const statusLabel = (s: string) => {
+    switch (s) {
+      case 'open': return '持有中';
+      case 'closed': return '已平倉';
+      case 'stopped': return '已停損';
+      default: return s;
     }
-    return trades.filter(t => new Date(t.created_at) >= cutoff);
   };
 
-  const filteredTrades = getFilteredTrades();
-  const hasOpenTrades = trades.some(t => t.status === 'open');
-
-  const metricCards = [
-    { label: '累計報酬率', value: `${summary.cumulative_return}%`, icon: TrendingUp, color: 'text-green-600 dark:text-green-400' },
-    { label: '最大回撤', value: `${summary.max_drawdown}%`, icon: TrendingDown, color: 'text-red-600 dark:text-red-400' },
-    { label: '勝率', value: `${summary.win_rate}%`, icon: TrendingUp, color: 'text-green-600 dark:text-green-400' },
-    { label: '總交易數', value: summary.total_trades, icon: BarChart3, color: 'text-foreground' },
-    { label: '獲利因子', value: summary.profit_factor, icon: TrendingUp, color: 'text-green-600 dark:text-green-400' },
-    { label: '平均持有天數', value: `${summary.avg_hold_days} 天`, icon: BarChart3, color: 'text-foreground' },
-  ];
+  const statusVariant = (s: string): 'default' | 'secondary' | 'destructive' => {
+    switch (s) {
+      case 'open': return 'default';
+      case 'closed': return 'secondary';
+      case 'stopped': return 'destructive';
+      default: return 'secondary';
+    }
+  };
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">績效總覽</h1>
-          <p className="text-muted-foreground text-sm mt-1">系統根據訊號自動計算的績效數據（唯讀）</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">績效總覽</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              即時績效數據（每 30 秒自動更新）
+            </p>
+          </div>
+          {loading && rows.length > 0 && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-          {metricCards.map((metric) => (
-            <Card key={metric.label}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">{metric.label}</span>
-                  <metric.icon className={cn("h-4 w-4", metric.color)} />
-                </div>
-                <div className={cn("text-xl font-bold", metric.color)}>{metric.value}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {error && (
+          <div className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">
+            連線失敗：{error}
+          </div>
+        )}
 
         <Card>
           <CardContent className="p-0">
-            <div className="p-4 border-b flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm">交易紀錄</h3>
-                {hasOpenTrades && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {lastUpdated ? `⚡ ${lastUpdated.toLocaleTimeString('zh-TW')} 更新` : '⚡ 即時報價載入中...'}
-                  </span>
-                )}
-              </div>
-              <Tabs value={tradePeriod} onValueChange={(v) => setTradePeriod(v as any)}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="week" className="text-xs px-3 h-7">本週</TabsTrigger>
-                  <TabsTrigger value="month" className="text-xs px-3 h-7">本月</TabsTrigger>
-                  <TabsTrigger value="year" className="text-xs px-3 h-7">本年</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">標的</th>
-                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">進場價</th>
-                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">現價/出場價</th>
-                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">損益</th>
-                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">狀態</th>
+                    <th className="text-right p-3 text-xs font-medium text-muted-foreground">進場價</th>
+                    <th className="text-right p-3 text-xs font-medium text-muted-foreground">現價</th>
+                    <th className="text-right p-3 text-xs font-medium text-muted-foreground">損益</th>
+                    <th className="text-right p-3 text-xs font-medium text-muted-foreground">績效</th>
+                    <th className="text-center p-3 text-xs font-medium text-muted-foreground">狀態</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTrades.length === 0 ? (
-                    <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">此期間尚無交易紀錄</td></tr>
+                  {loading && rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
+                        <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                        載入中...
+                      </td>
+                    </tr>
+                  ) : rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
+                        尚無績效資料
+                      </td>
+                    </tr>
                   ) : (
-                    filteredTrades.map((trade) => {
-                      const live = trade.status === 'open' ? getLivePrice(trade) : null;
-                      const displayPrice = live ? live.price : (trade.status === 'open' ? trade.current_price : trade.exit_price);
-                      const livePnl = live && trade.entry_price ? Number(((live.price - trade.entry_price) / trade.entry_price * 100).toFixed(2)) : null;
-                      const pnl = livePnl ?? (trade.pnl_percent != null ? Number(trade.pnl_percent) : null);
+                    rows.map((row) => {
+                      const flash = flashMap[row.symbol];
+                      const pnlPositive = row.pnl != null && row.pnl > 0;
+                      const pnlNegative = row.pnl != null && row.pnl < 0;
+                      // Taiwan convention: red = up, green = down
+                      const pnlColor = pnlPositive
+                        ? 'text-red-600 dark:text-red-400'
+                        : pnlNegative
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-foreground';
+
                       return (
-                      <tr key={trade.id} className="border-b last:border-0 hover:bg-muted/30">
-                        <td className="p-3 text-sm font-medium">{trade.instrument}</td>
-                        <td className="p-3 text-sm">{trade.entry_price || '-'}</td>
-                        <td className="p-3 text-sm">
-                          {displayPrice || '-'}
-                          {live && <span className="ml-1 text-[10px] text-muted-foreground">⚡</span>}
-                        </td>
-                        <td className={cn("p-3 text-sm font-medium", pnl != null && pnl > 0 ? "text-green-600 dark:text-green-400" : pnl != null && pnl < 0 ? "text-red-600 dark:text-red-400" : "")}>
-                          {pnl != null ? `${pnl > 0 ? '+' : ''}${pnl}%` : '-'}
-                        </td>
-                        <td className="p-3">
-                          <Badge variant={trade.status === 'open' ? 'default' : trade.status === 'closed' ? 'secondary' : 'destructive'} className="text-xs">
-                            {trade.status === 'open' ? '持有中' : trade.status === 'closed' ? '已平倉' : '已停損'}
-                          </Badge>
-                        </td>
-                      </tr>
+                        <tr key={row.symbol} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                          {/* 標的 */}
+                          <td className="p-3">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{row.symbol}</span>
+                              <span className="text-xs text-muted-foreground">{row.name || '-'}</span>
+                            </div>
+                          </td>
+
+                          {/* 進場價 */}
+                          <td className="text-right p-3 text-sm tabular-nums">
+                            {row.entry_price != null ? row.entry_price.toLocaleString() : '-'}
+                          </td>
+
+                          {/* 現價 with flash */}
+                          <td
+                            className={cn(
+                              'text-right p-3 text-sm font-medium tabular-nums transition-colors duration-700',
+                              flash === 'up' && 'bg-red-500/20 text-red-600 dark:text-red-400',
+                              flash === 'down' && 'bg-green-500/20 text-green-600 dark:text-green-400',
+                            )}
+                          >
+                            {row.current_price != null ? row.current_price.toLocaleString() : '-'}
+                          </td>
+
+                          {/* 損益 */}
+                          <td className={cn('text-right p-3 text-sm font-medium tabular-nums', pnlColor)}>
+                            {row.pnl != null
+                              ? `${row.pnl > 0 ? '+' : ''}${row.pnl.toLocaleString()}`
+                              : '-'}
+                          </td>
+
+                          {/* 績效 */}
+                          <td className={cn('text-right p-3 text-sm font-medium tabular-nums', pnlColor)}>
+                            {row.pnl_percent != null
+                              ? `${row.pnl_percent > 0 ? '+' : ''}${row.pnl_percent.toFixed(2)}%`
+                              : '-'}
+                          </td>
+
+                          {/* 狀態 */}
+                          <td className="text-center p-3">
+                            <Badge variant={statusVariant(row.status)} className="text-xs">
+                              {statusLabel(row.status)}
+                            </Badge>
+                          </td>
+                        </tr>
                       );
                     })
                   )}
