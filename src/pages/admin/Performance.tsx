@@ -39,7 +39,7 @@ const AdminPerformance = () => {
     const fetchData = async () => {
       const { data, error: err } = await supabase
         .from('user_performances')
-        .select('signal_id, symbol, name, entry_price, current_price, pnl, pnl_percent')
+        .select('signal_id, symbol, name, entry_price, current_price, pnl, pnl_percent, status')
         .eq('user_id', user.id);
 
       if (err) {
