@@ -32,105 +32,53 @@ const AdminPerformance = () => {
     setTimeout(() => setFlashSet(new Set()), 700);
   }, []);
 
-  // Initial fetch
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
+    const [perfRes, sigRes] = await Promise.all([
+      supabase
+        .from('user_performances')
+        .select('signal_id, symbol, name, entry_price, current_price, pnl, pnl_percent')
+        .eq('user_id', user.id),
+      supabase
+        .from('trade_signals')
+        .select('id, status')
+        .eq('user_id', user.id),
+    ]);
 
-    const fetchData = async () => {
-      const [perfRes, sigRes] = await Promise.all([
-        supabase
-          .from('user_performances')
-          .select('signal_id, symbol, name, entry_price, current_price, pnl, pnl_percent')
-          .eq('user_id', user.id),
-        supabase
-          .from('trade_signals')
-          .select('id, status')
-          .eq('user_id', user.id),
-      ]);
+    if (!perfRes.error) {
+      const statusMap = new Map<number, string>();
+      (sigRes.data || []).forEach(s => statusMap.set(s.id, s.status || 'open'));
 
-      if (perfRes.error) {
-        setError(perfRes.error.message);
-      } else {
-        const statusMap = new Map<number, string>();
-        (sigRes.data || []).forEach(s => statusMap.set(s.id, s.status || 'open'));
+      const mapped: PerfRow[] = (perfRes.data || []).map(p => ({
+        ...p,
+        status: statusMap.get(p.signal_id) || 'open',
+      }));
 
-        const mapped: PerfRow[] = (perfRes.data || []).map(p => ({
-          ...p,
-          status: statusMap.get(p.signal_id) || 'open',
-        }));
-        setRows(mapped);
-        const map = new Map<number, PerfRow>();
-        mapped.forEach(r => map.set(r.signal_id, r));
-        prevDataRef.current = map;
-        setError(null);
+      // Flash detection
+      const changedIds: number[] = [];
+      for (const row of mapped) {
+        const prev = prevDataRef.current.get(row.signal_id);
+        if (prev && (prev.current_price !== row.current_price || prev.pnl !== row.pnl)) {
+          changedIds.push(row.signal_id);
+        }
       }
-      setLoading(false);
-    };
 
-    fetchData();
-  }, [user]);
+      setRows(mapped);
+      const map = new Map<number, PerfRow>();
+      mapped.forEach(r => map.set(r.signal_id, r));
+      prevDataRef.current = map;
+      setError(null);
 
-  // Realtime subscription
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('perf-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'user_performances',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const updated = payload.new as PerfRow;
-          const prev = prevDataRef.current.get(updated.signal_id);
-          const changed =
-            !prev ||
-            prev.current_price !== updated.current_price ||
-            prev.pnl !== updated.pnl;
-
-          setRows(current => {
-            const exists = current.some(r => r.signal_id === updated.signal_id);
-            if (exists) {
-              return current.map(r => r.signal_id === updated.signal_id ? updated : r);
-            }
-            return [...current, updated];
-          });
-
-          prevDataRef.current.set(updated.signal_id, updated);
-
-          if (changed) {
-            applyFlash([updated.signal_id]);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'user_performances',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const inserted = payload.new as PerfRow;
-          setRows(current => {
-            if (current.some(r => r.signal_id === inserted.signal_id)) return current;
-            return [...current, inserted];
-          });
-          prevDataRef.current.set(inserted.signal_id, inserted);
-          applyFlash([inserted.signal_id]);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      if (changedIds.length > 0) applyFlash(changedIds);
+    }
+    setLoading(false);
   }, [user, applyFlash]);
+
+  useEffect(() => {
+    fetchData();
+    const timer = setInterval(fetchData, 30_000);
+    return () => clearInterval(timer);
+  }, [fetchData]);
 
   const pnlColor = (val: number | null) =>
     val != null && val > 0
@@ -144,9 +92,6 @@ const AdminPerformance = () => {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">績效總覽</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            即時績效數據（Realtime 自動更新）
-          </p>
         </div>
 
 
