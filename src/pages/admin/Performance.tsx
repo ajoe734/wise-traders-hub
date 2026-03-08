@@ -1,10 +1,11 @@
-import { useParams } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PerformanceRow {
   symbol: string;
@@ -16,46 +17,83 @@ interface PerformanceRow {
   status: string;
 }
 
-const API_URL = 'https://3a0fc45831af8f.lhr.life/get_all_performance';
 const POLL_INTERVAL = 30_000;
 
 const AdminPerformance = () => {
-  const { expertSlug } = useParams<{ expertSlug: string }>();
+  const { user } = useAuth();
   const [rows, setRows] = useState<PerformanceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Track previous current_price per symbol for flash animation
   const prevPricesRef = useRef<Record<string, number | null>>({});
   const [flashMap, setFlashMap] = useState<Record<string, 'up' | 'down' | null>>({});
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     try {
-      const res = await fetch(API_URL);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: PerformanceRow[] = await res.json();
+      const userId = user.id;
 
-      // Detect price changes for flash
+      // 1. 取得該分析師所有交易訊號
+      const { data: signals, error: sigErr } = await supabase
+        .from('trade_signals')
+        .select('id, symbol, name, entry_price, exit_price, pnl, pnl_percent, status')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (sigErr) throw new Error(sigErr.message);
+      if (!signals || signals.length === 0) {
+        setRows([]);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
+      // 2. 取得開倉部位的即時績效 (由 Python 腳本更新)
+      const openSymbols = [...new Set(signals.filter(s => s.status === 'open').map(s => s.symbol))];
+      let perfMap = new Map<string, { current_price: number | null; pnl: number | null; pnl_percent: number | null }>();
+
+      if (openSymbols.length > 0) {
+        const { data: perfs } = await supabase
+          .from('user_performances')
+          .select('symbol, current_price, pnl, pnl_percent')
+          .eq('user_id', userId)
+          .in('symbol', openSymbols);
+
+        perfMap = new Map((perfs || []).map(p => [p.symbol, p]));
+      }
+
+      // 3. 合併資料
+      const merged: PerformanceRow[] = signals.map(sig => {
+        const isOpen = sig.status === 'open';
+        const perf = isOpen ? perfMap.get(sig.symbol) : null;
+
+        return {
+          symbol: sig.symbol,
+          name: sig.name || '-',
+          entry_price: sig.entry_price,
+          current_price: isOpen ? (perf?.current_price ?? null) : (sig.exit_price ?? null),
+          pnl: isOpen ? (perf?.pnl ?? null) : (sig.pnl ?? null),
+          pnl_percent: isOpen ? (perf?.pnl_percent ?? null) : (sig.pnl_percent ?? null),
+          status: sig.status || 'open',
+        };
+      });
+
+      // 4. 閃爍動畫偵測
       const newFlash: Record<string, 'up' | 'down' | null> = {};
-      for (const row of json) {
+      for (const row of merged) {
         const prev = prevPricesRef.current[row.symbol];
         if (prev != null && row.current_price != null && prev !== row.current_price) {
           newFlash[row.symbol] = row.current_price > prev ? 'up' : 'down';
         }
       }
-
-      // Update prev prices
       const priceMap: Record<string, number | null> = {};
-      for (const row of json) {
-        priceMap[row.symbol] = row.current_price;
-      }
+      for (const row of merged) priceMap[row.symbol] = row.current_price;
       prevPricesRef.current = priceMap;
 
-      setRows(json);
+      setRows(merged);
       setError(null);
 
       if (Object.keys(newFlash).length > 0) {
         setFlashMap(newFlash);
-        // Clear flash after animation
         setTimeout(() => setFlashMap({}), 700);
       }
     } catch (e: any) {
@@ -63,7 +101,7 @@ const AdminPerformance = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchData();
@@ -74,8 +112,7 @@ const AdminPerformance = () => {
   const statusLabel = (s: string) => {
     switch (s) {
       case 'open': return '持有中';
-      case 'closed': return '已平倉';
-      case 'stopped': return '已停損';
+      case 'closed': return '已停損';
       default: return s;
     }
   };
@@ -83,8 +120,7 @@ const AdminPerformance = () => {
   const statusVariant = (s: string): 'default' | 'secondary' | 'destructive' => {
     switch (s) {
       case 'open': return 'default';
-      case 'closed': return 'secondary';
-      case 'stopped': return 'destructive';
+      case 'closed': return 'destructive';
       default: return 'secondary';
     }
   };
@@ -139,11 +175,10 @@ const AdminPerformance = () => {
                       </td>
                     </tr>
                   ) : (
-                    rows.map((row) => {
+                    rows.map((row, idx) => {
                       const flash = flashMap[row.symbol];
                       const pnlPositive = row.pnl != null && row.pnl > 0;
                       const pnlNegative = row.pnl != null && row.pnl < 0;
-                      // Taiwan convention: red = up, green = down
                       const pnlColor = pnlPositive
                         ? 'text-red-600 dark:text-red-400'
                         : pnlNegative
@@ -151,21 +186,16 @@ const AdminPerformance = () => {
                           : 'text-foreground';
 
                       return (
-                        <tr key={row.symbol} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                          {/* 標的 */}
+                        <tr key={`${row.symbol}-${idx}`} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                           <td className="p-3">
                             <div className="flex flex-col">
-                              <span className="text-sm font-medium">{row.symbol}</span>
-                              <span className="text-xs text-muted-foreground">{row.name || '-'}</span>
+                              <span className="text-sm font-medium">{row.name}</span>
+                              <span className="text-xs text-muted-foreground">{row.symbol}</span>
                             </div>
                           </td>
-
-                          {/* 進場價 */}
                           <td className="text-right p-3 text-sm tabular-nums">
                             {row.entry_price != null ? row.entry_price.toLocaleString() : '-'}
                           </td>
-
-                          {/* 現價 with flash */}
                           <td
                             className={cn(
                               'text-right p-3 text-sm font-medium tabular-nums transition-colors duration-700',
@@ -175,22 +205,16 @@ const AdminPerformance = () => {
                           >
                             {row.current_price != null ? row.current_price.toLocaleString() : '-'}
                           </td>
-
-                          {/* 損益 */}
                           <td className={cn('text-right p-3 text-sm font-medium tabular-nums', pnlColor)}>
                             {row.pnl != null
                               ? `${row.pnl > 0 ? '+' : ''}${row.pnl.toLocaleString()}`
                               : '-'}
                           </td>
-
-                          {/* 績效 */}
                           <td className={cn('text-right p-3 text-sm font-medium tabular-nums', pnlColor)}>
                             {row.pnl_percent != null
                               ? `${row.pnl_percent > 0 ? '+' : ''}${row.pnl_percent.toFixed(2)}%`
                               : '-'}
                           </td>
-
-                          {/* 狀態 */}
                           <td className="text-center p-3">
                             <Badge variant={statusVariant(row.status)} className="text-xs">
                               {statusLabel(row.status)}
