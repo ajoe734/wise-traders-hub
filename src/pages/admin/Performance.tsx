@@ -37,15 +37,27 @@ const AdminPerformance = () => {
     if (!user) return;
 
     const fetchData = async () => {
-      const { data, error: err } = await supabase
-        .from('user_performances')
-        .select('signal_id, symbol, name, entry_price, current_price, pnl, pnl_percent, status')
-        .eq('user_id', user.id);
+      const [perfRes, sigRes] = await Promise.all([
+        supabase
+          .from('user_performances')
+          .select('signal_id, symbol, name, entry_price, current_price, pnl, pnl_percent')
+          .eq('user_id', user.id),
+        supabase
+          .from('trade_signals')
+          .select('id, status')
+          .eq('user_id', user.id),
+      ]);
 
-      if (err) {
-        setError(err.message);
+      if (perfRes.error) {
+        setError(perfRes.error.message);
       } else {
-        const mapped = (data || []) as PerfRow[];
+        const statusMap = new Map<number, string>();
+        (sigRes.data || []).forEach(s => statusMap.set(s.id, s.status || 'open'));
+
+        const mapped: PerfRow[] = (perfRes.data || []).map(p => ({
+          ...p,
+          status: statusMap.get(p.signal_id) || 'open',
+        }));
         setRows(mapped);
         const map = new Map<number, PerfRow>();
         mapped.forEach(r => map.set(r.signal_id, r));
