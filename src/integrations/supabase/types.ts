@@ -846,28 +846,40 @@ export type Database = {
       }
       trade_signals: {
         Row: {
+          closed_at: string | null
           created_at: string | null
           entry_price: number
+          exit_price: number | null
           id: number
           name: string | null
+          pnl: number | null
+          pnl_percent: number | null
           status: string | null
           symbol: string
           user_id: string
         }
         Insert: {
+          closed_at?: string | null
           created_at?: string | null
           entry_price: number
+          exit_price?: number | null
           id?: number
           name?: string | null
+          pnl?: number | null
+          pnl_percent?: number | null
           status?: string | null
           symbol: string
           user_id: string
         }
         Update: {
+          closed_at?: string | null
           created_at?: string | null
           entry_price?: number
+          exit_price?: number | null
           id?: number
           name?: string | null
+          pnl?: number | null
+          pnl_percent?: number | null
           status?: string | null
           symbol?: string
           user_id?: string
