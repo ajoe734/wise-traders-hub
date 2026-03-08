@@ -153,6 +153,7 @@ const AdminPerformance = () => {
                     <th className="text-right p-3 text-xs font-medium text-muted-foreground">現價</th>
                     <th className="text-right p-3 text-xs font-medium text-muted-foreground">損益</th>
                     <th className="text-right p-3 text-xs font-medium text-muted-foreground">績效</th>
+                    <th className="text-center p-3 text-xs font-medium text-muted-foreground">狀態</th>
                   </tr>
                 </thead>
                 <tbody>
