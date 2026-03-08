@@ -164,7 +164,7 @@ const AdminPerformance = () => {
                               variant={row.status === 'closed' ? 'destructive' : 'default'}
                               className="text-xs"
                             >
-                              {row.status === 'closed' ? '已停損' : '持倉中'}
+                              {row.status === 'closed' ? '已停損' : '持有中'}
                             </Badge>
                           </td>
                         </tr>
