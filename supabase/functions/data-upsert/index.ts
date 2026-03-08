@@ -5,12 +5,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-api-key',
 }
 
-// Whitelist of tables that can be upserted
+// Whitelist of tables that can be operated on
 const ALLOWED_TABLES = new Set([
   'current_prices',
   'trade_signals',
   'trade_records',
+  'user_performances',
 ])
+
+function extractApiKey(req: Request): string | null {
+  // Support x-api-key header
+  const xApiKey = req.headers.get('x-api-key')
+  if (xApiKey) return xApiKey
+  // Support Authorization: Bearer <key>
+  const auth = req.headers.get('authorization')
+  if (auth?.startsWith('Bearer ')) return auth.slice(7)
+  return null
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -19,7 +30,7 @@ Deno.serve(async (req) => {
 
   try {
     // 1. Verify API key
-    const apiKey = req.headers.get('x-api-key')
+    const apiKey = extractApiKey(req)
     const expectedKey = Deno.env.get('DATA_UPSERT_API_KEY')
     if (!apiKey || apiKey !== expectedKey) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -29,10 +40,11 @@ Deno.serve(async (req) => {
     }
 
     // 2. Parse body
-    const { table, records, on_conflict, ignore_duplicates } = await req.json()
+    const body = await req.json()
+    const { action, table, records, params, on_conflict, ignore_duplicates } = body
 
-    if (!table || !records || !Array.isArray(records) || records.length === 0) {
-      return new Response(JSON.stringify({ error: 'Missing table or records' }), {
+    if (!table) {
+      return new Response(JSON.stringify({ error: 'Missing table' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -46,7 +58,46 @@ Deno.serve(async (req) => {
       })
     }
 
-    // 4. Limit batch size
+    // 4. Init Supabase service role client
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
+    // 5. Handle SELECT action
+    if (action === 'select') {
+      let query = supabase.from(table).select('*')
+
+      // Apply filters from params
+      if (params && typeof params === 'object') {
+        for (const [key, value] of Object.entries(params)) {
+          query = query.eq(key, value)
+        }
+      }
+
+      const { data, error: dbError } = await query
+
+      if (dbError) {
+        return new Response(JSON.stringify({ error: dbError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      return new Response(JSON.stringify({ data: data || [] }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // 6. Handle UPSERT action (default)
+    if (!records || !Array.isArray(records) || records.length === 0) {
+      return new Response(JSON.stringify({ error: 'Missing records for upsert' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (records.length > 500) {
       return new Response(JSON.stringify({ error: 'Max 500 records per request' }), {
         status: 400,
@@ -54,17 +105,11 @@ Deno.serve(async (req) => {
       })
     }
 
-    // 5. Upsert with service role
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
-
     const options: any = {}
     if (on_conflict) options.onConflict = on_conflict
     if (ignore_duplicates) options.ignoreDuplicates = true
 
-    const { error: dbError, count } = await supabase
+    const { error: dbError } = await supabase
       .from(table)
       .upsert(records, options)
 
