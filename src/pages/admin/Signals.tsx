@@ -148,6 +148,22 @@ const AdminSignals = () => {
       status: 'published' as any,
     }).select('id').single();
     if (error) { toast.error(error.message); return; }
+
+    // 同步寫入 trade_signals（平損除外）
+    if (action !== 'exit' && expert.user_id) {
+      const { error: tsError } = await supabase.from('trade_signals').insert({
+        user_id: expert.user_id,
+        symbol: stockCode.trim(),
+        name: stockName.trim() || null,
+        entry_price: priceHint ? parseFloat(priceHint) : 0,
+        status: 'open',
+      } as any);
+      if (tsError) {
+        console.error('trade_signals insert failed:', tsError);
+        toast.error('持倉記錄寫入失敗');
+      }
+    }
+
     toast.success(isMentor ? '週記已發布' : '訊號已發布');
     setIsCreateOpen(false);
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints(''); setQuoteError('');
