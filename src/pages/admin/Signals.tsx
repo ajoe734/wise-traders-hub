@@ -163,18 +163,33 @@ const AdminSignals = () => {
     }).select('id').single();
     if (error) { toast.error(error.message); return; }
 
-    // 同步寫入 trade_signals（平損除外）
-    if (action !== 'exit' && expert.user_id) {
-      const { error: tsError } = await supabase.from('trade_signals').insert({
-        user_id: expert.user_id,
-        symbol: stockCode.trim(),
-        name: latestName || null,
-        entry_price: latestPrice ? parseFloat(latestPrice) : 0,
-        status: 'open',
-      } as any);
-      if (tsError) {
-        console.error('trade_signals insert failed:', tsError);
-        toast.error('持倉記錄寫入失敗');
+    // 同步寫入 trade_signals
+    if (expert.user_id) {
+      if (action === 'sell' || action === 'exit') {
+        // 賣出或平倉：將該股票的 open 狀態更新為 closed
+        const { error: tsError } = await supabase
+          .from('trade_signals')
+          .update({ status: 'closed' } as any)
+          .eq('user_id', expert.user_id)
+          .eq('symbol', stockCode.trim())
+          .eq('status', 'open');
+        if (tsError) {
+          console.error('trade_signals update failed:', tsError);
+          toast.error('持倉狀態更新失敗');
+        }
+      } else {
+        // 買進/加碼/減碼：新增一筆 open 紀錄
+        const { error: tsError } = await supabase.from('trade_signals').insert({
+          user_id: expert.user_id,
+          symbol: stockCode.trim(),
+          name: latestName || null,
+          entry_price: latestPrice ? parseFloat(latestPrice) : 0,
+          status: 'open',
+        } as any);
+        if (tsError) {
+          console.error('trade_signals insert failed:', tsError);
+          toast.error('持倉記錄寫入失敗');
+        }
       }
     }
 
