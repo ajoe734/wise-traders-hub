@@ -68,12 +68,20 @@ const AdminPerformance = () => {
     }
   }, [trades]);
 
-  // Subscribe to Realtime for open trade prices
-  useEffect(() => {
-    const hasOpenTrades = trades.some(t => t.status === 'open');
-    if (!hasOpenTrades) return;
+  // Visibility-aware Realtime subscription
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
-    refreshOpenPrices();
+  const subscribeRealtime = useCallback(() => {
+    if (channelRef.current) return; // already subscribed
+    const openTrades = trades.filter(t => t.status === 'open');
+    if (openTrades.length === 0) return;
+
+    const uniqueCodes = [...new Set(openTrades.map(t => {
+      const match = t.instrument?.match(/^(\d{4,5})/);
+      return match ? match[1] : null;
+    }).filter(Boolean))] as string[];
+
+    if (uniqueCodes.length === 0) return;
 
     const channel = supabase
       .channel('perf-current-prices')
@@ -83,19 +91,52 @@ const AdminPerformance = () => {
         table: 'current_prices',
       }, (payload) => {
         const row = payload.new as any;
+        if (!uniqueCodes.includes(row.symbol)) return;
         const price = Number(row.price);
         const changePercent = Number(row.change_percent || 0);
-        const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
+        const changeValue = Number(row.change_value || 0);
         setLivePrices(prev => ({
           ...prev,
-          [row.symbol]: { price, change: Number(change.toFixed(2)), changePercent },
+          [row.symbol]: { price, change: changeValue, changePercent },
         }));
         setLastUpdated(new Date());
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [trades, refreshOpenPrices]);
+    channelRef.current = channel;
+  }, [trades]);
+
+  const unsubscribeRealtime = useCallback(() => {
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const hasOpenTrades = trades.some(t => t.status === 'open');
+    if (!hasOpenTrades) return;
+
+    // Initial fetch + subscribe
+    refreshOpenPrices();
+    subscribeRealtime();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        unsubscribeRealtime();
+      } else {
+        refreshOpenPrices();
+        subscribeRealtime();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      unsubscribeRealtime();
+    };
+  }, [trades, refreshOpenPrices, subscribeRealtime, unsubscribeRealtime]);
 
   const getLivePrice = (trade: any) => {
     const match = trade.instrument?.match(/^(\d{4})/);
