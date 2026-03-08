@@ -844,33 +844,6 @@ export type Database = {
           },
         ]
       }
-      trade_signals: {
-        Row: {
-          analyst_id: string
-          created_at: string | null
-          entry_price: number | null
-          id: string
-          status: string | null
-          symbol: string
-        }
-        Insert: {
-          analyst_id: string
-          created_at?: string | null
-          entry_price?: number | null
-          id?: string
-          status?: string | null
-          symbol: string
-        }
-        Update: {
-          analyst_id?: string
-          created_at?: string | null
-          entry_price?: number | null
-          id?: string
-          status?: string | null
-          symbol?: string
-        }
-        Relationships: []
-      }
       user_roles: {
         Row: {
           id: string
@@ -891,14 +864,6 @@ export type Database = {
       }
     }
     Views: {
-      analyst_performance_cache: {
-        Row: {
-          analyst_id: string | null
-          total_signals: number | null
-          win_rate: number | null
-        }
-        Relationships: []
-      }
       expert_line_channels_public: {
         Row: {
           channel_id: string | null
