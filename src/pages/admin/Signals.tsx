@@ -59,7 +59,7 @@ const AdminSignals = () => {
     setPriceHint('');
     setQuoteError('');
     try {
-      const res = await fetch(`http://127.0.0.1:8000/stock_info?symbol=${code}`);
+      const res = await fetch(`https://2afd8fae475ce0.lhr.life/stock_info?symbol=${code}`);
       const json = await res.json();
       if (json.error) {
         setQuoteError('查無此代碼');
