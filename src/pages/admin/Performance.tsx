@@ -149,11 +149,6 @@ const AdminPerformance = () => {
           </p>
         </div>
 
-        {error && (
-          <div className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">
-            連線失敗：{error}
-          </div>
-        )}
 
         <Card>
           <CardContent className="p-0">
@@ -180,7 +175,7 @@ const AdminPerformance = () => {
                   ) : rows.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
-                        尚無績效資料
+                        目前無倉位
                       </td>
                     </tr>
                   ) : (
