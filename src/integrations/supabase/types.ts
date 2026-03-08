@@ -79,10 +79,15 @@ export type Database = {
           best_ask: number | null
           best_bid: number | null
           change_percent: number | null
+          change_value: number | null
           high_price: number | null
+          limit_down: number | null
+          limit_up: number | null
           low_price: number | null
+          name: string | null
           open_price: number | null
-          price: number
+          price: number | null
+          pushed_at: string | null
           symbol: string
           tick_volume: number | null
           updated_at: string | null
@@ -93,10 +98,15 @@ export type Database = {
           best_ask?: number | null
           best_bid?: number | null
           change_percent?: number | null
+          change_value?: number | null
           high_price?: number | null
+          limit_down?: number | null
+          limit_up?: number | null
           low_price?: number | null
+          name?: string | null
           open_price?: number | null
-          price: number
+          price?: number | null
+          pushed_at?: string | null
           symbol: string
           tick_volume?: number | null
           updated_at?: string | null
@@ -107,10 +117,15 @@ export type Database = {
           best_ask?: number | null
           best_bid?: number | null
           change_percent?: number | null
+          change_value?: number | null
           high_price?: number | null
+          limit_down?: number | null
+          limit_up?: number | null
           low_price?: number | null
+          name?: string | null
           open_price?: number | null
-          price?: number
+          price?: number | null
+          pushed_at?: string | null
           symbol?: string
           tick_volume?: number | null
           updated_at?: string | null
