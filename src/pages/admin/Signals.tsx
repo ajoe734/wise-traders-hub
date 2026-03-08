@@ -154,7 +154,7 @@ const AdminSignals = () => {
       plan_id: null,
       instrument,
       action: action as any,
-      price_hint: priceHint ? parseFloat(priceHint) : null,
+      price_hint: latestPrice ? parseFloat(latestPrice) : null,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
@@ -168,8 +168,8 @@ const AdminSignals = () => {
       const { error: tsError } = await supabase.from('trade_signals').insert({
         user_id: expert.user_id,
         symbol: stockCode.trim(),
-        name: stockName.trim() || null,
-        entry_price: priceHint ? parseFloat(priceHint) : 0,
+        name: latestName || null,
+        entry_price: latestPrice ? parseFloat(latestPrice) : 0,
         status: 'open',
       } as any);
       if (tsError) {
