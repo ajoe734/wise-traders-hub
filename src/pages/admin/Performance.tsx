@@ -15,6 +15,7 @@ interface PerfRow {
   current_price: number | null;
   pnl: number | null;
   pnl_percent: number | null;
+  status: string | null;
 }
 
 const AdminPerformance = () => {
