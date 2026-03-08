@@ -165,8 +165,8 @@ const AdminSignals = () => {
 
     // 同步寫入 trade_signals
     if (expert.user_id) {
-      if (action === 'exit') {
-        // 平倉：將該股票的 open 狀態更新為 closed
+      if (action === 'sell' || action === 'trim' || action === 'exit') {
+        // 賣出/減碼/平損：將該股票的 open 狀態更新為 closed
         const { error: tsError } = await supabase
           .from('trade_signals')
           .update({ status: 'closed' } as any)
@@ -178,7 +178,7 @@ const AdminSignals = () => {
           toast.error('持倉狀態更新失敗');
         }
       } else {
-        // 買進/賣出/加碼/減碼：新增一筆 open 紀錄
+        // 買進/加碼：新增一筆 open 紀錄
         const { error: tsError } = await supabase.from('trade_signals').insert({
           user_id: expert.user_id,
           symbol: stockCode.trim(),
