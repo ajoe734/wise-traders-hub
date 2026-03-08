@@ -889,27 +889,33 @@ export type Database = {
       user_performances: {
         Row: {
           current_price: number | null
+          entry_price: number | null
           name: string | null
           pnl: number | null
           pnl_percent: number | null
+          signal_id: number
           symbol: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
           current_price?: number | null
+          entry_price?: number | null
           name?: string | null
           pnl?: number | null
           pnl_percent?: number | null
+          signal_id: number
           symbol: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
           current_price?: number | null
+          entry_price?: number | null
           name?: string | null
           pnl?: number | null
           pnl_percent?: number | null
+          signal_id?: number
           symbol?: string
           updated_at?: string | null
           user_id?: string
