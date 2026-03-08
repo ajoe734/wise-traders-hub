@@ -160,7 +160,7 @@ const AdminPerformance = () => {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
                         <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
                         載入中...
                       </td>
