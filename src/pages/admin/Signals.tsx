@@ -138,7 +138,7 @@ const AdminSignals = () => {
     let latestName = stockName.trim();
     let latestPrice = priceHint;
     try {
-      const res = await fetch(`https://885273648f2f85.lhr.life/stock_info?symbol=${stockCode.trim()}`);
+      const res = await fetch(`https://d20fcf24aa5be4.lhr.life/stock_info?symbol=${stockCode.trim()}`);
       const json = await res.json();
       if (!json.error) {
         if (json.name) latestName = json.name;
