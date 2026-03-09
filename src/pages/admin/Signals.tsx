@@ -143,11 +143,15 @@ const AdminSignals = () => {
     let latestName = stockName.trim();
     let latestPrice = priceHint;
     try {
-      const res = await fetch(`https://d00eb832d68471.lhr.life/stock_info?symbol=${stockCode.trim()}`);
-      const json = await res.json();
-      if (!json.error) {
-        if (json.name) latestName = json.name;
-        if (json.price != null) latestPrice = String(json.price);
+      const { data: freshData } = await supabase
+        .from('current_prices')
+        .select('name, price')
+        .eq('symbol', stockCode.trim())
+        .maybeSingle();
+
+      if (freshData) {
+        if (freshData.name) latestName = freshData.name;
+        if (freshData.price != null) latestPrice = String(freshData.price);
       }
     } catch (err) {
       console.warn('Publish-time quote fetch failed, using form values:', err);
