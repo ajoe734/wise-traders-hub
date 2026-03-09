@@ -52,25 +52,20 @@ const AdminSignals = () => {
 
   const [quoteError, setQuoteError] = useState('');
 
-  // Auto-fetch stock name & price from current_prices table (real-time data)
+  // Auto-fetch stock name & price from local API
   const fetchQuote = useCallback(async (code: string) => {
     setQuoteFetching(true);
     setStockName('');
     setPriceHint('');
     setQuoteError('');
     try {
-      const { data, error: dbError } = await supabase
-        .from('current_prices')
-        .select('name, price')
-        .eq('symbol', code)
-        .maybeSingle();
-
-      if (dbError) throw dbError;
-      if (!data || data.price == null) {
+      const res = await fetch(`https://d00eb832d68471.lhr.life/stock_info?symbol=${code}`);
+      const json = await res.json();
+      if (json.error) {
         setQuoteError('查無此代碼');
       } else {
-        if (data.name) setStockName(data.name);
-        setPriceHint(String(data.price));
+        if (json.name) setStockName(json.name);
+        if (json.price != null) setPriceHint(String(json.price));
       }
     } catch (err) {
       console.error('Auto-quote fetch failed:', err);
@@ -143,15 +138,11 @@ const AdminSignals = () => {
     let latestName = stockName.trim();
     let latestPrice = priceHint;
     try {
-      const { data: freshData } = await supabase
-        .from('current_prices')
-        .select('name, price')
-        .eq('symbol', stockCode.trim())
-        .maybeSingle();
-
-      if (freshData) {
-        if (freshData.name) latestName = freshData.name;
-        if (freshData.price != null) latestPrice = String(freshData.price);
+      const res = await fetch(`https://d00eb832d68471.lhr.life/stock_info?symbol=${stockCode.trim()}`);
+      const json = await res.json();
+      if (!json.error) {
+        if (json.name) latestName = json.name;
+        if (json.price != null) latestPrice = String(json.price);
       }
     } catch (err) {
       console.warn('Publish-time quote fetch failed, using form values:', err);
