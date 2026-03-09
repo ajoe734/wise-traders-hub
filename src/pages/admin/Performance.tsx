@@ -18,7 +18,7 @@ interface PerfRow {
   status: string | null;
 }
 
-/* ─── 數字跳動元件 ─── */
+/* ─── 數字漸變元件 ─── */
 function AnimatedNumber({
   value,
   format,
@@ -31,6 +31,7 @@ function AnimatedNumber({
   const [display, setDisplay] = useState(value);
   const prevRef = useRef(value);
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (value == null) { setDisplay(value); return; }
@@ -42,22 +43,33 @@ function AnimatedNumber({
     // Determine direction
     setFlash(value > prev ? 'up' : 'down');
 
-    // Animate in ~6 steps over 350ms
-    const steps = 6;
-    const diff = value - prev;
-    let step = 0;
-    const interval = setInterval(() => {
-      step++;
-      if (step >= steps) {
-        setDisplay(value);
-        clearInterval(interval);
-      } else {
-        setDisplay(prev + (diff * step) / steps);
-      }
-    }, 350 / steps);
+    // Smooth easing animation using requestAnimationFrame
+    const duration = 400; // ms
+    const startTime = performance.now();
+    const startValue = prev;
+    const diff = value - startValue;
 
-    const flashTimer = setTimeout(() => setFlash(null), 700);
-    return () => { clearInterval(interval); clearTimeout(flashTimer); };
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeOutCubic(progress);
+      
+      setDisplay(startValue + diff * easedProgress);
+      
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(animate);
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(animate);
+
+    const flashTimer = setTimeout(() => setFlash(null), 600);
+    return () => { 
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      clearTimeout(flashTimer); 
+    };
   }, [value]);
 
   if (display == null) return <span className={className}>-</span>;
@@ -66,7 +78,7 @@ function AnimatedNumber({
     <span
       className={cn(
         className,
-        'transition-colors duration-300',
+        'transition-colors duration-200',
         flash === 'up' && 'text-red-500 dark:text-red-400',
         flash === 'down' && 'text-green-500 dark:text-green-400',
       )}
