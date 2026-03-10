@@ -59,7 +59,7 @@ const AdminSignals = () => {
     setPriceHint('');
     setQuoteError('');
     try {
-      const res = await fetch(`https://b38761c9a7f3a7.lhr.life/stock_info?symbol=${code}`);
+      const res = await fetch(`https://885273648f2f85.lhr.life/stock_info?symbol=${code}`);
       const json = await res.json();
       if (json.error) {
         setQuoteError('查無此代碼');
@@ -138,7 +138,7 @@ const AdminSignals = () => {
     let latestName = stockName.trim();
     let latestPrice = priceHint;
     try {
-      const res = await fetch(`https://b38761c9a7f3a7.lhr.life/stock_info?symbol=${stockCode.trim()}`);
+      const res = await fetch(`https://885273648f2f85.lhr.life/stock_info?symbol=${stockCode.trim()}`);
       const json = await res.json();
       if (!json.error) {
         if (json.name) latestName = json.name;
