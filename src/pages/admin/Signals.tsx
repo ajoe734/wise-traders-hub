@@ -47,8 +47,27 @@ const AdminSignals = () => {
   const [reasonDetail, setReasonDetail] = useState('');
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
+  const [nameLoading, setNameLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const fetchStockName = useCallback(async (code: string) => {
+    if (!code || code.length < 4) { setStockName(''); return; }
+    setNameLoading(true);
+    try {
+      const res = await fetch(`https://subsystem-production.up.railway.app/stock_info?symbol=${code}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.name) setStockName(data.name);
+        else setStockName('');
+      } else { setStockName(''); }
+    } catch { setStockName(''); }
+    setNameLoading(false);
+  }, []);
+
   const handleStockCodeChange = (value: string) => {
     setStockCode(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchStockName(value.trim()), 400);
   };
 
   useEffect(() => { fetchData(); }, [expertSlug]);
