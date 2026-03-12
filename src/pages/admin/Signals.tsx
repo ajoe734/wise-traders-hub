@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -47,46 +47,8 @@ const AdminSignals = () => {
   const [reasonDetail, setReasonDetail] = useState('');
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
-  const [quoteFetching, setQuoteFetching] = useState(false);
-  const quoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [quoteError, setQuoteError] = useState('');
-
-  // Auto-fetch stock name & price from local API
-  const fetchQuote = useCallback(async (code: string) => {
-    setQuoteFetching(true);
-    setStockName('');
-    setPriceHint('');
-    setQuoteError('');
-    try {
-      const res = await fetch(`https://subsystem-production.up.railway.app/stock_info?symbol=${code}`);
-      const json = await res.json();
-      if (json.error) {
-        setQuoteError('查無此代碼');
-      } else {
-        if (json.name) setStockName(json.name);
-        if (json.price != null) setPriceHint(String(json.price));
-      }
-    } catch (err) {
-      console.error('Auto-quote fetch failed:', err);
-      setQuoteError('查無此代碼');
-    }
-    setQuoteFetching(false);
-  }, []);
-
   const handleStockCodeChange = (value: string) => {
     setStockCode(value);
-    setQuoteError('');
-    if (quoteTimerRef.current) clearTimeout(quoteTimerRef.current);
-    if (/^\d{4,5}$/.test(value.trim())) {
-      quoteTimerRef.current = setTimeout(() => fetchQuote(value.trim()), 300);
-    }
-  };
-
-  const handleStockCodeBlur = () => {
-    if (/^\d{4,5}$/.test(stockCode.trim()) && !stockName && !quoteFetching) {
-      fetchQuote(stockCode.trim());
-    }
   };
 
   useEffect(() => { fetchData(); }, [expertSlug]);
@@ -134,19 +96,8 @@ const AdminSignals = () => {
       return;
     }
 
-    // 發布時重新取得最新股價與名稱
-    let latestName = stockName.trim();
-    let latestPrice = priceHint;
-    try {
-      const res = await fetch(`https://subsystem-production.up.railway.app/stock_info?symbol=${stockCode.trim()}`);
-      const json = await res.json();
-      if (!json.error) {
-        if (json.name) latestName = json.name;
-        if (json.price != null) latestPrice = String(json.price);
-      }
-    } catch (err) {
-      console.warn('Publish-time quote fetch failed, using form values:', err);
-    }
+    const latestName = stockName.trim();
+    const latestPrice = priceHint;
 
     const instrument = latestName ? `${stockCode.trim()} ${latestName}` : stockCode.trim();
     const { data: inserted, error } = await supabase.from('expert_signals').insert({
@@ -218,7 +169,7 @@ const AdminSignals = () => {
 
     toast.success(isMentor ? '週記已發布' : '訊號已發布');
     setIsCreateOpen(false);
-    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints(''); setQuoteError('');
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
 
     // Trigger LINE push notification (non-blocking)
     if (inserted?.id) {
@@ -275,15 +226,13 @@ const AdminSignals = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>股票代碼</Label>
-                    <div className="relative">
-                      <Input value={stockCode} onChange={e => handleStockCodeChange(e.target.value)} onBlur={handleStockCodeBlur} placeholder="例：2330" />
-                      {quoteFetching && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                    <div>
+                      <Input value={stockCode} onChange={e => handleStockCodeChange(e.target.value)} placeholder="例：2330" />
                     </div>
-                    {quoteError && <p className="text-xs text-destructive mt-1">{quoteError}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>股票名稱</Label>
-                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="系統自動填入" />
+                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="例：台積電" />
                   </div>
                 </div>
                 {signalTemplates.length > 0 && (
