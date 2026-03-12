@@ -226,11 +226,9 @@ const AdminSignals = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>股票代碼</Label>
-                    <div className="relative">
-                      <Input value={stockCode} onChange={e => handleStockCodeChange(e.target.value)} onBlur={handleStockCodeBlur} placeholder="例：2330" />
-                      {quoteFetching && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                    <div>
+                      <Input value={stockCode} onChange={e => handleStockCodeChange(e.target.value)} placeholder="例：2330" />
                     </div>
-                    {quoteError && <p className="text-xs text-destructive mt-1">{quoteError}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>股票名稱</Label>
