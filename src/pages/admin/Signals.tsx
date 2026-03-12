@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -47,8 +47,27 @@ const AdminSignals = () => {
   const [reasonDetail, setReasonDetail] = useState('');
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
+  const [nameLoading, setNameLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const fetchStockName = useCallback(async (code: string) => {
+    if (!code || code.length < 4) { setStockName(''); return; }
+    setNameLoading(true);
+    try {
+      const res = await fetch(`https://subsystem-production.up.railway.app/stock_info?symbol=${code}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.name) setStockName(data.name);
+        else setStockName('');
+      } else { setStockName(''); }
+    } catch { setStockName(''); }
+    setNameLoading(false);
+  }, []);
+
   const handleStockCodeChange = (value: string) => {
     setStockCode(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchStockName(value.trim()), 400);
   };
 
   useEffect(() => { fetchData(); }, [expertSlug]);
@@ -232,7 +251,7 @@ const AdminSignals = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>股票名稱</Label>
-                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="例：台積電" />
+                    <Input value={nameLoading ? '查詢中...' : stockName} readOnly placeholder="系統自動填入" className="bg-muted/50" />
                   </div>
                 </div>
                 {signalTemplates.length > 0 && (
