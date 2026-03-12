@@ -47,46 +47,8 @@ const AdminSignals = () => {
   const [reasonDetail, setReasonDetail] = useState('');
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
-  const [quoteFetching, setQuoteFetching] = useState(false);
-  const quoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [quoteError, setQuoteError] = useState('');
-
-  // Auto-fetch stock name & price from local API
-  const fetchQuote = useCallback(async (code: string) => {
-    setQuoteFetching(true);
-    setStockName('');
-    setPriceHint('');
-    setQuoteError('');
-    try {
-      const res = await fetch(`https://subsystem-production.up.railway.app/stock_info?symbol=${code}`);
-      const json = await res.json();
-      if (json.error) {
-        setQuoteError('查無此代碼');
-      } else {
-        if (json.name) setStockName(json.name);
-        if (json.price != null) setPriceHint(String(json.price));
-      }
-    } catch (err) {
-      console.error('Auto-quote fetch failed:', err);
-      setQuoteError('查無此代碼');
-    }
-    setQuoteFetching(false);
-  }, []);
-
   const handleStockCodeChange = (value: string) => {
     setStockCode(value);
-    setQuoteError('');
-    if (quoteTimerRef.current) clearTimeout(quoteTimerRef.current);
-    if (/^\d{4,5}$/.test(value.trim())) {
-      quoteTimerRef.current = setTimeout(() => fetchQuote(value.trim()), 300);
-    }
-  };
-
-  const handleStockCodeBlur = () => {
-    if (/^\d{4,5}$/.test(stockCode.trim()) && !stockName && !quoteFetching) {
-      fetchQuote(stockCode.trim());
-    }
   };
 
   useEffect(() => { fetchData(); }, [expertSlug]);
