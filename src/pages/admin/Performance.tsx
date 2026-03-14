@@ -418,17 +418,15 @@ const AdminPerformance = () => {
                             <td className="text-right p-3 text-sm font-medium tabular-nums">
                               <AnimatedNumber value={row.current_price} format={fmtPrice} />
                             </td>
+                            <td className={cn('text-right p-3 text-sm font-medium tabular-nums', pnlColor(row.pnl))}>
+                              <AnimatedNumber value={row.pnl} format={fmtPnl} className={pnlColor(row.pnl)} />
+                            </td>
                             <td className="text-right p-3 text-sm font-medium tabular-nums">
                               <AnimatedNumber
                                 value={row.pnl_percent}
                                 format={fmtPct}
                                 className={pnlColor(row.pnl_percent)}
                               />
-                            </td>
-                            <td className="text-center p-3">
-                              <Badge variant="default" className="text-xs">
-                                持有中
-                              </Badge>
                             </td>
                           </tr>
                         ))
