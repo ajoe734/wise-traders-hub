@@ -38,11 +38,14 @@ const AdminDashboard = () => {
     // Initial fetch
     supabase
       .from('user_summaries')
-      .select('avg_pnl_percent')
+      .select('total_pnl_percent, avg_pnl_percent')
       .eq('user_id', user.id)
       .single()
       .then(({ data }) => {
-        if (data) setAvgPnlPercent(data.avg_pnl_percent);
+        if (data) {
+          setCumulativeReturn((data as any).total_pnl_percent != null ? Number((data as any).total_pnl_percent) : null);
+          setAvgPnlPercent(data.avg_pnl_percent != null ? Number(data.avg_pnl_percent) : null);
+        }
       });
 
     const channel = supabase
