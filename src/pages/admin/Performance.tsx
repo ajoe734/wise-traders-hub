@@ -111,7 +111,7 @@ const AdminPerformance = () => {
     const fetchInitial = async () => {
       const { data, error } = await supabase
         .from('trade_records')
-        .select('id, instrument, entry_price, current_price, pnl_percent, status')
+        .select('id, instrument, entry_price, current_price, pnl_percent, quantity, status')
         .eq('expert_id', expertId)
         .eq('status', 'open');
 
