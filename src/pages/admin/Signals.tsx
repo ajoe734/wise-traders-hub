@@ -548,10 +548,11 @@ const AdminSignals = () => {
                                    )
                                  ) : signal.action === 'add' ? (
                                    <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
-                                 ) : (
-                                   <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
-                                 )}
-                               </td>
+                                  ) : signal.action === 'buy' && addBuySignalIds.has(signal.id) ? (
+                                    <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
+                                  ) : (
+                                    <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
+                                  )}
                              <td className="p-3">
                                {hasDetail && (
                                  <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setExpandedId(isExpanded ? null : signal.id)}>
