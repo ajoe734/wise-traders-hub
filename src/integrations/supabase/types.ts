@@ -359,6 +359,7 @@ export type Database = {
           plan_id: string | null
           price_hint: number | null
           published_at: string | null
+          quantity: number | null
           reason_detail: string | null
           reason_summary: string | null
           risk_notes: string | null
@@ -377,6 +378,7 @@ export type Database = {
           plan_id?: string | null
           price_hint?: number | null
           published_at?: string | null
+          quantity?: number | null
           reason_detail?: string | null
           reason_summary?: string | null
           risk_notes?: string | null
@@ -395,6 +397,7 @@ export type Database = {
           plan_id?: string | null
           price_hint?: number | null
           published_at?: string | null
+          quantity?: number | null
           reason_detail?: string | null
           reason_summary?: string | null
           risk_notes?: string | null

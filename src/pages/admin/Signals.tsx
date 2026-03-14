@@ -304,11 +304,18 @@ const AdminSignals = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>參考價位</Label>
+                    <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
+                  </div>
+                </div>
+                {(action === 'add' || action === 'trim') && (
+                  <div className="space-y-2">
+                    <Label>張數</Label>
                     <div className="flex items-center gap-2">
-                      <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" className="flex-1" />
-                      <span className="text-sm text-muted-foreground shrink-0">張</span>
+                      <Input value={quantity} onChange={e => setQuantity(e.target.value)} type="number" placeholder="1" className="w-32" />
+                      <span className="text-sm text-muted-foreground">張</span>
                     </div>
                   </div>
+                )}
                 </div>
                 <div className="space-y-2">
                   <Label>操作理由（摘要）</Label>
