@@ -9,14 +9,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface PerfRow {
-  signal_id: number;
+  id: string;
+  instrument: string;
   symbol: string;
   name: string | null;
   entry_price: number | null;
   current_price: number | null;
-  pnl: number | null;
   pnl_percent: number | null;
-  status: string | null;
+  status: string;
 }
 
 interface RealizedRow {
