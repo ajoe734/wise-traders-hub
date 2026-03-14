@@ -14,11 +14,11 @@ interface TradeCardProps {
 }
 
 const sideConfig: Record<string, { color: string; icon: typeof TrendingUp }> = {
-  '買進': { color: 'text-success bg-success/10', icon: TrendingUp },
-  '加碼': { color: 'text-success bg-success/10', icon: TrendingUp },
-  '賣出': { color: 'text-destructive bg-destructive/10', icon: TrendingDown },
-  '減碼': { color: 'text-warning bg-warning/10', icon: TrendingDown },
-  '停損': { color: 'text-destructive bg-destructive/10', icon: TrendingDown },
+  '買進': { color: 'text-destructive bg-destructive/10', icon: TrendingUp },
+  '加碼': { color: 'text-destructive bg-destructive/10', icon: TrendingUp },
+  '賣出': { color: 'text-success bg-success/10', icon: TrendingDown },
+  '減碼': { color: 'text-success bg-success/10', icon: TrendingDown },
+  '停損': { color: 'text-success bg-success/10', icon: TrendingDown },
 };
 
 export function TradeCard({ trade, factors, isDelayed, className }: TradeCardProps) {

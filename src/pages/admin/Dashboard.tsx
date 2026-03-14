@@ -8,9 +8,9 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Users, Radio, TrendingUp, DollarSign } from 'lucide-react';
 
-const actionLabels: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
-  buy: { label: '買進', variant: 'destructive' },
-  sell: { label: '賣出', variant: 'default' },
+const actionLabels: Record<string, { label: string; className: string }> = {
+  buy: { label: '買進', className: 'bg-destructive text-white border-destructive' },
+  sell: { label: '賣出', className: 'bg-success text-white border-success' },
 };
 
 
@@ -235,9 +235,9 @@ const AdminDashboard = () => {
                 recentSignals.map((signal) => {
                   const ai = actionLabels[signal.action] || actionLabels.buy;
                   return (
-                    <div key={signal.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                      <div className="flex items-center gap-3">
-                        <Badge variant={ai.variant} className="w-12 justify-center text-xs">{ai.label}</Badge>
+                      <div key={signal.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                        <div className="flex items-center gap-3">
+                          <Badge className={`${ai.className} w-12 justify-center text-xs`}>{ai.label}</Badge>
                         <div>
                           <p className="font-medium text-sm">{signal.instrument}</p>
                           <p className="text-xs text-muted-foreground">
