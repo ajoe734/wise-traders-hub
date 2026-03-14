@@ -487,7 +487,7 @@ const AdminSignals = () => {
                            )}>
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                              <td className="p-3 text-sm font-medium">{signal.instrument}</td>
-                             <td className="p-3"><Badge className={cn("text-xs border", signal.action === 'buy' ? 'bg-destructive text-white border-destructive' : 'bg-success text-white border-success')}>{ai.label}</Badge></td>
+                             <td className="p-3"><Badge variant={ai.variant} className="text-xs">{ai.label}</Badge></td>
                              <td className="p-3 text-sm">
                                {signal.price_hint || '-'}
                                 {signal.quantity && (
@@ -503,15 +503,23 @@ const AdminSignals = () => {
                                  <p className="text-muted-foreground truncate">{stripDotPrefix(signal.reason_summary || '-')}</p>
                                )}
                              </td>
-                                <td className="p-3">
-                                  {isTakenDown ? (
-                                    <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已下架</Badge>
-                                  ) : signal.action === 'sell' ? (
-                                    <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
-                                  ) : (
-                                    <Badge className="text-xs border border-border bg-background text-foreground">持有中</Badge>
-                                  )}
-                                </td>
+                               <td className="p-3">
+                                 {isTakenDown ? (
+                                   <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已下架</Badge>
+                                 ) : signal.action === 'exit' ? (
+                                   <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
+                                 ) : ['sell', 'trim'].includes(signal.action) ? (
+                                   openInstruments.has(signal.instrument) ? (
+                                     <Badge className="text-xs border border-amber-400/40 bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">減碼</Badge>
+                                   ) : (
+                                     <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
+                                   )
+                                 ) : signal.action === 'add' ? (
+                                   <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
+                                 ) : (
+                                   <Badge variant="secondary" className="text-xs text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800">持有中</Badge>
+                                 )}
+                               </td>
                              <td className="p-3">
                                {hasDetail && (
                                  <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setExpandedId(isExpanded ? null : signal.id)}>
