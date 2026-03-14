@@ -949,16 +949,19 @@ export type Database = {
       user_summaries: {
         Row: {
           avg_pnl_percent: number | null
+          total_pnl_percent: number | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           avg_pnl_percent?: number | null
+          total_pnl_percent?: number | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           avg_pnl_percent?: number | null
+          total_pnl_percent?: number | null
           updated_at?: string | null
           user_id?: string
         }
