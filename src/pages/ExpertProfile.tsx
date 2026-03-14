@@ -52,6 +52,7 @@ const ExpertProfile = () => {
   const [subscribedPlanIds, setSubscribedPlanIds] = useState<Set<string>>(new Set());
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const { data: perf } = useExpertPerformance(expertInfo?.id);
 
   useEffect(() => {
     const fetchData = async () => {
