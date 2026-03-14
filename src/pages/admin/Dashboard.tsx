@@ -11,9 +11,6 @@ import { Users, Radio, TrendingUp, DollarSign } from 'lucide-react';
 const actionLabels: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
   buy: { label: '買進', variant: 'destructive' },
   sell: { label: '賣出', variant: 'default' },
-  add: { label: '加碼', variant: 'secondary' },
-  trim: { label: '減碼', variant: 'outline' },
-  exit: { label: '平損', variant: 'secondary' },
 };
 
 
