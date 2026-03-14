@@ -448,7 +448,6 @@ const AdminSignals = () => {
                                    <Badge variant="secondary" className="text-xs text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800">持有中</Badge>
                                  )}
                                </td>
-                              </td>
                              <td className="p-3">
                                {hasDetail && (
                                  <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setExpandedId(isExpanded ? null : signal.id)}>
