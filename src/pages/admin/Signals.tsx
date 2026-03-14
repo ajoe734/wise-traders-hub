@@ -17,9 +17,9 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
-const actionLabels: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
-  buy: { label: '買進', variant: 'destructive' },
-  sell: { label: '賣出', variant: 'default' },
+const actionLabels: Record<string, { label: string; className: string }> = {
+  buy: { label: '買進', className: 'bg-destructive text-white border-destructive' },
+  sell: { label: '賣出', className: 'bg-success text-white border-success' },
 };
 
 const AdminSignals = () => {
@@ -487,7 +487,7 @@ const AdminSignals = () => {
                            )}>
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                              <td className="p-3 text-sm font-medium">{signal.instrument}</td>
-                             <td className="p-3"><Badge variant={ai.variant} className="text-xs">{ai.label}</Badge></td>
+                             <td className="p-3"><Badge className={`${ai.className} text-xs`}>{ai.label}</Badge></td>
                              <td className="p-3 text-sm">
                                {signal.price_hint || '-'}
                                 {signal.quantity && (
@@ -517,7 +517,7 @@ const AdminSignals = () => {
                                  ) : signal.action === 'add' ? (
                                    <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
                                  ) : (
-                                   <Badge variant="secondary" className="text-xs text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800">持有中</Badge>
+                                   <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
                                  )}
                                </td>
                              <td className="p-3">
