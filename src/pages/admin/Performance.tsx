@@ -78,6 +78,7 @@ const AdminPerformance = () => {
   const [realizedLoading, setRealizedLoading] = useState(true);
   const [realizedPeriod, setRealizedPeriod] = useState<RealizedPeriod>('month');
   const [expertId, setExpertId] = useState<string | null>(null);
+  const [expertRole, setExpertRole] = useState<string | null>(null);
 
   const pnlColor = (val: number | null) =>
     val != null && val > 0
@@ -91,11 +92,14 @@ const AdminPerformance = () => {
     if (!user) return;
     supabase
       .from('experts')
-      .select('id')
+      .select('id, role')
       .eq('user_id', user.id)
       .single()
       .then(({ data }) => {
-        if (data) setExpertId(data.id);
+        if (data) {
+          setExpertId(data.id);
+          setExpertRole(data.role);
+        }
       });
   }, [user]);
 
@@ -384,7 +388,9 @@ const AdminPerformance = () => {
                   className={cn(
                     'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
                     realizedPeriod === p
-                      ? 'bg-primary text-primary-foreground'
+                      ? expertRole === 'mentor'
+                        ? 'bg-mentor text-white'
+                        : 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground hover:bg-muted/80'
                   )}
                 >
