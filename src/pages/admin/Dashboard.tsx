@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import { Users, Radio, TrendingUp, DollarSign } from 'lucide-react';
 
 const actionLabels: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
@@ -17,6 +18,7 @@ const actionLabels: Record<string, { label: string; variant: 'default' | 'destru
 
 
 const AdminDashboard = () => {
+  const { user } = useAuth();
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const [expert, setExpert] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -25,11 +27,48 @@ const AdminDashboard = () => {
   const [totalSignals, setTotalSignals] = useState(0);
   const [thisMonthSignals, setThisMonthSignals] = useState(0);
   const [cumulativeReturn, setCumulativeReturn] = useState<number | null>(null);
+  const [avgPnlPercent, setAvgPnlPercent] = useState<number | null>(null);
   const [recentSignals, setRecentSignals] = useState<any[]>([]);
   const [revenueMode, setRevenueMode] = useState<'month' | 'year'>('month');
   const [yearlyRevenue, setYearlyRevenue] = useState(0);
 
   useEffect(() => { fetchData(); }, [expertSlug]);
+
+  // Realtime subscription for user_summaries
+  useEffect(() => {
+    if (!user) return;
+
+    // Initial fetch
+    supabase
+      .from('user_summaries')
+      .select('avg_pnl_percent')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setAvgPnlPercent(data.avg_pnl_percent);
+      });
+
+    const channel = supabase
+      .channel('admin-summary-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_summaries',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const row = payload.new as any;
+            setAvgPnlPercent(row.avg_pnl_percent);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   const fetchData = async () => {
     if (!expertSlug) return;
@@ -132,7 +171,7 @@ const AdminDashboard = () => {
     },
     {
       label: '累計報酬率',
-      value: cumulativeReturn != null ? `${cumulativeReturn}%` : '-',
+      value: avgPnlPercent != null ? `${avgPnlPercent > 0 ? '+' : ''}${avgPnlPercent.toFixed(2)}%` : (cumulativeReturn != null ? `${cumulativeReturn}%` : '-'),
       change: '',
       changeType: 'neutral' as const,
       icon: TrendingUp,
