@@ -171,7 +171,7 @@ const AdminDashboard = () => {
     },
     {
       label: '累計報酬率',
-      value: cumulativeReturn != null ? `${cumulativeReturn}%` : '-',
+      value: avgPnlPercent != null ? `${avgPnlPercent > 0 ? '+' : ''}${avgPnlPercent.toFixed(2)}%` : (cumulativeReturn != null ? `${cumulativeReturn}%` : '-'),
       change: '',
       changeType: 'neutral' as const,
       icon: TrendingUp,
