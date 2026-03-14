@@ -248,15 +248,10 @@ const AdminSignals = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>股票代碼</Label>
-                    <div>
-                      <Input value={stockCode} onChange={e => handleStockCodeChange(e.target.value)} placeholder="例：2330" />
-                    </div>
+                    <Input value={stockCode} onChange={e => handleStockCodeChange(e.target.value)} placeholder="例：2330" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-1.5">
-                      股票名稱
-                      {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                    </Label>
+                    <Label>股票名稱 {fetchingQuote && <Loader2 className="inline h-3 w-3 animate-spin text-muted-foreground" />}</Label>
                     <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="" />
                   </div>
                 </div>
