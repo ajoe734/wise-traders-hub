@@ -161,7 +161,7 @@ const AdminSignalTemplates = () => {
                     )}
                   >
                     {!isCompanyAdmin && <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />}
-                    <span className="font-medium text-sm min-w-[80px]">{t.title}</span>
+                    <span className={cn('font-medium text-sm min-w-[80px]', expert?.role === 'mentor' && 'text-mentor')}>{t.title}</span>
                     <Badge className={cn('text-[10px] px-1.5 py-0 shrink-0', getActionClass(t.action))}>
                       {getActionLabel(t.action)}
                     </Badge>
