@@ -18,6 +18,7 @@ const actionLabels: Record<string, { label: string; variant: 'default' | 'destru
 
 
 const AdminDashboard = () => {
+  const { user } = useAuth();
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const [expert, setExpert] = useState<any>(null);
   const [loading, setLoading] = useState(true);
