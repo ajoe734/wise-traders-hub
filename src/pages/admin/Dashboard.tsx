@@ -38,11 +38,14 @@ const AdminDashboard = () => {
     // Initial fetch
     supabase
       .from('user_summaries')
-      .select('avg_pnl_percent')
+      .select('total_pnl_percent, avg_pnl_percent')
       .eq('user_id', user.id)
       .single()
       .then(({ data }) => {
-        if (data) setAvgPnlPercent(data.avg_pnl_percent);
+        if (data) {
+          setCumulativeReturn((data as any).total_pnl_percent != null ? Number((data as any).total_pnl_percent) : null);
+          setAvgPnlPercent(data.avg_pnl_percent != null ? Number(data.avg_pnl_percent) : null);
+        }
       });
 
     const channel = supabase
@@ -58,7 +61,8 @@ const AdminDashboard = () => {
         (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const row = payload.new as any;
-            setAvgPnlPercent(row.avg_pnl_percent);
+            setCumulativeReturn(row.total_pnl_percent != null ? Number(row.total_pnl_percent) : null);
+            setAvgPnlPercent(row.avg_pnl_percent != null ? Number(row.avg_pnl_percent) : null);
           }
         },
       )
@@ -168,7 +172,7 @@ const AdminDashboard = () => {
     },
     {
       label: '累計報酬率',
-      value: avgPnlPercent != null ? `${avgPnlPercent > 0 ? '+' : ''}${avgPnlPercent.toFixed(2)}%` : (cumulativeReturn != null ? `${cumulativeReturn > 0 ? '+' : ''}${cumulativeReturn.toFixed(2)}%` : '-'),
+      value: cumulativeReturn != null ? `${cumulativeReturn > 0 ? '+' : ''}${cumulativeReturn.toFixed(2)}%` : '-',
       change: '',
       changeType: 'neutral' as const,
       icon: TrendingUp,

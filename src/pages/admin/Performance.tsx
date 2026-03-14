@@ -81,6 +81,7 @@ const AdminPerformance = () => {
   const [realizedPeriod, setRealizedPeriod] = useState<RealizedPeriod>('month');
   const [expertId, setExpertId] = useState<string | null>(null);
   const [expertRole, setExpertRole] = useState<string | null>(null);
+  const [totalPnlPercent, setTotalPnlPercent] = useState<number | null>(null);
   const [avgPnlPercent, setAvgPnlPercent] = useState<number | null>(null);
 
   const pnlColor = (val: number | null) =>
@@ -106,17 +107,20 @@ const AdminPerformance = () => {
       });
   }, [user]);
 
-  // ─── 平均報酬：user_summaries (realtime) ───
+  // ─── 累計/平均報酬：user_summaries (realtime) ───
   useEffect(() => {
     if (!user) return;
 
     supabase
       .from('user_summaries')
-      .select('avg_pnl_percent')
+      .select('total_pnl_percent, avg_pnl_percent')
       .eq('user_id', user.id)
       .single()
       .then(({ data }) => {
-        if (data) setAvgPnlPercent(data.avg_pnl_percent);
+        if (data) {
+          setTotalPnlPercent((data as any).total_pnl_percent != null ? Number((data as any).total_pnl_percent) : null);
+          setAvgPnlPercent(data.avg_pnl_percent != null ? Number(data.avg_pnl_percent) : null);
+        }
       });
 
     const channel = supabase
@@ -132,6 +136,7 @@ const AdminPerformance = () => {
         (payload) => {
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
             const row = payload.new as any;
+            setTotalPnlPercent(row.total_pnl_percent != null ? Number(row.total_pnl_percent) : null);
             setAvgPnlPercent(row.avg_pnl_percent != null ? Number(row.avg_pnl_percent) : null);
           }
         },
@@ -392,11 +397,19 @@ const AdminPerformance = () => {
           {/* ═══ 未實現損益 ═══ */}
           <TabsContent value="unrealized" className="space-y-4">
             {/* 摘要卡片 */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <Card>
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground mb-1">持倉數量</p>
                   <p className="text-2xl font-bold tabular-nums">{unrealizedSummary.count}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground mb-1">累計報酬</p>
+                  <p className={cn('text-2xl font-bold tabular-nums', pnlColor(totalPnlPercent))}>
+                    <AnimatedNumber value={totalPnlPercent} format={fmtPct} className={pnlColor(totalPnlPercent)} />
+                  </p>
                 </CardContent>
               </Card>
               <Card>
