@@ -32,6 +32,7 @@ const AdminSignals = () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [signalTemplates, setSignalTemplates] = useState<{ id: string; title: string; action: string; reason: string; risk_note: string; strategy_note: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchDate, setSearchDate] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -281,10 +282,17 @@ const AdminSignals = () => {
   const contentLabel = isMentor ? '週記' : '訊號';
   const canPublish = !!expert && !!stockCode.trim() && !!action;
 
-  const filtered = signals.filter(s =>
-    s.instrument?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.reason_summary?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = signals.filter(s => {
+    const matchText = !searchQuery.trim() || 
+      s.instrument?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.reason_summary?.toLowerCase().includes(searchQuery.toLowerCase());
+    let matchDate = true;
+    if (searchDate) {
+      const sigDate = s.published_at ? new Date(s.published_at).toISOString().slice(0, 10) : '';
+      matchDate = sigDate === searchDate;
+    }
+    return matchText && matchDate;
+  });
 
   // Determine which buy signals are actually "加碼" (subsequent buys for same instrument)
   const addBuySignalIds = useMemo(() => {
@@ -485,6 +493,9 @@ const AdminSignals = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="搜尋標的或理由..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
+          </div>
+          <div className="relative w-44">
+            <Input type="date" value={searchDate} onChange={e => setSearchDate(e.target.value)} className="text-sm" />
           </div>
         </div>
 
