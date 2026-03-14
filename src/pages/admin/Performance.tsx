@@ -16,6 +16,7 @@ interface PerfRow {
   entry_price: number | null;
   current_price: number | null;
   pnl_percent: number | null;
+  quantity: number;
   status: string;
 }
 
@@ -110,7 +111,7 @@ const AdminPerformance = () => {
     const fetchInitial = async () => {
       const { data, error } = await supabase
         .from('trade_records')
-        .select('id, instrument, entry_price, current_price, pnl_percent, status')
+        .select('id, instrument, entry_price, current_price, pnl_percent, quantity, status')
         .eq('expert_id', expertId)
         .eq('status', 'open');
 
@@ -128,6 +129,7 @@ const AdminPerformance = () => {
               entry_price: r.entry_price ? Number(r.entry_price) : null,
               current_price: r.current_price ? Number(r.current_price) : null,
               pnl_percent: r.pnl_percent ? Number(r.pnl_percent) : null,
+              quantity: r.quantity ?? 1,
               status: r.status,
             };
           }),
@@ -162,6 +164,7 @@ const AdminPerformance = () => {
               entry_price: row.entry_price ? Number(row.entry_price) : null,
               current_price: row.current_price ? Number(row.current_price) : null,
               pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
+              quantity: row.quantity ?? 1,
               status: row.status,
             }]);
           } else if (payload.eventType === 'UPDATE') {
@@ -174,6 +177,7 @@ const AdminPerformance = () => {
                 ...r,
                 current_price: row.current_price ? Number(row.current_price) : null,
                 pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
+                quantity: row.quantity ?? r.quantity,
               } : r));
             }
           } else if (payload.eventType === 'DELETE') {
@@ -320,6 +324,7 @@ const AdminPerformance = () => {
                     <thead>
                       <tr className="border-b bg-muted/50">
                         <th className="text-left p-3 text-xs font-medium text-muted-foreground">標的</th>
+                        <th className="text-right p-3 text-xs font-medium text-muted-foreground">數量</th>
                         <th className="text-right p-3 text-xs font-medium text-muted-foreground">進場價</th>
                         <th className="text-right p-3 text-xs font-medium text-muted-foreground">現價</th>
                         <th className="text-right p-3 text-xs font-medium text-muted-foreground">報酬</th>
@@ -329,14 +334,14 @@ const AdminPerformance = () => {
                     <tbody>
                       {loading ? (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
                             <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
                             載入中...
                           </td>
                         </tr>
                       ) : rows.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
                             目前無持倉
                           </td>
                         </tr>
@@ -348,6 +353,9 @@ const AdminPerformance = () => {
                                 <span className="text-sm font-medium">{row.name || '-'}</span>
                                 <span className="text-xs text-muted-foreground">{row.symbol}</span>
                               </div>
+                            </td>
+                            <td className="text-right p-3 text-sm tabular-nums">
+                              {row.quantity} 張
                             </td>
                             <td className="text-right p-3 text-sm tabular-nums">
                               {row.entry_price != null ? row.entry_price.toLocaleString() : '-'}
