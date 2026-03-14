@@ -389,7 +389,7 @@ const AdminSignals = () => {
                     <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
                   </div>
                 </div>
-                {action && action !== 'exit' && (
+                {action && (
                   <div className="space-y-2">
                     <Label>數量</Label>
                     <div className="flex items-center gap-2">
