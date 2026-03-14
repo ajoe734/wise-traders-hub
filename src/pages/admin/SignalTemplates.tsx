@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import step1Img from '@/assets/template-step1.png';
-import step2Img from '@/assets/template-step2.png';
+import step2Img from '@/assets/template-step2-new.png';
 
 interface SignalTemplate {
   id: string;
@@ -190,7 +190,7 @@ const AdminSignalTemplates = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <div className="rounded-lg overflow-hidden border">
-                  <img src={step2Img} alt="步驟一：新增模板" className="w-full h-auto" />
+                  <img src={step1Img} alt="步驟一：新增模板" className="w-full h-auto" />
                 </div>
                 <div className="text-center">
                   <Badge variant="outline" className="text-xs mb-1">步驟一</Badge>
@@ -199,7 +199,7 @@ const AdminSignalTemplates = () => {
               </div>
               <div className="space-y-2">
                 <div className="rounded-lg overflow-hidden border">
-                  <img src={step1Img} alt="步驟二：發布訊號時套用模板" className="w-full h-auto" />
+                  <img src={step2Img} alt="步驟二：發布訊號時套用模板" className="w-full h-auto" />
                 </div>
                 <div className="text-center">
                   <Badge variant="outline" className="text-xs mb-1">步驟二</Badge>
