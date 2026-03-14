@@ -61,7 +61,8 @@ const AdminDashboard = () => {
         (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const row = payload.new as any;
-            setAvgPnlPercent(row.avg_pnl_percent);
+            setCumulativeReturn(row.total_pnl_percent != null ? Number(row.total_pnl_percent) : null);
+            setAvgPnlPercent(row.avg_pnl_percent != null ? Number(row.avg_pnl_percent) : null);
           }
         },
       )
