@@ -286,8 +286,11 @@ const AdminSignals = () => {
     const matchText = !searchQuery.trim() || 
       s.instrument?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.reason_summary?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchDate = !searchDate.trim() || 
-      (s.published_at && new Date(s.published_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '').includes(searchDate.replace(/\//g, '').replace(/-/g, '')));
+    let matchDate = true;
+    if (searchDate) {
+      const sigDate = s.published_at ? new Date(s.published_at).toISOString().slice(0, 10) : '';
+      matchDate = sigDate === searchDate;
+    }
     return matchText && matchDate;
   });
 
