@@ -47,6 +47,7 @@ const AdminSignals = () => {
   const [reasonDetail, setReasonDetail] = useState('');
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
+  const [quantity, setQuantity] = useState('');
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -128,6 +129,7 @@ const AdminSignals = () => {
       instrument,
       action: action as any,
       price_hint: latestPrice ? parseFloat(latestPrice) : null,
+      quantity: (action === 'add' || action === 'trim') && quantity ? parseInt(quantity) : null,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
@@ -191,7 +193,7 @@ const AdminSignals = () => {
 
     toast.success(isMentor ? '週記已發布' : '訊號已發布');
     setIsCreateOpen(false);
-    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
 
     // Trigger LINE push notification (non-blocking)
     if (inserted?.id) {
@@ -304,12 +306,18 @@ const AdminSignals = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>參考價位</Label>
-                    <div className="flex items-center gap-2">
-                      <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" className="flex-1" />
-                      <span className="text-sm text-muted-foreground shrink-0">張</span>
-                    </div>
+                    <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
                   </div>
                 </div>
+                {(action === 'add' || action === 'trim') && (
+                  <div className="space-y-2">
+                    <Label>張數</Label>
+                    <div className="flex items-center gap-2">
+                      <Input value={quantity} onChange={e => setQuantity(e.target.value)} type="number" placeholder="1" className="w-32" />
+                      <span className="text-sm text-muted-foreground">張</span>
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>操作理由（摘要）</Label>
                   <Textarea value={reasonSummary} onChange={e => setReasonSummary(e.target.value)} placeholder="簡述操作原因..." rows={2} />
@@ -336,6 +344,7 @@ const AdminSignals = () => {
                         <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
                         <span className="font-medium text-sm">{stockCode} {stockName}</span>
                         {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
+                        {(action === 'add' || action === 'trim') && quantity && <span className="text-sm text-muted-foreground">{quantity} 張</span>}
                       </div>
                       {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
                       {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
@@ -399,7 +408,12 @@ const AdminSignals = () => {
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                              <td className="p-3 text-sm font-medium">{signal.instrument}</td>
                              <td className="p-3"><Badge variant={ai.variant} className="text-xs">{ai.label}</Badge></td>
-                             <td className="p-3 text-sm">{signal.price_hint || '-'}</td>
+                             <td className="p-3 text-sm">
+                               {signal.price_hint || '-'}
+                               {signal.quantity && ['add', 'trim'].includes(signal.action) && (
+                                 <span className="text-muted-foreground ml-1">({signal.quantity}張)</span>
+                               )}
+                             </td>
                              <td className="p-3 text-sm max-w-[240px]">
                                {isTakenDown && signal.taken_down_reason ? (
                                  <p className="text-primary truncate text-xs">

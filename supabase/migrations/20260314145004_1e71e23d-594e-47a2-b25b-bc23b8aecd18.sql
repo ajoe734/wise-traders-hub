@@ -1,0 +1,1 @@
+ALTER TABLE public.expert_signals ADD COLUMN quantity integer DEFAULT NULL;
