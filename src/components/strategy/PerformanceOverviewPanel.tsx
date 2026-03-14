@@ -176,7 +176,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={chartData.length > 0 ? chartData : [{ label: '', returnPct: 0 }]}
+                  data={chartData.length > 0 ? chartData : [{ label: '', equity: INITIAL_CAPITAL }]}
                   margin={{ top: 16, right: 16, left: 8, bottom: 8 }}
                   onClick={(e) => {
                     if (e?.activePayload?.[0] && chartData.length > 0) {
@@ -191,12 +191,12 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} domain={chartData.length > 0 ? ['dataMin - 2', 'dataMax + 2'] : [-5, 5]} />
+                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 10000).toFixed(0)}萬`} domain={['dataMin * 0.98', 'dataMax * 1.02']} />
                   <Tooltip content={<CustomTooltip />} />
                   {chartData.length > 0 && (
                     <Area
                       type="monotone"
-                      dataKey="returnPct"
+                      dataKey="equity"
                       stroke={chartColors.stroke}
                       strokeWidth={2}
                       fill={`url(#colorReturn-${period})`}
