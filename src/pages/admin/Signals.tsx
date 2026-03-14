@@ -408,7 +408,12 @@ const AdminSignals = () => {
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                              <td className="p-3 text-sm font-medium">{signal.instrument}</td>
                              <td className="p-3"><Badge variant={ai.variant} className="text-xs">{ai.label}</Badge></td>
-                             <td className="p-3 text-sm">{signal.price_hint || '-'}</td>
+                             <td className="p-3 text-sm">
+                               {signal.price_hint || '-'}
+                               {signal.quantity && ['add', 'trim'].includes(signal.action) && (
+                                 <span className="text-muted-foreground ml-1">({signal.quantity}張)</span>
+                               )}
+                             </td>
                              <td className="p-3 text-sm max-w-[240px]">
                                {isTakenDown && signal.taken_down_reason ? (
                                  <p className="text-primary truncate text-xs">
