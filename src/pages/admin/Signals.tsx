@@ -281,6 +281,33 @@ const AdminSignals = () => {
   const contentLabel = isMentor ? '週記' : '訊號';
   const canPublish = !!expert && !!stockCode.trim() && !!action;
 
+  // Determine which buy signals are actually "加碼" (subsequent buys for same instrument)
+  const addBuySignalIds = useMemo(() => {
+    const ids = new Set<string>();
+    const sorted = [...signals].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const openPositions = new Map<string, boolean>();
+    for (const s of sorted) {
+      if (s.status === 'taken_down') continue;
+      const inst = s.instrument;
+      if (s.action === 'buy') {
+        if (openPositions.get(inst)) {
+          ids.add(s.id);
+        } else {
+          openPositions.set(inst, true);
+        }
+      } else if (s.action === 'add') {
+        openPositions.set(inst, true);
+      } else if (s.action === 'exit') {
+        openPositions.set(inst, false);
+      } else if (s.action === 'sell' || s.action === 'trim') {
+        if (!openInstruments.has(inst)) {
+          openPositions.set(inst, false);
+        }
+      }
+    }
+    return ids;
+  }, [signals, openInstruments]);
+
   // Multi-condition search: conditions separated by "、"
   const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
   const statusOnlyKeywords = ['持有中', '已平倉', '已下架'];
@@ -298,19 +325,14 @@ const AdminSignals = () => {
     if (!searchQuery.trim()) return true;
     const conditions = searchQuery.split('、').map(c => c.trim()).filter(Boolean);
     const sigDateFull = s.published_at ? new Date(s.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
-    const sigAction = actionLabels[s.action]?.label || s.action;
     const displayStatus = getDisplayStatus(s);
 
     return conditions.every(cond => {
       const lower = cond.toLowerCase();
-      // Check action direction (買進/賣出/平損)
       if (actionLabelMap[cond]) return s.action === actionLabelMap[cond];
-      // Check status keywords (持有中/已平倉/已下架)
       if (statusOnlyKeywords.includes(cond)) return displayStatus === cond;
-      // "加碼" can be either action=add or displayStatus=加碼, "減碼" can be action=trim or displayStatus=減碼
       if (cond === '加碼') return s.action === 'add' || displayStatus === '加碼';
       if (cond === '減碼') return s.action === 'trim' || displayStatus === '減碼';
-      // Flexible match: instrument, date/time (partial), reason
       return (
         s.instrument?.toLowerCase().includes(lower) ||
         sigDateFull.includes(cond) ||
@@ -318,38 +340,6 @@ const AdminSignals = () => {
       );
     });
   });
-
-  // Determine which buy signals are actually "加碼" (subsequent buys for same instrument)
-  const addBuySignalIds = useMemo(() => {
-    const ids = new Set<string>();
-    // Process all signals (not just filtered) sorted by time ascending
-    const sorted = [...signals].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    // Track open positions per instrument
-    const openPositions = new Map<string, boolean>();
-    for (const s of sorted) {
-      if (s.status === 'taken_down') continue;
-      const inst = s.instrument;
-      if (s.action === 'buy') {
-        if (openPositions.get(inst)) {
-          // Already holding this instrument → this buy is effectively 加碼
-          ids.add(s.id);
-        } else {
-          openPositions.set(inst, true);
-        }
-      } else if (s.action === 'add') {
-        openPositions.set(inst, true);
-      } else if (s.action === 'exit') {
-        openPositions.set(inst, false);
-      } else if (s.action === 'sell' || s.action === 'trim') {
-        // Check if position is still open via openInstruments at current state
-        // For historical accuracy, we just mark as closed if not in openInstruments
-        if (!openInstruments.has(inst)) {
-          openPositions.set(inst, false);
-        }
-      }
-    }
-    return ids;
-  }, [signals, openInstruments]);
 
   // Calculate current holding quantity for the searched instrument
   const holdingSummary = useMemo(() => {
