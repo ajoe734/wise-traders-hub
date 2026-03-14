@@ -99,39 +99,6 @@ const AdminDashboard = () => {
     setLoading(false);
   };
 
-  const fetchMarketIndices = useCallback(async () => {
-    setIndicesLoading(true);
-    try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=MI_INDEX`,
-        { headers: { apikey: anonKey } }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          // Filter to key indices: 加權指數, 電子類指數, 金融保險類指數
-          const targetNames = ['發行量加權股價指數', '電子類指數', '金融保險類指數', '半導體類指數'];
-          const filtered = data.filter((item: any) =>
-            targetNames.some(name => item.指數 === name || item.IndexName === name)
-          );
-          // Normalize fields
-          const normalized: MarketIndex[] = filtered.map((item: any) => ({
-            IndexName: item.指數 || item.IndexName || '-',
-            ClosingIndex: item.收盤指數 || item.ClosingIndex || '-',
-            Change: item.漲跌點數 || item.Change || '0',
-            ChangePercent: item.漲跌百分比 || item.ChangePercent,
-            TradeVolume: item.成交金額 || item.TradeVolume,
-          }));
-          setMarketIndices(normalized);
-        }
-      }
-    } catch (e) {
-      console.error('MI_INDEX fetch error:', e);
-    }
-    setIndicesLoading(false);
-  }, []);
 
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
   if (!expert) return <AdminLayout><div /></AdminLayout>;
