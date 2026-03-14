@@ -94,7 +94,14 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
         .order('exit_date', { ascending: true });
 
       if (error) throw error;
-      if (!data || data.length === 0) return [];
+      if (!data || data.length === 0) {
+        // Still show empty period slots
+        const allKeys = generateAllKeys(period);
+        return allKeys.map(label => ({ label, returnPct: 0, stocks: [] }));
+      }
+
+      // Find earliest trade date for yearly range
+      const firstTradeDate = data[0].exit_date ? new Date(data[0].exit_date) : new Date();
 
       // Group into buckets
       const buckets = new Map<string, StockTrade[]>();
@@ -121,10 +128,14 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
         buckets.get(key)!.push(stock);
       }
 
-      // Build PeriodBucket array
-      const result: PeriodBucket[] = [];
-      for (const [label, stocks] of buckets) {
-        // Compound return for the bucket
+      // Generate all expected keys and fill gaps with empty buckets
+      const allKeys = generateAllKeys(period, firstTradeDate);
+
+      const result: PeriodBucket[] = allKeys.map(label => {
+        const stocks = buckets.get(label) || [];
+        if (stocks.length === 0) {
+          return { label, returnPct: 0, stocks: [] };
+        }
         let equity = 1;
         for (const s of stocks) {
           equity *= (1 + s.returnPct / 100);
@@ -135,8 +146,8 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
         const topStock = sorted[0] ? { symbol: sorted[0].symbol, name: sorted[0].name, returnPct: sorted[0].returnPct } : undefined;
         const bottomStock = sorted[sorted.length - 1] ? { symbol: sorted[sorted.length - 1].symbol, name: sorted[sorted.length - 1].name, returnPct: sorted[sorted.length - 1].returnPct } : undefined;
 
-        result.push({ label, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks });
-      }
+        return { label, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks };
+      });
 
       return result;
     },
