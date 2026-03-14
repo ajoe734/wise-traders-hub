@@ -105,45 +105,100 @@ const AdminPerformance = () => {
       });
   }, [user]);
 
-  // ─── 未實現損益：trade_records (open) ───
+  // ─── 未實現損益：trade_records (open) + user_performances (realtime) ───
   useEffect(() => {
-    if (!expertId) return;
+    if (!expertId || !user) return;
 
     const fetchInitial = async () => {
-      const { data, error } = await supabase
+      // 1. 取得 open 持倉 from trade_records
+      const { data: tradeData } = await supabase
         .from('trade_records')
         .select('id, instrument, entry_price, current_price, pnl_percent, quantity, status')
         .eq('expert_id', expertId)
         .eq('status', 'open');
 
-      if (!error) {
-        setRows(
-          (data || []).map(r => {
-            const parts = r.instrument.split(' ');
-            const symbol = parts[0] || r.instrument;
-            const name = parts.slice(1).join(' ') || null;
-            return {
-              id: r.id,
-              instrument: r.instrument,
-              symbol,
-              name,
-              entry_price: r.entry_price ? Number(r.entry_price) : null,
-              current_price: r.current_price ? Number(r.current_price) : null,
-              pnl_percent: r.pnl_percent ? Number(r.pnl_percent) : null,
-              quantity: r.quantity ?? 1,
-              status: r.status,
-            };
-          }),
-        );
-      }
+      // 2. 取得 user_performances 的即時數據
+      const { data: perfData } = await supabase
+        .from('user_performances')
+        .select('symbol, current_price, pnl, pnl_percent')
+        .eq('user_id', user.id);
+
+      // Build a lookup map from user_performances by symbol
+      const perfMap = new Map<string, { current_price: number | null; pnl: number | null; pnl_percent: number | null }>();
+      (perfData || []).forEach(p => {
+        perfMap.set(p.symbol, {
+          current_price: p.current_price ? Number(p.current_price) : null,
+          pnl: p.pnl ? Number(p.pnl) : null,
+          pnl_percent: p.pnl_percent ? Number(p.pnl_percent) : null,
+        });
+      });
+
+      setRows(
+        (tradeData || []).map(r => {
+          const parts = r.instrument.split(' ');
+          const symbol = parts[0] || r.instrument;
+          const name = parts.slice(1).join(' ') || null;
+          const perf = perfMap.get(symbol);
+          return {
+            id: r.id,
+            instrument: r.instrument,
+            symbol,
+            name,
+            entry_price: r.entry_price ? Number(r.entry_price) : null,
+            current_price: perf?.current_price ?? (r.current_price ? Number(r.current_price) : null),
+            pnl: perf?.pnl ?? null,
+            pnl_percent: perf?.pnl_percent ?? (r.pnl_percent ? Number(r.pnl_percent) : null),
+            quantity: r.quantity ?? 1,
+            status: r.status,
+          };
+        }),
+      );
       setLoading(false);
     };
 
     fetchInitial();
 
-    // Realtime updates from trade_records
-    const channel = supabase
-      .channel('admin-perf-realtime')
+    // Realtime: 訂閱 user_performances 取得即時價格/損益更新
+    const perfChannel = supabase
+      .channel('admin-perf-user-performances')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_performances',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            const row = payload.new as any;
+            const sym = row.symbol;
+            setRows(prev => prev.map(r =>
+              r.symbol === sym
+                ? {
+                    ...r,
+                    current_price: row.current_price ? Number(row.current_price) : r.current_price,
+                    pnl: row.pnl ? Number(row.pnl) : r.pnl,
+                    pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : r.pnl_percent,
+                  }
+                : r
+            ));
+          } else if (payload.eventType === 'DELETE') {
+            const old = payload.old as any;
+            // 不從列表移除，只清空即時數據
+            setRows(prev => prev.map(r =>
+              r.symbol === old.symbol
+                ? { ...r, current_price: null, pnl: null, pnl_percent: null }
+                : r
+            ));
+          }
+        },
+      )
+      .subscribe();
+
+    // Realtime: 訂閱 trade_records 偵測持倉新增/移除
+    const tradeChannel = supabase
+      .channel('admin-perf-trade-records')
       .on(
         'postgres_changes',
         {
@@ -164,6 +219,7 @@ const AdminPerformance = () => {
               name: parts.slice(1).join(' ') || null,
               entry_price: row.entry_price ? Number(row.entry_price) : null,
               current_price: row.current_price ? Number(row.current_price) : null,
+              pnl: null,
               pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
               quantity: row.quantity ?? 1,
               status: row.status,
@@ -171,13 +227,10 @@ const AdminPerformance = () => {
           } else if (payload.eventType === 'UPDATE') {
             const row = payload.new as any;
             if (row.status !== 'open') {
-              // Position closed — remove from list
               setRows(prev => prev.filter(r => r.id !== row.id));
             } else {
               setRows(prev => prev.map(r => r.id === row.id ? {
                 ...r,
-                current_price: row.current_price ? Number(row.current_price) : null,
-                pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
                 quantity: row.quantity ?? r.quantity,
               } : r));
             }
@@ -190,9 +243,10 @@ const AdminPerformance = () => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(perfChannel);
+      supabase.removeChannel(tradeChannel);
     };
-  }, [expertId]);
+  }, [expertId, user]);
 
   // ─── 已實現損益：trade_records (closed = sell/trim) ───
   const fetchRealized = useCallback(async () => {
