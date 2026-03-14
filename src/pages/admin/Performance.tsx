@@ -422,6 +422,7 @@ const AdminPerformance = () => {
                         <th className="text-right p-3 text-xs font-medium text-muted-foreground">現價</th>
                         <th className="text-right p-3 text-xs font-medium text-muted-foreground">損益</th>
                         <th className="text-right p-3 text-xs font-medium text-muted-foreground">報酬</th>
+                        <th className="text-center p-3 text-xs font-medium text-muted-foreground">狀態</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -465,6 +466,11 @@ const AdminPerformance = () => {
                                 format={fmtPct}
                                 className={pnlColor(row.pnl_percent)}
                               />
+                            </td>
+                            <td className="text-center p-3">
+                              <Badge variant="default" className="text-xs">
+                                持有中
+                              </Badge>
                             </td>
                           </tr>
                         ))
