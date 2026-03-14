@@ -388,7 +388,9 @@ const AdminPerformance = () => {
                   className={cn(
                     'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
                     realizedPeriod === p
-                      ? 'bg-primary text-primary-foreground'
+                      ? expertRole === 'mentor'
+                        ? 'bg-mentor text-white'
+                        : 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground hover:bg-muted/80'
                   )}
                 >
