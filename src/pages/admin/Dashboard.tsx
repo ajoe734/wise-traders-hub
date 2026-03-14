@@ -28,8 +28,6 @@ const AdminDashboard = () => {
   const [recentSignals, setRecentSignals] = useState<any[]>([]);
   const [revenueMode, setRevenueMode] = useState<'month' | 'year'>('month');
   const [yearlyRevenue, setYearlyRevenue] = useState(0);
-  const [marketIndices, setMarketIndices] = useState<MarketIndex[]>([]);
-  const [indicesLoading, setIndicesLoading] = useState(false);
 
   useEffect(() => { fetchData(); }, [expertSlug]);
 
