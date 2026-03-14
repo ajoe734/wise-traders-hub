@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useExpert } from "@/hooks/useExpert";
 import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useExpertPerformance } from "@/hooks/usePerformance";
 
 const planMeta: Record<string, { title: string; subtitle: string; description: string; features: string[]; icon: any; variant: 'advisor' | 'mentor' }> = {
   analyst_signal_l1: {
@@ -56,6 +57,7 @@ const AppExpertDetail = () => {
   const [subscribedPlanTypes, setSubscribedPlanTypes] = useState<string[]>([]);
   
   const { data: expert, isLoading } = useExpert(slug);
+  const { data: perf } = useExpertPerformance(expert?.id);
 
   // Fetch expert plans from DB
   const { data: dbPlans = [] } = useQuery({
@@ -169,7 +171,7 @@ const AppExpertDetail = () => {
           <StrategyIntroSection
             summary={expert.strategySummary}
             metrics={{
-              return1y: expert.backtestReturn1y,
+              return1y: perf?.return_1y ?? expert.backtestReturn1y,
               maxDrawdown: expert.backtestMaxDrawdown,
               annualReturn: expert.backtestAnnualReturn,
             }}

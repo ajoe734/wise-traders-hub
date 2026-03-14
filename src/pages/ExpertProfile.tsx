@@ -11,6 +11,7 @@ import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Targ
 import { cn } from '@/lib/utils';
 import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
 import { StrategyIntroSection } from '@/components/strategy/StrategyIntroSection';
+import { useExpertPerformance } from '@/hooks/usePerformance';
 
 interface DbPlan {
   id: string;
@@ -51,6 +52,7 @@ const ExpertProfile = () => {
   const [subscribedPlanIds, setSubscribedPlanIds] = useState<Set<string>>(new Set());
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const { data: perf } = useExpertPerformance(expertInfo?.id);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -232,7 +234,7 @@ const ExpertProfile = () => {
           <StrategyIntroSection
             summary={expertInfo.strategySummary || ''}
             metrics={{
-              return1y: expertInfo.backtestReturn1y,
+              return1y: perf?.return_1y ?? expertInfo.backtestReturn1y,
               maxDrawdown: expertInfo.backtestMaxDrawdown,
               annualReturn: expertInfo.backtestAnnualReturn,
             }}
