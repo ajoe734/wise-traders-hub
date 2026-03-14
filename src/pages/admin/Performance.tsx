@@ -16,6 +16,7 @@ interface PerfRow {
   entry_price: number | null;
   current_price: number | null;
   pnl_percent: number | null;
+  quantity: number;
   status: string;
 }
 
