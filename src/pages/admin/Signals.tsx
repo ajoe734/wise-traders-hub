@@ -97,6 +97,13 @@ const AdminSignals = () => {
         return publishedTime > fiveMinAgo;
       });
       setSignals(filtered);
+      // Fetch open trade_records to determine position status
+      const { data: openTrades } = await supabase
+        .from('trade_records')
+        .select('instrument')
+        .eq('expert_id', exp.id)
+        .eq('status', 'open');
+      setOpenInstruments(new Set((openTrades || []).map(t => t.instrument)));
       const { data: p } = await supabase.from('expert_plans').select('id, name').eq('expert_id', exp.id).eq('is_active', true);
       setPlans(p || []);
       const { data: tpl } = await supabase
