@@ -281,51 +281,16 @@ const AdminSignals = () => {
   const contentLabel = isMentor ? '週記' : '訊號';
   const canPublish = !!expert && !!stockCode.trim() && !!action;
 
-  // Multi-condition search: conditions separated by "、"
-  const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '加碼': 'add', '減碼': 'trim', '平損': 'exit' };
-  const statusKeywords = ['持有中', '已平倉', '已下架', '加碼', '減碼'];
-
-  const filtered = signals.filter(s => {
-    if (!searchQuery.trim()) return true;
-    const conditions = searchQuery.split('、').map(c => c.trim()).filter(Boolean);
-    const sigDate = s.published_at ? new Date(s.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
-    const sigAction = actionLabels[s.action]?.label || s.action;
-    // Determine display status
-    const isTakenDown = s.status === 'taken_down';
-    let displayStatus = '持有中';
-    if (isTakenDown) displayStatus = '已下架';
-    else if (s.action === 'exit') displayStatus = '已平倉';
-    else if (['sell', 'trim'].includes(s.action)) displayStatus = openInstruments.has(s.instrument) ? '減碼' : '已平倉';
-    else if (s.action === 'add') displayStatus = '加碼';
-
-    return conditions.every(cond => {
-      const lower = cond.toLowerCase();
-      // Check action match
-      if (actionLabelMap[cond]) return s.action === actionLabelMap[cond];
-      // Check status match
-      if (statusKeywords.includes(cond)) return displayStatus === cond;
-      // Check instrument, date, reason
-      return (
-        s.instrument?.toLowerCase().includes(lower) ||
-        sigDate.includes(cond) ||
-        s.reason_summary?.toLowerCase().includes(lower)
-      );
-    });
-  });
-
   // Determine which buy signals are actually "加碼" (subsequent buys for same instrument)
   const addBuySignalIds = useMemo(() => {
     const ids = new Set<string>();
-    // Process all signals (not just filtered) sorted by time ascending
     const sorted = [...signals].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    // Track open positions per instrument
     const openPositions = new Map<string, boolean>();
     for (const s of sorted) {
       if (s.status === 'taken_down') continue;
       const inst = s.instrument;
       if (s.action === 'buy') {
         if (openPositions.get(inst)) {
-          // Already holding this instrument → this buy is effectively 加碼
           ids.add(s.id);
         } else {
           openPositions.set(inst, true);
@@ -335,8 +300,6 @@ const AdminSignals = () => {
       } else if (s.action === 'exit') {
         openPositions.set(inst, false);
       } else if (s.action === 'sell' || s.action === 'trim') {
-        // Check if position is still open via openInstruments at current state
-        // For historical accuracy, we just mark as closed if not in openInstruments
         if (!openInstruments.has(inst)) {
           openPositions.set(inst, false);
         }
@@ -344,6 +307,39 @@ const AdminSignals = () => {
     }
     return ids;
   }, [signals, openInstruments]);
+
+  // Multi-condition search: conditions separated by "、"
+  const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
+  const statusOnlyKeywords = ['持有中', '已平倉', '已下架'];
+
+  const getDisplayStatus = (s: any) => {
+    if (s.status === 'taken_down') return '已下架';
+    if (s.action === 'exit') return '已平倉';
+    if (['sell', 'trim'].includes(s.action)) return openInstruments.has(s.instrument) ? '減碼' : '已平倉';
+    if (s.action === 'add') return '加碼';
+    if (s.action === 'buy' && addBuySignalIds.has(s.id)) return '加碼';
+    return '持有中';
+  };
+
+  const filtered = signals.filter(s => {
+    if (!searchQuery.trim()) return true;
+    const conditions = searchQuery.split('、').map(c => c.trim()).filter(Boolean);
+    const sigDateFull = s.published_at ? new Date(s.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+    const displayStatus = getDisplayStatus(s);
+
+    return conditions.every(cond => {
+      const lower = cond.toLowerCase();
+      if (actionLabelMap[cond]) return s.action === actionLabelMap[cond];
+      if (statusOnlyKeywords.includes(cond)) return displayStatus === cond;
+      if (cond === '加碼') return s.action === 'add' || displayStatus === '加碼';
+      if (cond === '減碼') return s.action === 'trim' || displayStatus === '減碼';
+      return (
+        s.instrument?.toLowerCase().includes(lower) ||
+        sigDateFull.includes(cond) ||
+        s.reason_summary?.toLowerCase().includes(lower)
+      );
+    });
+  });
 
   // Calculate current holding quantity for the searched instrument
   const holdingSummary = useMemo(() => {
