@@ -111,12 +111,15 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
     return { top5: sorted.slice(0, 5), bottom5: sorted.slice(-5).reverse() };
   }, [selectedData]);
 
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: PeriodBucket }> }) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: any }> }) => {
     if (!active || !payload?.[0]) return null;
     const data = payload[0].payload;
     return (
       <div className="bg-background/95 dark:bg-white/10 backdrop-blur-sm border dark:border-white/10 rounded-lg p-2 shadow-lg text-xs">
         <div className="font-medium text-foreground">{data.label}</div>
+        <div className="text-foreground">
+          資產: ${data.equity?.toLocaleString()}
+        </div>
         <div className={data.returnPct >= 0 ? "text-success" : "text-destructive"}>
           報酬率: {data.returnPct >= 0 ? "+" : ""}{data.returnPct.toFixed(1)}%
         </div>
