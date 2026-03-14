@@ -26,7 +26,7 @@ const AdminDashboard = () => {
   const [totalSignals, setTotalSignals] = useState(0);
   const [thisMonthSignals, setThisMonthSignals] = useState(0);
   const [cumulativeReturn, setCumulativeReturn] = useState<number | null>(null);
-  const [recentSignals, setRecentSignals] = useState<any[]>([]);
+  const [avgPnlPercent, setAvgPnlPercent] = useState<number | null>(null);
   const [revenueMode, setRevenueMode] = useState<'month' | 'year'>('month');
   const [yearlyRevenue, setYearlyRevenue] = useState(0);
 
