@@ -125,10 +125,7 @@ const AdminDashboard = () => {
     setTotalSignals(signalsRes.count || 0);
     setThisMonthSignals(monthSignalsRes.count || 0);
     
-    if (perfRes.data) {
-      const perf = perfRes.data as any;
-      setCumulativeReturn(perf.cumulative_return ?? null);
-    }
+    // cumulative return now comes from user_summaries realtime subscription
 
     setRecentSignals(recentRes.data || []);
 
