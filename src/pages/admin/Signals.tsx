@@ -314,7 +314,7 @@ const AdminSignals = () => {
                     <Label>數量</Label>
                     <div className="flex items-center gap-2">
                       <Input value={quantity} onChange={e => setQuantity(e.target.value)} type="number" placeholder="1" className="w-32" />
-                      <span className="text-sm text-muted-foreground">支</span>
+                      <span className="text-sm text-muted-foreground">張</span>
                     </div>
                   </div>
                 )}
