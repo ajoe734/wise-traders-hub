@@ -49,10 +49,46 @@ const AdminSignals = () => {
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 判斷是否為休市時段（週五 13:30 ~ 週一 09:00，台灣時間 UTC+8）
+  const isMarketClosed = useCallback(() => {
+    const now = new Date();
+    // Convert to Taiwan time (UTC+8)
+    const twOffset = 8 * 60; // minutes
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const tw = new Date(utcMs + twOffset * 60000);
+    const day = tw.getDay(); // 0=Sun, 6=Sat
+    const hhmm = tw.getHours() * 100 + tw.getMinutes();
+
+    if (day === 0) return true; // Sunday
+    if (day === 6) return true; // Saturday
+    if (day === 5 && hhmm >= 1330) return true; // Friday after 13:30
+    if (day === 1 && hhmm < 900) return true;  // Monday before 09:00
+    return false;
+  }, []);
+
   const fetchStockInfo = useCallback(async (code: string) => {
     if (!code.trim() || code.trim().length < 4) return;
     setFetchingQuote(true);
     try {
+      if (isMarketClosed() && expert?.user_id) {
+        // 休市期間：從 user_performances 取最後收盤價
+        const { data: perf } = await supabase
+          .from('user_performances')
+          .select('name, current_price')
+          .eq('user_id', expert.user_id)
+          .eq('symbol', code.trim())
+          .limit(1)
+          .maybeSingle();
+
+        if (perf) {
+          if (perf.name) setStockName(perf.name);
+          if (perf.current_price != null) setPriceHint(String(perf.current_price));
+          setFetchingQuote(false);
+          return;
+        }
+        // 如果 user_performances 沒有該股票，fallback 到 API
+      }
+
       const res = await fetch(`https://subsystem-production.up.railway.app/stock_info?symbol=${code.trim()}`);
       if (res.ok) {
         const data = await res.json();
@@ -62,7 +98,7 @@ const AdminSignals = () => {
       console.error('stock_info fetch error:', e);
     }
     setFetchingQuote(false);
-  }, []);
+  }, [isMarketClosed, expert?.user_id]);
 
   const handleStockCodeChange = (value: string) => {
     setStockCode(value);
