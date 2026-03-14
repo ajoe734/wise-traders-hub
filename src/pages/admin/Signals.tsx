@@ -150,27 +150,82 @@ const AdminSignals = () => {
     if (expert.user_id) {
       const entryPrice = latestPrice ? parseFloat(latestPrice) : 0;
 
-      if (action === 'sell' || action === 'trim' || action === 'exit') {
-        // 賣出/減碼/平損：將該股票的 open 狀態更新為 closed
-        const { error: tsError } = await supabase
+      if (action === 'exit') {
+        // 平損：全部關閉
+        await supabase
           .from('trade_signals')
           .update({ status: 'closed' } as any)
           .eq('user_id', expert.user_id)
           .eq('symbol', stockCode.trim())
           .eq('status', 'open');
-        if (tsError) {
-          console.error('trade_signals update failed:', tsError);
-          toast.error('持倉狀態更新失敗');
-        }
 
-        // 移除 user_performances 中的對應紀錄
         await supabase
           .from('user_performances')
           .delete()
           .eq('user_id', expert.user_id)
           .eq('symbol', stockCode.trim());
+
+      } else if (action === 'sell' || action === 'trim') {
+        // 賣出/減碼：檢查 trade_records 是否仍有 open 持倉
+        // trigger 已先更新 trade_records，這裡查詢結果即為最新狀態
+        const { data: remainingTrade } = await supabase
+          .from('trade_records')
+          .select('id')
+          .eq('expert_id', expert.id)
+          .eq('instrument', `${stockCode.trim()} ${latestName || ''}`.trim())
+          .eq('status', 'open')
+          .limit(1);
+
+        if (!remainingTrade || remainingTrade.length === 0) {
+          // 全部賣完，關閉 trade_signals 並移除 user_performances
+          await supabase
+            .from('trade_signals')
+            .update({ status: 'closed' } as any)
+            .eq('user_id', expert.user_id)
+            .eq('symbol', stockCode.trim())
+            .eq('status', 'open');
+
+          await supabase
+            .from('user_performances')
+            .delete()
+            .eq('user_id', expert.user_id)
+            .eq('symbol', stockCode.trim());
+        }
+        // 部分賣出：trade_signals 維持 open
+      } else if (action === 'add') {
+        // 加碼：若已有 open 紀錄則不重複新增
+        const { data: existing } = await supabase
+          .from('trade_signals')
+          .select('id')
+          .eq('user_id', expert.user_id)
+          .eq('symbol', stockCode.trim())
+          .eq('status', 'open')
+          .limit(1);
+
+        if (!existing || existing.length === 0) {
+          const { data: tsData } = await supabase.from('trade_signals').insert({
+            user_id: expert.user_id,
+            symbol: stockCode.trim(),
+            name: latestName || null,
+            entry_price: entryPrice,
+            status: 'open',
+          } as any).select('id').single();
+
+          if (tsData) {
+            await supabase.from('user_performances').insert({
+              user_id: expert.user_id,
+              signal_id: (tsData as any).id,
+              symbol: stockCode.trim(),
+              name: latestName || null,
+              entry_price: entryPrice,
+              current_price: entryPrice,
+              pnl: 0,
+              pnl_percent: 0,
+            } as any);
+          }
+        }
       } else {
-        // 買進/加碼：新增一筆 open 紀錄
+        // 買進：新增一筆 open 紀錄
         const { data: tsData, error: tsError } = await supabase.from('trade_signals').insert({
           user_id: expert.user_id,
           symbol: stockCode.trim(),
@@ -183,7 +238,6 @@ const AdminSignals = () => {
           toast.error('持倉記錄寫入失敗');
         }
 
-        // 同步寫入 user_performances 讓績效頁面立即顯示
         if (tsData) {
           await supabase.from('user_performances').insert({
             user_id: expert.user_id,
