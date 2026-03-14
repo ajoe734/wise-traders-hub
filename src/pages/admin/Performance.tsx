@@ -396,7 +396,7 @@ const AdminPerformance = () => {
                         </tr>
                       ) : rows.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
+                          <td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">
                             目前無持倉
                           </td>
                         </tr>
