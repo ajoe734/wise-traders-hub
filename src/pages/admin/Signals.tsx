@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -47,8 +47,31 @@ const AdminSignals = () => {
   const [reasonDetail, setReasonDetail] = useState('');
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
+  const [fetchingQuote, setFetchingQuote] = useState(false);
+  const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchStockInfo = useCallback(async (code: string) => {
+    if (!code.trim() || code.trim().length < 4) return;
+    setFetchingQuote(true);
+    try {
+      const res = await fetch(`https://subsystem-production.up.railway.app/stock_info?symbol=${code.trim()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.name) setStockName(data.name);
+        if (data.price) setPriceHint(String(data.price));
+      }
+    } catch (e) {
+      console.error('stock_info fetch error:', e);
+    }
+    setFetchingQuote(false);
+  }, []);
+
   const handleStockCodeChange = (value: string) => {
     setStockCode(value);
+    if (fetchTimer.current) clearTimeout(fetchTimer.current);
+    if (value.trim().length >= 4) {
+      fetchTimer.current = setTimeout(() => fetchStockInfo(value), 500);
+    }
   };
 
   useEffect(() => { fetchData(); }, [expertSlug]);
@@ -231,8 +254,11 @@ const AdminSignals = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>股票名稱</Label>
-                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="例：台積電" />
+                    <Label className="flex items-center gap-1.5">
+                      股票名稱
+                      {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                    </Label>
+                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder={fetchingQuote ? "查詢中..." : "自動填入或手動輸入"} />
                   </div>
                 </div>
                 {signalTemplates.length > 0 && (
