@@ -358,13 +358,11 @@ const AdminPerformance = () => {
                             </td>
                             <td className="text-right p-3 text-sm font-medium tabular-nums">
                               <AnimatedNumber
-                                value={row.pnl}
-                                format={fmtPnl}
-                                className={pnlColor(row.pnl)}
+                                value={row.pnl_percent}
+                                format={fmtPct}
+                                className={pnlColor(row.pnl_percent)}
                               />
                             </td>
-                            <td className="text-right p-3 text-sm font-medium tabular-nums">
-                              <AnimatedNumber
                                 value={row.pnl_percent}
                                 format={fmtPct}
                                 className={pnlColor(row.pnl_percent)}
