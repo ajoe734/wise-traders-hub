@@ -282,32 +282,38 @@ const AdminSignals = () => {
   const canPublish = !!expert && !!stockCode.trim() && !!action;
 
   // Multi-condition search: conditions separated by "、"
-  const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '加碼': 'add', '減碼': 'trim', '平損': 'exit' };
-  const statusKeywords = ['持有中', '已平倉', '已下架', '加碼', '減碼'];
+  const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
+  const statusOnlyKeywords = ['持有中', '已平倉', '已下架'];
+
+  const getDisplayStatus = (s: any) => {
+    if (s.status === 'taken_down') return '已下架';
+    if (s.action === 'exit') return '已平倉';
+    if (['sell', 'trim'].includes(s.action)) return openInstruments.has(s.instrument) ? '減碼' : '已平倉';
+    if (s.action === 'add') return '加碼';
+    if (s.action === 'buy' && addBuySignalIds.has(s.id)) return '加碼';
+    return '持有中';
+  };
 
   const filtered = signals.filter(s => {
     if (!searchQuery.trim()) return true;
     const conditions = searchQuery.split('、').map(c => c.trim()).filter(Boolean);
-    const sigDate = s.published_at ? new Date(s.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+    const sigDateFull = s.published_at ? new Date(s.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
     const sigAction = actionLabels[s.action]?.label || s.action;
-    // Determine display status
-    const isTakenDown = s.status === 'taken_down';
-    let displayStatus = '持有中';
-    if (isTakenDown) displayStatus = '已下架';
-    else if (s.action === 'exit') displayStatus = '已平倉';
-    else if (['sell', 'trim'].includes(s.action)) displayStatus = openInstruments.has(s.instrument) ? '減碼' : '已平倉';
-    else if (s.action === 'add') displayStatus = '加碼';
+    const displayStatus = getDisplayStatus(s);
 
     return conditions.every(cond => {
       const lower = cond.toLowerCase();
-      // Check action match
+      // Check action direction (買進/賣出/平損)
       if (actionLabelMap[cond]) return s.action === actionLabelMap[cond];
-      // Check status match
-      if (statusKeywords.includes(cond)) return displayStatus === cond;
-      // Check instrument, date, reason
+      // Check status keywords (持有中/已平倉/已下架)
+      if (statusOnlyKeywords.includes(cond)) return displayStatus === cond;
+      // "加碼" can be either action=add or displayStatus=加碼, "減碼" can be action=trim or displayStatus=減碼
+      if (cond === '加碼') return s.action === 'add' || displayStatus === '加碼';
+      if (cond === '減碼') return s.action === 'trim' || displayStatus === '減碼';
+      // Flexible match: instrument, date/time (partial), reason
       return (
         s.instrument?.toLowerCase().includes(lower) ||
-        sigDate.includes(cond) ||
+        sigDateFull.includes(cond) ||
         s.reason_summary?.toLowerCase().includes(lower)
       );
     });
