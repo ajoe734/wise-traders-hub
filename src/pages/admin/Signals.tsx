@@ -254,8 +254,11 @@ const AdminSignals = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>股票名稱</Label>
-                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="例：台積電" />
+                    <Label className="flex items-center gap-1.5">
+                      股票名稱
+                      {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                    </Label>
+                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder={fetchingQuote ? "查詢中..." : "自動填入或手動輸入"} />
                   </div>
                 </div>
                 {signalTemplates.length > 0 && (
