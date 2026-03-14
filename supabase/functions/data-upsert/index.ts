@@ -11,6 +11,7 @@ const ALLOWED_TABLES = new Set([
   'trade_signals',
   'trade_records',
   'user_performances',
+  'user_summaries',
 ])
 
 function extractApiKey(req: Request): string | null {
