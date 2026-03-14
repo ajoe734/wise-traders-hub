@@ -49,7 +49,7 @@ export function StrategyIntroSection({ summary, metrics, variant = 'advisor' }: 
               <div className="bg-muted/30 dark:bg-white/[0.04] rounded-lg p-4 text-center space-y-1">
                 <p className="text-xs text-muted-foreground">年化報酬</p>
                 <p className="text-xl font-bold tabular-nums text-foreground">
-                  {metrics.annualReturn.toFixed(1)}%
+                  {metrics.annualReturn}%
                 </p>
                 <p className="text-[10px] text-muted-foreground/60">回測數據</p>
               </div>
