@@ -431,14 +431,23 @@ const AdminSignals = () => {
                                  <p className="text-muted-foreground truncate">{stripDotPrefix(signal.reason_summary || '-')}</p>
                                )}
                              </td>
-                              <td className="p-3">
-                                {isTakenDown ? (
-                                  <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已下架</Badge>
-                                ) : ['sell', 'exit'].includes(signal.action) ? (
-                                  <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
-                                ) : (
-                                  <Badge variant="secondary" className="text-xs text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800">持有中</Badge>
-                                )}
+                               <td className="p-3">
+                                 {isTakenDown ? (
+                                   <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已下架</Badge>
+                                 ) : signal.action === 'exit' ? (
+                                   <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
+                                 ) : ['sell', 'trim'].includes(signal.action) ? (
+                                   openInstruments.has(signal.instrument) ? (
+                                     <Badge className="text-xs border border-amber-400/40 bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">減碼</Badge>
+                                   ) : (
+                                     <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
+                                   )
+                                 ) : signal.action === 'add' ? (
+                                   <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
+                                 ) : (
+                                   <Badge variant="secondary" className="text-xs text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800">持有中</Badge>
+                                 )}
+                               </td>
                               </td>
                              <td className="p-3">
                                {hasDetail && (
