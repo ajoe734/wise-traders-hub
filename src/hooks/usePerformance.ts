@@ -9,6 +9,7 @@ export interface ExpertPerformance {
   profit_factor: number;
   avg_hold_days: number;
   total_pnl: number;
+  return_1y: number;
 }
 
 export function useExpertPerformance(expertId: string | undefined) {

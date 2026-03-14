@@ -11,6 +11,7 @@ import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Targ
 import { cn } from '@/lib/utils';
 import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
 import { StrategyIntroSection } from '@/components/strategy/StrategyIntroSection';
+import { useExpertPerformance } from '@/hooks/usePerformance';
 
 interface DbPlan {
   id: string;
