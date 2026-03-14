@@ -282,10 +282,14 @@ const AdminSignals = () => {
   const contentLabel = isMentor ? '週記' : '訊號';
   const canPublish = !!expert && !!stockCode.trim() && !!action;
 
-  const filtered = signals.filter(s =>
-    s.instrument?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.reason_summary?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = signals.filter(s => {
+    const matchText = !searchQuery.trim() || 
+      s.instrument?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.reason_summary?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchDate = !searchDate.trim() || 
+      (s.published_at && new Date(s.published_at).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '').includes(searchDate.replace(/\//g, '').replace(/-/g, '')));
+    return matchText && matchDate;
+  });
 
   // Determine which buy signals are actually "加碼" (subsequent buys for same instrument)
   const addBuySignalIds = useMemo(() => {
