@@ -411,7 +411,7 @@ const AdminSignals = () => {
                              <td className="p-3 text-sm">
                                {signal.price_hint || '-'}
                                {signal.quantity && signal.action !== 'exit' && (
-                                 <span className="text-muted-foreground ml-1">({signal.quantity}支)</span>
+                                 <span className="text-muted-foreground ml-1">({signal.quantity}張)</span>
                                )}
                              </td>
                              <td className="p-3 text-sm max-w-[240px]">
