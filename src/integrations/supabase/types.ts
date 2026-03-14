@@ -790,6 +790,7 @@ export type Database = {
           instrument: string
           pnl_percent: number | null
           price_updated_at: string | null
+          quantity: number
           signal_id: string | null
           status: Database["public"]["Enums"]["trade_status"]
         }
@@ -805,6 +806,7 @@ export type Database = {
           instrument: string
           pnl_percent?: number | null
           price_updated_at?: string | null
+          quantity?: number
           signal_id?: string | null
           status?: Database["public"]["Enums"]["trade_status"]
         }
@@ -820,6 +822,7 @@ export type Database = {
           instrument?: string
           pnl_percent?: number | null
           price_updated_at?: string | null
+          quantity?: number
           signal_id?: string | null
           status?: Database["public"]["Enums"]["trade_status"]
         }
