@@ -20,9 +20,6 @@ const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■
 const actionLabels: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
   buy: { label: '買進', variant: 'destructive' },
   sell: { label: '賣出', variant: 'default' },
-  add: { label: '加碼', variant: 'secondary' },
-  trim: { label: '減碼', variant: 'outline' },
-  exit: { label: '平損', variant: 'secondary' },
 };
 
 const AdminSignals = () => {
@@ -137,7 +134,7 @@ const AdminSignals = () => {
       instrument,
       action: action as any,
       price_hint: latestPrice ? parseFloat(latestPrice) : null,
-      quantity: action !== 'exit' && quantity ? parseInt(quantity) : null,
+      quantity: quantity ? parseInt(quantity) : null,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
@@ -384,9 +381,6 @@ const AdminSignals = () => {
                       <SelectContent>
                         <SelectItem value="buy">買進</SelectItem>
                         <SelectItem value="sell">賣出</SelectItem>
-                        <SelectItem value="add">加碼</SelectItem>
-                        <SelectItem value="trim">減碼</SelectItem>
-                        <SelectItem value="exit">平損</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -395,7 +389,7 @@ const AdminSignals = () => {
                     <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
                   </div>
                 </div>
-                {action && action !== 'exit' && (
+                {action && (
                   <div className="space-y-2">
                     <Label>數量</Label>
                     <div className="flex items-center gap-2">
@@ -430,7 +424,7 @@ const AdminSignals = () => {
                         <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
                         <span className="font-medium text-sm">{stockCode} {stockName}</span>
                         {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
-                        {action !== 'exit' && quantity && <span className="text-sm text-muted-foreground">{quantity} 張</span>}
+                        {quantity && <span className="text-sm text-muted-foreground">{quantity} 張</span>}
                       </div>
                       {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
                       {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
@@ -496,9 +490,9 @@ const AdminSignals = () => {
                              <td className="p-3"><Badge variant={ai.variant} className="text-xs">{ai.label}</Badge></td>
                              <td className="p-3 text-sm">
                                {signal.price_hint || '-'}
-                               {signal.quantity && signal.action !== 'exit' && (
-                                 <span className="text-muted-foreground ml-1">({signal.quantity}張)</span>
-                               )}
+                                {signal.quantity && (
+                                  <span className="text-muted-foreground ml-1">({signal.quantity}張)</span>
+                                )}
                              </td>
                              <td className="p-3 text-sm max-w-[240px]">
                                {isTakenDown && signal.taken_down_reason ? (
