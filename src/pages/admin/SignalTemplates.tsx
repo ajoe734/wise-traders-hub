@@ -14,6 +14,9 @@ import { Plus, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import step1Img from '@/assets/template-step1.png';
+import step2Img from '@/assets/template-step2.png';
+import step3Img from '@/assets/template-step3.png';
 
 interface SignalTemplate {
   id: string;
@@ -178,6 +181,42 @@ const AdminSignalTemplates = () => {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Workflow Guide */}
+        <Card>
+          <CardContent className="p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-foreground">📖 操作流程範例</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <div className="rounded-lg overflow-hidden border">
+                  <img src={step1Img} alt="Step 1: 新增模板" className="w-full h-auto" />
+                </div>
+                <div className="text-center">
+                  <Badge variant="outline" className="text-xs mb-1">Step 1</Badge>
+                  <p className="text-xs text-muted-foreground">點擊「新增模板」，填寫模板名稱、操作方向、理由與風險提示後儲存</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="rounded-lg overflow-hidden border">
+                  <img src={step2Img} alt="Step 2: 選擇模板" className="w-full h-auto" />
+                </div>
+                <div className="text-center">
+                  <Badge variant="outline" className="text-xs mb-1">Step 2</Badge>
+                  <p className="text-xs text-muted-foreground">發布訊號時，點擊模板標籤即可快速套用預設內容</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="rounded-lg overflow-hidden border">
+                  <img src={step3Img} alt="Step 3: 自動填入" className="w-full h-auto" />
+                </div>
+                <div className="text-center">
+                  <Badge variant="outline" className="text-xs mb-1">Step 3</Badge>
+                  <p className="text-xs text-muted-foreground">操作方向、理由、風險提示等欄位自動填入，確認後立即發布</p>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
