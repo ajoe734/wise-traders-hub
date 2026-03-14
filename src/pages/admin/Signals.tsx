@@ -373,7 +373,7 @@ const AdminSignals = () => {
                            <tr className={cn(
                              "border-b last:border-0 hover:bg-muted/30"
                            )}>
-                             <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW') : '-'}</td>
+                             <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                              <td className="p-3 text-sm font-medium">{signal.instrument}</td>
                              <td className="p-3"><Badge variant={ai.variant} className="text-xs">{ai.label}</Badge></td>
                              <td className="p-3 text-sm">{signal.price_hint || '-'}</td>
