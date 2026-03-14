@@ -92,11 +92,14 @@ const AdminPerformance = () => {
     if (!user) return;
     supabase
       .from('experts')
-      .select('id')
+      .select('id, role')
       .eq('user_id', user.id)
       .single()
       .then(({ data }) => {
-        if (data) setExpertId(data.id);
+        if (data) {
+          setExpertId(data.id);
+          setExpertRole(data.role);
+        }
       });
   }, [user]);
 
