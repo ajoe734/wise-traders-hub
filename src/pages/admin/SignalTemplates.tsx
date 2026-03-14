@@ -195,7 +195,7 @@ const AdminSignalTemplates = () => {
                 </div>
                 <div className="text-center">
                   <Badge variant="outline" className="text-xs mb-1">步驟一</Badge>
-                  <p className="text-xs text-muted-foreground">點擊「新增模板」，填寫模板名稱、操作方向、理由與風險提示後儲存</p>
+                  <p className="text-xs text-muted-foreground">點擊「新增模板」，填寫名稱、方向、理由、風險與策略後儲存</p>
                 </div>
               </div>
               <div className="space-y-2">
