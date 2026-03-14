@@ -142,23 +142,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
           </TabsList>
         </Tabs>
 
-        {/* Capital Snapshot */}
-        <div className="flex items-center justify-between px-4 py-3 bg-muted/40 dark:bg-white/[0.04] rounded-lg">
-          <div className="text-center min-w-0">
-            <p className="text-xs text-muted-foreground mb-0.5">起始資金</p>
-            <p className="text-sm font-medium tabular-nums text-foreground">${INITIAL_CAPITAL.toLocaleString()}</p>
-          </div>
-          <div className="text-center min-w-0">
-            <p className="text-xs text-muted-foreground mb-0.5">目前資產</p>
-            <p className="text-base font-semibold tabular-nums text-foreground">${currentAsset.toLocaleString()}</p>
-          </div>
-          <div className="text-center min-w-0">
-            <p className="text-xs text-muted-foreground mb-0.5">總報酬率</p>
-            <p className={cn("text-lg font-bold tabular-nums", sinceInceptionReturn >= 0 ? "text-success" : "text-destructive")}>
-              {sinceInceptionReturn >= 0 ? "+" : ""}{sinceInceptionReturn.toFixed(2)}%
-            </p>
-          </div>
-        </div>
+
 
         {/* Chart */}
         <div className="space-y-3">
