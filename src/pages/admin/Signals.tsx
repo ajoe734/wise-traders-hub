@@ -58,7 +58,6 @@ const AdminSignals = () => {
       if (res.ok) {
         const data = await res.json();
         if (data.name) setStockName(data.name);
-        if (data.price) setPriceHint(String(data.price));
       }
     } catch (e) {
       console.error('stock_info fetch error:', e);
