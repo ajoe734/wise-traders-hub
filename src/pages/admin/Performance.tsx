@@ -402,8 +402,8 @@ const AdminPerformance = () => {
               <Card>
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground mb-1">平均報酬</p>
-                  <p className={cn('text-2xl font-bold tabular-nums', pnlColor(unrealizedSummary.totalPct))}>
-                    {unrealizedSummary.count > 0 ? fmtPct(unrealizedSummary.totalPct) : '-'}
+                  <p className={cn('text-2xl font-bold tabular-nums', pnlColor(avgPnlPercent))}>
+                    <AnimatedNumber value={avgPnlPercent} format={fmtPct} className={pnlColor(avgPnlPercent)} />
                   </p>
                 </CardContent>
               </Card>
