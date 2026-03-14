@@ -467,6 +467,11 @@ const AdminPerformance = () => {
                                 className={pnlColor(row.pnl_percent)}
                               />
                             </td>
+                            <td className="text-center p-3">
+                              <Badge variant="default" className="text-xs">
+                                持有中
+                              </Badge>
+                            </td>
                           </tr>
                         ))
                       )}
