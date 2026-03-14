@@ -80,9 +80,16 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
     return performanceData.find(p => p.label === selectedPoint);
   }, [selectedPoint, performanceData]);
 
-  const chartData = useMemo(() => {
-    return performanceData.map(p => ({ ...p, isSelected: p.label === selectedPoint }));
+  // Build equity curve from period buckets (compound returns)
+  const equityCurve = useMemo(() => {
+    let equity = INITIAL_CAPITAL;
+    return performanceData.map(p => {
+      equity = equity * (1 + p.returnPct / 100);
+      return { ...p, equity: Math.round(equity), isSelected: p.label === selectedPoint };
+    });
   }, [performanceData, selectedPoint]);
+
+  const chartData = equityCurve;
 
   const handlePointClick = (data: PeriodBucket) => {
     if (selectedPoint === data.label) {
