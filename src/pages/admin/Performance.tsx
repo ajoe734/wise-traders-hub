@@ -103,53 +103,42 @@ const AdminPerformance = () => {
       });
   }, [user]);
 
-  // ─── 未實現損益：trade_signals (open) + user_performances (realtime) ───
+  // ─── 未實現損益：trade_records (open) ───
   useEffect(() => {
-    if (!user) return;
+    if (!expertId) return;
 
     const fetchInitial = async () => {
-      // First get open positions from trade_signals
-      const { data: signals, error: sigError } = await supabase
-        .from('trade_signals')
-        .select('id, symbol, name, entry_price, status')
-        .eq('user_id', user.id)
+      const { data, error } = await supabase
+        .from('trade_records')
+        .select('id, instrument, entry_price, current_price, pnl_percent, status')
+        .eq('expert_id', expertId)
         .eq('status', 'open');
 
-      if (sigError) {
-        setLoading(false);
-        return;
+      if (!error) {
+        setRows(
+          (data || []).map(r => {
+            const parts = r.instrument.split(' ');
+            const symbol = parts[0] || r.instrument;
+            const name = parts.slice(1).join(' ') || null;
+            return {
+              id: r.id,
+              instrument: r.instrument,
+              symbol,
+              name,
+              entry_price: r.entry_price ? Number(r.entry_price) : null,
+              current_price: r.current_price ? Number(r.current_price) : null,
+              pnl_percent: r.pnl_percent ? Number(r.pnl_percent) : null,
+              status: r.status,
+            };
+          }),
+        );
       }
-
-      // Then get latest performance data if available
-      const { data: perfData } = await supabase
-        .from('user_performances')
-        .select('signal_id, current_price, pnl, pnl_percent')
-        .eq('user_id', user.id);
-
-      const perfMap = new Map<number, { current_price: number | null; pnl: number | null; pnl_percent: number | null }>();
-      (perfData || []).forEach(p => perfMap.set(p.signal_id, p));
-
-      setRows(
-        (signals || []).map(s => {
-          const perf = perfMap.get(s.id);
-          return {
-            signal_id: s.id,
-            symbol: s.symbol,
-            name: s.name,
-            entry_price: Number(s.entry_price) || null,
-            current_price: perf?.current_price ?? null,
-            pnl: perf?.pnl ?? null,
-            pnl_percent: perf?.pnl_percent ?? null,
-            status: 'open',
-          };
-        }),
-      );
       setLoading(false);
     };
 
     fetchInitial();
 
-    // Realtime updates from user_performances
+    // Realtime updates from trade_records
     const channel = supabase
       .channel('admin-perf-realtime')
       .on(
@@ -157,29 +146,39 @@ const AdminPerformance = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'user_performances',
-          filter: `user_id=eq.${user.id}`,
+          table: 'trade_records',
+          filter: `expert_id=eq.${expertId}`,
         },
         (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          if (payload.eventType === 'INSERT') {
             const row = payload.new as any;
-            setRows(prev => {
-              const idx = prev.findIndex(r => r.signal_id === row.signal_id);
-              if (idx >= 0) {
-                const next = [...prev];
-                next[idx] = {
-                  ...next[idx],
-                  current_price: row.current_price,
-                  pnl: row.pnl,
-                  pnl_percent: row.pnl_percent,
-                };
-                return next;
-              }
-              return prev;
-            });
+            if (row.status !== 'open') return;
+            const parts = (row.instrument || '').split(' ');
+            setRows(prev => [...prev, {
+              id: row.id,
+              instrument: row.instrument,
+              symbol: parts[0] || row.instrument,
+              name: parts.slice(1).join(' ') || null,
+              entry_price: row.entry_price ? Number(row.entry_price) : null,
+              current_price: row.current_price ? Number(row.current_price) : null,
+              pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
+              status: row.status,
+            }]);
+          } else if (payload.eventType === 'UPDATE') {
+            const row = payload.new as any;
+            if (row.status !== 'open') {
+              // Position closed — remove from list
+              setRows(prev => prev.filter(r => r.id !== row.id));
+            } else {
+              setRows(prev => prev.map(r => r.id === row.id ? {
+                ...r,
+                current_price: row.current_price ? Number(row.current_price) : null,
+                pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
+              } : r));
+            }
           } else if (payload.eventType === 'DELETE') {
             const old = payload.old as any;
-            setRows(prev => prev.filter(r => r.signal_id !== old.signal_id));
+            setRows(prev => prev.filter(r => r.id !== old.id));
           }
         },
       )
@@ -188,7 +187,7 @@ const AdminPerformance = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [expertId]);
 
   // ─── 已實現損益：trade_records (closed = sell/trim) ───
   const fetchRealized = useCallback(async () => {
