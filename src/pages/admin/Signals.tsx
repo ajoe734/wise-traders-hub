@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -289,6 +289,30 @@ const AdminSignals = () => {
     s.reason_summary?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Calculate current holding quantity for the searched instrument
+  const holdingSummary = useMemo(() => {
+    if (!searchQuery.trim()) return null;
+    // Group filtered published signals by instrument and compute net quantity
+    const instrumentMap = new Map<string, number>();
+    for (const s of filtered) {
+      if (s.status === 'taken_down') continue;
+      const inst = s.instrument;
+      const qty = s.quantity || 1;
+      const current = instrumentMap.get(inst) || 0;
+      if (s.action === 'buy' || s.action === 'add') {
+        instrumentMap.set(inst, current + qty);
+      } else if (s.action === 'sell' || s.action === 'trim') {
+        instrumentMap.set(inst, current - qty);
+      } else if (s.action === 'exit') {
+        instrumentMap.set(inst, 0);
+      }
+    }
+    // Only show if there's a single instrument match
+    const entries = Array.from(instrumentMap.entries()).filter(([, v]) => v !== undefined);
+    if (entries.length === 0) return null;
+    return entries.map(([inst, qty]) => ({ instrument: inst, quantity: Math.max(0, qty) }));
+  }, [filtered, searchQuery]);
+
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
 
   return (
@@ -548,6 +572,21 @@ const AdminSignals = () => {
                      })
                   )}
                 </tbody>
+                {holdingSummary && holdingSummary.length > 0 && (
+                  <tfoot>
+                    {holdingSummary.map(({ instrument, quantity }) => (
+                      <tr key={instrument} className="border-t bg-muted/40">
+                        <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground">
+                          {instrument} 目前持有
+                        </td>
+                        <td className="p-3 text-sm font-bold text-foreground">
+                          {quantity} 張
+                        </td>
+                        <td colSpan={3}></td>
+                      </tr>
+                    ))}
+                  </tfoot>
+                )}
               </table>
             </div>
           </CardContent>
