@@ -231,53 +231,6 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        {/* Market Index Widget */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              大盤指數
-              <span className="text-[10px] text-muted-foreground font-normal">（收盤後更新）</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {indicesLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
-                <span className="text-sm text-muted-foreground">載入指數資料...</span>
-              </div>
-            ) : marketIndices.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">尚無指數資料（盤中或非交易日）</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {marketIndices.map((idx) => {
-                  const change = parseFloat(idx.Change) || 0;
-                  const isUp = change > 0;
-                  const isDown = change < 0;
-                  return (
-                    <div key={idx.IndexName} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <div>
-                        <p className="text-xs text-muted-foreground">{idx.IndexName}</p>
-                        <p className="text-lg font-bold">{idx.ClosingIndex}</p>
-                      </div>
-                      <div className={cn(
-                        "flex items-center gap-1 text-sm font-semibold",
-                        isUp ? "text-red-500" : isDown ? "text-green-500" : "text-muted-foreground"
-                      )}>
-                        {isUp && <ArrowUpRight className="h-4 w-4" />}
-                        {isDown && <ArrowDownRight className="h-4 w-4" />}
-                        <span>{isUp ? '+' : ''}{idx.Change}</span>
-                        {idx.ChangePercent && (
-                          <span className="text-xs">({isUp ? '+' : ''}{idx.ChangePercent}%)</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader>
