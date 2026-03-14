@@ -15,8 +15,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import step1Img from '@/assets/template-step1.png';
-import step2Img from '@/assets/template-step2.png';
-import step3Img from '@/assets/template-step3.png';
+import step2Img from '@/assets/template-step3.png';
 
 interface SignalTemplate {
   id: string;
