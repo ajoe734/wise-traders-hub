@@ -286,6 +286,38 @@ const AdminSignals = () => {
     s.reason_summary?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Determine which buy signals are actually "加碼" (subsequent buys for same instrument)
+  const addBuySignalIds = useMemo(() => {
+    const ids = new Set<string>();
+    // Process all signals (not just filtered) sorted by time ascending
+    const sorted = [...signals].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    // Track open positions per instrument
+    const openPositions = new Map<string, boolean>();
+    for (const s of sorted) {
+      if (s.status === 'taken_down') continue;
+      const inst = s.instrument;
+      if (s.action === 'buy') {
+        if (openPositions.get(inst)) {
+          // Already holding this instrument → this buy is effectively 加碼
+          ids.add(s.id);
+        } else {
+          openPositions.set(inst, true);
+        }
+      } else if (s.action === 'add') {
+        openPositions.set(inst, true);
+      } else if (s.action === 'exit') {
+        openPositions.set(inst, false);
+      } else if (s.action === 'sell' || s.action === 'trim') {
+        // Check if position is still open via openInstruments at current state
+        // For historical accuracy, we just mark as closed if not in openInstruments
+        if (!openInstruments.has(inst)) {
+          openPositions.set(inst, false);
+        }
+      }
+    }
+    return ids;
+  }, [signals, openInstruments]);
+
   // Calculate current holding quantity for the searched instrument
   const holdingSummary = useMemo(() => {
     if (!searchQuery.trim()) return null;
@@ -516,11 +548,13 @@ const AdminSignals = () => {
                                    )
                                  ) : signal.action === 'add' ? (
                                    <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
-                                 ) : (
-                                   <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
-                                 )}
-                               </td>
-                             <td className="p-3">
+                                  ) : signal.action === 'buy' && addBuySignalIds.has(signal.id) ? (
+                                    <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
+                                  ) : (
+                                    <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
+                                   )}
+                                </td>
+                              <td className="p-3">
                                {hasDetail && (
                                  <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setExpandedId(isExpanded ? null : signal.id)}>
                                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
