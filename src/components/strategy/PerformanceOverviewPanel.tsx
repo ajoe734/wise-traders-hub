@@ -51,10 +51,8 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
 
   // Overall trend for chart color
   const overallTrend = useMemo(() => {
-    if (!performanceData.length) return 'neutral';
-    const avgReturn = performanceData.reduce((sum, p) => sum + p.returnPct, 0) / performanceData.length;
-    return avgReturn >= 0 ? 'positive' : 'negative';
-  }, [performanceData]);
+    return sinceInceptionReturn >= 0 ? 'positive' : 'negative';
+  }, [sinceInceptionReturn]);
 
   // Taiwan market: red=up, green=down
   const chartColors = useMemo(() => {
