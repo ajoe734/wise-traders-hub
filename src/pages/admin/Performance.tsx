@@ -164,6 +164,7 @@ const AdminPerformance = () => {
               entry_price: row.entry_price ? Number(row.entry_price) : null,
               current_price: row.current_price ? Number(row.current_price) : null,
               pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
+              quantity: row.quantity ?? 1,
               status: row.status,
             }]);
           } else if (payload.eventType === 'UPDATE') {
