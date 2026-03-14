@@ -15,13 +15,6 @@ const actionLabels: Record<string, { label: string; variant: 'default' | 'destru
   exit: { label: '平損', variant: 'destructive' },
 };
 
-interface MarketIndex {
-  IndexName: string;
-  ClosingIndex: string;
-  Change: string;
-  ChangePercent?: string;
-  TradeVolume?: string;
-}
 
 const AdminDashboard = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
