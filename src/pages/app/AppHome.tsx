@@ -69,7 +69,7 @@ function ExpertPerfRow({ sub }: { sub: DbSubscription }) {
       className="flex items-center justify-between py-1.5 hover:bg-foreground/5 rounded-lg px-2 -mx-2 transition-colors"
     >
       <div className="flex items-center gap-2">
-        <Avatar className="h-7 w-7 border border-signals-accent/30">
+        <Avatar className={cn("h-7 w-7 border", sub.expert.role === 'mentor' ? 'border-learning-accent/30' : 'border-signals-accent/30')}>
           <AvatarImage src={sub.expert.avatar_url || '/placeholder.svg'} alt={sub.expert.name} />
           <AvatarFallback className="text-xs">{sub.expert.name[0]}</AvatarFallback>
         </Avatar>
