@@ -17,9 +17,9 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
-const actionLabels: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline' }> = {
-  buy: { label: '買進', variant: 'destructive' },
-  sell: { label: '賣出', variant: 'default' },
+const actionLabels: Record<string, { label: string; className: string }> = {
+  buy: { label: '買進', className: 'bg-destructive text-white border-destructive' },
+  sell: { label: '賣出', className: 'bg-success text-white border-success' },
 };
 
 const AdminSignals = () => {
