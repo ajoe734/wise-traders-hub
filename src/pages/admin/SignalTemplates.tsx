@@ -143,35 +143,7 @@ const AdminSignalTemplates = () => {
         <Card>
           <CardContent className="p-0">
             {templates.length === 0 ? (
-              <div className="p-8 text-center space-y-4">
-                <p className="text-muted-foreground text-sm">尚未建立任何訊號模板</p>
-                {!isCompanyAdmin && (
-                  <div className="max-w-md mx-auto text-left bg-muted/40 rounded-lg p-4 space-y-3">
-                    <p className="text-xs font-medium text-foreground">💡 範例模板參考</p>
-                    <div className="space-y-2 text-xs text-muted-foreground">
-                      <div className="border rounded-md p-2.5 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-success text-white text-[10px] px-1.5 py-0">買進</Badge>
-                          <span className="font-medium text-foreground">突破壓力位</span>
-                        </div>
-                        <p>理由：股價突破前高壓力位，帶量站穩，順勢做多</p>
-                        <p>風險：跌破前低或支撐位即停損</p>
-                        <p>策略：短線波段操作，預期漲幅 10-15%</p>
-                      </div>
-                      <div className="border rounded-md p-2.5 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-destructive text-white text-[10px] px-1.5 py-0">賣出</Badge>
-                          <span className="font-medium text-foreground">目標達成</span>
-                        </div>
-                        <p>理由：已達預設目標價位，獲利了結</p>
-                        <p>風險：後續若回測支撐可再觀察</p>
-                        <p>策略：分批出場，保留部分觀察</p>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground/60">點擊上方「新增模板」即可建立您的專屬模板</p>
-                  </div>
-                )}
-              </div>
+              <div className="p-8 text-center text-muted-foreground text-sm">尚未建立任何訊號模板</div>
             ) : (
               <div className="divide-y">
                 {templates.map((t, idx) => (

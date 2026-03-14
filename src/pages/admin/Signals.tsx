@@ -257,7 +257,7 @@ const AdminSignals = () => {
                       股票名稱
                       {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                     </Label>
-                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder={fetchingQuote ? "查詢中..." : "自動填入或手動輸入"} />
+                    <Input value={stockName} onChange={e => setStockName(e.target.value)} placeholder="" />
                   </div>
                 </div>
                 {signalTemplates.length > 0 && (
