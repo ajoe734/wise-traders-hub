@@ -164,7 +164,7 @@ const AdminDashboard = () => {
     {
       label: '累計發布訊號',
       value: totalSignals,
-      change: `本月 ${thisMonthSignals}`,
+      change: '',
       changeType: 'neutral' as const,
       icon: Radio,
     },
