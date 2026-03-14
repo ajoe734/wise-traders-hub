@@ -317,7 +317,6 @@ const AdminSignals = () => {
                     </div>
                   </div>
                 )}
-                </div>
                 <div className="space-y-2">
                   <Label>操作理由（摘要）</Label>
                   <Textarea value={reasonSummary} onChange={e => setReasonSummary(e.target.value)} placeholder="簡述操作原因..." rows={2} />
