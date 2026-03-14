@@ -14,8 +14,10 @@ import { Plus, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import step1Img from '@/assets/template-step1.png';
-import step2Img from '@/assets/template-step2-new.png';
+import step1AdvImg from '@/assets/template-step1.png';
+import step2AdvImg from '@/assets/template-step2-new.png';
+import step1MenImg from '@/assets/template-step1-mentor.png';
+import step2MenImg from '@/assets/template-step2-mentor.png';
 
 interface SignalTemplate {
   id: string;
