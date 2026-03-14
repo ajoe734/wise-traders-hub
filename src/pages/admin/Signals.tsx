@@ -31,6 +31,7 @@ const AdminSignals = () => {
   const isReadOnly = hasRole('company_admin');
   const [expert, setExpert] = useState<any>(null);
   const [signals, setSignals] = useState<any[]>([]);
+  const [openInstruments, setOpenInstruments] = useState<Set<string>>(new Set());
   const [plans, setPlans] = useState<any[]>([]);
   const [signalTemplates, setSignalTemplates] = useState<{ id: string; title: string; action: string; reason: string; risk_note: string; strategy_note: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
