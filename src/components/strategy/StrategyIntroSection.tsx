@@ -40,7 +40,7 @@ export function StrategyIntroSection({ summary, metrics, variant = 'advisor' }: 
                   "text-xl font-bold tabular-nums",
                   metrics.return1y >= 0 ? "text-success" : "text-destructive"
                 )}>
-                  {metrics.return1y >= 0 ? "+" : ""}{metrics.return1y.toFixed(1)}%
+                  {metrics.return1y >= 0 ? "+" : ""}{metrics.return1y}%
                 </p>
                 <p className="text-[10px] text-muted-foreground/60">回測/模擬數據，僅供參考</p>
               </div>
