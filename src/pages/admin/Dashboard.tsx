@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Users, Radio, TrendingUp, DollarSign } from 'lucide-react';
+import { AnimatedNumber } from '@/components/AnimatedNumber';
 
 const actionLabels: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -124,10 +125,7 @@ const AdminDashboard = () => {
     setTotalSignals(signalsRes.count || 0);
     setThisMonthSignals(monthSignalsRes.count || 0);
     
-    if (perfRes.data) {
-      const perf = perfRes.data as any;
-      setCumulativeReturn(perf.cumulative_return ?? null);
-    }
+    // cumulative return now comes from user_summaries realtime subscription
 
     setRecentSignals(recentRes.data || []);
 
@@ -172,10 +170,11 @@ const AdminDashboard = () => {
     },
     {
       label: '累計報酬率',
-      value: cumulativeReturn != null ? `${cumulativeReturn > 0 ? '+' : ''}${cumulativeReturn.toFixed(2)}%` : '-',
+      value: cumulativeReturn,
       change: '',
       changeType: 'neutral' as const,
       icon: TrendingUp,
+      isAnimatedPnl: true,
     },
   ];
 
@@ -217,7 +216,23 @@ const AdminDashboard = () => {
                     <stat.icon className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className="text-2xl font-bold">
+                  {(stat as any).isAnimatedPnl ? (
+                    <AnimatedNumber
+                      value={stat.value as number | null}
+                      format={(v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`}
+                      className={cn(
+                        (stat.value as number | null) != null && (stat.value as number) > 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : (stat.value as number | null) != null && (stat.value as number) < 0
+                            ? 'text-green-600 dark:text-green-400'
+                            : ''
+                      )}
+                    />
+                  ) : (
+                    stat.value
+                  )}
+                </div>
                 {stat.change && (
                   <div className="text-xs mt-1 text-muted-foreground">{stat.change}</div>
                 )}

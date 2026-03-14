@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Loader2, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { AnimatedNumber } from '@/components/AnimatedNumber';
 
 interface PerfRow {
   id: string;
@@ -33,42 +34,7 @@ interface RealizedRow {
 }
 
 /* ─── 數字漸變元件 ─── */
-function AnimatedNumber({
-  value,
-  format,
-  className,
-}: {
-  value: number | null;
-  format: (v: number) => string;
-  className?: string;
-}) {
-  const prevRef = useRef(value);
-  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
-
-  useEffect(() => {
-    const prev = prevRef.current;
-    prevRef.current = value;
-    if (prev == null || value == null || prev === value) return;
-    setFlash(value > prev ? 'up' : 'down');
-    const t = setTimeout(() => setFlash(null), 600);
-    return () => clearTimeout(t);
-  }, [value]);
-
-  if (value == null) return <span className={className}>-</span>;
-
-  return (
-    <span
-      className={cn(
-        className,
-        'transition-colors duration-300',
-        flash === 'up' && 'text-red-500 dark:text-red-400',
-        flash === 'down' && 'text-green-500 dark:text-green-400',
-      )}
-    >
-      {format(value)}
-    </span>
-  );
-}
+/* AnimatedNumber is now imported from @/components/AnimatedNumber */
 
 type RealizedPeriod = 'week' | 'month' | 'year';
 
