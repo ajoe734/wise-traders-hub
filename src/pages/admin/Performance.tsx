@@ -80,6 +80,7 @@ const AdminPerformance = () => {
   const [realizedLoading, setRealizedLoading] = useState(true);
   const [realizedPeriod, setRealizedPeriod] = useState<RealizedPeriod>('month');
   const [expertId, setExpertId] = useState<string | null>(null);
+  const [expertRole, setExpertRole] = useState<string | null>(null);
   const [avgPnlPercent, setAvgPnlPercent] = useState<number | null>(null);
 
   const pnlColor = (val: number | null) =>
