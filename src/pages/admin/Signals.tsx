@@ -192,8 +192,40 @@ const AdminSignals = () => {
             .eq('symbol', stockCode.trim());
         }
         // 部分賣出：trade_signals 維持 open
+      } else if (action === 'add') {
+        // 加碼：若已有 open 紀錄則不重複新增
+        const { data: existing } = await supabase
+          .from('trade_signals')
+          .select('id')
+          .eq('user_id', expert.user_id)
+          .eq('symbol', stockCode.trim())
+          .eq('status', 'open')
+          .limit(1);
+
+        if (!existing || existing.length === 0) {
+          const { data: tsData } = await supabase.from('trade_signals').insert({
+            user_id: expert.user_id,
+            symbol: stockCode.trim(),
+            name: latestName || null,
+            entry_price: entryPrice,
+            status: 'open',
+          } as any).select('id').single();
+
+          if (tsData) {
+            await supabase.from('user_performances').insert({
+              user_id: expert.user_id,
+              signal_id: (tsData as any).id,
+              symbol: stockCode.trim(),
+              name: latestName || null,
+              entry_price: entryPrice,
+              current_price: entryPrice,
+              pnl: 0,
+              pnl_percent: 0,
+            } as any);
+          }
+        }
       } else {
-        // 買進/加碼：新增一筆 open 紀錄
+        // 買進：新增一筆 open 紀錄
         const { data: tsData, error: tsError } = await supabase.from('trade_signals').insert({
           user_id: expert.user_id,
           symbol: stockCode.trim(),
@@ -206,7 +238,6 @@ const AdminSignals = () => {
           toast.error('持倉記錄寫入失敗');
         }
 
-        // 同步寫入 user_performances 讓績效頁面立即顯示
         if (tsData) {
           await supabase.from('user_performances').insert({
             user_id: expert.user_id,
