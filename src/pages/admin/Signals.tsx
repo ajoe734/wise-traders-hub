@@ -129,7 +129,7 @@ const AdminSignals = () => {
       instrument,
       action: action as any,
       price_hint: latestPrice ? parseFloat(latestPrice) : null,
-      quantity: (action === 'add' || action === 'trim') && quantity ? parseInt(quantity) : null,
+      quantity: action !== 'exit' && quantity ? parseInt(quantity) : null,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
@@ -309,12 +309,12 @@ const AdminSignals = () => {
                     <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
                   </div>
                 </div>
-                {(action === 'add' || action === 'trim') && (
+                {action && action !== 'exit' && (
                   <div className="space-y-2">
-                    <Label>張數</Label>
+                    <Label>數量</Label>
                     <div className="flex items-center gap-2">
                       <Input value={quantity} onChange={e => setQuantity(e.target.value)} type="number" placeholder="1" className="w-32" />
-                      <span className="text-sm text-muted-foreground">張</span>
+                      <span className="text-sm text-muted-foreground">支</span>
                     </div>
                   </div>
                 )}
@@ -344,7 +344,7 @@ const AdminSignals = () => {
                         <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
                         <span className="font-medium text-sm">{stockCode} {stockName}</span>
                         {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
-                        {(action === 'add' || action === 'trim') && quantity && <span className="text-sm text-muted-foreground">{quantity} 張</span>}
+                        {action !== 'exit' && quantity && <span className="text-sm text-muted-foreground">{quantity} 支</span>}
                       </div>
                       {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
                       {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
@@ -410,8 +410,8 @@ const AdminSignals = () => {
                              <td className="p-3"><Badge variant={ai.variant} className="text-xs">{ai.label}</Badge></td>
                              <td className="p-3 text-sm">
                                {signal.price_hint || '-'}
-                               {signal.quantity && ['add', 'trim'].includes(signal.action) && (
-                                 <span className="text-muted-foreground ml-1">({signal.quantity}張)</span>
+                               {signal.quantity && signal.action !== 'exit' && (
+                                 <span className="text-muted-foreground ml-1">({signal.quantity}支)</span>
                                )}
                              </td>
                              <td className="p-3 text-sm max-w-[240px]">
