@@ -15,8 +15,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import step1Img from '@/assets/template-step1.png';
-import step2Img from '@/assets/template-step2.png';
-import step3Img from '@/assets/template-step3.png';
+import step2Img from '@/assets/template-step3.png';
 
 interface SignalTemplate {
   id: string;
@@ -188,7 +187,7 @@ const AdminSignalTemplates = () => {
         <Card>
           <CardContent className="p-5 space-y-4">
             <h3 className="text-sm font-semibold text-foreground">📖 操作流程範例</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <div className="rounded-lg overflow-hidden border">
                   <img src={step1Img} alt="步驟一：新增模板" className="w-full h-auto" />
@@ -200,20 +199,11 @@ const AdminSignalTemplates = () => {
               </div>
               <div className="space-y-2">
                 <div className="rounded-lg overflow-hidden border">
-                  <img src={step2Img} alt="步驟二：選擇模板" className="w-full h-auto" />
+                  <img src={step2Img} alt="步驟二：發布訊號時套用模板" className="w-full h-auto" />
                 </div>
                 <div className="text-center">
                   <Badge variant="outline" className="text-xs mb-1">步驟二</Badge>
                   <p className="text-xs text-muted-foreground">發布訊號時，點擊模板標籤即可快速套用預設內容</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="rounded-lg overflow-hidden border">
-                  <img src={step3Img} alt="步驟三：自動填入" className="w-full h-auto" />
-                </div>
-                <div className="text-center">
-                  <Badge variant="outline" className="text-xs mb-1">步驟三</Badge>
-                  <p className="text-xs text-muted-foreground">操作方向、理由、風險提示等欄位自動填入，確認後立即發布</p>
                 </div>
               </div>
             </div>
