@@ -381,9 +381,6 @@ const AdminSignals = () => {
                       <SelectContent>
                         <SelectItem value="buy">買進</SelectItem>
                         <SelectItem value="sell">賣出</SelectItem>
-                        <SelectItem value="add">加碼</SelectItem>
-                        <SelectItem value="trim">減碼</SelectItem>
-                        <SelectItem value="exit">平損</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
