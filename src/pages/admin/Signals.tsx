@@ -32,7 +32,6 @@ const AdminSignals = () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [signalTemplates, setSignalTemplates] = useState<{ id: string; title: string; action: string; reason: string; risk_note: string; strategy_note: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchDate, setSearchDate] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -282,16 +281,36 @@ const AdminSignals = () => {
   const contentLabel = isMentor ? '週記' : '訊號';
   const canPublish = !!expert && !!stockCode.trim() && !!action;
 
+  // Multi-condition search: conditions separated by "、"
+  const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '加碼': 'add', '減碼': 'trim', '平損': 'exit' };
+  const statusKeywords = ['持有中', '已平倉', '已下架', '加碼', '減碼'];
+
   const filtered = signals.filter(s => {
-    const matchText = !searchQuery.trim() || 
-      s.instrument?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.reason_summary?.toLowerCase().includes(searchQuery.toLowerCase());
-    let matchDate = true;
-    if (searchDate) {
-      const sigDate = s.published_at ? new Date(s.published_at).toISOString().slice(0, 10) : '';
-      matchDate = sigDate === searchDate;
-    }
-    return matchText && matchDate;
+    if (!searchQuery.trim()) return true;
+    const conditions = searchQuery.split('、').map(c => c.trim()).filter(Boolean);
+    const sigDate = s.published_at ? new Date(s.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+    const sigAction = actionLabels[s.action]?.label || s.action;
+    // Determine display status
+    const isTakenDown = s.status === 'taken_down';
+    let displayStatus = '持有中';
+    if (isTakenDown) displayStatus = '已下架';
+    else if (s.action === 'exit') displayStatus = '已平倉';
+    else if (['sell', 'trim'].includes(s.action)) displayStatus = openInstruments.has(s.instrument) ? '減碼' : '已平倉';
+    else if (s.action === 'add') displayStatus = '加碼';
+
+    return conditions.every(cond => {
+      const lower = cond.toLowerCase();
+      // Check action match
+      if (actionLabelMap[cond]) return s.action === actionLabelMap[cond];
+      // Check status match
+      if (statusKeywords.includes(cond)) return displayStatus === cond;
+      // Check instrument, date, reason
+      return (
+        s.instrument?.toLowerCase().includes(lower) ||
+        sigDate.includes(cond) ||
+        s.reason_summary?.toLowerCase().includes(lower)
+      );
+    });
   });
 
   // Determine which buy signals are actually "加碼" (subsequent buys for same instrument)
@@ -492,10 +511,7 @@ const AdminSignals = () => {
         <div className="flex gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="搜尋標的或理由..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
-          </div>
-          <div className="relative w-44">
-            <Input type="date" value={searchDate} onChange={e => setSearchDate(e.target.value)} className="text-sm" />
+            <Input placeholder="搜尋：標的、日期、方向、狀態（用「、」分隔）" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
         </div>
 
