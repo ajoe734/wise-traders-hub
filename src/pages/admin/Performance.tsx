@@ -177,6 +177,7 @@ const AdminPerformance = () => {
                 ...r,
                 current_price: row.current_price ? Number(row.current_price) : null,
                 pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
+                quantity: row.quantity ?? r.quantity,
               } : r));
             }
           } else if (payload.eventType === 'DELETE') {
