@@ -397,11 +397,19 @@ const AdminPerformance = () => {
           {/* ═══ 未實現損益 ═══ */}
           <TabsContent value="unrealized" className="space-y-4">
             {/* 摘要卡片 */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <Card>
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground mb-1">持倉數量</p>
                   <p className="text-2xl font-bold tabular-nums">{unrealizedSummary.count}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground mb-1">累計報酬</p>
+                  <p className={cn('text-2xl font-bold tabular-nums', pnlColor(totalPnlPercent))}>
+                    <AnimatedNumber value={totalPnlPercent} format={fmtPct} className={pnlColor(totalPnlPercent)} />
+                  </p>
                 </CardContent>
               </Card>
               <Card>
