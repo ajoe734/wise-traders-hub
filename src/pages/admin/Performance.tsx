@@ -81,6 +81,7 @@ const AdminPerformance = () => {
   const [realizedPeriod, setRealizedPeriod] = useState<RealizedPeriod>('month');
   const [expertId, setExpertId] = useState<string | null>(null);
   const [expertRole, setExpertRole] = useState<string | null>(null);
+  const [avgPnlPercent, setAvgPnlPercent] = useState<number | null>(null);
 
   const pnlColor = (val: number | null) =>
     val != null && val > 0
@@ -103,6 +104,43 @@ const AdminPerformance = () => {
           setExpertRole(data.role);
         }
       });
+  }, [user]);
+
+  // ─── 平均報酬：user_summaries (realtime) ───
+  useEffect(() => {
+    if (!user) return;
+
+    supabase
+      .from('user_summaries')
+      .select('avg_pnl_percent')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setAvgPnlPercent(data.avg_pnl_percent);
+      });
+
+    const channel = supabase
+      .channel('admin-perf-user-summaries')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_summaries',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            const row = payload.new as any;
+            setAvgPnlPercent(row.avg_pnl_percent != null ? Number(row.avg_pnl_percent) : null);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   // ─── 未實現損益：trade_records (open) + user_performances (realtime) ───
@@ -364,8 +402,8 @@ const AdminPerformance = () => {
               <Card>
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground mb-1">平均報酬</p>
-                  <p className={cn('text-2xl font-bold tabular-nums', pnlColor(unrealizedSummary.totalPct))}>
-                    {unrealizedSummary.count > 0 ? fmtPct(unrealizedSummary.totalPct) : '-'}
+                  <p className={cn('text-2xl font-bold tabular-nums', pnlColor(avgPnlPercent))}>
+                    <AnimatedNumber value={avgPnlPercent} format={fmtPct} className={pnlColor(avgPnlPercent)} />
                   </p>
                 </CardContent>
               </Card>
