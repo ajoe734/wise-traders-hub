@@ -127,29 +127,22 @@ const AdminSignalTemplates = () => {
 
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
 
-  const isMentor = expert?.role === 'mentor';
-  const themeClass = isMentor ? "text-mentor" : "text-advisor";
-  const bgClass = isMentor ? "bg-mentor" : "bg-advisor";
-  const bgHoverClass = isMentor ? "hover:bg-mentor/90" : "hover:bg-advisor/90";
-  const borderClass = isMentor ? "border-mentor/30" : "border-advisor/30";
-  const bgLightClass = isMentor ? "bg-mentor/10" : "bg-advisor/10";
-
   return (
     <AdminLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className={cn("text-2xl font-bold", themeClass)}>訊號模板管理</h1>
+            <h1 className="text-2xl font-bold">訊號模板管理</h1>
             <p className="text-muted-foreground text-sm mt-1">建立常用訊號模板，發布時一鍵填入完整內容</p>
           </div>
           {!isCompanyAdmin && (
-            <Button onClick={openCreate} className={cn(bgClass, bgHoverClass)}>
+            <Button onClick={openCreate} className={cn(expert?.role === 'mentor' ? "bg-mentor hover:bg-mentor/90" : "bg-advisor hover:bg-advisor/90")}>
               <Plus className="h-4 w-4 mr-2" />新增模板
             </Button>
           )}
         </div>
 
-        <Card className={cn(isMentor && "border-mentor/20 dark:border-mentor/30 dark:bg-mentor/5")}>
+        <Card>
           <CardContent className="p-0">
             {templates.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground text-sm">尚未建立任何訊號模板</div>
@@ -164,19 +157,18 @@ const AdminSignalTemplates = () => {
                     onDragEnd={handleDragEnd}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors",
-                      dragIdx === idx && "opacity-50",
-                      isMentor && "hover:bg-mentor/5 dark:hover:bg-mentor/10"
+                      dragIdx === idx && "opacity-50"
                     )}
                   >
-                    {!isCompanyAdmin && <GripVertical className={cn("h-4 w-4 cursor-grab shrink-0", isMentor ? "text-mentor/60" : "text-muted-foreground")} />}
-                    <span className={cn("font-medium text-sm min-w-[80px]", isMentor && "text-mentor")}>{t.title}</span>
+                    {!isCompanyAdmin && <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />}
+                    <span className="font-medium text-sm min-w-[80px]">{t.title}</span>
                     <Badge className={cn('text-[10px] px-1.5 py-0 shrink-0', getActionClass(t.action))}>
                       {getActionLabel(t.action)}
                     </Badge>
                     <span className="text-sm text-muted-foreground truncate flex-1">{t.reason || '-'}</span>
                     {!isCompanyAdmin && (
                       <div className="flex gap-1 shrink-0">
-                        <Button size="sm" variant="ghost" className={cn("h-7 w-7 p-0", isMentor && "text-mentor hover:text-mentor hover:bg-mentor/10")} onClick={() => openEdit(t)}>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(t)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}>
