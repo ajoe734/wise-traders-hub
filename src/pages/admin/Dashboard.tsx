@@ -170,10 +170,11 @@ const AdminDashboard = () => {
     },
     {
       label: '累計報酬率',
-      value: cumulativeReturn != null ? `${cumulativeReturn > 0 ? '+' : ''}${cumulativeReturn.toFixed(2)}%` : '-',
+      value: cumulativeReturn,
       change: '',
       changeType: 'neutral' as const,
       icon: TrendingUp,
+      isAnimatedPnl: true,
     },
   ];
 
