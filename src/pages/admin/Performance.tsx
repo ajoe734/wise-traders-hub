@@ -129,6 +129,7 @@ const AdminPerformance = () => {
               entry_price: r.entry_price ? Number(r.entry_price) : null,
               current_price: r.current_price ? Number(r.current_price) : null,
               pnl_percent: r.pnl_percent ? Number(r.pnl_percent) : null,
+              quantity: r.quantity ?? 1,
               status: r.status,
             };
           }),
