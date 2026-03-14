@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfWeek, startOfMonth, startOfYear } from 'date-fns';
+import { format, startOfWeek, startOfMonth, startOfYear, addMonths, addWeeks, addYears, endOfMonth, isBefore, isAfter } from 'date-fns';
 
 export interface StockTrade {
   symbol: string;
@@ -34,6 +34,49 @@ function bucketKey(date: Date, period: ViewPeriod): string {
       return format(ws, 'MM/dd');
     }
   }
+}
+
+/** Generate all expected bucket keys for a given period scope */
+function generateAllKeys(period: ViewPeriod, firstDate?: Date): string[] {
+  const now = new Date();
+  const keys: string[] = [];
+
+  switch (period) {
+    case 'yearly': {
+      // From first trade year to current year
+      const startYear = firstDate ? firstDate.getFullYear() : now.getFullYear();
+      for (let y = startYear; y <= now.getFullYear(); y++) {
+        keys.push(String(y));
+      }
+      break;
+    }
+    case 'monthly': {
+      // All months of current year up to current month
+      const yearStart = startOfYear(now);
+      let cursor = yearStart;
+      while (!isAfter(cursor, now)) {
+        keys.push(format(cursor, 'yyyy/MM'));
+        cursor = addMonths(cursor, 1);
+      }
+      break;
+    }
+    case 'weekly': {
+      // All weeks of current month up to current week
+      const monthStart = startOfMonth(now);
+      const monthEnd = endOfMonth(now);
+      let cursor = startOfWeek(monthStart, { weekStartsOn: 1 });
+      while (!isAfter(cursor, now)) {
+        // Only include weeks that overlap with this month
+        if (!isAfter(monthEnd, cursor) === false) {
+          keys.push(format(cursor, 'MM/dd'));
+        }
+        cursor = addWeeks(cursor, 1);
+      }
+      break;
+    }
+  }
+
+  return keys;
 }
 
 export function usePeriodPerformance(expertId: string | undefined, period: ViewPeriod) {
