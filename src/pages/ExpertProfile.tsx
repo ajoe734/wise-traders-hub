@@ -234,7 +234,7 @@ const ExpertProfile = () => {
           <StrategyIntroSection
             summary={expertInfo.strategySummary || ''}
             metrics={{
-              return1y: expertInfo.backtestReturn1y,
+              return1y: perf?.return_1y ?? expertInfo.backtestReturn1y,
               maxDrawdown: expertInfo.backtestMaxDrawdown,
               annualReturn: expertInfo.backtestAnnualReturn,
             }}

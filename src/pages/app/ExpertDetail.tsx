@@ -171,7 +171,7 @@ const AppExpertDetail = () => {
           <StrategyIntroSection
             summary={expert.strategySummary}
             metrics={{
-              return1y: expert.backtestReturn1y,
+              return1y: perf?.return_1y ?? expert.backtestReturn1y,
               maxDrawdown: expert.backtestMaxDrawdown,
               annualReturn: expert.backtestAnnualReturn,
             }}
