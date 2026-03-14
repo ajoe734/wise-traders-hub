@@ -370,7 +370,6 @@ const AdminPerformance = () => {
                           </tr>
                         ))
                       )}
-                      )}
                     </tbody>
                   </table>
                 </div>
