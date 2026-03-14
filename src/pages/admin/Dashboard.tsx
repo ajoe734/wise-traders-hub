@@ -97,9 +97,6 @@ const AdminDashboard = () => {
     setYearlyRevenue(yRevenue);
 
     setLoading(false);
-
-    // Fetch market indices separately (non-blocking)
-    fetchMarketIndices();
   };
 
   const fetchMarketIndices = useCallback(async () => {
