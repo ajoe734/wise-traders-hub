@@ -227,11 +227,10 @@ const AdminPerformance = () => {
 
   // ─── 統計摘要 ───
   const unrealizedSummary = useMemo(() => {
-    const total = rows.reduce((sum, r) => sum + (r.pnl ?? 0), 0);
     const totalPct = rows.length > 0
       ? rows.reduce((sum, r) => sum + (r.pnl_percent ?? 0), 0) / rows.length
       : 0;
-    return { total, totalPct, count: rows.length };
+    return { totalPct, count: rows.length };
   }, [rows]);
 
   const realizedSummary = useMemo(() => {
