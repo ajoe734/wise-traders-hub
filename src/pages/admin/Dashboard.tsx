@@ -216,7 +216,23 @@ const AdminDashboard = () => {
                     <stat.icon className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className="text-2xl font-bold">
+                  {(stat as any).isAnimatedPnl ? (
+                    <AnimatedNumber
+                      value={stat.value as number | null}
+                      format={(v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`}
+                      className={cn(
+                        (stat.value as number | null) != null && (stat.value as number) > 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : (stat.value as number | null) != null && (stat.value as number) < 0
+                            ? 'text-green-600 dark:text-green-400'
+                            : ''
+                      )}
+                    />
+                  ) : (
+                    stat.value
+                  )}
+                </div>
                 {stat.change && (
                   <div className="text-xs mt-1 text-muted-foreground">{stat.change}</div>
                 )}
