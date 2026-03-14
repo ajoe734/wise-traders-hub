@@ -57,6 +57,7 @@ const AppExpertDetail = () => {
   const [subscribedPlanTypes, setSubscribedPlanTypes] = useState<string[]>([]);
   
   const { data: expert, isLoading } = useExpert(slug);
+  const { data: perf } = useExpertPerformance(expert?.id);
 
   // Fetch expert plans from DB
   const { data: dbPlans = [] } = useQuery({
