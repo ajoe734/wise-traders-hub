@@ -343,7 +343,7 @@ const AdminPerformance = () => {
                         </tr>
                       ) : (
                         rows.map(row => (
-                          <tr key={row.signal_id} className="border-b last:border-0">
+                          <tr key={row.id} className="border-b last:border-0">
                             <td className="p-3">
                               <div className="flex flex-col">
                                 <span className="text-sm font-medium">{row.name || '-'}</span>
