@@ -235,9 +235,9 @@ const AdminDashboard = () => {
                 recentSignals.map((signal) => {
                   const ai = actionLabels[signal.action] || actionLabels.buy;
                   return (
-                    <div key={signal.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                      <div className="flex items-center gap-3">
-                        <Badge variant={ai.variant} className="w-12 justify-center text-xs">{ai.label}</Badge>
+                      <div key={signal.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                        <div className="flex items-center gap-3">
+                          <Badge className={`${ai.className} w-12 justify-center text-xs`}>{ai.label}</Badge>
                         <div>
                           <p className="font-medium text-sm">{signal.instrument}</p>
                           <p className="text-xs text-muted-foreground">
