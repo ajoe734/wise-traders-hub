@@ -51,10 +51,8 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
 
   // Overall trend for chart color
   const overallTrend = useMemo(() => {
-    if (!performanceData.length) return 'neutral';
-    const avgReturn = performanceData.reduce((sum, p) => sum + p.returnPct, 0) / performanceData.length;
-    return avgReturn >= 0 ? 'positive' : 'negative';
-  }, [performanceData]);
+    return sinceInceptionReturn >= 0 ? 'positive' : 'negative';
+  }, [sinceInceptionReturn]);
 
   // Taiwan market: red=up, green=down
   const chartColors = useMemo(() => {
@@ -80,9 +78,16 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
     return performanceData.find(p => p.label === selectedPoint);
   }, [selectedPoint, performanceData]);
 
-  const chartData = useMemo(() => {
-    return performanceData.map(p => ({ ...p, isSelected: p.label === selectedPoint }));
+  // Build equity curve from period buckets (compound returns)
+  const equityCurve = useMemo(() => {
+    let equity = INITIAL_CAPITAL;
+    return performanceData.map(p => {
+      equity = equity * (1 + p.returnPct / 100);
+      return { ...p, equity: Math.round(equity), isSelected: p.label === selectedPoint };
+    });
   }, [performanceData, selectedPoint]);
+
+  const chartData = equityCurve;
 
   const handlePointClick = (data: PeriodBucket) => {
     if (selectedPoint === data.label) {
@@ -104,12 +109,15 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
     return { top5: sorted.slice(0, 5), bottom5: sorted.slice(-5).reverse() };
   }, [selectedData]);
 
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: PeriodBucket }> }) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: any }> }) => {
     if (!active || !payload?.[0]) return null;
     const data = payload[0].payload;
     return (
       <div className="bg-background/95 dark:bg-white/10 backdrop-blur-sm border dark:border-white/10 rounded-lg p-2 shadow-lg text-xs">
         <div className="font-medium text-foreground">{data.label}</div>
+        <div className="text-foreground">
+          資產: ${data.equity?.toLocaleString()}
+        </div>
         <div className={data.returnPct >= 0 ? "text-success" : "text-destructive"}>
           報酬率: {data.returnPct >= 0 ? "+" : ""}{data.returnPct.toFixed(1)}%
         </div>
@@ -166,7 +174,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={chartData.length > 0 ? chartData : [{ label: '', returnPct: 0 }]}
+                  data={chartData.length > 0 ? chartData : [{ label: '', equity: INITIAL_CAPITAL }]}
                   margin={{ top: 16, right: 16, left: 8, bottom: 8 }}
                   onClick={(e) => {
                     if (e?.activePayload?.[0] && chartData.length > 0) {
@@ -181,12 +189,12 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} domain={chartData.length > 0 ? ['dataMin - 2', 'dataMax + 2'] : [-5, 5]} />
+                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 10000).toFixed(0)}萬`} domain={['dataMin * 0.98', 'dataMax * 1.02']} />
                   <Tooltip content={<CustomTooltip />} />
                   {chartData.length > 0 && (
                     <Area
                       type="monotone"
-                      dataKey="returnPct"
+                      dataKey="equity"
                       stroke={chartColors.stroke}
                       strokeWidth={2}
                       fill={`url(#colorReturn-${period})`}
