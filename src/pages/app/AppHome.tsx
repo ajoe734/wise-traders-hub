@@ -76,7 +76,7 @@ function ExpertPerfRow({ sub }: { sub: DbSubscription }) {
         <span className="text-sm">{sub.expert.name}</span>
       </div>
       <div className="flex items-center gap-3 text-xs">
-        <span className={cn("font-medium", cumulative >= 0 ? "text-success" : "text-destructive")}>
+        <span className={cn("font-medium", cumulative > 0 ? "text-success" : cumulative < 0 ? "text-destructive" : sub.expert.role === 'mentor' ? "text-learning-accent" : "text-signals-accent")}>
           累積 {cumulative >= 0 ? '+' : ''}{cumulative}%
         </span>
         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
