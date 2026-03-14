@@ -105,6 +105,43 @@ const AdminPerformance = () => {
       });
   }, [user]);
 
+  // ─── 平均報酬：user_summaries (realtime) ───
+  useEffect(() => {
+    if (!user) return;
+
+    supabase
+      .from('user_summaries')
+      .select('avg_pnl_percent')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setAvgPnlPercent(data.avg_pnl_percent);
+      });
+
+    const channel = supabase
+      .channel('admin-perf-user-summaries')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_summaries',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            const row = payload.new as any;
+            setAvgPnlPercent(row.avg_pnl_percent != null ? Number(row.avg_pnl_percent) : null);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   // ─── 未實現損益：trade_records (open) + user_performances (realtime) ───
   useEffect(() => {
     if (!expertId || !user) return;
