@@ -34,6 +34,42 @@ const AdminDashboard = () => {
 
   useEffect(() => { fetchData(); }, [expertSlug]);
 
+  // Realtime subscription for user_summaries
+  useEffect(() => {
+    if (!user) return;
+
+    // Initial fetch
+    supabase
+      .from('user_summaries')
+      .select('avg_pnl_percent')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setAvgPnlPercent(data.avg_pnl_percent);
+      });
+
+    const channel = supabase
+      .channel('admin-summary-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_summaries',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const row = payload.new as any;
+            setAvgPnlPercent(row.avg_pnl_percent);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
   const fetchData = async () => {
     if (!expertSlug) return;
     setLoading(true);
