@@ -36,10 +36,7 @@ export function StrategyIntroSection({ summary, metrics, variant = 'advisor' }: 
             {metrics.return1y != null && (
               <div className="bg-muted/30 dark:bg-white/[0.04] rounded-lg p-4 text-center space-y-1">
                 <p className="text-xs text-muted-foreground">近 1 年報酬</p>
-                <p className={cn(
-                  "text-xl font-bold tabular-nums",
-                  metrics.return1y >= 0 ? "text-success" : "text-destructive"
-                )}>
+                <p className="text-xl font-bold tabular-nums text-white">
                   {metrics.return1y >= 0 ? "+" : ""}{metrics.return1y}%
                 </p>
                 <p className="text-[10px] text-muted-foreground/60">回測/模擬數據，僅供參考</p>
