@@ -1,3 +1,4 @@
+// PerformanceOverviewPanel.tsx
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -57,9 +58,9 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   // Taiwan market: red=up, green=down
   const chartColors = useMemo(() => {
     if (overallTrend === 'positive') {
-      return { stroke: 'hsl(4 82% 56%)', gradientStart: 'hsl(4 82% 56%)', gradientEnd: 'hsl(4 82% 56%)' };
+      return { stroke: '#E53935', gradientStart: '#E53935', gradientEnd: '#E53935' };
     }
-    return { stroke: 'hsl(142 76% 46%)', gradientStart: 'hsl(142 76% 46%)', gradientEnd: 'hsl(142 76% 46%)' };
+    return { stroke: '#22C55E', gradientStart: '#22C55E', gradientEnd: '#22C55E' };
   }, [overallTrend]);
 
   const periodStats = useMemo(() => {
@@ -141,8 +142,6 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
             <TabsTrigger value="weekly" className={tabClass}>週績效</TabsTrigger>
           </TabsList>
         </Tabs>
-
-
 
         {/* Chart */}
         <div className="space-y-3">

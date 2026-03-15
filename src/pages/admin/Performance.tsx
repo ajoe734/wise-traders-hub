@@ -398,20 +398,23 @@ const AdminPerformance = () => {
                         <th className="text-left p-3 text-xs font-medium text-muted-foreground">標的</th>
                         <th className="text-right p-3 text-xs font-medium text-muted-foreground">數量</th>
                         <th className="text-right p-3 text-xs font-medium text-muted-foreground">進場價</th>
+                        <th className="text-right p-3 text-xs font-medium text-muted-foreground">現價</th>
+                        <th className="text-right p-3 text-xs font-medium text-muted-foreground">損益</th>
+                        <th className="text-right p-3 text-xs font-medium text-muted-foreground">報酬</th>
                         <th className="text-center p-3 text-xs font-medium text-muted-foreground">狀態</th>
                       </tr>
                     </thead>
                     <tbody>
                       {loading ? (
                         <tr>
-                         <td colSpan={4} className="p-8 text-center text-muted-foreground text-sm">
+                          <td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">
                             <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
                             載入中...
                           </td>
                         </tr>
                       ) : rows.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="p-8 text-center text-muted-foreground text-sm">
+                          <td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">
                             目前無持倉
                           </td>
                         </tr>
@@ -429,6 +432,15 @@ const AdminPerformance = () => {
                             </td>
                             <td className="text-right p-3 text-sm tabular-nums">
                               {row.entry_price != null ? row.entry_price.toLocaleString() : '-'}
+                            </td>
+                            <td className={cn("text-right p-3 text-sm tabular-nums transition-colors duration-300")}>
+                              {row.current_price != null ? row.current_price.toLocaleString() : '-'}
+                            </td>
+                            <td className={cn("text-right p-3 text-sm tabular-nums transition-colors duration-300", pnlColor(row.pnl))}>
+                              {row.pnl != null ? fmtPnl(row.pnl) : '-'}
+                            </td>
+                            <td className={cn("text-right p-3 text-sm tabular-nums transition-colors duration-300", pnlColor(row.pnl_percent))}>
+                              {row.pnl_percent != null ? fmtPct(row.pnl_percent) : '-'}
                             </td>
                             <td className="text-center p-3">
                               <Badge variant="default" className="text-xs">
