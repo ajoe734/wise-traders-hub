@@ -56,8 +56,11 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   }, [sinceInceptionReturn]);
 
   const chartColors = useMemo(() => {
-    return { stroke: '#3B82F6', gradientStart: '#3B82F6', gradientEnd: '#3B82F6' };
-  }, []);
+    if (sinceInceptionReturn >= 0) {
+      return { stroke: '#E53935', gradientStart: '#E53935', gradientEnd: '#E53935' };
+    }
+    return { stroke: '#22C55E', gradientStart: '#22C55E', gradientEnd: '#22C55E' };
+  }, [sinceInceptionReturn]);
 
   const periodStats = useMemo(() => {
     if (!performanceData.length) return { best: undefined, worst: undefined };
