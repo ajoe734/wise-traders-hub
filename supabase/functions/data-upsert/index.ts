@@ -106,21 +106,40 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Sanitize user_performances: if current_price equals entry_price, set current_price to null
-    const sanitizedRecords = table === 'user_performances'
-      ? records.map((r: any) => ({
-          ...r,
-          current_price: (r.current_price != null && r.entry_price != null && Number(r.current_price) === Number(r.entry_price))
-            ? null
-            : r.current_price,
-          pnl: (r.current_price != null && r.entry_price != null && Number(r.current_price) === Number(r.entry_price))
-            ? null
-            : r.pnl,
-          pnl_percent: (r.current_price != null && r.entry_price != null && Number(r.current_price) === Number(r.entry_price))
-            ? null
-            : r.pnl_percent,
-        }))
-      : records
+    // Sanitize user_performances: cross-check current_prices table
+    let sanitizedRecords = records
+    if (table === 'user_performances') {
+      // Collect unique symbols from records
+      const symbols = [...new Set(records.map((r: any) => r.symbol).filter(Boolean))]
+      
+      // Fetch current prices for these symbols
+      const priceMap = new Map<string, number>()
+      if (symbols.length > 0) {
+        const { data: priceData } = await supabase
+          .from('current_prices')
+          .select('symbol, price')
+          .in('symbol', symbols)
+        
+        ;(priceData || []).forEach((p: any) => {
+          if (p.price != null) priceMap.set(p.symbol, Number(p.price))
+        })
+      }
+
+      sanitizedRecords = records.map((r: any) => {
+        const livePrice = priceMap.get(r.symbol)
+        if (livePrice != null) {
+          // Use live price from current_prices
+          const entryPrice = r.entry_price != null ? Number(r.entry_price) : null
+          const pnl = entryPrice != null ? Math.round((livePrice - entryPrice) * 1000) / 1000 : null
+          const pnlPercent = entryPrice != null && entryPrice > 0
+            ? Math.round(((livePrice - entryPrice) / entryPrice) * 10000) / 100
+            : null
+          return { ...r, current_price: livePrice, pnl, pnl_percent: pnlPercent }
+        }
+        // No live price available — set current_price/pnl/pnl_percent to null
+        return { ...r, current_price: null, pnl: null, pnl_percent: null }
+      })
+    }
 
     const options: any = {}
     if (on_conflict) options.onConflict = on_conflict
