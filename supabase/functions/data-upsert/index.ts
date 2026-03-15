@@ -106,6 +106,22 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Sanitize user_performances: if current_price equals entry_price, set current_price to null
+    const sanitizedRecords = table === 'user_performances'
+      ? records.map((r: any) => ({
+          ...r,
+          current_price: (r.current_price != null && r.entry_price != null && Number(r.current_price) === Number(r.entry_price))
+            ? null
+            : r.current_price,
+          pnl: (r.current_price != null && r.entry_price != null && Number(r.current_price) === Number(r.entry_price))
+            ? null
+            : r.pnl,
+          pnl_percent: (r.current_price != null && r.entry_price != null && Number(r.current_price) === Number(r.entry_price))
+            ? null
+            : r.pnl_percent,
+        }))
+      : records
+
     const options: any = {}
     if (on_conflict) options.onConflict = on_conflict
     if (ignore_duplicates) options.ignoreDuplicates = true
