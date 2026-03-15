@@ -1,12 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { AlertTriangle, BookOpen, Lightbulb, Shield, Target, ChevronRight, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, BookOpen, Lightbulb, Shield, Target, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -50,6 +50,17 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
   );
 };
 
+const SignalDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [signal, setSignal] = useState<DbSignal | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    markAppSignalsAsRead();
+    if (id) fetchSignal(id);
+  }, [id]);
+
   const fetchSignal = async (signalId: string) => {
     setLoading(true);
     const { data } = await supabase
@@ -71,6 +82,7 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
 
   const ac = actionConfig[signal.action] || actionConfig.buy;
   const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
+  const ticker = signal?.instrument?.match(/^\d+/)?.[0];
   const displaySymbol = ticker ? `${ticker}.TW` : signal.instrument;
 
   return (
@@ -105,24 +117,6 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
             </>
           )}
         </div>
-
-        {/* Live quote */}
-        {quote && (
-          <Card className="bg-muted/30">
-            <CardContent className="p-3 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">即時報價</span>
-              <div className="flex items-center gap-2">
-                <span className="font-bold">${quote.price.toFixed(2)}</span>
-                <span className={cn(
-                  "text-sm font-medium",
-                  quote.change >= 0 ? "text-success" : "text-destructive"
-                )}>
-                  {quote.change >= 0 ? '+' : ''}{quote.change.toFixed(2)} ({quote.changePercent.toFixed(2)}%)
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Price hint */}
         {signal.price_hint != null && (
