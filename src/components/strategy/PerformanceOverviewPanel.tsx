@@ -175,7 +175,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 10000).toFixed(0)}萬`} domain={['dataMin * 0.98', 'dataMax * 1.02']} />
                   <Tooltip content={<CustomTooltip />} />
-                  {chartData.length > 0 && (
+                  {chartData.length > 0 && equityCurve.length > 0 && sinceInceptionReturn !== 0 && (
                     <Area
                       type="monotone"
                       dataKey="equity"
