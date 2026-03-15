@@ -55,13 +55,9 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
     return sinceInceptionReturn >= 0 ? 'positive' : 'negative';
   }, [sinceInceptionReturn]);
 
-  // Taiwan market: red=up, green=down
   const chartColors = useMemo(() => {
-    if (overallTrend === 'positive') {
-      return { stroke: '#E53935', gradientStart: '#E53935', gradientEnd: '#E53935' };
-    }
-    return { stroke: '#22C55E', gradientStart: '#22C55E', gradientEnd: '#22C55E' };
-  }, [overallTrend]);
+    return { stroke: '#3B82F6', gradientStart: '#3B82F6', gradientEnd: '#3B82F6' };
+  }, []);
 
   const periodStats = useMemo(() => {
     if (!performanceData.length) return { best: undefined, worst: undefined };
