@@ -36,12 +36,6 @@ interface DbSignal {
   } | null;
 }
 
-interface StockQuote {
-  price: number;
-  change: number;
-  changePercent: number;
-}
-
 const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
   const lines = text.split('\n').map(l => l.replace(/^[•·]\s*/, '').trim()).filter(Boolean);
   return (
@@ -55,60 +49,6 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
     </div>
   );
 };
-
-const SignalDetail = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [signal, setSignal] = useState<DbSignal | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [quote, setQuote] = useState<StockQuote | null>(null);
-
-  // Extract stock ticker (e.g. "2330 台積電" → "2330")
-  const ticker = signal?.instrument?.match(/^\d+/)?.[0];
-
-  // Fetch stock quote from current_prices table + Realtime subscription
-  const fetchQuote = useCallback(async () => {
-    if (!ticker) return;
-    const { data } = await supabase
-      .from('current_prices')
-      .select('*')
-      .eq('symbol', ticker)
-      .maybeSingle();
-    if (data) {
-      const price = Number(data.price);
-      const changePercent = Number(data.change_percent || 0);
-      const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
-      setQuote({ price, change: Number(change.toFixed(2)), changePercent });
-    }
-  }, [ticker]);
-
-  useEffect(() => {
-    if (!ticker) return;
-    fetchQuote();
-
-    const channel = supabase
-      .channel(`signal-price-${ticker}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'current_prices',
-        filter: `symbol=eq.${ticker}`,
-      }, (payload) => {
-        const row = payload.new as any;
-        const price = Number(row.price);
-        const changePercent = Number(row.change_percent || 0);
-        const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
-        setQuote({ price, change: Number(change.toFixed(2)), changePercent });
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [ticker, fetchQuote]);
-
-  useEffect(() => {
-    markAppSignalsAsRead();
-    if (id) fetchSignal(id);
-  }, [id]);
 
   const fetchSignal = async (signalId: string) => {
     setLoading(true);
