@@ -1,3 +1,4 @@
+// PerformanceOverviewPanel.tsx
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -57,9 +58,9 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   // Taiwan market: red=up, green=down
   const chartColors = useMemo(() => {
     if (overallTrend === 'positive') {
-      return { stroke: 'hsl(4 82% 56%)', gradientStart: 'hsl(4 82% 56%)', gradientEnd: 'hsl(4 82% 56%)' };
+      return { stroke: '#E53935', gradientStart: '#E53935', gradientEnd: '#E53935' };
     }
-    return { stroke: 'hsl(142 76% 46%)', gradientStart: 'hsl(142 76% 46%)', gradientEnd: 'hsl(142 76% 46%)' };
+    return { stroke: '#22C55E', gradientStart: '#22C55E', gradientEnd: '#22C55E' };
   }, [overallTrend]);
 
   const periodStats = useMemo(() => {
@@ -142,8 +143,6 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
           </TabsList>
         </Tabs>
 
-
-
         {/* Chart */}
         <div className="space-y-3">
           <div className="flex justify-end">
@@ -175,7 +174,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 10000).toFixed(0)}萬`} domain={['dataMin * 0.98', 'dataMax * 1.02']} />
                   <Tooltip content={<CustomTooltip />} />
-                  {chartData.length > 0 && equityCurve.length > 0 && sinceInceptionReturn !== 0 && (
+                  {chartData.length > 0 && (
                     <Area
                       type="monotone"
                       dataKey="equity"
