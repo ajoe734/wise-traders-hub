@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
 
     const { error: dbError } = await supabase
       .from(table)
-      .upsert(records, options)
+      .upsert(sanitizedRecords, options)
 
     if (dbError) {
       return new Response(JSON.stringify({ error: dbError.message }), {
