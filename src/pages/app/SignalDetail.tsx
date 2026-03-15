@@ -1,12 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { AlertTriangle, BookOpen, Lightbulb, Shield, Target, ChevronRight, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, BookOpen, Lightbulb, Shield, Target, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -36,12 +36,6 @@ interface DbSignal {
   } | null;
 }
 
-interface StockQuote {
-  price: number;
-  change: number;
-  changePercent: number;
-}
-
 const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
   const lines = text.split('\n').map(l => l.replace(/^[•·]\s*/, '').trim()).filter(Boolean);
   return (
@@ -61,49 +55,6 @@ const SignalDetail = () => {
   const navigate = useNavigate();
   const [signal, setSignal] = useState<DbSignal | null>(null);
   const [loading, setLoading] = useState(true);
-  const [quote, setQuote] = useState<StockQuote | null>(null);
-
-  // Extract stock ticker (e.g. "2330 台積電" → "2330")
-  const ticker = signal?.instrument?.match(/^\d+/)?.[0];
-
-  // Fetch stock quote from current_prices table + Realtime subscription
-  const fetchQuote = useCallback(async () => {
-    if (!ticker) return;
-    const { data } = await supabase
-      .from('current_prices')
-      .select('*')
-      .eq('symbol', ticker)
-      .maybeSingle();
-    if (data) {
-      const price = Number(data.price);
-      const changePercent = Number(data.change_percent || 0);
-      const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
-      setQuote({ price, change: Number(change.toFixed(2)), changePercent });
-    }
-  }, [ticker]);
-
-  useEffect(() => {
-    if (!ticker) return;
-    fetchQuote();
-
-    const channel = supabase
-      .channel(`signal-price-${ticker}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'current_prices',
-        filter: `symbol=eq.${ticker}`,
-      }, (payload) => {
-        const row = payload.new as any;
-        const price = Number(row.price);
-        const changePercent = Number(row.change_percent || 0);
-        const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0;
-        setQuote({ price, change: Number(change.toFixed(2)), changePercent });
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [ticker, fetchQuote]);
 
   useEffect(() => {
     markAppSignalsAsRead();
@@ -131,6 +82,7 @@ const SignalDetail = () => {
 
   const ac = actionConfig[signal.action] || actionConfig.buy;
   const publishedAt = signal.published_at ? new Date(signal.published_at) : null;
+  const ticker = signal?.instrument?.match(/^\d+/)?.[0];
   const displaySymbol = ticker ? `${ticker}.TW` : signal.instrument;
 
   return (
@@ -165,24 +117,6 @@ const SignalDetail = () => {
             </>
           )}
         </div>
-
-        {/* Live quote */}
-        {quote && (
-          <Card className="bg-muted/30">
-            <CardContent className="p-3 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">即時報價</span>
-              <div className="flex items-center gap-2">
-                <span className="font-bold">${quote.price.toFixed(2)}</span>
-                <span className={cn(
-                  "text-sm font-medium",
-                  quote.change >= 0 ? "text-success" : "text-destructive"
-                )}>
-                  {quote.change >= 0 ? '+' : ''}{quote.change.toFixed(2)} ({quote.changePercent.toFixed(2)}%)
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Price hint */}
         {signal.price_hint != null && (
