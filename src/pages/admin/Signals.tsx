@@ -383,24 +383,24 @@ const AdminSignals = () => {
   const holdingSummary = useMemo(() => {
     if (!searchQuery.trim()) return null;
     // Group filtered published signals by instrument and compute net quantity
-    const instrumentMap = new Map<string, number>();
+    const instrumentMap = new Map<string, { qty: number; unit: string }>();
     for (const s of filtered) {
       if (s.status === 'taken_down') continue;
       const inst = s.instrument;
       const qty = s.quantity || 1;
-      const current = instrumentMap.get(inst) || 0;
+      const unit = s.quantity_unit || '張';
+      const current = instrumentMap.get(inst) || { qty: 0, unit };
       if (s.action === 'buy' || s.action === 'add') {
-        instrumentMap.set(inst, current + qty);
+        instrumentMap.set(inst, { qty: current.qty + qty, unit });
       } else if (s.action === 'sell' || s.action === 'trim') {
-        instrumentMap.set(inst, current - qty);
+        instrumentMap.set(inst, { qty: current.qty - qty, unit });
       } else if (s.action === 'exit') {
-        instrumentMap.set(inst, 0);
+        instrumentMap.set(inst, { qty: 0, unit });
       }
     }
-    // Only show if there's a single instrument match
     const entries = Array.from(instrumentMap.entries()).filter(([, v]) => v !== undefined);
     if (entries.length === 0) return null;
-    return entries.map(([inst, qty]) => ({ instrument: inst, quantity: Math.max(0, qty) }));
+    return entries.map(([inst, v]) => ({ instrument: inst, quantity: Math.max(0, v.qty), unit: v.unit }));
   }, [filtered, searchQuery]);
 
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
