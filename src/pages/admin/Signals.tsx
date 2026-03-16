@@ -525,7 +525,7 @@ const AdminSignals = () => {
                         <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
                         <span className="font-medium text-sm">{stockCode} {stockName}</span>
                         {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
-                        {quantity && <span className="text-sm text-muted-foreground">{quantity} 張</span>}
+                        {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
                       </div>
                       {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
                       {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
