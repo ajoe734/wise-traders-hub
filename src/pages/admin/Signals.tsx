@@ -677,9 +677,10 @@ const AdminSignals = () => {
                         <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground">
                           {instrument} 目前持有
                         </td>
-                        <td className="p-3 text-sm font-bold text-foreground">
-                          {quantity} 張
-                        </td>
+                         <td className="p-3 text-sm font-bold text-foreground">
+                           {quantity} 張
+                         </td>
+
                         <td colSpan={3}></td>
                       </tr>
                     ))}
