@@ -171,6 +171,7 @@ const AdminSignals = () => {
       instrument,
       action: action as any,
       price_hint: latestPrice ? parseFloat(latestPrice) : null,
+      quantity_unit: quantityUnit,
       quantity: quantity ? parseInt(quantity) : null,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
@@ -591,9 +592,9 @@ const AdminSignals = () => {
                              <td className="p-3"><Badge className={`${ai.className} text-xs`}>{ai.label}</Badge></td>
                              <td className="p-3 text-sm">
                                {signal.price_hint || '-'}
-                                {signal.quantity && (
-                                  <span className="text-muted-foreground ml-1">({signal.quantity}張)</span>
-                                )}
+                                 {signal.quantity && (
+                                   <span className="text-muted-foreground ml-1">({signal.quantity}{signal.quantity_unit || '張'})</span>
+                                 )}
                              </td>
                              <td className="p-3 text-sm max-w-[240px]">
                                {isTakenDown && signal.taken_down_reason ? (
@@ -676,9 +677,10 @@ const AdminSignals = () => {
                         <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground">
                           {instrument} 目前持有
                         </td>
-                        <td className="p-3 text-sm font-bold text-foreground">
-                          {quantity} 張
-                        </td>
+                         <td className="p-3 text-sm font-bold text-foreground">
+                           {quantity} 張
+                         </td>
+
                         <td colSpan={3}></td>
                       </tr>
                     ))}
