@@ -233,6 +233,7 @@ const AdminPerformance = () => {
               pnl: null,
               pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
               quantity: row.quantity ?? 1,
+              quantity_unit: row.quantity_unit || '張',
               status: row.status,
             }]);
           } else if (payload.eventType === 'UPDATE') {
