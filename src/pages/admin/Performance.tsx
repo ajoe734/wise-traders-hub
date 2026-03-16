@@ -19,7 +19,6 @@ interface PerfRow {
   pnl: number | null;
   pnl_percent: number | null;
   quantity: number;
-  quantity_unit: string;
   status: string;
 }
 
@@ -123,7 +122,7 @@ const AdminPerformance = () => {
       // 1. 取得 open 持倉 from trade_records
       const { data: tradeData } = await supabase
         .from('trade_records')
-        .select('id, instrument, entry_price, current_price, pnl_percent, quantity, quantity_unit, status')
+        .select('id, instrument, entry_price, current_price, pnl_percent, quantity, status')
         .eq('expert_id', expertId)
         .eq('status', 'open');
 
@@ -159,7 +158,6 @@ const AdminPerformance = () => {
             pnl: perf?.pnl ?? null,
             pnl_percent: perf?.pnl_percent ?? (r.pnl_percent ? Number(r.pnl_percent) : null),
             quantity: r.quantity ?? 1,
-            quantity_unit: (r as any).quantity_unit || '張',
             status: r.status,
           };
         }),
@@ -233,7 +231,6 @@ const AdminPerformance = () => {
               pnl: null,
               pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
               quantity: row.quantity ?? 1,
-              quantity_unit: row.quantity_unit || '張',
               status: row.status,
             }]);
           } else if (payload.eventType === 'UPDATE') {
@@ -431,7 +428,7 @@ const AdminPerformance = () => {
                               </div>
                             </td>
                             <td className="text-right p-3 text-sm tabular-nums">
-                              {row.quantity} {row.quantity_unit || '張'}
+                              {row.quantity} 張
                             </td>
                             <td className="text-right p-3 text-sm tabular-nums">
                               {row.entry_price != null ? row.entry_price.toLocaleString() : '-'}

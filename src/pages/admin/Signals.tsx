@@ -46,7 +46,6 @@ const AdminSignals = () => {
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [quantityUnit, setQuantityUnit] = useState<'張' | '股'>('張');
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -171,7 +170,6 @@ const AdminSignals = () => {
       instrument,
       action: action as any,
       price_hint: latestPrice ? parseFloat(latestPrice) : null,
-      quantity_unit: quantityUnit,
       quantity: quantity ? parseInt(quantity) : null,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
@@ -290,7 +288,7 @@ const AdminSignals = () => {
 
     toast.success(isMentor ? '週記已發布' : '訊號已發布');
     setIsCreateOpen(false);
-    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
 
     // Trigger LINE push notification (non-blocking)
     if (inserted?.id) {
@@ -487,15 +485,7 @@ const AdminSignals = () => {
                     <Label>數量</Label>
                     <div className="flex items-center gap-2">
                       <Input value={quantity} onChange={e => setQuantity(e.target.value)} type="number" placeholder="1" className="w-32" />
-                      <Select value={quantityUnit} onValueChange={(v: '張' | '股') => setQuantityUnit(v)}>
-                        <SelectTrigger className="w-24">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="張">張</SelectItem>
-                          <SelectItem value="股">股</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <span className="text-sm text-muted-foreground">張</span>
                     </div>
                   </div>
                 )}
@@ -525,7 +515,7 @@ const AdminSignals = () => {
                         <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
                         <span className="font-medium text-sm">{stockCode} {stockName}</span>
                         {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
-                        {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
+                        {quantity && <span className="text-sm text-muted-foreground">{quantity} 張</span>}
                       </div>
                       {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
                       {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
@@ -592,9 +582,9 @@ const AdminSignals = () => {
                              <td className="p-3"><Badge className={`${ai.className} text-xs`}>{ai.label}</Badge></td>
                              <td className="p-3 text-sm">
                                {signal.price_hint || '-'}
-                                 {signal.quantity && (
-                                   <span className="text-muted-foreground ml-1">({signal.quantity}{signal.quantity_unit || '張'})</span>
-                                 )}
+                                {signal.quantity && (
+                                  <span className="text-muted-foreground ml-1">({signal.quantity}張)</span>
+                                )}
                              </td>
                              <td className="p-3 text-sm max-w-[240px]">
                                {isTakenDown && signal.taken_down_reason ? (
@@ -677,10 +667,9 @@ const AdminSignals = () => {
                         <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground">
                           {instrument} 目前持有
                         </td>
-                         <td className="p-3 text-sm font-bold text-foreground">
-                           {quantity} 張
-                         </td>
-
+                        <td className="p-3 text-sm font-bold text-foreground">
+                          {quantity} 張
+                        </td>
                         <td colSpan={3}></td>
                       </tr>
                     ))}
