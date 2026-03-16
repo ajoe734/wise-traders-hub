@@ -19,6 +19,7 @@ interface PerfRow {
   pnl: number | null;
   pnl_percent: number | null;
   quantity: number;
+  quantity_unit: string;
   status: string;
 }
 
