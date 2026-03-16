@@ -158,6 +158,7 @@ const AdminPerformance = () => {
             pnl: perf?.pnl ?? null,
             pnl_percent: perf?.pnl_percent ?? (r.pnl_percent ? Number(r.pnl_percent) : null),
             quantity: r.quantity ?? 1,
+            quantity_unit: (r as any).quantity_unit || '張',
             status: r.status,
           };
         }),
