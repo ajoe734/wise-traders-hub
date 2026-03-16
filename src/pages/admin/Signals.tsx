@@ -591,10 +591,14 @@ const AdminSignals = () => {
                              <td className="p-3 text-sm font-medium">{signal.instrument}</td>
                              <td className="p-3"><Badge className={`${ai.className} text-xs`}>{ai.label}</Badge></td>
                              <td className="p-3 text-sm">
-                               {signal.price_hint || '-'}
-                                 {signal.quantity && (
-                                   <span className="text-muted-foreground ml-1">({signal.quantity}{signal.quantity_unit || '張'})</span>
-                                 )}
+                               {signal.price_hint ? (
+                                 <>
+                                   {signal.price_hint}
+                                   {signal.quantity && (
+                                     <span className="text-muted-foreground">({signal.quantity}{signal.quantity_unit || '張'})</span>
+                                   )}
+                                 </>
+                               ) : '-'}
                              </td>
                              <td className="p-3 text-sm max-w-[240px]">
                                {isTakenDown && signal.taken_down_reason ? (

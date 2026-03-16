@@ -124,42 +124,13 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish',
   ]
 
   if (signal.price_hint) {
+    const qtyText = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
     bodyContents.push({
       type: 'text',
-      text: `參考價位：${signal.price_hint}`,
+      text: `參考價位：${signal.price_hint}${qtyText}`,
       size: 'sm',
       color: '#666666',
       margin: 'md',
-    })
-  }
-
-  // Add live price change info
-  if (liveQuote) {
-    const changeSign = liveQuote.changePercent >= 0 ? '+' : ''
-    const changeColor = liveQuote.changePercent >= 0 ? '#DC3545' : '#00B900' // 台股慣例：紅漲綠跌
-    bodyContents.push({
-      type: 'box',
-      layout: 'horizontal',
-      margin: 'sm',
-      contents: [
-        {
-          type: 'text',
-          text: `📈 即時：${liveQuote.price}`,
-          size: 'sm',
-          color: '#666666',
-          flex: 0,
-        },
-        {
-          type: 'text',
-          text: `${changeSign}${liveQuote.changePercent.toFixed(2)}%`,
-          size: 'sm',
-          color: changeColor,
-          weight: 'bold',
-          align: 'end',
-          flex: 0,
-          margin: 'md',
-        },
-      ],
     })
   }
 
