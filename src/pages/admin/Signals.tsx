@@ -172,6 +172,7 @@ const AdminSignals = () => {
       action: action as any,
       price_hint: latestPrice ? parseFloat(latestPrice) : null,
       quantity: quantity ? parseInt(quantity) : null,
+      quantity_unit: quantityUnit,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
