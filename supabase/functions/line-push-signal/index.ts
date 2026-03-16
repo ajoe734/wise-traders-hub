@@ -35,7 +35,7 @@ async function fetchLivePriceChange(instrument: string): Promise<{ price: number
   }
 }
 
-function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish', liveQuote?: { price: number; change: number; changePercent: number } | null) {
+function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish') {
   const actionLabel: Record<string, string> = {
     buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
   }
