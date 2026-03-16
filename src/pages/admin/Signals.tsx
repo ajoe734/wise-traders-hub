@@ -46,6 +46,7 @@ const AdminSignals = () => {
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [quantityUnit, setQuantityUnit] = useState('張');
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -171,6 +172,7 @@ const AdminSignals = () => {
       action: action as any,
       price_hint: latestPrice ? parseFloat(latestPrice) : null,
       quantity: quantity ? parseInt(quantity) : null,
+      quantity_unit: quantityUnit,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
@@ -288,7 +290,7 @@ const AdminSignals = () => {
 
     toast.success(isMentor ? '週記已發布' : '訊號已發布');
     setIsCreateOpen(false);
-    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
 
     // Trigger LINE push notification (non-blocking)
     if (inserted?.id) {
@@ -381,24 +383,24 @@ const AdminSignals = () => {
   const holdingSummary = useMemo(() => {
     if (!searchQuery.trim()) return null;
     // Group filtered published signals by instrument and compute net quantity
-    const instrumentMap = new Map<string, number>();
+    const instrumentMap = new Map<string, { qty: number; unit: string }>();
     for (const s of filtered) {
       if (s.status === 'taken_down') continue;
       const inst = s.instrument;
       const qty = s.quantity || 1;
-      const current = instrumentMap.get(inst) || 0;
+      const unit = s.quantity_unit || '張';
+      const current = instrumentMap.get(inst) || { qty: 0, unit };
       if (s.action === 'buy' || s.action === 'add') {
-        instrumentMap.set(inst, current + qty);
+        instrumentMap.set(inst, { qty: current.qty + qty, unit });
       } else if (s.action === 'sell' || s.action === 'trim') {
-        instrumentMap.set(inst, current - qty);
+        instrumentMap.set(inst, { qty: current.qty - qty, unit });
       } else if (s.action === 'exit') {
-        instrumentMap.set(inst, 0);
+        instrumentMap.set(inst, { qty: 0, unit });
       }
     }
-    // Only show if there's a single instrument match
     const entries = Array.from(instrumentMap.entries()).filter(([, v]) => v !== undefined);
     if (entries.length === 0) return null;
-    return entries.map(([inst, qty]) => ({ instrument: inst, quantity: Math.max(0, qty) }));
+    return entries.map(([inst, v]) => ({ instrument: inst, quantity: Math.max(0, v.qty), unit: v.unit }));
   }, [filtered, searchQuery]);
 
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
@@ -485,7 +487,15 @@ const AdminSignals = () => {
                     <Label>數量</Label>
                     <div className="flex items-center gap-2">
                       <Input value={quantity} onChange={e => setQuantity(e.target.value)} type="number" placeholder="1" className="w-32" />
-                      <span className="text-sm text-muted-foreground">張</span>
+                      <Select value={quantityUnit} onValueChange={setQuantityUnit}>
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="張">張</SelectItem>
+                          <SelectItem value="股">股</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 )}
@@ -515,7 +525,7 @@ const AdminSignals = () => {
                         <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
                         <span className="font-medium text-sm">{stockCode} {stockName}</span>
                         {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
-                        {quantity && <span className="text-sm text-muted-foreground">{quantity} 張</span>}
+                        {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
                       </div>
                       {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
                       {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
@@ -582,9 +592,9 @@ const AdminSignals = () => {
                              <td className="p-3"><Badge className={`${ai.className} text-xs`}>{ai.label}</Badge></td>
                              <td className="p-3 text-sm">
                                {signal.price_hint || '-'}
-                                {signal.quantity && (
-                                  <span className="text-muted-foreground ml-1">({signal.quantity}張)</span>
-                                )}
+                                 {signal.quantity && (
+                                   <span className="text-muted-foreground ml-1">({signal.quantity}{signal.quantity_unit || '張'})</span>
+                                 )}
                              </td>
                              <td className="p-3 text-sm max-w-[240px]">
                                {isTakenDown && signal.taken_down_reason ? (
@@ -662,13 +672,13 @@ const AdminSignals = () => {
                 </tbody>
                 {holdingSummary && holdingSummary.length > 0 && (
                   <tfoot>
-                    {holdingSummary.map(({ instrument, quantity }) => (
+                    {holdingSummary.map(({ instrument, quantity, unit }) => (
                       <tr key={instrument} className="border-t bg-muted/40">
                         <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground">
                           {instrument} 目前持有
                         </td>
                         <td className="p-3 text-sm font-bold text-foreground">
-                          {quantity} 張
+                          {quantity} {unit}
                         </td>
                         <td colSpan={3}></td>
                       </tr>
