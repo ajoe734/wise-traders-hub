@@ -46,6 +46,7 @@ const AdminSignals = () => {
   const [riskNotes, setRiskNotes] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [quantityUnit, setQuantityUnit] = useState('張');
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
