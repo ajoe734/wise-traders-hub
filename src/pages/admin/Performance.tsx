@@ -430,7 +430,7 @@ const AdminPerformance = () => {
                               </div>
                             </td>
                             <td className="text-right p-3 text-sm tabular-nums">
-                              {row.quantity} 張
+                              {row.quantity} {row.quantity_unit}
                             </td>
                             <td className="text-right p-3 text-sm tabular-nums">
                               {row.entry_price != null ? row.entry_price.toLocaleString() : '-'}

@@ -672,13 +672,13 @@ const AdminSignals = () => {
                 </tbody>
                 {holdingSummary && holdingSummary.length > 0 && (
                   <tfoot>
-                    {holdingSummary.map(({ instrument, quantity }) => (
+                    {holdingSummary.map(({ instrument, quantity, unit }) => (
                       <tr key={instrument} className="border-t bg-muted/40">
                         <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground">
                           {instrument} 目前持有
                         </td>
                         <td className="p-3 text-sm font-bold text-foreground">
-                          {quantity} 張
+                          {quantity} {unit}
                         </td>
                         <td colSpan={3}></td>
                       </tr>
