@@ -290,7 +290,7 @@ const AdminSignals = () => {
 
     toast.success(isMentor ? '週記已發布' : '訊號已發布');
     setIsCreateOpen(false);
-    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
 
     // Trigger LINE push notification (non-blocking)
     if (inserted?.id) {
