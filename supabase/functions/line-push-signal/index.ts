@@ -35,7 +35,7 @@ async function fetchLivePriceChange(instrument: string): Promise<{ price: number
   }
 }
 
-function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish', liveQuote?: { price: number; change: number; changePercent: number } | null) {
+function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish') {
   const actionLabel: Record<string, string> = {
     buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
   }
@@ -99,14 +99,11 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish',
   const color = isBullish ? '#00B900' : '#DC3545'
 
   // Build copy text for one-click copy
+  const qtyLabel = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
   const copyLines: string[] = [
     `【${label} ${signal.instrument}】`,
   ]
-  if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}`)
-  if (liveQuote) {
-    const sign = liveQuote.changePercent >= 0 ? '+' : ''
-    copyLines.push(`即時報價：${liveQuote.price}（${sign}${liveQuote.changePercent.toFixed(2)}%）`)
-  }
+  if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}${qtyLabel}`)
   if (signal.reason_summary) copyLines.push(`\n📌 摘要：\n${signal.reason_summary}`)
   if (signal.reason_detail) copyLines.push(`\n📊 詳細分析：\n${signal.reason_detail}`)
   if (signal.risk_notes) copyLines.push(`\n⚠️ 風險提示：\n${signal.risk_notes}`)
@@ -124,42 +121,13 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish',
   ]
 
   if (signal.price_hint) {
+    const qtyText = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
     bodyContents.push({
       type: 'text',
-      text: `參考價位：${signal.price_hint}`,
+      text: `參考價位：${signal.price_hint}${qtyText}`,
       size: 'sm',
       color: '#666666',
       margin: 'md',
-    })
-  }
-
-  // Add live price change info
-  if (liveQuote) {
-    const changeSign = liveQuote.changePercent >= 0 ? '+' : ''
-    const changeColor = liveQuote.changePercent >= 0 ? '#DC3545' : '#00B900' // 台股慣例：紅漲綠跌
-    bodyContents.push({
-      type: 'box',
-      layout: 'horizontal',
-      margin: 'sm',
-      contents: [
-        {
-          type: 'text',
-          text: `📈 即時：${liveQuote.price}`,
-          size: 'sm',
-          color: '#666666',
-          flex: 0,
-        },
-        {
-          type: 'text',
-          text: `${changeSign}${liveQuote.changePercent.toFixed(2)}%`,
-          size: 'sm',
-          color: changeColor,
-          weight: 'bold',
-          align: 'end',
-          flex: 0,
-          margin: 'md',
-        },
-      ],
     })
   }
 
@@ -270,7 +238,7 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish',
 
   return {
     type: 'flex',
-    altText: `${label} ${signal.instrument}${signal.price_hint ? ` @ ${signal.price_hint}` : ''}${liveQuote ? ` (${liveQuote.changePercent >= 0 ? '+' : ''}${liveQuote.changePercent.toFixed(2)}%)` : ''}`,
+    altText: `${label} ${signal.instrument}${signal.price_hint ? ` @ ${signal.price_hint}` : ''}`,
     contents: {
       type: 'bubble',
       body: {
@@ -380,12 +348,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Fetch live price for the signal instrument (only for publish)
-    let liveQuote: { price: number; change: number; changePercent: number } | null = null
-    if (pushType === 'publish') {
-      liveQuote = await fetchLivePriceChange(signal.instrument)
-      console.log('Live quote for', signal.instrument, ':', liveQuote)
-    }
+    const message = buildFlexMessage(signal, pushType)
 
     // Get active LINE bindings for this expert
     const { data: bindings } = await supabaseAdmin
@@ -432,7 +395,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    const message = buildFlexMessage(signal, pushType, liveQuote)
     let totalPushed = 0
 
     // Send in batches of 500
