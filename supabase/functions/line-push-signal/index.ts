@@ -238,7 +238,7 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish',
 
   return {
     type: 'flex',
-    altText: `${label} ${signal.instrument}${signal.price_hint ? ` @ ${signal.price_hint}` : ''}${liveQuote ? ` (${liveQuote.changePercent >= 0 ? '+' : ''}${liveQuote.changePercent.toFixed(2)}%)` : ''}`,
+    altText: `${label} ${signal.instrument}${signal.price_hint ? ` @ ${signal.price_hint}` : ''}`,
     contents: {
       type: 'bubble',
       body: {
