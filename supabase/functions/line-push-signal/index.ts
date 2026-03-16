@@ -99,14 +99,11 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish',
   const color = isBullish ? '#00B900' : '#DC3545'
 
   // Build copy text for one-click copy
+  const qtyLabel = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
   const copyLines: string[] = [
     `【${label} ${signal.instrument}】`,
   ]
-  if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}`)
-  if (liveQuote) {
-    const sign = liveQuote.changePercent >= 0 ? '+' : ''
-    copyLines.push(`即時報價：${liveQuote.price}（${sign}${liveQuote.changePercent.toFixed(2)}%）`)
-  }
+  if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}${qtyLabel}`)
   if (signal.reason_summary) copyLines.push(`\n📌 摘要：\n${signal.reason_summary}`)
   if (signal.reason_detail) copyLines.push(`\n📊 詳細分析：\n${signal.reason_detail}`)
   if (signal.risk_notes) copyLines.push(`\n⚠️ 風險提示：\n${signal.risk_notes}`)
