@@ -171,6 +171,7 @@ const AdminSignals = () => {
       instrument,
       action: action as any,
       price_hint: latestPrice ? parseFloat(latestPrice) : null,
+      quantity_unit: quantityUnit,
       quantity: quantity ? parseInt(quantity) : null,
       reason_summary: reasonSummary,
       reason_detail: reasonDetail,
