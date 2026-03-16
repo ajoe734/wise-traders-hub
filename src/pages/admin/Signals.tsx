@@ -486,7 +486,15 @@ const AdminSignals = () => {
                     <Label>數量</Label>
                     <div className="flex items-center gap-2">
                       <Input value={quantity} onChange={e => setQuantity(e.target.value)} type="number" placeholder="1" className="w-32" />
-                      <span className="text-sm text-muted-foreground">張</span>
+                      <Select value={quantityUnit} onValueChange={(v: '張' | '股') => setQuantityUnit(v)}>
+                        <SelectTrigger className="w-24">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="張">張</SelectItem>
+                          <SelectItem value="股">股</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 )}
