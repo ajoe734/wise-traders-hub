@@ -348,12 +348,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Fetch live price for the signal instrument (only for publish)
-    let liveQuote: { price: number; change: number; changePercent: number } | null = null
-    if (pushType === 'publish') {
-      liveQuote = await fetchLivePriceChange(signal.instrument)
-      console.log('Live quote for', signal.instrument, ':', liveQuote)
-    }
+    const message = buildFlexMessage(signal, pushType)
 
     // Get active LINE bindings for this expert
     const { data: bindings } = await supabaseAdmin
