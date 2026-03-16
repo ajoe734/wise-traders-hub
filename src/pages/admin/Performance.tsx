@@ -123,7 +123,7 @@ const AdminPerformance = () => {
       // 1. 取得 open 持倉 from trade_records
       const { data: tradeData } = await supabase
         .from('trade_records')
-        .select('id, instrument, entry_price, current_price, pnl_percent, quantity, status')
+        .select('id, instrument, entry_price, current_price, pnl_percent, quantity, quantity_unit, status')
         .eq('expert_id', expertId)
         .eq('status', 'open');
 
