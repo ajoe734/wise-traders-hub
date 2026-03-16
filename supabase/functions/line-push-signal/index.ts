@@ -395,7 +395,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    const message = buildFlexMessage(signal, pushType, liveQuote)
     let totalPushed = 0
 
     // Send in batches of 500
