@@ -17,7 +17,7 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
     const bodyContents: any[] = [
       {
         type: 'text',
-        text: '⚠️ 訊號已撤回',
+        text: '⚠️ 訊號已收回',
         weight: 'bold',
         size: 'lg',
         color: '#DC3545',
@@ -35,7 +35,7 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
     if (signal.taken_down_reason) {
       bodyContents.push({
         type: 'text',
-        text: `撤回原因：${signal.taken_down_reason}`,
+        text: `收回原因：${signal.taken_down_reason}`,
         size: 'sm',
         color: '#666666',
         margin: 'md',
@@ -45,7 +45,7 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
 
     bodyContents.push({
       type: 'text',
-      text: '請留意此訊號已不再有效，如有疑問請聯繫客服。',
+      text: '此訊號已被分析師收回，不再有效。',
       size: 'xs',
       color: '#999999',
       margin: 'lg',
