@@ -5,8 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Check, Target, Stethoscope, Zap, BookOpen, Lock, Lightbulb } from "lucide-react";
-import { StrategyIntroSection } from "@/components/strategy/StrategyIntroSection";
+import { ArrowLeft, Check, Target, Zap, BookOpen, Lock } from "lucide-react";
+
 import { ExpertRole } from "@/types";
 import { Link } from "react-router-dom";
 import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverviewPanel";
@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useExpert } from "@/hooks/useExpert";
 import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useExpertPerformance } from "@/hooks/usePerformance";
+
 
 const planMeta: Record<string, { title: string; subtitle: string; description: string; features: string[]; icon: any; variant: 'advisor' | 'mentor' }> = {
   analyst_signal_l1: {
@@ -57,7 +57,7 @@ const AppExpertDetail = () => {
   const [subscribedPlanTypes, setSubscribedPlanTypes] = useState<string[]>([]);
   
   const { data: expert, isLoading } = useExpert(slug);
-  const { data: perf } = useExpertPerformance(expert?.id);
+  
 
   // Fetch expert plans from DB
   const { data: dbPlans = [] } = useQuery({
@@ -163,21 +163,6 @@ const AppExpertDetail = () => {
           </Card>
         )}
 
-        {/* Strategy Introduction */}
-        <div className="pt-2">
-          <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
-            <Lightbulb className="h-4 w-4" />策略簡介
-          </h2>
-          <StrategyIntroSection
-            summary={expert.strategySummary}
-            metrics={{
-              return1y: perf?.return_1y ?? expert.backtestReturn1y,
-              maxDrawdown: expert.backtestMaxDrawdown,
-              annualReturn: expert.backtestAnnualReturn,
-            }}
-            variant={isAdvisor ? 'advisor' : 'mentor'}
-          />
-        </div>
 
         <div className="pt-2">
           <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">

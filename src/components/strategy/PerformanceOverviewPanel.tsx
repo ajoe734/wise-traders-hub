@@ -78,16 +78,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
     return performanceData.find(p => p.label === selectedPoint);
   }, [selectedPoint, performanceData]);
 
-  // Build equity curve from period buckets (compound returns)
-  const equityCurve = useMemo(() => {
-    let equity = INITIAL_CAPITAL;
-    return performanceData.map(p => {
-      equity = equity * (1 + p.returnPct / 100);
-      return { ...p, equity: Math.round(equity), isSelected: p.label === selectedPoint };
-    });
-  }, [performanceData, selectedPoint]);
-
-  const chartData = equityCurve;
+  const chartData = performanceData;
 
   const handlePointClick = (data: PeriodBucket) => {
     if (selectedPoint === data.label) {
@@ -115,9 +106,6 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
     return (
       <div className="bg-background/95 dark:bg-white/10 backdrop-blur-sm border dark:border-white/10 rounded-lg p-2 shadow-lg text-xs">
         <div className="font-medium text-foreground">{data.label}</div>
-        <div className="text-foreground">
-          資產: ${data.equity?.toLocaleString()}
-        </div>
         <div className={data.returnPct >= 0 ? "text-success" : "text-destructive"}>
           報酬率: {data.returnPct >= 0 ? "+" : ""}{data.returnPct.toFixed(1)}%
         </div>
@@ -126,6 +114,15 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   };
 
   const tabClass = `text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border-b-2 ${variant === 'mentor' ? 'data-[state=active]:border-mentor data-[state=active]:text-mentor' : 'data-[state=active]:border-advisor data-[state=active]:text-advisor'}`;
+
+  // Build returnPct curve for chart Y-axis
+  const returnCurve = useMemo(() => {
+    let cumReturn = 0;
+    return performanceData.map(p => {
+      cumReturn = (1 + cumReturn / 100) * (1 + p.returnPct / 100) * 100 - 100;
+      return { ...p, cumReturnPct: parseFloat(cumReturn.toFixed(1)), isSelected: p.label === selectedPoint };
+    });
+  }, [performanceData, selectedPoint]);
 
   return (
     <Card className="overflow-hidden">
@@ -142,6 +139,24 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
           </TabsList>
         </Tabs>
 
+        {/* Stats Bar */}
+        <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/30 dark:bg-white/[0.03] border dark:border-white/10 p-3">
+          <div>
+            <div className="text-xs text-muted-foreground">起始資金</div>
+            <div className="text-lg font-bold text-foreground">${INITIAL_CAPITAL.toLocaleString()}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground">目前資產</div>
+            <div className="text-lg font-bold text-foreground">${currentAsset.toLocaleString()}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-muted-foreground">總報酬率</div>
+            <div className={cn("text-lg font-bold", sinceInceptionReturn >= 0 ? "text-success" : "text-destructive")}>
+              {sinceInceptionReturn >= 0 ? "+" : ""}{sinceInceptionReturn.toFixed(2)}%
+            </div>
+          </div>
+        </div>
+
         {/* Chart */}
         <div className="space-y-3">
           <div className="flex justify-end">
@@ -156,10 +171,10 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={chartData.length > 0 ? chartData : [{ label: '', equity: INITIAL_CAPITAL }]}
+                  data={returnCurve.length > 0 ? returnCurve : [{ label: '', returnPct: 0 }]}
                   margin={{ top: 16, right: 16, left: 8, bottom: 8 }}
                   onClick={(e) => {
-                    if (e?.activePayload?.[0] && chartData.length > 0) {
+                    if (e?.activePayload?.[0] && returnCurve.length > 0) {
                       handlePointClick(e.activePayload[0].payload);
                     }
                   }}
@@ -171,12 +186,12 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 10000).toFixed(0)}萬`} domain={['dataMin * 0.98', 'dataMax * 1.02']} />
+                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
                   <Tooltip content={<CustomTooltip />} />
-                  {chartData.length > 0 && (
+                  {returnCurve.length > 0 && (
                     <Area
                       type="monotone"
-                      dataKey="equity"
+                      dataKey="returnPct"
                       stroke={chartColors.stroke}
                       strokeWidth={2}
                       fill={`url(#colorReturn-${period})`}
@@ -205,7 +220,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
 
           {!selectedPoint && !isLoading && (
             <p className="text-xs text-muted-foreground dark:text-white/50 text-center py-2">
-              {chartData.length > 0 ? '點擊圖表節點查看個股排名' : '尚無已結算的交易紀錄'}
+              {returnCurve.length > 0 ? '點擊圖表節點查看個股排名' : '尚無已結算的交易紀錄'}
             </p>
           )}
         </div>
