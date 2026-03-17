@@ -32,16 +32,6 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
       },
     ]
 
-    if (signal.taken_down_reason) {
-      bodyContents.push({
-        type: 'text',
-        text: `收回原因：${signal.taken_down_reason}`,
-        size: 'sm',
-        color: '#666666',
-        margin: 'md',
-        wrap: true,
-      })
-    }
 
     bodyContents.push({
       type: 'text',

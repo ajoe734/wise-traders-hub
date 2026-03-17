@@ -658,7 +658,7 @@ const AdminSignals = () => {
                                     action,
                                     instrument,
                                     price_hint: priceHint ? parseFloat(priceHint) : null,
-                                    taken_down_reason: '分析師已收回此訊號',
+                                    
                                   },
                                   type: 'takedown',
                                 },
