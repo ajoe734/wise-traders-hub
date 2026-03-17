@@ -7,11 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users, Lightbulb } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
-import { StrategyIntroSection } from '@/components/strategy/StrategyIntroSection';
-import { useExpertPerformance } from '@/hooks/usePerformance';
 
 interface DbPlan {
   id: string;
@@ -52,7 +50,7 @@ const ExpertProfile = () => {
   const [subscribedPlanIds, setSubscribedPlanIds] = useState<Set<string>>(new Set());
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const { data: perf } = useExpertPerformance(expertInfo?.id);
+  
 
   useEffect(() => {
     const fetchData = async () => {
@@ -225,22 +223,8 @@ const ExpertProfile = () => {
           </div>
         </section>
 
-        {/* ── Strategy Introduction ── */}
-        <section>
-          <div className="flex items-center gap-2 mb-6">
-            <Lightbulb className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
-            <h2 className="text-h3">策略簡介</h2>
-          </div>
-          <StrategyIntroSection
-            summary={expertInfo.strategySummary || ''}
-            metrics={{
-              return1y: perf?.return_1y ?? expertInfo.backtestReturn1y,
-              maxDrawdown: expertInfo.backtestMaxDrawdown,
-              annualReturn: expertInfo.backtestAnnualReturn,
-            }}
-            variant={isAdvisor ? 'advisor' : 'mentor'}
-          />
-        </section>
+
+
 
         {/* ── Performance Section ── */}
         <section>
