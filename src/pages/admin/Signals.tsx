@@ -751,14 +751,21 @@ const AdminSignals = () => {
                                     <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
                                    )}
                                 </td>
-                              <td className="p-3">
-                               {hasDetail && (
-                                 <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setExpandedId(isExpanded ? null : signal.id)}>
-                                   {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                   {isExpanded ? '收起' : '展開'}
-                                 </Button>
-                               )}
-                             </td>
+                               <td className="p-3">
+                                <div className="flex items-center gap-1">
+                                  {hasDetail && (
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setExpandedId(isExpanded ? null : signal.id)}>
+                                      {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                      {isExpanded ? '收起' : '展開'}
+                                    </Button>
+                                  )}
+                                  {!isTakenDown && !isReadOnly && (
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => handleRecall(signal.id)} disabled={recalling}>
+                                      <Undo2 className="h-3 w-3" />收回
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
                            </tr>
                            {isExpanded && (
                              <tr className="border-b last:border-0">
