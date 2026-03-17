@@ -733,8 +733,8 @@ const AdminSignals = () => {
                                )}
                              </td>
                                <td className="p-3">
-                                 {isTakenDown ? (
-                                   <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已下架</Badge>
+                                  {isTakenDown ? (
+                                    <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已收回</Badge>
                                  ) : signal.action === 'exit' ? (
                                    <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
                                  ) : ['sell', 'trim'].includes(signal.action) ? (
