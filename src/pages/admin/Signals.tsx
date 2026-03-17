@@ -343,24 +343,49 @@ const AdminSignals = () => {
         return;
       }
 
-      // Update status to taken_down to trigger DB cleanup triggers
-      await supabase.from('expert_signals').update({
-        status: 'taken_down' as any,
-        taken_down_reason: '分析師已收回此訊號',
-        taken_down_by: null,
-      }).eq('id', signalId);
-
-      // Push recall notification via LINE (non-blocking)
+      // Push recall notification via LINE using preview mode with signal data
       supabase.functions.invoke('line-push-signal', {
-        body: { signal_id: signalId, expert_id: expert.id, type: 'takedown' },
+        body: {
+          expert_id: expert.id,
+          mode: 'preview',
+          signal_data: {
+            action: signal.action,
+            instrument: signal.instrument,
+            price_hint: signal.price_hint,
+          },
+          type: 'takedown',
+        },
       }).then(({ data: pushData }) => {
         if (pushData?.pushed) {
           toast.success(`已推播收回通知給 ${pushData.count} 位訂閱者`);
         }
       }).catch(() => {});
 
-      // Delete the signal from DB after trigger has run
+      // Clean up related trade data for this signal
+      const symbol = signal.instrument.split(' ')[0];
+      // Delete trade_records linked to this signal
       await supabase.from('expert_signals').delete().eq('id', signalId);
+
+      // Clean up trade_signals & user_performances for the expert's user
+      if (expert.user_id && symbol) {
+        // Check if there are other published signals for same instrument
+        const { data: otherSignals } = await supabase
+          .from('expert_signals')
+          .select('id')
+          .eq('expert_id', expert.id)
+          .eq('status', 'published' as any)
+          .ilike('instrument', `${symbol}%`)
+          .limit(1);
+
+        // If no other signals remain for this instrument, clean up trade data
+        if (!otherSignals || otherSignals.length === 0) {
+          await Promise.all([
+            supabase.from('trade_records').delete().eq('expert_id', expert.id).ilike('instrument', `${symbol}%`),
+            supabase.from('trade_signals').delete().eq('user_id', expert.user_id).eq('symbol', symbol),
+            supabase.from('user_performances').delete().eq('user_id', expert.user_id).eq('symbol', symbol),
+          ]);
+        }
+      }
 
       toast.success('訊號已收回');
       setSignals(prev => prev.filter(s => s.id !== signalId));
@@ -633,7 +658,7 @@ const AdminSignals = () => {
                                     action,
                                     instrument,
                                     price_hint: priceHint ? parseFloat(priceHint) : null,
-                                    taken_down_reason: '分析師已收回此訊號',
+                                    
                                   },
                                   type: 'takedown',
                                 },
