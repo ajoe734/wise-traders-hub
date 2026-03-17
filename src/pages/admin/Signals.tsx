@@ -724,9 +724,9 @@ const AdminSignals = () => {
                                ) : '-'}
                              </td>
                              <td className="p-3 text-sm max-w-[240px]">
-                               {isTakenDown && signal.taken_down_reason ? (
-                                 <p className="text-primary truncate text-xs">
-                                   <span className="font-medium">下架理由：</span>{stripDotPrefix(signal.taken_down_reason)}
+                                {isTakenDown && signal.taken_down_reason ? (
+                                  <p className="text-primary truncate text-xs">
+                                    <span className="font-medium">收回理由：</span>{stripDotPrefix(signal.taken_down_reason)}
                                  </p>
                                ) : (
                                  <p className="text-muted-foreground truncate">{stripDotPrefix(signal.reason_summary || '-')}</p>
