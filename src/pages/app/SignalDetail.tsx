@@ -23,6 +23,8 @@ interface DbSignal {
   instrument: string;
   action: string;
   price_hint: number | null;
+  quantity: number | null;
+  quantity_unit: string;
   reason_summary: string | null;
   reason_detail: string | null;
   risk_notes: string | null;
@@ -65,7 +67,7 @@ const SignalDetail = () => {
     setLoading(true);
     const { data } = await supabase
       .from('expert_signals')
-      .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url)')
+      .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url)')
       .eq('id', signalId)
       .single();
     setSignal(data as unknown as DbSignal | null);
@@ -121,7 +123,7 @@ const SignalDetail = () => {
         {/* Price hint */}
         {signal.price_hint != null && (
           <div className="text-sm text-muted-foreground">
-            參考價位：<span className="font-medium text-foreground">{signal.price_hint}</span>
+            參考價位：<span className="font-medium text-foreground">{signal.price_hint}{signal.quantity != null ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''}</span>
           </div>
         )}
 
