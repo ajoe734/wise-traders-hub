@@ -7,11 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users, Lightbulb } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
-import { StrategyIntroSection } from '@/components/strategy/StrategyIntroSection';
-import { useExpertPerformance } from '@/hooks/usePerformance';
 
 interface DbPlan {
   id: string;
