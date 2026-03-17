@@ -31,7 +31,7 @@ function bucketKey(date: Date, period: ViewPeriod): string {
       return format(date, 'yyyy/MM');
     case 'weekly': {
       const ws = startOfWeek(date, { weekStartsOn: 1 });
-      return format(ws, 'MM/dd');
+      return `W${getISOWeek(ws)}`;
     }
   }
 }
