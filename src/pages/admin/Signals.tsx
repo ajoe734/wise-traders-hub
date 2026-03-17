@@ -667,10 +667,8 @@ const AdminSignals = () => {
                                 },
                               });
                               toast.success('已推播收回通知');
-                              setIsCreateOpen(false);
                               setLastPublishedId(null);
                               setLinePushed(false);
-                              setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
                             } catch (err) {
                               console.error('Recall preview push error:', err);
                               toast.error('收回推播失敗');
