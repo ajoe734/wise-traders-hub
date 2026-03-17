@@ -476,7 +476,7 @@ const AdminSignals = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
-            <p className="text-muted-foreground text-sm mt-1">{isMentor ? '每週發布，管理者可事後下架' : '發布即上線，管理者可事後下架'}</p>
+            <p className="text-muted-foreground text-sm mt-1">{isMentor ? '每週發布，可自行收回' : '發布即上線，可自行收回'}</p>
           </div>
           {!isReadOnly && (
           <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setLinePushed(false); setLinePushing(false); } }}>
