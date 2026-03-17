@@ -49,7 +49,7 @@ import CompanyDashboard from "./pages/company/Dashboard";
 import CompanyAnalysts from "./pages/company/Analysts";
 import CompanySubscribers from "./pages/company/Subscribers";
 import CompanyRevenue from "./pages/company/Revenue";
-import CompanyReview from "./pages/company/Review";
+
 import CompanyPayments from "./pages/company/Payments";
 
 import CompanyAnnouncements from "./pages/company/Announcements";
