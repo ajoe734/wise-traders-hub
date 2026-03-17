@@ -331,6 +331,54 @@ const AdminSignals = () => {
     fetchData();
   };
 
+  const handleRecall = async (signalId: string) => {
+    if (!expert || recalling) return;
+    setRecalling(true);
+    try {
+      // Fetch signal data before deleting for LINE push
+      const { data: signal } = await supabase
+        .from('expert_signals')
+        .select('*')
+        .eq('id', signalId)
+        .single();
+
+      if (!signal) {
+        toast.error('找不到該訊號');
+        setRecalling(false);
+        return;
+      }
+
+      // Update status to taken_down to trigger DB cleanup triggers
+      await supabase.from('expert_signals').update({
+        status: 'taken_down' as any,
+        taken_down_reason: '分析師已收回此訊號',
+        taken_down_by: null,
+      }).eq('id', signalId);
+
+      // Push recall notification via LINE (non-blocking)
+      supabase.functions.invoke('line-push-signal', {
+        body: { signal_id: signalId, expert_id: expert.id, type: 'takedown' },
+      }).then(({ data: pushData }) => {
+        if (pushData?.pushed) {
+          toast.success(`已推播收回通知給 ${pushData.count} 位訂閱者`);
+        }
+      }).catch(() => {});
+
+      // Delete the signal from DB after trigger has run
+      await supabase.from('expert_signals').delete().eq('id', signalId);
+
+      toast.success('訊號已收回');
+      setSignals(prev => prev.filter(s => s.id !== signalId));
+      setIsCreateOpen(false);
+      setLastPublishedId(null);
+      fetchData();
+    } catch (err) {
+      console.error('Recall failed:', err);
+      toast.error('收回失敗，請重試');
+    }
+    setRecalling(false);
+  };
+
   const isAdvisor = expert?.role === 'advisor';
   const isMentor = expert?.role === 'mentor';
   const contentLabel = isMentor ? '週記' : '訊號';
