@@ -648,14 +648,24 @@ const AdminSignals = () => {
                   </Card>
                 )}
                 <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>取消</Button>
-                  <Button
-                    onClick={handlePublish}
-                    disabled={!canPublish}
-                    className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
-                  >
-                    立即發布
-                  </Button>
+                  <Button variant="outline" onClick={() => { setIsCreateOpen(false); setLastPublishedId(null); }}>取消</Button>
+                  {lastPublishedId ? (
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleRecall(lastPublishedId)}
+                      disabled={recalling}
+                    >
+                      {recalling ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />收回中...</> : <><Undo2 className="h-4 w-4 mr-2" />收回訊號</>}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handlePublish}
+                      disabled={!canPublish}
+                      className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
+                    >
+                      立即發布
+                    </Button>
+                  )}
                 </div>
               </div>
             </DialogContent>
