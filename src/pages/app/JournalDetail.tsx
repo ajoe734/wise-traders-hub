@@ -7,7 +7,7 @@ import { ActionBadge } from '@/components/ActionBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { Calendar, BookOpen, Shield, TrendingUp, Loader2 } from 'lucide-react';
+import { Calendar, BookOpen, Shield, Loader2 } from 'lucide-react';
 
 interface SignalDetail {
   id: string;
@@ -28,38 +28,11 @@ interface SignalDetail {
   };
 }
 
-interface StockRow {
-  Code: string;
-  Name: string;
-  ClosingPrice: string;
-  Change: string;
-  TradeVolume?: string;
-  OpeningPrice?: string;
-  HighestPrice?: string;
-  LowestPrice?: string;
-  MonthlyAveragePrice?: string;
-}
-
-interface FundamentalRow {
-  Code: string;
-  Name: string;
-  PEratio: string;
-  DividendYield: string;
-  PBratio: string;
-}
-
-const actionLabels: Record<string, string> = {
-  buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '出場',
-};
-
 const JournalDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [signal, setSignal] = useState<SignalDetail | null>(null);
   const [weekSignals, setWeekSignals] = useState<SignalDetail[]>([]);
-  const [stockData, setStockData] = useState<StockRow[]>([]);
-  const [fundamentals, setFundamentals] = useState<FundamentalRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [twseLoading, setTwseLoading] = useState(false);
 
   useEffect(() => {
     markAppJournalsAsRead();
@@ -85,7 +58,6 @@ const JournalDetail = () => {
     const s = data as any as SignalDetail;
     setSignal(s);
 
-    // Fetch same-week signals from same expert
     const pubDate = new Date(s.published_at);
     const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
     const we = endOfWeek(pubDate, { weekStartsOn: 1 });
@@ -99,109 +71,8 @@ const JournalDetail = () => {
       .lte('published_at', we.toISOString())
       .order('published_at', { ascending: true });
 
-    const allWeek = (weekData as any) || [];
-    setWeekSignals(allWeek);
+    setWeekSignals((weekData as any) || []);
     setLoading(false);
-
-    // Fetch market data for instruments in this week
-    const instruments = [...new Set(allWeek.map((sig: SignalDetail) => sig.instrument))];
-    const codes = instruments.map((i: string) => i.replace('.TW', '').replace('.TWO', '').match(/^\d+/)?.[0]).filter(Boolean) as string[];
-    if (codes.length > 0) {
-      fetchMarketData(codes);
-    }
-  };
-
-  const fetchMarketData = async (codes: string[]) => {
-    setTwseLoading(true);
-    const codesStr = codes.join(',');
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    const headers = { apikey: anonKey };
-
-    const allStockData: StockRow[] = [];
-    const allFundamentals: FundamentalRow[] = [];
-
-    try {
-      // Fetch TWSE price + fundamentals + monthly avg in parallel
-      const [priceRes, fundRes, avgRes] = await Promise.all([
-        fetch(`https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=STOCK_DAY_ALL&codes=${codesStr}`, { headers }),
-        fetch(`https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=BWIBBU_ALL&codes=${codesStr}`, { headers }),
-        fetch(`https://${projectId}.supabase.co/functions/v1/twse-proxy?endpoint=STOCK_DAY_AVG_ALL&codes=${codesStr}`, { headers }),
-      ]);
-
-      const twsePriceCodes = new Set<string>();
-
-      if (priceRes.ok) {
-        const priceData = await priceRes.json();
-        if (Array.isArray(priceData)) {
-          priceData.forEach((d: any) => twsePriceCodes.add(d.Code));
-          allStockData.push(...priceData);
-        }
-      }
-      if (fundRes.ok) {
-        const fundData = await fundRes.json();
-        if (Array.isArray(fundData)) allFundamentals.push(...fundData);
-      }
-
-      // Merge monthly average prices into stock data
-      if (avgRes.ok) {
-        const avgData = await avgRes.json();
-        if (Array.isArray(avgData)) {
-          for (const avg of avgData) {
-            const existing = allStockData.find(s => s.Code === avg.Code);
-            if (existing) {
-              existing.MonthlyAveragePrice = avg.MonthlyAveragePrice || avg.ClosingPrice;
-            }
-          }
-        }
-      }
-
-      // Find codes not found in TWSE → query TPEX as fallback
-      const missingCodes = codes.filter(c => !twsePriceCodes.has(c));
-      if (missingCodes.length > 0) {
-        const tpexCodesStr = missingCodes.join(',');
-        const [tpexPriceRes, tpexFundRes] = await Promise.all([
-          fetch(`https://${projectId}.supabase.co/functions/v1/tpex-proxy?endpoint=SQUOTE_EW_QUOTAS_ALL&codes=${tpexCodesStr}`, { headers }),
-          fetch(`https://${projectId}.supabase.co/functions/v1/tpex-proxy?endpoint=SQUOTE_EW_PEBR_ALL&codes=${tpexCodesStr}`, { headers }),
-        ]);
-
-        if (tpexPriceRes.ok) {
-          const tpexPriceData = await tpexPriceRes.json();
-          if (Array.isArray(tpexPriceData)) {
-            // Normalize TPEX fields to match TWSE structure
-            for (const item of tpexPriceData) {
-              allStockData.push({
-                Code: item.SecuritiesCompanyCode || item.Code,
-                Name: item.CompanyName || item.Name || '-',
-                ClosingPrice: item.Close || item.ClosingPrice || '-',
-                Change: item.Change || '-',
-                TradeVolume: item.TradeVolume || '-',
-              });
-            }
-          }
-        }
-        if (tpexFundRes.ok) {
-          const tpexFundData = await tpexFundRes.json();
-          if (Array.isArray(tpexFundData)) {
-            for (const item of tpexFundData) {
-              allFundamentals.push({
-                Code: item.SecuritiesCompanyCode || item.Code,
-                Name: item.CompanyName || item.Name || '-',
-                PEratio: item.PriceEarningRatio || item.PEratio || '-',
-                DividendYield: item.DividendYield || '-',
-                PBratio: item.PriceBookRatio || item.PBratio || '-',
-              });
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Market data fetch error:', e);
-    }
-
-    setStockData(allStockData);
-    setFundamentals(allFundamentals);
-    setTwseLoading(false);
   };
 
   if (loading) {
@@ -221,6 +92,9 @@ const JournalDetail = () => {
   const pubDate = new Date(signal.published_at);
   const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
   const we = endOfWeek(pubDate, { weekStartsOn: 1 });
+
+  // Use first signal's reason_summary as the title
+  const weekTitle = signal.reason_summary || '本週操作回顧';
 
   // Collect all learning points from week signals
   const allLearningPoints = weekSignals
@@ -247,12 +121,12 @@ const JournalDetail = () => {
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm">{format(ws, 'MM/dd', { locale: zhTW })} ~ {format(we, 'MM/dd', { locale: zhTW })}</span>
-          <Badge variant="mentor-light" className="text-[10px]">T+7 歷史週記</Badge>
+          <Badge variant="mentor-light" className="text-[10px]">T+7 歷史</Badge>
         </div>
 
-        <h1 className="text-xl font-bold">本週操作回顧</h1>
+        <h1 className="text-xl font-bold">{weekTitle}</h1>
 
-        {/* Summary from first signal */}
+        {/* Summary */}
         {signal.reason_detail && (
           <Card>
             <CardContent className="p-4">
@@ -264,30 +138,33 @@ const JournalDetail = () => {
 
         {/* Trades */}
         {weekSignals.length > 0 && (
-          <Card>
-            <CardContent className="p-4">
-              <h2 className="font-semibold mb-3">本週操作列表</h2>
-              <div className="space-y-3">
-                {weekSignals.map(ws => (
-                  <div key={ws.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                    <ActionBadge action={ws.action as any} size="sm" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{ws.instrument}</span>
-                        <span className="text-xs text-muted-foreground">{format(new Date(ws.published_at), 'MM/dd')}</span>
-                        {ws.price_hint && (
-                          <span className="text-xs text-muted-foreground">@{ws.price_hint}</span>
-                        )}
-                      </div>
-                      {ws.reason_summary && (
-                        <p className="text-xs text-muted-foreground truncate">{ws.reason_summary}</p>
-                      )}
+          <div>
+            <h2 className="font-semibold mb-3">本週操作列表</h2>
+            <div className="space-y-1">
+              {weekSignals.map(ws => (
+                <div key={ws.id} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
+                  <ActionBadge action={ws.action as any} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{ws.instrument}</span>
+                      <span className="text-xs text-muted-foreground">{format(new Date(ws.published_at), 'MM/dd')}</span>
                     </div>
+                    {ws.reason_summary && ws.id !== signal.id && (
+                      <p className="text-xs text-muted-foreground truncate">{ws.reason_summary}</p>
+                    )}
+                    {ws.id === signal.id && ws.reason_summary && weekSignals.length > 1 ? null : null}
+                    {/* Show individual reason for non-title signals */}
+                    {ws.reason_summary && (
+                      <p className="text-xs text-muted-foreground truncate">{ws.reason_summary}</p>
+                    )}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  {ws.risk_notes && (
+                    <ResultBadge text={ws.risk_notes} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Learning Points */}
@@ -308,76 +185,12 @@ const JournalDetail = () => {
           </Card>
         )}
 
-        {/* Market Data (TWSE + TPEX) */}
-        {(stockData.length > 0 || fundamentals.length > 0) && (
-          <Card>
-            <CardContent className="p-4">
-              <h2 className="font-semibold mb-3 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-mentor" /> 本週相關個股數據
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="pb-2 pr-3">代碼</th>
-                      <th className="pb-2 pr-3">名稱</th>
-                      <th className="pb-2 pr-3 text-right">收盤價</th>
-                      <th className="pb-2 pr-3 text-right">漲跌</th>
-                      <th className="pb-2 pr-3 text-right">月均價</th>
-                      <th className="pb-2 pr-3 text-right">本益比</th>
-                      <th className="pb-2 pr-3 text-right">殖利率</th>
-                      <th className="pb-2 text-right">股淨比</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const allCodes = new Set([
-                        ...stockData.map(d => d.Code),
-                        ...fundamentals.map(d => d.Code),
-                      ]);
-                      return Array.from(allCodes).map(code => {
-                        const price = stockData.find(d => d.Code === code);
-                        const fund = fundamentals.find(d => d.Code === code);
-                        const change = parseFloat(price?.Change || '0');
-                        return (
-                          <tr key={code} className="border-b last:border-0">
-                            <td className="py-2 pr-3 font-mono text-xs">{code}</td>
-                            <td className="py-2 pr-3">{price?.Name || fund?.Name || '-'}</td>
-                            <td className="py-2 pr-3 text-right">{price?.ClosingPrice || '-'}</td>
-                            <td className={`py-2 pr-3 text-right ${change > 0 ? 'text-red-500' : change < 0 ? 'text-green-500' : ''}`}>
-                              {change > 0 ? '+' : ''}{price?.Change || '-'}
-                            </td>
-                            <td className="py-2 pr-3 text-right">{price?.MonthlyAveragePrice || '-'}</td>
-                            <td className="py-2 pr-3 text-right">{fund?.PEratio || '-'}</td>
-                            <td className="py-2 pr-3 text-right">{fund?.DividendYield ? `${fund.DividendYield}%` : '-'}</td>
-                            <td className="py-2 text-right">{fund?.PBratio || '-'}</td>
-                          </tr>
-                        );
-                      });
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-2">
-                資料來源：臺灣證券交易所 / 櫃買中心 OpenAPI（收盤後更新）
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {twseLoading && (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
-            <span className="text-sm text-muted-foreground">載入市場數據中...</span>
-          </div>
-        )}
-
         {/* Disclaimer */}
         <Card className="bg-muted/30">
           <CardContent className="p-4 flex items-start gap-2">
             <Shield className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
             <p className="text-xs text-muted-foreground">
-              本頁內容均延遲 7 天以上（T+7），僅作為歷史案例教學用途，不構成任何即時投資建議。
+              本頁內容為一週前之操作回顧（T+7），僅供教學用途，不構成任何即時投資建議。
             </p>
           </CardContent>
         </Card>
@@ -385,5 +198,27 @@ const JournalDetail = () => {
     </UnifiedAppLayout>
   );
 };
+
+/** Result badge that parses risk_notes to show colored outcome */
+function ResultBadge({ text }: { text: string }) {
+  // Detect if it contains positive or negative percentage
+  const pctMatch = text.match(/([+-]?\d+\.?\d*)%/);
+  const pct = pctMatch ? parseFloat(pctMatch[1]) : null;
+  const isPositive = pct !== null && pct >= 0;
+  const isNegative = pct !== null && pct < 0;
+
+  return (
+    <Badge
+      variant="outline"
+      className={`text-[11px] whitespace-nowrap shrink-0 ${
+        isPositive ? 'border-success/50 text-success bg-success/5' :
+        isNegative ? 'border-destructive/50 text-destructive bg-destructive/5' :
+        ''
+      }`}
+    >
+      {text}
+    </Badge>
+  );
+}
 
 export default JournalDetail;
