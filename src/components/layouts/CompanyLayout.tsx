@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
-  LayoutDashboard, Users, UserCheck, BarChart3, ShieldCheck, CreditCard,
+  LayoutDashboard, Users, UserCheck, BarChart3, CreditCard,
   LogOut, Moon, Sun, Building2, Megaphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
