@@ -1074,6 +1074,7 @@ export type Database = {
         Args: { _expert_id: string }
         Returns: Json
       }
+      delete_expired_binding_codes: { Args: never; Returns: undefined }
       delete_old_prices: { Args: never; Returns: undefined }
       has_active_subscription: {
         Args: { _user_id: string }
