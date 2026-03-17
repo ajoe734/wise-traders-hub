@@ -225,22 +225,8 @@ const ExpertProfile = () => {
           </div>
         </section>
 
-        {/* ── Strategy Introduction ── */}
-        <section>
-          <div className="flex items-center gap-2 mb-6">
-            <Lightbulb className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
-            <h2 className="text-h3">策略簡介</h2>
-          </div>
-          <StrategyIntroSection
-            summary={expertInfo.strategySummary || ''}
-            metrics={{
-              return1y: perf?.return_1y ?? expertInfo.backtestReturn1y,
-              maxDrawdown: expertInfo.backtestMaxDrawdown,
-              annualReturn: expertInfo.backtestAnnualReturn,
-            }}
-            variant={isAdvisor ? 'advisor' : 'mentor'}
-          />
-        </section>
+
+
 
         {/* ── Performance Section ── */}
         <section>
