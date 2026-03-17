@@ -48,6 +48,8 @@ const AdminSignals = () => {
   const [quantity, setQuantity] = useState('');
   const [quantityUnit, setQuantityUnit] = useState('張');
   const [fetchingQuote, setFetchingQuote] = useState(false);
+  const [linePushing, setLinePushing] = useState(false);
+  const [linePushed, setLinePushed] = useState(false);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 判斷是否為休市時段（週五 13:30 ~ 週一 09:00，台灣時間 UTC+8）
