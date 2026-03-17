@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useExpert } from "@/hooks/useExpert";
 import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useExpertPerformance } from "@/hooks/usePerformance";
+
 
 const planMeta: Record<string, { title: string; subtitle: string; description: string; features: string[]; icon: any; variant: 'advisor' | 'mentor' }> = {
   analyst_signal_l1: {
