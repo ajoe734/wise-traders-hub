@@ -23,6 +23,8 @@ interface DbSignal {
   instrument: string;
   action: string;
   price_hint: number | null;
+  quantity: number | null;
+  quantity_unit: string;
   reason_summary: string | null;
   reason_detail: string | null;
   risk_notes: string | null;
