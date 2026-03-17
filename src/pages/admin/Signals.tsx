@@ -519,6 +519,10 @@ const AdminSignals = () => {
                       disabled={linePushing || linePushed || !reasonSummary.trim()}
                       onClick={async () => {
                         if (!expert) return;
+                        if (!quantity || parseInt(quantity) <= 0) {
+                          toast.error('請輸入數量');
+                          return;
+                        }
                         setLinePushing(true);
                         try {
                           const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
