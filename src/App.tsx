@@ -49,7 +49,7 @@ import CompanyDashboard from "./pages/company/Dashboard";
 import CompanyAnalysts from "./pages/company/Analysts";
 import CompanySubscribers from "./pages/company/Subscribers";
 import CompanyRevenue from "./pages/company/Revenue";
-import CompanyReview from "./pages/company/Review";
+
 import CompanyPayments from "./pages/company/Payments";
 
 import CompanyAnnouncements from "./pages/company/Announcements";
@@ -111,7 +111,7 @@ const App = () => (
             <Route path="/company/analysts" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnalysts /></ProtectedRoute>} />
             <Route path="/company/subscribers" element={<ProtectedRoute requiredRole="company_admin"><CompanySubscribers /></ProtectedRoute>} />
             <Route path="/company/revenue" element={<ProtectedRoute requiredRole="company_admin"><CompanyRevenue /></ProtectedRoute>} />
-            <Route path="/company/review" element={<ProtectedRoute requiredRole="company_admin"><CompanyReview /></ProtectedRoute>} />
+            
             <Route path="/company/payments" element={<ProtectedRoute requiredRole="company_admin"><CompanyPayments /></ProtectedRoute>} />
             
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -50,6 +50,8 @@ const AdminSignals = () => {
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const [linePushing, setLinePushing] = useState(false);
   const [linePushed, setLinePushed] = useState(false);
+  const [recalling, setRecalling] = useState(false);
+  const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 判斷是否為休市時段（週五 13:30 ~ 週一 09:00，台灣時間 UTC+8）
@@ -296,7 +298,13 @@ const AdminSignals = () => {
     }
 
     toast.success(isMentor ? '週記已發布' : '訊號已發布');
-    setIsCreateOpen(false);
+    const publishedId = inserted?.id || null;
+    setLastPublishedId(publishedId);
+
+    // For advisor: keep dialog open after publish if LINE was already pushed (so they can recall if needed)
+    if (!(isAdvisor && linePushed)) {
+      setIsCreateOpen(false);
+    }
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
     setLinePushed(false); setLinePushing(false);
 
@@ -321,6 +329,54 @@ const AdminSignals = () => {
     }
 
     fetchData();
+  };
+
+  const handleRecall = async (signalId: string) => {
+    if (!expert || recalling) return;
+    setRecalling(true);
+    try {
+      // Fetch signal data before deleting for LINE push
+      const { data: signal } = await supabase
+        .from('expert_signals')
+        .select('*')
+        .eq('id', signalId)
+        .single();
+
+      if (!signal) {
+        toast.error('找不到該訊號');
+        setRecalling(false);
+        return;
+      }
+
+      // Update status to taken_down to trigger DB cleanup triggers
+      await supabase.from('expert_signals').update({
+        status: 'taken_down' as any,
+        taken_down_reason: '分析師已收回此訊號',
+        taken_down_by: null,
+      }).eq('id', signalId);
+
+      // Push recall notification via LINE (non-blocking)
+      supabase.functions.invoke('line-push-signal', {
+        body: { signal_id: signalId, expert_id: expert.id, type: 'takedown' },
+      }).then(({ data: pushData }) => {
+        if (pushData?.pushed) {
+          toast.success(`已推播收回通知給 ${pushData.count} 位訂閱者`);
+        }
+      }).catch(() => {});
+
+      // Delete the signal from DB after trigger has run
+      await supabase.from('expert_signals').delete().eq('id', signalId);
+
+      toast.success('訊號已收回');
+      setSignals(prev => prev.filter(s => s.id !== signalId));
+      setIsCreateOpen(false);
+      setLastPublishedId(null);
+      fetchData();
+    } catch (err) {
+      console.error('Recall failed:', err);
+      toast.error('收回失敗，請重試');
+    }
+    setRecalling(false);
   };
 
   const isAdvisor = expert?.role === 'advisor';
@@ -357,10 +413,10 @@ const AdminSignals = () => {
 
   // Multi-condition search: conditions separated by "、"
   const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
-  const statusOnlyKeywords = ['持有中', '已平倉', '已下架'];
+  const statusOnlyKeywords = ['持有中', '已平倉', '已收回'];
 
   const getDisplayStatus = (s: any) => {
-    if (s.status === 'taken_down') return '已下架';
+    if (s.status === 'taken_down') return '已收回';
     if (s.action === 'exit') return '已平倉';
     if (['sell', 'trim'].includes(s.action)) return openInstruments.has(s.instrument) ? '減碼' : '已平倉';
     if (s.action === 'add') return '加碼';
@@ -420,10 +476,10 @@ const AdminSignals = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
-            <p className="text-muted-foreground text-sm mt-1">{isMentor ? '每週發布，管理者可事後下架' : '發布即上線，管理者可事後下架'}</p>
+            <p className="text-muted-foreground text-sm mt-1">{isMentor ? '每週發布，可自行收回' : '發布即上線，可自行收回'}</p>
           </div>
           {!isReadOnly && (
-          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setLinePushed(false); setLinePushing(false); } }}>
+          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setLinePushed(false); setLinePushing(false); setLastPublishedId(null); } }}>
             <DialogTrigger asChild>
               <Button className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
                 <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
@@ -592,14 +648,24 @@ const AdminSignals = () => {
                   </Card>
                 )}
                 <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>取消</Button>
-                  <Button
-                    onClick={handlePublish}
-                    disabled={!canPublish}
-                    className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
-                  >
-                    立即發布
-                  </Button>
+                  <Button variant="outline" onClick={() => { setIsCreateOpen(false); setLastPublishedId(null); }}>取消</Button>
+                  {lastPublishedId ? (
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleRecall(lastPublishedId)}
+                      disabled={recalling}
+                    >
+                      {recalling ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />收回中...</> : <><Undo2 className="h-4 w-4 mr-2" />收回訊號</>}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handlePublish}
+                      disabled={!canPublish}
+                      className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
+                    >
+                      立即發布
+                    </Button>
+                  )}
                 </div>
               </div>
             </DialogContent>
@@ -658,17 +724,17 @@ const AdminSignals = () => {
                                ) : '-'}
                              </td>
                              <td className="p-3 text-sm max-w-[240px]">
-                               {isTakenDown && signal.taken_down_reason ? (
-                                 <p className="text-primary truncate text-xs">
-                                   <span className="font-medium">下架理由：</span>{stripDotPrefix(signal.taken_down_reason)}
+                                {isTakenDown && signal.taken_down_reason ? (
+                                  <p className="text-primary truncate text-xs">
+                                    <span className="font-medium">收回理由：</span>{stripDotPrefix(signal.taken_down_reason)}
                                  </p>
                                ) : (
                                  <p className="text-muted-foreground truncate">{stripDotPrefix(signal.reason_summary || '-')}</p>
                                )}
                              </td>
                                <td className="p-3">
-                                 {isTakenDown ? (
-                                   <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已下架</Badge>
+                                  {isTakenDown ? (
+                                    <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已收回</Badge>
                                  ) : signal.action === 'exit' ? (
                                    <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
                                  ) : ['sell', 'trim'].includes(signal.action) ? (
@@ -685,23 +751,30 @@ const AdminSignals = () => {
                                     <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
                                    )}
                                 </td>
-                              <td className="p-3">
-                               {hasDetail && (
-                                 <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setExpandedId(isExpanded ? null : signal.id)}>
-                                   {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                   {isExpanded ? '收起' : '展開'}
-                                 </Button>
-                               )}
-                             </td>
+                               <td className="p-3">
+                                <div className="flex items-center gap-1">
+                                  {hasDetail && (
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setExpandedId(isExpanded ? null : signal.id)}>
+                                      {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                      {isExpanded ? '收起' : '展開'}
+                                    </Button>
+                                  )}
+                                  {!isTakenDown && !isReadOnly && (
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => handleRecall(signal.id)} disabled={recalling}>
+                                      <Undo2 className="h-3 w-3" />收回
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
                            </tr>
                            {isExpanded && (
                              <tr className="border-b last:border-0">
                                <td colSpan={7} className="p-0">
                                  <div className="bg-muted/30 px-6 py-3 text-xs space-y-2">
-                                    {isTakenDown && signal.taken_down_reason && (
-                                      <div>
-                                        <span className="font-medium text-primary">下架理由</span>
-                                        <p className="text-primary/90 mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.taken_down_reason)}</p>
+                                     {isTakenDown && signal.taken_down_reason && (
+                                       <div>
+                                         <span className="font-medium text-primary">收回理由</span>
+                                         <p className="text-primary/90 mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.taken_down_reason)}</p>
                                       </div>
                                     )}
                                     {signal.reason_summary && (
