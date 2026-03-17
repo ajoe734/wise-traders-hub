@@ -393,7 +393,6 @@ const AdminSignals = () => {
 
       toast.success('訊號已收回');
       setSignals(prev => prev.filter(s => s.id !== signalId));
-      setIsCreateOpen(false);
       setLastPublishedId(null);
       fetchData();
     } catch (err) {
