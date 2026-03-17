@@ -61,14 +61,12 @@ function generateAllKeys(period: ViewPeriod, firstDate?: Date): string[] {
       break;
     }
     case 'weekly': {
-      // All weeks of current month up to current week
       const monthStart = startOfMonth(now);
       const monthEnd = endOfMonth(now);
       let cursor = startOfWeek(monthStart, { weekStartsOn: 1 });
       while (!isAfter(cursor, now)) {
-        // Only include weeks that overlap with this month
         if (!isAfter(monthEnd, cursor) === false) {
-          keys.push(format(cursor, 'MM/dd'));
+          keys.push(`W${getISOWeek(cursor)}`);
         }
         cursor = addWeeks(cursor, 1);
       }
