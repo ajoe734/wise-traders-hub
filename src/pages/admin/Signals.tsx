@@ -361,31 +361,35 @@ const AdminSignals = () => {
         }
       }).catch(() => {});
 
-      // Clean up related trade data for this signal
+      // Clean up related trade data BEFORE deleting the signal (FK constraint)
       const symbol = signal.instrument.split(' ')[0];
-      // Delete trade_records linked to this signal
-      await supabase.from('expert_signals').delete().eq('id', signalId);
 
-      // Clean up trade_signals & user_performances for the expert's user
       if (expert.user_id && symbol) {
-        // Check if there are other published signals for same instrument
+        // Check if there are other published signals for same instrument (excluding this one)
         const { data: otherSignals } = await supabase
           .from('expert_signals')
           .select('id')
           .eq('expert_id', expert.id)
           .eq('status', 'published' as any)
           .ilike('instrument', `${symbol}%`)
+          .neq('id', signalId)
           .limit(1);
 
-        // If no other signals remain for this instrument, clean up trade data
+        // If no other signals remain, clean up all related trade data
         if (!otherSignals || otherSignals.length === 0) {
           await Promise.all([
             supabase.from('trade_records').delete().eq('expert_id', expert.id).ilike('instrument', `${symbol}%`),
             supabase.from('trade_signals').delete().eq('user_id', expert.user_id).eq('symbol', symbol),
             supabase.from('user_performances').delete().eq('user_id', expert.user_id).eq('symbol', symbol),
           ]);
+        } else {
+          // Still has other signals — only delete trade_records linked to THIS signal
+          await supabase.from('trade_records').delete().eq('signal_id', signalId);
         }
       }
+
+      // Now safe to delete the signal itself
+      await supabase.from('expert_signals').delete().eq('id', signalId);
 
       toast.success('訊號已收回');
       setSignals(prev => prev.filter(s => s.id !== signalId));
