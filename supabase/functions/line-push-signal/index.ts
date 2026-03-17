@@ -54,7 +54,7 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
 
     return {
       type: 'flex',
-      altText: `⚠️ 訊號已撤回：${label} ${signal.instrument}`,
+      altText: `⚠️ 訊號已收回：${label} ${signal.instrument}`,
       contents: {
         type: 'bubble',
         body: {
