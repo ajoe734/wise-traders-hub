@@ -563,52 +563,97 @@ const AdminSignals = () => {
                   <Label>操作理由（摘要）</Label>
                   <Textarea value={reasonSummary} onChange={e => setReasonSummary(e.target.value)} placeholder="簡述操作原因..." rows={2} />
                   {isAdvisor && canPublish && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full mt-1 border-advisor text-advisor hover:bg-advisor/10"
-                      disabled={linePushing || linePushed || !reasonSummary.trim()}
-                      onClick={async () => {
-                        if (!expert) return;
-                        if (!quantity || parseInt(quantity) <= 0) {
-                          toast.error('請輸入數量');
-                          return;
-                        }
-                        setLinePushing(true);
-                        try {
-                          const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
-                          const { data: pushData, error: pushError } = await supabase.functions.invoke('line-push-signal', {
-                            body: {
-                              expert_id: expert.id,
-                              mode: 'preview',
-                              signal_data: {
-                                action,
-                                instrument,
-                                price_hint: priceHint ? parseFloat(priceHint) : null,
-                                quantity: quantity ? parseInt(quantity) : null,
-                                quantity_unit: quantityUnit,
-                                reason_summary: reasonSummary,
-                              },
-                            },
-                          });
-                          if (pushError) {
-                            toast.error(`LINE 推播失敗：${pushError.message}`);
-                          } else if (pushData?.pushed) {
-                            toast.success(`已推播給 ${pushData.count} 位訂閱者`);
-                            setLinePushed(true);
-                          } else if (pushData?.reason) {
-                            toast.info(`LINE 推播略過：${pushData.reason}`);
-                            setLinePushed(true);
+                    <div className="flex gap-2 mt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn("flex-1 border-advisor text-advisor hover:bg-advisor/10", linePushed && "opacity-60 cursor-default")}
+                        disabled={linePushing || linePushed || !reasonSummary.trim()}
+                        onClick={async () => {
+                          if (!expert) return;
+                          if (!quantity || parseInt(quantity) <= 0) {
+                            toast.error('請輸入數量');
+                            return;
                           }
-                        } catch (err) {
-                          console.error('LINE preview push error:', err);
-                          toast.error('LINE 推播呼叫失敗');
-                        }
-                        setLinePushing(false);
-                      }}
-                    >
-                      {linePushing ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />推播中...</> : linePushed ? '✅ 已成功發布' : '優先發布(Line推播)'}
-                    </Button>
+                          setLinePushing(true);
+                          try {
+                            const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
+                            const { data: pushData, error: pushError } = await supabase.functions.invoke('line-push-signal', {
+                              body: {
+                                expert_id: expert.id,
+                                mode: 'preview',
+                                signal_data: {
+                                  action,
+                                  instrument,
+                                  price_hint: priceHint ? parseFloat(priceHint) : null,
+                                  quantity: quantity ? parseInt(quantity) : null,
+                                  quantity_unit: quantityUnit,
+                                  reason_summary: reasonSummary,
+                                },
+                              },
+                            });
+                            if (pushError) {
+                              toast.error(`LINE 推播失敗：${pushError.message}`);
+                            } else if (pushData?.pushed) {
+                              toast.success(`已推播給 ${pushData.count} 位訂閱者`);
+                              setLinePushed(true);
+                              // Store preview signal data for potential recall
+                              setLastPublishedId('preview');
+                            } else if (pushData?.reason) {
+                              toast.info(`LINE 推播略過：${pushData.reason}`);
+                              setLinePushed(true);
+                            }
+                          } catch (err) {
+                            console.error('LINE preview push error:', err);
+                            toast.error('LINE 推播呼叫失敗');
+                          }
+                          setLinePushing(false);
+                        }}
+                      >
+                        {linePushing ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />推播中...</> : linePushed ? '✅ 已成功發布' : '優先發布(Line推播)'}
+                      </Button>
+                      {linePushed && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="shrink-0"
+                          disabled={recalling}
+                          onClick={async () => {
+                            if (!expert) return;
+                            setRecalling(true);
+                            try {
+                              // Push recall notification via LINE for the preview signal
+                              const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
+                              await supabase.functions.invoke('line-push-signal', {
+                                body: {
+                                  expert_id: expert.id,
+                                  mode: 'preview',
+                                  signal_data: {
+                                    action,
+                                    instrument,
+                                    price_hint: priceHint ? parseFloat(priceHint) : null,
+                                    taken_down_reason: '分析師已收回此訊號',
+                                  },
+                                  type: 'takedown',
+                                },
+                              });
+                              toast.success('已推播收回通知');
+                              setIsCreateOpen(false);
+                              setLastPublishedId(null);
+                              setLinePushed(false);
+                              setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
+                            } catch (err) {
+                              console.error('Recall preview push error:', err);
+                              toast.error('收回推播失敗');
+                            }
+                            setRecalling(false);
+                          }}
+                        >
+                          {recalling ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Undo2 className="h-4 w-4 mr-1" />收回</>}
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="space-y-2">
