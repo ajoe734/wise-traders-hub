@@ -163,21 +163,6 @@ const AppExpertDetail = () => {
           </Card>
         )}
 
-        {/* Strategy Introduction */}
-        <div className="pt-2">
-          <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
-            <Lightbulb className="h-4 w-4" />策略簡介
-          </h2>
-          <StrategyIntroSection
-            summary={expert.strategySummary}
-            metrics={{
-              return1y: perf?.return_1y ?? expert.backtestReturn1y,
-              maxDrawdown: expert.backtestMaxDrawdown,
-              annualReturn: expert.backtestAnnualReturn,
-            }}
-            variant={isAdvisor ? 'advisor' : 'mentor'}
-          />
-        </div>
 
         <div className="pt-2">
           <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
