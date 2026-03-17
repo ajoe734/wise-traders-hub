@@ -123,7 +123,7 @@ const SignalDetail = () => {
         {/* Price hint */}
         {signal.price_hint != null && (
           <div className="text-sm text-muted-foreground">
-            參考價位：<span className="font-medium text-foreground">{signal.price_hint}</span>
+            參考價位：<span className="font-medium text-foreground">{signal.price_hint}{signal.quantity != null ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''}</span>
           </div>
         )}
 
