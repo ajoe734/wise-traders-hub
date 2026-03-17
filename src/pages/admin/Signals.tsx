@@ -298,7 +298,13 @@ const AdminSignals = () => {
     }
 
     toast.success(isMentor ? '週記已發布' : '訊號已發布');
-    setIsCreateOpen(false);
+    const publishedId = inserted?.id || null;
+    setLastPublishedId(publishedId);
+
+    // For advisor: keep dialog open after publish if LINE was already pushed (so they can recall if needed)
+    if (!(isAdvisor && linePushed)) {
+      setIsCreateOpen(false);
+    }
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
     setLinePushed(false); setLinePushing(false);
 
