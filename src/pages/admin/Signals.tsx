@@ -48,6 +48,8 @@ const AdminSignals = () => {
   const [quantity, setQuantity] = useState('');
   const [quantityUnit, setQuantityUnit] = useState('張');
   const [fetchingQuote, setFetchingQuote] = useState(false);
+  const [linePushing, setLinePushing] = useState(false);
+  const [linePushed, setLinePushed] = useState(false);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 判斷是否為休市時段（週五 13:30 ~ 週一 09:00，台灣時間 UTC+8）
@@ -291,9 +293,11 @@ const AdminSignals = () => {
     toast.success(isMentor ? '週記已發布' : '訊號已發布');
     setIsCreateOpen(false);
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
+    setLinePushed(false); setLinePushing(false);
 
-    // Trigger LINE push notification (non-blocking)
-    if (inserted?.id) {
+    // Trigger LINE push notification (non-blocking) — skip if advisor already did preview push
+    const skipLinePush = isAdvisor && linePushed;
+    if (inserted?.id && !skipLinePush) {
       supabase.functions.invoke('line-push-signal', {
         body: { signal_id: inserted.id, expert_id: expert.id },
       }).then(({ data: pushData, error: pushError }) => {
@@ -302,7 +306,7 @@ const AdminSignals = () => {
           toast.error(`LINE 推播失敗：${pushError.message}`);
         } else if (pushData?.pushed) {
           toast.success(`已推播給 ${pushData.count} 位訂閱者`);
-      } else if (pushData?.reason) {
+        } else if (pushData?.reason) {
           toast.info(`LINE 推播略過：${pushData.reason}`);
         }
       }).catch((err) => {
@@ -414,7 +418,7 @@ const AdminSignals = () => {
             <p className="text-muted-foreground text-sm mt-1">{isMentor ? '每週發布，管理者可事後下架' : '發布即上線，管理者可事後下架'}</p>
           </div>
           {!isReadOnly && (
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setLinePushed(false); setLinePushing(false); } }}>
             <DialogTrigger asChild>
               <Button className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
                 <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
@@ -502,6 +506,50 @@ const AdminSignals = () => {
                 <div className="space-y-2">
                   <Label>操作理由（摘要）</Label>
                   <Textarea value={reasonSummary} onChange={e => setReasonSummary(e.target.value)} placeholder="簡述操作原因..." rows={2} />
+                  {isAdvisor && canPublish && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full mt-1 border-advisor text-advisor hover:bg-advisor/10"
+                      disabled={linePushing || linePushed || !reasonSummary.trim()}
+                      onClick={async () => {
+                        if (!expert) return;
+                        setLinePushing(true);
+                        try {
+                          const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
+                          const { data: pushData, error: pushError } = await supabase.functions.invoke('line-push-signal', {
+                            body: {
+                              expert_id: expert.id,
+                              mode: 'preview',
+                              signal_data: {
+                                action,
+                                instrument,
+                                price_hint: priceHint ? parseFloat(priceHint) : null,
+                                quantity: quantity ? parseInt(quantity) : null,
+                                quantity_unit: quantityUnit,
+                                reason_summary: reasonSummary,
+                              },
+                            },
+                          });
+                          if (pushError) {
+                            toast.error(`LINE 推播失敗：${pushError.message}`);
+                          } else if (pushData?.pushed) {
+                            toast.success(`已推播給 ${pushData.count} 位訂閱者`);
+                            setLinePushed(true);
+                          } else if (pushData?.reason) {
+                            toast.info(`LINE 推播略過：${pushData.reason}`);
+                            setLinePushed(true);
+                          }
+                        } catch (err) {
+                          console.error('LINE preview push error:', err);
+                          toast.error('LINE 推播呼叫失敗');
+                        }
+                        setLinePushing(false);
+                      }}
+                    >
+                      {linePushing ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />推播中...</> : linePushed ? '✅ 已成功發布' : '優先發布(Line推播)'}
+                    </Button>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>詳細分析</Label>
