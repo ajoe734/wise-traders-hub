@@ -7,34 +7,6 @@ const corsHeaders = {
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
-// Fetch live price from current_prices table
-async function fetchLivePriceChange(instrument: string): Promise<{ price: number; change: number; changePercent: number } | null> {
-  try {
-    const code = instrument.match(/^\d+/)?.[0]
-    if (!code) return null
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabaseClient = createClient(supabaseUrl, serviceKey)
-
-    const { data, error } = await supabaseClient
-      .from('current_prices')
-      .select('price, change_percent')
-      .eq('symbol', code)
-      .maybeSingle()
-
-    if (error || !data) return null
-
-    const price = Number(data.price)
-    const changePercent = Number(data.change_percent || 0)
-    const change = changePercent !== 0 ? price * changePercent / (100 + changePercent) : 0
-
-    return { price, change: Number(change.toFixed(2)), changePercent }
-  } catch {
-    return null
-  }
-}
-
 function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish') {
   const actionLabel: Record<string, string> = {
     buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
@@ -251,6 +223,70 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
   }
 }
 
+async function getTargets(supabaseAdmin: any, expert_id: string) {
+  const { data: bindings } = await supabaseAdmin
+    .from('member_line_bindings')
+    .select('line_user_id, user_id')
+    .eq('expert_id', expert_id)
+    .eq('is_active', true)
+
+  if (!bindings || bindings.length === 0) {
+    return { targets: [], reason: 'no_bindings' }
+  }
+
+  const bindingUserIds = bindings.map((b: any) => b.user_id)
+  const { data: activeSubs } = await supabaseAdmin
+    .from('member_subscriptions')
+    .select('user_id, plan_id')
+    .in('user_id', bindingUserIds)
+    .eq('status', 'active')
+
+  const { data: expertPlans } = await supabaseAdmin
+    .from('expert_plans')
+    .select('id')
+    .eq('expert_id', expert_id)
+
+  const expertPlanIds = new Set((expertPlans || []).map((p: any) => p.id))
+  const subscribedUserIds = new Set(
+    (activeSubs || []).filter((s: any) => expertPlanIds.has(s.plan_id)).map((s: any) => s.user_id)
+  )
+
+  const targets = bindings
+    .filter((b: any) => subscribedUserIds.has(b.user_id))
+    .map((b: any) => b.line_user_id)
+
+  if (targets.length === 0) {
+    return { targets: [], reason: 'no_active_subscribers' }
+  }
+
+  return { targets, reason: null }
+}
+
+async function sendToLine(channelToken: string, targets: string[], message: any) {
+  let totalPushed = 0
+  for (let i = 0; i < targets.length; i += 500) {
+    const batch = targets.slice(i, i + 500)
+    console.log(`Sending batch ${i} to ${batch.length} users`)
+    const res = await fetch(LINE_MULTICAST_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${channelToken}`,
+      },
+      body: JSON.stringify({ to: batch, messages: [message] }),
+    })
+
+    if (res.ok) {
+      totalPushed += batch.length
+      console.log(`Batch ${i} sent OK`)
+    } else {
+      const errBody = await res.text()
+      console.error(`LINE multicast failed for batch ${i}:`, res.status, errBody)
+    }
+  }
+  return totalPushed
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -287,13 +323,14 @@ Deno.serve(async (req) => {
     const userId = claimsData.claims.sub as string
     console.log('Caller:', userId)
 
-    const { signal_id, expert_id, type } = await req.json()
+    const body = await req.json()
+    const { signal_id, expert_id, type, mode, signal_data } = body
     const pushType = type === 'takedown' ? 'takedown' : 'publish'
-    console.log('Push request:', { signal_id, expert_id, pushType })
+    console.log('Push request:', { signal_id, expert_id, pushType, mode })
 
-    if (!signal_id || !expert_id) {
-      console.error('Missing params')
-      return new Response(JSON.stringify({ error: 'Missing signal_id or expert_id' }), {
+    if (!expert_id) {
+      console.error('Missing expert_id')
+      return new Response(JSON.stringify({ error: 'Missing expert_id' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -334,6 +371,34 @@ Deno.serve(async (req) => {
       })
     }
 
+    // MODE: preview — push inline signal_data to LINE without DB
+    if (mode === 'preview' && signal_data) {
+      console.log('Preview mode: pushing inline signal data to LINE')
+      const message = buildFlexMessage(signal_data, 'publish')
+
+      const { targets, reason } = await getTargets(supabaseAdmin, expert_id)
+      if (targets.length === 0) {
+        return new Response(JSON.stringify({ pushed: false, reason: reason || 'no_bindings', count: 0 }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const totalPushed = await sendToLine(channel.channel_access_token, targets, message)
+
+      console.log('Preview push total:', totalPushed)
+      return new Response(JSON.stringify({ pushed: true, count: totalPushed }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Standard mode: fetch signal from DB
+    if (!signal_id) {
+      console.error('Missing signal_id')
+      return new Response(JSON.stringify({ error: 'Missing signal_id' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // Get signal data
     const { data: signal } = await supabaseAdmin
       .from('expert_signals')
@@ -350,74 +415,16 @@ Deno.serve(async (req) => {
 
     const message = buildFlexMessage(signal, pushType)
 
-    // Get active LINE bindings for this expert
-    const { data: bindings } = await supabaseAdmin
-      .from('member_line_bindings')
-      .select('line_user_id, user_id')
-      .eq('expert_id', expert_id)
-      .eq('is_active', true)
-
-    console.log('Bindings found:', bindings?.length || 0)
-
-    if (!bindings || bindings.length === 0) {
-      return new Response(JSON.stringify({ pushed: false, reason: 'no_bindings', count: 0 }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Filter to only users with active subscriptions to THIS expert
-    const bindingUserIds = bindings.map(b => b.user_id)
-    const { data: activeSubs } = await supabaseAdmin
-      .from('member_subscriptions')
-      .select('user_id, plan_id')
-      .in('user_id', bindingUserIds)
-      .eq('status', 'active')
-
-    const { data: expertPlans } = await supabaseAdmin
-      .from('expert_plans')
-      .select('id')
-      .eq('expert_id', expert_id)
-
-    const expertPlanIds = new Set((expertPlans || []).map(p => p.id))
-    const subscribedUserIds = new Set(
-      (activeSubs || []).filter(s => expertPlanIds.has(s.plan_id)).map(s => s.user_id)
-    )
-
-    const targets = bindings
-      .filter(b => subscribedUserIds.has(b.user_id))
-      .map(b => b.line_user_id)
-
-    console.log('Targets with active subs:', targets.length)
+    const { targets, reason } = await getTargets(supabaseAdmin, expert_id)
+    console.log('Targets:', targets.length)
 
     if (targets.length === 0) {
-      return new Response(JSON.stringify({ pushed: false, reason: 'no_active_subscribers', count: 0 }), {
+      return new Response(JSON.stringify({ pushed: false, reason: reason || 'no_bindings', count: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    let totalPushed = 0
-
-    // Send in batches of 500
-    for (let i = 0; i < targets.length; i += 500) {
-      const batch = targets.slice(i, i + 500)
-      console.log(`Sending batch ${i} to ${batch.length} users`)
-      const res = await fetch(LINE_MULTICAST_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${channel.channel_access_token}`,
-        },
-        body: JSON.stringify({ to: batch, messages: [message] }),
-      })
-
-      if (res.ok) {
-        totalPushed += batch.length
-        console.log(`Batch ${i} sent OK`)
-      } else {
-        const errBody = await res.text()
-        console.error(`LINE multicast failed for batch ${i}:`, res.status, errBody)
-      }
-    }
+    const totalPushed = await sendToLine(channel.channel_access_token, targets, message)
 
     console.log('Total pushed:', totalPushed)
     return new Response(JSON.stringify({ pushed: true, count: totalPushed }), {
