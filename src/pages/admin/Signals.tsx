@@ -771,10 +771,10 @@ const AdminSignals = () => {
                              <tr className="border-b last:border-0">
                                <td colSpan={7} className="p-0">
                                  <div className="bg-muted/30 px-6 py-3 text-xs space-y-2">
-                                    {isTakenDown && signal.taken_down_reason && (
-                                      <div>
-                                        <span className="font-medium text-primary">下架理由</span>
-                                        <p className="text-primary/90 mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.taken_down_reason)}</p>
+                                     {isTakenDown && signal.taken_down_reason && (
+                                       <div>
+                                         <span className="font-medium text-primary">收回理由</span>
+                                         <p className="text-primary/90 mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.taken_down_reason)}</p>
                                       </div>
                                     )}
                                     {signal.reason_summary && (
