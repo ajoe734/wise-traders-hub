@@ -413,10 +413,10 @@ const AdminSignals = () => {
 
   // Multi-condition search: conditions separated by "、"
   const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
-  const statusOnlyKeywords = ['持有中', '已平倉', '已下架'];
+  const statusOnlyKeywords = ['持有中', '已平倉', '已收回'];
 
   const getDisplayStatus = (s: any) => {
-    if (s.status === 'taken_down') return '已下架';
+    if (s.status === 'taken_down') return '已收回';
     if (s.action === 'exit') return '已平倉';
     if (['sell', 'trim'].includes(s.action)) return openInstruments.has(s.instrument) ? '減碼' : '已平倉';
     if (s.action === 'add') return '加碼';
