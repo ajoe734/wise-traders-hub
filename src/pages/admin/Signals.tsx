@@ -163,6 +163,11 @@ const AdminSignals = () => {
       return;
     }
 
+    if (!quantity || parseInt(quantity) <= 0) {
+      toast.error('請輸入數量');
+      return;
+    }
+
     const latestName = stockName.trim();
     const latestPrice = priceHint;
 
