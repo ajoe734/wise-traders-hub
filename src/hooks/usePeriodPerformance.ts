@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfWeek, startOfMonth, startOfYear, addMonths, addWeeks, addYears, endOfMonth, isBefore, isAfter } from 'date-fns';
+import { format, startOfWeek, startOfMonth, startOfYear, addMonths, addWeeks, addYears, endOfMonth, isBefore, isAfter, getISOWeek } from 'date-fns';
 
 export interface StockTrade {
   symbol: string;
@@ -31,7 +31,7 @@ function bucketKey(date: Date, period: ViewPeriod): string {
       return format(date, 'yyyy/MM');
     case 'weekly': {
       const ws = startOfWeek(date, { weekStartsOn: 1 });
-      return format(ws, 'MM/dd');
+      return `W${getISOWeek(ws)}`;
     }
   }
 }
@@ -61,14 +61,12 @@ function generateAllKeys(period: ViewPeriod, firstDate?: Date): string[] {
       break;
     }
     case 'weekly': {
-      // All weeks of current month up to current week
       const monthStart = startOfMonth(now);
       const monthEnd = endOfMonth(now);
       let cursor = startOfWeek(monthStart, { weekStartsOn: 1 });
       while (!isAfter(cursor, now)) {
-        // Only include weeks that overlap with this month
         if (!isAfter(monthEnd, cursor) === false) {
-          keys.push(format(cursor, 'MM/dd'));
+          keys.push(`W${getISOWeek(cursor)}`);
         }
         cursor = addWeeks(cursor, 1);
       }
