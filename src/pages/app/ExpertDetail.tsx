@@ -5,8 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Check, Target, Stethoscope, Zap, BookOpen, Lock, Lightbulb } from "lucide-react";
-import { StrategyIntroSection } from "@/components/strategy/StrategyIntroSection";
+import { ArrowLeft, Check, Target, Zap, BookOpen, Lock } from "lucide-react";
+
 import { ExpertRole } from "@/types";
 import { Link } from "react-router-dom";
 import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverviewPanel";
