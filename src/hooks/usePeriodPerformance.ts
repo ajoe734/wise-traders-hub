@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfWeek, startOfMonth, startOfYear, addMonths, addWeeks, addYears, endOfMonth, isBefore, isAfter } from 'date-fns';
+import { format, startOfWeek, startOfMonth, startOfYear, addMonths, addWeeks, addYears, endOfMonth, isBefore, isAfter, getISOWeek } from 'date-fns';
 
 export interface StockTrade {
   symbol: string;
