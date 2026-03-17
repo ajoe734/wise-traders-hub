@@ -10,6 +10,7 @@ interface JournalSignal {
   instrument: string;
   action: string;
   reason_summary: string | null;
+  reason_detail: string | null;
   learning_points: string | null;
   published_at: string;
 }
@@ -27,14 +28,15 @@ interface JournalCardProps {
   to: string;
 }
 
-const actionLabel: Record<string, string> = {
-  buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '出場',
-};
-
 export function JournalCard({ weekStart, weekEnd, signals, expert, to }: JournalCardProps) {
   const formatDate = (date: Date) => format(date, 'MM/dd', { locale: zhTW });
 
-  // Collect unique learning points from all signals in this week
+  // Use first signal's reason_summary as the weekly title
+  const weekTitle = signals[0]?.reason_summary || null;
+  // Use first signal's reason_detail as the summary paragraph
+  const weekSummary = signals[0]?.reason_detail || null;
+
+  // Collect unique learning points from all signals
   const allPoints = signals
     .map(s => s.learning_points)
     .filter(Boolean)
@@ -60,7 +62,7 @@ export function JournalCard({ weekStart, weekEnd, signals, expert, to }: Journal
           {/* Week Range */}
           <div className="flex items-center gap-2 mb-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">
+            <span className="text-sm">
               {formatDate(weekStart)} ~ {formatDate(weekEnd)}
             </span>
             <Badge variant="mentor-light" className="text-[10px] ml-auto">
@@ -68,37 +70,28 @@ export function JournalCard({ weekStart, weekEnd, signals, expert, to }: Journal
             </Badge>
           </div>
 
-          {/* Trades summary */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
-            <span className="flex items-center gap-1">
-              <BookOpen className="h-3.5 w-3.5" />
-              本週 {signals.length} 筆操作
-            </span>
-            <div className="flex gap-1">
-              {signals.slice(0, 3).map(s => (
-                <Badge key={s.id} variant="outline" className="text-[10px]">
-                  {actionLabel[s.action] || s.action} {s.instrument}
-                </Badge>
-              ))}
-              {signals.length > 3 && (
-                <Badge variant="outline" className="text-[10px]">+{signals.length - 3}</Badge>
-              )}
-            </div>
-          </div>
-
-          {/* First signal summary as preview */}
-          {signals[0]?.reason_summary && (
-            <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-              {signals[0].reason_summary}
-            </p>
+          {/* Weekly Title */}
+          {weekTitle && (
+            <h3 className="font-bold text-mentor mb-2">{weekTitle}</h3>
           )}
+
+          {/* Summary */}
+          {weekSummary && (
+            <p className="text-sm text-muted-foreground line-clamp-3 mb-3">{weekSummary}</p>
+          )}
+
+          {/* Trade count */}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
+            <BookOpen className="h-3.5 w-3.5" />
+            <span>本週 {signals.length} 筆操作</span>
+          </div>
 
           {/* Learning Points Preview */}
           {allPoints.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3">
               {allPoints.slice(0, 2).map((point, idx) => (
-                <Badge key={idx} variant="secondary" className="text-xs">
-                  {point.slice(0, 15)}{point.length > 15 ? '...' : ''}
+                <Badge key={idx} variant="secondary" className="text-xs font-normal">
+                  {point.slice(0, 20)}{point.length > 20 ? '...' : ''}
                 </Badge>
               ))}
             </div>
