@@ -479,7 +479,7 @@ const AdminSignals = () => {
             <p className="text-muted-foreground text-sm mt-1">{isMentor ? '每週發布，可自行收回' : '發布即上線，可自行收回'}</p>
           </div>
           {!isReadOnly && (
-          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setLinePushed(false); setLinePushing(false); } }}>
+          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setLinePushed(false); setLinePushing(false); setLastPublishedId(null); } }}>
             <DialogTrigger asChild>
               <Button className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
                 <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
