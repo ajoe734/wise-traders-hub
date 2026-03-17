@@ -293,9 +293,11 @@ const AdminSignals = () => {
     toast.success(isMentor ? '週記已發布' : '訊號已發布');
     setIsCreateOpen(false);
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
+    setLinePushed(false); setLinePushing(false);
 
-    // Trigger LINE push notification (non-blocking)
-    if (inserted?.id) {
+    // Trigger LINE push notification (non-blocking) — skip if advisor already did preview push
+    const skipLinePush = isAdvisor && linePushed;
+    if (inserted?.id && !skipLinePush) {
       supabase.functions.invoke('line-push-signal', {
         body: { signal_id: inserted.id, expert_id: expert.id },
       }).then(({ data: pushData, error: pushError }) => {
@@ -304,7 +306,7 @@ const AdminSignals = () => {
           toast.error(`LINE 推播失敗：${pushError.message}`);
         } else if (pushData?.pushed) {
           toast.success(`已推播給 ${pushData.count} 位訂閱者`);
-      } else if (pushData?.reason) {
+        } else if (pushData?.reason) {
           toast.info(`LINE 推播略過：${pushData.reason}`);
         }
       }).catch((err) => {
