@@ -373,8 +373,8 @@ Deno.serve(async (req) => {
 
     // MODE: preview — push inline signal_data to LINE without DB
     if (mode === 'preview' && signal_data) {
-      console.log('Preview mode: pushing inline signal data to LINE')
-      const message = buildFlexMessage(signal_data, 'publish')
+      console.log('Preview mode: pushing inline signal data to LINE, type:', pushType)
+      const message = buildFlexMessage(signal_data, pushType)
 
       const { targets, reason } = await getTargets(supabaseAdmin, expert_id)
       if (targets.length === 0) {
