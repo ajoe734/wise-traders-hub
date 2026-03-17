@@ -115,9 +115,6 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
     return (
       <div className="bg-background/95 dark:bg-white/10 backdrop-blur-sm border dark:border-white/10 rounded-lg p-2 shadow-lg text-xs">
         <div className="font-medium text-foreground">{data.label}</div>
-        <div className="text-foreground">
-          資產: ${data.equity?.toLocaleString()}
-        </div>
         <div className={data.returnPct >= 0 ? "text-success" : "text-destructive"}>
           報酬率: {data.returnPct >= 0 ? "+" : ""}{data.returnPct.toFixed(1)}%
         </div>
