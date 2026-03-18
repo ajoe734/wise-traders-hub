@@ -114,7 +114,7 @@ const CompanySubscribers = () => {
             <Input placeholder="搜尋名稱、方案、日期、天數、續訂方式..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
           <div className="flex items-center bg-muted rounded-lg p-1">
-            {[{ key: 'all', label: '全部' }, { key: 'active', label: '活躍' }, { key: 'expired', label: '到期' }, { key: 'canceled', label: '取消' }].map(f => (
+            {[{ key: 'all', label: '全部' }, { key: 'active', label: '活躍' }, { key: 'pending_expire', label: '待到期' }, { key: 'expired', label: '到期' }, { key: 'canceled', label: '取消' }].map(f => (
               <button key={f.key} onClick={() => setStatusFilter(f.key)} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${statusFilter === f.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                 {f.label}
               </button>
