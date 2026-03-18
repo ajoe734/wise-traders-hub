@@ -1113,7 +1113,7 @@ export type Database = {
       provider_type: "ecpay" | "newebpay" | "stripe" | "line_pay" | "acpay"
       review_status: "draft" | "pending" | "approved" | "rejected"
       signal_action: "buy" | "sell" | "add" | "trim" | "exit"
-      signal_status: "published" | "taken_down"
+      signal_status: "published" | "taken_down" | "pending"
       subscription_status: "active" | "canceled" | "expired"
       trade_status: "open" | "closed" | "stopped"
     }
@@ -1255,7 +1255,7 @@ export const Constants = {
       provider_type: ["ecpay", "newebpay", "stripe", "line_pay", "acpay"],
       review_status: ["draft", "pending", "approved", "rejected"],
       signal_action: ["buy", "sell", "add", "trim", "exit"],
-      signal_status: ["published", "taken_down"],
+      signal_status: ["published", "taken_down", "pending"],
       subscription_status: ["active", "canceled", "expired"],
       trade_status: ["open", "closed", "stopped"],
     },
