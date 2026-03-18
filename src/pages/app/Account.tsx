@@ -162,14 +162,17 @@ const Account = () => {
   }, [user]);
 
   // Calculate prorated refund info for a subscription
+  // Always uses fixed cycle: 30 days for monthly, 365 days for yearly
   const calcRefund = (sub: DbSubscription) => {
     const now = new Date();
     const startedAt = new Date(sub.started_at);
-    const expiresAt = sub.expires_at ? new Date(sub.expires_at) : new Date(startedAt.getTime() + 30 * 86400000);
-    const totalDays = Math.max(1, Math.round((expiresAt.getTime() - startedAt.getTime()) / 86400000));
-    const usedDays = Math.max(0, Math.min(totalDays, Math.round((now.getTime() - startedAt.getTime()) / 86400000)));
+    const isYearly = !!(sub.plan.price_yearly && sub.plan.price_yearly > 0 && sub.expires_at &&
+      (new Date(sub.expires_at).getTime() - startedAt.getTime()) > 180 * 86400000);
+    const totalDays = isYearly ? 365 : 30;
+    const originalAmount = isYearly ? (sub.plan.price_yearly || sub.plan.price_monthly * 12) : sub.plan.price_monthly;
+    const elapsedMs = now.getTime() - startedAt.getTime();
+    const usedDays = Math.max(0, Math.min(totalDays, Math.floor(elapsedMs / 86400000)));
     const remainingDays = Math.max(0, totalDays - usedDays);
-    const originalAmount = sub.plan.price_monthly;
     const refundAmount = Math.floor(originalAmount * (remainingDays / totalDays));
     return { totalDays, usedDays, remainingDays, originalAmount, refundAmount };
   };
