@@ -304,8 +304,8 @@ const AdminSignals = () => {
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
     setLinePushed(false); setLinePushing(false);
 
-    // Trigger LINE push notification (non-blocking) — skip if advisor already did preview push
-    const skipLinePush = isAdvisor && linePushed;
+    // Trigger LINE push notification (non-blocking) — skip for mentors (batch on Friday) and if advisor already did preview push
+    const skipLinePush = isMentor || (isAdvisor && linePushed);
     if (inserted?.id && !skipLinePush) {
       supabase.functions.invoke('line-push-signal', {
         body: { signal_id: inserted.id, expert_id: expert.id },
