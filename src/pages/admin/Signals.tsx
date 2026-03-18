@@ -406,7 +406,14 @@ const AdminSignals = () => {
   const isAdvisor = expert?.role === 'advisor';
   const isMentor = expert?.role === 'mentor';
   const contentLabel = isMentor ? '週記' : '訊號';
+  const publishWindow = isPublishingWindowOpen();
   const canPublish = !!expert && !!stockCode.trim() && !!action;
+
+  // Count pending signals for mentor
+  const pendingCount = useMemo(() => {
+    if (!isMentor) return 0;
+    return signals.filter(s => s.status === 'pending').length;
+  }, [signals, isMentor]);
 
   // Determine which buy signals are actually "加碼" (subsequent buys for same instrument)
   const addBuySignalIds = useMemo(() => {
