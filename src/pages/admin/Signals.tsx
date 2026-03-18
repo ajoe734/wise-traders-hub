@@ -604,7 +604,7 @@ const AdminSignals = () => {
                   <div className="space-y-2">
                     <Label>數量</Label>
                     <div className="flex items-center gap-2">
-                      <Input value={quantity} onChange={e => setQuantity(e.target.value)} type="number" placeholder="1" className="w-32" />
+                      <Input value={quantity} onChange={e => { const v = e.target.value; if (v === '' || Number(v) >= 0) setQuantity(v); }} type="number" min="0" placeholder="1" className="w-32" />
                       <Select value={quantityUnit} onValueChange={setQuantityUnit}>
                         <SelectTrigger className="w-20">
                           <SelectValue />
