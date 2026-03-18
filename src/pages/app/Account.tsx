@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -253,8 +254,18 @@ const Account = () => {
 
       // Refresh data
       await fetchSubscriptions();
+
+      // Toast with refund info
+      if (refund && refund.refundAmount > 0) {
+        toast.success(`已取消訂閱，預計退款 NT$ ${refund.refundAmount.toLocaleString()}`, {
+          description: `已使用 ${refund.usedDays} 天 / 共 ${refund.totalDays} 天`,
+        });
+      } else {
+        toast.success('已取消訂閱');
+      }
     } catch (err: any) {
       console.error('Cancel subscription error:', err);
+      toast.error('取消訂閱失敗，請稍後再試');
     } finally {
       setCancelingId(null);
     }

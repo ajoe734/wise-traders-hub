@@ -104,6 +104,13 @@ const CompanyPayments = () => {
     fetchTransactions();
   };
 
+  // Refund stats for current month
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const refundTxs = transactions.filter(tx => tx.status === 'refunded' && tx.created_at >= monthStart);
+  const refundTotal = refundTxs.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+  const refundCount = refundTxs.length;
+
   return (
     <CompanyLayout>
       <div className="space-y-6">
@@ -131,6 +138,22 @@ const CompanyPayments = () => {
           }}>
             <Download className="h-4 w-4 mr-2" />匯出對帳報表
           </Button>
+        </div>
+
+        {/* Refund Stats Panel */}
+        <div className="grid grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">當月退款總額</p>
+              <p className="text-2xl font-bold text-destructive">NT$ {refundTotal.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">當月退款筆數</p>
+              <p className="text-2xl font-bold">{refundCount} 筆</p>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="providers">
