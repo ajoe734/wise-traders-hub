@@ -467,28 +467,46 @@ const AdminSignals = () => {
     });
   });
 
-  // Calculate current holding quantity for the searched instrument
+  // Calculate current holding quantity and cost for the searched instrument
   const holdingSummary = useMemo(() => {
     if (!searchQuery.trim()) return null;
-    // Group filtered published signals by instrument and compute net quantity
-    const instrumentMap = new Map<string, { qty: number; unit: string }>();
-    for (const s of filtered) {
+    // Track per instrument: separate 張 and 股 quantities, and total cost
+    const instrumentMap = new Map<string, { zhangQty: number; guQty: number; cost: number }>();
+    // Process signals in chronological order
+    const sorted = [...filtered].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    for (const s of sorted) {
       if (s.status === 'taken_down') continue;
       const inst = s.instrument;
       const qty = s.quantity || 1;
       const unit = s.quantity_unit || '張';
-      const current = instrumentMap.get(inst) || { qty: 0, unit };
+      const price = s.price_hint || 0;
+      const current = instrumentMap.get(inst) || { zhangQty: 0, guQty: 0, cost: 0 };
+
       if (s.action === 'buy' || s.action === 'add') {
-        instrumentMap.set(inst, { qty: current.qty + qty, unit });
+        const lineCost = unit === '張' ? price * qty * 1000 : price * qty;
+        if (unit === '張') {
+          current.zhangQty += qty;
+        } else {
+          current.guQty += qty;
+        }
+        current.cost += lineCost;
+        instrumentMap.set(inst, current);
       } else if (s.action === 'sell' || s.action === 'trim') {
-        instrumentMap.set(inst, { qty: current.qty - qty, unit });
+        const lineCost = unit === '張' ? price * qty * 1000 : price * qty;
+        if (unit === '張') {
+          current.zhangQty = Math.max(0, current.zhangQty - qty);
+        } else {
+          current.guQty = Math.max(0, current.guQty - qty);
+        }
+        current.cost = Math.max(0, current.cost - lineCost);
+        instrumentMap.set(inst, current);
       } else if (s.action === 'exit') {
-        instrumentMap.set(inst, { qty: 0, unit });
+        instrumentMap.set(inst, { zhangQty: 0, guQty: 0, cost: 0 });
       }
     }
-    const entries = Array.from(instrumentMap.entries()).filter(([, v]) => v !== undefined);
+    const entries = Array.from(instrumentMap.entries()).filter(([, v]) => v.zhangQty > 0 || v.guQty > 0);
     if (entries.length === 0) return null;
-    return entries.map(([inst, v]) => ({ instrument: inst, quantity: Math.max(0, v.qty), unit: v.unit }));
+    return entries.map(([inst, v]) => ({ instrument: inst, zhangQty: v.zhangQty, guQty: v.guQty, cost: v.cost }));
   }, [filtered, searchQuery]);
 
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
