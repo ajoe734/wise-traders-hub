@@ -805,7 +805,7 @@ const AdminSignals = () => {
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
-                     <tr><td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">尚無{contentLabel}</td></tr>
+                     <tr><td colSpan={isMentor ? 8 : 7} className="p-8 text-center text-muted-foreground text-sm">尚無{contentLabel}</td></tr>
                   ) : (
                      filtered.map((signal) => {
                        const ai = actionLabels[signal.action] || actionLabels.buy;
