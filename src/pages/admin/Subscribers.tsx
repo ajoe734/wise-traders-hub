@@ -161,9 +161,15 @@ const AdminSubscribers = () => {
                             </Badge>
                           </td>
                           <td className="p-3">
-                            <Badge variant={sub.status === 'active' ? 'secondary' : 'outline'} className="text-xs">
-                              {sub.status === 'active' ? '有效' : sub.status === 'expired' ? '已到期' : '已取消'}
-                            </Badge>
+                            {sub.status === 'active' && sub.canceled_at && !sub.auto_renew ? (
+                              <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
+                                已取消（服務至月底）
+                              </Badge>
+                            ) : (
+                              <Badge variant={sub.status === 'active' ? 'secondary' : 'outline'} className="text-xs">
+                                {sub.status === 'active' ? '有效' : sub.status === 'expired' ? '已到期' : '已取消'}
+                              </Badge>
+                            )}
                           </td>
                         </tr>
                       );
