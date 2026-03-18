@@ -187,7 +187,7 @@ const AdminSignals = () => {
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
       learning_points: learningPoints || null,
-      status: 'published' as any,
+      status: (isMentor ? 'pending' : 'published') as any,
     }).select('id').single();
     if (error) { toast.error(error.message); return; }
 
