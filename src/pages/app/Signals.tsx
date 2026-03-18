@@ -41,39 +41,39 @@ interface DbSignal {
 const fetchSignalsData = async (userId: string | undefined) => {
   if (!userId) return { signals: [] as DbSignal[], hasSubscription: false };
 
-  const { data: subs } = await supabase
-    .from('member_subscriptions')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .limit(1);
-
-  const hasSub = !!subs && subs.length > 0;
-  if (!hasSub) return { signals: [] as DbSignal[], hasSubscription: false };
-
-  const { data: activeSubs } = await supabase
+  const { data: activeSubs, error: subsError } = await supabase
     .from('member_subscriptions')
     .select('plan_id, expert_plans(expert_id)')
     .eq('user_id', userId)
     .eq('status', 'active');
 
+  if (subsError) {
+    console.error('Error fetching subscriptions:', subsError);
+    return { signals: [] as DbSignal[], hasSubscription: false };
+  }
+
   const expertIds = (activeSubs || [])
     .map((s: any) => s.expert_plans?.expert_id)
     .filter(Boolean);
 
-  if (expertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: true };
+  if (expertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: false };
 
   // Only show advisor signals in the signal wall, not mentor weekly reviews
   // Also filter out suspended experts
-  const { data: advisorExperts } = await supabase
+  const { data: advisorExperts, error: advisorError } = await supabase
     .from('experts')
     .select('id')
     .in('id', expertIds)
     .eq('role', 'advisor')
     .eq('status', 'active');
 
+  if (advisorError) {
+    console.error('Error fetching advisor experts:', advisorError);
+    return { signals: [] as DbSignal[], hasSubscription: false };
+  }
+
   const advisorExpertIds = (advisorExperts || []).map(e => e.id);
-  if (advisorExpertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: true };
+  if (advisorExpertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: false };
 
   const { data, error } = await supabase
     .from('expert_signals')
@@ -82,6 +82,10 @@ const fetchSignalsData = async (userId: string | undefined) => {
     .in('expert_id', advisorExpertIds)
     .order('published_at', { ascending: false })
     .limit(50);
+
+  if (error) {
+    console.error('Error fetching signals:', error);
+  }
 
   return {
     signals: (!error && data ? data : []) as unknown as DbSignal[],

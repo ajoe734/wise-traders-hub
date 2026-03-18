@@ -187,10 +187,39 @@ const Account = () => {
           .eq('expert_id', sub.expert.id);
       }
 
-      // Invalidate cached queries so signals/journals pages show correct state
-      queryClient.invalidateQueries({ queryKey: ['app-signals'] });
-      queryClient.invalidateQueries({ queryKey: ['app-journals'] });
-      queryClient.invalidateQueries({ queryKey: ['subscribed-expert-slugs'] });
+      // Optimistically clear role-gated caches so page switch shows correct empty-state immediately
+      const remainingActiveSubs = subscriptions.filter(
+        (subscription) => subscription.id !== subId && subscription.status === 'active'
+      );
+      const hasAdvisorSubscription = remainingActiveSubs.some(
+        (subscription) =>
+          subscription.plan.plan_type === 'analyst_signal_l1' ||
+          subscription.plan.plan_type === 'analyst_signal_diag_l2'
+      );
+      const hasMentorSubscription = remainingActiveSubs.some(
+        (subscription) => subscription.plan.plan_type === 'mentor_weekly_journal'
+      );
+
+      if (user?.id) {
+        if (!hasAdvisorSubscription) {
+          queryClient.setQueryData(['app-signals', user.id], { signals: [], hasSubscription: false });
+        }
+        if (!hasMentorSubscription) {
+          queryClient.setQueryData(['app-journals', user.id], { signals: [], hasSubscription: false });
+        }
+
+        if (sub?.expert.slug) {
+          queryClient.setQueryData<string[]>(['subscribed-expert-slugs', user.id], (prev = []) =>
+            prev.filter((slug) => slug !== sub.expert.slug)
+          );
+        }
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['app-signals'], refetchType: 'active' }),
+        queryClient.invalidateQueries({ queryKey: ['app-journals'], refetchType: 'active' }),
+        queryClient.invalidateQueries({ queryKey: ['subscribed-expert-slugs'], refetchType: 'active' }),
+      ]);
 
       // Refresh data
       await fetchSubscriptions();
