@@ -78,6 +78,7 @@ const fetchJournalsData = async (userId: string | undefined) => {
     signals: ((data as any) || []) as JournalSignal[],
     hasSubscription: true,
   };
+};
 
 const Journals = () => {
   const { user } = useAuth();
