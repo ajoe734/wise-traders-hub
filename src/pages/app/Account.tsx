@@ -208,8 +208,12 @@ const Account = () => {
         <Card>
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="h-6 w-6 text-primary" />
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="頭貼" className="h-full w-full object-cover" />
+                ) : (
+                  <User className="h-6 w-6 text-primary" />
+                )}
               </div>
               <div>
                 <p className="font-semibold">{user?.displayName || '會員'}</p>
