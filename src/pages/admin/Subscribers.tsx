@@ -171,7 +171,6 @@ const AdminSubscribers = () => {
                               </Badge>
                             )}
                           </td>
-                          </td>
                         </tr>
                       );
                     })
