@@ -165,15 +165,9 @@ const CompanySubscribers = () => {
                           <Badge variant={sub.auto_renew ? 'default' : 'outline'} className="text-xs">{sub.auto_renew ? '自動' : '手動'}</Badge>
                         </td>
                         <td className="p-4">
-                          {sub.status === 'active' && sub.canceled_at && !sub.auto_renew ? (
-                            <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
-                              已取消（服務至月底）
-                            </Badge>
-                          ) : (
-                            <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">
-                              {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
-                            </Badge>
-                          )}
+                          <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">
+                            {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
+                          </Badge>
                         </td>
                       </tr>
                     );

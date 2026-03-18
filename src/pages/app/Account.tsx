@@ -248,7 +248,7 @@ const Account = () => {
               {/* Active subscriptions */}
               {activeSubs.map((sub) => {
                 const advisor = isAdvisorPlan(sub.plan.plan_type);
-                const isCanceling = !!sub.canceled_at && !sub.auto_renew;
+                const isCanceling = false; // Immediate cancellation - no "pending" state
                 return (
                   <Card
                     key={sub.id}
