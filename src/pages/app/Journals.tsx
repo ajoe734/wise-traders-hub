@@ -78,7 +78,24 @@ const fetchJournalsData = async (userId: string | undefined) => {
     signals: ((data as any) || []) as JournalSignal[],
     hasSubscription: true,
   };
-};
+
+const Journals = () => {
+  const { user } = useAuth();
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+
+  useEffect(() => {
+    markAppJournalsAsRead();
+  }, []);
+
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['app-journals', user?.id],
+    queryFn: () => fetchJournalsData(user?.id),
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+  });
+
+  const signals = data?.signals ?? [];
+  const hasSubscription = data?.hasSubscription ?? null;
 
   // Group signals by week
   const weekGroups = useMemo(() => {
