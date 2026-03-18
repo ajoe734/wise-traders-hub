@@ -344,23 +344,26 @@ const AdminSignals = () => {
         return;
       }
 
-      // Push recall notification via LINE using preview mode with signal data
-      supabase.functions.invoke('line-push-signal', {
-        body: {
-          expert_id: expert.id,
-          mode: 'preview',
-          signal_data: {
-            action: signal.action,
-            instrument: signal.instrument,
-            price_hint: signal.price_hint,
+      // Only push LINE recall notification if NOT a pending mentor signal
+      const isPendingMentor = isMentor && signal.status === 'pending';
+      if (!isPendingMentor) {
+        supabase.functions.invoke('line-push-signal', {
+          body: {
+            expert_id: expert.id,
+            mode: 'preview',
+            signal_data: {
+              action: signal.action,
+              instrument: signal.instrument,
+              price_hint: signal.price_hint,
+            },
+            type: 'takedown',
           },
-          type: 'takedown',
-        },
-      }).then(({ data: pushData }) => {
-        if (pushData?.pushed) {
-          toast.success(`已推播收回通知給 ${pushData.count} 位訂閱者`);
-        }
-      }).catch(() => {});
+        }).then(({ data: pushData }) => {
+          if (pushData?.pushed) {
+            toast.success(`已推播收回通知給 ${pushData.count} 位訂閱者`);
+          }
+        }).catch(() => {});
+      }
 
       // Clean up related trade data BEFORE deleting the signal (FK constraint)
       const symbol = signal.instrument.split(' ')[0];
