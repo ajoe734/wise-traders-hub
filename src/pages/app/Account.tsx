@@ -159,11 +159,24 @@ const Account = () => {
     fetchExperts();
   }, [user]);
 
+  // Calculate prorated refund info for a subscription
+  const calcRefund = (sub: DbSubscription) => {
+    const now = new Date();
+    const startedAt = new Date(sub.started_at);
+    const expiresAt = sub.expires_at ? new Date(sub.expires_at) : new Date(startedAt.getTime() + 30 * 86400000);
+    const totalDays = Math.max(1, Math.round((expiresAt.getTime() - startedAt.getTime()) / 86400000));
+    const usedDays = Math.max(0, Math.min(totalDays, Math.round((now.getTime() - startedAt.getTime()) / 86400000)));
+    const remainingDays = Math.max(0, totalDays - usedDays);
+    const originalAmount = sub.plan.price_monthly;
+    const refundAmount = Math.floor(originalAmount * (remainingDays / totalDays));
+    return { totalDays, usedDays, remainingDays, originalAmount, refundAmount };
+  };
+
   const handleCancelSubscription = async (subId: string) => {
     setCancelingId(subId);
     try {
-      // Find the subscription to get expert_id for LINE unbinding
       const sub = subscriptions.find(s => s.id === subId);
+      const refund = sub ? calcRefund(sub) : null;
 
       // Immediately cancel the subscription
       const { error } = await supabase
@@ -185,6 +198,23 @@ const Account = () => {
           .update({ is_active: false })
           .eq('user_id', user!.id)
           .eq('expert_id', sub.expert.id);
+      }
+
+      // Write refund record via edge function (bypasses RLS on payment_transactions)
+      if (sub && refund && refund.refundAmount > 0) {
+        try {
+          await supabase.functions.invoke('process-refund', {
+            body: {
+              subscription_id: subId,
+              refund_amount: refund.refundAmount,
+              used_days: refund.usedDays,
+              total_days: refund.totalDays,
+              original_amount: refund.originalAmount,
+            },
+          });
+        } catch (refundErr) {
+          console.error('Refund record failed (non-critical):', refundErr);
+        }
       }
 
       // Optimistically clear role-gated caches so page switch shows correct empty-state immediately
