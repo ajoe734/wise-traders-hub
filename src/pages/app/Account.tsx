@@ -49,6 +49,7 @@ interface DbSubscription {
 
 const Account = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   
   const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(true);
