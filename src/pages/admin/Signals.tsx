@@ -798,6 +798,7 @@ const AdminSignals = () => {
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">方向</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">價位</th>
                      <th className="text-left p-3 text-xs font-medium text-muted-foreground">理由</th>
+                     {isMentor && <th className="text-left p-3 text-xs font-medium text-muted-foreground">發布狀態</th>}
                      <th className="text-left p-3 text-xs font-medium text-muted-foreground">狀態</th>
                      <th className="text-left p-3 text-xs font-medium text-muted-foreground"></th>
                   </tr>
