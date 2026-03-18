@@ -395,10 +395,36 @@ const Account = () => {
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>確認取消訂閱？</AlertDialogTitle>
-                                <AlertDialogDescription className="space-y-2">
-                                  <p>您確定要取消 {sub.expert.name} 的 {sub.plan.name} 訂閱嗎？</p>
-                                  <p>取消後，服務將立即停止，您將無法再查看該分析師的訊號與內容。</p>
-                                  <p className="text-xs">LINE 綁定也會同步解除。如需繼續使用，可隨時重新訂閱。</p>
+                                <AlertDialogDescription asChild>
+                                  <div className="space-y-3">
+                                    <p>您確定要取消 <span className="font-semibold">{sub.expert.name}</span> 的 {sub.plan.name} 訂閱嗎？</p>
+                                    {(() => {
+                                      const r = calcRefund(sub);
+                                      return (
+                                        <div className="rounded-lg bg-muted p-3 space-y-1 text-sm">
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">已使用</span>
+                                            <span className="font-medium">{r.usedDays} 天 / 共 {r.totalDays} 天</span>
+                                          </div>
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">月費</span>
+                                            <span>NT$ {r.originalAmount.toLocaleString()}</span>
+                                          </div>
+                                          <div className="border-t pt-1 flex justify-between font-semibold">
+                                            <span>預計退款</span>
+                                            <span className={r.refundAmount > 0 ? "text-green-600 dark:text-green-400" : ""}>
+                                              NT$ {r.refundAmount.toLocaleString()}
+                                            </span>
+                                          </div>
+                                          {r.refundAmount === 0 && (
+                                            <p className="text-xs text-muted-foreground">已使用完畢，無需退款。</p>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                    <p className="text-sm text-muted-foreground">取消後，服務將立即停止，您將無法再查看該分析師的訊號與內容。</p>
+                                    <p className="text-xs text-muted-foreground">LINE 綁定也會同步解除。如需繼續使用，可隨時重新訂閱。</p>
+                                  </div>
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
