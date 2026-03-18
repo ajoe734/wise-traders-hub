@@ -50,7 +50,12 @@ const CompanySubscribers = () => {
   };
 
   const filtered = subs.filter(s => {
-    const matchStatus = statusFilter === 'all' || s.status === statusFilter;
+    const isPendingExpire = s.status === 'active' && s.canceled_at && !s.auto_renew;
+    const matchStatus = statusFilter === 'all' 
+      || (statusFilter === 'pending_expire' && isPendingExpire)
+      || (statusFilter === 'active' && s.status === 'active' && !isPendingExpire)
+      || (statusFilter === 'expired' && s.status === 'expired')
+      || (statusFilter === 'canceled' && s.status === 'canceled');
     if (!search) return matchStatus;
     const q = search.toLowerCase();
     const displayName = (profileMap[s.user_id] || '').toLowerCase();
