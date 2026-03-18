@@ -187,6 +187,11 @@ const Account = () => {
           .eq('expert_id', sub.expert.id);
       }
 
+      // Invalidate cached queries so signals/journals pages show correct state
+      queryClient.invalidateQueries({ queryKey: ['app-signals'] });
+      queryClient.invalidateQueries({ queryKey: ['app-journals'] });
+      queryClient.invalidateQueries({ queryKey: ['subscribed-expert-slugs'] });
+
       // Refresh data
       await fetchSubscriptions();
     } catch (err: any) {
