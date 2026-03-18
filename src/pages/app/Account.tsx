@@ -107,7 +107,7 @@ const Account = () => {
       const expert = plan ? expertMap.get(plan.expert_id) : null;
       return {
         ...sub,
-        plan: plan ? { id: plan.id, name: plan.name, plan_type: plan.plan_type, price_monthly: plan.price_monthly } : { id: '', name: '未知方案', plan_type: '', price_monthly: 0 },
+        plan: plan ? { id: plan.id, name: plan.name, plan_type: plan.plan_type, price_monthly: plan.price_monthly, price_yearly: plan.price_yearly } : { id: '', name: '未知方案', plan_type: '', price_monthly: 0, price_yearly: null },
         expert: expert ? { id: expert.id, slug: expert.slug, name: expert.name, role: expert.role, avatar_url: expert.avatar_url } : { id: '', slug: '', name: '未知', role: '', avatar_url: null },
       };
     }).filter(sub => {
