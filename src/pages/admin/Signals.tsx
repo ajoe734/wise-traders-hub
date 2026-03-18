@@ -918,12 +918,18 @@ const AdminSignals = () => {
                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.reason_detail)}</p>
                                       </div>
                                     )}
-                                    {signal.risk_notes && (
-                                      <div>
-                                        <span className="font-medium text-foreground">風險提示</span>
-                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.risk_notes)}</p>
-                                      </div>
-                                    )}
+                                     {signal.risk_notes && (
+                                       <div>
+                                         <span className="font-medium text-foreground">風險提示</span>
+                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.risk_notes)}</p>
+                                       </div>
+                                     )}
+                                     {signal.learning_points && (
+                                       <div>
+                                         <span className="font-medium text-foreground">教學重點</span>
+                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.learning_points)}</p>
+                                       </div>
+                                     )}
                                   </div>
                                 </td>
                               </tr>

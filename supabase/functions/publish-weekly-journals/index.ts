@@ -181,21 +181,10 @@ Deno.serve(async (req) => {
           weight: 'bold',
         })
 
-        if (s.risk_notes) {
-          bodyContents.push({
-            type: 'text',
-            text: `📊 操作結果：${s.risk_notes}`,
-            size: 'sm',
-            color: '#444444',
-            margin: 'sm',
-            wrap: true,
-          })
-        }
-
         if (s.reason_summary) {
           bodyContents.push({
             type: 'text',
-            text: `📌 ${s.reason_summary}`,
+            text: `📌 摘要：${s.reason_summary}`,
             size: 'sm',
             color: '#444444',
             margin: 'sm',
@@ -206,9 +195,20 @@ Deno.serve(async (req) => {
         if (s.reason_detail) {
           bodyContents.push({
             type: 'text',
-            text: s.reason_detail,
+            text: `📝 詳細分析：${s.reason_detail}`,
             size: 'xs',
             color: '#666666',
+            margin: 'sm',
+            wrap: true,
+          })
+        }
+
+        if (s.risk_notes) {
+          bodyContents.push({
+            type: 'text',
+            text: `⚠️ 風險提示：${s.risk_notes}`,
+            size: 'sm',
+            color: '#444444',
             margin: 'sm',
             wrap: true,
           })
@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
         if (s.learning_points) {
           bodyContents.push({
             type: 'text',
-            text: `🎯 ${s.learning_points}`,
+            text: `🎯 教學重點：${s.learning_points}`,
             size: 'xs',
             color: '#333333',
             margin: 'sm',
