@@ -131,34 +131,16 @@ Deno.serve(async (req) => {
       }
 
       // Build copy text with all signal details
-      const copyLines: string[] = [`📖 ${expertName} 本週週記`, `本週共 ${signals.length} 筆操作紀錄`, '']
+      const copyLines: string[] = [`${expertName} 本週週記`, `本週共 ${signals.length} 筆操作紀錄`, '']
 
-      for (const s of signals) {
-        const label = actionLabel[s.action] || s.action
-        copyLines.push(`【${label} ${s.instrument}】`)
-        if (s.reason_summary) copyLines.push(`摘要：${s.reason_summary}`)
-        if (s.reason_detail) copyLines.push(`詳細分析：${s.reason_detail}`)
-        if (s.risk_notes) copyLines.push(`風險提示：${s.risk_notes}`)
-        if (s.learning_points) copyLines.push(`教學重點：${s.learning_points}`)
-        copyLines.push('')
-      }
-      const copyText = copyLines.join('\n')
-
-      // Build Flex Message body
+      // Build Flex Message body - start directly from count
       const bodyContents: any[] = [
         {
           type: 'text',
-          text: `📖 ${expertName} 本週週記`,
+          text: `本週共 ${signals.length} 筆 操作紀錄`,
           weight: 'bold',
-          size: 'xl',
-          color: '#3B82F6',
-        },
-        {
-          type: 'text',
-          text: `本週共 ${signals.length} 筆操作紀錄`,
-          size: 'sm',
-          color: '#666666',
-          margin: 'md',
+          size: 'lg',
+          color: '#333333',
         },
         {
           type: 'separator',
