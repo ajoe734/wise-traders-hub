@@ -888,7 +888,7 @@ const AdminSignals = () => {
                            </tr>
                            {isExpanded && (
                              <tr className="border-b last:border-0">
-                               <td colSpan={7} className="p-0">
+                               <td colSpan={isMentor ? 8 : 7} className="p-0">
                                  <div className="bg-muted/30 px-6 py-3 text-xs space-y-2">
                                      {isTakenDown && signal.taken_down_reason && (
                                        <div>
