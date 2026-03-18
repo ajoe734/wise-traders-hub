@@ -235,6 +235,7 @@ const Account = () => {
               {/* Active subscriptions */}
               {activeSubs.map((sub) => {
                 const advisor = isAdvisorPlan(sub.plan.plan_type);
+                const isCanceling = !!sub.canceled_at && !sub.auto_renew;
                 return (
                   <Card
                     key={sub.id}
@@ -257,13 +258,19 @@ const Account = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <h3 className="font-semibold">{sub.expert.name}</h3>
-                            <Badge variant="secondary" className={cn(
-                              advisor
-                                ? "bg-advisor/20 text-advisor border-advisor/30"
-                                : "bg-mentor/20 text-mentor border-mentor/30"
-                            )}>
-                              有效
-                            </Badge>
+                            {isCanceling ? (
+                              <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
+                                已取消（服務至月底）
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className={cn(
+                                advisor
+                                  ? "bg-advisor/20 text-advisor border-advisor/30"
+                                  : "bg-mentor/20 text-mentor border-mentor/30"
+                              )}>
+                                有效
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-sm text-muted-foreground">{sub.plan.name}</p>
                           <p className="text-xs text-muted-foreground mt-1">
@@ -274,51 +281,60 @@ const Account = () => {
                               {format(new Date(sub.started_at), 'yyyy/MM/dd')}
                               {sub.expires_at && ` - ${format(new Date(sub.expires_at), 'yyyy/MM/dd')}`}
                             </span>
-                            <span className={cn(advisor ? "text-advisor/70" : "text-mentor/70")}>
-                              {sub.auto_renew ? '自動續訂' : '手動續訂'}
-                            </span>
+                            {isCanceling ? (
+                              <span className="text-amber-600 dark:text-amber-400">
+                                下月起不再扣款
+                              </span>
+                            ) : (
+                              <span className={cn(advisor ? "text-advisor/70" : "text-mentor/70")}>
+                                {sub.auto_renew ? '自動續訂' : '手動續訂'}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Cancel button */}
-                      <div className="mt-3 pt-3 border-t flex justify-end">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
-                              disabled={cancelingId === sub.id}
-                            >
-                              {cancelingId === sub.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <XCircle className="h-3.5 w-3.5" />
-                              )}
-                              取消訂閱
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>確認取消訂閱？</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                您確定要取消 {sub.expert.name} 的 {sub.plan.name} 訂閱嗎？
-                                取消後將無法繼續接收該專家的服務內容，LINE 綁定也會同步解除。
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>返回</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleCancelSubscription(sub.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      {/* Cancel button - only show if not already canceling */}
+                      {!isCanceling && (
+                        <div className="mt-3 pt-3 border-t flex justify-end">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                                disabled={cancelingId === sub.id}
                               >
-                                確認取消
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
+                                {cancelingId === sub.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <XCircle className="h-3.5 w-3.5" />
+                                )}
+                                取消訂閱
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>確認取消訂閱？</AlertDialogTitle>
+                                <AlertDialogDescription className="space-y-2">
+                                  <p>您確定要取消 {sub.expert.name} 的 {sub.plan.name} 訂閱嗎？</p>
+                                  <p>取消後，您的服務將持續到本月底（{format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 'yyyy/MM/dd')}），下個月起不再自動扣款。</p>
+                                  <p className="text-xs">服務到期後，LINE 綁定也會同步解除。如需繼續使用，可隨時重新訂閱。</p>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>返回</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleCancelSubscription(sub.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  確認取消
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
