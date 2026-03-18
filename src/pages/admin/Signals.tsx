@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { isPublishingWindowOpen } from '@/lib/publishingWindow';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
