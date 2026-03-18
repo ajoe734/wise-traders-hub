@@ -8,6 +8,7 @@ interface AuthUser {
   id: string;
   email: string;
   displayName: string | null;
+  avatarUrl: string | null;
   roles: AppRole[];
   expertSlug: string | null;
 }
