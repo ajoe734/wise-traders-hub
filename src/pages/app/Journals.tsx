@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { BookOpen, CalendarDays, Loader2 } from 'lucide-react';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -104,7 +104,7 @@ const Journals = () => {
     signals.forEach(signal => {
       const pubDate = new Date(signal.published_at);
       const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
-      const we = endOfWeek(pubDate, { weekStartsOn: 1 });
+      const we = addDays(ws, 4); // Friday
       const key = `${signal.expert_id}-${format(ws, 'yyyy-MM-dd')}`;
       if (!groups.has(key)) {
         groups.set(key, { weekStart: ws, weekEnd: we, signals: [], expert: signal.experts });

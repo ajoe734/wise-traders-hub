@@ -878,11 +878,18 @@ const AdminSignals = () => {
                                       {isExpanded ? '收起' : '展開'}
                                     </Button>
                                   )}
-                                  {!isTakenDown && !isReadOnly && (
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => handleRecall(signal.id)} disabled={recalling}>
-                                      <Undo2 className="h-3 w-3" />收回
-                                    </Button>
-                                  )}
+                                   {!isTakenDown && !isReadOnly && (
+                                     <Button
+                                       size="sm"
+                                       variant="ghost"
+                                       className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                                       onClick={() => handleRecall(signal.id)}
+                                       disabled={recalling || (isMentor && signal.status === 'published')}
+                                       title={isMentor && signal.status === 'published' ? '已發布的週記不可收回' : undefined}
+                                     >
+                                       <Undo2 className="h-3 w-3" />收回
+                                     </Button>
+                                   )}
                                 </div>
                               </td>
                            </tr>
