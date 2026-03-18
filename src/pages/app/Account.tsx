@@ -331,8 +331,8 @@ const Account = () => {
                                 <AlertDialogTitle>確認取消訂閱？</AlertDialogTitle>
                                 <AlertDialogDescription className="space-y-2">
                                   <p>您確定要取消 {sub.expert.name} 的 {sub.plan.name} 訂閱嗎？</p>
-                                  <p>取消後，您的服務將持續到本月底（{format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 'yyyy/MM/dd')}），下個月起不再自動扣款。</p>
-                                  <p className="text-xs">服務到期後，LINE 綁定也會同步解除。如需繼續使用，可隨時重新訂閱。</p>
+                                  <p>取消後，服務將立即停止，您將無法再查看該分析師的訊號與內容。</p>
+                                  <p className="text-xs">LINE 綁定也會同步解除。如需繼續使用，可隨時重新訂閱。</p>
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
