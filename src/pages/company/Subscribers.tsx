@@ -50,10 +50,8 @@ const CompanySubscribers = () => {
   };
 
   const filtered = subs.filter(s => {
-    const isPendingExpire = s.status === 'active' && s.canceled_at && !s.auto_renew;
     const matchStatus = statusFilter === 'all' 
-      || (statusFilter === 'pending_expire' && isPendingExpire)
-      || (statusFilter === 'active' && s.status === 'active' && !isPendingExpire)
+      || (statusFilter === 'active' && s.status === 'active')
       || (statusFilter === 'expired' && s.status === 'expired')
       || (statusFilter === 'canceled' && s.status === 'canceled');
     if (!search) return matchStatus;
@@ -78,7 +76,7 @@ const CompanySubscribers = () => {
       s.expert_plans?.name || '-',
       s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '-',
       s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '-',
-      s.status === 'active' && s.canceled_at && !s.auto_renew ? '已取消（服務至月底）' : s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
+      s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
       s.auto_renew ? '自動' : '手動',
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
@@ -119,7 +117,7 @@ const CompanySubscribers = () => {
             <Input placeholder="搜尋名稱、方案、日期、天數、續訂方式..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
           <div className="flex items-center bg-muted rounded-lg p-1">
-            {[{ key: 'all', label: '全部' }, { key: 'active', label: '活躍' }, { key: 'pending_expire', label: '待到期' }, { key: 'expired', label: '到期' }, { key: 'canceled', label: '取消' }].map(f => (
+            {[{ key: 'all', label: '全部' }, { key: 'active', label: '活躍' }, { key: 'expired', label: '到期' }, { key: 'canceled', label: '取消' }].map(f => (
               <button key={f.key} onClick={() => setStatusFilter(f.key)} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${statusFilter === f.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                 {f.label}
               </button>
@@ -167,15 +165,9 @@ const CompanySubscribers = () => {
                           <Badge variant={sub.auto_renew ? 'default' : 'outline'} className="text-xs">{sub.auto_renew ? '自動' : '手動'}</Badge>
                         </td>
                         <td className="p-4">
-                          {sub.status === 'active' && sub.canceled_at && !sub.auto_renew ? (
-                            <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
-                              已取消（服務至月底）
-                            </Badge>
-                          ) : (
-                            <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">
-                              {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
-                            </Badge>
-                          )}
+                          <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">
+                            {sub.status === 'active' ? '活躍' : sub.status === 'expired' ? '已到期' : '已取消'}
+                          </Badge>
                         </td>
                       </tr>
                     );
