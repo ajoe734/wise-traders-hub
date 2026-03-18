@@ -159,11 +159,24 @@ const Account = () => {
     fetchExperts();
   }, [user]);
 
+  // Calculate prorated refund info for a subscription
+  const calcRefund = (sub: DbSubscription) => {
+    const now = new Date();
+    const startedAt = new Date(sub.started_at);
+    const expiresAt = sub.expires_at ? new Date(sub.expires_at) : new Date(startedAt.getTime() + 30 * 86400000);
+    const totalDays = Math.max(1, Math.round((expiresAt.getTime() - startedAt.getTime()) / 86400000));
+    const usedDays = Math.max(0, Math.min(totalDays, Math.round((now.getTime() - startedAt.getTime()) / 86400000)));
+    const remainingDays = Math.max(0, totalDays - usedDays);
+    const originalAmount = sub.plan.price_monthly;
+    const refundAmount = Math.floor(originalAmount * (remainingDays / totalDays));
+    return { totalDays, usedDays, remainingDays, originalAmount, refundAmount };
+  };
+
   const handleCancelSubscription = async (subId: string) => {
     setCancelingId(subId);
     try {
-      // Find the subscription to get expert_id for LINE unbinding
       const sub = subscriptions.find(s => s.id === subId);
+      const refund = sub ? calcRefund(sub) : null;
 
       // Immediately cancel the subscription
       const { error } = await supabase
@@ -185,6 +198,23 @@ const Account = () => {
           .update({ is_active: false })
           .eq('user_id', user!.id)
           .eq('expert_id', sub.expert.id);
+      }
+
+      // Write refund record via edge function (bypasses RLS on payment_transactions)
+      if (sub && refund && refund.refundAmount > 0) {
+        try {
+          await supabase.functions.invoke('process-refund', {
+            body: {
+              subscription_id: subId,
+              refund_amount: refund.refundAmount,
+              used_days: refund.usedDays,
+              total_days: refund.totalDays,
+              original_amount: refund.originalAmount,
+            },
+          });
+        } catch (refundErr) {
+          console.error('Refund record failed (non-critical):', refundErr);
+        }
       }
 
       // Optimistically clear role-gated caches so page switch shows correct empty-state immediately
@@ -365,10 +395,36 @@ const Account = () => {
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>確認取消訂閱？</AlertDialogTitle>
-                                <AlertDialogDescription className="space-y-2">
-                                  <p>您確定要取消 {sub.expert.name} 的 {sub.plan.name} 訂閱嗎？</p>
-                                  <p>取消後，服務將立即停止，您將無法再查看該分析師的訊號與內容。</p>
-                                  <p className="text-xs">LINE 綁定也會同步解除。如需繼續使用，可隨時重新訂閱。</p>
+                                <AlertDialogDescription asChild>
+                                  <div className="space-y-3">
+                                    <p>您確定要取消 <span className="font-semibold">{sub.expert.name}</span> 的 {sub.plan.name} 訂閱嗎？</p>
+                                    {(() => {
+                                      const r = calcRefund(sub);
+                                      return (
+                                        <div className="rounded-lg bg-muted p-3 space-y-1 text-sm">
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">已使用</span>
+                                            <span className="font-medium">{r.usedDays} 天 / 共 {r.totalDays} 天</span>
+                                          </div>
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">月費</span>
+                                            <span>NT$ {r.originalAmount.toLocaleString()}</span>
+                                          </div>
+                                          <div className="border-t pt-1 flex justify-between font-semibold">
+                                            <span>預計退款</span>
+                                            <span className={r.refundAmount > 0 ? "text-green-600 dark:text-green-400" : ""}>
+                                              NT$ {r.refundAmount.toLocaleString()}
+                                            </span>
+                                          </div>
+                                          {r.refundAmount === 0 && (
+                                            <p className="text-xs text-muted-foreground">已使用完畢，無需退款。</p>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                    <p className="text-sm text-muted-foreground">取消後，服務將立即停止，您將無法再查看該分析師的訊號與內容。</p>
+                                    <p className="text-xs text-muted-foreground">LINE 綁定也會同步解除。如需繼續使用，可隨時重新訂閱。</p>
+                                  </div>
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
