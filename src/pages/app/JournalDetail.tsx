@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ActionBadge } from '@/components/ActionBadge';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { Calendar, BookOpen, Shield, Loader2 } from 'lucide-react';
 
@@ -60,7 +60,7 @@ const JournalDetail = () => {
 
     const pubDate = new Date(s.published_at);
     const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
-    const we = endOfWeek(pubDate, { weekStartsOn: 1 });
+    const we = addDays(ws, 4); // Friday
 
     const { data: weekData } = await supabase
       .from('expert_signals')
@@ -68,8 +68,8 @@ const JournalDetail = () => {
       .eq('expert_id', s.expert_id)
       .eq('status', 'published')
       .gte('published_at', ws.toISOString())
-      .lte('published_at', we.toISOString())
-      .order('published_at', { ascending: true });
+      .lte('published_at', new Date(we.getFullYear(), we.getMonth(), we.getDate(), 23, 59, 59).toISOString())
+      .order('published_at', { ascending: false });
 
     setWeekSignals((weekData as any) || []);
     setLoading(false);
@@ -91,7 +91,7 @@ const JournalDetail = () => {
 
   const pubDate = new Date(signal.published_at);
   const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
-  const we = endOfWeek(pubDate, { weekStartsOn: 1 });
+  const we = addDays(ws, 4); // Friday
 
   // Use first signal's reason_summary as the title
   const weekTitle = signal.reason_summary || '本週操作回顧';
@@ -140,30 +140,29 @@ const JournalDetail = () => {
         {weekSignals.length > 0 && (
           <div>
             <h2 className="font-semibold mb-3">本週操作列表</h2>
-            <div className="space-y-1">
-              {weekSignals.map(ws => (
-                <div key={ws.id} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
-                  <ActionBadge action={ws.action as any} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{ws.instrument}</span>
-                      <span className="text-xs text-muted-foreground">{format(new Date(ws.published_at), 'MM/dd')}</span>
+            <Card>
+              <CardContent className="p-0">
+                <div className="divide-y divide-border">
+                  {weekSignals.map(ws => (
+                    <div key={ws.id} className="flex items-center gap-3 px-4 py-3">
+                      <ActionBadge action={ws.action as any} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{ws.instrument}</span>
+                          <span className="text-xs text-muted-foreground">{format(new Date(ws.published_at), 'MM/dd')}</span>
+                        </div>
+                        {ws.reason_summary && (
+                          <p className="text-xs text-muted-foreground truncate">{ws.reason_summary}</p>
+                        )}
+                      </div>
+                      {ws.risk_notes && (
+                        <ResultBadge text={ws.risk_notes} />
+                      )}
                     </div>
-                    {ws.reason_summary && ws.id !== signal.id && (
-                      <p className="text-xs text-muted-foreground truncate">{ws.reason_summary}</p>
-                    )}
-                    {ws.id === signal.id && ws.reason_summary && weekSignals.length > 1 ? null : null}
-                    {/* Show individual reason for non-title signals */}
-                    {ws.reason_summary && (
-                      <p className="text-xs text-muted-foreground truncate">{ws.reason_summary}</p>
-                    )}
-                  </div>
-                  {ws.risk_notes && (
-                    <ResultBadge text={ws.risk_notes} />
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -201,7 +200,6 @@ const JournalDetail = () => {
 
 /** Result badge that parses risk_notes to show colored outcome */
 function ResultBadge({ text }: { text: string }) {
-  // Detect if it contains positive or negative percentage
   const pctMatch = text.match(/([+-]?\d+\.?\d*)%/);
   const pct = pctMatch ? parseFloat(pctMatch[1]) : null;
   const isPositive = pct !== null && pct >= 0;

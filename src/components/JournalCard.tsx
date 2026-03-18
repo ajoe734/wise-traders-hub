@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight, Calendar, BookOpen } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 
 interface JournalSignal {
@@ -29,6 +29,9 @@ interface JournalCardProps {
 }
 
 export function JournalCard({ weekStart, weekEnd, signals, expert, to }: JournalCardProps) {
+  // Compute Mon-Fri range from weekStart (Monday)
+  const monDate = startOfWeek(weekStart, { weekStartsOn: 1 });
+  const friDate = addDays(monDate, 4);
   const formatDate = (date: Date) => format(date, 'MM/dd', { locale: zhTW });
 
   // Use first signal's reason_summary as the weekly title
@@ -63,7 +66,7 @@ export function JournalCard({ weekStart, weekEnd, signals, expert, to }: Journal
           <div className="flex items-center gap-2 mb-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm">
-              {formatDate(weekStart)} ~ {formatDate(weekEnd)}
+              {formatDate(monDate)} ~ {formatDate(friDate)}
             </span>
             <Badge variant="mentor-light" className="text-[10px] ml-auto">
               已解鎖（T+7 歷史）

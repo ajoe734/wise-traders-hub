@@ -124,17 +124,27 @@ Deno.serve(async (req) => {
         continue
       }
 
-      // Build a bundled Flex Message for all signals
+      // Build a bundled Flex Message with full details for all signals
       const expertName = expert?.name || '導師'
       const actionLabel: Record<string, string> = {
         buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
       }
 
-      const instrumentList = signals.map(s => {
-        const label = actionLabel[s.action] || s.action
-        return `${label} ${s.instrument}`
-      }).join('\n')
+      // Build copy text with all signal details
+      const copyLines: string[] = [`📖 ${expertName} 本週週記`, `本週共 ${signals.length} 筆操作紀錄`, '']
 
+      for (const s of signals) {
+        const label = actionLabel[s.action] || s.action
+        copyLines.push(`【${label} ${s.instrument}】`)
+        if (s.risk_notes) copyLines.push(`操作結果：${s.risk_notes}`)
+        if (s.reason_summary) copyLines.push(`摘要：${s.reason_summary}`)
+        if (s.reason_detail) copyLines.push(`詳細分析：${s.reason_detail}`)
+        if (s.learning_points) copyLines.push(`教學重點：${s.learning_points}`)
+        copyLines.push('')
+      }
+      const copyText = copyLines.join('\n')
+
+      // Build Flex Message body
       const bodyContents: any[] = [
         {
           type: 'text',
@@ -154,77 +164,93 @@ Deno.serve(async (req) => {
           type: 'separator',
           margin: 'lg',
         },
-        {
-          type: 'text',
-          text: instrumentList,
-          size: 'sm',
-          color: '#444444',
-          margin: 'lg',
-          wrap: true,
-        },
       ]
 
-      // Add first signal's reason_summary as weekly highlight
-      const firstSummary = signals[0]?.reason_summary
-      if (firstSummary) {
-        bodyContents.push(
-          {
-            type: 'separator',
-            margin: 'lg',
-          },
-          {
+      // Add each signal's full details
+      for (const s of signals) {
+        const label = actionLabel[s.action] || s.action
+        const isBullish = ['buy', 'add'].includes(s.action)
+        const color = isBullish ? '#00B900' : '#DC3545'
+
+        bodyContents.push({
+          type: 'text',
+          text: `${label} ${s.instrument}`,
+          size: 'md',
+          color,
+          margin: 'lg',
+          weight: 'bold',
+        })
+
+        if (s.risk_notes) {
+          bodyContents.push({
             type: 'text',
-            text: '📌 本週重點',
-            size: 'sm',
-            color: '#333333',
-            margin: 'lg',
-            weight: 'bold',
-          },
-          {
-            type: 'text',
-            text: firstSummary,
+            text: `📊 操作結果：${s.risk_notes}`,
             size: 'sm',
             color: '#444444',
             margin: 'sm',
             wrap: true,
-          },
-        )
-      }
+          })
+        }
 
-      // Collect learning points
-      const allLearningPoints = signals
-        .map(s => s.learning_points)
-        .filter(Boolean)
-        .join('\n')
-
-      if (allLearningPoints) {
-        bodyContents.push(
-          {
+        if (s.reason_summary) {
+          bodyContents.push({
             type: 'text',
-            text: '🎯 教學重點',
-            size: 'sm',
-            color: '#333333',
-            margin: 'lg',
-            weight: 'bold',
-          },
-          {
-            type: 'text',
-            text: allLearningPoints.slice(0, 300),
+            text: `📌 ${s.reason_summary}`,
             size: 'sm',
             color: '#444444',
             margin: 'sm',
             wrap: true,
-          },
-        )
+          })
+        }
+
+        if (s.reason_detail) {
+          bodyContents.push({
+            type: 'text',
+            text: s.reason_detail,
+            size: 'xs',
+            color: '#666666',
+            margin: 'sm',
+            wrap: true,
+          })
+        }
+
+        if (s.learning_points) {
+          bodyContents.push({
+            type: 'text',
+            text: `🎯 ${s.learning_points}`,
+            size: 'xs',
+            color: '#333333',
+            margin: 'sm',
+            wrap: true,
+          })
+        }
+
+        bodyContents.push({
+          type: 'separator',
+          margin: 'md',
+        })
       }
 
-      bodyContents.push({
-        type: 'text',
-        text: '前往 App 查看完整週記 →',
-        size: 'xs',
-        color: '#999999',
-        margin: 'xl',
-      })
+      // Footer with copy button
+      const footer = {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'button',
+            action: {
+              type: 'clipboard',
+              label: '📋 一鍵複製',
+              clipboardText: copyText,
+            },
+            style: 'secondary',
+            height: 'sm',
+            color: '#F0F0F0',
+          },
+        ],
+        spacing: 'sm',
+        paddingAll: 'lg',
+      }
 
       const message = {
         type: 'flex',
@@ -236,6 +262,7 @@ Deno.serve(async (req) => {
             layout: 'vertical',
             contents: bodyContents,
           },
+          footer,
         },
       }
 
