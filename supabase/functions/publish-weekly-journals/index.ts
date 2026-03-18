@@ -136,9 +136,9 @@ Deno.serve(async (req) => {
       for (const s of signals) {
         const label = actionLabel[s.action] || s.action
         copyLines.push(`【${label} ${s.instrument}】`)
-        if (s.risk_notes) copyLines.push(`操作結果：${s.risk_notes}`)
         if (s.reason_summary) copyLines.push(`摘要：${s.reason_summary}`)
         if (s.reason_detail) copyLines.push(`詳細分析：${s.reason_detail}`)
+        if (s.risk_notes) copyLines.push(`風險提示：${s.risk_notes}`)
         if (s.learning_points) copyLines.push(`教學重點：${s.learning_points}`)
         copyLines.push('')
       }
