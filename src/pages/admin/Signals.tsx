@@ -776,6 +776,7 @@ const AdminSignals = () => {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
           )}
         </div>
 
