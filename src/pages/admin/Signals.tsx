@@ -880,15 +880,20 @@ const AdminSignals = () => {
                 </tbody>
                 {holdingSummary && holdingSummary.length > 0 && (
                   <tfoot>
-                    {holdingSummary.map(({ instrument, quantity, unit }) => (
+                    {holdingSummary.map(({ instrument, zhangQty, guQty, cost }) => (
                       <tr key={instrument} className="border-t bg-muted/40">
                         <td colSpan={3} className="p-3 text-sm font-medium text-muted-foreground">
                           {instrument} 目前持有
                         </td>
-                        <td className="p-3 text-sm font-bold text-foreground">
-                          {quantity} {unit}
+                        <td colSpan={2} className="p-3 text-sm font-bold text-foreground">
+                          {zhangQty > 0 && <span>{zhangQty} 張</span>}
+                          {zhangQty > 0 && guQty > 0 && <span className="mx-1">+</span>}
+                          {guQty > 0 && <span>{guQty} 股</span>}
+                          <span className="ml-3 text-muted-foreground font-medium">
+                            成本 {cost.toLocaleString('zh-TW')} 元
+                          </span>
                         </td>
-                        <td colSpan={3}></td>
+                        <td colSpan={2}></td>
                       </tr>
                     ))}
                   </tfoot>
