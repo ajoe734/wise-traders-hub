@@ -886,10 +886,8 @@ const AdminSignals = () => {
                           {instrument} 目前持有
                         </td>
                         <td colSpan={2} className="p-3 text-sm font-bold text-foreground">
-                          {zhangQty > 0 && <span>{zhangQty} 張</span>}
-                          {zhangQty > 0 && guQty > 0 && <span className="mx-1">+</span>}
-                          {guQty > 0 && <span>{guQty} 股</span>}
-                          <span className="ml-3 text-muted-foreground font-medium">
+                          {zhangQty} 張　{guQty} 股　
+                          <span className="text-muted-foreground font-medium">
                             成本 {cost.toLocaleString('zh-TW')} 元
                           </span>
                         </td>
