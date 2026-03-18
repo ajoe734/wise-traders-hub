@@ -50,10 +50,8 @@ const CompanySubscribers = () => {
   };
 
   const filtered = subs.filter(s => {
-    const isPendingExpire = s.status === 'active' && s.canceled_at && !s.auto_renew;
     const matchStatus = statusFilter === 'all' 
-      || (statusFilter === 'pending_expire' && isPendingExpire)
-      || (statusFilter === 'active' && s.status === 'active' && !isPendingExpire)
+      || (statusFilter === 'active' && s.status === 'active')
       || (statusFilter === 'expired' && s.status === 'expired')
       || (statusFilter === 'canceled' && s.status === 'canceled');
     if (!search) return matchStatus;
