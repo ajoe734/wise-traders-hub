@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { isPublishingWindowOpen } from '@/lib/publishingWindow';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
@@ -186,12 +187,12 @@ const AdminSignals = () => {
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
       learning_points: learningPoints || null,
-      status: 'published' as any,
+      status: (isMentor ? 'pending' : 'published') as any,
     }).select('id').single();
     if (error) { toast.error(error.message); return; }
 
-    // 同步寫入 trade_signals + user_performances
-    if (expert.user_id) {
+    // 同步寫入 trade_signals + user_performances（僅跟單派，修煉派由週五批次發布處理）
+    if (expert.user_id && !isMentor) {
       const entryPrice = latestPrice ? parseFloat(latestPrice) : 0;
 
       if (action === 'exit') {
@@ -297,14 +298,14 @@ const AdminSignals = () => {
       }
     }
 
-    toast.success(isMentor ? '週記已發布' : '訊號已發布');
+    toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : '訊號已發布');
     setIsCreateOpen(false);
     setLastPublishedId(null);
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
     setLinePushed(false); setLinePushing(false);
 
-    // Trigger LINE push notification (non-blocking) — skip if advisor already did preview push
-    const skipLinePush = isAdvisor && linePushed;
+    // Trigger LINE push notification (non-blocking) — skip for mentors (batch on Friday) and if advisor already did preview push
+    const skipLinePush = isMentor || (isAdvisor && linePushed);
     if (inserted?.id && !skipLinePush) {
       supabase.functions.invoke('line-push-signal', {
         body: { signal_id: inserted.id, expert_id: expert.id },
@@ -405,7 +406,14 @@ const AdminSignals = () => {
   const isAdvisor = expert?.role === 'advisor';
   const isMentor = expert?.role === 'mentor';
   const contentLabel = isMentor ? '週記' : '訊號';
+  const publishWindow = isPublishingWindowOpen();
   const canPublish = !!expert && !!stockCode.trim() && !!action;
+
+  // Count pending signals for mentor
+  const pendingCount = useMemo(() => {
+    if (!isMentor) return 0;
+    return signals.filter(s => s.status === 'pending').length;
+  }, [signals, isMentor]);
 
   // Determine which buy signals are actually "加碼" (subsequent buys for same instrument)
   const addBuySignalIds = useMemo(() => {
@@ -436,9 +444,10 @@ const AdminSignals = () => {
 
   // Multi-condition search: conditions separated by "、"
   const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
-  const statusOnlyKeywords = ['持有中', '已平倉', '已收回'];
+  const statusOnlyKeywords = ['持有中', '已平倉', '已收回', '待發布'];
 
   const getDisplayStatus = (s: any) => {
+    if (s.status === 'pending') return '待發布';
     if (s.status === 'taken_down') return '已收回';
     if (s.action === 'exit') return '已平倉';
     if (['sell', 'trim'].includes(s.action)) return openInstruments.has(s.instrument) ? '減碼' : '已平倉';
@@ -529,12 +538,23 @@ const AdminSignals = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{contentLabel}管理</h1>
-            <p className="text-muted-foreground text-sm mt-1">{isMentor ? '每週發布，可自行收回' : '發布即上線，可自行收回'}</p>
+            <p className="text-muted-foreground text-sm mt-1">
+              {isMentor
+                ? `週一~五發布，週五 20:00 統一推播${pendingCount > 0 ? `（本週待發布 ${pendingCount} 筆）` : ''}`
+                : '發布即上線，可自行收回'}
+            </p>
           </div>
           {!isReadOnly && (
+          <div className="flex flex-col items-end gap-1">
+            {!publishWindow.open && (
+              <p className="text-xs text-destructive">{publishWindow.reason}</p>
+            )}
           <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setLinePushed(false); setLinePushing(false); setLastPublishedId(null); } }}>
             <DialogTrigger asChild>
-              <Button className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}>
+              <Button
+                disabled={!publishWindow.open}
+                className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
+              >
                 <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
               </Button>
             </DialogTrigger>
@@ -756,6 +776,7 @@ const AdminSignals = () => {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
           )}
         </div>
 
@@ -818,25 +839,27 @@ const AdminSignals = () => {
                                  <p className="text-muted-foreground truncate">{stripDotPrefix(signal.reason_summary || '-')}</p>
                                )}
                              </td>
-                               <td className="p-3">
-                                  {isTakenDown ? (
-                                    <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已收回</Badge>
-                                 ) : signal.action === 'exit' ? (
-                                   <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
-                                 ) : ['sell', 'trim'].includes(signal.action) ? (
-                                   openInstruments.has(signal.instrument) ? (
-                                     <Badge className="text-xs border border-amber-400/40 bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">減碼</Badge>
-                                   ) : (
-                                     <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
-                                   )
-                                 ) : signal.action === 'add' ? (
-                                   <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
-                                  ) : signal.action === 'buy' && addBuySignalIds.has(signal.id) ? (
+                                <td className="p-3">
+                                   {signal.status === 'pending' ? (
+                                     <Badge className="text-xs border border-mentor/40 bg-mentor/10 text-mentor">待發布</Badge>
+                                   ) : isTakenDown ? (
+                                     <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已收回</Badge>
+                                  ) : signal.action === 'exit' ? (
+                                    <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
+                                  ) : ['sell', 'trim'].includes(signal.action) ? (
+                                    openInstruments.has(signal.instrument) ? (
+                                      <Badge className="text-xs border border-amber-400/40 bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">減碼</Badge>
+                                    ) : (
+                                      <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
+                                    )
+                                  ) : signal.action === 'add' ? (
                                     <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
-                                  ) : (
-                                    <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
-                                   )}
-                                </td>
+                                   ) : signal.action === 'buy' && addBuySignalIds.has(signal.id) ? (
+                                     <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
+                                   ) : (
+                                     <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
+                                    )}
+                                 </td>
                                <td className="p-3">
                                 <div className="flex items-center gap-1">
                                   {hasDetail && (
