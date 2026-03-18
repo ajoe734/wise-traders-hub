@@ -444,7 +444,7 @@ const AdminSignals = () => {
 
   // Multi-condition search: conditions separated by "、"
   const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
-  const statusOnlyKeywords = ['持有中', '已平倉', '已收回'];
+  const statusOnlyKeywords = ['持有中', '已平倉', '已收回', '待發布'];
 
   const getDisplayStatus = (s: any) => {
     if (s.status === 'taken_down') return '已收回';
