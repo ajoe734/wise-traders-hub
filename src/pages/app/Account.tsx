@@ -84,7 +84,7 @@ const Account = () => {
     const planIds = [...new Set(subs.map(s => s.plan_id))];
     const { data: plans } = await supabase
       .from('expert_plans')
-      .select('id, name, plan_type, price_monthly, expert_id')
+      .select('id, name, plan_type, price_monthly, price_yearly, expert_id')
       .in('id', planIds);
 
     if (!plans) {
