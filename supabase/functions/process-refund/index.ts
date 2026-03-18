@@ -12,10 +12,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Validate JWT from authorization header
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -25,17 +24,19 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Use anon client to verify the user's JWT
+    // Verify JWT using getClaims
     const anonClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: authError } = await anonClient.auth.getUser();
-    if (authError || !user) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const userId = claimsData.claims.sub as string;
 
     const { subscription_id, refund_amount, used_days, total_days, original_amount } = await req.json();
 
@@ -56,7 +57,7 @@ Deno.serve(async (req) => {
       .eq("id", subscription_id)
       .single();
 
-    if (subError || !sub || sub.user_id !== user.id) {
+    if (subError || !sub || sub.user_id !== userId) {
       return new Response(JSON.stringify({ error: "Subscription not found or not yours" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -86,7 +87,7 @@ Deno.serve(async (req) => {
       .from("audit_logs")
       .insert({
         action: "prorated_refund",
-        actor_id: user.id,
+        actor_id: userId,
         target_id: subscription_id,
         target_type: "member_subscriptions",
         detail: {
@@ -100,7 +101,6 @@ Deno.serve(async (req) => {
 
     if (auditError) {
       console.error("Failed to insert audit log:", auditError);
-      // Non-critical, don't fail the request
     }
 
     return new Response(JSON.stringify({ success: true, refund_amount }), {
