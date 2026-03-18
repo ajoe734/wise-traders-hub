@@ -38,6 +38,7 @@ interface DbSubscription {
     name: string;
     plan_type: string;
     price_monthly: number;
+    price_yearly: number | null;
   };
   expert: {
     id: string;
