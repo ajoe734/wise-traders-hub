@@ -344,23 +344,26 @@ const AdminSignals = () => {
         return;
       }
 
-      // Push recall notification via LINE using preview mode with signal data
-      supabase.functions.invoke('line-push-signal', {
-        body: {
-          expert_id: expert.id,
-          mode: 'preview',
-          signal_data: {
-            action: signal.action,
-            instrument: signal.instrument,
-            price_hint: signal.price_hint,
+      // Only push LINE recall notification if NOT a pending mentor signal
+      const isPendingMentor = isMentor && signal.status === 'pending';
+      if (!isPendingMentor) {
+        supabase.functions.invoke('line-push-signal', {
+          body: {
+            expert_id: expert.id,
+            mode: 'preview',
+            signal_data: {
+              action: signal.action,
+              instrument: signal.instrument,
+              price_hint: signal.price_hint,
+            },
+            type: 'takedown',
           },
-          type: 'takedown',
-        },
-      }).then(({ data: pushData }) => {
-        if (pushData?.pushed) {
-          toast.success(`已推播收回通知給 ${pushData.count} 位訂閱者`);
-        }
-      }).catch(() => {});
+        }).then(({ data: pushData }) => {
+          if (pushData?.pushed) {
+            toast.success(`已推播收回通知給 ${pushData.count} 位訂閱者`);
+          }
+        }).catch(() => {});
+      }
 
       // Clean up related trade data BEFORE deleting the signal (FK constraint)
       const symbol = signal.instrument.split(' ')[0];
@@ -811,7 +814,7 @@ const AdminSignals = () => {
                        const ai = actionLabels[signal.action] || actionLabels.buy;
                        const isExpanded = expandedId === signal.id;
                        const isTakenDown = signal.status === 'taken_down';
-                       const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || (isTakenDown && signal.taken_down_reason);
+                       const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points || (isTakenDown && signal.taken_down_reason);
                        return (
                          <React.Fragment key={signal.id}>
                             <tr className={cn(
@@ -915,12 +918,18 @@ const AdminSignals = () => {
                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.reason_detail)}</p>
                                       </div>
                                     )}
-                                    {signal.risk_notes && (
-                                      <div>
-                                        <span className="font-medium text-foreground">風險提示</span>
-                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.risk_notes)}</p>
-                                      </div>
-                                    )}
+                                     {signal.risk_notes && (
+                                       <div>
+                                         <span className="font-medium text-foreground">風險提示</span>
+                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.risk_notes)}</p>
+                                       </div>
+                                     )}
+                                     {signal.learning_points && (
+                                       <div>
+                                         <span className="font-medium text-foreground">教學重點</span>
+                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.learning_points)}</p>
+                                       </div>
+                                     )}
                                   </div>
                                 </td>
                               </tr>
