@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppJournalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { JournalCard } from '@/components/JournalCard';
@@ -10,6 +10,7 @@ import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { useQuery } from '@tanstack/react-query';
 
 interface JournalSignal {
   id: string;
@@ -37,72 +38,65 @@ interface WeekGroup {
   expert: JournalSignal['experts'];
 }
 
+const fetchJournalsData = async (userId: string | undefined) => {
+  if (!userId) return { signals: [] as JournalSignal[], hasSubscription: false };
+
+  const { data: subs } = await supabase
+    .rpc('has_active_subscription', { _user_id: userId });
+
+  if (!subs || subs.length === 0) {
+    return { signals: [] as JournalSignal[], hasSubscription: false };
+  }
+
+  const expertIds = subs.map((s: any) => s.expert_id);
+
+  const { data: mentorExperts } = await supabase
+    .from('experts')
+    .select('id')
+    .in('id', expertIds)
+    .eq('role', 'mentor')
+    .eq('status', 'active');
+
+  const mentorIds = (mentorExperts || []).map(e => e.id);
+  if (mentorIds.length === 0) {
+    return { signals: [] as JournalSignal[], hasSubscription: true };
+  }
+
+  const { data, error } = await supabase
+    .from('expert_signals')
+    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .eq('status', 'published')
+    .in('expert_id', mentorIds)
+    .order('published_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('Error fetching journals:', error);
+  }
+
+  return {
+    signals: ((data as any) || []) as JournalSignal[],
+    hasSubscription: true,
+  };
+};
+
 const Journals = () => {
-  const [signals, setSignals] = useState<JournalSignal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasSubscription, setHasSubscription] = useState<boolean | null>(null);
+  const { user } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   useEffect(() => {
     markAppJournalsAsRead();
   }, []);
 
-  const { user } = useAuth();
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['app-journals', user?.id],
+    queryFn: () => fetchJournalsData(user?.id),
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+  });
 
-  useEffect(() => {
-    if (!user) return;
-    fetchJournals();
-  }, [user]);
-
-  const fetchJournals = async () => {
-    if (!user) return;
-    setLoading(true);
-
-    // 1. Get mentor expert_ids the user is subscribed to
-    const { data: subs } = await supabase
-      .rpc('has_active_subscription', { _user_id: user.id });
-
-    if (!subs || subs.length === 0) {
-      setSignals([]);
-      setHasSubscription(false);
-      setLoading(false);
-      return;
-    }
-
-    setHasSubscription(true);
-
-    const expertIds = subs.map((s: any) => s.expert_id);
-
-    // Filter to active mentor experts only
-    const { data: mentorExperts } = await supabase
-      .from('experts')
-      .select('id')
-      .in('id', expertIds)
-      .eq('role', 'mentor')
-      .eq('status', 'active');
-
-    const mentorIds = (mentorExperts || []).map(e => e.id);
-    if (mentorIds.length === 0) {
-      setSignals([]);
-      setLoading(false);
-      return;
-    }
-
-    // 2. Query expert_signals for mentor journals
-    const { data, error } = await supabase
-      .from('expert_signals')
-      .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
-      .eq('status', 'published')
-      .in('expert_id', mentorIds)
-      .order('published_at', { ascending: false })
-      .limit(100);
-
-    if (error) {
-      console.error('Error fetching journals:', error);
-    }
-    setSignals((data as any) || []);
-    setLoading(false);
-  };
+  const signals = data?.signals ?? [];
+  const hasSubscription = data?.hasSubscription ?? null;
 
   // Group signals by week
   const weekGroups = useMemo(() => {

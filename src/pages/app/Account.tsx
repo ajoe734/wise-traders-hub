@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,7 @@ interface DbSubscription {
 
 const Account = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   
   const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(true);
@@ -184,6 +186,11 @@ const Account = () => {
           .eq('user_id', user!.id)
           .eq('expert_id', sub.expert.id);
       }
+
+      // Invalidate cached queries so signals/journals pages show correct state
+      queryClient.invalidateQueries({ queryKey: ['app-signals'] });
+      queryClient.invalidateQueries({ queryKey: ['app-journals'] });
+      queryClient.invalidateQueries({ queryKey: ['subscribed-expert-slugs'] });
 
       // Refresh data
       await fetchSubscriptions();
