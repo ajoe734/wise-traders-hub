@@ -814,7 +814,7 @@ const AdminSignals = () => {
                        const ai = actionLabels[signal.action] || actionLabels.buy;
                        const isExpanded = expandedId === signal.id;
                        const isTakenDown = signal.status === 'taken_down';
-                       const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || (isTakenDown && signal.taken_down_reason);
+                       const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points || (isTakenDown && signal.taken_down_reason);
                        return (
                          <React.Fragment key={signal.id}>
                             <tr className={cn(
