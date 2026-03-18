@@ -160,21 +160,30 @@ const Account = () => {
   const handleCancelSubscription = async (subId: string) => {
     setCancelingId(subId);
     try {
-      // Calculate end of current month (last day of month, 23:59:59)
-      const now = new Date();
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      // Find the subscription to get expert_id for LINE unbinding
+      const sub = subscriptions.find(s => s.id === subId);
 
+      // Immediately cancel the subscription
       const { error } = await supabase
         .from('member_subscriptions')
         .update({
+          status: 'canceled' as any,
           auto_renew: false,
           canceled_at: new Date().toISOString(),
-          expires_at: endOfMonth.toISOString(),
         })
         .eq('id', subId)
         .eq('user_id', user!.id);
 
       if (error) throw error;
+
+      // Immediately deactivate LINE binding for this expert
+      if (sub) {
+        await supabase
+          .from('member_line_bindings')
+          .update({ is_active: false })
+          .eq('user_id', user!.id)
+          .eq('expert_id', sub.expert.id);
+      }
 
       // Refresh data
       await fetchSubscriptions();
