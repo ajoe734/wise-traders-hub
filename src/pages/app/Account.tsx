@@ -38,6 +38,7 @@ interface DbSubscription {
     name: string;
     plan_type: string;
     price_monthly: number;
+    price_yearly: number | null;
   };
   expert: {
     id: string;
@@ -83,7 +84,7 @@ const Account = () => {
     const planIds = [...new Set(subs.map(s => s.plan_id))];
     const { data: plans } = await supabase
       .from('expert_plans')
-      .select('id, name, plan_type, price_monthly, expert_id')
+      .select('id, name, plan_type, price_monthly, price_yearly, expert_id')
       .in('id', planIds);
 
     if (!plans) {
@@ -106,7 +107,7 @@ const Account = () => {
       const expert = plan ? expertMap.get(plan.expert_id) : null;
       return {
         ...sub,
-        plan: plan ? { id: plan.id, name: plan.name, plan_type: plan.plan_type, price_monthly: plan.price_monthly } : { id: '', name: '未知方案', plan_type: '', price_monthly: 0 },
+        plan: plan ? { id: plan.id, name: plan.name, plan_type: plan.plan_type, price_monthly: plan.price_monthly, price_yearly: plan.price_yearly } : { id: '', name: '未知方案', plan_type: '', price_monthly: 0, price_yearly: null },
         expert: expert ? { id: expert.id, slug: expert.slug, name: expert.name, role: expert.role, avatar_url: expert.avatar_url } : { id: '', slug: '', name: '未知', role: '', avatar_url: null },
       };
     }).filter(sub => {
@@ -161,14 +162,17 @@ const Account = () => {
   }, [user]);
 
   // Calculate prorated refund info for a subscription
+  // Always uses fixed cycle: 30 days for monthly, 365 days for yearly
   const calcRefund = (sub: DbSubscription) => {
     const now = new Date();
     const startedAt = new Date(sub.started_at);
-    const expiresAt = sub.expires_at ? new Date(sub.expires_at) : new Date(startedAt.getTime() + 30 * 86400000);
-    const totalDays = Math.max(1, Math.round((expiresAt.getTime() - startedAt.getTime()) / 86400000));
-    const usedDays = Math.max(0, Math.min(totalDays, Math.round((now.getTime() - startedAt.getTime()) / 86400000)));
+    const isYearly = !!(sub.plan.price_yearly && sub.plan.price_yearly > 0 && sub.expires_at &&
+      (new Date(sub.expires_at).getTime() - startedAt.getTime()) > 180 * 86400000);
+    const totalDays = isYearly ? 365 : 30;
+    const originalAmount = isYearly ? (sub.plan.price_yearly || sub.plan.price_monthly * 12) : sub.plan.price_monthly;
+    const elapsedMs = now.getTime() - startedAt.getTime();
+    const usedDays = Math.max(0, Math.min(totalDays, Math.floor(elapsedMs / 86400000)));
     const remainingDays = Math.max(0, totalDays - usedDays);
-    const originalAmount = sub.plan.price_monthly;
     const refundAmount = Math.floor(originalAmount * (remainingDays / totalDays));
     return { totalDays, usedDays, remainingDays, originalAmount, refundAmount };
   };

@@ -64,7 +64,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Look up the original payment transaction to get provider_id for future real refund API calls
+    const { data: originalTx } = await adminClient
+      .from("payment_transactions")
+      .select("id, provider_id, provider_tx_id")
+      .eq("subscription_id", subscription_id)
+      .eq("status", "paid")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
     // Insert refund record into payment_transactions
+    // Links to the same provider_id so real refund API can be called later
     const { error: txError } = await adminClient
       .from("payment_transactions")
       .insert({
@@ -72,6 +83,10 @@ Deno.serve(async (req) => {
         amount: -Math.abs(refund_amount),
         status: "refunded",
         paid_at: new Date().toISOString(),
+        provider_id: originalTx?.provider_id || null,
+        provider_tx_id: originalTx?.provider_tx_id
+          ? `REFUND-${originalTx.provider_tx_id}`
+          : null,
       });
 
     if (txError) {
