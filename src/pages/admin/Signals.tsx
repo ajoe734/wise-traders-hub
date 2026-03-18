@@ -298,7 +298,7 @@ const AdminSignals = () => {
       }
     }
 
-    toast.success(isMentor ? '週記已發布' : '訊號已發布');
+    toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : '訊號已發布');
     setIsCreateOpen(false);
     setLastPublishedId(null);
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張'); setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
