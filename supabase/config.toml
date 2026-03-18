@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.data-upsert]
 verify_jwt = false
+
+[functions.expire-subscriptions]
+verify_jwt = false
