@@ -8,6 +8,7 @@ interface AuthUser {
   id: string;
   email: string;
   displayName: string | null;
+  avatarUrl: string | null;
   roles: AppRole[];
   expertSlug: string | null;
 }
@@ -29,7 +30,7 @@ AuthContext.displayName = 'AuthContext';
 
 async function fetchUserProfile(userId: string, email: string): Promise<AuthUser> {
   const [profileRes, rolesRes] = await Promise.all([
-    supabase.from('profiles').select('display_name, expert_slug').eq('user_id', userId).single(),
+    supabase.from('profiles').select('display_name, expert_slug, avatar_url').eq('user_id', userId).single(),
     supabase.from('user_roles').select('role').eq('user_id', userId),
   ]);
 
@@ -37,6 +38,7 @@ async function fetchUserProfile(userId: string, email: string): Promise<AuthUser
     id: userId,
     email,
     displayName: profileRes.data?.display_name || null,
+    avatarUrl: profileRes.data?.avatar_url || null,
     roles: (rolesRes.data || []).map((r: any) => r.role as AppRole),
     expertSlug: profileRes.data?.expert_slug || null,
   };
