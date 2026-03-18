@@ -73,7 +73,7 @@ const CompanySubscribers = () => {
       s.expert_plans?.name || '-',
       s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '-',
       s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '-',
-      s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
+      s.status === 'active' && s.canceled_at && !s.auto_renew ? '已取消（服務至月底）' : s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
       s.auto_renew ? '自動' : '手動',
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
