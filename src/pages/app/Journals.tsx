@@ -59,7 +59,7 @@ const fetchJournalsData = async (userId: string | undefined) => {
 
   const mentorIds = (mentorExperts || []).map(e => e.id);
   if (mentorIds.length === 0) {
-    return { signals: [] as JournalSignal[], hasSubscription: true };
+    return { signals: [] as JournalSignal[], hasSubscription: false };
   }
 
   const { data, error } = await supabase
