@@ -838,25 +838,27 @@ const AdminSignals = () => {
                                  <p className="text-muted-foreground truncate">{stripDotPrefix(signal.reason_summary || '-')}</p>
                                )}
                              </td>
-                               <td className="p-3">
-                                  {isTakenDown ? (
-                                    <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已收回</Badge>
-                                 ) : signal.action === 'exit' ? (
-                                   <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
-                                 ) : ['sell', 'trim'].includes(signal.action) ? (
-                                   openInstruments.has(signal.instrument) ? (
-                                     <Badge className="text-xs border border-amber-400/40 bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">減碼</Badge>
-                                   ) : (
-                                     <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
-                                   )
-                                 ) : signal.action === 'add' ? (
-                                   <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
-                                  ) : signal.action === 'buy' && addBuySignalIds.has(signal.id) ? (
+                                <td className="p-3">
+                                   {signal.status === 'pending' ? (
+                                     <Badge className="text-xs border border-mentor/40 bg-mentor/10 text-mentor">待發布</Badge>
+                                   ) : isTakenDown ? (
+                                     <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已收回</Badge>
+                                  ) : signal.action === 'exit' ? (
+                                    <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
+                                  ) : ['sell', 'trim'].includes(signal.action) ? (
+                                    openInstruments.has(signal.instrument) ? (
+                                      <Badge className="text-xs border border-amber-400/40 bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">減碼</Badge>
+                                    ) : (
+                                      <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
+                                    )
+                                  ) : signal.action === 'add' ? (
                                     <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
-                                  ) : (
-                                    <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
-                                   )}
-                                </td>
+                                   ) : signal.action === 'buy' && addBuySignalIds.has(signal.id) ? (
+                                     <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
+                                   ) : (
+                                     <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
+                                    )}
+                                 </td>
                                <td className="p-3">
                                 <div className="flex items-center gap-1">
                                   {hasDetail && (
