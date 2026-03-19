@@ -6,43 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function generateCheckMacValue(
-  params: Record<string, string>,
-  hashKey: string,
-  hashIV: string
-): string {
-  // 1. Sort by key alphabetically
-  const sorted = Object.keys(params)
-    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
-    .map((key) => `${key}=${params[key]}`)
-    .join("&");
-
-  // 2. Prepend HashKey and append HashIV
-  const raw = `HashKey=${hashKey}&${sorted}&HashIV=${hashIV}`;
-
-  // 3. URL encode (lowercase)
-  const encoded = encodeURIComponent(raw)
-    .toLowerCase()
-    .replace(/%20/g, "+")
-    .replace(/%2d/g, "-")
-    .replace(/%5f/g, "_")
-    .replace(/%2e/g, ".")
-    .replace(/%21/g, "!")
-    .replace(/%2a/g, "*")
-    .replace(/%28/g, "(")
-    .replace(/%29/g, ")")
-    .replace(/%7e/g, "~");
-
-  // 4. SHA256 hash → uppercase
-  const encoder = new TextEncoder();
-  const data = encoder.encode(encoded);
-  const hashBuffer = new Uint8Array(256 / 8);
-
-  // Use synchronous approach with Web Crypto workaround
-  // Actually we need async, let's make this an async function
-  return encoded; // placeholder, real impl below
-}
-
 async function generateCheckMacValueAsync(
   params: Record<string, string>,
   hashKey: string,
