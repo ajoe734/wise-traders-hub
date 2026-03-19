@@ -256,6 +256,8 @@ const Account = () => {
   };
 
   const activeSubs = subscriptions.filter(s => s.status === 'active');
+  const canceledActiveSubs = activeSubs.filter(s => s.canceled_at);
+  const trueActiveSubs = activeSubs.filter(s => !s.canceled_at);
   const inactiveSubs = subscriptions.filter(s => s.status !== 'active');
 
   const getPlanTypeLabel = (planType: string) => {
