@@ -19,11 +19,11 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
 
     // Find all active subscriptions that have expired (expires_at <= now)
+    // This includes both: canceled subs reaching month end, and non-renewed subs
     const { data: expiredSubs, error: fetchErr } = await supabase
       .from("member_subscriptions")
-      .select("id, user_id, plan_id")
+      .select("id, user_id, plan_id, canceled_at")
       .eq("status", "active")
-      .eq("auto_renew", false)
       .not("expires_at", "is", null)
       .lte("expires_at", now);
 
@@ -49,18 +49,27 @@ Deno.serve(async (req) => {
       (plans || []).map((p) => [p.id, p.expert_id])
     );
 
-    // Update all expired subscriptions to 'expired' status
-    const subIds = expiredSubs.map((s) => s.id);
-    const { error: updateErr } = await supabase
-      .from("member_subscriptions")
-      .update({ status: "expired" })
-      .in("id", subIds);
+    // Update status: canceled subs → 'canceled', others → 'expired'
+    const canceledIds = expiredSubs.filter((s) => s.canceled_at).map((s) => s.id);
+    const expiredIds = expiredSubs.filter((s) => !s.canceled_at).map((s) => s.id);
 
-    if (updateErr) {
-      throw updateErr;
+    if (canceledIds.length > 0) {
+      const { error } = await supabase
+        .from("member_subscriptions")
+        .update({ status: "canceled" })
+        .in("id", canceledIds);
+      if (error) throw error;
     }
 
-    // Unbind LINE for each expired subscription
+    if (expiredIds.length > 0) {
+      const { error } = await supabase
+        .from("member_subscriptions")
+        .update({ status: "expired" })
+        .in("id", expiredIds);
+      if (error) throw error;
+    }
+
+    // Deactivate LINE bindings for all expired subscriptions
     for (const sub of expiredSubs) {
       const expertId = planToExpert.get(sub.plan_id);
       if (expertId) {
@@ -72,10 +81,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log(`Processed: ${canceledIds.length} canceled, ${expiredIds.length} expired`);
+
     return new Response(
       JSON.stringify({
         message: "Expired subscriptions processed",
         count: expiredSubs.length,
+        canceled: canceledIds.length,
+        expired: expiredIds.length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

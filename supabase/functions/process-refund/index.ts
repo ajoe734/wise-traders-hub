@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verify JWT using getClaims
+    // Verify JWT
     const anonClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     }
     const userId = claimsData.claims.sub as string;
 
-    const { subscription_id, refund_amount, used_days, total_days, original_amount } = await req.json();
+    const { subscription_id, refund_amount, remaining_months, original_amount, monthly_price } = await req.json();
 
     if (!subscription_id || refund_amount === undefined) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -47,7 +47,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use service role client to bypass RLS
     const adminClient = createClient(supabaseUrl, serviceKey);
 
     // Verify the subscription belongs to this user
@@ -64,7 +63,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Look up the original payment transaction to get provider_id for future real refund API calls
+    // Look up original payment transaction
     const { data: originalTx } = await adminClient
       .from("payment_transactions")
       .select("id, provider_id, provider_tx_id")
@@ -74,8 +73,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .single();
 
-    // Insert refund record into payment_transactions
-    // Links to the same provider_id so real refund API can be called later
+    // Insert refund record
     const { error: txError } = await adminClient
       .from("payment_transactions")
       .insert({
@@ -101,16 +99,16 @@ Deno.serve(async (req) => {
     const { error: auditError } = await adminClient
       .from("audit_logs")
       .insert({
-        action: "prorated_refund",
+        action: "yearly_refund",
         actor_id: userId,
         target_id: subscription_id,
         target_type: "member_subscriptions",
         detail: {
-          reason: "按比例退款",
-          used_days,
-          total_days,
+          reason: "年繳中途取消，退還剩餘月份",
+          remaining_months,
           refund_amount,
           original_amount,
+          monthly_price,
         },
       });
 
