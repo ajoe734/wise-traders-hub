@@ -152,8 +152,9 @@ const AppCheckout = () => {
   };
 
   const handleLinePayCheckout = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.functions.invoke("create-linepay-order", {
-      body: { planId, billingCycle, slug, amount: currentPrice, planName: planData.name, expertName: expert.name, origin: window.location.origin },
+      body: { planId, billingCycle, slug, amount: currentPrice, planName: planData.name, expertName: expert.name, origin: window.location.origin, userId: user?.id || null },
     });
     if (error || !data?.paymentUrl) { setResultDialog({ open: true, success: false }); return; }
     window.location.href = data.paymentUrl;
