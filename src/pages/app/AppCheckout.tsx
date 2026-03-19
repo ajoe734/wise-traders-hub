@@ -161,8 +161,9 @@ const AppCheckout = () => {
   };
 
   const handleEcpayCheckout = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.functions.invoke("create-ecpay-order", {
-      body: { planId, billingCycle, slug, amount: currentPrice, planName: planData.name, expertName: expert.name, origin: window.location.origin },
+      body: { planId, billingCycle, slug, amount: currentPrice, planName: planData.name, expertName: expert.name, origin: window.location.origin, userId: user?.id || null },
     });
     if (error || !data?.actionUrl || !data?.params) { setResultDialog({ open: true, success: false }); return; }
     const form = document.createElement("form");
