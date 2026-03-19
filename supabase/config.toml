@@ -51,5 +51,8 @@ verify_jwt = false
 [functions.notify-payment-failure]
 verify_jwt = false
 
+[functions.auto-cancel-failed-renewals]
+verify_jwt = false
+
 [functions.publish-weekly-journals]
 verify_jwt = false
