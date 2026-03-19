@@ -32,7 +32,6 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
       },
     ]
 
-
     bodyContents.push({
       type: 'text',
       text: '此訊號已被分析師收回，不再有效。',
@@ -60,7 +59,6 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
   const isBullish = ['buy', 'add'].includes(signal.action)
   const color = isBullish ? '#00B900' : '#DC3545'
 
-  // Build copy text for one-click copy
   const qtyLabel = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
   const copyLines: string[] = [
     `【${label} ${signal.instrument}】`,
@@ -95,100 +93,39 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
 
   if (signal.reason_summary) {
     bodyContents.push(
-      {
-        type: 'text',
-        text: '📌 摘要',
-        size: 'sm',
-        color: '#333333',
-        margin: 'lg',
-        weight: 'bold',
-      },
-      {
-        type: 'text',
-        text: signal.reason_summary,
-        size: 'sm',
-        color: '#444444',
-        margin: 'sm',
-        wrap: true,
-      },
+      { type: 'text', text: '📌 摘要', size: 'sm', color: '#333333', margin: 'lg', weight: 'bold' },
+      { type: 'text', text: signal.reason_summary, size: 'sm', color: '#444444', margin: 'sm', wrap: true },
     )
   }
 
   if (signal.reason_detail) {
     bodyContents.push(
-      {
-        type: 'text',
-        text: '📊 詳細分析',
-        size: 'sm',
-        color: '#333333',
-        margin: 'lg',
-        weight: 'bold',
-      },
-      {
-        type: 'text',
-        text: signal.reason_detail,
-        size: 'sm',
-        color: '#444444',
-        margin: 'sm',
-        wrap: true,
-      },
+      { type: 'text', text: '📊 詳細分析', size: 'sm', color: '#333333', margin: 'lg', weight: 'bold' },
+      { type: 'text', text: signal.reason_detail, size: 'sm', color: '#444444', margin: 'sm', wrap: true },
     )
   }
 
   if (signal.risk_notes) {
     bodyContents.push(
-      {
-        type: 'text',
-        text: '⚠️ 風險提示',
-        size: 'sm',
-        color: '#DC3545',
-        margin: 'lg',
-        weight: 'bold',
-      },
-      {
-        type: 'text',
-        text: signal.risk_notes,
-        size: 'xs',
-        color: '#999999',
-        margin: 'sm',
-        wrap: true,
-      },
+      { type: 'text', text: '⚠️ 風險提示', size: 'sm', color: '#DC3545', margin: 'lg', weight: 'bold' },
+      { type: 'text', text: signal.risk_notes, size: 'xs', color: '#999999', margin: 'sm', wrap: true },
     )
   }
 
   if (signal.learning_points) {
     bodyContents.push(
-      {
-        type: 'text',
-        text: '🎯 教學重點',
-        size: 'sm',
-        color: '#333333',
-        margin: 'lg',
-        weight: 'bold',
-      },
-      {
-        type: 'text',
-        text: signal.learning_points,
-        size: 'sm',
-        color: '#444444',
-        margin: 'sm',
-        wrap: true,
-      },
+      { type: 'text', text: '🎯 教學重點', size: 'sm', color: '#333333', margin: 'lg', weight: 'bold' },
+      { type: 'text', text: signal.learning_points, size: 'sm', color: '#444444', margin: 'sm', wrap: true },
     )
   }
 
-  // Footer with copy button
   const footer = {
     type: 'box',
     layout: 'vertical',
     contents: [
       {
         type: 'button',
-        action: {
-          type: 'clipboard',
-          label: '📋 一鍵複製',
-          clipboardText: copyText,
-        },
+        action: { type: 'clipboard', label: '📋 一鍵複製', clipboardText: copyText },
         style: 'secondary',
         height: 'sm',
         color: '#F0F0F0',
@@ -203,12 +140,86 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
     altText: `${label} ${signal.instrument}${signal.price_hint ? ` @ ${signal.price_hint}` : ''}`,
     contents: {
       type: 'bubble',
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        contents: bodyContents,
-      },
+      body: { type: 'box', layout: 'vertical', contents: bodyContents },
       footer,
+    },
+  }
+}
+
+// Build a performance marketing message for canceled subscribers
+function buildPromoMessage(expertName: string, performance: any) {
+  const bodyContents: any[] = [
+    {
+      type: 'text',
+      text: `📊 ${expertName} 最新績效`,
+      weight: 'bold',
+      size: 'lg',
+      color: '#333333',
+    },
+    {
+      type: 'text',
+      text: '分析師剛發布了新的操作訊號，以下是最新績效表現：',
+      size: 'sm',
+      color: '#666666',
+      margin: 'md',
+      wrap: true,
+    },
+    { type: 'separator', margin: 'lg' },
+  ]
+
+  if (performance) {
+    const winRate = performance.win_rate != null ? `${Number(performance.win_rate).toFixed(1)}%` : '-'
+    const cumReturn = performance.cumulative_return != null ? `${Number(performance.cumulative_return).toFixed(1)}%` : '-'
+    const return1y = performance.return_1y != null ? `${Number(performance.return_1y).toFixed(1)}%` : '-'
+    const totalTrades = performance.total_trades ?? 0
+
+    bodyContents.push(
+      {
+        type: 'box', layout: 'horizontal', margin: 'lg', contents: [
+          { type: 'text', text: '📈 累計報酬', size: 'sm', color: '#333', flex: 1 },
+          { type: 'text', text: cumReturn, size: 'sm', color: '#00B900', align: 'end', weight: 'bold', flex: 1 },
+        ],
+      },
+      {
+        type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+          { type: 'text', text: '📅 近一年報酬', size: 'sm', color: '#333', flex: 1 },
+          { type: 'text', text: return1y, size: 'sm', color: '#00B900', align: 'end', weight: 'bold', flex: 1 },
+        ],
+      },
+      {
+        type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+          { type: 'text', text: '🎯 勝率', size: 'sm', color: '#333', flex: 1 },
+          { type: 'text', text: winRate, size: 'sm', color: '#333', align: 'end', weight: 'bold', flex: 1 },
+        ],
+      },
+      {
+        type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+          { type: 'text', text: '📊 總交易數', size: 'sm', color: '#333', flex: 1 },
+          { type: 'text', text: `${totalTrades}`, size: 'sm', color: '#333', align: 'end', weight: 'bold', flex: 1 },
+        ],
+      },
+    )
+  }
+
+  bodyContents.push(
+    { type: 'separator', margin: 'lg' },
+    {
+      type: 'text',
+      text: '想跟上最新操作？立即重新訂閱！',
+      size: 'sm',
+      color: '#FF6B00',
+      margin: 'lg',
+      weight: 'bold',
+      wrap: true,
+    },
+  )
+
+  return {
+    type: 'flex',
+    altText: `📊 ${expertName} 最新績效更新 — 立即重新訂閱跟上操作！`,
+    contents: {
+      type: 'bubble',
+      body: { type: 'box', layout: 'vertical', contents: bodyContents },
     },
   }
 }
@@ -221,13 +232,15 @@ async function getTargets(supabaseAdmin: any, expert_id: string) {
     .eq('is_active', true)
 
   if (!bindings || bindings.length === 0) {
-    return { targets: [], reason: 'no_bindings' }
+    return { subscribedTargets: [], canceledTargets: [], reason: 'no_bindings' }
   }
 
   const bindingUserIds = bindings.map((b: any) => b.user_id)
+
+  // Get all subscriptions (active) for these users
   const { data: activeSubs } = await supabaseAdmin
     .from('member_subscriptions')
-    .select('user_id, plan_id')
+    .select('user_id, plan_id, canceled_at')
     .in('user_id', bindingUserIds)
     .eq('status', 'active')
 
@@ -237,19 +250,21 @@ async function getTargets(supabaseAdmin: any, expert_id: string) {
     .eq('expert_id', expert_id)
 
   const expertPlanIds = new Set((expertPlans || []).map((p: any) => p.id))
-  const subscribedUserIds = new Set(
-    (activeSubs || []).filter((s: any) => expertPlanIds.has(s.plan_id)).map((s: any) => s.user_id)
-  )
 
-  const targets = bindings
+  // Split: subscribed (active + not canceled) vs canceled (active + canceled_at set)
+  const relevantSubs = (activeSubs || []).filter((s: any) => expertPlanIds.has(s.plan_id))
+  const subscribedUserIds = new Set(relevantSubs.filter((s: any) => !s.canceled_at).map((s: any) => s.user_id))
+  const canceledUserIds = new Set(relevantSubs.filter((s: any) => s.canceled_at).map((s: any) => s.user_id))
+
+  const subscribedTargets = bindings
     .filter((b: any) => subscribedUserIds.has(b.user_id))
     .map((b: any) => b.line_user_id)
 
-  if (targets.length === 0) {
-    return { targets: [], reason: 'no_active_subscribers' }
-  }
+  const canceledTargets = bindings
+    .filter((b: any) => canceledUserIds.has(b.user_id))
+    .map((b: any) => b.line_user_id)
 
-  return { targets, reason: null }
+  return { subscribedTargets, canceledTargets, reason: subscribedTargets.length === 0 && canceledTargets.length === 0 ? 'no_active_subscribers' : null }
 }
 
 async function sendToLine(channelToken: string, targets: string[], message: any) {
@@ -327,7 +342,7 @@ Deno.serve(async (req) => {
 
     // Verify caller is analyst of this expert OR company_admin
     const { data: expertRow } = await supabaseAdmin
-      .from('experts').select('id, user_id, role').eq('id', expert_id).single()
+      .from('experts').select('id, user_id, role, name').eq('id', expert_id).single()
 
     if (!expertRow) {
       console.error('Expert not found:', expert_id)
@@ -361,22 +376,35 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Get targets split by subscription status
+    const { subscribedTargets, canceledTargets, reason } = await getTargets(supabaseAdmin, expert_id)
+
+    // Get expert performance for promo message (for canceled users)
+    let performance: any = null
+    if (canceledTargets.length > 0) {
+      const { data: perfData } = await supabaseAdmin.rpc('calculate_expert_performance', { _expert_id: expert_id })
+      performance = perfData
+    }
+
     // MODE: preview — push inline signal_data to LINE without DB
     if (mode === 'preview' && signal_data) {
       console.log('Preview mode: pushing inline signal data to LINE, type:', pushType)
       const message = buildFlexMessage(signal_data, pushType)
 
-      const { targets, reason } = await getTargets(supabaseAdmin, expert_id)
-      if (targets.length === 0) {
-        return new Response(JSON.stringify({ pushed: false, reason: reason || 'no_bindings', count: 0 }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
+      let totalPushed = 0
+      if (subscribedTargets.length > 0) {
+        totalPushed += await sendToLine(channel.channel_access_token, subscribedTargets, message)
       }
 
-      const totalPushed = await sendToLine(channel.channel_access_token, targets, message)
+      // Send promo to canceled subscribers
+      if (canceledTargets.length > 0) {
+        const promoMsg = buildPromoMessage(expertRow.name, performance)
+        totalPushed += await sendToLine(channel.channel_access_token, canceledTargets, promoMsg)
+        console.log(`Promo pushed to ${canceledTargets.length} canceled users`)
+      }
 
       console.log('Preview push total:', totalPushed)
-      return new Response(JSON.stringify({ pushed: true, count: totalPushed }), {
+      return new Response(JSON.stringify({ pushed: true, count: totalPushed, subscribed: subscribedTargets.length, canceled: canceledTargets.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -389,7 +417,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Get signal data
     const { data: signal } = await supabaseAdmin
       .from('expert_signals')
       .select('*')
@@ -404,20 +431,30 @@ Deno.serve(async (req) => {
     }
 
     const message = buildFlexMessage(signal, pushType)
+    console.log('Subscribed targets:', subscribedTargets.length, 'Canceled targets:', canceledTargets.length)
 
-    const { targets, reason } = await getTargets(supabaseAdmin, expert_id)
-    console.log('Targets:', targets.length)
+    let totalPushed = 0
 
-    if (targets.length === 0) {
+    // Send normal content to subscribed users
+    if (subscribedTargets.length > 0) {
+      totalPushed += await sendToLine(channel.channel_access_token, subscribedTargets, message)
+    }
+
+    // Send promo to canceled users
+    if (canceledTargets.length > 0) {
+      const promoMsg = buildPromoMessage(expertRow.name, performance)
+      totalPushed += await sendToLine(channel.channel_access_token, canceledTargets, promoMsg)
+      console.log(`Promo pushed to ${canceledTargets.length} canceled users`)
+    }
+
+    if (totalPushed === 0 && subscribedTargets.length === 0 && canceledTargets.length === 0) {
       return new Response(JSON.stringify({ pushed: false, reason: reason || 'no_bindings', count: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const totalPushed = await sendToLine(channel.channel_access_token, targets, message)
-
     console.log('Total pushed:', totalPushed)
-    return new Response(JSON.stringify({ pushed: true, count: totalPushed }), {
+    return new Response(JSON.stringify({ pushed: true, count: totalPushed, subscribed: subscribedTargets.length, canceled: canceledTargets.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {

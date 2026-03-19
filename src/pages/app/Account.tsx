@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
 import { UnifiedAppLayout } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,7 +50,7 @@ interface DbSubscription {
 
 const Account = () => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
+  
   
   const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(true);
@@ -161,20 +160,36 @@ const Account = () => {
     fetchExperts();
   }, [user]);
 
-  // Calculate prorated refund info for a subscription
-  // Always uses fixed cycle: 30 days for monthly, 365 days for yearly
+  // Calculate refund for cancellation
+  // Monthly: no refund. Yearly: refund remaining full months from next month.
   const calcRefund = (sub: DbSubscription) => {
     const now = new Date();
     const startedAt = new Date(sub.started_at);
     const isYearly = !!(sub.plan.price_yearly && sub.plan.price_yearly > 0 && sub.expires_at &&
       (new Date(sub.expires_at).getTime() - startedAt.getTime()) > 180 * 86400000);
-    const totalDays = isYearly ? 365 : 30;
-    const originalAmount = isYearly ? (sub.plan.price_yearly || sub.plan.price_monthly * 12) : sub.plan.price_monthly;
-    const elapsedMs = now.getTime() - startedAt.getTime();
-    const usedDays = Math.max(0, Math.min(totalDays, Math.floor(elapsedMs / 86400000)));
-    const remainingDays = Math.max(0, totalDays - usedDays);
-    const refundAmount = Math.floor(originalAmount * (remainingDays / totalDays));
-    return { totalDays, usedDays, remainingDays, originalAmount, refundAmount };
+
+    if (!isYearly) {
+      // Monthly: no refund, service until end of current month
+      return { isYearly: false, refundAmount: 0, remainingMonths: 0, originalAmount: sub.plan.price_monthly, monthlyPrice: sub.plan.price_monthly };
+    }
+
+    // Yearly: refund = monthly_price * remaining full months (from next month)
+    const yearlyAmount = sub.plan.price_yearly || sub.plan.price_monthly * 12;
+    const monthlyPrice = Math.floor(yearlyAmount / 12);
+    // Calculate how many full months remain from next month to year end
+    const expiresAt = new Date(sub.expires_at!);
+    const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    // Remaining full months = months between end of current month and expires_at
+    const remainingMs = expiresAt.getTime() - endOfCurrentMonth.getTime();
+    const remainingMonths = Math.max(0, Math.floor(remainingMs / (30 * 86400000)));
+    const refundAmount = monthlyPrice * remainingMonths;
+    return { isYearly: true, refundAmount, remainingMonths, originalAmount: yearlyAmount, monthlyPrice };
+  };
+
+  // Get end of current month as ISO string
+  const getEndOfMonth = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   };
 
   const handleCancelSubscription = async (subId: string) => {
@@ -182,39 +197,35 @@ const Account = () => {
     try {
       const sub = subscriptions.find(s => s.id === subId);
       const refund = sub ? calcRefund(sub) : null;
+      const endOfMonth = getEndOfMonth();
 
-      // Immediately cancel the subscription
+      // Keep status 'active' so service continues until month end
+      // Set auto_renew=false and canceled_at to mark as canceled
       const { error } = await supabase
         .from('member_subscriptions')
         .update({
-          status: 'canceled' as any,
           auto_renew: false,
           canceled_at: new Date().toISOString(),
+          expires_at: endOfMonth,
         })
         .eq('id', subId)
         .eq('user_id', user!.id);
 
       if (error) throw error;
 
-      // Immediately deactivate LINE binding for this expert
-      if (sub) {
-        await supabase
-          .from('member_line_bindings')
-          .update({ is_active: false })
-          .eq('user_id', user!.id)
-          .eq('expert_id', sub.expert.id);
-      }
+      // Do NOT deactivate LINE binding - keep it active
+      // LINE push will differentiate content based on canceled_at status
 
-      // Write refund record via edge function (bypasses RLS on payment_transactions)
+      // Write refund record via edge function for yearly plans only
       if (sub && refund && refund.refundAmount > 0) {
         try {
           await supabase.functions.invoke('process-refund', {
             body: {
               subscription_id: subId,
               refund_amount: refund.refundAmount,
-              used_days: refund.usedDays,
-              total_days: refund.totalDays,
+              remaining_months: refund.remainingMonths,
               original_amount: refund.originalAmount,
+              monthly_price: refund.monthlyPrice,
             },
           });
         } catch (refundErr) {
@@ -222,50 +233,18 @@ const Account = () => {
         }
       }
 
-      // Optimistically clear role-gated caches so page switch shows correct empty-state immediately
-      const remainingActiveSubs = subscriptions.filter(
-        (subscription) => subscription.id !== subId && subscription.status === 'active'
-      );
-      const hasAdvisorSubscription = remainingActiveSubs.some(
-        (subscription) =>
-          subscription.plan.plan_type === 'analyst_signal_l1' ||
-          subscription.plan.plan_type === 'analyst_signal_diag_l2'
-      );
-      const hasMentorSubscription = remainingActiveSubs.some(
-        (subscription) => subscription.plan.plan_type === 'mentor_weekly_journal'
-      );
-
-      if (user?.id) {
-        if (!hasAdvisorSubscription) {
-          queryClient.setQueryData(['app-signals', user.id], { signals: [], hasSubscription: false });
-        }
-        if (!hasMentorSubscription) {
-          queryClient.setQueryData(['app-journals', user.id], { signals: [], hasSubscription: false });
-        }
-
-        if (sub?.expert.slug) {
-          queryClient.setQueryData<string[]>(['subscribed-expert-slugs', user.id], (prev = []) =>
-            prev.filter((slug) => slug !== sub.expert.slug)
-          );
-        }
-      }
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['app-signals'], refetchType: 'active' }),
-        queryClient.invalidateQueries({ queryKey: ['app-journals'], refetchType: 'active' }),
-        queryClient.invalidateQueries({ queryKey: ['subscribed-expert-slugs'], refetchType: 'active' }),
-      ]);
-
       // Refresh data
       await fetchSubscriptions();
 
-      // Toast with refund info
+      // Toast
       if (refund && refund.refundAmount > 0) {
-        toast.success(`已取消訂閱，預計退款 NT$ ${refund.refundAmount.toLocaleString()}`, {
-          description: `已使用 ${refund.usedDays} 天 / 共 ${refund.totalDays} 天`,
+        toast.success(`已取消訂閱，服務持續至本月底`, {
+          description: `年繳退款 NT$ ${refund.refundAmount.toLocaleString()}（${refund.remainingMonths} 個月）`,
         });
       } else {
-        toast.success('已取消訂閱');
+        toast.success('已取消訂閱，服務持續至本月底', {
+          description: '月繳無退款，本月服務不受影響',
+        });
       }
     } catch (err: any) {
       console.error('Cancel subscription error:', err);
@@ -276,6 +255,8 @@ const Account = () => {
   };
 
   const activeSubs = subscriptions.filter(s => s.status === 'active');
+  const canceledActiveSubs = activeSubs.filter(s => s.canceled_at);
+  const trueActiveSubs = activeSubs.filter(s => !s.canceled_at);
   const inactiveSubs = subscriptions.filter(s => s.status !== 'active');
 
   const getPlanTypeLabel = (planType: string) => {
@@ -329,13 +310,13 @@ const Account = () => {
               {/* Active subscriptions */}
               {activeSubs.map((sub) => {
                 const advisor = isAdvisorPlan(sub.plan.plan_type);
-                const isCanceling = false; // Immediate cancellation - no "pending" state
+                const isCanceling = !!sub.canceled_at;
                 return (
                   <Card
                     key={sub.id}
                     className={cn(
                       "overflow-hidden border-2",
-                      advisor ? "border-advisor/50" : "border-mentor/50"
+                      isCanceling ? "border-amber-400/50" : advisor ? "border-advisor/50" : "border-mentor/50"
                     )}
                   >
                     <div className={cn(
@@ -412,33 +393,42 @@ const Account = () => {
                                 <AlertDialogTitle>確認取消訂閱？</AlertDialogTitle>
                                 <AlertDialogDescription asChild>
                                   <div className="space-y-3">
-                                    <p>您確定要取消 <span className="font-semibold">{sub.expert.name}</span> 的 {sub.plan.name} 訂閱嗎？</p>
-                                    {(() => {
-                                      const r = calcRefund(sub);
-                                      return (
-                                        <div className="rounded-lg bg-muted p-3 space-y-1 text-sm">
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">已使用</span>
-                                            <span className="font-medium">{r.usedDays} 天 / 共 {r.totalDays} 天</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">月費</span>
-                                            <span>NT$ {r.originalAmount.toLocaleString()}</span>
-                                          </div>
-                                          <div className="border-t pt-1 flex justify-between font-semibold">
-                                            <span>預計退款</span>
-                                            <span className={r.refundAmount > 0 ? "text-green-600 dark:text-green-400" : ""}>
-                                              NT$ {r.refundAmount.toLocaleString()}
-                                            </span>
-                                          </div>
-                                          {r.refundAmount === 0 && (
-                                            <p className="text-xs text-muted-foreground">已使用完畢，無需退款。</p>
-                                          )}
-                                        </div>
-                                      );
-                                    })()}
-                                    <p className="text-sm text-muted-foreground">取消後，服務將立即停止，您將無法再查看該分析師的訊號與內容。</p>
-                                    <p className="text-xs text-muted-foreground">LINE 綁定也會同步解除。如需繼續使用，可隨時重新訂閱。</p>
+                                     <p>您確定要取消 <span className="font-semibold">{sub.expert.name}</span> 的 {sub.plan.name} 訂閱嗎？</p>
+                                     {(() => {
+                                       const r = calcRefund(sub);
+                                       return (
+                                         <div className="rounded-lg bg-muted p-3 space-y-1 text-sm">
+                                           {r.isYearly ? (
+                                             <>
+                                               <div className="flex justify-between">
+                                                 <span className="text-muted-foreground">計費方式</span>
+                                                 <span className="font-medium">年繳</span>
+                                               </div>
+                                               <div className="flex justify-between">
+                                                 <span className="text-muted-foreground">剩餘月數</span>
+                                                 <span>{r.remainingMonths} 個月</span>
+                                               </div>
+                                               <div className="border-t pt-1 flex justify-between font-semibold">
+                                                 <span>預計退款</span>
+                                                 <span className={r.refundAmount > 0 ? "text-green-600 dark:text-green-400" : ""}>
+                                                   NT$ {r.refundAmount.toLocaleString()}
+                                                 </span>
+                                               </div>
+                                             </>
+                                           ) : (
+                                             <>
+                                               <div className="flex justify-between">
+                                                 <span className="text-muted-foreground">計費方式</span>
+                                                 <span className="font-medium">月繳</span>
+                                               </div>
+                                               <p className="text-xs text-muted-foreground">月繳不退款，本月服務持續至月底。</p>
+                                             </>
+                                           )}
+                                         </div>
+                                       );
+                                     })()}
+                                     <p className="text-sm text-muted-foreground">取消後，服務將持續提供至本月底。</p>
+                                     <p className="text-xs text-muted-foreground">LINE 綁定不會自動解除，您仍會收到推播通知。</p>
                                   </div>
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
