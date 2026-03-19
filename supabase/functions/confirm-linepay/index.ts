@@ -61,6 +61,28 @@ Deno.serve(async (req) => {
 
       if (result.returnCode !== "0000") {
         console.error("LINE Pay Confirm API error:", result);
+        // Notify user of payment failure
+        if (userId && planId) {
+          try {
+            const notifyUrl = `${Deno.env.get("SUPABASE_URL")!}/functions/v1/notify-payment-failure`;
+            await fetch(notifyUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+              },
+              body: JSON.stringify({
+                userId,
+                planId,
+                amount,
+                provider: "line_pay",
+                errorDetail: `returnCode: ${result.returnCode}, msg: ${result.returnMessage || ""}`,
+              }),
+            });
+          } catch (e) {
+            console.error("Failed to send payment failure notification:", e);
+          }
+        }
         return new Response(JSON.stringify({ error: result.returnMessage || "Confirm failed", returnCode: result.returnCode }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },

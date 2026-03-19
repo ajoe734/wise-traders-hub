@@ -50,6 +50,28 @@ Deno.serve(async (req) => {
       console.log("ACpay pay-by-prime result:", JSON.stringify(payResult));
 
       if (payResult.status !== 0) {
+        // Notify user of payment failure
+        if (userId && planId) {
+          try {
+            const notifyUrl = `${supabaseUrl}/functions/v1/notify-payment-failure`;
+            await fetch(notifyUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${serviceRoleKey}`,
+              },
+              body: JSON.stringify({
+                userId,
+                planId,
+                amount,
+                provider: "acpay",
+                errorDetail: `status: ${payResult.status}, msg: ${payResult.msg || ""}`,
+              }),
+            });
+          } catch (e) {
+            console.error("Failed to send payment failure notification:", e);
+          }
+        }
         return new Response(JSON.stringify({ error: payResult.msg || "Payment failed", status: payResult.status }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
