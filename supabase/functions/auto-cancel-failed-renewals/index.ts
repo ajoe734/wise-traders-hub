@@ -161,12 +161,8 @@ Deno.serve(async (req) => {
       console.log("Auto-canceled subscription:", activeSub.id, "user:", userId);
     }
 
-    // Clean up processed failure logs to avoid re-processing
-    if (renewalFailures.length > 0) {
-      const processedIds = renewalFailures.map((l: any) => l.id).filter(Boolean);
-      // We don't delete — audit_logs are kept for history.
-      // The check for active subscription prevents re-processing.
-    }
+    // Note: We don't delete audit_logs — they're kept for history.
+    // The check for active + non-canceled subscription prevents re-processing.
 
     return new Response(
       JSON.stringify({
