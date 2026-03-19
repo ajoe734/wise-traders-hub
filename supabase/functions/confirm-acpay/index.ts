@@ -21,6 +21,10 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Declare DB vars early so they're available in failure notification block
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
     const partnerKey = Deno.env.get("ACPAY_PARTNER_KEY")!;
     const merchantId = Deno.env.get("ACPAY_MERCHANT_ID")!;
     const apiUrl = Deno.env.get("ACPAY_API_URL") || "https://sandbox-api.acpay.com.tw";
@@ -84,8 +88,6 @@ Deno.serve(async (req) => {
     }
 
     // Write to DB using service role
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Get ACpay provider

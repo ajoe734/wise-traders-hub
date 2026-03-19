@@ -129,9 +129,31 @@ Deno.serve(async (req) => {
       expiresAt.setMonth(expiresAt.getMonth() + 1);
     }
 
-    // Create subscription if we have user_id
+    // Duplicate subscription protection
     let subscriptionId: string | null = null;
     if (userId && planId) {
+      const { data: existing } = await supabase
+        .from("member_subscriptions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("plan_id", planId)
+        .eq("status", "active");
+
+      if (existing && existing.length > 0) {
+        console.log("Active subscription already exists, skipping insert");
+        // Still create the transaction record for payment tracking
+        await supabase.from("payment_transactions").insert({
+          amount: tradeAmt,
+          currency: "TWD",
+          status: "paid",
+          paid_at: now.toISOString(),
+          provider_id: provider?.id || null,
+          provider_tx_id: ecpayTxId || tradeNo,
+          subscription_id: existing[0].id,
+        });
+        return new Response("1|OK", { status: 200 });
+      }
+
       const { data: subData, error: subError } = await supabase
         .from("member_subscriptions")
         .insert({

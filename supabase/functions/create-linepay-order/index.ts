@@ -36,6 +36,8 @@ Deno.serve(async (req) => {
 
     const channelId = Deno.env.get("LINEPAY_CHANNEL_ID")!;
     const channelSecret = Deno.env.get("LINEPAY_CHANNEL_SECRET")!;
+    // Control simulate mode via env var — set to "false" in production
+    const isSimulate = (Deno.env.get("LINEPAY_SIMULATE") || "true") === "true";
 
     const orderId = `ORDER-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     const nonce = crypto.randomUUID();
@@ -59,8 +61,8 @@ Deno.serve(async (req) => {
         },
       ],
       redirectUrls: {
-        confirmUrl: `${origin}/checkout/${slug}/${planId}?linepay=confirm&billingCycle=${billingCycle}&simulate=true`,
-        cancelUrl: `${origin}/checkout/${slug}/${planId}?linepay=cancel`,
+        confirmUrl: `${origin}/app/checkout/${slug}/${planId}?linepay=confirm&billingCycle=${billingCycle}&simulate=${isSimulate}`,
+        cancelUrl: `${origin}/app/checkout/${slug}/${planId}?linepay=cancel`,
       },
     };
 
