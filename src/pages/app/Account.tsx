@@ -394,33 +394,42 @@ const Account = () => {
                                 <AlertDialogTitle>確認取消訂閱？</AlertDialogTitle>
                                 <AlertDialogDescription asChild>
                                   <div className="space-y-3">
-                                    <p>您確定要取消 <span className="font-semibold">{sub.expert.name}</span> 的 {sub.plan.name} 訂閱嗎？</p>
-                                    {(() => {
-                                      const r = calcRefund(sub);
-                                      return (
-                                        <div className="rounded-lg bg-muted p-3 space-y-1 text-sm">
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">已使用</span>
-                                            <span className="font-medium">{r.usedDays} 天 / 共 {r.totalDays} 天</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">月費</span>
-                                            <span>NT$ {r.originalAmount.toLocaleString()}</span>
-                                          </div>
-                                          <div className="border-t pt-1 flex justify-between font-semibold">
-                                            <span>預計退款</span>
-                                            <span className={r.refundAmount > 0 ? "text-green-600 dark:text-green-400" : ""}>
-                                              NT$ {r.refundAmount.toLocaleString()}
-                                            </span>
-                                          </div>
-                                          {r.refundAmount === 0 && (
-                                            <p className="text-xs text-muted-foreground">已使用完畢，無需退款。</p>
-                                          )}
-                                        </div>
-                                      );
-                                    })()}
-                                    <p className="text-sm text-muted-foreground">取消後，服務將立即停止，您將無法再查看該分析師的訊號與內容。</p>
-                                    <p className="text-xs text-muted-foreground">LINE 綁定也會同步解除。如需繼續使用，可隨時重新訂閱。</p>
+                                     <p>您確定要取消 <span className="font-semibold">{sub.expert.name}</span> 的 {sub.plan.name} 訂閱嗎？</p>
+                                     {(() => {
+                                       const r = calcRefund(sub);
+                                       return (
+                                         <div className="rounded-lg bg-muted p-3 space-y-1 text-sm">
+                                           {r.isYearly ? (
+                                             <>
+                                               <div className="flex justify-between">
+                                                 <span className="text-muted-foreground">計費方式</span>
+                                                 <span className="font-medium">年繳</span>
+                                               </div>
+                                               <div className="flex justify-between">
+                                                 <span className="text-muted-foreground">剩餘月數</span>
+                                                 <span>{r.remainingMonths} 個月</span>
+                                               </div>
+                                               <div className="border-t pt-1 flex justify-between font-semibold">
+                                                 <span>預計退款</span>
+                                                 <span className={r.refundAmount > 0 ? "text-green-600 dark:text-green-400" : ""}>
+                                                   NT$ {r.refundAmount.toLocaleString()}
+                                                 </span>
+                                               </div>
+                                             </>
+                                           ) : (
+                                             <>
+                                               <div className="flex justify-between">
+                                                 <span className="text-muted-foreground">計費方式</span>
+                                                 <span className="font-medium">月繳</span>
+                                               </div>
+                                               <p className="text-xs text-muted-foreground">月繳不退款，本月服務持續至月底。</p>
+                                             </>
+                                           )}
+                                         </div>
+                                       );
+                                     })()}
+                                     <p className="text-sm text-muted-foreground">取消後，服務將持續提供至本月底。</p>
+                                     <p className="text-xs text-muted-foreground">LINE 綁定不會自動解除，您仍會收到推播通知。</p>
                                   </div>
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
