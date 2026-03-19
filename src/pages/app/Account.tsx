@@ -311,13 +311,13 @@ const Account = () => {
               {/* Active subscriptions */}
               {activeSubs.map((sub) => {
                 const advisor = isAdvisorPlan(sub.plan.plan_type);
-                const isCanceling = false; // Immediate cancellation - no "pending" state
+                const isCanceling = !!sub.canceled_at;
                 return (
                   <Card
                     key={sub.id}
                     className={cn(
                       "overflow-hidden border-2",
-                      advisor ? "border-advisor/50" : "border-mentor/50"
+                      isCanceling ? "border-amber-400/50" : advisor ? "border-advisor/50" : "border-mentor/50"
                     )}
                   >
                     <div className={cn(
