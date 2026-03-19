@@ -102,9 +102,9 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Cancel the subscription
+      // Cancel the subscription — expires at end of current month (TW time)
       const endOfMonth = new Date(nowTW);
-      endOfMonth.setMonth(endOfMonth.getMonth(), 0); // last day of current month
+      endOfMonth.setMonth(endOfMonth.getMonth() + 1, 0); // last day of current month
       endOfMonth.setHours(23, 59, 59, 999);
       const endOfMonthUTC = new Date(endOfMonth.getTime() - 8 * 60 * 60 * 1000);
 
