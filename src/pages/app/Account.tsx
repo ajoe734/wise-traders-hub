@@ -198,39 +198,35 @@ const Account = () => {
     try {
       const sub = subscriptions.find(s => s.id === subId);
       const refund = sub ? calcRefund(sub) : null;
+      const endOfMonth = getEndOfMonth();
 
-      // Immediately cancel the subscription
+      // Keep status 'active' so service continues until month end
+      // Set auto_renew=false and canceled_at to mark as canceled
       const { error } = await supabase
         .from('member_subscriptions')
         .update({
-          status: 'canceled' as any,
           auto_renew: false,
           canceled_at: new Date().toISOString(),
+          expires_at: endOfMonth,
         })
         .eq('id', subId)
         .eq('user_id', user!.id);
 
       if (error) throw error;
 
-      // Immediately deactivate LINE binding for this expert
-      if (sub) {
-        await supabase
-          .from('member_line_bindings')
-          .update({ is_active: false })
-          .eq('user_id', user!.id)
-          .eq('expert_id', sub.expert.id);
-      }
+      // Do NOT deactivate LINE binding - keep it active
+      // LINE push will differentiate content based on canceled_at status
 
-      // Write refund record via edge function (bypasses RLS on payment_transactions)
+      // Write refund record via edge function for yearly plans only
       if (sub && refund && refund.refundAmount > 0) {
         try {
           await supabase.functions.invoke('process-refund', {
             body: {
               subscription_id: subId,
               refund_amount: refund.refundAmount,
-              used_days: refund.usedDays,
-              total_days: refund.totalDays,
+              remaining_months: refund.remainingMonths,
               original_amount: refund.originalAmount,
+              monthly_price: refund.monthlyPrice,
             },
           });
         } catch (refundErr) {
@@ -238,50 +234,18 @@ const Account = () => {
         }
       }
 
-      // Optimistically clear role-gated caches so page switch shows correct empty-state immediately
-      const remainingActiveSubs = subscriptions.filter(
-        (subscription) => subscription.id !== subId && subscription.status === 'active'
-      );
-      const hasAdvisorSubscription = remainingActiveSubs.some(
-        (subscription) =>
-          subscription.plan.plan_type === 'analyst_signal_l1' ||
-          subscription.plan.plan_type === 'analyst_signal_diag_l2'
-      );
-      const hasMentorSubscription = remainingActiveSubs.some(
-        (subscription) => subscription.plan.plan_type === 'mentor_weekly_journal'
-      );
-
-      if (user?.id) {
-        if (!hasAdvisorSubscription) {
-          queryClient.setQueryData(['app-signals', user.id], { signals: [], hasSubscription: false });
-        }
-        if (!hasMentorSubscription) {
-          queryClient.setQueryData(['app-journals', user.id], { signals: [], hasSubscription: false });
-        }
-
-        if (sub?.expert.slug) {
-          queryClient.setQueryData<string[]>(['subscribed-expert-slugs', user.id], (prev = []) =>
-            prev.filter((slug) => slug !== sub.expert.slug)
-          );
-        }
-      }
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['app-signals'], refetchType: 'active' }),
-        queryClient.invalidateQueries({ queryKey: ['app-journals'], refetchType: 'active' }),
-        queryClient.invalidateQueries({ queryKey: ['subscribed-expert-slugs'], refetchType: 'active' }),
-      ]);
-
       // Refresh data
       await fetchSubscriptions();
 
-      // Toast with refund info
+      // Toast
       if (refund && refund.refundAmount > 0) {
-        toast.success(`已取消訂閱，預計退款 NT$ ${refund.refundAmount.toLocaleString()}`, {
-          description: `已使用 ${refund.usedDays} 天 / 共 ${refund.totalDays} 天`,
+        toast.success(`已取消訂閱，服務持續至本月底`, {
+          description: `年繳退款 NT$ ${refund.refundAmount.toLocaleString()}（${refund.remainingMonths} 個月）`,
         });
       } else {
-        toast.success('已取消訂閱');
+        toast.success('已取消訂閱，服務持續至本月底', {
+          description: '月繳無退款，本月服務不受影響',
+        });
       }
     } catch (err: any) {
       console.error('Cancel subscription error:', err);
