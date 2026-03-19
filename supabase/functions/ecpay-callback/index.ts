@@ -80,9 +80,30 @@ Deno.serve(async (req) => {
     const slug = params.CustomField3;
     const userId = params.CustomField4;
 
-    // Only process successful payments
+    // Payment failed — notify user
     if (rtnCode !== "1") {
       console.log("ECPay payment not successful, RtnCode:", rtnCode);
+      if (userId && planId) {
+        try {
+          const notifyUrl = `${Deno.env.get("SUPABASE_URL")!}/functions/v1/notify-payment-failure`;
+          await fetch(notifyUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+            },
+            body: JSON.stringify({
+              userId,
+              planId,
+              amount: tradeAmt,
+              provider: "ecpay",
+              errorDetail: `RtnCode: ${rtnCode}, RtnMsg: ${params.RtnMsg || ""}`,
+            }),
+          });
+        } catch (e) {
+          console.error("Failed to send payment failure notification:", e);
+        }
+      }
       return new Response("1|OK", { status: 200 });
     }
 

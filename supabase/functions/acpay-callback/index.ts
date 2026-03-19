@@ -29,9 +29,30 @@ Deno.serve(async (req) => {
     const billingCycle = metadata.billing_cycle;
     const userId = metadata.user_id;
 
-    // Only process successful payments (status === 0 means success for most TW gateways)
+    // Payment failed — notify user
     if (status !== 0) {
       console.log("ACpay payment not successful, status:", status);
+      if (userId && planId) {
+        try {
+          const notifyUrl = `${Deno.env.get("SUPABASE_URL")!}/functions/v1/notify-payment-failure`;
+          await fetch(notifyUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+            },
+            body: JSON.stringify({
+              userId,
+              planId,
+              amount: amount || 0,
+              provider: "acpay",
+              errorDetail: `status: ${status}`,
+            }),
+          });
+        } catch (e) {
+          console.error("Failed to send payment failure notification:", e);
+        }
+      }
       return new Response(JSON.stringify({ status: "ignored" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
