@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
 
     // Callback and return URLs
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const returnUrl = `${origin}/checkout/${slug}/${planId}?ecpay=result&billingCycle=${billingCycle}`;
+    const returnUrl = `${origin}/app/checkout/${slug}/${planId}?ecpay=result&billingCycle=${billingCycle}`;
     const notifyUrl = `${supabaseUrl}/functions/v1/ecpay-callback`;
 
     const itemName = `${expertName} - ${planName} (${billingCycle === "yearly" ? "年繳" : "月繳"})`;

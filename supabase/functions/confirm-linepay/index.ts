@@ -36,6 +36,8 @@ Deno.serve(async (req) => {
 
     const channelId = Deno.env.get("LINEPAY_CHANNEL_ID")!;
     const channelSecret = Deno.env.get("LINEPAY_CHANNEL_SECRET")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     if (!simulate) {
       const nonce = crypto.randomUUID();
@@ -64,12 +66,12 @@ Deno.serve(async (req) => {
         // Notify user of payment failure
         if (userId && planId) {
           try {
-            const notifyUrl = `${Deno.env.get("SUPABASE_URL")!}/functions/v1/notify-payment-failure`;
+            const notifyUrl = `${supabaseUrl}/functions/v1/notify-payment-failure`;
             await fetch(notifyUrl, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+                "Authorization": `Bearer ${serviceRoleKey}`,
               },
               body: JSON.stringify({
                 userId,
@@ -93,8 +95,6 @@ Deno.serve(async (req) => {
     }
 
     // Write to DB using service role
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Get LINE Pay provider
@@ -114,9 +114,22 @@ Deno.serve(async (req) => {
       expiresAt.setMonth(expiresAt.getMonth() + 1);
     }
 
-    // Create subscription if userId and planId provided
+    // Duplicate subscription protection
     let subscriptionId: string | null = null;
     if (userId && planId) {
+      const { data: existing } = await supabase
+        .from("member_subscriptions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("plan_id", planId)
+        .eq("status", "active");
+
+      if (existing && existing.length > 0) {
+        return new Response(JSON.stringify({ success: true, subscriptionId: existing[0].id, duplicate: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { data: sub, error: subError } = await supabase
         .from("member_subscriptions")
         .insert({
