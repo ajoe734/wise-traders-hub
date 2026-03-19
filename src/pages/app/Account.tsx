@@ -161,20 +161,36 @@ const Account = () => {
     fetchExperts();
   }, [user]);
 
-  // Calculate prorated refund info for a subscription
-  // Always uses fixed cycle: 30 days for monthly, 365 days for yearly
+  // Calculate refund for cancellation
+  // Monthly: no refund. Yearly: refund remaining full months from next month.
   const calcRefund = (sub: DbSubscription) => {
     const now = new Date();
     const startedAt = new Date(sub.started_at);
     const isYearly = !!(sub.plan.price_yearly && sub.plan.price_yearly > 0 && sub.expires_at &&
       (new Date(sub.expires_at).getTime() - startedAt.getTime()) > 180 * 86400000);
-    const totalDays = isYearly ? 365 : 30;
-    const originalAmount = isYearly ? (sub.plan.price_yearly || sub.plan.price_monthly * 12) : sub.plan.price_monthly;
-    const elapsedMs = now.getTime() - startedAt.getTime();
-    const usedDays = Math.max(0, Math.min(totalDays, Math.floor(elapsedMs / 86400000)));
-    const remainingDays = Math.max(0, totalDays - usedDays);
-    const refundAmount = Math.floor(originalAmount * (remainingDays / totalDays));
-    return { totalDays, usedDays, remainingDays, originalAmount, refundAmount };
+
+    if (!isYearly) {
+      // Monthly: no refund, service until end of current month
+      return { isYearly: false, refundAmount: 0, remainingMonths: 0, originalAmount: sub.plan.price_monthly, monthlyPrice: sub.plan.price_monthly };
+    }
+
+    // Yearly: refund = monthly_price * remaining full months (from next month)
+    const yearlyAmount = sub.plan.price_yearly || sub.plan.price_monthly * 12;
+    const monthlyPrice = Math.floor(yearlyAmount / 12);
+    // Calculate how many full months remain from next month to year end
+    const expiresAt = new Date(sub.expires_at!);
+    const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    // Remaining full months = months between end of current month and expires_at
+    const remainingMs = expiresAt.getTime() - endOfCurrentMonth.getTime();
+    const remainingMonths = Math.max(0, Math.floor(remainingMs / (30 * 86400000)));
+    const refundAmount = monthlyPrice * remainingMonths;
+    return { isYearly: true, refundAmount, remainingMonths, originalAmount: yearlyAmount, monthlyPrice };
+  };
+
+  // Get end of current month as ISO string
+  const getEndOfMonth = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
   };
 
   const handleCancelSubscription = async (subId: string) => {
