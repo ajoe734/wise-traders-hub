@@ -342,9 +342,9 @@ export default function App() {
       // 嘗試從雲端同步（策略大腦 + 歷史分析 + 事件資料）
       try {
         const [cloudBrain, cloudHist, cloudEvents] = await Promise.all([
-          fetch("/api/brain?action=brain").then(r=>r.json()).catch(()=>({brain:null})),
-          fetch("/api/brain?action=history").then(r=>r.json()).catch(()=>({history:[]})),
-          fetch("/api/brain", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"load-events"})}).then(r=>r.json()).catch(()=>({events:null})),
+          fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=brain`).then(r=>r.json()).catch(()=>({brain:null})),
+          fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=history`).then(r=>r.json()).catch(()=>({history:[]})),
+          fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"load-events"})}).then(r=>r.json()).catch(()=>({events:null})),
         ]);
         if (cloudBrain.brain) { setStrategyBrain(cloudBrain.brain); save("pf-brain-v1", cloudBrain.brain); }
         if (cloudHist.history?.length > 0) { setAnalysisHistory(cloudHist.history); save("pf-analysis-history-v1", cloudHist.history); }
