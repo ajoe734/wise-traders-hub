@@ -15,7 +15,7 @@ interface PortalLayoutProps {
 const navLinks = [
   { href: '/', label: '首頁' },
   { href: '/experts', label: '探索名師' },
-  { href: '/trial', label: '試用版' },
+  { href: '/trial', label: '免費健檢' },
   { href: '/pricing', label: '方案說明' },
   { href: '/legal', label: '法律聲明' },
 ];

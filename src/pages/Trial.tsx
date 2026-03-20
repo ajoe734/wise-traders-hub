@@ -8,7 +8,7 @@ export default function Trial() {
       <div className="w-full" style={{ height: 'calc(100vh - 4rem)' }}>
         <iframe
           src={TRIAL_URL}
-          title="試用版"
+          title="免費健檢"
           className="w-full h-full border-0"
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           allow="clipboard-write"
