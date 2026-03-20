@@ -919,6 +919,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 </span>
               )}
             </div>
+            </div>
           </div>
           <div style={{textAlign:"right"}}>
             <div style={{fontSize:9,color:C.textMute,marginBottom:2}}>未實現損益</div>
