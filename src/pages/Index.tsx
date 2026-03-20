@@ -530,6 +530,17 @@ const Index = () => {
                 <Link to="/pricing">查看方案比較</Link>
               </Button>
             </div>
+            <div className="mt-sm">
+              <Button
+                size="xl"
+                className="bg-purple-600 hover:bg-purple-700 text-white border-0"
+                asChild
+              >
+                <a href="https://demo.example.com" target="_blank" rel="noopener noreferrer">
+                  免費健檢
+                </a>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
