@@ -14,6 +14,7 @@ import PlanDetail from "./pages/PlanDetail";
 import Pricing from "./pages/Pricing";
 import Legal from "./pages/Legal";
 import Checkout from "./pages/Checkout";
+import FreeCheckup from "./pages/FreeCheckup";
 
 import NotFound from "./pages/NotFound";
 
@@ -78,7 +79,7 @@ const App = () => (
             <Route path="/plan/:slug/:planId" element={<PlanDetail />} />
             <Route path="/checkout/:slug/:planId" element={<Checkout />} />
             <Route path="/pricing" element={<Pricing />} />
-            
+            <Route path="/free-checkup" element={<FreeCheckup />} />
             <Route path="/legal" element={<Legal />} />
 
             {/* Legacy routes - redirect */}
