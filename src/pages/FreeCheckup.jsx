@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 
+const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+
 // ── 目標價資料庫（分析師共識）─────────────────────────────────────
 // reports: [{firm, target, date}]  avg 自動計算
 const INIT_TARGETS = {
