@@ -14,6 +14,7 @@ import PlanDetail from "./pages/PlanDetail";
 import Pricing from "./pages/Pricing";
 import Legal from "./pages/Legal";
 import Checkout from "./pages/Checkout";
+import Trial from "./pages/Trial";
 import NotFound from "./pages/NotFound";
 
 // Auth pages
@@ -77,6 +78,7 @@ const App = () => (
             <Route path="/plan/:slug/:planId" element={<PlanDetail />} />
             <Route path="/checkout/:slug/:planId" element={<Checkout />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/trial" element={<Trial />} />
             <Route path="/legal" element={<Legal />} />
 
             {/* Legacy routes - redirect */}
