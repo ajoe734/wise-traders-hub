@@ -664,7 +664,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             body: JSON.stringify({ action: "save-brain", data: newBrain })
           }).catch(() => {});
           // 同步分析報告到雲端
-          fetch("/api/brain", {
+          fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "save-analysis", data: report })
