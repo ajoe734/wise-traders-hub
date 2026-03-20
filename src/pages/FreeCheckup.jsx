@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -275,6 +276,7 @@ async function save(key, data) {
 
 // ── Main ─────────────────────────────────────────────────────────
 export default function App() {
+  const navigate = useNavigate();
   const [tab, setTab]     = useState("holdings");
   const [ready, setReady] = useState(false);
 
@@ -889,7 +891,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         padding:"16px 16px 0",position:"sticky",top:0,zIndex:10}}>
 
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
-          <div>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+            <button onClick={()=>navigate("/")} style={{
+              background:"none",border:"none",cursor:"pointer",padding:"4px 0",
+              color:C.textMute,fontSize:18,lineHeight:1,marginTop:2,
+            }} aria-label="返回首頁">←</button>
+            <div>
             <div style={{fontSize:9,color:C.textMute,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>
               <span style={{color:cloudSync?C.olive:C.textMute}}>{cloudSync?"☁":"⚡"}</span>
               {saved && <span style={{color:C.olive,marginLeft:8,fontWeight:600}}>{saved}</span>}
@@ -911,6 +918,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {lastUpdate.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}
                 </span>
               )}
+            </div>
             </div>
           </div>
           <div style={{textAlign:"right"}}>
