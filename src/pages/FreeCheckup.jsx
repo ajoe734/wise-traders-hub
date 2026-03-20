@@ -765,7 +765,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     if (!b64) return;
     setParsing(true); setParseErr(null);
     try {
-      const res = await fetch("/api/parse", {
+      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-parse`, {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
