@@ -362,7 +362,7 @@ export default function App() {
     if (ready && newsEvents) {
       save("pf-news-events-v1", newsEvents);
       // 同步事件到雲端
-      fetch("/api/brain", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-events",data:newsEvents})}).catch(()=>{});
+      fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-events",data:newsEvents})}).catch(()=>{});
     }
   }, [newsEvents, ready]);
   useEffect(() => { if (ready && analysisHistory) save("pf-analysis-history-v1", analysisHistory); }, [analysisHistory, ready]);
