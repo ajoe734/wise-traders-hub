@@ -552,7 +552,7 @@ ${losers.map(h=>{
   return `${h.name}(${h.code}) ${h.pct}% | 反轉條件：${rc?.signal||"未設定"} | 停損：${rc?.stopLoss||"未設定"}`;
 }).join("\n")}` : "";
 
-        const aiRes = await fetch("/api/analyze", {
+        const aiRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
