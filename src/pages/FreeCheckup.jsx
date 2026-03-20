@@ -629,7 +629,7 @@ ${eventSummary}
           const hits = pastEvents.filter(e => e.correct === true).length;
           const total = pastEvents.filter(e => e.correct !== null).length;
 
-          const brainRes = await fetch("/api/analyze", {
+          const brainRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
