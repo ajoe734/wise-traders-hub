@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 
+const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+
 // ── 目標價資料庫（分析師共識）─────────────────────────────────────
 // reports: [{firm, target, date}]  avg 自動計算
 const INIT_TARGETS = {
@@ -340,9 +342,9 @@ export default function App() {
       // 嘗試從雲端同步（策略大腦 + 歷史分析 + 事件資料）
       try {
         const [cloudBrain, cloudHist, cloudEvents] = await Promise.all([
-          fetch("/api/brain?action=brain").then(r=>r.json()).catch(()=>({brain:null})),
-          fetch("/api/brain?action=history").then(r=>r.json()).catch(()=>({history:[]})),
-          fetch("/api/brain", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"load-events"})}).then(r=>r.json()).catch(()=>({events:null})),
+          fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=brain`).then(r=>r.json()).catch(()=>({brain:null})),
+          fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=history`).then(r=>r.json()).catch(()=>({history:[]})),
+          fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"load-events"})}).then(r=>r.json()).catch(()=>({events:null})),
         ]);
         if (cloudBrain.brain) { setStrategyBrain(cloudBrain.brain); save("pf-brain-v1", cloudBrain.brain); }
         if (cloudHist.history?.length > 0) { setAnalysisHistory(cloudHist.history); save("pf-analysis-history-v1", cloudHist.history); }
@@ -360,7 +362,7 @@ export default function App() {
     if (ready && newsEvents) {
       save("pf-news-events-v1", newsEvents);
       // 同步事件到雲端
-      fetch("/api/brain", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-events",data:newsEvents})}).catch(()=>{});
+      fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-events",data:newsEvents})}).catch(()=>{});
     }
   }, [newsEvents, ready]);
   useEffect(() => { if (ready && analysisHistory) save("pf-analysis-history-v1", analysisHistory); }, [analysisHistory, ready]);
@@ -398,9 +400,7 @@ export default function App() {
       // 同時嘗試上市(tse)和上櫃(otc)，API 只會回傳有效的
       const queries = codes.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]);
       const exCh = queries.join('|');
-      const url = import.meta.env.DEV
-        ? `/api/twse/stock/api/getStockInfo.jsp?ex_ch=${exCh}&json=1&delay=0`
-        : `/api/twse?ex_ch=${encodeURIComponent(exCh)}`;
+      const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -459,9 +459,7 @@ export default function App() {
       const codes = H.map(h => h.code);
       const queries = codes.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]);
       const exCh = queries.join('|');
-      const url = import.meta.env.DEV
-        ? `/api/twse/stock/api/getStockInfo.jsp?ex_ch=${exCh}&json=1&delay=0`
-        : `/api/twse?ex_ch=${encodeURIComponent(exCh)}`;
+      const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -554,7 +552,7 @@ ${losers.map(h=>{
   return `${h.name}(${h.code}) ${h.pct}% | 反轉條件：${rc?.signal||"未設定"} | 停損：${rc?.stopLoss||"未設定"}`;
 }).join("\n")}` : "";
 
-        const aiRes = await fetch("/api/analyze", {
+        const aiRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -631,7 +629,7 @@ ${eventSummary}
           const hits = pastEvents.filter(e => e.correct === true).length;
           const total = pastEvents.filter(e => e.correct !== null).length;
 
-          const brainRes = await fetch("/api/analyze", {
+          const brainRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -660,13 +658,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           const newBrain = JSON.parse(cleanBrain);
           setStrategyBrain(newBrain);
           // 同步到雲端
-          fetch("/api/brain", {
+          fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "save-brain", data: newBrain })
           }).catch(() => {});
           // 同步分析報告到雲端
-          fetch("/api/brain", {
+          fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "save-analysis", data: report })
@@ -767,7 +765,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     if (!b64) return;
     setParsing(true); setParseErr(null);
     try {
-      const res = await fetch("/api/parse", {
+      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-parse`, {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
@@ -1497,7 +1495,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     if (confirm("確定要重置策略大腦？所有累積的規則和教訓將被清除。")) {
                       setStrategyBrain(null);
                       save("pf-brain-v1", null);
-                      fetch("/api/brain",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-brain",data:null})}).catch(()=>{});
+                      fetch(`${SUPABASE_FN_BASE}/checkup-brain`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-brain",data:null})}).catch(()=>{});
                     }
                   }} style={{fontSize:9,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.up}44`,background:"transparent",color:C.up,cursor:"pointer"}}>
                     重置

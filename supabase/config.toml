@@ -56,3 +56,24 @@ verify_jwt = false
 
 [functions.publish-weekly-journals]
 verify_jwt = false
+
+[functions.checkup-twse]
+verify_jwt = false
+
+[functions.checkup-analyze]
+verify_jwt = false
+
+[functions.checkup-parse]
+verify_jwt = false
+
+[functions.checkup-brain]
+verify_jwt = false
+
+[functions.tpex-proxy]
+verify_jwt = false
+
+[functions.validate-signal-prices]
+verify_jwt = false
+
+[functions.setup-storage]
+verify_jwt = false

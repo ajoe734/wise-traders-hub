@@ -74,6 +74,24 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_storage: {
+        Row: {
+          data: Json
+          key: string
+          updated_at: string
+        }
+        Insert: {
+          data?: Json
+          key: string
+          updated_at?: string
+        }
+        Update: {
+          data?: Json
+          key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       current_prices: {
         Row: {
           best_ask: number | null
