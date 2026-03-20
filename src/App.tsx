@@ -14,6 +14,7 @@ import PlanDetail from "./pages/PlanDetail";
 import Pricing from "./pages/Pricing";
 import Legal from "./pages/Legal";
 import Checkout from "./pages/Checkout";
+import FreeCheckup from "./pages/FreeCheckup";
 
 import NotFound from "./pages/NotFound";
 
