@@ -536,9 +536,9 @@ const Index = () => {
                 className="bg-purple-600 hover:bg-purple-700 text-white border-0"
                 asChild
               >
-                <a href="https://demo.example.com" target="_blank" rel="noopener noreferrer">
+                <Link to="/free-checkup">
                   免費健檢
-                </a>
+                </Link>
               </Button>
             </div>
           </div>
