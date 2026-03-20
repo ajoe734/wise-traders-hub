@@ -886,17 +886,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         }
       `}</style>
 
+      {/* ── BACK BUTTON ── */}
+      <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"10px 16px",position:"sticky",top:0,zIndex:11}}>
+        <button onClick={()=>navigate("/")} style={{
+          background:"none",border:"none",cursor:"pointer",padding:0,
+          color:C.blue,fontSize:14,fontWeight:500,display:"flex",alignItems:"center",gap:4,
+        }}>
+          ← 返回
+        </button>
+      </div>
+
       {/* ── HEADER ── */}
       <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,
-        padding:"16px 16px 0",position:"sticky",top:0,zIndex:10}}>
+        padding:"16px 16px 0",position:"sticky",top:40,zIndex:10}}>
 
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
-          <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
-            <button onClick={()=>navigate("/")} style={{
-              background:"none",border:"none",cursor:"pointer",padding:"4px 0",
-              color:C.textMute,fontSize:18,lineHeight:1,marginTop:2,
-            }} aria-label="返回首頁">←</button>
-            <div>
+          <div>
             <div style={{fontSize:9,color:C.textMute,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>
               <span style={{color:cloudSync?C.olive:C.textMute}}>{cloudSync?"☁":"⚡"}</span>
               {saved && <span style={{color:C.olive,marginLeft:8,fontWeight:600}}>{saved}</span>}
