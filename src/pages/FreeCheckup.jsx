@@ -276,6 +276,7 @@ async function save(key, data) {
 
 // ── Main ─────────────────────────────────────────────────────────
 export default function App() {
+  const navigate = useNavigate();
   const [tab, setTab]     = useState("holdings");
   const [ready, setReady] = useState(false);
 
