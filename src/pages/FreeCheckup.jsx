@@ -730,7 +730,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       predReason: newEvent.predReason,
       actual: null, actualNote: "", correct: null,
     };
-    setNewsEvents(prev => [...(prev || NEWS_EVENTS), evt]);
+    setNewsEvents(prev => [...(prev || []), evt]);
     setNewEvent({ date: "", title: "", detail: "", stocks: "", pred: "up", predReason: "" });
     setShowAddEvent(false);
     setSaved("✅ 事件已新增");
