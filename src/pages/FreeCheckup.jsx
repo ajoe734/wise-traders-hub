@@ -931,31 +931,34 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     const arr = [...holdingsList];
     const idx = arr.findIndex(h => h.code === code);
 
+    const mktPrice = Number(trade?.market_price) || price; // 市價，若無則用成交價
+
     if (action === "買進") {
       if (idx >= 0) {
         const h = arr[idx];
         const nq = h.qty + qty;
         const nc = (h.cost * h.qty + price * qty) / nq;
+        const mp = mktPrice || h.price; // 優先用新的市價
         arr[idx] = {
           ...h,
           name: h.name || name,
           qty: nq,
-          price,
+          price: mp,
           cost: Math.round(nc * 100) / 100,
-          value: price * nq,
-          pnl: Math.round((price - nc) * nq),
-          pct: Math.round((price / nc - 1) * 10000) / 100,
+          value: mp * nq,
+          pnl: Math.round((mp - nc) * nq),
+          pct: Math.round((mp / nc - 1) * 10000) / 100,
         };
       } else {
         arr.push({
           code,
           name,
           qty,
-          price,
+          price: mktPrice,
           cost: price,
-          value: price * qty,
-          pnl: 0,
-          pct: 0,
+          value: mktPrice * qty,
+          pnl: Math.round((mktPrice - price) * qty),
+          pct: Math.round((mktPrice / price - 1) * 10000) / 100,
           type: "股票",
         });
       }
@@ -968,13 +971,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       if (nq === 0) {
         arr.splice(idx, 1);
       } else {
+        const mp = mktPrice || h.price;
         arr[idx] = {
           ...h,
           qty: nq,
-          price,
-          value: price * nq,
-          pnl: Math.round((price - h.cost) * nq),
-          pct: Math.round((price / h.cost - 1) * 10000) / 100,
+          price: mp,
+          value: mp * nq,
+          pnl: Math.round((mp - h.cost) * nq),
+          pct: Math.round((mp / h.cost - 1) * 10000) / 100,
         };
       }
     }
