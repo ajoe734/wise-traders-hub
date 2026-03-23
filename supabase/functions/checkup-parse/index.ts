@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Return in Anthropic-compatible format so frontend doesn't need changes
+    // Return in compatible format so frontend doesn't need changes
     return new Response(JSON.stringify({ content: [{ text }] }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
