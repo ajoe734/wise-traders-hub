@@ -210,6 +210,7 @@ const TYPE_COLOR = {
   操作:"#b8926a",
   總經:"#a09080",
   權證:"#b8926a",
+  除息:"#9b7ab8",
 };
 
 const MEMO_Q = {
