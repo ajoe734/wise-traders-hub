@@ -367,7 +367,8 @@ export default function App() {
   const totalCost = H.reduce((s,h)=>s+h.cost*h.qty,0);
   const totalPnl  = H.reduce((s,h)=>s+h.pnl,0);
   const retPct    = totalCost>0 ? totalPnl/totalCost*100 : 0;
-  const urgentCount = EVENTS.filter(e=>e.urgent).length;
+  const holdingCodes = new Set(H.map(h => h.code));
+  const urgentCount = H.length === 0 ? 0 : EVENTS.filter(e=>e.urgent && (!e.label.match(/\d{4}/) || holdingCodes.has(e.label.match(/\d{4}/)?.[0]))).length;
 
   const sorted = [...H].sort((a,b)=>{
     if(sortBy==="value") return b.value-a.value;
@@ -381,8 +382,7 @@ export default function App() {
   const winners = H.filter(h=>h.pnl>0).sort((a,b)=>b.pct-a.pct);
   const losers  = H.filter(h=>h.pnl<0).sort((a,b)=>a.pct-b.pct);
 
-  const holdingCodes = new Set(H.map(h => h.code));
-  const dynamicEvents = EVENTS.filter(e => {
+  const dynamicEvents = H.length === 0 ? [] : EVENTS.filter(e => {
     const codeMatch = e.label.match(/\d{4}/);
     return !codeMatch || holdingCodes.has(codeMatch[0]);
   });
