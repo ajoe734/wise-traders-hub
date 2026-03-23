@@ -1388,6 +1388,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             ) : filteredEvents.map((e,i)=>{
               const tc = TYPE_COLOR[e.type]||C.textMute;
+              const globalIdx = CE.indexOf(e);
               return <div key={i} style={{...card,marginBottom:7,
                 borderLeft:`2px solid ${e.urgent ? C.up : tc+"66"}`}}>
                 <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
@@ -1402,6 +1403,33 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
                     <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
                   </div>
+                  <button onClick={()=>{
+                    // 將事件移到「事件分析」
+                    const codeMatch = e.label.match(/\d{4}/);
+                    const newNewsEvent = {
+                      id: Date.now(),
+                      date: new Date().toLocaleDateString("zh-TW",{year:"numeric",month:"2-digit",day:"2-digit"}).replace(/\//g,"/"),
+                      title: e.label,
+                      detail: e.sub,
+                      stocks: codeMatch ? [{code:codeMatch[0], name:e.label.replace(/\d{4}/,"").replace(/[—\-\s]+/g," ").trim()}] : [],
+                      pred: "up", predReason: "",
+                      status: "pending",
+                      actual: null, actualNote: "", correct: null,
+                    };
+                    setNewsEvents(prev => [...(prev || []), newNewsEvent]);
+                    // 從行事曆移除
+                    setCalendarEvents(prev => {
+                      const arr = Array.isArray(prev) ? [...prev] : [];
+                      arr.splice(globalIdx, 1);
+                      return arr;
+                    });
+                    setSaved("📋 已移至事件分析");
+                    setTimeout(() => setSaved(""), 2000);
+                  }} style={{
+                    background:C.amber+"18",color:C.amber,border:`1px solid ${C.amber}33`,
+                    borderRadius:6,padding:"3px 8px",fontSize:9,fontWeight:500,cursor:"pointer",
+                    whiteSpace:"nowrap",alignSelf:"center",
+                  }}>已發生 →</button>
                 </div>
               </div>;
             })}
@@ -2225,21 +2253,36 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
           onClick={() => setShowResetConfirm(false)}>
           <div onClick={e=>e.stopPropagation()} style={{
-            background:C.card, borderRadius:12, padding:24, maxWidth:320, width:"100%",
-            border:`1px solid ${C.border}`, boxShadow:"0 8px 30px rgba(0,0,0,0.4)"}}>
-            <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>確認清除所有資料？</div>
-            <div style={{fontSize:12,color:C.textSec,marginBottom:16,lineHeight:1.5}}>
-              這會清除持倉、交易日誌、觀察股、行事曆、策略大腦等所有本地資料，無法復原。
+            background:C.card, borderRadius:14, padding:"28px 24px", maxWidth:360, width:"100%",
+            border:`1px solid ${C.up}44`, boxShadow:`0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px ${C.up}22`}}>
+            <div style={{fontSize:22,textAlign:"center",marginBottom:10}}>⚠️</div>
+            <div style={{fontSize:16,fontWeight:700,color:C.up,marginBottom:10,textAlign:"center"}}>
+              確認清除「全部」資料？
             </div>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{fontSize:12,color:C.textSec,marginBottom:6,lineHeight:1.7,textAlign:"center"}}>
+              此操作<span style={{color:C.up,fontWeight:600}}>無法復原</span>，將永久刪除以下所有資料：
+            </div>
+            <div style={{background:C.subtle,borderRadius:8,padding:"10px 14px",marginBottom:16,
+              fontSize:11,color:C.textMute,lineHeight:2}}>
+              ✕ 持倉資料（所有股票部位）<br/>
+              ✕ 交易日誌（所有買賣紀錄）<br/>
+              ✕ 觀察股清單<br/>
+              ✕ 行事曆事件（法說、財報等）<br/>
+              ✕ 事件分析（預測與復盤紀錄）<br/>
+              ✕ 收盤分析（歷史分析報告）<br/>
+              ✕ 策略大腦（AI 學習紀錄）<br/>
+              ✕ 目標價資料
+            </div>
+            <div style={{display:"flex",gap:10}}>
               <button onClick={() => setShowResetConfirm(false)} style={{
                 flex:1, background:C.subtle, color:C.text, border:`1px solid ${C.border}`,
-                borderRadius:8, padding:"8px 0", fontSize:13, fontWeight:500, cursor:"pointer",
+                borderRadius:10, padding:"10px 0", fontSize:13, fontWeight:500, cursor:"pointer",
               }}>取消</button>
               <button onClick={resetAll} style={{
                 flex:1, background:C.up, color:"#fff", border:"none",
-                borderRadius:8, padding:"8px 0", fontSize:13, fontWeight:600, cursor:"pointer",
-              }}>確認清除</button>
+                borderRadius:10, padding:"10px 0", fontSize:13, fontWeight:700, cursor:"pointer",
+                boxShadow:`0 2px 8px ${C.up}44`,
+              }}>確認全部清除</button>
             </div>
           </div>
         </div>
