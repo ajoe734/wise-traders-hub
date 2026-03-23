@@ -1254,8 +1254,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               ["總市值",totalVal.toLocaleString(),C.blue],
               ["持股數",H.length+"檔",C.lavender]].map(([l,v,c])=>(
               <div key={l} style={{background:C.subtle,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
-                <div style={{fontSize:9,color:C.textMute,letterSpacing:"0.08em"}}>{l}</div>
-                <div style={{fontSize:15,fontWeight:600,color:c,marginTop:3}}>{v}</div>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em"}}>{l}</div>
+                <div style={{fontSize:17,fontWeight:600,color:c,marginTop:3}}>{v}</div>
               </div>
             ))}
           </div>
