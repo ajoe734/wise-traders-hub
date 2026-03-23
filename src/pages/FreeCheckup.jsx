@@ -389,6 +389,7 @@ export default function App() {
     setRefreshing(true);
     try {
       const codes = H.map(h => h.code);
+      if (codes.length === 0) { setRefreshing(false); return; }
       // 同時嘗試上市(tse)和上櫃(otc)，API 只會回傳有效的
       const queries = codes.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]);
       const exCh = queries.join('|');
@@ -449,6 +450,7 @@ export default function App() {
     try {
       // 1. 取得最新股價
       const codes = H.map(h => h.code);
+      if (codes.length === 0) { setAnalyzing(false); return; }
       const queries = codes.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]);
       const exCh = queries.join('|');
       const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
