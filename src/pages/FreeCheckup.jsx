@@ -616,7 +616,8 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
         changes,
         anomalies,
         eventCorrelations,
-        needsReview,
+        needsReview: needsReview.filter(e => !autoVerified.find(v => v.title === e.title)),
+        autoVerified,
         aiInsight,
       };
 
