@@ -469,7 +469,7 @@ export default function App() {
     const codes = (holdings || []).map(h => h.code).sort().join(",");
     const prevCodes = calendarEvents?._holdingCodes || "";
     if (codes && codes !== prevCodes) {
-      fetchCalendarEvents(holdings, resetGuard);
+      fetchCalendarEvents(holdings, resetGuardRef.current);
     } else if (!codes) {
       setCalendarEvents([]);
     }
