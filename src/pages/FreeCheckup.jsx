@@ -193,19 +193,25 @@ export default function App() {
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
+      const oneYearLater = new Date();
+      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+      const endDate = oneYearLater.toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
+
       const prompt = `你是台股投資行事曆助手兼事件預判分析師。今天是 ${today}。
 我目前持有以下股票：${stockList}
 
-請根據這些股票，列出未來可能的重要事件（法說會、財報公布、除權息、營收公布、產業催化劑等），以JSON陣列格式回覆，不輸出其他文字：
-[{"date":"時間描述","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息","pred":"up或down或neutral","predReason":"預判漲跌理由，2-3句話"}]
+請根據這些股票，列出從明天起到 ${endDate} 為止（未來一整年）的所有重要事件（法說會、財報公布、除權息、營收公布、產業催化劑等），以JSON陣列格式回覆，不輸出其他文字：
+[{"date":"YYYY/MM/DD 格式日期","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息","pred":"up或down或neutral","predReason":"預判漲跌理由，2-3句話"}]
 規則：
-- 每檔股票至少1個事件，最多產出12個事件
-- urgent=true 僅限本週內或今日事件
-- date 用簡短描述如 "今日"、"3/28"、"每月10日"、"Q2"
+- 不要包含今天（${today}）或過去的事件，只列未來事件
+- 涵蓋未來一整年，每季度都要有事件（營收每月10日、財報每季、法說會、除息等）
+- 每檔股票至少3個事件，總共產出20-30個事件
+- urgent=true 僅限未來一週內的事件
+- date 必須用 YYYY/MM/DD 格式（如 2026/04/10），方便排序
 - type 只能用：法說、財報、營收、催化、操作、總經、除息
 - pred 必須是 "up"、"down" 或 "neutral" 三選一
 - predReason 用2-3句話說明為何看漲/看跌/中性，要有具體的邏輯依據
-- 根據目前時間點，給出最相關的近期事件`;
+- 按日期由近到遠排序`;
 
       const res = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
         method: "POST",
