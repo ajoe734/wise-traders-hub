@@ -2616,7 +2616,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               ✕ 目標價資料<br/>
               ✕ 歷史分析紀錄<br/>
               ✕ 最近教訓
-              ✕ 目標價資料
             </div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={() => setShowResetConfirm(false)} style={{
