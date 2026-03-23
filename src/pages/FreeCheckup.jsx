@@ -167,6 +167,7 @@ export default function App() {
   // refresh prices
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
   const [cooldownText, setCooldownText] = useState("");
 
   // Countdown timer for refresh cooldown
