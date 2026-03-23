@@ -167,6 +167,24 @@ export default function App() {
   // refresh prices
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
+  const [cooldownText, setCooldownText] = useState("");
+
+  // Countdown timer for refresh cooldown
+  useEffect(() => {
+    if (!lastUpdate) { setCooldownText(""); return; }
+    const tick = () => {
+      const elapsed = Date.now() - lastUpdate.getTime();
+      const remaining = REFRESH_COOLDOWN - elapsed;
+      if (remaining <= 0) { setCooldownText(""); return; }
+      const m = Math.floor(remaining / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      setCooldownText(`${m}:${s.toString().padStart(2,"0")}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lastUpdate]);
 
   // daily analysis
   const [analyzing, setAnalyzing]       = useState(false);
@@ -421,7 +439,7 @@ export default function App() {
   const filteredEvents = filterType==="全部" ? CE : CE.filter(e=>e.type===filterType);
 
   // ── 刷新即時股價（TWSE MIS API）───────────────────────────────
-  const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
+  // REFRESH_COOLDOWN moved above (near state declarations)
   const refreshPrices = async () => {
     if (refreshing) return;
     // 30分鐘冷卻
@@ -1104,7 +1122,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 cursor: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? "not-allowed" : "pointer",
                 transition:"all 0.2s", whiteSpace:"nowrap",
               }}>
-                {refreshing ? "更新中..." : "⟳ 刷新股價"}
+                {refreshing ? "更新中..." : cooldownText ? `⟳ ${cooldownText}` : "⟳ 刷新股價"}
               </button>
               <button onClick={() => setShowResetConfirm(true)} style={{
                 background: C.up+"18", color: C.up, border:`1px solid ${C.up}33`,
@@ -2500,6 +2518,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               ✕ 事件分析（預測與復盤紀錄）<br/>
               ✕ 收盤分析（歷史分析報告）<br/>
               ✕ 策略大腦（AI 學習紀錄）<br/>
+              ✕ 目標價資料<br/>
+              ✕ 歷史分析紀錄<br/>
+              ✕ 最近教訓
               ✕ 目標價資料
             </div>
             <div style={{display:"flex",gap:10}}>
