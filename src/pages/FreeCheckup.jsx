@@ -181,6 +181,7 @@ export default function App() {
   const [cloudSync, setCloudSync]         = useState(false);
   const [calendarEvents, setCalendarEvents] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
 
   // ── 根據持倉自動產生行事曆事件（同時產生 AI 預判並同步至事件分析）──
   const fetchCalendarEvents = async (holdingsList) => {
