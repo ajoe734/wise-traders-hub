@@ -355,8 +355,16 @@ export default function App() {
   const filteredEvents = filterType==="全部" ? CE : CE.filter(e=>e.type===filterType);
 
   // ── 刷新即時股價（TWSE MIS API）───────────────────────────────
+  const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
   const refreshPrices = async () => {
     if (refreshing) return;
+    // 30分鐘冷卻
+    if (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN) {
+      const remaining = Math.ceil((REFRESH_COOLDOWN - (Date.now() - lastUpdate.getTime())) / 60000);
+      setSaved(`⏳ 請等待 ${remaining} 分鐘後再刷新`);
+      setTimeout(() => setSaved(""), 3000);
+      return;
+    }
     setRefreshing(true);
     try {
       const codes = H.map(h => h.code);
@@ -985,12 +993,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
             <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
               <span style={{fontSize:21,fontWeight:600,color:C.text,marginTop:2,letterSpacing:"-0.01em"}}>持倉看板</span>
-              <button onClick={refreshPrices} disabled={refreshing} style={{
-                background: refreshing ? C.subtle : C.blue+"22",
-                color: refreshing ? C.textMute : C.blue,
-                border:`1px solid ${refreshing ? C.border : C.blue+"55"}`,
+              <button onClick={refreshPrices} disabled={refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)} style={{
+                background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : C.blue+"22",
+                color: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.textMute : C.blue,
+                border:`1px solid ${(refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.border : C.blue+"55"}`,
                 borderRadius:20, padding:"4px 12px", fontSize:10, fontWeight:500,
-                cursor: refreshing ? "not-allowed" : "pointer",
+                cursor: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? "not-allowed" : "pointer",
                 transition:"all 0.2s", whiteSpace:"nowrap",
               }}>
                 {refreshing ? "更新中..." : "⟳ 刷新股價"}
