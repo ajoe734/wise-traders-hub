@@ -291,6 +291,51 @@ export default function App() {
   const [reversalConditions, setReversalConditions] = useState(null);
   const [strategyBrain, setStrategyBrain] = useState(null);
   const [cloudSync, setCloudSync]         = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+
+  // ── 根據持倉自動產生行事曆事件 ──────────────────────────────────
+  const fetchCalendarEvents = async (holdingsList) => {
+    if (!holdingsList || holdingsList.length === 0) {
+      setCalendarEvents([]);
+      save("pf-calendar-v1", []);
+      return;
+    }
+    setCalendarLoading(true);
+    try {
+      const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
+      const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
+      const prompt = `你是台股投資行事曆助手。今天是 ${today}。
+我目前持有以下股票：${stockList}
+
+請根據這些股票，列出未來可能的重要事件（法說會、財報公布、除權息、營收公布、產業催化劑等），以JSON陣列格式回覆，不輸出其他文字：
+[{"date":"時間描述","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息"}]
+規則：
+- 每檔股票至少1個事件，最多產出12個事件
+- urgent=true 僅限本週內或今日事件
+- date 用簡短描述如 "今日"、"3/28"、"每月10日"、"Q2"
+- type 只能用：法說、財報、營收、催化、操作、總經、除息
+- 根據目前時間點，給出最相關的近期事件`;
+
+      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, image: null }),
+      });
+      const result = await res.json();
+      const text = result.text || result.response || "";
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const events = JSON.parse(jsonMatch[0]);
+        setCalendarEvents(events);
+        save("pf-calendar-v1", events);
+      }
+    } catch (e) {
+      console.error("Calendar fetch error:", e);
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
 
   // boot
   // 一次性清除所有舊版寫死持倉快取（v1 遷移標記）
