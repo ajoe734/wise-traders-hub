@@ -1437,34 +1437,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{flex:1}}>
                     <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
                     <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
+                    {/* 顯示 AI 預判 */}
+                    {e.pred && (
+                      <div style={{display:"flex",alignItems:"center",gap:4,marginTop:4}}>
+                        <span style={{fontSize:9,fontWeight:600,
+                          color:e.pred==="up"?C.up:e.pred==="down"?C.down:C.textMute}}>
+                          {e.pred==="up"?"↑ 看漲":e.pred==="down"?"↓ 看跌":"— 中性"}
+                        </span>
+                        {e.predReason && <span style={{fontSize:9,color:C.textMute,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>{e.predReason}</span>}
+                      </div>
+                    )}
                   </div>
                   <button onClick={()=>{
-                    // 將事件移到「事件分析」
-                    const codeMatch = e.label.match(/\d{4}/);
-                    const newNewsEvent = {
-                      id: Date.now(),
-                      date: new Date().toLocaleDateString("zh-TW",{year:"numeric",month:"2-digit",day:"2-digit"}).replace(/\//g,"/"),
-                      title: e.label,
-                      detail: e.sub,
-                      stocks: codeMatch ? [{code:codeMatch[0], name:e.label.replace(/\d{4}/,"").replace(/[—\-\s]+/g," ").trim()}] : [],
-                      pred: "up", predReason: "",
-                      status: "pending",
-                      actual: null, actualNote: "", correct: null,
-                    };
-                    setNewsEvents(prev => [...(prev || []), newNewsEvent]);
-                    // 從行事曆移除
-                    setCalendarEvents(prev => {
-                      const arr = Array.isArray(prev) ? [...prev] : [];
-                      arr.splice(globalIdx, 1);
-                      return arr;
-                    });
-                    setSaved("📋 已移至事件分析");
-                    setTimeout(() => setSaved(""), 2000);
+                    // 標記事件已發生 → 跳到事件分析進行復盤
+                    const matchedEvent = (newsEvents || []).find(ne => ne.title === e.label);
+                    if (matchedEvent) {
+                      setReviewingEvent(matchedEvent.id);
+                      setReviewForm({actual:"up",actualNote:"",lessons:""});
+                    }
+                    setTab("news");
+                    setSaved("📋 請在事件分析中完成復盤");
+                    setTimeout(() => setSaved(""), 2500);
                   }} style={{
                     background:C.amber+"18",color:C.amber,border:`1px solid ${C.amber}33`,
                     borderRadius:6,padding:"3px 8px",fontSize:9,fontWeight:500,cursor:"pointer",
                     whiteSpace:"nowrap",alignSelf:"center",
-                  }}>已發生 →</button>
+                  }}>已發生 · 復盤</button>
                 </div>
               </div>;
             })}
