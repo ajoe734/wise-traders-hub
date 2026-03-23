@@ -42,124 +42,11 @@ const INIT_WATCHLIST = [
 // EVENTS 不再寫死，由 AI 根據持倉動態產生，存於 calendarEvents state
 
 // ── 事件分析資料庫 ────────────────────────────────────────────────
+// 不再寫死，由行事曆自動同步並由 AI 產生預判
 // status: "past"=已發生 / "pending"=未發生
 // pred: "up"=預測漲 / "down"=預測跌 / "neutral"=中性
 // actual: "up"/"down"/"neutral"/null（null=尚未驗證）
 // correct: true/false/null
-const NEWS_EVENTS = [
-  // ── 已發生 ──
-  {
-    id:1, date:"2026/03/13", status:"past",
-    title:"三星記憶體工人罷工威脅，DDR3 供給缺口擴大",
-    detail:"三星韓國工廠工會威脅全面罷工，市場預期DRAM供給將進一步吃緊，利基型記憶體（DDR3）受矚目。",
-    stocks:["晶豪科 3006"],
-    pred:"up", predReason:"DDR3供給端收縮，晶豪科作為利基型記憶體IC設計受直接利多。",
-    actual:"up", actualNote:"晶豪科連續兩日漲停，從161元急拉至177元，驗證預測正確。",
-    correct:true,
-  },
-  {
-    id:2, date:"2026/03/16", status:"past",
-    title:"晶豪科 4Q25 EPS 3.68元，遠超市場預期 0.18元",
-    detail:"華南投顧發出研究報告，揭露4Q25每股盈餘3.68元，市場預估僅0.18元，超預期約20倍。目標價200元。",
-    stocks:["晶豪科 3006"],
-    pred:"up", predReason:"財報大幅超預期是最強催化劑，法人勢必上調目標價，資金將快速湧入。",
-    actual:"up", actualNote:"報告發出後三日股價從145元漲至194.5元，漲幅約34%。",
-    correct:true,
-  },
-  {
-    id:3, date:"2026/03/13", status:"past",
-    title:"台燿 財報前外資連續賣超，股價從530跌至450",
-    detail:"台燿3月初從高點583元修正，三大法人籌碼持續綠色，財報前賣壓明顯。",
-    stocks:["台燿 6274"],
-    pred:"down", predReason:"財報前獲利了結賣壓是常見型態，加上毛利率疑慮，短期壓力大。",
-    actual:"down", actualNote:"股價從583跌至約450元，修正約25%，符合預測方向。",
-    correct:true,
-  },
-  {
-    id:4, date:"2026/03/16", status:"past",
-    title:"台燿連兩日籌碼綠色但股價逆勢漲近10%",
-    detail:"外資+自營商合計賣超，但散戶財報前卡位情緒推動股價接近漲停。",
-    stocks:["台燿 6274"],
-    pred:"up", predReason:"財報日前6天，散戶預期法說樂觀，提前卡位效應。",
-    actual:"up", actualNote:"單日漲9.94%，收497.5元，驗證財報前卡位邏輯。",
-    correct:true,
-  },
-  {
-    id:5, date:"2026/03/16", status:"past",
-    title:"緯創 4Q25 法說：毛利率受GB機櫃出貨組合壓縮",
-    detail:"4Q25毛利率5.62%，QoQ降177bps，主因GB系列機櫃佔比提升。目標價從217元下調至195元。",
-    stocks:["緯創 3231"],
-    pred:"down", predReason:"目標價下調，毛利率不如預期，短期壓力。",
-    actual:"down", actualNote:"法說後股價維持在134元附近偏弱，中信下調目標價至195元印證。",
-    correct:true,
-  },
-
-  // ── 未發生 / 進行中 ──
-  {
-    id:6, date:"2026/03/18", status:"pending",
-    title:"台燿 Q4財報法說會",
-    detail:"關鍵觀察：毛利率是否確認回沖、AI CCL產品展望、泰國二期產能時程。",
-    stocks:["台燿 6274"],
-    pred:"up", predReason:"中信預估2026F EPS逐季加速（4.21→5.49→7.37→8.72），若法說確認此路徑，市場將重新定價。",
-    actual:null, actualNote:"",
-    correct:null,
-  },
-  {
-    id:7, date:"2026/03–04月", status:"pending",
-    title:"中興電 Q4全年財報公布",
-    detail:"FactSet共識EPS 10.43元，7位分析師全數強力買進，目標價193.4元。台電GIS招標動向是關鍵。",
-    stocks:["中興電 1513"],
-    pred:"up", predReason:"財報若符合共識，加上台電基礎建設招標持續，股價有望從158.5元向193元靠攏。",
-    actual:null, actualNote:"",
-    correct:null,
-  },
-  {
-    id:8, date:"2026/Q2", status:"pending",
-    title:"晶豪科 Q2 EPS高峰季，毛利率55.7%預估",
-    detail:"2026 Q2 EPS預估11.51元，為全年最高峰。力積電代工費2H26漲100%，毛利率將在Q3後回落至32–34%。",
-    stocks:["晶豪科 3006"],
-    pred:"up", predReason:"市場將在Q1財報後開始定價Q2高峰，股價有望提前反映。出場窗口在財報前1–2週。",
-    actual:null, actualNote:"",
-    correct:null,
-  },
-  {
-    id:9, date:"2026/Q2", status:"pending",
-    title:"台燿 泰國二期產能是否達260萬張月產",
-    detail:"台燿目前月產能約178萬張，二期完工後目標260萬張，是2026年EPS加速的核心假設。",
-    stocks:["台燿 6274"],
-    pred:"up", predReason:"若如期達產，800G交換器與AI伺服器CCL訂單能見度大增，目標價710元更有說服力。",
-    actual:null, actualNote:"",
-    correct:null,
-  },
-  {
-    id:10, date:"持續", status:"pending",
-    title:"美國對台半導體關稅談判（15%協議後續執行）",
-    detail:"台美已達成15%關稅協議，但執行細節與豁免清單仍在協商，科技出口股受牽連。",
-    stocks:["奇鋐 3017","台達電 2308","緯創 3231","創意 3443"],
-    pred:"neutral", predReason:"協議已達成降低最壞情境，但執行不確定性讓外資偏謹慎，短期偏中性到略偏空。",
-    actual:null, actualNote:"",
-    correct:null,
-  },
-  {
-    id:11, date:"2026/07", status:"pending",
-    title:"禾伸堂元富57購 到期",
-    detail:"目前持倉8,000股，均成本0.9925元，目標翻倍（約1.98元）。權證無停損設定，時間價值越近到期遞減越快。",
-    stocks:["禾伸堂 2481（標的）"],
-    pred:"up", predReason:"被動元件族群動能上來，禾伸堂本股動能啟動。但須在Q2前確認趨勢，否則時間成本侵蝕獲利空間。",
-    actual:null, actualNote:"",
-    correct:null,
-  },
-  {
-    id:12, date:"2026/Q3", status:"pending",
-    title:"緯創 VR 系列爬坡（NV Vera Rubin）",
-    detail:"VR系列減少線材組裝、組裝性更佳，預計3Q26開始帶來4–5個月完整營收貢獻，ASP將上揚。",
-    stocks:["緯創 3231"],
-    pred:"up", predReason:"若爬坡如期，3Q26起營收加速，毛利率組合改善，現價134元相對目標195元仍有空間。",
-    actual:null, actualNote:"",
-    correct:null,
-  },
-];
-
 
 // 背景層
 const C = {
@@ -295,7 +182,7 @@ export default function App() {
   const [calendarEvents, setCalendarEvents] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
 
-  // ── 根據持倉自動產生行事曆事件 ──────────────────────────────────
+  // ── 根據持倉自動產生行事曆事件（同時產生 AI 預判並同步至事件分析）──
   const fetchCalendarEvents = async (holdingsList) => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
@@ -306,16 +193,18 @@ export default function App() {
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
-      const prompt = `你是台股投資行事曆助手。今天是 ${today}。
+      const prompt = `你是台股投資行事曆助手兼事件預判分析師。今天是 ${today}。
 我目前持有以下股票：${stockList}
 
 請根據這些股票，列出未來可能的重要事件（法說會、財報公布、除權息、營收公布、產業催化劑等），以JSON陣列格式回覆，不輸出其他文字：
-[{"date":"時間描述","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息"}]
+[{"date":"時間描述","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息","pred":"up或down或neutral","predReason":"預判漲跌理由，2-3句話"}]
 規則：
 - 每檔股票至少1個事件，最多產出12個事件
 - urgent=true 僅限本週內或今日事件
 - date 用簡短描述如 "今日"、"3/28"、"每月10日"、"Q2"
 - type 只能用：法說、財報、營收、催化、操作、總經、除息
+- pred 必須是 "up"、"down" 或 "neutral" 三選一
+- predReason 用2-3句話說明為何看漲/看跌/中性，要有具體的邏輯依據
 - 根據目前時間點，給出最相關的近期事件`;
 
       const res = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
@@ -331,12 +220,45 @@ export default function App() {
         events._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
         setCalendarEvents(events);
         save("pf-calendar-v1", events);
+
+        // ── 自動同步至事件分析（避免重複）──
+        syncCalendarToNews(events);
       }
     } catch (e) {
       console.error("Calendar fetch error:", e);
     } finally {
       setCalendarLoading(false);
     }
+  };
+
+  // ── 將行事曆事件自動同步至事件分析 ──────────────────────────────
+  const syncCalendarToNews = (calEvents) => {
+    if (!calEvents || !Array.isArray(calEvents)) return;
+    setNewsEvents(prev => {
+      const existing = prev || [];
+      // 用 title 做去重比對
+      const existingTitles = new Set(existing.map(e => e.title));
+      const newEntries = calEvents
+        .filter(ce => ce.label && !existingTitles.has(ce.label))
+        .map(ce => {
+          const codeMatch = ce.label.match(/\d{4}/);
+          return {
+            id: Date.now() + Math.random(),
+            date: ce.date || "",
+            title: ce.label,
+            detail: ce.sub || "",
+            stocks: codeMatch
+              ? [{ code: codeMatch[0], name: ce.label.replace(/\d{4}/, "").replace(/[—\-\s]+/g, " ").trim() }]
+              : [],
+            pred: ce.pred || "neutral",
+            predReason: ce.predReason || "",
+            status: "pending",
+            actual: null, actualNote: "", correct: null,
+          };
+        });
+      if (newEntries.length === 0) return existing;
+      return [...existing, ...newEntries];
+    });
   };
 
   // boot
@@ -543,7 +465,8 @@ export default function App() {
       const pendingEvents = NE.filter(e => e.status === "pending");
       const eventCorrelations = pendingEvents.map(e => {
         const relatedStocks = e.stocks.map(s => {
-          const code = s.match(/\d+/)?.[0];
+          const raw = typeof s === "string" ? s : (s.code || s.name || "");
+          const code = raw.match(/\d+/)?.[0];
           const ch = changes.find(c => c.code === code);
           return ch ? { name: ch.name, code: ch.code, changePct: ch.changePct, change: ch.change } : null;
         }).filter(Boolean);
@@ -1402,34 +1325,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{flex:1}}>
                     <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
                     <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
+                    {/* 顯示 AI 預判 */}
+                    {e.pred && (
+                      <div style={{display:"flex",alignItems:"center",gap:4,marginTop:4}}>
+                        <span style={{fontSize:9,fontWeight:600,
+                          color:e.pred==="up"?C.up:e.pred==="down"?C.down:C.textMute}}>
+                          {e.pred==="up"?"↑ 看漲":e.pred==="down"?"↓ 看跌":"— 中性"}
+                        </span>
+                        {e.predReason && <span style={{fontSize:9,color:C.textMute,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>{e.predReason}</span>}
+                      </div>
+                    )}
                   </div>
                   <button onClick={()=>{
-                    // 將事件移到「事件分析」
-                    const codeMatch = e.label.match(/\d{4}/);
-                    const newNewsEvent = {
-                      id: Date.now(),
-                      date: new Date().toLocaleDateString("zh-TW",{year:"numeric",month:"2-digit",day:"2-digit"}).replace(/\//g,"/"),
-                      title: e.label,
-                      detail: e.sub,
-                      stocks: codeMatch ? [{code:codeMatch[0], name:e.label.replace(/\d{4}/,"").replace(/[—\-\s]+/g," ").trim()}] : [],
-                      pred: "up", predReason: "",
-                      status: "pending",
-                      actual: null, actualNote: "", correct: null,
-                    };
-                    setNewsEvents(prev => [...(prev || []), newNewsEvent]);
-                    // 從行事曆移除
-                    setCalendarEvents(prev => {
-                      const arr = Array.isArray(prev) ? [...prev] : [];
-                      arr.splice(globalIdx, 1);
-                      return arr;
-                    });
-                    setSaved("📋 已移至事件分析");
-                    setTimeout(() => setSaved(""), 2000);
+                    // 標記事件已發生 → 跳到事件分析進行復盤
+                    const matchedEvent = (newsEvents || []).find(ne => ne.title === e.label);
+                    if (matchedEvent) {
+                      setReviewingEvent(matchedEvent.id);
+                      setReviewForm({actual:"up",actualNote:"",lessons:""});
+                    }
+                    setTab("news");
+                    setSaved("📋 請在事件分析中完成復盤");
+                    setTimeout(() => setSaved(""), 2500);
                   }} style={{
                     background:C.amber+"18",color:C.amber,border:`1px solid ${C.amber}33`,
                     borderRadius:6,padding:"3px 8px",fontSize:9,fontWeight:500,cursor:"pointer",
                     whiteSpace:"nowrap",alignSelf:"center",
-                  }}>已發生 →</button>
+                  }}>已發生 · 復盤</button>
                 </div>
               </div>;
             })}
