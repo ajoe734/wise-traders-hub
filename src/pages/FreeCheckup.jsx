@@ -1498,8 +1498,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
                     <div style={{fontSize:12,color:C.textMute,marginTop:2}}>持有 {h.qty} {h.unit || "股"}</div>
                   </div>
-                  <span style={{background: h.pnl >= 0 ? C.olive+"22" : C.up+"22",
-                    color: h.pnl >= 0 ? C.olive : C.up,
+                  <span style={{background: h.pnl >= 0 ? C.up+"22" : C.down+"22",
+                    color: h.pnl >= 0 ? C.up : C.down,
                     fontSize:12,fontWeight:500,padding:"3px 11px",borderRadius:20}}>
                     {h.pnl >= 0 ? "獲利中" : "虧損中"}
                   </span>
@@ -1508,7 +1508,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {[["市價", h.price?.toLocaleString() || "—", C.textSec],
                     ["成本", h.cost != null ? String(h.cost) : "—", C.textMute],
                     ...(tgt ? [["目標價", tgt.toLocaleString(), C.olive], ["潛在漲幅", (upside > 0 ? "+" : "") + upside + "%", C.blue]] : []),
-                    ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(2) + "%", h.pnl >= 0 ? C.olive : C.up],
+                    ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(2) + "%", h.pnl >= 0 ? C.up : C.down],
                   ].map(([l,v,c])=>(
                     <div key={l}>
                       <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>{l}</div>
@@ -1660,7 +1660,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           )}
 
-          {dailyReport && <>
+          {dailyReport && !analyzing && <>
             {/* 今日損益摘要 */}
             <div id="daily-report-top" style={{...card,marginBottom:10,
               borderLeft:`3px solid ${dailyReport.totalTodayPnl>=0?C.up:C.down}88`}}>
