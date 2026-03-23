@@ -208,8 +208,11 @@ export default function App() {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
 
+  // reset guard — 清除全部後忽略 in-flight 的行事曆回應
+  const [resetGuard, setResetGuard] = useState(0);
+
   // ── 根據持倉自動產生行事曆事件（同時產生 AI 預判並同步至事件分析）──
-  const fetchCalendarEvents = async (holdingsList) => {
+  const fetchCalendarEvents = async (holdingsList, guard) => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
       save("pf-calendar-v1", []);
