@@ -1498,8 +1498,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
                     <div style={{fontSize:12,color:C.textMute,marginTop:2}}>持有 {h.qty} {h.unit || "股"}</div>
                   </div>
-                  <span style={{background: h.pnl >= 0 ? C.olive+"22" : C.up+"22",
-                    color: h.pnl >= 0 ? C.olive : C.up,
+                  <span style={{background: h.pnl >= 0 ? C.up+"22" : C.down+"22",
+                    color: h.pnl >= 0 ? C.up : C.down,
                     fontSize:12,fontWeight:500,padding:"3px 11px",borderRadius:20}}>
                     {h.pnl >= 0 ? "獲利中" : "虧損中"}
                   </span>
