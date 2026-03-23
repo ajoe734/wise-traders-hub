@@ -8,9 +8,41 @@ const corsHeaders = {
 
 const MODELS = [
   "google/gemini-2.0-flash-exp:free",
-  "qwen/qwen-2-vl-72b-instruct:free",
-  "meta-llama/llama-3.2-11b-vision-instruct:free",
+  "google/gemini-2.5-flash",
+  "qwen/qwen2.5-vl-72b-instruct",
 ];
+
+async function tryModel(apiKey: string, model: string, messages: any[], temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://wise-traders-hub.lovable.app',
+        'X-Title': 'WiseTraders Checkup',
+      },
+      body: JSON.stringify({ model, messages, temperature }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`Model ${model} failed (${response.status}):`, errText);
+      return { ok: false, text: errText, status: response.status };
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    if (!text) {
+      console.error(`Model ${model} returned empty content`);
+      return { ok: false, text: '', status: 200 };
+    }
+    return { ok: true, text, status: 200 };
+  } catch (err) {
+    console.error(`Model ${model} exception:`, err);
+    return { ok: false, text: String(err), status: 500 };
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -41,43 +73,38 @@ Deno.serve(async (req) => {
     }
     messages.push({ role: 'user', content: userPrompt });
 
-    const requestBody = {
-      models: MODELS,
-      route: "fallback",
-      messages,
-      temperature: 0.3,
-    };
+    // Try each model sequentially until one succeeds
+    for (let i = 0; i < MODELS.length; i++) {
+      const model = MODELS[i];
+      console.log(`Trying model ${i + 1}/${MODELS.length}: ${model}`);
+      const result = await tryModel(apiKey, model, messages, 0.3);
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://wise-traders-hub.lovable.app',
-        'X-Title': 'WiseTraders Checkup',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('OpenRouter API error:', response.status, errText);
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'AI 請求過於頻繁，請稍後再試' }), {
-          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      if (result.ok) {
+        console.log(`Model ${model} succeeded`);
+        return new Response(JSON.stringify({ content: [{ text: result.text }], text: result.text, response: result.text }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      return new Response(JSON.stringify({ error: 'AI 分析失敗', detail: errText }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+
+      // If rate limited (429), try next model
+      if (result.status === 429) {
+        console.log(`Model ${model} rate limited, trying next...`);
+        continue;
+      }
+
+      // If 404 (model not found), try next
+      if (result.status === 404) {
+        console.log(`Model ${model} not found, trying next...`);
+        continue;
+      }
+
+      // Other errors, also try next model
+      console.log(`Model ${model} failed with status ${result.status}, trying next...`);
     }
 
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
-
-    // Return in both formats for backward compatibility
-    return new Response(JSON.stringify({ content: [{ text }], text, response: text }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // All models failed
+    return new Response(JSON.stringify({ error: 'AI 分析失敗，所有模型均無法使用' }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
     console.error('AI analysis error:', err);
