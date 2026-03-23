@@ -277,13 +277,31 @@ export default function App() {
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        const events = JSON.parse(jsonMatch[0]);
-        events._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
-        setCalendarEvents(events);
-        save("pf-calendar-v1", events);
-
-        // ── 自動同步至事件分析（避免重複）──
-        syncCalendarToNews(events);
+        const newEvents = JSON.parse(jsonMatch[0]);
+        // ── 去重合併：保留舊事件，只加入新的 ──
+        setCalendarEvents(prev => {
+          const existing = Array.isArray(prev) ? prev.filter(e => e && e.label) : [];
+          const existingKeys = new Set(existing.map(e => {
+            const code = (e.label || "").match(/\d{4}/)?.[0] || "";
+            const type = e.type || "";
+            const date = (e.date || "").replace(/[^\d]/g, "").slice(0, 8);
+            return `${code}-${type}-${date}`;
+          }));
+          const added = newEvents.filter(ne => {
+            if (!ne || !ne.label) return false;
+            const code = (ne.label || "").match(/\d{4}/)?.[0] || "";
+            const type = ne.type || "";
+            const date = (ne.date || "").replace(/[^\d]/g, "").slice(0, 8);
+            return !existingKeys.has(`${code}-${type}-${date}`);
+          });
+          const merged = [...existing, ...added];
+          merged.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+          merged._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
+          save("pf-calendar-v1", merged);
+          // 只同步新增的事件到事件分析
+          if (added.length > 0) syncCalendarToNews(added);
+          return merged;
+        });
       }
     } catch (e) {
       console.error("Calendar fetch error:", e);
@@ -1599,15 +1617,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         today.setHours(0,0,0,0);
                         const evDate = e.date ? new Date(e.date.replace(/\//g, "-")) : null;
                         if (evDate) evDate.setHours(0,0,0,0);
-                        const diffDays = evDate ? Math.ceil((evDate - today) / (1000*60*60*24)) : null;
-                        const isPast = diffDays !== null && diffDays < 0;
-                        const isTracking = diffDays !== null && diffDays >= 0 && diffDays <= 7;
+                        const isPast = evDate && evDate < today;
                         if (isPast) {
                           return <span style={{fontSize:12,fontWeight:500,color:C.olive,whiteSpace:"nowrap",alignSelf:"center"}}>已發生 · 復盤</span>;
-                        } else if (isTracking) {
-                          return <span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:6,
-                            background:C.amber+"22",color:C.amber,border:`1px solid ${C.amber}44`,
-                            whiteSpace:"nowrap",alignSelf:"center"}}>追蹤中 · {diffDays}天</span>;
                         } else {
                           return <span style={{fontSize:12,fontWeight:500,color:C.textMute,whiteSpace:"nowrap",alignSelf:"center"}}>待驗證</span>;
                         }
