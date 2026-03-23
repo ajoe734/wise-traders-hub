@@ -952,22 +952,37 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
     const mktPrice = Number(trade?.market_price) || price; // 市價，若無則用成交價
 
-    if (action === "買進") {
+    if (action === "買進" || action === "持有") {
       if (idx >= 0) {
         const h = arr[idx];
-        const nq = h.qty + qty;
-        const nc = (h.cost * h.qty + price * qty) / nq;
-        const mp = mktPrice || h.price; // 優先用新的市價
-        arr[idx] = {
-          ...h,
-          name: h.name || name,
-          qty: nq,
-          price: mp,
-          cost: Math.round(nc * 100) / 100,
-          value: mp * nq,
-          pnl: Math.round((mp - nc) * nq),
-          pct: Math.round((mp / nc - 1) * 10000) / 100,
-        };
+        if (action === "持有") {
+          // 庫存截圖：直接覆蓋整筆持倉（price=成本價, market_price=市價）
+          const mp = mktPrice;
+          arr[idx] = {
+            ...h,
+            name: name || h.name,
+            qty,
+            price: mp,
+            cost: price, // price = 成本價/成交均價
+            value: mp * qty,
+            pnl: Math.round((mp - price) * qty),
+            pct: Math.round((mp / price - 1) * 10000) / 100,
+          };
+        } else {
+          const nq = h.qty + qty;
+          const nc = (h.cost * h.qty + price * qty) / nq;
+          const mp = mktPrice || h.price;
+          arr[idx] = {
+            ...h,
+            name: h.name || name,
+            qty: nq,
+            price: mp,
+            cost: Math.round(nc * 100) / 100,
+            value: mp * nq,
+            pnl: Math.round((mp - nc) * nq),
+            pct: Math.round((mp / nc - 1) * 10000) / 100,
+          };
+        }
       } else {
         arr.push({
           code,
