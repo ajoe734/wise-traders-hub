@@ -1351,7 +1351,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       animation:"pulse 1.5s ease-in-out infinite"}}>目標價更新</span>}
                   </div>
                   <div style={{fontSize:10,color:C.textMute,marginTop:2}}>
-                    {h.qty}股 · 成本{h.cost?.toLocaleString()} · 現{h.price?.toLocaleString()}
+                    {h.qty}{h.unit || "股"} · 成本{h.cost} · 現{h.price?.toLocaleString()}
                   </div>
                   {/* 目標價進度條 */}
                   {tp && (
@@ -1379,10 +1379,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
                   )}
                 </div>
-                <div style={{textAlign:"right",minWidth:70,paddingLeft:8}}>
-                  <div style={{fontSize:12,fontWeight:600,color:C.textSec}}>{h.value?.toLocaleString()}</div>
-                  <div style={{fontSize:11,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</div>
-                  <div style={{fontSize:10,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(1)}%</div>
+                <div style={{textAlign:"right",minWidth:80,paddingLeft:8}}>
+                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4}}>
+                    <span style={{fontSize:9,color:C.textMute}}>市值</span>
+                    <span style={{fontSize:12,fontWeight:600,color:C.textSec}}>{h.value?.toLocaleString()}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4,marginTop:1}}>
+                    <span style={{fontSize:9,color:C.textMute}}>損益</span>
+                    <span style={{fontSize:11,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4,marginTop:1}}>
+                    <span style={{fontSize:9,color:C.textMute}}>報酬</span>
+                    <span style={{fontSize:10,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
+                  </div>
                 </div>
               </div>
               );
@@ -1431,9 +1440,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 </div>
                 <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
                   {[["現價", h.price?.toLocaleString() || "—", C.textSec],
-                    ["成本", h.avg?.toLocaleString() || "—", C.textMute],
+                    ["成本", h.cost != null ? String(h.cost) : "—", C.textMute],
                     ...(tgt ? [["目標價", tgt.toLocaleString(), C.olive], ["潛在漲幅", (upside > 0 ? "+" : "") + upside + "%", C.blue]] : []),
-                    ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(1) + "%", h.pnl >= 0 ? C.olive : C.up],
+                    ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(2) + "%", h.pnl >= 0 ? C.olive : C.up],
                   ].map(([l,v,c])=>(
                     <div key={l}>
                       <div style={{fontSize:9,color:C.textMute,marginBottom:3}}>{l}</div>
