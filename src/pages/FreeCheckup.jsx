@@ -1388,6 +1388,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             ) : filteredEvents.map((e,i)=>{
               const tc = TYPE_COLOR[e.type]||C.textMute;
+              const globalIdx = CE.indexOf(e);
               return <div key={i} style={{...card,marginBottom:7,
                 borderLeft:`2px solid ${e.urgent ? C.up : tc+"66"}`}}>
                 <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
@@ -1402,6 +1403,33 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
                     <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
                   </div>
+                  <button onClick={()=>{
+                    // 將事件移到「事件分析」
+                    const codeMatch = e.label.match(/\d{4}/);
+                    const newNewsEvent = {
+                      id: Date.now(),
+                      date: new Date().toLocaleDateString("zh-TW",{year:"numeric",month:"2-digit",day:"2-digit"}).replace(/\//g,"/"),
+                      title: e.label,
+                      detail: e.sub,
+                      stocks: codeMatch ? [{code:codeMatch[0], name:e.label.replace(/\d{4}/,"").replace(/[—\-\s]+/g," ").trim()}] : [],
+                      pred: "up", predReason: "",
+                      status: "pending",
+                      actual: null, actualNote: "", correct: null,
+                    };
+                    setNewsEvents(prev => [...(prev || []), newNewsEvent]);
+                    // 從行事曆移除
+                    setCalendarEvents(prev => {
+                      const arr = Array.isArray(prev) ? [...prev] : [];
+                      arr.splice(globalIdx, 1);
+                      return arr;
+                    });
+                    setSaved("📋 已移至事件分析");
+                    setTimeout(() => setSaved(""), 2000);
+                  }} style={{
+                    background:C.amber+"18",color:C.amber,border:`1px solid ${C.amber}33`,
+                    borderRadius:6,padding:"3px 8px",fontSize:9,fontWeight:500,cursor:"pointer",
+                    whiteSpace:"nowrap",alignSelf:"center",
+                  }}>已發生 →</button>
                 </div>
               </div>;
             })}
