@@ -2196,45 +2196,55 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{fontSize:12,fontWeight:700,color:C.amber,letterSpacing:"0.04em",marginBottom:8,marginTop:gi===0?0:6}}>
                     {group.date}
                   </div>
-                  {group.logs.map((log, li) => {
-                    // 同時間只顯示第一筆的時間
-                    const showTime = li === 0 || log.time !== group.logs[li - 1].time;
-                    return (
-                      <div key={log.id}>
-                        {li > 0 && (
-                          <div style={{height:1,background:C.border,margin:"6px 0"}}/>
-                        )}
-                        <div style={{...card,marginBottom:0,
-                          borderLeft:`2px solid ${log.action==="買進" ? C.up+"88" : C.down+"88"}`}}>
-                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                            <div style={{display:"flex",alignItems:"center",gap:7}}>
-                              <span style={{
-                                background: log.action==="買進" ? C.upBg : C.downBg,
-                                color: log.action==="買進" ? C.up : C.down,
-                                fontSize:9, fontWeight:600, padding:"2px 8px", borderRadius:4}}>
-                                {log.action}
-                              </span>
-                              <span style={{fontSize:14,fontWeight:600,color:C.text}}>{log.name}</span>
-                              <span style={{fontSize:10,color:C.textMute}}>{log.code}</span>
-                            </div>
-                            {showTime && <div style={{fontSize:10,color:C.textMute}}>{log.time}</div>}
-                          </div>
-                          <div style={{fontSize:11,color:C.textMute,marginBottom:10}}>
-                            {log.qty}股 @ {log.price?.toLocaleString()}元
-                          </div>
-                          {log.qa.map((qi,i)=>(
-                            <div key={i} style={{marginBottom:8}}>
-                              <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>{qi.q}</div>
-                              <div style={{fontSize:11,color:C.textSec,background:C.subtle,
-                                borderRadius:6,padding:"7px 10px",lineHeight:1.7}}>
-                                {qi.a||"（未填）"}
+                  {(() => {
+                    // 按時間分組，同一批上傳的交易歸在一起
+                    const timeGroups = [];
+                    let curTime = null;
+                    group.logs.forEach(log => {
+                      if (!curTime || log.time !== curTime.time) {
+                        curTime = { time: log.time, items: [] };
+                        timeGroups.push(curTime);
+                      }
+                      curTime.items.push(log);
+                    });
+                    return timeGroups.map((tg, ti) => (
+                      <div key={"tg-"+ti}>
+                        {tg.items.map((log, li) => (
+                          <div key={log.id} style={{...card,marginBottom:li < tg.items.length-1 ? 8 : 0,
+                            borderLeft:`2px solid ${log.action==="買進" ? C.up+"88" : C.down+"88"}`}}>
+                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                              <div style={{display:"flex",alignItems:"center",gap:7}}>
+                                <span style={{
+                                  background: log.action==="買進" ? C.upBg : C.downBg,
+                                  color: log.action==="買進" ? C.up : C.down,
+                                  fontSize:9, fontWeight:600, padding:"2px 8px", borderRadius:4}}>
+                                  {log.action}
+                                </span>
+                                <span style={{fontSize:14,fontWeight:600,color:C.text}}>{log.name}</span>
+                                <span style={{fontSize:10,color:C.textMute}}>{log.code}</span>
                               </div>
+                              {li === 0 && <div style={{fontSize:10,color:C.textMute}}>{log.time}</div>}
                             </div>
-                          ))}
-                        </div>
+                            <div style={{fontSize:11,color:C.textMute,marginBottom: log.qa.length > 0 ? 10 : 0}}>
+                              {log.qty}股 @ {log.price?.toLocaleString()}元
+                            </div>
+                            {log.qa.map((qi,i)=>(
+                              <div key={i} style={{marginBottom:8}}>
+                                <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>{qi.q}</div>
+                                <div style={{fontSize:11,color:C.textSec,background:C.subtle,
+                                  borderRadius:6,padding:"7px 10px",lineHeight:1.7}}>
+                                  {qi.a||"（未填）"}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                        {ti < timeGroups.length - 1 && (
+                          <div style={{height:1,background:C.border,margin:"10px 0"}}/>
+                        )}
                       </div>
-                    );
-                  })}
+                    ));
+                  })()}
                   {gi < dateGroups.length - 1 && (
                     <div style={{height:1,background:C.border,margin:"10px 0 14px"}}/>
                   )}
