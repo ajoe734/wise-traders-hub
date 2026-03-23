@@ -381,7 +381,12 @@ export default function App() {
   const winners = H.filter(h=>h.pnl>0).sort((a,b)=>b.pct-a.pct);
   const losers  = H.filter(h=>h.pnl<0).sort((a,b)=>a.pct-b.pct);
 
-  const filteredEvents = filterType==="全部" ? EVENTS : EVENTS.filter(e=>e.type===filterType);
+  const holdingCodes = new Set(H.map(h => h.code));
+  const dynamicEvents = EVENTS.filter(e => {
+    const codeMatch = e.label.match(/\d{4}/);
+    return !codeMatch || holdingCodes.has(codeMatch[0]);
+  });
+  const filteredEvents = filterType==="全部" ? dynamicEvents : dynamicEvents.filter(e=>e.type===filterType);
 
   // ── 刷新即時股價（TWSE MIS API）───────────────────────────────
   const refreshPrices = async () => {
@@ -489,7 +494,7 @@ export default function App() {
       const totalTodayPnl = changes.reduce((s, c) => s + c.todayPnl, 0);
 
       // 3. 事件連動分析
-      const NE = newsEvents || NEWS_EVENTS;
+      const NE = newsEvents || [];
       const today = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "/");
       const pendingEvents = NE.filter(e => e.status === "pending");
       const eventCorrelations = pendingEvents.map(e => {
@@ -618,7 +623,7 @@ ${eventSummary}
       setAnalyzeStep("策略大腦進化中...");
       if (aiInsight) {
         try {
-          const NE = newsEvents || NEWS_EVENTS;
+          const NE = newsEvents || [];
           const pastEvents = NE.filter(e => e.status === "past");
           const hits = pastEvents.filter(e => e.correct === true).length;
           const total = pastEvents.filter(e => e.correct !== null).length;
@@ -691,7 +696,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   // ── 事件復盤 ─────────────────────────────────────────────────────
   const submitReview = (eventId) => {
     setNewsEvents(prev => {
-      const arr = [...(prev || NEWS_EVENTS)];
+      const arr = [...(prev || [])];
       const idx = arr.findIndex(e => e.id === eventId);
       if (idx < 0) return arr;
       arr[idx] = {
@@ -725,7 +730,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       predReason: newEvent.predReason,
       actual: null, actualNote: "", correct: null,
     };
-    setNewsEvents(prev => [...(prev || NEWS_EVENTS), evt]);
+    setNewsEvents(prev => [...(prev || []), evt]);
     setNewEvent({ date: "", title: "", detail: "", stocks: "", pred: "up", predReason: "" });
     setShowAddEvent(false);
     setSaved("✅ 事件已新增");
@@ -895,9 +900,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const resetAll = () => {
     ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
      "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1"].forEach(k => localStorage.removeItem(k));
-    setHoldings([]); setTradeLog([]); setTargets(INIT_TARGETS);
-    setNewsEvents(NEWS_EVENTS); setAnalysisHistory([]); setReversalConditions({});
-    setStrategyBrain(null);
+    setHoldings([]); setTradeLog([]); setTargets({});
+    setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
+    setStrategyBrain(null); setDailyReport(null);
     setImg(null); setB64(null); setParsed(null); setParseErr(null);
     setMemoStep(0); setMemoAns([]); setMemoIn("");
     setTab("holdings");
@@ -1248,97 +1253,105 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ WATCHLIST ══════════ */}
         {tab==="watchlist" && <>
-          <div style={{...card,borderLeft:`3px solid ${C.up}`,marginBottom:12}}>
-            <div style={{fontSize:9,color:C.up,fontWeight:600,letterSpacing:"0.1em",textTransform:"uppercase"}}>今日</div>
-            <div style={{fontSize:15,fontWeight:600,color:C.text,marginTop:5}}>
-              台燿 6274 — 今日法說會
+          {H.length === 0 ? (
+            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:28,marginBottom:10,opacity:0.3}}>👀</div>
+              <div style={{fontSize:13,color:C.textSec,fontWeight:500}}>尚無觀察股</div>
+              <div style={{fontSize:11,color:C.textMute,marginTop:6,lineHeight:1.7}}>
+                上傳成交截圖後，持倉股票會自動出現在觀察清單
+              </div>
             </div>
-            <div style={{fontSize:11,color:C.textSec,marginTop:5,lineHeight:1.8}}>
-              毛利率回沖 + 展望樂觀 → 補齊剩餘 2/3 部位<br/>
-              展望保守 → 停損 430 元
-            </div>
-          </div>
-
-          {INIT_WATCHLIST.map((w,wi)=>{
-            const upside=((w.target-w.price)/w.price*100).toFixed(1);
-            const prog=Math.min(w.price/w.target*100,100);
-            const sc = w.sc==="#f59e0b"?C.amber:w.sc==="#22c55e"?C.olive:C.up;
-            const bgTints=[C.card,C.cardBlue,C.cardAmber];
-            return <div key={w.code} style={{...card, background:bgTints[wi%3], marginBottom:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                <div>
-                  <div style={{fontSize:16,fontWeight:600,color:C.text}}>{w.name}
-                    <span style={{fontSize:10,color:C.textMute,fontWeight:400,marginLeft:6}}>{w.code}</span>
+          ) : (
+            H.map((h,wi)=>{
+              const tgt = targets && targets[h.code] ? avgTarget(h.code) : null;
+              const upside = tgt ? (((tgt - h.price) / h.price) * 100).toFixed(1) : null;
+              const prog = tgt ? Math.min(h.price / tgt * 100, 100) : 0;
+              const colors = [C.blue, C.amber, C.olive, C.lavender, C.teal];
+              const sc = colors[wi % colors.length];
+              const bgTints = [C.card, C.cardBlue, C.cardAmber];
+              return <div key={h.code} style={{...card, background:bgTints[wi%3], marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div>
+                    <div style={{fontSize:16,fontWeight:600,color:C.text}}>{h.name}
+                      <span style={{fontSize:10,color:C.textMute,fontWeight:400,marginLeft:6}}>{h.code}</span>
+                    </div>
+                    <div style={{fontSize:10,color:C.textMute,marginTop:2}}>持有 {h.qty} {h.unit || "股"}</div>
                   </div>
-                  <div style={{fontSize:10,color:C.textMute,marginTop:2}}>{w.catalyst}</div>
+                  <span style={{background: h.pnl >= 0 ? C.olive+"22" : C.up+"22",
+                    color: h.pnl >= 0 ? C.olive : C.up,
+                    fontSize:10,fontWeight:500,padding:"3px 11px",borderRadius:20}}>
+                    {h.pnl >= 0 ? "獲利中" : "虧損中"}
+                  </span>
                 </div>
-                <span style={{background:sc+"22",color:sc,fontSize:10,fontWeight:500,
-                  padding:"3px 11px",borderRadius:20}}>{w.status}</span>
-              </div>
-              <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
-                {[["現價",w.price.toLocaleString(),C.textSec],
-                  ["目標價",w.target.toLocaleString(),C.olive],
-                  ["潛在漲幅","+"+upside+"%",C.blue]].map(([l,v,c])=>(
-                  <div key={l}>
-                    <div style={{fontSize:9,color:C.textMute,marginBottom:3}}>{l}</div>
-                    <div style={{fontSize:17,fontWeight:600,color:c}}>{v}</div>
+                <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
+                  {[["現價", h.price?.toLocaleString() || "—", C.textSec],
+                    ["成本", h.avg?.toLocaleString() || "—", C.textMute],
+                    ...(tgt ? [["目標價", tgt.toLocaleString(), C.olive], ["潛在漲幅", (upside > 0 ? "+" : "") + upside + "%", C.blue]] : []),
+                    ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(1) + "%", h.pnl >= 0 ? C.olive : C.up],
+                  ].map(([l,v,c])=>(
+                    <div key={l}>
+                      <div style={{fontSize:9,color:C.textMute,marginBottom:3}}>{l}</div>
+                      <div style={{fontSize:17,fontWeight:600,color:c}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                {tgt && <div style={{marginTop:12}}>
+                  <div style={{background:C.subtle,borderRadius:3,height:3}}>
+                    <div style={{width:`${prog}%`,height:"100%",
+                      background:`linear-gradient(90deg,${C.blue}88,${C.olive}88)`,borderRadius:3}}/>
                   </div>
-                ))}
-              </div>
-              <div style={{marginTop:12}}>
-                <div style={{background:C.subtle,borderRadius:3,height:3}}>
-                  <div style={{width:`${prog}%`,height:"100%",
-                    background:`linear-gradient(90deg,${C.blue}88,${C.olive}88)`,borderRadius:3}}/>
-                </div>
-              </div>
-              <div style={{fontSize:10,color:C.textMute,marginTop:9,lineHeight:1.7}}>{w.note}</div>
-            </div>;
-          })}
+                </div>}
+              </div>;
+            })
+          )}
         </>}
 
         {/* ══════════ EVENTS ══════════ */}
         {tab==="events" && <>
-          <div style={{...card,marginBottom:12}}>
-            <div style={lbl}>接力計畫</div>
-            <div style={{background:C.subtle,borderRadius:8,padding:"12px 10px",marginTop:6,
-              fontFamily:"monospace",fontSize:11,lineHeight:2.2,color:C.textMute}}>
-              <span style={{color:C.up}}>3月</span>{" ── "}<span style={{color:C.amber}}>6月</span>{" ── "}<span style={{color:C.blue}}>9月</span>{" ── 12月"}<br/>
-              <span style={{color:C.up}}>晶豪科 出場中 ▶</span><br/>
-              {"                "}<span style={{color:C.amber}}>力積電 加碼評估 ──────▶</span><br/>
-              {"                "}<span style={{color:C.blue}}>台燿 布局中 ─────────────▶</span>
-            </div>
-          </div>
-
-          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
-            {["全部",...Object.keys(TYPE_COLOR)].map(t=>(
-              <button key={t} onClick={()=>setFilterType(t)} style={{
-                background: filterType===t ? (TYPE_COLOR[t]+"33"||C.subtle) : "transparent",
-                color: filterType===t ? (TYPE_COLOR[t]||C.text) : C.textMute,
-                border:`1px solid ${filterType===t?(TYPE_COLOR[t]+"66"||C.border):C.border}`,
-                borderRadius:20,padding:"3px 11px",fontSize:10,fontWeight:500,cursor:"pointer",
-              }}>{t}</button>
-            ))}
-          </div>
-
-          {filteredEvents.map((e,i)=>{
-            const tc = TYPE_COLOR[e.type]||C.textMute;
-            return <div key={i} style={{...card,marginBottom:7,
-              borderLeft:`2px solid ${e.urgent ? C.up : tc+"66"}`}}>
-              <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                <div style={{minWidth:48}}>
-                  <div style={{background: e.urgent ? C.upBg : tc+"18",
-                    color: e.urgent ? C.up : tc,
-                    fontSize:9,fontWeight:600,padding:"2px 5px",borderRadius:4,
-                    textAlign:"center",marginBottom:3}}>{e.type}</div>
-                  <div style={{fontSize:9,color:C.textMute,textAlign:"center",lineHeight:1.4}}>{e.date}</div>
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
-                  <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
-                </div>
+          {H.length === 0 && dynamicEvents.length === 0 ? (
+            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:28,marginBottom:10,opacity:0.3}}>📅</div>
+              <div style={{fontSize:13,color:C.textSec,fontWeight:500}}>尚無行事曆事件</div>
+              <div style={{fontSize:11,color:C.textMute,marginTop:6,lineHeight:1.7}}>
+                上傳成交截圖後，相關股票的財報、法說、催化事件會自動列出
               </div>
-            </div>;
-          })}
+            </div>
+          ) : <>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
+              {["全部",...Object.keys(TYPE_COLOR)].map(t=>(
+                <button key={t} onClick={()=>setFilterType(t)} style={{
+                  background: filterType===t ? (TYPE_COLOR[t]+"33"||C.subtle) : "transparent",
+                  color: filterType===t ? (TYPE_COLOR[t]||C.text) : C.textMute,
+                  border:`1px solid ${filterType===t?(TYPE_COLOR[t]+"66"||C.border):C.border}`,
+                  borderRadius:20,padding:"3px 11px",fontSize:10,fontWeight:500,cursor:"pointer",
+                }}>{t}</button>
+              ))}
+            </div>
+
+            {filteredEvents.length === 0 ? (
+              <div style={{...card,textAlign:"center",padding:"24px 16px"}}>
+                <div style={{fontSize:11,color:C.textMute}}>此分類暫無事件</div>
+              </div>
+            ) : filteredEvents.map((e,i)=>{
+              const tc = TYPE_COLOR[e.type]||C.textMute;
+              return <div key={i} style={{...card,marginBottom:7,
+                borderLeft:`2px solid ${e.urgent ? C.up : tc+"66"}`}}>
+                <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                  <div style={{minWidth:48}}>
+                    <div style={{background: e.urgent ? C.upBg : tc+"18",
+                      color: e.urgent ? C.up : tc,
+                      fontSize:9,fontWeight:600,padding:"2px 5px",borderRadius:4,
+                      textAlign:"center",marginBottom:3}}>{e.type}</div>
+                    <div style={{fontSize:9,color:C.textMute,textAlign:"center",lineHeight:1.4}}>{e.date}</div>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
+                    <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
+                  </div>
+                </div>
+              </div>;
+            })}
+          </>}
         </>}
 
         {/* ══════════ DAILY ANALYSIS ══════════ */}
@@ -1850,7 +1863,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ NEWS ANALYSIS ══════════ */}
         {tab==="news" && (()=>{
-          const NE = newsEvents || NEWS_EVENTS;
+          const NE = newsEvents || [];
           const past    = NE.filter(e=>e.status==="past").sort((a,b)=>b.id-a.id);
           const pending = NE.filter(e=>e.status==="pending").sort((a,b)=>a.id-b.id);
           const hits    = NE.filter(e=>e.correct===true).length;
