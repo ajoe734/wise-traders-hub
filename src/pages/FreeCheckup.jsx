@@ -2517,6 +2517,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               ✕ 事件分析（預測與復盤紀錄）<br/>
               ✕ 收盤分析（歷史分析報告）<br/>
               ✕ 策略大腦（AI 學習紀錄）<br/>
+              ✕ 目標價資料<br/>
+              ✕ 歷史分析紀錄<br/>
+              ✕ 最近教訓
               ✕ 目標價資料
             </div>
             <div style={{display:"flex",gap:10}}>
