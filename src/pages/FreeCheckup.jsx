@@ -1660,7 +1660,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           )}
 
-          {dailyReport && <>
+          {dailyReport && !analyzing && <>
             {/* 今日損益摘要 */}
             <div id="daily-report-top" style={{...card,marginBottom:10,
               borderLeft:`3px solid ${dailyReport.totalTodayPnl>=0?C.up:C.down}88`}}>
