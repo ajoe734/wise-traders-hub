@@ -327,6 +327,7 @@ export default function App() {
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const events = JSON.parse(jsonMatch[0]);
+        events._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
         setCalendarEvents(events);
         save("pf-calendar-v1", events);
       }
