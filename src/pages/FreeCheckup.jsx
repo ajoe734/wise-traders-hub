@@ -197,37 +197,38 @@ export default function App() {
       oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
       const endDate = oneYearLater.toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
 
-      // 過濾掉權證、ETF、期貨等非普通股標的，只保留4碼純股票
-      const pureStocks = holdingsList.filter(h => /^\d{4}$/.test(h.code));
-      const nonStocks = holdingsList.filter(h => !/^\d{4}$/.test(h.code));
-      const pureStockList = pureStocks.map(h => `${h.code} ${h.name}`).join("、");
-
-      if (pureStocks.length === 0) {
-        // 全部都是權證/ETF等，不產生行事曆
-        const emptyEvents = [];
-        emptyEvents._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
-        setCalendarEvents(emptyEvents);
-        save("pf-calendar-v1", emptyEvents);
-        setCalendarLoading(false);
-        return;
-      }
+      const allStockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
 
       const prompt = `你是台股投資行事曆助手兼事件預判分析師。今天是 ${today}。
-我目前持有以下普通股：${pureStockList}
-${nonStocks.length > 0 ? `\n（以下為權證/ETF/期貨等非普通股標的，請完全忽略，不要為它們產生任何事件：${nonStocks.map(h => `${h.code} ${h.name}`).join("、")}）` : ""}
+我目前持有以下標的：${allStockList}
 
-請根據上述「普通股」，列出從明天起到 ${endDate} 為止（未來一整年）的重要事件，以JSON陣列格式回覆，不輸出其他文字：
-[{"date":"YYYY/MM/DD 格式日期","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息","pred":"up或down或neutral","predReason":"預判漲跌理由，2-3句話"}]
+請根據上述所有標的，列出從明天起到 ${endDate} 為止（未來一整年）的重要事件，以JSON陣列格式回覆，不輸出其他文字：
+[{"date":"YYYY/MM/DD 格式日期","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息/到期","pred":"up或down或neutral","predReason":"預判漲跌理由，2-3句話"}]
+
+【最重要規則】不確定的事件寧可不列也絕對不要編造！尤其是日期，如果你不知道確切日期就不要列。
+
 規則：
-- 絕對不要包含權證（代碼5-6碼如03910）、ETF（如0050、00637L）、期貨等非普通股的事件
+- 包含所有類型的標的：普通股、權證、ETF 等
 - 不要包含今天（${today}）或過去的事件，只列未來事件
-- 只列你有高度信心的真實公開事件（如法說會、財報公布日、除息日、營收公布日等），不要編造不確定的事件
+
+【普通股（4碼數字代碼）】：
+- 列出法說會、財報公布日、除息日、營收公布日等真實公開事件
 - 營收公布日固定為每月10日前，財報公布日依交易所規定（Q1:5/15前、Q2:8/14前、Q3:11/14前、年報:3/31前）
-- 涵蓋未來一整年，每季度都要有事件
-- 每檔普通股至少3個事件，總共產出20-30個事件
+- 每檔至少3個事件
+
+【權證（5-6碼代碼）】：
+- 你通常不知道權證的確切到期日，所以不要編造到期日事件！
+- 改為列出「標的股（母股）」的重要事件，因為這些事件會影響權證價格
+- 事件標題要標明影響哪檔權證，例如「2330台積電法說會（影響權證03910）」
+
+【ETF】：
+- 列出配息日、成分股調整等你確定的事件
+- 不確定日期就不要列
+
+- 涵蓋未來一整年，每季度都要有事件，總共產出20-30個事件
 - urgent=true 僅限未來一週內的事件
 - date 必須用 YYYY/MM/DD 格式（如 2026/04/10），方便排序
-- type 只能用：法說、財報、營收、催化、操作、總經、除息
+- type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
 - pred 必須是 "up"、"down" 或 "neutral" 三選一
 - predReason 用2-3句話說明為何看漲/看跌/中性，要有具體的邏輯依據
 - 按日期由近到遠排序`;
