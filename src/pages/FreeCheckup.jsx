@@ -266,28 +266,25 @@ export default function App() {
     setNewsEvents(prev => {
       const existing = prev || [];
 
-      // 建立去重 key：股票代碼 + 日期（模糊匹配）
       const makeKey = (label, date) => {
         const code = (label || "").match(/\d{4}/)?.[0] || "";
-        // 標準化日期：只取數字部分
         const d = (date || "").replace(/[^\d]/g, "").slice(0, 8);
-        // 用代碼+事件關鍵字做 key（法說/財報/營收/除息/催化）
         const keywords = ["法說","財報","營收","除息","催化","配息","股利","展望","獲利"];
         const kw = keywords.find(k => (label || "").includes(k)) || "event";
         return `${code}-${kw}-${d}`;
       };
 
-      // 先清理現有重複項（保留最早的）
+      // 1) 移除舊的行事曆同步項目（source === "calendar"），只保留手動或其他來源
+      const manual = existing.filter(e => e.source !== "calendar");
+
+      // 2) 對手動項目建立去重 set
       const seenKeys = new Map();
-      const deduped = existing.filter(e => {
+      manual.forEach(e => {
         const key = makeKey(e.title, e.date);
-        if (!key || key === "--event-") return true; // 無法識別的保留
-        if (seenKeys.has(key)) return false;
-        seenKeys.set(key, true);
-        return true;
+        if (key && key !== "--event-") seenKeys.set(key, true);
       });
 
-      // 新增不重複的行事曆事件
+      // 3) 新增不重複的行事曆事件，標記 source
       const newEntries = calEvents
         .filter(ce => {
           if (!ce.label) return false;
@@ -310,10 +307,10 @@ export default function App() {
             predReason: ce.predReason || "",
             status: "pending",
             actual: null, actualNote: "", correct: null,
+            source: "calendar",
           };
         });
-      if (newEntries.length === 0 && deduped.length === existing.length) return existing;
-      return [...deduped, ...newEntries];
+      return [...manual, ...newEntries];
     });
   };
 
