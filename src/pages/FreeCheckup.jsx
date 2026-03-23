@@ -1093,6 +1093,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               }}>
                 {refreshing ? "更新中..." : "⟳ 刷新股價"}
               </button>
+              <button onClick={clearAnalysisAndLessons} style={{
+                background: C.amberBg, color: C.amber, border:`1px solid ${C.amber}55`,
+                borderRadius:20, padding:"4px 10px", fontSize:10, fontWeight:500,
+                cursor:"pointer", whiteSpace:"nowrap",
+              }}>🧹 清除分析/教訓</button>
               <button onClick={() => setShowResetConfirm(true)} style={{
                 background: C.up+"18", color: C.up, border:`1px solid ${C.up}33`,
                 borderRadius:20, padding:"4px 10px", fontSize:10, fontWeight:500,
