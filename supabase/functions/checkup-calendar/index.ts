@@ -6,16 +6,32 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// 4-stage pipeline models (all free on OpenRouter)
-const STAGE1_MODEL = "qwen/qwen3.5-plus:free";       // 廣泛過濾
-const STAGE2_MODEL = "google/gemini-3-flash:free";    // 深度提取
-const STAGE3_MODEL = "meta-llama/llama-4-maverick:free"; // 邏輯去重
-const STAGE4_MODEL = "google/gemma-3-27b:free";       // 精煉輸出
+// 4-stage pipeline models with fallbacks per stage
+const STAGE_MODELS = {
+  stage1: ["qwen/qwen3.5-plus:free", "google/gemini-2.0-flash-exp:free", "qwen/qwen-2.5-72b-instruct:free"],
+  stage2: ["google/gemini-3-flash:free", "google/gemini-2.0-flash-exp:free", "qwen/qwen-2.5-72b-instruct:free"],
+  stage3: ["meta-llama/llama-4-maverick:free", "qwen/qwen-2.5-72b-instruct:free", "google/gemini-2.0-flash-exp:free"],
+  stage4: ["google/gemma-3-27b:free", "qwen/qwen-2.5-72b-instruct:free", "google/gemini-2.0-flash-exp:free"],
+};
 
 const FALLBACK_MODELS = [
   "google/gemini-2.0-flash-exp:free",
   "qwen/qwen-2.5-72b-instruct:free",
 ];
+
+async function callStage(apiKey: string, stageName: string, models: string[], messages: any[], temperature: number): Promise<{ ok: boolean; text: string }> {
+  for (const model of models) {
+    console.log(`${stageName}: trying ${model}...`);
+    const result = await callModel(apiKey, model, messages, temperature);
+    if (result.ok && result.text) {
+      console.log(`${stageName}: ${model} succeeded`);
+      return { ok: true, text: result.text };
+    }
+    console.warn(`${stageName}: ${model} failed, trying next...`);
+  }
+  console.error(`${stageName}: all models exhausted`);
+  return { ok: false, text: '' };
+}
 
 async function callModel(apiKey: string, model: string, messages: any[], temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
   try {
