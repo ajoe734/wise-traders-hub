@@ -1651,30 +1651,41 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
 
           {/* 歷史分析 */}
-          {(analysisHistory||[]).length>0 && (
-            <div style={{...card}}>
-              <div style={lbl}>歷史分析記錄</div>
-              {(analysisHistory||[]).slice(0,10).map(r=>(
-                <div key={r.id} onClick={()=>{
-                    setDailyReport(r);
-                    setTimeout(()=>document.getElementById("daily-report-top")?.scrollIntoView({behavior:"smooth"}),50);
-                  }}
-                  style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                    padding:"8px 0",cursor:"pointer",
-                    background:dailyReport?.id===r.id?C.subtle:"transparent",
-                    borderRadius:6, paddingLeft:6, paddingRight:6,
-                    borderBottom:`1px solid ${C.borderSub}`}}>
-                  <div>
-                    <span style={{fontSize:12,color:C.text}}>{r.date}</span>
-                    <span style={{fontSize:10,color:C.textMute,marginLeft:6}}>{r.time}</span>
-                  </div>
-                  <span style={{fontSize:12,fontWeight:600,color:pc(r.totalTodayPnl)}}>
-                    {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
-                  </span>
+          {(analysisHistory||[]).length>0 && (()=>{
+            // Filter out entries without real data (hardcoded/empty)
+            const validHistory = (analysisHistory||[]).filter(r => r.changes && r.changes.length > 0);
+            if (validHistory.length === 0) return null;
+            return (
+              <div style={{...card}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={lbl}>歷史分析記錄</div>
+                  <span style={{fontSize:9,color:C.textMute}}>共 {validHistory.length} 筆</span>
                 </div>
-              ))}
-            </div>
-          )}
+                {validHistory.slice(0,15).map(r=>(
+                  <div key={r.id}>
+                    <div onClick={()=>{
+                        if (dailyReport?.id === r.id) { setDailyReport(null); } else { setDailyReport(r); }
+                      }}
+                      style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                        padding:"8px 6px",cursor:"pointer",
+                        background:dailyReport?.id===r.id?C.subtle:"transparent",
+                        borderRadius:6,
+                        borderBottom:`1px solid ${C.borderSub}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{fontSize:10,color:dailyReport?.id===r.id?C.amber:C.textMute,transition:"transform 0.15s",
+                          display:"inline-block",transform:dailyReport?.id===r.id?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                        <span style={{fontSize:12,color:C.text}}>{r.date}</span>
+                        <span style={{fontSize:10,color:C.textMute}}>{r.time}</span>
+                      </div>
+                      <span style={{fontSize:12,fontWeight:600,color:pc(r.totalTodayPnl)}}>
+                        {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </>}
 
         {/* ══════════ UPLOAD ══════════ */}
