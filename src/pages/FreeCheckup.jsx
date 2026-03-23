@@ -382,7 +382,7 @@ export default function App() {
   const losers  = H.filter(h=>h.pnl<0).sort((a,b)=>a.pct-b.pct);
 
   const holdingCodes = new Set(H.map(h => h.code));
-  const dynamicEvents = EVENTS.filter(e => {
+  const dynamicEvents = H.length === 0 ? [] : EVENTS.filter(e => {
     const codeMatch = e.label.match(/\d{4}/);
     return !codeMatch || holdingCodes.has(codeMatch[0]);
   });
