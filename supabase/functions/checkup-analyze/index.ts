@@ -12,7 +12,7 @@ const STAGE1_MODEL = "deepseek/deepseek-r1:free";
 const STAGE2_MODEL = "qwen/qwen-2.5-72b-instruct:free";
 // Fallback models if the pipeline fails
 const FALLBACK_MODELS = [
-  "google/gemini-2.0-flash-exp:free",
+  "google/gemini-2.5-flash-preview:free",
   "google/gemini-2.5-flash",
   "qwen/qwen2.5-vl-72b-instruct",
 ];
