@@ -1379,10 +1379,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
                   )}
                 </div>
-                <div style={{textAlign:"right",minWidth:70,paddingLeft:8}}>
-                  <div style={{fontSize:12,fontWeight:600,color:C.textSec}}>{h.value?.toLocaleString()}</div>
-                  <div style={{fontSize:11,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</div>
-                  <div style={{fontSize:10,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(1)}%</div>
+                <div style={{textAlign:"right",minWidth:80,paddingLeft:8}}>
+                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4}}>
+                    <span style={{fontSize:9,color:C.textMute}}>市值</span>
+                    <span style={{fontSize:12,fontWeight:600,color:C.textSec}}>{h.value?.toLocaleString()}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4,marginTop:1}}>
+                    <span style={{fontSize:9,color:C.textMute}}>損益</span>
+                    <span style={{fontSize:11,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4,marginTop:1}}>
+                    <span style={{fontSize:9,color:C.textMute}}>報酬</span>
+                    <span style={{fontSize:10,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
+                  </div>
                 </div>
               </div>
               );
