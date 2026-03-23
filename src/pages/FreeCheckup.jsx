@@ -236,10 +236,37 @@ export default function App() {
     if (!calEvents || !Array.isArray(calEvents)) return;
     setNewsEvents(prev => {
       const existing = prev || [];
-      // 用 title 做去重比對
-      const existingTitles = new Set(existing.map(e => e.title));
+
+      // 建立去重 key：股票代碼 + 日期（模糊匹配）
+      const makeKey = (label, date) => {
+        const code = (label || "").match(/\d{4}/)?.[0] || "";
+        // 標準化日期：只取數字部分
+        const d = (date || "").replace(/[^\d]/g, "").slice(0, 8);
+        // 用代碼+事件關鍵字做 key（法說/財報/營收/除息/催化）
+        const keywords = ["法說","財報","營收","除息","催化","配息","股利","展望","獲利"];
+        const kw = keywords.find(k => (label || "").includes(k)) || "event";
+        return `${code}-${kw}-${d}`;
+      };
+
+      // 先清理現有重複項（保留最早的）
+      const seenKeys = new Map();
+      const deduped = existing.filter(e => {
+        const key = makeKey(e.title, e.date);
+        if (!key || key === "--event-") return true; // 無法識別的保留
+        if (seenKeys.has(key)) return false;
+        seenKeys.set(key, true);
+        return true;
+      });
+
+      // 新增不重複的行事曆事件
       const newEntries = calEvents
-        .filter(ce => ce.label && !existingTitles.has(ce.label))
+        .filter(ce => {
+          if (!ce.label) return false;
+          const key = makeKey(ce.label, ce.date);
+          if (seenKeys.has(key)) return false;
+          seenKeys.set(key, true);
+          return true;
+        })
         .map(ce => {
           const codeMatch = ce.label.match(/\d{4}/);
           return {
@@ -256,8 +283,8 @@ export default function App() {
             actual: null, actualNote: "", correct: null,
           };
         });
-      if (newEntries.length === 0) return existing;
-      return [...existing, ...newEntries];
+      if (newEntries.length === 0 && deduped.length === existing.length) return existing;
+      return [...deduped, ...newEntries];
     });
   };
 
