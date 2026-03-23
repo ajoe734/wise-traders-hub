@@ -1406,30 +1406,30 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderBottom: i<displayed.length-1 ? `1px solid ${C.borderSub}` : "none"}}>
                 {/* 第一行：名稱 + 標籤 */}
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
-                  <span style={{fontSize:17,fontWeight:600,color:C.text}}>{h.name}</span>
-                  <span style={{fontSize:12,color:C.textMute}}>{h.code}</span>
+                  <span style={{fontSize:15,fontWeight:600,color:C.text}}>{h.name}</span>
+                  <span style={{fontSize:11,color:C.textMute}}>{h.code}</span>
                   {h.type!=="股票"&&(
-                    <span style={{fontSize:12,padding:"1px 6px",borderRadius:3,
+                    <span style={{fontSize:11,padding:"1px 6px",borderRadius:3,
                       background: h.type==="權證" ? C.amberBg : C.blueBg,
                       color: h.type==="權證" ? C.amber : C.blue,
                       fontWeight:500}}>{h.type}</span>
                   )}
-                  {h.expire&&<span style={{fontSize:12,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
-                  {h.alert&&<span style={{fontSize:12,color:C.up,fontWeight:600}}>{h.alert}</span>}
-                  {isNew&&<span style={{fontSize:12,padding:"1px 6px",borderRadius:3,
+                  {h.expire&&<span style={{fontSize:11,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
+                  {h.alert&&<span style={{fontSize:11,color:C.up,fontWeight:600}}>{h.alert}</span>}
+                  {isNew&&<span style={{fontSize:11,padding:"1px 6px",borderRadius:3,
                     background:C.tealBg,color:C.teal,fontWeight:600,
                     animation:"pulse 1.5s ease-in-out infinite"}}>目標價更新</span>}
                 </div>
                 {/* 第二行：左側 數量·成本價·市價·市值 / 右側 損益·報酬 */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                  <div style={{fontSize:14,color:C.textMute}}>
+                  <div style={{fontSize:12,color:C.textMute}}>
                     {h.qty}{h.unit || "股"} · 成本價{h.cost} · 成本{Math.round(h.cost * h.qty).toLocaleString()} · 市價{h.price?.toLocaleString()} · <span style={{color:C.blue}}>市值 {h.value?.toLocaleString()}</span>
                   </div>
                   <div style={{display:"flex",gap:10,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
-                    <span style={{fontSize:14,color:C.textMute}}>損益</span>
-                    <span style={{fontSize:15,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
-                    <span style={{fontSize:14,color:C.textMute}}>報酬</span>
-                    <span style={{fontSize:14,fontWeight:600,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
+                    <span style={{fontSize:12,color:C.textMute}}>損益</span>
+                    <span style={{fontSize:13,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                    <span style={{fontSize:12,color:C.textMute}}>報酬</span>
+                    <span style={{fontSize:12,fontWeight:600,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                 </div>
                 {/* 目標價進度條 */}
