@@ -17,9 +17,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  const apiKey = Deno.env.get('LOVABLE_API_KEY');
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: '未設定 ANTHROPIC_API_KEY' }), {
+    return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY is not configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -27,29 +27,53 @@ Deno.serve(async (req) => {
   try {
     const { systemPrompt, base64, mediaType } = await req.json();
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 600,
-        system: systemPrompt,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: base64 } },
-            { type: 'text', text: '解析這張成交截圖' },
-          ],
-        }],
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: `data:${mediaType || 'image/jpeg'};base64,${base64}` },
+              },
+              { type: 'text', text: '解析這張成交截圖' },
+            ],
+          },
+        ],
       }),
     });
 
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('AI gateway error:', response.status, errText);
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: 'AI 請求過於頻繁，請稍後再試' }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: 'AI 額度不足，請至設定頁面加值' }), {
+          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ error: 'AI 解析失敗', detail: errText }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const data = await response.json();
-    return new Response(JSON.stringify(data), {
+    const text = data.choices?.[0]?.message?.content || '';
+
+    // Return in Anthropic-compatible format so frontend doesn't need changes
+    return new Response(JSON.stringify({ content: [{ text }] }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
