@@ -337,23 +337,36 @@ export default function App() {
       const sb = await load("pf-brain-v1", null);
       const ce = await load("pf-calendar-v1", []);
       setHoldings(h); setTradeLog(l); setTargets(t);
-      setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
       setStrategyBrain(sb); setCalendarEvents(ce);
-      setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
-      setStrategyBrain(sb);
+
+      // 若持倉為空，清空所有衍生資料（觀察股、行事曆、事件分析、收盤分析、策略大腦）
+      const hasHoldings = h && h.length > 0;
+      if (!hasHoldings) {
+        setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
+        setStrategyBrain(null); setCalendarEvents([]);
+        save("pf-news-events-v1", []); save("pf-analysis-history-v1", []);
+        save("pf-reversal-v1", {}); save("pf-brain-v1", null); save("pf-calendar-v1", []);
+        save("pf-targets-v1", {});
+        setTargets({});
+      } else {
+        setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
+      }
       setReady(true);
-      // 嘗試從雲端同步（策略大腦 + 歷史分析 + 事件資料）
-      try {
-        const [cloudBrain, cloudHist, cloudEvents] = await Promise.all([
-          fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=brain`).then(r=>r.json()).catch(()=>({brain:null})),
-          fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=history`).then(r=>r.json()).catch(()=>({history:[]})),
-          fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"load-events"})}).then(r=>r.json()).catch(()=>({events:null})),
-        ]);
-        if (cloudBrain.brain) { setStrategyBrain(cloudBrain.brain); save("pf-brain-v1", cloudBrain.brain); }
-        if (cloudHist.history?.length > 0) { setAnalysisHistory(cloudHist.history); save("pf-analysis-history-v1", cloudHist.history); }
-        if (cloudEvents.events) { setNewsEvents(cloudEvents.events); save("pf-news-events-v1", cloudEvents.events); }
-        setCloudSync(true);
-      } catch(e) { /* 離線也能用 localStorage 版本 */ }
+
+      // 僅在有持倉時才從雲端同步
+      if (hasHoldings) {
+        try {
+          const [cloudBrain, cloudHist, cloudEvents] = await Promise.all([
+            fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=brain`).then(r=>r.json()).catch(()=>({brain:null})),
+            fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=history`).then(r=>r.json()).catch(()=>({history:[]})),
+            fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"load-events"})}).then(r=>r.json()).catch(()=>({events:null})),
+          ]);
+          if (cloudBrain.brain) { setStrategyBrain(cloudBrain.brain); save("pf-brain-v1", cloudBrain.brain); }
+          if (cloudHist.history?.length > 0) { setAnalysisHistory(cloudHist.history); save("pf-analysis-history-v1", cloudHist.history); }
+          if (cloudEvents.events) { setNewsEvents(cloudEvents.events); save("pf-news-events-v1", cloudEvents.events); }
+          setCloudSync(true);
+        } catch(e) { /* 離線也能用 localStorage 版本 */ }
+      }
     })();
   }, []);
 
