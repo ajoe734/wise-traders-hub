@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const MODELS = [
+  "google/gemini-2.0-flash-exp:free",
+  "qwen/qwen-2-vl-72b-instruct:free",
+  "meta-llama/llama-3.2-11b-vision-instruct:free",
+];
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -17,40 +23,45 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'GOOGLE_GEMINI_API_KEY is not configured' }), {
+    return new Response(JSON.stringify({ error: 'OPENROUTER_API_KEY is not configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   try {
     const body = await req.json();
-
-    // Support two calling conventions:
-    // 1. { systemPrompt, userPrompt } — used by daily analysis & brain evolution
-    // 2. { prompt } — used by calendar event generation
     const systemPrompt = body.systemPrompt || '';
     const userPrompt = body.userPrompt || body.prompt || '';
 
-    const contents: any[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
-    const requestBody: any = {
-      contents,
-      generationConfig: { temperature: 0.3 },
-    };
+    const messages: any[] = [];
     if (systemPrompt) {
-      requestBody.systemInstruction = { parts: [{ text: systemPrompt }] };
+      messages.push({ role: 'system', content: systemPrompt });
     }
+    messages.push({ role: 'user', content: userPrompt });
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    const requestBody = {
+      models: MODELS,
+      route: "fallback",
+      messages,
+      temperature: 0.3,
+    };
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://wise-traders-hub.lovable.app',
+        'X-Title': 'WiseTraders Checkup',
+      },
       body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('Gemini API error:', response.status, errText);
+      console.error('OpenRouter API error:', response.status, errText);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: 'AI 請求過於頻繁，請稍後再試' }), {
           status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -62,7 +73,7 @@ Deno.serve(async (req) => {
     }
 
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = data.choices?.[0]?.message?.content || '';
 
     // Return in both formats for backward compatibility
     return new Response(JSON.stringify({ content: [{ text }], text, response: text }), {
