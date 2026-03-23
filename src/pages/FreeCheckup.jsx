@@ -292,7 +292,11 @@ export default function App() {
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        const events = JSON.parse(jsonMatch[0]);
+        // 清理 AI 回傳的 JSON：移除尾隨逗號、修復未加引號的屬性名
+        let rawJson = jsonMatch[0]
+          .replace(/,\s*([}\]])/g, '$1')  // 移除尾隨逗號
+          .replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":');  // 未加引號的 key 加上引號
+        const events = JSON.parse(rawJson);
         events._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
         setCalendarEvents(events);
         save("pf-calendar-v1", events);
