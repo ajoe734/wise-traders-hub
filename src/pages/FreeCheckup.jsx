@@ -361,6 +361,8 @@ export default function App() {
       const ce = await load("pf-calendar-v1", []);
       setHoldings(h); setTradeLog(l); setTargets(t);
       setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
+      setStrategyBrain(sb); setCalendarEvents(ce);
+      setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
       setStrategyBrain(sb);
       setReady(true);
       // 嘗試從雲端同步（策略大腦 + 歷史分析 + 事件資料）
