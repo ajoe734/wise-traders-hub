@@ -2029,10 +2029,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   }}>
                     {/* 全部個股 */}
                     <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
-                      {e.stocks.map(s=>(
-                        <span key={s} style={{fontSize:9,padding:"2px 8px",borderRadius:3,
-                          background:C.blueBg,color:C.blue,fontWeight:500}}>{s}</span>
-                      ))}
+                      {e.stocks.map((s,si)=>{
+                        const label = typeof s === "string" ? s : `${s.code || ""} ${s.name || ""}`.trim();
+                        return <span key={si} style={{fontSize:9,padding:"2px 8px",borderRadius:3,
+                          background:C.blueBg,color:C.blue,fontWeight:500}}>{label}</span>;
+                      })}
                     </div>
 
                     <div style={{fontSize:11,color:C.textSec,lineHeight:1.8,marginBottom:8}}>{e.detail}</div>
