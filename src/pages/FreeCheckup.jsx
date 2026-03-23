@@ -1436,11 +1436,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {tp && (
                   <div style={{marginTop:6}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                      <span style={{fontSize:12,color:C.textMute}}>
+                      <span style={{fontSize:11,color:C.textMute}}>
                         目標 {tp.toLocaleString()}
                         {T?.reports?.length>1 && <span style={{color:C.textMute}}> ({T.reports.length}家均)</span>}
                       </span>
-                      <span style={{fontSize:12,fontWeight:600,
+                      <span style={{fontSize:11,fontWeight:600,
                         color: upside>=0 ? C.up : C.down}}>
                         {upside>=0?"+":""}{upside?.toFixed(1)}%
                       </span>
