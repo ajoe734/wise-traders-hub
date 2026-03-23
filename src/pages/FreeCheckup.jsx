@@ -2059,7 +2059,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     ))}
                   </div>
                 )}
-                {parsed.note && <div style={{fontSize:12,color:C.textMute,marginTop:8}}>{parsed.note}</div>}
+                
               </div>
 
               <div style={{...card,borderLeft:`2px solid ${C.blue}88`}}>
