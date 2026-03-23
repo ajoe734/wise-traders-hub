@@ -2107,57 +2107,57 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           ) : (
             (() => {
               const sorted = [...(tradeLog||[])].sort((a,b)=>b.id-a.id);
-              const groups = [];
-              let lastDate = null;
+              // Group by date
+              const dateGroups = [];
+              let currentGroup = null;
               sorted.forEach(log => {
                 const d = log.date || "未知日期";
-                if (d !== lastDate) {
-                  groups.push({ type:"header", date:d });
-                  lastDate = d;
+                if (!currentGroup || currentGroup.date !== d) {
+                  currentGroup = { date: d, logs: [] };
+                  dateGroups.push(currentGroup);
                 }
-                groups.push({ type:"entry", log });
+                currentGroup.logs.push(log);
               });
-              return groups.map((item, idx) => {
-                if (item.type === "header") {
-                  return (
-                    <div key={"hdr-"+idx} style={{display:"flex",alignItems:"center",gap:10,margin:idx===0?"0 0 8px":"18px 0 8px"}}>
-                      <span style={{fontSize:12,fontWeight:700,color:C.amber,letterSpacing:"0.04em"}}>{item.date}</span>
-                      <div style={{flex:1,height:1,background:C.border}}/>
-                    </div>
-                  );
-                }
-                const log = item.log;
-                return (
-                  <div key={log.id} style={{...card,marginBottom:8,
-                    borderLeft:`2px solid ${log.action==="買進" ? C.up+"88" : C.down+"88"}`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                      <div style={{display:"flex",alignItems:"center",gap:7}}>
-                        <span style={{
-                          background: log.action==="買進" ? C.upBg : C.downBg,
-                          color: log.action==="買進" ? C.up : C.down,
-                          fontSize:9, fontWeight:600, padding:"2px 8px", borderRadius:4}}>
-                          {log.action}
-                        </span>
-                        <span style={{fontSize:14,fontWeight:600,color:C.text}}>{log.name}</span>
-                        <span style={{fontSize:10,color:C.textMute}}>{log.code}</span>
-                      </div>
-                      <div style={{fontSize:10,color:C.textMute}}>{log.time}</div>
-                    </div>
-                    <div style={{fontSize:11,color:C.textMute,marginBottom:10}}>
-                      {log.qty}股 @ {log.price?.toLocaleString()}元
-                    </div>
-                    {log.qa.map((qi,i)=>(
-                      <div key={i} style={{marginBottom:8}}>
-                        <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>{qi.q}</div>
-                        <div style={{fontSize:11,color:C.textSec,background:C.subtle,
-                          borderRadius:6,padding:"7px 10px",lineHeight:1.7}}>
-                          {qi.a||"（未填）"}
-                        </div>
-                      </div>
-                    ))}
+              return dateGroups.map((group, gi) => (
+                <div key={"grp-"+gi}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.amber,letterSpacing:"0.04em",marginBottom:8,marginTop:gi===0?0:6}}>
+                    {group.date}
                   </div>
-                );
-              });
+                  {group.logs.map(log => (
+                    <div key={log.id} style={{...card,marginBottom:8,
+                      borderLeft:`2px solid ${log.action==="買進" ? C.up+"88" : C.down+"88"}`}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                        <div style={{display:"flex",alignItems:"center",gap:7}}>
+                          <span style={{
+                            background: log.action==="買進" ? C.upBg : C.downBg,
+                            color: log.action==="買進" ? C.up : C.down,
+                            fontSize:9, fontWeight:600, padding:"2px 8px", borderRadius:4}}>
+                            {log.action}
+                          </span>
+                          <span style={{fontSize:14,fontWeight:600,color:C.text}}>{log.name}</span>
+                          <span style={{fontSize:10,color:C.textMute}}>{log.code}</span>
+                        </div>
+                        <div style={{fontSize:10,color:C.textMute}}>{log.time}</div>
+                      </div>
+                      <div style={{fontSize:11,color:C.textMute,marginBottom:10}}>
+                        {log.qty}股 @ {log.price?.toLocaleString()}元
+                      </div>
+                      {log.qa.map((qi,i)=>(
+                        <div key={i} style={{marginBottom:8}}>
+                          <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>{qi.q}</div>
+                          <div style={{fontSize:11,color:C.textSec,background:C.subtle,
+                            borderRadius:6,padding:"7px 10px",lineHeight:1.7}}>
+                            {qi.a||"（未填）"}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  {gi < dateGroups.length - 1 && (
+                    <div style={{height:1,background:C.border,margin:"10px 0 14px"}}/>
+                  )}
+                </div>
+              ));
             })()
           )}
         </>}
