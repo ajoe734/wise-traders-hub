@@ -1004,44 +1004,67 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const parseShot = async () => {
     if (!b64) return;
     setParsing(true); setParseErr(null);
-    try {
-      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-parse`, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          systemPrompt: PARSE_PROMPT,
-          base64: b64,
-          mediaType: "image/jpeg",
-        })
-      });
-      const data = await res.json();
-      const clean = (data.content?.[0]?.text||"").replace(/```json|```/g,"").trim();
-      const parsedResult = JSON.parse(clean);
-      setParsed(parsedResult);
 
-      // 解析成功後立即同步持倉 & 交易記錄
-      if (parsedResult?.trades?.length) {
-        setHoldings(prev => parsedResult.trades.reduce(
-          (acc, trade) => mergeTradeIntoHoldings(acc, trade),
-          [...(prev || [])],
-        ));
-        // 同步寫入交易記錄（不等備忘錄）
-        setTradeLog(prev => {
-          const existing = prev || [];
-          const newEntries = parsedResult.trades.map(t => ({
-            id: Date.now() + Math.random(),
-            date: t.date || new Date().toLocaleDateString("zh-TW"),
-            time: t.time || new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}),
-            action: t.action, code: t.code, name: t.name, qty: t.qty, price: t.price,
-            qa: [],
-          }));
-          return [...newEntries, ...existing];
+    const MAX_RETRIES = 3;
+    let lastErr = "";
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch(`${SUPABASE_FN_BASE}/checkup-parse`, {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({
+            systemPrompt: PARSE_PROMPT,
+            base64: b64,
+            mediaType: "image/jpeg",
+          })
         });
-        setSaved("✅ 成交已更新到持倉與記錄");
-        setTimeout(() => setSaved(""), 2500);
+        const data = await res.json();
+
+        // 後端回傳 error 表示所有模型都失敗，嘗試重試
+        if (data.error) {
+          lastErr = data.error;
+          console.warn(`Parse attempt ${attempt}/${MAX_RETRIES} failed:`, data.error);
+          if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 2000)); continue; }
+          break;
+        }
+
+        const clean = (data.content?.[0]?.text||"").replace(/```json|```/g,"").trim();
+        const parsedResult = JSON.parse(clean);
+        setParsed(parsedResult);
+
+        // 解析成功後立即同步持倉 & 交易記錄
+        if (parsedResult?.trades?.length) {
+          setHoldings(prev => parsedResult.trades.reduce(
+            (acc, trade) => mergeTradeIntoHoldings(acc, trade),
+            [...(prev || [])],
+          ));
+          setTradeLog(prev => {
+            const existing = prev || [];
+            const newEntries = parsedResult.trades.map(t => ({
+              id: Date.now() + Math.random(),
+              date: t.date || new Date().toLocaleDateString("zh-TW"),
+              time: t.time || new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}),
+              action: t.action, code: t.code, name: t.name, qty: t.qty, price: t.price,
+              qa: [],
+            }));
+            return [...newEntries, ...existing];
+          });
+          setSaved("✅ 成交已更新到持倉與記錄");
+          setTimeout(() => setSaved(""), 2500);
+        }
+        setParsing(false);
+        return; // 成功，直接返回
+      } catch (e) {
+        lastErr = e?.message || "網路錯誤";
+        console.warn(`Parse attempt ${attempt}/${MAX_RETRIES} exception:`, e);
+        if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 2000)); continue; }
       }
-    } catch { setParseErr("解析失敗，請確認截圖清晰"); }
-    finally  { setParsing(false); }
+    }
+
+    // 所有重試都失敗
+    setParseErr(lastErr || "解析失敗，請確認截圖清晰");
+    setParsing(false);
   };
 
   const submitMemo = () => {
