@@ -307,16 +307,13 @@ export default function App() {
   const [cloudSync, setCloudSync]         = useState(false);
 
   // boot
-  // 清除舊版寫死持倉快取
+  // 一次性清除所有舊版寫死持倉快取（v1 遷移標記）
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("pf-holdings-v2");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        // 若快取資料非空且包含舊寫死資料（code 00637L），清除之
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed.some(h => h.code === "00637L" || h.code === "039108" || h.code === "1503")) {
-          localStorage.removeItem("pf-holdings-v2");
-        }
+      const migrated = localStorage.getItem("pf-holdings-v2-migrated");
+      if (!migrated) {
+        localStorage.removeItem("pf-holdings-v2");
+        localStorage.setItem("pf-holdings-v2-migrated", "1");
       }
     } catch {}
   }, []);
