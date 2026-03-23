@@ -944,7 +944,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
      "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1"].forEach(k => localStorage.removeItem(k));
     setHoldings([]); setTradeLog([]); setTargets({});
     setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
-    setStrategyBrain(null); setDailyReport(null);
+    setStrategyBrain(null); setDailyReport(null); setCalendarEvents([]);
     setImg(null); setB64(null); setParsed(null); setParseErr(null);
     setMemoStep(0); setMemoAns([]); setMemoIn("");
     setTab("holdings");
