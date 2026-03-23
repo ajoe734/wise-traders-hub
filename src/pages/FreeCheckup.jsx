@@ -1253,52 +1253,57 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ WATCHLIST ══════════ */}
         {tab==="watchlist" && <>
-          <div style={{...card,borderLeft:`3px solid ${C.up}`,marginBottom:12}}>
-            <div style={{fontSize:9,color:C.up,fontWeight:600,letterSpacing:"0.1em",textTransform:"uppercase"}}>今日</div>
-            <div style={{fontSize:15,fontWeight:600,color:C.text,marginTop:5}}>
-              台燿 6274 — 今日法說會
+          {H.length === 0 ? (
+            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:28,marginBottom:10,opacity:0.3}}>👀</div>
+              <div style={{fontSize:13,color:C.textSec,fontWeight:500}}>尚無觀察股</div>
+              <div style={{fontSize:11,color:C.textMute,marginTop:6,lineHeight:1.7}}>
+                上傳成交截圖後，持倉股票會自動出現在觀察清單
+              </div>
             </div>
-            <div style={{fontSize:11,color:C.textSec,marginTop:5,lineHeight:1.8}}>
-              毛利率回沖 + 展望樂觀 → 補齊剩餘 2/3 部位<br/>
-              展望保守 → 停損 430 元
-            </div>
-          </div>
-
-          {INIT_WATCHLIST.map((w,wi)=>{
-            const upside=((w.target-w.price)/w.price*100).toFixed(1);
-            const prog=Math.min(w.price/w.target*100,100);
-            const sc = w.sc==="#f59e0b"?C.amber:w.sc==="#22c55e"?C.olive:C.up;
-            const bgTints=[C.card,C.cardBlue,C.cardAmber];
-            return <div key={w.code} style={{...card, background:bgTints[wi%3], marginBottom:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                <div>
-                  <div style={{fontSize:16,fontWeight:600,color:C.text}}>{w.name}
-                    <span style={{fontSize:10,color:C.textMute,fontWeight:400,marginLeft:6}}>{w.code}</span>
+          ) : (
+            H.map((h,wi)=>{
+              const tgt = targets && targets[h.code] ? avgTarget(h.code) : null;
+              const upside = tgt ? (((tgt - h.price) / h.price) * 100).toFixed(1) : null;
+              const prog = tgt ? Math.min(h.price / tgt * 100, 100) : 0;
+              const colors = [C.blue, C.amber, C.olive, C.lavender, C.teal];
+              const sc = colors[wi % colors.length];
+              const bgTints = [C.card, C.cardBlue, C.cardAmber];
+              return <div key={h.code} style={{...card, background:bgTints[wi%3], marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div>
+                    <div style={{fontSize:16,fontWeight:600,color:C.text}}>{h.name}
+                      <span style={{fontSize:10,color:C.textMute,fontWeight:400,marginLeft:6}}>{h.code}</span>
+                    </div>
+                    <div style={{fontSize:10,color:C.textMute,marginTop:2}}>持有 {h.qty} {h.unit || "股"}</div>
                   </div>
-                  <div style={{fontSize:10,color:C.textMute,marginTop:2}}>{w.catalyst}</div>
+                  <span style={{background: h.pnl >= 0 ? C.olive+"22" : C.up+"22",
+                    color: h.pnl >= 0 ? C.olive : C.up,
+                    fontSize:10,fontWeight:500,padding:"3px 11px",borderRadius:20}}>
+                    {h.pnl >= 0 ? "獲利中" : "虧損中"}
+                  </span>
                 </div>
-                <span style={{background:sc+"22",color:sc,fontSize:10,fontWeight:500,
-                  padding:"3px 11px",borderRadius:20}}>{w.status}</span>
-              </div>
-              <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
-                {[["現價",w.price.toLocaleString(),C.textSec],
-                  ["目標價",w.target.toLocaleString(),C.olive],
-                  ["潛在漲幅","+"+upside+"%",C.blue]].map(([l,v,c])=>(
-                  <div key={l}>
-                    <div style={{fontSize:9,color:C.textMute,marginBottom:3}}>{l}</div>
-                    <div style={{fontSize:17,fontWeight:600,color:c}}>{v}</div>
+                <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
+                  {[["現價", h.price?.toLocaleString() || "—", C.textSec],
+                    ["成本", h.avg?.toLocaleString() || "—", C.textMute],
+                    ...(tgt ? [["目標價", tgt.toLocaleString(), C.olive], ["潛在漲幅", (upside > 0 ? "+" : "") + upside + "%", C.blue]] : []),
+                    ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(1) + "%", h.pnl >= 0 ? C.olive : C.up],
+                  ].map(([l,v,c])=>(
+                    <div key={l}>
+                      <div style={{fontSize:9,color:C.textMute,marginBottom:3}}>{l}</div>
+                      <div style={{fontSize:17,fontWeight:600,color:c}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                {tgt && <div style={{marginTop:12}}>
+                  <div style={{background:C.subtle,borderRadius:3,height:3}}>
+                    <div style={{width:`${prog}%`,height:"100%",
+                      background:`linear-gradient(90deg,${C.blue}88,${C.olive}88)`,borderRadius:3}}/>
                   </div>
-                ))}
-              </div>
-              <div style={{marginTop:12}}>
-                <div style={{background:C.subtle,borderRadius:3,height:3}}>
-                  <div style={{width:`${prog}%`,height:"100%",
-                    background:`linear-gradient(90deg,${C.blue}88,${C.olive}88)`,borderRadius:3}}/>
-                </div>
-              </div>
-              <div style={{fontSize:10,color:C.textMute,marginTop:9,lineHeight:1.7}}>{w.note}</div>
-            </div>;
-          })}
+                </div>}
+              </div>;
+            })
+          )}
         </>}
 
         {/* ══════════ EVENTS ══════════ */}
