@@ -696,7 +696,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   // ── 事件復盤 ─────────────────────────────────────────────────────
   const submitReview = (eventId) => {
     setNewsEvents(prev => {
-      const arr = [...(prev || NEWS_EVENTS)];
+      const arr = [...(prev || [])];
       const idx = arr.findIndex(e => e.id === eventId);
       if (idx < 0) return arr;
       arr[idx] = {
