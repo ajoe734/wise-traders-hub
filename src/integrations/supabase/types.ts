@@ -92,6 +92,45 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_trade_memos: {
+        Row: {
+          action: string | null
+          code: string | null
+          created_at: string
+          id: string
+          name: string | null
+          price: number | null
+          qa: Json | null
+          qty: number | null
+          trade_date: string | null
+          trade_time: string | null
+        }
+        Insert: {
+          action?: string | null
+          code?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          price?: number | null
+          qa?: Json | null
+          qty?: number | null
+          trade_date?: string | null
+          trade_time?: string | null
+        }
+        Update: {
+          action?: string | null
+          code?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          price?: number | null
+          qa?: Json | null
+          qty?: number | null
+          trade_date?: string | null
+          trade_time?: string | null
+        }
+        Relationships: []
+      }
       current_prices: {
         Row: {
           best_ask: number | null
