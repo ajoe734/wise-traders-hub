@@ -106,30 +106,15 @@ const MEMO_Q = {
   "賣出": ["為什麼在這個價位賣？", "達成原本預期了嗎？", "這筆資金的下一步？"],
 };
 
-const PARSE_PROMPT = `你是台股券商截圖的解析器，支援「成交回報」與「庫存/持倉」兩種截圖格式。
-解析截圖中的每一筆交易或持倉，以JSON格式輸出，不輸出其他文字：
-{"trades":[{"action":"買進或賣出或持有","code":"代碼","name":"名稱","qty":股數,"price":成交均價或成本價,"market_price":市價或現價或null,"amount":金額或成本或null}],"targetPriceUpdates":[{"code":"代碼","firm":"券商名稱","target":目標價數字,"date":"日期"}],"note":"有疑問時說明"}
-
-【富貴角10號 App 庫存截圖欄位對應】
-截圖中可能出現以下欄位，請正確對應：
-- 商品（含股名+代碼）→ name + code
-- 股數 / 可用股數 → qty（取「股數」欄位值）
-- 成本價 / 成交均價 → price（平均成本價）
-- 市價（即現價/收盤價）→ market_price
-- 市值 → 不需要輸出，前端會用 market_price × qty 自行計算
-- 成本 → amount（總成本金額）
-- 預估損益 → 不需要輸出，前端自行計算
-- 報酬率(%) → 不需要輸出，前端自行計算
-- 預估淨收付 → 不需要輸出，前端自行計算
-- 若截圖為庫存/持倉格式，action 請填 "持有"
+const PARSE_PROMPT = `你是台股券商成交回報截圖的解析器。解析截圖中的每一筆交易，以JSON格式輸出，不輸出其他文字：
+{"trades":[{"action":"買進或賣出","code":"代碼","name":"名稱","qty":股數,"price":成交價,"market_price":市價或現價或null,"amount":金額或null}],"targetPriceUpdates":[{"code":"代碼","firm":"券商名稱","target":目標價數字,"date":"日期"}],"note":"有疑問時說明"}
 
 【最重要規則】
-1. price（成交均價/成本價）必須完整保留原始小數位數，絕對不可四捨五入或省略！
+1. price（成交價/成本價）必須完整保留原始小數位數，絕對不可四捨五入或省略！
    例如：截圖顯示 0.61 就輸出 0.61（不可寫成 0.6）；顯示 1.55 就輸出 1.55（不可寫成 1.5 或 2）；顯示 524.5 就輸出 524.5（不可寫成 524 或 525）。
-2. market_price（市價/現價）：截圖中若有「現價」「市價」「即時」「收盤」欄位，必須精確辨識並填入，同樣保留完整小數位數。若截圖中無此欄位則填 null。
+2. market_price（市價/現價/即時價格）：截圖中若有「現價」「市價」「即時」「收盤」欄位，必須精確辨識並填入，同樣保留完整小數位數。若截圖中無此欄位則填 null。
 3. qty（股數）必須精確，例如 3000股 就是 3000，2000股 就是 2000，2股 就是 2。
 4. 權證名稱通常包含「購」「售」「牛」「熊」等字，其價格可能很小（如 0.61、1.55），務必精確辨識。
-5. 每筆交易的順序必須與截圖中的順序一致，不可自行排序或調換位置。
 
 targetPriceUpdates：如果截圖中有提到分析師目標價或研究報告目標價，請一併擷取。否則為空陣列。`;
 
@@ -292,11 +277,7 @@ export default function App() {
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        // 清理 AI 回傳的 JSON：移除尾隨逗號、修復未加引號的屬性名
-        let rawJson = jsonMatch[0]
-          .replace(/,\s*([}\]])/g, '$1')  // 移除尾隨逗號
-          .replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":');  // 未加引號的 key 加上引號
-        const events = JSON.parse(rawJson);
+        const events = JSON.parse(jsonMatch[0]);
         events._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
         setCalendarEvents(events);
         save("pf-calendar-v1", events);
@@ -952,37 +933,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
     const mktPrice = Number(trade?.market_price) || price; // 市價，若無則用成交價
 
-    if (action === "買進" || action === "持有") {
+    if (action === "買進") {
       if (idx >= 0) {
         const h = arr[idx];
-        if (action === "持有") {
-          // 庫存截圖：直接覆蓋整筆持倉（price=成本價, market_price=市價）
-          const mp = mktPrice;
-          arr[idx] = {
-            ...h,
-            name: name || h.name,
-            qty,
-            price: mp,
-            cost: price, // price = 成本價/成交均價
-            value: mp * qty,
-            pnl: Math.round((mp - price) * qty),
-            pct: Math.round((mp / price - 1) * 10000) / 100,
-          };
-        } else {
-          const nq = h.qty + qty;
-          const nc = (h.cost * h.qty + price * qty) / nq;
-          const mp = mktPrice || h.price;
-          arr[idx] = {
-            ...h,
-            name: h.name || name,
-            qty: nq,
-            price: mp,
-            cost: Math.round(nc * 100) / 100,
-            value: mp * nq,
-            pnl: Math.round((mp - nc) * nq),
-            pct: Math.round((mp / nc - 1) * 10000) / 100,
-          };
-        }
+        const nq = h.qty + qty;
+        const nc = (h.cost * h.qty + price * qty) / nq;
+        const mp = mktPrice || h.price; // 優先用新的市價
+        arr[idx] = {
+          ...h,
+          name: h.name || name,
+          qty: nq,
+          price: mp,
+          cost: Math.round(nc * 100) / 100,
+          value: mp * nq,
+          pnl: Math.round((mp - nc) * nq),
+          pct: Math.round((mp / nc - 1) * 10000) / 100,
+        };
       } else {
         arr.push({
           code,
