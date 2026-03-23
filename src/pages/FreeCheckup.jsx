@@ -1267,8 +1267,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const pct=h.value/totalVal*100;
               return <div key={h.code} style={{marginTop:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                  <span style={{fontSize:12,color:C.textSec,fontWeight:500}}>{h.name}</span>
-                  <span style={{fontSize:12,fontWeight:600,color:topColors[i]}}>{pct.toFixed(1)}%</span>
+                  <span style={{fontSize:13,color:C.textSec,fontWeight:500}}>{h.name}</span>
+                  <span style={{fontSize:13,fontWeight:600,color:topColors[i]}}>{pct.toFixed(1)}%</span>
                 </div>
                 <div style={{background:C.subtle,borderRadius:4,height:4}}>
                   <div style={{width:`${pct}%`,height:"100%",background:topColors[i]+"88",borderRadius:4}}/>
