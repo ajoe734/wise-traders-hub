@@ -155,6 +155,8 @@ export default function App() {
   const [filterType,  setFilterType]  = useState("全部");
   const [showAll,     setShowAll]     = useState(false);
   const [expandedNews, setExpandedNews] = useState(new Set());
+  const [newsPendingExpanded, setNewsPendingExpanded] = useState(false);
+  const [newsPastExpanded, setNewsPastExpanded] = useState(false);
   const toggleNews = (id) => setExpandedNews(prev => {
     const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
   });
