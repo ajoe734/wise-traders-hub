@@ -7,14 +7,14 @@ const corsHeaders = {
 };
 
 // 4-stage pipeline models (all free on OpenRouter)
-const STAGE1_MODEL = "qwen/qwen3.5-plus:free";       // 廣泛過濾
-const STAGE2_MODEL = "google/gemini-3-flash:free";    // 深度提取
-const STAGE3_MODEL = "meta-llama/llama-4-maverick:free"; // 邏輯去重
-const STAGE4_MODEL = "google/gemma-3-27b:free";       // 精煉輸出
+const STAGE1_MODEL = "qwen/qwen3-235b-a22b:free";        // 廣泛過濾
+const STAGE2_MODEL = "google/gemini-2.5-flash-preview:free"; // 深度提取
+const STAGE3_MODEL = "meta-llama/llama-4-maverick:free";  // 邏輯去重
+const STAGE4_MODEL = "google/gemma-3-27b-it:free";        // 精煉輸出
 
 const FALLBACK_MODELS = [
-  "google/gemini-2.0-flash-exp:free",
-  "qwen/qwen-2.5-72b-instruct:free",
+  "google/gemini-2.5-flash-preview:free",
+  "meta-llama/llama-4-maverick:free",
 ];
 
 async function callModel(apiKey: string, model: string, messages: any[], temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
