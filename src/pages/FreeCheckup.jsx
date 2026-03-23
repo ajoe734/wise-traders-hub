@@ -494,7 +494,7 @@ export default function App() {
       const totalTodayPnl = changes.reduce((s, c) => s + c.todayPnl, 0);
 
       // 3. 事件連動分析
-      const NE = newsEvents || NEWS_EVENTS;
+      const NE = newsEvents || [];
       const today = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "/");
       const pendingEvents = NE.filter(e => e.status === "pending");
       const eventCorrelations = pendingEvents.map(e => {
