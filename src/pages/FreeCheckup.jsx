@@ -1383,13 +1383,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* 排序 + 列表 */}
           <div style={{display:"flex",gap:5,marginBottom:10,alignItems:"center"}}>
-            <span style={{fontSize:10,color:C.textMute}}>排序：</span>
+            <span style={{fontSize:11,color:C.textMute}}>排序：</span>
             {[["value","市值"],["pnl","損益"],["pct","報酬%"]].map(([k,l])=>(
               <button key={k} onClick={()=>setSortBy(k)} style={{
                 background: sortBy===k ? C.subtle : "transparent",
                 color: sortBy===k ? C.amber : C.textMute,
                 border:`1px solid ${sortBy===k ? C.amber+"66" : C.border}`,
-                borderRadius:20, padding:"3px 11px", fontSize:10, fontWeight:500, cursor:"pointer",
+                borderRadius:20, padding:"4px 12px", fontSize:11, fontWeight:500, cursor:"pointer",
               }}>{l}</button>
             ))}
           </div>
