@@ -389,6 +389,7 @@ export default function App() {
     setRefreshing(true);
     try {
       const codes = H.map(h => h.code);
+      if (codes.length === 0) { setRefreshing(false); return; }
       // 同時嘗試上市(tse)和上櫃(otc)，API 只會回傳有效的
       const queries = codes.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]);
       const exCh = queries.join('|');
