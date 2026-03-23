@@ -394,8 +394,19 @@ export default function App() {
   useEffect(() => { if (ready && analysisHistory) save("pf-analysis-history-v1", analysisHistory); }, [analysisHistory, ready]);
   useEffect(() => { if (ready && reversalConditions) save("pf-reversal-v1", reversalConditions); }, [reversalConditions, ready]);
   useEffect(() => { if (ready && strategyBrain) save("pf-brain-v1", strategyBrain); }, [strategyBrain, ready]);
+  useEffect(() => { if (ready && calendarEvents) save("pf-calendar-v1", calendarEvents); }, [calendarEvents, ready]);
 
-  // derived
+  // 持倉變動時自動重新產生行事曆
+  useEffect(() => {
+    if (!ready) return;
+    const codes = (holdings || []).map(h => h.code).sort().join(",");
+    const prevCodes = calendarEvents?._holdingCodes || "";
+    if (codes && codes !== prevCodes) {
+      fetchCalendarEvents(holdings);
+    } else if (!codes) {
+      setCalendarEvents([]);
+    }
+  }, [holdings, ready]);
   const H = holdings || [];
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
   const totalCost = H.reduce((s,h)=>s+h.cost*h.qty,0);
