@@ -1422,7 +1422,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       animation:"pulse 1.5s ease-in-out infinite"}}>目標價更新</span>}
                   </div>
                   <div style={{fontSize:10,color:C.textMute,marginTop:2}}>
-                    {h.qty}{h.unit || "股"} · 成本{h.cost} · 現{h.price?.toLocaleString()}
+                    {h.qty}{h.unit || "股"} · 成本{h.cost} · 市{h.price?.toLocaleString()}
                   </div>
                   {/* 目標價進度條 */}
                   {tp && (
