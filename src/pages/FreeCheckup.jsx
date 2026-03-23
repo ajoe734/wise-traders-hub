@@ -1051,7 +1051,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             borderLeft:`3px solid ${C.up}`,
             borderRadius:8,padding:"8px 11px",marginBottom:12,
             fontSize:11,color:C.up,lineHeight:1.7,fontWeight:500}}>
-            今日 · 台燿法說決定加碼或停損 · 晶豪科已到出場區間
+            今日 · {CE.filter(e=>e.urgent).map(e=>e.label).join(" · ")}
           </div>
         )}
 
