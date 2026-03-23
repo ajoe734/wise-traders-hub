@@ -543,15 +543,32 @@ export default function App() {
       if (data.msgArray && data.msgArray.length > 0) {
         const priceMap = {};
         data.msgArray.forEach(item => {
-          // z = 最新成交價（盤中），y = 昨收價（盤前/收盤後）
+          // z = 最新成交價（盤中 & 盤後短時間內為當日收盤價）
+          // y = 昨日收盤價（非交易時間 z 清空後的 fallback）
+          // 優先用 z（交易中或盤後收盤價），z 無效時不回退到 y（昨收不是盤後價）
           const latest = parseFloat(item.z);
-          const yClose = parseFloat(item.y);
-          const price = (!isNaN(latest) && latest > 0) ? latest
-                      : (!isNaN(yClose) && yClose > 0) ? yClose : null;
+          const price = (!isNaN(latest) && latest > 0) ? latest : null;
           if (price && !priceMap[item.c]) {
             priceMap[item.c] = price;
           }
         });
+
+        // 盤後 z 已清空的標的，嘗試從 current_prices 資料庫取得盤後收盤價
+        const missed = H.map(h => h.code).filter(c => !priceMap[c]);
+        if (missed.length > 0) {
+          try {
+            const { data: dbPrices } = await supabase
+              .from('current_prices')
+              .select('symbol, price')
+              .in('symbol', missed);
+            if (dbPrices) {
+              dbPrices.forEach(row => {
+                const p = Number(row.price);
+                if (!isNaN(p) && p > 0) priceMap[row.symbol] = p;
+              });
+            }
+          } catch (e) { console.warn("DB price fallback error:", e); }
+        }
 
         setHoldings(prev => (prev || []).map(h => {
           const newPrice = priceMap[h.code];
