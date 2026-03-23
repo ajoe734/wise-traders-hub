@@ -1114,6 +1114,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "save-brain", data: null })
     }).catch(() => {});
+    // 清除雲端交易備忘錄
+    supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000").then(() => {}).catch(() => {});
 
     setSaved("🗑️ 已全部清除");
     setTimeout(() => setSaved(""), 2500);
