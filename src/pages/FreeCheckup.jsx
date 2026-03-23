@@ -270,7 +270,7 @@ export default function App() {
       });
       const result = await res.json();
       // 若在 fetch 期間使用者已按「清除全部」，則丟棄結果
-      if (guard !== undefined && guard !== resetGuard) return;
+      if (guard !== undefined && guard !== resetGuardRef.current) return;
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
