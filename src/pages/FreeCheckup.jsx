@@ -891,6 +891,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setTab("holdings");
   };
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const resetAll = () => {
+    ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
+     "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1"].forEach(k => localStorage.removeItem(k));
+    setHoldings([]); setTradeLog([]); setTargets(INIT_TARGETS);
+    setNewsEvents(NEWS_EVENTS); setAnalysisHistory([]); setReversalConditions({});
+    setStrategyBrain(null);
+    setImg(null); setB64(null); setParsed(null); setParseErr(null);
+    setMemoStep(0); setMemoAns([]); setMemoIn("");
+    setTab("holdings");
+    setShowResetConfirm(false);
+    setSaved("🗑️ 已全部清除");
+    setTimeout(() => setSaved(""), 2500);
+  };
+
   const qs = parsed?.trades?.[0] ? (MEMO_Q[parsed.trades[0].action]||MEMO_Q["買進"]) : [];
 
   if (!ready) return (
@@ -946,7 +961,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               <span style={{color:cloudSync?C.olive:C.textMute}}>{cloudSync?"☁":"⚡"}</span>
               {saved && <span style={{color:C.olive,marginLeft:8,fontWeight:600}}>{saved}</span>}
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
               <span style={{fontSize:21,fontWeight:600,color:C.text,marginTop:2,letterSpacing:"-0.01em"}}>持倉看板</span>
               <button onClick={refreshPrices} disabled={refreshing} style={{
                 background: refreshing ? C.subtle : C.blue+"22",
@@ -958,6 +973,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               }}>
                 {refreshing ? "更新中..." : "⟳ 刷新股價"}
               </button>
+              <button onClick={() => setShowResetConfirm(true)} style={{
+                background: C.up+"18", color: C.up, border:`1px solid ${C.up}33`,
+                borderRadius:20, padding:"4px 10px", fontSize:10, fontWeight:500,
+                cursor:"pointer", whiteSpace:"nowrap",
+              }}>🗑 清除全部</button>
               {lastUpdate && !refreshing && (
                 <span style={{fontSize:9,color:C.textMute}}>
                   {lastUpdate.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}
@@ -2132,6 +2152,31 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         })()}
 
       </div>
+      {/* Reset confirmation modal */}
+      {showResetConfirm && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+          onClick={() => setShowResetConfirm(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{
+            background:C.card, borderRadius:12, padding:24, maxWidth:320, width:"100%",
+            border:`1px solid ${C.border}`, boxShadow:"0 8px 30px rgba(0,0,0,0.4)"}}>
+            <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>確認清除所有資料？</div>
+            <div style={{fontSize:12,color:C.textSec,marginBottom:16,lineHeight:1.5}}>
+              這會清除持倉、交易日誌、觀察股、行事曆、策略大腦等所有本地資料，無法復原。
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={() => setShowResetConfirm(false)} style={{
+                flex:1, background:C.subtle, color:C.text, border:`1px solid ${C.border}`,
+                borderRadius:8, padding:"8px 0", fontSize:13, fontWeight:500, cursor:"pointer",
+              }}>取消</button>
+              <button onClick={resetAll} style={{
+                flex:1, background:C.up, color:"#fff", border:"none",
+                borderRadius:8, padding:"8px 0", fontSize:13, fontWeight:600, cursor:"pointer",
+              }}>確認清除</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
