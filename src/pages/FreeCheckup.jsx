@@ -961,7 +961,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               <span style={{color:cloudSync?C.olive:C.textMute}}>{cloudSync?"☁":"⚡"}</span>
               {saved && <span style={{color:C.olive,marginLeft:8,fontWeight:600}}>{saved}</span>}
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
               <span style={{fontSize:21,fontWeight:600,color:C.text,marginTop:2,letterSpacing:"-0.01em"}}>持倉看板</span>
               <button onClick={refreshPrices} disabled={refreshing} style={{
                 background: refreshing ? C.subtle : C.blue+"22",
@@ -978,17 +978,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderRadius:20, padding:"4px 10px", fontSize:10, fontWeight:500,
                 cursor:"pointer", whiteSpace:"nowrap",
               }}>🗑 清除全部</button>
-              <span style={{fontSize:21,fontWeight:600,color:C.text,marginTop:2,letterSpacing:"-0.01em"}}>持倉看板</span>
-              <button onClick={refreshPrices} disabled={refreshing} style={{
-                background: refreshing ? C.subtle : C.blue+"22",
-                color: refreshing ? C.textMute : C.blue,
-                border:`1px solid ${refreshing ? C.border : C.blue+"55"}`,
-                borderRadius:20, padding:"4px 12px", fontSize:10, fontWeight:500,
-                cursor: refreshing ? "not-allowed" : "pointer",
-                transition:"all 0.2s", whiteSpace:"nowrap",
-              }}>
-                {refreshing ? "更新中..." : "⟳ 刷新股價"}
-              </button>
               {lastUpdate && !refreshing && (
                 <span style={{fontSize:9,color:C.textMute}}>
                   {lastUpdate.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}
