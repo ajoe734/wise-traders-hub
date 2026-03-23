@@ -355,8 +355,16 @@ export default function App() {
   const filteredEvents = filterType==="全部" ? CE : CE.filter(e=>e.type===filterType);
 
   // ── 刷新即時股價（TWSE MIS API）───────────────────────────────
+  const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
   const refreshPrices = async () => {
     if (refreshing) return;
+    // 30分鐘冷卻
+    if (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN) {
+      const remaining = Math.ceil((REFRESH_COOLDOWN - (Date.now() - lastUpdate.getTime())) / 60000);
+      setSaved(`⏳ 請等待 ${remaining} 分鐘後再刷新`);
+      setTimeout(() => setSaved(""), 3000);
+      return;
+    }
     setRefreshing(true);
     try {
       const codes = H.map(h => h.code);
