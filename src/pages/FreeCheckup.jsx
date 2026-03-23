@@ -755,6 +755,69 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     r.readAsDataURL(file);
   };
 
+  const mergeTradeIntoHoldings = (holdingsList, trade) => {
+    const action = String(trade?.action || "").trim();
+    const code = String(trade?.code || "").trim();
+    const name = String(trade?.name || "").trim();
+    const qty = Number(trade?.qty) || 0;
+    const price = Number(trade?.price) || 0;
+
+    if (!code || qty <= 0 || price <= 0) return holdingsList;
+
+    const arr = [...holdingsList];
+    const idx = arr.findIndex(h => h.code === code);
+
+    if (action === "買進") {
+      if (idx >= 0) {
+        const h = arr[idx];
+        const nq = h.qty + qty;
+        const nc = (h.cost * h.qty + price * qty) / nq;
+        arr[idx] = {
+          ...h,
+          name: h.name || name,
+          qty: nq,
+          price,
+          cost: Math.round(nc * 100) / 100,
+          value: price * nq,
+          pnl: Math.round((price - nc) * nq),
+          pct: Math.round((price / nc - 1) * 10000) / 100,
+        };
+      } else {
+        arr.push({
+          code,
+          name,
+          qty,
+          price,
+          cost: price,
+          value: price * qty,
+          pnl: 0,
+          pct: 0,
+          type: "股票",
+        });
+      }
+      return arr;
+    }
+
+    if (idx >= 0) {
+      const h = arr[idx];
+      const nq = Math.max(0, h.qty - qty);
+      if (nq === 0) {
+        arr.splice(idx, 1);
+      } else {
+        arr[idx] = {
+          ...h,
+          qty: nq,
+          price,
+          value: price * nq,
+          pnl: Math.round((price - h.cost) * nq),
+          pct: Math.round((price / h.cost - 1) * 10000) / 100,
+        };
+      }
+    }
+
+    return arr;
+  };
+
   const parseShot = async () => {
     if (!b64) return;
     setParsing(true); setParseErr(null);
@@ -770,7 +833,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       });
       const data = await res.json();
       const clean = (data.content?.[0]?.text||"").replace(/```json|```/g,"").trim();
-      setParsed(JSON.parse(clean));
+      const parsedResult = JSON.parse(clean);
+      setParsed(parsedResult);
+
+      // 解析成功後立即同步持倉，不需等待交易備忘錄完成
+      if (parsedResult?.trades?.length) {
+        setHoldings(prev => parsedResult.trades.reduce(
+          (acc, trade) => mergeTradeIntoHoldings(acc, trade),
+          [...(prev || [])],
+        ));
+        setSaved("✅ 成交已更新到持倉");
+        setTimeout(() => setSaved(""), 2500);
+      }
     } catch { setParseErr("解析失敗，請確認截圖清晰"); }
     finally  { setParsing(false); }
   };
@@ -792,33 +866,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     };
     setTradeLog(prev=>[entry,...(prev||[])]);
 
-    setHoldings(prev=>{
-      const arr=[...(prev||[])];
-      const idx=arr.findIndex(h=>h.code===t.code);
-      if (t.action==="買進") {
-        if (idx>=0) {
-          const h=arr[idx];
-          const nq=h.qty+t.qty;
-          const nc=(h.cost*h.qty+t.price*t.qty)/nq;
-          arr[idx]={...h, qty:nq, price:t.price, cost:Math.round(nc*100)/100,
-            value:t.price*nq, pnl:Math.round((t.price-nc)*nq),
-            pct:Math.round((t.price/nc-1)*10000)/100};
-        } else {
-          arr.push({code:t.code,name:t.name,qty:t.qty,price:t.price,cost:t.price,
-            value:t.price*t.qty,pnl:0,pct:0,type:"股票"});
-        }
-      } else {
-        if (idx>=0) {
-          const h=arr[idx]; const nq=Math.max(0,h.qty-t.qty);
-          if(nq===0){arr.splice(idx,1);}
-          else{arr[idx]={...h,qty:nq,price:t.price,value:t.price*nq,
-            pnl:Math.round((t.price-h.cost)*nq),pct:Math.round((t.price/h.cost-1)*10000)/100};}
-        }
-      }
-      return arr;
-    });
-
-    setSaved("✅ 已儲存");
+    setSaved("✅ 已儲存備忘錄");
     setTimeout(()=>setSaved(""),2500);
 
     // 若截圖含目標價更新
