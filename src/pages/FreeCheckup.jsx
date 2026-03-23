@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -331,82 +331,6 @@ export default function App() {
       setCalendarEvents([]);
     }
   }, [holdings, ready]);
-
-  // ── 事件到期自動驗證：載入時查一次 current_prices 的 change_percent ──
-  const autoVerifyRanRef = useRef(false);
-  useEffect(() => {
-    if (!ready || !newsEvents || autoVerifyRanRef.current) return;
-    const now = new Date();
-    // 找出已過期的 pending 事件
-    const expired = (newsEvents || []).filter(e => {
-      if (e.status !== "pending" || !e.date) return false;
-      const parts = e.date.replace(/-/g, "/").split("/").map(Number);
-      let d;
-      if (parts.length === 3) d = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59);
-      else if (parts.length === 2) d = new Date(now.getFullYear(), parts[0] - 1, parts[1], 23, 59, 59);
-      else return false;
-      return now > d;
-    });
-    if (expired.length === 0) return;
-
-    // 收集股票代碼
-    const codes = new Set();
-    expired.forEach(e => {
-      (Array.isArray(e.stocks) ? e.stocks : []).forEach(s => {
-        const c = typeof s === "string" ? s.match(/\d{4}/)?.[0] : s?.code;
-        if (c) codes.add(c);
-      });
-      const tc = e.title?.match(/\d{4}/)?.[0];
-      if (tc) codes.add(tc);
-    });
-    if (codes.size === 0) return;
-    autoVerifyRanRef.current = true;
-
-    (async () => {
-      try {
-        const { supabase } = await import("@/integrations/supabase/client");
-        const { data: prices } = await supabase
-          .from("current_prices")
-          .select("symbol, change_percent, name")
-          .in("symbol", [...codes]);
-        if (!prices || prices.length === 0) return;
-
-        const priceMap = {};
-        prices.forEach(p => { priceMap[p.symbol] = p; });
-
-        setNewsEvents(prev => {
-          const arr = [...(prev || [])];
-          let changed = false;
-          expired.forEach(evt => {
-            const idx = arr.findIndex(e => e.id === evt.id);
-            if (idx < 0 || arr[idx].status !== "pending") return;
-            // 找對應股票
-            let code = null;
-            for (const s of (Array.isArray(evt.stocks) ? evt.stocks : [])) {
-              const c = typeof s === "string" ? s.match(/\d{4}/)?.[0] : s?.code;
-              if (c && priceMap[c]) { code = c; break; }
-            }
-            if (!code) { const tc = evt.title?.match(/\d{4}/)?.[0]; if (tc && priceMap[tc]) code = tc; }
-            if (!code) return;
-
-            const p = priceMap[code];
-            const chg = p.change_percent || 0;
-            const actual = chg > 0 ? "up" : chg < 0 ? "down" : "neutral";
-            const correct = (evt.pred || "neutral") === actual;
-            arr[idx] = {
-              ...arr[idx], status: "past", actual, correct,
-              actualNote: `自動驗證：${p.name || code} 漲跌幅 ${chg >= 0 ? "+" : ""}${Number(chg).toFixed(2)}%`,
-              reviewDate: new Date().toLocaleDateString("zh-TW"), autoVerified: true,
-            };
-            changed = true;
-          });
-          return changed ? arr : prev;
-        });
-      } catch (err) {
-        console.warn("Auto-verify failed:", err);
-      }
-    })();
-  }, [ready, newsEvents]);
   const H = holdings || [];
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
   const totalCost = H.reduce((s,h)=>s+h.cost*h.qty,0);
