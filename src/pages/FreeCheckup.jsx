@@ -894,10 +894,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const resetAll = () => {
     ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
-     "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1"].forEach(k => localStorage.removeItem(k));
-    setHoldings([]); setTradeLog([]); setTargets(INIT_TARGETS);
-    setNewsEvents(NEWS_EVENTS); setAnalysisHistory([]); setReversalConditions({});
-    setStrategyBrain(null);
+     "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1","pf-watchlist-v1"].forEach(k => localStorage.removeItem(k));
+    setHoldings([]); setTradeLog([]); setTargets({});
+    setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
+    setStrategyBrain(null); setWatchlist([]);
     setImg(null); setB64(null); setParsed(null); setParseErr(null);
     setMemoStep(0); setMemoAns([]); setMemoIn("");
     setTab("holdings");
