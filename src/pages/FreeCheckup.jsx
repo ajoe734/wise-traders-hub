@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -333,7 +333,7 @@ export default function App() {
   }, [holdings, ready]);
 
   // ── 事件到期自動驗證：載入時檢查已過期的 pending 事件 ──────────
-  const autoVerifyRanRef = React.useRef(false);
+  const autoVerifyRanRef = useRef(false);
   useEffect(() => {
     if (!ready || !newsEvents || autoVerifyRanRef.current) return;
     const NE = newsEvents;
