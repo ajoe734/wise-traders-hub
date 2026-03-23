@@ -103,27 +103,8 @@ Deno.serve(async (req) => {
 - 按日期由近到遠排序
 - 數量不限，但必須是「有用」的真實事件，不確定的寧可不列`;
 
-    // ===== Stage 1: Qwen — 廣泛過濾 =====
-    console.log(`Stage 1: ${STAGE1_MODEL} — 廣泛過濾...`);
-    const stage1Prompt = `# Role
-你是一位整合了 Qwen(搜尋力) 優點的頂級 AI 財經分析師。
-
-# Task
-針對以下持倉標的，執行「從明天起到 ${endDate} 為止（未來一年）」的情報蒐集。今天是 ${today}。
-
-持倉標的：${stocks}
-
-# Instructions
-1. 識別並列出所有在「${today} 的明天起到 ${endDate}」期間的重要事件
-2. 涵蓋：法說會、財報公布、營收公布、除息、到期、催化事件、總經事件等
-3. 包含所有類型標的：普通股、權證（列母股事件並標注影響哪檔權證）、ETF
-4. 營收公布日固定為每月10日前，財報公布日依交易所規定（Q1:5/15前、Q2:8/14前、Q3:11/14前、年報:3/31前）
-5. 不確定的事件寧可不列也絕對不要編造，尤其是日期
-6. 務必附上你蒐集到的原始新聞來源網址
-
-請以純文字列表形式輸出所有找到的事件，每個事件包含：日期、標題、說明、類型、來源網址。`;
-
-    const s1 = await callModel(apiKey, STAGE1_MODEL, [
+    // ===== Stage 1: 廣泛過濾 =====
+    const s1 = await callStage(apiKey, 'Stage1-廣泛過濾', STAGE_MODELS.stage1, [
       { role: 'user', content: stage1Prompt }
     ], 0.3);
 
@@ -132,8 +113,7 @@ Deno.serve(async (req) => {
       return await fallbackSingleModel(apiKey, stocks, today, endDate, outputFormat);
     }
 
-    // ===== Stage 2: Gemini — 深度提取 =====
-    console.log(`Stage 2: ${STAGE2_MODEL} — 深度提取...`);
+    // ===== Stage 2: 深度提取 =====
     const stage2Prompt = `# Role
 你是一位整合了 Gemini(長文本解析) 優點的深度財報分析師。
 
@@ -155,17 +135,13 @@ ${s1.text}
 
 以純文字列表形式輸出提取後的結果。`;
 
-    const s2 = await callModel(apiKey, STAGE2_MODEL, [
+    const s2 = await callStage(apiKey, 'Stage2-深度提取', STAGE_MODELS.stage2, [
       { role: 'user', content: stage2Prompt }
     ], 0.3);
 
-    if (!s2.ok) {
-      console.warn(`Stage 2 failed, using Stage 1 output for Stage 3...`);
-    }
     const stage2Output = s2.ok ? s2.text : s1.text;
 
-    // ===== Stage 3: Llama — 邏輯去重 =====
-    console.log(`Stage 3: ${STAGE3_MODEL} — 邏輯去重...`);
+    // ===== Stage 3: 邏輯去重 =====
     const stage3Prompt = `# Role
 你是一位邏輯去重專家。
 
@@ -180,17 +156,13 @@ ${stage2Output}
 - 保留所有來源網址（合併重複事件時合併來源）
 - 以純文字列表形式輸出去重後的結果`;
 
-    const s3 = await callModel(apiKey, STAGE3_MODEL, [
+    const s3 = await callStage(apiKey, 'Stage3-邏輯去重', STAGE_MODELS.stage3, [
       { role: 'user', content: stage3Prompt }
     ], 0.2);
 
-    if (!s3.ok) {
-      console.warn(`Stage 3 failed, using previous output for Stage 4...`);
-    }
     const stage3Output = s3.ok ? s3.text : stage2Output;
 
-    // ===== Stage 4: Gemma — 精煉輸出 =====
-    console.log(`Stage 4: ${STAGE4_MODEL} — 精煉輸出...`);
+    // ===== Stage 4: 精煉輸出 =====
     const stage4Prompt = `# Role
 你是一位精煉輸出專家。
 
@@ -209,7 +181,7 @@ ${outputFormat}
 - 不要輸出 \`\`\`json 等標記
 - sources 欄位必須包含真實的來源網址，若無網址則給空陣列 []`;
 
-    const s4 = await callModel(apiKey, STAGE4_MODEL, [
+    const s4 = await callStage(apiKey, 'Stage4-精煉輸出', STAGE_MODELS.stage4, [
       { role: 'user', content: stage4Prompt }
     ], 0.2);
 
