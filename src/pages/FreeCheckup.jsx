@@ -333,7 +333,7 @@ export default function App() {
   }, [holdings, ready]);
 
   // ── 事件到期自動驗證：載入時檢查已過期的 pending 事件 ──────────
-  const autoVerifyRanRef = React.useRef(false);
+  const autoVerifyRanRef = useRef(false);
   useEffect(() => {
     if (!ready || !newsEvents || autoVerifyRanRef.current) return;
     const NE = newsEvents;
