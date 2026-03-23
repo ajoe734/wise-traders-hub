@@ -1367,7 +1367,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             </div>
           ) : <>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
               {["全部",...Object.keys(TYPE_COLOR)].map(t=>(
                 <button key={t} onClick={()=>setFilterType(t)} style={{
                   background: filterType===t ? (TYPE_COLOR[t]+"33"||C.subtle) : "transparent",
@@ -1376,6 +1376,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   borderRadius:20,padding:"3px 11px",fontSize:10,fontWeight:500,cursor:"pointer",
                 }}>{t}</button>
               ))}
+              <button onClick={()=>fetchCalendarEvents(holdings)} disabled={calendarLoading} style={{
+                background:C.blue+"18",color:C.blue,border:`1px solid ${C.blue}33`,
+                borderRadius:20,padding:"3px 10px",fontSize:10,fontWeight:500,cursor:"pointer",marginLeft:"auto",
+              }}>⟳ 重新產生</button>
             </div>
 
             {filteredEvents.length === 0 ? (
