@@ -1249,11 +1249,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
           {/* 摘要 */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
             {[["總成本",totalCost.toLocaleString(),C.textSec],
               ["總市值",totalVal.toLocaleString(),C.blue],
-              ["預估損益",(totalPnl>=0?"+":"")+totalPnl.toLocaleString(), totalPnl>=0?C.up:C.down],
-              ["報酬率",(retPct>=0?"+":"")+retPct.toFixed(2)+"%", retPct>=0?C.up:C.down]].map(([l,v,c])=>(
+              ["持股數",H.length+"檔",C.lavender]].map(([l,v,c])=>(
               <div key={l} style={{background:C.subtle,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
                 <div style={{fontSize:9,color:C.textMute,letterSpacing:"0.08em"}}>{l}</div>
                 <div style={{fontSize:15,fontWeight:600,color:c,marginTop:3}}>{v}</div>
@@ -1401,19 +1400,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const tp     = T ? avgTarget(h.code) : null;
               const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
               const isNew  = T?.isNew;
-              const totalCostItem = Math.round(h.cost * h.qty * 100) / 100;
-              // 預估淨收付 = 市值 - 手續費(0.1425%) - 證交稅(0.3% 股票 / 0.1% 權證)
-              const feeRate = 0.001425;
-              const taxRate = h.type === "權證" ? 0.001 : 0.003;
-              const sellFee = Math.round(h.value * feeRate);
-              const sellTax = Math.round(h.value * taxRate);
-              const netSettlement = Math.round(h.value - sellFee - sellTax);
               return (
               <div key={h.code} style={{
-                padding:"12px 0",
+                display:"flex", alignItems:"flex-start", justifyContent:"space-between",
+                padding:"10px 0",
                 borderBottom: i<displayed.length-1 ? `1px solid ${C.borderSub}` : "none"}}>
-                {/* 商品名稱列 */}
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{flex:1}}>
                   <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
                     <span style={{fontSize:13,fontWeight:600,color:C.text}}>{h.name}</span>
                     <span style={{fontSize:9,color:C.textMute}}>{h.code}</span>
@@ -1429,79 +1421,49 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       background:C.tealBg,color:C.teal,fontWeight:600,
                       animation:"pulse 1.5s ease-in-out infinite"}}>目標價更新</span>}
                   </div>
-                  <div style={{display:"flex",alignItems:"baseline",gap:4}}>
+                  <div style={{fontSize:10,color:C.textMute,marginTop:2}}>
+                    {h.qty}{h.unit || "股"} · 成本{h.cost} · 市{h.price?.toLocaleString()}
+                  </div>
+                  {/* 目標價進度條 */}
+                  {tp && (
+                    <div style={{marginTop:5}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                        <span style={{fontSize:9,color:C.textMute}}>
+                          目標 {tp.toLocaleString()}
+                          {T?.reports?.length>1 && <span style={{color:C.textMute}}> ({T.reports.length}家均)</span>}
+                        </span>
+                        <span style={{fontSize:9,fontWeight:600,
+                          color: upside>=0 ? C.up : C.down}}>
+                          {upside>=0?"+":""}{upside?.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div style={{background:C.subtle,borderRadius:3,height:3,width:"100%",overflow:"hidden"}}>
+                        <div style={{
+                          width:`${Math.min(Math.max((h.price/tp)*100,0),100)}%`,
+                          height:"100%",
+                          background: upside>=15 ? C.up+"99"
+                            : upside>=0  ? C.amber+"99"
+                            : C.down+"99",
+                          borderRadius:3,
+                        }}/>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div style={{textAlign:"right",minWidth:80,paddingLeft:8}}>
+                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4}}>
+                    <span style={{fontSize:9,color:C.textMute}}>市值</span>
+                    <span style={{fontSize:12,fontWeight:600,color:C.textSec}}>{h.value?.toLocaleString()}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4,marginTop:1}}>
+                    <span style={{fontSize:9,color:C.textMute}}>損益</span>
+                    <span style={{fontSize:11,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4,marginTop:1}}>
                     <span style={{fontSize:9,color:C.textMute}}>報酬</span>
-                    <span style={{fontSize:12,fontWeight:700,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
+                    <span style={{fontSize:10,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                 </div>
-                {/* 詳細欄位 - 仿富貴角10號 */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 16px",fontSize:11}}>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{color:C.textMute}}>股數</span>
-                    <span style={{color:C.textSec,fontWeight:500}}>{h.qty?.toLocaleString()}</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{color:C.textMute}}>可用股數</span>
-                    <span style={{color:C.textSec,fontWeight:500}}>{h.qty?.toLocaleString()}</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{color:C.textMute}}>市價</span>
-                    <span style={{color:C.textSec,fontWeight:500}}>{h.price?.toLocaleString()}</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{color:C.textMute}}>市值</span>
-                    <span style={{color:C.blue,fontWeight:500}}>{h.value?.toLocaleString()}</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{color:C.textMute}}>成本價</span>
-                    <span style={{color:C.textSec,fontWeight:500}}>{h.cost?.toLocaleString()}</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{color:C.textMute}}>成本</span>
-                    <span style={{color:C.textSec,fontWeight:500}}>{totalCostItem.toLocaleString()}</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{color:C.textMute}}>成交均價</span>
-                    <span style={{color:C.textSec,fontWeight:500}}>{h.cost?.toLocaleString()}</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{color:C.textMute}}>預估損益</span>
-                    <span style={{color:pc(h.pnl),fontWeight:600}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{color:C.textMute}}>報酬率</span>
-                    <span style={{color:pc(h.pct),fontWeight:500}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{color:C.textMute}}>預估淨收付</span>
-                    <span style={{color:C.textSec,fontWeight:500}}>{netSettlement.toLocaleString()}</span>
-                  </div>
-                </div>
-                {/* 目標價進度條 */}
-                {tp && (
-                  <div style={{marginTop:8}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                      <span style={{fontSize:9,color:C.textMute}}>
-                        目標 {tp.toLocaleString()}
-                        {T?.reports?.length>1 && <span style={{color:C.textMute}}> ({T.reports.length}家均)</span>}
-                      </span>
-                      <span style={{fontSize:9,fontWeight:600,
-                        color: upside>=0 ? C.up : C.down}}>
-                        {upside>=0?"+":""}{upside?.toFixed(1)}%
-                      </span>
-                    </div>
-                    <div style={{background:C.subtle,borderRadius:3,height:3,width:"100%",overflow:"hidden"}}>
-                      <div style={{
-                        width:`${Math.min(Math.max((h.price/tp)*100,0),100)}%`,
-                        height:"100%",
-                        background: upside>=15 ? C.up+"99"
-                          : upside>=0  ? C.amber+"99"
-                          : C.down+"99",
-                        borderRadius:3,
-                      }}/>
-                    </div>
-                  </div>
-                )}
               </div>
               );
             })}
