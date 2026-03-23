@@ -155,6 +155,8 @@ export default function App() {
   const [filterType,  setFilterType]  = useState("全部");
   const [showAll,     setShowAll]     = useState(false);
   const [expandedNews, setExpandedNews] = useState(new Set());
+  const [newsPendingExpanded, setNewsPendingExpanded] = useState(false);
+  const [newsPastExpanded, setNewsPastExpanded] = useState(false);
   const toggleNews = (id) => setExpandedNews(prev => {
     const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
   });
@@ -2368,11 +2370,37 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               <div style={{...lbl, marginBottom:0}}>待觀察 · {pending.length} 件</div>
               <span style={{fontSize:9,color:C.textMute}}>點擊展開詳情</span>
             </div>
-            {pending.map((e,i)=><EventRow key={e.id} e={e} idx={i}/>)}
+            {(()=>{
+              const LIMIT = 10;
+              const show = newsPendingExpanded ? pending : pending.slice(0, LIMIT);
+              return <>
+                {show.map((e,i)=><EventRow key={e.id} e={e} idx={i}/>)}
+                {pending.length > LIMIT && (
+                  <button onClick={()=>setNewsPendingExpanded(!newsPendingExpanded)} style={{
+                    width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
+                    background:"transparent",color:C.blue,fontSize:11,fontWeight:500,cursor:"pointer",
+                    marginTop:4,marginBottom:4,
+                  }}>{newsPendingExpanded ? "▲ 收合" : `▼ 展開其餘 ${pending.length - LIMIT} 則`}</button>
+                )}
+              </>;
+            })()}
 
             {/* 已發生 */}
             <div style={{...lbl, marginBottom:8, marginTop:16}}>已發生 · 驗證 {hits+misses}/{past.length} 件</div>
-            {past.map((e,i)=><EventRow key={e.id} e={e} idx={i}/>)}
+            {(()=>{
+              const LIMIT = 10;
+              const show = newsPastExpanded ? past : past.slice(0, LIMIT);
+              return <>
+                {show.map((e,i)=><EventRow key={e.id} e={e} idx={i}/>)}
+                {past.length > LIMIT && (
+                  <button onClick={()=>setNewsPastExpanded(!newsPastExpanded)} style={{
+                    width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
+                    background:"transparent",color:C.blue,fontSize:11,fontWeight:500,cursor:"pointer",
+                    marginTop:4,
+                  }}>{newsPastExpanded ? "▲ 收合" : `▼ 展開其餘 ${past.length - LIMIT} 則`}</button>
+                )}
+              </>;
+            })()}
           </>;
         })()}
 
