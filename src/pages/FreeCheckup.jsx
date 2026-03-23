@@ -124,7 +124,7 @@ const pc    = (p) => p==null ? C.textMute : p>=0 ? C.up : C.down;
 const pcBg  = (p) => p==null ? "transparent" : p>=0 ? C.upBg : C.downBg;
 const fmtN  = (n) => n==null?"—":Math.abs(n)>=10000?(n/10000).toFixed(1)+"萬":n.toLocaleString();
 const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:"14px" };
-const lbl   = { fontSize:10, color:C.textMute, letterSpacing:"0.13em", textTransform:"uppercase", fontWeight:700, marginBottom:7 };
+const lbl   = { fontSize:12, color:C.textMute, letterSpacing:"0.13em", textTransform:"uppercase", fontWeight:700, marginBottom:7 };
 
 async function load(key, fallback) {
   try {
@@ -1133,7 +1133,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   if (!ready) return (
     <div style={{background:C.bg,minHeight:"100vh",display:"flex",
       alignItems:"center",justifyContent:"center",color:C.textMute,
-      fontFamily:"sans-serif",fontSize:13}}>載入中...</div>
+      fontFamily:"sans-serif",fontSize:15}}>載入中...</div>
   );
 
   const TABS = [
@@ -1167,7 +1167,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"10px 16px",position:"sticky",top:0,zIndex:11}}>
         <button onClick={()=>navigate("/")} style={{
           background:"none",border:"none",cursor:"pointer",padding:0,
-          color:C.blue,fontSize:14,fontWeight:500,display:"flex",alignItems:"center",gap:4,
+          color:C.blue,fontSize:16,fontWeight:500,display:"flex",alignItems:"center",gap:4,
         }}>
           ← 返回
         </button>
@@ -1179,17 +1179,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
           <div>
-            <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>
+            <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>
               <span style={{color:cloudSync?C.olive:C.textMute}}>{cloudSync?"☁":"⚡"}</span>
               {saved && <span style={{color:C.olive,marginLeft:8,fontWeight:600}}>{saved}</span>}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-              <span style={{fontSize:21,fontWeight:600,color:C.text,marginTop:2,letterSpacing:"-0.01em"}}>持倉看板</span>
+              <span style={{fontSize:24,fontWeight:600,color:C.text,marginTop:2,letterSpacing:"-0.01em"}}>持倉看板</span>
               <button onClick={refreshPrices} disabled={refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)} style={{
                 background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : C.blue+"22",
                 color: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.textMute : C.blue,
                 border:`1px solid ${(refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.border : C.blue+"55"}`,
-                borderRadius:20, padding:"4px 12px", fontSize:10, fontWeight:500,
+                borderRadius:20, padding:"4px 12px", fontSize:12, fontWeight:500,
                 cursor: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? "not-allowed" : "pointer",
                 transition:"all 0.2s", whiteSpace:"nowrap",
               }}>
@@ -1197,22 +1197,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </button>
               <button onClick={() => setShowResetConfirm(true)} style={{
                 background: C.up+"18", color: C.up, border:`1px solid ${C.up}33`,
-                borderRadius:20, padding:"4px 10px", fontSize:10, fontWeight:500,
+                borderRadius:20, padding:"4px 10px", fontSize:12, fontWeight:500,
                 cursor:"pointer", whiteSpace:"nowrap",
               }}>🗑 清除全部</button>
               {lastUpdate && !refreshing && (
-                <span style={{fontSize:10,color:C.textMute}}>
+                <span style={{fontSize:12,color:C.textMute}}>
                   {lastUpdate.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}
                 </span>
               )}
             </div>
           </div>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:10,color:C.textMute,marginBottom:2}}>未實現損益</div>
-            <div style={{fontSize:22,fontWeight:700,color:pc(totalPnl),letterSpacing:"-0.02em"}}>
+            <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>未實現損益</div>
+            <div style={{fontSize:25,fontWeight:700,color:pc(totalPnl),letterSpacing:"-0.02em"}}>
               {totalPnl>=0?"+":""}{totalPnl.toLocaleString()}
             </div>
-            <div style={{fontSize:11,fontWeight:600,color:pc(retPct)}}>
+            <div style={{fontSize:13,fontWeight:600,color:pc(retPct)}}>
               {retPct>=0?"+":""}{retPct.toFixed(2)}%
             </div>
           </div>
@@ -1223,7 +1223,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           <div style={{background:C.upBg,border:`1px solid ${C.up}44`,
             borderLeft:`3px solid ${C.up}`,
             borderRadius:8,padding:"8px 11px",marginBottom:12,
-            fontSize:11,color:C.up,lineHeight:1.7,fontWeight:500}}>
+            fontSize:13,color:C.up,lineHeight:1.7,fontWeight:500}}>
             今日 · {CE.filter(e=>e.urgent).map(e=>e.label).join(" · ")}
           </div>
         )}
@@ -1236,7 +1236,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               border:"none",
               borderBottom: tab===t.k ? `2px solid ${C.amber}` : "2px solid transparent",
               padding:"8px 12px",
-              fontSize:11, fontWeight: tab===t.k ? 600 : 400,
+              fontSize:13, fontWeight: tab===t.k ? 600 : 400,
               cursor:"pointer", whiteSpace:"nowrap",
               transition:"all 0.15s",
             }}>{t.label}</button>
@@ -1254,8 +1254,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               ["總市值",totalVal.toLocaleString(),C.blue],
               ["持股數",H.length+"檔",C.lavender]].map(([l,v,c])=>(
               <div key={l} style={{background:C.subtle,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
-                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em"}}>{l}</div>
-                <div style={{fontSize:17,fontWeight:600,color:c,marginTop:3}}>{v}</div>
+                <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.08em"}}>{l}</div>
+                <div style={{fontSize:19,fontWeight:600,color:c,marginTop:3}}>{v}</div>
               </div>
             ))}
           </div>
@@ -1267,8 +1267,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const pct=h.value/totalVal*100;
               return <div key={h.code} style={{marginTop:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                  <span style={{fontSize:13,color:C.textSec,fontWeight:500}}>{h.name}</span>
-                  <span style={{fontSize:13,fontWeight:600,color:topColors[i]}}>{pct.toFixed(1)}%</span>
+                  <span style={{fontSize:15,color:C.textSec,fontWeight:500}}>{h.name}</span>
+                  <span style={{fontSize:15,fontWeight:600,color:topColors[i]}}>{pct.toFixed(1)}%</span>
                 </div>
                 <div style={{background:C.subtle,borderRadius:4,height:4}}>
                   <div style={{width:`${pct}%`,height:"100%",background:topColors[i]+"88",borderRadius:4}}/>
@@ -1283,8 +1283,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               <div style={{...lbl,color:C.up}}>獲利 {winners.length}檔</div>
               {winners.slice(0,3).map(h=>(
                 <div key={h.code} style={{display:"flex",justifyContent:"space-between",marginTop:7}}>
-                  <span style={{fontSize:11,color:C.textSec}}>{h.name}</span>
-                  <span style={{fontSize:11,fontWeight:600,color:C.up}}>+{h.pct}%</span>
+                  <span style={{fontSize:13,color:C.textSec}}>{h.name}</span>
+                  <span style={{fontSize:13,fontWeight:600,color:C.up}}>+{h.pct}%</span>
                 </div>
               ))}
             </div>
@@ -1292,8 +1292,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               <div style={{...lbl,color:C.down}}>虧損 {losers.length}檔</div>
               {losers.slice(0,3).map(h=>(
                 <div key={h.code} style={{display:"flex",justifyContent:"space-between",marginTop:7}}>
-                  <span style={{fontSize:11,color:C.textSec}}>{h.name}</span>
-                  <span style={{fontSize:11,fontWeight:600,color:C.down}}>{h.pct}%</span>
+                  <span style={{fontSize:13,color:C.textSec}}>{h.name}</span>
+                  <span style={{fontSize:13,fontWeight:600,color:C.down}}>{h.pct}%</span>
                 </div>
               ))}
             </div>
@@ -1313,11 +1313,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   borderBottom:`1px solid ${C.borderSub}`}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      <span style={{fontSize:12,fontWeight:500,color:C.text}}>{h.name}</span>
-                      <span style={{fontSize:10,color:C.down,marginLeft:6}}>{h.pct}%</span>
+                      <span style={{fontSize:14,fontWeight:500,color:C.text}}>{h.name}</span>
+                      <span style={{fontSize:12,color:C.down,marginLeft:6}}>{h.pct}%</span>
                     </div>
                     <button onClick={()=>setEditing(!editing)} style={{
-                      padding:"3px 9px",borderRadius:5,fontSize:10,cursor:"pointer",
+                      padding:"3px 9px",borderRadius:5,fontSize:12,cursor:"pointer",
                       background:rc?C.olive+"22":"transparent",
                       border:`1px solid ${rc?C.olive+"55":C.border}`,
                       color:rc?C.olive:C.textMute}}>
@@ -1325,7 +1325,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </button>
                   </div>
                   {rc && !editing && (
-                    <div style={{fontSize:10,color:C.textSec,marginTop:4,lineHeight:1.7}}>
+                    <div style={{fontSize:12,color:C.textSec,marginTop:4,lineHeight:1.7}}>
                       反轉訊號：{rc.signal} | 目標：{rc.target} | 停損：{rc.stopLoss}
                     </div>
                   )}
@@ -1334,33 +1334,33 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     return <div style={{marginTop:8,background:C.subtle,borderRadius:7,padding:10}}>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
                         <div>
-                          <div style={{fontSize:10,color:C.textMute,marginBottom:2}}>反轉目標價</div>
+                          <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>反轉目標價</div>
                           <input defaultValue={draft.target} id={`rv-t-${h.code}`}
                             placeholder="如 130"
                             style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:11,outline:"none",fontFamily:"inherit"}}/>
+                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
                         </div>
                         <div>
-                          <div style={{fontSize:10,color:C.textMute,marginBottom:2}}>停損價</div>
+                          <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>停損價</div>
                           <input defaultValue={draft.stopLoss} id={`rv-s-${h.code}`}
                             placeholder="如 85"
                             style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:11,outline:"none",fontFamily:"inherit"}}/>
+                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
                         </div>
                       </div>
                       <div style={{marginBottom:6}}>
-                        <div style={{fontSize:10,color:C.textMute,marginBottom:2}}>反轉訊號（什麼條件出現代表反轉？）</div>
+                        <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>反轉訊號（什麼條件出現代表反轉？）</div>
                         <input defaultValue={draft.signal} id={`rv-g-${h.code}`}
                           placeholder="如：月營收連續兩月成長、法人轉買超"
                           style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                            borderRadius:6,padding:"6px 8px",color:C.text,fontSize:11,outline:"none",fontFamily:"inherit"}}/>
+                            borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
                       </div>
                       <div style={{marginBottom:8}}>
-                        <div style={{fontSize:10,color:C.textMute,marginBottom:2}}>備註</div>
+                        <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>備註</div>
                         <input defaultValue={draft.note} id={`rv-n-${h.code}`}
                           placeholder="其他觀察..."
                           style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                            borderRadius:6,padding:"6px 8px",color:C.text,fontSize:11,outline:"none",fontFamily:"inherit"}}/>
+                            borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
                       </div>
                       <button onClick={()=>{
                         updateReversal(h.code, {
@@ -1371,7 +1371,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         });
                         setEditing(false);
                       }} style={{width:"100%",padding:"8px",borderRadius:6,border:"none",
-                        background:C.olive+"cc",color:"#fff",fontSize:11,fontWeight:500,cursor:"pointer"}}>
+                        background:C.olive+"cc",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer"}}>
                         儲存反轉條件
                       </button>
                     </div>;
@@ -1383,13 +1383,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* 排序 + 列表 */}
           <div style={{display:"flex",gap:5,marginBottom:10,alignItems:"center"}}>
-            <span style={{fontSize:11,color:C.textMute}}>排序：</span>
+            <span style={{fontSize:13,color:C.textMute}}>排序：</span>
             {[["value","市值"],["pnl","損益"],["pct","報酬%"]].map(([k,l])=>(
               <button key={k} onClick={()=>setSortBy(k)} style={{
                 background: sortBy===k ? C.subtle : "transparent",
                 color: sortBy===k ? C.amber : C.textMute,
                 border:`1px solid ${sortBy===k ? C.amber+"66" : C.border}`,
-                borderRadius:20, padding:"4px 12px", fontSize:11, fontWeight:500, cursor:"pointer",
+                borderRadius:20, padding:"4px 12px", fontSize:13, fontWeight:500, cursor:"pointer",
               }}>{l}</button>
             ))}
           </div>
@@ -1406,41 +1406,41 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderBottom: i<displayed.length-1 ? `1px solid ${C.borderSub}` : "none"}}>
                 {/* 第一行：名稱 + 標籤 */}
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
-                  <span style={{fontSize:15,fontWeight:600,color:C.text}}>{h.name}</span>
-                  <span style={{fontSize:10,color:C.textMute}}>{h.code}</span>
+                  <span style={{fontSize:17,fontWeight:600,color:C.text}}>{h.name}</span>
+                  <span style={{fontSize:12,color:C.textMute}}>{h.code}</span>
                   {h.type!=="股票"&&(
-                    <span style={{fontSize:10,padding:"1px 6px",borderRadius:3,
+                    <span style={{fontSize:12,padding:"1px 6px",borderRadius:3,
                       background: h.type==="權證" ? C.amberBg : C.blueBg,
                       color: h.type==="權證" ? C.amber : C.blue,
                       fontWeight:500}}>{h.type}</span>
                   )}
-                  {h.expire&&<span style={{fontSize:10,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
-                  {h.alert&&<span style={{fontSize:10,color:C.up,fontWeight:600}}>{h.alert}</span>}
-                  {isNew&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,
+                  {h.expire&&<span style={{fontSize:12,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
+                  {h.alert&&<span style={{fontSize:12,color:C.up,fontWeight:600}}>{h.alert}</span>}
+                  {isNew&&<span style={{fontSize:12,padding:"1px 6px",borderRadius:3,
                     background:C.tealBg,color:C.teal,fontWeight:600,
                     animation:"pulse 1.5s ease-in-out infinite"}}>目標價更新</span>}
                 </div>
                 {/* 第二行：左側 數量·成本價·市價·市值 / 右側 損益·報酬 */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                  <div style={{fontSize:12,color:C.textMute}}>
+                  <div style={{fontSize:14,color:C.textMute}}>
                     {h.qty}{h.unit || "股"} · 成本價{h.cost} · 成本{Math.round(h.cost * h.qty).toLocaleString()} · 市價{h.price?.toLocaleString()} · <span style={{color:C.blue}}>市值 {h.value?.toLocaleString()}</span>
                   </div>
                   <div style={{display:"flex",gap:10,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
-                    <span style={{fontSize:12,color:C.textMute}}>損益</span>
-                    <span style={{fontSize:13,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
-                    <span style={{fontSize:12,color:C.textMute}}>報酬</span>
-                    <span style={{fontSize:12,fontWeight:600,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
+                    <span style={{fontSize:14,color:C.textMute}}>損益</span>
+                    <span style={{fontSize:15,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                    <span style={{fontSize:14,color:C.textMute}}>報酬</span>
+                    <span style={{fontSize:14,fontWeight:600,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                 </div>
                 {/* 目標價進度條 */}
                 {tp && (
                   <div style={{marginTop:6}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                      <span style={{fontSize:10,color:C.textMute}}>
+                      <span style={{fontSize:12,color:C.textMute}}>
                         目標 {tp.toLocaleString()}
                         {T?.reports?.length>1 && <span style={{color:C.textMute}}> ({T.reports.length}家均)</span>}
                       </span>
-                      <span style={{fontSize:10,fontWeight:600,
+                      <span style={{fontSize:12,fontWeight:600,
                         color: upside>=0 ? C.up : C.down}}>
                         {upside>=0?"+":""}{upside?.toFixed(1)}%
                       </span>
@@ -1464,7 +1464,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               <button onClick={()=>setShowAll(true)} style={{
                 width:"100%",marginTop:10,padding:"9px",
                 background:"transparent",border:`1px solid ${C.border}`,
-                borderRadius:8,color:C.textMute,fontSize:11,cursor:"pointer",fontWeight:400,
+                borderRadius:8,color:C.textMute,fontSize:13,cursor:"pointer",fontWeight:400,
               }}>顯示全部 {sorted.length} 檔</button>
             )}
           </div>
@@ -1474,9 +1474,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="watchlist" && <>
           {H.length === 0 ? (
             <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:28,marginBottom:10,opacity:0.3}}>👀</div>
-              <div style={{fontSize:13,color:C.textSec,fontWeight:500}}>尚無觀察股</div>
-              <div style={{fontSize:11,color:C.textMute,marginTop:6,lineHeight:1.7}}>
+              <div style={{fontSize:32,marginBottom:10,opacity:0.3}}>👀</div>
+              <div style={{fontSize:15,color:C.textSec,fontWeight:500}}>尚無觀察股</div>
+              <div style={{fontSize:13,color:C.textMute,marginTop:6,lineHeight:1.7}}>
                 上傳成交截圖後，持倉股票會自動出現在觀察清單
               </div>
             </div>
@@ -1491,14 +1491,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               return <div key={h.code} style={{...card, background:bgTints[wi%3], marginBottom:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                   <div>
-                    <div style={{fontSize:16,fontWeight:600,color:C.text}}>{h.name}
-                      <span style={{fontSize:10,color:C.textMute,fontWeight:400,marginLeft:6}}>{h.code}</span>
+                    <div style={{fontSize:18,fontWeight:600,color:C.text}}>{h.name}
+                      <span style={{fontSize:12,color:C.textMute,fontWeight:400,marginLeft:6}}>{h.code}</span>
                     </div>
-                    <div style={{fontSize:10,color:C.textMute,marginTop:2}}>持有 {h.qty} {h.unit || "股"}</div>
+                    <div style={{fontSize:12,color:C.textMute,marginTop:2}}>持有 {h.qty} {h.unit || "股"}</div>
                   </div>
                   <span style={{background: h.pnl >= 0 ? C.olive+"22" : C.up+"22",
                     color: h.pnl >= 0 ? C.olive : C.up,
-                    fontSize:10,fontWeight:500,padding:"3px 11px",borderRadius:20}}>
+                    fontSize:12,fontWeight:500,padding:"3px 11px",borderRadius:20}}>
                     {h.pnl >= 0 ? "獲利中" : "虧損中"}
                   </span>
                 </div>
@@ -1509,8 +1509,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(2) + "%", h.pnl >= 0 ? C.olive : C.up],
                   ].map(([l,v,c])=>(
                     <div key={l}>
-                      <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>{l}</div>
-                      <div style={{fontSize:17,fontWeight:600,color:c}}>{v}</div>
+                      <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>{l}</div>
+                      <div style={{fontSize:19,fontWeight:600,color:c}}>{v}</div>
                     </div>
                   ))}
                 </div>
@@ -1529,15 +1529,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="events" && <>
           {calendarLoading ? (
             <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:13,color:C.amber,fontWeight:500,animation:"pulse 1.5s ease-in-out infinite"}}>
+              <div style={{fontSize:15,color:C.amber,fontWeight:500,animation:"pulse 1.5s ease-in-out infinite"}}>
                 正在根據持倉產生行事曆...
               </div>
             </div>
           ) : H.length === 0 && CE.length === 0 ? (
             <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:28,marginBottom:10,opacity:0.3}}>📅</div>
-              <div style={{fontSize:13,color:C.textSec,fontWeight:500}}>尚無行事曆事件</div>
-              <div style={{fontSize:11,color:C.textMute,marginTop:6,lineHeight:1.7}}>
+              <div style={{fontSize:32,marginBottom:10,opacity:0.3}}>📅</div>
+              <div style={{fontSize:15,color:C.textSec,fontWeight:500}}>尚無行事曆事件</div>
+              <div style={{fontSize:13,color:C.textMute,marginTop:6,lineHeight:1.7}}>
                 上傳成交截圖後，相關股票的財報、法說、催化事件會自動列出
               </div>
             </div>
@@ -1548,18 +1548,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   background: filterType===t ? (TYPE_COLOR[t]+"33"||C.subtle) : "transparent",
                   color: filterType===t ? (TYPE_COLOR[t]||C.text) : C.textMute,
                   border:`1px solid ${filterType===t?(TYPE_COLOR[t]+"66"||C.border):C.border}`,
-                  borderRadius:20,padding:"3px 11px",fontSize:10,fontWeight:500,cursor:"pointer",
+                  borderRadius:20,padding:"3px 11px",fontSize:12,fontWeight:500,cursor:"pointer",
                 }}>{t}</button>
               ))}
               <button onClick={()=>fetchCalendarEvents(holdings)} disabled={calendarLoading} style={{
                 background:C.blue+"18",color:C.blue,border:`1px solid ${C.blue}33`,
-                borderRadius:20,padding:"3px 10px",fontSize:10,fontWeight:500,cursor:"pointer",marginLeft:"auto",
+                borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:500,cursor:"pointer",marginLeft:"auto",
               }}>⟳ 重新產生</button>
             </div>
 
             {filteredEvents.length === 0 ? (
               <div style={{...card,textAlign:"center",padding:"24px 16px"}}>
-                <div style={{fontSize:11,color:C.textMute}}>此分類暫無事件</div>
+                <div style={{fontSize:13,color:C.textMute}}>此分類暫無事件</div>
               </div>
             ) : (() => {
               const COLLAPSE_LIMIT = 10;
@@ -1575,20 +1575,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div style={{minWidth:48}}>
                         <div style={{background: e.urgent ? C.upBg : tc+"18",
                           color: e.urgent ? C.up : tc,
-                          fontSize:10,fontWeight:600,padding:"2px 5px",borderRadius:4,
+                          fontSize:12,fontWeight:600,padding:"2px 5px",borderRadius:4,
                           textAlign:"center",marginBottom:3}}>{e.type}</div>
-                        <div style={{fontSize:10,color:C.textMute,textAlign:"center",lineHeight:1.4}}>{e.date}</div>
+                        <div style={{fontSize:12,color:C.textMute,textAlign:"center",lineHeight:1.4}}>{e.date}</div>
                       </div>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
-                        <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
+                        <div style={{fontSize:14,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
+                        <div style={{fontSize:12,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
                         {e.pred && (
                           <div style={{display:"flex",alignItems:"center",gap:4,marginTop:4}}>
-                            <span style={{fontSize:10,fontWeight:600,
+                            <span style={{fontSize:12,fontWeight:600,
                               color:e.pred==="up"?C.up:e.pred==="down"?C.down:C.textMute}}>
                               {e.pred==="up"?"↑ 看漲":e.pred==="down"?"↓ 看跌":"— 中性"}
                             </span>
-                            {e.predReason && <span style={{fontSize:10,color:C.textMute,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>{e.predReason}</span>}
+                            {e.predReason && <span style={{fontSize:12,color:C.textMute,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>{e.predReason}</span>}
                           </div>
                         )}
                       </div>
@@ -1603,7 +1603,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         setTimeout(() => setSaved(""), 2500);
                       }} style={{
                         background:C.amber+"18",color:C.amber,border:`1px solid ${C.amber}33`,
-                        borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:500,cursor:"pointer",
+                        borderRadius:6,padding:"3px 8px",fontSize:12,fontWeight:500,cursor:"pointer",
                         whiteSpace:"nowrap",alignSelf:"center",
                       }}>已發生 · 復盤</button>
                     </div>
@@ -1612,7 +1612,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {filteredEvents.length > COLLAPSE_LIMIT && (
                   <button onClick={()=>setCalendarExpanded(!calendarExpanded)} style={{
                     width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
-                    background:"transparent",color:C.blue,fontSize:11,fontWeight:500,cursor:"pointer",
+                    background:"transparent",color:C.blue,fontSize:13,fontWeight:500,cursor:"pointer",
                     marginTop:4,
                   }}>
                     {calendarExpanded ? "▲ 收合" : `▼ 展開其餘 ${filteredEvents.length - COLLAPSE_LIMIT} 則事件`}
@@ -1628,19 +1628,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {/* 手動觸發按鈕 */}
           {!dailyReport && !analyzing && (
             <div style={{...card,textAlign:"center",padding:"28px 16px",marginBottom:12}}>
-              <div style={{fontSize:28,marginBottom:10,opacity:0.4}}>◎</div>
-              <div style={{fontSize:13,color:C.textSec,fontWeight:500,marginBottom:6}}>每日收盤分析</div>
-              <div style={{fontSize:11,color:C.textMute,marginBottom:16,lineHeight:1.7}}>
+              <div style={{fontSize:32,marginBottom:10,opacity:0.4}}>◎</div>
+              <div style={{fontSize:15,color:C.textSec,fontWeight:500,marginBottom:6}}>每日收盤分析</div>
+              <div style={{fontSize:13,color:C.textMute,marginBottom:16,lineHeight:1.7}}>
                 分析今日股價變動與事件連動性<br/>自動比對持倉漲跌、異常波動、策略建議
               </div>
               <button onClick={runDailyAnalysis} style={{
                 padding:"12px 28px",borderRadius:10,border:"none",
                 background:`linear-gradient(135deg,${C.blue}cc,${C.olive}cc)`,
-                color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",
+                color:"#fff",fontSize:15,fontWeight:600,cursor:"pointer",
                 letterSpacing:"0.03em"}}>
                 開始今日收盤分析
               </button>
-              <div style={{fontSize:10,color:C.textMute,marginTop:10}}>
+              <div style={{fontSize:12,color:C.textMute,marginTop:10}}>
                 收盤後按下即可開始分析
               </div>
             </div>
@@ -1648,10 +1648,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {analyzing && (
             <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:13,color:C.amber,fontWeight:500,animation:"pulse 1.5s ease-in-out infinite"}}>
+              <div style={{fontSize:15,color:C.amber,fontWeight:500,animation:"pulse 1.5s ease-in-out infinite"}}>
                 {analyzeStep || "正在分析今日收盤數據..."}
               </div>
-              <div style={{fontSize:11,color:C.textMute,marginTop:8}}>取得股價 → 比對事件 → AI策略分析 → 大腦進化</div>
+              <div style={{fontSize:13,color:C.textMute,marginTop:8}}>取得股價 → 比對事件 → AI策略分析 → 大腦進化</div>
               <div style={{width:"100%",height:3,background:C.borderSub,borderRadius:2,marginTop:12,overflow:"hidden"}}>
                 <div style={{height:"100%",background:C.amber,borderRadius:2,animation:"progress 8s ease-in-out infinite",width:"70%"}} />
               </div>
@@ -1665,13 +1665,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <button onClick={()=>setDailyReport(null)} style={{fontSize:10,padding:"2px 8px",borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMute,cursor:"pointer"}}>← 返回</button>
+                    <button onClick={()=>setDailyReport(null)} style={{fontSize:12,padding:"2px 8px",borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMute,cursor:"pointer"}}>← 返回</button>
                     <div style={lbl}>{dailyReport.date} 收盤分析</div>
                   </div>
-                  <div style={{fontSize:10,color:C.textMute}}>{dailyReport.time} 更新</div>
+                  <div style={{fontSize:12,color:C.textMute}}>{dailyReport.time} 更新</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:10,color:C.textMute}}>今日損益</div>
+                  <div style={{fontSize:12,color:C.textMute}}>今日損益</div>
                   <div style={{fontSize:20,fontWeight:700,color:pc(dailyReport.totalTodayPnl)}}>
                     {dailyReport.totalTodayPnl>=0?"+":""}{dailyReport.totalTodayPnl.toLocaleString()}
                   </div>
@@ -1686,17 +1686,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div key={c.code} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
                   padding:"8px 0",borderBottom:i<dailyReport.changes.length-1?`1px solid ${C.borderSub}`:"none"}}>
                   <div>
-                    <span style={{fontSize:12,fontWeight:500,color:C.text}}>{c.name}</span>
-                    <span style={{fontSize:10,color:C.textMute,marginLeft:5}}>{c.code}</span>
-                    {c.type!=="股票"&&<span style={{fontSize:10,marginLeft:5,padding:"1px 5px",borderRadius:3,
+                    <span style={{fontSize:14,fontWeight:500,color:C.text}}>{c.name}</span>
+                    <span style={{fontSize:12,color:C.textMute,marginLeft:5}}>{c.code}</span>
+                    {c.type!=="股票"&&<span style={{fontSize:12,marginLeft:5,padding:"1px 5px",borderRadius:3,
                       background:C.amberBg,color:C.amber}}>{c.type}</span>}
                   </div>
                   <div style={{textAlign:"right",display:"flex",gap:12,alignItems:"center"}}>
-                    <span style={{fontSize:11,color:C.textMute}}>{c.price?.toLocaleString()}</span>
-                    <span style={{fontSize:12,fontWeight:600,color:pc(c.changePct),minWidth:55,textAlign:"right"}}>
+                    <span style={{fontSize:13,color:C.textMute}}>{c.price?.toLocaleString()}</span>
+                    <span style={{fontSize:14,fontWeight:600,color:pc(c.changePct),minWidth:55,textAlign:"right"}}>
                       {c.changePct>=0?"+":""}{c.changePct.toFixed(2)}%
                     </span>
-                    <span style={{fontSize:10,color:pc(c.todayPnl),minWidth:50,textAlign:"right"}}>
+                    <span style={{fontSize:12,color:pc(c.todayPnl),minWidth:50,textAlign:"right"}}>
                       {c.todayPnl>=0?"+":""}{c.todayPnl.toLocaleString()}
                     </span>
                   </div>
@@ -1710,8 +1710,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div style={{...lbl,color:C.amber}}>異常波動 ({">"}3%)</div>
                 {dailyReport.anomalies.map(a=>(
                   <div key={a.code} style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}>
-                    <span style={{fontSize:12,color:C.text}}>{a.name}</span>
-                    <span style={{fontSize:12,fontWeight:600,color:pc(a.changePct)}}>
+                    <span style={{fontSize:14,color:C.text}}>{a.name}</span>
+                    <span style={{fontSize:14,fontWeight:600,color:pc(a.changePct)}}>
                       {a.changePct>=0?"+":""}{a.changePct.toFixed(2)}%
                     </span>
                   </div>
@@ -1725,12 +1725,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div style={{...lbl,color:C.teal}}>事件連動分析</div>
                 {dailyReport.eventCorrelations.map(ec=>(
                   <div key={ec.id} style={{marginBottom:10,background:C.subtle,borderRadius:7,padding:"9px 11px"}}>
-                    <div style={{fontSize:11,fontWeight:500,color:C.text,marginBottom:4}}>{ec.title}</div>
-                    <div style={{fontSize:10,color:C.textMute,marginBottom:6}}>{ec.date}</div>
+                    <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:4}}>{ec.title}</div>
+                    <div style={{fontSize:12,color:C.textMute,marginBottom:6}}>{ec.date}</div>
                     {ec.relatedStocks.map(s=>(
                       <div key={s.code} style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
-                        <span style={{fontSize:10,color:C.textSec}}>{s.name}</span>
-                        <span style={{fontSize:10,fontWeight:600,color:pc(s.changePct)}}>
+                        <span style={{fontSize:12,color:C.textSec}}>{s.name}</span>
+                        <span style={{fontSize:12,fontWeight:600,color:pc(s.changePct)}}>
                           {s.changePct>=0?"+":""}{s.changePct.toFixed(2)}%
                         </span>
                       </div>
@@ -1748,12 +1748,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
                     padding:"6px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${C.borderSub}`:"none"}}>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:11,fontWeight:500,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
-                      <div style={{fontSize:10,color:C.textMute,marginTop:2}}>
+                      <div style={{fontSize:13,fontWeight:500,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
+                      <div style={{fontSize:12,color:C.textMute,marginTop:2}}>
                         預測{v.pred==="up"?"看漲":"看跌"} → 實際{v.actual==="up"?"漲":v.actual==="down"?"跌":"中性"}
                       </div>
                     </div>
-                    <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,flexShrink:0,
+                    <span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:20,flexShrink:0,
                       background:v.correct?C.oliveBg:C.upBg,
                       color:v.correct?C.olive:C.up}}>
                       {v.correct?"✓ 命中":"✗ 失誤"}
@@ -1769,11 +1769,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div style={{...lbl,color:C.up}}>需要復盤 · {dailyReport.needsReview.length}件</div>
                 {dailyReport.needsReview.map(e=>(
                   <div key={e.id} style={{marginBottom:8}}>
-                    <div style={{fontSize:11,fontWeight:500,color:C.text}}>{e.title}</div>
-                    <div style={{fontSize:10,color:C.textMute}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
+                    <div style={{fontSize:13,fontWeight:500,color:C.text}}>{e.title}</div>
+                    <div style={{fontSize:12,color:C.textMute}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
                     <button onClick={()=>{setTab("news");setExpandedNews(new Set([e.id]))}}
                       style={{marginTop:4,padding:"4px 10px",borderRadius:5,border:`1px solid ${C.olive}55`,
-                        background:"transparent",color:C.olive,fontSize:10,cursor:"pointer"}}>
+                        background:"transparent",color:C.olive,fontSize:12,cursor:"pointer"}}>
                       前往復盤
                     </button>
                   </div>
@@ -1785,7 +1785,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             {dailyReport.aiInsight && (
               <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.lavender}88`}}>
                 <div style={{...lbl,color:C.lavender}}>AI 策略分析</div>
-                <div style={{fontSize:11,color:C.textSec,lineHeight:2,whiteSpace:"pre-wrap"}}>
+                <div style={{fontSize:13,color:C.textSec,lineHeight:2,whiteSpace:"pre-wrap"}}>
                   {dailyReport.aiInsight}
                 </div>
               </div>
@@ -1793,7 +1793,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             {!dailyReport.aiInsight && (
               <div style={{...card,marginBottom:10,background:C.subtle}}>
-                <div style={{fontSize:11,color:C.textMute,textAlign:"center",padding:"8px 0"}}>
+                <div style={{fontSize:13,color:C.textMute,textAlign:"center",padding:"8px 0"}}>
                   AI 分析未產生
                 </div>
               </div>
@@ -1802,7 +1802,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             {/* 重新分析 */}
             <button onClick={runDailyAnalysis} disabled={analyzing} style={{
               width:"100%",padding:"11px",borderRadius:8,border:`1px solid ${C.border}`,
-              background:"transparent",color:C.textMute,fontSize:11,cursor:"pointer",
+              background:"transparent",color:C.textMute,fontSize:13,cursor:"pointer",
               marginBottom:16}}>
               重新分析
             </button>
@@ -1813,16 +1813,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             <div style={{...card,marginBottom:12,borderLeft:`3px solid ${C.lavender}88`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                 <div style={{...lbl,color:C.lavender,marginBottom:0}}>策略大腦</div>
-                <span style={{fontSize:10,color:C.textMute}}>
+                <span style={{fontSize:12,color:C.textMute}}>
                   更新：{strategyBrain.lastUpdate||"—"} | 分析次數：{strategyBrain.stats?.totalAnalyses||0}
                 </span>
               </div>
 
               {(strategyBrain.rules||[]).length>0 && (
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,color:C.amber,fontWeight:600,marginBottom:5}}>核心策略規則</div>
+                  <div style={{fontSize:12,color:C.amber,fontWeight:600,marginBottom:5}}>核心策略規則</div>
                   {strategyBrain.rules.map((r,i)=>(
-                    <div key={i} style={{fontSize:11,color:C.textSec,lineHeight:1.8,
+                    <div key={i} style={{fontSize:13,color:C.textSec,lineHeight:1.8,
                       padding:"3px 0",borderBottom:`1px solid ${C.borderSub}`}}>
                       {i+1}. {r}
                     </div>
@@ -1832,20 +1832,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
               {(strategyBrain.commonMistakes||[]).length>0 && (
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,color:C.up,fontWeight:600,marginBottom:5}}>常犯錯誤（警醒）</div>
+                  <div style={{fontSize:12,color:C.up,fontWeight:600,marginBottom:5}}>常犯錯誤（警醒）</div>
                   {strategyBrain.commonMistakes.map((m,i)=>(
-                    <div key={i} style={{fontSize:11,color:C.textSec,lineHeight:1.8}}>⚠ {m}</div>
+                    <div key={i} style={{fontSize:13,color:C.textSec,lineHeight:1.8}}>⚠ {m}</div>
                   ))}
                 </div>
               )}
 
               {(strategyBrain.lessons||[]).length>0 && (
                 <div>
-                  <div style={{fontSize:10,color:C.olive,fontWeight:600,marginBottom:5}}>
+                  <div style={{fontSize:12,color:C.olive,fontWeight:600,marginBottom:5}}>
                     最近教訓（共 {strategyBrain.lessons.length} 條）
                   </div>
                   {strategyBrain.lessons.slice(-5).reverse().map((l,i)=>(
-                    <div key={i} style={{fontSize:10,color:C.textMute,lineHeight:1.7,
+                    <div key={i} style={{fontSize:12,color:C.textMute,lineHeight:1.7,
                       padding:"4px 0",borderBottom:`1px solid ${C.borderSub}`}}>
                       <span style={{color:C.textSec}}>[{l.date}]</span> {l.text}
                     </div>
@@ -1854,7 +1854,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               )}
 
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
-                <div style={{fontSize:10,color:C.lavender,fontWeight:500}}>
+                <div style={{fontSize:12,color:C.lavender,fontWeight:500}}>
                   命中率：{strategyBrain.stats?.hitRate||"計算中"}
                 </div>
                 <div style={{display:"flex",gap:6}}>
@@ -1865,7 +1865,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     a.href = URL.createObjectURL(blob);
                     a.download = `strategy-brain-${new Date().toISOString().slice(0,10)}.json`;
                     a.click();
-                  }} style={{fontSize:10,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMute,cursor:"pointer"}}>
+                  }} style={{fontSize:12,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMute,cursor:"pointer"}}>
                     匯出
                   </button>
                   <button onClick={()=>{
@@ -1874,12 +1874,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       save("pf-brain-v1", null);
                       fetch(`${SUPABASE_FN_BASE}/checkup-brain`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-brain",data:null})}).catch(()=>{});
                     }
-                  }} style={{fontSize:10,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.up}44`,background:"transparent",color:C.up,cursor:"pointer"}}>
+                  }} style={{fontSize:12,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.up}44`,background:"transparent",color:C.up,cursor:"pointer"}}>
                     重置
                   </button>
                 </div>
               </div>
-              <div style={{fontSize:10,color:cloudSync?C.olive:C.textMute,marginTop:6}}>
+              <div style={{fontSize:12,color:cloudSync?C.olive:C.textMute,marginTop:6}}>
                 {cloudSync ? "☁ 已雲端同步" : "⚡ 本機模式"}
               </div>
             </div>
@@ -1887,7 +1887,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {!strategyBrain && (
             <div style={{...card,marginBottom:12,textAlign:"center",padding:"16px"}}>
-              <div style={{fontSize:11,color:C.textMute}}>
+              <div style={{fontSize:13,color:C.textMute}}>
                 執行第一次收盤分析後，策略大腦將自動建立並持續進化
               </div>
             </div>
@@ -1902,7 +1902,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               <div style={{...card}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div style={lbl}>歷史分析記錄</div>
-                  <span style={{fontSize:10,color:C.textMute}}>共 {validHistory.length} 筆</span>
+                  <span style={{fontSize:12,color:C.textMute}}>共 {validHistory.length} 筆</span>
                 </div>
                 {validHistory.slice(0,15).map(r=>{
                   const isExpanded = dailyReport?.id === r.id;
@@ -1917,12 +1917,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         borderRadius:6,
                         borderBottom:`1px solid ${C.borderSub}`}}>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <span style={{fontSize:10,color:isExpanded?C.amber:C.textMute,transition:"transform 0.15s",
+                        <span style={{fontSize:12,color:isExpanded?C.amber:C.textMute,transition:"transform 0.15s",
                           display:"inline-block",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                        <span style={{fontSize:12,color:C.text}}>{r.date}</span>
-                        <span style={{fontSize:10,color:C.textMute}}>{r.time}</span>
+                        <span style={{fontSize:14,color:C.text}}>{r.date}</span>
+                        <span style={{fontSize:12,color:C.textMute}}>{r.time}</span>
                       </div>
-                      <span style={{fontSize:12,fontWeight:600,color:pc(r.totalTodayPnl)}}>
+                      <span style={{fontSize:14,fontWeight:600,color:pc(r.totalTodayPnl)}}>
                         {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
                       </span>
                     </div>
@@ -1932,22 +1932,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {/* 持倉漲跌 */}
                         {r.changes && r.changes.length > 0 && (
                           <div style={{marginBottom:8}}>
-                            <div style={{fontSize:10,color:C.textMute,fontWeight:600,marginBottom:4,letterSpacing:"0.06em"}}>持倉漲跌</div>
+                            <div style={{fontSize:12,color:C.textMute,fontWeight:600,marginBottom:4,letterSpacing:"0.06em"}}>持倉漲跌</div>
                             {r.changes.slice(0,5).map(c=>(
-                              <div key={c.code} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:10}}>
+                              <div key={c.code} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:12}}>
                                 <span style={{color:C.textSec}}>{c.name}</span>
                                 <span style={{fontWeight:600,color:pc(c.changePct)}}>{c.changePct>=0?"+":""}{c.changePct.toFixed(2)}%</span>
                               </div>
                             ))}
-                            {r.changes.length>5 && <div style={{fontSize:10,color:C.textMute,marginTop:2}}>...還有 {r.changes.length-5} 檔</div>}
+                            {r.changes.length>5 && <div style={{fontSize:12,color:C.textMute,marginTop:2}}>...還有 {r.changes.length-5} 檔</div>}
                           </div>
                         )}
                         {/* 自動驗證 */}
                         {(r.autoVerified||[]).length>0 && (
                           <div style={{marginBottom:8,background:C.oliveBg,borderRadius:6,padding:"6px 8px"}}>
-                            <div style={{fontSize:10,color:C.olive,fontWeight:600,marginBottom:3}}>自動驗證 {r.autoVerified.length} 件</div>
+                            <div style={{fontSize:12,color:C.olive,fontWeight:600,marginBottom:3}}>自動驗證 {r.autoVerified.length} 件</div>
                             {r.autoVerified.map((v,i)=>(
-                              <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"2px 0"}}>
+                              <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0"}}>
                                 <span style={{color:C.textSec,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,marginRight:8}}>{v.title}</span>
                                 <span style={{color:v.correct?C.olive:C.up,fontWeight:600,flexShrink:0}}>{v.correct?"✓":"✗"}</span>
                               </div>
@@ -1956,7 +1956,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         )}
                         {/* AI 摘要 */}
                         {r.aiInsight && (
-                          <div style={{fontSize:10,color:C.textSec,lineHeight:1.8,whiteSpace:"pre-wrap",
+                          <div style={{fontSize:12,color:C.textSec,lineHeight:1.8,whiteSpace:"pre-wrap",
                             maxHeight:200,overflow:"auto",background:C.subtle,borderRadius:6,padding:"8px 10px"}}>
                             {r.aiInsight.slice(0,500)}{r.aiInsight.length>500?"...":""}
                           </div>
@@ -1965,7 +1965,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         <button onClick={(ev)=>{ev.stopPropagation();setDailyReport(r);
                           setTimeout(()=>document.getElementById("daily-report-top")?.scrollIntoView({behavior:"smooth"}),50);
                         }} style={{marginTop:6,padding:"5px 12px",borderRadius:5,border:`1px solid ${C.blue}55`,
-                          background:"transparent",color:C.blue,fontSize:10,cursor:"pointer",width:"100%"}}>
+                          background:"transparent",color:C.blue,fontSize:12,cursor:"pointer",width:"100%"}}>
                           查看完整報告 ↑
                         </button>
                       </div>
@@ -1995,11 +1995,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {img ? (
                   <><img src={img} alt="" style={{maxHeight:200,maxWidth:"100%",
                     borderRadius:8,objectFit:"contain",marginBottom:8}}/>
-                  <div style={{fontSize:11,color:C.textMute}}>點擊更換截圖</div></>
+                  <div style={{fontSize:13,color:C.textMute}}>點擊更換截圖</div></>
                 ) : (
-                  <><div style={{fontSize:28,marginBottom:10,opacity:0.5}}>↑</div>
-                  <div style={{fontSize:13,fontWeight:500,color:C.textSec}}>上傳已成交截圖</div>
-                  <div style={{fontSize:11,color:C.textMute,marginTop:4}}>買進 · 賣出回報皆可</div></>
+                  <><div style={{fontSize:32,marginBottom:10,opacity:0.5}}>↑</div>
+                  <div style={{fontSize:15,fontWeight:500,color:C.textSec}}>上傳已成交截圖</div>
+                  <div style={{fontSize:13,color:C.textMute,marginTop:4}}>買進 · 賣出回報皆可</div></>
                 )}
               </div>
               {img && (
@@ -2008,14 +2008,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   background: parsing ? C.subtle : C.cardHover,
                   color: parsing ? C.textMute : C.text,
                   border: `1px solid ${parsing ? C.border : C.amber+"66"}`,
-                  fontSize:13, fontWeight:500, cursor:parsing?"not-allowed":"pointer",
+                  fontSize:15, fontWeight:500, cursor:parsing?"not-allowed":"pointer",
                   letterSpacing:"0.02em"}}>
                   {parsing ? "解析中..." : "解析這筆交易"}
                 </button>
               )}
               {parseErr && <div style={{marginTop:10, background:C.upBg,
                 border:`1px solid ${C.up}44`, borderRadius:10,
-                padding:12, fontSize:12, color:C.up}}>
+                padding:12, fontSize:14, color:C.up}}>
                 {parseErr}
               </div>}
             </>
@@ -2034,13 +2034,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         <span style={{
                           background: t.action==="買進" ? C.upBg : C.downBg,
                           color: t.action==="買進" ? C.up : C.down,
-                          fontSize:10, fontWeight:600, padding:"2px 9px", borderRadius:4}}>
+                          fontSize:12, fontWeight:600, padding:"2px 9px", borderRadius:4}}>
                           {t.action}
                         </span>
-                        <span style={{fontSize:14,fontWeight:600,color:C.text}}>{t.name}</span>
-                        <span style={{fontSize:10,color:C.textMute}}>{t.code}</span>
+                        <span style={{fontSize:16,fontWeight:600,color:C.text}}>{t.name}</span>
+                        <span style={{fontSize:12,color:C.textMute}}>{t.code}</span>
                       </div>
-                      <div style={{fontSize:11,color:C.textMute,marginTop:3}}>
+                      <div style={{fontSize:13,color:C.textMute,marginTop:3}}>
                         {t.qty}股 @ {t.price?.toLocaleString()}元
                       </div>
                     </div>
@@ -2049,36 +2049,36 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {parsed.targetPriceUpdates?.length>0 && (
                   <div style={{marginTop:10,background:C.tealBg,border:`1px solid ${C.teal}44`,
                     borderRadius:7,padding:"8px 10px"}}>
-                    <div style={{fontSize:10,color:C.teal,fontWeight:600,marginBottom:4}}>
+                    <div style={{fontSize:12,color:C.teal,fontWeight:600,marginBottom:4}}>
                       偵測到目標價更新
                     </div>
                     {parsed.targetPriceUpdates.map((u,i)=>(
-                      <div key={i} style={{fontSize:11,color:C.textSec}}>
+                      <div key={i} style={{fontSize:13,color:C.textSec}}>
                         {u.code} · {u.firm} → {u.target?.toLocaleString()}元
                       </div>
                     ))}
                   </div>
                 )}
-                {parsed.note && <div style={{fontSize:10,color:C.textMute,marginTop:8}}>{parsed.note}</div>}
+                {parsed.note && <div style={{fontSize:12,color:C.textMute,marginTop:8}}>{parsed.note}</div>}
               </div>
 
               <div style={{...card,borderLeft:`2px solid ${C.blue}88`}}>
                 <div style={lbl}>交易備忘錄</div>
                 {memoAns.map((a,i)=>(
                   <div key={i} style={{marginBottom:12}}>
-                    <div style={{fontSize:10,color:C.textMute,marginBottom:4}}>Q{i+1}. {qs[i]}</div>
-                    <div style={{fontSize:12,color:C.textSec,background:C.subtle,
+                    <div style={{fontSize:12,color:C.textMute,marginBottom:4}}>Q{i+1}. {qs[i]}</div>
+                    <div style={{fontSize:14,color:C.textSec,background:C.subtle,
                       borderRadius:6,padding:"8px 10px",lineHeight:1.6}}>{a}</div>
                   </div>
                 ))}
-                <div style={{fontSize:12,fontWeight:500,color:C.blue,marginBottom:8}}>
+                <div style={{fontSize:14,fontWeight:500,color:C.blue,marginBottom:8}}>
                   Q{memoStep+1}/{qs.length}. {qs[memoStep]}
                 </div>
                 <textarea value={memoIn} onChange={e=>setMemoIn(e.target.value)}
                   onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&memoIn.trim()){e.preventDefault();submitMemo();}}}
                   placeholder="輸入你的想法... (Enter送出)"
                   style={{width:"100%", background:C.subtle, border:`1px solid ${C.border}`,
-                    borderRadius:8, padding:"10px", color:C.text, fontSize:12,
+                    borderRadius:8, padding:"10px", color:C.text, fontSize:14,
                     resize:"none", minHeight:70, outline:"none",
                     fontFamily:"inherit", marginBottom:10, lineHeight:1.7}}/>
                 <button onClick={submitMemo} disabled={!memoIn.trim()} style={{
@@ -2087,7 +2087,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     ? (memoStep===qs.length-1 ? C.olive+"cc" : C.blue+"cc")
                     : C.subtle,
                   color: memoIn.trim() ? "#fff" : C.textMute,
-                  fontSize:13, fontWeight:500, cursor:memoIn.trim()?"pointer":"not-allowed",
+                  fontSize:15, fontWeight:500, cursor:memoIn.trim()?"pointer":"not-allowed",
                   letterSpacing:"0.02em"}}>
                   {memoStep===qs.length-1 ? "完成備忘 · 更新持倉" : `下一題 (${memoStep+1}/${qs.length})`}
                 </button>
@@ -2125,32 +2125,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             return (
               <div style={{...card,marginTop:14,borderLeft:`2px solid ${C.teal}66`}}>
                 <div style={lbl}>手動更新目標價</div>
-                <div style={{fontSize:11,color:C.textMute,marginBottom:10,lineHeight:1.6}}>
+                <div style={{fontSize:13,color:C.textMute,marginBottom:10,lineHeight:1.6}}>
                   收到新研究報告時，直接在這裡更新。系統會自動計算多家均值。
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:7}}>
                   <div>
-                    <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>股票代碼</div>
+                    <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>股票代碼</div>
                     <input value={tpCode} onChange={e=>setTpCode(e.target.value)}
                       placeholder="如 3006"
                       style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
-                        borderRadius:7,padding:"8px 10px",color:C.text,fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+                        borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
                   </div>
                   <div>
-                    <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>目標價（元）</div>
+                    <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>目標價（元）</div>
                     <input value={tpVal} onChange={e=>setTpVal(e.target.value)}
                       placeholder="如 205"
                       type="number"
                       style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
-                        borderRadius:7,padding:"8px 10px",color:C.text,fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+                        borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
                   </div>
                 </div>
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>券商 / 來源</div>
+                  <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>券商 / 來源</div>
                   <input value={tpFirm} onChange={e=>setTpFirm(e.target.value)}
                     placeholder="如 元大投顧、FactSet共識"
                     style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
-                      borderRadius:7,padding:"8px 10px",color:C.text,fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+                      borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
                 </div>
                 <button onClick={handleAddTarget}
                   disabled={!tpCode.trim()||!tpVal}
@@ -2158,7 +2158,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     width:"100%",padding:"10px",border:"none",borderRadius:8,
                     background: tpCode.trim()&&tpVal ? C.teal+"cc" : C.subtle,
                     color: tpCode.trim()&&tpVal ? "#fff" : C.textMute,
-                    fontSize:12,fontWeight:500,cursor:tpCode.trim()&&tpVal?"pointer":"not-allowed",
+                    fontSize:14,fontWeight:500,cursor:tpCode.trim()&&tpVal?"pointer":"not-allowed",
                   }}>
                   新增 / 更新目標價
                 </button>
@@ -2171,10 +2171,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="log" && <>
           {(!tradeLog||tradeLog.length===0) ? (
             <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:24,marginBottom:10,opacity:0.3}}>◌</div>
-              <div style={{fontSize:13,color:C.textMute,fontWeight:400}}>
+              <div style={{fontSize:28,marginBottom:10,opacity:0.3}}>◌</div>
+              <div style={{fontSize:15,color:C.textMute,fontWeight:400}}>
                 還沒有交易記錄<br/>
-                <span style={{fontSize:11}}>上傳成交截圖後自動記錄在這裡</span>
+                <span style={{fontSize:13}}>上傳成交截圖後自動記錄在這裡</span>
               </div>
             </div>
           ) : (
@@ -2194,7 +2194,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               });
               return dateGroups.map((group, gi) => (
                 <div key={"grp-"+gi}>
-                  <div style={{fontSize:12,fontWeight:700,color:C.amber,letterSpacing:"0.04em",marginBottom:8,marginTop:gi===0?0:6}}>
+                  <div style={{fontSize:14,fontWeight:700,color:C.amber,letterSpacing:"0.04em",marginBottom:8,marginTop:gi===0?0:6}}>
                     {group.date}
                   </div>
                   {(() => {
@@ -2218,21 +2218,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                                 <span style={{
                                   background: log.action==="買進" ? C.upBg : C.downBg,
                                   color: log.action==="買進" ? C.up : C.down,
-                                  fontSize:10, fontWeight:600, padding:"2px 8px", borderRadius:4}}>
+                                  fontSize:12, fontWeight:600, padding:"2px 8px", borderRadius:4}}>
                                   {log.action}
                                 </span>
-                                <span style={{fontSize:14,fontWeight:600,color:C.text}}>{log.name}</span>
-                                <span style={{fontSize:10,color:C.textMute}}>{log.code}</span>
+                                <span style={{fontSize:16,fontWeight:600,color:C.text}}>{log.name}</span>
+                                <span style={{fontSize:12,color:C.textMute}}>{log.code}</span>
                               </div>
-                              {li === 0 && <div style={{fontSize:10,color:C.textMute}}>{log.time}</div>}
+                              {li === 0 && <div style={{fontSize:12,color:C.textMute}}>{log.time}</div>}
                             </div>
-                            <div style={{fontSize:11,color:C.textMute,marginBottom: log.qa.length > 0 ? 10 : 0}}>
+                            <div style={{fontSize:13,color:C.textMute,marginBottom: log.qa.length > 0 ? 10 : 0}}>
                               {log.qty}股 @ {log.price?.toLocaleString()}元
                             </div>
                             {log.qa.map((qi,i)=>(
                               <div key={i} style={{marginBottom:8}}>
-                                <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>{qi.q}</div>
-                                <div style={{fontSize:11,color:C.textSec,background:C.subtle,
+                                <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>{qi.q}</div>
+                                <div style={{fontSize:13,color:C.textSec,background:C.subtle,
                                   borderRadius:6,padding:"7px 10px",lineHeight:1.7}}>
                                   {qi.a||"（未填）"}
                                 </div>
@@ -2295,24 +2295,24 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {/* 預測/結果標籤 */}
                   <div style={{
                     minWidth:26, textAlign:"center",
-                    fontSize:14, fontWeight:700,
+                    fontSize:16, fontWeight:700,
                     color: predC(e.pred), opacity: 0.85,
                   }}>{predIcon(e.pred)}</div>
 
                   {/* 標題區 */}
                   <div style={{flex:1, minWidth:0}}>
                     <div style={{
-                      fontSize:12, fontWeight:500, color:C.text,
+                      fontSize:14, fontWeight:500, color:C.text,
                       whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
                     }}>{e.title}</div>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
-                      <span style={{fontSize:10,color:C.textMute}}>{e.date}</span>
+                      <span style={{fontSize:12,color:C.textMute}}>{e.date}</span>
                       {e.stocks.slice(0,2).map((s,si)=>{
                         const label = typeof s === "string" ? s.split(" ")[0] : (s.code || s.name || "");
-                        return <span key={si} style={{fontSize:10,padding:"1px 6px",borderRadius:3,
+                        return <span key={si} style={{fontSize:12,padding:"1px 6px",borderRadius:3,
                           background:C.subtle,color:C.textSec}}>{label}</span>;
                       })}
-                      {e.stocks.length>2 && <span style={{fontSize:10,color:C.textMute}}>+{e.stocks.length-2}</span>}
+                      {e.stocks.length>2 && <span style={{fontSize:12,color:C.textMute}}>+{e.stocks.length-2}</span>}
                     </div>
                   </div>
 
@@ -2320,15 +2320,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
                     {e.status==="past" && isCorrect!==null && (
                       <span style={{
-                        fontSize:10, fontWeight:600, padding:"2px 7px", borderRadius:20,
+                        fontSize:12, fontWeight:600, padding:"2px 7px", borderRadius:20,
                         background: isCorrect ? C.oliveBg : C.upBg,
                         color: isCorrect ? C.olive : C.up,
                       }}>{isCorrect ? "✓ 正確" : "✗ 有誤"}</span>
                     )}
                     {e.status==="pending" && (
-                      <span style={{fontSize:10,color:C.textMute,fontWeight:500}}>待驗證</span>
+                      <span style={{fontSize:12,color:C.textMute,fontWeight:500}}>待驗證</span>
                     )}
-                    <span style={{fontSize:10,color:C.textMute}}>{open?"▲":"▼"}</span>
+                    <span style={{fontSize:12,color:C.textMute}}>{open?"▲":"▼"}</span>
                   </div>
                 </div>
 
@@ -2343,19 +2343,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
                       {e.stocks.map((s,si)=>{
                         const label = typeof s === "string" ? s : `${s.code || ""} ${s.name || ""}`.trim();
-                        return <span key={si} style={{fontSize:10,padding:"2px 8px",borderRadius:3,
+                        return <span key={si} style={{fontSize:12,padding:"2px 8px",borderRadius:3,
                           background:C.blueBg,color:C.blue,fontWeight:500}}>{label}</span>;
                       })}
                     </div>
 
-                    <div style={{fontSize:11,color:C.textSec,lineHeight:1.8,marginBottom:8}}>{e.detail}</div>
+                    <div style={{fontSize:13,color:C.textSec,lineHeight:1.8,marginBottom:8}}>{e.detail}</div>
 
                     {/* 預測邏輯 */}
                     <div style={{background:C.subtle,borderRadius:7,padding:"9px 11px",marginBottom: e.actualNote?8:0}}>
-                      <div style={{fontSize:10,color:predC(e.pred),fontWeight:600,marginBottom:3,letterSpacing:"0.05em"}}>
+                      <div style={{fontSize:12,color:predC(e.pred),fontWeight:600,marginBottom:3,letterSpacing:"0.05em"}}>
                         {predIcon(e.pred)} 預測{predLabel(e.pred)} — 邏輯
                       </div>
-                      <div style={{fontSize:11,color:C.textSec,lineHeight:1.7}}>{e.predReason}</div>
+                      <div style={{fontSize:13,color:C.textSec,lineHeight:1.7}}>{e.predReason}</div>
                     </div>
 
                     {/* 實際結果（已發生） */}
@@ -2365,10 +2365,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         border:`1px solid ${isCorrect ? C.olive+"44":C.up+"44"}`,
                         borderRadius:7, padding:"9px 11px", marginTop:8,
                       }}>
-                        <div style={{fontSize:10,color: isCorrect?C.olive:C.up,fontWeight:600,marginBottom:3,letterSpacing:"0.05em"}}>
+                        <div style={{fontSize:12,color: isCorrect?C.olive:C.up,fontWeight:600,marginBottom:3,letterSpacing:"0.05em"}}>
                           {predIcon(e.actual)} 實際{predLabel(e.actual)} — {isCorrect?"預測正確":"預測有誤"}
                         </div>
-                        <div style={{fontSize:11,color:C.textSec,lineHeight:1.7}}>{e.actualNote}</div>
+                        <div style={{fontSize:13,color:C.textSec,lineHeight:1.7}}>{e.actualNote}</div>
                       </div>
                     )}
 
@@ -2376,8 +2376,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {e.lessons && (
                       <div style={{background:C.blueBg,border:`1px solid ${C.blue}33`,
                         borderRadius:7,padding:"9px 11px",marginTop:8}}>
-                        <div style={{fontSize:10,color:C.blue,fontWeight:600,marginBottom:3}}>策略覆盤教訓</div>
-                        <div style={{fontSize:11,color:C.textSec,lineHeight:1.7}}>{e.lessons}</div>
+                        <div style={{fontSize:12,color:C.blue,fontWeight:600,marginBottom:3}}>策略覆盤教訓</div>
+                        <div style={{fontSize:13,color:C.textSec,lineHeight:1.7}}>{e.lessons}</div>
                       </div>
                     )}
 
@@ -2386,7 +2386,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <button onClick={(ev)=>{ev.stopPropagation();setReviewingEvent(e.id);setReviewForm({actual:"up",actualNote:"",lessons:""})}}
                         style={{marginTop:10,width:"100%",padding:"9px",
                           background:C.olive+"22",border:`1px solid ${C.olive}55`,
-                          borderRadius:8,color:C.olive,fontSize:11,fontWeight:500,cursor:"pointer"}}>
+                          borderRadius:8,color:C.olive,fontSize:13,fontWeight:500,cursor:"pointer"}}>
                         標記結果 · 撰寫復盤
                       </button>
                     )}
@@ -2396,14 +2396,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div onClick={ev=>ev.stopPropagation()}
                         style={{marginTop:10,background:C.subtle,borderRadius:8,padding:12,
                           border:`1px solid ${C.blue}44`}}>
-                        <div style={{fontSize:10,color:C.blue,fontWeight:600,marginBottom:10}}>撰寫完整復盤</div>
+                        <div style={{fontSize:12,color:C.blue,fontWeight:600,marginBottom:10}}>撰寫完整復盤</div>
 
                         <div style={{marginBottom:10}}>
-                          <div style={{fontSize:10,color:C.textMute,marginBottom:4}}>實際走勢</div>
+                          <div style={{fontSize:12,color:C.textMute,marginBottom:4}}>實際走勢</div>
                           <div style={{display:"flex",gap:6}}>
                             {["up","down","neutral"].map(v=>(
                               <button key={v} onClick={()=>setReviewForm(p=>({...p,actual:v}))}
-                                style={{flex:1,padding:"6px",borderRadius:6,fontSize:10,fontWeight:500,cursor:"pointer",
+                                style={{flex:1,padding:"6px",borderRadius:6,fontSize:12,fontWeight:500,cursor:"pointer",
                                   background:reviewForm.actual===v?(v==="up"?C.upBg:v==="down"?C.downBg:C.subtle):"transparent",
                                   color:reviewForm.actual===v?(v==="up"?C.up:v==="down"?C.down:C.textSec):C.textMute,
                                   border:`1px solid ${reviewForm.actual===v?(v==="up"?C.up+"55":v==="down"?C.down+"55":C.border):C.border}`}}>
@@ -2414,30 +2414,30 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         </div>
 
                         <div style={{marginBottom:10}}>
-                          <div style={{fontSize:10,color:C.textMute,marginBottom:4}}>發生了什麼？股價怎麼走？</div>
+                          <div style={{fontSize:12,color:C.textMute,marginBottom:4}}>發生了什麼？股價怎麼走？</div>
                           <textarea value={reviewForm.actualNote} onChange={ev=>setReviewForm(p=>({...p,actualNote:ev.target.value}))}
                             placeholder="描述事件結果和股價反應..."
                             style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                              borderRadius:7,padding:8,color:C.text,fontSize:11,resize:"none",
+                              borderRadius:7,padding:8,color:C.text,fontSize:13,resize:"none",
                               minHeight:60,outline:"none",fontFamily:"inherit",lineHeight:1.7}}/>
                         </div>
 
                         <div style={{marginBottom:10}}>
-                          <div style={{fontSize:10,color:C.textMute,marginBottom:4}}>策略覆盤：問題出在哪？學到什麼？下次怎麼改？</div>
+                          <div style={{fontSize:12,color:C.textMute,marginBottom:4}}>策略覆盤：問題出在哪？學到什麼？下次怎麼改？</div>
                           <textarea value={reviewForm.lessons} onChange={ev=>setReviewForm(p=>({...p,lessons:ev.target.value}))}
                             placeholder="進場理由回顧、策略偏差、改進方向..."
                             style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                              borderRadius:7,padding:8,color:C.text,fontSize:11,resize:"none",
+                              borderRadius:7,padding:8,color:C.text,fontSize:13,resize:"none",
                               minHeight:60,outline:"none",fontFamily:"inherit",lineHeight:1.7}}/>
                         </div>
 
                         <div style={{display:"flex",gap:6}}>
                           <button onClick={()=>setReviewingEvent(null)}
                             style={{flex:1,padding:"9px",background:"transparent",border:`1px solid ${C.border}`,
-                              borderRadius:7,color:C.textMute,fontSize:11,cursor:"pointer"}}>取消</button>
+                              borderRadius:7,color:C.textMute,fontSize:13,cursor:"pointer"}}>取消</button>
                           <button onClick={()=>submitReview(e.id)}
                             disabled={!reviewForm.actualNote.trim()}
-                            style={{flex:2,padding:"9px",borderRadius:7,border:"none",fontSize:11,fontWeight:500,cursor:"pointer",
+                            style={{flex:2,padding:"9px",borderRadius:7,border:"none",fontSize:13,fontWeight:500,cursor:"pointer",
                               background:reviewForm.actualNote.trim()?C.olive+"cc":C.subtle,
                               color:reviewForm.actualNote.trim()?"#fff":C.textMute}}>
                             確認送出復盤
@@ -2462,8 +2462,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ["命中率", hits+misses>0?`${Math.round(hits/(hits+misses)*100)}%`:"—", C.amber, C.cardAmber],
               ].map(([l,v,c,bg])=>(
                 <div key={l} style={{background:bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
-                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.06em"}}>{l}</div>
-                  <div style={{fontSize:16,fontWeight:600,color:c,marginTop:4}}>{v}</div>
+                  <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.06em"}}>{l}</div>
+                  <div style={{fontSize:18,fontWeight:600,color:c,marginTop:4}}>{v}</div>
                 </div>
               ))}
             </div>
@@ -2473,7 +2473,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               width:"100%",padding:"10px",marginBottom:10,borderRadius:8,
               background:showAddEvent?C.subtle:C.blue+"22",
               border:`1px solid ${showAddEvent?C.border:C.blue+"55"}`,
-              color:showAddEvent?C.textMute:C.blue,fontSize:11,fontWeight:500,cursor:"pointer"}}>
+              color:showAddEvent?C.textMute:C.blue,fontSize:13,fontWeight:500,cursor:"pointer"}}>
               {showAddEvent?"取消":"＋ 新增事件（法說會、財報、營收、催化劑）"}
             </button>
 
@@ -2482,41 +2482,41 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div style={{...lbl,color:C.blue}}>新增事件</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:7}}>
                   <div>
-                    <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>日期</div>
+                    <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>日期</div>
                     <input value={newEvent.date} onChange={e=>setNewEvent(p=>({...p,date:e.target.value}))}
                       placeholder="如 2026/04/01"
                       style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
-                        borderRadius:7,padding:"8px 10px",color:C.text,fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+                        borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
                   </div>
                   <div>
-                    <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>相關個股（逗號分隔）</div>
+                    <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>相關個股（逗號分隔）</div>
                     <input value={newEvent.stocks} onChange={e=>setNewEvent(p=>({...p,stocks:e.target.value}))}
                       placeholder="如 台燿 6274, 晶豪科 3006"
                       style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
-                        borderRadius:7,padding:"8px 10px",color:C.text,fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+                        borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
                   </div>
                 </div>
                 <div style={{marginBottom:7}}>
-                  <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>事件標題</div>
+                  <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>事件標題</div>
                   <input value={newEvent.title} onChange={e=>setNewEvent(p=>({...p,title:e.target.value}))}
                     placeholder="如：台燿 Q1 財報法說會"
                     style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
-                      borderRadius:7,padding:"8px 10px",color:C.text,fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+                      borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
                 </div>
                 <div style={{marginBottom:7}}>
-                  <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>事件細節</div>
+                  <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>事件細節</div>
                   <textarea value={newEvent.detail} onChange={e=>setNewEvent(p=>({...p,detail:e.target.value}))}
                     placeholder="關鍵觀察重點..."
                     style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
-                      borderRadius:7,padding:8,color:C.text,fontSize:11,resize:"none",
+                      borderRadius:7,padding:8,color:C.text,fontSize:13,resize:"none",
                       minHeight:50,outline:"none",fontFamily:"inherit",lineHeight:1.7}}/>
                 </div>
                 <div style={{marginBottom:7}}>
-                  <div style={{fontSize:10,color:C.textMute,marginBottom:4}}>預測方向</div>
+                  <div style={{fontSize:12,color:C.textMute,marginBottom:4}}>預測方向</div>
                   <div style={{display:"flex",gap:6}}>
                     {["up","down","neutral"].map(v=>(
                       <button key={v} onClick={()=>setNewEvent(p=>({...p,pred:v}))}
-                        style={{flex:1,padding:"6px",borderRadius:6,fontSize:10,fontWeight:500,cursor:"pointer",
+                        style={{flex:1,padding:"6px",borderRadius:6,fontSize:12,fontWeight:500,cursor:"pointer",
                           background:newEvent.pred===v?(v==="up"?C.upBg:v==="down"?C.downBg:C.subtle):"transparent",
                           color:newEvent.pred===v?(v==="up"?C.up:v==="down"?C.down:C.textSec):C.textMute,
                           border:`1px solid ${newEvent.pred===v?(v==="up"?C.up+"55":v==="down"?C.down+"55":C.border):C.border}`}}>
@@ -2526,16 +2526,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                 </div>
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>預測邏輯</div>
+                  <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>預測邏輯</div>
                   <textarea value={newEvent.predReason} onChange={e=>setNewEvent(p=>({...p,predReason:e.target.value}))}
                     placeholder="為什麼這樣預測？依據是什麼？"
                     style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
-                      borderRadius:7,padding:8,color:C.text,fontSize:11,resize:"none",
+                      borderRadius:7,padding:8,color:C.text,fontSize:13,resize:"none",
                       minHeight:50,outline:"none",fontFamily:"inherit",lineHeight:1.7}}/>
                 </div>
                 <button onClick={addEvent}
                   disabled={!newEvent.title.trim()||!newEvent.date.trim()}
-                  style={{width:"100%",padding:"10px",borderRadius:8,border:"none",fontSize:12,
+                  style={{width:"100%",padding:"10px",borderRadius:8,border:"none",fontSize:14,
                     fontWeight:500,cursor:newEvent.title.trim()&&newEvent.date.trim()?"pointer":"not-allowed",
                     background:newEvent.title.trim()&&newEvent.date.trim()?C.blue+"cc":C.subtle,
                     color:newEvent.title.trim()&&newEvent.date.trim()?"#fff":C.textMute}}>
@@ -2550,7 +2550,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               marginBottom:8,
             }}>
               <div style={{...lbl, marginBottom:0}}>待觀察 · {pending.length} 件</div>
-              <span style={{fontSize:10,color:C.textMute}}>點擊展開詳情</span>
+              <span style={{fontSize:12,color:C.textMute}}>點擊展開詳情</span>
             </div>
             {(()=>{
               const LIMIT = 10;
@@ -2560,7 +2560,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {pending.length > LIMIT && (
                   <button onClick={()=>setNewsPendingExpanded(!newsPendingExpanded)} style={{
                     width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
-                    background:"transparent",color:C.blue,fontSize:11,fontWeight:500,cursor:"pointer",
+                    background:"transparent",color:C.blue,fontSize:13,fontWeight:500,cursor:"pointer",
                     marginTop:4,marginBottom:4,
                   }}>{newsPendingExpanded ? "▲ 收合" : `▼ 展開其餘 ${pending.length - LIMIT} 則`}</button>
                 )}
@@ -2577,7 +2577,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {past.length > LIMIT && (
                   <button onClick={()=>setNewsPastExpanded(!newsPastExpanded)} style={{
                     width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
-                    background:"transparent",color:C.blue,fontSize:11,fontWeight:500,cursor:"pointer",
+                    background:"transparent",color:C.blue,fontSize:13,fontWeight:500,cursor:"pointer",
                     marginTop:4,
                   }}>{newsPastExpanded ? "▲ 收合" : `▼ 展開其餘 ${past.length - LIMIT} 則`}</button>
                 )}
@@ -2595,15 +2595,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           <div onClick={e=>e.stopPropagation()} style={{
             background:C.card, borderRadius:14, padding:"28px 24px", maxWidth:360, width:"100%",
             border:`1px solid ${C.up}44`, boxShadow:`0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px ${C.up}22`}}>
-            <div style={{fontSize:22,textAlign:"center",marginBottom:10}}>⚠️</div>
-            <div style={{fontSize:16,fontWeight:700,color:C.up,marginBottom:10,textAlign:"center"}}>
+            <div style={{fontSize:25,textAlign:"center",marginBottom:10}}>⚠️</div>
+            <div style={{fontSize:18,fontWeight:700,color:C.up,marginBottom:10,textAlign:"center"}}>
               確認清除「全部」資料？
             </div>
-            <div style={{fontSize:12,color:C.textSec,marginBottom:6,lineHeight:1.7,textAlign:"center"}}>
+            <div style={{fontSize:14,color:C.textSec,marginBottom:6,lineHeight:1.7,textAlign:"center"}}>
               此操作<span style={{color:C.up,fontWeight:600}}>無法復原</span>，將永久刪除以下所有資料：
             </div>
             <div style={{background:C.subtle,borderRadius:8,padding:"10px 14px",marginBottom:16,
-              fontSize:11,color:C.textMute,lineHeight:2}}>
+              fontSize:13,color:C.textMute,lineHeight:2}}>
               ✕ 持倉資料（所有股票部位）<br/>
               ✕ 交易日誌（所有買賣紀錄）<br/>
               ✕ 觀察股清單<br/>
@@ -2619,11 +2619,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             <div style={{display:"flex",gap:10}}>
               <button onClick={() => setShowResetConfirm(false)} style={{
                 flex:1, background:C.subtle, color:C.text, border:`1px solid ${C.border}`,
-                borderRadius:10, padding:"10px 0", fontSize:13, fontWeight:500, cursor:"pointer",
+                borderRadius:10, padding:"10px 0", fontSize:15, fontWeight:500, cursor:"pointer",
               }}>取消</button>
               <button onClick={resetAll} style={{
                 flex:1, background:C.up, color:"#fff", border:"none",
-                borderRadius:10, padding:"10px 0", fontSize:13, fontWeight:700, cursor:"pointer",
+                borderRadius:10, padding:"10px 0", fontSize:15, fontWeight:700, cursor:"pointer",
                 boxShadow:`0 2px 8px ${C.up}44`,
               }}>確認全部清除</button>
             </div>
