@@ -2225,21 +2225,36 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
           onClick={() => setShowResetConfirm(false)}>
           <div onClick={e=>e.stopPropagation()} style={{
-            background:C.card, borderRadius:12, padding:24, maxWidth:320, width:"100%",
-            border:`1px solid ${C.border}`, boxShadow:"0 8px 30px rgba(0,0,0,0.4)"}}>
-            <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>確認清除所有資料？</div>
-            <div style={{fontSize:12,color:C.textSec,marginBottom:16,lineHeight:1.5}}>
-              這會清除持倉、交易日誌、觀察股、行事曆、策略大腦等所有本地資料，無法復原。
+            background:C.card, borderRadius:14, padding:"28px 24px", maxWidth:360, width:"100%",
+            border:`1px solid ${C.up}44`, boxShadow:`0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px ${C.up}22`}}>
+            <div style={{fontSize:22,textAlign:"center",marginBottom:10}}>⚠️</div>
+            <div style={{fontSize:16,fontWeight:700,color:C.up,marginBottom:10,textAlign:"center"}}>
+              確認清除「全部」資料？
             </div>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{fontSize:12,color:C.textSec,marginBottom:6,lineHeight:1.7,textAlign:"center"}}>
+              此操作<span style={{color:C.up,fontWeight:600}}>無法復原</span>，將永久刪除以下所有資料：
+            </div>
+            <div style={{background:C.subtle,borderRadius:8,padding:"10px 14px",marginBottom:16,
+              fontSize:11,color:C.textMute,lineHeight:2}}>
+              ✕ 持倉資料（所有股票部位）<br/>
+              ✕ 交易日誌（所有買賣紀錄）<br/>
+              ✕ 觀察股清單<br/>
+              ✕ 行事曆事件（法說、財報等）<br/>
+              ✕ 事件分析（預測與復盤紀錄）<br/>
+              ✕ 收盤分析（歷史分析報告）<br/>
+              ✕ 策略大腦（AI 學習紀錄）<br/>
+              ✕ 目標價資料
+            </div>
+            <div style={{display:"flex",gap:10}}>
               <button onClick={() => setShowResetConfirm(false)} style={{
                 flex:1, background:C.subtle, color:C.text, border:`1px solid ${C.border}`,
-                borderRadius:8, padding:"8px 0", fontSize:13, fontWeight:500, cursor:"pointer",
+                borderRadius:10, padding:"10px 0", fontSize:13, fontWeight:500, cursor:"pointer",
               }}>取消</button>
               <button onClick={resetAll} style={{
                 flex:1, background:C.up, color:"#fff", border:"none",
-                borderRadius:8, padding:"8px 0", fontSize:13, fontWeight:600, cursor:"pointer",
-              }}>確認清除</button>
+                borderRadius:10, padding:"10px 0", fontSize:13, fontWeight:700, cursor:"pointer",
+                boxShadow:`0 2px 8px ${C.up}44`,
+              }}>確認全部清除</button>
             </div>
           </div>
         </div>
