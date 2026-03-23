@@ -960,7 +960,38 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             <div style={{fontSize:9,color:C.textMute,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>
               <span style={{color:cloudSync?C.olive:C.textMute}}>{cloudSync?"☁":"⚡"}</span>
               {saved && <span style={{color:C.olive,marginLeft:8,fontWeight:600}}>{saved}</span>}
+            <button onClick={() => setShowResetConfirm(true)} style={{
+              background: C.red+"18", color: C.red, border:`1px solid ${C.red}33`,
+              borderRadius:20, padding:"4px 10px", fontSize:10, fontWeight:500,
+              cursor:"pointer", marginTop:4, whiteSpace:"nowrap",
+            }}>🗑 清除全部</button>
+          </div>
+
+          {/* Reset confirmation modal */}
+          {showResetConfirm && (
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,
+              display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+              onClick={() => setShowResetConfirm(false)}>
+              <div onClick={e=>e.stopPropagation()} style={{
+                background:C.card, borderRadius:12, padding:24, maxWidth:320, width:"100%",
+                border:`1px solid ${C.border}`, boxShadow:"0 8px 30px rgba(0,0,0,0.4)"}}>
+                <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:8}}>確認清除所有資料？</div>
+                <div style={{fontSize:12,color:C.textSec,marginBottom:16,lineHeight:1.5}}>
+                  這會清除持倉、交易日誌、觀察股、行事曆、策略大腦等所有本地資料，無法復原。
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={() => setShowResetConfirm(false)} style={{
+                    flex:1, background:C.subtle, color:C.text, border:`1px solid ${C.border}`,
+                    borderRadius:8, padding:"8px 0", fontSize:13, fontWeight:500, cursor:"pointer",
+                  }}>取消</button>
+                  <button onClick={resetAll} style={{
+                    flex:1, background:C.red, color:"#fff", border:"none",
+                    borderRadius:8, padding:"8px 0", fontSize:13, fontWeight:600, cursor:"pointer",
+                  }}>確認清除</button>
+                </div>
+              </div>
             </div>
+          )}
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <span style={{fontSize:21,fontWeight:600,color:C.text,marginTop:2,letterSpacing:"-0.01em"}}>持倉看板</span>
               <button onClick={refreshPrices} disabled={refreshing} style={{
