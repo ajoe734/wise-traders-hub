@@ -462,13 +462,13 @@ export default function App() {
       // 3. 事件連動分析
       const NE = newsEvents || [];
       const today = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "/");
-      const pendingEvents = NE.filter(e => e.status === "pending");
+      const pendingEvents = NE.filter(e => e.status === "pending" || e.status === "tracking");
       const eventCorrelations = pendingEvents.map(e => {
         const relatedStocks = e.stocks.map(s => {
           const raw = typeof s === "string" ? s : (s.code || s.name || "");
           const code = raw.match(/\d+/)?.[0];
           const ch = changes.find(c => c.code === code);
-          return ch ? { name: ch.name, code: ch.code, changePct: ch.changePct, change: ch.change } : null;
+          return ch ? { name: ch.name, code: ch.code, changePct: ch.changePct, change: ch.change, price: ch.price } : null;
         }).filter(Boolean);
         return { ...e, relatedStocks };
       }).filter(e => e.relatedStocks.length > 0 && e.relatedStocks.some(s => Math.abs(s.changePct) > 1));
@@ -481,6 +481,40 @@ export default function App() {
         if (!e.date.match(/^\d{4}\/\d{2}/)) return false;
         return e.date <= today;
       });
+
+      // 5.5 自動驗證事件：根據股價漲跌自動判定 pending 事件結果
+      const autoVerified = [];
+      if (needsReview.length > 0) {
+        setNewsEvents(prev => {
+          const arr = [...(prev || [])];
+          needsReview.forEach(e => {
+            const idx = arr.findIndex(x => x.id === e.id);
+            if (idx < 0) return;
+            // 找到相關股票的漲跌
+            const relatedStocks = (e.stocks || []).map(s => {
+              const raw = typeof s === "string" ? s : (s.code || s.name || "");
+              const code = raw.match(/\d+/)?.[0];
+              const ch = changes.find(c => c.code === code);
+              return ch ? { name: ch.name, code: ch.code, changePct: ch.changePct } : null;
+            }).filter(Boolean);
+            if (relatedStocks.length === 0) return;
+            const avgChange = relatedStocks.reduce((s, r) => s + r.changePct, 0) / relatedStocks.length;
+            const actual = avgChange > 1 ? "up" : avgChange < -1 ? "down" : "neutral";
+            const correct = e.pred === actual;
+            const stockSummary = relatedStocks.map(s => `${s.name} ${s.changePct >= 0 ? "+" : ""}${s.changePct.toFixed(2)}%`).join("、");
+            arr[idx] = {
+              ...arr[idx],
+              status: "past",
+              actual,
+              correct,
+              actualNote: `[自動驗證] 相關股票表現：${stockSummary}，平均漲跌 ${avgChange >= 0 ? "+" : ""}${avgChange.toFixed(2)}%`,
+              reviewDate: today,
+            };
+            autoVerified.push({ title: e.title, pred: e.pred, actual, correct });
+          });
+          return arr;
+        });
+      }
 
       // 6. 呼叫 Claude API 產生策略分析（含策略大腦上下文）
       setAnalyzeStep("AI 策略分析中（約15-30秒）...");
