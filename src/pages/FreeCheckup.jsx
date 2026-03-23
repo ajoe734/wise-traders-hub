@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -107,6 +108,11 @@ const MEMO_Q = {
 
 const PARSE_PROMPT = `你是台股券商成交回報截圖的解析器。解析截圖中的交易，以JSON格式輸出，不輸出其他文字：
 {"trades":[{"action":"買進或賣出","code":"代碼","name":"名稱","qty":股數,"price":成交價,"amount":金額或null}],"targetPriceUpdates":[{"code":"代碼","firm":"券商名稱","target":目標價數字,"date":"日期"}],"note":"有疑問時說明"}
+
+【最重要】price（成交價/成本價）必須完整保留原始小數位數，絕對不可四捨五入或省略！
+例如：截圖顯示 0.61 就輸出 0.61（不可寫成 0.6）；顯示 1.55 就輸出 1.55（不可寫成 1.5 或 2）；顯示 524.5 就輸出 524.5（不可寫成 524 或 525）。
+qty（股數）也必須精確，例如 3000股 就是 3000，2000股 就是 2000，2股 就是 2。
+
 targetPriceUpdates：如果截圖中有提到分析師目標價或研究報告目標價，請一併擷取。否則為空陣列。`;
 
 // ── helpers ─────────────────────────────────────────────────────
@@ -203,8 +209,11 @@ export default function App() {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
 
+  // reset guard — 清除全部後忽略 in-flight 的行事曆回應
+  const resetGuardRef = useRef(0);
+
   // ── 根據持倉自動產生行事曆事件（同時產生 AI 預判並同步至事件分析）──
-  const fetchCalendarEvents = async (holdingsList) => {
+  const fetchCalendarEvents = async (holdingsList, guard) => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
       save("pf-calendar-v1", []);
@@ -260,6 +269,8 @@ export default function App() {
         body: JSON.stringify({ prompt, image: null }),
       });
       const result = await res.json();
+      // 若在 fetch 期間使用者已按「清除全部」，則丟棄結果
+      if (guard !== undefined && guard !== resetGuardRef.current) return;
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
@@ -347,13 +358,37 @@ export default function App() {
   useEffect(() => {
     (async () => {
       const h = await load("pf-holdings-v2", INIT_HOLDINGS);
-      const l = await load("pf-log-v2", []);
       const t = await load("pf-targets-v1", INIT_TARGETS);
       const ne = await load("pf-news-events-v1", []);
       const ah = await load("pf-analysis-history-v1", []);
       const rc = await load("pf-reversal-v1", {});
       const sb = await load("pf-brain-v1", null);
       const ce = await load("pf-calendar-v1", []);
+
+      // 從 Supabase 載入交易備忘錄
+      let l = [];
+      try {
+        const { data } = await supabase.from("checkup_trade_memos").select("*").order("created_at", { ascending: false });
+        if (data && data.length > 0) {
+          l = data.map(row => ({
+            id: row.id,
+            date: row.trade_date || "",
+            time: row.trade_time || "",
+            action: row.action || "",
+            code: row.code || "",
+            name: row.name || "",
+            qty: row.qty != null ? Number(row.qty) : 0,
+            price: row.price != null ? Number(row.price) : 0,
+            qa: Array.isArray(row.qa) ? row.qa : [],
+          }));
+        } else {
+          // fallback: 從 localStorage 遷移
+          l = await load("pf-log-v2", []);
+        }
+      } catch {
+        l = await load("pf-log-v2", []);
+      }
+
       setHoldings(h); setTradeLog(l); setTargets(t);
       setStrategyBrain(sb); setCalendarEvents(ce);
 
@@ -390,7 +425,31 @@ export default function App() {
 
   // auto-save
   useEffect(() => { if (ready && holdings) save("pf-holdings-v2", holdings); }, [holdings, ready]);
-  useEffect(() => { if (ready && tradeLog) save("pf-log-v2",      tradeLog); }, [tradeLog,  ready]);
+  // tradeLog 存到 Supabase（不再只存 localStorage）
+  const saveTradeLogToCloud = async (logs) => {
+    if (!logs) return;
+    try {
+      // 先清空舊資料再批次插入
+      await supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      if (logs.length > 0) {
+        const rows = logs.map(l => ({
+          ...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
+          trade_date: l.date || null,
+          trade_time: l.time || null,
+          action: l.action || null,
+          code: l.code || null,
+          name: l.name || null,
+          qty: l.qty != null ? l.qty : null,
+          price: l.price != null ? l.price : null,
+          qa: l.qa || [],
+        }));
+        await supabase.from("checkup_trade_memos").insert(rows);
+      }
+    } catch (e) {
+      console.error("Save trade memos error:", e);
+    }
+  };
+  useEffect(() => { if (ready && tradeLog) { save("pf-log-v2", tradeLog); saveTradeLogToCloud(tradeLog); } }, [tradeLog, ready]);
   useEffect(() => { if (ready && targets)  save("pf-targets-v1",  targets);  }, [targets,   ready]);
   useEffect(() => {
     if (ready && newsEvents) {
@@ -410,7 +469,7 @@ export default function App() {
     const codes = (holdings || []).map(h => h.code).sort().join(",");
     const prevCodes = calendarEvents?._holdingCodes || "";
     if (codes && codes !== prevCodes) {
-      fetchCalendarEvents(holdings);
+      fetchCalendarEvents(holdings, resetGuardRef.current);
     } else if (!codes) {
       setCalendarEvents([]);
     }
@@ -1032,11 +1091,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   };
 
   const resetAll = () => {
+    // 遞增 guard，讓 in-flight 的行事曆 fetch 丟棄結果
+    resetGuardRef.current += 1;
     ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
      "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1","pf-calendar-v1"].forEach(k => localStorage.removeItem(k));
     setHoldings([]); setTradeLog([]); setTargets({});
     setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
-    setStrategyBrain(null); setDailyReport(null); setCalendarEvents([]);
+    setStrategyBrain(null); setDailyReport(null); setCalendarEvents(null);
+    setCalendarLoading(false);
     setImg(null); setB64(null); setParsed(null); setParseErr(null);
     setMemoStep(0); setMemoAns([]); setMemoIn("");
     setTab("holdings");
@@ -1052,6 +1114,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "save-brain", data: null })
     }).catch(() => {});
+    // 清除雲端交易備忘錄
+    supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000").then(() => {}).catch(() => {});
 
     setSaved("🗑️ 已全部清除");
     setTimeout(() => setSaved(""), 2500);
