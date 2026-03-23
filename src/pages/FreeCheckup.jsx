@@ -181,6 +181,7 @@ export default function App() {
   const [cloudSync, setCloudSync]         = useState(false);
   const [calendarEvents, setCalendarEvents] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
 
   // ── 根據持倉自動產生行事曆事件（同時產生 AI 預判並同步至事件分析）──
   const fetchCalendarEvents = async (holdingsList) => {
@@ -1403,7 +1404,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           ) : <>
             <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
               {["全部",...Object.keys(TYPE_COLOR)].map(t=>(
-                <button key={t} onClick={()=>setFilterType(t)} style={{
+                <button key={t} onClick={()=>{setFilterType(t);setCalendarExpanded(false);}} style={{
                   background: filterType===t ? (TYPE_COLOR[t]+"33"||C.subtle) : "transparent",
                   color: filterType===t ? (TYPE_COLOR[t]||C.text) : C.textMute,
                   border:`1px solid ${filterType===t?(TYPE_COLOR[t]+"66"||C.border):C.border}`,
@@ -1420,51 +1421,65 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               <div style={{...card,textAlign:"center",padding:"24px 16px"}}>
                 <div style={{fontSize:11,color:C.textMute}}>此分類暫無事件</div>
               </div>
-            ) : filteredEvents.map((e,i)=>{
-              const tc = TYPE_COLOR[e.type]||C.textMute;
-              const globalIdx = CE.indexOf(e);
-              return <div key={i} style={{...card,marginBottom:7,
-                borderLeft:`2px solid ${e.urgent ? C.up : tc+"66"}`}}>
-                <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                  <div style={{minWidth:48}}>
-                    <div style={{background: e.urgent ? C.upBg : tc+"18",
-                      color: e.urgent ? C.up : tc,
-                      fontSize:9,fontWeight:600,padding:"2px 5px",borderRadius:4,
-                      textAlign:"center",marginBottom:3}}>{e.type}</div>
-                    <div style={{fontSize:9,color:C.textMute,textAlign:"center",lineHeight:1.4}}>{e.date}</div>
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
-                    <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
-                    {/* 顯示 AI 預判 */}
-                    {e.pred && (
-                      <div style={{display:"flex",alignItems:"center",gap:4,marginTop:4}}>
-                        <span style={{fontSize:9,fontWeight:600,
-                          color:e.pred==="up"?C.up:e.pred==="down"?C.down:C.textMute}}>
-                          {e.pred==="up"?"↑ 看漲":e.pred==="down"?"↓ 看跌":"— 中性"}
-                        </span>
-                        {e.predReason && <span style={{fontSize:9,color:C.textMute,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>{e.predReason}</span>}
+            ) : (() => {
+              const COLLAPSE_LIMIT = 10;
+              const shouldCollapse = filteredEvents.length > COLLAPSE_LIMIT && !calendarExpanded;
+              const visibleEvents = shouldCollapse ? filteredEvents.slice(0, COLLAPSE_LIMIT) : filteredEvents;
+              return <>
+                {visibleEvents.map((e,i)=>{
+                  const tc = TYPE_COLOR[e.type]||C.textMute;
+                  const globalIdx = CE.indexOf(e);
+                  return <div key={i} style={{...card,marginBottom:7,
+                    borderLeft:`2px solid ${e.urgent ? C.up : tc+"66"}`}}>
+                    <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                      <div style={{minWidth:48}}>
+                        <div style={{background: e.urgent ? C.upBg : tc+"18",
+                          color: e.urgent ? C.up : tc,
+                          fontSize:9,fontWeight:600,padding:"2px 5px",borderRadius:4,
+                          textAlign:"center",marginBottom:3}}>{e.type}</div>
+                        <div style={{fontSize:9,color:C.textMute,textAlign:"center",lineHeight:1.4}}>{e.date}</div>
                       </div>
-                    )}
-                  </div>
-                  <button onClick={()=>{
-                    // 標記事件已發生 → 跳到事件分析進行復盤
-                    const matchedEvent = (newsEvents || []).find(ne => ne.title === e.label);
-                    if (matchedEvent) {
-                      setReviewingEvent(matchedEvent.id);
-                      setReviewForm({actual:"up",actualNote:"",lessons:""});
-                    }
-                    setTab("news");
-                    setSaved("📋 請在事件分析中完成復盤");
-                    setTimeout(() => setSaved(""), 2500);
-                  }} style={{
-                    background:C.amber+"18",color:C.amber,border:`1px solid ${C.amber}33`,
-                    borderRadius:6,padding:"3px 8px",fontSize:9,fontWeight:500,cursor:"pointer",
-                    whiteSpace:"nowrap",alignSelf:"center",
-                  }}>已發生 · 復盤</button>
-                </div>
-              </div>;
-            })}
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
+                        <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
+                        {e.pred && (
+                          <div style={{display:"flex",alignItems:"center",gap:4,marginTop:4}}>
+                            <span style={{fontSize:9,fontWeight:600,
+                              color:e.pred==="up"?C.up:e.pred==="down"?C.down:C.textMute}}>
+                              {e.pred==="up"?"↑ 看漲":e.pred==="down"?"↓ 看跌":"— 中性"}
+                            </span>
+                            {e.predReason && <span style={{fontSize:9,color:C.textMute,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>{e.predReason}</span>}
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={()=>{
+                        const matchedEvent = (newsEvents || []).find(ne => ne.title === e.label);
+                        if (matchedEvent) {
+                          setReviewingEvent(matchedEvent.id);
+                          setReviewForm({actual:"up",actualNote:"",lessons:""});
+                        }
+                        setTab("news");
+                        setSaved("📋 請在事件分析中完成復盤");
+                        setTimeout(() => setSaved(""), 2500);
+                      }} style={{
+                        background:C.amber+"18",color:C.amber,border:`1px solid ${C.amber}33`,
+                        borderRadius:6,padding:"3px 8px",fontSize:9,fontWeight:500,cursor:"pointer",
+                        whiteSpace:"nowrap",alignSelf:"center",
+                      }}>已發生 · 復盤</button>
+                    </div>
+                  </div>;
+                })}
+                {filteredEvents.length > COLLAPSE_LIMIT && (
+                  <button onClick={()=>setCalendarExpanded(!calendarExpanded)} style={{
+                    width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
+                    background:"transparent",color:C.blue,fontSize:11,fontWeight:500,cursor:"pointer",
+                    marginTop:4,
+                  }}>
+                    {calendarExpanded ? "▲ 收合" : `▼ 展開其餘 ${filteredEvents.length - COLLAPSE_LIMIT} 則事件`}
+                  </button>
+                )}
+              </>;
+            })()}
           </>}
         </>}
 
