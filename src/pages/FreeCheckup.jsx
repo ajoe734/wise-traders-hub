@@ -578,7 +578,8 @@ export default function App() {
       const pendingEvents = NE.filter(e => e.status === "pending");
       const eventCorrelations = pendingEvents.map(e => {
         const relatedStocks = e.stocks.map(s => {
-          const code = s.match(/\d+/)?.[0];
+          const raw = typeof s === "string" ? s : (s.code || s.name || "");
+          const code = raw.match(/\d+/)?.[0];
           const ch = changes.find(c => c.code === code);
           return ch ? { name: ch.name, code: ch.code, changePct: ch.changePct, change: ch.change } : null;
         }).filter(Boolean);
