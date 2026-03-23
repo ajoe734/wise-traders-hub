@@ -358,13 +358,37 @@ export default function App() {
   useEffect(() => {
     (async () => {
       const h = await load("pf-holdings-v2", INIT_HOLDINGS);
-      const l = await load("pf-log-v2", []);
       const t = await load("pf-targets-v1", INIT_TARGETS);
       const ne = await load("pf-news-events-v1", []);
       const ah = await load("pf-analysis-history-v1", []);
       const rc = await load("pf-reversal-v1", {});
       const sb = await load("pf-brain-v1", null);
       const ce = await load("pf-calendar-v1", []);
+
+      // 從 Supabase 載入交易備忘錄
+      let l = [];
+      try {
+        const { data } = await supabase.from("checkup_trade_memos").select("*").order("created_at", { ascending: false });
+        if (data && data.length > 0) {
+          l = data.map(row => ({
+            id: row.id,
+            date: row.trade_date || "",
+            time: row.trade_time || "",
+            action: row.action || "",
+            code: row.code || "",
+            name: row.name || "",
+            qty: row.qty != null ? Number(row.qty) : 0,
+            price: row.price != null ? Number(row.price) : 0,
+            qa: Array.isArray(row.qa) ? row.qa : [],
+          }));
+        } else {
+          // fallback: 從 localStorage 遷移
+          l = await load("pf-log-v2", []);
+        }
+      } catch {
+        l = await load("pf-log-v2", []);
+      }
+
       setHoldings(h); setTradeLog(l); setTargets(t);
       setStrategyBrain(sb); setCalendarEvents(ce);
 
