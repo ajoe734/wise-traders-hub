@@ -106,12 +106,15 @@ const MEMO_Q = {
   "賣出": ["為什麼在這個價位賣？", "達成原本預期了嗎？", "這筆資金的下一步？"],
 };
 
-const PARSE_PROMPT = `你是台股券商成交回報截圖的解析器。解析截圖中的交易，以JSON格式輸出，不輸出其他文字：
-{"trades":[{"action":"買進或賣出","code":"代碼","name":"名稱","qty":股數,"price":成交價,"amount":金額或null}],"targetPriceUpdates":[{"code":"代碼","firm":"券商名稱","target":目標價數字,"date":"日期"}],"note":"有疑問時說明"}
+const PARSE_PROMPT = `你是台股券商成交回報截圖的解析器。解析截圖中的每一筆交易，以JSON格式輸出，不輸出其他文字：
+{"trades":[{"action":"買進或賣出","code":"代碼","name":"名稱","qty":股數,"price":成交價,"market_price":市價或現價或null,"amount":金額或null}],"targetPriceUpdates":[{"code":"代碼","firm":"券商名稱","target":目標價數字,"date":"日期"}],"note":"有疑問時說明"}
 
-【最重要】price（成交價/成本價）必須完整保留原始小數位數，絕對不可四捨五入或省略！
-例如：截圖顯示 0.61 就輸出 0.61（不可寫成 0.6）；顯示 1.55 就輸出 1.55（不可寫成 1.5 或 2）；顯示 524.5 就輸出 524.5（不可寫成 524 或 525）。
-qty（股數）也必須精確，例如 3000股 就是 3000，2000股 就是 2000，2股 就是 2。
+【最重要規則】
+1. price（成交價/成本價）必須完整保留原始小數位數，絕對不可四捨五入或省略！
+   例如：截圖顯示 0.61 就輸出 0.61（不可寫成 0.6）；顯示 1.55 就輸出 1.55（不可寫成 1.5 或 2）；顯示 524.5 就輸出 524.5（不可寫成 524 或 525）。
+2. market_price（市價/現價/即時價格）：截圖中若有「現價」「市價」「即時」「收盤」欄位，必須精確辨識並填入，同樣保留完整小數位數。若截圖中無此欄位則填 null。
+3. qty（股數）必須精確，例如 3000股 就是 3000，2000股 就是 2000，2股 就是 2。
+4. 權證名稱通常包含「購」「售」「牛」「熊」等字，其價格可能很小（如 0.61、1.55），務必精確辨識。
 
 targetPriceUpdates：如果截圖中有提到分析師目標價或研究報告目標價，請一併擷取。否則為空陣列。`;
 
@@ -928,31 +931,34 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     const arr = [...holdingsList];
     const idx = arr.findIndex(h => h.code === code);
 
+    const mktPrice = Number(trade?.market_price) || price; // 市價，若無則用成交價
+
     if (action === "買進") {
       if (idx >= 0) {
         const h = arr[idx];
         const nq = h.qty + qty;
         const nc = (h.cost * h.qty + price * qty) / nq;
+        const mp = mktPrice || h.price; // 優先用新的市價
         arr[idx] = {
           ...h,
           name: h.name || name,
           qty: nq,
-          price,
+          price: mp,
           cost: Math.round(nc * 100) / 100,
-          value: price * nq,
-          pnl: Math.round((price - nc) * nq),
-          pct: Math.round((price / nc - 1) * 10000) / 100,
+          value: mp * nq,
+          pnl: Math.round((mp - nc) * nq),
+          pct: Math.round((mp / nc - 1) * 10000) / 100,
         };
       } else {
         arr.push({
           code,
           name,
           qty,
-          price,
+          price: mktPrice,
           cost: price,
-          value: price * qty,
-          pnl: 0,
-          pct: 0,
+          value: mktPrice * qty,
+          pnl: Math.round((mktPrice - price) * qty),
+          pct: Math.round((mktPrice / price - 1) * 10000) / 100,
           type: "股票",
         });
       }
@@ -965,13 +971,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       if (nq === 0) {
         arr.splice(idx, 1);
       } else {
+        const mp = mktPrice || h.price;
         arr[idx] = {
           ...h,
           qty: nq,
-          price,
-          value: price * nq,
-          pnl: Math.round((price - h.cost) * nq),
-          pct: Math.round((price / h.cost - 1) * 10000) / 100,
+          price: mp,
+          value: mp * nq,
+          pnl: Math.round((mp - h.cost) * nq),
+          pct: Math.round((mp / h.cost - 1) * 10000) / 100,
         };
       }
     }
@@ -1415,7 +1422,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       animation:"pulse 1.5s ease-in-out infinite"}}>目標價更新</span>}
                   </div>
                   <div style={{fontSize:10,color:C.textMute,marginTop:2}}>
-                    {h.qty}{h.unit || "股"} · 成本{h.cost} · 現{h.price?.toLocaleString()}
+                    {h.qty}{h.unit || "股"} · 成本{h.cost} · 市{h.price?.toLocaleString()}
                   </div>
                   {/* 目標價進度條 */}
                   {tp && (
@@ -1503,7 +1510,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </span>
                 </div>
                 <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
-                  {[["現價", h.price?.toLocaleString() || "—", C.textSec],
+                  {[["市價", h.price?.toLocaleString() || "—", C.textSec],
                     ["成本", h.cost != null ? String(h.cost) : "—", C.textMute],
                     ...(tgt ? [["目標價", tgt.toLocaleString(), C.olive], ["潛在漲幅", (upside > 0 ? "+" : "") + upside + "%", C.blue]] : []),
                     ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(2) + "%", h.pnl >= 0 ? C.olive : C.up],
