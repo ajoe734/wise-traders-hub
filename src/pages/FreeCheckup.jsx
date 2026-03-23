@@ -425,7 +425,31 @@ export default function App() {
 
   // auto-save
   useEffect(() => { if (ready && holdings) save("pf-holdings-v2", holdings); }, [holdings, ready]);
-  useEffect(() => { if (ready && tradeLog) save("pf-log-v2",      tradeLog); }, [tradeLog,  ready]);
+  // tradeLog 存到 Supabase（不再只存 localStorage）
+  const saveTradeLogToCloud = async (logs) => {
+    if (!logs) return;
+    try {
+      // 先清空舊資料再批次插入
+      await supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      if (logs.length > 0) {
+        const rows = logs.map(l => ({
+          ...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
+          trade_date: l.date || null,
+          trade_time: l.time || null,
+          action: l.action || null,
+          code: l.code || null,
+          name: l.name || null,
+          qty: l.qty != null ? l.qty : null,
+          price: l.price != null ? l.price : null,
+          qa: l.qa || [],
+        }));
+        await supabase.from("checkup_trade_memos").insert(rows);
+      }
+    } catch (e) {
+      console.error("Save trade memos error:", e);
+    }
+  };
+  useEffect(() => { if (ready && tradeLog) { save("pf-log-v2", tradeLog); saveTradeLogToCloud(tradeLog); } }, [tradeLog, ready]);
   useEffect(() => { if (ready && targets)  save("pf-targets-v1",  targets);  }, [targets,   ready]);
   useEffect(() => {
     if (ready && newsEvents) {
