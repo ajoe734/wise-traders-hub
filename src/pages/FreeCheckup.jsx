@@ -381,7 +381,12 @@ export default function App() {
   const winners = H.filter(h=>h.pnl>0).sort((a,b)=>b.pct-a.pct);
   const losers  = H.filter(h=>h.pnl<0).sort((a,b)=>a.pct-b.pct);
 
-  const filteredEvents = filterType==="全部" ? EVENTS : EVENTS.filter(e=>e.type===filterType);
+  const holdingCodes = new Set(H.map(h => h.code));
+  const dynamicEvents = EVENTS.filter(e => {
+    const codeMatch = e.label.match(/\d{4}/);
+    return !codeMatch || holdingCodes.has(codeMatch[0]);
+  });
+  const filteredEvents = filterType==="全部" ? dynamicEvents : dynamicEvents.filter(e=>e.type===filterType);
 
   // ── 刷新即時股價（TWSE MIS API）───────────────────────────────
   const refreshPrices = async () => {
