@@ -431,12 +431,16 @@ export default function App() {
   useEffect(() => { if (ready && strategyBrain) save("pf-brain-v1", strategyBrain); }, [strategyBrain, ready]);
   useEffect(() => { if (ready && calendarEvents) save("pf-calendar-v1", calendarEvents); }, [calendarEvents, ready]);
 
-  // 持倉變動時自動重新產生行事曆
+  // 持倉變動時自動產生行事曆（只在尚無行事曆或持倉組合改變時抓一次）
   useEffect(() => {
     if (!ready) return;
     const codes = (holdings || []).map(h => h.code).sort().join(",");
     const prevCodes = calendarEvents?._holdingCodes || "";
-    if (codes && codes !== prevCodes) {
+    const hasExistingEvents = Array.isArray(calendarEvents) && calendarEvents.length > 0;
+    if (codes && codes !== prevCodes && !hasExistingEvents) {
+      fetchCalendarEvents(holdings, resetGuardRef.current);
+    } else if (codes && codes !== prevCodes && hasExistingEvents) {
+      // 持倉組合變了但已有行事曆，重新抓取
       fetchCalendarEvents(holdings, resetGuardRef.current);
     } else if (!codes) {
       setCalendarEvents([]);
