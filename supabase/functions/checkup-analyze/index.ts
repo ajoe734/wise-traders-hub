@@ -17,33 +17,65 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  const apiKey = Deno.env.get('LOVABLE_API_KEY');
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: '未設定 ANTHROPIC_API_KEY' }), {
+    return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY is not configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   try {
-    const { systemPrompt, userPrompt } = await req.json();
+    const body = await req.json();
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Support two calling conventions:
+    // 1. { systemPrompt, userPrompt } — used by daily analysis & brain evolution
+    // 2. { prompt } — used by calendar event generation
+    const systemPrompt = body.systemPrompt || '';
+    const userPrompt = body.userPrompt || body.prompt || '';
+
+    const messages: any[] = [];
+    if (systemPrompt) {
+      messages.push({ role: 'system', content: systemPrompt });
+    }
+    messages.push({ role: 'user', content: userPrompt });
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1500,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
+        model: 'google/gemini-2.5-flash',
+        messages,
       }),
     });
 
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('AI gateway error:', response.status, errText);
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: 'AI 請求過於頻繁，請稍後再試' }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: 'AI 額度不足，請至設定頁面加值' }), {
+          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ error: 'AI 分析失敗', detail: errText }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const data = await response.json();
-    return new Response(JSON.stringify(data), {
+    const text = data.choices?.[0]?.message?.content || '';
+
+    // Return in both formats for backward compatibility
+    // - content[0].text: for calls expecting Anthropic format
+    // - text / response: for calendar calls
+    return new Response(JSON.stringify({ content: [{ text }], text, response: text }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
