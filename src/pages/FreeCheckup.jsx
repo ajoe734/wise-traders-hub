@@ -367,6 +367,7 @@ export default function App() {
   const totalCost = H.reduce((s,h)=>s+h.cost*h.qty,0);
   const totalPnl  = H.reduce((s,h)=>s+h.pnl,0);
   const retPct    = totalCost>0 ? totalPnl/totalCost*100 : 0;
+  const holdingCodes = new Set(H.map(h => h.code));
   const urgentCount = H.length === 0 ? 0 : EVENTS.filter(e=>e.urgent && (!e.label.match(/\d{4}/) || holdingCodes.has(e.label.match(/\d{4}/)?.[0]))).length;
 
   const sorted = [...H].sort((a,b)=>{
