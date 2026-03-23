@@ -277,13 +277,31 @@ export default function App() {
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        const events = JSON.parse(jsonMatch[0]);
-        events._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
-        setCalendarEvents(events);
-        save("pf-calendar-v1", events);
-
-        // ── 自動同步至事件分析（避免重複）──
-        syncCalendarToNews(events);
+        const newEvents = JSON.parse(jsonMatch[0]);
+        // ── 去重合併：保留舊事件，只加入新的 ──
+        setCalendarEvents(prev => {
+          const existing = Array.isArray(prev) ? prev.filter(e => e && e.label) : [];
+          const existingKeys = new Set(existing.map(e => {
+            const code = (e.label || "").match(/\d{4}/)?.[0] || "";
+            const type = e.type || "";
+            const date = (e.date || "").replace(/[^\d]/g, "").slice(0, 8);
+            return `${code}-${type}-${date}`;
+          }));
+          const added = newEvents.filter(ne => {
+            if (!ne || !ne.label) return false;
+            const code = (ne.label || "").match(/\d{4}/)?.[0] || "";
+            const type = ne.type || "";
+            const date = (ne.date || "").replace(/[^\d]/g, "").slice(0, 8);
+            return !existingKeys.has(`${code}-${type}-${date}`);
+          });
+          const merged = [...existing, ...added];
+          merged.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+          merged._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
+          save("pf-calendar-v1", merged);
+          // 只同步新增的事件到事件分析
+          if (added.length > 0) syncCalendarToNews(added);
+          return merged;
+        });
       }
     } catch (e) {
       console.error("Calendar fetch error:", e);
