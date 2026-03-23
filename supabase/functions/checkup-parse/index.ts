@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const MODELS = [
-  "google/gemini-2.5-flash-preview:free",
+  "google/gemini-2.0-flash-exp:free",
   "google/gemini-2.5-flash",
   "qwen/qwen2.5-vl-72b-instruct",
 ];
