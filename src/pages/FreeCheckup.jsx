@@ -1599,15 +1599,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         today.setHours(0,0,0,0);
                         const evDate = e.date ? new Date(e.date.replace(/\//g, "-")) : null;
                         if (evDate) evDate.setHours(0,0,0,0);
-                        const diffDays = evDate ? Math.ceil((evDate - today) / (1000*60*60*24)) : null;
-                        const isPast = diffDays !== null && diffDays < 0;
-                        const isTracking = diffDays !== null && diffDays >= 0 && diffDays <= 7;
+                        const isPast = evDate && evDate < today;
                         if (isPast) {
                           return <span style={{fontSize:12,fontWeight:500,color:C.olive,whiteSpace:"nowrap",alignSelf:"center"}}>已發生 · 復盤</span>;
-                        } else if (isTracking) {
-                          return <span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:6,
-                            background:C.amber+"22",color:C.amber,border:`1px solid ${C.amber}44`,
-                            whiteSpace:"nowrap",alignSelf:"center"}}>追蹤中 · {diffDays}天</span>;
                         } else {
                           return <span style={{fontSize:12,fontWeight:500,color:C.textMute,whiteSpace:"nowrap",alignSelf:"center"}}>待驗證</span>;
                         }
