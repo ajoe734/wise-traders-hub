@@ -2179,7 +2179,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           ) : (
             (() => {
-              const sorted = [...(tradeLog||[])].sort((a,b)=>b.id-a.id);
+              // 保持上傳順序（不再按 id 排序）
+              const sorted = [...(tradeLog||[])];
               // Group by date
               const dateGroups = [];
               let currentGroup = null;
