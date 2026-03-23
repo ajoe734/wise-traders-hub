@@ -295,7 +295,7 @@ export default function App() {
   const [calendarEvents, setCalendarEvents] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
 
-  // ── 根據持倉自動產生行事曆事件 ──────────────────────────────────
+  // ── 根據持倉自動產生行事曆事件（同時產生 AI 預判並同步至事件分析）──
   const fetchCalendarEvents = async (holdingsList) => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
@@ -306,16 +306,18 @@ export default function App() {
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
-      const prompt = `你是台股投資行事曆助手。今天是 ${today}。
+      const prompt = `你是台股投資行事曆助手兼事件預判分析師。今天是 ${today}。
 我目前持有以下股票：${stockList}
 
 請根據這些股票，列出未來可能的重要事件（法說會、財報公布、除權息、營收公布、產業催化劑等），以JSON陣列格式回覆，不輸出其他文字：
-[{"date":"時間描述","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息"}]
+[{"date":"時間描述","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息","pred":"up或down或neutral","predReason":"預判漲跌理由，2-3句話"}]
 規則：
 - 每檔股票至少1個事件，最多產出12個事件
 - urgent=true 僅限本週內或今日事件
 - date 用簡短描述如 "今日"、"3/28"、"每月10日"、"Q2"
 - type 只能用：法說、財報、營收、催化、操作、總經、除息
+- pred 必須是 "up"、"down" 或 "neutral" 三選一
+- predReason 用2-3句話說明為何看漲/看跌/中性，要有具體的邏輯依據
 - 根據目前時間點，給出最相關的近期事件`;
 
       const res = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
@@ -331,12 +333,45 @@ export default function App() {
         events._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
         setCalendarEvents(events);
         save("pf-calendar-v1", events);
+
+        // ── 自動同步至事件分析（避免重複）──
+        syncCalendarToNews(events);
       }
     } catch (e) {
       console.error("Calendar fetch error:", e);
     } finally {
       setCalendarLoading(false);
     }
+  };
+
+  // ── 將行事曆事件自動同步至事件分析 ──────────────────────────────
+  const syncCalendarToNews = (calEvents) => {
+    if (!calEvents || !Array.isArray(calEvents)) return;
+    setNewsEvents(prev => {
+      const existing = prev || [];
+      // 用 title 做去重比對
+      const existingTitles = new Set(existing.map(e => e.title));
+      const newEntries = calEvents
+        .filter(ce => ce.label && !existingTitles.has(ce.label))
+        .map(ce => {
+          const codeMatch = ce.label.match(/\d{4}/);
+          return {
+            id: Date.now() + Math.random(),
+            date: ce.date || "",
+            title: ce.label,
+            detail: ce.sub || "",
+            stocks: codeMatch
+              ? [{ code: codeMatch[0], name: ce.label.replace(/\d{4}/, "").replace(/[—\-\s]+/g, " ").trim() }]
+              : [],
+            pred: ce.pred || "neutral",
+            predReason: ce.predReason || "",
+            status: "pending",
+            actual: null, actualNote: "", correct: null,
+          };
+        });
+      if (newEntries.length === 0) return existing;
+      return [...existing, ...newEntries];
+    });
   };
 
   // boot
