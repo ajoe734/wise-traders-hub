@@ -413,7 +413,8 @@ export default function App() {
   const totalPnl  = H.reduce((s,h)=>s+h.pnl,0);
   const retPct    = totalCost>0 ? totalPnl/totalCost*100 : 0;
   const holdingCodes = new Set(H.map(h => h.code));
-  const urgentCount = H.length === 0 ? 0 : EVENTS.filter(e=>e.urgent && (!e.label.match(/\d{4}/) || holdingCodes.has(e.label.match(/\d{4}/)?.[0]))).length;
+  const CE = Array.isArray(calendarEvents) ? calendarEvents : [];
+  const urgentCount = CE.filter(e=>e.urgent).length;
 
   const sorted = [...H].sort((a,b)=>{
     if(sortBy==="value") return b.value-a.value;
@@ -427,11 +428,7 @@ export default function App() {
   const winners = H.filter(h=>h.pnl>0).sort((a,b)=>b.pct-a.pct);
   const losers  = H.filter(h=>h.pnl<0).sort((a,b)=>a.pct-b.pct);
 
-  const dynamicEvents = H.length === 0 ? [] : EVENTS.filter(e => {
-    const codeMatch = e.label.match(/\d{4}/);
-    return !codeMatch || holdingCodes.has(codeMatch[0]);
-  });
-  const filteredEvents = filterType==="全部" ? dynamicEvents : dynamicEvents.filter(e=>e.type===filterType);
+  const filteredEvents = filterType==="全部" ? CE : CE.filter(e=>e.type===filterType);
 
   // ── 刷新即時股價（TWSE MIS API）───────────────────────────────
   const refreshPrices = async () => {
