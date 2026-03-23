@@ -215,7 +215,7 @@ export default function App() {
   // reset guard — 清除全部後忽略 in-flight 的行事曆回應
   const resetGuardRef = useRef(0);
 
-  // ── 根據持倉自動產生行事曆事件（同時產生 AI 預判並同步至事件分析）──
+  // ── 根據持倉自動產生行事曆事件（僅抓一次，用 4-stage AI pipeline）──
   const fetchCalendarEvents = async (holdingsList, guard) => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
@@ -230,78 +230,25 @@ export default function App() {
       oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
       const endDate = oneYearLater.toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
 
-      const allStockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
-
-      const prompt = `你是台股投資行事曆助手兼事件預判分析師。今天是 ${today}。
-我目前持有以下標的：${allStockList}
-
-請根據上述所有標的，列出從明天起到 ${endDate} 為止（未來一整年）的重要事件，以JSON陣列格式回覆，不輸出其他文字：
-[{"date":"YYYY/MM/DD 格式日期","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息/到期","pred":"up或down或neutral","predReason":"預判漲跌理由，2-3句話"}]
-
-【最重要規則】不確定的事件寧可不列也絕對不要編造！尤其是日期，如果你不知道確切日期就不要列。
-
-規則：
-- 包含所有類型的標的：普通股、權證、ETF 等
-- 不要包含今天（${today}）或過去的事件，只列未來事件
-
-【普通股（4碼數字代碼）】：
-- 列出法說會、財報公布日、除息日、營收公布日等真實公開事件
-- 營收公布日固定為每月10日前，財報公布日依交易所規定（Q1:5/15前、Q2:8/14前、Q3:11/14前、年報:3/31前）
-- 每檔至少3個事件
-
-【權證（5-6碼代碼）】：
-- 你通常不知道權證的確切到期日，所以不要編造到期日事件！
-- 改為列出「標的股（母股）」的重要事件，因為這些事件會影響權證價格
-- 事件標題要標明影響哪檔權證，例如「2330台積電法說會（影響權證03910）」
-
-【ETF】：
-- 列出配息日、成分股調整等你確定的事件
-- 不確定日期就不要列
-
-- 涵蓋未來一整年，每季度都要有事件，總共產出20-30個事件
-- urgent=true 僅限未來一週內的事件
-- date 必須用 YYYY/MM/DD 格式（如 2026/04/10），方便排序
-- type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
-- pred 必須是 "up"、"down" 或 "neutral" 三選一
-- predReason 用2-3句話說明為何看漲/看跌/中性，要有具體的邏輯依據
-- 按日期由近到遠排序`;
-
-      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
+      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-calendar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, image: null }),
+        body: JSON.stringify({ stocks: stockList, today, endDate }),
       });
       const result = await res.json();
-      // 若在 fetch 期間使用者已按「清除全部」，則丟棄結果
       if (guard !== undefined && guard !== resetGuardRef.current) return;
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const newEvents = JSON.parse(jsonMatch[0]);
-        // ── 去重合併：保留舊事件，只加入新的 ──
-        setCalendarEvents(prev => {
-          const existing = Array.isArray(prev) ? prev.filter(e => e && e.label) : [];
-          const existingKeys = new Set(existing.map(e => {
-            const code = (e.label || "").match(/\d{4}/)?.[0] || "";
-            const type = e.type || "";
-            const date = (e.date || "").replace(/[^\d]/g, "").slice(0, 8);
-            return `${code}-${type}-${date}`;
-          }));
-          const added = newEvents.filter(ne => {
-            if (!ne || !ne.label) return false;
-            const code = (ne.label || "").match(/\d{4}/)?.[0] || "";
-            const type = ne.type || "";
-            const date = (ne.date || "").replace(/[^\d]/g, "").slice(0, 8);
-            return !existingKeys.has(`${code}-${type}-${date}`);
-          });
-          const merged = [...existing, ...added];
-          merged.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-          merged._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
-          save("pf-calendar-v1", merged);
-          // 只同步新增的事件到事件分析
-          if (added.length > 0) syncCalendarToNews(added);
-          return merged;
-        });
+        // 直接替換（只抓一次，不再去重合併）
+        const events = newEvents.filter(e => e && e.label);
+        events.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        events._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
+        save("pf-calendar-v1", events);
+        setCalendarEvents(events);
+        // 同步到事件分析
+        syncCalendarToNews(events);
       }
     } catch (e) {
       console.error("Calendar fetch error:", e);
@@ -484,12 +431,16 @@ export default function App() {
   useEffect(() => { if (ready && strategyBrain) save("pf-brain-v1", strategyBrain); }, [strategyBrain, ready]);
   useEffect(() => { if (ready && calendarEvents) save("pf-calendar-v1", calendarEvents); }, [calendarEvents, ready]);
 
-  // 持倉變動時自動重新產生行事曆
+  // 持倉變動時自動產生行事曆（只在尚無行事曆或持倉組合改變時抓一次）
   useEffect(() => {
     if (!ready) return;
     const codes = (holdings || []).map(h => h.code).sort().join(",");
     const prevCodes = calendarEvents?._holdingCodes || "";
-    if (codes && codes !== prevCodes) {
+    const hasExistingEvents = Array.isArray(calendarEvents) && calendarEvents.length > 0;
+    if (codes && codes !== prevCodes && !hasExistingEvents) {
+      fetchCalendarEvents(holdings, resetGuardRef.current);
+    } else if (codes && codes !== prevCodes && hasExistingEvents) {
+      // 持倉組合變了但已有行事曆，重新抓取
       fetchCalendarEvents(holdings, resetGuardRef.current);
     } else if (!codes) {
       setCalendarEvents([]);
@@ -1591,10 +1542,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   borderRadius:20,padding:"3px 11px",fontSize:12,fontWeight:500,cursor:"pointer",
                 }}>{t}</button>
               ))}
-              <button onClick={()=>fetchCalendarEvents(holdings)} disabled={calendarLoading} style={{
-                background:C.blue+"18",color:C.blue,border:`1px solid ${C.blue}33`,
-                borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:500,cursor:"pointer",marginLeft:"auto",
-              }}>⟳ 重新產生</button>
+              {/* 重新產生按鈕已移除，行事曆只抓一次 */}
             </div>
 
             {filteredEvents.length === 0 ? (
@@ -1622,13 +1570,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div style={{flex:1}}>
                         <div style={{fontSize:14,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
                         <div style={{fontSize:12,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
-                        {e.pred && (
-                          <div style={{display:"flex",alignItems:"center",gap:4,marginTop:4}}>
-                            <span style={{fontSize:12,fontWeight:600,
-                              color:e.pred==="up"?C.up:e.pred==="down"?C.down:C.textMute}}>
-                              {e.pred==="up"?"↑ 看漲":e.pred==="down"?"↓ 看跌":"— 中性"}
-                            </span>
-                            {e.predReason && <span style={{fontSize:12,color:C.textMute,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>{e.predReason}</span>}
+                        {e.sources && e.sources.length > 0 && (
+                          <div style={{marginTop:5,display:"flex",flexWrap:"wrap",gap:4}}>
+                            {e.sources.map((src,si)=>(
+                              <a key={si} href={src} target="_blank" rel="noopener noreferrer" style={{
+                                fontSize:11,color:C.blue,textDecoration:"none",
+                                background:C.blue+"12",padding:"1px 6px",borderRadius:3,
+                              }}>🔗 來源{e.sources.length>1?` ${si+1}`:""}</a>
+                            ))}
                           </div>
                         )}
                       </div>
