@@ -167,6 +167,23 @@ export default function App() {
   // refresh prices
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [cooldownText, setCooldownText] = useState("");
+
+  // Countdown timer for refresh cooldown
+  useEffect(() => {
+    if (!lastUpdate) { setCooldownText(""); return; }
+    const tick = () => {
+      const elapsed = Date.now() - lastUpdate.getTime();
+      const remaining = REFRESH_COOLDOWN - elapsed;
+      if (remaining <= 0) { setCooldownText(""); return; }
+      const m = Math.floor(remaining / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      setCooldownText(`${m}:${s.toString().padStart(2,"0")}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lastUpdate]);
 
   // daily analysis
   const [analyzing, setAnalyzing]       = useState(false);
