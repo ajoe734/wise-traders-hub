@@ -79,14 +79,23 @@ Deno.serve(async (req) => {
       }
 
       if (action === 'save-analysis') {
-        // Append to history array (keep last 30)
-        const { data: existing } = await supabase
-          .from('checkup_storage')
-          .select('data')
-          .eq('key', 'analysis-history')
-          .maybeSingle();
-        const history = Array.isArray(existing?.data) ? existing.data : [];
-        const updated = [data, ...history].slice(0, 30);
+        // data 為陣列時視為覆蓋（可用 [] 清空），否則為 append（保留舊行為）
+        let updated: any[] = [];
+
+        if (Array.isArray(data)) {
+          updated = data.slice(0, 30);
+        } else if (data == null) {
+          updated = [];
+        } else {
+          const { data: existing } = await supabase
+            .from('checkup_storage')
+            .select('data')
+            .eq('key', 'analysis-history')
+            .maybeSingle();
+          const history = Array.isArray(existing?.data) ? existing.data : [];
+          updated = [data, ...history].slice(0, 30);
+        }
+
         await supabase
           .from('checkup_storage')
           .upsert({ key: 'analysis-history', data: updated, updated_at: new Date().toISOString() }, { onConflict: 'key' });

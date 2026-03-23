@@ -975,6 +975,31 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   };
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const clearAnalysisAndLessons = () => {
+    if (!confirm("確定要清除『歷史分析記錄』與『最近教訓』嗎？")) return;
+
+    ["pf-analysis-history-v1", "pf-brain-v1"].forEach(k => localStorage.removeItem(k));
+    setAnalysisHistory([]);
+    setStrategyBrain(null);
+    setDailyReport(null);
+
+    // 同步清空雲端，避免重新整理後又被補回來
+    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save-analysis", data: [] })
+    }).catch(() => {});
+    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save-brain", data: null })
+    }).catch(() => {});
+
+    setSaved("🧹 已清除歷史分析與最近教訓");
+    setTimeout(() => setSaved(""), 2500);
+  };
+
   const resetAll = () => {
     ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
      "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1","pf-calendar-v1"].forEach(k => localStorage.removeItem(k));
@@ -985,6 +1010,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setMemoStep(0); setMemoAns([]); setMemoIn("");
     setTab("holdings");
     setShowResetConfirm(false);
+
+    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save-analysis", data: [] })
+    }).catch(() => {});
+    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save-brain", data: null })
+    }).catch(() => {});
+
     setSaved("🗑️ 已全部清除");
     setTimeout(() => setSaved(""), 2500);
   };
@@ -1056,6 +1093,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               }}>
                 {refreshing ? "更新中..." : "⟳ 刷新股價"}
               </button>
+              <button onClick={clearAnalysisAndLessons} style={{
+                background: C.amberBg, color: C.amber, border:`1px solid ${C.amber}55`,
+                borderRadius:20, padding:"4px 10px", fontSize:10, fontWeight:500,
+                cursor:"pointer", whiteSpace:"nowrap",
+              }}>🧹 清除分析/教訓</button>
               <button onClick={() => setShowResetConfirm(true)} style={{
                 background: C.up+"18", color: C.up, border:`1px solid ${C.up}33`,
                 borderRadius:20, padding:"4px 10px", fontSize:10, fontWeight:500,
