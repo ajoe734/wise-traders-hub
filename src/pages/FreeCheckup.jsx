@@ -438,7 +438,7 @@ export default function App() {
   const filteredEvents = filterType==="全部" ? CE : CE.filter(e=>e.type===filterType);
 
   // ── 刷新即時股價（TWSE MIS API）───────────────────────────────
-  const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
+  // REFRESH_COOLDOWN moved above (near state declarations)
   const refreshPrices = async () => {
     if (refreshing) return;
     // 30分鐘冷卻
