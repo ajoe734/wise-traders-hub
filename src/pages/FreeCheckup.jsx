@@ -1308,47 +1308,50 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ EVENTS ══════════ */}
         {tab==="events" && <>
-          <div style={{...card,marginBottom:12}}>
-            <div style={lbl}>接力計畫</div>
-            <div style={{background:C.subtle,borderRadius:8,padding:"12px 10px",marginTop:6,
-              fontFamily:"monospace",fontSize:11,lineHeight:2.2,color:C.textMute}}>
-              <span style={{color:C.up}}>3月</span>{" ── "}<span style={{color:C.amber}}>6月</span>{" ── "}<span style={{color:C.blue}}>9月</span>{" ── 12月"}<br/>
-              <span style={{color:C.up}}>晶豪科 出場中 ▶</span><br/>
-              {"                "}<span style={{color:C.amber}}>力積電 加碼評估 ──────▶</span><br/>
-              {"                "}<span style={{color:C.blue}}>台燿 布局中 ─────────────▶</span>
-            </div>
-          </div>
-
-          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
-            {["全部",...Object.keys(TYPE_COLOR)].map(t=>(
-              <button key={t} onClick={()=>setFilterType(t)} style={{
-                background: filterType===t ? (TYPE_COLOR[t]+"33"||C.subtle) : "transparent",
-                color: filterType===t ? (TYPE_COLOR[t]||C.text) : C.textMute,
-                border:`1px solid ${filterType===t?(TYPE_COLOR[t]+"66"||C.border):C.border}`,
-                borderRadius:20,padding:"3px 11px",fontSize:10,fontWeight:500,cursor:"pointer",
-              }}>{t}</button>
-            ))}
-          </div>
-
-          {filteredEvents.map((e,i)=>{
-            const tc = TYPE_COLOR[e.type]||C.textMute;
-            return <div key={i} style={{...card,marginBottom:7,
-              borderLeft:`2px solid ${e.urgent ? C.up : tc+"66"}`}}>
-              <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                <div style={{minWidth:48}}>
-                  <div style={{background: e.urgent ? C.upBg : tc+"18",
-                    color: e.urgent ? C.up : tc,
-                    fontSize:9,fontWeight:600,padding:"2px 5px",borderRadius:4,
-                    textAlign:"center",marginBottom:3}}>{e.type}</div>
-                  <div style={{fontSize:9,color:C.textMute,textAlign:"center",lineHeight:1.4}}>{e.date}</div>
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
-                  <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
-                </div>
+          {H.length === 0 && dynamicEvents.length === 0 ? (
+            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:28,marginBottom:10,opacity:0.3}}>📅</div>
+              <div style={{fontSize:13,color:C.textSec,fontWeight:500}}>尚無行事曆事件</div>
+              <div style={{fontSize:11,color:C.textMute,marginTop:6,lineHeight:1.7}}>
+                上傳成交截圖後，相關股票的財報、法說、催化事件會自動列出
               </div>
-            </div>;
-          })}
+            </div>
+          ) : <>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
+              {["全部",...Object.keys(TYPE_COLOR)].map(t=>(
+                <button key={t} onClick={()=>setFilterType(t)} style={{
+                  background: filterType===t ? (TYPE_COLOR[t]+"33"||C.subtle) : "transparent",
+                  color: filterType===t ? (TYPE_COLOR[t]||C.text) : C.textMute,
+                  border:`1px solid ${filterType===t?(TYPE_COLOR[t]+"66"||C.border):C.border}`,
+                  borderRadius:20,padding:"3px 11px",fontSize:10,fontWeight:500,cursor:"pointer",
+                }}>{t}</button>
+              ))}
+            </div>
+
+            {filteredEvents.length === 0 ? (
+              <div style={{...card,textAlign:"center",padding:"24px 16px"}}>
+                <div style={{fontSize:11,color:C.textMute}}>此分類暫無事件</div>
+              </div>
+            ) : filteredEvents.map((e,i)=>{
+              const tc = TYPE_COLOR[e.type]||C.textMute;
+              return <div key={i} style={{...card,marginBottom:7,
+                borderLeft:`2px solid ${e.urgent ? C.up : tc+"66"}`}}>
+                <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                  <div style={{minWidth:48}}>
+                    <div style={{background: e.urgent ? C.upBg : tc+"18",
+                      color: e.urgent ? C.up : tc,
+                      fontSize:9,fontWeight:600,padding:"2px 5px",borderRadius:4,
+                      textAlign:"center",marginBottom:3}}>{e.type}</div>
+                    <div style={{fontSize:9,color:C.textMute,textAlign:"center",lineHeight:1.4}}>{e.date}</div>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
+                    <div style={{fontSize:10,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
+                  </div>
+                </div>
+              </div>;
+            })}
+          </>}
         </>}
 
         {/* ══════════ DAILY ANALYSIS ══════════ */}
