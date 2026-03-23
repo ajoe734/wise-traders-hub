@@ -39,21 +39,7 @@ const INIT_WATCHLIST = [
   { code:"6274", name:"台燿",    price:505,   target:710,  status:"⚡今日法說", catalyst:"3/18法說+財報",  sc:"#ef4444", note:"成本507；毛利率回沖→補足2/3；展望差→停損430" },
 ];
 
-const EVENTS = [
-  { date:"今日",    label:"台燿 6274 — Q4財報法說會",     sub:"毛利率+展望樂觀→補齊2/3；差→停損430",          urgent:true,  type:"法說" },
-  { date:"今日",    label:"晶豪科 194.5元 — 超出場區間",  sub:"目標175–185元已超過，考慮今日分批賣出",         urgent:true,  type:"操作" },
-  { date:"每月10日",label:"月營收公布",                   sub:"晶豪科最關鍵——確認DDR3高檔維持",               urgent:false, type:"營收" },
-  { date:"3/15前",  label:"大型股全年財報",                sub:"台達電、奇鋐、創意、緯創",                      urgent:false, type:"財報" },
-  { date:"4/1前",   label:"中小型股全年財報",              sub:"長興、華通、晟銘電、昇達科、台灣精銳、力積電",   urgent:false, type:"財報" },
-  { date:"3–4月",   label:"中興電 Q4財報 + 法說",         sub:"催化劑：台電GIS發包 + 台積電訂單",              urgent:false, type:"催化" },
-  { date:"Q2前",    label:"晶豪科 全數出場",               sub:"Q1財報前最遲出清；資金轉台燿/力積電",           urgent:false, type:"操作" },
-  { date:"2026/07", label:"禾伸堂元富57購 到期",          sub:"目標獲利100%（約1.98元）；留意時間價值遞減",     urgent:false, type:"權證" },
-  { date:"Q2",      label:"台燿 泰國二期產能確認",         sub:"月產能是否達260萬張（目標710元關鍵假設）",       urgent:false, type:"催化" },
-  { date:"6–7月",   label:"力積電 加碼評估",               sub:"月營收年增>30%才加碼",                         urgent:false, type:"操作" },
-  { date:"Q3起",    label:"緯創 VR爬坡",                  sub:"3Q26帶來4–5個月完整營收貢獻",                   urgent:false, type:"催化" },
-  { date:"持續",    label:"美國關稅談判進度",              sub:"15%協議已達成；後續執行細節影響科技出口股",      urgent:false, type:"總經" },
-  { date:"持續",    label:"Fed 利率政策",                  sub:"降息預期影響外資流向台股",                       urgent:false, type:"總經" },
-];
+// EVENTS 不再寫死，由 AI 根據持倉動態產生，存於 calendarEvents state
 
 // ── 事件分析資料庫 ────────────────────────────────────────────────
 // status: "past"=已發生 / "pending"=未發生
@@ -224,6 +210,7 @@ const TYPE_COLOR = {
   操作:"#b8926a",
   總經:"#a09080",
   權證:"#b8926a",
+  除息:"#9b7ab8",
 };
 
 const MEMO_Q = {
@@ -305,6 +292,52 @@ export default function App() {
   const [reversalConditions, setReversalConditions] = useState(null);
   const [strategyBrain, setStrategyBrain] = useState(null);
   const [cloudSync, setCloudSync]         = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+
+  // ── 根據持倉自動產生行事曆事件 ──────────────────────────────────
+  const fetchCalendarEvents = async (holdingsList) => {
+    if (!holdingsList || holdingsList.length === 0) {
+      setCalendarEvents([]);
+      save("pf-calendar-v1", []);
+      return;
+    }
+    setCalendarLoading(true);
+    try {
+      const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
+      const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
+      const prompt = `你是台股投資行事曆助手。今天是 ${today}。
+我目前持有以下股票：${stockList}
+
+請根據這些股票，列出未來可能的重要事件（法說會、財報公布、除權息、營收公布、產業催化劑等），以JSON陣列格式回覆，不輸出其他文字：
+[{"date":"時間描述","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息"}]
+規則：
+- 每檔股票至少1個事件，最多產出12個事件
+- urgent=true 僅限本週內或今日事件
+- date 用簡短描述如 "今日"、"3/28"、"每月10日"、"Q2"
+- type 只能用：法說、財報、營收、催化、操作、總經、除息
+- 根據目前時間點，給出最相關的近期事件`;
+
+      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, image: null }),
+      });
+      const result = await res.json();
+      const text = result.text || result.response || "";
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const events = JSON.parse(jsonMatch[0]);
+        events._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
+        setCalendarEvents(events);
+        save("pf-calendar-v1", events);
+      }
+    } catch (e) {
+      console.error("Calendar fetch error:", e);
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
 
   // boot
   // 一次性清除所有舊版寫死持倉快取（v1 遷移標記）
@@ -323,11 +356,14 @@ export default function App() {
       const h = await load("pf-holdings-v2", INIT_HOLDINGS);
       const l = await load("pf-log-v2", []);
       const t = await load("pf-targets-v1", INIT_TARGETS);
-      const ne = await load("pf-news-events-v1", NEWS_EVENTS);
+      const ne = await load("pf-news-events-v1", []);
       const ah = await load("pf-analysis-history-v1", []);
       const rc = await load("pf-reversal-v1", {});
       const sb = await load("pf-brain-v1", null);
+      const ce = await load("pf-calendar-v1", []);
       setHoldings(h); setTradeLog(l); setTargets(t);
+      setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
+      setStrategyBrain(sb); setCalendarEvents(ce);
       setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
       setStrategyBrain(sb);
       setReady(true);
@@ -360,15 +396,27 @@ export default function App() {
   useEffect(() => { if (ready && analysisHistory) save("pf-analysis-history-v1", analysisHistory); }, [analysisHistory, ready]);
   useEffect(() => { if (ready && reversalConditions) save("pf-reversal-v1", reversalConditions); }, [reversalConditions, ready]);
   useEffect(() => { if (ready && strategyBrain) save("pf-brain-v1", strategyBrain); }, [strategyBrain, ready]);
+  useEffect(() => { if (ready && calendarEvents) save("pf-calendar-v1", calendarEvents); }, [calendarEvents, ready]);
 
-  // derived
+  // 持倉變動時自動重新產生行事曆
+  useEffect(() => {
+    if (!ready) return;
+    const codes = (holdings || []).map(h => h.code).sort().join(",");
+    const prevCodes = calendarEvents?._holdingCodes || "";
+    if (codes && codes !== prevCodes) {
+      fetchCalendarEvents(holdings);
+    } else if (!codes) {
+      setCalendarEvents([]);
+    }
+  }, [holdings, ready]);
   const H = holdings || [];
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
   const totalCost = H.reduce((s,h)=>s+h.cost*h.qty,0);
   const totalPnl  = H.reduce((s,h)=>s+h.pnl,0);
   const retPct    = totalCost>0 ? totalPnl/totalCost*100 : 0;
   const holdingCodes = new Set(H.map(h => h.code));
-  const urgentCount = H.length === 0 ? 0 : EVENTS.filter(e=>e.urgent && (!e.label.match(/\d{4}/) || holdingCodes.has(e.label.match(/\d{4}/)?.[0]))).length;
+  const CE = Array.isArray(calendarEvents) ? calendarEvents : [];
+  const urgentCount = CE.filter(e=>e.urgent).length;
 
   const sorted = [...H].sort((a,b)=>{
     if(sortBy==="value") return b.value-a.value;
@@ -382,11 +430,7 @@ export default function App() {
   const winners = H.filter(h=>h.pnl>0).sort((a,b)=>b.pct-a.pct);
   const losers  = H.filter(h=>h.pnl<0).sort((a,b)=>a.pct-b.pct);
 
-  const dynamicEvents = H.length === 0 ? [] : EVENTS.filter(e => {
-    const codeMatch = e.label.match(/\d{4}/);
-    return !codeMatch || holdingCodes.has(codeMatch[0]);
-  });
-  const filteredEvents = filterType==="全部" ? dynamicEvents : dynamicEvents.filter(e=>e.type===filterType);
+  const filteredEvents = filterType==="全部" ? CE : CE.filter(e=>e.type===filterType);
 
   // ── 刷新即時股價（TWSE MIS API）───────────────────────────────
   const refreshPrices = async () => {
@@ -899,10 +943,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const resetAll = () => {
     ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
-     "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1"].forEach(k => localStorage.removeItem(k));
+     "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1","pf-calendar-v1"].forEach(k => localStorage.removeItem(k));
     setHoldings([]); setTradeLog([]); setTargets({});
     setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
-    setStrategyBrain(null); setDailyReport(null);
+    setStrategyBrain(null); setDailyReport(null); setCalendarEvents([]);
     setImg(null); setB64(null); setParsed(null); setParseErr(null);
     setMemoStep(0); setMemoAns([]); setMemoIn("");
     setTab("holdings");
@@ -1308,7 +1352,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ EVENTS ══════════ */}
         {tab==="events" && <>
-          {H.length === 0 && dynamicEvents.length === 0 ? (
+          {calendarLoading ? (
+            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:13,color:C.amber,fontWeight:500,animation:"pulse 1.5s ease-in-out infinite"}}>
+                正在根據持倉產生行事曆...
+              </div>
+            </div>
+          ) : H.length === 0 && CE.length === 0 ? (
             <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
               <div style={{fontSize:28,marginBottom:10,opacity:0.3}}>📅</div>
               <div style={{fontSize:13,color:C.textSec,fontWeight:500}}>尚無行事曆事件</div>
@@ -1317,7 +1367,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             </div>
           ) : <>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
               {["全部",...Object.keys(TYPE_COLOR)].map(t=>(
                 <button key={t} onClick={()=>setFilterType(t)} style={{
                   background: filterType===t ? (TYPE_COLOR[t]+"33"||C.subtle) : "transparent",
@@ -1326,6 +1376,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   borderRadius:20,padding:"3px 11px",fontSize:10,fontWeight:500,cursor:"pointer",
                 }}>{t}</button>
               ))}
+              <button onClick={()=>fetchCalendarEvents(holdings)} disabled={calendarLoading} style={{
+                background:C.blue+"18",color:C.blue,border:`1px solid ${C.blue}33`,
+                borderRadius:20,padding:"3px 10px",fontSize:10,fontWeight:500,cursor:"pointer",marginLeft:"auto",
+              }}>⟳ 重新產生</button>
             </div>
 
             {filteredEvents.length === 0 ? (
