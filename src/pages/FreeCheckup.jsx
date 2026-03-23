@@ -39,21 +39,7 @@ const INIT_WATCHLIST = [
   { code:"6274", name:"台燿",    price:505,   target:710,  status:"⚡今日法說", catalyst:"3/18法說+財報",  sc:"#ef4444", note:"成本507；毛利率回沖→補足2/3；展望差→停損430" },
 ];
 
-const EVENTS = [
-  { date:"今日",    label:"台燿 6274 — Q4財報法說會",     sub:"毛利率+展望樂觀→補齊2/3；差→停損430",          urgent:true,  type:"法說" },
-  { date:"今日",    label:"晶豪科 194.5元 — 超出場區間",  sub:"目標175–185元已超過，考慮今日分批賣出",         urgent:true,  type:"操作" },
-  { date:"每月10日",label:"月營收公布",                   sub:"晶豪科最關鍵——確認DDR3高檔維持",               urgent:false, type:"營收" },
-  { date:"3/15前",  label:"大型股全年財報",                sub:"台達電、奇鋐、創意、緯創",                      urgent:false, type:"財報" },
-  { date:"4/1前",   label:"中小型股全年財報",              sub:"長興、華通、晟銘電、昇達科、台灣精銳、力積電",   urgent:false, type:"財報" },
-  { date:"3–4月",   label:"中興電 Q4財報 + 法說",         sub:"催化劑：台電GIS發包 + 台積電訂單",              urgent:false, type:"催化" },
-  { date:"Q2前",    label:"晶豪科 全數出場",               sub:"Q1財報前最遲出清；資金轉台燿/力積電",           urgent:false, type:"操作" },
-  { date:"2026/07", label:"禾伸堂元富57購 到期",          sub:"目標獲利100%（約1.98元）；留意時間價值遞減",     urgent:false, type:"權證" },
-  { date:"Q2",      label:"台燿 泰國二期產能確認",         sub:"月產能是否達260萬張（目標710元關鍵假設）",       urgent:false, type:"催化" },
-  { date:"6–7月",   label:"力積電 加碼評估",               sub:"月營收年增>30%才加碼",                         urgent:false, type:"操作" },
-  { date:"Q3起",    label:"緯創 VR爬坡",                  sub:"3Q26帶來4–5個月完整營收貢獻",                   urgent:false, type:"催化" },
-  { date:"持續",    label:"美國關稅談判進度",              sub:"15%協議已達成；後續執行細節影響科技出口股",      urgent:false, type:"總經" },
-  { date:"持續",    label:"Fed 利率政策",                  sub:"降息預期影響外資流向台股",                       urgent:false, type:"總經" },
-];
+// EVENTS 不再寫死，由 AI 根據持倉動態產生，存於 calendarEvents state
 
 // ── 事件分析資料庫 ────────────────────────────────────────────────
 // status: "past"=已發生 / "pending"=未發生
