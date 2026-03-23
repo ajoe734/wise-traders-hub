@@ -1420,12 +1420,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     background:C.tealBg,color:C.teal,fontWeight:600,
                     animation:"pulse 1.5s ease-in-out infinite"}}>目標價更新</span>}
                 </div>
-                {/* 第二行：左側 數量·成本價·市價·市值 / 右側 損益·報酬 */}
+                {/* 第二行：左側 數量·成本·市價 / 右側 市值·損益·報酬 */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
                   <div style={{fontSize:12,color:C.textMute}}>
-                    {h.qty}{h.unit || "股"} · 成本價{h.cost} · 成本{Math.round(h.cost * h.qty).toLocaleString()} · 市價{h.price?.toLocaleString()} · <span style={{color:C.blue}}>市值 {h.value?.toLocaleString()}</span>
+                    {h.qty}{h.unit || "股"} · 成本{h.cost} · 市價{h.price?.toLocaleString()}
                   </div>
                   <div style={{display:"flex",gap:10,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
+                    <span style={{fontSize:12,color:C.textMute}}>市值</span>
+                    <span style={{fontSize:13,fontWeight:600,color:C.blue}}>{h.value?.toLocaleString()}</span>
                     <span style={{fontSize:12,color:C.textMute}}>損益</span>
                     <span style={{fontSize:13,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
                     <span style={{fontSize:12,color:C.textMute}}>報酬</span>
