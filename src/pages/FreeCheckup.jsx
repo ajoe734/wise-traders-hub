@@ -1538,10 +1538,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   borderRadius:20,padding:"3px 11px",fontSize:12,fontWeight:500,cursor:"pointer",
                 }}>{t}</button>
               ))}
-              <button onClick={()=>fetchCalendarEvents(holdings)} disabled={calendarLoading} style={{
-                background:C.blue+"18",color:C.blue,border:`1px solid ${C.blue}33`,
-                borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:500,cursor:"pointer",marginLeft:"auto",
-              }}>⟳ 重新產生</button>
+              {/* 重新產生按鈕已移除，行事曆只抓一次 */}
             </div>
 
             {filteredEvents.length === 0 ? (
