@@ -1029,8 +1029,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         // 同步寫入交易記錄（不等備忘錄）
         setTradeLog(prev => {
           const existing = prev || [];
-          const newEntries = parsedResult.trades.map(t => ({
-            id: Date.now() + Math.random(),
+          const batchBase = Date.now();
+          const newEntries = parsedResult.trades.map((t, idx) => ({
+            id: batchBase + idx * 0.001,
             date: t.date || new Date().toLocaleDateString("zh-TW"),
             time: t.time || new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}),
             action: t.action, code: t.code, name: t.name, qty: t.qty, price: t.price,
