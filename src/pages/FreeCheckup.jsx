@@ -1506,7 +1506,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 </div>
                 <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
                   {[["市價", h.price?.toLocaleString() || "—", C.textSec],
-                    ["成本價", h.cost != null ? String(h.cost) : "—", C.textMute],
+                    ["成本", h.cost != null ? String(h.cost) : "—", C.textMute],
                     ...(tgt ? [["目標價", tgt.toLocaleString(), C.olive], ["潛在漲幅", (upside > 0 ? "+" : "") + upside + "%", C.blue]] : []),
                     ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(2) + "%", h.pnl >= 0 ? C.olive : C.up],
                   ].map(([l,v,c])=>(
