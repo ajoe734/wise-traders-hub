@@ -332,45 +332,47 @@ export default function App() {
     }
   }, [holdings, ready]);
 
-  // ── 事件到期自動驗證：每 60 秒檢查已過期的 pending 事件 ──────────
+  // ── 事件到期自動驗證：載入時檢查已過期的 pending 事件 ──────────
+  const autoVerifyRanRef = React.useRef(false);
   useEffect(() => {
-    if (!ready) return;
-    const autoVerify = async () => {
-      const NE = newsEvents || [];
+    if (!ready || !newsEvents || autoVerifyRanRef.current) return;
+    const NE = newsEvents;
+    const pendingExpired = NE.some(e => {
+      if (e.status !== "pending" || !e.date) return false;
+      const parts = e.date.replace(/-/g, "/").split("/").map(Number);
+      let eventDate;
+      if (parts.length === 3) eventDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59);
+      else if (parts.length === 2) eventDate = new Date(new Date().getFullYear(), parts[0] - 1, parts[1], 23, 59, 59);
+      else return false;
+      return new Date() > eventDate;
+    });
+    if (!pendingExpired) return;
+    autoVerifyRanRef.current = true;
+
+    (async () => {
       const now = new Date();
-      // 找出已過期且尚未驗證的 pending 事件
       const expired = NE.filter(e => {
-        if (e.status !== "pending") return false;
-        if (!e.date) return false;
-        // 解析日期，支援 "2026/03/24"、"2026-03-24"、"03/24" 等格式
-        let eventDate;
+        if (e.status !== "pending" || !e.date) return false;
         const parts = e.date.replace(/-/g, "/").split("/").map(Number);
-        if (parts.length === 3) {
-          eventDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59);
-        } else if (parts.length === 2) {
-          eventDate = new Date(now.getFullYear(), parts[0] - 1, parts[1], 23, 59, 59);
-        } else {
-          return false;
-        }
+        let eventDate;
+        if (parts.length === 3) eventDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59);
+        else if (parts.length === 2) eventDate = new Date(now.getFullYear(), parts[0] - 1, parts[1], 23, 59, 59);
+        else return false;
         return now > eventDate;
       });
       if (expired.length === 0) return;
 
-      // 收集需要查詢的股票代碼
       const codes = new Set();
       expired.forEach(e => {
-        const stks = Array.isArray(e.stocks) ? e.stocks : [];
-        stks.forEach(s => {
+        (Array.isArray(e.stocks) ? e.stocks : []).forEach(s => {
           const code = typeof s === "string" ? s.match(/\d{4}/)?.[0] : s?.code;
           if (code) codes.add(code);
         });
-        // 也從 title 中提取代碼
-        const titleCode = e.title?.match(/\d{4}/)?.[0];
-        if (titleCode) codes.add(titleCode);
+        const tc = e.title?.match(/\d{4}/)?.[0];
+        if (tc) codes.add(tc);
       });
       if (codes.size === 0) return;
 
-      // 從 current_prices 抓取漲跌數據
       try {
         const { supabase } = await import("@/integrations/supabase/client");
         const { data: prices } = await supabase
@@ -382,7 +384,6 @@ export default function App() {
         const priceMap = {};
         prices.forEach(p => { priceMap[p.symbol] = p; });
 
-        // 自動判定每個過期事件
         setNewsEvents(prev => {
           const arr = [...(prev || [])];
           let changed = false;
@@ -390,10 +391,8 @@ export default function App() {
             const idx = arr.findIndex(e => e.id === expEvt.id);
             if (idx < 0 || arr[idx].status !== "pending") return;
 
-            // 找出該事件對應的股票代碼
             let code = null;
-            const stks = Array.isArray(expEvt.stocks) ? expEvt.stocks : [];
-            for (const s of stks) {
+            for (const s of (Array.isArray(expEvt.stocks) ? expEvt.stocks : [])) {
               const c = typeof s === "string" ? s.match(/\d{4}/)?.[0] : s?.code;
               if (c && priceMap[c]) { code = c; break; }
             }
@@ -405,7 +404,6 @@ export default function App() {
 
             const p = priceMap[code];
             const chg = p.change_percent || 0;
-            // 判定實際漲跌
             const actual = chg > 0 ? "up" : chg < 0 ? "down" : "neutral";
             const pred = expEvt.pred || "neutral";
             const correct = pred === actual;
@@ -426,11 +424,7 @@ export default function App() {
       } catch (err) {
         console.warn("Auto-verify failed:", err);
       }
-    };
-
-    autoVerify(); // 首次立即執行
-    const timer = setInterval(autoVerify, 60_000); // 每 60 秒檢查
-    return () => clearInterval(timer);
+    })();
   }, [ready, newsEvents]);
   const H = holdings || [];
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
