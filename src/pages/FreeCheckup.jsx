@@ -30,29 +30,8 @@ const avgTarget = (code) => {
   return Math.round(d.reports.reduce((s,r)=>s+r.target,0) / d.reports.length);
 };
 
-// ── 初始持倉 ────────────────────────────────────────────────────
-const INIT_HOLDINGS = [
-  { code:"00637L", name:"滬深300正2",    qty:141,  price:19.96, cost:18.99, value:2814,  pnl:134,   pct:5.01,   type:"ETF"  },
-  { code:"039108", name:"禾伸堂元富57購", qty:8000, price:0.79,  cost:0.9925,value:6320,  pnl:-824,  pct:-10.35, type:"權證", expire:"2026/07", targetPrice:1.98 },
-  { code:"053848", name:"亞翔凱基5B購",  qty:8000, price:2.23,  cost:1.81,  value:17840, pnl:3234,  pct:22.32,  type:"權證" },
-  { code:"702157", name:"華星光元大58購",qty:4000, price:3.35,  cost:1.29,  value:13400, pnl:8167,  pct:157.66, type:"權證" },
-  { code:"1503",   name:"士電",          qty:9,    price:205,   cost:229.5,  value:1845,  pnl:-227,  pct:-10.99, type:"股票" },
-  { code:"1717",   name:"長興",          qty:43,   price:63.7,  cost:66.1,   value:2737,  pnl:-118,  pct:-4.15,  type:"股票" },
-  { code:"2308",   name:"台達電",        qty:2,    price:1440,  cost:1287.5, value:2880,  pnl:293,   pct:11.37,  type:"股票" },
-  { code:"2313",   name:"華通",          qty:40,   price:236.5, cost:187.5,  value:9457,  pnl:1920,  pct:25.58,  type:"股票" },
-  { code:"2543",   name:"皇昌",          qty:6,    price:71.6,  cost:78.3,   value:429,   pnl:-43,   pct:-9.15,  type:"股票" },
-  { code:"3006",   name:"晶豪科",        qty:12,   price:194.5, cost:164,    value:2334,  pnl:357,   pct:18.13,  type:"股票", alert:"⚡出場區間到" },
-  { code:"3013",   name:"晟銘電",        qty:29,   price:99,    cost:125.91, value:2871,  pnl:-791,  pct:-21.65, type:"股票" },
-  { code:"3017",   name:"奇鋐",          qty:2,    price:1905,  cost:1400,   value:3810,  pnl:997,   pct:35.59,  type:"股票" },
-  { code:"3231",   name:"緯創",          qty:11,   price:134,   cost:134.55, value:1474,  pnl:-14,   pct:-0.94,  type:"股票" },
-  { code:"3443",   name:"創意",          qty:3,    price:2290,  cost:2566.67,value:6870,  pnl:-854,  pct:-11.09, type:"股票" },
-  { code:"3491",   name:"昇達科",        qty:3,    price:1445,  cost:1276.67,value:4335,  pnl:487,   pct:12.71,  type:"股票" },
-  { code:"4583",   name:"台灣精銳",      qty:5,    price:629,   cost:734,    value:3145,  pnl:-536,  pct:-14.6,  type:"股票" },
-  { code:"6274",   name:"台燿",          qty:3,    price:505,   cost:507,    value:1515,  pnl:-12,   pct:-0.79,  type:"股票", alert:"今日法說" },
-  { code:"6770",   name:"力積電",        qty:20,   price:71.7,  cost:68.05,  value:1433,  pnl:63,    pct:4.62,   type:"股票" },
-  { code:"6862",   name:"三集瑞-KY",     qty:17,   price:209.5, cost:197.82, value:3560,  pnl:182,   pct:5.41,   type:"股票" },
-  { code:"8227",   name:"巨有科技",      qty:21,   price:128,   cost:146.57, value:2688,  pnl:-403,  pct:-13.08, type:"股票" },
-];
+// ── 初始持倉（空，由上傳成交明細產生）────────────────────────────
+const INIT_HOLDINGS = [];
 
 const INIT_WATCHLIST = [
   { code:"1513", name:"中興電",  price:158.5, target:193,  status:"等Q4財報",  catalyst:"3–4月財報",      sc:"#f59e0b", note:"積極163–165元；保守155–160元；催化：台電GIS+台積電" },
