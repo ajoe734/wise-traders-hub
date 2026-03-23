@@ -891,6 +891,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setTab("holdings");
   };
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const resetAll = () => {
+    ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
+     "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1"].forEach(k => localStorage.removeItem(k));
+    setHoldings([]); setTradeLog([]); setTargets(INIT_TARGETS);
+    setNewsEvents(NEWS_EVENTS); setAnalysisHistory([]); setReversalConditions({});
+    setStrategyBrain(null);
+    setImg(null); setB64(null); setParsed(null); setParseErr(null);
+    setMemoStep(0); setMemoAns([]); setMemoIn("");
+    setTab("holdings");
+    setShowResetConfirm(false);
+    setSaved("🗑️ 已全部清除");
+    setTimeout(() => setSaved(""), 2500);
+  };
+
   const qs = parsed?.trades?.[0] ? (MEMO_Q[parsed.trades[0].action]||MEMO_Q["買進"]) : [];
 
   if (!ready) return (
