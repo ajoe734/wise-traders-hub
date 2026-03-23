@@ -332,100 +332,123 @@ export default function App() {
     }
   }, [holdings, ready]);
 
-  // ── 事件到期自動驗證：載入時檢查已過期的 pending 事件 ──────────
-  const autoVerifyRanRef = useRef(false);
+  // ── 事件到期自動驗證：透過 Realtime 監聽 current_prices 更新 ──────────
+  // 收集所有 pending 且已過期事件的相關股票代碼
+  const pendingCodesRef = useRef(new Set());
+
   useEffect(() => {
-    if (!ready || !newsEvents || autoVerifyRanRef.current) return;
-    const NE = newsEvents;
-    const pendingExpired = NE.some(e => {
-      if (e.status !== "pending" || !e.date) return false;
+    if (!ready || !newsEvents) return;
+    const now = new Date();
+    const codes = new Set();
+    (newsEvents || []).forEach(e => {
+      if (e.status !== "pending" || !e.date) return;
       const parts = e.date.replace(/-/g, "/").split("/").map(Number);
       let eventDate;
       if (parts.length === 3) eventDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59);
-      else if (parts.length === 2) eventDate = new Date(new Date().getFullYear(), parts[0] - 1, parts[1], 23, 59, 59);
-      else return false;
-      return new Date() > eventDate;
+      else if (parts.length === 2) eventDate = new Date(now.getFullYear(), parts[0] - 1, parts[1], 23, 59, 59);
+      else return;
+      if (now <= eventDate) return; // 尚未過期，跳過
+      (Array.isArray(e.stocks) ? e.stocks : []).forEach(s => {
+        const c = typeof s === "string" ? s.match(/\d{4}/)?.[0] : s?.code;
+        if (c) codes.add(c);
+      });
+      const tc = e.title?.match(/\d{4}/)?.[0];
+      if (tc) codes.add(tc);
     });
-    if (!pendingExpired) return;
+    pendingCodesRef.current = codes;
+  }, [ready, newsEvents]);
+
+  // 首次載入：查詢一次已過期事件的價格
+  const autoVerifyRanRef = useRef(false);
+  useEffect(() => {
+    if (!ready || !newsEvents || autoVerifyRanRef.current) return;
+    if (pendingCodesRef.current.size === 0) return;
     autoVerifyRanRef.current = true;
 
     (async () => {
-      const now = new Date();
-      const expired = NE.filter(e => {
-        if (e.status !== "pending" || !e.date) return false;
-        const parts = e.date.replace(/-/g, "/").split("/").map(Number);
-        let eventDate;
-        if (parts.length === 3) eventDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59);
-        else if (parts.length === 2) eventDate = new Date(now.getFullYear(), parts[0] - 1, parts[1], 23, 59, 59);
-        else return false;
-        return now > eventDate;
-      });
-      if (expired.length === 0) return;
-
-      const codes = new Set();
-      expired.forEach(e => {
-        (Array.isArray(e.stocks) ? e.stocks : []).forEach(s => {
-          const code = typeof s === "string" ? s.match(/\d{4}/)?.[0] : s?.code;
-          if (code) codes.add(code);
-        });
-        const tc = e.title?.match(/\d{4}/)?.[0];
-        if (tc) codes.add(tc);
-      });
-      if (codes.size === 0) return;
-
       try {
         const { supabase } = await import("@/integrations/supabase/client");
         const { data: prices } = await supabase
           .from("current_prices")
           .select("symbol, change_percent, price, name")
-          .in("symbol", [...codes]);
+          .in("symbol", [...pendingCodesRef.current]);
         if (!prices || prices.length === 0) return;
-
-        const priceMap = {};
-        prices.forEach(p => { priceMap[p.symbol] = p; });
-
-        setNewsEvents(prev => {
-          const arr = [...(prev || [])];
-          let changed = false;
-          expired.forEach(expEvt => {
-            const idx = arr.findIndex(e => e.id === expEvt.id);
-            if (idx < 0 || arr[idx].status !== "pending") return;
-
-            let code = null;
-            for (const s of (Array.isArray(expEvt.stocks) ? expEvt.stocks : [])) {
-              const c = typeof s === "string" ? s.match(/\d{4}/)?.[0] : s?.code;
-              if (c && priceMap[c]) { code = c; break; }
-            }
-            if (!code) {
-              const tc = expEvt.title?.match(/\d{4}/)?.[0];
-              if (tc && priceMap[tc]) code = tc;
-            }
-            if (!code) return;
-
-            const p = priceMap[code];
-            const chg = p.change_percent || 0;
-            const actual = chg > 0 ? "up" : chg < 0 ? "down" : "neutral";
-            const pred = expEvt.pred || "neutral";
-            const correct = pred === actual;
-
-            arr[idx] = {
-              ...arr[idx],
-              status: "past",
-              actual,
-              actualNote: `自動驗證：${p.name || code} 漲跌幅 ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%`,
-              correct,
-              reviewDate: new Date().toLocaleDateString("zh-TW"),
-              autoVerified: true,
-            };
-            changed = true;
-          });
-          return changed ? arr : prev;
-        });
+        prices.forEach(p => applyAutoVerify(p.symbol, p));
       } catch (err) {
-        console.warn("Auto-verify failed:", err);
+        console.warn("Auto-verify init failed:", err);
       }
     })();
   }, [ready, newsEvents]);
+
+  // Realtime 訂閱：current_prices 更新時自動驗證
+  useEffect(() => {
+    if (!ready) return;
+    let channel;
+    (async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      channel = supabase
+        .channel("checkup-price-verify")
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "current_prices" }, (payload) => {
+          const row = payload.new;
+          if (!row?.symbol || !pendingCodesRef.current.has(row.symbol)) return;
+          applyAutoVerify(row.symbol, row);
+        })
+        .subscribe();
+    })();
+    return () => {
+      if (channel) {
+        import("@/integrations/supabase/client").then(({ supabase }) => supabase.removeChannel(channel));
+      }
+    };
+  }, [ready]);
+
+  // 共用驗證邏輯
+  function applyAutoVerify(symbol, priceRow) {
+    const chg = priceRow.change_percent || 0;
+    const actual = chg > 0 ? "up" : chg < 0 ? "down" : "neutral";
+    const now = new Date();
+
+    setNewsEvents(prev => {
+      const arr = [...(prev || [])];
+      let changed = false;
+      arr.forEach((evt, idx) => {
+        if (evt.status !== "pending" || !evt.date) return;
+        // 檢查是否已過期
+        const parts = evt.date.replace(/-/g, "/").split("/").map(Number);
+        let eventDate;
+        if (parts.length === 3) eventDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59);
+        else if (parts.length === 2) eventDate = new Date(now.getFullYear(), parts[0] - 1, parts[1], 23, 59, 59);
+        else return;
+        if (now <= eventDate) return;
+
+        // 檢查該事件是否包含此股票
+        let match = false;
+        (Array.isArray(evt.stocks) ? evt.stocks : []).forEach(s => {
+          const c = typeof s === "string" ? s.match(/\d{4}/)?.[0] : s?.code;
+          if (c === symbol) match = true;
+        });
+        if (!match) {
+          const tc = evt.title?.match(/\d{4}/)?.[0];
+          if (tc === symbol) match = true;
+        }
+        if (!match) return;
+
+        const pred = evt.pred || "neutral";
+        const correct = pred === actual;
+        arr[idx] = {
+          ...evt,
+          status: "past",
+          actual,
+          actualNote: `自動驗證：${priceRow.name || symbol} 漲跌幅 ${chg >= 0 ? "+" : ""}${Number(chg).toFixed(2)}%`,
+          correct,
+          reviewDate: now.toLocaleDateString("zh-TW"),
+          autoVerified: true,
+        };
+        changed = true;
+      });
+      return changed ? arr : prev;
+    });
+  }
   const H = holdings || [];
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
   const totalCost = H.reduce((s,h)=>s+h.cost*h.qty,0);
