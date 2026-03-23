@@ -808,13 +808,25 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       const parsedResult = JSON.parse(clean);
       setParsed(parsedResult);
 
-      // 解析成功後立即同步持倉，不需等待交易備忘錄完成
+      // 解析成功後立即同步持倉 & 交易記錄
       if (parsedResult?.trades?.length) {
         setHoldings(prev => parsedResult.trades.reduce(
           (acc, trade) => mergeTradeIntoHoldings(acc, trade),
           [...(prev || [])],
         ));
-        setSaved("✅ 成交已更新到持倉");
+        // 同步寫入交易記錄（不等備忘錄）
+        setTradeLog(prev => {
+          const existing = prev || [];
+          const newEntries = parsedResult.trades.map(t => ({
+            id: Date.now() + Math.random(),
+            date: t.date || new Date().toLocaleDateString("zh-TW"),
+            time: t.time || new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}),
+            action: t.action, code: t.code, name: t.name, qty: t.qty, price: t.price,
+            qa: [],
+          }));
+          return [...newEntries, ...existing];
+        });
+        setSaved("✅ 成交已更新到持倉與記錄");
         setTimeout(() => setSaved(""), 2500);
       }
     } catch { setParseErr("解析失敗，請確認截圖清晰"); }
