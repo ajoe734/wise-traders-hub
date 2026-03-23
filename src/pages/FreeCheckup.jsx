@@ -595,7 +595,10 @@ ${holdingSummary}
 待觀察事件：
 ${eventSummary}
 
-請分析今日收盤表現，事件連動，並給出策略建議。特別注意策略大腦中的歷史教訓。`
+${autoVerified.length > 0 ? `今日自動驗證事件（${autoVerified.length}件）：
+${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"} → 實際${v.actual==="up"?"漲":"跌"} → ${v.correct?"✓正確":"✗有誤"}`).join("\n")}` : ""}
+
+請分析今日收盤表現，事件連動，並給出策略建議。特別注意策略大腦中的歷史教訓。${autoVerified.length > 0 ? "同時針對今日自動驗證的事件進行覆盤分析。" : ""}`
           })
         });
         const aiData = await aiRes.json();
