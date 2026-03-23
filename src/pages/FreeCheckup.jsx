@@ -623,7 +623,7 @@ ${eventSummary}
       setAnalyzeStep("策略大腦進化中...");
       if (aiInsight) {
         try {
-          const NE = newsEvents || NEWS_EVENTS;
+          const NE = newsEvents || [];
           const pastEvents = NE.filter(e => e.status === "past");
           const hits = pastEvents.filter(e => e.correct === true).length;
           const total = pastEvents.filter(e => e.correct !== null).length;
