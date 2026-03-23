@@ -462,13 +462,13 @@ export default function App() {
       // 3. 事件連動分析
       const NE = newsEvents || [];
       const today = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "/");
-      const pendingEvents = NE.filter(e => e.status === "pending");
+      const pendingEvents = NE.filter(e => e.status === "pending" || e.status === "tracking");
       const eventCorrelations = pendingEvents.map(e => {
         const relatedStocks = e.stocks.map(s => {
           const raw = typeof s === "string" ? s : (s.code || s.name || "");
           const code = raw.match(/\d+/)?.[0];
           const ch = changes.find(c => c.code === code);
-          return ch ? { name: ch.name, code: ch.code, changePct: ch.changePct, change: ch.change } : null;
+          return ch ? { name: ch.name, code: ch.code, changePct: ch.changePct, change: ch.change, price: ch.price } : null;
         }).filter(Boolean);
         return { ...e, relatedStocks };
       }).filter(e => e.relatedStocks.length > 0 && e.relatedStocks.some(s => Math.abs(s.changePct) > 1));
@@ -481,6 +481,40 @@ export default function App() {
         if (!e.date.match(/^\d{4}\/\d{2}/)) return false;
         return e.date <= today;
       });
+
+      // 5.5 自動驗證事件：根據股價漲跌自動判定 pending 事件結果
+      const autoVerified = [];
+      if (needsReview.length > 0) {
+        setNewsEvents(prev => {
+          const arr = [...(prev || [])];
+          needsReview.forEach(e => {
+            const idx = arr.findIndex(x => x.id === e.id);
+            if (idx < 0) return;
+            // 找到相關股票的漲跌
+            const relatedStocks = (e.stocks || []).map(s => {
+              const raw = typeof s === "string" ? s : (s.code || s.name || "");
+              const code = raw.match(/\d+/)?.[0];
+              const ch = changes.find(c => c.code === code);
+              return ch ? { name: ch.name, code: ch.code, changePct: ch.changePct } : null;
+            }).filter(Boolean);
+            if (relatedStocks.length === 0) return;
+            const avgChange = relatedStocks.reduce((s, r) => s + r.changePct, 0) / relatedStocks.length;
+            const actual = avgChange > 1 ? "up" : avgChange < -1 ? "down" : "neutral";
+            const correct = e.pred === actual;
+            const stockSummary = relatedStocks.map(s => `${s.name} ${s.changePct >= 0 ? "+" : ""}${s.changePct.toFixed(2)}%`).join("、");
+            arr[idx] = {
+              ...arr[idx],
+              status: "past",
+              actual,
+              correct,
+              actualNote: `[自動驗證] 相關股票表現：${stockSummary}，平均漲跌 ${avgChange >= 0 ? "+" : ""}${avgChange.toFixed(2)}%`,
+              reviewDate: today,
+            };
+            autoVerified.push({ title: e.title, pred: e.pred, actual, correct });
+          });
+          return arr;
+        });
+      }
 
       // 6. 呼叫 Claude API 產生策略分析（含策略大腦上下文）
       setAnalyzeStep("AI 策略分析中（約15-30秒）...");
@@ -561,7 +595,10 @@ ${holdingSummary}
 待觀察事件：
 ${eventSummary}
 
-請分析今日收盤表現，事件連動，並給出策略建議。特別注意策略大腦中的歷史教訓。`
+${autoVerified.length > 0 ? `今日自動驗證事件（${autoVerified.length}件）：
+${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"} → 實際${v.actual==="up"?"漲":"跌"} → ${v.correct?"✓正確":"✗有誤"}`).join("\n")}` : ""}
+
+請分析今日收盤表現，事件連動，並給出策略建議。特別注意策略大腦中的歷史教訓。${autoVerified.length > 0 ? "同時針對今日自動驗證的事件進行覆盤分析。" : ""}`
           })
         });
         const aiData = await aiRes.json();
@@ -579,7 +616,8 @@ ${eventSummary}
         changes,
         anomalies,
         eventCorrelations,
-        needsReview,
+        needsReview: needsReview.filter(e => !autoVerified.find(v => v.title === e.title)),
+        autoVerified,
         aiInsight,
       };
 
@@ -1486,8 +1524,31 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             )}
 
+            {/* 自動驗證事件結果 */}
+            {(dailyReport.autoVerified||[]).length>0 && (
+              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.olive}88`}}>
+                <div style={{...lbl,color:C.olive}}>自動驗證事件 · {dailyReport.autoVerified.length}件</div>
+                {dailyReport.autoVerified.map((v,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                    padding:"6px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${C.borderSub}`:"none"}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:11,fontWeight:500,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
+                      <div style={{fontSize:9,color:C.textMute,marginTop:2}}>
+                        預測{v.pred==="up"?"看漲":"看跌"} → 實際{v.actual==="up"?"漲":v.actual==="down"?"跌":"中性"}
+                      </div>
+                    </div>
+                    <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,flexShrink:0,
+                      background:v.correct?C.oliveBg:C.upBg,
+                      color:v.correct?C.olive:C.up}}>
+                      {v.correct?"✓ 命中":"✗ 失誤"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* 需要復盤的事件 */}
-            {dailyReport.needsReview.length>0 && (
+            {(dailyReport.needsReview||[]).length>0 && (
               <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.up}88`}}>
                 <div style={{...lbl,color:C.up}}>需要復盤 · {dailyReport.needsReview.length}件</div>
                 {dailyReport.needsReview.map(e=>(
@@ -1517,7 +1578,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             {!dailyReport.aiInsight && (
               <div style={{...card,marginBottom:10,background:C.subtle}}>
                 <div style={{fontSize:11,color:C.textMute,textAlign:"center",padding:"8px 0"}}>
-                  AI 分析未產生（請確認 Vercel 已設定 ANTHROPIC_API_KEY）
+                  AI 分析未產生
                 </div>
               </div>
             )}
@@ -1617,30 +1678,88 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
 
           {/* 歷史分析 */}
-          {(analysisHistory||[]).length>0 && (
-            <div style={{...card}}>
-              <div style={lbl}>歷史分析記錄</div>
-              {(analysisHistory||[]).slice(0,10).map(r=>(
-                <div key={r.id} onClick={()=>{
-                    setDailyReport(r);
-                    setTimeout(()=>document.getElementById("daily-report-top")?.scrollIntoView({behavior:"smooth"}),50);
-                  }}
-                  style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                    padding:"8px 0",cursor:"pointer",
-                    background:dailyReport?.id===r.id?C.subtle:"transparent",
-                    borderRadius:6, paddingLeft:6, paddingRight:6,
-                    borderBottom:`1px solid ${C.borderSub}`}}>
-                  <div>
-                    <span style={{fontSize:12,color:C.text}}>{r.date}</span>
-                    <span style={{fontSize:10,color:C.textMute,marginLeft:6}}>{r.time}</span>
-                  </div>
-                  <span style={{fontSize:12,fontWeight:600,color:pc(r.totalTodayPnl)}}>
-                    {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
-                  </span>
+          {(analysisHistory||[]).length>0 && (()=>{
+            // Filter out entries without real data (hardcoded/empty)
+            const validHistory = (analysisHistory||[]).filter(r => r.changes && r.changes.length > 0);
+            if (validHistory.length === 0) return null;
+            return (
+              <div style={{...card}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={lbl}>歷史分析記錄</div>
+                  <span style={{fontSize:9,color:C.textMute}}>共 {validHistory.length} 筆</span>
                 </div>
-              ))}
-            </div>
-          )}
+                {validHistory.slice(0,15).map(r=>{
+                  const isExpanded = dailyReport?.id === r.id;
+                  return (
+                  <div key={r.id}>
+                    <div onClick={()=>{
+                        if (isExpanded) { setDailyReport(null); } else { setDailyReport(r); }
+                      }}
+                      style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                        padding:"8px 6px",cursor:"pointer",
+                        background:isExpanded?C.subtle:"transparent",
+                        borderRadius:6,
+                        borderBottom:`1px solid ${C.borderSub}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{fontSize:10,color:isExpanded?C.amber:C.textMute,transition:"transform 0.15s",
+                          display:"inline-block",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
+                        <span style={{fontSize:12,color:C.text}}>{r.date}</span>
+                        <span style={{fontSize:10,color:C.textMute}}>{r.time}</span>
+                      </div>
+                      <span style={{fontSize:12,fontWeight:600,color:pc(r.totalTodayPnl)}}>
+                        {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
+                      </span>
+                    </div>
+                    {/* 展開的報告內容 */}
+                    {isExpanded && (
+                      <div style={{padding:"10px 4px",borderBottom:`1px solid ${C.border}`,marginBottom:4}}>
+                        {/* 持倉漲跌 */}
+                        {r.changes && r.changes.length > 0 && (
+                          <div style={{marginBottom:8}}>
+                            <div style={{fontSize:9,color:C.textMute,fontWeight:600,marginBottom:4,letterSpacing:"0.06em"}}>持倉漲跌</div>
+                            {r.changes.slice(0,5).map(c=>(
+                              <div key={c.code} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:10}}>
+                                <span style={{color:C.textSec}}>{c.name}</span>
+                                <span style={{fontWeight:600,color:pc(c.changePct)}}>{c.changePct>=0?"+":""}{c.changePct.toFixed(2)}%</span>
+                              </div>
+                            ))}
+                            {r.changes.length>5 && <div style={{fontSize:9,color:C.textMute,marginTop:2}}>...還有 {r.changes.length-5} 檔</div>}
+                          </div>
+                        )}
+                        {/* 自動驗證 */}
+                        {(r.autoVerified||[]).length>0 && (
+                          <div style={{marginBottom:8,background:C.oliveBg,borderRadius:6,padding:"6px 8px"}}>
+                            <div style={{fontSize:9,color:C.olive,fontWeight:600,marginBottom:3}}>自動驗證 {r.autoVerified.length} 件</div>
+                            {r.autoVerified.map((v,i)=>(
+                              <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"2px 0"}}>
+                                <span style={{color:C.textSec,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,marginRight:8}}>{v.title}</span>
+                                <span style={{color:v.correct?C.olive:C.up,fontWeight:600,flexShrink:0}}>{v.correct?"✓":"✗"}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {/* AI 摘要 */}
+                        {r.aiInsight && (
+                          <div style={{fontSize:10,color:C.textSec,lineHeight:1.8,whiteSpace:"pre-wrap",
+                            maxHeight:200,overflow:"auto",background:C.subtle,borderRadius:6,padding:"8px 10px"}}>
+                            {r.aiInsight.slice(0,500)}{r.aiInsight.length>500?"...":""}
+                          </div>
+                        )}
+                        {/* 查看完整報告 */}
+                        <button onClick={(ev)=>{ev.stopPropagation();setDailyReport(r);
+                          setTimeout(()=>document.getElementById("daily-report-top")?.scrollIntoView({behavior:"smooth"}),50);
+                        }} style={{marginTop:6,padding:"5px 12px",borderRadius:5,border:`1px solid ${C.blue}55`,
+                          background:"transparent",color:C.blue,fontSize:10,cursor:"pointer",width:"100%"}}>
+                          查看完整報告 ↑
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </>}
 
         {/* ══════════ UPLOAD ══════════ */}
