@@ -354,10 +354,11 @@ export default function App() {
       const h = await load("pf-holdings-v2", INIT_HOLDINGS);
       const l = await load("pf-log-v2", []);
       const t = await load("pf-targets-v1", INIT_TARGETS);
-      const ne = await load("pf-news-events-v1", NEWS_EVENTS);
+      const ne = await load("pf-news-events-v1", []);
       const ah = await load("pf-analysis-history-v1", []);
       const rc = await load("pf-reversal-v1", {});
       const sb = await load("pf-brain-v1", null);
+      const ce = await load("pf-calendar-v1", []);
       setHoldings(h); setTradeLog(l); setTargets(t);
       setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
       setStrategyBrain(sb);
