@@ -307,6 +307,20 @@ export default function App() {
   const [cloudSync, setCloudSync]         = useState(false);
 
   // boot
+  // 清除舊版寫死持倉快取
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("pf-holdings-v2");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // 若快取資料非空且包含舊寫死資料（code 00637L），清除之
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed.some(h => h.code === "00637L" || h.code === "039108" || h.code === "1503")) {
+          localStorage.removeItem("pf-holdings-v2");
+        }
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     (async () => {
       const h = await load("pf-holdings-v2", INIT_HOLDINGS);
