@@ -1042,11 +1042,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   };
 
   const resetAll = () => {
+    // 遞增 guard，讓 in-flight 的行事曆 fetch 丟棄結果
+    setResetGuard(g => g + 1);
     ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
      "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1","pf-calendar-v1"].forEach(k => localStorage.removeItem(k));
     setHoldings([]); setTradeLog([]); setTargets({});
     setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
-    setStrategyBrain(null); setDailyReport(null); setCalendarEvents([]);
+    setStrategyBrain(null); setDailyReport(null); setCalendarEvents(null);
+    setCalendarLoading(false);
     setImg(null); setB64(null); setParsed(null); setParseErr(null);
     setMemoStep(0); setMemoAns([]); setMemoIn("");
     setTab("holdings");
