@@ -197,15 +197,34 @@ export default function App() {
       oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
       const endDate = oneYearLater.toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
 
-      const prompt = `你是台股投資行事曆助手兼事件預判分析師。今天是 ${today}。
-我目前持有以下股票：${stockList}
+      // 過濾掉權證、ETF、期貨等非普通股標的，只保留4碼純股票
+      const pureStocks = holdingsList.filter(h => /^\d{4}$/.test(h.code));
+      const nonStocks = holdingsList.filter(h => !/^\d{4}$/.test(h.code));
+      const pureStockList = pureStocks.map(h => `${h.code} ${h.name}`).join("、");
 
-請根據這些股票，列出從明天起到 ${endDate} 為止（未來一整年）的所有重要事件（法說會、財報公布、除權息、營收公布、產業催化劑等），以JSON陣列格式回覆，不輸出其他文字：
+      if (pureStocks.length === 0) {
+        // 全部都是權證/ETF等，不產生行事曆
+        const emptyEvents = [];
+        emptyEvents._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
+        setCalendarEvents(emptyEvents);
+        save("pf-calendar-v1", emptyEvents);
+        setCalendarLoading(false);
+        return;
+      }
+
+      const prompt = `你是台股投資行事曆助手兼事件預判分析師。今天是 ${today}。
+我目前持有以下普通股：${pureStockList}
+${nonStocks.length > 0 ? `\n（以下為權證/ETF/期貨等非普通股標的，請完全忽略，不要為它們產生任何事件：${nonStocks.map(h => `${h.code} ${h.name}`).join("、")}）` : ""}
+
+請根據上述「普通股」，列出從明天起到 ${endDate} 為止（未來一整年）的重要事件，以JSON陣列格式回覆，不輸出其他文字：
 [{"date":"YYYY/MM/DD 格式日期","label":"事件標題含代碼","sub":"簡要說明與建議","urgent":是否緊急(boolean),"type":"法說/財報/營收/催化/操作/總經/除息","pred":"up或down或neutral","predReason":"預判漲跌理由，2-3句話"}]
 規則：
+- 絕對不要包含權證（代碼5-6碼如03910）、ETF（如0050、00637L）、期貨等非普通股的事件
 - 不要包含今天（${today}）或過去的事件，只列未來事件
-- 涵蓋未來一整年，每季度都要有事件（營收每月10日、財報每季、法說會、除息等）
-- 每檔股票至少3個事件，總共產出20-30個事件
+- 只列你有高度信心的真實公開事件（如法說會、財報公布日、除息日、營收公布日等），不要編造不確定的事件
+- 營收公布日固定為每月10日前，財報公布日依交易所規定（Q1:5/15前、Q2:8/14前、Q3:11/14前、年報:3/31前）
+- 涵蓋未來一整年，每季度都要有事件
+- 每檔普通股至少3個事件，總共產出20-30個事件
 - urgent=true 僅限未來一週內的事件
 - date 必須用 YYYY/MM/DD 格式（如 2026/04/10），方便排序
 - type 只能用：法說、財報、營收、催化、操作、總經、除息
