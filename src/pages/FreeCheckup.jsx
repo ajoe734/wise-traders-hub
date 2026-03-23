@@ -1249,10 +1249,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
           {/* 摘要 */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
             {[["總成本",totalCost.toLocaleString(),C.textSec],
               ["總市值",totalVal.toLocaleString(),C.blue],
-              ["持股數",H.length+"檔",C.lavender]].map(([l,v,c])=>(
+              ["預估損益",(totalPnl>=0?"+":"")+totalPnl.toLocaleString(), totalPnl>=0?C.up:C.down],
+              ["報酬率",(retPct>=0?"+":"")+retPct.toFixed(2)+"%", retPct>=0?C.up:C.down]].map(([l,v,c])=>(
               <div key={l} style={{background:C.subtle,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
                 <div style={{fontSize:9,color:C.textMute,letterSpacing:"0.08em"}}>{l}</div>
                 <div style={{fontSize:15,fontWeight:600,color:c,marginTop:3}}>{v}</div>
