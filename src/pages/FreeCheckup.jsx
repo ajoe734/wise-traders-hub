@@ -1566,13 +1566,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div style={{flex:1}}>
                         <div style={{fontSize:14,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
                         <div style={{fontSize:12,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
-                        {e.pred && (
-                          <div style={{display:"flex",alignItems:"center",gap:4,marginTop:4}}>
-                            <span style={{fontSize:12,fontWeight:600,
-                              color:e.pred==="up"?C.up:e.pred==="down"?C.down:C.textMute}}>
-                              {e.pred==="up"?"↑ 看漲":e.pred==="down"?"↓ 看跌":"— 中性"}
-                            </span>
-                            {e.predReason && <span style={{fontSize:12,color:C.textMute,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>{e.predReason}</span>}
+                        {e.sources && e.sources.length > 0 && (
+                          <div style={{marginTop:5,display:"flex",flexWrap:"wrap",gap:4}}>
+                            {e.sources.map((src,si)=>(
+                              <a key={si} href={src} target="_blank" rel="noopener noreferrer" style={{
+                                fontSize:11,color:C.blue,textDecoration:"none",
+                                background:C.blue+"12",padding:"1px 6px",borderRadius:3,
+                              }}>🔗 來源{e.sources.length>1?` ${si+1}`:""}</a>
+                            ))}
                           </div>
                         )}
                       </div>
