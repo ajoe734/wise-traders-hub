@@ -1855,7 +1855,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ NEWS ANALYSIS ══════════ */}
         {tab==="news" && (()=>{
-          const NE = newsEvents || NEWS_EVENTS;
+          const NE = newsEvents || [];
           const past    = NE.filter(e=>e.status==="past").sort((a,b)=>b.id-a.id);
           const pending = NE.filter(e=>e.status==="pending").sort((a,b)=>a.id-b.id);
           const hits    = NE.filter(e=>e.correct===true).length;
