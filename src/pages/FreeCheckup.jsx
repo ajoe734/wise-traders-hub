@@ -581,10 +581,10 @@ export default function App() {
 
         const updated = Object.keys(priceMap).length;
         const total = codes.length;
-        const missed = codes.filter(c => !priceMap[c]);
+        const stillMissed = codes.filter(c => !priceMap[c]);
         setLastUpdate(new Date());
-        if (missed.length > 0 && missed.length < total) {
-          const missedNames = missed.map(c => { const h = H.find(x=>x.code===c); return h ? h.name : c; }).join("、");
+        if (stillMissed.length > 0 && stillMissed.length < total) {
+          const missedNames = stillMissed.map(c => { const h = H.find(x=>x.code===c); return h ? h.name : c; }).join("、");
           setSaved(`✅ ${updated}/${total} 檔已更新（${missedNames} 無即時報價）`);
         } else {
           setSaved(`✅ ${updated} 檔股價已更新`);
