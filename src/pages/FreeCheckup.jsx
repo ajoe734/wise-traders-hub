@@ -1254,8 +1254,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               ["總市值",totalVal.toLocaleString(),C.blue],
               ["持股數",H.length+"檔",C.lavender]].map(([l,v,c])=>(
               <div key={l} style={{background:C.subtle,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
-                <div style={{fontSize:9,color:C.textMute,letterSpacing:"0.08em"}}>{l}</div>
-                <div style={{fontSize:15,fontWeight:600,color:c,marginTop:3}}>{v}</div>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em"}}>{l}</div>
+                <div style={{fontSize:17,fontWeight:600,color:c,marginTop:3}}>{v}</div>
               </div>
             ))}
           </div>
@@ -1267,8 +1267,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const pct=h.value/totalVal*100;
               return <div key={h.code} style={{marginTop:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                  <span style={{fontSize:12,color:C.textSec,fontWeight:500}}>{h.name}</span>
-                  <span style={{fontSize:12,fontWeight:600,color:topColors[i]}}>{pct.toFixed(1)}%</span>
+                  <span style={{fontSize:13,color:C.textSec,fontWeight:500}}>{h.name}</span>
+                  <span style={{fontSize:13,fontWeight:600,color:topColors[i]}}>{pct.toFixed(1)}%</span>
                 </div>
                 <div style={{background:C.subtle,borderRadius:4,height:4}}>
                   <div style={{width:`${pct}%`,height:"100%",background:topColors[i]+"88",borderRadius:4}}/>
@@ -1383,13 +1383,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* 排序 + 列表 */}
           <div style={{display:"flex",gap:5,marginBottom:10,alignItems:"center"}}>
-            <span style={{fontSize:10,color:C.textMute}}>排序：</span>
+            <span style={{fontSize:11,color:C.textMute}}>排序：</span>
             {[["value","市值"],["pnl","損益"],["pct","報酬%"]].map(([k,l])=>(
               <button key={k} onClick={()=>setSortBy(k)} style={{
                 background: sortBy===k ? C.subtle : "transparent",
                 color: sortBy===k ? C.amber : C.textMute,
                 border:`1px solid ${sortBy===k ? C.amber+"66" : C.border}`,
-                borderRadius:20, padding:"3px 11px", fontSize:10, fontWeight:500, cursor:"pointer",
+                borderRadius:20, padding:"4px 12px", fontSize:11, fontWeight:500, cursor:"pointer",
               }}>{l}</button>
             ))}
           </div>
@@ -1402,68 +1402,61 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const isNew  = T?.isNew;
               return (
               <div key={h.code} style={{
-                display:"flex", alignItems:"flex-start", justifyContent:"space-between",
-                padding:"10px 0",
+                padding:"12px 0",
                 borderBottom: i<displayed.length-1 ? `1px solid ${C.borderSub}` : "none"}}>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
-                    <span style={{fontSize:13,fontWeight:600,color:C.text}}>{h.name}</span>
-                    <span style={{fontSize:9,color:C.textMute}}>{h.code}</span>
-                    {h.type!=="股票"&&(
-                      <span style={{fontSize:9,padding:"1px 6px",borderRadius:3,
-                        background: h.type==="權證" ? C.amberBg : C.blueBg,
-                        color: h.type==="權證" ? C.amber : C.blue,
-                        fontWeight:500}}>{h.type}</span>
-                    )}
-                    {h.expire&&<span style={{fontSize:9,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
-                    {h.alert&&<span style={{fontSize:9,color:C.up,fontWeight:600}}>{h.alert}</span>}
-                    {isNew&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:3,
-                      background:C.tealBg,color:C.teal,fontWeight:600,
-                      animation:"pulse 1.5s ease-in-out infinite"}}>目標價更新</span>}
-                  </div>
-                  <div style={{fontSize:10,color:C.textMute,marginTop:2}}>
-                    {h.qty}{h.unit || "股"} · 成本{h.cost} · 市{h.price?.toLocaleString()}
-                  </div>
-                  {/* 目標價進度條 */}
-                  {tp && (
-                    <div style={{marginTop:5}}>
-                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                        <span style={{fontSize:9,color:C.textMute}}>
-                          目標 {tp.toLocaleString()}
-                          {T?.reports?.length>1 && <span style={{color:C.textMute}}> ({T.reports.length}家均)</span>}
-                        </span>
-                        <span style={{fontSize:9,fontWeight:600,
-                          color: upside>=0 ? C.up : C.down}}>
-                          {upside>=0?"+":""}{upside?.toFixed(1)}%
-                        </span>
-                      </div>
-                      <div style={{background:C.subtle,borderRadius:3,height:3,width:"100%",overflow:"hidden"}}>
-                        <div style={{
-                          width:`${Math.min(Math.max((h.price/tp)*100,0),100)}%`,
-                          height:"100%",
-                          background: upside>=15 ? C.up+"99"
-                            : upside>=0  ? C.amber+"99"
-                            : C.down+"99",
-                          borderRadius:3,
-                        }}/>
-                      </div>
-                    </div>
+                {/* 第一行：名稱 + 標籤 */}
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
+                  <span style={{fontSize:15,fontWeight:600,color:C.text}}>{h.name}</span>
+                  <span style={{fontSize:10,color:C.textMute}}>{h.code}</span>
+                  {h.type!=="股票"&&(
+                    <span style={{fontSize:10,padding:"1px 6px",borderRadius:3,
+                      background: h.type==="權證" ? C.amberBg : C.blueBg,
+                      color: h.type==="權證" ? C.amber : C.blue,
+                      fontWeight:500}}>{h.type}</span>
                   )}
+                  {h.expire&&<span style={{fontSize:10,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
+                  {h.alert&&<span style={{fontSize:10,color:C.up,fontWeight:600}}>{h.alert}</span>}
+                  {isNew&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,
+                    background:C.tealBg,color:C.teal,fontWeight:600,
+                    animation:"pulse 1.5s ease-in-out infinite"}}>目標價更新</span>}
                 </div>
-                <div style={{textAlign:"right",minWidth:80,paddingLeft:8}}>
-                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4}}>
-                    <span style={{fontSize:9,color:C.textMute}}>市值</span>
-                    <span style={{fontSize:12,fontWeight:600,color:C.textSec}}>{h.value?.toLocaleString()}</span>
+                {/* 第二行：左側 數量·成本價·市價·市值 / 右側 損益·報酬 */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+                  <div style={{fontSize:12,color:C.textMute}}>
+                    {h.qty}{h.unit || "股"} · 成本{h.cost} · 市價{h.price?.toLocaleString()} · <span style={{color:C.blue}}>市值 {h.value?.toLocaleString()}</span>
                   </div>
-                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4,marginTop:1}}>
-                    <span style={{fontSize:9,color:C.textMute}}>損益</span>
-                    <span style={{fontSize:11,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"flex-end",alignItems:"baseline",gap:4,marginTop:1}}>
-                    <span style={{fontSize:9,color:C.textMute}}>報酬</span>
-                    <span style={{fontSize:10,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
+                  <div style={{display:"flex",gap:10,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
+                    <span style={{fontSize:12,color:C.textMute}}>損益</span>
+                    <span style={{fontSize:13,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                    <span style={{fontSize:12,color:C.textMute}}>報酬</span>
+                    <span style={{fontSize:12,fontWeight:600,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                 </div>
+                {/* 目標價進度條 */}
+                {tp && (
+                  <div style={{marginTop:6}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                      <span style={{fontSize:10,color:C.textMute}}>
+                        目標 {tp.toLocaleString()}
+                        {T?.reports?.length>1 && <span style={{color:C.textMute}}> ({T.reports.length}家均)</span>}
+                      </span>
+                      <span style={{fontSize:10,fontWeight:600,
+                        color: upside>=0 ? C.up : C.down}}>
+                        {upside>=0?"+":""}{upside?.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div style={{background:C.subtle,borderRadius:3,height:3,width:"100%",overflow:"hidden"}}>
+                      <div style={{
+                        width:`${Math.min(Math.max((h.price/tp)*100,0),100)}%`,
+                        height:"100%",
+                        background: upside>=15 ? C.up+"99"
+                          : upside>=0  ? C.amber+"99"
+                          : C.down+"99",
+                        borderRadius:3,
+                      }}/>
+                    </div>
+                  </div>
+                )}
               </div>
               );
             })}
@@ -1511,7 +1504,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 </div>
                 <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
                   {[["市價", h.price?.toLocaleString() || "—", C.textSec],
-                    ["成本", h.cost != null ? String(h.cost) : "—", C.textMute],
+                    ["成本價", h.cost != null ? String(h.cost) : "—", C.textMute],
                     ...(tgt ? [["目標價", tgt.toLocaleString(), C.olive], ["潛在漲幅", (upside > 0 ? "+" : "") + upside + "%", C.blue]] : []),
                     ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(2) + "%", h.pnl >= 0 ? C.olive : C.up],
                   ].map(([l,v,c])=>(
@@ -2186,7 +2179,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           ) : (
             (() => {
-              const sorted = [...(tradeLog||[])].sort((a,b)=>b.id-a.id);
+              // 保持上傳順序（不再按 id 排序）
+              const sorted = [...(tradeLog||[])];
               // Group by date
               const dateGroups = [];
               let currentGroup = null;
