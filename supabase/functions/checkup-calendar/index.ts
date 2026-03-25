@@ -228,29 +228,58 @@ ${outputFormat}
 });
 
 async function fallbackSingleModel(apiKey: string, stocks: string, today: string, endDate: string, outputFormat: string) {
-  const prompt = `你是台股投資行事曆助手。今天是 ${today}。
+  // Gemini 一條龍：把原本 4 階段的 prompt 全部合併成一個
+  const combinedPrompt = `# Role
+你是一位整合了搜尋力、長文本解析、邏輯去重與精煉輸出優點的頂級 AI 財經分析師。
+
+# Task
+針對以下持倉標的，執行完整的情報清洗與精煉流程，輸出從 ${today} 的隔天起到 ${endDate} 為止（未來一整年）的所有重要事件。
+
 持倉標的：${stocks}
 
-請列出從明天起到 ${endDate} 為止（未來一整年）的重要事件。
+# Processing Pipeline（請依序執行以下四個步驟）
 
-${outputFormat}
-
-【最重要規則】不確定的事件寧可不列也絕對不要編造！
-
-規則：
+## Step 1 - 廣泛過濾
+識別並鎖定發生在「扣除當天的未來一年」的所有事件。
 - 包含所有類型的標的：普通股、權證、ETF 等
-- 不要包含今天或過去的事件
-- 普通股：法說會、財報公布日、除息日、營收公布日等
-- 權證：列出母股的重要事件，標明影響哪檔權證
+- 不要包含今天(${today})或過去的事件
+- 普通股：法說會、財報公布日、除息日、月營收公布日、重大訂單、技術突破等
+- 權證：列出母股的重要事件，標明影響哪檔權證，以及權證到期日
 - ETF：配息日、成分股調整等
-- 按日期由近到遠排序
+- 總經事件：央行利率決議、CPI公布等影響持股的總經數據
+- 每個事件必須附上你引用的原始新聞/財報/公告的來源網址（sources）
 
-只輸出純 JSON 陣列。`;
+## Step 2 - 深度提取
+從 Step 1 的結果中摳出具體財務數據：
+- EPS、毛利率、營收成長率等具體數據（若有的話）
+- 大客戶訂單、技術突破等催化事件的具體內容
+- 地緣政治風險或產業風險
 
-  for (const model of FALLBACK_MODELS) {
-    console.log(`Fallback: ${model}`);
+## Step 3 - 邏輯去重（Critical）
+檢查事件列表，若內容本質相同（如：僅標題微調、轉載自同一社論、或同一事件的後續小追蹤），僅保留「最原始」或「資訊最齊全」的一則，嚴禁重複顯示同一事件。合併重複事件時合併來源網址。
+
+## Step 4 - 精煉輸出
+將去重後的乾貨轉化為以下 JSON 格式。
+
+# Constraints
+- 嚴禁「幻覺」：若文中無具體數據，不採納，不編造
+- 移除所有廣告、無關的市場評論或情緒性廢話
+- 不確定的事件寧可不列也絕對不要編造
+
+# Output Format
+只輸出純 JSON 陣列，不輸出其他任何文字（不要 markdown code block）：
+${outputFormat}`;
+
+  const GEMINI_MODELS = [
+    "google/gemini-2.0-flash-exp:free",
+    "google/gemini-2.5-flash",
+    "qwen/qwen-2.5-72b-instruct:free",
+  ];
+
+  for (const model of GEMINI_MODELS) {
+    console.log(`Fallback (combined prompt): ${model}`);
     const result = await callModel(apiKey, model, [
-      { role: 'user', content: prompt }
+      { role: 'user', content: combinedPrompt }
     ], 0.3);
     if (result.ok) {
       return new Response(JSON.stringify({
