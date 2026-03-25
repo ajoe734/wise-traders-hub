@@ -23,8 +23,8 @@ const actionLabels: Record<string, { label: string; className: string }> = {
   sell: { label: '賣出', className: 'bg-destructive text-white border-destructive' },
 };
 
-const PreviewTradeItem = ({ action, instrument, reasonSummary, reasonDetail, riskNotes }: {
-  action: string; instrument: string; reasonSummary: string; reasonDetail: string; riskNotes: string;
+const PreviewTradeItem = ({ action, instrument, priceHint, reasonSummary, reasonDetail, riskNotes }: {
+  action: string; instrument: string; priceHint?: number | null; reasonSummary: string; reasonDetail: string; riskNotes: string;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = reasonSummary || reasonDetail || riskNotes;
@@ -35,6 +35,7 @@ const PreviewTradeItem = ({ action, instrument, reasonSummary, reasonDetail, ris
         <Badge className={cn(ai.className, 'text-[10px] px-1.5 py-0')}>{ai.label}</Badge>
         <div className="flex-1 min-w-0">
           <span className="font-medium text-sm">{instrument}</span>
+          {priceHint != null && <span className="text-xs text-muted-foreground ml-1">@{priceHint}</span>}
         </div>
         {hasDetails && (
           <button className="text-muted-foreground shrink-0">
@@ -892,6 +893,7 @@ const AdminSignals = () => {
                                   <PreviewTradeItem
                                     action={action}
                                     instrument={`${stockCode} ${stockName}`}
+                                    priceHint={priceHint ? parseFloat(priceHint) : null}
                                     reasonSummary={reasonSummary}
                                     reasonDetail={reasonDetail}
                                     riskNotes={riskNotes}
