@@ -61,7 +61,6 @@ const AdminSignals = () => {
   const [recalling, setRecalling] = useState(false);
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Save form to sessionStorage whenever fields change
   useEffect(() => {
