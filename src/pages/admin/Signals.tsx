@@ -33,28 +33,24 @@ const AdminSignals = () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [signalTemplates, setSignalTemplates] = useState<{ id: string; title: string; action: string; reason: string; risk_note: string; strategy_note: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  // Persist form state across navigation via sessionStorage
-  const FORM_KEY = `signal-form-${expertSlug}`;
-  const getSaved = () => {
-    try { return JSON.parse(sessionStorage.getItem(FORM_KEY) || '{}'); } catch { return {}; }
-  };
-  const saved = useRef(getSaved());
-
-  const [isCreateOpen, setIsCreateOpen] = useState(() => !!saved.current._open);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Form
-  const [stockCode, setStockCode] = useState(() => saved.current.stockCode || '');
-  const [stockName, setStockName] = useState(() => saved.current.stockName || '');
-  const [action, setAction] = useState(() => saved.current.action || '');
-  const [priceHint, setPriceHint] = useState(() => saved.current.priceHint || '');
-  const [reasonSummary, setReasonSummary] = useState(() => saved.current.reasonSummary || '');
-  const [reasonDetail, setReasonDetail] = useState(() => saved.current.reasonDetail || '');
-  const [riskNotes, setRiskNotes] = useState(() => saved.current.riskNotes || '');
-  const [learningPoints, setLearningPoints] = useState(() => saved.current.learningPoints || '');
-  const [quantity, setQuantity] = useState(() => saved.current.quantity || '');
-  const [quantityUnit, setQuantityUnit] = useState(() => saved.current.quantityUnit || '張');
+  // Form — always start fresh, no sessionStorage persistence
+  const [stockCode, setStockCode] = useState('');
+  const [stockName, setStockName] = useState('');
+  const [action, setAction] = useState('');
+  const [priceHint, setPriceHint] = useState('');
+  const [reasonSummary, setReasonSummary] = useState('');
+  const [reasonDetail, setReasonDetail] = useState('');
+  const [riskNotes, setRiskNotes] = useState('');
+  const [learningPoints, setLearningPoints] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [quantityUnit, setQuantityUnit] = useState('張');
+  const [teachingTopic, setTeachingTopic] = useState('');
+  const [overallSummary, setOverallSummary] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const [linePushing, setLinePushing] = useState(false);
   const [linePushed, setLinePushed] = useState(false);
@@ -62,23 +58,13 @@ const AdminSignals = () => {
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Save form to sessionStorage whenever fields change
-  useEffect(() => {
-    const data = { _open: isCreateOpen, stockCode, stockName, action, priceHint, reasonSummary, reasonDetail, riskNotes, learningPoints, quantity, quantityUnit };
-    const hasContent = stockCode || stockName || action || priceHint || reasonSummary || reasonDetail || riskNotes || learningPoints || quantity;
-    if (hasContent || isCreateOpen) {
-      sessionStorage.setItem(FORM_KEY, JSON.stringify(data));
-    } else {
-      sessionStorage.removeItem(FORM_KEY);
-    }
-  }, [isCreateOpen, stockCode, stockName, action, priceHint, reasonSummary, reasonDetail, riskNotes, learningPoints, quantity, quantityUnit, FORM_KEY]);
-
-  const clearFormAndStorage = useCallback(() => {
+  const clearForm = useCallback(() => {
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張');
     setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
+    setTeachingTopic(''); setOverallSummary('');
     setLinePushed(false); setLinePushing(false); setLastPublishedId(null);
-    sessionStorage.removeItem(FORM_KEY);
-  }, [FORM_KEY]);
+    setShowPreview(false);
+  }, []);
 
   // 判斷是否為休市時段（週五 13:30 ~ 週一 09:00，台灣時間 UTC+8）
   const isMarketClosed = useCallback(() => {
@@ -215,8 +201,10 @@ const AdminSignals = () => {
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
       learning_points: learningPoints || null,
+      teaching_topic: teachingTopic || null,
+      overall_summary: overallSummary || null,
       status: (isMentor ? 'pending' : 'published') as any,
-    }).select('id').single();
+    } as any).select('id').single();
     if (error) { toast.error(error.message); return; }
 
     // 同步寫入 trade_signals + user_performances（僅跟單派，修煉派由週五批次發布處理）
@@ -328,7 +316,7 @@ const AdminSignals = () => {
 
     toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : '訊號已發布');
     setIsCreateOpen(false);
-    clearFormAndStorage();
+    clearForm();
 
     // Trigger LINE push notification (non-blocking) — skip for mentors (batch on Friday) and if advisor already did preview push
     const skipLinePush = isMentor || (isAdvisor && linePushed);
@@ -436,7 +424,9 @@ const AdminSignals = () => {
   const isMentor = expert?.role === 'mentor';
   const contentLabel = isMentor ? '週記' : '訊號';
   const publishWindow = isPublishingWindowOpen();
-  const canPublish = !!expert && !!stockCode.trim() && !!action;
+  const canPublish = isMentor
+    ? !!expert && !!stockCode.trim() && !!action && !!teachingTopic.trim()
+    : !!expert && !!stockCode.trim() && !!action;
 
   // Count pending signals for mentor
   const pendingCount = useMemo(() => {
@@ -578,7 +568,7 @@ const AdminSignals = () => {
             {!publishWindow.open && (
               <p className="text-xs text-destructive">{publishWindow.reason}</p>
             )}
-          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); }}>
+          <Dialog open={isCreateOpen} onOpenChange={(open) => { if (open) clearForm(); setIsCreateOpen(open); }}>
             <DialogTrigger asChild>
               <Button
                 disabled={!publishWindow.open}
@@ -590,6 +580,18 @@ const AdminSignals = () => {
             <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
               <DialogHeader><DialogTitle>發布新{contentLabel}</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4 overflow-y-auto flex-1 px-1 -mx-1">
+                {isMentor && (
+                  <div className="space-y-2">
+                    <Label>教學主題</Label>
+                    <Input value={teachingTopic} onChange={e => setTeachingTopic(e.target.value)} />
+                  </div>
+                )}
+                {isMentor && (
+                  <div className="space-y-2">
+                    <Label>整體摘要</Label>
+                    <Textarea value={overallSummary} onChange={e => setOverallSummary(e.target.value)} rows={2} />
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>股票代碼</Label>
@@ -644,12 +646,14 @@ const AdminSignals = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>參考價位</Label>
-                    <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
-                  </div>
+                  {!isMentor && (
+                    <div className="space-y-2">
+                      <Label>參考價位</Label>
+                      <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
+                    </div>
+                  )}
                 </div>
-                {action && (
+                {action && !isMentor && (
                   <div className="space-y-2">
                     <Label>數量</Label>
                     <div className="flex items-center gap-2">
@@ -704,7 +708,6 @@ const AdminSignals = () => {
                             } else if (pushData?.pushed) {
                               toast.success(`已推播給 ${pushData.count} 位訂閱者`);
                               setLinePushed(true);
-                              // Store preview signal data for potential recall
                               setLastPublishedId('preview');
                             } else if (pushData?.reason) {
                               toast.info(`LINE 推播略過：${pushData.reason}`);
@@ -730,7 +733,6 @@ const AdminSignals = () => {
                             if (!expert) return;
                             setRecalling(true);
                             try {
-                              // Push recall notification via LINE for the preview signal
                               const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
                               await supabase.functions.invoke('line-push-signal', {
                                 body: {
@@ -740,7 +742,6 @@ const AdminSignals = () => {
                                     action,
                                     instrument,
                                     price_hint: priceHint ? parseFloat(priceHint) : null,
-                                    
                                   },
                                   type: 'takedown',
                                 },
@@ -772,28 +773,35 @@ const AdminSignals = () => {
                 {isMentor && (
                   <div className="space-y-2">
                     <Label>教學重點</Label>
-                    <Textarea value={learningPoints} onChange={e => setLearningPoints(e.target.value)} placeholder="本週學習要點..." rows={3} />
+                    <Textarea value={learningPoints} onChange={e => setLearningPoints(e.target.value)} rows={3} />
                   </div>
                 )}
-                {canPublish && (
-                  <Card className="bg-muted/50">
-                    <CardContent className="p-4 space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">📋 訂閱者預覽</p>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
-                        <span className="font-medium text-sm">{stockCode} {stockName}</span>
-                        {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
-                        {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
-                      </div>
-                      {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
-                      {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
-                      {riskNotes && <p className="text-xs text-destructive">⚠️ {riskNotes}</p>}
-                      {isMentor && learningPoints && <p className="text-xs text-primary">📌 {learningPoints}</p>}
-                    </CardContent>
-                  </Card>
+                {/* Advisor: preview as modal button */}
+                {isAdvisor && canPublish && (
+                  <>
+                    <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setShowPreview(true)}>
+                      <Eye className="h-4 w-4 mr-2" />訂閱者預覽
+                    </Button>
+                    <Dialog open={showPreview} onOpenChange={setShowPreview}>
+                      <DialogContent className="max-w-[80vw] max-h-[80vh] overflow-y-auto">
+                        <DialogHeader><DialogTitle>📋 訂閱者預覽</DialogTitle></DialogHeader>
+                        <div className="space-y-3 mt-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
+                            <span className="font-medium text-sm">{stockCode} {stockName}</span>
+                            {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
+                            {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
+                          </div>
+                          {reasonSummary && <div><p className="text-xs font-medium text-muted-foreground mb-1">為什麼這樣操作？</p><p className="text-sm">{reasonSummary}</p></div>}
+                          {reasonDetail && <div><p className="text-xs font-medium text-muted-foreground mb-1">部位控管想法</p><p className="text-sm whitespace-pre-wrap">{reasonDetail}</p></div>}
+                          {riskNotes && <div><p className="text-xs font-medium text-destructive mb-1">⚠️ 風險提醒</p><p className="text-sm">{riskNotes}</p></div>}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </>
                 )}
                 <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="outline" onClick={() => { setIsCreateOpen(false); clearFormAndStorage(); }}>取消</Button>
+                  <Button variant="outline" onClick={() => { setIsCreateOpen(false); clearForm(); }}>取消</Button>
                   <Button
                     onClick={handlePublish}
                     disabled={!canPublish}
@@ -930,6 +938,18 @@ const AdminSignals = () => {
                                        <div>
                                          <span className="font-medium text-primary">收回理由</span>
                                          <p className="text-primary/90 mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.taken_down_reason)}</p>
+                                      </div>
+                                    )}
+                                    {(signal as any).teaching_topic && (
+                                      <div>
+                                        <span className="font-medium text-foreground">教學主題</span>
+                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{(signal as any).teaching_topic}</p>
+                                      </div>
+                                    )}
+                                    {(signal as any).overall_summary && (
+                                      <div>
+                                        <span className="font-medium text-foreground">整體摘要</span>
+                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{(signal as any).overall_summary}</p>
                                       </div>
                                     )}
                                     {signal.reason_summary && (

@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     // Find all pending mentor signals
     const { data: pendingSignals, error: fetchErr } = await supabaseAdmin
       .from('expert_signals')
-      .select('id, expert_id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at')
+      .select('id, expert_id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, teaching_topic, overall_summary, published_at')
       .eq('status', 'pending')
 
     if (fetchErr) {
@@ -202,18 +202,49 @@ Deno.serve(async (req) => {
         buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
       }
 
-      const copyLines: string[] = [`${expertName} 本週週記`, `本週共 ${signals.length} 筆操作紀錄`, '']
+      // Use teaching_topic + overall_summary from first signal (they share the same weekly context)
+      const firstSignal = signals[0]
+      const teachingTopic = (firstSignal as any).teaching_topic || ''
+      const overallSummary = (firstSignal as any).overall_summary || ''
 
-      const bodyContents: any[] = [
-        {
+      const copyLines: string[] = [`${expertName} 本週週記`, '']
+      if (teachingTopic) copyLines.push(`📚 教學主題：${teachingTopic}`)
+      if (overallSummary) copyLines.push(`📝 整體摘要：${overallSummary}`)
+      copyLines.push(`本週共 ${signals.length} 筆操作紀錄`, '')
+
+      const bodyContents: any[] = []
+
+      if (teachingTopic) {
+        bodyContents.push({
           type: 'text',
-          text: `本週共 ${signals.length} 筆 操作紀錄`,
+          text: `📚 ${teachingTopic}`,
           weight: 'bold',
           size: 'lg',
           color: '#333333',
-        },
-        { type: 'separator', margin: 'lg' },
-      ]
+        })
+      }
+
+      bodyContents.push({
+        type: 'text',
+        text: `本週共 ${signals.length} 筆 操作紀錄`,
+        weight: teachingTopic ? 'regular' : 'bold',
+        size: teachingTopic ? 'sm' : 'lg',
+        color: '#333333',
+        margin: teachingTopic ? 'md' : undefined,
+      })
+
+      if (overallSummary) {
+        bodyContents.push({
+          type: 'text',
+          text: overallSummary,
+          size: 'sm',
+          color: '#666666',
+          margin: 'md',
+          wrap: true,
+        })
+      }
+
+      bodyContents.push({ type: 'separator', margin: 'lg' })
 
       for (const s of signals) {
         const label = actionLabel[s.action] || s.action
@@ -268,9 +299,10 @@ Deno.serve(async (req) => {
         paddingAll: 'lg',
       }
 
+      const altTextTopic = teachingTopic ? `${teachingTopic} — ` : ''
       const message = {
         type: 'flex',
-        altText: `📖 ${expertName} 本週週記已發布（${signals.length} 筆操作）`,
+        altText: `📖 ${expertName} 本週週記已發布${altTextTopic}（${signals.length} 筆操作）`,
         contents: {
           type: 'bubble',
           body: { type: 'box', layout: 'vertical', contents: bodyContents },

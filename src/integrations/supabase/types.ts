@@ -413,6 +413,7 @@ export type Database = {
           instrument: string
           learning_points: string | null
           line_pushed_at: string | null
+          overall_summary: string | null
           plan_id: string | null
           price_hint: number | null
           published_at: string | null
@@ -424,6 +425,7 @@ export type Database = {
           status: Database["public"]["Enums"]["signal_status"]
           taken_down_by: string | null
           taken_down_reason: string | null
+          teaching_topic: string | null
         }
         Insert: {
           action: Database["public"]["Enums"]["signal_action"]
@@ -433,6 +435,7 @@ export type Database = {
           instrument: string
           learning_points?: string | null
           line_pushed_at?: string | null
+          overall_summary?: string | null
           plan_id?: string | null
           price_hint?: number | null
           published_at?: string | null
@@ -444,6 +447,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["signal_status"]
           taken_down_by?: string | null
           taken_down_reason?: string | null
+          teaching_topic?: string | null
         }
         Update: {
           action?: Database["public"]["Enums"]["signal_action"]
@@ -453,6 +457,7 @@ export type Database = {
           instrument?: string
           learning_points?: string | null
           line_pushed_at?: string | null
+          overall_summary?: string | null
           plan_id?: string | null
           price_hint?: number | null
           published_at?: string | null
@@ -464,6 +469,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["signal_status"]
           taken_down_by?: string | null
           taken_down_reason?: string | null
+          teaching_topic?: string | null
         }
         Relationships: [
           {
