@@ -893,6 +893,7 @@ const AdminSignals = () => {
                                   <PreviewTradeItem
                                     action={action}
                                     instrument={`${stockCode} ${stockName}`}
+                                    priceHint={priceHint ? parseFloat(priceHint) : null}
                                     reasonSummary={reasonSummary}
                                     reasonDetail={reasonDetail}
                                     riskNotes={riskNotes}
