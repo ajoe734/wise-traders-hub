@@ -314,7 +314,7 @@ const AdminSignals = () => {
 
     toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : '訊號已發布');
     setIsCreateOpen(false);
-    clearFormAndStorage();
+    clearForm();
 
     // Trigger LINE push notification (non-blocking) — skip for mentors (batch on Friday) and if advisor already did preview push
     const skipLinePush = isMentor || (isAdvisor && linePushed);
@@ -779,7 +779,7 @@ const AdminSignals = () => {
                   </Card>
                 )}
                 <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="outline" onClick={() => { setIsCreateOpen(false); clearFormAndStorage(); }}>取消</Button>
+                  <Button variant="outline" onClick={() => { setIsCreateOpen(false); clearForm(); }}>取消</Button>
                   <Button
                     onClick={handlePublish}
                     disabled={!canPublish}
