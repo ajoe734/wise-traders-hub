@@ -151,19 +151,19 @@ const CompanyReview = () => {
                       <div className="bg-muted/50 rounded-md p-3 text-xs space-y-2">
                         {sig.reason_summary && (
                           <div>
-                            <span className="font-medium text-foreground">摘要</span>
+                            <span className="font-medium text-foreground">為什麼這樣操作？</span>
                             <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(sig.reason_summary)}</p>
                           </div>
                         )}
                         {sig.reason_detail && (
                           <div>
-                            <span className="font-medium text-foreground">詳細分析</span>
+                            <span className="font-medium text-foreground">部位控管想法</span>
                             <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(sig.reason_detail)}</p>
                           </div>
                         )}
                         {sig.risk_notes && (
                           <div>
-                            <span className="font-medium text-foreground">風險提示</span>
+                            <span className="font-medium text-foreground">風險提醒</span>
                             <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(sig.risk_notes)}</p>
                           </div>
                         )}
