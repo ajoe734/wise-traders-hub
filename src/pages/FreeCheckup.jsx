@@ -1854,34 +1854,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
                       </span>
                     </div>
-                    {/* 展開的報告內容 */}
+                    {/* 展開的報告內容 — 直接顯示 AI 摘要 */}
                     {isExpanded && (
                       <div style={{padding:"10px 4px",borderBottom:`1px solid ${C.border}`,marginBottom:4}}>
-                        {/* 持倉漲跌 */}
-                        {r.changes && r.changes.length > 0 && (
-                          <div style={{marginBottom:8}}>
-                            <div style={{fontSize:12,color:C.textMute,fontWeight:600,marginBottom:4,letterSpacing:"0.06em"}}>持倉漲跌</div>
-                            {r.changes.slice(0,5).map(c=>(
-                              <div key={c.code} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:12}}>
-                                <span style={{color:C.textSec}}>{c.name}</span>
-                                <span style={{fontWeight:600,color:pc(c.changePct)}}>{c.changePct>=0?"+":""}{c.changePct.toFixed(2)}%</span>
-                              </div>
-                            ))}
-                            {r.changes.length>5 && <div style={{fontSize:12,color:C.textMute,marginTop:2}}>...還有 {r.changes.length-5} 檔</div>}
-                          </div>
-                        )}
-                        {/* 自動驗證 */}
-                        {(r.autoVerified||[]).length>0 && (
-                          <div style={{marginBottom:8,background:C.oliveBg,borderRadius:6,padding:"6px 8px"}}>
-                            <div style={{fontSize:12,color:C.olive,fontWeight:600,marginBottom:3}}>自動驗證 {r.autoVerified.length} 件</div>
-                            {r.autoVerified.map((v,i)=>(
-                              <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0"}}>
-                                <span style={{color:C.textSec,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,marginRight:8}}>{v.title}</span>
-                                <span style={{color:v.correct?C.olive:C.up,fontWeight:600,flexShrink:0}}>{v.correct?"✓":"✗"}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                         {/* AI 摘要 */}
                         {r.aiInsight && (
                           <div style={{fontSize:12,color:C.textSec,lineHeight:1.8,whiteSpace:"pre-wrap",
