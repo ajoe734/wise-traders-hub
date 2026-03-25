@@ -33,30 +33,29 @@ const AdminSignals = () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [signalTemplates, setSignalTemplates] = useState<{ id: string; title: string; action: string; reason: string; risk_note: string; strategy_note: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  // Persist form open state + content across navigation
+  // Only persist dialog open state across navigation (not form content)
   const FORM_KEY = `signal-form-${expertSlug}`;
-  const getSaved = () => {
-    try { return JSON.parse(sessionStorage.getItem(FORM_KEY) || '{}'); } catch { return {}; }
+  const getSavedOpen = () => {
+    try { return !!JSON.parse(sessionStorage.getItem(FORM_KEY) || '{}')?._open; } catch { return false; }
   };
-  const saved = useRef(getSaved());
 
-  const [isCreateOpen, setIsCreateOpen] = useState(() => !!saved.current._open);
+  const [isCreateOpen, setIsCreateOpen] = useState(getSavedOpen);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Form — restore from sessionStorage if navigating back, else blank
-  const [stockCode, setStockCode] = useState(() => saved.current.stockCode || '');
-  const [stockName, setStockName] = useState(() => saved.current.stockName || '');
-  const [action, setAction] = useState(() => saved.current.action || '');
-  const [priceHint, setPriceHint] = useState(() => saved.current.priceHint || '');
-  const [reasonSummary, setReasonSummary] = useState(() => saved.current.reasonSummary || '');
-  const [reasonDetail, setReasonDetail] = useState(() => saved.current.reasonDetail || '');
-  const [riskNotes, setRiskNotes] = useState(() => saved.current.riskNotes || '');
-  const [learningPoints, setLearningPoints] = useState(() => saved.current.learningPoints || '');
-  const [quantity, setQuantity] = useState(() => saved.current.quantity || '');
-  const [quantityUnit, setQuantityUnit] = useState(() => saved.current.quantityUnit || '張');
-  const [teachingTopic, setTeachingTopic] = useState(() => saved.current.teachingTopic || '');
-  const [overallSummary, setOverallSummary] = useState(() => saved.current.overallSummary || '');
+  // Form — always start blank
+  const [stockCode, setStockCode] = useState('');
+  const [stockName, setStockName] = useState('');
+  const [action, setAction] = useState('');
+  const [priceHint, setPriceHint] = useState('');
+  const [reasonSummary, setReasonSummary] = useState('');
+  const [reasonDetail, setReasonDetail] = useState('');
+  const [riskNotes, setRiskNotes] = useState('');
+  const [learningPoints, setLearningPoints] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [quantityUnit, setQuantityUnit] = useState('張');
+  const [teachingTopic, setTeachingTopic] = useState('');
+  const [overallSummary, setOverallSummary] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const [linePushing, setLinePushing] = useState(false);
@@ -65,16 +64,14 @@ const AdminSignals = () => {
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Save form to sessionStorage whenever fields change
+  // Persist only dialog open state
   useEffect(() => {
-    const data = { _open: isCreateOpen, stockCode, stockName, action, priceHint, reasonSummary, reasonDetail, riskNotes, learningPoints, quantity, quantityUnit, teachingTopic, overallSummary };
-    const hasContent = stockCode || stockName || action || priceHint || reasonSummary || reasonDetail || riskNotes || learningPoints || quantity || teachingTopic || overallSummary;
-    if (hasContent || isCreateOpen) {
-      sessionStorage.setItem(FORM_KEY, JSON.stringify(data));
+    if (isCreateOpen) {
+      sessionStorage.setItem(FORM_KEY, JSON.stringify({ _open: true }));
     } else {
       sessionStorage.removeItem(FORM_KEY);
     }
-  }, [isCreateOpen, stockCode, stockName, action, priceHint, reasonSummary, reasonDetail, riskNotes, learningPoints, quantity, quantityUnit, teachingTopic, overallSummary, FORM_KEY]);
+  }, [isCreateOpen, FORM_KEY]);
 
   const clearForm = useCallback(() => {
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張');
