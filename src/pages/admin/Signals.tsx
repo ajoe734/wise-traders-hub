@@ -667,8 +667,8 @@ const AdminSignals = () => {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label>操作理由（摘要）</Label>
-                  <Textarea value={reasonSummary} onChange={e => setReasonSummary(e.target.value)} placeholder="簡述操作原因..." rows={2} />
+                  <Label>為什麼這樣操作？</Label>
+                  <Textarea value={reasonSummary} onChange={e => setReasonSummary(e.target.value)} rows={2} />
                   {isAdvisor && canPublish && (
                     <div className="flex gap-2 mt-1">
                       <Button
@@ -762,12 +762,12 @@ const AdminSignals = () => {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>詳細分析</Label>
-                  <Textarea value={reasonDetail} onChange={e => setReasonDetail(e.target.value)} placeholder="詳細分析..." rows={3} />
+                  <Label>部位控管想法</Label>
+                  <Textarea value={reasonDetail} onChange={e => setReasonDetail(e.target.value)} rows={3} />
                 </div>
                 <div className="space-y-2">
-                  <Label>風險提示</Label>
-                  <Textarea value={riskNotes} onChange={e => setRiskNotes(e.target.value)} placeholder="停損點、注意事項..." rows={2} />
+                  <Label>風險提醒</Label>
+                  <Textarea value={riskNotes} onChange={e => setRiskNotes(e.target.value)} rows={2} />
                 </div>
                 {isMentor && (
                   <div className="space-y-2">
@@ -934,19 +934,19 @@ const AdminSignals = () => {
                                     )}
                                     {signal.reason_summary && (
                                       <div>
-                                        <span className="font-medium text-foreground">摘要</span>
+                                        <span className="font-medium text-foreground">為什麼這樣操作？</span>
                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.reason_summary)}</p>
                                       </div>
                                     )}
                                     {signal.reason_detail && (
                                       <div>
-                                        <span className="font-medium text-foreground">詳細分析</span>
+                                        <span className="font-medium text-foreground">部位控管想法</span>
                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.reason_detail)}</p>
                                       </div>
                                     )}
                                      {signal.risk_notes && (
                                        <div>
-                                         <span className="font-medium text-foreground">風險提示</span>
+                                         <span className="font-medium text-foreground">風險提醒</span>
                                          <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.risk_notes)}</p>
                                        </div>
                                      )}
