@@ -6,56 +6,52 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// 單一模型 fallback 清單（按搜尋+篩選金融資訊能力排序）
-const MODEL_CHAIN = [
-  "qwen/qwen3-next-80b-a3b-instruct:free",
-  "stepfun/step-3.5-flash:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "google/gemma-3-27b-it:free",
-  "openai/gpt-oss-120b:free",
-  "mistralai/mistral-small-3.1-24b-instruct:free",
+// Gemini model fallback chain
+const GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
 ];
 
-// ===== OpenRouter model caller =====
-async function callModel(
+// ===== Google Gemini API caller =====
+async function callGemini(
   apiKey: string,
   model: string,
-  messages: any[],
+  prompt: string,
   temperature: number,
 ): Promise<{ ok: boolean; text: string; status: number }> {
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://wise-traders-hub.lovable.app',
-        'X-Title': 'WiseTraders Calendar',
-      },
-      body: JSON.stringify({ model, messages, temperature }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature },
+      }),
     });
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`Model ${model} failed (${response.status}):`, errText);
+      console.error(`Gemini ${model} failed (${response.status}):`, errText);
       return { ok: false, text: errText, status: response.status };
     }
     const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!text) {
-      console.error(`Model ${model} returned empty content`);
+      console.error(`Gemini ${model} returned empty content`);
       return { ok: false, text: '', status: 200 };
     }
     return { ok: true, text, status: 200 };
   } catch (err) {
-    console.error(`Model ${model} exception:`, err);
+    console.error(`Gemini ${model} exception:`, err);
     return { ok: false, text: String(err), status: 500 };
   }
 }
 
-// ===== Lovable AI Gateway caller =====
+// ===== Lovable AI Gateway caller (final fallback) =====
 async function callLovableAI(
   apiKey: string,
-  messages: any[],
+  prompt: string,
   temperature: number,
 ): Promise<{ ok: boolean; text: string; status: number }> {
   const MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"];
@@ -68,7 +64,11 @@ async function callLovableAI(
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ model, messages, temperature }),
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature,
+        }),
       });
       if (!response.ok) {
         const errText = await response.text();
@@ -90,18 +90,20 @@ async function callLovableAI(
   return { ok: false, text: '', status: 500 };
 }
 
-// ===== Build combined prompt =====
+// ===== Build the combined 4-stage prompt for Gemini =====
 function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string): string {
   return `# Role
-你是一位頂級 AI 財經分析師，精通台股市場。
+你是一位整合了搜尋力、長文本解析、邏輯去重與精煉輸出優點的頂級 AI 財經分析師，精通台股市場。
 
 # Task Objective
-針對以下持倉標的，列出「${today} 的隔天起到 ${endDate}」之間所有重要事件。
+針對以下持倉標的，執行「${today} 的隔天起到 ${endDate}」的持倉股票情報清洗與精煉。
 
 持倉標的：${stocks}
 
-# 事件類型（全部都要涵蓋）
-請根據你的訓練知識，盡可能完整列出以下類型的事件：
+# Processing Pipeline (請按順序執行)
+
+## 階段 1：廣泛過濾
+識別並鎖定發生在「${today} 的隔天起到 ${endDate}」的所有事件，涵蓋以下 8 大類：
 - **營收**：每月營收公布（次月10日前）
 - **財報**：季度財報公布截止日
 - **法說**：法說會、業績發表會
@@ -111,13 +113,26 @@ function buildPrompt(stocks: string, today: string, endDate: string, outputForma
 - **到期**：權證到期日（權證代碼通常為6碼，名稱含「購」「售」「牛」「熊」）
 - **操作**：股東會、董事會、庫藏股、大股東申報轉讓
 
+## 階段 2：深度提取
+從混亂文本中摳出：EPS、毛利率、營收成長率、大客戶訂單、技術突破、地緣政治風險等關鍵資訊。
+
+## 階段 3：邏輯去重 (Critical)
+若內容本質相同（如：僅標題微調、轉載自同一社論、或同一事件的後續小追蹤），僅保留「最原始」或「資訊最齊全」的一則，嚴禁重複顯示同一事件。
+
+## 階段 4：精煉輸出
+將去重後的乾貨轉化為指定的 JSON 格式。
+
 # 重要指引
 - 權證標的：同時列出其母股（標的股）的重要事件，標明影響哪檔權證
 - 數量不限：只要是有價值的事件就列出，不要自我限制數量
-- 過濾垃圾：移除廣告、無關評論、情緒性廢話、重複事件
+- 每檔標的至少列出月營收和季度財報相關事件
+- 過濾垃圾：移除廣告、無關評論、情緒性廢話
 - 禁止幻覺：若無具體依據，不要編造事件
 - 不要包含今天(${today})或過去的事件
-- 每檔標的至少列出月營收和季度財報相關事件
+
+# Constraints
+- 嚴禁「幻覺」：若文中無具體數據，不採納
+- 移除所有廣告、無關的市場評論或情緒性廢話
 
 # Output Format
 只輸出純 JSON 陣列，不輸出其他任何文字（不要 markdown code block）：
@@ -149,10 +164,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
+  const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
   const lovableKey = Deno.env.get('LOVABLE_API_KEY');
 
-  if (!openrouterKey && !lovableKey) {
+  if (!geminiKey && !lovableKey) {
     return new Response(JSON.stringify({ error: 'No API keys configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -180,41 +195,44 @@ Deno.serve(async (req) => {
 - 按日期由近到遠排序`;
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
-    const messages = [{ role: 'user', content: prompt }];
     const errors: string[] = [];
 
-    // ===== 第一層：OpenRouter 模型鏈 =====
-    if (openrouterKey) {
-      for (const model of MODEL_CHAIN) {
-        console.log(`Calendar: trying ${model}...`);
-        const result = await callModel(openrouterKey, model, messages, 0.4);
+    // ===== 第一層：Google Gemini API 直連 =====
+    if (geminiKey) {
+      for (const model of GEMINI_MODELS) {
+        console.log(`Calendar: trying Gemini ${model}...`);
+        const result = await callGemini(geminiKey, model, prompt, 0.4);
         if (result.ok && result.text) {
           if (hasValidEvents(result.text)) {
-            console.log(`Calendar: ${model} succeeded with valid events`);
+            console.log(`Calendar: Gemini ${model} succeeded with valid events`);
             return new Response(JSON.stringify({ text: result.text, response: result.text }), {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
           }
-          console.warn(`Calendar: ${model} returned empty/invalid events, trying next...`);
-          errors.push(`${model}(empty)`);
+          console.warn(`Calendar: Gemini ${model} returned empty/invalid events, trying next...`);
+          errors.push(`gemini-${model}(empty)`);
           continue;
         }
-        errors.push(`${model}(${result.status})`);
-        console.warn(`Calendar: ${model} failed (${result.status}), trying next...`);
+        errors.push(`gemini-${model}(${result.status})`);
+        console.warn(`Calendar: Gemini ${model} failed (${result.status}), trying next...`);
       }
     }
 
-    // ===== 第二層：Lovable AI Gateway (Gemini 一條龍) =====
+    // ===== 第二層：Lovable AI Gateway (最終備援) =====
     if (lovableKey) {
-      console.log('Calendar: all OpenRouter models failed, trying Lovable AI Gateway...');
-      const result = await callLovableAI(lovableKey, messages, 0.4);
+      console.log('Calendar: all Gemini models failed, trying Lovable AI Gateway...');
+      const result = await callLovableAI(lovableKey, prompt, 0.4);
       if (result.ok && result.text) {
-        console.log('Calendar: Lovable AI Gateway succeeded');
-        return new Response(JSON.stringify({ text: result.text, response: result.text }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        if (hasValidEvents(result.text)) {
+          console.log('Calendar: Lovable AI Gateway succeeded');
+          return new Response(JSON.stringify({ text: result.text, response: result.text }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        errors.push('lovable-ai(empty)');
+      } else {
+        errors.push(`lovable-ai(${result.status})`);
       }
-      errors.push(`lovable-ai(${result.status})`);
     }
 
     return new Response(JSON.stringify({
