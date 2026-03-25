@@ -1666,64 +1666,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             </div>
 
-            {/* 持倉漲跌排行 */}
-            <div style={{...card,marginBottom:10}}>
-              <div style={lbl}>持倉今日漲跌</div>
-              {dailyReport.changes.map((c,i)=>(
-                <div key={c.code} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                  padding:"8px 0",borderBottom:i<dailyReport.changes.length-1?`1px solid ${C.borderSub}`:"none"}}>
-                  <div>
-                    <span style={{fontSize:14,fontWeight:500,color:C.text}}>{c.name}</span>
-                    <span style={{fontSize:12,color:C.textMute,marginLeft:5}}>{c.code}</span>
-                    {c.type!=="股票"&&<span style={{fontSize:12,marginLeft:5,padding:"1px 5px",borderRadius:3,
-                      background:C.amberBg,color:C.amber}}>{c.type}</span>}
-                  </div>
-                  <div style={{textAlign:"right",display:"flex",gap:12,alignItems:"center"}}>
-                    <span style={{fontSize:13,color:C.textMute}}>{c.price?.toLocaleString()}</span>
-                    <span style={{fontSize:14,fontWeight:600,color:pc(c.changePct),minWidth:55,textAlign:"right"}}>
-                      {c.changePct>=0?"+":""}{c.changePct.toFixed(2)}%
-                    </span>
-                    <span style={{fontSize:12,color:pc(c.todayPnl),minWidth:50,textAlign:"right"}}>
-                      {c.todayPnl>=0?"+":""}{c.todayPnl.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
 
-            {/* 異常波動 */}
-            {dailyReport.anomalies.length>0 && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.amber}88`}}>
-                <div style={{...lbl,color:C.amber}}>異常波動 ({">"}3%)</div>
-                {dailyReport.anomalies.map(a=>(
-                  <div key={a.code} style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}>
-                    <span style={{fontSize:14,color:C.text}}>{a.name}</span>
-                    <span style={{fontSize:14,fontWeight:600,color:pc(a.changePct)}}>
-                      {a.changePct>=0?"+":""}{a.changePct.toFixed(2)}%
-                    </span>
-                  </div>
-                ))}
+            {/* AI 策略分析 — 直接顯示完整內容 */}
+            {dailyReport.aiInsight && (
+              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.lavender}88`}}>
+                <div style={{...lbl,color:C.lavender}}>AI 策略分析</div>
+                <div style={{fontSize:13,color:C.textSec,lineHeight:2,whiteSpace:"pre-wrap"}}>
+                  {dailyReport.aiInsight}
+                </div>
               </div>
             )}
 
-            {/* 事件連動 */}
-            {dailyReport.eventCorrelations.length>0 && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.teal}88`}}>
-                <div style={{...lbl,color:C.teal}}>事件連動分析</div>
-                {dailyReport.eventCorrelations.map(ec=>(
-                  <div key={ec.id} style={{marginBottom:10,background:C.subtle,borderRadius:7,padding:"9px 11px"}}>
-                    <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:4}}>{ec.title}</div>
-                    <div style={{fontSize:12,color:C.textMute,marginBottom:6}}>{ec.date}</div>
-                    {ec.relatedStocks.map(s=>(
-                      <div key={s.code} style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
-                        <span style={{fontSize:12,color:C.textSec}}>{s.name}</span>
-                        <span style={{fontSize:12,fontWeight:600,color:pc(s.changePct)}}>
-                          {s.changePct>=0?"+":""}{s.changePct.toFixed(2)}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+            {!dailyReport.aiInsight && (
+              <div style={{...card,marginBottom:10,background:C.subtle}}>
+                <div style={{fontSize:13,color:C.textMute,textAlign:"center",padding:"8px 0"}}>
+                  AI 分析未產生
+                </div>
               </div>
             )}
 
@@ -1768,23 +1726,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             )}
 
-            {/* AI 策略分析 */}
-            {dailyReport.aiInsight && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.lavender}88`}}>
-                <div style={{...lbl,color:C.lavender}}>AI 策略分析</div>
-                <div style={{fontSize:13,color:C.textSec,lineHeight:2,whiteSpace:"pre-wrap"}}>
-                  {dailyReport.aiInsight}
-                </div>
-              </div>
-            )}
-
-            {!dailyReport.aiInsight && (
-              <div style={{...card,marginBottom:10,background:C.subtle}}>
-                <div style={{fontSize:13,color:C.textMute,textAlign:"center",padding:"8px 0"}}>
-                  AI 分析未產生
-                </div>
-              </div>
-            )}
 
             {/* 重新分析 */}
             <button onClick={runDailyAnalysis} disabled={analyzing} style={{
@@ -1913,34 +1854,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
                       </span>
                     </div>
-                    {/* 展開的報告內容 */}
+                    {/* 展開的報告內容 — 直接顯示 AI 摘要 */}
                     {isExpanded && (
                       <div style={{padding:"10px 4px",borderBottom:`1px solid ${C.border}`,marginBottom:4}}>
-                        {/* 持倉漲跌 */}
-                        {r.changes && r.changes.length > 0 && (
-                          <div style={{marginBottom:8}}>
-                            <div style={{fontSize:12,color:C.textMute,fontWeight:600,marginBottom:4,letterSpacing:"0.06em"}}>持倉漲跌</div>
-                            {r.changes.slice(0,5).map(c=>(
-                              <div key={c.code} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:12}}>
-                                <span style={{color:C.textSec}}>{c.name}</span>
-                                <span style={{fontWeight:600,color:pc(c.changePct)}}>{c.changePct>=0?"+":""}{c.changePct.toFixed(2)}%</span>
-                              </div>
-                            ))}
-                            {r.changes.length>5 && <div style={{fontSize:12,color:C.textMute,marginTop:2}}>...還有 {r.changes.length-5} 檔</div>}
-                          </div>
-                        )}
-                        {/* 自動驗證 */}
-                        {(r.autoVerified||[]).length>0 && (
-                          <div style={{marginBottom:8,background:C.oliveBg,borderRadius:6,padding:"6px 8px"}}>
-                            <div style={{fontSize:12,color:C.olive,fontWeight:600,marginBottom:3}}>自動驗證 {r.autoVerified.length} 件</div>
-                            {r.autoVerified.map((v,i)=>(
-                              <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0"}}>
-                                <span style={{color:C.textSec,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,marginRight:8}}>{v.title}</span>
-                                <span style={{color:v.correct?C.olive:C.up,fontWeight:600,flexShrink:0}}>{v.correct?"✓":"✗"}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                         {/* AI 摘要 */}
                         {r.aiInsight && (
                           <div style={{fontSize:12,color:C.textSec,lineHeight:1.8,whiteSpace:"pre-wrap",
