@@ -1667,6 +1667,23 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
 
 
+            {/* AI 策略分析 — 直接顯示完整內容 */}
+            {dailyReport.aiInsight && (
+              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.lavender}88`}}>
+                <div style={{...lbl,color:C.lavender}}>AI 策略分析</div>
+                <div style={{fontSize:13,color:C.textSec,lineHeight:2,whiteSpace:"pre-wrap"}}>
+                  {dailyReport.aiInsight}
+                </div>
+              </div>
+            )}
+
+            {!dailyReport.aiInsight && (
+              <div style={{...card,marginBottom:10,background:C.subtle}}>
+                <div style={{fontSize:13,color:C.textMute,textAlign:"center",padding:"8px 0"}}>
+                  AI 分析未產生
+                </div>
+              </div>
+            )}
 
             {/* 自動驗證事件結果 */}
             {(dailyReport.autoVerified||[]).length>0 && (
@@ -1709,23 +1726,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             )}
 
-            {/* AI 策略分析 */}
-            {dailyReport.aiInsight && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.lavender}88`}}>
-                <div style={{...lbl,color:C.lavender}}>AI 策略分析</div>
-                <div style={{fontSize:13,color:C.textSec,lineHeight:2,whiteSpace:"pre-wrap"}}>
-                  {dailyReport.aiInsight}
-                </div>
-              </div>
-            )}
-
-            {!dailyReport.aiInsight && (
-              <div style={{...card,marginBottom:10,background:C.subtle}}>
-                <div style={{fontSize:13,color:C.textMute,textAlign:"center",padding:"8px 0"}}>
-                  AI 分析未產生
-                </div>
-              </div>
-            )}
 
             {/* 重新分析 */}
             <button onClick={runDailyAnalysis} disabled={analyzing} style={{
