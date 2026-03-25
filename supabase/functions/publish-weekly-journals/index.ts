@@ -225,13 +225,13 @@ Deno.serve(async (req) => {
         })
 
         if (s.reason_summary) {
-          bodyContents.push({ type: 'text', text: `📌 摘要：${s.reason_summary}`, size: 'sm', color: '#444444', margin: 'sm', wrap: true })
+          bodyContents.push({ type: 'text', text: `❓ 為什麼這樣操作？${s.reason_summary}`, size: 'sm', color: '#444444', margin: 'sm', wrap: true })
         }
         if (s.reason_detail) {
-          bodyContents.push({ type: 'text', text: `📝 詳細分析：${s.reason_detail}`, size: 'xs', color: '#666666', margin: 'sm', wrap: true })
+          bodyContents.push({ type: 'text', text: `◉ 部位控管想法：${s.reason_detail}`, size: 'xs', color: '#666666', margin: 'sm', wrap: true })
         }
         if (s.risk_notes) {
-          bodyContents.push({ type: 'text', text: `⚠️ 風險提示：${s.risk_notes}`, size: 'sm', color: '#444444', margin: 'sm', wrap: true })
+          bodyContents.push({ type: 'text', text: `⚠️ 風險提醒：${s.risk_notes}`, size: 'sm', color: '#444444', margin: 'sm', wrap: true })
         }
         if (s.learning_points) {
           bodyContents.push({ type: 'text', text: `🎯 教學重點：${s.learning_points}`, size: 'xs', color: '#333333', margin: 'sm', wrap: true })
@@ -244,9 +244,9 @@ Deno.serve(async (req) => {
       for (const s of signals) {
         const label = actionLabel[s.action] || s.action
         copyLines.push(`【${label} ${s.instrument}】`)
-        if (s.reason_summary) copyLines.push(`📌 摘要：${s.reason_summary}`)
-        if (s.reason_detail) copyLines.push(`📝 詳細分析：${s.reason_detail}`)
-        if (s.risk_notes) copyLines.push(`⚠️ 風險提示：${s.risk_notes}`)
+        if (s.reason_summary) copyLines.push(`❓ 為什麼這樣操作？${s.reason_summary}`)
+        if (s.reason_detail) copyLines.push(`◉ 部位控管想法：${s.reason_detail}`)
+        if (s.risk_notes) copyLines.push(`⚠️ 風險提醒：${s.risk_notes}`)
         if (s.learning_points) copyLines.push(`🎯 教學重點：${s.learning_points}`)
         copyLines.push('')
       }
