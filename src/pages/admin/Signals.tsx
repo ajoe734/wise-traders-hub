@@ -575,7 +575,7 @@ const AdminSignals = () => {
             {!publishWindow.open && (
               <p className="text-xs text-destructive">{publishWindow.reason}</p>
             )}
-          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setLinePushed(false); setLinePushing(false); setLastPublishedId(null); } }}>
+          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); }}>
             <DialogTrigger asChild>
               <Button
                 disabled={!publishWindow.open}
@@ -790,7 +790,7 @@ const AdminSignals = () => {
                   </Card>
                 )}
                 <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="outline" onClick={() => { setIsCreateOpen(false); setLastPublishedId(null); }}>取消</Button>
+                  <Button variant="outline" onClick={() => { setIsCreateOpen(false); clearFormAndStorage(); }}>取消</Button>
                   <Button
                     onClick={handlePublish}
                     disabled={!canPublish}
