@@ -6,15 +6,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Stage 1: DeepSeek R1 for deep reasoning
-const STAGE1_MODEL = "deepseek/deepseek-r1:free";
-// Stage 2: Qwen for final structured output
-const STAGE2_MODEL = "qwen/qwen-2.5-72b-instruct:free";
+// Stage 1: DeepSeek R1 for deep reasoning (valid free model ID)
+const STAGE1_MODEL = "deepseek/deepseek-r1-0528:free";
+// Stage 2: Qwen for final structured output (valid free model ID)
+const STAGE2_MODEL = "qwen/qwen3-next-80b-a3b-instruct:free";
 // Fallback models if the pipeline fails
 const FALLBACK_MODELS = [
-  "google/gemini-2.0-flash-exp:free",
-  "google/gemini-2.5-flash",
-  "qwen/qwen2.5-vl-72b-instruct",
+  "stepfun/step-3.5-flash:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "google/gemma-3-27b-it:free",
 ];
 
 async function callModel(apiKey: string, model: string, messages: any[], temperature: number): Promise<{ ok: boolean; text: string; status: number }> {

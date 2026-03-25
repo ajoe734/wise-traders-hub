@@ -6,40 +6,41 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// 4-stage pipeline models (主流程只跑你指定的四個模型)
+// 4-stage pipeline: 每階段主力模型 + 備援（全部是 OpenRouter 上有效的免費模型 ID）
 const STAGE_MODELS = {
-  stage1: ["qwen/qwen3.5-plus:free"],
-  stage2: ["google/gemini-3-flash:free"],
-  stage3: ["meta-llama/llama-4-maverick:free"],
-  stage4: ["google/gemma-3-27b:free"],
+  // Stage 1 廣泛過濾：需要強大的通用知識與搜尋力
+  stage1: [
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "stepfun/step-3.5-flash:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+  ],
+  // Stage 2 深度提取：需要長文本解析與財務數據摳取
+  stage2: [
+    "stepfun/step-3.5-flash:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "openai/gpt-oss-120b:free",
+  ],
+  // Stage 3 邏輯去重：需要強邏輯推理
+  stage3: [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "openai/gpt-oss-120b:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+  ],
+  // Stage 4 精煉輸出：需要精確的結構化 JSON 輸出
+  stage4: [
+    "google/gemma-3-27b-it:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+  ],
 };
 
-async function callStage(
+// ===== OpenRouter model caller =====
+async function callModel(
   apiKey: string,
-  stageName: string,
-  models: string[],
+  model: string,
   messages: any[],
   temperature: number,
-): Promise<{ ok: boolean; text: string; status: number; errors: string[] }> {
-  const errors: string[] = [];
-
-  for (const model of models) {
-    console.log(`${stageName}: trying ${model}...`);
-    const result = await callModel(apiKey, model, messages, temperature);
-    if (result.ok && result.text) {
-      console.log(`${stageName}: ${model} succeeded`);
-      return { ok: true, text: result.text, status: 200, errors };
-    }
-
-    errors.push(`${model}(${result.status})`);
-    console.warn(`${stageName}: ${model} failed (status ${result.status}), trying next...`);
-  }
-
-  console.error(`${stageName}: all models exhausted`, errors);
-  return { ok: false, text: '', status: 500, errors };
-}
-
-async function callModel(apiKey: string, model: string, messages: any[], temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
+): Promise<{ ok: boolean; text: string; status: number }> {
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -49,12 +50,7 @@ async function callModel(apiKey: string, model: string, messages: any[], tempera
         'HTTP-Referer': 'https://wise-traders-hub.lovable.app',
         'X-Title': 'WiseTraders Calendar',
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature,
-        max_tokens: 4096,
-      }),
+      body: JSON.stringify({ model, messages, temperature }),
     });
     if (!response.ok) {
       const errText = await response.text();
@@ -74,6 +70,68 @@ async function callModel(apiKey: string, model: string, messages: any[], tempera
   }
 }
 
+// ===== Lovable AI Gateway caller (Gemini 一條龍 fallback) =====
+async function callLovableAI(
+  apiKey: string,
+  messages: any[],
+  temperature: number,
+): Promise<{ ok: boolean; text: string; status: number }> {
+  const model = "google/gemini-2.5-flash";
+  try {
+    console.log(`Lovable AI Gateway: calling ${model}...`);
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model, messages, temperature }),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`Lovable AI (${model}) failed (${response.status}):`, errText);
+      return { ok: false, text: errText, status: response.status };
+    }
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    if (!text) {
+      console.error(`Lovable AI (${model}) returned empty content`);
+      return { ok: false, text: '', status: 200 };
+    }
+    console.log(`Lovable AI (${model}) succeeded`);
+    return { ok: true, text, status: 200 };
+  } catch (err) {
+    console.error(`Lovable AI (${model}) exception:`, err);
+    return { ok: false, text: String(err), status: 500 };
+  }
+}
+
+// ===== Stage runner with fallback =====
+async function callStage(
+  apiKey: string,
+  stageName: string,
+  models: string[],
+  messages: any[],
+  temperature: number,
+): Promise<{ ok: boolean; text: string; errors: string[] }> {
+  const errors: string[] = [];
+
+  for (const model of models) {
+    console.log(`${stageName}: trying ${model}...`);
+    const result = await callModel(apiKey, model, messages, temperature);
+    if (result.ok && result.text) {
+      console.log(`${stageName}: ${model} succeeded`);
+      return { ok: true, text: result.text, errors };
+    }
+    errors.push(`${model}(${result.status})`);
+    console.warn(`${stageName}: ${model} failed (status ${result.status}), trying next...`);
+  }
+
+  console.error(`${stageName}: all models exhausted`, errors);
+  return { ok: false, text: '', errors };
+}
+
+// ===== Main handler =====
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -84,9 +142,11 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'OPENROUTER_API_KEY is not configured' }), {
+  const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+
+  if (!openrouterKey && !lovableKey) {
+    return new Response(JSON.stringify({ error: 'No API keys configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -94,7 +154,6 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { stocks, today, endDate } = body;
-    // stocks: "2330 台積電、03910 某權證" etc.
 
     if (!stocks) {
       return new Response(JSON.stringify({ error: 'Missing stocks parameter' }), {
@@ -112,11 +171,56 @@ Deno.serve(async (req) => {
 - urgent=true 僅限未來一週內的事件
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
 - 按日期由近到遠排序
-- 數量不限，但必須是「有用」的真實事件，不確定的寧可不列`;
+- 數量不限，但必須是「有用」的真實事件，不確定的寧可不列
+- 盡可能多列出已確定日期的事件（如每月營收公布日、季度財報、央行會議等）`;
 
-    // ===== Stage 1: 廣泛過濾 =====
-    const stage1Prompt = `# Role
-你是一位整合了 Qwen(搜尋力)、Gemini(長文本解析)、Llama(邏輯去重) 與 Gemma(精煉輸出) 優點的頂級 AI 財經分析師。
+    // ===== 嘗試 4 階段 pipeline（需要 OpenRouter key）=====
+    if (openrouterKey) {
+      const pipelineResult = await runPipeline(openrouterKey, stocks, today, endDate, outputFormat);
+      if (pipelineResult) return pipelineResult;
+    }
+
+    // ===== Fallback: Gemini 一條龍（Lovable AI Gateway）=====
+    if (lovableKey) {
+      console.log('4-stage pipeline failed or no OpenRouter key, trying Lovable AI Gateway...');
+      const fallbackResult = await fallbackLovableAI(lovableKey, stocks, today, endDate, outputFormat);
+      if (fallbackResult) return fallbackResult;
+    }
+
+    // ===== 最後嘗試 OpenRouter 免費模型一條龍 =====
+    if (openrouterKey) {
+      console.log('Lovable AI also failed, trying OpenRouter free models one-shot...');
+      const oneShot = await fallbackOpenRouterOneShot(openrouterKey, stocks, today, endDate, outputFormat);
+      if (oneShot) return oneShot;
+    }
+
+    return new Response(JSON.stringify({
+      error: '行事曆產生失敗，所有模型均無法使用',
+      detail: 'OpenRouter 4-stage pipeline、Lovable AI Gateway、OpenRouter one-shot 全部失敗',
+    }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (err) {
+    console.error('Calendar pipeline error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: '行事曆產生失敗', detail: message }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
+
+// ===== 4-stage pipeline =====
+async function runPipeline(
+  apiKey: string,
+  stocks: string,
+  today: string,
+  endDate: string,
+  outputFormat: string,
+): Promise<Response | null> {
+  // Stage 1: 廣泛過濾
+  const stage1Prompt = `# Role
+你是一位頂級 AI 財經分析師。
 
 # Task
 針對以下持倉標的，蒐集從 ${today} 的隔天起到 ${endDate} 為止（未來一整年）的所有重要事件。
@@ -132,21 +236,22 @@ Deno.serve(async (req) => {
 - 總經事件：央行利率決議、CPI公布等影響持股的總經數據
 - 嚴禁「幻覺」：若不確定事件日期，寧可不列也絕對不要編造
 - 每個事件必須附上你引用的原始新聞/財報/公告的來源網址（sources）
+- 盡可能多列出已確定日期的事件
 
 以純文字列表形式輸出，每個事件包含：日期、標題、說明、類型、來源網址。`;
 
-    const s1 = await callStage(apiKey, 'Stage1-廣泛過濾', STAGE_MODELS.stage1, [
-      { role: 'user', content: stage1Prompt }
-    ], 0.3);
+  const s1 = await callStage(apiKey, 'Stage1-廣泛過濾', STAGE_MODELS.stage1, [
+    { role: 'user', content: stage1Prompt }
+  ], 0.3);
 
-    if (!s1.ok) {
-      console.warn(`Stage 1 failed, falling back...`);
-      return await fallbackSingleModel(apiKey, stocks, today, endDate, outputFormat);
-    }
+  if (!s1.ok) {
+    console.warn('Stage 1 failed completely, skipping pipeline');
+    return null;
+  }
 
-    // ===== Stage 2: 深度提取 =====
-    const stage2Prompt = `# Role
-你是一位整合了 Gemini(長文本解析) 優點的深度財報分析師。
+  // Stage 2: 深度提取
+  const stage2Prompt = `# Role
+你是一位深度財報分析師。
 
 # Task
 從以下蒐集到的原始事件資料中，深度提取關鍵財務數據。
@@ -166,14 +271,13 @@ ${s1.text}
 
 以純文字列表形式輸出提取後的結果。`;
 
-    const s2 = await callStage(apiKey, 'Stage2-深度提取', STAGE_MODELS.stage2, [
-      { role: 'user', content: stage2Prompt }
-    ], 0.3);
+  const s2 = await callStage(apiKey, 'Stage2-深度提取', STAGE_MODELS.stage2, [
+    { role: 'user', content: stage2Prompt }
+  ], 0.3);
+  const stage2Output = s2.ok ? s2.text : s1.text;
 
-    const stage2Output = s2.ok ? s2.text : s1.text;
-
-    // ===== Stage 3: 邏輯去重 =====
-    const stage3Prompt = `# Role
+  // Stage 3: 邏輯去重
+  const stage3Prompt = `# Role
 你是一位邏輯去重專家。
 
 # Task
@@ -187,14 +291,13 @@ ${stage2Output}
 - 保留所有來源網址（合併重複事件時合併來源）
 - 以純文字列表形式輸出去重後的結果`;
 
-    const s3 = await callStage(apiKey, 'Stage3-邏輯去重', STAGE_MODELS.stage3, [
-      { role: 'user', content: stage3Prompt }
-    ], 0.2);
+  const s3 = await callStage(apiKey, 'Stage3-邏輯去重', STAGE_MODELS.stage3, [
+    { role: 'user', content: stage3Prompt }
+  ], 0.2);
+  const stage3Output = s3.ok ? s3.text : stage2Output;
 
-    const stage3Output = s3.ok ? s3.text : stage2Output;
-
-    // ===== Stage 4: 精煉輸出 =====
-    const stage4Prompt = `# Role
+  // Stage 4: 精煉輸出
+  const stage4Prompt = `# Role
 你是一位精煉輸出專家。
 
 # Task
@@ -212,74 +315,74 @@ ${outputFormat}
 - 不要輸出 \`\`\`json 等標記
 - sources 欄位必須包含真實的來源網址，若無網址則給空陣列 []`;
 
-    const s4 = await callStage(apiKey, 'Stage4-精煉輸出', STAGE_MODELS.stage4, [
-      { role: 'user', content: stage4Prompt }
-    ], 0.2);
+  const s4 = await callStage(apiKey, 'Stage4-精煉輸出', STAGE_MODELS.stage4, [
+    { role: 'user', content: stage4Prompt }
+  ], 0.2);
 
-    if (s4.ok && s4.text) {
-      console.log(`4-stage pipeline complete.`);
-      return new Response(JSON.stringify({
-        text: s4.text,
-        response: s4.text,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.warn(`Stage 4 failed, falling back...`);
-    return await fallbackSingleModel(apiKey, stocks, today, endDate, outputFormat);
-
-  } catch (err) {
-    console.error('Calendar pipeline error:', err);
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: '行事曆產生失敗', detail: message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  if (s4.ok && s4.text) {
+    console.log('4-stage pipeline complete.');
+    return new Response(JSON.stringify({
+      text: s4.text,
+      response: s4.text,
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
 
-async function fallbackSingleModel(apiKey: string, stocks: string, today: string, endDate: string, outputFormat: string) {
-  // Gemini 一條龍：把原本 4 階段的 prompt 全部合併成一個
-  const combinedPrompt = `# Role
-你是一位整合了 Qwen(搜尋力)、Gemini(長文本解析)、Llama(邏輯去重) 與 Gemma(精煉輸出) 優點的頂級 AI 財經分析師。
+  console.warn('Stage 4 failed, pipeline incomplete');
+  return null;
+}
 
-# Task Objective
-針對以下原始數據，執行「扣除當天的未來一年」的持倉股票情報清洗與精煉。
+// ===== Lovable AI Gateway 一條龍 fallback =====
+async function fallbackLovableAI(
+  lovableKey: string,
+  stocks: string,
+  today: string,
+  endDate: string,
+  outputFormat: string,
+): Promise<Response | null> {
+  const combinedPrompt = buildCombinedPrompt(stocks, today, endDate, outputFormat);
 
-持倉標的：${stocks}
-時間範圍：${today} 的隔天起到 ${endDate}
+  const result = await callLovableAI(lovableKey, [
+    { role: 'user', content: combinedPrompt }
+  ], 0.3);
 
-# Processing Pipeline (Internal Logic)
-1. 廣泛過濾：識別並鎖定發生在「扣除當天的未來一年」的所有事件。
-2. 深度提取：從混亂文本中摳出 EPS、毛利率、營收成長率、大客戶訂單、技術突破、地緣政治風險。
-3. 邏輯去重 (Critical)：若內容本質相同，僅保留最原始或資訊最齊全的一則，嚴禁重複。
-4. 精煉總結：將去重後的乾貨轉化為 UI 需要的輸出格式。
+  if (result.ok && result.text) {
+    return new Response(JSON.stringify({
+      text: result.text,
+      response: result.text,
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 
-# Constraints
-- 嚴禁「幻覺」：若文中無具體數據，不採納
-- 移除所有廣告、無關市場評論與情緒性廢話
-- 每筆事件都要附來源網址（原始新聞/財報/公告）
-- 不要包含今天或過去的事件
+  console.warn(`Lovable AI Gateway failed (${result.status})`);
+  return null;
+}
 
-# Output Format
-只輸出純 JSON 陣列，不輸出其他任何文字（不要 markdown code block）：
-${outputFormat}`;
+// ===== OpenRouter 免費模型一條龍 fallback =====
+async function fallbackOpenRouterOneShot(
+  apiKey: string,
+  stocks: string,
+  today: string,
+  endDate: string,
+  outputFormat: string,
+): Promise<Response | null> {
+  const combinedPrompt = buildCombinedPrompt(stocks, today, endDate, outputFormat);
 
-  const GEMINI_MODELS = [
-    "google/gemini-2.5-flash",
-    "google/gemini-2.5-flash-lite",
-    "google/gemini-1.5-flash",
+  const FREE_MODELS = [
+    "stepfun/step-3.5-flash:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
   ];
 
-  const errors: string[] = [];
-
-  for (const model of GEMINI_MODELS) {
-    console.log(`Fallback (Gemini one-shot): ${model}`);
+  for (const model of FREE_MODELS) {
+    console.log(`OpenRouter one-shot fallback: ${model}`);
     const result = await callModel(apiKey, model, [
       { role: 'user', content: combinedPrompt }
     ], 0.3);
 
-    if (result.ok) {
+    if (result.ok && result.text) {
       return new Response(JSON.stringify({
         text: result.text,
         response: result.text,
@@ -287,24 +390,40 @@ ${outputFormat}`;
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    errors.push(`${model}(${result.status})`);
   }
 
-  const hasCreditIssue = errors.some((e) => e.includes('(402)'));
-  const hasModelIssue = errors.some((e) => e.includes('(400)') || e.includes('(404)'));
+  return null;
+}
 
-  const detail = hasCreditIssue
-    ? `Gemini 額度不足或可用 token 不足：${errors.join(', ')}`
-    : hasModelIssue
-      ? `模型 ID 或端點不可用：${errors.join(', ')}`
-      : `Gemini fallback 全部失敗：${errors.join(', ')}`;
+// ===== 合併 Prompt =====
+function buildCombinedPrompt(stocks: string, today: string, endDate: string, outputFormat: string): string {
+  return `# Role
+你是一位整合了搜尋力、長文本解析、邏輯去重與精煉輸出優點的頂級 AI 財經分析師。
 
-  return new Response(JSON.stringify({
-    error: '行事曆產生失敗，所有模型均無法使用',
-    detail,
-  }), {
-    status: hasCreditIssue ? 402 : 500,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+# Task Objective
+針對以下持倉標的，執行「扣除當天的未來一年」的情報清洗與精煉。
+
+持倉標的：${stocks}
+時間範圍：${today} 的隔天起到 ${endDate}
+
+# Processing Pipeline (Internal Logic)
+1. 廣泛過濾：識別並鎖定發生在「扣除當天的未來一年」的所有事件。
+   - 普通股：法說會、財報公布日、除息日、月營收公布日、重大訂單、技術突破等
+   - 權證：母股重要事件 + 權證到期日
+   - ETF：配息日、成分股調整等
+   - 總經：央行利率決議、CPI公布等
+2. 深度提取：摳出 EPS、毛利率、營收成長率、大客戶訂單、技術突破、地緣政治風險。
+3. 邏輯去重 (Critical)：若內容本質相同，僅保留最原始或資訊最齊全的一則，嚴禁重複。
+4. 精煉總結：將去重後的乾貨轉化為 UI 需要的輸出格式。
+
+# Constraints
+- 嚴禁「幻覺」：若文中無具體數據，不採納，不編造
+- 移除所有廣告、無關市場評論與情緒性廢話
+- 每筆事件都要附來源網址（原始新聞/財報/公告）
+- 不要包含今天(${today})或過去的事件
+- 盡可能多列出已確定日期的事件（每月營收公布、季度財報等固定行程也要列）
+
+# Output Format
+只輸出純 JSON 陣列，不輸出其他任何文字（不要 markdown code block）：
+${outputFormat}`;
 }
