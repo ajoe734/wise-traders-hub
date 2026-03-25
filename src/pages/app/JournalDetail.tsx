@@ -7,7 +7,7 @@ import { ActionBadge } from '@/components/ActionBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { Calendar, BookOpen, Shield, Loader2 } from 'lucide-react';
+import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle } from 'lucide-react';
 
 interface SignalDetail {
   id: string;
@@ -27,6 +27,62 @@ interface SignalDetail {
     avatar_url: string | null;
   };
 }
+
+const TradeItem = ({ signal }: { signal: SignalDetail }) => {
+  const [expanded, setExpanded] = useState(false);
+  const hasDetails = signal.reason_summary || signal.reason_detail || signal.risk_notes;
+
+  return (
+    <div className="px-4 py-3">
+      <div
+        className={`flex items-center gap-3 ${hasDetails ? 'cursor-pointer' : ''}`}
+        onClick={() => hasDetails && setExpanded(!expanded)}
+      >
+        <ActionBadge action={signal.action as any} size="sm" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">{signal.instrument}</span>
+            <span className="text-xs text-muted-foreground">{format(new Date(signal.published_at), 'MM/dd')}</span>
+          </div>
+        </div>
+        {hasDetails && (
+          <button className="text-muted-foreground shrink-0">
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        )}
+      </div>
+
+      {expanded && hasDetails && (
+        <div className="mt-3 ml-9 space-y-3">
+          {signal.reason_summary && (
+            <div>
+              <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1">
+                <Lightbulb className="h-3.5 w-3.5 text-primary" /> 為什麼這樣操作？
+              </h3>
+              <p className="text-xs text-muted-foreground whitespace-pre-line">{signal.reason_summary}</p>
+            </div>
+          )}
+          {signal.reason_detail && (
+            <div>
+              <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1">
+                <Target className="h-3.5 w-3.5 text-primary" /> 部位控管想法
+              </h3>
+              <p className="text-xs text-muted-foreground whitespace-pre-line">{signal.reason_detail}</p>
+            </div>
+          )}
+          {signal.risk_notes && (
+            <div>
+              <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-warning">
+                <AlertTriangle className="h-3.5 w-3.5" /> 風險提醒
+              </h3>
+              <p className="text-xs text-muted-foreground whitespace-pre-line">{signal.risk_notes}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const JournalDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -60,7 +116,7 @@ const JournalDetail = () => {
 
     const pubDate = new Date(s.published_at);
     const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
-    const we = addDays(ws, 4); // Friday
+    const we = addDays(ws, 4);
 
     const { data: weekData } = await supabase
       .from('expert_signals')
@@ -91,12 +147,10 @@ const JournalDetail = () => {
 
   const pubDate = new Date(signal.published_at);
   const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
-  const we = addDays(ws, 4); // Friday
+  const we = addDays(ws, 4);
 
-  // Use first signal's reason_summary as the title
   const weekTitle = signal.reason_summary || '本週操作回顧';
 
-  // Collect all learning points from week signals
   const allLearningPoints = weekSignals
     .map(s => s.learning_points)
     .filter(Boolean)
@@ -136,7 +190,7 @@ const JournalDetail = () => {
           </Card>
         )}
 
-        {/* Trades */}
+        {/* Trades with expandable details */}
         {weekSignals.length > 0 && (
           <div>
             <h2 className="font-semibold mb-3">本週操作列表</h2>
@@ -144,21 +198,7 @@ const JournalDetail = () => {
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   {weekSignals.map(ws => (
-                    <div key={ws.id} className="flex items-center gap-3 px-4 py-3">
-                      <ActionBadge action={ws.action as any} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{ws.instrument}</span>
-                          <span className="text-xs text-muted-foreground">{format(new Date(ws.published_at), 'MM/dd')}</span>
-                        </div>
-                        {ws.reason_summary && (
-                          <p className="text-xs text-muted-foreground truncate">{ws.reason_summary}</p>
-                        )}
-                      </div>
-                      {ws.risk_notes && (
-                        <ResultBadge text={ws.risk_notes} />
-                      )}
-                    </div>
+                    <TradeItem key={ws.id} signal={ws} />
                   ))}
                 </div>
               </CardContent>
@@ -197,26 +237,5 @@ const JournalDetail = () => {
     </UnifiedAppLayout>
   );
 };
-
-/** Result badge that parses risk_notes to show colored outcome */
-function ResultBadge({ text }: { text: string }) {
-  const pctMatch = text.match(/([+-]?\d+\.?\d*)%/);
-  const pct = pctMatch ? parseFloat(pctMatch[1]) : null;
-  const isPositive = pct !== null && pct >= 0;
-  const isNegative = pct !== null && pct < 0;
-
-  return (
-    <Badge
-      variant="outline"
-      className={`text-[11px] whitespace-nowrap shrink-0 ${
-        isPositive ? 'border-success/50 text-success bg-success/5' :
-        isNegative ? 'border-destructive/50 text-destructive bg-destructive/5' :
-        ''
-      }`}
-    >
-      {text}
-    </Badge>
-  );
-}
 
 export default JournalDetail;
