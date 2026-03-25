@@ -1666,66 +1666,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             </div>
 
-            {/* 持倉漲跌排行 */}
-            <div style={{...card,marginBottom:10}}>
-              <div style={lbl}>持倉今日漲跌</div>
-              {dailyReport.changes.map((c,i)=>(
-                <div key={c.code} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                  padding:"8px 0",borderBottom:i<dailyReport.changes.length-1?`1px solid ${C.borderSub}`:"none"}}>
-                  <div>
-                    <span style={{fontSize:14,fontWeight:500,color:C.text}}>{c.name}</span>
-                    <span style={{fontSize:12,color:C.textMute,marginLeft:5}}>{c.code}</span>
-                    {c.type!=="股票"&&<span style={{fontSize:12,marginLeft:5,padding:"1px 5px",borderRadius:3,
-                      background:C.amberBg,color:C.amber}}>{c.type}</span>}
-                  </div>
-                  <div style={{textAlign:"right",display:"flex",gap:12,alignItems:"center"}}>
-                    <span style={{fontSize:13,color:C.textMute}}>{c.price?.toLocaleString()}</span>
-                    <span style={{fontSize:14,fontWeight:600,color:pc(c.changePct),minWidth:55,textAlign:"right"}}>
-                      {c.changePct>=0?"+":""}{c.changePct.toFixed(2)}%
-                    </span>
-                    <span style={{fontSize:12,color:pc(c.todayPnl),minWidth:50,textAlign:"right"}}>
-                      {c.todayPnl>=0?"+":""}{c.todayPnl.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
 
-            {/* 異常波動 */}
-            {dailyReport.anomalies.length>0 && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.amber}88`}}>
-                <div style={{...lbl,color:C.amber}}>異常波動 ({">"}3%)</div>
-                {dailyReport.anomalies.map(a=>(
-                  <div key={a.code} style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}>
-                    <span style={{fontSize:14,color:C.text}}>{a.name}</span>
-                    <span style={{fontSize:14,fontWeight:600,color:pc(a.changePct)}}>
-                      {a.changePct>=0?"+":""}{a.changePct.toFixed(2)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* 事件連動 */}
-            {dailyReport.eventCorrelations.length>0 && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.teal}88`}}>
-                <div style={{...lbl,color:C.teal}}>事件連動分析</div>
-                {dailyReport.eventCorrelations.map(ec=>(
-                  <div key={ec.id} style={{marginBottom:10,background:C.subtle,borderRadius:7,padding:"9px 11px"}}>
-                    <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:4}}>{ec.title}</div>
-                    <div style={{fontSize:12,color:C.textMute,marginBottom:6}}>{ec.date}</div>
-                    {ec.relatedStocks.map(s=>(
-                      <div key={s.code} style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}>
-                        <span style={{fontSize:12,color:C.textSec}}>{s.name}</span>
-                        <span style={{fontSize:12,fontWeight:600,color:pc(s.changePct)}}>
-                          {s.changePct>=0?"+":""}{s.changePct.toFixed(2)}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
 
             {/* 自動驗證事件結果 */}
             {(dailyReport.autoVerified||[]).length>0 && (
