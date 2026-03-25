@@ -350,7 +350,7 @@ const AdminSignals = () => {
       });
     }
 
-    fetchData();
+    fetchData(true);
   };
 
   const handleRecall = async (signalId: string) => {
@@ -424,7 +424,7 @@ const AdminSignals = () => {
       toast.success('訊號已收回');
       setSignals(prev => prev.filter(s => s.id !== signalId));
       setLastPublishedId(null);
-      fetchData();
+      fetchData(true);
     } catch (err) {
       console.error('Recall failed:', err);
       toast.error('收回失敗，請重試');
