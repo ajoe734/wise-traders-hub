@@ -424,7 +424,9 @@ const AdminSignals = () => {
   const isMentor = expert?.role === 'mentor';
   const contentLabel = isMentor ? '週記' : '訊號';
   const publishWindow = isPublishingWindowOpen();
-  const canPublish = !!expert && !!stockCode.trim() && !!action;
+  const canPublish = isMentor
+    ? !!expert && !!stockCode.trim() && !!action && !!teachingTopic.trim()
+    : !!expert && !!stockCode.trim() && !!action;
 
   // Count pending signals for mentor
   const pendingCount = useMemo(() => {
