@@ -105,6 +105,9 @@ const AdminPerformance = () => {
             const row = payload.new as any;
             setTotalPnlPercent(row.total_pnl_percent != null ? Number(row.total_pnl_percent) : null);
             setAvgPnlPercent(row.avg_pnl_percent != null ? Number(row.avg_pnl_percent) : null);
+          } else if (payload.eventType === 'DELETE') {
+            setTotalPnlPercent(0);
+            setAvgPnlPercent(0);
           }
         },
       )
