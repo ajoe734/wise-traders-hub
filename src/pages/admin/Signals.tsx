@@ -35,6 +35,7 @@ const PreviewTradeItem = ({ action, instrument, priceHint, reasonSummary, reason
         <Badge className={cn(ai.className, 'text-[10px] px-1.5 py-0')}>{ai.label}</Badge>
         <div className="flex-1 min-w-0">
           <span className="font-medium text-sm">{instrument}</span>
+          {priceHint != null && <span className="text-xs text-muted-foreground ml-1">@{priceHint}</span>}
         </div>
         {hasDetails && (
           <button className="text-muted-foreground shrink-0">
