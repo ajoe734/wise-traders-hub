@@ -74,6 +74,7 @@ const PreviewTradeItem = ({ action, instrument, reasonSummary, reasonDetail, ris
   );
 };
 
+const AdminSignals = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const { hasRole } = useAuth();
   const isReadOnly = hasRole('company_admin');
