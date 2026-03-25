@@ -800,19 +800,126 @@ const AdminSignals = () => {
                       <Eye className="h-4 w-4 mr-2" />訂閱者預覽
                     </Button>
                     <Dialog open={showPreview} onOpenChange={setShowPreview}>
-                      <DialogContent className="max-w-[80vw] max-h-[80vh] overflow-y-auto">
-                        <DialogHeader><DialogTitle>📋 訂閱者預覽</DialogTitle></DialogHeader>
-                        <div className="space-y-3 mt-2">
-                          {teachingTopic && <p className="font-bold text-base">📚 {teachingTopic}</p>}
-                          {overallSummary && <p className="text-sm text-muted-foreground">{overallSummary}</p>}
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
-                            <span className="font-medium text-sm">{stockCode} {stockName}</span>
+                      <DialogContent className="max-w-[80vw] max-h-[80vh] overflow-y-auto p-0">
+                        <div className="p-4 space-y-4">
+                          {/* Header: avatar + name + role badge (mirrors JournalDetail) */}
+                          <div className="flex items-center gap-3">
+                            <img src={expert?.avatar_url || '/placeholder.svg'} alt={expert?.name} className="h-10 w-10 rounded-full object-cover" />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold">{expert?.name}</span>
+                                <Badge variant="secondary" className="text-[10px]">實戰導師</Badge>
+                              </div>
+                            </div>
                           </div>
-                          {reasonSummary && <div><p className="text-xs font-medium text-muted-foreground mb-1">為什麼這樣操作？</p><p className="text-sm">{reasonSummary}</p></div>}
-                          {reasonDetail && <div><p className="text-xs font-medium text-muted-foreground mb-1">部位控管想法</p><p className="text-sm whitespace-pre-wrap">{reasonDetail}</p></div>}
-                          {riskNotes && <div><p className="text-xs font-medium text-destructive mb-1">⚠️ 風險提醒</p><p className="text-sm">{riskNotes}</p></div>}
-                          {learningPoints && <div><p className="text-xs font-medium text-primary mb-1">🎯 教學重點</p><p className="text-sm">{learningPoints}</p></div>}
+
+                          {/* Date range + T+7 badge */}
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>📅 本週週記預覽</span>
+                            <Badge variant="outline" className="text-[10px] bg-mentor/10 text-mentor border-mentor/20">T+7 歷史</Badge>
+                          </div>
+
+                          {/* Title: teaching topic or overall summary */}
+                          {teachingTopic && <h1 className="text-xl font-bold">📚 {teachingTopic}</h1>}
+
+                          {/* Overall summary card */}
+                          {overallSummary && (
+                            <Card>
+                              <CardContent className="p-4">
+                                <h2 className="font-semibold mb-2">本週整體摘要</h2>
+                                <p className="text-sm text-muted-foreground whitespace-pre-line">{overallSummary}</p>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {/* Trade list (single entry for this signal) */}
+                          <div>
+                            <h2 className="font-semibold mb-3">本週操作列表</h2>
+                            <Card>
+                              <CardContent className="p-0">
+                                <div className="divide-y divide-border">
+                                  <div className="flex items-center gap-3 px-4 py-3">
+                                    <Badge className={cn(actionLabels[action]?.className, 'text-[10px] px-1.5 py-0')}>{actionLabels[action]?.label || action}</Badge>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-sm">{stockCode} {stockName}</span>
+                                        {priceHint && <span className="text-xs text-muted-foreground">@ {priceHint}</span>}
+                                        {quantity && <span className="text-xs text-muted-foreground">{quantity}{quantityUnit}</span>}
+                                      </div>
+                                      {reasonSummary && <p className="text-xs text-muted-foreground truncate">{reasonSummary}</p>}
+                                    </div>
+                                    {riskNotes && (
+                                      <Badge variant="outline" className="text-[11px] whitespace-nowrap shrink-0">{riskNotes}</Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          {/* Why operate this way */}
+                          {reasonSummary && (
+                            <Card>
+                              <CardContent className="p-4">
+                                <h2 className="font-semibold mb-2 flex items-center gap-2">
+                                  <span className="text-primary">💡</span> 為什麼這樣操作？
+                                </h2>
+                                <p className="text-sm text-muted-foreground whitespace-pre-line">{reasonSummary}</p>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {/* Position management */}
+                          {reasonDetail && (
+                            <Card>
+                              <CardContent className="p-4">
+                                <h2 className="font-semibold mb-2 flex items-center gap-2">
+                                  <span className="text-primary">🎯</span> 部位控管想法
+                                </h2>
+                                <p className="text-sm text-muted-foreground whitespace-pre-line">{reasonDetail}</p>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {/* Risk warning */}
+                          {riskNotes && (
+                            <Card className="bg-warning-light/30 border-warning/20">
+                              <CardContent className="p-4">
+                                <h2 className="font-semibold mb-2 flex items-center gap-2">
+                                  <span className="text-warning">⚠️</span> 風險提醒
+                                </h2>
+                                <p className="text-sm text-muted-foreground whitespace-pre-line">{riskNotes}</p>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {/* Learning points */}
+                          {learningPoints && (
+                            <Card>
+                              <CardContent className="p-4">
+                                <h2 className="font-semibold mb-2 flex items-center gap-2">
+                                  <span className="text-mentor">📖</span> 本週教學重點
+                                </h2>
+                                <ul className="space-y-2">
+                                  {learningPoints.split('\n').filter(l => l.trim()).map((point, idx) => (
+                                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                                      <span className="text-mentor">•</span> {point.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '')}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {/* Disclaimer */}
+                          <Card className="bg-muted/30">
+                            <CardContent className="p-4 flex items-start gap-2">
+                              <span className="text-muted-foreground mt-0.5 flex-shrink-0">🛡️</span>
+                              <p className="text-xs text-muted-foreground">
+                                本頁內容為一週前之操作回顧（T+7），僅供教學用途，不構成任何即時投資建議。
+                              </p>
+                            </CardContent>
+                          </Card>
                         </div>
                       </DialogContent>
                     </Dialog>
