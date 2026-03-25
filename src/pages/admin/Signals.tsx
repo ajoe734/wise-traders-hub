@@ -832,66 +832,23 @@ const AdminSignals = () => {
                             </Card>
                           )}
 
-                          {/* Trade list (single entry for this signal) */}
+                          {/* Trade list with expandable details */}
                           <div>
                             <h2 className="font-semibold mb-3">本週操作列表</h2>
                             <Card>
                               <CardContent className="p-0">
                                 <div className="divide-y divide-border">
-                                  <div className="flex items-center gap-3 px-4 py-3">
-                                    <Badge className={cn(actionLabels[action]?.className, 'text-[10px] px-1.5 py-0')}>{actionLabels[action]?.label || action}</Badge>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium text-sm">{stockCode} {stockName}</span>
-                                        {priceHint && <span className="text-xs text-muted-foreground">@ {priceHint}</span>}
-                                        {quantity && <span className="text-xs text-muted-foreground">{quantity}{quantityUnit}</span>}
-                                      </div>
-                                      {reasonSummary && <p className="text-xs text-muted-foreground truncate">{reasonSummary}</p>}
-                                    </div>
-                                    {riskNotes && (
-                                      <Badge variant="outline" className="text-[11px] whitespace-nowrap shrink-0">{riskNotes}</Badge>
-                                    )}
-                                  </div>
+                                  <PreviewTradeItem
+                                    action={action}
+                                    instrument={`${stockCode} ${stockName}`}
+                                    reasonSummary={reasonSummary}
+                                    reasonDetail={reasonDetail}
+                                    riskNotes={riskNotes}
+                                  />
                                 </div>
                               </CardContent>
                             </Card>
                           </div>
-
-                          {/* Why operate this way */}
-                          {reasonSummary && (
-                            <Card>
-                              <CardContent className="p-4">
-                                <h2 className="font-semibold mb-2 flex items-center gap-2">
-                                  <span className="text-primary">💡</span> 為什麼這樣操作？
-                                </h2>
-                                <p className="text-sm text-muted-foreground whitespace-pre-line">{reasonSummary}</p>
-                              </CardContent>
-                            </Card>
-                          )}
-
-                          {/* Position management */}
-                          {reasonDetail && (
-                            <Card>
-                              <CardContent className="p-4">
-                                <h2 className="font-semibold mb-2 flex items-center gap-2">
-                                  <span className="text-primary">🎯</span> 部位控管想法
-                                </h2>
-                                <p className="text-sm text-muted-foreground whitespace-pre-line">{reasonDetail}</p>
-                              </CardContent>
-                            </Card>
-                          )}
-
-                          {/* Risk warning */}
-                          {riskNotes && (
-                            <Card className="bg-warning-light/30 border-warning/20">
-                              <CardContent className="p-4">
-                                <h2 className="font-semibold mb-2 flex items-center gap-2">
-                                  <span className="text-warning">⚠️</span> 風險提醒
-                                </h2>
-                                <p className="text-sm text-muted-foreground whitespace-pre-line">{riskNotes}</p>
-                              </CardContent>
-                            </Card>
-                          )}
 
                           {/* Learning points */}
                           {learningPoints && (
