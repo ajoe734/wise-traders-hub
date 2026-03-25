@@ -33,23 +33,30 @@ const AdminSignals = () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [signalTemplates, setSignalTemplates] = useState<{ id: string; title: string; action: string; reason: string; risk_note: string; strategy_note: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  // Persist form open state + content across navigation
+  const FORM_KEY = `signal-form-${expertSlug}`;
+  const getSaved = () => {
+    try { return JSON.parse(sessionStorage.getItem(FORM_KEY) || '{}'); } catch { return {}; }
+  };
+  const saved = useRef(getSaved());
+
+  const [isCreateOpen, setIsCreateOpen] = useState(() => !!saved.current._open);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Form — always start fresh, no sessionStorage persistence
-  const [stockCode, setStockCode] = useState('');
-  const [stockName, setStockName] = useState('');
-  const [action, setAction] = useState('');
-  const [priceHint, setPriceHint] = useState('');
-  const [reasonSummary, setReasonSummary] = useState('');
-  const [reasonDetail, setReasonDetail] = useState('');
-  const [riskNotes, setRiskNotes] = useState('');
-  const [learningPoints, setLearningPoints] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [quantityUnit, setQuantityUnit] = useState('張');
-  const [teachingTopic, setTeachingTopic] = useState('');
-  const [overallSummary, setOverallSummary] = useState('');
+  // Form — restore from sessionStorage if navigating back, else blank
+  const [stockCode, setStockCode] = useState(() => saved.current.stockCode || '');
+  const [stockName, setStockName] = useState(() => saved.current.stockName || '');
+  const [action, setAction] = useState(() => saved.current.action || '');
+  const [priceHint, setPriceHint] = useState(() => saved.current.priceHint || '');
+  const [reasonSummary, setReasonSummary] = useState(() => saved.current.reasonSummary || '');
+  const [reasonDetail, setReasonDetail] = useState(() => saved.current.reasonDetail || '');
+  const [riskNotes, setRiskNotes] = useState(() => saved.current.riskNotes || '');
+  const [learningPoints, setLearningPoints] = useState(() => saved.current.learningPoints || '');
+  const [quantity, setQuantity] = useState(() => saved.current.quantity || '');
+  const [quantityUnit, setQuantityUnit] = useState(() => saved.current.quantityUnit || '張');
+  const [teachingTopic, setTeachingTopic] = useState(() => saved.current.teachingTopic || '');
+  const [overallSummary, setOverallSummary] = useState(() => saved.current.overallSummary || '');
   const [showPreview, setShowPreview] = useState(false);
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const [linePushing, setLinePushing] = useState(false);
@@ -58,13 +65,25 @@ const AdminSignals = () => {
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Save form to sessionStorage whenever fields change
+  useEffect(() => {
+    const data = { _open: isCreateOpen, stockCode, stockName, action, priceHint, reasonSummary, reasonDetail, riskNotes, learningPoints, quantity, quantityUnit, teachingTopic, overallSummary };
+    const hasContent = stockCode || stockName || action || priceHint || reasonSummary || reasonDetail || riskNotes || learningPoints || quantity || teachingTopic || overallSummary;
+    if (hasContent || isCreateOpen) {
+      sessionStorage.setItem(FORM_KEY, JSON.stringify(data));
+    } else {
+      sessionStorage.removeItem(FORM_KEY);
+    }
+  }, [isCreateOpen, stockCode, stockName, action, priceHint, reasonSummary, reasonDetail, riskNotes, learningPoints, quantity, quantityUnit, teachingTopic, overallSummary, FORM_KEY]);
+
   const clearForm = useCallback(() => {
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張');
     setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
     setTeachingTopic(''); setOverallSummary('');
     setLinePushed(false); setLinePushing(false); setLastPublishedId(null);
     setShowPreview(false);
-  }, []);
+    sessionStorage.removeItem(FORM_KEY);
+  }, [FORM_KEY]);
 
   // 判斷是否為休市時段（週五 13:30 ~ 週一 09:00，台灣時間 UTC+8）
   const isMarketClosed = useCallback(() => {
@@ -568,7 +587,7 @@ const AdminSignals = () => {
             {!publishWindow.open && (
               <p className="text-xs text-destructive">{publishWindow.reason}</p>
             )}
-          <Dialog open={isCreateOpen} onOpenChange={(open) => { if (open) clearForm(); setIsCreateOpen(open); }}>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button
                 disabled={!publishWindow.open}
@@ -776,8 +795,8 @@ const AdminSignals = () => {
                     <Textarea value={learningPoints} onChange={e => setLearningPoints(e.target.value)} rows={3} />
                   </div>
                 )}
-                {/* Advisor: preview as modal button */}
-                {isAdvisor && canPublish && (
+                {/* Mentor: preview as modal button */}
+                {isMentor && canPublish && (
                   <>
                     <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setShowPreview(true)}>
                       <Eye className="h-4 w-4 mr-2" />訂閱者預覽
@@ -786,19 +805,37 @@ const AdminSignals = () => {
                       <DialogContent className="max-w-[80vw] max-h-[80vh] overflow-y-auto">
                         <DialogHeader><DialogTitle>📋 訂閱者預覽</DialogTitle></DialogHeader>
                         <div className="space-y-3 mt-2">
+                          {teachingTopic && <p className="font-bold text-base">📚 {teachingTopic}</p>}
+                          {overallSummary && <p className="text-sm text-muted-foreground">{overallSummary}</p>}
                           <div className="flex items-center gap-2">
                             <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
                             <span className="font-medium text-sm">{stockCode} {stockName}</span>
-                            {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
-                            {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
                           </div>
                           {reasonSummary && <div><p className="text-xs font-medium text-muted-foreground mb-1">為什麼這樣操作？</p><p className="text-sm">{reasonSummary}</p></div>}
                           {reasonDetail && <div><p className="text-xs font-medium text-muted-foreground mb-1">部位控管想法</p><p className="text-sm whitespace-pre-wrap">{reasonDetail}</p></div>}
                           {riskNotes && <div><p className="text-xs font-medium text-destructive mb-1">⚠️ 風險提醒</p><p className="text-sm">{riskNotes}</p></div>}
+                          {learningPoints && <div><p className="text-xs font-medium text-primary mb-1">🎯 教學重點</p><p className="text-sm">{learningPoints}</p></div>}
                         </div>
                       </DialogContent>
                     </Dialog>
                   </>
+                )}
+                {/* Advisor: inline preview */}
+                {isAdvisor && canPublish && (
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-4 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">📋 訂閱者預覽</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
+                        <span className="font-medium text-sm">{stockCode} {stockName}</span>
+                        {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
+                        {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
+                      </div>
+                      {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
+                      {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
+                      {riskNotes && <p className="text-xs text-destructive">⚠️ {riskNotes}</p>}
+                    </CardContent>
+                  </Card>
                 )}
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={() => { setIsCreateOpen(false); clearForm(); }}>取消</Button>
