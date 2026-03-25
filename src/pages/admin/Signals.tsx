@@ -61,6 +61,25 @@ const AdminSignals = () => {
   const [recalling, setRecalling] = useState(false);
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Save form to sessionStorage whenever fields change
+  useEffect(() => {
+    const data = { _open: isCreateOpen, stockCode, stockName, action, priceHint, reasonSummary, reasonDetail, riskNotes, learningPoints, quantity, quantityUnit };
+    const hasContent = stockCode || stockName || action || priceHint || reasonSummary || reasonDetail || riskNotes || learningPoints || quantity;
+    if (hasContent || isCreateOpen) {
+      sessionStorage.setItem(FORM_KEY, JSON.stringify(data));
+    } else {
+      sessionStorage.removeItem(FORM_KEY);
+    }
+  }, [isCreateOpen, stockCode, stockName, action, priceHint, reasonSummary, reasonDetail, riskNotes, learningPoints, quantity, quantityUnit, FORM_KEY]);
+
+  const clearFormAndStorage = useCallback(() => {
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張');
+    setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
+    setLinePushed(false); setLinePushing(false); setLastPublishedId(null);
+    sessionStorage.removeItem(FORM_KEY);
+  }, [FORM_KEY]);
 
   // 判斷是否為休市時段（週五 13:30 ~ 週一 09:00，台灣時間 UTC+8）
   const isMarketClosed = useCallback(() => {
