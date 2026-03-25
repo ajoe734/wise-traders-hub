@@ -589,6 +589,7 @@ const AdminSignals = () => {
               <Button
                 disabled={!publishWindow.open}
                 className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
+                onClick={() => { clearForm(); setIsCreateOpen(true); }}
               >
                 <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
               </Button>
