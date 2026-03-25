@@ -6,6 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+/** 從 MIS 五檔報價字串取第一個價格，如 "1.9000_2.2300_" → 1.9 */
+function parseFirstPrice(str: string | undefined): number | null {
+  if (!str) return null;
+  const first = str.split('_')[0];
+  const val = parseFloat(first);
+  return (!isNaN(val) && val > 0) ? val : null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -84,8 +92,41 @@ Deno.serve(async (req) => {
 
       // 將盤後價格注入 msgArray 的 z 欄位
       for (const item of msgArray) {
-        if (!validCodes.has(item.c) && eodPrices.has(item.c)) {
-          item.z = String(eodPrices.get(item.c));
+        if (!validCodes.has(item.c) && item.c) {
+          if (eodPrices.has(item.c)) {
+            // EOD 找到了
+            item.z = String(eodPrices.get(item.c));
+          } else {
+            // Step 3: EOD 也找不到（例如權證），改用 MIS 的 best bid/ask 或昨收價
+            const bestBid = parseFirstPrice(item.b);
+            const bestAsk = parseFirstPrice(item.a);
+            const yesterday = parseFloat(item.y);
+            const lastH = parseFloat(item.h);
+            const lastL = parseFloat(item.l);
+
+            let fallbackPrice: number | null = null;
+
+            // 優先用 bid/ask 中間價
+            if (bestBid && bestAsk) {
+              fallbackPrice = Math.round(((bestBid + bestAsk) / 2) * 10000) / 10000;
+            } else if (bestAsk) {
+              fallbackPrice = bestAsk;
+            } else if (bestBid) {
+              fallbackPrice = bestBid;
+            }
+            // 其次用今日最高/最低中間價
+            if (!fallbackPrice && !isNaN(lastH) && lastH > 0 && !isNaN(lastL) && lastL > 0) {
+              fallbackPrice = Math.round(((lastH + lastL) / 2) * 10000) / 10000;
+            }
+            // 最後用昨收
+            if (!fallbackPrice && !isNaN(yesterday) && yesterday > 0) {
+              fallbackPrice = yesterday;
+            }
+
+            if (fallbackPrice) {
+              item.z = String(fallbackPrice);
+            }
+          }
         }
       }
     }
