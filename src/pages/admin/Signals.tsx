@@ -587,7 +587,7 @@ const AdminSignals = () => {
             {!publishWindow.open && (
               <p className="text-xs text-destructive">{publishWindow.reason}</p>
             )}
-          <Dialog open={isCreateOpen} onOpenChange={(open) => { if (open) clearForm(); setIsCreateOpen(open); }}>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button
                 disabled={!publishWindow.open}
