@@ -139,11 +139,14 @@ const AdminSignals = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, [expertSlug]);
-
-  const fetchData = async () => {
+  const lastFetchRef = useRef<number>(0);
+  const fetchData = useCallback(async (force = false) => {
     if (!expertSlug) return;
-    setLoading(true);
+    // Skip refetch if data was loaded recently (within 30s) unless forced
+    const now = Date.now();
+    if (!force && expert && lastFetchRef.current && now - lastFetchRef.current < 30_000) return;
+    // Only show loading spinner on first load (no existing data)
+    if (!expert) setLoading(true);
     const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
     setExpert(exp);
     if (exp) {
@@ -152,16 +155,13 @@ const AdminSignals = () => {
         .select('*')
         .eq('expert_id', exp.id)
         .order('created_at', { ascending: false });
-      // Show taken_down signals for 5 minutes after publish, then auto-hide
       const fiveMinAgo = Date.now() - 5 * 60 * 1000;
       const filtered = (s || []).filter(sig => {
         if (sig.status !== 'taken_down') return true;
-        // Use published_at as proxy for visibility window
         const publishedTime = sig.published_at ? new Date(sig.published_at).getTime() : 0;
         return publishedTime > fiveMinAgo;
       });
       setSignals(filtered);
-      // Fetch open trade_records to determine position status
       const { data: openTrades } = await supabase
         .from('trade_records')
         .select('instrument')
@@ -177,8 +177,11 @@ const AdminSignals = () => {
         .order('sort_order', { ascending: true });
       setSignalTemplates((tpl as any) || []);
     }
+    lastFetchRef.current = Date.now();
     setLoading(false);
-  };
+  }, [expertSlug, expert]);
+
+  useEffect(() => { fetchData(); }, [expertSlug]);
 
   const handlePublish = async () => {
     if (!expert) {
@@ -347,7 +350,7 @@ const AdminSignals = () => {
       });
     }
 
-    fetchData();
+    fetchData(true);
   };
 
   const handleRecall = async (signalId: string) => {
@@ -421,7 +424,7 @@ const AdminSignals = () => {
       toast.success('訊號已收回');
       setSignals(prev => prev.filter(s => s.id !== signalId));
       setLastPublishedId(null);
-      fetchData();
+      fetchData(true);
     } catch (err) {
       console.error('Recall failed:', err);
       toast.error('收回失敗，請重試');
