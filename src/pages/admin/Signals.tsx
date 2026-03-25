@@ -715,12 +715,10 @@ const AdminSignals = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  {!isMentor && (
-                    <div className="space-y-2">
-                      <Label>參考價位</Label>
-                      <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    <Label>參考價位</Label>
+                    <Input value={priceHint} onChange={e => setPriceHint(e.target.value)} type="number" placeholder="890" />
+                  </div>
                 </div>
                 {action && (
                   <div className="space-y-2">
