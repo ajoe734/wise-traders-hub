@@ -6,31 +6,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// 4-stage pipeline models with fallbacks per stage
+// 4-stage pipeline models (主流程只跑你指定的四個模型)
 const STAGE_MODELS = {
-  stage1: ["qwen/qwen3.5-plus:free", "google/gemini-2.0-flash-exp:free", "qwen/qwen-2.5-72b-instruct:free"],
-  stage2: ["google/gemini-3-flash:free", "google/gemini-2.0-flash-exp:free", "qwen/qwen-2.5-72b-instruct:free"],
-  stage3: ["meta-llama/llama-4-maverick:free", "qwen/qwen-2.5-72b-instruct:free", "google/gemini-2.0-flash-exp:free"],
-  stage4: ["google/gemma-3-27b:free", "qwen/qwen-2.5-72b-instruct:free", "google/gemini-2.0-flash-exp:free"],
+  stage1: ["qwen/qwen3.5-plus:free"],
+  stage2: ["google/gemini-3-flash:free"],
+  stage3: ["meta-llama/llama-4-maverick:free"],
+  stage4: ["google/gemma-3-27b:free"],
 };
 
-const FALLBACK_MODELS = [
-  "google/gemini-2.0-flash-exp:free",
-  "qwen/qwen-2.5-72b-instruct:free",
-];
+async function callStage(
+  apiKey: string,
+  stageName: string,
+  models: string[],
+  messages: any[],
+  temperature: number,
+): Promise<{ ok: boolean; text: string; status: number; errors: string[] }> {
+  const errors: string[] = [];
 
-async function callStage(apiKey: string, stageName: string, models: string[], messages: any[], temperature: number): Promise<{ ok: boolean; text: string }> {
   for (const model of models) {
     console.log(`${stageName}: trying ${model}...`);
     const result = await callModel(apiKey, model, messages, temperature);
     if (result.ok && result.text) {
       console.log(`${stageName}: ${model} succeeded`);
-      return { ok: true, text: result.text };
+      return { ok: true, text: result.text, status: 200, errors };
     }
-    console.warn(`${stageName}: ${model} failed, trying next...`);
+
+    errors.push(`${model}(${result.status})`);
+    console.warn(`${stageName}: ${model} failed (status ${result.status}), trying next...`);
   }
-  console.error(`${stageName}: all models exhausted`);
-  return { ok: false, text: '' };
+
+  console.error(`${stageName}: all models exhausted`, errors);
+  return { ok: false, text: '', status: 500, errors };
 }
 
 async function callModel(apiKey: string, model: string, messages: any[], temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
@@ -43,7 +49,12 @@ async function callModel(apiKey: string, model: string, messages: any[], tempera
         'HTTP-Referer': 'https://wise-traders-hub.lovable.app',
         'X-Title': 'WiseTraders Calendar',
       },
-      body: JSON.stringify({ model, messages, temperature }),
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature,
+        max_tokens: 4096,
+      }),
     });
     if (!response.ok) {
       const errText = await response.text();
@@ -230,57 +241,44 @@ ${outputFormat}
 async function fallbackSingleModel(apiKey: string, stocks: string, today: string, endDate: string, outputFormat: string) {
   // Gemini 一條龍：把原本 4 階段的 prompt 全部合併成一個
   const combinedPrompt = `# Role
-你是一位整合了搜尋力、長文本解析、邏輯去重與精煉輸出優點的頂級 AI 財經分析師。
+你是一位整合了 Qwen(搜尋力)、Gemini(長文本解析)、Llama(邏輯去重) 與 Gemma(精煉輸出) 優點的頂級 AI 財經分析師。
 
-# Task
-針對以下持倉標的，執行完整的情報清洗與精煉流程，輸出從 ${today} 的隔天起到 ${endDate} 為止（未來一整年）的所有重要事件。
+# Task Objective
+針對以下原始數據，執行「扣除當天的未來一年」的持倉股票情報清洗與精煉。
 
 持倉標的：${stocks}
+時間範圍：${today} 的隔天起到 ${endDate}
 
-# Processing Pipeline（請依序執行以下四個步驟）
-
-## Step 1 - 廣泛過濾
-識別並鎖定發生在「扣除當天的未來一年」的所有事件。
-- 包含所有類型的標的：普通股、權證、ETF 等
-- 不要包含今天(${today})或過去的事件
-- 普通股：法說會、財報公布日、除息日、月營收公布日、重大訂單、技術突破等
-- 權證：列出母股的重要事件，標明影響哪檔權證，以及權證到期日
-- ETF：配息日、成分股調整等
-- 總經事件：央行利率決議、CPI公布等影響持股的總經數據
-- 每個事件必須附上你引用的原始新聞/財報/公告的來源網址（sources）
-
-## Step 2 - 深度提取
-從 Step 1 的結果中摳出具體財務數據：
-- EPS、毛利率、營收成長率等具體數據（若有的話）
-- 大客戶訂單、技術突破等催化事件的具體內容
-- 地緣政治風險或產業風險
-
-## Step 3 - 邏輯去重（Critical）
-檢查事件列表，若內容本質相同（如：僅標題微調、轉載自同一社論、或同一事件的後續小追蹤），僅保留「最原始」或「資訊最齊全」的一則，嚴禁重複顯示同一事件。合併重複事件時合併來源網址。
-
-## Step 4 - 精煉輸出
-將去重後的乾貨轉化為以下 JSON 格式。
+# Processing Pipeline (Internal Logic)
+1. 廣泛過濾：識別並鎖定發生在「扣除當天的未來一年」的所有事件。
+2. 深度提取：從混亂文本中摳出 EPS、毛利率、營收成長率、大客戶訂單、技術突破、地緣政治風險。
+3. 邏輯去重 (Critical)：若內容本質相同，僅保留最原始或資訊最齊全的一則，嚴禁重複。
+4. 精煉總結：將去重後的乾貨轉化為 UI 需要的輸出格式。
 
 # Constraints
-- 嚴禁「幻覺」：若文中無具體數據，不採納，不編造
-- 移除所有廣告、無關的市場評論或情緒性廢話
-- 不確定的事件寧可不列也絕對不要編造
+- 嚴禁「幻覺」：若文中無具體數據，不採納
+- 移除所有廣告、無關市場評論與情緒性廢話
+- 每筆事件都要附來源網址（原始新聞/財報/公告）
+- 不要包含今天或過去的事件
 
 # Output Format
 只輸出純 JSON 陣列，不輸出其他任何文字（不要 markdown code block）：
 ${outputFormat}`;
 
   const GEMINI_MODELS = [
-    "google/gemini-2.0-flash-exp:free",
     "google/gemini-2.5-flash",
-    "qwen/qwen-2.5-72b-instruct:free",
+    "google/gemini-2.5-flash-lite",
+    "google/gemini-1.5-flash",
   ];
 
+  const errors: string[] = [];
+
   for (const model of GEMINI_MODELS) {
-    console.log(`Fallback (combined prompt): ${model}`);
+    console.log(`Fallback (Gemini one-shot): ${model}`);
     const result = await callModel(apiKey, model, [
       { role: 'user', content: combinedPrompt }
     ], 0.3);
+
     if (result.ok) {
       return new Response(JSON.stringify({
         text: result.text,
@@ -289,9 +287,24 @@ ${outputFormat}`;
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    errors.push(`${model}(${result.status})`);
   }
 
-  return new Response(JSON.stringify({ error: '行事曆產生失敗，所有模型均無法使用' }), {
-    status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  const hasCreditIssue = errors.some((e) => e.includes('(402)'));
+  const hasModelIssue = errors.some((e) => e.includes('(400)') || e.includes('(404)'));
+
+  const detail = hasCreditIssue
+    ? `Gemini 額度不足或可用 token 不足：${errors.join(', ')}`
+    : hasModelIssue
+      ? `模型 ID 或端點不可用：${errors.join(', ')}`
+      : `Gemini fallback 全部失敗：${errors.join(', ')}`;
+
+  return new Response(JSON.stringify({
+    error: '行事曆產生失敗，所有模型均無法使用',
+    detail,
+  }), {
+    status: hasCreditIssue ? 402 : 500,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
