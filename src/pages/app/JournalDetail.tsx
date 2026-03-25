@@ -42,6 +42,9 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">{signal.instrument}</span>
+            {signal.price_hint != null && (
+              <span className="text-xs text-muted-foreground">@{signal.price_hint}</span>
+            )}
             <span className="text-xs text-muted-foreground">{format(new Date(signal.published_at), 'MM/dd')}</span>
           </div>
         </div>

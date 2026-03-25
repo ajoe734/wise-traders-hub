@@ -23,8 +23,8 @@ const actionLabels: Record<string, { label: string; className: string }> = {
   sell: { label: '賣出', className: 'bg-destructive text-white border-destructive' },
 };
 
-const PreviewTradeItem = ({ action, instrument, reasonSummary, reasonDetail, riskNotes }: {
-  action: string; instrument: string; reasonSummary: string; reasonDetail: string; riskNotes: string;
+const PreviewTradeItem = ({ action, instrument, priceHint, reasonSummary, reasonDetail, riskNotes }: {
+  action: string; instrument: string; priceHint?: number | null; reasonSummary: string; reasonDetail: string; riskNotes: string;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = reasonSummary || reasonDetail || riskNotes;
