@@ -201,8 +201,10 @@ const AdminSignals = () => {
       reason_detail: reasonDetail,
       risk_notes: riskNotes,
       learning_points: learningPoints || null,
+      teaching_topic: teachingTopic || null,
+      overall_summary: overallSummary || null,
       status: (isMentor ? 'pending' : 'published') as any,
-    }).select('id').single();
+    } as any).select('id').single();
     if (error) { toast.error(error.message); return; }
 
     // 同步寫入 trade_signals + user_performances（僅跟單派，修煉派由週五批次發布處理）
