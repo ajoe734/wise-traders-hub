@@ -93,54 +93,31 @@ async function callLovableAI(
 // ===== Build combined prompt =====
 function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string): string {
   return `# Role
-你是一位頂級 AI 財經分析師，精通台股市場行事曆與事件排程。
+你是一位頂級 AI 財經分析師，精通台股市場。
 
 # Task Objective
 針對以下持倉標的，列出「${today} 的隔天起到 ${endDate}」之間所有重要事件。
 
 持倉標的：${stocks}
 
-# 重要：你必須利用你的訓練知識來推算固定行程事件
+# 事件類型（全部都要涵蓋）
+請根據你的訓練知識，盡可能完整列出以下類型的事件：
+- **營收**：每月營收公布（次月10日前）
+- **財報**：季度財報公布截止日
+- **法說**：法說會、業績發表會
+- **除息**：除權息日、配息基準日
+- **總經**：央行會議、FOMC、CPI、GDP 等影響台股的重大事件
+- **催化**：產業展覽、新品發表、大客戶訂單、技術突破、政策利多
+- **到期**：權證到期日（權證代碼通常為6碼，名稱含「購」「售」「牛」「熊」）
+- **操作**：股東會、董事會、庫藏股、大股東申報轉讓
 
-台股有許多**固定規律**的事件，你必須根據這些規律為每檔持倉標的列出事件：
-
-## 固定行程規律（必須列出）
-1. **月營收公布**：台灣上市櫃公司每月營收必須在次月10日前公布。例如：3月營收在4/10前公布，以此類推，請為未來12個月都列出。
-2. **季度財報**：
-   - Q1 財報：5/15 前公布
-   - Q2 財報（半年報）：8/14 前公布
-   - Q3 財報：11/14 前公布
-   - Q4 財報（年報）：隔年 3/31 前公布
-3. **股東會旺季**：通常集中在每年 5-6 月
-4. **除權息旺季**：通常集中在每年 6-9 月
-5. **法說會**：上市櫃公司通常在財報公布後舉辦法說會
-
-## 權證特別注意
-- 權證代碼通常為 6 碼（如 039108、053848），名稱含「購」「售」「牛」「熊」
-- 權證有到期日，必須列出。根據權證名稱中的資訊推算（例如名稱含券商與期別）
-- 同時列出母股（標的股）的重要事件，標明影響哪檔權證
-
-## ETF 特別注意
-- 配息日、除息日、成分股調整（通常季度調整）
-
-## 總經事件
-- 台灣央行理監事會議（通常每季一次：3月、6月、9月、12月）
-- 美國 FOMC 會議、CPI 公布等影響台股的重大總經事件
-- 台灣 CPI、GDP 公布日
-
-# Processing Pipeline
-1. **廣泛列舉**：根據上述固定規律，為每檔持倉標的生成未來12個月的所有已知/可推算事件
-2. **深度提取**：補充你所知的具體財務數據（EPS、毛利率、營收趨勢等）
-3. **邏輯去重**：合併重複事件，保留資訊最齊全的版本
-4. **精煉輸出**：轉化為指定 JSON 格式
-
-# Constraints
-- 固定行程事件（月營收、季度財報、央行會議等）是**確定會發生的**，必須列出，這不算幻覺
-- 對於不確定具體日期的事件，使用該事件的法定截止日作為日期（如月營收用次月10日）
-- 移除廣告和無關評論
-- 來源網址：固定行程事件可以給空陣列 []，因為這些是法規規定的既定行程
+# 重要指引
+- 權證標的：同時列出其母股（標的股）的重要事件，標明影響哪檔權證
+- 數量不限：只要是有價值的事件就列出，不要自我限制數量
+- 過濾垃圾：移除廣告、無關評論、情緒性廢話、重複事件
+- 禁止幻覺：若無具體依據，不要編造事件
 - 不要包含今天(${today})或過去的事件
-- 事件數量不限，每檔標的至少要有月營收和季度財報事件
+- 每檔標的至少列出月營收和季度財報相關事件
 
 # Output Format
 只輸出純 JSON 陣列，不輸出其他任何文字（不要 markdown code block）：
@@ -150,7 +127,6 @@ ${outputFormat}`;
 // ===== Validate response has meaningful events =====
 function hasValidEvents(text: string): boolean {
   try {
-    // Extract JSON from potential markdown code blocks
     let jsonStr = text.trim();
     if (jsonStr.startsWith('```')) {
       jsonStr = jsonStr.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
@@ -197,12 +173,11 @@ Deno.serve(async (req) => {
 
 規則：
 - 不輸出 pred、predReason 等預判欄位
-- sources 若為固定行程事件可給空陣列 []
+- sources 若無來源可給空陣列 []
 - date 必須用 YYYY/MM/DD 格式
 - urgent=true 僅限未來一週內的事件
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
-- 按日期由近到遠排序
-- 每檔標的至少要列出月營收公布日和季度財報截止日`;
+- 按日期由近到遠排序`;
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
     const messages = [{ role: 'user', content: prompt }];
@@ -214,7 +189,6 @@ Deno.serve(async (req) => {
         console.log(`Calendar: trying ${model}...`);
         const result = await callModel(openrouterKey, model, messages, 0.4);
         if (result.ok && result.text) {
-          // 驗證回應是否有有效事件（非空陣列）
           if (hasValidEvents(result.text)) {
             console.log(`Calendar: ${model} succeeded with valid events`);
             return new Response(JSON.stringify({ text: result.text, response: result.text }), {
@@ -232,7 +206,7 @@ Deno.serve(async (req) => {
 
     // ===== 第二層：Lovable AI Gateway (Gemini 一條龍) =====
     if (lovableKey) {
-      console.log('Calendar: all OpenRouter models failed or returned empty, trying Lovable AI Gateway...');
+      console.log('Calendar: all OpenRouter models failed, trying Lovable AI Gateway...');
       const result = await callLovableAI(lovableKey, messages, 0.4);
       if (result.ok && result.text) {
         console.log('Calendar: Lovable AI Gateway succeeded');

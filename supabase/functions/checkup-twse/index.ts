@@ -6,14 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-/** 從 MIS 五檔報價字串取第一個價格，如 "1.9000_2.2300_" → 1.9 */
-function parseFirstPrice(str: string | undefined): number | null {
-  if (!str) return null;
-  const first = str.split('_')[0];
-  const val = parseFloat(first);
-  return (!isNaN(val) && val > 0) ? val : null;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -30,32 +22,44 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Step 1: 嘗試 MIS 即時報價 API
+    // Step 1: MIS 即時報價 API
     const twseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(exCh)}&json=1&delay=0`;
     const response = await fetch(twseUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
     });
     const data = await response.json();
 
-    // 檢查哪些股票 z 無效（非交易時間）
     const msgArray = data?.msgArray || [];
     const missingCodes: string[] = [];
     const validCodes = new Set<string>();
 
     for (const item of msgArray) {
+      if (!item.c) continue;
       const z = parseFloat(item.z);
+      const h = parseFloat(item.h);
+      const l = parseFloat(item.l);
+      // z 有效且在合理範圍內（不超過漲停價、不低於跌停價）
       if (!isNaN(z) && z > 0) {
-        validCodes.add(item.c);
-      } else if (item.c) {
+        // 額外檢查：如果 h/l 都有效，z 應在 l~h 之間（容許微幅誤差）
+        if (!isNaN(h) && h > 0 && !isNaN(l) && l > 0) {
+          if (z >= l * 0.99 && z <= h * 1.01) {
+            validCodes.add(item.c);
+          } else {
+            // z 被 fallback 污染或異常，需要重新計算
+            missingCodes.push(item.c);
+          }
+        } else {
+          validCodes.add(item.c);
+        }
+      } else {
         missingCodes.push(item.c);
       }
     }
 
-    // Step 2: 若有股票 z 無效，從 TWSE/TPEX 盤後 EOD API 補齊
+    // Step 2: 盤後 EOD API 補齊
     if (missingCodes.length > 0) {
       const eodPrices = new Map<string, number>();
 
-      // 同時查 TWSE 和 TPEX 盤後收盤價
       const [twseEod, tpexEod] = await Promise.allSettled([
         fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', {
           headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
@@ -65,7 +69,6 @@ Deno.serve(async (req) => {
         }).then(r => r.ok ? r.json() : []),
       ]);
 
-      // TWSE EOD: Code + ClosingPrice
       if (twseEod.status === 'fulfilled' && Array.isArray(twseEod.value)) {
         for (const item of twseEod.value) {
           if (missingCodes.includes(item.Code)) {
@@ -77,7 +80,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // TPEX EOD: SecuritiesCompanyCode + Close
       if (tpexEod.status === 'fulfilled' && Array.isArray(tpexEod.value)) {
         for (const item of tpexEod.value) {
           const code = item.SecuritiesCompanyCode || item.Code;
@@ -90,43 +92,34 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 將盤後價格注入 msgArray 的 z 欄位
+      // 將價格注入 msgArray
       for (const item of msgArray) {
-        if (!validCodes.has(item.c) && item.c) {
-          if (eodPrices.has(item.c)) {
-            // EOD 找到了
-            item.z = String(eodPrices.get(item.c));
-          } else {
-            // Step 3: EOD 也找不到（例如權證），改用 MIS 的 best bid/ask 或昨收價
-            const bestBid = parseFirstPrice(item.b);
-            const bestAsk = parseFirstPrice(item.a);
-            const yesterday = parseFloat(item.y);
-            const lastH = parseFloat(item.h);
-            const lastL = parseFloat(item.l);
+        if (!item.c || validCodes.has(item.c)) continue;
 
-            let fallbackPrice: number | null = null;
+        if (eodPrices.has(item.c)) {
+          item.z = String(eodPrices.get(item.c));
+          continue;
+        }
 
-            // 優先用 bid/ask 中間價
-            if (bestBid && bestAsk) {
-              fallbackPrice = Math.round(((bestBid + bestAsk) / 2) * 10000) / 10000;
-            } else if (bestAsk) {
-              fallbackPrice = bestAsk;
-            } else if (bestBid) {
-              fallbackPrice = bestBid;
-            }
-            // 其次用今日最高/最低中間價
-            if (!fallbackPrice && !isNaN(lastH) && lastH > 0 && !isNaN(lastL) && lastL > 0) {
-              fallbackPrice = Math.round(((lastH + lastL) / 2) * 10000) / 10000;
-            }
-            // 最後用昨收
-            if (!fallbackPrice && !isNaN(yesterday) && yesterday > 0) {
-              fallbackPrice = yesterday;
-            }
+        // Step 3: EOD 找不到（權證等），用 MIS 盤中數據推算
+        const h = parseFloat(item.h);
+        const l = parseFloat(item.l);
+        const yesterday = parseFloat(item.y);
 
-            if (fallbackPrice) {
-              item.z = String(fallbackPrice);
-            }
-          }
+        let fallbackPrice: number | null = null;
+
+        // 優先用盤中最高/最低中間價（這是實際成交過的價格範圍）
+        if (!isNaN(h) && h > 0 && !isNaN(l) && l > 0) {
+          // 收盤價通常接近最後成交，用 h 和 l 的中間值近似
+          fallbackPrice = Math.round(((h + l) / 2) * 10000) / 10000;
+        }
+        // 其次用昨收
+        if (!fallbackPrice && !isNaN(yesterday) && yesterday > 0) {
+          fallbackPrice = yesterday;
+        }
+
+        if (fallbackPrice) {
+          item.z = String(fallbackPrice);
         }
       }
     }
