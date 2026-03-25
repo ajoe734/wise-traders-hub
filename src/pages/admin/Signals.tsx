@@ -940,6 +940,18 @@ const AdminSignals = () => {
                                          <p className="text-primary/90 mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.taken_down_reason)}</p>
                                       </div>
                                     )}
+                                    {(signal as any).teaching_topic && (
+                                      <div>
+                                        <span className="font-medium text-foreground">教學主題</span>
+                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{(signal as any).teaching_topic}</p>
+                                      </div>
+                                    )}
+                                    {(signal as any).overall_summary && (
+                                      <div>
+                                        <span className="font-medium text-foreground">整體摘要</span>
+                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{(signal as any).overall_summary}</p>
+                                      </div>
+                                    )}
                                     {signal.reason_summary && (
                                       <div>
                                         <span className="font-medium text-foreground">為什麼這樣操作？</span>
