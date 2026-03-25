@@ -64,6 +64,9 @@ const AdminDashboard = () => {
             const row = payload.new as any;
             setCumulativeReturn(row.total_pnl_percent != null ? Number(row.total_pnl_percent) : null);
             setAvgPnlPercent(row.avg_pnl_percent != null ? Number(row.avg_pnl_percent) : null);
+          } else if (payload.eventType === 'DELETE') {
+            setCumulativeReturn(0);
+            setAvgPnlPercent(0);
           }
         },
       )
