@@ -669,7 +669,7 @@ const AdminSignals = () => {
                     </div>
                   )}
                 </div>
-                {action && !isMentor && (
+                {action && (
                   <div className="space-y-2">
                     <Label>數量</Label>
                     <div className="flex items-center gap-2">
