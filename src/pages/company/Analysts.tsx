@@ -37,7 +37,10 @@ const CompanyAnalysts = () => {
   };
 
   // LINE channel management
-  const [lineExpert, setLineExpert] = useState<any>(null);
+  const [lineExpertId, setLineExpertId] = useState<string | null>(() => {
+    return sessionStorage.getItem('company_line_expert_id') || null;
+  });
+  const [lineExpertName, setLineExpertName] = useState('');
   const [lineChannel, setLineChannel] = useState<any>(null);
   const [lineLoading, setLineLoading] = useState(false);
   const [lineChannelId, setLineChannelId] = useState('');
@@ -48,6 +51,24 @@ const CompanyAnalysts = () => {
   const [lineActive, setLineActive] = useState(true);
   const [savingLine, setSavingLine] = useState(false);
   const [lineBindingsCount, setLineBindingsCount] = useState(0);
+
+  useEffect(() => {
+    if (lineExpertId) {
+      sessionStorage.setItem('company_line_expert_id', lineExpertId);
+    } else {
+      sessionStorage.removeItem('company_line_expert_id');
+    }
+  }, [lineExpertId]);
+
+  // Restore LINE dialog on mount if persisted
+  useEffect(() => {
+    if (lineExpertId && experts.length > 0) {
+      const exp = experts.find(e => e.id === lineExpertId);
+      if (exp) {
+        setLineExpertName(exp.name);
+      }
+    }
+  }, [lineExpertId, experts]);
 
   useEffect(() => { fetchExperts(); }, []);
 
