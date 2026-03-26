@@ -15,7 +15,9 @@ import { toast } from 'sonner';
 
 const CompanyAnalysts = () => {
   const [experts, setExperts] = useState<any[]>([]);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(() => {
+    return sessionStorage.getItem('company_analyst_create_open') === 'true';
+  });
   const [loading, setLoading] = useState(true);
 
   // Create analyst form
@@ -25,6 +27,14 @@ const CompanyAnalysts = () => {
   const [slug, setSlug] = useState('');
   const [role, setRole] = useState('');
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    sessionStorage.setItem('company_analyst_create_open', String(isCreateOpen));
+  }, [isCreateOpen]);
+
+  const clearForm = () => {
+    setEmail(''); setPassword(''); setName(''); setSlug(''); setRole('');
+  };
 
   // LINE channel management
   const [lineExpert, setLineExpert] = useState<any>(null);
