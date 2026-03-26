@@ -15,7 +15,9 @@ import { toast } from 'sonner';
 
 const CompanyAnalysts = () => {
   const [experts, setExperts] = useState<any[]>([]);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(() => {
+    return sessionStorage.getItem('company_analyst_create_open') === 'true';
+  });
   const [loading, setLoading] = useState(true);
 
   // Create analyst form
@@ -25,6 +27,14 @@ const CompanyAnalysts = () => {
   const [slug, setSlug] = useState('');
   const [role, setRole] = useState('');
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    sessionStorage.setItem('company_analyst_create_open', String(isCreateOpen));
+  }, [isCreateOpen]);
+
+  const clearForm = () => {
+    setEmail(''); setPassword(''); setName(''); setSlug(''); setRole('');
+  };
 
   // LINE channel management
   const [lineExpert, setLineExpert] = useState<any>(null);
@@ -64,7 +74,7 @@ const CompanyAnalysts = () => {
     }
     toast.success('分析師已建立');
     setIsCreateOpen(false);
-    setEmail(''); setPassword(''); setName(''); setSlug(''); setRole('');
+    clearForm();
     fetchExperts();
   };
 
@@ -164,7 +174,7 @@ const CompanyAnalysts = () => {
           </div>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-company hover:bg-company/90 text-white"><UserPlus className="h-4 w-4 mr-2" />新增分析師</Button>
+              <Button size="sm" className="bg-company hover:bg-company/90 text-white" onClick={() => { clearForm(); setIsCreateOpen(true); }}><UserPlus className="h-4 w-4 mr-2" />新增分析師</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>新增分析師帳號</DialogTitle></DialogHeader>
