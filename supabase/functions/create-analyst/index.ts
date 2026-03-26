@@ -97,7 +97,33 @@ Deno.serve(async (req) => {
       })
     }
 
-    // 5. Audit log
+    // 5. Auto-create default subscription plan based on role
+    const planDefaults = role === 'advisor'
+      ? {
+          plan_type: 'analyst_signal_l1',
+          name: '跟單派',
+          description: '即時訊號通知，每日操作建議',
+          price_monthly: 1699,
+          price_yearly: 16990,
+          features: ['即時訊號推播通知', '完整買賣理由說明', '風險與部位控管建議', '交易紀錄完整保存'],
+        }
+      : {
+          plan_type: 'mentor_weekly_journal',
+          name: '修煉派',
+          description: '每週操盤週記與教學',
+          price_monthly: 799,
+          price_yearly: 7990,
+          features: ['T+7 延遲實戰週記', '完整操作邏輯拆解', '事後檢討與學習重點', '策略思維培養'],
+        }
+
+    await adminClient.from('expert_plans').insert({
+      expert_id: expert.id,
+      ...planDefaults,
+      is_active: true,
+      review_status: 'approved',
+    })
+
+    // 6. Audit log
     await adminClient.from('audit_logs').insert({
       actor_id: caller.id,
       action: 'create_analyst',
