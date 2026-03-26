@@ -74,7 +74,7 @@ const CompanyAnalysts = () => {
     }
     toast.success('分析師已建立');
     setIsCreateOpen(false);
-    setEmail(''); setPassword(''); setName(''); setSlug(''); setRole('');
+    clearForm();
     fetchExperts();
   };
 
