@@ -132,6 +132,7 @@ const CompanyAnalysts = () => {
     setLineQrCodeUrl('');
     setLineActive(true);
     setLineBindingsCount(0);
+    ['cl_channelId','cl_token','cl_channelName','cl_oaId','cl_qrCode','cl_active'].forEach(k => sessionStorage.removeItem(k));
   };
 
   const openLineSettings = (expert: any) => {
@@ -168,6 +169,7 @@ const CompanyAnalysts = () => {
     setLineExpertId(null);
     setLineExpertName('');
     setLineChannel(null);
+    clearLineForm();
   };
 
   const handleSaveLine = async () => {
