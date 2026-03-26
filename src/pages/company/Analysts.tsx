@@ -37,7 +37,10 @@ const CompanyAnalysts = () => {
   };
 
   // LINE channel management
-  const [lineExpert, setLineExpert] = useState<any>(null);
+  const [lineExpertId, setLineExpertId] = useState<string | null>(() => {
+    return sessionStorage.getItem('company_line_expert_id') || null;
+  });
+  const [lineExpertName, setLineExpertName] = useState('');
   const [lineChannel, setLineChannel] = useState<any>(null);
   const [lineLoading, setLineLoading] = useState(false);
   const [lineChannelId, setLineChannelId] = useState('');
@@ -48,6 +51,24 @@ const CompanyAnalysts = () => {
   const [lineActive, setLineActive] = useState(true);
   const [savingLine, setSavingLine] = useState(false);
   const [lineBindingsCount, setLineBindingsCount] = useState(0);
+
+  useEffect(() => {
+    if (lineExpertId) {
+      sessionStorage.setItem('company_line_expert_id', lineExpertId);
+    } else {
+      sessionStorage.removeItem('company_line_expert_id');
+    }
+  }, [lineExpertId]);
+
+  // Restore LINE dialog on mount if persisted
+  useEffect(() => {
+    if (lineExpertId && experts.length > 0) {
+      const exp = experts.find(e => e.id === lineExpertId);
+      if (exp) {
+        setLineExpertName(exp.name);
+      }
+    }
+  }, [lineExpertId, experts]);
 
   useEffect(() => { fetchExperts(); }, []);
 
@@ -86,47 +107,55 @@ const CompanyAnalysts = () => {
   };
 
   // LINE channel management
-  const openLineSettings = async (expert: any) => {
-    setLineExpert(expert);
+  const clearLineForm = () => {
+    setLineChannel(null);
+    setLineChannelId('');
+    setLineToken('');
+    setLineChannelName('');
+    setLineOaId('');
+    setLineQrCodeUrl('');
+    setLineActive(true);
+    setLineBindingsCount(0);
+  };
+
+  const openLineSettings = (expert: any) => {
+    clearLineForm();
+    setLineExpertId(expert.id);
+    setLineExpertName(expert.name);
     setLineLoading(true);
-    const { data: ch } = await supabase
-      .from('expert_line_channels')
-      .select('*')
-      .eq('expert_id', expert.id)
-      .single();
-    if (ch) {
-      setLineChannel(ch);
-      setLineChannelId(ch.channel_id);
-      setLineToken(ch.channel_access_token);
-      setLineChannelName(ch.channel_name || '');
-      setLineOaId(ch.line_oa_id || '');
-      setLineQrCodeUrl(ch.qr_code_url || '');
-      setLineActive(ch.is_active);
-    } else {
-      setLineChannel(null);
-      setLineChannelId('');
-      setLineToken('');
-      setLineChannelName('');
-      setLineOaId('');
-      setLineQrCodeUrl('');
-      setLineActive(true);
-    }
-    const { count } = await supabase
-      .from('member_line_bindings')
-      .select('id', { count: 'exact', head: true })
-      .eq('expert_id', expert.id)
-      .eq('is_active', true);
-    setLineBindingsCount(count || 0);
-    setLineLoading(false);
+    (async () => {
+      const { data: ch } = await supabase
+        .from('expert_line_channels')
+        .select('*')
+        .eq('expert_id', expert.id)
+        .single();
+      if (ch) {
+        setLineChannel(ch);
+        setLineChannelId(ch.channel_id);
+        setLineToken(ch.channel_access_token);
+        setLineChannelName(ch.channel_name || '');
+        setLineOaId(ch.line_oa_id || '');
+        setLineQrCodeUrl(ch.qr_code_url || '');
+        setLineActive(ch.is_active);
+      }
+      const { count } = await supabase
+        .from('member_line_bindings')
+        .select('id', { count: 'exact', head: true })
+        .eq('expert_id', expert.id)
+        .eq('is_active', true);
+      setLineBindingsCount(count || 0);
+      setLineLoading(false);
+    })();
   };
 
   const closeLineSettings = () => {
-    setLineExpert(null);
+    setLineExpertId(null);
+    setLineExpertName('');
     setLineChannel(null);
   };
 
   const handleSaveLine = async () => {
-    if (!lineExpert || !lineChannelId || !lineToken) {
+    if (!lineExpertId || !lineChannelId || !lineToken) {
       toast.error('請填寫 Channel ID 和 Access Token');
       return;
     }
@@ -149,7 +178,7 @@ const CompanyAnalysts = () => {
       const { error } = await supabase
         .from('expert_line_channels')
         .insert({
-          expert_id: lineExpert.id,
+          expert_id: lineExpertId,
           channel_id: lineChannelId,
           channel_access_token: lineToken,
           channel_name: lineChannelName || null,
@@ -278,10 +307,10 @@ const CompanyAnalysts = () => {
       </div>
 
       {/* LINE Channel Settings Dialog */}
-      <Dialog open={!!lineExpert} onOpenChange={(open) => { if (!open) closeLineSettings(); }}>
+      <Dialog open={!!lineExpertId} onOpenChange={(open) => { if (!open) closeLineSettings(); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{lineExpert?.name} — LINE 設定</DialogTitle>
+            <DialogTitle>{lineExpertName} — LINE 設定</DialogTitle>
           </DialogHeader>
           {lineLoading ? (
             <p className="text-sm text-muted-foreground text-center py-4">載入中...</p>
