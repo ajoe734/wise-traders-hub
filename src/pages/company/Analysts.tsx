@@ -20,37 +20,53 @@ const CompanyAnalysts = () => {
   });
   const [loading, setLoading] = useState(true);
 
-  // Create analyst form
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [role, setRole] = useState('');
+  // Create analyst form – restore from sessionStorage on mount
+  const [email, setEmail] = useState(() => sessionStorage.getItem('ca_email') || '');
+  const [password, setPassword] = useState(() => sessionStorage.getItem('ca_password') || '');
+  const [name, setName] = useState(() => sessionStorage.getItem('ca_name') || '');
+  const [slug, setSlug] = useState(() => sessionStorage.getItem('ca_slug') || '');
+  const [role, setRole] = useState(() => sessionStorage.getItem('ca_role') || '');
   const [creating, setCreating] = useState(false);
 
+  // Persist create form state
   useEffect(() => {
     sessionStorage.setItem('company_analyst_create_open', String(isCreateOpen));
   }, [isCreateOpen]);
+  useEffect(() => { sessionStorage.setItem('ca_email', email); }, [email]);
+  useEffect(() => { sessionStorage.setItem('ca_password', password); }, [password]);
+  useEffect(() => { sessionStorage.setItem('ca_name', name); }, [name]);
+  useEffect(() => { sessionStorage.setItem('ca_slug', slug); }, [slug]);
+  useEffect(() => { sessionStorage.setItem('ca_role', role); }, [role]);
 
   const clearForm = () => {
     setEmail(''); setPassword(''); setName(''); setSlug(''); setRole('');
+    ['ca_email','ca_password','ca_name','ca_slug','ca_role'].forEach(k => sessionStorage.removeItem(k));
   };
 
   // LINE channel management
   const [lineExpertId, setLineExpertId] = useState<string | null>(() => {
     return sessionStorage.getItem('company_line_expert_id') || null;
   });
-  const [lineExpertName, setLineExpertName] = useState('');
+  const [lineExpertName, setLineExpertName] = useState(() => sessionStorage.getItem('cl_name') || '');
   const [lineChannel, setLineChannel] = useState<any>(null);
   const [lineLoading, setLineLoading] = useState(false);
-  const [lineChannelId, setLineChannelId] = useState('');
-  const [lineToken, setLineToken] = useState('');
-  const [lineChannelName, setLineChannelName] = useState('');
-  const [lineOaId, setLineOaId] = useState('');
-  const [lineQrCodeUrl, setLineQrCodeUrl] = useState('');
-  const [lineActive, setLineActive] = useState(true);
+  const [lineChannelId, setLineChannelId] = useState(() => sessionStorage.getItem('cl_channelId') || '');
+  const [lineToken, setLineToken] = useState(() => sessionStorage.getItem('cl_token') || '');
+  const [lineChannelName, setLineChannelName] = useState(() => sessionStorage.getItem('cl_channelName') || '');
+  const [lineOaId, setLineOaId] = useState(() => sessionStorage.getItem('cl_oaId') || '');
+  const [lineQrCodeUrl, setLineQrCodeUrl] = useState(() => sessionStorage.getItem('cl_qrCode') || '');
+  const [lineActive, setLineActive] = useState(() => sessionStorage.getItem('cl_active') !== 'false');
   const [savingLine, setSavingLine] = useState(false);
   const [lineBindingsCount, setLineBindingsCount] = useState(0);
+
+  // Persist LINE form fields
+  useEffect(() => { sessionStorage.setItem('cl_name', lineExpertName); }, [lineExpertName]);
+  useEffect(() => { sessionStorage.setItem('cl_channelId', lineChannelId); }, [lineChannelId]);
+  useEffect(() => { sessionStorage.setItem('cl_token', lineToken); }, [lineToken]);
+  useEffect(() => { sessionStorage.setItem('cl_channelName', lineChannelName); }, [lineChannelName]);
+  useEffect(() => { sessionStorage.setItem('cl_oaId', lineOaId); }, [lineOaId]);
+  useEffect(() => { sessionStorage.setItem('cl_qrCode', lineQrCodeUrl); }, [lineQrCodeUrl]);
+  useEffect(() => { sessionStorage.setItem('cl_active', String(lineActive)); }, [lineActive]);
 
   useEffect(() => {
     if (lineExpertId) {
