@@ -76,39 +76,12 @@ const CompanyAnalysts = () => {
     }
   }, [lineExpertId]);
 
-  // Restore LINE dialog on mount if persisted
+  // Restore LINE dialog on mount if persisted — no flicker if fields already cached
   useEffect(() => {
     if (lineExpertId && experts.length > 0) {
       const exp = experts.find(e => e.id === lineExpertId);
       if (exp && !lineExpertName) {
         setLineExpertName(exp.name);
-      }
-      // If no channel data cached, fetch from DB
-      if (exp && !lineChannelId) {
-        setLineLoading(true);
-        (async () => {
-          const { data: ch } = await supabase
-            .from('expert_line_channels')
-            .select('*')
-            .eq('expert_id', lineExpertId)
-            .single();
-          if (ch) {
-            setLineChannel(ch);
-            setLineChannelId(ch.channel_id);
-            setLineToken(ch.channel_access_token);
-            setLineChannelName(ch.channel_name || '');
-            setLineOaId(ch.line_oa_id || '');
-            setLineQrCodeUrl(ch.qr_code_url || '');
-            setLineActive(ch.is_active);
-          }
-          const { count } = await supabase
-            .from('member_line_bindings')
-            .select('id', { count: 'exact', head: true })
-            .eq('expert_id', lineExpertId)
-            .eq('is_active', true);
-          setLineBindingsCount(count || 0);
-          setLineLoading(false);
-        })();
       }
     }
   }, [lineExpertId, experts]);
