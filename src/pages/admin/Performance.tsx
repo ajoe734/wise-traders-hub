@@ -174,15 +174,24 @@ const AdminPerformance = () => {
           const symbol = parts[0] || r.instrument;
           const name = parts.slice(1).join(' ') || null;
           const perf = perfMap.get(symbol);
+          const entryPrice = r.entry_price ? Number(r.entry_price) : null;
+          const curPrice = perf?.current_price ?? (r.current_price ? Number(r.current_price) : null);
+          // 計算 pnl/pnl_percent: 優先用 user_performances 的值，否則用 current_prices fallback 自行計算
+          let pnl = perf?.pnl ?? null;
+          let pnlPct = perf?.pnl_percent ?? (r.pnl_percent ? Number(r.pnl_percent) : null);
+          if (pnl == null && curPrice != null && entryPrice != null && entryPrice > 0) {
+            pnl = Math.round((curPrice - entryPrice) * 1000) / 1000;
+            pnlPct = Math.round(((curPrice - entryPrice) / entryPrice) * 10000) / 100;
+          }
           return {
             id: r.id,
             instrument: r.instrument,
             symbol,
             name,
-            entry_price: r.entry_price ? Number(r.entry_price) : null,
-            current_price: perf?.current_price ?? (r.current_price ? Number(r.current_price) : null),
-            pnl: perf?.pnl ?? null,
-            pnl_percent: perf?.pnl_percent ?? (r.pnl_percent ? Number(r.pnl_percent) : null),
+            entry_price: entryPrice,
+            current_price: curPrice,
+            pnl,
+            pnl_percent: pnlPct,
             quantity: r.quantity ?? 1,
             quantity_unit: r.quantity_unit || '張',
             status: r.status,
