@@ -146,6 +146,28 @@ const AdminPerformance = () => {
         });
       });
 
+      // 3. Fallback: 如果 user_performances 沒有資料，從 current_prices 撈最後報價
+      const symbolsWithoutPerf = (tradeData || [])
+        .map(r => r.instrument.split(' ')[0])
+        .filter(sym => !perfMap.has(sym));
+
+      if (symbolsWithoutPerf.length > 0) {
+        const { data: priceData } = await supabase
+          .from('current_prices')
+          .select('symbol, price')
+          .in('symbol', symbolsWithoutPerf);
+
+        (priceData || []).forEach(p => {
+          if (p.price != null) {
+            perfMap.set(p.symbol, {
+              current_price: Number(p.price),
+              pnl: null, // 會在下方根據 entry_price 計算
+              pnl_percent: null,
+            });
+          }
+        });
+      }
+
       setRows(
         (tradeData || []).map(r => {
           const parts = r.instrument.split(' ');
