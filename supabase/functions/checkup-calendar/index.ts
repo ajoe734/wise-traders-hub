@@ -24,14 +24,16 @@ async function callGeminiWithGrounding(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature, maxOutputTokens: 8192, responseMimeType: 'application/json' },
+          // NOTE: google_search grounding is INCOMPATIBLE with responseMimeType:'application/json'
+          // So we use free-text output and parse JSON from the response
+          generationConfig: { temperature, maxOutputTokens: 8192 },
           tools: [{ google_search: {} }],
         }),
       },
     );
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`Gemini ${model} failed (${response.status}):`, errText.slice(0, 800));
+      console.error(`Gemini ${model} grounding failed (${response.status}):`, errText.slice(0, 800));
       return { ok: false, text: errText, status: response.status, statusLabel: String(response.status) };
     }
     const data = await response.json();
@@ -47,7 +49,7 @@ async function callGeminiWithGrounding(
     }
     return { ok: true, text, status: 200, statusLabel: 'ok' };
   } catch (err) {
-    console.error(`Gemini ${model} exception:`, err);
+    console.error(`Gemini ${model} grounding exception:`, err);
     return { ok: false, text: String(err), status: 500, statusLabel: 'exception' };
   }
 }
