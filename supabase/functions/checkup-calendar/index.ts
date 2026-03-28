@@ -31,12 +31,10 @@ async function callGemini(apiKey: string, model: string, prompt: string, tempera
       return { ok: false, text: errText, status: response.status };
     }
     const data = await response.json();
-    // Grounding may return multiple parts; concatenate all text parts
+    // Grounding may return multiple parts with duplicated content; take only the first text part
     const parts = data.candidates?.[0]?.content?.parts || [];
-    const text = parts
-      .filter((p: any) => p.text)
-      .map((p: any) => p.text)
-      .join('');
+    const firstTextPart = parts.find((p: any) => p.text);
+    const text = firstTextPart?.text?.trim() || '';
     if (!text) {
       console.error(`Gemini ${model} returned empty content`, JSON.stringify(data).slice(0, 500));
       return { ok: false, text: '', status: 200 };
