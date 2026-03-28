@@ -840,10 +840,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       setHoldings(prev => (prev || []).map(h => {
         const pm = priceMap[h.code];
         if (!pm) return h;
-        const newValue = Math.round(pm.price * h.qty);
-        const newPnl = Math.round((pm.price - h.cost) * h.qty);
-        const newPct = Math.round((pm.price / h.cost - 1) * 10000) / 100;
-        return { ...h, price: pm.price, value: newValue, pnl: newPnl, pct: newPct };
+        const { value, pnl, pct } = calcPnlWithNet(h, pm.price);
+        return { ...h, price: pm.price, value, pnl, pct };
       }));
 
       setLastUpdate(new Date());
