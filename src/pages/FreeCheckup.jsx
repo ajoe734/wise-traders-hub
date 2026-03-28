@@ -494,11 +494,27 @@ export default function App() {
       if (data.msgArray && data.msgArray.length > 0) {
         const priceMap = {};
         data.msgArray.forEach(item => {
-          // z = 盤中成交價 或 盤後由 edge function 補入的 EOD 收盤價
-          const price = parseFloat(item.z);
-          if (!isNaN(price) && price > 0 && !priceMap[item.c]) {
-            priceMap[item.c] = price;
+          if (!item.c || priceMap[item.c]) return;
+
+          const z = parseFloat(item.z);
+          const h = parseFloat(item.h);
+          const vol = parseInt(item.v, 10) || 0;
+          const bestAsk = item.a ? parseFloat(item.a.split('_')[0]) : NaN;
+          const yClose = parseFloat(item.y);
+
+          // 4 層瀑布邏輯（對齊富貴角）
+          let price = null;
+          if (!isNaN(z) && z > 0) {
+            price = z;                                       // 1. 最新成交價
+          } else if (vol > 0 && !isNaN(h) && h > 0) {
+            price = h;                                       // 2. 有成交但 z 被清空，用最高價
+          } else if (!isNaN(bestAsk) && bestAsk > 0) {
+            price = bestAsk;                                 // 3. 沒成交，用造市商賣一價
+          } else if (!isNaN(yClose) && yClose > 0) {
+            price = yClose;                                  // 4. 什麼都沒有，用昨收
           }
+
+          if (price) priceMap[item.c] = price;
         });
 
         setHoldings(prev => (prev || []).map(h => {
