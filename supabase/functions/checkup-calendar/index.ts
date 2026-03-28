@@ -29,7 +29,8 @@ async function callGemini(apiKey: string, model: string, prompt: string, tempera
       return { ok: false, text: errText, status: response.status };
     }
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const text = parts.map((p: any) => p.text ?? '').join('').trim();
     if (!text) {
       console.error(`Gemini ${model} returned empty content`, JSON.stringify(data).slice(0, 500));
       return { ok: false, text: '', status: 200 };
@@ -133,7 +134,7 @@ Deno.serve(async (req) => {
     }
 
     // Fallback: try lite model
-    const fallbackModel = 'gemini-2.0-flash-lite';
+    const fallbackModel = 'gemini-2.5-flash-lite';
     console.log(`Calendar: fallback to ${fallbackModel}`);
     const fallback = await callGemini(apiKey, fallbackModel, prompt, 0.3);
 
