@@ -11,18 +11,21 @@ const MODELS = [
   'gemini-2.0-flash-lite',
 ];
 
-async function callGemini(apiKey: string, model: string, prompt: string, temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
+async function callGemini(apiKey: string, model: string, prompt: string, temperature: number, useGrounding = false): Promise<{ ok: boolean; text: string; status: number }> {
   try {
+    const body: any = {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature, maxOutputTokens: 8192 },
+    };
+    if (useGrounding) {
+      body.tools = [{ google_search: {} }];
+    }
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          tools: [{ google_search: {} }],
-          generationConfig: { temperature, maxOutputTokens: 4096 },
-        }),
+        body: JSON.stringify(body),
       }
     );
     if (!response.ok) {
@@ -31,10 +34,13 @@ async function callGemini(apiKey: string, model: string, prompt: string, tempera
       return { ok: false, text: errText, status: response.status };
     }
     const data = await response.json();
-    // Grounding may return multiple parts with duplicated content; take only the first text part
     const parts = data.candidates?.[0]?.content?.parts || [];
-    const firstTextPart = parts.find((p: any) => p.text);
-    const text = firstTextPart?.text?.trim() || '';
+    // Concatenate all text parts
+    const text = parts
+      .filter((p: any) => typeof p?.text === 'string')
+      .map((p: any) => p.text)
+      .join('\n')
+      .trim();
     if (!text) {
       console.error(`Gemini ${model} returned empty content`, JSON.stringify(data).slice(0, 500));
       return { ok: false, text: '', status: 200 };
