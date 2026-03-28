@@ -11,18 +11,21 @@ const MODELS = [
   'gemini-2.0-flash-lite',
 ];
 
-async function callGemini(apiKey: string, model: string, prompt: string, temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
+async function callGemini(apiKey: string, model: string, prompt: string, temperature: number, useGrounding = false): Promise<{ ok: boolean; text: string; status: number }> {
   try {
+    const body: any = {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature, maxOutputTokens: 8192 },
+    };
+    if (useGrounding) {
+      body.tools = [{ google_search: {} }];
+    }
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          tools: [{ google_search: {} }],
-          generationConfig: { temperature, maxOutputTokens: 4096 },
-        }),
+        body: JSON.stringify(body),
       }
     );
     if (!response.ok) {
@@ -31,10 +34,13 @@ async function callGemini(apiKey: string, model: string, prompt: string, tempera
       return { ok: false, text: errText, status: response.status };
     }
     const data = await response.json();
-    // Grounding may return multiple parts with duplicated content; take only the first text part
     const parts = data.candidates?.[0]?.content?.parts || [];
-    const firstTextPart = parts.find((p: any) => p.text);
-    const text = firstTextPart?.text?.trim() || '';
+    // Concatenate all text parts
+    const text = parts
+      .filter((p: any) => typeof p?.text === 'string')
+      .map((p: any) => p.text)
+      .join('\n')
+      .trim();
     if (!text) {
       console.error(`Gemini ${model} returned empty content`, JSON.stringify(data).slice(0, 500));
       return { ok: false, text: '', status: 200 };
@@ -165,32 +171,61 @@ Deno.serve(async (req) => {
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
     const errors: string[] = [];
+    const model = MODELS[0]; // Use primary model
+    console.log(`Calendar: Step 1 - searching with grounding (${model})`);
 
-    for (let i = 0; i < MODELS.length; i++) {
-      const model = MODELS[i];
-      console.log(`Calendar: trying Gemini ${model} (${i + 1}/${MODELS.length})`);
+    // Step 1: Use grounding to search for real-time info
+    const searchPrompt = `針對以下台股持倉標的，搜尋「${today} 的隔天起到 ${endDate}」之間的重要事件：\n\n持倉標的：${stocks}\n\n請搜尋以下類型事件：營收公布日、財報公布日、法說會、除息日、總經事件（央行、FOMC、CPI）、催化事件（展覽、新品）、權證到期日、股東會等。\n\n列出所有找到的事件，包含日期和細節。`;
+    
+    const searchResult = await callGemini(apiKey, model, searchPrompt, 0.3, true);
+    
+    let searchContext = '';
+    if (searchResult.ok && searchResult.text) {
+      searchContext = searchResult.text;
+      console.log(`Calendar: Step 1 succeeded, got ${searchContext.length} chars of search results`);
+    } else {
+      console.log(`Calendar: Step 1 failed (${searchResult.status}), proceeding without grounding`);
+      if (searchResult.status === 429) {
+        errors.push(`${model}-search(429)`);
+      }
+    }
 
-      const result = await callGemini(apiKey, model, prompt, 0.4);
+    // Step 2: Format into JSON (without grounding)
+    const formatPrompt = searchContext
+      ? `根據以下搜尋結果，整理出台股持倉標的的未來事件行事曆。\n\n搜尋結果：\n${searchContext}\n\n持倉標的：${stocks}\n今天日期：${today}\n\n${outputFormat}\n\n# 重要規則\n- 只輸出純 JSON 陣列，不要任何其他文字\n- 不要包含今天(${today})或過去的事件\n- 按日期由近到遠排序\n- 每檔標的至少列出月營收公布日\n- 嚴禁幻覺：若搜尋結果中無具體資訊，就根據一般規則（如月營收次月10日前公布）列出`
+      : prompt;
 
-      if (result.ok && result.text) {
-        const check = hasValidEvents(result.text);
+    console.log(`Calendar: Step 2 - formatting JSON (${model})`);
+    const formatResult = await callGemini(apiKey, model, formatPrompt, 0.2, false);
+
+    if (formatResult.ok && formatResult.text) {
+      const check = hasValidEvents(formatResult.text);
+      if (check.valid) {
+        console.log(`Calendar: succeeded with ${model}`);
+        return new Response(JSON.stringify({ text: check.cleaned, response: check.cleaned }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      console.error(`Calendar: ${model} Step 2 failed JSON parse. First 500 chars:`, formatResult.text.slice(0, 500));
+      errors.push(`${model}(format-fail)`);
+    } else {
+      errors.push(`${model}(${formatResult.status})`);
+    }
+
+    // Fallback: try without grounding at all
+    if (errors.length > 0) {
+      console.log(`Calendar: Fallback - trying ${model} without grounding`);
+      const fallbackResult = await callGemini(apiKey, model, prompt, 0.4, false);
+      if (fallbackResult.ok && fallbackResult.text) {
+        const check = hasValidEvents(fallbackResult.text);
         if (check.valid) {
-          console.log(`Calendar: Gemini ${model} succeeded`);
+          console.log(`Calendar: fallback succeeded`);
           return new Response(JSON.stringify({ text: check.cleaned, response: check.cleaned }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        console.error(`Calendar: ${model} returned text but failed JSON parse. First 500 chars:`, result.text.slice(0, 500));
-        errors.push(`${model}(empty)`);
-        continue;
+        console.error(`Calendar: fallback failed JSON parse. First 300 chars:`, fallbackResult.text.slice(0, 300));
       }
-
-      if (result.status === 429) {
-        errors.push(`${model}(429)`);
-        continue;
-      }
-
-      errors.push(`${model}(${result.status})`);
     }
 
     return new Response(JSON.stringify({
