@@ -60,9 +60,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+  const apiKey = Deno.env.get('GEMINI_ANALYSIS_API_KEY');
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'GOOGLE_GEMINI_API_KEY is not configured' }), {
+    return new Response(JSON.stringify({ error: 'GEMINI_ANALYSIS_API_KEY is not configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
