@@ -11,7 +11,7 @@ const MODELS = [
   'gemini-2.0-flash-lite',
 ];
 
-async function callGemini(apiKey: string, model: string, prompt: string, temperature: number, useGrounding = false): Promise<{ ok: boolean; text: string; status: number }> {
+async function callGemini(apiKey: string, model: string, prompt: string, temperature: number, useGrounding = false, forceJson = false): Promise<{ ok: boolean; text: string; status: number }> {
   try {
     const body: any = {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
