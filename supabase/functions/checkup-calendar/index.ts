@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
       : prompt;
 
     console.log(`Calendar: Step 2 - formatting JSON (${model})`);
-    const formatResult = await callGemini(apiKey, model, formatPrompt, 0.2, false);
+    const formatResult = await callGemini(apiKey, model, formatPrompt, 0.2, false, true);
 
     if (formatResult.ok && formatResult.text) {
       const check = hasValidEvents(formatResult.text);
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
     // Fallback: try without grounding at all
     if (errors.length > 0) {
       console.log(`Calendar: Fallback - trying ${model} without grounding`);
-      const fallbackResult = await callGemini(apiKey, model, prompt, 0.4, false);
+      const fallbackResult = await callGemini(apiKey, model, prompt, 0.4, false, true);
       if (fallbackResult.ok && fallbackResult.text) {
         const check = hasValidEvents(fallbackResult.text);
         if (check.valid) {
