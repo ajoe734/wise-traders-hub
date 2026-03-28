@@ -7,36 +7,62 @@ const corsHeaders = {
 };
 
 const MODELS = [
-  'google/gemini-2.5-flash',
-  'google/gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
 ];
 
-async function callLovableAI(apiKey: string, model: string, messages: any[]): Promise<{ ok: boolean; text: string; status: number }> {
+async function callGemini(apiKey: string, model: string, messages: any[]): Promise<{ ok: boolean; text: string; status: number }> {
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 4096 }),
+    const contents = messages.map((m: any) => {
+      if (m.role === 'system') {
+        return { role: 'user', parts: [{ text: m.content }] };
+      }
+      if (typeof m.content === 'string') {
+        return { role: 'user', parts: [{ text: m.content }] };
+      }
+      // multimodal content (image + text)
+      const parts: any[] = [];
+      for (const item of m.content) {
+        if (item.type === 'text') {
+          parts.push({ text: item.text });
+        } else if (item.type === 'image_url') {
+          const url = item.image_url.url;
+          const match = url.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
+          }
+        }
+      }
+      return { role: 'user', parts };
     });
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`Lovable AI ${model} failed (${response.status}):`, errText);
+      console.error(`Gemini ${model} failed (${response.status}):`, errText);
       return { ok: false, text: errText, status: response.status };
     }
 
     const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!text) {
-      console.error(`Lovable AI ${model} returned empty content`);
+      console.error(`Gemini ${model} returned empty content`);
       return { ok: false, text: '', status: 200 };
     }
     return { ok: true, text, status: 200 };
   } catch (err) {
-    console.error(`Lovable AI ${model} exception:`, err);
+    console.error(`Gemini ${model} exception:`, err);
     return { ok: false, text: String(err), status: 500 };
   }
 }
@@ -52,9 +78,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  const apiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY is not configured' }), {
+    return new Response(JSON.stringify({ error: 'GOOGLE_GEMINI_API_KEY is not configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -81,23 +107,20 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < MODELS.length; i++) {
       const model = MODELS[i];
-      console.log(`Trying Lovable AI ${model} (${i + 1}/${MODELS.length})`);
+      console.log(`Trying Gemini ${model} (${i + 1}/${MODELS.length})`);
 
-      const result = await callLovableAI(apiKey, model, messages);
+      const result = await callGemini(apiKey, model, messages);
 
       if (result.ok) {
-        console.log(`Lovable AI ${model} succeeded`);
+        console.log(`Gemini ${model} succeeded`);
         return new Response(JSON.stringify({ content: [{ text: result.text }] }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // Don't retry if rate limited (402/429)
-      if (result.status === 402 || result.status === 429) {
-        console.log(`Lovable AI rate limited (${result.status}), stopping`);
-        return new Response(JSON.stringify({ error: 'AI 額度已用完，請稍後再試' }), {
-          status: result.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      if (result.status === 429) {
+        console.log(`Gemini rate limited (${result.status}), trying next model`);
+        continue;
       }
     }
 

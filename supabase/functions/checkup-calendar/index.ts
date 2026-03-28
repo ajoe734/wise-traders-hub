@@ -7,44 +7,37 @@ const corsHeaders = {
 };
 
 const MODELS = [
-  'google/gemini-2.5-flash',
-  'google/gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
 ];
 
-async function callLovableAI(
-  apiKey: string,
-  model: string,
-  prompt: string,
-  temperature: number,
-): Promise<{ ok: boolean; text: string; status: number }> {
+async function callGemini(apiKey: string, model: string, prompt: string, temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature,
-        max_tokens: 4096,
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature, maxOutputTokens: 4096 },
+        }),
+      }
+    );
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`Lovable AI ${model} failed (${response.status}):`, errText);
+      console.error(`Gemini ${model} failed (${response.status}):`, errText);
       return { ok: false, text: errText, status: response.status };
     }
     const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!text) {
-      console.error(`Lovable AI ${model} returned empty content`);
+      console.error(`Gemini ${model} returned empty content`);
       return { ok: false, text: '', status: 200 };
     }
     return { ok: true, text, status: 200 };
   } catch (err) {
-    console.error(`Lovable AI ${model} exception:`, err);
+    console.error(`Gemini ${model} exception:`, err);
     return { ok: false, text: String(err), status: 500 };
   }
 }
@@ -120,9 +113,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  const apiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY is not configured' }), {
+    return new Response(JSON.stringify({ error: 'GOOGLE_GEMINI_API_KEY is not configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -153,13 +146,13 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < MODELS.length; i++) {
       const model = MODELS[i];
-      console.log(`Calendar: trying Lovable AI ${model} (${i + 1}/${MODELS.length})`);
+      console.log(`Calendar: trying Gemini ${model} (${i + 1}/${MODELS.length})`);
 
-      const result = await callLovableAI(apiKey, model, prompt, 0.4);
+      const result = await callGemini(apiKey, model, prompt, 0.4);
 
       if (result.ok && result.text) {
         if (hasValidEvents(result.text)) {
-          console.log(`Calendar: Lovable AI ${model} succeeded`);
+          console.log(`Calendar: Gemini ${model} succeeded`);
           return new Response(JSON.stringify({ text: result.text, response: result.text }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
@@ -168,10 +161,9 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (result.status === 402 || result.status === 429) {
-        return new Response(JSON.stringify({ error: 'AI 額度已用完，請稍後再試' }), {
-          status: result.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      if (result.status === 429) {
+        errors.push(`${model}(429)`);
+        continue;
       }
 
       errors.push(`${model}(${result.status})`);
