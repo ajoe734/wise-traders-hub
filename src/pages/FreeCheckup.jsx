@@ -544,10 +544,8 @@ export default function App() {
         setHoldings(prev => (prev || []).map(h => {
           const newPrice = priceMap[h.code];
           if (newPrice == null) return h;
-          const newValue = Math.round(newPrice * h.qty);
-          const newPnl = Math.round((newPrice - h.cost) * h.qty);
-          const newPct = Math.round((newPrice / h.cost - 1) * 10000) / 100;
-          return { ...h, price: newPrice, value: newValue, pnl: newPnl, pct: newPct };
+          const { value, pnl, pct } = calcPnlWithNet(h, newPrice);
+          return { ...h, price: newPrice, value, pnl, pct };
         }));
 
         const updated = Object.keys(priceMap).length;
