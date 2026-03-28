@@ -38,9 +38,13 @@ async function callGemini(apiKey: string, model: string, messages: any[], temper
     }
 
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const text = parts
+      .filter((p: any) => p.text)
+      .map((p: any) => p.text)
+      .join('');
     if (!text) {
-      console.error(`Gemini ${model} returned empty content`);
+      console.error(`Gemini ${model} returned empty content`, JSON.stringify(data).slice(0, 500));
       return { ok: false, text: '', status: 200 };
     }
     return { ok: true, text, status: 200 };
