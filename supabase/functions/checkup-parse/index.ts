@@ -6,12 +6,45 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MODELS = [
-  "google/gemma-3-27b-it:free",
-  "stepfun/step-3.5-flash:free",
-];
+// Primary: Lovable AI Gateway (stable, has quota)
+// Fallback: OpenRouter free models
+const STRATEGIES = [
+  { type: 'lovable', model: 'google/gemini-2.5-flash' },
+  { type: 'lovable', model: 'google/gemini-2.5-flash-lite' },
+  { type: 'openrouter', model: 'google/gemma-3-27b-it:free' },
+] as const;
 
-async function tryModel(apiKey: string, model: string, messages: any[], temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
+async function tryLovableAI(apiKey: string, model: string, messages: any[]): Promise<{ ok: boolean; text: string; status: number }> {
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 4096 }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`Lovable AI ${model} failed (${response.status}):`, errText);
+      return { ok: false, text: errText, status: response.status };
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    if (!text) {
+      console.error(`Lovable AI ${model} returned empty content`);
+      return { ok: false, text: '', status: 200 };
+    }
+    return { ok: true, text, status: 200 };
+  } catch (err) {
+    console.error(`Lovable AI ${model} exception:`, err);
+    return { ok: false, text: String(err), status: 500 };
+  }
+}
+
+async function tryOpenRouter(apiKey: string, model: string, messages: any[]): Promise<{ ok: boolean; text: string; status: number }> {
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -21,24 +54,24 @@ async function tryModel(apiKey: string, model: string, messages: any[], temperat
         'HTTP-Referer': 'https://wise-traders-hub.lovable.app',
         'X-Title': 'WiseTraders Checkup',
       },
-      body: JSON.stringify({ model, messages, temperature }),
+      body: JSON.stringify({ model, messages, temperature: 0.1 }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`Model ${model} failed (${response.status}):`, errText);
+      console.error(`OpenRouter ${model} failed (${response.status}):`, errText);
       return { ok: false, text: errText, status: response.status };
     }
 
     const data = await response.json();
     const text = data.choices?.[0]?.message?.content || '';
     if (!text) {
-      console.error(`Model ${model} returned empty content`);
+      console.error(`OpenRouter ${model} returned empty content`);
       return { ok: false, text: '', status: 200 };
     }
     return { ok: true, text, status: 200 };
   } catch (err) {
-    console.error(`Model ${model} exception:`, err);
+    console.error(`OpenRouter ${model} exception:`, err);
     return { ok: false, text: String(err), status: 500 };
   }
 }
@@ -54,9 +87,11 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'OPENROUTER_API_KEY is not configured' }), {
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
+
+  if (!lovableKey && !openrouterKey) {
+    return new Response(JSON.stringify({ error: 'No AI API key configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -81,23 +116,38 @@ Deno.serve(async (req) => {
       ],
     });
 
-    // Try each model sequentially until one succeeds
-    for (let i = 0; i < MODELS.length; i++) {
-      const model = MODELS[i];
-      console.log(`Trying model ${i + 1}/${MODELS.length}: ${model}`);
-      const result = await tryModel(apiKey, model, messages, 0.1);
+    for (let i = 0; i < STRATEGIES.length; i++) {
+      const strategy = STRATEGIES[i];
+      console.log(`Trying ${strategy.type}/${strategy.model} (${i + 1}/${STRATEGIES.length})`);
+
+      let result: { ok: boolean; text: string; status: number };
+
+      if (strategy.type === 'lovable' && lovableKey) {
+        result = await tryLovableAI(lovableKey, strategy.model, messages);
+      } else if (strategy.type === 'openrouter' && openrouterKey) {
+        result = await tryOpenRouter(openrouterKey, strategy.model, messages);
+      } else {
+        console.log(`Skipping ${strategy.type}/${strategy.model} - no API key`);
+        continue;
+      }
 
       if (result.ok) {
-        console.log(`Model ${model} succeeded`);
+        console.log(`${strategy.type}/${strategy.model} succeeded`);
         return new Response(JSON.stringify({ content: [{ text: result.text }] }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      console.log(`Model ${model} failed (status ${result.status}), trying next...`);
+      // Don't retry if rate limited on Lovable (402/429)
+      if (strategy.type === 'lovable' && (result.status === 402 || result.status === 429)) {
+        console.log(`Lovable AI rate limited (${result.status}), skipping remaining Lovable models`);
+        // Skip to first non-lovable strategy
+        while (i + 1 < STRATEGIES.length && STRATEGIES[i + 1].type === 'lovable') {
+          i++;
+        }
+      }
     }
 
-    // All models failed
     return new Response(JSON.stringify({ error: 'AI 解析失敗，所有模型均無法使用' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
