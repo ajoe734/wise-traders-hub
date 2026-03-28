@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const MODELS = [
   'gemini-2.5-flash',
-  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
 ];
 
 async function callGemini(apiKey: string, model: string, messages: any[]): Promise<{ ok: boolean; text: string; status: number }> {
