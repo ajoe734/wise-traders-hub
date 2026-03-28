@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
     }
 
     // Fallback: try lite model
-    const fallbackModel = 'gemini-2.0-flash-lite';
+    const fallbackModel = 'gemini-2.5-flash-lite';
     console.log(`Calendar: fallback to ${fallbackModel}`);
     const fallback = await callGemini(apiKey, fallbackModel, prompt, 0.3);
 
