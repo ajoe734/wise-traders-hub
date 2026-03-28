@@ -1262,13 +1262,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         </div>
 
-        {/* today alert */}
-        {urgentCount>0 && (
+        {/* today alert - match calendar events by today's date */}
+        {todayEvents.length>0 && (
           <div style={{background:C.upBg,border:`1px solid ${C.up}44`,
             borderLeft:`3px solid ${C.up}`,
             borderRadius:8,padding:"8px 11px",marginBottom:12,
             fontSize:13,color:C.up,lineHeight:1.7,fontWeight:500}}>
-            今日 · {CE.filter(e=>e.urgent).map(e=>e.label).join(" · ")}
+            📅 今日 · {todayEvents.map(e=>e.label).join(" · ")}
           </div>
         )}
 
