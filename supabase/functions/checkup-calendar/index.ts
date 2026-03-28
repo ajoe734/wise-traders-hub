@@ -14,10 +14,7 @@ interface GeminiResult {
 }
 
 async function callGeminiWithGrounding(
-  apiKey: string,
-  model: string,
-  prompt: string,
-  temperature: number,
+  apiKey: string, model: string, prompt: string, temperature: number,
 ): Promise<GeminiResult> {
   try {
     const response = await fetch(
@@ -27,39 +24,27 @@ async function callGeminiWithGrounding(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature,
-            maxOutputTokens: 8192,
-            responseMimeType: 'application/json',
-          },
+          generationConfig: { temperature, maxOutputTokens: 8192, responseMimeType: 'application/json' },
           tools: [{ google_search: {} }],
         }),
       },
     );
-
     if (!response.ok) {
       const errText = await response.text();
       console.error(`Gemini ${model} failed (${response.status}):`, errText.slice(0, 800));
       return { ok: false, text: errText, status: response.status, statusLabel: String(response.status) };
     }
-
     const data = await response.json();
     const parts = data.candidates?.[0]?.content?.parts || [];
-    const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text);
-    const text = textParts.join('').trim();
-
-    // Log grounding metadata if present
+    const text = parts.filter((p: any) => p.text).map((p: any) => p.text).join('').trim();
     const groundingMeta = data.candidates?.[0]?.groundingMetadata;
     if (groundingMeta) {
-      const queries = groundingMeta.webSearchQueries || [];
-      console.log(`Grounding queries: ${JSON.stringify(queries)}`);
+      console.log(`Grounding queries: ${JSON.stringify(groundingMeta.webSearchQueries || [])}`);
     }
-
     if (!text) {
-      console.error(`Gemini ${model} returned empty content. Response snippet:`, JSON.stringify(data).slice(0, 600));
+      console.error(`Gemini ${model} returned empty. Snippet:`, JSON.stringify(data).slice(0, 600));
       return { ok: false, text: '', status: 200, statusLabel: 'empty' };
     }
-
     return { ok: true, text, status: 200, statusLabel: 'ok' };
   } catch (err) {
     console.error(`Gemini ${model} exception:`, err);
@@ -67,12 +52,8 @@ async function callGeminiWithGrounding(
   }
 }
 
-// Fallback without grounding (for models that don't support it or when grounding fails)
 async function callGeminiPlain(
-  apiKey: string,
-  model: string,
-  prompt: string,
-  temperature: number,
+  apiKey: string, model: string, prompt: string, temperature: number,
 ): Promise<GeminiResult> {
   try {
     const response = await fetch(
@@ -82,28 +63,18 @@ async function callGeminiPlain(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature,
-            maxOutputTokens: 8192,
-            responseMimeType: 'application/json',
-          },
+          generationConfig: { temperature, maxOutputTokens: 8192, responseMimeType: 'application/json' },
         }),
       },
     );
-
     if (!response.ok) {
       const errText = await response.text();
       console.error(`Gemini ${model} plain failed (${response.status}):`, errText.slice(0, 500));
       return { ok: false, text: errText, status: response.status, statusLabel: String(response.status) };
     }
-
     const data = await response.json();
-    const parts = data.candidates?.[0]?.content?.parts || [];
-    const text = parts.map((p: any) => p.text ?? '').join('').trim();
-
-    if (!text) {
-      return { ok: false, text: '', status: 200, statusLabel: 'empty' };
-    }
+    const text = (data.candidates?.[0]?.content?.parts || []).map((p: any) => p.text ?? '').join('').trim();
+    if (!text) return { ok: false, text: '', status: 200, statusLabel: 'empty' };
     return { ok: true, text, status: 200, statusLabel: 'ok' };
   } catch (err) {
     console.error(`Gemini ${model} plain exception:`, err);
@@ -111,14 +82,45 @@ async function callGeminiPlain(
   }
 }
 
+async function callLovableAI(apiKey: string, prompt: string): Promise<{ ok: boolean; text: string }> {
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: '你是台股財經分析師，只輸出 JSON 陣列，不輸出其他文字。' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 8192,
+      }),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`Lovable AI failed (${response.status}):`, errText.slice(0, 500));
+      return { ok: false, text: errText };
+    }
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    if (!text) { console.error('Lovable AI returned empty'); return { ok: false, text: '' }; }
+    return { ok: true, text };
+  } catch (err) {
+    console.error('Lovable AI exception:', err);
+    return { ok: false, text: String(err) };
+  }
+}
+
 function tryParseEvents(text: string): any[] | null {
   try {
-    // Try direct parse
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     return null;
   } catch {
-    // Try extracting JSON array from text
     const match = text.match(/\[[\s\S]*\]/);
     if (match) {
       try {
@@ -174,8 +176,10 @@ Deno.serve(async (req) => {
   }
 
   const apiKey = Deno.env.get('GEMINI_ANALYSIS_API_KEY');
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'GEMINI_ANALYSIS_API_KEY is not configured' }), {
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+
+  if (!apiKey && !lovableKey) {
+    return new Response(JSON.stringify({ error: 'No AI API key configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -202,58 +206,67 @@ Deno.serve(async (req) => {
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
 
-    // Strategy 1: gemini-2.5-flash with Google Search grounding (single call)
-    const model = 'gemini-2.5-flash';
-    console.log(`Calendar: calling ${model} WITH grounding + responseMimeType=application/json`);
-    const result = await callGeminiWithGrounding(apiKey, model, prompt, 0.3);
+    // Strategy 1: gemini-2.5-flash with Google Search grounding
+    if (apiKey) {
+      const model = 'gemini-2.5-flash';
+      console.log(`Calendar: calling ${model} WITH grounding`);
+      const result = await callGeminiWithGrounding(apiKey, model, prompt, 0.3);
 
-    if (result.ok && result.text) {
-      const events = tryParseEvents(result.text);
-      if (events) {
-        const cleaned = JSON.stringify(events);
-        console.log(`Calendar: grounding succeeded, ${events.length} events`);
-        return new Response(JSON.stringify({ text: cleaned, response: cleaned }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      if (result.ok && result.text) {
+        const events = tryParseEvents(result.text);
+        if (events) {
+          console.log(`Calendar: grounding succeeded, ${events.length} events`);
+          return new Response(JSON.stringify({ text: JSON.stringify(events), response: JSON.stringify(events) }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        console.error(`Calendar: grounding parse failed. First 500:`, result.text.slice(0, 500));
       }
-      console.error(`Calendar: grounding returned text but parse failed. First 500 chars:`, result.text.slice(0, 500));
-    }
 
-    // Strategy 2: same model without grounding (in case grounding caused issues)
-    console.log(`Calendar: fallback to ${model} WITHOUT grounding`);
-    const fallback1 = await callGeminiPlain(apiKey, model, prompt, 0.3);
-
-    if (fallback1.ok && fallback1.text) {
-      const events = tryParseEvents(fallback1.text);
-      if (events) {
-        const cleaned = JSON.stringify(events);
-        console.log(`Calendar: plain ${model} succeeded, ${events.length} events`);
-        return new Response(JSON.stringify({ text: cleaned, response: cleaned }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      // Strategy 2: without grounding
+      console.log(`Calendar: fallback to ${model} WITHOUT grounding`);
+      const fallback1 = await callGeminiPlain(apiKey, model, prompt, 0.3);
+      if (fallback1.ok && fallback1.text) {
+        const events = tryParseEvents(fallback1.text);
+        if (events) {
+          console.log(`Calendar: plain ${model} succeeded, ${events.length} events`);
+          return new Response(JSON.stringify({ text: JSON.stringify(events), response: JSON.stringify(events) }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       }
-    }
 
-    // Strategy 3: lite model without grounding
-    const liteModel = 'gemini-2.5-flash-lite';
-    console.log(`Calendar: fallback to ${liteModel}`);
-    const fallback2 = await callGeminiPlain(apiKey, liteModel, prompt, 0.3);
-
-    if (fallback2.ok && fallback2.text) {
-      const events = tryParseEvents(fallback2.text);
-      if (events) {
-        const cleaned = JSON.stringify(events);
-        console.log(`Calendar: ${liteModel} succeeded, ${events.length} events`);
-        return new Response(JSON.stringify({ text: cleaned, response: cleaned }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      // Strategy 3: lite model
+      const liteModel = 'gemini-2.5-flash-lite';
+      console.log(`Calendar: fallback to ${liteModel}`);
+      const fallback2 = await callGeminiPlain(apiKey, liteModel, prompt, 0.3);
+      if (fallback2.ok && fallback2.text) {
+        const events = tryParseEvents(fallback2.text);
+        if (events) {
+          console.log(`Calendar: ${liteModel} succeeded, ${events.length} events`);
+          return new Response(JSON.stringify({ text: JSON.stringify(events), response: JSON.stringify(events) }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       }
     }
 
-    return new Response(JSON.stringify({
-      error: '行事曆產生失敗，所有模型均無法使用',
-      detail: `${model}+grounding(${result.statusLabel}), ${model}(${fallback1.statusLabel}), ${liteModel}(${fallback2.statusLabel})`,
-    }), {
+    // Strategy 4: Lovable AI Gateway fallback
+    if (lovableKey) {
+      console.log('Calendar: all Gemini failed, falling back to Lovable AI Gateway');
+      const lovResult = await callLovableAI(lovableKey, prompt);
+      if (lovResult.ok && lovResult.text) {
+        const events = tryParseEvents(lovResult.text);
+        if (events) {
+          console.log(`Calendar: Lovable AI succeeded, ${events.length} events`);
+          return new Response(JSON.stringify({ text: JSON.stringify(events), response: JSON.stringify(events) }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ error: '行事曆產生失敗，所有模型均無法使用' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
