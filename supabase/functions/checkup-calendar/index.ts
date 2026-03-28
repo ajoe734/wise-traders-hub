@@ -95,18 +95,20 @@ ${outputFormat}`;
 }
 
 function extractJsonArray(text: string): string | null {
-  let jsonStr = text.trim();
-  // Remove markdown code block wrapper
-  if (jsonStr.startsWith('```')) {
-    jsonStr = jsonStr.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+  // Strip markdown fences
+  let clean = text.replace(/^```json\s*|^```\s*|```$/gim, '').trim();
+  // Find the first '[' and match brackets to find the end
+  const start = clean.indexOf('[');
+  if (start < 0) return null;
+  let depth = 0;
+  let end = -1;
+  for (let i = start; i < clean.length; i++) {
+    if (clean[i] === '[') depth++;
+    if (clean[i] === ']') depth--;
+    if (depth === 0) { end = i; break; }
   }
-  // Try to find JSON array in the text (grounding may add text before/after)
-  const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
-  if (!arrayMatch) return null;
-  jsonStr = arrayMatch[0];
-  // Remove grounding citation markers like [1], [2] etc. inside strings
-  jsonStr = jsonStr.replace(/\[(\d+)\]/g, '');
-  return jsonStr;
+  if (end < 0) return null;
+  return clean.slice(start, end + 1);
 }
 
 function hasValidEvents(text: string): { valid: boolean; cleaned: string } {
