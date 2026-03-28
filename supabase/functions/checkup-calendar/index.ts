@@ -11,11 +11,15 @@ const MODELS = [
   'gemini-2.0-flash-lite',
 ];
 
-async function callGemini(apiKey: string, model: string, prompt: string, temperature: number, useGrounding = false): Promise<{ ok: boolean; text: string; status: number }> {
+async function callGemini(apiKey: string, model: string, prompt: string, temperature: number, useGrounding = false, forceJson = false): Promise<{ ok: boolean; text: string; status: number }> {
   try {
     const body: any = {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature, maxOutputTokens: 8192 },
+      generationConfig: {
+        temperature,
+        maxOutputTokens: 8192,
+        ...(forceJson ? { responseMimeType: 'application/json' } : {}),
+      },
     };
     if (useGrounding) {
       body.tools = [{ google_search: {} }];
@@ -196,7 +200,7 @@ Deno.serve(async (req) => {
       : prompt;
 
     console.log(`Calendar: Step 2 - formatting JSON (${model})`);
-    const formatResult = await callGemini(apiKey, model, formatPrompt, 0.2, false);
+    const formatResult = await callGemini(apiKey, model, formatPrompt, 0.2, false, true);
 
     if (formatResult.ok && formatResult.text) {
       const check = hasValidEvents(formatResult.text);
@@ -215,7 +219,7 @@ Deno.serve(async (req) => {
     // Fallback: try without grounding at all
     if (errors.length > 0) {
       console.log(`Calendar: Fallback - trying ${model} without grounding`);
-      const fallbackResult = await callGemini(apiKey, model, prompt, 0.4, false);
+      const fallbackResult = await callGemini(apiKey, model, prompt, 0.4, false, true);
       if (fallbackResult.ok && fallbackResult.text) {
         const check = hasValidEvents(fallbackResult.text);
         if (check.valid) {
