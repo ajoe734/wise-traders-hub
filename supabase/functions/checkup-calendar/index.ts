@@ -173,12 +173,14 @@ Deno.serve(async (req) => {
       const result = await callGemini(apiKey, model, prompt, 0.4);
 
       if (result.ok && result.text) {
-        if (hasValidEvents(result.text)) {
+        const check = hasValidEvents(result.text);
+        if (check.valid) {
           console.log(`Calendar: Gemini ${model} succeeded`);
-          return new Response(JSON.stringify({ text: result.text, response: result.text }), {
+          return new Response(JSON.stringify({ text: check.cleaned, response: check.cleaned }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+        console.error(`Calendar: ${model} returned text but failed JSON parse. First 500 chars:`, result.text.slice(0, 500));
         errors.push(`${model}(empty)`);
         continue;
       }
