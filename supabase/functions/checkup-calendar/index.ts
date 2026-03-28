@@ -96,16 +96,32 @@ function buildPrompt(stocks: string, today: string, endDate: string, outputForma
 ${outputFormat}`;
 }
 
-function hasValidEvents(text: string): boolean {
+function extractJsonArray(text: string): string | null {
+  let jsonStr = text.trim();
+  // Remove markdown code block wrapper
+  if (jsonStr.startsWith('```')) {
+    jsonStr = jsonStr.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+  }
+  // Try to find JSON array in the text (grounding may add text before/after)
+  const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+  if (!arrayMatch) return null;
+  jsonStr = arrayMatch[0];
+  // Remove grounding citation markers like [1], [2] etc. inside strings
+  jsonStr = jsonStr.replace(/\[(\d+)\]/g, '');
+  return jsonStr;
+}
+
+function hasValidEvents(text: string): { valid: boolean; cleaned: string } {
   try {
-    let jsonStr = text.trim();
-    if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
-    }
+    const jsonStr = extractJsonArray(text);
+    if (!jsonStr) return { valid: false, cleaned: '' };
     const parsed = JSON.parse(jsonStr);
-    return Array.isArray(parsed) && parsed.length > 0;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return { valid: true, cleaned: jsonStr };
+    }
+    return { valid: false, cleaned: jsonStr };
   } catch {
-    return false;
+    return { valid: false, cleaned: '' };
   }
 }
 
