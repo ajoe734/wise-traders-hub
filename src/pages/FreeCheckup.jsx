@@ -931,6 +931,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     const name = String(trade?.name || "").trim();
     const qty = Number(trade?.qty) || 0;
     const price = Number(trade?.price) || 0;
+    const tradeTotalCost = trade?.total_cost != null ? Number(trade.total_cost) : null;
+    const tradeFee = trade?.fee != null ? Number(trade.fee) : null;
 
     if (!code || qty <= 0 || price <= 0) return holdingsList;
 
@@ -944,29 +946,39 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         const h = arr[idx];
         const nq = h.qty + qty;
         const nc = (h.cost * h.qty + price * qty) / nq;
-        const mp = mktPrice || h.price; // 優先用新的市價
+        const mp = mktPrice || h.price;
+        // 合併 totalCost 和 fee
+        const newTotalCost = (h.totalCost != null && tradeTotalCost != null)
+          ? h.totalCost + tradeTotalCost
+          : (tradeTotalCost != null ? tradeTotalCost : h.totalCost);
+        const newFee = (h.fee != null && tradeFee != null)
+          ? h.fee + tradeFee
+          : (tradeFee != null ? tradeFee : h.fee);
+        const { value, pnl, pct } = calcPnlWithNet(
+          { ...h, qty: nq, cost: nc, totalCost: newTotalCost, fee: newFee, code },
+          mp
+        );
         arr[idx] = {
           ...h,
           name: h.name || name,
           qty: nq,
           price: mp,
           cost: Math.round(nc * 100) / 100,
-          value: mp * nq,
-          pnl: Math.round((mp - nc) * nq),
-          pct: Math.round((mp / nc - 1) * 10000) / 100,
+          totalCost: newTotalCost,
+          fee: newFee,
+          value, pnl, pct,
         };
       } else {
-        arr.push({
-          code,
-          name,
-          qty,
+        const newH = {
+          code, name, qty,
           price: mktPrice,
           cost: price,
-          value: mktPrice * qty,
-          pnl: Math.round((mktPrice - price) * qty),
-          pct: Math.round((mktPrice / price - 1) * 10000) / 100,
+          totalCost: tradeTotalCost,
+          fee: tradeFee,
           type: "股票",
-        });
+        };
+        const { value, pnl, pct } = calcPnlWithNet(newH, mktPrice);
+        arr.push({ ...newH, value, pnl, pct });
       }
       return arr;
     }
@@ -978,13 +990,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         arr.splice(idx, 1);
       } else {
         const mp = mktPrice || h.price;
+        // 賣出時按比例縮減 totalCost 和 fee
+        const ratio = nq / h.qty;
+        const newTotalCost = h.totalCost != null ? Math.round(h.totalCost * ratio) : null;
+        const newFee = h.fee != null ? Math.round(h.fee * ratio) : null;
+        const { value, pnl, pct } = calcPnlWithNet(
+          { ...h, qty: nq, totalCost: newTotalCost, fee: newFee, code: h.code },
+          mp
+        );
         arr[idx] = {
-          ...h,
-          qty: nq,
-          price: mp,
-          value: mp * nq,
-          pnl: Math.round((mp - h.cost) * nq),
-          pct: Math.round((mp / h.cost - 1) * 10000) / 100,
+          ...h, qty: nq, price: mp, totalCost: newTotalCost, fee: newFee,
+          value, pnl, pct,
         };
       }
     }
