@@ -141,7 +141,7 @@ function buildPrompt(stocks: string, today: string, endDate: string, outputForma
 
 持倉標的：${stocks}
 
-# 事件類別（8 大類，每一類都要盡量列出）
+# 事件類別（8 大類，每一類都要盡力搜尋並列出）
 1. **營收**：每月營收公布（次月10日前）— 根據規則推算即可
 2. **財報**：季度財報公布截止日 — 根據規則推算即可
 3. **法說**：法說會、業績發表會、線上法說 — 請搜尋各公司近期法說會排程
@@ -155,9 +155,8 @@ function buildPrompt(stocks: string, today: string, endDate: string, outputForma
 - 請積極搜尋每檔標的的最新法說會、除息、股東會等日程
 - 權證標的：同時列出其母股（標的股）的重要事件，標明影響哪檔權證
 - 每檔標的至少列出月營收和季度財報相關事件
-- 搜尋不到具體日期的動態事件，可以省略，但可推算的事件（營收、財報截止日）必須列出
+- **即使搜尋不到精確日期，也必須列出事件**，date 欄位可用模糊表達（見下方格式說明）
 - 不要包含今天(${today})或過去的事件
-- 日期格式必須是 YYYY/MM/DD
 
 # Output Format
 ${outputFormat}
@@ -195,14 +194,14 @@ Deno.serve(async (req) => {
     }
 
     const outputFormat = `JSON陣列，每個元素格式：
-{"date":"YYYY/MM/DD","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期","sources":[]}
+{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期","sources":[]}
 
 規則：
 - sources 給空陣列 []
-- date 必須用 YYYY/MM/DD 格式
-- urgent=true 僅限未來一週內的事件
+- date 欄位：如果有精確日期，用 YYYY/MM/DD 格式；如果只知道月份，用「2025/07月」；如果只知道季度，用「2025 Q2」；如果尚未公布，用「尚未公布」或「待確認」。總之不要因為日期不精確就省略事件。
+- urgent=true 僅限未來一週內的事件（模糊日期的事件 urgent=false）
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
-- 按日期由近到遠排序`;
+- 按日期由近到遠排序，模糊日期的排在精確日期之後`;
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
 
