@@ -477,7 +477,10 @@ export default function App() {
   const retPct    = totalCost>0 ? totalPnl/totalCost*100 : 0;
   const holdingCodes = new Set(H.map(h => h.code));
   const CE = Array.isArray(calendarEvents) ? calendarEvents : [];
-  const urgentCount = CE.filter(e=>e.urgent).length;
+  // Match today's date against calendar events (YYYY/MM/DD format)
+  const todayStr = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
+  const todayEvents = CE.filter(e => e.date === todayStr);
+  const urgentCount = todayEvents.length;
 
   const sorted = [...H].sort((a,b)=>{
     if(sortBy==="value") return b.value-a.value;
@@ -1259,13 +1262,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         </div>
 
-        {/* today alert */}
-        {urgentCount>0 && (
+        {/* today alert - match calendar events by today's date */}
+        {todayEvents.length>0 && (
           <div style={{background:C.upBg,border:`1px solid ${C.up}44`,
             borderLeft:`3px solid ${C.up}`,
             borderRadius:8,padding:"8px 11px",marginBottom:12,
             fontSize:13,color:C.up,lineHeight:1.7,fontWeight:500}}>
-            今日 · {CE.filter(e=>e.urgent).map(e=>e.label).join(" · ")}
+            📅 今日 · {todayEvents.map(e=>e.label).join(" · ")}
           </div>
         )}
 
