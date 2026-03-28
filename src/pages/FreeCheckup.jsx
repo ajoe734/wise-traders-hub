@@ -477,7 +477,10 @@ export default function App() {
   const retPct    = totalCost>0 ? totalPnl/totalCost*100 : 0;
   const holdingCodes = new Set(H.map(h => h.code));
   const CE = Array.isArray(calendarEvents) ? calendarEvents : [];
-  const urgentCount = CE.filter(e=>e.urgent).length;
+  // Match today's date against calendar events (YYYY/MM/DD format)
+  const todayStr = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
+  const todayEvents = CE.filter(e => e.date === todayStr);
+  const urgentCount = todayEvents.length;
 
   const sorted = [...H].sort((a,b)=>{
     if(sortBy==="value") return b.value-a.value;
