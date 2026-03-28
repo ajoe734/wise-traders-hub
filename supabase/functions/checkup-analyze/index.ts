@@ -25,6 +25,7 @@ async function callGemini(apiKey: string, model: string, messages: any[], temper
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents,
+          tools: [{ google_search: {} }],
           generationConfig: { temperature, maxOutputTokens: 4096 },
         }),
       }

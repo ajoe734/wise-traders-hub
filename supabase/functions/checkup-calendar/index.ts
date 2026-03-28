@@ -20,6 +20,7 @@ async function callGemini(apiKey: string, model: string, prompt: string, tempera
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          tools: [{ google_search: {} }],
           generationConfig: { temperature, maxOutputTokens: 4096 },
         }),
       }
