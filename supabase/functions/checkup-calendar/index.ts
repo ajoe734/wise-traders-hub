@@ -15,7 +15,11 @@ async function callGemini(apiKey: string, model: string, prompt: string, tempera
   try {
     const body: any = {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature, maxOutputTokens: 8192 },
+      generationConfig: {
+        temperature,
+        maxOutputTokens: 8192,
+        ...(forceJson ? { responseMimeType: 'application/json' } : {}),
+      },
     };
     if (useGrounding) {
       body.tools = [{ google_search: {} }];
