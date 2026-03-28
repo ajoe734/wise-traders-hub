@@ -6,30 +6,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash-lite',
-];
-
-async function callGemini(apiKey: string, model: string, prompt: string, temperature: number, useGrounding = false, forceJson = false): Promise<{ ok: boolean; text: string; status: number }> {
+async function callGemini(apiKey: string, model: string, prompt: string, temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
   try {
-    const body: any = {
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature,
-        maxOutputTokens: 8192,
-        ...(forceJson ? { responseMimeType: 'application/json' } : {}),
-      },
-    };
-    if (useGrounding) {
-      body.tools = [{ google_search: {} }];
-    }
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature,
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json',
+          },
+        }),
       }
     );
     if (!response.ok) {
@@ -38,13 +29,7 @@ async function callGemini(apiKey: string, model: string, prompt: string, tempera
       return { ok: false, text: errText, status: response.status };
     }
     const data = await response.json();
-    const parts = data.candidates?.[0]?.content?.parts || [];
-    // Concatenate all text parts
-    const text = parts
-      .filter((p: any) => typeof p?.text === 'string')
-      .map((p: any) => p.text)
-      .join('\n')
-      .trim();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
     if (!text) {
       console.error(`Gemini ${model} returned empty content`, JSON.stringify(data).slice(0, 500));
       return { ok: false, text: '', status: 200 };
@@ -58,17 +43,14 @@ async function callGemini(apiKey: string, model: string, prompt: string, tempera
 
 function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string): string {
   return `# Role
-你是一位整合了搜尋力、長文本解析、邏輯去重與精煉輸出優點的頂級 AI 財經分析師，精通台股市場。
+你是一位頂級 AI 財經分析師，精通台股市場。
 
 # Task Objective
-針對以下持倉標的，執行「${today} 的隔天起到 ${endDate}」的持倉股票情報清洗與精煉。
+針對以下持倉標的，列出「${today} 的隔天起到 ${endDate}」的重要事件行事曆。
 
 持倉標的：${stocks}
 
-# Processing Pipeline (請按順序執行)
-
-## 階段 1：廣泛過濾
-識別並鎖定發生在「${today} 的隔天起到 ${endDate}」的所有事件，涵蓋以下 8 大類：
+# 事件類別（8 大類）
 - **營收**：每月營收公布（次月10日前）
 - **財報**：季度財報公布截止日
 - **法說**：法說會、業績發表會
@@ -78,61 +60,17 @@ function buildPrompt(stocks: string, today: string, endDate: string, outputForma
 - **到期**：權證到期日（權證代碼通常為6碼，名稱含「購」「售」「牛」「熊」）
 - **操作**：股東會、董事會、庫藏股、大股東申報轉讓
 
-## 階段 2：深度提取
-從混亂文本中摳出：EPS、毛利率、營收成長率、大客戶訂單、技術突破、地緣政治風險等關鍵資訊。
-
-## 階段 3：邏輯去重 (Critical)
-若內容本質相同（如：僅標題微調、轉載自同一社論、或同一事件的後續小追蹤），僅保留「最原始」或「資訊最齊全」的一則，嚴禁重複顯示同一事件。
-
-## 階段 4：精煉輸出
-將去重後的乾貨轉化為指定的 JSON 格式。
-
 # 重要指引
 - 權證標的：同時列出其母股（標的股）的重要事件，標明影響哪檔權證
-- 數量不限：只要是有價值的事件就列出，不要自我限制數量
 - 每檔標的至少列出月營收和季度財報相關事件
-- 過濾垃圾：移除廣告、無關評論、情緒性廢話
 - 禁止幻覺：若無具體依據，不要編造事件
 - 不要包含今天(${today})或過去的事件
-
-# Constraints
-- 嚴禁「幻覺」：若文中無具體數據，不採納
-- 移除所有廣告、無關的市場評論或情緒性廢話
+- 根據一般規則推算事件日期（如月營收次月10日前公布、季報截止日等）
 
 # Output Format
-只輸出純 JSON 陣列，不輸出其他任何文字（不要 markdown code block）：
-${outputFormat}`;
-}
+${outputFormat}
 
-function extractJsonArray(text: string): string | null {
-  // Strip markdown fences
-  let clean = text.replace(/^```json\s*|^```\s*|```$/gim, '').trim();
-  // Find the first '[' and match brackets to find the end
-  const start = clean.indexOf('[');
-  if (start < 0) return null;
-  let depth = 0;
-  let end = -1;
-  for (let i = start; i < clean.length; i++) {
-    if (clean[i] === '[') depth++;
-    if (clean[i] === ']') depth--;
-    if (depth === 0) { end = i; break; }
-  }
-  if (end < 0) return null;
-  return clean.slice(start, end + 1);
-}
-
-function hasValidEvents(text: string): { valid: boolean; cleaned: string } {
-  try {
-    const jsonStr = extractJsonArray(text);
-    if (!jsonStr) return { valid: false, cleaned: '' };
-    const parsed = JSON.parse(jsonStr);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return { valid: true, cleaned: jsonStr };
-    }
-    return { valid: false, cleaned: jsonStr };
-  } catch {
-    return { valid: false, cleaned: '' };
-  }
+只輸出 JSON 陣列。`;
 }
 
 Deno.serve(async (req) => {
@@ -163,78 +101,58 @@ Deno.serve(async (req) => {
     }
 
     const outputFormat = `JSON陣列，每個元素格式：
-{"date":"YYYY/MM/DD","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期","sources":["來源網址1","來源網址2"]}
+{"date":"YYYY/MM/DD","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期","sources":[]}
 
 規則：
-- 不輸出 pred、predReason 等預判欄位
-- sources 若無來源可給空陣列 []
+- sources 給空陣列 []
 - date 必須用 YYYY/MM/DD 格式
 - urgent=true 僅限未來一週內的事件
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
 - 按日期由近到遠排序`;
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
-    const errors: string[] = [];
-    const model = MODELS[0]; // Use primary model
-    console.log(`Calendar: Step 1 - searching with grounding (${model})`);
+    const model = 'gemini-2.5-flash';
 
-    // Step 1: Use grounding to search for real-time info
-    const searchPrompt = `針對以下台股持倉標的，搜尋「${today} 的隔天起到 ${endDate}」之間的重要事件：\n\n持倉標的：${stocks}\n\n請搜尋以下類型事件：營收公布日、財報公布日、法說會、除息日、總經事件（央行、FOMC、CPI）、催化事件（展覽、新品）、權證到期日、股東會等。\n\n列出所有找到的事件，包含日期和細節。`;
-    
-    const searchResult = await callGemini(apiKey, model, searchPrompt, 0.3, true);
-    
-    let searchContext = '';
-    if (searchResult.ok && searchResult.text) {
-      searchContext = searchResult.text;
-      console.log(`Calendar: Step 1 succeeded, got ${searchContext.length} chars of search results`);
-    } else {
-      console.log(`Calendar: Step 1 failed (${searchResult.status}), proceeding without grounding`);
-      if (searchResult.status === 429) {
-        errors.push(`${model}-search(429)`);
-      }
-    }
+    console.log(`Calendar: calling ${model} with responseMimeType=application/json`);
+    const result = await callGemini(apiKey, model, prompt, 0.3);
 
-    // Step 2: Format into JSON (without grounding)
-    const formatPrompt = searchContext
-      ? `根據以下搜尋結果，整理出台股持倉標的的未來事件行事曆。\n\n搜尋結果：\n${searchContext}\n\n持倉標的：${stocks}\n今天日期：${today}\n\n${outputFormat}\n\n# 重要規則\n- 只輸出純 JSON 陣列，不要任何其他文字\n- 不要包含今天(${today})或過去的事件\n- 按日期由近到遠排序\n- 每檔標的至少列出月營收公布日\n- 嚴禁幻覺：若搜尋結果中無具體資訊，就根據一般規則（如月營收次月10日前公布）列出`
-      : prompt;
-
-    console.log(`Calendar: Step 2 - formatting JSON (${model})`);
-    const formatResult = await callGemini(apiKey, model, formatPrompt, 0.2, false, true);
-
-    if (formatResult.ok && formatResult.text) {
-      const check = hasValidEvents(formatResult.text);
-      if (check.valid) {
-        console.log(`Calendar: succeeded with ${model}`);
-        return new Response(JSON.stringify({ text: check.cleaned, response: check.cleaned }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      console.error(`Calendar: ${model} Step 2 failed JSON parse. First 500 chars:`, formatResult.text.slice(0, 500));
-      errors.push(`${model}(format-fail)`);
-    } else {
-      errors.push(`${model}(${formatResult.status})`);
-    }
-
-    // Fallback: try without grounding at all
-    if (errors.length > 0) {
-      console.log(`Calendar: Fallback - trying ${model} without grounding`);
-      const fallbackResult = await callGemini(apiKey, model, prompt, 0.4, false, true);
-      if (fallbackResult.ok && fallbackResult.text) {
-        const check = hasValidEvents(fallbackResult.text);
-        if (check.valid) {
-          console.log(`Calendar: fallback succeeded`);
-          return new Response(JSON.stringify({ text: check.cleaned, response: check.cleaned }), {
+    if (result.ok && result.text) {
+      try {
+        const parsed = JSON.parse(result.text);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleaned = JSON.stringify(parsed);
+          console.log(`Calendar: succeeded, ${parsed.length} events`);
+          return new Response(JSON.stringify({ text: cleaned, response: cleaned }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        console.error(`Calendar: fallback failed JSON parse. First 300 chars:`, fallbackResult.text.slice(0, 300));
+        console.error(`Calendar: parsed but empty or not array. First 300 chars:`, result.text.slice(0, 300));
+      } catch (e) {
+        console.error(`Calendar: JSON.parse failed. First 500 chars:`, result.text.slice(0, 500));
       }
+    }
+
+    // Fallback: try lite model
+    const fallbackModel = 'gemini-2.0-flash-lite';
+    console.log(`Calendar: fallback to ${fallbackModel}`);
+    const fallback = await callGemini(apiKey, fallbackModel, prompt, 0.3);
+
+    if (fallback.ok && fallback.text) {
+      try {
+        const parsed = JSON.parse(fallback.text);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleaned = JSON.stringify(parsed);
+          console.log(`Calendar: fallback succeeded, ${parsed.length} events`);
+          return new Response(JSON.stringify({ text: cleaned, response: cleaned }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } catch { /* ignore */ }
     }
 
     return new Response(JSON.stringify({
       error: '行事曆產生失敗，所有模型均無法使用',
-      detail: errors.join(', '),
+      detail: `${model}(${result.status}), ${fallbackModel}(${fallback.status})`,
     }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
