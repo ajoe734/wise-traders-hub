@@ -7,9 +7,8 @@ const corsHeaders = {
 };
 
 const MODELS = [
-  "google/gemini-2.0-flash-exp:free",
-  "google/gemini-2.5-flash",
-  "qwen/qwen2.5-vl-72b-instruct",
+  "google/gemma-3-27b-it:free",
+  "stepfun/step-3.5-flash:free",
 ];
 
 async function tryModel(apiKey: string, model: string, messages: any[], temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
