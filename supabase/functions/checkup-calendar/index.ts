@@ -6,91 +6,49 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Gemini model fallback chain
-const GEMINI_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
+const MODELS = [
+  'google/gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite',
 ];
 
-// ===== Google Gemini API caller =====
-async function callGemini(
+async function callLovableAI(
   apiKey: string,
   model: string,
   prompt: string,
   temperature: number,
 ): Promise<{ ok: boolean; text: string; status: number }> {
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature },
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature,
+        max_tokens: 4096,
       }),
     });
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`Gemini ${model} failed (${response.status}):`, errText);
+      console.error(`Lovable AI ${model} failed (${response.status}):`, errText);
       return { ok: false, text: errText, status: response.status };
     }
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = data.choices?.[0]?.message?.content || '';
     if (!text) {
-      console.error(`Gemini ${model} returned empty content`);
+      console.error(`Lovable AI ${model} returned empty content`);
       return { ok: false, text: '', status: 200 };
     }
     return { ok: true, text, status: 200 };
   } catch (err) {
-    console.error(`Gemini ${model} exception:`, err);
+    console.error(`Lovable AI ${model} exception:`, err);
     return { ok: false, text: String(err), status: 500 };
   }
 }
 
-// ===== Lovable AI Gateway caller (final fallback) =====
-async function callLovableAI(
-  apiKey: string,
-  prompt: string,
-  temperature: number,
-): Promise<{ ok: boolean; text: string; status: number }> {
-  const MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"];
-  for (const model of MODELS) {
-    try {
-      console.log(`Lovable AI Gateway: trying ${model}...`);
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature,
-        }),
-      });
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`Lovable AI (${model}) failed (${response.status}):`, errText);
-        continue;
-      }
-      const data = await response.json();
-      const text = data.choices?.[0]?.message?.content || '';
-      if (!text) {
-        console.error(`Lovable AI (${model}) returned empty content`);
-        continue;
-      }
-      console.log(`Lovable AI (${model}) succeeded`);
-      return { ok: true, text, status: 200 };
-    } catch (err) {
-      console.error(`Lovable AI (${model}) exception:`, err);
-    }
-  }
-  return { ok: false, text: '', status: 500 };
-}
-
-// ===== Build the combined 4-stage prompt for Gemini =====
 function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string): string {
   return `# Role
 你是一位整合了搜尋力、長文本解析、邏輯去重與精煉輸出優點的頂級 AI 財經分析師，精通台股市場。
@@ -139,7 +97,6 @@ function buildPrompt(stocks: string, today: string, endDate: string, outputForma
 ${outputFormat}`;
 }
 
-// ===== Validate response has meaningful events =====
 function hasValidEvents(text: string): boolean {
   try {
     let jsonStr = text.trim();
@@ -153,7 +110,6 @@ function hasValidEvents(text: string): boolean {
   }
 }
 
-// ===== Main handler =====
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -164,11 +120,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
-  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
-
-  if (!geminiKey && !lovableKey) {
-    return new Response(JSON.stringify({ error: 'No API keys configured' }), {
+  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY is not configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -197,42 +151,30 @@ Deno.serve(async (req) => {
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
     const errors: string[] = [];
 
-    // ===== 第一層：Google Gemini API 直連 =====
-    if (geminiKey) {
-      for (const model of GEMINI_MODELS) {
-        console.log(`Calendar: trying Gemini ${model}...`);
-        const result = await callGemini(geminiKey, model, prompt, 0.4);
-        if (result.ok && result.text) {
-          if (hasValidEvents(result.text)) {
-            console.log(`Calendar: Gemini ${model} succeeded with valid events`);
-            return new Response(JSON.stringify({ text: result.text, response: result.text }), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-          }
-          console.warn(`Calendar: Gemini ${model} returned empty/invalid events, trying next...`);
-          errors.push(`gemini-${model}(empty)`);
-          continue;
-        }
-        errors.push(`gemini-${model}(${result.status})`);
-        console.warn(`Calendar: Gemini ${model} failed (${result.status}), trying next...`);
-      }
-    }
+    for (let i = 0; i < MODELS.length; i++) {
+      const model = MODELS[i];
+      console.log(`Calendar: trying Lovable AI ${model} (${i + 1}/${MODELS.length})`);
 
-    // ===== 第二層：Lovable AI Gateway (最終備援) =====
-    if (lovableKey) {
-      console.log('Calendar: all Gemini models failed, trying Lovable AI Gateway...');
-      const result = await callLovableAI(lovableKey, prompt, 0.4);
+      const result = await callLovableAI(apiKey, model, prompt, 0.4);
+
       if (result.ok && result.text) {
         if (hasValidEvents(result.text)) {
-          console.log('Calendar: Lovable AI Gateway succeeded');
+          console.log(`Calendar: Lovable AI ${model} succeeded`);
           return new Response(JSON.stringify({ text: result.text, response: result.text }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        errors.push('lovable-ai(empty)');
-      } else {
-        errors.push(`lovable-ai(${result.status})`);
+        errors.push(`${model}(empty)`);
+        continue;
       }
+
+      if (result.status === 402 || result.status === 429) {
+        return new Response(JSON.stringify({ error: 'AI 額度已用完，請稍後再試' }), {
+          status: result.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      errors.push(`${model}(${result.status})`);
     }
 
     return new Response(JSON.stringify({
