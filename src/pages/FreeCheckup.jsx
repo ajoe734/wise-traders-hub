@@ -121,6 +121,28 @@ const PARSE_PROMPT = `你是台股券商成交回報截圖的解析器。解析�
 targetPriceUpdates：如果截圖中有提到分析師目標價或研究報告目標價，請一併擷取。否則為空陣列。`;
 
 // ── helpers ─────────────────────────────────────────────────────
+// 預估淨收付計算：市值 - 手續費 - 證交稅
+// 證交稅率：6碼(權證)=0.1%, 4碼(股票)=0.3%
+const calcNetSettlement = (marketValue, fee, code) => {
+  const taxRate = (code || "").length === 6 ? 0.001 : 0.003;
+  const tax = Math.round(marketValue * taxRate);
+  return marketValue - (fee || 0) - tax;
+};
+// 用新公式計算損益（有 totalCost & fee 時）或 fallback 到舊公式
+const calcPnlWithNet = (h, newPrice) => {
+  const newValue = Math.round(newPrice * h.qty);
+  const hasCostAndFee = h.totalCost != null && h.fee != null;
+  if (hasCostAndFee) {
+    const net = calcNetSettlement(newValue, h.fee, h.code);
+    const pnl = net - h.totalCost;
+    const pct = h.totalCost > 0 ? Math.round((pnl / h.totalCost) * 10000) / 100 : 0;
+    return { value: newValue, pnl, pct };
+  }
+  // fallback: 原本的計算方式
+  const pnl = Math.round((newPrice - h.cost) * h.qty);
+  const pct = Math.round((newPrice / h.cost - 1) * 10000) / 100;
+  return { value: newValue, pnl, pct };
+};
 // 台股慣例：紅=漲/獲利，綠=跌/虧損（莫蘭迪版）
 const pc    = (p) => p==null ? C.textMute : p>=0 ? C.up : C.down;
 const pcBg  = (p) => p==null ? "transparent" : p>=0 ? C.upBg : C.downBg;
