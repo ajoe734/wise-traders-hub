@@ -472,7 +472,7 @@ export default function App() {
   }, [holdings, ready]);
   const H = holdings || [];
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
-  const totalCost = H.reduce((s,h)=>s+h.cost*h.qty,0);
+  const totalCost = H.reduce((s,h)=> s + (h.totalCost != null ? h.totalCost : h.cost * h.qty), 0);
   const totalPnl  = H.reduce((s,h)=>s+h.pnl,0);
   const retPct    = totalCost>0 ? totalPnl/totalCost*100 : 0;
   const holdingCodes = new Set(H.map(h => h.code));
