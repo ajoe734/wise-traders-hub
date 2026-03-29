@@ -163,13 +163,13 @@ Deno.serve(async (req) => {
     const endDate = oneYearLater.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/');
 
     const outputFormat = `JSON陣列，每個元素格式：
-{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期","sources":["來源網址1","來源網址2"]}
+{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/權證","sources":["來源網址1","來源網址2"]}
 
 規則：
 - sources 欄位：必須填入你搜尋到該事件資訊的真實外部網址（如 https://www.twse.com.tw/...、https://mops.twse.com.tw/...、https://finance.yahoo.com/... 等），不能是 lovable.app 或 vertexaisearch 的網址。如果找不到來源，填空陣列 []。每個事件最多 3 個來源。
 - date 欄位：如果有精確日期，用 YYYY/MM/DD 格式；如果只知道月份，用「2025/07月」；如果只知道季度，用「2025 Q2」；如果尚未公布，用「尚未公布」或「待確認」。總之不要因為日期不精確就省略事件。
 - urgent=true 僅限未來一週內的事件（模糊日期的事件 urgent=false）
-- type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
+- type 只能用：法說、財報、營收、催化、操作、總經、除息、權證
 - 按日期由近到遠排序，模糊日期的排在精確日期之後`;
 
     const stocksStr = typeof stocks === 'string' ? stocks : stocks.map((s: any) => `${s.code} ${s.name}`).join('、');
@@ -192,7 +192,7 @@ ${holdingsSection}
 
 # ⚠️ 重要：標的分類規則
 - **股票**（4碼代碼）：列出全部 8 大類事件
-- **權證**（6碼代碼）：**只需列出到期日事件**
+- **權證**（6碼代碼）：**只需列出到期日事件**（type 填「權證」）
 - **權證母股**：搜尋母股的重要事件，在 label 中標明「（影響權證 XXXXXX）」
 
 # 事件類別（8 大類）
@@ -202,7 +202,7 @@ ${holdingsSection}
 4. **除息**：除權息日、配息基準日 — 僅適用於股票
 5. **總經**：央行會議、FOMC、CPI、GDP、非農就業等
 6. **催化**：產業展覽、新品發表、重大訂單、政策利多
-7. **到期**：權證到期日 — 適用於權證
+7. **權證**：權證到期日 — 適用於權證
 8. **操作**：股東會、董事會、庫藏股 — 僅適用於股票
 
 # ⚠️ 嚴格限制
