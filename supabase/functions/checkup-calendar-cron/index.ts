@@ -277,11 +277,17 @@ ${outputFormat}
       });
     }
 
-    // 4. 合併去重
+    // 4. Strip AI-generated sources (could be indices), attach real grounding URLs
+    const cleanedEvents = attachGroundingSources(
+      newEvents.map(({ sources, ...rest }: any) => rest),
+      result.groundingSources || [],
+    );
+
+    // 5. 合併去重
     const seen = new Set(existingEvents.map((e: any) => `${e.label}||${e.date}`));
     const merged = [...existingEvents];
     let addedCount = 0;
-    for (const ne of newEvents) {
+    for (const ne of cleanedEvents) {
       if (!ne || !ne.label) continue;
       const key = `${ne.label}||${ne.date}`;
       if (!seen.has(key)) {
@@ -292,7 +298,7 @@ ${outputFormat}
     }
     merged.sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''));
 
-    // 5. 儲存回 checkup_storage
+    // 6. 儲存回 checkup_storage
     await supabase.from('checkup_storage').upsert({
       key: 'pf-calendar-v1',
       data: { events: merged, holdingCodes },
