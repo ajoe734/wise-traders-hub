@@ -11,6 +11,7 @@ interface GeminiResult {
   text: string;
   status: number;
   statusLabel: string;
+  groundingSources?: string[];
 }
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
@@ -46,14 +47,26 @@ async function callGeminiWithGrounding(
       const parts = data.candidates?.[0]?.content?.parts || [];
       const text = parts.filter((p: any) => p.text).map((p: any) => p.text).join('').trim();
       const groundingMeta = data.candidates?.[0]?.groundingMetadata;
+      const groundingSources: string[] = [];
       if (groundingMeta) {
         console.log(`Grounding queries: ${JSON.stringify(groundingMeta.webSearchQueries || [])}`);
+        // Extract real source URLs from grounding chunks
+        const chunks = groundingMeta.groundingChunks || groundingMeta.supportingChunks || [];
+        for (const chunk of chunks) {
+          const uri = chunk?.web?.uri || chunk?.retrievedContext?.uri;
+          if (uri && !uri.includes('lovable.app') && !uri.includes('lovable.dev')) {
+            groundingSources.push(uri);
+          }
+        }
+        if (groundingSources.length > 0) {
+          console.log(`Grounding sources: ${groundingSources.length} URLs extracted`);
+        }
       }
       if (!text) {
         console.error(`Gemini ${model} returned empty. Snippet:`, JSON.stringify(data).slice(0, 600));
         return { ok: false, text: '', status: 200, statusLabel: 'empty' };
       }
-      return { ok: true, text, status: 200, statusLabel: 'ok' };
+      return { ok: true, text, status: 200, statusLabel: 'ok', groundingSources };
     } catch (err) {
       console.error(`Gemini ${model} grounding exception:`, err);
       return { ok: false, text: String(err), status: 500, statusLabel: 'exception' };
@@ -278,20 +291,49 @@ Deno.serve(async (req) => {
     }
 
     const outputFormat = `JSON陣列，每個元素格式：
-{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期","sources":[]}
+{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期"}
 
 規則：
-- sources 給空陣列 []
+- 不需要 sources 欄位，系統會自動從搜尋結果中提取來源連結
 - date 欄位：如果有精確日期，用 YYYY/MM/DD 格式；如果只知道月份，用「2025/07月」；如果只知道季度，用「2025 Q2」；如果尚未公布，用「尚未公布」或「待確認」。總之不要因為日期不精確就省略事件。
 - urgent=true 僅限未來一週內的事件（模糊日期的事件 urgent=false）
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
 - 按日期由近到遠排序，模糊日期的排在精確日期之後`;
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
-    const okResponse = (events: any[]) => new Response(
-      JSON.stringify({ text: JSON.stringify(events), response: JSON.stringify(events) }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    const attachSources = (events: any[], sources: string[]) => {
+      if (!sources || sources.length === 0) return events;
+      // Dedupe sources
+      const uniqueSources = [...new Set(sources)];
+      // Try to match sources to events by stock code or keyword in URL
+      return events.map(ev => {
+        const code = (ev.label || '').match(/\d{4}/)?.[0];
+        const matched = uniqueSources.filter(url => {
+          if (code && url.includes(code)) return true;
+          // Match by event type keywords in URL
+          const typeMap: Record<string, string[]> = {
+            '法說': ['investor', 'conference', '法說'],
+            '除息': ['dividend', '除息', '配息'],
+            '總經': ['fed', 'fomc', 'cpi', 'gdp', 'macro', '央行'],
+            '催化': ['exhibition', 'computex', 'ces', '展覽'],
+            '營收': ['revenue', '營收'],
+            '財報': ['earnings', '財報', 'report'],
+          };
+          const keywords = typeMap[ev.type] || [];
+          const urlLower = url.toLowerCase();
+          return keywords.some(kw => urlLower.includes(kw));
+        });
+        return { ...ev, sources: matched.length > 0 ? matched.slice(0, 3) : [] };
+      });
+    };
+
+    const okResponse = (events: any[], sources?: string[]) => {
+      const enriched = sources ? attachSources(events, sources) : events;
+      return new Response(
+        JSON.stringify({ text: JSON.stringify(enriched), response: JSON.stringify(enriched) }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    };
 
     // Strategy 1: gemini-2.5-flash with Google Search grounding (includes 429 retry)
     if (apiKey) {
@@ -302,8 +344,8 @@ Deno.serve(async (req) => {
       if (result.ok && result.text) {
         const events = tryParseEvents(result.text);
         if (events) {
-          console.log(`Calendar: grounding succeeded, ${events.length} events`);
-          return okResponse(events);
+          console.log(`Calendar: grounding succeeded, ${events.length} events, ${(result.groundingSources||[]).length} sources`);
+          return okResponse(events, result.groundingSources);
         }
         console.error(`Calendar: grounding parse failed. First 500:`, result.text.slice(0, 500));
       }
