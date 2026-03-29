@@ -92,6 +92,26 @@ function tryParseEvents(text: string): any[] | null {
   return null;
 }
 
+function classifyHoldings(stocks: string): { stockList: string; warrantList: string; parentStocks: string[] } {
+  const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
+  const stockItems: string[] = [];
+  const warrantItems: string[] = [];
+  const parentStocks: string[] = [];
+  for (const item of items) {
+    const code = item.match(/^(\d+)/)?.[1] || '';
+    const name = item.replace(/^\d+\s*/, '');
+    const isWarrant = code.length === 6 || /[購售牛熊]/.test(name);
+    if (isWarrant) {
+      warrantItems.push(item);
+      const brokerMatch = name.match(/^(.+?)(凱基|元大|富邦|群益|統一|國票|永豐|中信|日盛|兆豐|台新|玉山|永昌)/);
+      if (brokerMatch?.[1]) parentStocks.push(brokerMatch[1]);
+    } else {
+      stockItems.push(item);
+    }
+  }
+  return { stockList: stockItems.join('、'), warrantList: warrantItems.join('、'), parentStocks: [...new Set(parentStocks)] };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
