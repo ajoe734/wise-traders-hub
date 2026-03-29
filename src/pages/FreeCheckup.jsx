@@ -369,7 +369,14 @@ export default function App() {
       const ah = await load("pf-analysis-history-v1", []);
       const rc = await load("pf-reversal-v1", {});
       const sb = await load("pf-brain-v1", null);
-      const ceRaw = await load("pf-calendar-v1", []);
+      // 行事曆：優先從 localStorage 載入，若無則嘗試雲端
+      let ceRaw = await load("pf-calendar-v1", null);
+      if (!ceRaw) {
+        try {
+          const { data: cloudCal } = await supabase.from("checkup_storage").select("data").eq("key", "pf-calendar-v1").maybeSingle();
+          if (cloudCal?.data) { ceRaw = cloudCal.data; save("pf-calendar-v1", ceRaw); }
+        } catch {}
+      }
       // 相容新舊格式：新格式 { events, holdingCodes }，舊格式純陣列
       let ce;
       if (ceRaw && !Array.isArray(ceRaw) && ceRaw.events) {
