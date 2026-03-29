@@ -9,7 +9,7 @@ const corsHeaders = {
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-async function callGeminiWithGrounding(apiKey: string, prompt: string): Promise<{ ok: boolean; text: string }> {
+async function callGeminiWithGrounding(apiKey: string, prompt: string): Promise<{ ok: boolean; text: string; groundingSources?: string[] }> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const response = await fetch(
@@ -37,14 +37,56 @@ async function callGeminiWithGrounding(apiKey: string, prompt: string): Promise<
       const data = await response.json();
       const parts = data.candidates?.[0]?.content?.parts || [];
       const text = parts.filter((p: any) => p.text).map((p: any) => p.text).join('').trim();
+
+      // Extract real source URLs from grounding metadata
+      const groundingSources: string[] = [];
+      const groundingMeta = data.candidates?.[0]?.groundingMetadata;
+      if (groundingMeta) {
+        const chunks = groundingMeta.groundingChunks || [];
+        for (const chunk of chunks) {
+          const uri = chunk?.web?.uri;
+          if (uri && typeof uri === 'string' && uri.startsWith('http')) {
+            if (uri.includes('lovable.app') || uri.includes('lovable.dev')) continue;
+            groundingSources.push(uri);
+          }
+        }
+        console.log(`Cron: Grounding sources: ${groundingSources.length} URLs extracted`);
+      }
+
       if (!text) return { ok: false, text: '' };
-      return { ok: true, text };
+      return { ok: true, text, groundingSources };
     } catch (err) {
       console.error('Cron: Gemini exception:', err);
       return { ok: false, text: String(err) };
     }
   }
   return { ok: false, text: 'retry exhausted' };
+}
+
+function attachGroundingSources(events: any[], groundingSources: string[]): any[] {
+  if (!groundingSources || groundingSources.length === 0) {
+    return events.map(ev => ({ ...ev, sources: [] }));
+  }
+  const uniqueSources = [...new Set(groundingSources)];
+  return events.map(ev => {
+    const code = (ev.label || '').match(/\d{4}/)?.[0];
+    const matched = uniqueSources.filter(url => {
+      const urlLower = url.toLowerCase();
+      if (code && urlLower.includes(code)) return true;
+      const typeMap: Record<string, string[]> = {
+        '法說': ['investor', 'conference', '法說'],
+        '除息': ['dividend', '除息', '配息'],
+        '總經': ['fed', 'fomc', 'cpi', 'gdp', 'macro', '央行', 'bls.gov', 'federalreserve'],
+        '催化': ['exhibition', 'computex', 'ces', '展覽', 'semicon'],
+        '營收': ['revenue', '營收', 'mops.twse'],
+        '財報': ['earnings', '財報', 'report', 'mops.twse'],
+        '權證': ['warrant', '權證'],
+      };
+      const keywords = typeMap[ev.type] || [];
+      return keywords.some(kw => urlLower.includes(kw));
+    });
+    return { ...ev, sources: matched.length > 0 ? matched.slice(0, 3) : [] };
+  });
 }
 
 function extractJsonArray(text: string): string | null {
