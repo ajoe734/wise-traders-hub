@@ -115,7 +115,7 @@ async function callLovableAI(apiKey: string, prompt: string): Promise<{ ok: bool
           { role: 'user', content: prompt },
         ],
         temperature: 0.3,
-        max_tokens: 8192,
+        max_tokens: 32768,
       }),
     });
     if (!response.ok) {
