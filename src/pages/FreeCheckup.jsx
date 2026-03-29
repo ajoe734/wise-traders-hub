@@ -1283,6 +1283,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     }).catch(() => {});
     // 清除雲端交易備忘錄
     supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000").then(() => {}).catch(() => {});
+    // 清除雲端 checkup_storage 相關 key
+    ["pf-calendar-v1","pf-calendar-holdings","pf-news-events-v1"].forEach(k => {
+      supabase.from("checkup_storage").update({ data: k === "pf-calendar-v1" ? { events: [], holdingCodes: "" } : (k === "pf-calendar-holdings" ? { stocks: "", holdingCodes: "" } : []) }).eq("key", k).then(() => {}).catch(() => {});
+    });
 
     setSaved("🗑️ 已全部清除");
     setTimeout(() => setSaved(""), 2500);
