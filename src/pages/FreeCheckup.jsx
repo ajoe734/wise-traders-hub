@@ -268,8 +268,9 @@ export default function App() {
         // 直接替換（只抓一次，不再去重合併）
         const events = newEvents.filter(e => e && e.label);
         events.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-        events._holdingCodes = holdingsList.map(h => h.code).sort().join(",");
-        save("pf-calendar-v1", events);
+        const holdingCodes = holdingsList.map(h => h.code).sort().join(",");
+        events._holdingCodes = holdingCodes;
+        save("pf-calendar-v1", { events, holdingCodes });
         setCalendarEvents(events);
         // 同步到事件分析
         syncCalendarToNews(events);
@@ -355,7 +356,15 @@ export default function App() {
       const ah = await load("pf-analysis-history-v1", []);
       const rc = await load("pf-reversal-v1", {});
       const sb = await load("pf-brain-v1", null);
-      const ce = await load("pf-calendar-v1", []);
+      const ceRaw = await load("pf-calendar-v1", []);
+      // 相容新舊格式：新格式 { events, holdingCodes }，舊格式純陣列
+      let ce;
+      if (ceRaw && !Array.isArray(ceRaw) && ceRaw.events) {
+        ce = ceRaw.events;
+        ce._holdingCodes = ceRaw.holdingCodes || "";
+      } else {
+        ce = ceRaw || [];
+      }
 
       // 從 Supabase 載入交易備忘錄
       let l = [];
@@ -453,7 +462,14 @@ export default function App() {
   useEffect(() => { if (ready && analysisHistory) save("pf-analysis-history-v1", analysisHistory); }, [analysisHistory, ready]);
   useEffect(() => { if (ready && reversalConditions) save("pf-reversal-v1", reversalConditions); }, [reversalConditions, ready]);
   useEffect(() => { if (ready && strategyBrain) save("pf-brain-v1", strategyBrain); }, [strategyBrain, ready]);
-  useEffect(() => { if (ready && calendarEvents) save("pf-calendar-v1", calendarEvents); }, [calendarEvents, ready]);
+  useEffect(() => {
+    if (ready && calendarEvents) {
+      save("pf-calendar-v1", {
+        events: calendarEvents,
+        holdingCodes: calendarEvents._holdingCodes || "",
+      });
+    }
+  }, [calendarEvents, ready]);
 
   // 持倉變動時自動產生行事曆（只在尚無行事曆或持倉組合改變時抓一次）
   useEffect(() => {
