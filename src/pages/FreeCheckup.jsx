@@ -241,11 +241,13 @@ export default function App() {
   // 追蹤是否為使用者主動操作（上傳截圖）造成的持倉變動
   const holdingsChangedByUserRef = useRef(false);
 
-  // ── 根據持倉自動產生行事曆事件（僅抓一次，用 4-stage AI pipeline）──
-  const fetchCalendarEvents = async (holdingsList, guard) => {
+  // ── 根據持倉自動產生行事曆事件 ──
+  const fetchCalendarEvents = async (holdingsList, guard, existingEvents = []) => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
-      save("pf-calendar-v1", []);
+      save("pf-calendar-v1", { events: [], holdingCodes: "" });
+      // 同步到雲端
+      supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: { events: [], holdingCodes: "" } }).then(() => {});
       return;
     }
     setCalendarLoading(true);
@@ -266,16 +268,25 @@ export default function App() {
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        const newEvents = JSON.parse(jsonMatch[0]);
-        // 直接替換（只抓一次，不再去重合併）
-        const events = newEvents.filter(e => e && e.label);
-        events.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        const newEvents = JSON.parse(jsonMatch[0]).filter(e => e && e.label);
+        // 合併去重：以 label+date 為 key
+        const existing = Array.isArray(existingEvents) ? existingEvents : [];
+        const seen = new Set(existing.map(e => `${e.label}||${e.date}`));
+        const merged = [...existing];
+        for (const ne of newEvents) {
+          const key = `${ne.label}||${ne.date}`;
+          if (!seen.has(key)) { merged.push(ne); seen.add(key); }
+        }
+        merged.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
         const holdingCodes = holdingsList.map(h => h.code).sort().join(",");
-        events._holdingCodes = holdingCodes;
-        save("pf-calendar-v1", { events, holdingCodes });
-        setCalendarEvents(events);
+        merged._holdingCodes = holdingCodes;
+        const saveObj = { events: merged, holdingCodes };
+        save("pf-calendar-v1", saveObj);
+        setCalendarEvents(merged);
+        // 同步到雲端
+        supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: saveObj }).then(() => {});
         // 同步到事件分析
-        syncCalendarToNews(events);
+        syncCalendarToNews(merged);
       }
     } catch (e) {
       console.error("Calendar fetch error:", e);
