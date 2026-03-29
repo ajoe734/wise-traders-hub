@@ -50,35 +50,20 @@ async function callGeminiWithGrounding(
       const groundingSources: string[] = [];
       if (groundingMeta) {
         console.log(`Grounding queries: ${JSON.stringify(groundingMeta.webSearchQueries || [])}`);
-        // Extract real source URLs from grounding chunks
+        // Extract source URLs from grounding chunks
         const chunks = groundingMeta.groundingChunks || [];
         for (const chunk of chunks) {
           const uri = chunk?.web?.uri;
-          const title = chunk?.web?.title || '';
-          if (uri) {
-            // Google API returns proxy URLs (vertexaisearch.cloud.google.com)
-            // Try to extract the real domain from the title field
-            if (uri.includes('vertexaisearch.cloud.google.com')) {
-              // title is like "aljazeera.com" — construct a likely URL
-              if (title && !title.includes('lovable')) {
-                const realUrl = title.startsWith('http') ? title : `https://${title}`;
-                groundingSources.push(realUrl);
-              }
-            } else if (!uri.includes('lovable.app') && !uri.includes('lovable.dev')) {
-              groundingSources.push(uri);
-            }
+          if (uri && typeof uri === 'string' && uri.startsWith('http')) {
+            // Skip lovable preview URLs
+            if (uri.includes('lovable.app') || uri.includes('lovable.dev')) continue;
+            groundingSources.push(uri);
           }
-        }
-        // Also check groundingSupports for any additional context
-        const supports = groundingMeta.groundingSupports || [];
-        for (const sup of supports) {
-          const indices = sup?.groundingChunkIndices || [];
-          // Already handled via chunks above
         }
         if (groundingSources.length > 0) {
           console.log(`Grounding sources: ${groundingSources.length} URLs extracted`);
         } else {
-          console.log(`Grounding: no real source URLs found. Raw chunks: ${JSON.stringify(chunks.slice(0, 3))}`);
+          console.log(`Grounding: no source URLs found. Raw chunks: ${JSON.stringify(chunks.slice(0, 3))}`);
         }
       }
       if (!text) {
