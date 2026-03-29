@@ -11,6 +11,7 @@ interface GeminiResult {
   text: string;
   status: number;
   statusLabel: string;
+  groundingSources?: string[];
 }
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
@@ -46,14 +47,26 @@ async function callGeminiWithGrounding(
       const parts = data.candidates?.[0]?.content?.parts || [];
       const text = parts.filter((p: any) => p.text).map((p: any) => p.text).join('').trim();
       const groundingMeta = data.candidates?.[0]?.groundingMetadata;
+      const groundingSources: string[] = [];
       if (groundingMeta) {
         console.log(`Grounding queries: ${JSON.stringify(groundingMeta.webSearchQueries || [])}`);
+        // Extract real source URLs from grounding chunks
+        const chunks = groundingMeta.groundingChunks || groundingMeta.supportingChunks || [];
+        for (const chunk of chunks) {
+          const uri = chunk?.web?.uri || chunk?.retrievedContext?.uri;
+          if (uri && !uri.includes('lovable.app') && !uri.includes('lovable.dev')) {
+            groundingSources.push(uri);
+          }
+        }
+        if (groundingSources.length > 0) {
+          console.log(`Grounding sources: ${groundingSources.length} URLs extracted`);
+        }
       }
       if (!text) {
         console.error(`Gemini ${model} returned empty. Snippet:`, JSON.stringify(data).slice(0, 600));
         return { ok: false, text: '', status: 200, statusLabel: 'empty' };
       }
-      return { ok: true, text, status: 200, statusLabel: 'ok' };
+      return { ok: true, text, status: 200, statusLabel: 'ok', groundingSources };
     } catch (err) {
       console.error(`Gemini ${model} grounding exception:`, err);
       return { ok: false, text: String(err), status: 500, statusLabel: 'exception' };
@@ -278,10 +291,10 @@ Deno.serve(async (req) => {
     }
 
     const outputFormat = `JSON陣列，每個元素格式：
-{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期","sources":[]}
+{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期"}
 
 規則：
-- sources 給空陣列 []
+- 不需要 sources 欄位，系統會自動從搜尋結果中提取來源連結
 - date 欄位：如果有精確日期，用 YYYY/MM/DD 格式；如果只知道月份，用「2025/07月」；如果只知道季度，用「2025 Q2」；如果尚未公布，用「尚未公布」或「待確認」。總之不要因為日期不精確就省略事件。
 - urgent=true 僅限未來一週內的事件（模糊日期的事件 urgent=false）
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
