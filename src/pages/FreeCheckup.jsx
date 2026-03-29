@@ -238,12 +238,16 @@ export default function App() {
 
   // reset guard — 清除全部後忽略 in-flight 的行事曆回應
   const resetGuardRef = useRef(0);
+  // 追蹤是否為使用者主動操作（上傳截圖）造成的持倉變動
+  const holdingsChangedByUserRef = useRef(false);
 
-  // ── 根據持倉自動產生行事曆事件（僅抓一次，用 4-stage AI pipeline）──
-  const fetchCalendarEvents = async (holdingsList, guard) => {
+  // ── 根據持倉自動產生行事曆事件 ──
+  const fetchCalendarEvents = async (holdingsList, guard, existingEvents = []) => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
-      save("pf-calendar-v1", []);
+      save("pf-calendar-v1", { events: [], holdingCodes: "" });
+      // 同步到雲端
+      supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: { events: [], holdingCodes: "" } }).then(() => {});
       return;
     }
     setCalendarLoading(true);
@@ -264,16 +268,25 @@ export default function App() {
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        const newEvents = JSON.parse(jsonMatch[0]);
-        // 直接替換（只抓一次，不再去重合併）
-        const events = newEvents.filter(e => e && e.label);
-        events.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        const newEvents = JSON.parse(jsonMatch[0]).filter(e => e && e.label);
+        // 合併去重：以 label+date 為 key
+        const existing = Array.isArray(existingEvents) ? existingEvents : [];
+        const seen = new Set(existing.map(e => `${e.label}||${e.date}`));
+        const merged = [...existing];
+        for (const ne of newEvents) {
+          const key = `${ne.label}||${ne.date}`;
+          if (!seen.has(key)) { merged.push(ne); seen.add(key); }
+        }
+        merged.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
         const holdingCodes = holdingsList.map(h => h.code).sort().join(",");
-        events._holdingCodes = holdingCodes;
-        save("pf-calendar-v1", { events, holdingCodes });
-        setCalendarEvents(events);
+        merged._holdingCodes = holdingCodes;
+        const saveObj = { events: merged, holdingCodes };
+        save("pf-calendar-v1", saveObj);
+        setCalendarEvents(merged);
+        // 同步到雲端
+        supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: saveObj }).then(() => {});
         // 同步到事件分析
-        syncCalendarToNews(events);
+        syncCalendarToNews(merged);
       }
     } catch (e) {
       console.error("Calendar fetch error:", e);
@@ -356,7 +369,14 @@ export default function App() {
       const ah = await load("pf-analysis-history-v1", []);
       const rc = await load("pf-reversal-v1", {});
       const sb = await load("pf-brain-v1", null);
-      const ceRaw = await load("pf-calendar-v1", []);
+      // 行事曆：優先從 localStorage 載入，若無則嘗試雲端
+      let ceRaw = await load("pf-calendar-v1", null);
+      if (!ceRaw) {
+        try {
+          const { data: cloudCal } = await supabase.from("checkup_storage").select("data").eq("key", "pf-calendar-v1").maybeSingle();
+          if (cloudCal?.data) { ceRaw = cloudCal.data; save("pf-calendar-v1", ceRaw); }
+        } catch {}
+      }
       // 相容新舊格式：新格式 { events, holdingCodes }，舊格式純陣列
       let ce;
       if (ceRaw && !Array.isArray(ceRaw) && ceRaw.events) {
@@ -425,7 +445,15 @@ export default function App() {
   }, []);
 
   // auto-save
-  useEffect(() => { if (ready && holdings) save("pf-holdings-v2", holdings); }, [holdings, ready]);
+  useEffect(() => {
+    if (ready && holdings) {
+      save("pf-holdings-v2", holdings);
+      // 同步持倉代碼到雲端供定時任務使用
+      const codes = holdings.map(h => `${h.code} ${h.name}`).join("、");
+      const codesKey = holdings.map(h => h.code).sort().join(",");
+      supabase.from("checkup_storage").upsert({ key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }).then(() => {});
+    }
+  }, [holdings, ready]);
   // tradeLog 存到 Supabase（不再只存 localStorage）
   const saveTradeLogToCloud = async (logs) => {
     if (!logs) return;
@@ -464,26 +492,32 @@ export default function App() {
   useEffect(() => { if (ready && strategyBrain) save("pf-brain-v1", strategyBrain); }, [strategyBrain, ready]);
   useEffect(() => {
     if (ready && calendarEvents) {
-      save("pf-calendar-v1", {
+      const saveObj = {
         events: calendarEvents,
         holdingCodes: calendarEvents._holdingCodes || "",
-      });
+      };
+      save("pf-calendar-v1", saveObj);
+      // 同步到雲端
+      supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: saveObj }).then(() => {});
     }
   }, [calendarEvents, ready]);
 
-  // 持倉變動時自動產生行事曆（只在尚無行事曆或持倉組合改變時抓一次）
+  // 持倉變動時自動產生行事曆（僅在使用者主動上傳截圖導致持倉變化時才重新抓取）
   useEffect(() => {
     if (!ready) return;
     const codes = (holdings || []).map(h => h.code).sort().join(",");
-    const prevCodes = calendarEvents?._holdingCodes || "";
-    const hasExistingEvents = Array.isArray(calendarEvents) && calendarEvents.length > 0;
-    if (codes && codes !== prevCodes && !hasExistingEvents) {
-      fetchCalendarEvents(holdings, resetGuardRef.current);
-    } else if (codes && codes !== prevCodes && hasExistingEvents) {
-      // 持倉組合變了但已有行事曆，重新抓取
-      fetchCalendarEvents(holdings, resetGuardRef.current);
-    } else if (!codes) {
+    if (!codes) {
       setCalendarEvents([]);
+      return;
+    }
+    // 只有使用者主動操作（上傳截圖）導致持倉變化時才重新抓取
+    if (holdingsChangedByUserRef.current) {
+      holdingsChangedByUserRef.current = false;
+      const prevCodes = calendarEvents?._holdingCodes || "";
+      if (codes !== prevCodes) {
+        // 持倉組合變了，帶入現有事件做合併
+        fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
+      }
     }
   }, [holdings, ready]);
   const H = holdings || [];
@@ -1057,6 +1091,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         // 解析成功後立即同步持倉 & 交易記錄
         if (parsedResult?.trades?.length) {
+          holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
           setHoldings(prev => parsedResult.trades.reduce(
             (acc, trade) => mergeTradeIntoHoldings(acc, trade),
             [...(prev || [])],
