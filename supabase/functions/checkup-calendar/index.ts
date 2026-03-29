@@ -432,8 +432,8 @@ Deno.serve(async (req) => {
       if (result.ok && result.text) {
         const events = tryParseEvents(result.text);
         if (events) {
-          console.log(`Calendar: grounding succeeded, ${events.length} events`);
-          return okResponse(events);
+          console.log(`Calendar: grounding succeeded, ${events.length} events, ${(result.groundingSources||[]).length} sources`);
+          return okResponse(events, result.groundingSources);
         }
         console.error(`Calendar: grounding parse failed. First 500:`, result.text.slice(0, 500));
       }
