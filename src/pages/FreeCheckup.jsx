@@ -2400,8 +2400,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         color: isCorrect ? C.olive : C.up,
                       }}>{isCorrect ? "✓ 正確" : "✗ 有誤"}</span>
                     )}
+                    {e.status==="verifying" && (
+                      <span style={{fontSize:12,color:C.amber,fontWeight:600,
+                        padding:"2px 7px",borderRadius:20,background:C.amberBg||C.cardAmber}}>⏳ 待驗證</span>
+                    )}
                     {e.status==="pending" && (
-                      <span style={{fontSize:12,color:C.textMute,fontWeight:500}}>待驗證</span>
+                      <span style={{fontSize:12,color:C.textMute,fontWeight:500}}>待觀察</span>
                     )}
                     <span style={{fontSize:12,color:C.textMute}}>{open?"▲":"▼"}</span>
                   </div>
