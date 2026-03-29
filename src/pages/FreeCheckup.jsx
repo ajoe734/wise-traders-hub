@@ -238,6 +238,8 @@ export default function App() {
 
   // reset guard — 清除全部後忽略 in-flight 的行事曆回應
   const resetGuardRef = useRef(0);
+  // 追蹤是否為使用者主動操作（上傳截圖）造成的持倉變動
+  const holdingsChangedByUserRef = useRef(false);
 
   // ── 根據持倉自動產生行事曆事件（僅抓一次，用 4-stage AI pipeline）──
   const fetchCalendarEvents = async (holdingsList, guard) => {
