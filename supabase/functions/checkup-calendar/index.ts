@@ -372,33 +372,51 @@ Deno.serve(async (req) => {
     }
 
     const outputFormat = `JSON陣列，每個元素格式：
-{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/權證","sources":["來源網址1","來源網址2"]}
+{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/權證"}
 
 規則：
-- sources 欄位：必須填入你搜尋到該事件資訊的真實外部網址（如 https://www.twse.com.tw/...、https://mops.twse.com.tw/...、https://finance.yahoo.com/... 等），不能是 lovable.app 或 vertexaisearch 的網址。如果找不到來源，填空陣列 []。每個事件最多 3 個來源。
+- 不要包含 sources 欄位
 - date 欄位：如果有精確日期，用 YYYY/MM/DD 格式；如果只知道月份，用「2025/07月」；如果只知道季度，用「2025 Q2」；如果尚未公布，用「尚未公布」或「待確認」。總之不要因為日期不精確就省略事件。
 - urgent=true 僅限未來一週內的事件（模糊日期的事件 urgent=false）
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、權證
 - 按日期由近到遠排序，模糊日期的排在精確日期之後`;
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
-    // Filter out any lovable/proxy URLs from AI-generated sources
-    const cleanSources = (events: any[]) => {
+
+    // Attach grounding sources to events by matching stock codes and keywords
+    const attachGroundingSources = (events: any[], groundingSources: string[]) => {
+      if (!groundingSources || groundingSources.length === 0) {
+        return events.map(ev => ({ ...ev, sources: [] }));
+      }
+      const uniqueSources = [...new Set(groundingSources)];
       return events.map(ev => {
-        if (!ev.sources || !Array.isArray(ev.sources)) return { ...ev, sources: [] };
-        const cleaned = ev.sources.filter((url: string) => 
-          typeof url === 'string' && 
-          url.startsWith('http') && 
-          !url.includes('lovable.app') && 
-          !url.includes('lovable.dev') &&
-          !url.includes('vertexaisearch.cloud.google.com')
-        );
-        return { ...ev, sources: cleaned };
+        const label = (ev.label || '').toLowerCase();
+        const code = (ev.label || '').match(/\d{4}/)?.[0];
+        const matched = uniqueSources.filter(url => {
+          const urlLower = url.toLowerCase();
+          // Match by stock code in URL
+          if (code && urlLower.includes(code)) return true;
+          // Match by event type keywords
+          const typeMap: Record<string, string[]> = {
+            '法說': ['investor', 'conference', '法說'],
+            '除息': ['dividend', '除息', '配息'],
+            '總經': ['fed', 'fomc', 'cpi', 'gdp', 'macro', '央行', 'bls.gov', 'federalreserve'],
+            '催化': ['exhibition', 'computex', 'ces', '展覽', 'semicon'],
+            '營收': ['revenue', '營收', 'mops.twse'],
+            '財報': ['earnings', '財報', 'report', 'mops.twse'],
+            '權證': ['warrant', '權證'],
+          };
+          const keywords = typeMap[ev.type] || [];
+          return keywords.some(kw => urlLower.includes(kw));
+        });
+        return { ...ev, sources: matched.length > 0 ? matched.slice(0, 3) : [] };
       });
     };
 
-    const okResponse = (events: any[]) => {
-      const enriched = cleanSources(events);
+    const okResponse = (events: any[], groundingSources?: string[]) => {
+      // Strip any AI-generated sources field (could be indices not URLs)
+      const cleaned = events.map(({ sources, ...rest }) => rest);
+      const enriched = attachGroundingSources(cleaned, groundingSources || []);
       return new Response(
         JSON.stringify({ text: JSON.stringify(enriched), response: JSON.stringify(enriched) }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
