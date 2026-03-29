@@ -382,34 +382,23 @@ Deno.serve(async (req) => {
 - 按日期由近到遠排序，模糊日期的排在精確日期之後`;
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
-    const attachSources = (events: any[], sources: string[]) => {
-      if (!sources || sources.length === 0) return events;
-      // Dedupe sources
-      const uniqueSources = [...new Set(sources)];
-      // Try to match sources to events by stock code or keyword in URL
+    // Filter out any lovable/proxy URLs from AI-generated sources
+    const cleanSources = (events: any[]) => {
       return events.map(ev => {
-        const code = (ev.label || '').match(/\d{4}/)?.[0];
-        const matched = uniqueSources.filter(url => {
-          if (code && url.includes(code)) return true;
-          // Match by event type keywords in URL
-          const typeMap: Record<string, string[]> = {
-            '法說': ['investor', 'conference', '法說'],
-            '除息': ['dividend', '除息', '配息'],
-            '總經': ['fed', 'fomc', 'cpi', 'gdp', 'macro', '央行'],
-            '催化': ['exhibition', 'computex', 'ces', '展覽'],
-            '營收': ['revenue', '營收'],
-            '財報': ['earnings', '財報', 'report'],
-          };
-          const keywords = typeMap[ev.type] || [];
-          const urlLower = url.toLowerCase();
-          return keywords.some(kw => urlLower.includes(kw));
-        });
-        return { ...ev, sources: matched.length > 0 ? matched.slice(0, 3) : [] };
+        if (!ev.sources || !Array.isArray(ev.sources)) return { ...ev, sources: [] };
+        const cleaned = ev.sources.filter((url: string) => 
+          typeof url === 'string' && 
+          url.startsWith('http') && 
+          !url.includes('lovable.app') && 
+          !url.includes('lovable.dev') &&
+          !url.includes('vertexaisearch.cloud.google.com')
+        );
+        return { ...ev, sources: cleaned };
       });
     };
 
-    const okResponse = (events: any[], sources?: string[]) => {
-      const enriched = sources ? attachSources(events, sources) : events;
+    const okResponse = (events: any[]) => {
+      const enriched = cleanSources(events);
       return new Response(
         JSON.stringify({ text: JSON.stringify(enriched), response: JSON.stringify(enriched) }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
