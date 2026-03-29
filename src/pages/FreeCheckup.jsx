@@ -477,26 +477,32 @@ export default function App() {
   useEffect(() => { if (ready && strategyBrain) save("pf-brain-v1", strategyBrain); }, [strategyBrain, ready]);
   useEffect(() => {
     if (ready && calendarEvents) {
-      save("pf-calendar-v1", {
+      const saveObj = {
         events: calendarEvents,
         holdingCodes: calendarEvents._holdingCodes || "",
-      });
+      };
+      save("pf-calendar-v1", saveObj);
+      // 同步到雲端
+      supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: saveObj }).then(() => {});
     }
   }, [calendarEvents, ready]);
 
-  // 持倉變動時自動產生行事曆（只在尚無行事曆或持倉組合改變時抓一次）
+  // 持倉變動時自動產生行事曆（僅在使用者主動上傳截圖導致持倉變化時才重新抓取）
   useEffect(() => {
     if (!ready) return;
     const codes = (holdings || []).map(h => h.code).sort().join(",");
-    const prevCodes = calendarEvents?._holdingCodes || "";
-    const hasExistingEvents = Array.isArray(calendarEvents) && calendarEvents.length > 0;
-    if (codes && codes !== prevCodes && !hasExistingEvents) {
-      fetchCalendarEvents(holdings, resetGuardRef.current);
-    } else if (codes && codes !== prevCodes && hasExistingEvents) {
-      // 持倉組合變了但已有行事曆，重新抓取
-      fetchCalendarEvents(holdings, resetGuardRef.current);
-    } else if (!codes) {
+    if (!codes) {
       setCalendarEvents([]);
+      return;
+    }
+    // 只有使用者主動操作（上傳截圖）導致持倉變化時才重新抓取
+    if (holdingsChangedByUserRef.current) {
+      holdingsChangedByUserRef.current = false;
+      const prevCodes = calendarEvents?._holdingCodes || "";
+      if (codes !== prevCodes) {
+        // 持倉組合變了，帶入現有事件做合併
+        fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
+      }
     }
   }, [holdings, ready]);
   const H = holdings || [];
