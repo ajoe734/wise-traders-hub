@@ -1281,8 +1281,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "save-brain", data: null })
     }).catch(() => {});
+    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save-events", data: [] })
+    }).catch(() => {});
     // 清除雲端交易備忘錄
     supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000").then(() => {}).catch(() => {});
+    // 清除雲端 checkup_storage 相關 key
+    ["pf-calendar-v1","pf-calendar-holdings","pf-news-events-v1"].forEach(k => {
+      supabase.from("checkup_storage").update({ data: k === "pf-calendar-v1" ? { events: [], holdingCodes: "" } : (k === "pf-calendar-holdings" ? { stocks: "", holdingCodes: "" } : []) }).eq("key", k).then(() => {}).catch(() => {});
+    });
 
     setSaved("🗑️ 已全部清除");
     setTimeout(() => setSaved(""), 2500);
@@ -1741,16 +1750,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div style={{flex:1}}>
                         <div style={{fontSize:14,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
                         <div style={{fontSize:12,color:C.textMute,marginTop:3,lineHeight:1.6}}>{e.sub}</div>
-                        {e.sources && e.sources.length > 0 && (
-                          <div style={{marginTop:5,display:"flex",flexWrap:"wrap",gap:4}}>
-                            {e.sources.map((src,si)=>(
-                              <a key={si} href={src} target="_blank" rel="noopener noreferrer" style={{
-                                fontSize:11,color:C.blue,textDecoration:"none",
-                                background:C.blue+"12",padding:"1px 6px",borderRadius:3,
-                              }}>🔗 來源{e.sources.length>1?` ${si+1}`:""}</a>
-                            ))}
-                          </div>
-                        )}
                       </div>
                       {(() => {
                         const today = new Date();
