@@ -44,7 +44,7 @@ const INIT_WATCHLIST = [
 
 // ── 事件分析資料庫 ────────────────────────────────────────────────
 // 不再寫死，由行事曆自動同步並由 AI 產生預判
-// status: "past"=已發生 / "pending"=未發生
+// status: "pending"=待觀察(>7天) / "verifying"=待驗證(≤7天,已有AI預測) / "past"=已發生
 // pred: "up"=預測漲 / "down"=預測跌 / "neutral"=中性
 // actual: "up"/"down"/"neutral"/null（null=尚未驗證）
 // correct: true/false/null
@@ -189,7 +189,9 @@ export default function App() {
   const [showAll,     setShowAll]     = useState(false);
   const [expandedNews, setExpandedNews] = useState(new Set());
   const [newsPendingExpanded, setNewsPendingExpanded] = useState(false);
+  const [newsVerifyingExpanded, setNewsVerifyingExpanded] = useState(false);
   const [newsPastExpanded, setNewsPastExpanded] = useState(false);
+  const [predictingEvents, setPredictingEvents] = useState(false);
   const toggleNews = (id) => setExpandedNews(prev => {
     const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
   });
@@ -487,6 +489,69 @@ export default function App() {
       fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-events",data:newsEvents})}).catch(()=>{});
     }
   }, [newsEvents, ready]);
+
+  // ── 7天內事件自動觸發AI預測 → 移入「待驗證」 ──
+  useEffect(() => {
+    if (!ready || !newsEvents || newsEvents.length === 0 || predictingEvents) return;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const sevenDaysLater = new Date(now);
+    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+
+    // 找出 status=pending 且日期在 7 天內的事件
+    const needsPrediction = newsEvents.filter(e => {
+      if (e.status !== "pending") return false;
+      if (!e.date || !e.date.match(/^\d{4}\/\d{2}\/\d{2}/)) return false;
+      const evDate = new Date(e.date.replace(/\//g, "-"));
+      evDate.setHours(0, 0, 0, 0);
+      return evDate >= now && evDate <= sevenDaysLater;
+    });
+
+    if (needsPrediction.length === 0) return;
+
+    setPredictingEvents(true);
+    (async () => {
+      try {
+        const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            events: needsPrediction.map((e, i) => ({
+              index: i + 1,
+              date: e.date,
+              title: e.title,
+              detail: e.detail,
+              stocks: e.stocks,
+            })),
+            holdings: holdings || [],
+          }),
+        });
+        if (!res.ok) { console.error("Predict events failed:", res.status); return; }
+        const data = await res.json();
+        const preds = data.predictions || [];
+
+        setNewsEvents(prev => {
+          const arr = [...(prev || [])];
+          needsPrediction.forEach((e, i) => {
+            const idx = arr.findIndex(x => x.id === e.id);
+            if (idx < 0) return;
+            const p = preds.find(pp => pp.index === i + 1);
+            arr[idx] = {
+              ...arr[idx],
+              status: "verifying",
+              pred: p?.pred || "neutral",
+              predReason: p?.predReason || "AI 自動預測",
+            };
+          });
+          return arr;
+        });
+      } catch (err) {
+        console.error("Predict events error:", err);
+      } finally {
+        setPredictingEvents(false);
+      }
+    })();
+  }, [newsEvents, ready, holdings]);
   useEffect(() => { if (ready && analysisHistory) save("pf-analysis-history-v1", analysisHistory); }, [analysisHistory, ready]);
   useEffect(() => { if (ready && reversalConditions) save("pf-reversal-v1", reversalConditions); }, [reversalConditions, ready]);
   useEffect(() => { if (ready && strategyBrain) save("pf-brain-v1", strategyBrain); }, [strategyBrain, ready]);
@@ -673,7 +738,7 @@ export default function App() {
       // 3. 事件連動分析
       const NE = newsEvents || [];
       const today = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "/");
-      const pendingEvents = NE.filter(e => e.status === "pending" || e.status === "tracking");
+      const pendingEvents = NE.filter(e => e.status === "pending" || e.status === "verifying" || e.status === "tracking");
       const eventCorrelations = pendingEvents.map(e => {
         const relatedStocks = e.stocks.map(s => {
           const raw = typeof s === "string" ? s : (s.code || s.name || "");
@@ -2267,8 +2332,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* ══════════ NEWS ANALYSIS ══════════ */}
         {tab==="news" && (()=>{
           const NE = newsEvents || [];
-          const past    = NE.filter(e=>e.status==="past").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-          const pending = NE.filter(e=>e.status==="pending").sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+          const past      = NE.filter(e=>e.status==="past").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+          const verifying = NE.filter(e=>e.status==="verifying").sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+          const pending   = NE.filter(e=>e.status==="pending").sort((a,b)=>(a.date||"").localeCompare(b.date||""));
           const hits    = NE.filter(e=>e.correct===true).length;
           const misses  = NE.filter(e=>e.correct===false).length;
 
@@ -2334,8 +2400,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         color: isCorrect ? C.olive : C.up,
                       }}>{isCorrect ? "✓ 正確" : "✗ 有誤"}</span>
                     )}
+                    {e.status==="verifying" && (
+                      <span style={{fontSize:12,color:C.amber,fontWeight:600,
+                        padding:"2px 7px",borderRadius:20,background:C.amberBg||C.cardAmber}}>⏳ 待驗證</span>
+                    )}
                     {e.status==="pending" && (
-                      <span style={{fontSize:12,color:C.textMute,fontWeight:500}}>待驗證</span>
+                      <span style={{fontSize:12,color:C.textMute,fontWeight:500}}>待觀察</span>
                     )}
                     <span style={{fontSize:12,color:C.textMute}}>{open?"▲":"▼"}</span>
                   </div>
@@ -2390,8 +2460,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       </div>
                     )}
 
-                    {/* 復盤按鈕（待觀察事件） */}
-                    {e.status==="pending" && (
+                    {/* 復盤按鈕（待驗證或待觀察事件） */}
+                    {(e.status==="pending" || e.status==="verifying") && (
                       <button onClick={(ev)=>{ev.stopPropagation();setReviewingEvent(e.id);setReviewForm({actual:"up",actualNote:"",lessons:""})}}
                         style={{marginTop:10,width:"100%",padding:"9px",
                           background:C.olive+"22",border:`1px solid ${C.olive}55`,
@@ -2553,13 +2623,41 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             )}
 
-            {/* 待觀察 */}
+            {/* 待驗證（7天內，AI已預測） */}
+            {verifying.length > 0 && (<>
+              <div style={{
+                display:"flex", alignItems:"center", justifyContent:"space-between",
+                marginBottom:8,
+              }}>
+                <div style={{...lbl, marginBottom:0, color:C.amber}}>⏳ 待驗證 · {verifying.length} 件</div>
+                <span style={{fontSize:12,color:C.textMute}}>7天內事件・AI已預測</span>
+              </div>
+              {predictingEvents && (
+                <div style={{fontSize:13,color:C.amber,marginBottom:8,textAlign:"center"}}>⏳ AI 正在預測中...</div>
+              )}
+              {(()=>{
+                const LIMIT = 10;
+                const show = newsVerifyingExpanded ? verifying : verifying.slice(0, LIMIT);
+                return <>
+                  {show.map((e,i)=><EventRow key={e.id} e={e} idx={i}/>)}
+                  {verifying.length > LIMIT && (
+                    <button onClick={()=>setNewsVerifyingExpanded(!newsVerifyingExpanded)} style={{
+                      width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
+                      background:"transparent",color:C.amber,fontSize:13,fontWeight:500,cursor:"pointer",
+                      marginTop:4,marginBottom:4,
+                    }}>{newsVerifyingExpanded ? "▲ 收合" : `▼ 展開其餘 ${verifying.length - LIMIT} 則`}</button>
+                  )}
+                </>;
+              })()}
+            </>)}
+
+            {/* 待觀察（>7天） */}
             <div style={{
               display:"flex", alignItems:"center", justifyContent:"space-between",
-              marginBottom:8,
+              marginBottom:8, marginTop: verifying.length > 0 ? 16 : 0,
             }}>
               <div style={{...lbl, marginBottom:0}}>待觀察 · {pending.length} 件</div>
-              <span style={{fontSize:12,color:C.textMute}}>點擊展開詳情</span>
+              <span style={{fontSize:12,color:C.textMute}}>7天以上</span>
             </div>
             {(()=>{
               const LIMIT = 10;
