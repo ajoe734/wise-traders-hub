@@ -2460,8 +2460,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       </div>
                     )}
 
-                    {/* 復盤按鈕（待觀察事件） */}
-                    {e.status==="pending" && (
+                    {/* 復盤按鈕（待驗證或待觀察事件） */}
+                    {(e.status==="pending" || e.status==="verifying") && (
                       <button onClick={(ev)=>{ev.stopPropagation();setReviewingEvent(e.id);setReviewForm({actual:"up",actualNote:"",lessons:""})}}
                         style={{marginTop:10,width:"100%",padding:"9px",
                           background:C.olive+"22",border:`1px solid ${C.olive}55`,
@@ -2623,13 +2623,41 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             )}
 
-            {/* 待觀察 */}
+            {/* 待驗證（7天內，AI已預測） */}
+            {verifying.length > 0 && (<>
+              <div style={{
+                display:"flex", alignItems:"center", justifyContent:"space-between",
+                marginBottom:8,
+              }}>
+                <div style={{...lbl, marginBottom:0, color:C.amber}}>⏳ 待驗證 · {verifying.length} 件</div>
+                <span style={{fontSize:12,color:C.textMute}}>7天內事件・AI已預測</span>
+              </div>
+              {predictingEvents && (
+                <div style={{fontSize:13,color:C.amber,marginBottom:8,textAlign:"center"}}>⏳ AI 正在預測中...</div>
+              )}
+              {(()=>{
+                const LIMIT = 10;
+                const show = newsVerifyingExpanded ? verifying : verifying.slice(0, LIMIT);
+                return <>
+                  {show.map((e,i)=><EventRow key={e.id} e={e} idx={i}/>)}
+                  {verifying.length > LIMIT && (
+                    <button onClick={()=>setNewsVerifyingExpanded(!newsVerifyingExpanded)} style={{
+                      width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
+                      background:"transparent",color:C.amber,fontSize:13,fontWeight:500,cursor:"pointer",
+                      marginTop:4,marginBottom:4,
+                    }}>{newsVerifyingExpanded ? "▲ 收合" : `▼ 展開其餘 ${verifying.length - LIMIT} 則`}</button>
+                  )}
+                </>;
+              })()}
+            </>)}
+
+            {/* 待觀察（>7天） */}
             <div style={{
               display:"flex", alignItems:"center", justifyContent:"space-between",
-              marginBottom:8,
+              marginBottom:8, marginTop: verifying.length > 0 ? 16 : 0,
             }}>
               <div style={{...lbl, marginBottom:0}}>待觀察 · {pending.length} 件</div>
-              <span style={{fontSize:12,color:C.textMute}}>點擊展開詳情</span>
+              <span style={{fontSize:12,color:C.textMute}}>7天以上</span>
             </div>
             {(()=>{
               const LIMIT = 10;
