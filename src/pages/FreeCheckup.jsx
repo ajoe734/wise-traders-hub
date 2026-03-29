@@ -738,7 +738,7 @@ export default function App() {
       // 3. 事件連動分析
       const NE = newsEvents || [];
       const today = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, "/");
-      const pendingEvents = NE.filter(e => e.status === "pending" || e.status === "tracking");
+      const pendingEvents = NE.filter(e => e.status === "pending" || e.status === "verifying" || e.status === "tracking");
       const eventCorrelations = pendingEvents.map(e => {
         const relatedStocks = e.stocks.map(s => {
           const raw = typeof s === "string" ? s : (s.code || s.name || "");
