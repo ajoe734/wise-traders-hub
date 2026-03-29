@@ -1070,6 +1070,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         // 解析成功後立即同步持倉 & 交易記錄
         if (parsedResult?.trades?.length) {
+          holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
           setHoldings(prev => parsedResult.trades.reduce(
             (acc, trade) => mergeTradeIntoHoldings(acc, trade),
             [...(prev || [])],
