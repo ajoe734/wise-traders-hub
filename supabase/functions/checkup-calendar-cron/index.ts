@@ -163,10 +163,10 @@ Deno.serve(async (req) => {
     const endDate = oneYearLater.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/');
 
     const outputFormat = `JSON陣列，每個元素格式：
-{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期"}
+{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/到期","sources":["來源網址1","來源網址2"]}
 
 規則：
-- 不需要 sources 欄位
+- sources 欄位：必須填入你搜尋到該事件資訊的真實外部網址（如 https://www.twse.com.tw/...、https://mops.twse.com.tw/...、https://finance.yahoo.com/... 等），不能是 lovable.app 或 vertexaisearch 的網址。如果找不到來源，填空陣列 []。每個事件最多 3 個來源。
 - date 欄位：如果有精確日期，用 YYYY/MM/DD 格式；如果只知道月份，用「2025/07月」；如果只知道季度，用「2025 Q2」；如果尚未公布，用「尚未公布」或「待確認」。總之不要因為日期不精確就省略事件。
 - urgent=true 僅限未來一週內的事件（模糊日期的事件 urgent=false）
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
