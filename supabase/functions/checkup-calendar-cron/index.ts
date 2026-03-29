@@ -47,23 +47,45 @@ async function callGeminiWithGrounding(apiKey: string, prompt: string): Promise<
   return { ok: false, text: 'retry exhausted' };
 }
 
+function extractJsonArray(text: string): string | null {
+  const start = text.indexOf('[');
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '[') depth++;
+    else if (ch === ']') {
+      depth--;
+      if (depth === 0) return text.substring(start, i + 1);
+    }
+  }
+  return null;
+}
+
 function tryParseEvents(text: string): any[] | null {
   try {
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    return null;
   } catch {}
-  const match = text.match(/\[[\s\S]*\]/);
-  if (match) {
+  const cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+  const jsonStr = extractJsonArray(cleaned);
+  if (jsonStr) {
     try {
-      const parsed = JSON.parse(match[0]);
+      const parsed = JSON.parse(jsonStr);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     } catch {}
   }
-  const cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim();
-  const match2 = cleaned.match(/\[[\s\S]*\]/);
-  if (match2) {
+  const jsonStr2 = extractJsonArray(text);
+  if (jsonStr2 && jsonStr2 !== jsonStr) {
     try {
-      const parsed = JSON.parse(match2[0]);
+      const parsed = JSON.parse(jsonStr2);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     } catch {}
   }

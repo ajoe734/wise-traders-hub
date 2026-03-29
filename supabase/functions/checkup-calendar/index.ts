@@ -133,6 +133,27 @@ async function callLovableAI(apiKey: string, prompt: string): Promise<{ ok: bool
   }
 }
 
+function extractJsonArray(text: string): string | null {
+  const start = text.indexOf('[');
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '[') depth++;
+    else if (ch === ']') {
+      depth--;
+      if (depth === 0) return text.substring(start, i + 1);
+    }
+  }
+  return null;
+}
+
 function tryParseEvents(text: string): any[] | null {
   // Try direct JSON parse
   try {
@@ -141,21 +162,22 @@ function tryParseEvents(text: string): any[] | null {
     return null;
   } catch { /* not pure JSON */ }
 
-  // Try extracting JSON array from markdown/free text
-  const match = text.match(/\[[\s\S]*\]/);
-  if (match) {
+  // Use bracket-depth matching to extract the first complete JSON array
+  // This avoids greedy regex issues with grounding citation markers like [1], [2]
+  const cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+  const jsonStr = extractJsonArray(cleaned);
+  if (jsonStr) {
     try {
-      const parsed = JSON.parse(match[0]);
+      const parsed = JSON.parse(jsonStr);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     } catch { /* ignore */ }
   }
 
-  // Try removing markdown fences
-  const cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim();
-  const match2 = cleaned.match(/\[[\s\S]*\]/);
-  if (match2) {
+  // Fallback: try on original text
+  const jsonStr2 = extractJsonArray(text);
+  if (jsonStr2 && jsonStr2 !== jsonStr) {
     try {
-      const parsed = JSON.parse(match2[0]);
+      const parsed = JSON.parse(jsonStr2);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     } catch { /* ignore */ }
   }
