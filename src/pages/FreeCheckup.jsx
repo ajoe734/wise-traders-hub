@@ -2267,8 +2267,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* ══════════ NEWS ANALYSIS ══════════ */}
         {tab==="news" && (()=>{
           const NE = newsEvents || [];
-          const past    = NE.filter(e=>e.status==="past").sort((a,b)=>b.id-a.id);
-          const pending = NE.filter(e=>e.status==="pending").sort((a,b)=>a.id-b.id);
+          const past    = NE.filter(e=>e.status==="past").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+          const pending = NE.filter(e=>e.status==="pending").sort((a,b)=>(a.date||"").localeCompare(b.date||""));
           const hits    = NE.filter(e=>e.correct===true).length;
           const misses  = NE.filter(e=>e.correct===false).length;
 
