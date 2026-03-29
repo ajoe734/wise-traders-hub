@@ -27,7 +27,7 @@ async function callGeminiWithGrounding(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature, maxOutputTokens: 8192 },
+            generationConfig: { temperature, maxOutputTokens: 65536 },
             tools: [{ google_search: {} }],
           }),
         },
@@ -74,7 +74,7 @@ async function callGeminiPlain(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature, maxOutputTokens: 8192, responseMimeType: 'application/json' },
+            generationConfig: { temperature, maxOutputTokens: 65536, responseMimeType: 'application/json' },
           }),
         },
       );
@@ -115,7 +115,7 @@ async function callLovableAI(apiKey: string, prompt: string): Promise<{ ok: bool
           { role: 'user', content: prompt },
         ],
         temperature: 0.3,
-        max_tokens: 8192,
+        max_tokens: 32768,
       }),
     });
     if (!response.ok) {
@@ -154,6 +154,29 @@ function extractJsonArray(text: string): string | null {
   return null;
 }
 
+function tryRepairTruncatedArray(text: string): any[] | null {
+  // Find the start of the JSON array
+  const start = text.indexOf('[');
+  if (start === -1) return null;
+  const sub = text.substring(start);
+  // Find the last complete object by looking for the last "},"  or "}" 
+  const lastCompleteObj = sub.lastIndexOf('}');
+  if (lastCompleteObj === -1) return null;
+  // Try closing the array after the last complete object
+  const candidate = sub.substring(0, lastCompleteObj + 1) + ']';
+  try {
+    const parsed = JSON.parse(candidate);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch { /* ignore */ }
+  // Try removing trailing comma
+  const trimmed = candidate.replace(/,\s*\]$/, ']');
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch { /* ignore */ }
+  return null;
+}
+
 function tryParseEvents(text: string): any[] | null {
   // Try direct JSON parse
   try {
@@ -162,9 +185,10 @@ function tryParseEvents(text: string): any[] | null {
     return null;
   } catch { /* not pure JSON */ }
 
-  // Use bracket-depth matching to extract the first complete JSON array
-  // This avoids greedy regex issues with grounding citation markers like [1], [2]
+  // Clean markdown fences
   const cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+
+  // Use bracket-depth matching to extract the first complete JSON array
   const jsonStr = extractJsonArray(cleaned);
   if (jsonStr) {
     try {
@@ -180,6 +204,13 @@ function tryParseEvents(text: string): any[] | null {
       const parsed = JSON.parse(jsonStr2);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     } catch { /* ignore */ }
+  }
+
+  // Last resort: try to repair truncated JSON (output cut off by token limit)
+  const repaired = tryRepairTruncatedArray(cleaned);
+  if (repaired) {
+    console.log(`Calendar: repaired truncated JSON, recovered ${repaired.length} events`);
+    return repaired;
   }
 
   return null;
