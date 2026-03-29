@@ -489,6 +489,69 @@ export default function App() {
       fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-events",data:newsEvents})}).catch(()=>{});
     }
   }, [newsEvents, ready]);
+
+  // ── 7天內事件自動觸發AI預測 → 移入「待驗證」 ──
+  useEffect(() => {
+    if (!ready || !newsEvents || newsEvents.length === 0 || predictingEvents) return;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const sevenDaysLater = new Date(now);
+    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+
+    // 找出 status=pending 且日期在 7 天內的事件
+    const needsPrediction = newsEvents.filter(e => {
+      if (e.status !== "pending") return false;
+      if (!e.date || !e.date.match(/^\d{4}\/\d{2}\/\d{2}/)) return false;
+      const evDate = new Date(e.date.replace(/\//g, "-"));
+      evDate.setHours(0, 0, 0, 0);
+      return evDate >= now && evDate <= sevenDaysLater;
+    });
+
+    if (needsPrediction.length === 0) return;
+
+    setPredictingEvents(true);
+    (async () => {
+      try {
+        const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            events: needsPrediction.map((e, i) => ({
+              index: i + 1,
+              date: e.date,
+              title: e.title,
+              detail: e.detail,
+              stocks: e.stocks,
+            })),
+            holdings: holdings || [],
+          }),
+        });
+        if (!res.ok) { console.error("Predict events failed:", res.status); return; }
+        const data = await res.json();
+        const preds = data.predictions || [];
+
+        setNewsEvents(prev => {
+          const arr = [...(prev || [])];
+          needsPrediction.forEach((e, i) => {
+            const idx = arr.findIndex(x => x.id === e.id);
+            if (idx < 0) return;
+            const p = preds.find(pp => pp.index === i + 1);
+            arr[idx] = {
+              ...arr[idx],
+              status: "verifying",
+              pred: p?.pred || "neutral",
+              predReason: p?.predReason || "AI 自動預測",
+            };
+          });
+          return arr;
+        });
+      } catch (err) {
+        console.error("Predict events error:", err);
+      } finally {
+        setPredictingEvents(false);
+      }
+    })();
+  }, [newsEvents, ready, holdings]);
   useEffect(() => { if (ready && analysisHistory) save("pf-analysis-history-v1", analysisHistory); }, [analysisHistory, ready]);
   useEffect(() => { if (ready && reversalConditions) save("pf-reversal-v1", reversalConditions); }, [reversalConditions, ready]);
   useEffect(() => { if (ready && strategyBrain) save("pf-brain-v1", strategyBrain); }, [strategyBrain, ready]);
