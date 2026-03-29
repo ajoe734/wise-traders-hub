@@ -51,15 +51,34 @@ async function callGeminiWithGrounding(
       if (groundingMeta) {
         console.log(`Grounding queries: ${JSON.stringify(groundingMeta.webSearchQueries || [])}`);
         // Extract real source URLs from grounding chunks
-        const chunks = groundingMeta.groundingChunks || groundingMeta.supportingChunks || [];
+        const chunks = groundingMeta.groundingChunks || [];
         for (const chunk of chunks) {
-          const uri = chunk?.web?.uri || chunk?.retrievedContext?.uri;
-          if (uri && !uri.includes('lovable.app') && !uri.includes('lovable.dev')) {
-            groundingSources.push(uri);
+          const uri = chunk?.web?.uri;
+          const title = chunk?.web?.title || '';
+          if (uri) {
+            // Google API returns proxy URLs (vertexaisearch.cloud.google.com)
+            // Try to extract the real domain from the title field
+            if (uri.includes('vertexaisearch.cloud.google.com')) {
+              // title is like "aljazeera.com" — construct a likely URL
+              if (title && !title.includes('lovable')) {
+                const realUrl = title.startsWith('http') ? title : `https://${title}`;
+                groundingSources.push(realUrl);
+              }
+            } else if (!uri.includes('lovable.app') && !uri.includes('lovable.dev')) {
+              groundingSources.push(uri);
+            }
           }
+        }
+        // Also check groundingSupports for any additional context
+        const supports = groundingMeta.groundingSupports || [];
+        for (const sup of supports) {
+          const indices = sup?.groundingChunkIndices || [];
+          // Already handled via chunks above
         }
         if (groundingSources.length > 0) {
           console.log(`Grounding sources: ${groundingSources.length} URLs extracted`);
+        } else {
+          console.log(`Grounding: no real source URLs found. Raw chunks: ${JSON.stringify(chunks.slice(0, 3))}`);
         }
       }
       if (!text) {
@@ -229,30 +248,87 @@ function tryParseEvents(text: string): any[] | null {
   return null;
 }
 
+function classifyHoldings(stocks: string): { stockList: string; warrantList: string; parentStocks: string[] } {
+  // Split by Chinese comma or regular comma
+  const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
+  const stockItems: string[] = [];
+  const warrantItems: string[] = [];
+  const parentStocks: string[] = [];
+  
+  for (const item of items) {
+    const code = item.match(/^(\d+)/)?.[1] || '';
+    const name = item.replace(/^\d+\s*/, '');
+    // Warrant codes are typically 6 digits, and names contain 購/售/牛/熊
+    const isWarrant = code.length === 6 || /[購售牛熊]/.test(name);
+    if (isWarrant) {
+      warrantItems.push(item);
+      // Try to extract parent stock name from warrant name
+      // Warrant names are like "華新元大5A購01" → parent is "華新"
+      // Or "亞翔凱基5B購01" → parent is "亞翔"  
+      // Pattern: company name comes before the broker name (凱基/元大/富邦/群益/統一/國票/永豐/中信/日盛/兆豐/台新/玉山)
+      const brokerMatch = name.match(/^(.+?)(凱基|元大|富邦|群益|統一|國票|永豐|中信|日盛|兆豐|台新|玉山|永昌)/);
+      if (brokerMatch?.[1]) {
+        parentStocks.push(brokerMatch[1]);
+      }
+    } else {
+      stockItems.push(item);
+    }
+  }
+  
+  return {
+    stockList: stockItems.join('、'),
+    warrantList: warrantItems.join('、'),
+    parentStocks: [...new Set(parentStocks)],
+  };
+}
+
 function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string): string {
+  const { stockList, warrantList, parentStocks } = classifyHoldings(stocks);
+  
+  // Build holdings section with clear separation
+  let holdingsSection = '';
+  if (stockList) {
+    holdingsSection += `## 股票持倉\n${stockList}\n\n`;
+  }
+  if (warrantList) {
+    holdingsSection += `## 權證持倉（僅需列出「到期日」事件，不需要列出營收/財報/法說/除息/股東會）\n${warrantList}\n\n`;
+  }
+  if (parentStocks.length > 0) {
+    const existingStockCodes = stockList.match(/\d{4}/g) || [];
+    const parentInfo = parentStocks.filter(p => {
+      // Only add parent if not already in stock list
+      return !existingStockCodes.some(code => stockList.includes(code) && stockList.includes(p));
+    });
+    if (parentInfo.length > 0) {
+      holdingsSection += `## 權證母股（需列出營收/財報/法說/除息/股東會等事件，標明影響哪檔權證）\n${parentInfo.join('、')}（請搜尋這些公司的正確股票代碼）\n\n`;
+    }
+  }
+
   return `# Role
 你是一位頂級 AI 財經分析師，精通台股市場，善於搜尋並彙整即時資訊。
 
 # Task Objective
 針對以下持倉標的，利用網路搜尋找出「${today} 的隔天起到 ${endDate}」的重要事件行事曆。
 
-持倉標的：${stocks}
+${holdingsSection}
 
-# 事件類別（8 大類，每一類都要盡力搜尋並列出）
-1. **營收**：每月營收公布（次月10日前）— 根據規則推算即可
-2. **財報**：季度財報公布截止日 — 根據規則推算即可
-3. **法說**：法說會、業績發表會、線上法說 — 請搜尋各公司近期法說會排程
-4. **除息**：除權息日、配息基準日 — 請搜尋各公司股利政策與除息日
-5. **總經**：央行會議、FOMC、CPI、GDP、非農就業等影響台股的重大事件
-6. **催化**：產業展覽（如 Computex、CES）、新品發表、重大訂單、技術突破、政策利多
-7. **到期**：權證到期日（權證代碼通常為6碼，名稱含「購」「售」「牛」「熊」）
-8. **操作**：股東會、董事會、庫藏股、大股東申報轉讓
+# ⚠️ 重要：標的分類規則
+- **股票**（4碼代碼）：列出全部 8 大類事件（營收、財報、法說、除息、總經、催化、到期、操作）
+- **權證**（6碼代碼，名稱含「購」「售」「牛」「熊」）：**只需列出到期日事件**，不要列出權證的營收、財報等（權證沒有這些）
+- **權證母股**：如果持有的權證有對應母股，需額外搜尋母股的重要事件，並在 label 中標明「（影響權證 XXXXXX）」
+
+# 事件類別（8 大類）
+1. **營收**：每月營收公布（次月10日前）— 僅適用於股票
+2. **財報**：季度財報公布截止日 — 僅適用於股票
+3. **法說**：法說會、業績發表會 — 僅適用於股票
+4. **除息**：除權息日、配息基準日 — 僅適用於股票
+5. **總經**：央行會議、FOMC、CPI、GDP、非農就業等
+6. **催化**：產業展覽、新品發表、重大訂單、政策利多
+7. **到期**：權證到期日 — 適用於權證
+8. **操作**：股東會、董事會、庫藏股 — 僅適用於股票
 
 # 重要指引
-- 請積極搜尋每檔標的的最新法說會、除息、股東會等日程
-- 權證標的：同時列出其母股（標的股）的重要事件，標明影響哪檔權證
-- 每檔標的至少列出月營收和季度財報相關事件
-- **即使搜尋不到精確日期，也必須列出事件**，date 欄位可用模糊表達（見下方格式說明）
+- **即使搜尋不到精確日期，也必須列出事件**，date 欄位可用模糊表達
 - 不要包含今天(${today})或過去的事件
 
 # Output Format

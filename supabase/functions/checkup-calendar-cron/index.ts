@@ -92,6 +92,26 @@ function tryParseEvents(text: string): any[] | null {
   return null;
 }
 
+function classifyHoldings(stocks: string): { stockList: string; warrantList: string; parentStocks: string[] } {
+  const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
+  const stockItems: string[] = [];
+  const warrantItems: string[] = [];
+  const parentStocks: string[] = [];
+  for (const item of items) {
+    const code = item.match(/^(\d+)/)?.[1] || '';
+    const name = item.replace(/^\d+\s*/, '');
+    const isWarrant = code.length === 6 || /[購售牛熊]/.test(name);
+    if (isWarrant) {
+      warrantItems.push(item);
+      const brokerMatch = name.match(/^(.+?)(凱基|元大|富邦|群益|統一|國票|永豐|中信|日盛|兆豐|台新|玉山|永昌)/);
+      if (brokerMatch?.[1]) parentStocks.push(brokerMatch[1]);
+    } else {
+      stockItems.push(item);
+    }
+  }
+  return { stockList: stockItems.join('、'), warrantList: warrantItems.join('、'), parentStocks: [...new Set(parentStocks)] };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -152,29 +172,41 @@ Deno.serve(async (req) => {
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、到期
 - 按日期由近到遠排序，模糊日期的排在精確日期之後`;
 
+    const stocksStr = typeof stocks === 'string' ? stocks : stocks.map((s: any) => `${s.code} ${s.name}`).join('、');
+    const { stockList, warrantList, parentStocks } = classifyHoldings(stocksStr);
+    
+    let holdingsSection = '';
+    if (stockList) holdingsSection += `## 股票持倉\n${stockList}\n\n`;
+    if (warrantList) holdingsSection += `## 權證持倉（僅需列出「到期日」事件）\n${warrantList}\n\n`;
+    if (parentStocks.length > 0) {
+      holdingsSection += `## 權證母股（需列出營收/財報/法說/除息/股東會等事件，標明影響哪檔權證）\n${parentStocks.join('、')}（請搜尋正確股票代碼）\n\n`;
+    }
+
     const prompt = `# Role
 你是一位頂級 AI 財經分析師，精通台股市場，善於搜尋並彙整即時資訊。
 
 # Task Objective
 針對以下持倉標的，利用網路搜尋找出「${today} 的隔天起到 ${endDate}」的重要事件行事曆。
 
-持倉標的：${stocks}
+${holdingsSection}
 
-# 事件類別（8 大類，每一類都要盡力搜尋並列出）
-1. **營收**：每月營收公布（次月10日前）— 根據規則推算即可
-2. **財報**：季度財報公布截止日 — 根據規則推算即可
-3. **法說**：法說會、業績發表會、線上法說 — 請搜尋各公司近期法說會排程
-4. **除息**：除權息日、配息基準日 — 請搜尋各公司股利政策與除息日
-5. **總經**：央行會議、FOMC、CPI、GDP、非農就業等影響台股的重大事件
-6. **催化**：產業展覽（如 Computex、CES）、新品發表、重大訂單、技術突破、政策利多
-7. **到期**：權證到期日（權證代碼通常為6碼，名稱含「購」「售」「牛」「熊」）
-8. **操作**：股東會、董事會、庫藏股、大股東申報轉讓
+# ⚠️ 重要：標的分類規則
+- **股票**（4碼代碼）：列出全部 8 大類事件
+- **權證**（6碼代碼）：**只需列出到期日事件**
+- **權證母股**：搜尋母股的重要事件，在 label 中標明「（影響權證 XXXXXX）」
+
+# 事件類別（8 大類）
+1. **營收**：每月營收公布（次月10日前）— 僅適用於股票
+2. **財報**：季度財報公布截止日 — 僅適用於股票
+3. **法說**：法說會、業績發表會 — 僅適用於股票
+4. **除息**：除權息日、配息基準日 — 僅適用於股票
+5. **總經**：央行會議、FOMC、CPI、GDP、非農就業等
+6. **催化**：產業展覽、新品發表、重大訂單、政策利多
+7. **到期**：權證到期日 — 適用於權證
+8. **操作**：股東會、董事會、庫藏股 — 僅適用於股票
 
 # 重要指引
-- 請積極搜尋每檔標的的最新法說會、除息、股東會等日程
-- 權證標的：同時列出其母股（標的股）的重要事件，標明影響哪檔權證
-- 每檔標的至少列出月營收和季度財報相關事件
-- **即使搜尋不到精確日期，也必須列出事件**，date 欄位可用模糊表達（見下方格式說明）
+- **即使搜尋不到精確日期，也必須列出事件**
 - 不要包含今天(${today})或過去的事件
 
 # Output Format
