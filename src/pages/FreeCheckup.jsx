@@ -44,7 +44,7 @@ const INIT_WATCHLIST = [
 
 // ── 事件分析資料庫 ────────────────────────────────────────────────
 // 不再寫死，由行事曆自動同步並由 AI 產生預判
-// status: "past"=已發生 / "pending"=未發生
+// status: "pending"=待觀察(>7天) / "verifying"=待驗證(≤7天,已有AI預測) / "past"=已發生
 // pred: "up"=預測漲 / "down"=預測跌 / "neutral"=中性
 // actual: "up"/"down"/"neutral"/null（null=尚未驗證）
 // correct: true/false/null
@@ -189,7 +189,9 @@ export default function App() {
   const [showAll,     setShowAll]     = useState(false);
   const [expandedNews, setExpandedNews] = useState(new Set());
   const [newsPendingExpanded, setNewsPendingExpanded] = useState(false);
+  const [newsVerifyingExpanded, setNewsVerifyingExpanded] = useState(false);
   const [newsPastExpanded, setNewsPastExpanded] = useState(false);
+  const [predictingEvents, setPredictingEvents] = useState(false);
   const toggleNews = (id) => setExpandedNews(prev => {
     const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
   });
