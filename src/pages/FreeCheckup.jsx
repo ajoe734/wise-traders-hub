@@ -1283,12 +1283,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     }).catch(() => {});
     // 清除雲端交易備忘錄
     supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000").then(() => {}).catch(() => {});
-    // 清除雲端行事曆、持倉、事件分析、歷史分析、大腦、反轉條件
-    const cloudKeys = ["pf-calendar-v1", "pf-calendar-holdings", "pf-news-events-v1",
-      "pf-analysis-history-v1", "pf-brain-v1", "pf-reversal-v1", "pf-holdings-v2", "pf-log-v2", "pf-targets-v1"];
-    cloudKeys.forEach(k => {
-      supabase.from("checkup_storage").delete().eq("key", k).then(() => {}).catch(() => {});
-    });
 
     setSaved("🗑️ 已全部清除");
     setTimeout(() => setSaved(""), 2500);

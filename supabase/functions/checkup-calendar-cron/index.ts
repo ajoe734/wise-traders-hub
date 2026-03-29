@@ -9,7 +9,7 @@ const corsHeaders = {
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-async function callGeminiWithGrounding(apiKey: string, prompt: string): Promise<{ ok: boolean; text: string; groundingSources?: string[] }> {
+async function callGeminiWithGrounding(apiKey: string, prompt: string): Promise<{ ok: boolean; text: string }> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const response = await fetch(
@@ -37,56 +37,14 @@ async function callGeminiWithGrounding(apiKey: string, prompt: string): Promise<
       const data = await response.json();
       const parts = data.candidates?.[0]?.content?.parts || [];
       const text = parts.filter((p: any) => p.text).map((p: any) => p.text).join('').trim();
-
-      // Extract real source URLs from grounding metadata
-      const groundingSources: string[] = [];
-      const groundingMeta = data.candidates?.[0]?.groundingMetadata;
-      if (groundingMeta) {
-        const chunks = groundingMeta.groundingChunks || [];
-        for (const chunk of chunks) {
-          const uri = chunk?.web?.uri;
-          if (uri && typeof uri === 'string' && uri.startsWith('http')) {
-            if (uri.includes('lovable.app') || uri.includes('lovable.dev')) continue;
-            groundingSources.push(uri);
-          }
-        }
-        console.log(`Cron: Grounding sources: ${groundingSources.length} URLs extracted`);
-      }
-
       if (!text) return { ok: false, text: '' };
-      return { ok: true, text, groundingSources };
+      return { ok: true, text };
     } catch (err) {
       console.error('Cron: Gemini exception:', err);
       return { ok: false, text: String(err) };
     }
   }
   return { ok: false, text: 'retry exhausted' };
-}
-
-function attachGroundingSources(events: any[], groundingSources: string[]): any[] {
-  if (!groundingSources || groundingSources.length === 0) {
-    return events.map(ev => ({ ...ev, sources: [] }));
-  }
-  const uniqueSources = [...new Set(groundingSources)];
-  return events.map(ev => {
-    const code = (ev.label || '').match(/\d{4}/)?.[0];
-    const matched = uniqueSources.filter(url => {
-      const urlLower = url.toLowerCase();
-      if (code && urlLower.includes(code)) return true;
-      const typeMap: Record<string, string[]> = {
-        '法說': ['investor', 'conference', '法說'],
-        '除息': ['dividend', '除息', '配息'],
-        '總經': ['fed', 'fomc', 'cpi', 'gdp', 'macro', '央行', 'bls.gov', 'federalreserve'],
-        '催化': ['exhibition', 'computex', 'ces', '展覽', 'semicon'],
-        '營收': ['revenue', '營收', 'mops.twse'],
-        '財報': ['earnings', '財報', 'report', 'mops.twse'],
-        '權證': ['warrant', '權證'],
-      };
-      const keywords = typeMap[ev.type] || [];
-      return keywords.some(kw => urlLower.includes(kw));
-    });
-    return { ...ev, sources: matched.length > 0 ? matched.slice(0, 3) : [] };
-  });
 }
 
 function extractJsonArray(text: string): string | null {
@@ -205,10 +163,10 @@ Deno.serve(async (req) => {
     const endDate = oneYearLater.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/');
 
     const outputFormat = `JSON陣列，每個元素格式：
-{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/權證"}
+{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/權證","sources":["來源網址1","來源網址2"]}
 
 規則：
-- 不要包含 sources 欄位
+- sources 欄位：必須填入你搜尋到該事件資訊的真實外部網址（如 https://www.twse.com.tw/...、https://mops.twse.com.tw/...、https://finance.yahoo.com/... 等），不能是 lovable.app 或 vertexaisearch 的網址。如果找不到來源，填空陣列 []。每個事件最多 3 個來源。
 - date 欄位：如果有精確日期，用 YYYY/MM/DD 格式；如果只知道月份，用「2025/07月」；如果只知道季度，用「2025 Q2」；如果尚未公布，用「尚未公布」或「待確認」。總之不要因為日期不精確就省略事件。
 - urgent=true 僅限未來一週內的事件（模糊日期的事件 urgent=false）
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、權證
@@ -277,17 +235,11 @@ ${outputFormat}
       });
     }
 
-    // 4. Strip AI-generated sources (could be indices), attach real grounding URLs
-    const cleanedEvents = attachGroundingSources(
-      newEvents.map(({ sources, ...rest }: any) => rest),
-      result.groundingSources || [],
-    );
-
-    // 5. 合併去重
+    // 4. 合併去重
     const seen = new Set(existingEvents.map((e: any) => `${e.label}||${e.date}`));
     const merged = [...existingEvents];
     let addedCount = 0;
-    for (const ne of cleanedEvents) {
+    for (const ne of newEvents) {
       if (!ne || !ne.label) continue;
       const key = `${ne.label}||${ne.date}`;
       if (!seen.has(key)) {
@@ -298,7 +250,7 @@ ${outputFormat}
     }
     merged.sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''));
 
-    // 6. 儲存回 checkup_storage
+    // 5. 儲存回 checkup_storage
     await supabase.from('checkup_storage').upsert({
       key: 'pf-calendar-v1',
       data: { events: merged, holdingCodes },
