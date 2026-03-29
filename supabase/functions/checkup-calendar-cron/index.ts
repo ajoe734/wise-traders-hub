@@ -219,12 +219,103 @@ ${outputFormat}
       data: { events: merged, holdingCodes },
     });
 
-    console.log(`Cron: Done. Existing: ${existingEvents.length}, New: ${addedCount}, Total: ${merged.length}`);
+    console.log(`Cron: Calendar done. Existing: ${existingEvents.length}, New: ${addedCount}, Total: ${merged.length}`);
+
+    // ── 6. 自動預測 7 天內的 pending 事件 ──
+    let predictedCount = 0;
+    try {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const sevenDaysLater = new Date(now);
+      sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+
+      // 同時讀取 newsEvents (pf-news-events-v1)
+      const { data: newsRow } = await supabase
+        .from('checkup_storage')
+        .select('data')
+        .eq('key', 'pf-news-events-v1')
+        .maybeSingle();
+
+      const newsEvents: any[] = newsRow?.data || [];
+
+      const needsPrediction = newsEvents.filter((e: any) => {
+        if (e.status !== 'pending') return false;
+        if (!e.date || !e.date.match(/^\d{4}\/\d{2}\/\d{2}/)) return false;
+        const evDate = new Date(e.date.replace(/\//g, '-'));
+        evDate.setHours(0, 0, 0, 0);
+        return evDate >= now && evDate <= sevenDaysLater;
+      });
+
+      if (needsPrediction.length > 0) {
+        console.log(`Cron: Found ${needsPrediction.length} events needing prediction`);
+
+        // 呼叫 checkup-predict-events edge function
+        const predictRes = await fetch(`${supabaseUrl}/functions/v1/checkup-predict-events`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            events: needsPrediction.map((e: any, i: number) => ({
+              index: i + 1,
+              date: e.date,
+              title: e.title || e.label,
+              detail: e.detail || e.sub || '',
+              stocks: e.stocks || [],
+            })),
+            holdings: stocks.map((s: any) => ({
+              code: s.code,
+              name: s.name,
+              costPrice: s.costPrice,
+              marketPrice: s.marketPrice,
+            })),
+          }),
+        });
+
+        if (predictRes.ok) {
+          const predData = await predictRes.json();
+          const preds = predData.predictions || [];
+
+          // 更新 newsEvents 中對應事件的狀態
+          const updatedNews = [...newsEvents];
+          needsPrediction.forEach((e: any, i: number) => {
+            const idx = updatedNews.findIndex((x: any) => x.id === e.id);
+            if (idx < 0) return;
+            const p = preds.find((pp: any) => pp.index === i + 1);
+            updatedNews[idx] = {
+              ...updatedNews[idx],
+              status: 'verifying',
+              pred: p?.pred || 'neutral',
+              predReason: p?.predReason || 'AI 自動預測（Cron）',
+            };
+            predictedCount++;
+          });
+
+          // 儲存回 checkup_storage
+          await supabase.from('checkup_storage').upsert({
+            key: 'pf-news-events-v1',
+            data: updatedNews,
+          });
+
+          console.log(`Cron: Predicted ${predictedCount} events`);
+        } else {
+          const errText = await predictRes.text();
+          console.error(`Cron: Predict call failed (${predictRes.status}):`, errText.slice(0, 200));
+        }
+      } else {
+        console.log('Cron: No pending events in 7-day window');
+      }
+    } catch (predErr) {
+      console.error('Cron: Prediction step error:', predErr);
+    }
+
     return new Response(JSON.stringify({
       status: 'ok',
       existing: existingEvents.length,
       added: addedCount,
       total: merged.length,
+      predicted: predictedCount,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
