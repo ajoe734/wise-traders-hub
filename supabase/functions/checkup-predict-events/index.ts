@@ -151,11 +151,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
   const geminiKey = Deno.env.get('GEMINI_ANALYSIS_API_KEY');
 
-  if (!lovableKey && !geminiKey) {
-    return new Response(JSON.stringify({ error: 'No AI API key configured' }), {
+  if (!geminiKey) {
+    return new Response(JSON.stringify({ error: 'No Gemini API key configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -251,33 +250,8 @@ ${eventsForPrompt}
       resultText = await callGeminiWithGrounding(geminiKey, prompt);
     }
 
-    // Layer 2: Lovable AI fallback
-    if (!resultText && lovableKey) {
-      try {
-        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${lovableKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: 'system', content: '你是台股分析師，根據提供的即時報價數據和事件資訊進行預測，只輸出 JSON 陣列。' },
-              { role: 'user', content: prompt },
-            ],
-            temperature: 0.3,
-            max_tokens: 8192,
-          }),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          resultText = data.choices?.[0]?.message?.content || '';
-        }
-      } catch (err) {
-        console.error('Lovable AI predict error:', err);
-      }
-    }
+
+    // No fallback — Gemini only
 
     if (!resultText) {
       return new Response(JSON.stringify({ error: '預測失敗，所有模型均無法使用' }), {

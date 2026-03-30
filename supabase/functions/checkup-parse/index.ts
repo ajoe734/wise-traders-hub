@@ -67,55 +67,6 @@ async function callGemini(apiKey: string, model: string, messages: any[]): Promi
   }
 }
 
-async function callLovableAI(apiKey: string, systemPrompt: string, base64: string, mediaType: string): Promise<{ ok: boolean; text: string }> {
-  try {
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image_url',
-            image_url: { url: `data:${mediaType};base64,${base64}` },
-          },
-          { type: 'text', text: '解析這張成交截圖' },
-        ],
-      },
-    ];
-
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages,
-        temperature: 0.1,
-        max_tokens: 4096,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`Lovable AI failed (${response.status}):`, errText.slice(0, 500));
-      return { ok: false, text: errText };
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
-    if (!text) {
-      console.error('Lovable AI returned empty content');
-      return { ok: false, text: '' };
-    }
-    return { ok: true, text };
-  } catch (err) {
-    console.error('Lovable AI exception:', err);
-    return { ok: false, text: String(err) };
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -128,10 +79,9 @@ Deno.serve(async (req) => {
   }
 
   const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
-  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
 
-  if (!geminiKey && !lovableKey) {
-    return new Response(JSON.stringify({ error: 'No AI API key configured' }), {
+  if (!geminiKey) {
+    return new Response(JSON.stringify({ error: 'No Gemini API key configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -175,20 +125,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Strategy 2: Fallback to Lovable AI Gateway
-    if (lovableKey) {
-      console.log('All Gemini models failed, falling back to Lovable AI Gateway');
-      const result = await callLovableAI(lovableKey, systemPrompt || '解析成交截圖', base64, mType);
 
-      if (result.ok) {
-        console.log('Lovable AI Gateway succeeded');
-        return new Response(JSON.stringify({ content: [{ text: result.text }] }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    return new Response(JSON.stringify({ error: 'AI 解析失敗，所有模型均無法使用' }), {
+    return new Response(JSON.stringify({ error: 'AI 解析失敗，所有 Gemini 模型均無法使用' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {

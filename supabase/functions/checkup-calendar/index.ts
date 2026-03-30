@@ -132,38 +132,6 @@ async function callGeminiPlain(
   return { ok: false, text: 'retry exhausted', status: 429, statusLabel: '429' };
 }
 
-async function callLovableAI(apiKey: string, prompt: string): Promise<{ ok: boolean; text: string }> {
-  try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: '你是台股財經分析師，只輸出 JSON 陣列，不輸出其他文字。' },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 32768,
-      }),
-    });
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`Lovable AI failed (${response.status}):`, errText.slice(0, 500));
-      return { ok: false, text: errText };
-    }
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || '';
-    if (!text) { console.error('Lovable AI returned empty'); return { ok: false, text: '' }; }
-    return { ok: true, text };
-  } catch (err) {
-    console.error('Lovable AI exception:', err);
-    return { ok: false, text: String(err) };
-  }
-}
 
 function extractJsonArray(text: string): string | null {
   const start = text.indexOf('[');
@@ -353,9 +321,8 @@ Deno.serve(async (req) => {
   }
 
   const apiKey = Deno.env.get('GEMINI_ANALYSIS_API_KEY');
-  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
 
-  if (!apiKey && !lovableKey) {
+  if (!apiKey) {
     return new Response(JSON.stringify({ error: 'No AI API key configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -442,19 +409,6 @@ Deno.serve(async (req) => {
             console.log(`Calendar: ${liteModel} succeeded, ${events.length} events`);
             return okResponse(events);
           }
-        }
-      }
-    }
-
-    // Strategy 4: Lovable AI Gateway fallback
-    if (lovableKey) {
-      console.log('Calendar: falling back to Lovable AI Gateway');
-      const lovResult = await callLovableAI(lovableKey, prompt);
-      if (lovResult.ok && lovResult.text) {
-        const events = tryParseEvents(lovResult.text);
-        if (events) {
-          console.log(`Calendar: Lovable AI succeeded, ${events.length} events`);
-          return okResponse(events);
         }
       }
     }
