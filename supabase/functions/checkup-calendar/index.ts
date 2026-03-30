@@ -413,19 +413,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Strategy 4: Lovable AI Gateway fallback
-    if (lovableKey) {
-      console.log('Calendar: falling back to Lovable AI Gateway');
-      const lovResult = await callLovableAI(lovableKey, prompt);
-      if (lovResult.ok && lovResult.text) {
-        const events = tryParseEvents(lovResult.text);
-        if (events) {
-          console.log(`Calendar: Lovable AI succeeded, ${events.length} events`);
-          return okResponse(events);
-        }
-      }
-    }
-
     return new Response(JSON.stringify({ error: '行事曆產生失敗，所有模型均無法使用' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
