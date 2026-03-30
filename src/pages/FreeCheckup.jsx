@@ -497,7 +497,8 @@ export default function App() {
     }
   }, [newsEvents, ready]);
 
-  // ── 7天內事件自動觸發AI預測 → 移入「待驗證」 ──
+  // ── 7天內事件自動觸發AI預測（僅一次） → 移入「待驗證」 ──
+  const predictedIdsRef = useRef(new Set());
   useEffect(() => {
     if (!ready || !newsEvents || newsEvents.length === 0 || predictingEvents) return;
     const now = new Date();
@@ -505,9 +506,10 @@ export default function App() {
     const sevenDaysLater = new Date(now);
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
 
-    // 找出 status=pending 且日期在 7 天內的事件
+    // 找出 status=pending 且日期在 7 天內、且尚未嘗試過預測的事件
     const needsPrediction = newsEvents.filter(e => {
       if (e.status !== "pending") return false;
+      if (predictedIdsRef.current.has(e.id)) return false;
       if (!e.date || !e.date.match(/^\d{4}\/\d{2}\/\d{2}/)) return false;
       const evDate = new Date(e.date.replace(/\//g, "-"));
       evDate.setHours(0, 0, 0, 0);
@@ -515,6 +517,9 @@ export default function App() {
     });
 
     if (needsPrediction.length === 0) return;
+
+    // 標記為已嘗試，避免重複觸發
+    needsPrediction.forEach(e => predictedIdsRef.current.add(e.id));
 
     setPredictingEvents(true);
     (async () => {
