@@ -2007,7 +2007,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       localStorage.setItem("pf-reset-flag", "1");
                       setStrategyBrain(null);
                       save("pf-brain-v1", null);
-                      fetch(`${SUPABASE_FN_BASE}/checkup-brain`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-brain",data:null})}).catch(()=>{});
+                      
                     }
                   }} style={{fontSize:12,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.up}44`,background:"transparent",color:C.up,cursor:"pointer"}}>
                     重置
