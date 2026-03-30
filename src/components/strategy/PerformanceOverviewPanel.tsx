@@ -106,8 +106,11 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
     return (
       <div className="bg-background/95 dark:bg-white/10 backdrop-blur-sm border dark:border-white/10 rounded-lg p-2 shadow-lg text-xs">
         <div className="font-medium text-foreground">{data.label}</div>
-        <div className={data.returnPct >= 0 ? "text-success" : "text-destructive"}>
-          報酬率: {data.returnPct >= 0 ? "+" : ""}{data.returnPct.toFixed(1)}%
+        <div className={data.cumReturnPct >= 0 ? "text-success" : "text-destructive"}>
+          累積報酬: {data.cumReturnPct >= 0 ? "+" : ""}{data.cumReturnPct.toFixed(1)}%
+        </div>
+        <div className={data.returnPct >= 0 ? "text-success/80" : "text-destructive/80"}>
+          本期: {data.returnPct >= 0 ? "+" : ""}{data.returnPct.toFixed(1)}%
         </div>
       </div>
     );
@@ -191,7 +194,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                   {returnCurve.length > 0 && (
                     <Area
                       type="monotone"
-                      dataKey="returnPct"
+                      dataKey="cumReturnPct"
                       stroke={chartColors.stroke}
                       strokeWidth={2}
                       fill={`url(#colorReturn-${period})`}
