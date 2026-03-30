@@ -494,18 +494,14 @@ const Checkout = () => {
                       <p className="text-sm text-muted-foreground">每月</p>
                     </button>
                     <button
-                      onClick={() => setBillingCycle('yearly')}
+                      disabled
                       className={cn(
                         "p-4 rounded-lg border-2 text-left transition-colors relative",
-                        billingCycle === 'yearly'
-                          ? isAdvisor ? "border-primary bg-primary/5" : "border-mentor bg-mentor-light/30"
-                          : isAdvisor ? "border-border hover:border-primary/50" : "border-border hover:border-mentor/50",
-                        !plan.price_yearly && "opacity-50 cursor-not-allowed"
+                        "border-border opacity-50 cursor-not-allowed"
                       )}
-                      disabled={!plan.price_yearly}
                     >
                       {plan.price_yearly && (
-                        <Badge className="absolute -top-2 -right-2 rotate-12">
+                        <Badge variant="secondary" className="absolute -top-2 -right-2 rotate-12">
                           省 {Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100)}%
                         </Badge>
                       )}
@@ -513,9 +509,7 @@ const Checkout = () => {
                       <p className="text-2xl font-bold mt-1">
                         NT$ {formatPrice(plan.price_yearly || plan.price_monthly * 12)}
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        {plan.price_yearly ? '每年' : '尚未開放'}
-                      </p>
+                      <p className="text-sm text-muted-foreground">尚未開放</p>
                     </button>
                   </div>
                 </CardContent>
@@ -623,7 +617,7 @@ const Checkout = () => {
                       )}
                     </Button>
                   ) : (
-                    <Button className="w-full" size="lg" asChild>
+                    <Button className={cn("w-full", !isAdvisor && "bg-mentor hover:bg-mentor/90 text-white")} size="lg" asChild>
                       <Link to="/auth/login">登入後付款</Link>
                     </Button>
                   )}
