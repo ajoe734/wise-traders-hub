@@ -597,8 +597,6 @@ export default function App() {
         holdingCodes: calendarEvents._holdingCodes || "",
       };
       save("pf-calendar-v1", saveObj);
-      // 同步到雲端
-      supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: saveObj }).then(() => {});
     }
   }, [calendarEvents, ready]);
 
