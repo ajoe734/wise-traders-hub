@@ -122,23 +122,6 @@ function buildRenewalFlexMessage(expertName: string, planName: string, daysLeft:
           },
         ],
       },
-      footer: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'button',
-            action: {
-              type: 'uri',
-              label: '前往帳號頁面',
-              uri: 'https://wise-traders-hub.lovable.app/app/account',
-            },
-            style: 'secondary',
-            height: 'sm',
-          },
-        ],
-        paddingAll: 'lg',
-      },
     },
   }
 }
