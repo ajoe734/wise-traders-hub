@@ -274,8 +274,6 @@ export default function App() {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
       save("pf-calendar-v1", { events: [], holdingCodes: "" });
-      // 同步到雲端
-      supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: { events: [], holdingCodes: "" } }).then(() => {});
       return;
     }
     setCalendarLoading(true);
