@@ -395,20 +395,35 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const h = await load("pf-holdings-v2", INIT_HOLDINGS);
-      const t = await load("pf-targets-v1", INIT_TARGETS);
-      const ne = await load("pf-news-events-v1", []);
-      const ah = await load("pf-analysis-history-v1", []);
-      const rc = await load("pf-reversal-v1", {});
-      const sb = await load("pf-brain-v1", null);
-      // 行事曆：優先從 localStorage 載入，若無則嘗試雲端
-      let ceRaw = await load("pf-calendar-v1", null);
-      if (!ceRaw) {
-        try {
-          const { data: cloudCal } = await supabase.from("checkup_storage").select("data").eq("key", "pf-calendar-v1").maybeSingle();
-          if (cloudCal?.data) { ceRaw = cloudCal.data; save("pf-calendar-v1", ceRaw); }
-        } catch {}
+      // ── 雲端優先：批次載入所有 pf-* key ──
+      const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
+      if (wasReset) {
+        sessionStorage.removeItem("pf-reset-flag");
+        localStorage.removeItem("pf-reset-flag");
       }
+
+      let cloud = {};
+      if (!wasReset) {
+        cloud = await loadAllFromCloud();
+      }
+
+      const pick = (key, fallback) => {
+        if (cloud[key] != null && !(Array.isArray(cloud[key]) && cloud[key].length === 0 && Object.keys(cloud[key]).length === 0)) {
+          // 雲端有資料 → 回寫 localStorage 快取
+          try { localStorage.setItem(key, JSON.stringify(cloud[key])); } catch {}
+          return cloud[key];
+        }
+        return loadLocal(key, fallback);
+      };
+
+      const h = pick("pf-holdings-v2", INIT_HOLDINGS);
+      const t = pick("pf-targets-v1", INIT_TARGETS);
+      const ne = pick("pf-news-events-v1", []);
+      const ah = pick("pf-analysis-history-v1", []);
+      const rc = pick("pf-reversal-v1", {});
+      const sb = pick("pf-brain-v1", null);
+      const ceRaw = pick("pf-calendar-v1", null);
+
       // 相容新舊格式：新格式 { events, holdingCodes }，舊格式純陣列
       let ce;
       if (ceRaw && !Array.isArray(ceRaw) && ceRaw.events) {
@@ -435,17 +450,16 @@ export default function App() {
             qa: Array.isArray(row.qa) ? row.qa : [],
           }));
         } else {
-          // fallback: 從 localStorage 遷移
-          l = await load("pf-log-v2", []);
+          l = loadLocal("pf-log-v2", []);
         }
       } catch {
-        l = await load("pf-log-v2", []);
+        l = loadLocal("pf-log-v2", []);
       }
 
       setHoldings(h); setTradeLog(l); setTargets(t);
       setStrategyBrain(sb); setCalendarEvents(ce);
 
-      // 若持倉為空，清空所有衍生資料（觀察股、行事曆、事件分析、收盤分析、策略大腦）
+      // 若持倉為空，清空所有衍生資料
       const hasHoldings = h && h.length > 0;
       if (!hasHoldings) {
         setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
@@ -458,26 +472,7 @@ export default function App() {
         setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
       }
       setReady(true);
-
-    // 僅在有持倉且非剛重置時才從雲端同步
-      const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
-      if (wasReset) {
-        // 清除兩處的 flag（向下相容）
-        sessionStorage.removeItem("pf-reset-flag");
-        localStorage.removeItem("pf-reset-flag");
-      } else if (hasHoldings) {
-        try {
-          const [cloudBrain, cloudHist, cloudEvents] = await Promise.all([
-            fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=brain`).then(r=>r.json()).catch(()=>({brain:null})),
-            fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=history`).then(r=>r.json()).catch(()=>({history:[]})),
-            fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"load-events"})}).then(r=>r.json()).catch(()=>({events:null})),
-          ]);
-          if (cloudBrain.brain) { setStrategyBrain(cloudBrain.brain); save("pf-brain-v1", cloudBrain.brain); }
-          if (cloudHist.history?.length > 0) { setAnalysisHistory(cloudHist.history); save("pf-analysis-history-v1", cloudHist.history); }
-          if (cloudEvents.events) { setNewsEvents(cloudEvents.events); save("pf-news-events-v1", cloudEvents.events); }
-          setCloudSync(true);
-        } catch(e) { /* 離線也能用 localStorage 版本 */ }
-      }
+      setCloudSync(true);
     })();
   }, []);
 
