@@ -894,8 +894,13 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
 請分析今日收盤表現，事件連動，並給出策略建議。特別注意策略大腦中的歷史教訓。${autoVerified.length > 0 ? "同時針對今日自動驗證的事件進行覆盤分析。" : ""}`
           })
         });
-        const aiData = await aiRes.json();
-        aiInsight = aiData.content?.[0]?.text || null;
+        clearTimeout(analyzeTimer);
+        if (!aiRes.ok) {
+          console.error("AI 分析 HTTP 錯誤:", aiRes.status, await aiRes.text());
+        } else {
+          const aiData = await aiRes.json();
+          aiInsight = aiData.content?.[0]?.text || aiData.text || aiData.response || null;
+        }
       } catch (e) {
         console.error("AI 分析失敗:", e);
       }
