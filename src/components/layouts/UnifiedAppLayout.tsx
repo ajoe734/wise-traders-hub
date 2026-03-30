@@ -333,7 +333,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
                       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                     )}
                     {isLast ? (
-                      <span className={`font-medium ${pathname.startsWith('/app/journal') ? 'text-mentor' : 'text-primary'}`}>{crumb.label}</span>
+                      <span className={`font-medium ${location.pathname.startsWith('/app/journal') ? 'text-mentor' : 'text-primary'}`}>{crumb.label}</span>
                     ) : (
                       <Link 
                         to={crumb.path} 
