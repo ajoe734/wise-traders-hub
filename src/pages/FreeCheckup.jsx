@@ -150,14 +150,40 @@ const fmtN  = (n) => n==null?"—":Math.abs(n)>=10000?(n/10000).toFixed(1)+"萬"
 const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:"14px" };
 const lbl   = { fontSize:12, color:C.textMute, letterSpacing:"0.13em", textTransform:"uppercase", fontWeight:700, marginBottom:7 };
 
-async function load(key, fallback) {
+// 所有 pf-* key 的雲端同步 key 清單
+const CLOUD_SYNC_KEYS = [
+  "pf-holdings-v2", "pf-targets-v1", "pf-news-events-v1",
+  "pf-analysis-history-v1", "pf-reversal-v1", "pf-brain-v1", "pf-calendar-v1",
+];
+
+async function loadAllFromCloud() {
+  try {
+    const { data: rows } = await supabase
+      .from("checkup_storage")
+      .select("key, data")
+      .in("key", CLOUD_SYNC_KEYS);
+    const map = {};
+    (rows || []).forEach(r => { map[r.key] = r.data; });
+    return map;
+  } catch { return {}; }
+}
+
+function loadLocal(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
   } catch { return fallback; }
 }
+
 async function save(key, data) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+  // 雲端同步（fire-and-forget）
+  try {
+    supabase.from("checkup_storage").upsert(
+      { key, data: data ?? {}, updated_at: new Date().toISOString() },
+      { onConflict: "key" }
+    ).then(() => {});
+  } catch {}
 }
 
 // ── Main ─────────────────────────────────────────────────────────
