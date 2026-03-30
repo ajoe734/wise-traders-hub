@@ -968,18 +968,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           const cleanBrain = brainText.replace(/```json|```/g, "").trim();
           const newBrain = JSON.parse(cleanBrain);
           setStrategyBrain(newBrain);
-          // 同步到雲端
-          fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "save-brain", data: newBrain })
-          }).catch(() => {});
-          // 同步分析報告到雲端
-          fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "save-analysis", data: report })
-          }).catch(() => {});
         } catch (e) {
           console.error("策略大腦更新失敗:", e);
         }
