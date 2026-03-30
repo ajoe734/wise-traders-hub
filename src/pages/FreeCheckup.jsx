@@ -508,13 +508,7 @@ export default function App() {
   };
   useEffect(() => { if (ready && tradeLog) { save("pf-log-v2", tradeLog); saveTradeLogToCloud(tradeLog); } }, [tradeLog, ready]);
   useEffect(() => { if (ready && targets)  save("pf-targets-v1",  targets);  }, [targets,   ready]);
-  useEffect(() => {
-    if (ready && newsEvents) {
-      save("pf-news-events-v1", newsEvents);
-      // 同步事件到雲端
-      fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-events",data:newsEvents})}).catch(()=>{});
-    }
-  }, [newsEvents, ready]);
+  useEffect(() => { if (ready && newsEvents) save("pf-news-events-v1", newsEvents); }, [newsEvents, ready]);
 
   // ── 7天內事件自動觸發AI預測（僅一次） → 移入「待驗證」 ──
   const predictedIdsRef = useRef(new Set());
