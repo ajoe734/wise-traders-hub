@@ -842,9 +842,12 @@ ${losers.map(h=>{
   return `${h.name}(${h.code}) ${h.pct}% | 反轉條件：${rc?.signal||"未設定"} | 停損：${rc?.stopLoss||"未設定"}`;
 }).join("\n")}` : "";
 
+        const analyzeController = new AbortController();
+        const analyzeTimer = setTimeout(() => analyzeController.abort(), 120000); // 2 min timeout
         const aiRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: analyzeController.signal,
           body: JSON.stringify({
             systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
 你擁有用戶過去所有分析的記憶（策略大腦），必須基於累積的教訓和規則來給出建議。
