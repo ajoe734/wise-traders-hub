@@ -842,9 +842,12 @@ ${losers.map(h=>{
   return `${h.name}(${h.code}) ${h.pct}% | 反轉條件：${rc?.signal||"未設定"} | 停損：${rc?.stopLoss||"未設定"}`;
 }).join("\n")}` : "";
 
+        const analyzeController = new AbortController();
+        const analyzeTimer = setTimeout(() => analyzeController.abort(), 120000); // 2 min timeout
         const aiRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: analyzeController.signal,
           body: JSON.stringify({
             systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
 你擁有用戶過去所有分析的記憶（策略大腦），必須基於累積的教訓和規則來給出建議。
@@ -891,8 +894,13 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
 請分析今日收盤表現，事件連動，並給出策略建議。特別注意策略大腦中的歷史教訓。${autoVerified.length > 0 ? "同時針對今日自動驗證的事件進行覆盤分析。" : ""}`
           })
         });
-        const aiData = await aiRes.json();
-        aiInsight = aiData.content?.[0]?.text || null;
+        clearTimeout(analyzeTimer);
+        if (!aiRes.ok) {
+          console.error("AI 分析 HTTP 錯誤:", aiRes.status, await aiRes.text());
+        } else {
+          const aiData = await aiRes.json();
+          aiInsight = aiData.content?.[0]?.text || aiData.text || aiData.response || null;
+        }
       } catch (e) {
         console.error("AI 分析失敗:", e);
       }
