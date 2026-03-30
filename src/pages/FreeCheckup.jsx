@@ -434,8 +434,10 @@ export default function App() {
       setReady(true);
 
     // 僅在有持倉且非剛重置時才從雲端同步
-      const wasReset = localStorage.getItem("pf-reset-flag");
+      const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
       if (wasReset) {
+        // 清除兩處的 flag（向下相容）
+        sessionStorage.removeItem("pf-reset-flag");
         localStorage.removeItem("pf-reset-flag");
       } else if (hasHoldings) {
         try {
@@ -1248,6 +1250,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const clearAnalysisAndLessons = () => {
     if (!confirm("確定要清除『歷史分析記錄』與『最近教訓』嗎？")) return;
 
+    sessionStorage.setItem("pf-reset-flag", "1");
     localStorage.setItem("pf-reset-flag", "1");
     ["pf-analysis-history-v1", "pf-brain-v1"].forEach(k => localStorage.removeItem(k));
     setAnalysisHistory([]);
@@ -1273,6 +1276,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const resetAll = () => {
     // 遞增 guard，讓 in-flight 的行事曆 fetch 丟棄結果
     resetGuardRef.current += 1;
+    sessionStorage.setItem("pf-reset-flag", "1");
     localStorage.setItem("pf-reset-flag", "1");
     ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
      "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1","pf-calendar-v1"].forEach(k => localStorage.removeItem(k));
@@ -1982,6 +1986,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </button>
                   <button onClick={()=>{
                     if (confirm("確定要重置策略大腦？所有累積的規則和教訓將被清除。")) {
+                      sessionStorage.setItem("pf-reset-flag", "1");
                       localStorage.setItem("pf-reset-flag", "1");
                       setStrategyBrain(null);
                       save("pf-brain-v1", null);
