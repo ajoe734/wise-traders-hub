@@ -433,8 +433,11 @@ export default function App() {
       }
       setReady(true);
 
-      // 僅在有持倉時才從雲端同步
-      if (hasHoldings) {
+    // 僅在有持倉且非剛重置時才從雲端同步
+      const wasReset = localStorage.getItem("pf-reset-flag");
+      if (wasReset) {
+        localStorage.removeItem("pf-reset-flag");
+      } else if (hasHoldings) {
         try {
           const [cloudBrain, cloudHist, cloudEvents] = await Promise.all([
             fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=brain`).then(r=>r.json()).catch(()=>({brain:null})),
