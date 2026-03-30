@@ -16,113 +16,6 @@ interface GeminiResult {
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-// ── 靜態總經事件（不走 AI 搜尋） ──
-function generateMacroEvents(todayStr: string, endDateStr: string): any[] {
-  const today = new Date(todayStr.replace(/\//g, '-'));
-  const endDate = new Date(endDateStr.replace(/\//g, '-'));
-  const events: any[] = [];
-
-  // Helper: add event if within range
-  const addIfInRange = (dateStr: string, label: string, sub: string) => {
-    const d = new Date(dateStr);
-    if (d > today && d <= endDate) {
-      const formatted = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-      const diffDays = Math.ceil((d.getTime() - today.getTime()) / 86400000);
-      events.push({ date: formatted, label, sub, urgent: diffDays <= 7, type: '總經', sources: [] });
-    }
-  };
-
-  // Generate events for the range year(s)
-  const startYear = today.getFullYear();
-  const endYear = endDate.getFullYear();
-
-  for (let year = startYear; year <= endYear; year++) {
-    // FOMC 會議（通常 8 次/年，以下為典型排程）
-    const fomcDates = [
-      `${year}-01-29`, `${year}-03-19`, `${year}-05-07`, `${year}-06-18`,
-      `${year}-07-30`, `${year}-09-17`, `${year}-11-05`, `${year}-12-17`,
-    ];
-    fomcDates.forEach(d => addIfInRange(d, `FOMC 利率決議 (${year})`, '美國聯準會利率決策會議'));
-
-    // 台灣央行理監事會（每季一次：3月、6月、9月、12月）
-    const cbcDates = [`${year}-03-20`, `${year}-06-19`, `${year}-09-18`, `${year}-12-18`];
-    cbcDates.forEach(d => addIfInRange(d, `台灣央行理監事會 (${year})`, '央行利率決策'));
-
-    // 美國 CPI（每月中旬公布）
-    for (let m = 1; m <= 12; m++) {
-      addIfInRange(`${year}-${String(m).padStart(2, '0')}-13`, `美國 CPI 公布 (${year}/${String(m).padStart(2, '0')})`, '消費者物價指數');
-    }
-
-    // 美國非農就業（每月第一個週五，近似為每月第一週）
-    for (let m = 1; m <= 12; m++) {
-      const firstDay = new Date(year, m - 1, 1);
-      const dayOfWeek = firstDay.getDay();
-      const firstFriday = dayOfWeek <= 5 ? (5 - dayOfWeek + 1) : (12 - dayOfWeek + 1);
-      addIfInRange(`${year}-${String(m).padStart(2, '0')}-${String(firstFriday).padStart(2, '0')}`, `美國非農就業 (${year}/${String(m).padStart(2, '0')})`, '就業數據');
-    }
-
-    // 台灣 GDP（每季公布：1月、4月、7月、10月底）
-    const gdpDates = [`${year}-01-30`, `${year}-04-30`, `${year}-07-31`, `${year}-10-31`];
-    gdpDates.forEach((d, i) => addIfInRange(d, `台灣 GDP 初估 (${year} Q${i + 1})`, '國內生產毛額'));
-
-    // 台股財報截止日
-    addIfInRange(`${year}-03-31`, `Q4 財報截止日 (${year - 1})`, '年度財報申報截止');
-    addIfInRange(`${year}-05-15`, `Q1 財報截止日 (${year})`, '第一季財報申報截止');
-    addIfInRange(`${year}-08-14`, `Q2 財報截止日 (${year})`, '第二季財報申報截止');
-    addIfInRange(`${year}-11-14`, `Q3 財報截止日 (${year})`, '第三季財報申報截止');
-
-    // 台股月營收公布截止日（次月 10 日前）
-    for (let m = 1; m <= 12; m++) {
-      const nextMonth = m === 12 ? 1 : m + 1;
-      const nextYear = m === 12 ? year + 1 : year;
-      addIfInRange(`${nextYear}-${String(nextMonth).padStart(2, '0')}-10`, `${m}月營收公布截止 (${year})`, '上市櫃公司月營收申報截止');
-    }
-  }
-
-  return events;
-}
-
-// ── 權證到期日查詢（不用 Grounding，用 Plain JSON） ──
-async function fetchWarrantExpiry(apiKey: string, warrantList: string): Promise<any[]> {
-  if (!warrantList) return [];
-  const prompt = `你是台股權證專家。以下是權證清單，請查出每檔權證的到期日。
-
-權證清單：${warrantList}
-
-輸出 JSON 陣列：
-[{"date":"YYYY/MM/DD","label":"權證名稱 到期日","sub":"到期日","urgent":false,"type":"權證","sources":[]}]
-
-只輸出 JSON 陣列。`;
-
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 4096, responseMimeType: 'application/json' },
-        }),
-      },
-    );
-    if (!response.ok) {
-      console.error(`Warrant expiry fetch failed (${response.status})`);
-      return [];
-    }
-    const data = await response.json();
-    const text = (data.candidates?.[0]?.content?.parts || []).map((p: any) => p.text ?? '').join('').trim();
-    const parsed = tryParseEvents(text);
-    if (parsed) {
-      console.log(`Warrant expiry: found ${parsed.length} events`);
-      return parsed.map(e => ({ ...e, type: '權證' }));
-    }
-  } catch (err) {
-    console.error('Warrant expiry error:', err);
-  }
-  return [];
-}
-
 async function callGeminiWithGrounding(
   apiKey: string, model: string, prompt: string, temperature: number,
 ): Promise<GeminiResult> {
@@ -157,22 +50,35 @@ async function callGeminiWithGrounding(
       const groundingSources: string[] = [];
       if (groundingMeta) {
         console.log(`Grounding queries: ${JSON.stringify(groundingMeta.webSearchQueries || [])}`);
+        // Extract real source URLs from grounding chunks
         const chunks = groundingMeta.groundingChunks || [];
         for (const chunk of chunks) {
           const uri = chunk?.web?.uri;
           const title = chunk?.web?.title || '';
           if (uri) {
+            // Google API returns proxy URLs (vertexaisearch.cloud.google.com)
+            // Try to extract the real domain from the title field
             if (uri.includes('vertexaisearch.cloud.google.com')) {
+              // title is like "aljazeera.com" — construct a likely URL
               if (title && !title.includes('lovable')) {
-                groundingSources.push(title.startsWith('http') ? title : `https://${title}`);
+                const realUrl = title.startsWith('http') ? title : `https://${title}`;
+                groundingSources.push(realUrl);
               }
             } else if (!uri.includes('lovable.app') && !uri.includes('lovable.dev')) {
               groundingSources.push(uri);
             }
           }
         }
+        // Also check groundingSupports for any additional context
+        const supports = groundingMeta.groundingSupports || [];
+        for (const sup of supports) {
+          const indices = sup?.groundingChunkIndices || [];
+          // Already handled via chunks above
+        }
         if (groundingSources.length > 0) {
           console.log(`Grounding sources: ${groundingSources.length} URLs extracted`);
+        } else {
+          console.log(`Grounding: no real source URLs found. Raw chunks: ${JSON.stringify(chunks.slice(0, 3))}`);
         }
       }
       if (!text) {
@@ -226,6 +132,7 @@ async function callGeminiPlain(
   return { ok: false, text: 'retry exhausted', status: 429, statusLabel: '429' };
 }
 
+
 function extractJsonArray(text: string): string | null {
   const start = text.indexOf('[');
   if (start === -1) return null;
@@ -248,16 +155,20 @@ function extractJsonArray(text: string): string | null {
 }
 
 function tryRepairTruncatedArray(text: string): any[] | null {
+  // Find the start of the JSON array
   const start = text.indexOf('[');
   if (start === -1) return null;
   const sub = text.substring(start);
+  // Find the last complete object by looking for the last "},"  or "}" 
   const lastCompleteObj = sub.lastIndexOf('}');
   if (lastCompleteObj === -1) return null;
+  // Try closing the array after the last complete object
   const candidate = sub.substring(0, lastCompleteObj + 1) + ']';
   try {
     const parsed = JSON.parse(candidate);
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
   } catch { /* ignore */ }
+  // Try removing trailing comma
   const trimmed = candidate.replace(/,\s*\]$/, ']');
   try {
     const parsed = JSON.parse(trimmed);
@@ -267,14 +178,17 @@ function tryRepairTruncatedArray(text: string): any[] | null {
 }
 
 function tryParseEvents(text: string): any[] | null {
+  // Try direct JSON parse
   try {
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     return null;
   } catch { /* not pure JSON */ }
 
+  // Clean markdown fences
   const cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
 
+  // Use bracket-depth matching to extract the first complete JSON array
   const jsonStr = extractJsonArray(cleaned);
   if (jsonStr) {
     try {
@@ -283,6 +197,7 @@ function tryParseEvents(text: string): any[] | null {
     } catch { /* ignore */ }
   }
 
+  // Fallback: try on original text
   const jsonStr2 = extractJsonArray(text);
   if (jsonStr2 && jsonStr2 !== jsonStr) {
     try {
@@ -291,6 +206,7 @@ function tryParseEvents(text: string): any[] | null {
     } catch { /* ignore */ }
   }
 
+  // Last resort: try to repair truncated JSON (output cut off by token limit)
   const repaired = tryRepairTruncatedArray(cleaned);
   if (repaired) {
     console.log(`Calendar: repaired truncated JSON, recovered ${repaired.length} events`);
@@ -301,17 +217,23 @@ function tryParseEvents(text: string): any[] | null {
 }
 
 function classifyHoldings(stocks: string): { stockList: string; warrantList: string; parentStocks: string[] } {
+  // Split by Chinese comma or regular comma
   const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
   const stockItems: string[] = [];
   const warrantItems: string[] = [];
   const parentStocks: string[] = [];
-
+  
   for (const item of items) {
     const code = item.match(/^(\d+)/)?.[1] || '';
     const name = item.replace(/^\d+\s*/, '');
+    // Warrant codes are typically 6 digits, and names contain 購/售/牛/熊
     const isWarrant = code.length === 6 || /[購售牛熊]/.test(name);
     if (isWarrant) {
       warrantItems.push(item);
+      // Try to extract parent stock name from warrant name
+      // Warrant names are like "華新元大5A購01" → parent is "華新"
+      // Or "亞翔凱基5B購01" → parent is "亞翔"  
+      // Pattern: company name comes before the broker name (凱基/元大/富邦/群益/統一/國票/永豐/中信/日盛/兆豐/台新/玉山)
       const brokerMatch = name.match(/^(.+?)(凱基|元大|富邦|群益|統一|國票|永豐|中信|日盛|兆豐|台新|玉山|永昌)/);
       if (brokerMatch?.[1]) {
         parentStocks.push(brokerMatch[1]);
@@ -320,7 +242,7 @@ function classifyHoldings(stocks: string): { stockList: string; warrantList: str
       stockItems.push(item);
     }
   }
-
+  
   return {
     stockList: stockItems.join('、'),
     warrantList: warrantItems.join('、'),
@@ -328,56 +250,58 @@ function classifyHoldings(stocks: string): { stockList: string; warrantList: str
   };
 }
 
-// ── 優化後的 Prompt：合併搜尋 + 母股只搜 3 大類 + 不含總經/權證到期 ──
 function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string): string {
   const { stockList, warrantList, parentStocks } = classifyHoldings(stocks);
-
+  
+  // Build holdings section with clear separation
   let holdingsSection = '';
   if (stockList) {
-    holdingsSection += `## 股票持倉（每檔一次搜尋所有事件類別）\n${stockList}\n\n`;
+    holdingsSection += `## 股票持倉\n${stockList}\n\n`;
+  }
+  if (warrantList) {
+    holdingsSection += `## 權證持倉（僅需列出「到期日」事件，不需要列出營收/財報/法說/除息/股東會）\n${warrantList}\n\n`;
   }
   if (parentStocks.length > 0) {
     const existingStockCodes = stockList.match(/\d{4}/g) || [];
     const parentInfo = parentStocks.filter(p => {
+      // Only add parent if not already in stock list
       return !existingStockCodes.some(code => stockList.includes(code) && stockList.includes(p));
     });
     if (parentInfo.length > 0) {
-      holdingsSection += `## 權證母股（僅搜尋營收、法說、除息三大類，標明影響哪檔權證）\n${parentInfo.join('、')}（請搜尋這些公司的正確股票代碼）\n\n`;
+      holdingsSection += `## 權證母股（需列出營收/財報/法說/除息/股東會等事件，標明影響哪檔權證）\n${parentInfo.join('、')}（請搜尋這些公司的正確股票代碼）\n\n`;
     }
   }
 
-  // If no stocks to search with grounding, return empty
-  if (!holdingsSection) return '';
-
   return `# Role
-你是台股財經分析師，精通台股市場。
+你是一位頂級 AI 財經分析師，精通台股市場，善於搜尋並彙整即時資訊。
 
-# Task
-針對以下持倉標的，搜尋「${today} 隔天起到 ${endDate}」的重要事件。
+# Task Objective
+針對以下持倉標的，利用網路搜尋找出「${today} 的隔天起到 ${endDate}」的重要事件行事曆。
 
 ${holdingsSection}
 
-# 搜尋策略（重要！請遵守以節省搜尋次數）
-- **每檔股票只搜尋一次**，一次涵蓋所有事件類別（法說、除息、催化、操作）
-- 搜尋關鍵字範例：「6139 亞翔 2026 法說會 除息 股東會」（一次搜完）
-- **不要搜尋「營收」和「財報」**，這些已由系統自動產生
-- **不要搜尋「總經」事件**（FOMC/CPI/GDP/非農），已由系統自動產生
-- **不要搜尋「權證到期日」**，已由系統另外處理
+# ⚠️ 重要：標的分類規則
+- **股票**（4碼代碼）：列出全部 8 大類事件（營收、財報、法說、除息、總經、催化、權證、操作）
+- **權證**（6碼代碼，名稱含「購」「售」「牛」「熊」）：**只需列出到期日事件**（type 填「權證」），不要列出權證的營收、財報等（權證沒有這些）
+- **權證母股**：如果持有的權證有對應母股，需額外搜尋母股的重要事件，並在 label 中標明「（影響權證 XXXXXX）」
 
-# 股票事件類別（4 類）
-1. **法說**：法說會、業績發表會
-2. **除息**：除權息日、配息基準日
-3. **催化**：產業展覽、新品發表、重大訂單、政策利多
-4. **操作**：股東會、董事會、庫藏股
-
-# 母股事件類別（3 類）
-1. **法說**：法說會
-2. **除息**：除權息日
-3. **營收**：重大營收變化（僅限母股）
+# 事件類別（8 大類）
+1. **營收**：每月營收公布（次月10日前）— 僅適用於股票
+2. **財報**：季度財報公布截止日 — 僅適用於股票
+3. **法說**：法說會、業績發表會 — 僅適用於股票
+4. **除息**：除權息日、配息基準日 — 僅適用於股票
+5. **總經**：央行會議、FOMC、CPI、GDP、非農就業等
+6. **催化**：產業展覽、新品發表、重大訂單、政策利多
+7. **權證**：權證到期日 — 適用於權證
+8. **操作**：股東會、董事會、庫藏股 — 僅適用於股票
 
 # ⚠️ 嚴格限制
-- **絕對禁止**搜尋持倉清單以外的任何標的
-- **即使搜尋不到精確日期，也必須列出事件**，date 可用模糊表達
+- **絕對禁止**搜尋或列出上述持倉清單以外的任何股票標的
+- 只能針對上方明確列出的「股票代碼」「權證代碼」「權證母股名稱」進行搜尋
+- 如果某事件與持倉標的無關，即使搜尋到也必須丟棄，不得列入結果
+
+# 重要指引
+- **即使搜尋不到精確日期，也必須列出事件**，date 欄位可用模糊表達
 - 不要包含今天(${today})或過去的事件
 
 # Output Format
@@ -415,73 +339,24 @@ Deno.serve(async (req) => {
     }
 
     const outputFormat = `JSON陣列，每個元素格式：
-{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/催化/操作/除息/營收","sources":["來源網址1"]}
+{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/權證","sources":["來源網址1","來源網址2"]}
 
 規則：
-- sources：填入真實外部網址，不能是 lovable.app 或 vertexaisearch。找不到填 []。最多 2 個。
-- date：精確日期用 YYYY/MM/DD；只知月份用「2026/07月」；只知季度用「2026 Q2」；未公布用「待確認」
-- urgent=true 僅限未來一週內事件
-- type 只能用：法說、催化、操作、除息、營收
-- 按日期由近到遠排序`;
+- sources 欄位：必須填入你搜尋到該事件資訊的真實外部網址（如 https://www.twse.com.tw/...、https://mops.twse.com.tw/...、https://finance.yahoo.com/... 等），不能是 lovable.app 或 vertexaisearch 的網址。如果找不到來源，填空陣列 []。每個事件最多 3 個來源。
+- date 欄位：如果有精確日期，用 YYYY/MM/DD 格式；如果只知道月份，用「2025/07月」；如果只知道季度，用「2025 Q2」；如果尚未公布，用「尚未公布」或「待確認」。總之不要因為日期不精確就省略事件。
+- urgent=true 僅限未來一週內的事件（模糊日期的事件 urgent=false）
+- type 只能用：法說、財報、營收、催化、操作、總經、除息、權證
+- 按日期由近到遠排序，模糊日期的排在精確日期之後`;
 
-    // ── 並行執行三個任務 ──
-    const { warrantList } = classifyHoldings(stocks);
-
-    // 1. 靜態總經事件（即時）
-    const macroEvents = generateMacroEvents(today, endDate);
-    console.log(`Calendar: generated ${macroEvents.length} static macro events`);
-
-    // 2. 權證到期日（不用 Grounding，用 flash-lite）
-    const warrantPromise = fetchWarrantExpiry(apiKey, warrantList);
-
-    // 3. 股票事件（用 Grounding）
     const prompt = buildPrompt(stocks, today, endDate, outputFormat);
-
-    let stockEvents: any[] = [];
-    if (prompt) {
-      const model = 'gemini-2.5-flash';
-      console.log(`Calendar: calling ${model} WITH grounding (optimized prompt)`);
-      const result = await callGeminiWithGrounding(apiKey, model, prompt, 0.3);
-
-      if (result.ok && result.text) {
-        const events = tryParseEvents(result.text);
-        if (events) {
-          console.log(`Calendar: grounding succeeded, ${events.length} stock events`);
-          stockEvents = events;
-        } else {
-          console.error(`Calendar: grounding parse failed. First 500:`, result.text.slice(0, 500));
-        }
-      }
-
-      // Fallback: plain mode
-      if (stockEvents.length === 0 && result.status !== 429) {
-        console.log(`Calendar: fallback to ${model} WITHOUT grounding`);
-        const fallback = await callGeminiPlain(apiKey, model, prompt, 0.3);
-        if (fallback.ok && fallback.text) {
-          const events = tryParseEvents(fallback.text);
-          if (events) {
-            console.log(`Calendar: plain succeeded, ${events.length} stock events`);
-            stockEvents = events;
-          }
-        }
-      }
-    }
-
-    // 等待權證到期日結果
-    const warrantEvents = await warrantPromise;
-    console.log(`Calendar: ${warrantEvents.length} warrant events`);
-
-    // ── 合併所有事件 ──
-    const allEvents = [...stockEvents, ...warrantEvents, ...macroEvents];
-
-    // 清理 sources
+    // Filter out any lovable/proxy URLs from AI-generated sources
     const cleanSources = (events: any[]) => {
       return events.map(ev => {
         if (!ev.sources || !Array.isArray(ev.sources)) return { ...ev, sources: [] };
-        const cleaned = ev.sources.filter((url: string) =>
-          typeof url === 'string' &&
-          url.startsWith('http') &&
-          !url.includes('lovable.app') &&
+        const cleaned = ev.sources.filter((url: string) => 
+          typeof url === 'string' && 
+          url.startsWith('http') && 
+          !url.includes('lovable.app') && 
           !url.includes('lovable.dev') &&
           !url.includes('vertexaisearch.cloud.google.com')
         );
@@ -489,32 +364,58 @@ Deno.serve(async (req) => {
       });
     };
 
-    // 去重（label + date）
-    const seen = new Set<string>();
-    const deduped: any[] = [];
-    for (const ev of cleanSources(allEvents)) {
-      const key = `${ev.label}||${ev.date}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduped.push(ev);
+    const okResponse = (events: any[]) => {
+      const enriched = cleanSources(events);
+      return new Response(
+        JSON.stringify({ text: JSON.stringify(enriched), response: JSON.stringify(enriched) }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    };
+
+    // Strategy 1: gemini-2.5-flash with Google Search grounding (includes 429 retry)
+    if (apiKey) {
+      const model = 'gemini-2.5-flash';
+      console.log(`Calendar: calling ${model} WITH grounding`);
+      const result = await callGeminiWithGrounding(apiKey, model, prompt, 0.3);
+
+      if (result.ok && result.text) {
+        const events = tryParseEvents(result.text);
+        if (events) {
+          console.log(`Calendar: grounding succeeded, ${events.length} events`);
+          return okResponse(events);
+        }
+        console.error(`Calendar: grounding parse failed. First 500:`, result.text.slice(0, 500));
+      }
+
+      // Strategy 2: same model without grounding (JSON mode)
+      if (result.status !== 429) {
+        console.log(`Calendar: fallback to ${model} WITHOUT grounding`);
+        const fallback1 = await callGeminiPlain(apiKey, model, prompt, 0.3);
+        if (fallback1.ok && fallback1.text) {
+          const events = tryParseEvents(fallback1.text);
+          if (events) {
+            console.log(`Calendar: plain ${model} succeeded, ${events.length} events`);
+            return okResponse(events);
+          }
+        }
+
+        // Strategy 3: lite model
+        const liteModel = 'gemini-2.5-flash-lite';
+        console.log(`Calendar: fallback to ${liteModel}`);
+        const fallback2 = await callGeminiPlain(apiKey, liteModel, prompt, 0.3);
+        if (fallback2.ok && fallback2.text) {
+          const events = tryParseEvents(fallback2.text);
+          if (events) {
+            console.log(`Calendar: ${liteModel} succeeded, ${events.length} events`);
+            return okResponse(events);
+          }
+        }
       }
     }
 
-    // 排序
-    deduped.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-
-    console.log(`Calendar: total ${deduped.length} events (stock:${stockEvents.length} warrant:${warrantEvents.length} macro:${macroEvents.length})`);
-
-    if (deduped.length === 0 && stockEvents.length === 0) {
-      return new Response(JSON.stringify({ error: '行事曆產生失敗，所有模型均無法使用' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    return new Response(
-      JSON.stringify({ text: JSON.stringify(deduped), response: JSON.stringify(deduped) }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    return new Response(JSON.stringify({ error: '行事曆產生失敗，所有模型均無法使用' }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (err) {
     console.error('Calendar error:', err);

@@ -369,20 +369,6 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      // 先檢查 reset flag，若剛重置則跳過所有雲端載入
-      const wasReset = localStorage.getItem("pf-reset-flag");
-      if (wasReset) {
-        localStorage.removeItem("pf-reset-flag");
-        // 確保所有 localStorage 也被清空（防止殘留）
-        ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
-         "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1","pf-calendar-v1"].forEach(k => localStorage.removeItem(k));
-        setHoldings([]); setTradeLog([]); setTargets({});
-        setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
-        setStrategyBrain(null); setCalendarEvents([]); setDailyReport(null);
-        setReady(true);
-        return;
-      }
-
       const h = await load("pf-holdings-v2", INIT_HOLDINGS);
       const t = await load("pf-targets-v1", INIT_TARGETS);
       const ne = await load("pf-news-events-v1", []);
@@ -447,9 +433,11 @@ export default function App() {
       }
       setReady(true);
 
-    // 僅在有持倉時才從雲端同步
-      const hasHoldings2 = (await load("pf-holdings-v2", [])).length > 0;
-      if (hasHoldings2) {
+    // 僅在有持倉且非剛重置時才從雲端同步
+      const wasReset = localStorage.getItem("pf-reset-flag");
+      if (wasReset) {
+        localStorage.removeItem("pf-reset-flag");
+      } else if (hasHoldings) {
         try {
           const [cloudBrain, cloudHist, cloudEvents] = await Promise.all([
             fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=brain`).then(r=>r.json()).catch(()=>({brain:null})),
