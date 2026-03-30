@@ -1278,10 +1278,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   };
 
   const resetAll = () => {
-    // 遞增 guard，讓 in-flight 的行事曆 fetch 丟棄結果
     resetGuardRef.current += 1;
-    sessionStorage.setItem("pf-reset-flag", "1");
-    localStorage.setItem("pf-reset-flag", "1");
+    // 清除 localStorage
     ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
      "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1","pf-calendar-v1"].forEach(k => localStorage.removeItem(k));
     setHoldings([]); setTradeLog([]); setTargets({});
@@ -1293,27 +1291,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setTab("holdings");
     setShowResetConfirm(false);
 
-    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save-analysis", data: [] })
-    }).catch(() => {});
-    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save-brain", data: null })
-    }).catch(() => {});
-    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save-events", data: [] })
-    }).catch(() => {});
+    // 雲端清空所有 pf-* key
+    CLOUD_SYNC_KEYS.forEach(k => {
+      const emptyVal = k === "pf-calendar-v1" ? { events: [], holdingCodes: "" }
+        : k === "pf-brain-v1" ? {} : (k.includes("history") || k.includes("news") ? [] : {});
+      supabase.from("checkup_storage").upsert({ key: k, data: emptyVal, updated_at: new Date().toISOString() }, { onConflict: "key" }).then(() => {}).catch(() => {});
+    });
+    supabase.from("checkup_storage").upsert({ key: "pf-calendar-holdings", data: { stocks: "", holdingCodes: "" }, updated_at: new Date().toISOString() }, { onConflict: "key" }).then(() => {}).catch(() => {});
     // 清除雲端交易備忘錄
     supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000").then(() => {}).catch(() => {});
-    // 清除雲端 checkup_storage 相關 key
-    ["pf-calendar-v1","pf-calendar-holdings","pf-news-events-v1"].forEach(k => {
-      supabase.from("checkup_storage").update({ data: k === "pf-calendar-v1" ? { events: [], holdingCodes: "" } : (k === "pf-calendar-holdings" ? { stocks: "", holdingCodes: "" } : []) }).eq("key", k).then(() => {}).catch(() => {});
-    });
 
     setSaved("🗑️ 已全部清除");
     setTimeout(() => setSaved(""), 2500);
