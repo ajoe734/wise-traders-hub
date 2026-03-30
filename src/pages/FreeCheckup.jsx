@@ -1964,11 +1964,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </button>
                   <button onClick={()=>{
                     if (confirm("確定要重置策略大腦？所有累積的規則和教訓將被清除。")) {
-                      sessionStorage.setItem("pf-reset-flag", "1");
-                      localStorage.setItem("pf-reset-flag", "1");
                       setStrategyBrain(null);
                       save("pf-brain-v1", null);
-                      
                     }
                   }} style={{fontSize:12,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.up}44`,background:"transparent",color:C.up,cursor:"pointer"}}>
                     重置
