@@ -1243,6 +1243,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const clearAnalysisAndLessons = () => {
     if (!confirm("確定要清除『歷史分析記錄』與『最近教訓』嗎？")) return;
 
+    localStorage.setItem("pf-reset-flag", "1");
     ["pf-analysis-history-v1", "pf-brain-v1"].forEach(k => localStorage.removeItem(k));
     setAnalysisHistory([]);
     setStrategyBrain(null);
