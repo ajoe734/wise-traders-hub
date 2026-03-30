@@ -433,8 +433,11 @@ export default function App() {
       }
       setReady(true);
 
-      // 僅在有持倉時才從雲端同步
-      if (hasHoldings) {
+    // 僅在有持倉且非剛重置時才從雲端同步
+      const wasReset = localStorage.getItem("pf-reset-flag");
+      if (wasReset) {
+        localStorage.removeItem("pf-reset-flag");
+      } else if (hasHoldings) {
         try {
           const [cloudBrain, cloudHist, cloudEvents] = await Promise.all([
             fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=brain`).then(r=>r.json()).catch(()=>({brain:null})),
@@ -1240,6 +1243,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const clearAnalysisAndLessons = () => {
     if (!confirm("確定要清除『歷史分析記錄』與『最近教訓』嗎？")) return;
 
+    localStorage.setItem("pf-reset-flag", "1");
     ["pf-analysis-history-v1", "pf-brain-v1"].forEach(k => localStorage.removeItem(k));
     setAnalysisHistory([]);
     setStrategyBrain(null);
@@ -1264,6 +1268,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const resetAll = () => {
     // 遞增 guard，讓 in-flight 的行事曆 fetch 丟棄結果
     resetGuardRef.current += 1;
+    localStorage.setItem("pf-reset-flag", "1");
     ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
      "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1","pf-calendar-v1"].forEach(k => localStorage.removeItem(k));
     setHoldings([]); setTradeLog([]); setTargets({});
@@ -1972,6 +1977,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </button>
                   <button onClick={()=>{
                     if (confirm("確定要重置策略大腦？所有累積的規則和教訓將被清除。")) {
+                      localStorage.setItem("pf-reset-flag", "1");
                       setStrategyBrain(null);
                       save("pf-brain-v1", null);
                       fetch(`${SUPABASE_FN_BASE}/checkup-brain`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-brain",data:null})}).catch(()=>{});
