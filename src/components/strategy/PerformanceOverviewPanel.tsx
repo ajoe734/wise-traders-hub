@@ -191,7 +191,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                   {returnCurve.length > 0 && (
                     <Area
                       type="monotone"
-                      dataKey="returnPct"
+                      dataKey="cumReturnPct"
                       stroke={chartColors.stroke}
                       strokeWidth={2}
                       fill={`url(#colorReturn-${period})`}
