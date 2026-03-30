@@ -1267,24 +1267,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const clearAnalysisAndLessons = () => {
     if (!confirm("確定要清除『歷史分析記錄』與『最近教訓』嗎？")) return;
 
-    sessionStorage.setItem("pf-reset-flag", "1");
-    localStorage.setItem("pf-reset-flag", "1");
-    ["pf-analysis-history-v1", "pf-brain-v1"].forEach(k => localStorage.removeItem(k));
     setAnalysisHistory([]);
     setStrategyBrain(null);
     setDailyReport(null);
-
-    // 同步清空雲端，避免重新整理後又被補回來
-    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save-analysis", data: [] })
-    }).catch(() => {});
-    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save-brain", data: null })
-    }).catch(() => {});
+    save("pf-analysis-history-v1", []);
+    save("pf-brain-v1", null);
 
     setSaved("🧹 已清除歷史分析與最近教訓");
     setTimeout(() => setSaved(""), 2500);
