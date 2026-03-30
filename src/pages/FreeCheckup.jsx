@@ -150,14 +150,40 @@ const fmtN  = (n) => n==null?"—":Math.abs(n)>=10000?(n/10000).toFixed(1)+"萬"
 const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:"14px" };
 const lbl   = { fontSize:12, color:C.textMute, letterSpacing:"0.13em", textTransform:"uppercase", fontWeight:700, marginBottom:7 };
 
-async function load(key, fallback) {
+// 所有 pf-* key 的雲端同步 key 清單
+const CLOUD_SYNC_KEYS = [
+  "pf-holdings-v2", "pf-targets-v1", "pf-news-events-v1",
+  "pf-analysis-history-v1", "pf-reversal-v1", "pf-brain-v1", "pf-calendar-v1",
+];
+
+async function loadAllFromCloud() {
+  try {
+    const { data: rows } = await supabase
+      .from("checkup_storage")
+      .select("key, data")
+      .in("key", CLOUD_SYNC_KEYS);
+    const map = {};
+    (rows || []).forEach(r => { map[r.key] = r.data; });
+    return map;
+  } catch { return {}; }
+}
+
+function loadLocal(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
   } catch { return fallback; }
 }
+
 async function save(key, data) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+  // 雲端同步（fire-and-forget）
+  try {
+    supabase.from("checkup_storage").upsert(
+      { key, data: data ?? {}, updated_at: new Date().toISOString() },
+      { onConflict: "key" }
+    ).then(() => {});
+  } catch {}
 }
 
 // ── Main ─────────────────────────────────────────────────────────
@@ -248,8 +274,6 @@ export default function App() {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
       save("pf-calendar-v1", { events: [], holdingCodes: "" });
-      // 同步到雲端
-      supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: { events: [], holdingCodes: "" } }).then(() => {});
       return;
     }
     setCalendarLoading(true);
@@ -289,8 +313,6 @@ export default function App() {
         const saveObj = { events: merged, holdingCodes };
         save("pf-calendar-v1", saveObj);
         setCalendarEvents(merged);
-        // 同步到雲端
-        supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: saveObj }).then(() => {});
         // 同步到事件分析
         syncCalendarToNews(merged);
       }
@@ -369,20 +391,35 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const h = await load("pf-holdings-v2", INIT_HOLDINGS);
-      const t = await load("pf-targets-v1", INIT_TARGETS);
-      const ne = await load("pf-news-events-v1", []);
-      const ah = await load("pf-analysis-history-v1", []);
-      const rc = await load("pf-reversal-v1", {});
-      const sb = await load("pf-brain-v1", null);
-      // 行事曆：優先從 localStorage 載入，若無則嘗試雲端
-      let ceRaw = await load("pf-calendar-v1", null);
-      if (!ceRaw) {
-        try {
-          const { data: cloudCal } = await supabase.from("checkup_storage").select("data").eq("key", "pf-calendar-v1").maybeSingle();
-          if (cloudCal?.data) { ceRaw = cloudCal.data; save("pf-calendar-v1", ceRaw); }
-        } catch {}
+      // ── 雲端優先：批次載入所有 pf-* key ──
+      const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
+      if (wasReset) {
+        sessionStorage.removeItem("pf-reset-flag");
+        localStorage.removeItem("pf-reset-flag");
       }
+
+      let cloud = {};
+      if (!wasReset) {
+        cloud = await loadAllFromCloud();
+      }
+
+      const pick = (key, fallback) => {
+        if (cloud[key] != null && !(Array.isArray(cloud[key]) && cloud[key].length === 0 && Object.keys(cloud[key]).length === 0)) {
+          // 雲端有資料 → 回寫 localStorage 快取
+          try { localStorage.setItem(key, JSON.stringify(cloud[key])); } catch {}
+          return cloud[key];
+        }
+        return loadLocal(key, fallback);
+      };
+
+      const h = pick("pf-holdings-v2", INIT_HOLDINGS);
+      const t = pick("pf-targets-v1", INIT_TARGETS);
+      const ne = pick("pf-news-events-v1", []);
+      const ah = pick("pf-analysis-history-v1", []);
+      const rc = pick("pf-reversal-v1", {});
+      const sb = pick("pf-brain-v1", null);
+      const ceRaw = pick("pf-calendar-v1", null);
+
       // 相容新舊格式：新格式 { events, holdingCodes }，舊格式純陣列
       let ce;
       if (ceRaw && !Array.isArray(ceRaw) && ceRaw.events) {
@@ -409,17 +446,16 @@ export default function App() {
             qa: Array.isArray(row.qa) ? row.qa : [],
           }));
         } else {
-          // fallback: 從 localStorage 遷移
-          l = await load("pf-log-v2", []);
+          l = loadLocal("pf-log-v2", []);
         }
       } catch {
-        l = await load("pf-log-v2", []);
+        l = loadLocal("pf-log-v2", []);
       }
 
       setHoldings(h); setTradeLog(l); setTargets(t);
       setStrategyBrain(sb); setCalendarEvents(ce);
 
-      // 若持倉為空，清空所有衍生資料（觀察股、行事曆、事件分析、收盤分析、策略大腦）
+      // 若持倉為空，清空所有衍生資料
       const hasHoldings = h && h.length > 0;
       if (!hasHoldings) {
         setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
@@ -432,26 +468,7 @@ export default function App() {
         setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
       }
       setReady(true);
-
-    // 僅在有持倉且非剛重置時才從雲端同步
-      const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
-      if (wasReset) {
-        // 清除兩處的 flag（向下相容）
-        sessionStorage.removeItem("pf-reset-flag");
-        localStorage.removeItem("pf-reset-flag");
-      } else if (hasHoldings) {
-        try {
-          const [cloudBrain, cloudHist, cloudEvents] = await Promise.all([
-            fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=brain`).then(r=>r.json()).catch(()=>({brain:null})),
-            fetch(`${SUPABASE_FN_BASE}/checkup-brain?action=history`).then(r=>r.json()).catch(()=>({history:[]})),
-            fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"load-events"})}).then(r=>r.json()).catch(()=>({events:null})),
-          ]);
-          if (cloudBrain.brain) { setStrategyBrain(cloudBrain.brain); save("pf-brain-v1", cloudBrain.brain); }
-          if (cloudHist.history?.length > 0) { setAnalysisHistory(cloudHist.history); save("pf-analysis-history-v1", cloudHist.history); }
-          if (cloudEvents.events) { setNewsEvents(cloudEvents.events); save("pf-news-events-v1", cloudEvents.events); }
-          setCloudSync(true);
-        } catch(e) { /* 離線也能用 localStorage 版本 */ }
-      }
+      setCloudSync(true);
     })();
   }, []);
 
@@ -491,13 +508,7 @@ export default function App() {
   };
   useEffect(() => { if (ready && tradeLog) { save("pf-log-v2", tradeLog); saveTradeLogToCloud(tradeLog); } }, [tradeLog, ready]);
   useEffect(() => { if (ready && targets)  save("pf-targets-v1",  targets);  }, [targets,   ready]);
-  useEffect(() => {
-    if (ready && newsEvents) {
-      save("pf-news-events-v1", newsEvents);
-      // 同步事件到雲端
-      fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-events",data:newsEvents})}).catch(()=>{});
-    }
-  }, [newsEvents, ready]);
+  useEffect(() => { if (ready && newsEvents) save("pf-news-events-v1", newsEvents); }, [newsEvents, ready]);
 
   // ── 7天內事件自動觸發AI預測（僅一次） → 移入「待驗證」 ──
   const predictedIdsRef = useRef(new Set());
@@ -576,8 +587,6 @@ export default function App() {
         holdingCodes: calendarEvents._holdingCodes || "",
       };
       save("pf-calendar-v1", saveObj);
-      // 同步到雲端
-      supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: saveObj }).then(() => {});
     }
   }, [calendarEvents, ready]);
 
@@ -959,18 +968,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           const cleanBrain = brainText.replace(/```json|```/g, "").trim();
           const newBrain = JSON.parse(cleanBrain);
           setStrategyBrain(newBrain);
-          // 同步到雲端
-          fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "save-brain", data: newBrain })
-          }).catch(() => {});
-          // 同步分析報告到雲端
-          fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "save-analysis", data: report })
-          }).catch(() => {});
         } catch (e) {
           console.error("策略大腦更新失敗:", e);
         }
@@ -1258,34 +1255,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   const clearAnalysisAndLessons = () => {
     if (!confirm("確定要清除『歷史分析記錄』與『最近教訓』嗎？")) return;
 
-    sessionStorage.setItem("pf-reset-flag", "1");
-    localStorage.setItem("pf-reset-flag", "1");
-    ["pf-analysis-history-v1", "pf-brain-v1"].forEach(k => localStorage.removeItem(k));
     setAnalysisHistory([]);
     setStrategyBrain(null);
     setDailyReport(null);
-
-    // 同步清空雲端，避免重新整理後又被補回來
-    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save-analysis", data: [] })
-    }).catch(() => {});
-    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save-brain", data: null })
-    }).catch(() => {});
+    save("pf-analysis-history-v1", []);
+    save("pf-brain-v1", null);
 
     setSaved("🧹 已清除歷史分析與最近教訓");
     setTimeout(() => setSaved(""), 2500);
   };
 
   const resetAll = () => {
-    // 遞增 guard，讓 in-flight 的行事曆 fetch 丟棄結果
     resetGuardRef.current += 1;
-    sessionStorage.setItem("pf-reset-flag", "1");
-    localStorage.setItem("pf-reset-flag", "1");
+    // 清除 localStorage
     ["pf-holdings-v2","pf-log-v2","pf-targets-v1","pf-news-events-v1",
      "pf-analysis-history-v1","pf-reversal-v1","pf-brain-v1","pf-calendar-v1"].forEach(k => localStorage.removeItem(k));
     setHoldings([]); setTradeLog([]); setTargets({});
@@ -1297,27 +1279,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setTab("holdings");
     setShowResetConfirm(false);
 
-    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save-analysis", data: [] })
-    }).catch(() => {});
-    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save-brain", data: null })
-    }).catch(() => {});
-    fetch(`${SUPABASE_FN_BASE}/checkup-brain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "save-events", data: [] })
-    }).catch(() => {});
+    // 雲端清空所有 pf-* key
+    CLOUD_SYNC_KEYS.forEach(k => {
+      const emptyVal = k === "pf-calendar-v1" ? { events: [], holdingCodes: "" }
+        : k === "pf-brain-v1" ? {} : (k.includes("history") || k.includes("news") ? [] : {});
+      supabase.from("checkup_storage").upsert({ key: k, data: emptyVal, updated_at: new Date().toISOString() }, { onConflict: "key" }).then(() => {}).catch(() => {});
+    });
+    supabase.from("checkup_storage").upsert({ key: "pf-calendar-holdings", data: { stocks: "", holdingCodes: "" }, updated_at: new Date().toISOString() }, { onConflict: "key" }).then(() => {}).catch(() => {});
     // 清除雲端交易備忘錄
     supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000").then(() => {}).catch(() => {});
-    // 清除雲端 checkup_storage 相關 key
-    ["pf-calendar-v1","pf-calendar-holdings","pf-news-events-v1"].forEach(k => {
-      supabase.from("checkup_storage").update({ data: k === "pf-calendar-v1" ? { events: [], holdingCodes: "" } : (k === "pf-calendar-holdings" ? { stocks: "", holdingCodes: "" } : []) }).eq("key", k).then(() => {}).catch(() => {});
-    });
 
     setSaved("🗑️ 已全部清除");
     setTimeout(() => setSaved(""), 2500);
@@ -1994,11 +1964,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </button>
                   <button onClick={()=>{
                     if (confirm("確定要重置策略大腦？所有累積的規則和教訓將被清除。")) {
-                      sessionStorage.setItem("pf-reset-flag", "1");
-                      localStorage.setItem("pf-reset-flag", "1");
                       setStrategyBrain(null);
                       save("pf-brain-v1", null);
-                      fetch(`${SUPABASE_FN_BASE}/checkup-brain`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-brain",data:null})}).catch(()=>{});
                     }
                   }} style={{fontSize:12,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.up}44`,background:"transparent",color:C.up,cursor:"pointer"}}>
                     重置
