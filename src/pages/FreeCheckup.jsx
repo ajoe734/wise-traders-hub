@@ -313,8 +313,6 @@ export default function App() {
         const saveObj = { events: merged, holdingCodes };
         save("pf-calendar-v1", saveObj);
         setCalendarEvents(merged);
-        // 同步到雲端
-        supabase.from("checkup_storage").upsert({ key: "pf-calendar-v1", data: saveObj }).then(() => {});
         // 同步到事件分析
         syncCalendarToNews(merged);
       }
