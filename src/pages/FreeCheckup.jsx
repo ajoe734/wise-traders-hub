@@ -260,11 +260,15 @@ export default function App() {
       oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
       const endDate = oneYearLater.toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
 
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 300000); // 5 min timeout
       const res = await fetch(`${SUPABASE_FN_BASE}/checkup-calendar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stocks: stockList, today, endDate }),
+        signal: controller.signal,
       });
+      clearTimeout(timer);
       const result = await res.json();
       if (guard !== undefined && guard !== resetGuardRef.current) return;
       const text = result.text || result.response || "";
