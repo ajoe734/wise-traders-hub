@@ -1977,6 +1977,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </button>
                   <button onClick={()=>{
                     if (confirm("確定要重置策略大腦？所有累積的規則和教訓將被清除。")) {
+                      localStorage.setItem("pf-reset-flag", "1");
                       setStrategyBrain(null);
                       save("pf-brain-v1", null);
                       fetch(`${SUPABASE_FN_BASE}/checkup-brain`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save-brain",data:null})}).catch(()=>{});
