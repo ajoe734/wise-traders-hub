@@ -35,7 +35,7 @@ const avgTarget = (code) => {
 };
 
 // ── 初始持倉（空，由上傳成交明細產生）────────────────────────────
-const INIT_HOLDINGS = [];
+const INIT_HOLDINGS = SEED_HOLDINGS;
 
 const INIT_WATCHLIST = [
   { code:"1513", name:"中興電",  price:158.5, target:193,  status:"等Q4財報",  catalyst:"3–4月財報",      sc:"#f59e0b", note:"積極163–165元；保守155–160元；催化：台電GIS+台積電" },
