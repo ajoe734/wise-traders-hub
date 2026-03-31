@@ -483,9 +483,9 @@ export default function App() {
       console.error("Save trade memos error:", e);
     }
   };
-  useEffect(() => { if (ready && tradeLog) { save("pf-log-v2", tradeLog); saveTradeLogToCloud(tradeLog); } }, [tradeLog, ready]);
-  useEffect(() => { if (ready && targets)  save("pf-targets-v1",  targets);  }, [targets,   ready]);
-  useEffect(() => { if (ready && newsEvents) save("pf-news-events-v1", newsEvents); }, [newsEvents, ready]);
+  useEffect(() => { if (ready && tradeLog && !isDemo) { save("pf-log-v2", tradeLog); saveTradeLogToCloud(tradeLog); } }, [tradeLog, ready, isDemo]);
+  useEffect(() => { if (ready && targets && !isDemo)  save("pf-targets-v1",  targets);  }, [targets, ready, isDemo]);
+  useEffect(() => { if (ready && newsEvents && !isDemo) save("pf-news-events-v1", newsEvents); }, [newsEvents, ready, isDemo]);
 
   // ── 7天內事件自動觸發AI預測（僅一次） → 移入「待驗證」 ──
   const predictedIdsRef = useRef(new Set());
