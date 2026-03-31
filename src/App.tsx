@@ -14,7 +14,8 @@ import PlanDetail from "./pages/PlanDetail";
 import Pricing from "./pages/Pricing";
 import Legal from "./pages/Legal";
 import Checkout from "./pages/Checkout";
-import FreeCheckup from "./pages/FreeCheckup";
+import FreeCheckupPage from "./pages/FreeCheckup";
+import { CheckupModeProvider } from "./checkup/contexts/CheckupModeContext";
 
 import NotFound from "./pages/NotFound";
 
@@ -93,7 +94,7 @@ const App = () => (
             <Route path="/plan/:slug/:planId" element={<PlanDetail />} />
             <Route path="/checkout/:slug/:planId" element={<Checkout />} />
             <Route path="/pricing" element={<Pricing />} />
-            <Route path="/free-checkup" element={<FreeCheckup />} />
+            <Route path="/free-checkup" element={<CheckupModeProvider><FreeCheckupPage /></CheckupModeProvider>} />
             <Route path="/legal" element={<Legal />} />
 
             {/* Checkup portfolio routes */}

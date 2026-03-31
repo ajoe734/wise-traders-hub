@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
+import { DEMO_HOLDINGS, DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS } from "@/checkup/data/demoData";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -189,6 +191,7 @@ async function save(key, data) {
 // ── Main ─────────────────────────────────────────────────────────
 export default function App() {
   const navigate = useNavigate();
+  const { isDemo, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
   const [ready, setReady] = useState(false);
 
@@ -391,6 +394,20 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
+      // ── Demo 模式：直接使用假資料 ──
+      if (isDemo) {
+        setHoldings(demoData?.holdings || DEMO_HOLDINGS);
+        setTradeLog([]);
+        setTargets(INIT_TARGETS);
+        setNewsEvents(demoData?.events || DEMO_EVENTS);
+        setAnalysisHistory([]);
+        setReversalConditions({});
+        setStrategyBrain(demoData?.brain || null);
+        setCalendarEvents([]);
+        setReady(true);
+        return;
+      }
+
       // ── 雲端優先：批次載入所有 pf-* key ──
       const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
       if (wasReset) {
@@ -405,7 +422,6 @@ export default function App() {
 
       const pick = (key, fallback) => {
         if (cloud[key] != null && !(Array.isArray(cloud[key]) && cloud[key].length === 0 && Object.keys(cloud[key]).length === 0)) {
-          // 雲端有資料 → 回寫 localStorage 快取
           try { localStorage.setItem(key, JSON.stringify(cloud[key])); } catch {}
           return cloud[key];
         }
@@ -420,7 +436,6 @@ export default function App() {
       const sb = pick("pf-brain-v1", null);
       const ceRaw = pick("pf-calendar-v1", null);
 
-      // 相容新舊格式：新格式 { events, holdingCodes }，舊格式純陣列
       let ce;
       if (ceRaw && !Array.isArray(ceRaw) && ceRaw.events) {
         ce = ceRaw.events;
@@ -429,7 +444,6 @@ export default function App() {
         ce = ceRaw || [];
       }
 
-      // 從 Supabase 載入交易備忘錄
       let l = [];
       try {
         const { data } = await supabase.from("checkup_trade_memos").select("*").order("created_at", { ascending: false });
@@ -455,7 +469,6 @@ export default function App() {
       setHoldings(h); setTradeLog(l); setTargets(t);
       setStrategyBrain(sb); setCalendarEvents(ce);
 
-      // 若持倉為空，清空所有衍生資料
       const hasHoldings = h && h.length > 0;
       if (!hasHoldings) {
         setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
@@ -1143,6 +1156,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
   const parseShot = async () => {
     if (!b64) return;
+    // Demo 模式 → 要求先 LINE 登入
+    if (isDemo) {
+      startLineLogin();
+      return;
+    }
+    // LINE 免費用戶每日限制
+    if (hasReachedDailyLimit) {
+      setSaved("⚠️ 今日免費健檢次數已用完，明天再來！");
+      setTimeout(() => setSaved(""), 4000);
+      return;
+    }
     setParsing(true); setParseErr(null);
 
     const MAX_RETRIES = 3;
@@ -1192,6 +1216,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             return [...newEntries, ...existing];
           });
           setSaved("✅ 成交已更新到持倉與記錄");
+          incrementUploadCount(); // 記錄今日上傳次數
           setTimeout(() => setSaved(""), 2500);
         }
         setParsing(false);
@@ -1345,6 +1370,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
           <div>
             <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>
+              {isDemo && <span style={{background:C.amber+"33",color:C.amber,padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:600,marginRight:8}}>DEMO</span>}
+              {lineProfile && <span style={{background:"#06C75533",color:"#06C755",padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:600,marginRight:8}}>{lineProfile.displayName}</span>}
               <span style={{color:cloudSync?C.olive:C.textMute}}>{cloudSync?"☁":"⚡"}</span>
               {saved && <span style={{color:C.olive,marginLeft:8,fontWeight:600}}>{saved}</span>}
             </div>
@@ -2048,7 +2075,37 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ UPLOAD ══════════ */}
         {tab==="trade" && <>
-          {!parsed && (
+          {/* Demo 模式提示 */}
+          {isDemo && (
+            <div style={{...card, marginBottom:16, background:C.cardAmber, border:`1px solid ${C.amber}44`, textAlign:"center"}}>
+              <div style={{fontSize:18,marginBottom:8}}>🔒</div>
+              <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:6}}>
+                上傳成交需要先登入
+              </div>
+              <div style={{fontSize:13,color:C.textSec,marginBottom:14,lineHeight:1.6}}>
+                透過 LINE 快速登入，即可免費使用 AI 健檢功能（每日一次）
+              </div>
+              <button onClick={startLineLogin} style={{
+                background:"#06C755", color:"#fff", border:"none",
+                borderRadius:10, padding:"12px 28px", fontSize:15, fontWeight:600,
+                cursor:"pointer", letterSpacing:"0.02em",
+              }}>
+                使用 LINE 快速登入
+              </button>
+            </div>
+          )}
+          {/* 每日限制提示 */}
+          {hasReachedDailyLimit && !isDemo && (
+            <div style={{...card, marginBottom:16, background:C.cardBlue, border:`1px solid ${C.blue}44`, textAlign:"center"}}>
+              <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:6}}>
+                今日免費健檢次數已用完
+              </div>
+              <div style={{fontSize:13,color:C.textSec,lineHeight:1.6}}>
+                每日可免費上傳一次成交截圖進行 AI 分析，明天再來！
+              </div>
+            </div>
+          )}
+          {!parsed && !isDemo && (
             <>
               <div
                 onDragOver={e=>{e.preventDefault();setDragOver(true)}}
