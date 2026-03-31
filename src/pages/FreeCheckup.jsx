@@ -451,14 +451,14 @@ export default function App() {
 
   // auto-save
   useEffect(() => {
-    if (ready && holdings) {
+    if (ready && holdings && !isDemo) {
       save("pf-holdings-v2", holdings);
       // 同步持倉代碼到雲端供定時任務使用
       const codes = holdings.map(h => `${h.code} ${h.name}`).join("、");
       const codesKey = holdings.map(h => h.code).sort().join(",");
       supabase.from("checkup_storage").upsert({ key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }).then(() => {});
     }
-  }, [holdings, ready]);
+  }, [holdings, ready, isDemo]);
   // tradeLog 存到 Supabase（不再只存 localStorage）
   const saveTradeLogToCloud = async (logs) => {
     if (!logs) return;
