@@ -200,7 +200,9 @@ Deno.serve(async (req) => {
 
     const eventsForPrompt = events.map((e: any, i: number) => {
       // Attach quote data to each event's stocks
-      const stocksInfo = (e.stocks || []).map((s: any) => {
+      const rawStocks = e.stocks || '';
+      const stocksArr = Array.isArray(rawStocks) ? rawStocks : (typeof rawStocks === 'string' ? rawStocks.split(/[,、\s]+/).filter(Boolean) : []);
+      const stocksInfo = stocksArr.map((s: any) => {
         const code = typeof s === 'string' ? s.match(/^\d{4,6}/)?.[0] : (s.code || '').match(/^\d{4,6}/)?.[0];
         const name = typeof s === 'string' ? s : (s.name || '');
         const q = code ? quotes.get(code) : null;
