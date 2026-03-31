@@ -18,6 +18,20 @@ import FreeCheckup from "./pages/FreeCheckup";
 
 import NotFound from "./pages/NotFound";
 
+// Checkup module pages
+import { PortfolioLayout } from "./checkup/pages/PortfolioLayout";
+import {
+  HoldingsPage,
+  WatchlistPage,
+  EventsPage,
+  DailyPage,
+  ResearchPage,
+  TradePage,
+  LogPage,
+  NewsPage,
+  OverviewPage,
+} from "./checkup/pages/index.js";
+
 // Auth pages
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
@@ -81,6 +95,22 @@ const App = () => (
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/free-checkup" element={<FreeCheckup />} />
             <Route path="/legal" element={<Legal />} />
+
+            {/* Checkup portfolio routes */}
+            <Route path="/portfolio/:portfolioId" element={<PortfolioLayout />}>
+              <Route index element={<HoldingsPage />} />
+              <Route path="holdings" element={<HoldingsPage />} />
+              <Route path="watchlist" element={<WatchlistPage />} />
+              <Route path="events" element={<EventsPage />} />
+              <Route path="news" element={<NewsPage />} />
+              <Route path="daily" element={<DailyPage />} />
+              <Route path="research" element={<ResearchPage />} />
+              <Route path="trade" element={<TradePage />} />
+              <Route path="log" element={<LogPage />} />
+            </Route>
+            <Route path="/overview" element={<PortfolioLayout />}>
+              <Route index element={<OverviewPage />} />
+            </Route>
 
             {/* Legacy routes - redirect */}
             <Route path="/explore" element={<Navigate to="/experts" replace />} />

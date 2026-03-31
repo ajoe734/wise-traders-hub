@@ -401,3 +401,44 @@
     top: -1rem;
   }
 }
+
+/* ── Checkup Module Animations ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes progress {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  100% { width: 100%; }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Checkup module global styles */
+.checkup-root {
+  --ck-bg: #283D3B;
+  --ck-text: #EDDDD4;
+  --ck-text-sec: #C7BBB3;
+  --ck-text-mute: #A0948D;
+}
+
+.checkup-root * {
+  box-sizing: border-box;
+}
+
+.checkup-root .tn {
+  font-variant-numeric: tabular-nums;
+}
+
+.checkup-root .ui-btn {
+  font-family: inherit;
+}
+
+.checkup-root .ui-card {
+  transition: box-shadow 0.2s ease;
+}
