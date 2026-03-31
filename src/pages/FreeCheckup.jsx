@@ -1564,10 +1564,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
                   <span style={{fontSize:15,fontWeight:600,color:C.text}}>{h.name}</span>
                   <span style={{fontSize:11,color:C.textMute}}>{h.code}</span>
-                  {h.type!=="股票"&&(
+                  {h.type&&(
                     <span style={{fontSize:11,padding:"1px 6px",borderRadius:3,
-                      background: h.type==="權證" ? C.amberBg : C.blueBg,
-                      color: h.type==="權證" ? C.amber : C.blue,
+                      background: h.type==="權證" ? C.amberBg : h.type==="ETF" ? C.blueBg : h.type==="短線" ? C.upBg : h.type==="中線" ? C.tealBg : h.type==="長線" ? C.oliveBg : C.blueBg,
+                      color: h.type==="權證" ? C.amber : h.type==="ETF" ? C.blue : h.type==="短線" ? C.up : h.type==="中線" ? C.teal : h.type==="長線" ? C.olive : C.blue,
                       fontWeight:500}}>{h.type}</span>
                   )}
                   {h.expire&&<span style={{fontSize:11,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
