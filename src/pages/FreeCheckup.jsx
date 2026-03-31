@@ -1216,6 +1216,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             return [...newEntries, ...existing];
           });
           setSaved("✅ 成交已更新到持倉與記錄");
+          incrementUploadCount(); // 記錄今日上傳次數
           setTimeout(() => setSaved(""), 2500);
         }
         setParsing(false);
