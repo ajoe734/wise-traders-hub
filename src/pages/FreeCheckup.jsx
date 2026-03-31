@@ -109,12 +109,12 @@ const calcPnlWithNet = (h, newPrice) => {
   const pct = Math.round((newPrice / h.cost - 1) * 10000) / 100;
   return { value: newValue, pnl, pct };
 };
-// 台股慣例：紅=漲/獲利，綠=跌/虧損（莫蘭迪版）
+// 台股慣例：紅=漲/獲利，綠=跌/虧損
 const pc    = (p) => p==null ? C.textMute : p>=0 ? C.up : C.down;
 const pcBg  = (p) => p==null ? "transparent" : p>=0 ? C.upBg : C.downBg;
 const fmtN  = (n) => n==null?"—":Math.abs(n)>=10000?(n/10000).toFixed(1)+"萬":n.toLocaleString();
-const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:"14px" };
-const lbl   = { fontSize:12, color:C.textMute, letterSpacing:"0.13em", textTransform:"uppercase", fontWeight:700, marginBottom:7 };
+const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" };
+const lbl   = { fontSize:11, color:C.textMute, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:6 };
 
 // 所有 pf-* key 的雲端同步 key 清單
 const CLOUD_SYNC_KEYS = [
