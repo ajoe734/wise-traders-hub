@@ -57,14 +57,14 @@ const INIT_WATCHLIST = [
 const C = ThemeC;
 
 const TYPE_COLOR = {
-  法說:"#c47b72",
-  財報:"#7a90a8",
-  營收:"#6a9098",
-  催化:"#8a9e7a",
-  操作:"#b8926a",
-  總經:"#a09080",
-  權證:"#b8926a",
-  除息:"#9b7ab8",
+  法說: C.blue,
+  財報: C.cyan,
+  營收: C.teal,
+  催化: C.olive,
+  操作: C.amber,
+  總經: C.stone,
+  權證: C.orange,
+  除息: C.lavender,
 };
 
 const MEMO_Q = {
