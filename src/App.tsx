@@ -94,7 +94,7 @@ const App = () => (
             <Route path="/plan/:slug/:planId" element={<PlanDetail />} />
             <Route path="/checkout/:slug/:planId" element={<Checkout />} />
             <Route path="/pricing" element={<Pricing />} />
-            <Route path="/free-checkup" element={<FreeCheckup />} />
+            <Route path="/free-checkup" element={<CheckupModeProvider><FreeCheckupPage /></CheckupModeProvider>} />
             <Route path="/legal" element={<Legal />} />
 
             {/* Checkup portfolio routes */}
