@@ -171,7 +171,9 @@ Deno.serve(async (req) => {
     // ── 1. Collect all stock codes from events + holdings ──
     const allCodes = new Set<string>();
     for (const e of events) {
-      for (const s of (e.stocks || [])) {
+      const raw = e.stocks || '';
+      const stocksList = Array.isArray(raw) ? raw : (typeof raw === 'string' ? raw.split(/[,、\s]+/).filter(Boolean) : []);
+      for (const s of stocksList) {
         const code = typeof s === 'string' ? s.match(/^\d{4,6}/)?.[0] : (s.code || '').match(/^\d{4,6}/)?.[0];
         if (code) allCodes.add(code);
       }
