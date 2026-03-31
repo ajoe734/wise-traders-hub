@@ -1302,16 +1302,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
   return (
     <div style={{background:C.bg,minHeight:"100vh",color:C.text,
-      fontFamily:"'DM Sans','Noto Sans TC',sans-serif",paddingBottom:40}}>
+      fontFamily:"'Inter','Noto Sans TC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingBottom:40,
+      WebkitFontSmoothing:"antialiased",MozOsxFontSmoothing:"grayscale"}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         *{box-sizing:border-box}
         html{-webkit-text-size-adjust:100%}
         body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
         textarea::placeholder,input::placeholder{color:${C.textMute}}
         input,textarea,button{font-family:inherit;-webkit-appearance:none}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-          @keyframes progress{0%{width:5%}50%{width:70%}100%{width:95%}}
+        @keyframes progress{0%{width:5%}50%{width:70%}100%{width:95%}}
         @media(max-width:480px){
           body{font-size:14px}
         }
