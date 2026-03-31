@@ -24,13 +24,21 @@ targetPriceUpdates：如果截圖中有提到分析師目標價或研究報告�
 export const OWNER_PORTFOLIO_ID = 'me'
 export const PORTFOLIO_VIEW_MODE = 'portfolio'
 export const OVERVIEW_VIEW_MODE = 'overview'
+const SUPABASE_URL = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_URL || '' : '';
+const FN = (name) => `${SUPABASE_URL}/functions/v1/${name}`;
 export const API_ENDPOINTS = {
-  ANALYZE: '/api/analyze',
-  ANALYST_REPORTS: '/api/analyst-reports',
-  BRAIN: '/api/brain',
-  RESEARCH: '/api/research',
-  RESEARCH_EXTRACT: '/api/research-extract',
-  TWSE: '/api/twse',
+  ANALYZE: FN('checkup-analyze'),
+  ANALYST_REPORTS: FN('checkup-analyst-reports'),
+  BRAIN: FN('checkup-brain'),
+  RESEARCH: FN('checkup-research'),
+  RESEARCH_EXTRACT: FN('checkup-research-extract'),
+  TWSE: FN('checkup-twse'),
+  INSTITUTIONAL: FN('checkup-institutional'),
+  MOPS_ANNOUNCEMENTS: FN('checkup-mops-announcements'),
+  MOPS_REVENUE: FN('checkup-mops-revenue'),
+  KNOWLEDGE: FN('checkup-knowledge'),
+  REPORT: FN('checkup-report'),
+  TELEMETRY: FN('checkup-telemetry'),
 }
 export const MARKET_PRICE_CACHE_KEY = 'pf-market-price-cache-v1'
 export const MARKET_PRICE_SYNC_KEY = 'pf-market-price-sync-v1'
