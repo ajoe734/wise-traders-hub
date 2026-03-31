@@ -2129,7 +2129,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
               {img && (
                 <button onClick={parseShot} disabled={parsing} style={{
-                  width:"100%",padding:"13px",border:"none",borderRadius:10,
+                  width:"100%",padding:"13px",borderRadius:10,
                   background: parsing ? C.subtle : C.cardHover,
                   color: parsing ? C.textMute : C.text,
                   border: `1px solid ${parsing ? C.border : C.amber+"66"}`,
