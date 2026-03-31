@@ -1,0 +1,121 @@
+import { DEFAULT_FUNDAMENTAL_DRAFT } from '../constants.js'
+import {
+  createEmptyBrainAudit,
+  ensureBrainAuditCoverage,
+  formatBrainChecklistsForPrompt,
+  formatBrainRulesForValidationPrompt,
+  mergeBrainWithAuditLifecycle,
+  normalizeBrainValidationStore,
+  normalizeHoldingDossiers,
+  normalizeStrategyBrain,
+  enforceTaiwanHardGatesOnBrainAudit,
+  appendBrainValidationCases,
+} from '../lib/brainRuntime.js'
+import {
+  buildHoldingPriceHints,
+  resolveHoldingPrice,
+  getHoldingUnrealizedPnl,
+  getHoldingReturnPct,
+  normalizeHoldings,
+  applyMarketQuotesToHoldings,
+  applyTradeEntryToHoldings,
+  shouldAdoptCloudHoldings,
+} from '../lib/holdings.js'
+import {
+  normalizeAnalysisHistoryEntries,
+  normalizeAnalystReportsStore,
+  normalizeDailyReportEntry,
+  normalizeReportRefreshMeta,
+} from '../lib/reportUtils.js'
+import {
+  buildDailyHoldingDossierContext,
+  buildHoldingDossiers,
+  normalizeFundamentalsStore,
+} from '../lib/dossierUtils.js'
+import { normalizeWatchlist } from '../lib/watchlistUtils.js'
+import {
+  createDefaultReviewForm,
+  formatEventStockOutcomeLine,
+  getEventStockCodes,
+  normalizeNewsEvents,
+  parseSlashDate,
+  toSlashDate,
+  appendPriceHistory,
+  isClosedEvent,
+} from '../lib/eventUtils.js'
+import {
+  clonePortfolioNotes,
+  formatPortfolioNotesContext,
+  getPortfolioFallback,
+  applyTradeBackfillPatchesIfNeeded,
+  migrateLegacyPortfolioStorageIfNeeded,
+  readSyncAt,
+  save,
+  savePortfolioData,
+  seedJinlianchengIfNeeded,
+  ensurePortfolioRegistry,
+  loadPortfolioSnapshot,
+  writeSyncAt,
+} from '../lib/portfolioUtils.js'
+
+const createDefaultFundamentalDraft = (overrides = {}) => ({
+  ...DEFAULT_FUNDAMENTAL_DRAFT,
+  ...overrides,
+})
+
+export const APP_RUNTIME_CORE_LIFECYCLE_HELPERS = {
+  createDefaultReviewForm,
+  migrateLegacyPortfolioStorageIfNeeded,
+  seedJinlianchengIfNeeded,
+  ensurePortfolioRegistry,
+  applyTradeBackfillPatchesIfNeeded,
+  loadPortfolioSnapshot,
+  readSyncAt,
+  writeSyncAt,
+  shouldAdoptCloudHoldings,
+  normalizeHoldings,
+  buildHoldingPriceHints,
+  getPortfolioFallback,
+  savePortfolioData,
+  buildHoldingDossiers,
+  applyMarketQuotesToHoldings,
+  normalizeHoldingDossiers,
+  normalizeAnalysisHistoryEntries,
+  normalizeStrategyBrain,
+  normalizeNewsEvents,
+  normalizeDailyReportEntry,
+  normalizeBrainValidationStore,
+  normalizeFundamentalsStore,
+  normalizeWatchlist,
+  normalizeAnalystReportsStore,
+  normalizeReportRefreshMeta,
+  clonePortfolioNotes,
+  save,
+  toSlashDate,
+  getEventStockCodes,
+  parseSlashDate,
+  appendPriceHistory,
+}
+
+export const APP_RUNTIME_WORKFLOW_HELPERS = {
+  formatEventStockOutcomeLine,
+  isClosedEvent,
+  resolveHoldingPrice,
+  getHoldingUnrealizedPnl,
+  getHoldingReturnPct,
+  buildDailyHoldingDossierContext,
+  formatPortfolioNotesContext,
+  formatBrainChecklistsForPrompt,
+  formatBrainRulesForValidationPrompt,
+  normalizeStrategyBrain,
+  createEmptyBrainAudit,
+  ensureBrainAuditCoverage,
+  enforceTaiwanHardGatesOnBrainAudit,
+  mergeBrainWithAuditLifecycle,
+  appendBrainValidationCases,
+  normalizeHoldings,
+  applyTradeEntryToHoldings,
+  createDefaultFundamentalDraft,
+  toSlashDate,
+  createDefaultReviewForm,
+}
