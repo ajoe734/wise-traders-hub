@@ -2433,7 +2433,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }}>{e.title}</div>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
                       <span style={{fontSize:12,color:C.textMute}}>{e.date}</span>
-                      {e.stocks.slice(0,2).map((s,si)=>{
+                      {(Array.isArray(e.stocks) ? e.stocks : (typeof e.stocks === "string" ? e.stocks.split(/[,、\s]+/).filter(Boolean) : [])).slice(0,2).map((s,si)=>{
                         const label = typeof s === "string" ? s.split(" ")[0] : (s.code || s.name || "");
                         return <span key={si} style={{fontSize:12,padding:"1px 6px",borderRadius:3,
                           background:C.subtle,color:C.textSec}}>{label}</span>;
