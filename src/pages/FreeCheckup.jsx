@@ -397,7 +397,7 @@ export default function App() {
     (async () => {
       // ── Demo 模式：直接使用假資料 ──
       if (isDemo) {
-        setHoldings(demoData?.holdings || DEMO_HOLDINGS);
+        setHoldings(demoData?.holdings || SEED_HOLDINGS);
         setTradeLog([]);
         setTargets(INIT_TARGETS);
         setNewsEvents(demoData?.events || DEMO_EVENTS);
