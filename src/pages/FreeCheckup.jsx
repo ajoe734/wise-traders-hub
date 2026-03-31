@@ -1319,54 +1319,55 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       `}</style>
 
       {/* ── BACK BUTTON ── */}
-      <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"10px 16px",position:"sticky",top:0,zIndex:11}}>
+      <div style={{background:C.shell,borderBottom:`1px solid ${C.border}`,padding:"8px 16px",position:"sticky",top:0,zIndex:11}}>
         <button onClick={()=>navigate("/")} style={{
-          background:"none",border:"none",cursor:"pointer",padding:0,
-          color:C.blue,fontSize:16,fontWeight:500,display:"flex",alignItems:"center",gap:4,
+          background:"none",border:"none",cursor:"pointer",padding:"2px 0",
+          color:C.textSec,fontSize:14,fontWeight:500,display:"flex",alignItems:"center",gap:4,
+          letterSpacing:"0.01em",
         }}>
           ← 返回
         </button>
       </div>
 
       {/* ── HEADER ── */}
-      <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,
-        padding:"16px 16px 0",position:"sticky",top:40,zIndex:10}}>
+      <div style={{background:C.shell,borderBottom:`1px solid ${C.border}`,
+        padding:"14px 16px 0",position:"sticky",top:34,zIndex:10}}>
 
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
           <div>
-            <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>
-              {isDemo && <span style={{background:C.amber+"33",color:C.amber,padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:600,marginRight:8}}>DEMO</span>}
-              {lineProfile && <span style={{background:"#06C75533",color:"#06C755",padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:600,marginRight:8}}>{lineProfile.displayName}</span>}
-              <span style={{color:cloudSync?C.olive:C.textMute}}>{cloudSync?"☁":"⚡"}</span>
-              {saved && <span style={{color:C.olive,marginLeft:8,fontWeight:600}}>{saved}</span>}
+            <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.1em",fontWeight:500,marginBottom:4}}>
+              {isDemo && <span style={{background:C.amber+"22",color:C.amber,padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:600,marginRight:6}}>DEMO</span>}
+              {lineProfile && <span style={{background:"#06C75518",color:"#22C55E",padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:600,marginRight:6}}>{lineProfile.displayName}</span>}
+              <span style={{color:cloudSync?C.olive:C.textMute,fontSize:11}}>{cloudSync?"☁":"⚡"}</span>
+              {saved && <span style={{color:C.olive,marginLeft:6,fontWeight:600,fontSize:12}}>{saved}</span>}
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-              <span style={{fontSize:24,fontWeight:600,color:C.text,marginTop:2,letterSpacing:"-0.01em"}}>持倉看板</span>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <span style={{fontSize:22,fontWeight:700,color:C.text,letterSpacing:"-0.02em"}}>持倉看板</span>
               <button onClick={refreshPrices} disabled={refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)} style={{
-                background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : C.blue+"22",
+                background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : C.blue+"14",
                 color: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.textMute : C.blue,
-                border:`1px solid ${(refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.border : C.blue+"55"}`,
-                borderRadius:20, padding:"4px 12px", fontSize:12, fontWeight:500,
+                border:`1px solid ${(refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.border : C.blue+"33"}`,
+                borderRadius:6, padding:"3px 10px", fontSize:12, fontWeight:500,
                 cursor: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? "not-allowed" : "pointer",
                 transition:"all 0.2s", whiteSpace:"nowrap",
               }}>
                 {refreshing ? "更新中..." : cooldownText ? `⟳ ${cooldownText}` : "⟳ 刷新股價"}
               </button>
               <button onClick={() => setShowResetConfirm(true)} style={{
-                background: C.up+"18", color: C.up, border:`1px solid ${C.up}33`,
-                borderRadius:20, padding:"4px 10px", fontSize:12, fontWeight:500,
+                background: C.up+"0f", color: C.textMute, border:`1px solid ${C.border}`,
+                borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:500,
                 cursor:"pointer", whiteSpace:"nowrap",
-              }}>🗑 清除全部</button>
+              }}>清除</button>
               {lastUpdate && !refreshing && (
-                <span style={{fontSize:12,color:C.textMute}}>
+                <span style={{fontSize:11,color:C.textMute}}>
                   {lastUpdate.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}
                 </span>
               )}
             </div>
           </div>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>未實現損益</div>
-            <div style={{fontSize:25,fontWeight:700,color:pc(totalPnl),letterSpacing:"-0.02em"}}>
+            <div style={{fontSize:11,color:C.textMute,marginBottom:2,letterSpacing:"0.05em"}}>未實現損益</div>
+            <div style={{fontSize:24,fontWeight:700,color:pc(totalPnl),letterSpacing:"-0.02em",lineHeight:1.2}}>
               {totalPnl>=0?"+":""}{totalPnl.toLocaleString()}
             </div>
             <div style={{fontSize:13,fontWeight:600,color:pc(retPct)}}>
@@ -1377,25 +1378,26 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* today alert - match calendar events by today's date */}
         {todayEvents.length>0 && (
-          <div style={{background:C.upBg,border:`1px solid ${C.up}44`,
-            borderLeft:`3px solid ${C.up}`,
-            borderRadius:8,padding:"8px 11px",marginBottom:12,
-            fontSize:13,color:C.up,lineHeight:1.7,fontWeight:500}}>
+          <div style={{background:C.upBg,border:`1px solid ${C.up}22`,
+            borderLeft:`2px solid ${C.up}88`,
+            borderRadius:6,padding:"7px 10px",marginBottom:10,
+            fontSize:12,color:C.up,lineHeight:1.7,fontWeight:500}}>
             📅 今日 · {todayEvents.map(e=>e.label).join(" · ")}
           </div>
         )}
 
-        <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,marginTop:4}}>
+        <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,marginTop:2}}>
           {TABS.map(t=>(
             <button key={t.k} onClick={()=>{setTab(t.k);window.scrollTo({top:0,behavior:"smooth"})}} style={{
               background:"transparent",
               color: tab===t.k ? C.text : C.textMute,
               border:"none",
-              borderBottom: tab===t.k ? `2px solid ${C.amber}` : "2px solid transparent",
-              padding:"8px 12px",
-              fontSize:13, fontWeight: tab===t.k ? 600 : 400,
+              borderBottom: tab===t.k ? `2px solid ${C.blue}` : "2px solid transparent",
+              padding:"7px 11px",
+              fontSize:12, fontWeight: tab===t.k ? 600 : 400,
               cursor:"pointer", whiteSpace:"nowrap",
               transition:"all 0.15s",
+              letterSpacing:"0.01em",
             }}>{t.label}</button>
           ))}
         </div>
