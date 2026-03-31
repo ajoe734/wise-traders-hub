@@ -124,6 +124,77 @@ Deno.serve(async (req) => {
         });
       }
 
+      if (action === 'delete-analysis') {
+        if (!data?.id) {
+          return new Response(JSON.stringify({ error: '缺少 id' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const { data: existing } = await supabase
+          .from('checkup_storage').select('data').eq('key', 'analysis-history').maybeSingle();
+        const history = Array.isArray(existing?.data) ? existing.data : [];
+        const filtered = history.filter((item: any) => item.id !== data.id);
+        await supabase.from('checkup_storage').upsert(
+          { key: 'analysis-history', data: filtered, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (action === 'save-holdings') {
+        await supabase.from('checkup_storage').upsert(
+          { key: 'cloud-holdings', data, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (action === 'get-holdings') {
+        const { data: row } = await supabase
+          .from('checkup_storage').select('data').eq('key', 'cloud-holdings').maybeSingle();
+        return new Response(JSON.stringify({ content: row?.data || [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (action === 'get-brain') {
+        const { data: row } = await supabase
+          .from('checkup_storage').select('data').eq('key', 'strategy-brain').maybeSingle();
+        return new Response(JSON.stringify({ content: row?.data || null }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (action === 'get-analysis-history') {
+        const { data: row } = await supabase
+          .from('checkup_storage').select('data').eq('key', 'analysis-history').maybeSingle();
+        return new Response(JSON.stringify({ content: row?.data || [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (action === 'get-research-history') {
+        const { data: row } = await supabase
+          .from('checkup_storage').select('data').eq('key', 'research-history').maybeSingle();
+        return new Response(JSON.stringify({ content: row?.data || [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (action === 'save-research-history') {
+        await supabase.from('checkup_storage').upsert(
+          { key: 'research-history', data, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       return new Response(JSON.stringify({ error: '未知 action' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

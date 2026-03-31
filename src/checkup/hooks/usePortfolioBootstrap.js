@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from '../constants.js'
 import { useEffect } from 'react'
 import { CLOUD_SYNC_TTL, OWNER_PORTFOLIO_ID } from '../constants.js'
 
@@ -93,7 +94,7 @@ export function usePortfolioBootstrap({
 
       if (!shouldSyncCloud) {
         try {
-          const cloudHoldings = await fetch('/api/brain', {
+          const cloudHoldings = await fetch(API_ENDPOINTS.BRAIN, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'load-holdings' }),
@@ -138,27 +139,27 @@ export function usePortfolioBootstrap({
       try {
         const [cloudBrain, cloudEvents, cloudHoldings, cloudHistory, cloudResearch] =
           await Promise.all([
-            fetch('/api/brain?action=brain')
+            fetch(`${API_ENDPOINTS.BRAIN}?action=brain')
               .then((res) => res.json())
               .catch(() => ({ brain: null })),
-            fetch('/api/brain', {
+            fetch(API_ENDPOINTS.BRAIN, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'load-events' }),
             })
               .then((res) => res.json())
               .catch(() => ({ events: null })),
-            fetch('/api/brain', {
+            fetch(API_ENDPOINTS.BRAIN, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'load-holdings' }),
             })
               .then((res) => res.json())
               .catch(() => ({ holdings: null })),
-            fetch('/api/brain?action=history')
+            fetch(`${API_ENDPOINTS.BRAIN}?action=history')
               .then((res) => res.json())
               .catch(() => ({ history: null })),
-            fetch('/api/research')
+            fetch(API_ENDPOINTS.RESEARCH)
               .then((res) => res.json())
               .catch(() => ({ reports: null })),
           ])

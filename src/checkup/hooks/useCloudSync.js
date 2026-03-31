@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from '../constants.js'
 /**
  * Cloud Sync Hook
  *
@@ -94,7 +95,7 @@ export const useCloudSync = ({
       clearTimeout(cloudSaveTimersRef.current[action])
       cloudSaveTimersRef.current[action] = setTimeout(async () => {
         try {
-          const res = await fetch('/api/brain', {
+          const res = await fetch(API_ENDPOINTS.BRAIN, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action, data }),
@@ -149,7 +150,7 @@ export const useCloudSync = ({
     if (!shouldSync) return null
 
     try {
-      const res = await fetch('/api/brain', {
+      const res = await fetch(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-analysis-history' }),
@@ -178,7 +179,7 @@ export const useCloudSync = ({
     if (!shouldSync) return null
 
     try {
-      const res = await fetch('/api/brain', {
+      const res = await fetch(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-research-history' }),
@@ -203,7 +204,7 @@ export const useCloudSync = ({
       if (!canUseCloud) return false
 
       try {
-        const res = await fetch('/api/brain', {
+        const res = await fetch(API_ENDPOINTS.BRAIN, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

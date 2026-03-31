@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from '../../constants.js'
 /**
  * Analysis API Hooks
  *
@@ -13,7 +14,7 @@ export function useDailyAnalysis(portfolioId, enabled = true) {
   return useQuery({
     queryKey: ['analysis', 'daily', portfolioId],
     queryFn: async () => {
-      const res = await fetch('/api/analyze', {
+      const res = await fetch(API_ENDPOINTS.ANALYZE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -38,7 +39,7 @@ export function useRunDailyAnalysis() {
 
   return useMutation({
     mutationFn: async ({ portfolioId, data }) => {
-      const res = await fetch('/api/analyze', {
+      const res = await fetch(API_ENDPOINTS.ANALYZE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -63,7 +64,7 @@ export function useRunDailyAnalysis() {
 export function useRunStressTest() {
   return useMutation({
     mutationFn: async ({ portfolioId }) => {
-      const res = await fetch('/api/analyze', {
+      const res = await fetch(API_ENDPOINTS.ANALYZE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -85,7 +86,7 @@ export function useDeleteAnalysis() {
 
   return useMutation({
     mutationFn: async ({ portfolioId: _portfolioId, reportId, date }) => {
-      const res = await fetch('/api/brain', {
+      const res = await fetch(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

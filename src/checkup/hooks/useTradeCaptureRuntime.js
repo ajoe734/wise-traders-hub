@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from '../constants.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MEMO_Q, PARSE_PROMPT } from '../constants.js'
 import {
@@ -249,7 +250,7 @@ export function useTradeCaptureRuntime({
     updateActiveUpload((upload) => ({ ...upload, parseErr: '' }))
 
     try {
-      const response = await fetch('/api/parse', {
+      const response = await fetch(API_ENDPOINTS.ANALYZE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
