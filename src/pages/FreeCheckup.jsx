@@ -1541,14 +1541,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
 
           {/* 排序 + 列表 */}
-          <div style={{display:"flex",gap:5,marginBottom:10,alignItems:"center"}}>
-            <span style={{fontSize:13,color:C.textMute}}>排序：</span>
+          <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center"}}>
+            <span style={{fontSize:12,color:C.textMute}}>排序</span>
             {[["value","市值"],["pnl","損益"],["pct","報酬%"]].map(([k,l])=>(
               <button key={k} onClick={()=>setSortBy(k)} style={{
                 background: sortBy===k ? C.subtle : "transparent",
-                color: sortBy===k ? C.amber : C.textMute,
-                border:`1px solid ${sortBy===k ? C.amber+"66" : C.border}`,
-                borderRadius:20, padding:"4px 12px", fontSize:13, fontWeight:500, cursor:"pointer",
+                color: sortBy===k ? C.blue : C.textMute,
+                border:`1px solid ${sortBy===k ? C.blue+"33" : C.border}`,
+                borderRadius:5, padding:"3px 10px", fontSize:12, fontWeight:500, cursor:"pointer",
+                transition:"all 0.15s",
               }}>{l}</button>
             ))}
           </div>
