@@ -394,6 +394,20 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
+      // ── Demo 模式：直接使用假資料 ──
+      if (isDemo) {
+        setHoldings(demoData?.holdings || DEMO_HOLDINGS);
+        setTradeLog([]);
+        setTargets(INIT_TARGETS);
+        setNewsEvents(demoData?.events || DEMO_EVENTS);
+        setAnalysisHistory([]);
+        setReversalConditions({});
+        setStrategyBrain(demoData?.brain || null);
+        setCalendarEvents([]);
+        setReady(true);
+        return;
+      }
+
       // ── 雲端優先：批次載入所有 pf-* key ──
       const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
       if (wasReset) {
@@ -408,7 +422,6 @@ export default function App() {
 
       const pick = (key, fallback) => {
         if (cloud[key] != null && !(Array.isArray(cloud[key]) && cloud[key].length === 0 && Object.keys(cloud[key]).length === 0)) {
-          // 雲端有資料 → 回寫 localStorage 快取
           try { localStorage.setItem(key, JSON.stringify(cloud[key])); } catch {}
           return cloud[key];
         }
@@ -423,7 +436,6 @@ export default function App() {
       const sb = pick("pf-brain-v1", null);
       const ceRaw = pick("pf-calendar-v1", null);
 
-      // 相容新舊格式：新格式 { events, holdingCodes }，舊格式純陣列
       let ce;
       if (ceRaw && !Array.isArray(ceRaw) && ceRaw.events) {
         ce = ceRaw.events;
@@ -432,7 +444,6 @@ export default function App() {
         ce = ceRaw || [];
       }
 
-      // 從 Supabase 載入交易備忘錄
       let l = [];
       try {
         const { data } = await supabase.from("checkup_trade_memos").select("*").order("created_at", { ascending: false });
@@ -458,7 +469,6 @@ export default function App() {
       setHoldings(h); setTradeLog(l); setTargets(t);
       setStrategyBrain(sb); setCalendarEvents(ce);
 
-      // 若持倉為空，清空所有衍生資料
       const hasHoldings = h && h.length > 0;
       if (!hasHoldings) {
         setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
