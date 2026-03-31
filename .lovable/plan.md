@@ -1,38 +1,92 @@
 
+目標：徹底清查為什麼「免費健檢」明明改了很多檔案，但畫面和資料幾乎沒變，並給出可執行的修正方案。
 
-## 在導覽列新增「試用版」頁面（iframe 嵌入第三方網站）
+1. 已查到的核心原因
+- `/free-checkup` 確實是走 `src/pages/FreeCheckup.jsx`，不是跑錯頁面。
+- 但這頁目前仍是單一 2756 行的大檔，幾乎全部用 inline style，所以「改全域樣式」只會影響很少部分，視覺上不會大變。
+- Demo 模式的資料來源不是 `seedData`，而是 `src/checkup/data/demoData.js` 的 `DEMO_HOLDINGS`，目前只有 5 檔。
+- `FreeCheckup.jsx` 雖然在 Demo 模式寫了 `setHoldings(demoData?.holdings || SEED_HOLDINGS)`，但 `demoData.holdings` 一定存在，所以永遠優先吃 5 檔假資料，不會掉到 20 檔 `SEED_HOLDINGS`。
+- 網路請求也證實目前實際寫進雲端的 `pf-holdings-v2` 只有 5 檔：2330、2454、2317、2382、3443。
+- 你問的「短中長期」也沒有真正接上：`seedData.js` 有 `STOCK_META.period`，但 `FreeCheckup.jsx` 根本沒使用 `STOCK_META`，畫面只在顯示 `h.type`（股票/ETF/權證），所以你看不到每檔的短/中/長。
+- 主題色雖然有改 `src/checkup/theme.js`，但 `FreeCheckup.jsx` 裡仍殘留很多舊色碼與局部字體設定，例如 `TYPE_COLOR` 仍是舊莫蘭迪色、頁面本身還硬寫 `DM Sans`，因此整體視覺只會局部變化，不會徹底變成你要的專業極簡財經感。
 
-### 你需要向對方取得的資料
+2. 為什麼會有「改很多檔案但沒感覺」
+- 改的是全域 theme / index.css，但這頁主要靠 inline style 控制。
+- 改的是 `seedData`，但 Demo 模式實際吃的是 `demoData`。
+- 有些雲端同步會把目前的 5 檔資料再次寫回 `checkup_storage`，所以即使 seedData 變豐富，也會被現行資料流覆蓋。
+- 「短中長期」資料存在於 metadata，不在 holdings 主資料內，若不在 render 時 merge，就完全不會出現在 UI。
 
-| 項目 | 說明 |
-|------|------|
-| **完整網址 (URL)** | 例如 `https://demo.theirsite.com`，這是 iframe 的 `src` |
-| **允許 iframe 嵌入** | 對方必須確認其伺服器 **沒有** 設定 `X-Frame-Options: DENY` 或 `Content-Security-Policy: frame-ancestors 'none'`。若有，iframe 會被瀏覽器擋掉，對方需改為 `frame-ancestors https://你的網域` |
-| **是否需要傳參數** | 例如 token、用戶 ID 等，透過 URL query string 傳入 |
+3. 建議實作方向
+A. 先修資料來源，讓 Demo 模式真的顯示完整內容
+- 把 `CheckupModeContext.jsx` 的 demo holdings 改為使用 `SEED_HOLDINGS`，或直接讓 `demoData.holdings` 改成完整 20 檔。
+- 同步補齊 demo 用的分析、事件、策略大腦內容，避免只有持倉變多，其他面板仍很空。
+- 加一層初始化保護：若目前是 Demo 模式，不要把 5 檔舊資料再寫回雲端。
 
-> **重要**：如果對方網站禁止 iframe 嵌入（很多網站預設禁止），這個方案就行不通，需改為「新分頁開啟」。建議先請對方確認。
+B. 把「短中長期 / 產業 / 策略 / 核心衛星」真正接上畫面
+- 在 `FreeCheckup.jsx` 匯入 `STOCK_META`。
+- render 每檔持股時，用 `code` 去 merge metadata。
+- 顯示至少這幾個 badge：期間（短/中/中長）、產業、策略、部位屬性（核心/衛星/戰術）。
+- 若某檔無 metadata，再 fallback 顯示原本 `h.type`。
 
-### 實作步驟
+C. 修正為什麼 UI 改了卻不夠明顯
+- 統一移除 `FreeCheckup.jsx` 內殘留的硬編碼舊色值，至少先處理：
+  - `TYPE_COLOR`
+  - LINE 綠色區塊
+  - watchlist 的 `sc` 色碼
+  - 局部 button / badge / border 寫死色
+- 把頁面字體從內嵌 `DM Sans` 改回跟全站一致的 `Inter + Noto Sans TC`。
+- 先不全面重寫元件，但要抽出幾組共用樣式常數：
+  - card
+  - badge
+  - table row
+  - section title
+  - toolbar button
+  這樣你要的「專業、財經、極簡」才會一致，不會東一塊西一塊。
 
-1. **新增頁面 `src/pages/Trial.tsx`**
-   - 全螢幕 iframe，`src` 指向對方提供的 URL
-   - 設定 `sandbox` 屬性以控制安全性（依需求開放 `allow-scripts allow-same-origin` 等）
+4. 我建議的修正順序
+- 第 1 步：修 Demo 資料來源，確保不是 5 檔而是完整 20 檔以上。
+- 第 2 步：把 `STOCK_META` 接到持倉列表，補上短中長期與策略標籤。
+- 第 3 步：清掉 `FreeCheckup.jsx` 的舊色碼與局部字體，讓新主題真的生效。
+- 第 4 步：檢查 Demo 模式與登入模式的雲端寫回邏輯，避免啟動後又被覆蓋成瘦資料。
 
-2. **新增路由**
-   - 在 `App.tsx` 加入 `/trial` 路由，使用 `PortalLayout` 包裹
-
-3. **更新導覽列**
-   - 在 `PortalLayout.tsx` 的 `navLinks` 陣列中新增 `{ href: '/trial', label: '試用版' }`
-   - 桌面版與手機版選單會自動套用
-
-### 對方需要做的事（給對方的 checklist）
-
+5. 技術細節
 ```text
-1. 提供可公開存取的完整 URL
-2. 在伺服器設定中允許 iframe 嵌入：
-   - Nginx:  add_header X-Frame-Options "ALLOW-FROM https://你的網域";
-   - 或用 CSP: Content-Security-Policy: frame-ancestors https://你的網域;
-3. 確認 HTTPS（HTTP 會被瀏覽器 mixed-content 政策擋掉）
-4. 若需要登入或傳遞參數，告知參數格式
+目前資料流實際上是：
+
+Demo 模式
+CheckupModeContext.demoData.holdings
+        ↓
+FreeCheckup useEffect
+setHoldings(demoData.holdings || SEED_HOLDINGS)
+        ↓
+永遠吃到 demoData.holdings（5檔）
+        ↓
+auto-save 再寫回 pf-holdings-v2
+        ↓
+你看到的還是 5 檔
 ```
 
+```text
+你要的正確方向應該是：
+
+Demo 模式
+完整 seed/demo holdings（20+）
++ STOCK_META merge
++ richer analysis/brain/events
+        ↓
+畫面顯示完整持倉與短中長標籤
+        ↓
+若是 demo，不覆蓋成舊 5 檔資料
+```
+
+6. 我接下來會怎麼做
+- 精準修 `CheckupModeContext.jsx` 與 `FreeCheckup.jsx` 的 demo 初始化來源。
+- 接上 `seedData.js` 的 metadata 到持倉 UI。
+- 清理 `FreeCheckup.jsx` 內殘留的舊配色與字體，讓視覺變化真正可見。
+- 最後再檢查 Demo/登入兩種模式的雲端同步策略，避免資料被回寫覆蓋。
+
+7. 預期結果
+- `/free-checkup` 會真的顯示完整持倉，而不是只有 5 檔。
+- 每檔股票會看到短/中/中長、產業、策略、核心/衛星等資訊。
+- 視覺會比現在更一致，真正接近專業財經極簡風，而不是只換了部分顏色。
+- 之後你再刷新，不會出現「明明改了但像沒改」的狀況。
