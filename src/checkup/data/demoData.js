@@ -1,65 +1,11 @@
 /**
  * Demo data for unauthenticated users viewing the free checkup.
- * All data is static — AI analysis results are pre-generated text.
+ * Uses the full seed holdings (20+ stocks) instead of a thin 5-item set.
  */
 
-export const DEMO_HOLDINGS = [
-  {
-    code: '2330',
-    name: '台積電',
-    qty: 5,
-    price: 1045,
-    cost: 980,
-    value: 5225,
-    pnl: 325,
-    pct: 6.63,
-    type: '股票',
-  },
-  {
-    code: '2454',
-    name: '聯發科',
-    qty: 3,
-    price: 1820,
-    cost: 1750,
-    value: 5460,
-    pnl: 210,
-    pct: 4.0,
-    type: '股票',
-  },
-  {
-    code: '2317',
-    name: '鴻海',
-    qty: 20,
-    price: 205,
-    cost: 195,
-    value: 4100,
-    pnl: 200,
-    pct: 5.13,
-    type: '股票',
-  },
-  {
-    code: '2382',
-    name: '廣達',
-    qty: 10,
-    price: 380,
-    cost: 350,
-    value: 3800,
-    pnl: 300,
-    pct: 8.57,
-    type: '股票',
-  },
-  {
-    code: '3443',
-    name: '創意',
-    qty: 2,
-    price: 3200,
-    cost: 3050,
-    value: 6400,
-    pnl: 300,
-    pct: 4.92,
-    type: '股票',
-  },
-]
+import { INIT_HOLDINGS } from '../seedData.js'
+
+export const DEMO_HOLDINGS = INIT_HOLDINGS
 
 export const DEMO_ANALYSIS = {
   date: new Date().toLocaleDateString('zh-TW'),
@@ -72,14 +18,16 @@ export const DEMO_ANALYSIS = {
 
 | 標的 | 今日表現 | 觀察重點 |
 |------|----------|----------|
-| 2330 台積電 | +1.2% | CoWoS 產能持續擴充，法說會展望正面 |
-| 2454 聯發科 | +0.8% | 天璣 9400 備貨啟動，Q2 營收可期 |
-| 2317 鴻海 | -0.3% | AI 伺服器出貨穩定，等待 GB300 訂單 |
-| 2382 廣達 | +2.1% | 雲端伺服器需求強勁，股價創新高 |
-| 3443 創意 | +1.5% | ASIC 設計案持續增加，長線看好 |
+| 2308 台達電 | +1.2% | AI 伺服器＋電動車雙引擎，法人持續加碼 |
+| 3017 奇鋐 | +2.1% | 散熱模組需求強勁，資料中心擴建帶動 |
+| 3443 創意 | +1.5% | ASIC 設計案持續增加，CoWoS 產能加持 |
+| 3491 昇達科 | +0.8% | CPO 光通訊商機，低軌衛星訂單 |
+| 2313 華通 | -0.3% | ABF 載板需求回溫，等待 Q2 拉貨 |
+| 053848 亞翔權證 | +3.2% | 半導體設備需求增，權證槓桿放大 |
 
 ### 風險提示
-⚠️ 持倉集中於 AI/半導體族群，建議適度分散至傳產或金融股。
+⚠️ 持倉集中於 AI/半導體族群（佔比 > 60%），建議適度分散。
+⚠️ 權證部位佔比留意時間價值耗損。
 
 ### 明日觀察
 - 台積電法說會後續效應
@@ -95,17 +43,22 @@ export const DEMO_BRAIN = {
   lastUpdated: new Date().toISOString(),
   summary: `### 策略大腦（Demo 模式）
 
-**投資風格辨識**：偏好科技成長股，集中 AI/半導體主題。
+**投資風格辨識**：以 AI/半導體成長股為核心，搭配權證做短線戰術操作。
+
+**持倉結構分析**：
+- 核心持股：台達電、奇鋐、創意、昇達科（中長期成長）
+- 衛星持股：華通、長興、台燿（景氣循環/材料）
+- 戰術部位：權證（禾伸堂、亞翔、華星光）＋ 滬深300正2
 
 **常見模式**：
-1. 傾向在法說會前佈局
-2. 停損紀律尚可加強
-3. 權證操作偏好短線
+1. 偏好在法說會或營收公布前佈局
+2. 權證操作偏好中長天期認購
+3. 停損紀律可再加強（晟銘電 -21%、創意 -11%）
 
 **建議改善**：
-- 設定明確的停損/停利點
-- 避免在高點追價
-- 增加非 AI 族群的配置
+- 虧損標的（晟銘電、士電）設定明確出場條件
+- 權證到期前 1 個月需重新評估是否展期
+- 增加非科技族群配置（如金融、傳產）降低集中風險
 
 *上傳真實交易紀錄後，AI 將根據您的實際操作模式給出個人化建議。*`,
 }
@@ -118,33 +71,49 @@ export const DEMO_EVENTS = [
       d.setDate(d.getDate() + 3)
       return d.toISOString().slice(0, 10).replace(/-/g, '/')
     })(),
-    title: '2330 台積電法說會',
-    detail: 'Q1 財報公布暨法說會',
-    stocks: '2330',
+    title: '3443 創意法說會',
+    detail: 'Q1 財報公布暨法說會，關注 CoWoS 進度',
+    stocks: [{ code: '3443', name: '創意' }],
     type: '法說',
     status: 'pending',
     pred: 'up',
-    predReason: 'CoWoS 產能滿載，AI 需求強勁，預期展望正面',
+    predReason: 'ASIC 設計案增加，NVIDIA 合作深化，預期展望正面',
     source: 'demo',
   },
   {
     id: 'demo-2',
     date: (() => {
       const d = new Date()
-      d.setDate(d.getDate() + 7)
+      d.setDate(d.getDate() + 5)
       return d.toISOString().slice(0, 10).replace(/-/g, '/')
     })(),
-    title: '2454 聯發科營收公布',
-    detail: '3月營收公告',
-    stocks: '2454',
-    type: '營收',
-    status: 'pending',
+    title: '6274 台燿法說會',
+    detail: '法說會＋Q4 財報',
+    stocks: [{ code: '6274', name: '台燿' }],
+    type: '法說',
+    status: 'verifying',
     pred: 'up',
-    predReason: '天璣 9400 拉貨效應，預期月營收年增 15%+',
+    predReason: '毛利率回沖，AI 伺服器 CCL 需求強勁',
     source: 'demo',
   },
   {
     id: 'demo-3',
+    date: (() => {
+      const d = new Date()
+      d.setDate(d.getDate() + 7)
+      return d.toISOString().slice(0, 10).replace(/-/g, '/')
+    })(),
+    title: '3017 奇鋐營收公布',
+    detail: '3月營收公告',
+    stocks: [{ code: '3017', name: '奇鋐' }],
+    type: '營收',
+    status: 'pending',
+    pred: 'up',
+    predReason: '散熱模組需求持續成長，預期月營收年增 20%+',
+    source: 'demo',
+  },
+  {
+    id: 'demo-4',
     date: (() => {
       const d = new Date()
       d.setDate(d.getDate() + 14)
@@ -152,11 +121,27 @@ export const DEMO_EVENTS = [
     })(),
     title: '美國 CPI 數據公布',
     detail: '消費者物價指數',
-    stocks: '',
+    stocks: [],
     type: '總經',
     status: 'pending',
     pred: 'neutral',
     predReason: '預期持平，若低於預期有利科技股',
+    source: 'demo',
+  },
+  {
+    id: 'demo-5',
+    date: (() => {
+      const d = new Date()
+      d.setDate(d.getDate() + 10)
+      return d.toISOString().slice(0, 10).replace(/-/g, '/')
+    })(),
+    title: '2308 台達電除息',
+    detail: '現金股利 $12.5',
+    stocks: [{ code: '2308', name: '台達電' }],
+    type: '除息',
+    status: 'pending',
+    pred: 'neutral',
+    predReason: '殖利率約 0.9%，預期快速填息',
     source: 'demo',
   },
 ]
