@@ -820,6 +820,7 @@ export type Database = {
           display_name: string | null
           expert_slug: string | null
           id: string
+          line_user_id: string | null
           updated_at: string
           user_id: string
         }
@@ -829,6 +830,7 @@ export type Database = {
           display_name?: string | null
           expert_slug?: string | null
           id?: string
+          line_user_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -838,6 +840,7 @@ export type Database = {
           display_name?: string | null
           expert_slug?: string | null
           id?: string
+          line_user_id?: string | null
           updated_at?: string
           user_id?: string
         }
