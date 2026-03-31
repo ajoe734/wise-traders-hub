@@ -109,12 +109,12 @@ const calcPnlWithNet = (h, newPrice) => {
   const pct = Math.round((newPrice / h.cost - 1) * 10000) / 100;
   return { value: newValue, pnl, pct };
 };
-// 台股慣例：紅=漲/獲利，綠=跌/虧損（莫蘭迪版）
+// 台股慣例：紅=漲/獲利，綠=跌/虧損
 const pc    = (p) => p==null ? C.textMute : p>=0 ? C.up : C.down;
 const pcBg  = (p) => p==null ? "transparent" : p>=0 ? C.upBg : C.downBg;
 const fmtN  = (n) => n==null?"—":Math.abs(n)>=10000?(n/10000).toFixed(1)+"萬":n.toLocaleString();
-const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:"14px" };
-const lbl   = { fontSize:12, color:C.textMute, letterSpacing:"0.13em", textTransform:"uppercase", fontWeight:700, marginBottom:7 };
+const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" };
+const lbl   = { fontSize:11, color:C.textMute, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:6 };
 
 // 所有 pf-* key 的雲端同步 key 清單
 const CLOUD_SYNC_KEYS = [
@@ -1302,70 +1302,72 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
   return (
     <div style={{background:C.bg,minHeight:"100vh",color:C.text,
-      fontFamily:"'DM Sans','Noto Sans TC',sans-serif",paddingBottom:40}}>
+      fontFamily:"'Inter','Noto Sans TC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingBottom:40,
+      WebkitFontSmoothing:"antialiased",MozOsxFontSmoothing:"grayscale"}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         *{box-sizing:border-box}
         html{-webkit-text-size-adjust:100%}
         body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
         textarea::placeholder,input::placeholder{color:${C.textMute}}
         input,textarea,button{font-family:inherit;-webkit-appearance:none}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-          @keyframes progress{0%{width:5%}50%{width:70%}100%{width:95%}}
+        @keyframes progress{0%{width:5%}50%{width:70%}100%{width:95%}}
         @media(max-width:480px){
           body{font-size:14px}
         }
       `}</style>
 
       {/* ── BACK BUTTON ── */}
-      <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"10px 16px",position:"sticky",top:0,zIndex:11}}>
+      <div style={{background:C.shell,borderBottom:`1px solid ${C.border}`,padding:"8px 16px",position:"sticky",top:0,zIndex:11}}>
         <button onClick={()=>navigate("/")} style={{
-          background:"none",border:"none",cursor:"pointer",padding:0,
-          color:C.blue,fontSize:16,fontWeight:500,display:"flex",alignItems:"center",gap:4,
+          background:"none",border:"none",cursor:"pointer",padding:"2px 0",
+          color:C.textSec,fontSize:14,fontWeight:500,display:"flex",alignItems:"center",gap:4,
+          letterSpacing:"0.01em",
         }}>
           ← 返回
         </button>
       </div>
 
       {/* ── HEADER ── */}
-      <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,
-        padding:"16px 16px 0",position:"sticky",top:40,zIndex:10}}>
+      <div style={{background:C.shell,borderBottom:`1px solid ${C.border}`,
+        padding:"14px 16px 0",position:"sticky",top:34,zIndex:10}}>
 
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
           <div>
-            <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>
-              {isDemo && <span style={{background:C.amber+"33",color:C.amber,padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:600,marginRight:8}}>DEMO</span>}
-              {lineProfile && <span style={{background:"#06C75533",color:"#06C755",padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:600,marginRight:8}}>{lineProfile.displayName}</span>}
-              <span style={{color:cloudSync?C.olive:C.textMute}}>{cloudSync?"☁":"⚡"}</span>
-              {saved && <span style={{color:C.olive,marginLeft:8,fontWeight:600}}>{saved}</span>}
+            <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.1em",fontWeight:500,marginBottom:4}}>
+              {isDemo && <span style={{background:C.amber+"22",color:C.amber,padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:600,marginRight:6}}>DEMO</span>}
+              {lineProfile && <span style={{background:"#06C75518",color:"#22C55E",padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:600,marginRight:6}}>{lineProfile.displayName}</span>}
+              <span style={{color:cloudSync?C.olive:C.textMute,fontSize:11}}>{cloudSync?"☁":"⚡"}</span>
+              {saved && <span style={{color:C.olive,marginLeft:6,fontWeight:600,fontSize:12}}>{saved}</span>}
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-              <span style={{fontSize:24,fontWeight:600,color:C.text,marginTop:2,letterSpacing:"-0.01em"}}>持倉看板</span>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <span style={{fontSize:22,fontWeight:700,color:C.text,letterSpacing:"-0.02em"}}>持倉看板</span>
               <button onClick={refreshPrices} disabled={refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)} style={{
-                background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : C.blue+"22",
+                background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : C.blue+"14",
                 color: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.textMute : C.blue,
-                border:`1px solid ${(refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.border : C.blue+"55"}`,
-                borderRadius:20, padding:"4px 12px", fontSize:12, fontWeight:500,
+                border:`1px solid ${(refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.border : C.blue+"33"}`,
+                borderRadius:6, padding:"3px 10px", fontSize:12, fontWeight:500,
                 cursor: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? "not-allowed" : "pointer",
                 transition:"all 0.2s", whiteSpace:"nowrap",
               }}>
                 {refreshing ? "更新中..." : cooldownText ? `⟳ ${cooldownText}` : "⟳ 刷新股價"}
               </button>
               <button onClick={() => setShowResetConfirm(true)} style={{
-                background: C.up+"18", color: C.up, border:`1px solid ${C.up}33`,
-                borderRadius:20, padding:"4px 10px", fontSize:12, fontWeight:500,
+                background: C.up+"0f", color: C.textMute, border:`1px solid ${C.border}`,
+                borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:500,
                 cursor:"pointer", whiteSpace:"nowrap",
-              }}>🗑 清除全部</button>
+              }}>清除</button>
               {lastUpdate && !refreshing && (
-                <span style={{fontSize:12,color:C.textMute}}>
+                <span style={{fontSize:11,color:C.textMute}}>
                   {lastUpdate.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}
                 </span>
               )}
             </div>
           </div>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>未實現損益</div>
-            <div style={{fontSize:25,fontWeight:700,color:pc(totalPnl),letterSpacing:"-0.02em"}}>
+            <div style={{fontSize:11,color:C.textMute,marginBottom:2,letterSpacing:"0.05em"}}>未實現損益</div>
+            <div style={{fontSize:24,fontWeight:700,color:pc(totalPnl),letterSpacing:"-0.02em",lineHeight:1.2}}>
               {totalPnl>=0?"+":""}{totalPnl.toLocaleString()}
             </div>
             <div style={{fontSize:13,fontWeight:600,color:pc(retPct)}}>
@@ -1376,25 +1378,26 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* today alert - match calendar events by today's date */}
         {todayEvents.length>0 && (
-          <div style={{background:C.upBg,border:`1px solid ${C.up}44`,
-            borderLeft:`3px solid ${C.up}`,
-            borderRadius:8,padding:"8px 11px",marginBottom:12,
-            fontSize:13,color:C.up,lineHeight:1.7,fontWeight:500}}>
+          <div style={{background:C.upBg,border:`1px solid ${C.up}22`,
+            borderLeft:`2px solid ${C.up}88`,
+            borderRadius:6,padding:"7px 10px",marginBottom:10,
+            fontSize:12,color:C.up,lineHeight:1.7,fontWeight:500}}>
             📅 今日 · {todayEvents.map(e=>e.label).join(" · ")}
           </div>
         )}
 
-        <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,marginTop:4}}>
+        <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,marginTop:2}}>
           {TABS.map(t=>(
             <button key={t.k} onClick={()=>{setTab(t.k);window.scrollTo({top:0,behavior:"smooth"})}} style={{
               background:"transparent",
               color: tab===t.k ? C.text : C.textMute,
               border:"none",
-              borderBottom: tab===t.k ? `2px solid ${C.amber}` : "2px solid transparent",
-              padding:"8px 12px",
-              fontSize:13, fontWeight: tab===t.k ? 600 : 400,
+              borderBottom: tab===t.k ? `2px solid ${C.blue}` : "2px solid transparent",
+              padding:"7px 11px",
+              fontSize:12, fontWeight: tab===t.k ? 600 : 400,
               cursor:"pointer", whiteSpace:"nowrap",
               transition:"all 0.15s",
+              letterSpacing:"0.01em",
             }}>{t.label}</button>
           ))}
         </div>
@@ -1405,13 +1408,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
           {/* 摘要 */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
             {[["總成本",totalCost.toLocaleString(),C.textSec],
               ["總市值",totalVal.toLocaleString(),C.blue],
-              ["持股數",H.length+"檔",C.lavender]].map(([l,v,c])=>(
-              <div key={l} style={{background:C.subtle,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
-                <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.08em"}}>{l}</div>
-                <div style={{fontSize:19,fontWeight:600,color:c,marginTop:3}}>{v}</div>
+              ["持股數",H.length+"檔",C.textSec]].map(([l,v,c])=>(
+              <div key={l} style={{background:C.subtle,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:500}}>{l}</div>
+                <div style={{fontSize:18,fontWeight:600,color:c,marginTop:2,letterSpacing:"-0.01em"}}>{v}</div>
               </div>
             ))}
           </div>
@@ -1538,14 +1541,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
 
           {/* 排序 + 列表 */}
-          <div style={{display:"flex",gap:5,marginBottom:10,alignItems:"center"}}>
-            <span style={{fontSize:13,color:C.textMute}}>排序：</span>
+          <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center"}}>
+            <span style={{fontSize:12,color:C.textMute}}>排序</span>
             {[["value","市值"],["pnl","損益"],["pct","報酬%"]].map(([k,l])=>(
               <button key={k} onClick={()=>setSortBy(k)} style={{
                 background: sortBy===k ? C.subtle : "transparent",
-                color: sortBy===k ? C.amber : C.textMute,
-                border:`1px solid ${sortBy===k ? C.amber+"66" : C.border}`,
-                borderRadius:20, padding:"4px 12px", fontSize:13, fontWeight:500, cursor:"pointer",
+                color: sortBy===k ? C.blue : C.textMute,
+                border:`1px solid ${sortBy===k ? C.blue+"33" : C.border}`,
+                borderRadius:5, padding:"3px 10px", fontSize:12, fontWeight:500, cursor:"pointer",
+                transition:"all 0.15s",
               }}>{l}</button>
             ))}
           </div>
@@ -1562,41 +1566,43 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const posColor = { "核心": C.blue, "衛星": C.lavender, "戰術": C.amber };
               const posBg = { "核心": C.blueBg, "衛星": C.lavBg, "戰術": C.amberBg };
               const badge = (text, fg, bg) => (
-                <span key={text} style={{fontSize:10,padding:"1px 5px",borderRadius:3,
-                  background:bg,color:fg,fontWeight:500,lineHeight:"16px"}}>{text}</span>
+                <span key={text} style={{fontSize:10,padding:"1px 6px",borderRadius:4,
+                  background:bg,color:fg,fontWeight:500,lineHeight:"16px",letterSpacing:"0.01em"}}>{text}</span>
               );
               return (
               <div key={h.code} style={{
                 padding:"12px 0",
                 borderBottom: i<displayed.length-1 ? `1px solid ${C.borderSub}` : "none"}}>
-                {/* 第一行：名稱 + 標籤 */}
-                <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:4}}>
-                  <span style={{fontSize:15,fontWeight:600,color:C.text}}>{h.name}</span>
-                  <span style={{fontSize:11,color:C.textMute}}>{h.code}</span>
-                  {h.type&&badge(h.type,
-                    h.type==="權證" ? C.amber : h.type==="ETF" ? C.blue : C.textSec,
-                    h.type==="權證" ? C.amberBg : h.type==="ETF" ? C.blueBg : C.subtle)}
+                {/* 第一行：名稱 + 代碼 + 核心標籤 */}
+                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
+                  <span style={{fontSize:15,fontWeight:600,color:C.text,letterSpacing:"-0.01em"}}>{h.name}</span>
+                  <span style={{fontSize:11,color:C.textMute,fontWeight:400}}>{h.code}</span>
+                  {h.type==="權證"&&badge("權證",C.amber,C.amberBg)}
+                  {h.type==="ETF"&&badge("ETF",C.blue,C.blueBg)}
                   {meta?.period && badge(
                     meta.period==="短"?"短線":meta.period==="中"?"中線":meta.period==="中長"?"中長線":meta.period==="短中"?"短中線":"長線",
                     periodColor[meta.period]||C.textSec, periodBg[meta.period]||C.subtle)}
                   {meta?.position && badge(meta.position, posColor[meta.position]||C.textSec, posBg[meta.position]||C.subtle)}
-                  {meta?.industry && badge(meta.industry, IND_COLOR[meta.industry]||C.textSec,
-                    (IND_COLOR[meta.industry]||C.textSec)+"14")}
-                  {h.expire&&<span style={{fontSize:11,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
-                  {h.alert&&<span style={{fontSize:11,color:C.up,fontWeight:600}}>{h.alert}</span>}
-                  {isNew&&badge("目標價更新",C.teal,C.tealBg)}
+                  {h.expire&&<span style={{fontSize:10,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
+                  {h.alert&&<span style={{fontSize:10,color:C.up,fontWeight:600}}>{h.alert}</span>}
+                  {isNew&&badge("新目標價",C.teal,C.tealBg)}
                 </div>
-                {/* 第二行：左側 數量·成本·市價 / 右側 市值·損益·報酬 */}
+                {/* 第二行：產業 + 策略（淡化顯示）*/}
+                {meta?.industry && (
+                  <div style={{fontSize:11,color:C.textMute,marginBottom:4,fontWeight:400}}>
+                    <span style={{color:IND_COLOR[meta.industry]||C.textMute}}>{meta.industry}</span>
+                    {meta.strategy && <span style={{marginLeft:6,color:C.textMute}}>· {meta.strategy}</span>}
+                    {meta.leader && meta.leader!=="N/A" && <span style={{marginLeft:6,color:C.textMute}}>· {meta.leader}</span>}
+                  </div>
+                )}
+                {/* 第三行：數量·成本·市價 / 市值·損益·報酬 */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                  <div style={{fontSize:12,color:C.textMute}}>
+                  <div style={{fontSize:12,color:C.textMute,fontWeight:400}}>
                     {h.qty}{h.unit || "股"} · 成本{h.cost} · 市價{h.price?.toLocaleString()}
                   </div>
-                  <div style={{display:"flex",gap:10,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
-                    <span style={{fontSize:12,color:C.textMute}}>市值</span>
-                    <span style={{fontSize:13,fontWeight:600,color:C.blue}}>{h.value?.toLocaleString()}</span>
-                    <span style={{fontSize:12,color:C.textMute}}>損益</span>
+                  <div style={{display:"flex",gap:8,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
+                    <span style={{fontSize:13,fontWeight:600,color:C.textSec}}>{h.value?.toLocaleString()}</span>
                     <span style={{fontSize:13,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
-                    <span style={{fontSize:12,color:C.textMute}}>報酬</span>
                     <span style={{fontSize:12,fontWeight:600,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                 </div>
