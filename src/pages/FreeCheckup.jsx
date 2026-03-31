@@ -53,46 +53,8 @@ const INIT_WATCHLIST = [
 // actual: "up"/"down"/"neutral"/null（null=尚未驗證）
 // correct: true/false/null
 
-// 背景層
-const C = {
-  bg:        "#16140f",   // 更深的底色，讓卡片跳出
-  card:      "#2a2318",   // 主卡片，明顯比背景亮
-  cardHover: "#332b1e",
-  subtle:    "#3d3426",   // 輸入框/次層
-  border:    "#4a4030",   // 邊框明顯一些
-  borderSub: "#342c1e",
-
-  // 跳色卡片（莫蘭迪，明顯有色調差異）
-  cardBlue:  "#1e2530",   // 石板藍底 — 明顯冷色
-  cardAmber: "#30240f",   // 琥珀棕底 — 明顯暖色
-  cardOlive: "#1e2a1e",   // 橄欖綠底 — 明顯綠調
-  cardRose:  "#301818",   // 塵玫瑰底 — 明顯暖紅
-
-  // 文字
-  text:      "#f0ebe4",
-  textSec:   "#c4b09a",
-  textMute:  "#8a7a6e",
-
-  // 台股慣例（莫蘭迪版）
-  up:        "#c47b72",
-  upBg:      "#c47b7218",
-  down:      "#7a9e8a",
-  downBg:    "#7a9e8a18",
-
-  // 功能色（莫蘭迪版）
-  blue:      "#7a90a8",
-  blueBg:    "#7a90a818",
-  amber:     "#b8926a",
-  amberBg:   "#b8926a18",
-  teal:      "#6a9098",
-  tealBg:    "#6a909818",
-  olive:     "#8a9e7a",
-  oliveBg:   "#8a9e7a18",
-  lavender:  "#9b8fb0",
-  lavBg:     "#9b8fb018",
-  stone:     "#a09080",
-  urgent:    "#c47b72",
-};
+// 使用統一主題
+const C = ThemeC;
 
 const TYPE_COLOR = {
   法說:"#c47b72",
