@@ -419,12 +419,17 @@
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Checkup module global styles */
+/* Checkup module global styles — professional financial aesthetic */
 .checkup-root {
-  --ck-bg: #283D3B;
-  --ck-text: #EDDDD4;
-  --ck-text-sec: #C7BBB3;
-  --ck-text-mute: #A0948D;
+  --ck-bg: #0D1117;
+  --ck-text: #E6EDF3;
+  --ck-text-sec: #9EAAB6;
+  --ck-text-mute: #5C6A75;
+  font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: 'tnum' on, 'lnum' on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.01em;
 }
 
 .checkup-root * {
@@ -433,12 +438,29 @@
 
 .checkup-root .tn {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' on;
 }
 
 .checkup-root .ui-btn {
   font-family: inherit;
+  transition: all 0.15s ease;
 }
 
 .checkup-root .ui-card {
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.checkup-root ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.checkup-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.checkup-root ::-webkit-scrollbar-thumb {
+  background: rgba(240,246,252,0.1);
+  border-radius: 3px;
+}
+.checkup-root ::-webkit-scrollbar-thumb:hover {
+  background: rgba(240,246,252,0.18);
 }
