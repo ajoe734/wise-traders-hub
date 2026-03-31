@@ -18,6 +18,20 @@ import FreeCheckup from "./pages/FreeCheckup";
 
 import NotFound from "./pages/NotFound";
 
+// Checkup module pages
+import { PortfolioLayout } from "./checkup/pages/PortfolioLayout";
+import {
+  HoldingsPage,
+  WatchlistPage,
+  EventsPage,
+  DailyPage,
+  ResearchPage,
+  TradePage,
+  LogPage,
+  NewsPage,
+  OverviewPage,
+} from "./checkup/pages/index.js";
+
 // Auth pages
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
