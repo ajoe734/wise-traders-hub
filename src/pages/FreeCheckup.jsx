@@ -1556,25 +1556,35 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const tp     = T ? avgTarget(h.code) : null;
               const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
               const isNew  = T?.isNew;
+              const meta   = STOCK_META[h.code] || null;
+              const periodColor = { "短": C.up, "短中": C.orange, "中": C.teal, "中長": C.olive, "長": C.mint };
+              const periodBg = { "短": C.upBg, "短中": C.orangeBg, "中": C.tealBg, "中長": C.oliveBg, "長": C.mintBg };
+              const posColor = { "核心": C.blue, "衛星": C.lavender, "戰術": C.amber };
+              const posBg = { "核心": C.blueBg, "衛星": C.lavBg, "戰術": C.amberBg };
+              const badge = (text, fg, bg) => (
+                <span key={text} style={{fontSize:10,padding:"1px 5px",borderRadius:3,
+                  background:bg,color:fg,fontWeight:500,lineHeight:"16px"}}>{text}</span>
+              );
               return (
               <div key={h.code} style={{
                 padding:"12px 0",
                 borderBottom: i<displayed.length-1 ? `1px solid ${C.borderSub}` : "none"}}>
                 {/* 第一行：名稱 + 標籤 */}
-                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
+                <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:4}}>
                   <span style={{fontSize:15,fontWeight:600,color:C.text}}>{h.name}</span>
                   <span style={{fontSize:11,color:C.textMute}}>{h.code}</span>
-                  {h.type&&(
-                    <span style={{fontSize:11,padding:"1px 6px",borderRadius:3,
-                      background: h.type==="權證" ? C.amberBg : h.type==="ETF" ? C.blueBg : h.type==="短線" ? C.upBg : h.type==="中線" ? C.tealBg : h.type==="長線" ? C.oliveBg : C.blueBg,
-                      color: h.type==="權證" ? C.amber : h.type==="ETF" ? C.blue : h.type==="短線" ? C.up : h.type==="中線" ? C.teal : h.type==="長線" ? C.olive : C.blue,
-                      fontWeight:500}}>{h.type}</span>
-                  )}
+                  {h.type&&badge(h.type,
+                    h.type==="權證" ? C.amber : h.type==="ETF" ? C.blue : C.textSec,
+                    h.type==="權證" ? C.amberBg : h.type==="ETF" ? C.blueBg : C.subtle)}
+                  {meta?.period && badge(
+                    meta.period==="短"?"短線":meta.period==="中"?"中線":meta.period==="中長"?"中長線":meta.period==="短中"?"短中線":"長線",
+                    periodColor[meta.period]||C.textSec, periodBg[meta.period]||C.subtle)}
+                  {meta?.position && badge(meta.position, posColor[meta.position]||C.textSec, posBg[meta.position]||C.subtle)}
+                  {meta?.industry && badge(meta.industry, IND_COLOR[meta.industry]||C.textSec,
+                    (IND_COLOR[meta.industry]||C.textSec)+"14")}
                   {h.expire&&<span style={{fontSize:11,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
                   {h.alert&&<span style={{fontSize:11,color:C.up,fontWeight:600}}>{h.alert}</span>}
-                  {isNew&&<span style={{fontSize:11,padding:"1px 6px",borderRadius:3,
-                    background:C.tealBg,color:C.teal,fontWeight:600,
-                    animation:"pulse 1.5s ease-in-out infinite"}}>目標價更新</span>}
+                  {isNew&&badge("目標價更新",C.teal,C.tealBg)}
                 </div>
                 {/* 第二行：左側 數量·成本·市價 / 右側 市值·損益·報酬 */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
