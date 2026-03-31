@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 import { DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS } from "@/checkup/data/demoData";
 import { INIT_HOLDINGS as SEED_HOLDINGS } from "@/checkup/seedData";
+import { C as ThemeC, A, alpha } from "@/checkup/theme";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
