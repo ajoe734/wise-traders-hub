@@ -1369,6 +1369,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
           <div>
             <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>
+              {isDemo && <span style={{background:C.amber+"33",color:C.amber,padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:600,marginRight:8}}>DEMO</span>}
+              {lineProfile && <span style={{background:"#06C75533",color:"#06C755",padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:600,marginRight:8}}>{lineProfile.displayName}</span>}
               <span style={{color:cloudSync?C.olive:C.textMute}}>{cloudSync?"☁":"⚡"}</span>
               {saved && <span style={{color:C.olive,marginLeft:8,fontWeight:600}}>{saved}</span>}
             </div>
