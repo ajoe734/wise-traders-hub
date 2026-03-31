@@ -366,7 +366,7 @@ export default function App() {
         setNewsEvents(DEMO_EVENTS);
         setAnalysisHistory([]);
         setReversalConditions({});
-        setStrategyBrain(demoData?.brain || null);
+        setStrategyBrain(DEMO_BRAIN);
         setCalendarEvents([]);
         setReady(true);
         return;
