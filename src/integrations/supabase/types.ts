@@ -74,6 +74,60 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_knowledge_items: {
+        Row: {
+          action: string | null
+          category: string
+          confidence: number | null
+          created_at: string | null
+          fact: string
+          id: string
+          interpretation: string | null
+          is_active: boolean | null
+          item_id: string
+          lessons: string | null
+          outcome: string | null
+          return_pct: number | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          action?: string | null
+          category: string
+          confidence?: number | null
+          created_at?: string | null
+          fact: string
+          id?: string
+          interpretation?: string | null
+          is_active?: boolean | null
+          item_id: string
+          lessons?: string | null
+          outcome?: string | null
+          return_pct?: number | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          action?: string | null
+          category?: string
+          confidence?: number | null
+          created_at?: string | null
+          fact?: string
+          id?: string
+          interpretation?: string | null
+          is_active?: boolean | null
+          item_id?: string
+          lessons?: string | null
+          outcome?: string | null
+          return_pct?: number | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       checkup_storage: {
         Row: {
           data: Json
