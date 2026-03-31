@@ -1563,41 +1563,43 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const posColor = { "核心": C.blue, "衛星": C.lavender, "戰術": C.amber };
               const posBg = { "核心": C.blueBg, "衛星": C.lavBg, "戰術": C.amberBg };
               const badge = (text, fg, bg) => (
-                <span key={text} style={{fontSize:10,padding:"1px 5px",borderRadius:3,
-                  background:bg,color:fg,fontWeight:500,lineHeight:"16px"}}>{text}</span>
+                <span key={text} style={{fontSize:10,padding:"1px 6px",borderRadius:4,
+                  background:bg,color:fg,fontWeight:500,lineHeight:"16px",letterSpacing:"0.01em"}}>{text}</span>
               );
               return (
               <div key={h.code} style={{
                 padding:"12px 0",
                 borderBottom: i<displayed.length-1 ? `1px solid ${C.borderSub}` : "none"}}>
-                {/* 第一行：名稱 + 標籤 */}
-                <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:4}}>
-                  <span style={{fontSize:15,fontWeight:600,color:C.text}}>{h.name}</span>
-                  <span style={{fontSize:11,color:C.textMute}}>{h.code}</span>
-                  {h.type&&badge(h.type,
-                    h.type==="權證" ? C.amber : h.type==="ETF" ? C.blue : C.textSec,
-                    h.type==="權證" ? C.amberBg : h.type==="ETF" ? C.blueBg : C.subtle)}
+                {/* 第一行：名稱 + 代碼 + 核心標籤 */}
+                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
+                  <span style={{fontSize:15,fontWeight:600,color:C.text,letterSpacing:"-0.01em"}}>{h.name}</span>
+                  <span style={{fontSize:11,color:C.textMute,fontWeight:400}}>{h.code}</span>
+                  {h.type==="權證"&&badge("權證",C.amber,C.amberBg)}
+                  {h.type==="ETF"&&badge("ETF",C.blue,C.blueBg)}
                   {meta?.period && badge(
                     meta.period==="短"?"短線":meta.period==="中"?"中線":meta.period==="中長"?"中長線":meta.period==="短中"?"短中線":"長線",
                     periodColor[meta.period]||C.textSec, periodBg[meta.period]||C.subtle)}
                   {meta?.position && badge(meta.position, posColor[meta.position]||C.textSec, posBg[meta.position]||C.subtle)}
-                  {meta?.industry && badge(meta.industry, IND_COLOR[meta.industry]||C.textSec,
-                    (IND_COLOR[meta.industry]||C.textSec)+"14")}
-                  {h.expire&&<span style={{fontSize:11,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
-                  {h.alert&&<span style={{fontSize:11,color:C.up,fontWeight:600}}>{h.alert}</span>}
-                  {isNew&&badge("目標價更新",C.teal,C.tealBg)}
+                  {h.expire&&<span style={{fontSize:10,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
+                  {h.alert&&<span style={{fontSize:10,color:C.up,fontWeight:600}}>{h.alert}</span>}
+                  {isNew&&badge("新目標價",C.teal,C.tealBg)}
                 </div>
-                {/* 第二行：左側 數量·成本·市價 / 右側 市值·損益·報酬 */}
+                {/* 第二行：產業 + 策略（淡化顯示）*/}
+                {meta?.industry && (
+                  <div style={{fontSize:11,color:C.textMute,marginBottom:4,fontWeight:400}}>
+                    <span style={{color:IND_COLOR[meta.industry]||C.textMute}}>{meta.industry}</span>
+                    {meta.strategy && <span style={{marginLeft:6,color:C.textMute}}>· {meta.strategy}</span>}
+                    {meta.leader && meta.leader!=="N/A" && <span style={{marginLeft:6,color:C.textMute}}>· {meta.leader}</span>}
+                  </div>
+                )}
+                {/* 第三行：數量·成本·市價 / 市值·損益·報酬 */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                  <div style={{fontSize:12,color:C.textMute}}>
+                  <div style={{fontSize:12,color:C.textMute,fontWeight:400}}>
                     {h.qty}{h.unit || "股"} · 成本{h.cost} · 市價{h.price?.toLocaleString()}
                   </div>
-                  <div style={{display:"flex",gap:10,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
-                    <span style={{fontSize:12,color:C.textMute}}>市值</span>
-                    <span style={{fontSize:13,fontWeight:600,color:C.blue}}>{h.value?.toLocaleString()}</span>
-                    <span style={{fontSize:12,color:C.textMute}}>損益</span>
+                  <div style={{display:"flex",gap:8,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
+                    <span style={{fontSize:13,fontWeight:600,color:C.textSec}}>{h.value?.toLocaleString()}</span>
                     <span style={{fontSize:13,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
-                    <span style={{fontSize:12,color:C.textMute}}>報酬</span>
                     <span style={{fontSize:12,fontWeight:600,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                 </div>
