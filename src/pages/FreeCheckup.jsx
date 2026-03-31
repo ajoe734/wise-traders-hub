@@ -363,7 +363,7 @@ export default function App() {
         setHoldings(SEED_HOLDINGS);
         setTradeLog([]);
         setTargets(INIT_TARGETS);
-        setNewsEvents(demoData?.events || DEMO_EVENTS);
+        setNewsEvents(DEMO_EVENTS);
         setAnalysisHistory([]);
         setReversalConditions({});
         setStrategyBrain(demoData?.brain || null);
