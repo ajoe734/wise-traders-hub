@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from '../../constants.js'
 /**
  * Research API Hooks
  * 
@@ -14,7 +15,7 @@ export function useRunResearch() {
   
   return useMutation({
     mutationFn: async ({ portfolioId, target, mode }) => {
-      const res = await fetch('/api/research', {
+      const res = await fetch(API_ENDPOINTS.RESEARCH, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -39,7 +40,7 @@ export function useResearchHistory(portfolioId, enabled = true) {
   return useQuery({
     queryKey: ['research', 'history', portfolioId],
     queryFn: async () => {
-      const res = await fetch('/api/brain', {
+      const res = await fetch(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-research-history' }),
@@ -60,7 +61,7 @@ export function useResearchHistory(portfolioId, enabled = true) {
 export function useEnrichResearchToDossier() {
   return useMutation({
     mutationFn: async ({ portfolioId, code, researchResults }) => {
-      const res = await fetch('/api/research', {
+      const res = await fetch(API_ENDPOINTS.RESEARCH, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -84,7 +85,7 @@ export function useRefreshAnalystReports() {
   
   return useMutation({
     mutationFn: async ({ portfolioId, force = false }) => {
-      const res = await fetch('/api/research', {
+      const res = await fetch(API_ENDPOINTS.RESEARCH, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

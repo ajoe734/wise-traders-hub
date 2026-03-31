@@ -1,3 +1,4 @@
+import { API_ENDPOINTS } from '../../constants.js'
 /**
  * Cloud Sync API Hooks
  *
@@ -13,7 +14,7 @@ export function useSyncHoldingsFromCloud(portfolioId, enabled = true) {
   return useQuery({
     queryKey: ['cloud', 'holdings', portfolioId],
     queryFn: async () => {
-      const res = await fetch('/api/brain', {
+      const res = await fetch(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-holdings' }),
@@ -34,7 +35,7 @@ export function useSyncHoldingsFromCloud(portfolioId, enabled = true) {
 export function useSaveHoldingsToCloud() {
   return useMutation({
     mutationFn: async ({ portfolioId: _portfolioId, holdings }) => {
-      const res = await fetch('/api/brain', {
+      const res = await fetch(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -55,7 +56,7 @@ export function useSyncBrainFromCloud(enabled = true) {
   return useQuery({
     queryKey: ['cloud', 'brain'],
     queryFn: async () => {
-      const res = await fetch('/api/brain', {
+      const res = await fetch(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-brain' }),
@@ -76,7 +77,7 @@ export function useSyncBrainFromCloud(enabled = true) {
 export function useSaveBrainToCloud() {
   return useMutation({
     mutationFn: async ({ brainData }) => {
-      const res = await fetch('/api/brain', {
+      const res = await fetch(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -97,7 +98,7 @@ export function useSyncAnalysisFromCloud(portfolioId, enabled = true) {
   return useQuery({
     queryKey: ['cloud', 'analysis', portfolioId],
     queryFn: async () => {
-      const res = await fetch('/api/brain', {
+      const res = await fetch(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-analysis-history' }),
@@ -119,7 +120,7 @@ export function useSyncResearchFromCloud(enabled = true) {
   return useQuery({
     queryKey: ['cloud', 'research'],
     queryFn: async () => {
-      const res = await fetch('/api/brain', {
+      const res = await fetch(API_ENDPOINTS.BRAIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-research-history' }),
