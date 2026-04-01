@@ -113,7 +113,13 @@ const AdminDashboard = () => {
     setTotalSignals(signalsRes.count || 0);
     setThisMonthSignals(monthSignalsRes.count || 0);
     
-    // cumulative return now comes from user_summaries realtime subscription
+    // Use RPC result for cumulative return
+    if (perfRes.data) {
+      const pd = perfRes.data as any;
+      setCumulativeReturn(pd.cumulative_return != null ? Number(pd.cumulative_return) : 0);
+      const avgP = pd.total_trades > 0 ? Number(pd.cumulative_return) / Number(pd.total_trades) : 0;
+      setAvgPnlPercent(avgP);
+    }
 
     setRecentSignals(recentRes.data || []);
 
