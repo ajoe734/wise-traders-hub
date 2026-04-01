@@ -174,7 +174,7 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
       }
 
       // Generate all expected keys and fill gaps
-      const allKeys = generateAllKeys(period, firstTradeDate);
+      const allKeys = generateAllKeys(period, firstTradeDate, new Set(buckets.keys()));
 
       return allKeys.map(label => {
         const stocks = buckets.get(label) || [];
