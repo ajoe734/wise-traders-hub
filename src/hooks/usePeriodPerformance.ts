@@ -1,10 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  startOfYear, endOfYear, startOfMonth, endOfMonth,
-  addMonths, addWeeks, isAfter, isBefore, format,
-  startOfWeek, getDay
-} from 'date-fns';
 
 export interface StockTrade {
   symbol: string;
@@ -28,103 +23,65 @@ export interface PeriodBucket {
 type ViewPeriod = 'yearly' | 'monthly' | 'weekly';
 
 /**
- * Determine which week-of-month (1-5) a date falls in.
- * Week 1 starts on the first Monday of the month (or the 1st if it's Mon).
- * Days before the first Monday are in W1.
+ * Weekly view: 5-day windows within a month (1-5, 6-10, 11-15, 16-20, 21-end)
+ * Label: "2026/03/01~03/05"
  */
-function weekOfMonth(date: Date): number {
-  const dayOfMonth = date.getDate();
-  // Find what day-of-week the 1st is (0=Sun, 1=Mon, ...)
-  const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-  const firstDayOfWeek = firstOfMonth.getDay(); // 0=Sun
-  // Offset so Monday=0
-  const offset = (firstDayOfWeek === 0) ? 6 : firstDayOfWeek - 1;
-  const week = Math.ceil((dayOfMonth + offset) / 7);
-  return Math.min(week, 5);
+function weeklyBucketLabel(date: Date): string {
+  const y = date.getFullYear();
+  const m = date.getMonth();
+  const d = date.getDate();
+  const lastDay = new Date(y, m + 1, 0).getDate();
+
+  let startDay: number, endDay: number;
+  if (d <= 5) { startDay = 1; endDay = 5; }
+  else if (d <= 10) { startDay = 6; endDay = 10; }
+  else if (d <= 15) { startDay = 11; endDay = 15; }
+  else if (d <= 20) { startDay = 16; endDay = 20; }
+  else { startDay = 21; endDay = lastDay; }
+
+  const mm = String(m + 1).padStart(2, '0');
+  const sd = String(startDay).padStart(2, '0');
+  const ed = String(endDay).padStart(2, '0');
+  return `${y}/${mm}/${sd}~${mm}/${ed}`;
 }
 
 /**
- * Build a bucket key for a given trade exit date.
- * Weekly:  "2026_01_W1"
- * Monthly: "2026/01"
- * Yearly:  "2026"
+ * Monthly view: weeks within the month (W1-W5)
+ * Label: "2026/03/W1"
+ * Week boundaries: W1=days 1-7, W2=8-14, W3=15-21, W4=22-28, W5=29-end
  */
-function bucketKey(date: Date, period: ViewPeriod): string {
-  const yyyy = date.getFullYear();
+function monthlyBucketLabel(date: Date): string {
+  const y = date.getFullYear();
+  const m = date.getMonth();
+  const d = date.getDate();
+
+  let week: number;
+  if (d <= 7) week = 1;
+  else if (d <= 14) week = 2;
+  else if (d <= 21) week = 3;
+  else if (d <= 28) week = 4;
+  else week = 5;
+
+  const mm = String(m + 1).padStart(2, '0');
+  return `${y}/${mm}/W${week}`;
+}
+
+/**
+ * Yearly view: months as buckets
+ * Label: "2026/03"
+ */
+function yearlyBucketLabel(date: Date): string {
+  const y = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, '0');
-  switch (period) {
-    case 'yearly':
-      return String(yyyy);
-    case 'monthly':
-      return `${yyyy}/${mm}`;
-    case 'weekly':
-      return `${yyyy}_${mm}_W${weekOfMonth(date)}`;
-  }
+  return `${y}/${mm}`;
 }
 
-/**
- * Generate all expected bucket keys for display on X-axis.
- * For weekly: show current month's weeks + any past months that have data.
- * For monthly: show all months of current year up to now.
- * For yearly: rolling 5-year window.
- */
-function generateAllKeys(period: ViewPeriod, firstTradeDate?: Date, existingKeys?: Set<string>): string[] {
-  const now = new Date();
-  const keys: string[] = [];
-
+function getBucketLabel(date: Date, period: ViewPeriod): string {
   switch (period) {
-    case 'yearly': {
-      const endYear = now.getFullYear();
-      const startYear = firstTradeDate
-        ? Math.max(firstTradeDate.getFullYear(), endYear - 4)
-        : endYear - 4;
-      for (let y = startYear; y <= endYear; y++) {
-        keys.push(String(y));
-      }
-      break;
-    }
-    case 'monthly': {
-      const year = now.getFullYear();
-      // Include months from first trade if same year
-      const startMonth = firstTradeDate && firstTradeDate.getFullYear() === year
-        ? firstTradeDate.getMonth() : 0;
-      for (let m = startMonth; m <= now.getMonth(); m++) {
-        keys.push(`${year}/${String(m + 1).padStart(2, '0')}`);
-      }
-      break;
-    }
-    case 'weekly': {
-      // Collect all months that have data, plus current month
-      const monthsToShow = new Set<string>();
-      const currYyyy = now.getFullYear();
-      const currMm = String(now.getMonth() + 1).padStart(2, '0');
-
-      // Add months from existing data keys (format: YYYY_MM_WN)
-      if (existingKeys) {
-        for (const k of existingKeys) {
-          const parts = k.split('_W');
-          if (parts.length === 2) {
-            monthsToShow.add(parts[0]); // "YYYY_MM"
-          }
-        }
-      }
-
-      // Sort months and generate W1-W5 for each
-      const sortedMonths = Array.from(monthsToShow).sort();
-      for (const ym of sortedMonths) {
-        const [yStr, mStr] = ym.split('_');
-        const y = parseInt(yStr);
-        const m = parseInt(mStr);
-        const isCurrentMonth = y === currYyyy && mStr === currMm;
-        const maxWeek = isCurrentMonth ? weekOfMonth(now) : 5;
-        for (let w = 1; w <= Math.min(maxWeek, 5); w++) {
-          keys.push(`${ym}_W${w}`);
-        }
-      }
-      break;
-    }
+    case 'weekly': return weeklyBucketLabel(date);
+    case 'monthly': return monthlyBucketLabel(date);
+    case 'yearly': return yearlyBucketLabel(date);
   }
-  return keys;
 }
 
 export function usePeriodPerformance(expertId: string | undefined, period: ViewPeriod) {
@@ -143,15 +100,14 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
 
       if (error) throw error;
 
-      const firstTradeDate = data?.[0]?.exit_date ? new Date(data[0].exit_date) : undefined;
-
       // Group trades into buckets
       const buckets = new Map<string, StockTrade[]>();
 
       if (data) {
         for (const tr of data) {
-          const exitDate = new Date(tr.exit_date!);
-          const key = bucketKey(exitDate, period);
+          if (!tr.exit_date) continue;
+          const exitDate = new Date(tr.exit_date);
+          const label = getBucketLabel(exitDate, period);
           const entryDate = tr.entry_date ? new Date(tr.entry_date) : exitDate;
           const holdingDays = Math.max(1, Math.round((exitDate.getTime() - entryDate.getTime()) / 86400000));
 
@@ -166,12 +122,12 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
             contributionNote: `本期報酬 ${Number(tr.pnl_percent) >= 0 ? '+' : ''}${Number(tr.pnl_percent).toFixed(2)}%`,
           };
 
-          if (!buckets.has(key)) buckets.set(key, []);
-          buckets.get(key)!.push(stock);
+          if (!buckets.has(label)) buckets.set(label, []);
+          buckets.get(label)!.push(stock);
         }
       }
 
-      // Only return buckets that have actual trade data — no empty placeholders
+      // Only return buckets with actual data, sorted
       const sortedKeys = Array.from(buckets.keys()).sort();
 
       return sortedKeys.map(label => {
