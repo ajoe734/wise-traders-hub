@@ -116,8 +116,7 @@ const AdminDashboard = () => {
     if (perfRes.data) {
       const pd = perfRes.data as any;
       setCumulativeReturn(pd.cumulative_return != null ? Number(pd.cumulative_return) : 0);
-      const avgP = pd.total_trades > 0 ? Number(pd.cumulative_return) / Number(pd.total_trades) : 0;
-      setAvgPnlPercent(avgP);
+      setAvgPnlPercent(pd.avg_pnl != null ? Number(pd.avg_pnl) : 0);
     }
 
     setRecentSignals(recentRes.data || []);
