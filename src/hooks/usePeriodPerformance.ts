@@ -171,15 +171,11 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
         }
       }
 
-      // Generate all expected keys and fill gaps
-      const allKeys = generateAllKeys(period, firstTradeDate, new Set(buckets.keys()));
+      // Only return buckets that have actual trade data — no empty placeholders
+      const sortedKeys = Array.from(buckets.keys()).sort();
 
-      return allKeys.map(label => {
-        const stocks = buckets.get(label) || [];
-        if (stocks.length === 0) {
-          return { label, returnPct: 0, stocks: [] };
-        }
-        // Simple sum
+      return sortedKeys.map(label => {
+        const stocks = buckets.get(label)!;
         const returnPct = stocks.reduce((sum, s) => sum + s.returnPct, 0);
         const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
         const topStock = sorted[0] ? { symbol: sorted[0].symbol, name: sorted[0].name, returnPct: sorted[0].returnPct } : undefined;
