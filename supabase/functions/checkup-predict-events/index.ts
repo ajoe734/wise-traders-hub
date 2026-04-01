@@ -289,6 +289,41 @@ async function callGeminiWithGrounding(geminiKey: string, prompt: string): Promi
   return '';
 }
 
+/** Lovable AI Gateway fallback (no search grounding but always available) */
+async function callLovableAIFallback(prompt: string): Promise<string> {
+  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!apiKey) return '';
+
+  try {
+    console.log('Falling back to Lovable AI Gateway...');
+    const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-3-flash-preview',
+        messages: [
+          { role: 'system', content: '你是台股市場資深分析師。只輸出 JSON 陣列，不要其他文字。' },
+          { role: 'user', content: prompt },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      console.error('Lovable AI fallback error:', res.status, await res.text());
+      return '';
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content?.trim() || '';
+  } catch (err) {
+    console.error('Lovable AI fallback error:', err);
+    return '';
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -412,7 +447,12 @@ ${eventsForPrompt}
   5. 歷史參考知識中的案例與教訓
 - 只輸出 JSON 陣列，不要其他文字`;
 
-    const resultText = await callGeminiWithGrounding(geminiKey, prompt);
+    let resultText = await callGeminiWithGrounding(geminiKey, prompt);
+
+    // Fallback to Lovable AI Gateway if Gemini fails
+    if (!resultText) {
+      resultText = await callLovableAIFallback(prompt);
+    }
 
     if (!resultText) {
       return new Response(JSON.stringify({ error: '預測失敗，所有模型均無法使用' }), {
