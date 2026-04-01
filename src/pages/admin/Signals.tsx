@@ -275,8 +275,8 @@ const AdminSignals = () => {
     } as any).select('id').single();
     if (error) { toast.error(error.message); return; }
 
-    // 同步寫入 trade_signals + user_performances（僅跟單派，修煉派由週五批次發布處理）
-    if (expert.user_id && !isMentor) {
+    // 同步寫入 trade_signals + user_performances（跟單派＋修煉派皆同步）
+    if (expert.user_id) {
       const entryPrice = latestPrice ? parseFloat(latestPrice) : 0;
 
       if (action === 'exit') {
