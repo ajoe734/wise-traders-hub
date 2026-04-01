@@ -74,49 +74,33 @@ const AdminPerformance = () => {
       });
   }, [user]);
 
-  // ─── 累計/平均報酬：user_summaries (realtime) ───
+  // ─── 累計/平均報酬：calculate_expert_performance RPC ───
+  const fetchPerfStats = async (eid: string) => {
+    const { data } = await supabase.rpc('calculate_expert_performance', { _expert_id: eid });
+    if (data) {
+      const d = data as any;
+      setTotalPnlPercent(d.cumulative_return != null ? Number(d.cumulative_return) : 0);
+      const avgPnl = d.total_trades > 0 ? Number(d.cumulative_return) / Number(d.total_trades) : 0;
+      setAvgPnlPercent(avgPnl);
+    }
+  };
+
   useEffect(() => {
-    if (!user) return;
+    if (!expertId) return;
+    fetchPerfStats(expertId);
 
-    supabase
-      .from('user_summaries')
-      .select('total_pnl_percent, avg_pnl_percent')
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setTotalPnlPercent((data as any).total_pnl_percent != null ? Number((data as any).total_pnl_percent) : null);
-          setAvgPnlPercent(data.avg_pnl_percent != null ? Number(data.avg_pnl_percent) : null);
-        }
-      });
-
+    // Realtime: recalculate when trade_records change
     const channel = supabase
-      .channel('admin-perf-user-summaries')
+      .channel('admin-perf-trade-records-summary')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_summaries',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-            const row = payload.new as any;
-            setTotalPnlPercent(row.total_pnl_percent != null ? Number(row.total_pnl_percent) : null);
-            setAvgPnlPercent(row.avg_pnl_percent != null ? Number(row.avg_pnl_percent) : null);
-          } else if (payload.eventType === 'DELETE') {
-            setTotalPnlPercent(0);
-            setAvgPnlPercent(0);
-          }
-        },
+        { event: '*', schema: 'public', table: 'trade_records', filter: `expert_id=eq.${expertId}` },
+        () => { fetchPerfStats(expertId!); },
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
+    return () => { supabase.removeChannel(channel); };
+  }, [expertId]);
 
   // ─── 未實現損益：trade_records (open) + user_performances (realtime) ───
   useEffect(() => {
