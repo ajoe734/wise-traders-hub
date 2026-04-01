@@ -51,16 +51,8 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   }, [sinceInceptionReturn]);
 
   // Overall trend for chart color
-  const overallTrend = useMemo(() => {
-    return sinceInceptionReturn >= 0 ? 'positive' : 'negative';
-  }, [sinceInceptionReturn]);
-
-  const chartColors = useMemo(() => {
-    if (sinceInceptionReturn >= 0) {
-      return { stroke: '#E53935', gradientStart: '#E53935', gradientEnd: '#E53935' };
-    }
-    return { stroke: '#22C55E', gradientStart: '#22C55E', gradientEnd: '#22C55E' };
-  }, [sinceInceptionReturn]);
+  const COLOR_UP = '#E53935';
+  const COLOR_DOWN = '#22C55E';
 
   const periodStats = useMemo(() => {
     if (!performanceData.length) return { best: undefined, worst: undefined };

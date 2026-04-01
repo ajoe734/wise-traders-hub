@@ -61,10 +61,20 @@ function generateAllKeys(period: ViewPeriod, firstDate?: Date): string[] {
       break;
     }
     case 'weekly': {
-      const monthStart = startOfMonth(now);
-      let cursor = startOfWeek(monthStart, { weekStartsOn: 1 });
+      // Show recent 8 weeks, or from first trade if within range
+      const weeksBack = 8;
+      let startDate = addWeeks(now, -weeksBack + 1);
+      if (firstDate && isBefore(firstDate, startDate)) {
+        startDate = firstDate;
+      }
+      let cursor = startOfWeek(startDate, { weekStartsOn: 1 });
+      const seen = new Set<string>();
       while (!isAfter(cursor, now)) {
-        keys.push(`W${getISOWeek(cursor)}`);
+        const key = `W${getISOWeek(cursor)}`;
+        if (!seen.has(key)) {
+          keys.push(key);
+          seen.add(key);
+        }
         cursor = addWeeks(cursor, 1);
       }
       break;
