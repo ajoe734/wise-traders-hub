@@ -137,14 +137,22 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
         });
       }
 
-      return filteredKeys.map(label => {
-        const stocks = buckets.get(label)!;
+      return filteredKeys.map(key => {
+        const stocks = buckets.get(key)!;
         const returnPct = stocks.reduce((sum, s) => sum + s.returnPct, 0);
         const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
         const topStock = sorted[0] ? { symbol: sorted[0].symbol, name: sorted[0].name, returnPct: sorted[0].returnPct } : undefined;
         const bottomStock = sorted[sorted.length - 1] ? { symbol: sorted[sorted.length - 1].symbol, name: sorted[sorted.length - 1].name, returnPct: sorted[sorted.length - 1].returnPct } : undefined;
 
-        return { label, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks };
+        // Weekly: show "MM/DD", Monthly: show "YYYY/MM/W#", Yearly: show "YYYY/MM"
+        let displayLabel = key;
+        if (period === 'weekly') {
+          // key = "2026/04/01" → display "04/01"
+          const parts = key.split('/');
+          displayLabel = `${parts[1]}/${parts[2]}`;
+        }
+
+        return { label: displayLabel, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks };
       });
     },
     enabled: !!expertId,
