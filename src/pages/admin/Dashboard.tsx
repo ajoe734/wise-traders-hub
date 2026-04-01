@@ -32,48 +32,33 @@ const AdminDashboard = () => {
 
   useEffect(() => { fetchData(); }, [expertSlug]);
 
-  // Realtime subscription for user_summaries
+  // Fetch cumulative return from calculate_expert_performance RPC
+  const fetchPerfStats = async (eid: string) => {
+    const { data } = await supabase.rpc('calculate_expert_performance', { _expert_id: eid });
+    if (data) {
+      const d = data as any;
+      setCumulativeReturn(d.cumulative_return != null ? Number(d.cumulative_return) : 0);
+      const avgPnl = d.total_trades > 0 ? Number(d.cumulative_return) / Number(d.total_trades) : 0;
+      setAvgPnlPercent(avgPnl);
+    }
+  };
+
   useEffect(() => {
-    if (!user) return;
+    if (!expert?.id) return;
+    fetchPerfStats(expert.id);
 
-    // Initial fetch
-    supabase
-      .from('user_summaries')
-      .select('total_pnl_percent, avg_pnl_percent')
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setCumulativeReturn((data as any).total_pnl_percent != null ? Number((data as any).total_pnl_percent) : null);
-          setAvgPnlPercent(data.avg_pnl_percent != null ? Number(data.avg_pnl_percent) : null);
-        }
-      });
-
+    // Realtime: recalculate when trade_records change
     const channel = supabase
-      .channel('admin-summary-realtime')
+      .channel('admin-dashboard-trade-records')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_summaries',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const row = payload.new as any;
-            setCumulativeReturn(row.total_pnl_percent != null ? Number(row.total_pnl_percent) : null);
-            setAvgPnlPercent(row.avg_pnl_percent != null ? Number(row.avg_pnl_percent) : null);
-          } else if (payload.eventType === 'DELETE') {
-            setCumulativeReturn(0);
-            setAvgPnlPercent(0);
-          }
-        },
+        { event: '*', schema: 'public', table: 'trade_records', filter: `expert_id=eq.${expert.id}` },
+        () => { fetchPerfStats(expert.id); },
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [expert?.id]);
 
   const fetchData = async () => {
     if (!expertSlug) return;
@@ -128,7 +113,13 @@ const AdminDashboard = () => {
     setTotalSignals(signalsRes.count || 0);
     setThisMonthSignals(monthSignalsRes.count || 0);
     
-    // cumulative return now comes from user_summaries realtime subscription
+    // Use RPC result for cumulative return
+    if (perfRes.data) {
+      const pd = perfRes.data as any;
+      setCumulativeReturn(pd.cumulative_return != null ? Number(pd.cumulative_return) : 0);
+      const avgP = pd.total_trades > 0 ? Number(pd.cumulative_return) / Number(pd.total_trades) : 0;
+      setAvgPnlPercent(avgP);
+    }
 
     setRecentSignals(recentRes.data || []);
 
