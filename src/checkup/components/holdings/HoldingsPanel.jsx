@@ -13,10 +13,10 @@ const lbl = {
 }
 const metricCard = {
   background: C.card,
-  border: `1px solid ${C.border}`,
-  borderRadius: 8,
-  padding: '8px 11px',
-  boxShadow: `${C.insetLine}, ${C.shadow}`,
+  border: `1px solid ${C.borderSoft}`,
+  borderRadius: 10,
+  padding: '10px 12px',
+  boxShadow: C.shadow,
 }
 
 /**
