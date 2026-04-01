@@ -23,39 +23,51 @@ export interface PeriodBucket {
 type ViewPeriod = 'yearly' | 'monthly' | 'weekly';
 
 /**
- * Weekly view: each day is its own point
- * Label: "04/01"
+ * Get Monday of the week containing the given date
  */
+function getMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Sun, 1=Mon, ...
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Get the 5 weekdays (Mon-Fri) of the current week
+ */
+function getCurrentWeekdays(): string[] {
+  const now = new Date();
+  const mon = getMonday(now);
+  const days: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    days.push(`${d.getFullYear()}/${mm}/${dd}`);
+  }
+  return days;
+}
+
+/** Weekly: each trading day is its own point, label "MM/DD" */
 function weeklyBucketLabel(date: Date): string {
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}/${mm}/${dd}`;
 }
 
-/**
- * Monthly view: weeks within the month (W1-W5)
- * Label: "2026/03/W1"
- */
+/** Monthly: weeks W1-W5, label "YYYY/MM/W#" */
 function monthlyBucketLabel(date: Date): string {
   const y = date.getFullYear();
-  const m = date.getMonth();
   const d = date.getDate();
-
-  let week: number;
-  if (d <= 7) week = 1;
-  else if (d <= 14) week = 2;
-  else if (d <= 21) week = 3;
-  else if (d <= 28) week = 4;
-  else week = 5;
-
-  const mm = String(m + 1).padStart(2, '0');
+  const week = d <= 7 ? 1 : d <= 14 ? 2 : d <= 21 ? 3 : d <= 28 ? 4 : 5;
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
   return `${y}/${mm}/W${week}`;
 }
 
-/**
- * Yearly view: months as buckets
- * Label: "2026/03"
- */
+/** Yearly: months, label "YYYY/MM" */
 function yearlyBucketLabel(date: Date): string {
   const y = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, '0');
