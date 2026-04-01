@@ -447,7 +447,12 @@ ${eventsForPrompt}
   5. 歷史參考知識中的案例與教訓
 - 只輸出 JSON 陣列，不要其他文字`;
 
-    const resultText = await callGeminiWithGrounding(geminiKey, prompt);
+    let resultText = await callGeminiWithGrounding(geminiKey, prompt);
+
+    // Fallback to Lovable AI Gateway if Gemini fails
+    if (!resultText) {
+      resultText = await callLovableAIFallback(prompt);
+    }
 
     if (!resultText) {
       return new Response(JSON.stringify({ error: '預測失敗，所有模型均無法使用' }), {
