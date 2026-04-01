@@ -23,32 +23,18 @@ export interface PeriodBucket {
 type ViewPeriod = 'yearly' | 'monthly' | 'weekly';
 
 /**
- * Weekly view: 5-day windows within a month (1-5, 6-10, 11-15, 16-20, 21-end)
- * Label: "2026/03/01~03/05"
+ * Weekly view: each day is its own point
+ * Label: "04/01"
  */
 function weeklyBucketLabel(date: Date): string {
-  const y = date.getFullYear();
-  const m = date.getMonth();
-  const d = date.getDate();
-  const lastDay = new Date(y, m + 1, 0).getDate();
-
-  let startDay: number, endDay: number;
-  if (d <= 5) { startDay = 1; endDay = 5; }
-  else if (d <= 10) { startDay = 6; endDay = 10; }
-  else if (d <= 15) { startDay = 11; endDay = 15; }
-  else if (d <= 20) { startDay = 16; endDay = 20; }
-  else { startDay = 21; endDay = lastDay; }
-
-  const mm = String(m + 1).padStart(2, '0');
-  const sd = String(startDay).padStart(2, '0');
-  const ed = String(endDay).padStart(2, '0');
-  return `${y}/${mm}/${sd}~${mm}/${ed}`;
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}/${mm}/${dd}`;
 }
 
 /**
  * Monthly view: weeks within the month (W1-W5)
  * Label: "2026/03/W1"
- * Week boundaries: W1=days 1-7, W2=8-14, W3=15-21, W4=22-28, W5=29-end
  */
 function monthlyBucketLabel(date: Date): string {
   const y = date.getFullYear();
@@ -151,14 +137,22 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
         });
       }
 
-      return filteredKeys.map(label => {
-        const stocks = buckets.get(label)!;
+      return filteredKeys.map(key => {
+        const stocks = buckets.get(key)!;
         const returnPct = stocks.reduce((sum, s) => sum + s.returnPct, 0);
         const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
         const topStock = sorted[0] ? { symbol: sorted[0].symbol, name: sorted[0].name, returnPct: sorted[0].returnPct } : undefined;
         const bottomStock = sorted[sorted.length - 1] ? { symbol: sorted[sorted.length - 1].symbol, name: sorted[sorted.length - 1].name, returnPct: sorted[sorted.length - 1].returnPct } : undefined;
 
-        return { label, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks };
+        // Weekly: show "MM/DD", Monthly: show "YYYY/MM/W#", Yearly: show "YYYY/MM"
+        let displayLabel = key;
+        if (period === 'weekly') {
+          // key = "2026/04/01" → display "04/01"
+          const parts = key.split('/');
+          displayLabel = `${parts[1]}/${parts[2]}`;
+        }
+
+        return { label: displayLabel, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks };
       });
     },
     enabled: !!expertId,
