@@ -169,40 +169,31 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
 
       let filteredKeys = Array.from(buckets.keys()).sort();
 
-      if (period === 'weekly') {
-        // Always show all 5 weekdays (Mon-Fri) of the current week
-        const weekdays = getCurrentWeekdays();
-        return weekdays.map(key => {
-          const parts = key.split('/');
-          const displayLabel = `${parts[0]}/${parts[1]}/${parts[2]}`;
-          const stocks = buckets.get(key) || [];
-          const returnPct = stocks.reduce((sum, s) => sum + s.returnPct, 0);
-          const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
-          const topStock = sorted[0] ? { symbol: sorted[0].symbol, name: sorted[0].name, returnPct: sorted[0].returnPct } : undefined;
-          const bottomStock = sorted.length ? { symbol: sorted[sorted.length - 1].symbol, name: sorted[sorted.length - 1].name, returnPct: sorted[sorted.length - 1].returnPct } : undefined;
-          return { label: displayLabel, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks };
-        });
-      }
-      
-      if (period === 'monthly') {
-        const prefix = `${currYear}/`;
-        filteredKeys = filteredKeys.filter(k => k.startsWith(prefix));
-      } else {
-        const minYear = currYear - 4;
-        filteredKeys = filteredKeys.filter(k => {
-          const y = parseInt(k.split('/')[0], 10);
-          return y >= minYear && y <= currYear;
-        });
-      }
-
-      return filteredKeys.map(key => {
-        const stocks = buckets.get(key)!;
+      const makeBucket = (key: string): PeriodBucket => {
+        const stocks = buckets.get(key) || [];
         const returnPct = stocks.reduce((sum, s) => sum + s.returnPct, 0);
         const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
         const topStock = sorted[0] ? { symbol: sorted[0].symbol, name: sorted[0].name, returnPct: sorted[0].returnPct } : undefined;
-        const bottomStock = sorted[sorted.length - 1] ? { symbol: sorted[sorted.length - 1].symbol, name: sorted[sorted.length - 1].name, returnPct: sorted[sorted.length - 1].returnPct } : undefined;
+        const bottomStock = sorted.length ? { symbol: sorted[sorted.length - 1].symbol, name: sorted[sorted.length - 1].name, returnPct: sorted[sorted.length - 1].returnPct } : undefined;
         return { label: key, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks };
+      };
+
+      if (period === 'weekly') {
+        return getWeeklyTradingDays().map(makeBucket);
+      }
+
+      if (period === 'monthly') {
+        return getMonthlyTradingDays().map(makeBucket);
+      }
+
+      // yearly: filter to rolling 5 years
+      const minYear = currYear - 4;
+      filteredKeys = filteredKeys.filter(k => {
+        const y = parseInt(k.split('/')[0], 10);
+        return y >= minYear && y <= currYear;
       });
+
+      return filteredKeys.map(makeBucket);
     },
     enabled: !!expertId,
     staleTime: 60_000,
