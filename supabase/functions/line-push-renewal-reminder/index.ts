@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
     const byExpert = new Map<string, {
       expertId: string
       expertName: string
-      targets: { lineUserId: string; planName: string; expiresAt: string; daysLeft: number }[]
+      targets: { lineUserId: string; planName: string; expiresAt: string; daysLeft: number; amount: number }[]
     }>()
 
     for (const sub of expiringSubs) {
@@ -199,6 +199,7 @@ Deno.serve(async (req) => {
       const expert = plan.experts
       const expertId = expert.id as string
       const daysLeft = Math.ceil((new Date(sub.expires_at!).getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+      const amount = plan.price_monthly || 0
 
       // Get LINE binding for this user+expert
       const { data: binding } = await supabaseAdmin
@@ -224,6 +225,7 @@ Deno.serve(async (req) => {
         planName: plan.name,
         expiresAt: sub.expires_at!,
         daysLeft,
+        amount,
       })
     }
 
