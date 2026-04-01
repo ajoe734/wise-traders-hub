@@ -294,25 +294,31 @@ const AdminPerformance = () => {
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const row = payload.new as any;
-            if (row.status !== 'open') return;
-            const parts = (row.instrument || '').split(' ');
-            setRows(prev => [...prev, {
-              id: row.id,
-              instrument: row.instrument,
-              symbol: parts[0] || row.instrument,
-              name: parts.slice(1).join(' ') || null,
-              entry_price: row.entry_price ? Number(row.entry_price) : null,
-              current_price: row.current_price ? Number(row.current_price) : null,
-              pnl: null,
-              pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
-              quantity: row.quantity ?? 1,
-              quantity_unit: row.quantity_unit || '張',
-              status: row.status,
-            }]);
+            if (row.status === 'open') {
+              const parts = (row.instrument || '').split(' ');
+              setRows(prev => [...prev, {
+                id: row.id,
+                instrument: row.instrument,
+                symbol: parts[0] || row.instrument,
+                name: parts.slice(1).join(' ') || null,
+                entry_price: row.entry_price ? Number(row.entry_price) : null,
+                current_price: row.current_price ? Number(row.current_price) : null,
+                pnl: null,
+                pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : null,
+                quantity: row.quantity ?? 1,
+                quantity_unit: row.quantity_unit || '張',
+                status: row.status,
+              }]);
+            } else if (row.status === 'closed') {
+              // 部分賣出產生的 closed 紀錄 → 刷新已實現損益
+              fetchRealized();
+            }
           } else if (payload.eventType === 'UPDATE') {
             const row = payload.new as any;
             if (row.status !== 'open') {
               setRows(prev => prev.filter(r => r.id !== row.id));
+              // 狀態從 open → closed/stopped → 刷新已實現損益
+              fetchRealized();
             } else {
               setRows(prev => prev.map(r => r.id === row.id ? {
                 ...r,
