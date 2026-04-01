@@ -128,6 +128,36 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_prediction_accuracy: {
+        Row: {
+          actual: string
+          event_id: string
+          event_type: string | null
+          id: string
+          pred: string
+          reviewed_at: string
+          was_correct: boolean
+        }
+        Insert: {
+          actual: string
+          event_id: string
+          event_type?: string | null
+          id?: string
+          pred: string
+          reviewed_at?: string
+          was_correct?: boolean
+        }
+        Update: {
+          actual?: string
+          event_id?: string
+          event_type?: string | null
+          id?: string
+          pred?: string
+          reviewed_at?: string
+          was_correct?: boolean
+        }
+        Relationships: []
+      }
       checkup_storage: {
         Row: {
           data: Json

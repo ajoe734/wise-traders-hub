@@ -388,9 +388,127 @@ export function RelayPlanCard({ expanded, onToggle }) {
 }
 
 /**
+ * Prediction Skeleton (shimmer effect for loading predictions)
+ */
+function PredictionSkeleton() {
+  return h(
+    'div',
+    {
+      style: {
+        display: 'flex',
+        gap: 6,
+        alignItems: 'center',
+        marginTop: 6,
+      },
+    },
+    h('div', {
+      style: {
+        width: 40,
+        height: 16,
+        borderRadius: 4,
+        background: `linear-gradient(90deg, ${alpha(C.textMute, '10')} 25%, ${alpha(C.textMute, '20')} 50%, ${alpha(C.textMute, '10')} 75%)`,
+        backgroundSize: '200% 100%',
+        animation: 'shimmer 1.5s infinite',
+      },
+    }),
+    h('div', {
+      style: {
+        flex: 1,
+        height: 12,
+        borderRadius: 3,
+        background: `linear-gradient(90deg, ${alpha(C.textMute, '08')} 25%, ${alpha(C.textMute, '15')} 50%, ${alpha(C.textMute, '08')} 75%)`,
+        backgroundSize: '200% 100%',
+        animation: 'shimmer 1.5s infinite',
+      },
+    })
+  )
+}
+
+/**
+ * Accuracy Dashboard - small widget at top of events panel
+ */
+export function AccuracyDashboard({ stats }) {
+  if (!stats || stats.total < 3) return null
+
+  const rate = Math.round((stats.correct / stats.total) * 100)
+  const barColor = rate >= 70 ? C.down : rate >= 50 ? C.amber : C.up
+
+  return h(
+    Card,
+    {
+      style: {
+        marginBottom: 10,
+        padding: '10px 14px',
+        borderLeft: `2px solid ${alpha(barColor, '50')}`,
+      },
+    },
+    h(
+      'div',
+      { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+      h(
+        'div',
+        null,
+        h('div', { style: { fontSize: 9, color: C.textMute, fontWeight: 600, letterSpacing: '0.05em' } }, 'AI 預測準確率（近90天）'),
+        h(
+          'div',
+          { style: { fontSize: 18, fontWeight: 700, color: barColor, marginTop: 2 } },
+          `${rate}%`,
+          h('span', { style: { fontSize: 10, color: C.textMute, fontWeight: 400, marginLeft: 6 } }, `${stats.correct}/${stats.total} 命中`)
+        )
+      ),
+      stats.byType && h(
+        'div',
+        { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+        Object.entries(stats.byType)
+          .filter(([, s]) => s.total >= 2)
+          .slice(0, 4)
+          .map(([type, s]) =>
+            h(
+              'span',
+              {
+                key: type,
+                style: {
+                  fontSize: 9,
+                  padding: '2px 7px',
+                  borderRadius: 12,
+                  background: alpha(C.textMute, '10'),
+                  color: C.textSec,
+                },
+              },
+              `${type} ${Math.round((s.correct / s.total) * 100)}%`
+            )
+          )
+      )
+    ),
+    // Progress bar
+    h(
+      'div',
+      {
+        style: {
+          marginTop: 8,
+          height: 3,
+          borderRadius: 2,
+          background: alpha(C.textMute, '10'),
+          overflow: 'hidden',
+        },
+      },
+      h('div', {
+        style: {
+          width: `${rate}%`,
+          height: '100%',
+          borderRadius: 2,
+          background: barColor,
+          transition: 'width 0.6s ease',
+        },
+      })
+    )
+  )
+}
+
+/**
  * Event Card
  */
-export function EventCard({ event }) {
+export function EventCard({ event, isPredicting }) {
   const tc = TYPE_COLOR[event.type] || C.textMute
 
   return h(
@@ -459,7 +577,40 @@ export function EventCard({ event }) {
           'div',
           { style: { fontSize: 10, color: C.textMute, marginTop: 3, lineHeight: 1.6 } },
           event.sub
-        )
+        ),
+        // Prediction result or skeleton
+        isPredicting
+          ? h(PredictionSkeleton)
+          : event.pred && h(
+              'div',
+              {
+                style: {
+                  marginTop: 5,
+                  display: 'flex',
+                  gap: 6,
+                  alignItems: 'center',
+                },
+              },
+              h(
+                'span',
+                {
+                  style: {
+                    fontSize: 9,
+                    fontWeight: 600,
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    background: event.pred === 'up' ? C.upBg : event.pred === 'down' ? C.downBg : alpha(C.textMute, '15'),
+                    color: event.pred === 'up' ? C.up : event.pred === 'down' ? C.down : C.textMute,
+                  },
+                },
+                event.pred === 'up' ? '▲ 看漲' : event.pred === 'down' ? '▼ 看跌' : '— 中性'
+              ),
+              event.predReason && h(
+                'span',
+                { style: { fontSize: 9, color: C.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 } },
+                event.predReason
+              )
+            )
       )
     )
   )
@@ -542,10 +693,15 @@ export function EventsPanel({
   filteredEvents,
   catalystFilter,
   setCatalystFilter,
+  predictingIds = new Set(),
+  accuracyStats = null,
 }) {
   return h(
     'div',
     null,
+    // Accuracy Dashboard
+    accuracyStats && h(AccuracyDashboard, { stats: accuracyStats }),
+
     // Relay Plan
     showRelayPlan &&
       h(RelayPlanCard, {
@@ -556,10 +712,16 @@ export function EventsPanel({
     // Filter buttons
     h(EventsFilter, { filterType, setFilterType }),
 
-    // Catalyst type filter buttons (only shown if props provided)
+    // Catalyst type filter buttons
     setCatalystFilter && h(CatalystFilter, { catalystFilter, setCatalystFilter }),
 
     // Events list
-    filteredEvents.map((e, i) => h(EventCard, { key: i, event: e }))
+    filteredEvents.map((e, i) =>
+      h(EventCard, {
+        key: e.id || i,
+        event: e,
+        isPredicting: predictingIds.has(e.id),
+      })
+    )
   )
 }
