@@ -5,10 +5,10 @@ import { alpha } from "../../theme.js";
 export function Card({ children, style = {}, highlighted = false, color = null, ...props }) {
   const baseStyle = {
     background: C.card,
-    border: `1px solid ${C.border}`,
-    borderRadius: 10,
-    padding: "12px 14px",
-    boxShadow: `${C.insetLine}, ${C.shadow}`,
+    border: `1px solid ${C.borderSoft}`,
+    borderRadius: 12,
+    padding: "14px 16px",
+    boxShadow: C.shadow,
     ...(highlighted ? { borderLeft: `3px solid ${color || C.teal}` } : {}),
     ...style,
   };
