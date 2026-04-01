@@ -95,13 +95,12 @@ function weeklyBucketLabel(date: Date): string {
   return `${date.getFullYear()}/${mm}/${dd}`;
 }
 
-/** Monthly: weeks W1-W5, label "YYYY/MM/W#" */
+/** Monthly: same daily label as weekly YYYY/MM/DD */
 function monthlyBucketLabel(date: Date): string {
   const y = date.getFullYear();
-  const d = date.getDate();
-  const week = d <= 7 ? 1 : d <= 14 ? 2 : d <= 21 ? 3 : d <= 28 ? 4 : 5;
   const mm = String(date.getMonth() + 1).padStart(2, '0');
-  return `${y}/${mm}/W${week}`;
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${y}/${mm}/${dd}`;
 }
 
 /** Yearly: months, label "YYYY/MM" */
