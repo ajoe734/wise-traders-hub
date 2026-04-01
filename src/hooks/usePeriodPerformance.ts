@@ -64,14 +64,16 @@ function bucketKey(date: Date, period: ViewPeriod): string {
 
 /**
  * Generate all expected bucket keys for display on X-axis.
+ * For weekly: show current month's weeks + any past months that have data.
+ * For monthly: show all months of current year up to now.
+ * For yearly: rolling 5-year window.
  */
-function generateAllKeys(period: ViewPeriod, firstTradeDate?: Date): string[] {
+function generateAllKeys(period: ViewPeriod, firstTradeDate?: Date, existingKeys?: Set<string>): string[] {
   const now = new Date();
   const keys: string[] = [];
 
   switch (period) {
     case 'yearly': {
-      // Rolling 5-year window ending at current year
       const endYear = now.getFullYear();
       const startYear = firstTradeDate
         ? Math.max(firstTradeDate.getFullYear(), endYear - 4)
@@ -82,20 +84,44 @@ function generateAllKeys(period: ViewPeriod, firstTradeDate?: Date): string[] {
       break;
     }
     case 'monthly': {
-      // All 12 months of the current year, up to current month
       const year = now.getFullYear();
-      for (let m = 0; m <= now.getMonth(); m++) {
+      // Include months from first trade if same year
+      const startMonth = firstTradeDate && firstTradeDate.getFullYear() === year
+        ? firstTradeDate.getMonth() : 0;
+      for (let m = startMonth; m <= now.getMonth(); m++) {
         keys.push(`${year}/${String(m + 1).padStart(2, '0')}`);
       }
       break;
     }
     case 'weekly': {
-      // Current month: W1 through W5, but only up to the current week
-      const yyyy = now.getFullYear();
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const currentWeek = weekOfMonth(now);
-      for (let w = 1; w <= Math.min(currentWeek, 5); w++) {
-        keys.push(`${yyyy}_${mm}_W${w}`);
+      // Collect all months that have data, plus current month
+      const monthsToShow = new Set<string>();
+      // Current month always shown
+      const currYyyy = now.getFullYear();
+      const currMm = String(now.getMonth() + 1).padStart(2, '0');
+      monthsToShow.add(`${currYyyy}_${currMm}`);
+
+      // Add months from existing data keys (format: YYYY_MM_WN)
+      if (existingKeys) {
+        for (const k of existingKeys) {
+          const parts = k.split('_W');
+          if (parts.length === 2) {
+            monthsToShow.add(parts[0]); // "YYYY_MM"
+          }
+        }
+      }
+
+      // Sort months and generate W1-W5 for each
+      const sortedMonths = Array.from(monthsToShow).sort();
+      for (const ym of sortedMonths) {
+        const [yStr, mStr] = ym.split('_');
+        const y = parseInt(yStr);
+        const m = parseInt(mStr);
+        const isCurrentMonth = y === currYyyy && mStr === currMm;
+        const maxWeek = isCurrentMonth ? weekOfMonth(now) : 5;
+        for (let w = 1; w <= Math.min(maxWeek, 5); w++) {
+          keys.push(`${ym}_W${w}`);
+        }
       }
       break;
     }
