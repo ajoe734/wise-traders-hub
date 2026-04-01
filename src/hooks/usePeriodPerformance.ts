@@ -37,16 +37,23 @@ function getMonday(date: Date): Date {
 /**
  * Get the 5 weekdays (Mon-Fri) of the current week
  */
+/**
+ * Get the latest 5 trading days ending at today (skip Sat/Sun), sorted ascending.
+ * e.g. if today is Wed 04/01 → [03/26(Thu), 03/27(Fri), 03/30(Mon), 03/31(Tue), 04/01(Wed)]
+ */
 function getCurrentWeekdays(): string[] {
   const now = new Date();
-  const mon = getMonday(now);
+  now.setHours(0, 0, 0, 0);
   const days: string[] = [];
-  for (let i = 0; i < 5; i++) {
-    const d = new Date(mon);
-    d.setDate(mon.getDate() + i);
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    days.push(`${d.getFullYear()}/${mm}/${dd}`);
+  const d = new Date(now);
+  while (days.length < 5) {
+    const dow = d.getDay(); // 0=Sun, 6=Sat
+    if (dow !== 0 && dow !== 6) {
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      days.unshift(`${d.getFullYear()}/${mm}/${dd}`);
+    }
+    d.setDate(d.getDate() - 1);
   }
   return days;
 }
