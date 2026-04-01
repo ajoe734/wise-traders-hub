@@ -127,10 +127,31 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
         }
       }
 
-      // Only return buckets with actual data, sorted
-      const sortedKeys = Array.from(buckets.keys()).sort();
+      // Filter buckets to current scope only
+      const now = new Date();
+      const currYear = now.getFullYear();
+      const currMonth = String(now.getMonth() + 1).padStart(2, '0');
 
-      return sortedKeys.map(label => {
+      let filteredKeys = Array.from(buckets.keys()).sort();
+
+      if (period === 'weekly') {
+        // Only show current month's 5-day windows
+        const prefix = `${currYear}/${currMonth}/`;
+        filteredKeys = filteredKeys.filter(k => k.startsWith(prefix));
+      } else if (period === 'monthly') {
+        // Only show current year's months (labeled YYYY/MM/W*)
+        const prefix = `${currYear}/`;
+        filteredKeys = filteredKeys.filter(k => k.startsWith(prefix));
+      } else {
+        // Yearly: rolling 5-year window ending at current year
+        const minYear = currYear - 4;
+        filteredKeys = filteredKeys.filter(k => {
+          const y = parseInt(k.split('/')[0], 10);
+          return y >= minYear && y <= currYear;
+        });
+      }
+
+      return filteredKeys.map(label => {
         const stocks = buckets.get(label)!;
         const returnPct = stocks.reduce((sum, s) => sum + s.returnPct, 0);
         const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
