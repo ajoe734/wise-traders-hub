@@ -10,9 +10,9 @@ import {
 const card = {
   background: C.card,
   border: `1px solid ${C.border}`,
-  borderRadius: 10,
-  padding: '12px 14px',
-  boxShadow: `${C.insetLine}, ${C.shadow}`,
+  borderRadius: 12,
+  padding: '14px 16px',
+  boxShadow: C.shadow,
 }
 
 const lbl = {
@@ -49,14 +49,15 @@ export function HoldingRow({
       {
         style: {
           display: 'grid',
-          gridTemplateColumns: '2fr 1fr 1fr 1fr 40px',
-          gap: 8,
+          gridTemplateColumns: '2fr 1fr 1fr 1fr 36px',
+          gap: 10,
           alignItems: 'center',
-          padding: '10px 12px',
-          background: card.background,
-          border: `1px solid ${C.border}`,
-          borderRadius: 8,
-          marginBottom: expanded ? 0 : 6,
+          padding: '11px 14px',
+          background: C.card,
+          border: `1px solid ${C.borderSoft}`,
+          borderRadius: 10,
+          marginBottom: expanded ? 0 : 5,
+          transition: 'background 0.15s',
         },
       },
       // Name + Code
@@ -96,15 +97,16 @@ export function HoldingRow({
             fontWeight: 600,
             color: pc(pnl),
             background: pcBg(pnl),
-            borderRadius: 6,
-            padding: '4px 8px',
+            borderRadius: 8,
+            padding: '5px 8px',
             textAlign: 'center',
+            lineHeight: 1.5,
           },
         },
         h('div', null, `${pnl >= 0 ? '+' : ''}${Math.round(pnl).toLocaleString()}`),
         h(
           'div',
-          { style: { fontSize: 9, fontWeight: 500 } },
+          { style: { fontSize: 9, fontWeight: 500, opacity: 0.85 } },
           `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`
         )
       ),
