@@ -7,7 +7,7 @@ const corsHeaders = {
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
-function buildRenewalFlexMessage(expertName: string, planName: string, daysLeft: number, expiresAt: string) {
+function buildRenewalFlexMessage(expertName: string, planName: string, daysLeft: number, expiresAt: string, amount: number) {
   const expiryDate = new Date(expiresAt).toLocaleDateString('zh-TW', {
     year: 'numeric', month: 'long', day: 'numeric',
   })
@@ -100,12 +100,35 @@ function buildRenewalFlexMessage(expertName: string, planName: string, daysLeft:
             ],
           },
           {
+            type: 'box',
+            layout: 'horizontal',
+            margin: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: '續訂金額',
+                size: 'sm',
+                color: '#999999',
+                flex: 1,
+              },
+              {
+                type: 'text',
+                text: `NT$${amount.toLocaleString()}`,
+                size: 'sm',
+                color: '#333333',
+                weight: 'bold',
+                align: 'end',
+                flex: 2,
+              },
+            ],
+          },
+          {
             type: 'separator',
             margin: 'lg',
           },
           {
             type: 'text',
-            text: '📌 系統將於到期日自動續訂扣款。',
+            text: `📌 系統將於到期日自動續訂扣款 NT$${amount.toLocaleString()}。`,
             size: 'sm',
             color: '#333333',
             margin: 'lg',
@@ -144,7 +167,7 @@ Deno.serve(async (req) => {
 
     const { data: expiringSubs, error: subErr } = await supabaseAdmin
       .from('member_subscriptions')
-      .select('id, user_id, plan_id, expires_at, expert_plans!inner(id, expert_id, name, experts!inner(id, name))')
+      .select('id, user_id, plan_id, expires_at, expert_plans!inner(id, expert_id, name, price_monthly, experts!inner(id, name))')
       .eq('status', 'active')
       .gte('expires_at', sevenDaysFromNow.toISOString())
       .lt('expires_at', eightDaysFromNow.toISOString())
@@ -168,7 +191,7 @@ Deno.serve(async (req) => {
     const byExpert = new Map<string, {
       expertId: string
       expertName: string
-      targets: { lineUserId: string; planName: string; expiresAt: string; daysLeft: number }[]
+      targets: { lineUserId: string; planName: string; expiresAt: string; daysLeft: number; amount: number }[]
     }>()
 
     for (const sub of expiringSubs) {
@@ -176,6 +199,7 @@ Deno.serve(async (req) => {
       const expert = plan.experts
       const expertId = expert.id as string
       const daysLeft = Math.ceil((new Date(sub.expires_at!).getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+      const amount = plan.price_monthly || 0
 
       // Get LINE binding for this user+expert
       const { data: binding } = await supabaseAdmin
@@ -201,6 +225,7 @@ Deno.serve(async (req) => {
         planName: plan.name,
         expiresAt: sub.expires_at!,
         daysLeft,
+        amount,
       })
     }
 
@@ -228,6 +253,7 @@ Deno.serve(async (req) => {
           target.planName,
           target.daysLeft,
           target.expiresAt,
+          target.amount,
         )
 
         const res = await fetch('https://api.line.me/v2/bot/message/push', {
