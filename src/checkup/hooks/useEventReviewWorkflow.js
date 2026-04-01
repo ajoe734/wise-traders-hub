@@ -5,6 +5,7 @@ import {
   API_ENDPOINTS,
   STATUS_MESSAGE_TIMEOUT_MS,
 } from '../constants.js'
+import { supabase } from '../../integrations/supabase/client.js'
 import { APP_TOAST_MESSAGES } from '../lib/appMessages.js'
 import {
   attachEvidenceRefsToBrainAudit,
