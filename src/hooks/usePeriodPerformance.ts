@@ -133,15 +133,24 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
       let filteredKeys = Array.from(buckets.keys()).sort();
 
       if (period === 'weekly') {
-        // Only show current week (Mon-Fri)
-        const weekdays = new Set(getCurrentWeekdays());
-        filteredKeys = filteredKeys.filter(k => weekdays.has(k));
-      } else if (period === 'monthly') {
-        // Only show current year's months (labeled YYYY/MM/W*)
+        // Always show all 5 weekdays (Mon-Fri) of the current week
+        const weekdays = getCurrentWeekdays();
+        return weekdays.map(key => {
+          const parts = key.split('/');
+          const displayLabel = `${parts[1]}/${parts[2]}`;
+          const stocks = buckets.get(key) || [];
+          const returnPct = stocks.reduce((sum, s) => sum + s.returnPct, 0);
+          const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
+          const topStock = sorted[0] ? { symbol: sorted[0].symbol, name: sorted[0].name, returnPct: sorted[0].returnPct } : undefined;
+          const bottomStock = sorted.length ? { symbol: sorted[sorted.length - 1].symbol, name: sorted[sorted.length - 1].name, returnPct: sorted[sorted.length - 1].returnPct } : undefined;
+          return { label: displayLabel, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks };
+        });
+      }
+      
+      if (period === 'monthly') {
         const prefix = `${currYear}/`;
         filteredKeys = filteredKeys.filter(k => k.startsWith(prefix));
       } else {
-        // Yearly: rolling 5-year window ending at current year
         const minYear = currYear - 4;
         filteredKeys = filteredKeys.filter(k => {
           const y = parseInt(k.split('/')[0], 10);
@@ -155,16 +164,7 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
         const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
         const topStock = sorted[0] ? { symbol: sorted[0].symbol, name: sorted[0].name, returnPct: sorted[0].returnPct } : undefined;
         const bottomStock = sorted[sorted.length - 1] ? { symbol: sorted[sorted.length - 1].symbol, name: sorted[sorted.length - 1].name, returnPct: sorted[sorted.length - 1].returnPct } : undefined;
-
-        // Weekly: show "MM/DD", Monthly: show "YYYY/MM/W#", Yearly: show "YYYY/MM"
-        let displayLabel = key;
-        if (period === 'weekly') {
-          // key = "2026/04/01" → display "04/01"
-          const parts = key.split('/');
-          displayLabel = `${parts[1]}/${parts[2]}`;
-        }
-
-        return { label: displayLabel, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks };
+        return { label: key, returnPct: Math.round(returnPct * 100) / 100, topStock, bottomStock, stocks };
       });
     },
     enabled: !!expertId,
