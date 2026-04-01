@@ -1,92 +1,87 @@
 
-目標：徹底清查為什麼「免費健檢」明明改了很多檔案，但畫面和資料幾乎沒變，並給出可執行的修正方案。
 
-1. 已查到的核心原因
-- `/free-checkup` 確實是走 `src/pages/FreeCheckup.jsx`，不是跑錯頁面。
-- 但這頁目前仍是單一 2756 行的大檔，幾乎全部用 inline style，所以「改全域樣式」只會影響很少部分，視覺上不會大變。
-- Demo 模式的資料來源不是 `seedData`，而是 `src/checkup/data/demoData.js` 的 `DEMO_HOLDINGS`，目前只有 5 檔。
-- `FreeCheckup.jsx` 雖然在 Demo 模式寫了 `setHoldings(demoData?.holdings || SEED_HOLDINGS)`，但 `demoData.holdings` 一定存在，所以永遠優先吃 5 檔假資料，不會掉到 20 檔 `SEED_HOLDINGS`。
-- 網路請求也證實目前實際寫進雲端的 `pf-holdings-v2` 只有 5 檔：2330、2454、2317、2382、3443。
-- 你問的「短中長期」也沒有真正接上：`seedData.js` 有 `STOCK_META.period`，但 `FreeCheckup.jsx` 根本沒使用 `STOCK_META`，畫面只在顯示 `h.type`（股票/ETF/權證），所以你看不到每檔的短/中/長。
-- 主題色雖然有改 `src/checkup/theme.js`，但 `FreeCheckup.jsx` 裡仍殘留很多舊色碼與局部字體設定，例如 `TYPE_COLOR` 仍是舊莫蘭迪色、頁面本身還硬寫 `DM Sans`，因此整體視覺只會局部變化，不會徹底變成你要的專業極簡財經感。
+# 事件預測系統四大優化方案
 
-2. 為什麼會有「改很多檔案但沒感覺」
-- 改的是全域 theme / index.css，但這頁主要靠 inline style 控制。
-- 改的是 `seedData`，但 Demo 模式實際吃的是 `demoData`。
-- 有些雲端同步會把目前的 5 檔資料再次寫回 `checkup_storage`，所以即使 seedData 變豐富，也會被現行資料流覆蓋。
-- 「短中長期」資料存在於 metadata，不在 holdings 主資料內，若不在 render 時 merge，就完全不會出現在 UI。
+## 現狀分析
 
-3. 建議實作方向
-A. 先修資料來源，讓 Demo 模式真的顯示完整內容
-- 把 `CheckupModeContext.jsx` 的 demo holdings 改為使用 `SEED_HOLDINGS`，或直接讓 `demoData.holdings` 改成完整 20 檔。
-- 同步補齊 demo 用的分析、事件、策略大腦內容，避免只有持倉變多，其他面板仍很空。
-- 加一層初始化保護：若目前是 Demo 模式，不要把 5 檔舊資料再寫回雲端。
+目前 `checkup-predict-events` Edge Function 每次收到請求都即時呼叫 Gemini API + TWSE MIS，沒有快取、沒有知識庫注入、前端阻塞式等待、也沒有歷史準確率追蹤。
 
-B. 把「短中長期 / 產業 / 策略 / 核心衛星」真正接上畫面
-- 在 `FreeCheckup.jsx` 匯入 `STOCK_META`。
-- render 每檔持股時，用 `code` 去 merge metadata。
-- 顯示至少這幾個 badge：期間（短/中/中長）、產業、策略、部位屬性（核心/衛星/戰術）。
-- 若某檔無 metadata，再 fallback 顯示原本 `h.type`。
+---
 
-C. 修正為什麼 UI 改了卻不夠明顯
-- 統一移除 `FreeCheckup.jsx` 內殘留的硬編碼舊色值，至少先處理：
-  - `TYPE_COLOR`
-  - LINE 綠色區塊
-  - watchlist 的 `sc` 色碼
-  - 局部 button / badge / border 寫死色
-- 把頁面字體從內嵌 `DM Sans` 改回跟全站一致的 `Inter + Noto Sans TC`。
-- 先不全面重寫元件，但要抽出幾組共用樣式常數：
-  - card
-  - badge
-  - table row
-  - section title
-  - toolbar button
-  這樣你要的「專業、財經、極簡」才會一致，不會東一塊西一塊。
+## 優化 1：預測結果快取（24 小時）
 
-4. 我建議的修正順序
-- 第 1 步：修 Demo 資料來源，確保不是 5 檔而是完整 20 檔以上。
-- 第 2 步：把 `STOCK_META` 接到持倉列表，補上短中長期與策略標籤。
-- 第 3 步：清掉 `FreeCheckup.jsx` 的舊色碼與局部字體，讓新主題真的生效。
-- 第 4 步：檢查 Demo 模式與登入模式的雲端寫回邏輯，避免啟動後又被覆蓋成瘦資料。
+**問題**：同一事件在頁面重整後若 `predictedIdsRef` 被清空，會重複呼叫 API。
 
-5. 技術細節
-```text
-目前資料流實際上是：
+**做法**：
+- 在 `checkup_storage` 表中新增 key 為 `prediction-cache-{eventId}` 的快取紀錄
+- Edge Function 收到請求前，先查 `checkup_storage` 是否有該事件的快取且 `updated_at` < 24 小時
+- 有快取 → 直接回傳，不呼叫 Gemini
+- 無快取 → 呼叫 Gemini 後寫回 `checkup_storage`
+- 前端不需改動，透後端自動處理
 
-Demo 模式
-CheckupModeContext.demoData.holdings
-        ↓
-FreeCheckup useEffect
-setHoldings(demoData.holdings || SEED_HOLDINGS)
-        ↓
-永遠吃到 demoData.holdings（5檔）
-        ↓
-auto-save 再寫回 pf-holdings-v2
-        ↓
-你看到的還是 5 檔
-```
+**修改檔案**：`supabase/functions/checkup-predict-events/index.ts`
 
-```text
-你要的正確方向應該是：
+---
 
-Demo 模式
-完整 seed/demo holdings（20+）
-+ STOCK_META merge
-+ richer analysis/brain/events
-        ↓
-畫面顯示完整持倉與短中長標籤
-        ↓
-若是 demo，不覆蓋成舊 5 檔資料
-```
+## 優化 2：知識庫案例注入 Prompt
 
-6. 我接下來會怎麼做
-- 精準修 `CheckupModeContext.jsx` 與 `FreeCheckup.jsx` 的 demo 初始化來源。
-- 接上 `seedData.js` 的 metadata 到持倉 UI。
-- 清理 `FreeCheckup.jsx` 內殘留的舊配色與字體，讓視覺變化真正可見。
-- 最後再檢查 Demo/登入兩種模式的雲端同步策略，避免資料被回寫覆蓋。
+**問題**：目前預測 Prompt 只有持倉報價和事件描述，缺乏歷史案例參考。
 
-7. 預期結果
-- `/free-checkup` 會真的顯示完整持倉，而不是只有 5 檔。
-- 每檔股票會看到短/中/中長、產業、策略、核心/衛星等資訊。
-- 視覺會比現在更一致，真正接近專業財經極簡風，而不是只換了部分顏色。
-- 之後你再刷新，不會出現「明明改了但像沒改」的狀況。
+**做法**：
+- Edge Function 在組裝 Prompt 前，從 `checkup_knowledge_items` 表查詢與事件相關的知識條目（依 tags 匹配事件類型，如「法說會」→ `tags @> '{法說會}'`）
+- 取 confidence >= 0.75 的前 5 條，加上 `strategy-cases` 分類的成功案例前 3 條
+- 將知識摘要注入 Prompt 的 `# 歷史參考知識` 區塊，讓 AI 引用歷史規律來提升判斷品質
+- 同步更新 `checkup-analyze`（收盤分析）使用同樣的知識注入邏輯
+
+**修改檔案**：`supabase/functions/checkup-predict-events/index.ts`
+
+---
+
+## 優化 3：前端樂觀 UI（Skeleton 動畫）
+
+**問題**：AI 預測期間畫面會卡住顯示「AI 正在預測中」，體驗不佳。
+
+**做法**：
+- 在 `EventsPanel.jsx` 為正在預測中的事件卡片顯示 Skeleton 骨架動畫（預測欄位 shimmer 效果）
+- 事件卡片的預測方向 & 理由欄位改為：
+  - 狀態 `pending` 且在預測佇列 → 顯示 shimmer skeleton
+  - 狀態 `verifying` 且有 `pred` → 顯示正常預測結果
+- 不阻塞其他事件卡片的渲染
+
+**修改檔案**：`src/checkup/components/events/EventsPanel.jsx`, `src/pages/FreeCheckup.jsx`
+
+---
+
+## 優化 4：歷史預測準確率追蹤
+
+**問題**：目前事件復盤後的 `actual` vs `pred` 結果沒有被統計，AI 無法從歷史表現自我修正。
+
+**做法**：
+- 建立 `checkup_prediction_accuracy` 表：`id, event_id, pred, actual, was_correct, event_type, reviewed_at`
+- 在事件復盤提交時（`useEventReviewWorkflow.js` 的 `submitReview`），自動寫入一筆準確率紀錄
+- Edge Function 預測時，從該表統計近 90 天的命中率（依事件類型分組），注入 Prompt 讓 AI 知道「我過去法說會事件命中率 72%，營收事件命中率 65%」
+- 在事件頁面頂部新增一個小型準確率儀表板：整體命中率、各類型命中率
+
+**新增/修改檔案**：
+- 新增 migration：建立 `checkup_prediction_accuracy` 表
+- 修改 `supabase/functions/checkup-predict-events/index.ts`
+- 修改 `src/checkup/hooks/useEventReviewWorkflow.js`
+- 修改 `src/checkup/components/events/EventsPanel.jsx`
+
+---
+
+## 技術實作順序
+
+1. 建立 `checkup_prediction_accuracy` 資料表（含 RLS）
+2. 修改 `checkup-predict-events` Edge Function：加入快取 + 知識庫注入 + 準確率注入
+3. 修改前端事件復盤流程：提交時寫入準確率紀錄
+4. 修改 `EventsPanel.jsx`：Skeleton 動畫 + 準確率儀表板
+5. 修改 `FreeCheckup.jsx`：傳遞預測中狀態給事件卡片
+
+## 預期成果
+
+- API 呼叫量大幅降低（24 小時內同事件不重複預測）
+- 預測品質提升（注入知識庫歷史案例 + 自身準確率回饋）
+- 使用者體驗流暢（骨架動畫取代阻塞式等待）
+- 可量化的預測績效追蹤（準確率統計）
+
