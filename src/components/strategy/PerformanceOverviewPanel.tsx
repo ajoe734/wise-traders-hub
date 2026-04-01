@@ -5,12 +5,15 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import {
-  AreaChart,
-  Area,
+  ComposedChart,
+  Line,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  Cell,
+  ReferenceLine,
 } from "recharts";
 import { FloatingStatCard, StockPerf } from "./FloatingStatCard";
 import { StockTradeDetailSheet, StockTradeDetail } from "./StockTradeDetailSheet";
