@@ -96,10 +96,8 @@ function generateAllKeys(period: ViewPeriod, firstTradeDate?: Date, existingKeys
     case 'weekly': {
       // Collect all months that have data, plus current month
       const monthsToShow = new Set<string>();
-      // Current month always shown
       const currYyyy = now.getFullYear();
       const currMm = String(now.getMonth() + 1).padStart(2, '0');
-      monthsToShow.add(`${currYyyy}_${currMm}`);
 
       // Add months from existing data keys (format: YYYY_MM_WN)
       if (existingKeys) {
