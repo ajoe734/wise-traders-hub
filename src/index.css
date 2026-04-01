@@ -464,3 +464,8 @@
 .checkup-root ::-webkit-scrollbar-thumb:hover {
   background: rgba(240,246,252,0.18);
 }
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
