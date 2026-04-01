@@ -38,16 +38,35 @@ function getMonday(date: Date): Date {
  * Get the 5 weekdays (Mon-Fri) of the current week
  */
 /**
- * Get the latest 5 trading days ending at today (skip Sat/Sun), sorted ascending.
- * e.g. if today is Wed 04/01 → [03/26(Thu), 03/27(Fri), 03/30(Mon), 03/31(Tue), 04/01(Wed)]
+ * Get trading days (skip Sat/Sun) from a start date to today, sorted ascending.
  */
-function getCurrentWeekdays(): string[] {
+function getTradingDaysFromTo(start: Date, end: Date): string[] {
+  const days: string[] = [];
+  const d = new Date(start);
+  d.setHours(0, 0, 0, 0);
+  const endTime = end.getTime();
+  while (d.getTime() <= endTime) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) {
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      days.push(`${d.getFullYear()}/${mm}/${dd}`);
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
+/**
+ * Get the latest 5 trading days ending at today (skip Sat/Sun), sorted ascending.
+ */
+function getWeeklyTradingDays(): string[] {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const days: string[] = [];
   const d = new Date(now);
   while (days.length < 5) {
-    const dow = d.getDay(); // 0=Sun, 6=Sat
+    const dow = d.getDay();
     if (dow !== 0 && dow !== 6) {
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const dd = String(d.getDate()).padStart(2, '0');
@@ -56,6 +75,17 @@ function getCurrentWeekdays(): string[] {
     d.setDate(d.getDate() - 1);
   }
   return days;
+}
+
+/**
+ * Get trading days from 1st of previous month to today (skip Sat/Sun).
+ */
+function getMonthlyTradingDays(): string[] {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  // 1st of previous month
+  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return getTradingDaysFromTo(start, now);
 }
 
 /** Weekly: each trading day is its own point, label "MM/DD" */
