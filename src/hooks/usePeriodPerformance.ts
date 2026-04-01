@@ -133,9 +133,9 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
       let filteredKeys = Array.from(buckets.keys()).sort();
 
       if (period === 'weekly') {
-        // Only show current month's 5-day windows
-        const prefix = `${currYear}/${currMonth}/`;
-        filteredKeys = filteredKeys.filter(k => k.startsWith(prefix));
+        // Only show current week (Mon-Fri)
+        const weekdays = new Set(getCurrentWeekdays());
+        filteredKeys = filteredKeys.filter(k => weekdays.has(k));
       } else if (period === 'monthly') {
         // Only show current year's months (labeled YYYY/MM/W*)
         const prefix = `${currYear}/`;
