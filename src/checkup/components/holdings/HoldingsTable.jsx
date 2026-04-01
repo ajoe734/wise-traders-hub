@@ -10,9 +10,9 @@ import {
 const card = {
   background: C.card,
   border: `1px solid ${C.border}`,
-  borderRadius: 10,
-  padding: '12px 14px',
-  boxShadow: `${C.insetLine}, ${C.shadow}`,
+  borderRadius: 12,
+  padding: '14px 16px',
+  boxShadow: C.shadow,
 }
 
 const lbl = {
