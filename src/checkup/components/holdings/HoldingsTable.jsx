@@ -49,14 +49,15 @@ export function HoldingRow({
       {
         style: {
           display: 'grid',
-          gridTemplateColumns: '2fr 1fr 1fr 1fr 40px',
-          gap: 8,
+          gridTemplateColumns: '2fr 1fr 1fr 1fr 36px',
+          gap: 10,
           alignItems: 'center',
-          padding: '10px 12px',
-          background: card.background,
-          border: `1px solid ${C.border}`,
-          borderRadius: 8,
-          marginBottom: expanded ? 0 : 6,
+          padding: '11px 14px',
+          background: C.card,
+          border: `1px solid ${C.borderSoft}`,
+          borderRadius: 10,
+          marginBottom: expanded ? 0 : 5,
+          transition: 'background 0.15s',
         },
       },
       // Name + Code
