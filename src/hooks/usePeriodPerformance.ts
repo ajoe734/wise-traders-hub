@@ -62,12 +62,9 @@ function generateAllKeys(period: ViewPeriod, firstDate?: Date): string[] {
     }
     case 'weekly': {
       const monthStart = startOfMonth(now);
-      const monthEnd = endOfMonth(now);
       let cursor = startOfWeek(monthStart, { weekStartsOn: 1 });
       while (!isAfter(cursor, now)) {
-        if (!isAfter(monthEnd, cursor) === false) {
-          keys.push(`W${getISOWeek(cursor)}`);
-        }
+        keys.push(`W${getISOWeek(cursor)}`);
         cursor = addWeeks(cursor, 1);
       }
       break;

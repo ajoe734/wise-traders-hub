@@ -122,8 +122,8 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   const returnCurve = useMemo(() => {
     let cumReturn = 0;
     return performanceData.map(p => {
-      cumReturn = (1 + cumReturn / 100) * (1 + p.returnPct / 100) * 100 - 100;
-      return { ...p, cumReturnPct: parseFloat(cumReturn.toFixed(1)), isSelected: p.label === selectedPoint };
+      cumReturn += p.returnPct;
+      return { ...p, cumReturnPct: parseFloat(cumReturn.toFixed(2)), isSelected: p.label === selectedPoint };
     });
   }, [performanceData, selectedPoint]);
 

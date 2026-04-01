@@ -50,7 +50,7 @@ export function FloatingStatCard({ bestStock, worstStock, className }: FloatingS
           <span className="text-muted-foreground">最差</span>
           <span className="font-medium text-foreground">{worstStock.name}</span>
           <span className="text-destructive font-semibold tabular-nums">
-            {worstStock.returnPct.toFixed(1)}%
+            {worstStock.returnPct.toFixed(2)}%
           </span>
         </div>
       )}
