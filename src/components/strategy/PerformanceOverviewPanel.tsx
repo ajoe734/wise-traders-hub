@@ -175,7 +175,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={returnCurve.length > 0 ? returnCurve : [{ label: '', returnPct: 0 }]}
-                  margin={{ top: 16, right: 16, left: 8, bottom: 48 }}
+                  margin={{ top: 16, right: 16, left: 8, bottom: period === 'monthly' ? 48 : 8 }}
                   onClick={(e) => {
                     if (e?.activePayload?.[0] && returnCurve.length > 0) {
                       handlePointClick(e.activePayload[0].payload);
@@ -188,7 +188,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                       <stop offset="95%" stopColor={chartColors.gradientEnd} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} angle={-45} textAnchor="end" interval={0} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} angle={period === 'monthly' ? -45 : 0} textAnchor={period === 'monthly' ? 'end' : 'middle'} interval={0} />
                   <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
                   <Tooltip content={<CustomTooltip />} />
                   {returnCurve.length > 0 && (
