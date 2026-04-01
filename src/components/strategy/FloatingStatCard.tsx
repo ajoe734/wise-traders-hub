@@ -33,7 +33,7 @@ export function FloatingStatCard({ bestStock, worstStock, className }: FloatingS
           <span className="text-muted-foreground">最佳</span>
           <span className="font-medium text-foreground">{bestStock.name}</span>
           <span className="text-success font-semibold tabular-nums">
-            +{bestStock.returnPct.toFixed(1)}%
+            +{bestStock.returnPct.toFixed(2)}%
           </span>
         </div>
       )}
