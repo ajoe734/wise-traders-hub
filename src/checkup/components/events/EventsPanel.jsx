@@ -693,10 +693,15 @@ export function EventsPanel({
   filteredEvents,
   catalystFilter,
   setCatalystFilter,
+  predictingIds = new Set(),
+  accuracyStats = null,
 }) {
   return h(
     'div',
     null,
+    // Accuracy Dashboard
+    accuracyStats && h(AccuracyDashboard, { stats: accuracyStats }),
+
     // Relay Plan
     showRelayPlan &&
       h(RelayPlanCard, {
@@ -707,10 +712,16 @@ export function EventsPanel({
     // Filter buttons
     h(EventsFilter, { filterType, setFilterType }),
 
-    // Catalyst type filter buttons (only shown if props provided)
+    // Catalyst type filter buttons
     setCatalystFilter && h(CatalystFilter, { catalystFilter, setCatalystFilter }),
 
     // Events list
-    filteredEvents.map((e, i) => h(EventCard, { key: i, event: e }))
+    filteredEvents.map((e, i) =>
+      h(EventCard, {
+        key: e.id || i,
+        event: e,
+        isPredicting: predictingIds.has(e.id),
+      })
+    )
   )
 }
