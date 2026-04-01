@@ -253,6 +253,7 @@ Deno.serve(async (req) => {
           target.planName,
           target.daysLeft,
           target.expiresAt,
+          target.amount,
         )
 
         const res = await fetch('https://api.line.me/v2/bot/message/push', {
