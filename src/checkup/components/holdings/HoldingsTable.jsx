@@ -97,15 +97,16 @@ export function HoldingRow({
             fontWeight: 600,
             color: pc(pnl),
             background: pcBg(pnl),
-            borderRadius: 6,
-            padding: '4px 8px',
+            borderRadius: 8,
+            padding: '5px 8px',
             textAlign: 'center',
+            lineHeight: 1.5,
           },
         },
         h('div', null, `${pnl >= 0 ? '+' : ''}${Math.round(pnl).toLocaleString()}`),
         h(
           'div',
-          { style: { fontSize: 9, fontWeight: 500 } },
+          { style: { fontSize: 9, fontWeight: 500, opacity: 0.85 } },
           `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`
         )
       ),

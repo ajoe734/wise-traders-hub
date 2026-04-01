@@ -32,7 +32,7 @@ export function HoldingsSummary({ holdings, totalVal, totalCost }) {
   return h(
     'div',
     {
-      style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 8 },
+      style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 },
     },
     metrics.map(([label, value, color]) =>
       h(
