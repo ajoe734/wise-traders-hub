@@ -99,18 +99,18 @@ const AdminDashboard = () => {
       supabase.from('expert_signals')
         .select('id', { count: 'exact', head: true })
         .eq('expert_id', exp.id)
-        .eq('status', 'published'),
+        .in('status', ['published', 'pending']),
       supabase.from('expert_signals')
         .select('id', { count: 'exact', head: true })
         .eq('expert_id', exp.id)
-        .eq('status', 'published')
-        .gte('published_at', monthStart),
+        .in('status', ['published', 'pending'])
+        .gte('created_at', monthStart),
       supabase.rpc('calculate_expert_performance', { _expert_id: exp.id }),
       supabase.from('expert_signals')
         .select('*')
         .eq('expert_id', exp.id)
-        .eq('status', 'published')
-        .order('published_at', { ascending: false })
+        .in('status', ['published', 'pending'])
+        .order('created_at', { ascending: false })
         .limit(5),
       supabase.from('payment_transactions')
         .select('amount, subscription_id, member_subscriptions!inner(plan_id, expert_plans!inner(expert_id))')
