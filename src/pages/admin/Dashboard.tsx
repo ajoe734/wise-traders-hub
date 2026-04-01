@@ -263,11 +263,15 @@ const AdminDashboard = () => {
                         <div>
                           <p className="font-medium text-sm">{signal.instrument}</p>
                           <p className="text-xs text-muted-foreground">
-                            {signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
+                            {signal.created_at ? new Date(signal.created_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
                           </p>
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-xs">已發布</Badge>
+                      {signal.status === 'pending' ? (
+                        <Badge className="text-xs border border-amber-400/40 bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">待發布</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">已發布</Badge>
+                      )}
                     </div>
                   );
                 })
