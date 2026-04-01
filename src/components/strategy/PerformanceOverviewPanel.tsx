@@ -5,15 +5,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import {
-  ComposedChart,
-  Line,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Cell,
-  ReferenceLine,
 } from "recharts";
 import { FloatingStatCard, StockPerf } from "./FloatingStatCard";
 import { StockTradeDetailSheet, StockTradeDetail } from "./StockTradeDetailSheet";
@@ -54,8 +51,16 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   }, [sinceInceptionReturn]);
 
   // Overall trend for chart color
-  const COLOR_UP = '#E53935';
-  const COLOR_DOWN = '#22C55E';
+  const overallTrend = useMemo(() => {
+    return sinceInceptionReturn >= 0 ? 'positive' : 'negative';
+  }, [sinceInceptionReturn]);
+
+  const chartColors = useMemo(() => {
+    if (sinceInceptionReturn >= 0) {
+      return { stroke: '#E53935', gradientStart: '#E53935', gradientEnd: '#E53935' };
+    }
+    return { stroke: '#22C55E', gradientStart: '#22C55E', gradientEnd: '#22C55E' };
+  }, [sinceInceptionReturn]);
 
   const periodStats = useMemo(() => {
     if (!performanceData.length) return { best: undefined, worst: undefined };
@@ -168,8 +173,8 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
-                  data={returnCurve.length > 0 ? returnCurve : [{ label: '', returnPct: 0, cumReturnPct: 0 }]}
+                <AreaChart
+                  data={returnCurve.length > 0 ? returnCurve : [{ label: '', returnPct: 0 }]}
                   margin={{ top: 16, right: 16, left: 8, bottom: 8 }}
                   onClick={(e) => {
                     if (e?.activePayload?.[0] && returnCurve.length > 0) {
@@ -177,43 +182,41 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                     }
                   }}
                 >
+                  <defs>
+                    <linearGradient id={`colorReturn-${period}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={chartColors.gradientStart} stopOpacity={0.25} />
+                      <stop offset="95%" stopColor={chartColors.gradientEnd} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
-                  <YAxis yAxisId="cum" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-                  <YAxis yAxisId="bar" orientation="right" hide />
+                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
                   <Tooltip content={<CustomTooltip />} />
-                  <ReferenceLine yAxisId="bar" y={0} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-                  {/* Per-period bar: red if positive, green if negative */}
-                  <Bar yAxisId="bar" dataKey="returnPct" barSize={20} radius={[3, 3, 0, 0]} animationDuration={500}>
-                    {returnCurve.map((entry, idx) => (
-                      <Cell key={idx} fill={entry.returnPct >= 0 ? COLOR_UP : COLOR_DOWN} fillOpacity={0.35} />
-                    ))}
-                  </Bar>
-                  {/* Cumulative return line */}
-                  <Line
-                    yAxisId="cum"
-                    type="monotone"
-                    dataKey="cumReturnPct"
-                    stroke="hsl(var(--foreground))"
-                    strokeWidth={2}
-                    dot={(props: any) => {
-                      const { cx, cy, payload } = props;
-                      const isSelected = payload.label === selectedPoint;
-                      const dotColor = payload.returnPct >= 0 ? COLOR_UP : COLOR_DOWN;
-                      return (
-                        <circle key={payload.label} cx={cx} cy={cy} r={isSelected ? 6 : 4}
-                          fill={isSelected ? dotColor : "hsl(var(--background))"}
-                          stroke={dotColor} strokeWidth={2} style={{ cursor: 'pointer' }}
-                          className="transition-all duration-200"
-                        />
-                      );
-                    }}
-                    activeDot={{
-                      r: 6, stroke: "hsl(var(--background))", strokeWidth: 2, cursor: "pointer",
-                      onClick: (e: any) => { if (e?.payload) handlePointClick(e.payload); },
-                    }}
-                    animationDuration={500}
-                  />
-                </ComposedChart>
+                  {returnCurve.length > 0 && (
+                    <Area
+                      type="monotone"
+                      dataKey="cumReturnPct"
+                      stroke={chartColors.stroke}
+                      strokeWidth={2}
+                      fill={`url(#colorReturn-${period})`}
+                      animationDuration={500}
+                      dot={(props: any) => {
+                        const { cx, cy, payload } = props;
+                        const isSelected = payload.label === selectedPoint;
+                        return (
+                          <circle key={payload.label} cx={cx} cy={cy} r={isSelected ? 6 : 4}
+                            fill={isSelected ? chartColors.stroke : "hsl(var(--background))"}
+                            stroke={chartColors.stroke} strokeWidth={2} style={{ cursor: 'pointer' }}
+                            className="transition-all duration-200"
+                          />
+                        );
+                      }}
+                      activeDot={{
+                        r: 6, fill: chartColors.stroke, stroke: "hsl(var(--background))", strokeWidth: 2, cursor: "pointer",
+                        onClick: (e: any) => { if (e?.payload) handlePointClick(e.payload); },
+                      }}
+                    />
+                  )}
+                </AreaChart>
               </ResponsiveContainer>
             )}
           </div>
