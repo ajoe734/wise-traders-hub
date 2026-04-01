@@ -146,6 +146,20 @@ export function useEventReviewWorkflow({
       setReviewingEvent(null)
       setReviewForm(createDefaultReviewForm())
 
+      // ── Write prediction accuracy record ──
+      if (event.pred && submittedForm.actual) {
+        const wasCorrect = event.pred === submittedForm.actual
+        supabase.from('checkup_prediction_accuracy').insert({
+          event_id: String(eventId),
+          event_type: event.type || event.category || null,
+          pred: event.pred,
+          actual: submittedForm.actual,
+          was_correct: wasCorrect,
+        }).then(({ error }) => {
+          if (error) console.error('寫入預測準確率失敗:', error)
+        })
+      }
+
       const shouldIntegrate = shouldIntegrateEventReview(
         snapshot.savedLessons,
         snapshot.savedNote,
