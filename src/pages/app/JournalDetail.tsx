@@ -154,7 +154,7 @@ const JournalDetail = () => {
   const allLearningPoints = weekSignals
     .map(s => s.learning_points)
     .filter(Boolean)
-    .flatMap(lp => lp!.split('\n').filter(l => l.trim()));
+    .flatMap(lp => lp!.split(/\\n|\n/).filter(l => l.trim()));
 
   return (
     <UnifiedAppLayout>
