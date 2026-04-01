@@ -38,8 +38,7 @@ const AdminDashboard = () => {
     if (data) {
       const d = data as any;
       setCumulativeReturn(d.cumulative_return != null ? Number(d.cumulative_return) : 0);
-      const avgPnl = d.total_trades > 0 ? Number(d.cumulative_return) / Number(d.total_trades) : 0;
-      setAvgPnlPercent(avgPnl);
+      setAvgPnlPercent(d.avg_pnl != null ? Number(d.avg_pnl) : 0);
     }
   };
 
