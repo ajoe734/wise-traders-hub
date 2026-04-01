@@ -134,6 +134,103 @@ Deno.serve(async (req) => {
 
     console.log(`Updated ${signalIds.length} signals to published`)
 
+    // Sync trade_signals + user_performances for each published signal
+    // This ensures the Python price fetcher picks up mentor positions
+    for (const signal of pendingSignals) {
+      const { data: expertRow } = await supabaseAdmin
+        .from('experts')
+        .select('user_id')
+        .eq('id', signal.expert_id)
+        .single()
+
+      if (!expertRow?.user_id) continue
+
+      const stockCode = signal.instrument.split(' ')[0]?.trim()
+      const stockName = signal.instrument.split(' ').slice(1).join(' ')?.trim() || null
+      const entryPrice = signal.price_hint || 0
+
+      if (signal.action === 'exit') {
+        await supabaseAdmin
+          .from('trade_signals')
+          .update({ status: 'closed', closed_at: new Date().toISOString() })
+          .eq('user_id', expertRow.user_id)
+          .eq('symbol', stockCode)
+          .eq('status', 'open')
+
+        await supabaseAdmin
+          .from('user_performances')
+          .delete()
+          .eq('user_id', expertRow.user_id)
+          .eq('symbol', stockCode)
+
+      } else if (signal.action === 'sell' || signal.action === 'trim') {
+        // Check if any open trade_records remain after trigger
+        const { data: remaining } = await supabaseAdmin
+          .from('trade_records')
+          .select('id')
+          .eq('expert_id', signal.expert_id)
+          .ilike('instrument', `${stockCode}%`)
+          .eq('status', 'open')
+          .limit(1)
+
+        if (!remaining || remaining.length === 0) {
+          await supabaseAdmin
+            .from('trade_signals')
+            .update({ status: 'closed', closed_at: new Date().toISOString() })
+            .eq('user_id', expertRow.user_id)
+            .eq('symbol', stockCode)
+            .eq('status', 'open')
+
+          await supabaseAdmin
+            .from('user_performances')
+            .delete()
+            .eq('user_id', expertRow.user_id)
+            .eq('symbol', stockCode)
+        }
+
+      } else {
+        // buy / add: ensure trade_signals entry exists
+        const { data: existing } = await supabaseAdmin
+          .from('trade_signals')
+          .select('id')
+          .eq('user_id', expertRow.user_id)
+          .eq('symbol', stockCode)
+          .eq('status', 'open')
+          .limit(1)
+
+        if (!existing || existing.length === 0) {
+          const { data: tsData } = await supabaseAdmin
+            .from('trade_signals')
+            .insert({
+              user_id: expertRow.user_id,
+              symbol: stockCode,
+              name: stockName,
+              entry_price: entryPrice,
+              status: 'open',
+            })
+            .select('id')
+            .single()
+
+          if (tsData) {
+            await supabaseAdmin
+              .from('user_performances')
+              .insert({
+                user_id: expertRow.user_id,
+                signal_id: tsData.id,
+                symbol: stockCode,
+                name: stockName,
+                entry_price: entryPrice,
+                current_price: entryPrice,
+                pnl: 0,
+                pnl_percent: 0,
+              })
+          }
+        }
+      }
+    }
+
+    console.log('Trade signals synced for all published mentor signals')
+
     // Group by expert_id for LINE push
     const byExpert = new Map<string, typeof pendingSignals>()
     for (const signal of pendingSignals) {
