@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
 
     const { data: expiringSubs, error: subErr } = await supabaseAdmin
       .from('member_subscriptions')
-      .select('id, user_id, plan_id, expires_at, expert_plans!inner(id, expert_id, name, experts!inner(id, name))')
+      .select('id, user_id, plan_id, expires_at, expert_plans!inner(id, expert_id, name, price_monthly, experts!inner(id, name))')
       .eq('status', 'active')
       .gte('expires_at', sevenDaysFromNow.toISOString())
       .lt('expires_at', eightDaysFromNow.toISOString())
