@@ -144,7 +144,7 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
         const weekdays = getCurrentWeekdays();
         return weekdays.map(key => {
           const parts = key.split('/');
-          const displayLabel = `${parts[1]}/${parts[2]}`;
+          const displayLabel = `${parts[0]}/${parts[1]}/${parts[2]}`;
           const stocks = buckets.get(key) || [];
           const returnPct = stocks.reduce((sum, s) => sum + s.returnPct, 0);
           const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
