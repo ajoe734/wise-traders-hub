@@ -188,7 +188,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
                       <stop offset="95%" stopColor={chartColors.gradientEnd} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} angle={-45} textAnchor="end" interval={0} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} angle={period === 'monthly' ? -45 : 0} textAnchor={period === 'monthly' ? 'end' : 'middle'} interval={0} />
                   <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
                   <Tooltip content={<CustomTooltip />} />
                   {returnCurve.length > 0 && (
