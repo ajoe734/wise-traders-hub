@@ -130,74 +130,113 @@ const AdminPerformance = () => {
         .eq('expert_id', expertId)
         .eq('status', 'open');
 
+      // 1b. 取得 trade_signals (open) — 用於 pending 週記尚無 trade_records 的持倉
+      const { data: tsData } = await supabase
+        .from('trade_signals')
+        .select('id, symbol, name, entry_price, status')
+        .eq('user_id', user.id)
+        .eq('status', 'open');
+
       // 2. 取得 user_performances 的即時數據
       const { data: perfData } = await supabase
         .from('user_performances')
-        .select('symbol, current_price, pnl, pnl_percent')
+        .select('symbol, current_price, pnl, pnl_percent, entry_price')
         .eq('user_id', user.id);
 
       // Build a lookup map from user_performances by symbol
-      const perfMap = new Map<string, { current_price: number | null; pnl: number | null; pnl_percent: number | null }>();
+      const perfMap = new Map<string, { current_price: number | null; pnl: number | null; pnl_percent: number | null; entry_price: number | null }>();
       (perfData || []).forEach(p => {
         perfMap.set(p.symbol, {
           current_price: p.current_price ? Number(p.current_price) : null,
           pnl: p.pnl ? Number(p.pnl) : null,
           pnl_percent: p.pnl_percent ? Number(p.pnl_percent) : null,
+          entry_price: p.entry_price ? Number(p.entry_price) : null,
         });
       });
 
+      // Collect all symbols from trade_records
+      const tradeSymbols = new Set((tradeData || []).map(r => r.instrument.split(' ')[0]));
+
       // 3. Fallback: 如果 user_performances 沒有資料，從 current_prices 撈最後報價
-      const symbolsWithoutPerf = (tradeData || [])
-        .map(r => r.instrument.split(' ')[0])
-        .filter(sym => !perfMap.has(sym));
+      const allSymbols = [...tradeSymbols, ...(tsData || []).map(t => t.symbol)];
+      const symbolsWithoutPerf = allSymbols.filter(sym => !perfMap.has(sym));
 
       if (symbolsWithoutPerf.length > 0) {
         const { data: priceData } = await supabase
           .from('current_prices')
           .select('symbol, price')
-          .in('symbol', symbolsWithoutPerf);
+          .in('symbol', [...new Set(symbolsWithoutPerf)]);
 
         (priceData || []).forEach(p => {
           if (p.price != null) {
             perfMap.set(p.symbol, {
               current_price: Number(p.price),
-              pnl: null, // 會在下方根據 entry_price 計算
+              pnl: null,
               pnl_percent: null,
+              entry_price: null,
             });
           }
         });
       }
 
-      setRows(
-        (tradeData || []).map(r => {
-          const parts = r.instrument.split(' ');
-          const symbol = parts[0] || r.instrument;
-          const name = parts.slice(1).join(' ') || null;
-          const perf = perfMap.get(symbol);
-          const entryPrice = r.entry_price ? Number(r.entry_price) : null;
-          const curPrice = perf?.current_price ?? (r.current_price ? Number(r.current_price) : null);
-          // 計算 pnl/pnl_percent: 優先用 user_performances 的值，否則用 current_prices fallback 自行計算
+      // Build rows from trade_records
+      const trRows = (tradeData || []).map(r => {
+        const parts = r.instrument.split(' ');
+        const symbol = parts[0] || r.instrument;
+        const name = parts.slice(1).join(' ') || null;
+        const perf = perfMap.get(symbol);
+        const entryPrice = r.entry_price ? Number(r.entry_price) : null;
+        const curPrice = perf?.current_price ?? (r.current_price ? Number(r.current_price) : null);
+        let pnl = perf?.pnl ?? null;
+        let pnlPct = perf?.pnl_percent ?? (r.pnl_percent ? Number(r.pnl_percent) : null);
+        if (pnl == null && curPrice != null && entryPrice != null && entryPrice > 0) {
+          pnl = Math.round((curPrice - entryPrice) * 1000) / 1000;
+          pnlPct = Math.round(((curPrice - entryPrice) / entryPrice) * 10000) / 100;
+        }
+        return {
+          id: r.id,
+          instrument: r.instrument,
+          symbol,
+          name,
+          entry_price: entryPrice,
+          current_price: curPrice,
+          pnl,
+          pnl_percent: pnlPct,
+          quantity: r.quantity ?? 1,
+          quantity_unit: r.quantity_unit || '張',
+          status: r.status,
+        };
+      });
+
+      // 4. Merge trade_signals rows that don't exist in trade_records (pending mentor signals)
+      const tsRows = (tsData || [])
+        .filter(t => !tradeSymbols.has(t.symbol))
+        .map(t => {
+          const perf = perfMap.get(t.symbol);
+          const entryPrice = t.entry_price ? Number(t.entry_price) : (perf?.entry_price ?? null);
+          const curPrice = perf?.current_price ?? null;
           let pnl = perf?.pnl ?? null;
-          let pnlPct = perf?.pnl_percent ?? (r.pnl_percent ? Number(r.pnl_percent) : null);
+          let pnlPct = perf?.pnl_percent ?? null;
           if (pnl == null && curPrice != null && entryPrice != null && entryPrice > 0) {
             pnl = Math.round((curPrice - entryPrice) * 1000) / 1000;
             pnlPct = Math.round(((curPrice - entryPrice) / entryPrice) * 10000) / 100;
           }
           return {
-            id: r.id,
-            instrument: r.instrument,
-            symbol,
-            name,
+            id: `ts-${t.id}`,
+            instrument: `${t.symbol} ${t.name || ''}`.trim(),
+            symbol: t.symbol,
+            name: t.name || null,
             entry_price: entryPrice,
             current_price: curPrice,
             pnl,
             pnl_percent: pnlPct,
-            quantity: r.quantity ?? 1,
-            quantity_unit: r.quantity_unit || '張',
-            status: r.status,
+            quantity: 1,
+            quantity_unit: '張',
+            status: 'open',
           };
-        }),
-      );
+        });
+
+      setRows([...trRows, ...tsRows]);
       setLoading(false);
     };
 
