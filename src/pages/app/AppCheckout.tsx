@@ -496,15 +496,15 @@ const AppCheckout = () => {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
-                {resultDialog?.success ? <><CheckCircle2 className="h-5 w-5 text-green-500" />訂閱成功</> : <><XCircle className="h-5 w-5 text-destructive" />訂閱失敗</>}
+                {resultDialog?.success ? <><CheckCircle2 className="h-5 w-5 text-green-500" />訂閱成功</> : pendingTimeout ? <><Loader2 className="h-5 w-5 animate-spin text-amber-500" />確認中</> : <><XCircle className="h-5 w-5 text-destructive" />訂閱失敗</>}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {resultDialog?.success ? <span>您已成功訂閱 <strong>{planData.name}</strong>。</span> : <span>付款過程中發生問題，請稍後再試。</span>}
+                {resultDialog?.success ? <span>您已成功訂閱 <strong>{planData.name}</strong>。</span> : pendingTimeout ? <span>付款結果確認中，請前往帳號頁查看訂閱狀態。若已扣款但未顯示訂閱，請稍候數分鐘後重新檢查。</span> : <span>付款過程中發生問題，請稍後再試。</span>}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogAction onClick={() => { setResultDialog(null); if (resultDialog?.success) navigate("/app"); }}>
-                {resultDialog?.success ? "前往戰情室" : "關閉"}
+              <AlertDialogAction onClick={() => { setResultDialog(null); setPendingTimeout(false); if (resultDialog?.success || pendingTimeout) navigate("/app/account"); else navigate("/app"); }}>
+                {resultDialog?.success ? "前往戰情室" : pendingTimeout ? "前往帳號頁確認" : "關閉"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
