@@ -197,17 +197,23 @@ const Account = () => {
     try {
       const sub = subscriptions.find(s => s.id === subId);
       const refund = sub ? calcRefund(sub) : null;
-      const endOfMonth = getEndOfMonth();
 
-      // Keep status 'active' so service continues until month end
-      // Set auto_renew=false and canceled_at to mark as canceled
+      // ISSUE-019: Monthly → keep original expires_at (subscription cycle end), don't override to calendar month end
+      // Yearly → set to end of current month (immediate stop, refund remaining)
+      const updatePayload: any = {
+        auto_renew: false,
+        canceled_at: new Date().toISOString(),
+      };
+
+      if (refund?.isYearly) {
+        // Yearly: terminate at end of current calendar month
+        updatePayload.expires_at = getEndOfMonth();
+      }
+      // Monthly: don't touch expires_at — let it expire naturally at cycle end
+
       const { error } = await supabase
         .from('member_subscriptions')
-        .update({
-          auto_renew: false,
-          canceled_at: new Date().toISOString(),
-          expires_at: endOfMonth,
-        })
+        .update(updatePayload)
         .eq('id', subId)
         .eq('user_id', user!.id);
 
