@@ -46,8 +46,27 @@ const AppCheckout = () => {
   const acpaySdkLoaded = useRef(false);
   const acpayFieldsRef = useRef<any>(null);
 
+  const [existingSubscription, setExistingSubscription] = useState<boolean | null>(null);
+
   const { data: planData, isLoading } = usePlan(planId);
   const expert = planData?.experts as any;
+
+  // ISSUE-006: Check for existing active subscription
+  useEffect(() => {
+    const checkExisting = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !planId) return;
+      const { data } = await supabase
+        .from('member_subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('plan_id', planId)
+        .eq('status', 'active')
+        .maybeSingle();
+      setExistingSubscription(!!data);
+    };
+    checkExisting();
+  }, [planId]);
 
   // Load ACpay JS SDK when acpay is selected
   useEffect(() => {
