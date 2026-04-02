@@ -63,6 +63,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // BUG-025: Idempotency check — skip if already refunded
+    const { data: existingRefund } = await adminClient
+      .from("payment_transactions")
+      .select("id")
+      .eq("subscription_id", subscription_id)
+      .eq("status", "refunded")
+      .limit(1);
+
+    if (existingRefund && existingRefund.length > 0) {
+      return new Response(JSON.stringify({ success: true, message: "已退款", refund_amount: refund_amount }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Look up original payment transaction
     const { data: originalTx } = await adminClient
       .from("payment_transactions")

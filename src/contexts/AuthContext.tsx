@@ -142,7 +142,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setIsLoading(false);
-      return { success: false, error: error.message };
+      // Map Supabase English errors to Chinese
+      const errorMap: Record<string, string> = {
+        'Invalid login credentials': '帳號或密碼錯誤，請重新輸入',
+        'Email not confirmed': '請先到信箱點擊驗證連結，再嘗試登入',
+        'Invalid email or password': '帳號或密碼錯誤，請重新輸入',
+        'Too many requests': '嘗試次數過多，請稍後再試',
+        'User not found': '帳號或密碼錯誤，請重新輸入',
+      };
+      const zhError = errorMap[error.message] || '登入失敗，請稍後再試';
+      return { success: false, error: zhError };
     }
     // Profile loading happens via onAuthStateChange — force reload for new login
     return { success: true };
@@ -157,7 +166,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: window.location.origin,
       },
     });
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      const regErrorMap: Record<string, string> = {
+        'User already registered': '此電子郵件已註冊，請直接登入',
+        'Password should be at least 6 characters': '密碼至少需要 6 個字元',
+        'Unable to validate email address: invalid format': '電子郵件格式不正確',
+      };
+      return { success: false, error: regErrorMap[error.message] || '註冊失敗，請稍後再試' };
+    }
     return { success: true };
   };
 

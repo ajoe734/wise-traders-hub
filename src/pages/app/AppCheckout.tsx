@@ -33,6 +33,7 @@ const AppCheckout = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean } | null>(null);
+  const [pendingTimeout, setPendingTimeout] = useState(false);
 
   // ACpay cardholder form fields
   const [cardHolderName, setCardHolderName] = useState("");
@@ -133,21 +134,43 @@ const AppCheckout = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       const { data: existing } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
-      if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); return; }
+      if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); setIsConfirming(false); return; }
+      // Realtime + Polling dual guarantee
+      let resolved = false;
       const channel = supabase
         .channel('ecpay-app-confirm')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'member_subscriptions', filter: `user_id=eq.${user.id}` }, (payload) => {
           const row = payload.new as any;
-          if (row.plan_id === planId && row.status === 'active') {
+          if (row.plan_id === planId && row.status === 'active' && !resolved) {
+            resolved = true;
+            clearInterval(pollTimer);
             setIsConfirming(false);
             setResultDialog({ open: true, success: true });
           }
         })
         .subscribe();
+      // Polling fallback every 5 seconds
+      const pollTimer = setInterval(async () => {
+        if (resolved) { clearInterval(pollTimer); return; }
+        const { data: polled } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
+        if (polled && polled.length > 0 && !resolved) {
+          resolved = true;
+          clearInterval(pollTimer);
+          supabase.removeChannel(channel);
+          setIsConfirming(false);
+          setResultDialog({ open: true, success: true });
+        }
+      }, 5000);
+      // 60s timeout — show "pending" not "failed"
       setTimeout(() => {
+        clearInterval(pollTimer);
         supabase.removeChannel(channel);
-        setIsConfirming(false);
-        setResultDialog({ open: true, success: false });
+        if (!resolved) {
+          setIsConfirming(false);
+          setResultDialog({ open: true, success: false });
+          // Override the dialog message via a special flag
+          setPendingTimeout(true);
+        }
       }, 60000);
     } catch { setIsConfirming(false); setResultDialog({ open: true, success: false }); }
   };
@@ -179,21 +202,39 @@ const AppCheckout = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       const { data: existing } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
-      if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); return; }
+      if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); setIsConfirming(false); return; }
+      let resolved = false;
       const channel = supabase
         .channel('acpay-app-confirm')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'member_subscriptions', filter: `user_id=eq.${user.id}` }, (payload) => {
           const row = payload.new as any;
-          if (row.plan_id === planId && row.status === 'active') {
+          if (row.plan_id === planId && row.status === 'active' && !resolved) {
+            resolved = true;
+            clearInterval(pollTimer);
             setIsConfirming(false);
             setResultDialog({ open: true, success: true });
           }
         })
         .subscribe();
+      const pollTimer = setInterval(async () => {
+        if (resolved) { clearInterval(pollTimer); return; }
+        const { data: polled } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
+        if (polled && polled.length > 0 && !resolved) {
+          resolved = true;
+          clearInterval(pollTimer);
+          supabase.removeChannel(channel);
+          setIsConfirming(false);
+          setResultDialog({ open: true, success: true });
+        }
+      }, 5000);
       setTimeout(() => {
+        clearInterval(pollTimer);
         supabase.removeChannel(channel);
-        setIsConfirming(false);
-        setResultDialog({ open: true, success: false });
+        if (!resolved) {
+          setIsConfirming(false);
+          setResultDialog({ open: true, success: false });
+          setPendingTimeout(true);
+        }
       }, 60000);
     } catch { setIsConfirming(false); setResultDialog({ open: true, success: false }); }
   };
@@ -455,15 +496,15 @@ const AppCheckout = () => {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
-                {resultDialog?.success ? <><CheckCircle2 className="h-5 w-5 text-green-500" />訂閱成功</> : <><XCircle className="h-5 w-5 text-destructive" />訂閱失敗</>}
+                {resultDialog?.success ? <><CheckCircle2 className="h-5 w-5 text-green-500" />訂閱成功</> : pendingTimeout ? <><Loader2 className="h-5 w-5 animate-spin text-amber-500" />確認中</> : <><XCircle className="h-5 w-5 text-destructive" />訂閱失敗</>}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {resultDialog?.success ? <span>您已成功訂閱 <strong>{planData.name}</strong>。</span> : <span>付款過程中發生問題，請稍後再試。</span>}
+                {resultDialog?.success ? <span>您已成功訂閱 <strong>{planData.name}</strong>。</span> : pendingTimeout ? <span>付款結果確認中，請前往帳號頁查看訂閱狀態。若已扣款但未顯示訂閱，請稍候數分鐘後重新檢查。</span> : <span>付款過程中發生問題，請稍後再試。</span>}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogAction onClick={() => { setResultDialog(null); if (resultDialog?.success) navigate("/app"); }}>
-                {resultDialog?.success ? "前往戰情室" : "關閉"}
+              <AlertDialogAction onClick={() => { setResultDialog(null); setPendingTimeout(false); if (resultDialog?.success || pendingTimeout) navigate("/app/account"); else navigate("/app"); }}>
+                {resultDialog?.success ? "前往戰情室" : pendingTimeout ? "前往帳號頁確認" : "關閉"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

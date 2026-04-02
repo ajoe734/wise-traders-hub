@@ -22,7 +22,13 @@ const Login = () => {
   useEffect(() => {
     if (!pendingRedirect || !isAuthenticated || !user) return;
 
-    if (hasRole('company_admin')) {
+    // Check sessionStorage for redirect target (survives page refresh)
+    const savedRedirect = sessionStorage.getItem('redirect_after_login');
+    sessionStorage.removeItem('redirect_after_login');
+
+    if (savedRedirect) {
+      navigate(savedRedirect, { replace: true });
+    } else if (hasRole('company_admin')) {
       navigate('/company', { replace: true });
     } else if (user.expertSlug) {
       navigate(`/admin/${user.expertSlug}`, { replace: true });
