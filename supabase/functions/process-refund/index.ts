@@ -89,12 +89,17 @@ Deno.serve(async (req) => {
     // Look up original payment transaction
     const { data: originalTx } = await adminClient
       .from("payment_transactions")
-      .select("id, provider_id, provider_tx_id")
+      .select("id, provider_id, provider_tx_id, amount")
       .eq("subscription_id", subscription_id)
       .eq("status", "paid")
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
+
+    // ISSUE-008: Cap refund at original paid amount
+    const cappedRefundAmount = originalTx?.amount
+      ? Math.min(Math.abs(refund_amount), Math.abs(originalTx.amount))
+      : Math.abs(refund_amount);
 
     // Insert refund record
     const { error: txError } = await adminClient
