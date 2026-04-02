@@ -31,6 +31,7 @@ const AppCheckout = () => {
   );
   const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay" | "acpay">("line_pay");
   const [isProcessing, setIsProcessing] = useState(false);
+  const processingLockRef = useRef(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean } | null>(null);
   const [pendingTimeout, setPendingTimeout] = useState(false);
@@ -259,12 +260,18 @@ const AppCheckout = () => {
   };
 
   const handleCheckout = async () => {
+    // NEW-004: Ref-based lock prevents double submission even if React state lags
+    if (processingLockRef.current) return;
+    processingLockRef.current = true;
     setIsProcessing(true);
     try {
       if (paymentMethod === "ecpay") { await handleEcpayCheckout(); }
       else if (paymentMethod === "acpay") { await handleAcpayCheckout(); }
       else { await handleLinePayCheckout(); }
-    } catch { setResultDialog({ open: true, success: false }); } finally { setIsProcessing(false); }
+    } catch { setResultDialog({ open: true, success: false }); } finally {
+      setIsProcessing(false);
+      processingLockRef.current = false;
+    }
   };
 
   const handleLinePayCheckout = async () => {
