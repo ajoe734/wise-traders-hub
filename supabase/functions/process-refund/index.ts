@@ -47,6 +47,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ISSUE-008: Server-side validation — refund must not exceed original paid amount
+    if (refund_amount < 0) {
+      return new Response(JSON.stringify({ error: "Invalid refund amount" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const adminClient = createClient(supabaseUrl, serviceKey);
 
     // Verify the subscription belongs to this user
