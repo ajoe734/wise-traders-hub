@@ -22,7 +22,7 @@ const CompanyRevenue = () => {
     const [{ data: exp }, { data: tx }, { data: subs }] = await Promise.all([
       supabase.from('experts').select('*').order('name'),
       supabase.from('payment_transactions').select('*, payment_providers(display_name)').eq('status', 'paid'),
-      supabase.from('member_subscriptions').select('*, expert_plans(expert_id, name, price_monthly)').eq('status', 'active'),
+      supabase.from('member_subscriptions').select('*, expert_plans(expert_id, name, price_monthly)').eq('status', 'active').eq('auto_renew', true),
     ]);
     setExperts(exp || []);
     setTransactions(tx || []);
