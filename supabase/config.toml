@@ -33,10 +33,16 @@ verify_jwt = false
 [functions.create-acpay-order]
 verify_jwt = false
 
-[functions.acpay-callback]
+[functions.acpay-notify]
 verify_jwt = false
 
-[functions.confirm-acpay]
+[functions.acpay-recurring-notify]
+verify_jwt = false
+
+[functions.acpay-recurring-manage]
+verify_jwt = false
+
+[functions.acpay-refund]
 verify_jwt = false
 
 [functions.data-upsert]
