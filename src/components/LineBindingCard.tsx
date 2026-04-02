@@ -72,6 +72,13 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
     setGenerating(true);
 
     try {
+      // ISSUE-010: Delete old codes for same (user_id, expert_id) before generating new one
+      await supabase
+        .from('line_binding_codes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('expert_id', expertId);
+
       // Generate a 6-char alphanumeric code
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let code = '';

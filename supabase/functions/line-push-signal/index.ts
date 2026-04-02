@@ -237,10 +237,10 @@ async function getTargets(supabaseAdmin: any, expert_id: string) {
 
   const bindingUserIds = bindings.map((b: any) => b.user_id)
 
-  // Get all subscriptions (active) for these users
+  // ISSUE-011: Get subscriptions that are active AND not yet expired
   const { data: activeSubs } = await supabaseAdmin
     .from('member_subscriptions')
-    .select('user_id, plan_id, canceled_at')
+    .select('user_id, plan_id, canceled_at, expires_at')
     .in('user_id', bindingUserIds)
     .eq('status', 'active')
 
@@ -250,9 +250,16 @@ async function getTargets(supabaseAdmin: any, expert_id: string) {
     .eq('expert_id', expert_id)
 
   const expertPlanIds = new Set((expertPlans || []).map((p: any) => p.id))
+  const now = new Date().toISOString()
 
-  // Split: subscribed (active + not canceled) vs canceled (active + canceled_at set)
-  const relevantSubs = (activeSubs || []).filter((s: any) => expertPlanIds.has(s.plan_id))
+  // Filter: must belong to this expert's plans AND not expired
+  const relevantSubs = (activeSubs || []).filter((s: any) => {
+    if (!expertPlanIds.has(s.plan_id)) return false
+    // ISSUE-011: Check expires_at — if set, must be in the future
+    if (s.expires_at && s.expires_at < now) return false
+    return true
+  })
+
   const subscribedUserIds = new Set(relevantSubs.filter((s: any) => !s.canceled_at).map((s: any) => s.user_id))
   const canceledUserIds = new Set(relevantSubs.filter((s: any) => s.canceled_at).map((s: any) => s.user_id))
 

@@ -254,6 +254,30 @@ const AdminSignals = () => {
     }
 
     const latestName = stockName.trim();
+
+    // ISSUE-014: Validate open position exists for ADD/TRIM/EXIT actions
+    if (['add', 'trim', 'sell', 'exit'].includes(action)) {
+      const instrumentSearch = latestName ? `${stockCode.trim()} ${latestName}` : stockCode.trim();
+      const { data: openPos } = await supabase
+        .from('trade_records')
+        .select('id, quantity')
+        .eq('expert_id', expert.id)
+        .ilike('instrument', `${stockCode.trim()}%`)
+        .eq('status', 'open')
+        .limit(1)
+        .maybeSingle();
+
+      if (!openPos) {
+        toast.error(`尚無 ${stockCode.trim()} 的未平倉部位，無法執行${action === 'add' ? '加碼' : action === 'exit' ? '平損' : '減碼'}操作`);
+        return;
+      }
+
+      // Check trim/sell quantity doesn't exceed holding
+      if (['trim', 'sell'].includes(action) && parseInt(quantity) > openPos.quantity) {
+        toast.error(`減碼數量 (${quantity}) 超過持倉量 (${openPos.quantity})`);
+        return;
+      }
+    }
     const latestPrice = priceHint;
 
     const instrument = latestName ? `${stockCode.trim()} ${latestName}` : stockCode.trim();

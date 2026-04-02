@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
       console.error("Failed to insert audit log:", auditError);
     }
 
-    return new Response(JSON.stringify({ success: true, refund_amount }), {
+    return new Response(JSON.stringify({ success: true, refund_amount: cappedRefundAmount }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
