@@ -46,8 +46,27 @@ const AppCheckout = () => {
   const acpaySdkLoaded = useRef(false);
   const acpayFieldsRef = useRef<any>(null);
 
+  const [existingSubscription, setExistingSubscription] = useState<boolean | null>(null);
+
   const { data: planData, isLoading } = usePlan(planId);
   const expert = planData?.experts as any;
+
+  // ISSUE-006: Check for existing active subscription
+  useEffect(() => {
+    const checkExisting = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !planId) return;
+      const { data } = await supabase
+        .from('member_subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('plan_id', planId)
+        .eq('status', 'active')
+        .maybeSingle();
+      setExistingSubscription(!!data);
+    };
+    checkExisting();
+  }, [planId]);
 
   // Load ACpay JS SDK when acpay is selected
   useEffect(() => {
@@ -486,7 +505,17 @@ const AppCheckout = () => {
           </Card>
         )}
 
-        <Button className="w-full h-12 text-base" onClick={handleCheckout} disabled={isProcessing}>
+        {existingSubscription && (
+          <Card className="border-amber-400 bg-amber-50 dark:bg-amber-950/30">
+            <CardContent className="p-4 text-center">
+              <p className="font-semibold text-amber-700 dark:text-amber-400">您已訂閱此方案</p>
+              <p className="text-sm text-muted-foreground mt-1">如需變更，請前往帳號頁管理訂閱</p>
+              <Button variant="outline" className="mt-3" onClick={() => navigate("/app/account")}>前往帳號頁</Button>
+            </CardContent>
+          </Card>
+        )}
+
+        <Button className="w-full h-12 text-base" onClick={handleCheckout} disabled={isProcessing || existingSubscription === true}>
           {isProcessing ? <span className="flex items-center gap-2"><span className="animate-spin">⏳</span>處理中...</span> : <span className="flex items-center gap-2"><Lock className="h-4 w-4" />{paymentMethod === "line_pay" ? "LINE Pay 付款" : paymentMethod === "ecpay" ? "綠界付款" : "ACpay 付款"}</span>}
         </Button>
 

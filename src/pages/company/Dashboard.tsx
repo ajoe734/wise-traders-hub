@@ -28,7 +28,8 @@ const CompanyDashboard = () => {
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('expert_plans').select('*', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published'),
-      supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active'),
+      // ISSUE-021: MRR only counts auto_renew=true subscriptions (excludes canceled)
+      supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active').eq('auto_renew', true),
       supabase.from('payment_transactions').select('amount').eq('status', 'paid').gte('paid_at', monthStart),
     ]);
 

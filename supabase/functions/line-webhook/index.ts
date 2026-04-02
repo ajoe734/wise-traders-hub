@@ -88,7 +88,25 @@ Deno.serve(async (req) => {
           continue
         }
 
-        // Look up valid binding code
+        // ISSUE-009: First check if code exists for ANY expert (to detect wrong OA)
+        const { data: anyCode } = await supabase
+          .from('line_binding_codes')
+          .select('expert_id')
+          .eq('code', rawText)
+          .eq('used', false)
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle()
+
+        if (anyCode && anyCode.expert_id !== expertId) {
+          await replyMessage(
+            event.replyToken,
+            channel.channel_access_token,
+            '此驗證碼不屬於本頻道，請確認您傳送到正確的 LINE 官方帳號。',
+          )
+          continue
+        }
+
+        // Look up valid binding code for this expert
         const { data: bindingCode } = await supabase
           .from('line_binding_codes')
           .select('*')

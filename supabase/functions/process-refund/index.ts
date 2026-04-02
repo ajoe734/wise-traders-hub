@@ -47,6 +47,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ISSUE-008: Server-side validation — refund must not exceed original paid amount
+    if (refund_amount < 0) {
+      return new Response(JSON.stringify({ error: "Invalid refund amount" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const adminClient = createClient(supabaseUrl, serviceKey);
 
     // Verify the subscription belongs to this user
@@ -81,19 +89,24 @@ Deno.serve(async (req) => {
     // Look up original payment transaction
     const { data: originalTx } = await adminClient
       .from("payment_transactions")
-      .select("id, provider_id, provider_tx_id")
+      .select("id, provider_id, provider_tx_id, amount")
       .eq("subscription_id", subscription_id)
       .eq("status", "paid")
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
 
-    // Insert refund record
+    // ISSUE-008: Cap refund at original paid amount
+    const cappedRefundAmount = originalTx?.amount
+      ? Math.min(Math.abs(refund_amount), Math.abs(originalTx.amount))
+      : Math.abs(refund_amount);
+
+    // Insert refund record (capped amount)
     const { error: txError } = await adminClient
       .from("payment_transactions")
       .insert({
         subscription_id,
-        amount: -Math.abs(refund_amount),
+        amount: -cappedRefundAmount,
         status: "refunded",
         paid_at: new Date().toISOString(),
         provider_id: originalTx?.provider_id || null,
@@ -131,7 +144,7 @@ Deno.serve(async (req) => {
       console.error("Failed to insert audit log:", auditError);
     }
 
-    return new Response(JSON.stringify({ success: true, refund_amount }), {
+    return new Response(JSON.stringify({ success: true, refund_amount: cappedRefundAmount }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
