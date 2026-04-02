@@ -31,6 +31,7 @@ const AppCheckout = () => {
   );
   const [paymentMethod, setPaymentMethod] = useState<"line_pay" | "ecpay" | "acpay">("line_pay");
   const [isProcessing, setIsProcessing] = useState(false);
+  const processingLockRef = useRef(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean } | null>(null);
   const [pendingTimeout, setPendingTimeout] = useState(false);
