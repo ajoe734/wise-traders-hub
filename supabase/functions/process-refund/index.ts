@@ -101,12 +101,12 @@ Deno.serve(async (req) => {
       ? Math.min(Math.abs(refund_amount), Math.abs(originalTx.amount))
       : Math.abs(refund_amount);
 
-    // Insert refund record
+    // Insert refund record (capped amount)
     const { error: txError } = await adminClient
       .from("payment_transactions")
       .insert({
         subscription_id,
-        amount: -Math.abs(refund_amount),
+        amount: -cappedRefundAmount,
         status: "refunded",
         paid_at: new Date().toISOString(),
         provider_id: originalTx?.provider_id || null,
