@@ -201,21 +201,39 @@ const AppCheckout = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       const { data: existing } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
-      if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); return; }
+      if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); setIsConfirming(false); return; }
+      let resolved = false;
       const channel = supabase
         .channel('acpay-app-confirm')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'member_subscriptions', filter: `user_id=eq.${user.id}` }, (payload) => {
           const row = payload.new as any;
-          if (row.plan_id === planId && row.status === 'active') {
+          if (row.plan_id === planId && row.status === 'active' && !resolved) {
+            resolved = true;
+            clearInterval(pollTimer);
             setIsConfirming(false);
             setResultDialog({ open: true, success: true });
           }
         })
         .subscribe();
+      const pollTimer = setInterval(async () => {
+        if (resolved) { clearInterval(pollTimer); return; }
+        const { data: polled } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
+        if (polled && polled.length > 0 && !resolved) {
+          resolved = true;
+          clearInterval(pollTimer);
+          supabase.removeChannel(channel);
+          setIsConfirming(false);
+          setResultDialog({ open: true, success: true });
+        }
+      }, 5000);
       setTimeout(() => {
+        clearInterval(pollTimer);
         supabase.removeChannel(channel);
-        setIsConfirming(false);
-        setResultDialog({ open: true, success: false });
+        if (!resolved) {
+          setIsConfirming(false);
+          setResultDialog({ open: true, success: false });
+          setPendingTimeout(true);
+        }
       }, 60000);
     } catch { setIsConfirming(false); setResultDialog({ open: true, success: false }); }
   };
