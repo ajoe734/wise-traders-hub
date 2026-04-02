@@ -33,6 +33,7 @@ const AppCheckout = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean } | null>(null);
+  const [pendingTimeout, setPendingTimeout] = useState(false);
 
   // ACpay cardholder form fields
   const [cardHolderName, setCardHolderName] = useState("");
