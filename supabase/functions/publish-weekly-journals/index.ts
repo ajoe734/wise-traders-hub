@@ -276,9 +276,10 @@ Deno.serve(async (req) => {
       const bindingUserIds = bindings.map((b: any) => b.user_id)
       const { data: activeSubs } = await supabaseAdmin
         .from('member_subscriptions')
-        .select('user_id, plan_id, canceled_at')
+        .select('user_id, plan_id, canceled_at, expires_at')
         .in('user_id', bindingUserIds)
         .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
 
       const { data: expertPlans } = await supabaseAdmin
         .from('expert_plans')
