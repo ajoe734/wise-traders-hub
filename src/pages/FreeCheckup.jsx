@@ -1482,8 +1482,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* 反轉追蹤（虧損持股） */}
           {losers.length>0 && (
-            <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.amber}88`}}>
-              <div style={{...lbl,color:C.amber}}>反轉追蹤 · {losers.length}檔等待中</div>
+            <div style={{marginBottom:14,borderLeft:`1px solid ${alpha(C.amber,'20')}`,paddingLeft:12}}>
+              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>反 轉 追 蹤 · {losers.length}檔</div>
               {losers.map(h=>{
                 const rc = (reversalConditions||{})[h.code];
                 const [editing, setEditing] = [
