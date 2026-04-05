@@ -2245,7 +2245,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setTpCode(""); setTpFirm(""); setTpVal("");
             };
             return (
-              <div style={{...card,marginTop:14,borderLeft:`2px solid ${C.teal}66`}}>
+              <div style={{...card,marginTop:14,borderLeft:`2px solid ${alpha(C.teal,'66')}`}}>
                 <div style={lbl}>手動更新目標價</div>
                 <div style={{fontSize:13,color:C.textMute,marginBottom:10,lineHeight:1.6}}>
                   收到新研究報告時，直接在這裡更新。系統會自動計算多家均值。
