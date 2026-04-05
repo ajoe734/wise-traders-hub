@@ -1731,9 +1731,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
               {["全部",...Object.keys(TYPE_COLOR)].map(t=>(
                 <button key={t} onClick={()=>{setFilterType(t);setCalendarExpanded(false);}} style={{
-                  background: filterType===t ? (TYPE_COLOR[t]+"33"||C.subtle) : "transparent",
+                  background: filterType===t ? (alpha(TYPE_COLOR[t]||C.subtle,'33')) : "transparent",
                   color: filterType===t ? (TYPE_COLOR[t]||C.text) : C.textMute,
-                  border:`1px solid ${filterType===t?(TYPE_COLOR[t]+"66"||C.border):C.border}`,
+                  border:`1px solid ${filterType===t?alpha(TYPE_COLOR[t]||C.border,'66'):C.border}`,
                   borderRadius:20,padding:"3px 11px",fontSize:12,fontWeight:500,cursor:"pointer",
                 }}>{t}</button>
               ))}
