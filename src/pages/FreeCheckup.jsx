@@ -2485,8 +2485,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {/* 實際結果（已發生） */}
                     {e.actualNote && (
                       <div style={{
-                        background: isCorrect ? C.oliveBg+"88" : C.upBg+"88",
-                        border:`1px solid ${isCorrect ? C.olive+"44":C.up+"44"}`,
+                        background: isCorrect ? alpha(C.olive,'08') : alpha(C.up,'08'),
+                        border:`1px solid ${isCorrect ? alpha(C.olive,'44'):alpha(C.up,'44')}`,
                         borderRadius:7, padding:"9px 11px", marginTop:8,
                       }}>
                         <div style={{fontSize:11,color: isCorrect?C.olive:C.up,fontWeight:400,marginBottom:3,letterSpacing:"0.06em"}}>
