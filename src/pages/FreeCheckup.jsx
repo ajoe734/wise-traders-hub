@@ -679,7 +679,7 @@ export default function App() {
         }
         setTimeout(() => setSaved(""), 4000);
       } else {
-        setSaved("⚠️ 無法取得報價（可能非交易時間）");
+        setSaved("！無法取得報價（可能非交易時間）");
         setTimeout(() => setSaved(""), 3000);
       }
     } catch (err) {
