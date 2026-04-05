@@ -1552,7 +1552,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         });
                         setEditing(false);
                       }} style={{width:"100%",padding:"8px",borderRadius:6,border:"none",
-                        background:C.olive+"cc",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer"}}>
+                        background:C.olive+"cc",color:C.onFill,fontSize:13,fontWeight:500,cursor:"pointer"}}>
                         儲存反轉條件
                       </button>
                     </div>;
