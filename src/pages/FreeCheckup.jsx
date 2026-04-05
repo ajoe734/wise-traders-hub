@@ -1587,9 +1587,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const muteTag = (text) => (
                 <span key={text} style={{fontSize:9,color:C.textMute,fontWeight:400,opacity:0.6,letterSpacing:"0.04em"}}>{text}</span>
               );
-              const badge = (text, fg, bg) => (
-                <span key={text} style={{fontSize:10,padding:"1px 6px",borderRadius:4,
-                  background:bg,color:fg,fontWeight:500,lineHeight:"16px",letterSpacing:"0.01em"}}>{text}</span>
+              const badge = (text) => (
+                <span key={text} style={{fontSize:9,color:C.textMute,fontWeight:400,opacity:0.6,letterSpacing:"0.04em"}}>{text}</span>
               );
               return (
               <div key={h.code} style={{
