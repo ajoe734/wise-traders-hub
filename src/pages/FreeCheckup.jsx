@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 import { DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS } from "@/checkup/data/demoData";
 import { INIT_HOLDINGS as SEED_HOLDINGS, STOCK_META, IND_COLOR } from "@/checkup/seedData";
-import { C as ThemeC, A, alpha } from "@/checkup/theme";
+import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -55,7 +55,7 @@ const INIT_WATCHLIST = [
 // correct: true/false/null
 
 // 使用統一主題
-const C = ThemeC;
+const C = ThemeL;
 
 const TYPE_COLOR = {
   法說: C.blue,
@@ -115,7 +115,7 @@ const pc    = (p) => p==null ? C.textMute : p>=0 ? C.up : C.down;
 const pcBg  = (p) => p==null ? "transparent" : p>=0 ? C.upBg : C.downBg;
 const fmtN  = (n) => n==null?"—":Math.abs(n)>=10000?(n/10000).toFixed(1)+"萬":n.toLocaleString();
 const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" };
-const lbl   = { fontSize:11, color:C.textMute, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:6 };
+const lbl   = { fontSize:11, color:C.textMute, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:400, marginBottom:6 };
 
 // 所有 pf-* key 的雲端同步 key 清單
 const CLOUD_SYNC_KEYS = [
@@ -1312,7 +1312,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
         textarea::placeholder,input::placeholder{color:${C.textMute}}
         input,textarea,button{font-family:inherit;-webkit-appearance:none}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
         @keyframes progress{0%{width:5%}50%{width:70%}100%{width:95%}}
         @media(max-width:480px){
           body{font-size:14px}
@@ -1337,7 +1336,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
           <div>
             <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.1em",fontWeight:500,marginBottom:4}}>
-              {isDemo && <span style={{background:C.amber+"22",color:C.amber,padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,marginRight:6}}>DEMO</span>}
+              {isDemo && <span style={{background:alpha(C.amber,'22'),color:C.amber,padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,marginRight:6}}>DEMO</span>}
               {lineProfile && <span style={{background:alpha(C.olive,'08'),color:C.olive,padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,marginRight:6}}>{lineProfile.displayName}</span>}
               <span style={{color:cloudSync?C.olive:C.textMute,fontSize:10,letterSpacing:"0.04em"}}>{cloudSync?"雲端":"本地"}</span>
               {saved && <span style={{color:C.olive,marginLeft:6,fontWeight:500,fontSize:12}}>{saved}</span>}
@@ -1345,9 +1344,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:22,fontWeight:500,color:C.text,letterSpacing:"-0.02em"}}>持倉看板</span>
               <button onClick={refreshPrices} disabled={refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)} style={{
-                background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : C.blue+"14",
+                background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : alpha(C.blue,'14'),
                 color: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.textMute : C.blue,
-                border:`1px solid ${(refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.border : C.blue+"33"}`,
+                border:`1px solid ${(refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.border : alpha(C.blue,'33')}`,
                 borderRadius:6, padding:"3px 10px", fontSize:12, fontWeight:500,
                 cursor: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? "not-allowed" : "pointer",
                 transition:"all 0.2s", whiteSpace:"nowrap",
@@ -1499,8 +1498,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
                     <button onClick={()=>setEditing(!editing)} style={{
                       padding:"3px 9px",borderRadius:5,fontSize:12,cursor:"pointer",
-                      background:rc?C.olive+"22":"transparent",
-                      border:`1px solid ${rc?C.olive+"55":C.border}`,
+                      background:rc?alpha(C.olive,'22'):"transparent",
+                      border:`1px solid ${rc?alpha(C.olive,'55'):C.border}`,
                       color:rc?C.olive:C.textMute}}>
                       {rc?"查看條件":"設定反轉條件"}
                     </button>
@@ -1552,7 +1551,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         });
                         setEditing(false);
                       }} style={{width:"100%",padding:"8px",borderRadius:6,border:"none",
-                        background:C.olive+"cc",color:C.onFill,fontSize:13,fontWeight:500,cursor:"pointer"}}>
+                        background:alpha(C.olive,'cc'),color:C.onFill,fontSize:13,fontWeight:500,cursor:"pointer"}}>
                         儲存反轉條件
                       </button>
                     </div>;
@@ -1732,9 +1731,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
               {["全部",...Object.keys(TYPE_COLOR)].map(t=>(
                 <button key={t} onClick={()=>{setFilterType(t);setCalendarExpanded(false);}} style={{
-                  background: filterType===t ? (TYPE_COLOR[t]+"33"||C.subtle) : "transparent",
+                  background: filterType===t ? (alpha(TYPE_COLOR[t]||C.subtle,'33')) : "transparent",
                   color: filterType===t ? (TYPE_COLOR[t]||C.text) : C.textMute,
-                  border:`1px solid ${filterType===t?(TYPE_COLOR[t]+"66"||C.border):C.border}`,
+                  border:`1px solid ${filterType===t?alpha(TYPE_COLOR[t]||C.border,'66'):C.border}`,
                   borderRadius:20,padding:"3px 11px",fontSize:12,fontWeight:500,cursor:"pointer",
                 }}>{t}</button>
               ))}
@@ -2131,14 +2130,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   width:"100%",padding:"13px",borderRadius:10,
                   background: parsing ? C.subtle : C.cardHover,
                   color: parsing ? C.textMute : C.text,
-                  border: `1px solid ${parsing ? C.border : C.amber+"66"}`,
+                  border: `1px solid ${parsing ? C.border : alpha(C.amber,'66')}`,
                   fontSize:15, fontWeight:500, cursor:parsing?"not-allowed":"pointer",
                   letterSpacing:"0.02em"}}>
                   {parsing ? "解析中..." : "解析這筆交易"}
                 </button>
               )}
               {parseErr && <div style={{marginTop:10, background:C.upBg,
-                border:`1px solid ${C.up}44`, borderRadius:10,
+                border:`1px solid ${alpha(C.up,'44')}`, borderRadius:10,
                 padding:12, fontSize:14, color:C.up}}>
                 {parseErr}
               </div>}
@@ -2170,7 +2169,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                 ))}
                 {parsed.targetPriceUpdates?.length>0 && (
-                  <div style={{marginTop:10,background:C.tealBg,border:`1px solid ${C.teal}44`,
+                  <div style={{marginTop:10,background:C.tealBg,border:`1px solid ${alpha(C.teal,'44')}`,
                     borderRadius:7,padding:"8px 10px"}}>
                     <div style={{fontSize:11,color:C.teal,fontWeight:400,marginBottom:4,letterSpacing:"0.04em"}}>
                       偵測到目標價更新
@@ -2185,7 +2184,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 
               </div>
 
-              <div style={{...card,borderLeft:`2px solid ${C.blue}88`}}>
+              <div style={{...card,borderLeft:`2px solid ${alpha(C.blue,'88')}`}}>
                 <div style={lbl}>交易備忘錄</div>
                 {memoAns.map((a,i)=>(
                   <div key={i} style={{marginBottom:12}}>
@@ -2207,7 +2206,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <button onClick={submitMemo} disabled={!memoIn.trim()} style={{
                   width:"100%", padding:"12px", border:"none", borderRadius:8,
                   background: memoIn.trim()
-                    ? (memoStep===qs.length-1 ? C.olive+"cc" : C.blue+"cc")
+                    ? (memoStep===qs.length-1 ? alpha(C.olive,'cc') : alpha(C.blue,'cc'))
                     : C.subtle,
                   color: memoIn.trim() ? "#fff" : C.textMute,
                   fontSize:15, fontWeight:500, cursor:memoIn.trim()?"pointer":"not-allowed",
@@ -2246,7 +2245,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setTpCode(""); setTpFirm(""); setTpVal("");
             };
             return (
-              <div style={{...card,marginTop:14,borderLeft:`2px solid ${C.teal}66`}}>
+              <div style={{...card,marginTop:14,borderLeft:`2px solid ${alpha(C.teal,'66')}`}}>
                 <div style={lbl}>手動更新目標價</div>
                 <div style={{fontSize:13,color:C.textMute,marginBottom:10,lineHeight:1.6}}>
                   收到新研究報告時，直接在這裡更新。系統會自動計算多家均值。
@@ -2279,7 +2278,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   disabled={!tpCode.trim()||!tpVal}
                   style={{
                     width:"100%",padding:"10px",border:"none",borderRadius:8,
-                    background: tpCode.trim()&&tpVal ? C.teal+"cc" : C.subtle,
+                    background: tpCode.trim()&&tpVal ? alpha(C.teal,'cc') : C.subtle,
                     color: tpCode.trim()&&tpVal ? "#fff" : C.textMute,
                     fontSize:14,fontWeight:500,cursor:tpCode.trim()&&tpVal?"pointer":"not-allowed",
                   }}>
@@ -2398,8 +2397,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const open   = expandedNews.has(e.id);
             const isCorrect = e.correct;
             const borderC = e.status==="past"
-              ? (isCorrect===true ? C.olive+"99" : isCorrect===false ? C.up+"99" : C.border)
-              : predC(e.pred)+"55";
+              ? (isCorrect===true ? alpha(C.olive,'99') : isCorrect===false ? alpha(C.up,'99') : C.border)
+              : alpha(predC(e.pred),'55');
 
             return (
               <div
@@ -2486,8 +2485,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {/* 實際結果（已發生） */}
                     {e.actualNote && (
                       <div style={{
-                        background: isCorrect ? C.oliveBg+"88" : C.upBg+"88",
-                        border:`1px solid ${isCorrect ? C.olive+"44":C.up+"44"}`,
+                        background: isCorrect ? alpha(C.olive,'08') : alpha(C.up,'08'),
+                        border:`1px solid ${isCorrect ? alpha(C.olive,'44'):alpha(C.up,'44')}`,
                         borderRadius:7, padding:"9px 11px", marginTop:8,
                       }}>
                         <div style={{fontSize:11,color: isCorrect?C.olive:C.up,fontWeight:400,marginBottom:3,letterSpacing:"0.06em"}}>
@@ -2499,7 +2498,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
                     {/* 復盤教訓（若有） */}
                     {e.lessons && (
-                      <div style={{background:C.blueBg,border:`1px solid ${C.blue}33`,
+                      <div style={{background:C.blueBg,border:`1px solid ${alpha(C.blue,'33')}`,
                         borderRadius:7,padding:"9px 11px",marginTop:8}}>
                         <div style={{fontSize:12,color:C.blue,fontWeight:600,marginBottom:3}}>策略覆盤教訓</div>
                         <div style={{fontSize:13,color:C.textSec,lineHeight:1.7}}>{e.lessons}</div>
@@ -2510,7 +2509,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {(e.status==="pending" || e.status==="verifying") && (
                       <button onClick={(ev)=>{ev.stopPropagation();setReviewingEvent(e.id);setReviewForm({actual:"up",actualNote:"",lessons:""})}}
                         style={{marginTop:10,width:"100%",padding:"9px",
-                          background:C.olive+"22",border:`1px solid ${C.olive}55`,
+                          background:alpha(C.olive,'22'),border:`1px solid ${alpha(C.olive,'55')}`,
                           borderRadius:8,color:C.olive,fontSize:13,fontWeight:500,cursor:"pointer"}}>
                         標記結果 · 撰寫復盤
                       </button>
@@ -2520,7 +2519,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {reviewingEvent===e.id && (
                       <div onClick={ev=>ev.stopPropagation()}
                         style={{marginTop:10,background:C.subtle,borderRadius:8,padding:12,
-                          border:`1px solid ${C.blue}44`}}>
+                          border:`1px solid ${alpha(C.blue,'44')}`}}>
                         <div style={{fontSize:12,color:C.blue,fontWeight:600,marginBottom:10}}>撰寫完整復盤</div>
 
                         <div style={{marginBottom:10}}>
@@ -2531,7 +2530,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                                 style={{flex:1,padding:"6px",borderRadius:6,fontSize:12,fontWeight:500,cursor:"pointer",
                                   background:reviewForm.actual===v?(v==="up"?C.upBg:v==="down"?C.downBg:C.subtle):"transparent",
                                   color:reviewForm.actual===v?(v==="up"?C.up:v==="down"?C.down:C.textSec):C.textMute,
-                                  border:`1px solid ${reviewForm.actual===v?(v==="up"?C.up+"55":v==="down"?C.down+"55":C.border):C.border}`}}>
+                                  border:`1px solid ${reviewForm.actual===v?(v==="up"?alpha(C.up,'55'):v==="down"?alpha(C.down,'55'):C.border):C.border}`}}>
                                 {v==="up"?"↑ 漲":v==="down"?"↓ 跌":"— 中性"}
                               </button>
                             ))}
@@ -2563,7 +2562,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                           <button onClick={()=>submitReview(e.id)}
                             disabled={!reviewForm.actualNote.trim()}
                             style={{flex:2,padding:"9px",borderRadius:7,border:"none",fontSize:13,fontWeight:500,cursor:"pointer",
-                              background:reviewForm.actualNote.trim()?C.olive+"cc":C.subtle,
+                              background:reviewForm.actualNote.trim()?alpha(C.olive,'cc'):C.subtle,
                               color:reviewForm.actualNote.trim()?"#fff":C.textMute}}>
                             確認送出復盤
                           </button>
@@ -2596,14 +2595,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             {/* 新增事件按鈕 */}
             <button onClick={()=>setShowAddEvent(!showAddEvent)} style={{
               width:"100%",padding:"10px",marginBottom:10,borderRadius:8,
-              background:showAddEvent?C.subtle:C.blue+"22",
-              border:`1px solid ${showAddEvent?C.border:C.blue+"55"}`,
+              background:showAddEvent?C.subtle:alpha(C.blue,'22'),
+              border:`1px solid ${showAddEvent?C.border:alpha(C.blue,'55')}`,
               color:showAddEvent?C.textMute:C.blue,fontSize:13,fontWeight:500,cursor:"pointer"}}>
               {showAddEvent?"取消":"＋ 新增事件（法說會、財報、營收、催化劑）"}
             </button>
 
             {showAddEvent && (
-              <div style={{...card,marginBottom:12,borderLeft:`2px solid ${C.blue}88`}}>
+              <div style={{...card,marginBottom:12,borderLeft:`2px solid ${alpha(C.blue,'88')}`}}>
                 <div style={{...lbl,color:C.blue}}>新增事件</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:7}}>
                   <div>
@@ -2644,7 +2643,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         style={{flex:1,padding:"6px",borderRadius:6,fontSize:12,fontWeight:500,cursor:"pointer",
                           background:newEvent.pred===v?(v==="up"?C.upBg:v==="down"?C.downBg:C.subtle):"transparent",
                           color:newEvent.pred===v?(v==="up"?C.up:v==="down"?C.down:C.textSec):C.textMute,
-                          border:`1px solid ${newEvent.pred===v?(v==="up"?C.up+"55":v==="down"?C.down+"55":C.border):C.border}`}}>
+                          border:`1px solid ${newEvent.pred===v?(v==="up"?alpha(C.up,'55'):v==="down"?alpha(C.down,'55'):C.border):C.border}`}}>
                         {v==="up"?"↑ 看漲":v==="down"?"↓ 看跌":"— 中性"}
                       </button>
                     ))}
@@ -2662,7 +2661,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   disabled={!newEvent.title.trim()||!newEvent.date.trim()}
                   style={{width:"100%",padding:"10px",borderRadius:8,border:"none",fontSize:14,
                     fontWeight:500,cursor:newEvent.title.trim()&&newEvent.date.trim()?"pointer":"not-allowed",
-                    background:newEvent.title.trim()&&newEvent.date.trim()?C.blue+"cc":C.subtle,
+                    background:newEvent.title.trim()&&newEvent.date.trim()?alpha(C.blue,'cc'):C.subtle,
                     color:newEvent.title.trim()&&newEvent.date.trim()?"#fff":C.textMute}}>
                   新增事件
                 </button>
