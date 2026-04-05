@@ -2147,22 +2147,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {parsed?.trades?.length>0 && (
             <div>
-              <div style={{...card,marginBottom:12}}>
-                <div style={lbl}>解析結果</div>
+                <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:C.textMute,fontWeight:400,letterSpacing:"0.1em",marginBottom:8}}>解析結果</div>
                 {parsed.trades.map((t,i)=>(
                   <div key={i} style={{display:"flex",justifyContent:"space-between",
                     alignItems:"center",padding:"10px 0",
-                    borderBottom:i<parsed.trades.length-1?`1px solid ${C.borderSub}`:"none"}}>
+                    borderBottom:i<parsed.trades.length-1?`1px solid ${alpha(C.textMute,'06')}`:"none"}}>
                     <div>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
                         <span style={{
-                          background: t.action==="買進" ? C.upBg : C.downBg,
                           color: t.action==="買進" ? C.up : C.down,
-                          fontSize:12, fontWeight:600, padding:"2px 9px", borderRadius:4}}>
+                          fontSize:11, fontWeight:400}}>
                           {t.action}
                         </span>
-                        <span style={{fontSize:16,fontWeight:600,color:C.text}}>{t.name}</span>
-                        <span style={{fontSize:12,color:C.textMute}}>{t.code}</span>
+                        <span style={{fontSize:13,fontWeight:500,color:C.text}}>{t.name}</span>
+                        <span style={{fontSize:10,color:C.textMute}}>{t.code}</span>
                       </div>
                       <div style={{fontSize:13,color:C.textMute,marginTop:3}}>
                         {t.qty}股 @ {t.price?.toLocaleString()}元
