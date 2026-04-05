@@ -1440,19 +1440,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
 
           {/* top5 with conic-gradient circles */}
-          <div style={{...card,marginBottom:14}}>
-            <div style={lbl}>📊 市值佔比 Top 5</div>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:10}}>市 值 佔 比</div>
             {top5.map((h,i)=>{
               const pct=h.value/totalVal*100;
-              return <div key={h.code} style={{display:"flex",alignItems:"center",gap:10,marginTop:8,
-                background:C.subtle,border:`1px solid ${C.border}`,borderRadius:10,padding:"8px 12px"}}>
-                <div style={{width:32,height:32,borderRadius:"50%",flexShrink:0,
-                  background:`conic-gradient(${topColors[i]} ${pct*3.6}deg, ${C.borderSoft} ${pct*3.6}deg)`,
-                  display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <div style={{width:22,height:22,borderRadius:"50%",background:C.subtle}}/>
+              return <div key={h.code} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <span style={{fontSize:11,color:C.textMute,fontWeight:400,width:14,textAlign:"right"}}>{i+1}</span>
+                <span style={{fontSize:12,color:C.textSec,fontWeight:400,flex:1}}>{h.name}</span>
+                <span style={{fontSize:11,fontWeight:500,color:C.textSec,width:42,textAlign:"right"}}>{pct.toFixed(1)}%</span>
+                <div style={{width:60,height:2,borderRadius:1,background:alpha(C.textMute,'12'),overflow:"hidden",flexShrink:0}}>
+                  <div style={{width:`${pct}%`,height:"100%",borderRadius:1,
+                    background:i===0?C.teal:alpha(C.textMute,'25')}}/>
                 </div>
-                <span style={{fontSize:12,color:C.textSec,fontWeight:500,flex:1}}>{h.name}</span>
-                <span style={{fontSize:13,fontWeight:700,color:topColors[i]}}>{pct.toFixed(1)}%</span>
               </div>;
             })}
           </div>
