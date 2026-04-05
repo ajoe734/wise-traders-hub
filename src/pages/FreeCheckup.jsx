@@ -1906,16 +1906,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             {/* 需要復盤的事件 */}
             {(dailyReport.needsReview||[]).length>0 && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.up}88`}}>
-                <div style={{...lbl,color:C.up}}>需要復盤 · {dailyReport.needsReview.length}件</div>
+              <div style={{...card,marginBottom:14,
+                borderTop:`2px solid ${alpha(C.up,0.4)}`,
+                background:`linear-gradient(180deg, ${alpha(C.up,0.04)}, ${C.card} 40%)`}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <span style={{fontSize:16}}>📋</span>
+                  <span style={{...lbl,color:C.up,marginBottom:0}}>需要復盤 · {dailyReport.needsReview.length}件</span>
+                </div>
                 {dailyReport.needsReview.map(e=>(
-                  <div key={e.id} style={{marginBottom:8}}>
+                  <div key={e.id} style={{marginBottom:10}}>
                     <div style={{fontSize:13,fontWeight:500,color:C.text}}>{e.title}</div>
-                    <div style={{fontSize:12,color:C.textMute}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
+                    <div style={{fontSize:12,color:C.textMute,marginTop:2}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
                     <button onClick={()=>{setTab("news");setExpandedNews(new Set([e.id]))}}
-                      style={{marginTop:4,padding:"4px 10px",borderRadius:5,border:`1px solid ${C.olive}55`,
-                        background:"transparent",color:C.olive,fontSize:12,cursor:"pointer"}}>
-                      前往復盤
+                      style={{marginTop:6,padding:"5px 12px",borderRadius:6,border:`1px solid ${C.olive}55`,
+                        background:alpha(C.olive,0.06),color:C.olive,fontSize:12,cursor:"pointer"}}>
+                      前往復盤 →
                     </button>
                   </div>
                 ))}
