@@ -2661,7 +2661,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   disabled={!newEvent.title.trim()||!newEvent.date.trim()}
                   style={{width:"100%",padding:"10px",borderRadius:8,border:"none",fontSize:14,
                     fontWeight:500,cursor:newEvent.title.trim()&&newEvent.date.trim()?"pointer":"not-allowed",
-                    background:newEvent.title.trim()&&newEvent.date.trim()?C.blue+"cc":C.subtle,
+                    background:newEvent.title.trim()&&newEvent.date.trim()?alpha(C.blue,'cc'):C.subtle,
                     color:newEvent.title.trim()&&newEvent.date.trim()?"#fff":C.textMute}}>
                   新增事件
                 </button>
