@@ -1665,10 +1665,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* ══════════ WATCHLIST ══════════ */}
         {tab==="watchlist" && <>
           {H.length === 0 ? (
-            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:32,marginBottom:10,opacity:0.3}}>👀</div>
-              <div style={{fontSize:15,color:C.textSec,fontWeight:500}}>尚無觀察股</div>
-              <div style={{fontSize:13,color:C.textMute,marginTop:6,lineHeight:1.7}}>
+            <div style={{textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:13,color:C.textSec,fontWeight:500}}>尚無觀察股</div>
+              <div style={{fontSize:12,color:C.textMute,marginTop:6,lineHeight:1.7}}>
                 上傳成交截圖後，持倉股票會自動出現在觀察清單
               </div>
             </div>
@@ -1677,39 +1676,35 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const tgt = targets && targets[h.code] ? avgTarget(h.code) : null;
               const upside = tgt ? (((tgt - h.price) / h.price) * 100).toFixed(1) : null;
               const prog = tgt ? Math.min(h.price / tgt * 100, 100) : 0;
-              const colors = [C.blue, C.amber, C.olive, C.lavender, C.teal];
-              const sc = colors[wi % colors.length];
-              const bgTints = [C.card, C.cardBlue, C.cardAmber];
-              return <div key={h.code} style={{...card, background:bgTints[wi%3], marginBottom:10}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              return <div key={h.code} style={{padding:"10px 0",
+                borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div>
-                    <div style={{fontSize:18,fontWeight:600,color:C.text}}>{h.name}
-                      <span style={{fontSize:12,color:C.textMute,fontWeight:400,marginLeft:6}}>{h.code}</span>
-                    </div>
-                    <div style={{fontSize:12,color:C.textMute,marginTop:2}}>持有 {h.qty} {h.unit || "股"}</div>
+                    <span style={{fontSize:13,fontWeight:500,color:C.text}}>{h.name}</span>
+                    <span style={{fontSize:10,color:C.textMute,fontWeight:400,marginLeft:6}}>{h.code}</span>
+                    <span style={{fontSize:11,color:C.textMute,marginLeft:8}}>持有 {h.qty} {h.unit || "股"}</span>
                   </div>
-                  <span style={{background: h.pnl >= 0 ? C.up+"22" : C.down+"22",
-                    color: h.pnl >= 0 ? C.up : C.down,
-                    fontSize:12,fontWeight:500,padding:"3px 11px",borderRadius:20}}>
+                  <span style={{fontSize:12,fontWeight:400,
+                    color: h.pnl >= 0 ? C.up : C.down}}>
                     {h.pnl >= 0 ? "獲利中" : "虧損中"}
                   </span>
                 </div>
-                <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
+                <div style={{display:"flex",gap:16,marginTop:6,flexWrap:"wrap"}}>
                   {[["市價", h.price?.toLocaleString() || "—", C.textSec],
                     ["成本", h.cost != null ? String(h.cost) : "—", C.textMute],
-                    ...(tgt ? [["目標價", tgt.toLocaleString(), C.olive], ["潛在漲幅", (upside > 0 ? "+" : "") + upside + "%", C.blue]] : []),
+                    ...(tgt ? [["目標價", tgt.toLocaleString(), C.textSec], ["潛在漲幅", (upside > 0 ? "+" : "") + upside + "%", C.textSec]] : []),
                     ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(2) + "%", h.pnl >= 0 ? C.up : C.down],
                   ].map(([l,v,c])=>(
                     <div key={l}>
-                      <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>{l}</div>
-                      <div style={{fontSize:19,fontWeight:600,color:c}}>{v}</div>
+                      <div style={{fontSize:10,color:C.textMute,marginBottom:2,letterSpacing:"0.05em"}}>{l}</div>
+                      <div style={{fontSize:13,fontWeight:500,color:c}}>{v}</div>
                     </div>
                   ))}
                 </div>
-                {tgt && <div style={{marginTop:12}}>
-                  <div style={{background:C.subtle,borderRadius:3,height:3}}>
+                {tgt && <div style={{marginTop:8}}>
+                  <div style={{background:alpha(C.textMute,'08'),borderRadius:1,height:2}}>
                     <div style={{width:`${prog}%`,height:"100%",
-                      background:`linear-gradient(90deg,${C.blue}88,${C.olive}88)`,borderRadius:3}}/>
+                      background:C.teal,borderRadius:1}}/>
                   </div>
                 </div>}
               </div>;
