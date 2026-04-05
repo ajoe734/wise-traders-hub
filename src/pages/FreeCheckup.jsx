@@ -2294,7 +2294,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="log" && <>
           {(!tradeLog||tradeLog.length===0) ? (
             <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:28,marginBottom:10,opacity:0.3}}>◌</div>
+              <div style={{fontSize:20,marginBottom:10,opacity:0.2}}>◌</div>
               <div style={{fontSize:15,color:C.textMute,fontWeight:400}}>
                 還沒有交易記錄<br/>
                 <span style={{fontSize:13}}>上傳成交截圖後自動記錄在這裡</span>
