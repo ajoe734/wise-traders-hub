@@ -1330,7 +1330,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       </div>
 
       {/* ── HEADER ── */}
-      <div style={{background:C.shell,borderBottom:`1px solid ${C.border}`,
+      <div style={{background:C.bg,borderBottom:`1px solid ${C.border}`,
         padding:"14px 16px 0",position:"sticky",top:34,zIndex:10}}>
 
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
