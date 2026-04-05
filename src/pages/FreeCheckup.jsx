@@ -1939,9 +1939,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* 策略大腦 */}
           {strategyBrain && (
-            <div style={{...card,marginBottom:12,borderLeft:`3px solid ${C.lavender}88`}}>
+            <div style={{...card,marginBottom:14,
+              borderTop:`2px solid ${alpha(C.lavender,0.4)}`,
+              background:`linear-gradient(180deg, ${alpha(C.lavender,0.04)}, ${C.card} 40%)`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{...lbl,color:C.lavender,marginBottom:0}}>策略大腦</div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:16}}>🧬</span>
+                  <span style={{...lbl,color:C.lavender,marginBottom:0}}>策略大腦</span>
+                </div>
                 <span style={{fontSize:12,color:C.textMute}}>
                   更新：{strategyBrain.lastUpdate||"—"} | 分析次數：{strategyBrain.stats?.totalAnalyses||0}
                 </span>
