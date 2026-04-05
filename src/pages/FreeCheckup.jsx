@@ -1367,7 +1367,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
           <div style={{textAlign:"right"}}>
             <div style={{fontSize:10,color:C.textMute,marginBottom:2,letterSpacing:"0.05em"}}>未實現損益</div>
-            <div style={{fontSize:20,fontWeight:400,color:pc(totalPnl),letterSpacing:"-0.01em",lineHeight:1.2}}>
+            <div style={{fontSize:20,fontWeight:500,color:pc(totalPnl),letterSpacing:"-0.01em",lineHeight:1.2}}>
               {totalPnl>=0?"+":""}{totalPnl.toLocaleString()}
             </div>
             <div style={{fontSize:12,fontWeight:400,color:pc(retPct),opacity:0.6}}>
