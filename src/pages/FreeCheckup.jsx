@@ -2562,7 +2562,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                           <button onClick={()=>submitReview(e.id)}
                             disabled={!reviewForm.actualNote.trim()}
                             style={{flex:2,padding:"9px",borderRadius:7,border:"none",fontSize:13,fontWeight:500,cursor:"pointer",
-                              background:reviewForm.actualNote.trim()?C.olive+"cc":C.subtle,
+                              background:reviewForm.actualNote.trim()?alpha(C.olive,'cc'):C.subtle,
                               color:reviewForm.actualNote.trim()?"#fff":C.textMute}}>
                             確認送出復盤
                           </button>
