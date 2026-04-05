@@ -2746,37 +2746,35 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
           onClick={() => setShowResetConfirm(false)}>
           <div onClick={e=>e.stopPropagation()} style={{
-            background:C.card, borderRadius:14, padding:"28px 24px", maxWidth:360, width:"100%",
-            border:`1px solid ${C.up}44`, boxShadow:`0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px ${C.up}22`}}>
-            <div style={{fontSize:25,textAlign:"center",marginBottom:10}}>⚠️</div>
-            <div style={{fontSize:18,fontWeight:700,color:C.up,marginBottom:10,textAlign:"center"}}>
-              確認清除「全部」資料？
+            background:C.card, borderRadius:12, padding:"28px 24px", maxWidth:360, width:"100%",
+            border:`1px solid ${alpha(C.textMute,'08')}`}}>
+            <div style={{fontSize:14,fontWeight:500,color:C.up,marginBottom:10,textAlign:"center",letterSpacing:"0.02em"}}>
+              確認清除全部資料？
             </div>
-            <div style={{fontSize:14,color:C.textSec,marginBottom:6,lineHeight:1.7,textAlign:"center"}}>
-              此操作<span style={{color:C.up,fontWeight:600}}>無法復原</span>，將永久刪除以下所有資料：
+            <div style={{fontSize:12,color:C.textMute,marginBottom:6,lineHeight:1.7,textAlign:"center"}}>
+              此操作<span style={{color:C.up,fontWeight:500}}>無法復原</span>，將永久刪除以下所有資料：
             </div>
             <div style={{background:C.subtle,borderRadius:8,padding:"10px 14px",marginBottom:16,
-              fontSize:13,color:C.textMute,lineHeight:2}}>
-              ✕ 持倉資料（所有股票部位）<br/>
-              ✕ 交易日誌（所有買賣紀錄）<br/>
-              ✕ 觀察股清單<br/>
-              ✕ 行事曆事件（法說、財報等）<br/>
-              ✕ 事件分析（預測與復盤紀錄）<br/>
-              ✕ 收盤分析（歷史分析報告）<br/>
-              ✕ 策略大腦（AI 學習紀錄）<br/>
-              ✕ 目標價資料<br/>
-              ✕ 歷史分析紀錄<br/>
-              ✕ 最近教訓
+              fontSize:12,color:C.textMute,lineHeight:2}}>
+              持倉資料（所有股票部位）<br/>
+              交易日誌（所有買賣紀錄）<br/>
+              觀察股清單<br/>
+              行事曆事件（法說、財報等）<br/>
+              事件分析（預測與復盤紀錄）<br/>
+              收盤分析（歷史分析報告）<br/>
+              策略大腦（AI 學習紀錄）<br/>
+              目標價資料<br/>
+              歷史分析紀錄<br/>
+              最近教訓
             </div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={() => setShowResetConfirm(false)} style={{
-                flex:1, background:C.subtle, color:C.text, border:`1px solid ${C.border}`,
-                borderRadius:10, padding:"10px 0", fontSize:15, fontWeight:500, cursor:"pointer",
+                flex:1, background:C.subtle, color:C.text, border:`1px solid ${alpha(C.textMute,'08')}`,
+                borderRadius:8, padding:"10px 0", fontSize:13, fontWeight:400, cursor:"pointer",
               }}>取消</button>
               <button onClick={resetAll} style={{
                 flex:1, background:C.up, color:"#fff", border:"none",
-                borderRadius:10, padding:"10px 0", fontSize:15, fontWeight:700, cursor:"pointer",
-                boxShadow:`0 2px 8px ${C.up}44`,
+                borderRadius:8, padding:"10px 0", fontSize:13, fontWeight:500, cursor:"pointer",
               }}>確認全部清除</button>
             </div>
           </div>
