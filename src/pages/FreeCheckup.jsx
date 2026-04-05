@@ -1472,7 +1472,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div key={h.code} style={{display:"flex",justifyContent:"space-between",
                   padding:"5px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
                   <span style={{fontSize:11,color:C.textSec,fontWeight:400}}>{h.name}</span>
-                  <span style={{fontSize:11,fontWeight:500,color:C.down}}>{h.pct}%</span>
+                  <span style={{fontSize:11,fontWeight:400,color:C.down}}>{h.pct}%</span>
                 </div>
               ))}
             </div>
