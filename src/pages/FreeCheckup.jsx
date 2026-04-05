@@ -2519,7 +2519,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div onClick={ev=>ev.stopPropagation()}
                         style={{marginTop:10,background:C.subtle,borderRadius:8,padding:12,
                           border:`1px solid ${alpha(C.blue,'44')}`}}>
-                        <div style={{fontSize:12,color:C.blue,fontWeight:600,marginBottom:10}}>撰寫完整復盤</div>
+                        <div style={{fontSize:12,color:C.textSec,fontWeight:400,marginBottom:10}}>撰寫完整復盤</div>
 
                         <div style={{marginBottom:10}}>
                           <div style={{fontSize:12,color:C.textMute,marginBottom:4}}>實際走勢</div>
