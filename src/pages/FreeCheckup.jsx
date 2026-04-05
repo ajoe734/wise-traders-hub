@@ -2015,8 +2015,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
 
           {!strategyBrain && (
-            <div style={{...card,marginBottom:12,textAlign:"center",padding:"16px"}}>
-              <div style={{fontSize:13,color:C.textMute}}>
+            <div style={{marginBottom:14,textAlign:"center",padding:"16px 0"}}>
+              <div style={{fontSize:12,color:C.textMute,fontWeight:400}}>
                 執行第一次收盤分析後，策略大腦將自動建立並持續進化
               </div>
             </div>
