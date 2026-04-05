@@ -1413,12 +1413,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const isUp = totalPnl >= 0;
             const heroColor = isUp ? C.up : C.down;
             return (
-              <div style={{background:alpha(heroColor,'06'),borderRadius:12,padding:"18px 20px",marginBottom:14,textAlign:"center"}}>
+              <div style={{padding:"18px 20px",marginBottom:14,textAlign:"center"}}>
                 <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:6}}>總 損 益</div>
-                <div style={{fontSize:28,fontWeight:500,color:heroColor,lineHeight:1.2,letterSpacing:"-0.02em"}}>
+                <div style={{fontSize:22,fontWeight:400,color:heroColor,lineHeight:1.2,letterSpacing:"-0.01em"}}>
                   {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
                 </div>
-                <div style={{marginTop:6,fontSize:12,fontWeight:400,color:heroColor,opacity:0.7}}>
+                <div style={{marginTop:6,fontSize:12,fontWeight:400,color:heroColor,opacity:0.5}}>
                   {isUp?"+":""}{totalPct.toFixed(2)}%
                 </div>
               </div>
