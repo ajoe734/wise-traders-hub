@@ -2595,8 +2595,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             {/* 新增事件按鈕 */}
             <button onClick={()=>setShowAddEvent(!showAddEvent)} style={{
               width:"100%",padding:"10px",marginBottom:10,borderRadius:8,
-              background:showAddEvent?C.subtle:C.blue+"22",
-              border:`1px solid ${showAddEvent?C.border:C.blue+"55"}`,
+              background:showAddEvent?C.subtle:alpha(C.blue,'22'),
+              border:`1px solid ${showAddEvent?C.border:alpha(C.blue,'55')}`,
               color:showAddEvent?C.textMute:C.blue,fontSize:13,fontWeight:500,cursor:"pointer"}}>
               {showAddEvent?"取消":"＋ 新增事件（法說會、財報、營收、催化劑）"}
             </button>
