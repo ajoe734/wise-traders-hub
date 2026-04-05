@@ -2490,7 +2490,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         border:`1px solid ${isCorrect ? C.olive+"44":C.up+"44"}`,
                         borderRadius:7, padding:"9px 11px", marginTop:8,
                       }}>
-                        <div style={{fontSize:12,color: isCorrect?C.olive:C.up,fontWeight:600,marginBottom:3,letterSpacing:"0.05em"}}>
+                        <div style={{fontSize:11,color: isCorrect?C.olive:C.up,fontWeight:400,marginBottom:3,letterSpacing:"0.06em"}}>
                           {predIcon(e.actual)} 實際{predLabel(e.actual)} — {isCorrect?"預測正確":"預測有誤"}
                         </div>
                         <div style={{fontSize:13,color:C.textSec,lineHeight:1.7}}>{e.actualNote}</div>
