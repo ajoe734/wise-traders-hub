@@ -1413,10 +1413,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const totalPnl = totalVal - totalCost;
             const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
             const isUp = totalPnl >= 0;
-            const heroGrad = isUp
-              ? "linear-gradient(135deg, rgba(207,102,121,0.12) 0%, rgba(207,102,121,0.03) 100%)"
-              : "linear-gradient(135deg, rgba(77,184,138,0.12) 0%, rgba(77,184,138,0.03) 100%)";
-            const heroBorder = isUp ? "1px solid rgba(207,102,121,0.15)" : "1px solid rgba(77,184,138,0.15)";
+            const heroColor = isUp ? C.up : C.down;
+            const heroGrad = `linear-gradient(135deg, ${alpha(heroColor,'1f')} 0%, ${alpha(heroColor,'08')} 100%)`;
+            const heroBorder = `1px solid ${alpha(heroColor,'26')}`;
             return (
               <div style={{background:heroGrad,border:heroBorder,borderRadius:14,padding:"18px 20px",marginBottom:10,textAlign:"center"}}>
                 <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",marginBottom:6}}>總損益</div>
