@@ -2443,14 +2443,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
                     {e.status==="past" && isCorrect!==null && (
                       <span style={{
-                        fontSize:12, fontWeight:600, padding:"2px 7px", borderRadius:20,
-                        background: isCorrect ? C.oliveBg : C.upBg,
+                        fontSize:11, fontWeight:400,
                         color: isCorrect ? C.olive : C.up,
-                      }}>{isCorrect ? "✓ 正確" : "✗ 有誤"}</span>
+                      }}>{isCorrect ? "正確" : "有誤"}</span>
                     )}
                     {e.status==="verifying" && (
-                      <span style={{fontSize:12,color:C.amber,fontWeight:600,
-                        padding:"2px 7px",borderRadius:20,background:C.amberBg||C.cardAmber}}>⏳ 待驗證</span>
+                      <span style={{fontSize:11,color:C.amber,fontWeight:400}}>待驗證</span>
                     )}
                     {e.status==="pending" && (
                       <span style={{fontSize:12,color:C.textMute,fontWeight:500}}>待觀察</span>
