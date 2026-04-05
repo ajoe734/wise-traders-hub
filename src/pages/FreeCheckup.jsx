@@ -2334,18 +2334,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     return timeGroups.map((tg, ti) => (
                       <div key={"tg-"+ti}>
                         {tg.items.map((log, li) => (
-                          <div key={log.id} style={{...card,marginBottom:li < tg.items.length-1 ? 8 : 0,
-                            borderLeft:`2px solid ${log.action==="買進" ? C.up+"88" : C.down+"88"}`}}>
+                          <div key={log.id} style={{marginBottom:0,padding:"10px 0",
+                            borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
                             <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                               <div style={{display:"flex",alignItems:"center",gap:7}}>
                                 <span style={{
-                                  background: log.action==="買進" ? C.upBg : C.downBg,
                                   color: log.action==="買進" ? C.up : C.down,
-                                  fontSize:12, fontWeight:600, padding:"2px 8px", borderRadius:4}}>
+                                  fontSize:11, fontWeight:400}}>
                                   {log.action}
                                 </span>
-                                <span style={{fontSize:16,fontWeight:600,color:C.text}}>{log.name}</span>
-                                <span style={{fontSize:12,color:C.textMute}}>{log.code}</span>
+                                <span style={{fontSize:13,fontWeight:500,color:C.text}}>{log.name}</span>
+                                <span style={{fontSize:10,color:C.textMute}}>{log.code}</span>
                               </div>
                               {li === 0 && <div style={{fontSize:12,color:C.textMute}}>{log.time}</div>}
                             </div>
