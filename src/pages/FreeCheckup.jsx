@@ -2477,7 +2477,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
                     {/* 預測邏輯 */}
                     <div style={{background:C.subtle,borderRadius:7,padding:"9px 11px",marginBottom: e.actualNote?8:0}}>
-                      <div style={{fontSize:12,color:predC(e.pred),fontWeight:600,marginBottom:3,letterSpacing:"0.05em"}}>
+                      <div style={{fontSize:11,color:predC(e.pred),fontWeight:400,marginBottom:3,letterSpacing:"0.06em"}}>
                         {predIcon(e.pred)} 預測{predLabel(e.pred)} — 邏輯
                       </div>
                       <div style={{fontSize:13,color:C.textSec,lineHeight:1.7}}>{e.predReason}</div>
