@@ -1498,8 +1498,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
                     <button onClick={()=>setEditing(!editing)} style={{
                       padding:"3px 9px",borderRadius:5,fontSize:12,cursor:"pointer",
-                      background:rc?C.olive+"22":"transparent",
-                      border:`1px solid ${rc?C.olive+"55":C.border}`,
+                      background:rc?alpha(C.olive,'22'):"transparent",
+                      border:`1px solid ${rc?alpha(C.olive,'55'):C.border}`,
                       color:rc?C.olive:C.textMute}}>
                       {rc?"查看條件":"設定反轉條件"}
                     </button>
