@@ -1700,9 +1700,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   ))}
                 </div>
                 {tgt && <div style={{marginTop:8}}>
-                  <div style={{background:alpha(C.textMute,'08'),borderRadius:1,height:2}}>
+                  <div style={{background:alpha(C.textMute,'06'),borderRadius:1,height:2}}>
                     <div style={{width:`${prog}%`,height:"100%",
-                      background:C.teal,borderRadius:1}}/>
+                      background:alpha(C.textMute,'20'),borderRadius:1}}/>
                   </div>
                 </div>}
               </div>;
