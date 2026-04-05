@@ -1456,45 +1456,29 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             })}
           </div>
 
-          {/* 勝負摘要 with mini bars */}
-          {(()=>{
-            const maxWinPct = winners.length>0 ? Math.max(...winners.slice(0,5).map(w=>Math.abs(w.pct||0))) : 1;
-            const maxLosePct = losers.length>0 ? Math.max(...losers.slice(0,5).map(l=>Math.abs(l.pct||0))) : 1;
-            return (
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-              <div style={{...card,borderLeft:`3px solid ${C.up}88`,padding:"10px 12px"}}>
-                <div style={{...lbl,color:C.up,marginBottom:6}}>📈 獲利 {winners.length}檔</div>
-                {winners.slice(0,5).map(h=>(
-                  <div key={h.code} style={{marginTop:5}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                      <span style={{fontSize:11,color:C.textSec}}>{h.name}</span>
-                      <span style={{fontSize:12,fontWeight:700,color:C.up}}>+{h.pct}%</span>
-                    </div>
-                    <div style={{height:3,borderRadius:2,background:C.upBg,overflow:"hidden"}}>
-                      <div style={{width:`${Math.min((Math.abs(h.pct||0)/Math.max(maxWinPct,0.01))*100,100)}%`,
-                        height:"100%",background:C.up,borderRadius:2,transition:"width 0.3s ease"}}/>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{...card,borderLeft:`3px solid ${C.down}88`,padding:"10px 12px"}}>
-                <div style={{...lbl,color:C.down,marginBottom:6}}>📉 虧損 {losers.length}檔</div>
-                {losers.slice(0,5).map(h=>(
-                  <div key={h.code} style={{marginTop:5}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                      <span style={{fontSize:11,color:C.textSec}}>{h.name}</span>
-                      <span style={{fontSize:12,fontWeight:700,color:C.down}}>{h.pct}%</span>
-                    </div>
-                    <div style={{height:3,borderRadius:2,background:C.downBg,overflow:"hidden"}}>
-                      <div style={{width:`${Math.min((Math.abs(h.pct||0)/Math.max(maxLosePct,0.01))*100,100)}%`,
-                        height:"100%",background:C.down,borderRadius:2,transition:"width 0.3s ease"}}/>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* 勝負摘要 */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+            <div>
+              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>獲 利 {winners.length}檔</div>
+              {winners.slice(0,5).map(h=>(
+                <div key={h.code} style={{display:"flex",justifyContent:"space-between",
+                  padding:"5px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+                  <span style={{fontSize:11,color:C.textSec,fontWeight:400}}>{h.name}</span>
+                  <span style={{fontSize:11,fontWeight:500,color:C.up}}>+{h.pct}%</span>
+                </div>
+              ))}
             </div>
-            );
-          })()}
+            <div>
+              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>虧 損 {losers.length}檔</div>
+              {losers.slice(0,5).map(h=>(
+                <div key={h.code} style={{display:"flex",justifyContent:"space-between",
+                  padding:"5px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+                  <span style={{fontSize:11,color:C.textSec,fontWeight:400}}>{h.name}</span>
+                  <span style={{fontSize:11,fontWeight:500,color:C.down}}>{h.pct}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* 反轉追蹤（虧損持股） */}
           {losers.length>0 && (
