@@ -1428,13 +1428,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           })()}
 
           {/* 摘要 Sub-metrics */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
-            {[["總成本",totalCost.toLocaleString(),C.textSec],
-              ["總市值",totalVal.toLocaleString(),C.blue],
-              ["持股數",H.length+"檔",C.textSec]].map(([l,v,c])=>(
-              <div key={l} style={{background:C.subtle,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
-                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:500}}>{l}</div>
-                <div style={{fontSize:18,fontWeight:600,color:c,marginTop:2,letterSpacing:"-0.01em"}}>{v}</div>
+          <div style={{display:"flex",justifyContent:"space-around",marginBottom:14,padding:"6px 0"}}>
+            {[["總成本",totalCost.toLocaleString()],
+              ["總市值",totalVal.toLocaleString()],
+              ["持股數",H.length+"檔"]].map(([l,v])=>(
+              <div key={l} style={{textAlign:"center"}}>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>{l}</div>
+                <div style={{fontSize:13,fontWeight:500,color:C.textSec,marginTop:2}}>{v}</div>
               </div>
             ))}
           </div>
