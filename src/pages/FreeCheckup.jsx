@@ -1343,7 +1343,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               {saved && <span style={{color:C.olive,marginLeft:6,fontWeight:600,fontSize:12}}>{saved}</span>}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-              <span style={{fontSize:22,fontWeight:700,color:C.text,letterSpacing:"-0.02em"}}>持倉看板</span>
+              <span style={{fontSize:22,fontWeight:500,color:C.text,letterSpacing:"-0.02em"}}>持倉看板</span>
               <button onClick={refreshPrices} disabled={refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)} style={{
                 background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : C.blue+"14",
                 color: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.textMute : C.blue,
@@ -1368,10 +1368,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
           <div style={{textAlign:"right"}}>
             <div style={{fontSize:11,color:C.textMute,marginBottom:2,letterSpacing:"0.05em"}}>未實現損益</div>
-            <div style={{fontSize:24,fontWeight:700,color:pc(totalPnl),letterSpacing:"-0.02em",lineHeight:1.2}}>
+            <div style={{fontSize:24,fontWeight:500,color:pc(totalPnl),letterSpacing:"-0.02em",lineHeight:1.2}}>
               {totalPnl>=0?"+":""}{totalPnl.toLocaleString()}
             </div>
-            <div style={{fontSize:13,fontWeight:600,color:pc(retPct)}}>
+            <div style={{fontSize:13,fontWeight:400,color:pc(retPct),opacity:0.7}}>
               {retPct>=0?"+":""}{retPct.toFixed(2)}%
             </div>
           </div>
@@ -1379,11 +1379,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* today alert - match calendar events by today's date */}
         {todayEvents.length>0 && (
-          <div style={{background:C.upBg,border:`1px solid ${C.up}22`,
-            borderLeft:`2px solid ${C.up}88`,
+          <div style={{background:alpha(C.up,'06'),
+            borderLeft:`1px solid ${alpha(C.up,'20')}`,
             borderRadius:6,padding:"7px 10px",marginBottom:10,
-            fontSize:12,color:C.up,lineHeight:1.7,fontWeight:500}}>
-            📅 今日 · {todayEvents.map(e=>e.label).join(" · ")}
+            fontSize:12,color:C.up,lineHeight:1.7,fontWeight:400}}>
+            今日 · {todayEvents.map(e=>e.label).join(" · ")}
           </div>
         )}
 
@@ -1414,96 +1414,76 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
             const isUp = totalPnl >= 0;
             const heroColor = isUp ? C.up : C.down;
-            const heroGrad = `linear-gradient(135deg, ${alpha(heroColor,'1f')} 0%, ${alpha(heroColor,'08')} 100%)`;
-            const heroBorder = `1px solid ${alpha(heroColor,'26')}`;
             return (
-              <div style={{background:heroGrad,border:heroBorder,borderRadius:14,padding:"18px 20px",marginBottom:10,textAlign:"center"}}>
-                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",marginBottom:6}}>總損益</div>
-                <div style={{fontSize:28,fontWeight:700,color:isUp?C.up:C.down,lineHeight:1.2}}>
+              <div style={{background:alpha(heroColor,'06'),borderRadius:12,padding:"18px 20px",marginBottom:14,textAlign:"center"}}>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:6}}>總 損 益</div>
+                <div style={{fontSize:28,fontWeight:500,color:heroColor,lineHeight:1.2,letterSpacing:"-0.02em"}}>
                   {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
                 </div>
-                <span style={{display:"inline-block",marginTop:6,fontSize:12,fontWeight:600,
-                  color:isUp?C.up:C.down,background:isUp?C.upBg:C.downBg,borderRadius:20,padding:"3px 12px"}}>
+                <div style={{marginTop:6,fontSize:12,fontWeight:400,color:heroColor,opacity:0.7}}>
                   {isUp?"+":""}{totalPct.toFixed(2)}%
-                </span>
+                </div>
               </div>
             );
           })()}
 
           {/* 摘要 Sub-metrics */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
-            {[["總成本",totalCost.toLocaleString(),C.textSec],
-              ["總市值",totalVal.toLocaleString(),C.blue],
-              ["持股數",H.length+"檔",C.textSec]].map(([l,v,c])=>(
-              <div key={l} style={{background:C.subtle,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
-                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:500}}>{l}</div>
-                <div style={{fontSize:18,fontWeight:600,color:c,marginTop:2,letterSpacing:"-0.01em"}}>{v}</div>
+          <div style={{display:"flex",justifyContent:"space-around",marginBottom:14,padding:"6px 0"}}>
+            {[["總成本",totalCost.toLocaleString()],
+              ["總市值",totalVal.toLocaleString()],
+              ["持股數",H.length+"檔"]].map(([l,v])=>(
+              <div key={l} style={{textAlign:"center"}}>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>{l}</div>
+                <div style={{fontSize:13,fontWeight:500,color:C.textSec,marginTop:2}}>{v}</div>
               </div>
             ))}
           </div>
 
           {/* top5 with conic-gradient circles */}
-          <div style={{...card,marginBottom:14}}>
-            <div style={lbl}>📊 市值佔比 Top 5</div>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:10}}>市 值 佔 比</div>
             {top5.map((h,i)=>{
               const pct=h.value/totalVal*100;
-              return <div key={h.code} style={{display:"flex",alignItems:"center",gap:10,marginTop:8,
-                background:C.subtle,border:`1px solid ${C.border}`,borderRadius:10,padding:"8px 12px"}}>
-                <div style={{width:32,height:32,borderRadius:"50%",flexShrink:0,
-                  background:`conic-gradient(${topColors[i]} ${pct*3.6}deg, ${C.borderSoft} ${pct*3.6}deg)`,
-                  display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <div style={{width:22,height:22,borderRadius:"50%",background:C.subtle}}/>
+              return <div key={h.code} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <span style={{fontSize:11,color:C.textMute,fontWeight:400,width:14,textAlign:"right"}}>{i+1}</span>
+                <span style={{fontSize:12,color:C.textSec,fontWeight:400,flex:1}}>{h.name}</span>
+                <span style={{fontSize:11,fontWeight:500,color:C.textSec,width:42,textAlign:"right"}}>{pct.toFixed(1)}%</span>
+                <div style={{width:60,height:2,borderRadius:1,background:alpha(C.textMute,'12'),overflow:"hidden",flexShrink:0}}>
+                  <div style={{width:`${pct}%`,height:"100%",borderRadius:1,
+                    background:i===0?C.teal:alpha(C.textMute,'25')}}/>
                 </div>
-                <span style={{fontSize:12,color:C.textSec,fontWeight:500,flex:1}}>{h.name}</span>
-                <span style={{fontSize:13,fontWeight:700,color:topColors[i]}}>{pct.toFixed(1)}%</span>
               </div>;
             })}
           </div>
 
-          {/* 勝負摘要 with mini bars */}
-          {(()=>{
-            const maxWinPct = winners.length>0 ? Math.max(...winners.slice(0,5).map(w=>Math.abs(w.pct||0))) : 1;
-            const maxLosePct = losers.length>0 ? Math.max(...losers.slice(0,5).map(l=>Math.abs(l.pct||0))) : 1;
-            return (
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-              <div style={{...card,borderLeft:`3px solid ${C.up}88`,padding:"10px 12px"}}>
-                <div style={{...lbl,color:C.up,marginBottom:6}}>📈 獲利 {winners.length}檔</div>
-                {winners.slice(0,5).map(h=>(
-                  <div key={h.code} style={{marginTop:5}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                      <span style={{fontSize:11,color:C.textSec}}>{h.name}</span>
-                      <span style={{fontSize:12,fontWeight:700,color:C.up}}>+{h.pct}%</span>
-                    </div>
-                    <div style={{height:3,borderRadius:2,background:C.upBg,overflow:"hidden"}}>
-                      <div style={{width:`${Math.min((Math.abs(h.pct||0)/Math.max(maxWinPct,0.01))*100,100)}%`,
-                        height:"100%",background:C.up,borderRadius:2,transition:"width 0.3s ease"}}/>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{...card,borderLeft:`3px solid ${C.down}88`,padding:"10px 12px"}}>
-                <div style={{...lbl,color:C.down,marginBottom:6}}>📉 虧損 {losers.length}檔</div>
-                {losers.slice(0,5).map(h=>(
-                  <div key={h.code} style={{marginTop:5}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                      <span style={{fontSize:11,color:C.textSec}}>{h.name}</span>
-                      <span style={{fontSize:12,fontWeight:700,color:C.down}}>{h.pct}%</span>
-                    </div>
-                    <div style={{height:3,borderRadius:2,background:C.downBg,overflow:"hidden"}}>
-                      <div style={{width:`${Math.min((Math.abs(h.pct||0)/Math.max(maxLosePct,0.01))*100,100)}%`,
-                        height:"100%",background:C.down,borderRadius:2,transition:"width 0.3s ease"}}/>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* 勝負摘要 */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+            <div>
+              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>獲 利 {winners.length}檔</div>
+              {winners.slice(0,5).map(h=>(
+                <div key={h.code} style={{display:"flex",justifyContent:"space-between",
+                  padding:"5px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+                  <span style={{fontSize:11,color:C.textSec,fontWeight:400}}>{h.name}</span>
+                  <span style={{fontSize:11,fontWeight:500,color:C.up}}>+{h.pct}%</span>
+                </div>
+              ))}
             </div>
-            );
-          })()}
+            <div>
+              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>虧 損 {losers.length}檔</div>
+              {losers.slice(0,5).map(h=>(
+                <div key={h.code} style={{display:"flex",justifyContent:"space-between",
+                  padding:"5px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+                  <span style={{fontSize:11,color:C.textSec,fontWeight:400}}>{h.name}</span>
+                  <span style={{fontSize:11,fontWeight:500,color:C.down}}>{h.pct}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* 反轉追蹤（虧損持股） */}
           {losers.length>0 && (
-            <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.amber}88`}}>
-              <div style={{...lbl,color:C.amber}}>反轉追蹤 · {losers.length}檔等待中</div>
+            <div style={{marginBottom:14,borderLeft:`1px solid ${alpha(C.amber,'20')}`,paddingLeft:12}}>
+              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>反 轉 追 蹤 · {losers.length}檔</div>
               {losers.map(h=>{
                 const rc = (reversalConditions||{})[h.code];
                 const [editing, setEditing] = [
@@ -1584,19 +1564,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* 排序 + 列表 */}
           <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center"}}>
-            <span style={{fontSize:12,color:C.textMute}}>排序</span>
+            <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>排序</span>
             {[["value","市值"],["pnl","損益"],["pct","報酬%"]].map(([k,l])=>(
               <button key={k} onClick={()=>setSortBy(k)} style={{
-                background: sortBy===k ? C.subtle : "transparent",
-                color: sortBy===k ? C.blue : C.textMute,
-                border:`1px solid ${sortBy===k ? C.blue+"33" : C.border}`,
-                borderRadius:5, padding:"3px 10px", fontSize:12, fontWeight:500, cursor:"pointer",
+                background:"transparent",
+                color: sortBy===k ? C.textSec : C.textMute,
+                border:"none",
+                borderBottom: sortBy===k ? `1px solid ${C.textSec}` : "1px solid transparent",
+                borderRadius:0, padding:"3px 8px", fontSize:11, fontWeight:400, cursor:"pointer",
                 transition:"all 0.15s",
               }}>{l}</button>
             ))}
           </div>
 
-          <div style={card}>
+          <div>
             {displayed.map((h,i)=>{
               const T      = targets?.[h.code];
               const tp     = T ? avgTarget(h.code) : null;
@@ -1606,9 +1587,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const muteTag = (text) => (
                 <span key={text} style={{fontSize:9,color:C.textMute,fontWeight:400,opacity:0.6,letterSpacing:"0.04em"}}>{text}</span>
               );
-              const badge = (text, fg, bg) => (
-                <span key={text} style={{fontSize:10,padding:"1px 6px",borderRadius:4,
-                  background:bg,color:fg,fontWeight:500,lineHeight:"16px",letterSpacing:"0.01em"}}>{text}</span>
+              const badge = (text) => (
+                <span key={text} style={{fontSize:9,color:C.textMute,fontWeight:400,opacity:0.6,letterSpacing:"0.04em"}}>{text}</span>
               );
               return (
               <div key={h.code} style={{
@@ -1618,19 +1598,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
                   <span style={{fontSize:13,fontWeight:500,color:C.text,letterSpacing:"0.02em"}}>{h.name}</span>
                   <span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{h.code}</span>
-                  {h.type==="權證"&&badge("權證",C.amber,C.amberBg)}
-                  {h.type==="ETF"&&badge("ETF",C.blue,C.blueBg)}
+                  {h.type==="權證"&&badge("權證")}
+                  {h.type==="ETF"&&badge("ETF")}
                   {meta?.period && muteTag(
                     meta.period==="短"?"短線":meta.period==="中"?"中線":meta.period==="中長"?"中長線":meta.period==="短中"?"短中線":"長線")}
                   {meta?.position && muteTag(meta.position)}
                   {h.expire&&<span style={{fontSize:10,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
                   {h.alert&&<span style={{fontSize:10,color:C.up,fontWeight:600}}>{h.alert}</span>}
-                  {isNew&&badge("新目標價",C.teal,C.tealBg)}
+                  {isNew&&badge("新目標價")}
                 </div>
                 {/* 第二行：產業 + 策略（淡化顯示）*/}
                 {meta?.industry && (
                   <div style={{fontSize:11,color:C.textMute,marginBottom:4,fontWeight:400}}>
-                    <span style={{color:IND_COLOR[meta.industry]||C.textMute}}>{meta.industry}</span>
+                    <span style={{color:C.textMute}}>{meta.industry}</span>
                     {meta.strategy && <span style={{marginLeft:6,color:C.textMute}}>· {meta.strategy}</span>}
                     {meta.leader && meta.leader!=="N/A" && <span style={{marginLeft:6,color:C.textMute}}>· {meta.leader}</span>}
                   </div>
@@ -1641,9 +1621,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {h.qty}{h.unit || "股"} · 成本{h.cost} · 市價{h.price?.toLocaleString()}
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
-                    <span style={{fontSize:13,fontWeight:600,color:C.textSec}}>{h.value?.toLocaleString()}</span>
-                    <span style={{fontSize:13,fontWeight:600,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
-                    <span style={{fontSize:12,fontWeight:600,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
+                    <span style={{fontSize:11,fontWeight:400,color:C.textMute}}>{h.value?.toLocaleString()}</span>
+                    <span style={{fontSize:12,fontWeight:500,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                    <span style={{fontSize:10,fontWeight:400,color:pc(h.pct),opacity:0.7}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                 </div>
                 {/* 目標價進度條 */}
@@ -1654,19 +1634,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         目標 {tp.toLocaleString()}
                         {T?.reports?.length>1 && <span style={{color:C.textMute}}> ({T.reports.length}家均)</span>}
                       </span>
-                      <span style={{fontSize:11,fontWeight:600,
-                        color: upside>=0 ? C.up : C.down}}>
+                      <span style={{fontSize:11,fontWeight:400,
+                        color: upside>=0 ? C.up : C.down, opacity:0.7}}>
                         {upside>=0?"+":""}{upside?.toFixed(1)}%
                       </span>
                     </div>
-                    <div style={{background:C.subtle,borderRadius:3,height:3,width:"100%",overflow:"hidden"}}>
+                    <div style={{background:alpha(C.textMute,'08'),borderRadius:1,height:2,width:"100%",overflow:"hidden"}}>
                       <div style={{
                         width:`${Math.min(Math.max((h.price/tp)*100,0),100)}%`,
                         height:"100%",
-                        background: upside>=15 ? C.up+"99"
-                          : upside>=0  ? C.amber+"99"
-                          : C.down+"99",
-                        borderRadius:3,
+                        background:C.teal,
+                        borderRadius:1,
                       }}/>
                     </div>
                   </div>
