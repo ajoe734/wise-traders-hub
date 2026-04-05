@@ -1,181 +1,122 @@
 
 
-# 是枝裕和風格設定參數完整手冊
+# Phase 1：Light Theme Migration 基底切換
 
-以下是目前持倉看板中實際使用的所有風格設定，整理成可查閱的規範文件。
+## 修改檔案
 
----
+### 檔案 1：`src/checkup/theme.js`
 
-## 一、色彩體系（取自 `theme.js` 的 `C` 物件）
+新增 `L` 物件（Light palette）並 export：
 
-### 底色
-| 用途 | 變數 | 色值 | 使用方式 |
-|------|------|------|----------|
-| 頁面底色 | `C.bg` | `#0B0E14` | 全頁背景 |
-| Hero 區塊 | — | `alpha(heroColor, '06')` | 極微漲跌色底，4% 透明度 |
-| 卡片/輸入框 | `C.card` | `#13161F` | 僅用於 input 背景 |
-| 反轉條件編輯區 | `C.subtle` | `#101319` | 展開表單背景 |
+```js
+export const L = {
+  bg:        "#F5F3EF",
+  shell:     "#EDE9E3",
+  card:      "#FFFFFF",
+  cardHover: "#F8F6F2",
+  subtle:    "#F0ECE6",
+  subtleElev:"#E8E4DE",
+  border:    "rgba(60,56,48,0.08)",
+  borderSub: "rgba(60,56,48,0.04)",
+  borderStrong:"rgba(60,56,48,0.15)",
+  borderSoft:"rgba(60,56,48,0.05)",
+  shadow:    "0 2px 12px rgba(60,56,48,0.08)",
+  insetLine: "inset 0 1px 0 rgba(60,56,48,0.03)",
+  shellShadow:"0 4px 20px rgba(60,56,48,0.10)",
 
-### 文字三階層
-| 階層 | 變數 | 色值 | 用途 |
-|------|------|------|------|
-| 主文字 | `C.text` | `#D8DBE3` | 股名、反轉條件股名 |
-| 次要文字 | `C.textSec` | `#8B90A0` | 子指標數值、Top5 股名、勝敗股名 |
-| 靜默文字 | `C.textMute` | `#4D5264` | 所有標籤文字、代碼、排序按鈕、分隔線 |
+  cardBlue:  "#F0F3F8",
+  cardAmber: "#F8F5F0",
+  cardOlive: "#F0F5F2",
+  cardRose:  "#F8F0F2",
 
-### 損益色（台股慣例：紅漲綠跌）
-| 方向 | 變數 | 色值 |
-|------|------|------|
-| 漲/獲利 | `C.up` | `#CF6679`（降飽和玫瑰紅）|
-| 跌/虧損 | `C.down` | `#4DB88A`（降飽和薄荷綠）|
+  text:      "#3C3830",
+  textSec:   "#7A746A",
+  textMute:  "#B0A99E",
 
-### 功能色（僅極少量使用）
-| 色彩 | 變數 | 用途 |
-|------|------|------|
-| Teal | `C.teal` (`#4DBFA0`) | 進度條填充（Top5 第一名、目標價） |
-| Amber | `C.amber` (`#D4A643`) | 反轉追蹤左邊線（`alpha('20')`）、到期警示 |
-| Olive | `C.olive` (`#7FB872`) | 反轉條件按鈕、儲存按鈕填充 |
+  up:        "#B5485A",
+  upBg:      "rgba(181,72,90,0.06)",
+  down:      "#3A8A66",
+  downBg:    "rgba(58,138,102,0.05)",
 
----
+  blue:      "#5A88B8",
+  blueBg:    "rgba(90,136,184,0.07)",
+  cyan:      "#4A98B0",
+  cyanBg:    "rgba(74,152,176,0.05)",
+  amber:     "#A68530",
+  amberBg:   "rgba(166,133,48,0.07)",
+  orange:    "#B07848",
+  orangeBg:  "rgba(176,120,72,0.06)",
+  teal:      "#3A8F78",
+  tealBg:    "rgba(58,143,120,0.06)",
+  mint:      "#3AA080",
+  mintBg:    "rgba(58,160,128,0.06)",
+  olive:     "#6A9A60",
+  oliveBg:   "rgba(106,154,96,0.06)",
+  lavender:  "#7A70B8",
+  lavBg:     "rgba(122,112,184,0.06)",
+  rose:      "#B06878",
+  roseBg:    "rgba(176,104,120,0.06)",
+  choco:     "#9A7030",
+  chocoBg:   "rgba(154,112,48,0.06)",
+  stone:     "#8A8478",
+  urgent:    "#B5485A",
+  onFill:    "#FFFFFF",
+  focusRing: "0 0 0 2px rgba(58,143,120,0.20)",
 
-## 二、字型規範
-
-### 字重（fontWeight）
-| 用途 | 字重 | 說明 |
-|------|------|------|
-| 所有標籤（label） | `400` | 「總 損 益」「市 值 佔 比」「獲 利」「虧 損」等 |
-| 數據值 | `400` | 子指標、市值、報酬率 |
-| 損益金額 | `500` | Hero 損益、勝敗欄損益、持股行損益 |
-| 股名 | `500` | 持股行第一行的股名 |
-| 按鈕文字 | `400–500` | 排序按鈕 400、儲存按鈕 500 |
-| **禁止** | `600/700` | 全面禁用 |
-
-### 字級（fontSize）
-| 元素 | 字級 | 說明 |
-|------|------|------|
-| Hero 損益 | `28px` | 唯一允許的大字 |
-| 股名 | `13px` | 持股行 |
-| 反轉股名 | `14px` | 反轉追蹤區（略大，因為是獨立區塊標題） |
-| 數據/副資訊 | `11–12px` | Top5、勝敗、持股行第三行 |
-| 標籤 | `10px` | section title、代碼、排序、標籤 |
-| 極小標籤 | `9px` | 權證/ETF/週期 muteTag |
-
-### 字距（letterSpacing）
-| 用途 | 值 | 範例 |
-|------|------|------|
-| Section 標籤 | `0.12em` | 「總 損 益」「市 值 佔 比」 |
-| 排序/子指標標籤 | `0.08em` | 「排序」、「總成本」 |
-| 股名 | `0.02em` | 持股行股名 |
-| 極小標籤 | `0.04em` | muteTag |
-| Hero 損益 | `-0.02em` | 負字距讓數字更緊湊 |
-
----
-
-## 三、佈局與間距
-
-### 垂直節奏
-| 區塊 | `marginBottom` |
-|------|----------------|
-| Hero 卡片 | `14px` |
-| 子指標區 | `14px` |
-| Top5 區 | `14px` |
-| 勝敗摘要 | `14px` |
-| 反轉追蹤 | `14px` |
-| 標籤與內容間距 | `8–10px` |
-| 持股行內行距 | `3–4px` |
-
-### 水平間距
-| 元素 | `gap` / `padding` |
-|------|-------------------|
-| Top5 行內元素 | `gap: 10px` |
-| 勝敗 grid | `gap: 14px`（兩欄） |
-| 持股行標籤 | `gap: 5px` |
-| 持股行數據 | `gap: 8px` + `paddingLeft: 8px` |
-| 持股行 padding | `12px 0`（上下） |
-
-### 內距
-| 元素 | `padding` |
-|------|-----------|
-| Hero 卡片 | `18px 20px` |
-| 反轉追蹤 | `paddingLeft: 12px`（左邊線偏移） |
-| 反轉編輯區 | `10px` |
-| 輸入框 | `6px 8px` |
-
----
-
-## 四、分隔線與邊框
-
-### 分隔線
-| 用途 | 規格 |
-|------|------|
-| 勝敗欄各行 | `1px solid alpha(C.textMute, '06')` |
-| 持股行分隔 | `1px solid alpha(C.textMute, '08')` |
-| 反轉追蹤各行 | `1px solid alpha(C.textMute, '06')` |
-| 最後一行 | `"none"`（無分隔線） |
-
-### 邊框
-| 用途 | 規格 |
-|------|------|
-| 反轉追蹤左邊線 | `1px solid alpha(C.amber, '20')` |
-| 排序按鈕底線（選中） | `1px solid C.textSec` |
-| 輸入框 | `1px solid C.border` |
-| 反轉條件按鈕 | `1px solid C.border`（無條件）/ `1px solid C.olive+'55'`（有條件）|
-| **禁止** | `boxShadow`、粗邊框（2px+） |
-
----
-
-## 五、圓角（borderRadius）
-
-| 元素 | 值 |
-|------|------|
-| Hero 卡片 | `12px` |
-| 反轉編輯區 | `7px` |
-| 輸入框 | `6px` |
-| 「顯示全部」按鈕 | `8px` |
-| 反轉條件按鈕 | `5px` |
-| 進度條 | `1px` |
-
----
-
-## 六、進度條
-
-| 屬性 | 值 |
-|------|------|
-| 高度 | `2px` |
-| 底色 | `alpha(C.textMute, '12')`（Top5）/ `alpha(C.textMute, '08')`（目標價） |
-| 填充色 | `C.teal`（Top5 第一名、目標價）/ `alpha(C.textMute, '25')`（Top5 其他名次） |
-| 圓角 | `1px` |
-| **禁止** | `conic-gradient`、`linear-gradient`、圓環圖 |
-
----
-
-## 七、禁止清單
-
-以下元素在是枝裕和風格中**完全禁止**使用：
-
-| 類別 | 禁止項目 |
-|------|----------|
-| 字重 | `fontWeight: 600` 以上 |
-| 背景 | `linear-gradient`、`conic-gradient`、漸層 |
-| 陰影 | `boxShadow`（任何形式） |
-| 圖示 | Emoji（📅🔒⚠️⏳👀 等） |
-| 邊框 | 2px 以上粗邊框 |
-| 動畫 | `pulse`、`glow`、閃爍效果 |
-| 背景色 | 不透明度超過 `'08'` 的填充（Hero 的 `'06'` 是上限） |
-| 色彩 | 標籤帶彩色（除損益外，一律 `C.textMute`） |
-
----
-
-## 八、alpha 透明度等級對照
-
-```text
-用途              alpha 值    視覺感受
-─────────────────────────────────────
-Hero 背景         '06'        幾乎看不見，僅暗示方向
-勝敗/反轉分隔線   '06'        極淡呼吸線
-持股行分隔線       '08'        可辨識但不搶眼
-進度條底色         '08'–'12'   結構性引導
-Top5 非首名填充    '25'        低調灰
-反轉追蹤左邊線     '20'        微弱警示
+  fillTeal:   "#3A8F78",
+  fillTomato: "#B5485A",
+  fillChoco:  "#9A7030",
+};
 ```
+
+### 檔案 2：`src/pages/FreeCheckup.jsx`
+
+#### 改動 1：切換 theme 指向（第 8, 58 行）
+- 第 8 行：`import { C as ThemeC, A, alpha } from ...` → `import { C as ThemeC, L as ThemeL, A, alpha } from ...`
+- 第 58 行：`const C = ThemeC;` → `const C = ThemeL;`
+
+#### 改動 2：`lbl` 常數（第 118 行）
+- `fontWeight:600` → `fontWeight:400`
+
+#### 改動 3：刪除 `@keyframes pulse`（第 1315 行）
+- 刪除整個 `@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`
+
+#### 改動 4：所有 `C.color+"xx"` 替換為 `alpha()`
+
+完整清單（含之前遺漏的 events/trade 分頁內的）：
+
+| # | 行號 | 原寫法 | 改為 |
+|---|------|--------|------|
+| 1 | 1340 | `C.amber+"22"` | `alpha(C.amber,'22')` |
+| 2 | 1348 | `C.blue+"14"` | `alpha(C.blue,'14')` |
+| 3 | 1350 | `C.blue+"33"` | `alpha(C.blue,'33')` |
+| 4 | 1502 | `C.olive+"22"` | `alpha(C.olive,'22')` |
+| 5 | 1503 | `C.olive+"55"` | `alpha(C.olive,'55')` |
+| 6 | 1555 | `C.olive+"cc"` | `alpha(C.olive,'cc')` |
+| 7 | 1735 | `TYPE_COLOR[t]+"33"` | `alpha(TYPE_COLOR[t],'33')` |
+| 8 | 1737 | `TYPE_COLOR[t]+"66"` | `alpha(TYPE_COLOR[t],'66')` |
+| 9 | 2134 | `C.amber+"66"` | `alpha(C.amber,'66')` |
+| 10 | 2210 | `C.olive+"cc"` | `alpha(C.olive,'cc')` |
+| 11 | 2210 | `C.blue+"cc"` | `alpha(C.blue,'cc')` |
+| 12 | 2282 | `C.teal+"cc"` | `alpha(C.teal,'cc')` |
+| 13 | 2401 | `C.olive+"99"` | `alpha(C.olive,'99')` |
+| 14 | 2401 | `C.up+"99"` | `alpha(C.up,'99')` |
+| 15 | 2402 | `predC(e.pred)+"55"` | `alpha(predC(e.pred),'55')` |
+| 16 | 2489 | `C.oliveBg+"88"` | `alpha(C.olive,'08')` |
+| 17 | 2489 | `C.upBg+"88"` | `alpha(C.up,'08')` |
+| 18 | 2490 | `C.olive+"44"` | `alpha(C.olive,'44')` |
+| 19 | 2490 | `C.up+"44"` | `alpha(C.up,'44')` |
+| 20 | 2502 | `${C.blue}33` | `alpha(C.blue,'33')` |
+| 21 | 2513 | `C.olive+"22"` | `alpha(C.olive,'22')` |
+| 22 | 2513 | `${C.olive}55` | `alpha(C.olive,'55')` |
+| 23 | 2566 | `C.olive+"cc"` | `alpha(C.olive,'cc')` |
+| 24 | 2665 | `C.blue+"cc"` | `alpha(C.blue,'cc')` |
+
+共 24 處（比原估 19 處多 5 處，因為 events filter buttons、復盤教訓、復盤送出、新增事件按鈕也有）。
+
+#### 不做的事
+- 不改 layout / spacing / 文案
+- 不改 `#fff` 硬編碼（屬於 Phase 2 對比系統調整）
+- 不改 LINE 登入按鈕的 `#06C755`（品牌色，不屬於 theme）
+- 不新增任何美學優化
 
