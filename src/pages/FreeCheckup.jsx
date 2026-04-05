@@ -1432,7 +1432,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               ["持股數",H.length+"檔"]].map(([l,v])=>(
               <div key={l} style={{textAlign:"center"}}>
                 <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>{l}</div>
-                <div style={{fontSize:13,fontWeight:400,color:C.textMute,marginTop:2}}>{v}</div>
+                <div style={{fontSize:13,fontWeight:400,color:C.textSec,marginTop:2}}>{v}</div>
               </div>
             ))}
           </div>
