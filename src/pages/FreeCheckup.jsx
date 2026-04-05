@@ -1878,18 +1878,23 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             {/* 自動驗證事件結果 */}
             {(dailyReport.autoVerified||[]).length>0 && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.olive}88`}}>
-                <div style={{...lbl,color:C.olive}}>自動驗證事件 · {dailyReport.autoVerified.length}件</div>
+              <div style={{...card,marginBottom:14,
+                borderTop:`2px solid ${alpha(C.olive,0.4)}`,
+                background:`linear-gradient(180deg, ${alpha(C.olive,0.04)}, ${C.card} 40%)`}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <span style={{fontSize:16}}>🔬</span>
+                  <span style={{...lbl,color:C.olive,marginBottom:0}}>自動驗證事件 · {dailyReport.autoVerified.length}件</span>
+                </div>
                 {dailyReport.autoVerified.map((v,i)=>(
                   <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                    padding:"6px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${C.borderSub}`:"none"}}>
+                    padding:"8px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${C.borderSub}`:"none"}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:500,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
                       <div style={{fontSize:12,color:C.textMute,marginTop:2}}>
                         預測{v.pred==="up"?"看漲":"看跌"} → 實際{v.actual==="up"?"漲":v.actual==="down"?"跌":"中性"}
                       </div>
                     </div>
-                    <span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:20,flexShrink:0,
+                    <span style={{fontSize:12,fontWeight:600,padding:"3px 10px",borderRadius:20,flexShrink:0,
                       background:v.correct?C.oliveBg:C.upBg,
                       color:v.correct?C.olive:C.up}}>
                       {v.correct?"✓ 命中":"✗ 失誤"}
