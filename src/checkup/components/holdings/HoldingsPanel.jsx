@@ -136,7 +136,7 @@ export function HoldingsIntegrityWarning({ issues }) {
         fontSize: 10,
         color: C.amber,
         lineHeight: 1.7,
-        borderLeft: `2px solid ${alpha(C.amber, '30')}`,
+        borderLeft: `1px solid ${alpha(C.amber, '20')}`,
         background: alpha(C.amber, '04'),
         borderRadius: 4,
       },
