@@ -1312,7 +1312,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
         textarea::placeholder,input::placeholder{color:${C.textMute}}
         input,textarea,button{font-family:inherit;-webkit-appearance:none}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
         @keyframes progress{0%{width:5%}50%{width:70%}100%{width:95%}}
         @media(max-width:480px){
           body{font-size:14px}
