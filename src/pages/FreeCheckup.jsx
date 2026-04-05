@@ -1342,20 +1342,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               {saved && <span style={{color:C.textMute,marginLeft:6,fontWeight:400,fontSize:11}}>{saved}</span>}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-              <span style={{fontSize:22,fontWeight:500,color:C.text,letterSpacing:"-0.02em"}}>持倉看板</span>
+              <span style={{fontSize:18,fontWeight:400,color:C.text,letterSpacing:"-0.01em"}}>持倉看板</span>
               <button onClick={refreshPrices} disabled={refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)} style={{
-                background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : alpha(C.blue,'14'),
-                color: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.textMute : C.blue,
-                border:`1px solid ${(refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.border : alpha(C.blue,'33')}`,
-                borderRadius:6, padding:"3px 10px", fontSize:12, fontWeight:500,
+                background: "transparent",
+                color: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.textMute : C.textSec,
+                border:`1px solid ${C.border}`,
+                borderRadius:6, padding:"3px 10px", fontSize:11, fontWeight:400,
                 cursor: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? "not-allowed" : "pointer",
                 transition:"all 0.2s", whiteSpace:"nowrap",
               }}>
-                {refreshing ? "更新中..." : cooldownText ? `⟳ ${cooldownText}` : "⟳ 刷新股價"}
+                {refreshing ? "更新中..." : cooldownText ? `${cooldownText}` : "刷新股價"}
               </button>
               <button onClick={() => setShowResetConfirm(true)} style={{
                 background: "transparent", color: C.textMute, border:`1px solid ${C.border}`,
-                borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:500,
+                borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
                 cursor:"pointer", whiteSpace:"nowrap",
               }}>清除</button>
               {lastUpdate && !refreshing && (
