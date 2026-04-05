@@ -2206,7 +2206,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <button onClick={submitMemo} disabled={!memoIn.trim()} style={{
                   width:"100%", padding:"12px", border:"none", borderRadius:8,
                   background: memoIn.trim()
-                    ? (memoStep===qs.length-1 ? C.olive+"cc" : C.blue+"cc")
+                    ? (memoStep===qs.length-1 ? alpha(C.olive,'cc') : alpha(C.blue,'cc'))
                     : C.subtle,
                   color: memoIn.trim() ? "#fff" : C.textMute,
                   fontSize:15, fontWeight:500, cursor:memoIn.trim()?"pointer":"not-allowed",
