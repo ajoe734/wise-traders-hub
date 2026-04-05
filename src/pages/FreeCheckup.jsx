@@ -679,12 +679,12 @@ export default function App() {
         }
         setTimeout(() => setSaved(""), 4000);
       } else {
-        setSaved("⚠️ 無法取得報價（可能非交易時間）");
+        setSaved("！無法取得報價（可能非交易時間）");
         setTimeout(() => setSaved(""), 3000);
       }
     } catch (err) {
       console.error('刷新股價失敗:', err);
-      setSaved("❌ 刷新失敗，請稍後再試");
+      setSaved("刷新失敗，請稍後再試");
       setTimeout(() => setSaved(""), 3000);
     }
     setRefreshing(false);
@@ -1128,7 +1128,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     }
     // LINE 免費用戶每日限制
     if (hasReachedDailyLimit) {
-      setSaved("⚠️ 今日免費健檢次數已用完，明天再來！");
+      setSaved("今日免費健檢次數已用完，明天再來");
       setTimeout(() => setSaved(""), 4000);
       return;
     }
@@ -1339,7 +1339,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.1em",fontWeight:500,marginBottom:4}}>
               {isDemo && <span style={{background:C.amber+"22",color:C.amber,padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,marginRight:6}}>DEMO</span>}
               {lineProfile && <span style={{background:"#06C75518",color:"#22C55E",padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,marginRight:6}}>{lineProfile.displayName}</span>}
-              <span style={{color:cloudSync?C.olive:C.textMute,fontSize:11}}>{cloudSync?"☁":"⚡"}</span>
+              <span style={{color:cloudSync?C.olive:C.textMute,fontSize:10,letterSpacing:"0.04em"}}>{cloudSync?"雲端":"本地"}</span>
               {saved && <span style={{color:C.olive,marginLeft:6,fontWeight:500,fontSize:12}}>{saved}</span>}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -1715,16 +1715,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* ══════════ EVENTS ══════════ */}
         {tab==="events" && <>
           {calendarLoading ? (
-            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:15,color:C.amber,fontWeight:500,animation:"pulse 1.5s ease-in-out infinite"}}>
+            <div style={{textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:13,color:C.textMute,fontWeight:400}}>
                 正在根據持倉產生行事曆...
               </div>
             </div>
           ) : H.length === 0 && CE.length === 0 ? (
-            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:32,marginBottom:10,opacity:0.3}}>📅</div>
-              <div style={{fontSize:15,color:C.textSec,fontWeight:500}}>尚無行事曆事件</div>
-              <div style={{fontSize:13,color:C.textMute,marginTop:6,lineHeight:1.7}}>
+            <div style={{textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:20,marginBottom:10,opacity:0.2}}>◌</div>
+              <div style={{fontSize:13,color:C.textMute,fontWeight:400}}>尚無行事曆事件</div>
+              <div style={{fontSize:12,color:C.textMute,marginTop:6,lineHeight:1.7,opacity:0.6}}>
                 上傳成交截圖後，相關股票的財報、法說、催化事件會自動列出
               </div>
             </div>
@@ -1742,8 +1742,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
 
             {filteredEvents.length === 0 ? (
-              <div style={{...card,textAlign:"center",padding:"24px 16px"}}>
-                <div style={{fontSize:13,color:C.textMute}}>此分類暫無事件</div>
+              <div style={{textAlign:"center",padding:"24px 16px"}}>
+                <div style={{fontSize:12,color:C.textMute,fontWeight:400}}>此分類暫無事件</div>
               </div>
             ) : (() => {
               const COLLAPSE_LIMIT = 10;
@@ -1753,15 +1753,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {visibleEvents.map((e,i)=>{
                   const tc = TYPE_COLOR[e.type]||C.textMute;
                   const globalIdx = CE.indexOf(e);
-                  return <div key={i} style={{...card,marginBottom:7,
-                    borderLeft:`2px solid ${e.urgent ? C.up : tc+"66"}`}}>
+                  return <div key={i} style={{marginBottom:0,padding:"10px 0",
+                    borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
                     <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
                       <div style={{minWidth:48}}>
-                        <div style={{background: e.urgent ? C.upBg : tc+"18",
-                          color: e.urgent ? C.up : tc,
-                          fontSize:12,fontWeight:600,padding:"2px 5px",borderRadius:4,
+                        <div style={{
+                          color: e.urgent ? C.up : C.textMute,
+                          fontSize:11,fontWeight:400,
                           textAlign:"center",marginBottom:3}}>{e.type}</div>
-                        <div style={{fontSize:12,color:C.textMute,textAlign:"center",lineHeight:1.4}}>{e.date}</div>
+                        <div style={{fontSize:11,color:C.textMute,textAlign:"center",lineHeight:1.4,opacity:0.6}}>{e.date}</div>
                       </div>
                       <div style={{flex:1}}>
                         <div style={{fontSize:14,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
@@ -2077,17 +2077,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="trade" && <>
           {/* Demo 模式提示 */}
           {isDemo && (
-            <div style={{...card, marginBottom:16, background:C.cardAmber, border:`1px solid ${C.amber}44`, textAlign:"center"}}>
-              <div style={{fontSize:18,marginBottom:8}}>🔒</div>
-              <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:6}}>
+            <div style={{marginBottom:16, padding:"20px 16px", background:alpha(C.amber,'06'), borderRadius:10, textAlign:"center"}}>
+              <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
                 上傳成交需要先登入
               </div>
-              <div style={{fontSize:13,color:C.textSec,marginBottom:14,lineHeight:1.6}}>
+              <div style={{fontSize:12,color:C.textMute,marginBottom:14,lineHeight:1.6}}>
                 透過 LINE 快速登入，即可免費使用 AI 健檢功能（每日一次）
               </div>
               <button onClick={startLineLogin} style={{
                 background:"#06C755", color:"#fff", border:"none",
-                borderRadius:10, padding:"12px 28px", fontSize:15, fontWeight:600,
+                borderRadius:8, padding:"10px 24px", fontSize:13, fontWeight:500,
                 cursor:"pointer", letterSpacing:"0.02em",
               }}>
                 使用 LINE 快速登入
@@ -2096,12 +2095,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
           {/* 每日限制提示 */}
           {hasReachedDailyLimit && !isDemo && (
-            <div style={{...card, marginBottom:16, background:C.cardBlue, border:`1px solid ${C.blue}44`, textAlign:"center"}}>
-              <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:6}}>
+            <div style={{marginBottom:16, padding:"20px 16px", background:alpha(C.blue,'06'), borderRadius:10, textAlign:"center"}}>
+              <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
                 今日免費健檢次數已用完
               </div>
-              <div style={{fontSize:13,color:C.textSec,lineHeight:1.6}}>
-                每日可免費上傳一次成交截圖進行 AI 分析，明天再來！
+              <div style={{fontSize:12,color:C.textMute,lineHeight:1.6}}>
+                每日可免費上傳一次成交截圖進行 AI 分析，明天再來
               </div>
             </div>
           )}
@@ -2148,22 +2147,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {parsed?.trades?.length>0 && (
             <div>
-              <div style={{...card,marginBottom:12}}>
-                <div style={lbl}>解析結果</div>
+                <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:C.textMute,fontWeight:400,letterSpacing:"0.1em",marginBottom:8}}>解析結果</div>
                 {parsed.trades.map((t,i)=>(
                   <div key={i} style={{display:"flex",justifyContent:"space-between",
                     alignItems:"center",padding:"10px 0",
-                    borderBottom:i<parsed.trades.length-1?`1px solid ${C.borderSub}`:"none"}}>
+                    borderBottom:i<parsed.trades.length-1?`1px solid ${alpha(C.textMute,'06')}`:"none"}}>
                     <div>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
                         <span style={{
-                          background: t.action==="買進" ? C.upBg : C.downBg,
                           color: t.action==="買進" ? C.up : C.down,
-                          fontSize:12, fontWeight:600, padding:"2px 9px", borderRadius:4}}>
+                          fontSize:11, fontWeight:400}}>
                           {t.action}
                         </span>
-                        <span style={{fontSize:16,fontWeight:600,color:C.text}}>{t.name}</span>
-                        <span style={{fontSize:12,color:C.textMute}}>{t.code}</span>
+                        <span style={{fontSize:13,fontWeight:500,color:C.text}}>{t.name}</span>
+                        <span style={{fontSize:10,color:C.textMute}}>{t.code}</span>
                       </div>
                       <div style={{fontSize:13,color:C.textMute,marginTop:3}}>
                         {t.qty}股 @ {t.price?.toLocaleString()}元
@@ -2174,7 +2172,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {parsed.targetPriceUpdates?.length>0 && (
                   <div style={{marginTop:10,background:C.tealBg,border:`1px solid ${C.teal}44`,
                     borderRadius:7,padding:"8px 10px"}}>
-                    <div style={{fontSize:12,color:C.teal,fontWeight:600,marginBottom:4}}>
+                    <div style={{fontSize:11,color:C.teal,fontWeight:400,marginBottom:4,letterSpacing:"0.04em"}}>
                       偵測到目標價更新
                     </div>
                     {parsed.targetPriceUpdates.map((u,i)=>(
@@ -2296,7 +2294,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="log" && <>
           {(!tradeLog||tradeLog.length===0) ? (
             <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:28,marginBottom:10,opacity:0.3}}>◌</div>
+              <div style={{fontSize:20,marginBottom:10,opacity:0.2}}>◌</div>
               <div style={{fontSize:15,color:C.textMute,fontWeight:400}}>
                 還沒有交易記錄<br/>
                 <span style={{fontSize:13}}>上傳成交截圖後自動記錄在這裡</span>
@@ -2319,7 +2317,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               });
               return dateGroups.map((group, gi) => (
                 <div key={"grp-"+gi}>
-                  <div style={{fontSize:14,fontWeight:700,color:C.amber,letterSpacing:"0.04em",marginBottom:8,marginTop:gi===0?0:6}}>
+                  <div style={{fontSize:12,fontWeight:400,color:C.textMute,letterSpacing:"0.08em",marginBottom:8,marginTop:gi===0?0:6}}>
                     {group.date}
                   </div>
                   {(() => {
@@ -2336,18 +2334,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     return timeGroups.map((tg, ti) => (
                       <div key={"tg-"+ti}>
                         {tg.items.map((log, li) => (
-                          <div key={log.id} style={{...card,marginBottom:li < tg.items.length-1 ? 8 : 0,
-                            borderLeft:`2px solid ${log.action==="買進" ? C.up+"88" : C.down+"88"}`}}>
+                          <div key={log.id} style={{marginBottom:0,padding:"10px 0",
+                            borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
                             <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                               <div style={{display:"flex",alignItems:"center",gap:7}}>
                                 <span style={{
-                                  background: log.action==="買進" ? C.upBg : C.downBg,
                                   color: log.action==="買進" ? C.up : C.down,
-                                  fontSize:12, fontWeight:600, padding:"2px 8px", borderRadius:4}}>
+                                  fontSize:11, fontWeight:400}}>
                                   {log.action}
                                 </span>
-                                <span style={{fontSize:16,fontWeight:600,color:C.text}}>{log.name}</span>
-                                <span style={{fontSize:12,color:C.textMute}}>{log.code}</span>
+                                <span style={{fontSize:13,fontWeight:500,color:C.text}}>{log.name}</span>
+                                <span style={{fontSize:10,color:C.textMute}}>{log.code}</span>
                               </div>
                               {li === 0 && <div style={{fontSize:12,color:C.textMute}}>{log.time}</div>}
                             </div>
@@ -2421,8 +2418,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {/* 預測/結果標籤 */}
                   <div style={{
                     minWidth:26, textAlign:"center",
-                    fontSize:16, fontWeight:700,
-                    color: predC(e.pred), opacity: 0.85,
+                    fontSize:13, fontWeight:400,
+                    color: predC(e.pred), opacity: 0.7,
                   }}>{predIcon(e.pred)}</div>
 
                   {/* 標題區 */}
@@ -2446,14 +2443,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
                     {e.status==="past" && isCorrect!==null && (
                       <span style={{
-                        fontSize:12, fontWeight:600, padding:"2px 7px", borderRadius:20,
-                        background: isCorrect ? C.oliveBg : C.upBg,
+                        fontSize:11, fontWeight:400,
                         color: isCorrect ? C.olive : C.up,
-                      }}>{isCorrect ? "✓ 正確" : "✗ 有誤"}</span>
+                      }}>{isCorrect ? "正確" : "有誤"}</span>
                     )}
                     {e.status==="verifying" && (
-                      <span style={{fontSize:12,color:C.amber,fontWeight:600,
-                        padding:"2px 7px",borderRadius:20,background:C.amberBg||C.cardAmber}}>⏳ 待驗證</span>
+                      <span style={{fontSize:11,color:C.amber,fontWeight:400}}>待驗證</span>
                     )}
                     {e.status==="pending" && (
                       <span style={{fontSize:12,color:C.textMute,fontWeight:500}}>待觀察</span>
@@ -2482,7 +2477,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
                     {/* 預測邏輯 */}
                     <div style={{background:C.subtle,borderRadius:7,padding:"9px 11px",marginBottom: e.actualNote?8:0}}>
-                      <div style={{fontSize:12,color:predC(e.pred),fontWeight:600,marginBottom:3,letterSpacing:"0.05em"}}>
+                      <div style={{fontSize:11,color:predC(e.pred),fontWeight:400,marginBottom:3,letterSpacing:"0.06em"}}>
                         {predIcon(e.pred)} 預測{predLabel(e.pred)} — 邏輯
                       </div>
                       <div style={{fontSize:13,color:C.textSec,lineHeight:1.7}}>{e.predReason}</div>
@@ -2495,7 +2490,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         border:`1px solid ${isCorrect ? C.olive+"44":C.up+"44"}`,
                         borderRadius:7, padding:"9px 11px", marginTop:8,
                       }}>
-                        <div style={{fontSize:12,color: isCorrect?C.olive:C.up,fontWeight:600,marginBottom:3,letterSpacing:"0.05em"}}>
+                        <div style={{fontSize:11,color: isCorrect?C.olive:C.up,fontWeight:400,marginBottom:3,letterSpacing:"0.06em"}}>
                           {predIcon(e.actual)} 實際{predLabel(e.actual)} — {isCorrect?"預測正確":"預測有誤"}
                         </div>
                         <div style={{fontSize:13,color:C.textSec,lineHeight:1.7}}>{e.actualNote}</div>
@@ -2751,37 +2746,35 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
           onClick={() => setShowResetConfirm(false)}>
           <div onClick={e=>e.stopPropagation()} style={{
-            background:C.card, borderRadius:14, padding:"28px 24px", maxWidth:360, width:"100%",
-            border:`1px solid ${C.up}44`, boxShadow:`0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px ${C.up}22`}}>
-            <div style={{fontSize:25,textAlign:"center",marginBottom:10}}>⚠️</div>
-            <div style={{fontSize:18,fontWeight:700,color:C.up,marginBottom:10,textAlign:"center"}}>
-              確認清除「全部」資料？
+            background:C.card, borderRadius:12, padding:"28px 24px", maxWidth:360, width:"100%",
+            border:`1px solid ${alpha(C.textMute,'08')}`}}>
+            <div style={{fontSize:14,fontWeight:500,color:C.up,marginBottom:10,textAlign:"center",letterSpacing:"0.02em"}}>
+              確認清除全部資料？
             </div>
-            <div style={{fontSize:14,color:C.textSec,marginBottom:6,lineHeight:1.7,textAlign:"center"}}>
-              此操作<span style={{color:C.up,fontWeight:600}}>無法復原</span>，將永久刪除以下所有資料：
+            <div style={{fontSize:12,color:C.textMute,marginBottom:6,lineHeight:1.7,textAlign:"center"}}>
+              此操作<span style={{color:C.up,fontWeight:500}}>無法復原</span>，將永久刪除以下所有資料：
             </div>
             <div style={{background:C.subtle,borderRadius:8,padding:"10px 14px",marginBottom:16,
-              fontSize:13,color:C.textMute,lineHeight:2}}>
-              ✕ 持倉資料（所有股票部位）<br/>
-              ✕ 交易日誌（所有買賣紀錄）<br/>
-              ✕ 觀察股清單<br/>
-              ✕ 行事曆事件（法說、財報等）<br/>
-              ✕ 事件分析（預測與復盤紀錄）<br/>
-              ✕ 收盤分析（歷史分析報告）<br/>
-              ✕ 策略大腦（AI 學習紀錄）<br/>
-              ✕ 目標價資料<br/>
-              ✕ 歷史分析紀錄<br/>
-              ✕ 最近教訓
+              fontSize:12,color:C.textMute,lineHeight:2}}>
+              持倉資料（所有股票部位）<br/>
+              交易日誌（所有買賣紀錄）<br/>
+              觀察股清單<br/>
+              行事曆事件（法說、財報等）<br/>
+              事件分析（預測與復盤紀錄）<br/>
+              收盤分析（歷史分析報告）<br/>
+              策略大腦（AI 學習紀錄）<br/>
+              目標價資料<br/>
+              歷史分析紀錄<br/>
+              最近教訓
             </div>
             <div style={{display:"flex",gap:10}}>
               <button onClick={() => setShowResetConfirm(false)} style={{
-                flex:1, background:C.subtle, color:C.text, border:`1px solid ${C.border}`,
-                borderRadius:10, padding:"10px 0", fontSize:15, fontWeight:500, cursor:"pointer",
+                flex:1, background:C.subtle, color:C.text, border:`1px solid ${alpha(C.textMute,'08')}`,
+                borderRadius:8, padding:"10px 0", fontSize:13, fontWeight:400, cursor:"pointer",
               }}>取消</button>
               <button onClick={resetAll} style={{
                 flex:1, background:C.up, color:"#fff", border:"none",
-                borderRadius:10, padding:"10px 0", fontSize:15, fontWeight:700, cursor:"pointer",
-                boxShadow:`0 2px 8px ${C.up}44`,
+                borderRadius:8, padding:"10px 0", fontSize:13, fontWeight:500, cursor:"pointer",
               }}>確認全部清除</button>
             </div>
           </div>
