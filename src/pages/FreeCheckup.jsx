@@ -2317,7 +2317,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               });
               return dateGroups.map((group, gi) => (
                 <div key={"grp-"+gi}>
-                  <div style={{fontSize:14,fontWeight:700,color:C.amber,letterSpacing:"0.04em",marginBottom:8,marginTop:gi===0?0:6}}>
+                  <div style={{fontSize:12,fontWeight:400,color:C.textMute,letterSpacing:"0.08em",marginBottom:8,marginTop:gi===0?0:6}}>
                     {group.date}
                   </div>
                   {(() => {
