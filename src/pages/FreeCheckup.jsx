@@ -1855,13 +1855,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
 
 
-            {/* AI 策略分析 — 直接顯示完整內容 */}
+            {/* AI 策略分析 — Markdown 渲染 */}
             {dailyReport.aiInsight && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.lavender}88`}}>
-                <div style={{...lbl,color:C.lavender}}>AI 策略分析</div>
-                <div style={{fontSize:13,color:C.textSec,lineHeight:2,whiteSpace:"pre-wrap"}}>
-                  {dailyReport.aiInsight}
+              <div style={{...card,marginBottom:14,
+                borderTop:`2px solid ${alpha(C.lavender,0.4)}`,
+                background:`linear-gradient(180deg, ${alpha(C.lavender,0.04)}, ${C.card} 40%)`}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <span style={{fontSize:16}}>🧠</span>
+                  <span style={{...lbl,color:C.lavender,marginBottom:0}}>AI 策略分析</span>
                 </div>
+                <Md text={dailyReport.aiInsight} color={C.textSec} />
               </div>
             )}
 
