@@ -1414,18 +1414,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
             const isUp = totalPnl >= 0;
             const heroColor = isUp ? C.up : C.down;
-            const heroGrad = `linear-gradient(135deg, ${alpha(heroColor,'1f')} 0%, ${alpha(heroColor,'08')} 100%)`;
-            const heroBorder = `1px solid ${alpha(heroColor,'26')}`;
             return (
-              <div style={{background:heroGrad,border:heroBorder,borderRadius:14,padding:"18px 20px",marginBottom:10,textAlign:"center"}}>
-                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",marginBottom:6}}>總損益</div>
-                <div style={{fontSize:28,fontWeight:700,color:isUp?C.up:C.down,lineHeight:1.2}}>
+              <div style={{background:alpha(heroColor,'06'),borderRadius:12,padding:"18px 20px",marginBottom:14,textAlign:"center"}}>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:6}}>總 損 益</div>
+                <div style={{fontSize:28,fontWeight:500,color:heroColor,lineHeight:1.2,letterSpacing:"-0.02em"}}>
                   {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
                 </div>
-                <span style={{display:"inline-block",marginTop:6,fontSize:12,fontWeight:600,
-                  color:isUp?C.up:C.down,background:isUp?C.upBg:C.downBg,borderRadius:20,padding:"3px 12px"}}>
+                <div style={{marginTop:6,fontSize:12,fontWeight:400,color:heroColor,opacity:0.7}}>
                   {isUp?"+":""}{totalPct.toFixed(2)}%
-                </span>
+                </div>
               </div>
             );
           })()}
