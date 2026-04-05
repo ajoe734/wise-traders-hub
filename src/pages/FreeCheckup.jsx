@@ -2586,7 +2586,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               ].map(([l,v,c,bg])=>(
                 <div key={l} style={{background:bg,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 11px"}}>
                   <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.06em"}}>{l}</div>
-                  <div style={{fontSize:18,fontWeight:600,color:c,marginTop:4}}>{v}</div>
+                  <div style={{fontSize:18,fontWeight:500,color:c,marginTop:4}}>{v}</div>
                 </div>
               ))}
             </div>
