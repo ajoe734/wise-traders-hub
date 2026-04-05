@@ -1742,8 +1742,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
 
             {filteredEvents.length === 0 ? (
-              <div style={{...card,textAlign:"center",padding:"24px 16px"}}>
-                <div style={{fontSize:13,color:C.textMute}}>此分類暫無事件</div>
+              <div style={{textAlign:"center",padding:"24px 16px"}}>
+                <div style={{fontSize:12,color:C.textMute,fontWeight:400}}>此分類暫無事件</div>
               </div>
             ) : (() => {
               const COLLAPSE_LIMIT = 10;
