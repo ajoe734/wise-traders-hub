@@ -1355,7 +1355,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {refreshing ? "更新中..." : cooldownText ? `⟳ ${cooldownText}` : "⟳ 刷新股價"}
               </button>
               <button onClick={() => setShowResetConfirm(true)} style={{
-                background: C.up+"0f", color: C.textMute, border:`1px solid ${C.border}`,
+                background: "transparent", color: C.textMute, border:`1px solid ${C.border}`,
                 borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:500,
                 cursor:"pointer", whiteSpace:"nowrap",
               }}>清除</button>
