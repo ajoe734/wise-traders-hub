@@ -1128,7 +1128,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     }
     // LINE 免費用戶每日限制
     if (hasReachedDailyLimit) {
-      setSaved("⚠️ 今日免費健檢次數已用完，明天再來！");
+      setSaved("今日免費健檢次數已用完，明天再來");
       setTimeout(() => setSaved(""), 4000);
       return;
     }
