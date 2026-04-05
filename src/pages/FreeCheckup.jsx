@@ -1594,7 +1594,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none"}}>
                 {/* 第一行：名稱 + 代碼 + 核心標籤 */}
                 <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
-                  <span style={{fontSize:13,fontWeight:500,color:C.text,letterSpacing:"0.02em"}}>{h.name}</span>
+                  <span style={{fontSize:13,fontWeight:400,color:C.text,letterSpacing:"0.02em"}}>{h.name}</span>
                   <span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{h.code}</span>
                   {h.type==="權證"&&badge("權證")}
                   {h.type==="ETF"&&badge("ETF")}
