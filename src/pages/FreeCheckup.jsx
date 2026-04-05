@@ -55,7 +55,7 @@ const INIT_WATCHLIST = [
 // correct: true/false/null
 
 // 使用統一主題
-const C = ThemeC;
+const C = ThemeL;
 
 const TYPE_COLOR = {
   法說: C.blue,
