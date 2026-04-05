@@ -1804,67 +1804,61 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* ══════════ DAILY ANALYSIS ══════════ */}
         {tab==="daily" && <>
           {/* 手動觸發按鈕 */}
-          {!dailyReport && !analyzing && (
-            <div style={{...card,textAlign:"center",padding:"28px 16px",marginBottom:12}}>
-              <div style={{fontSize:32,marginBottom:10,opacity:0.4}}>◎</div>
-              <div style={{fontSize:15,color:C.textSec,fontWeight:500,marginBottom:6}}>每日收盤分析</div>
-              <div style={{fontSize:13,color:C.textMute,marginBottom:16,lineHeight:1.7}}>
-                分析今日股價變動與事件連動性<br/>自動比對持倉漲跌、異常波動、策略建議
-              </div>
-              <button onClick={runDailyAnalysis} style={{
-                padding:"12px 28px",borderRadius:10,border:"none",
-                background:`linear-gradient(135deg,${C.blue}cc,${C.olive}cc)`,
-                color:"#fff",fontSize:15,fontWeight:600,cursor:"pointer",
-                letterSpacing:"0.03em"}}>
-                開始今日收盤分析
-              </button>
-              <div style={{fontSize:12,color:C.textMute,marginTop:10}}>
-                收盤後按下即可開始分析
-              </div>
-            </div>
-          )}
+           {!dailyReport && !analyzing && (
+             <div style={{textAlign:"center",padding:"36px 16px",marginBottom:14}}>
+               <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:10}}>每 日 收 盤 分 析</div>
+               <div style={{fontSize:13,color:C.textMute,marginBottom:20,lineHeight:1.8,fontWeight:400}}>
+                 分析今日股價變動與事件連動性<br/>自動比對持倉漲跌、異常波動、策略建議
+               </div>
+               <button onClick={runDailyAnalysis} style={{
+                 padding:"10px 24px",borderRadius:8,
+                 border:`1px solid ${alpha(C.teal,'30')}`,
+                 background:alpha(C.teal,'06'),
+                 color:C.teal,fontSize:13,fontWeight:400,cursor:"pointer",
+                 letterSpacing:"0.04em"}}>
+                 開始今日收盤分析
+               </button>
+               <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.6}}>
+                 收盤後按下即可開始分析
+               </div>
+             </div>
+           )}
 
           {analyzing && (
-            <div style={{...card,textAlign:"center",padding:"36px 16px",
-              background:`linear-gradient(135deg, ${C.card}, ${alpha(C.amber,0.04)})`,
-              border:`1px solid ${alpha(C.amber,0.15)}`}}>
-              <div style={{fontSize:28,marginBottom:12,animation:"pulse 2s ease-in-out infinite"}}>◎</div>
-              <div style={{fontSize:16,color:C.amber,fontWeight:600,marginBottom:6}}>
+            <div style={{textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:13,color:C.textSec,fontWeight:400,marginBottom:10,letterSpacing:"0.04em"}}>
                 {analyzeStep || "正在分析今日收盤數據..."}
               </div>
-              <div style={{fontSize:13,color:C.textMute,marginTop:4,display:"flex",justifyContent:"center",gap:6,flexWrap:"wrap"}}>
+              <div style={{fontSize:11,color:C.textMute,marginTop:8,display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap"}}>
                 {["取得股價","比對事件","AI策略分析","大腦進化"].map((s,i)=>(
-                  <span key={i} style={{padding:"2px 10px",borderRadius:20,background:alpha(C.amber,0.08),fontSize:12}}>{s}</span>
+                  <span key={i} style={{fontSize:10,color:C.textMute,fontWeight:400,opacity:0.6}}>{s}</span>
                 ))}
               </div>
-              <div style={{width:"100%",height:4,background:C.borderSub,borderRadius:3,marginTop:16,overflow:"hidden"}}>
-                <div style={{height:"100%",borderRadius:3,
-                  background:`linear-gradient(90deg, ${C.amber}, ${C.orange}, ${C.amber})`,
-                  backgroundSize:"200% 100%",
-                  animation:"shimmer 2s linear infinite",
-                  width:"70%"}} />
+              <div style={{width:"100%",height:2,background:alpha(C.textMute,'08'),borderRadius:1,marginTop:16,overflow:"hidden"}}>
+                <div style={{height:"100%",borderRadius:1,
+                  background:C.teal,
+                  width:"70%",
+                  transition:"width 0.5s ease"}} />
               </div>
-              <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
             </div>
           )}
 
           {dailyReport && !analyzing && <>
             {/* 今日損益摘要 */}
             <div id="daily-report-top" style={{
-              background:`linear-gradient(135deg, ${C.card}, ${dailyReport.totalTodayPnl>=0?alpha(C.up,0.06):alpha(C.down,0.06)})`,
-              border:`1px solid ${dailyReport.totalTodayPnl>=0?alpha(C.up,0.15):alpha(C.down,0.15)}`,
+              background:alpha(dailyReport.totalTodayPnl>=0?C.up:C.down,'06'),
               borderRadius:12,padding:"18px 18px 16px",marginBottom:14}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                    <button onClick={()=>setDailyReport(null)} style={{fontSize:12,padding:"3px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:alpha(C.bg,0.5),color:C.textMute,cursor:"pointer",backdropFilter:"blur(4px)"}}>← 返回</button>
-                    <span style={{fontSize:13,fontWeight:600,color:C.text,padding:"3px 10px",borderRadius:6,background:alpha(C.amber,0.1),border:`1px solid ${alpha(C.amber,0.15)}`}}>{dailyReport.date}</span>
+                    <button onClick={()=>setDailyReport(null)} style={{fontSize:11,padding:"3px 8px",borderRadius:6,border:"none",background:"transparent",color:C.textMute,cursor:"pointer",fontWeight:400}}>← 返回</button>
+                    <span style={{fontSize:12,fontWeight:400,color:C.textSec}}>{dailyReport.date}</span>
                   </div>
-                  <div style={{fontSize:12,color:C.textMute,marginTop:2}}>🕐 {dailyReport.time} 更新</div>
+                  <div style={{fontSize:11,color:C.textMute,marginTop:2,fontWeight:400}}>{dailyReport.time} 更新</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.05em",marginBottom:4}}>TODAY P&L</div>
-                  <div style={{fontSize:28,fontWeight:700,color:pc(dailyReport.totalTodayPnl),lineHeight:1}}>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",marginBottom:4,fontWeight:400}}>TODAY P&L</div>
+                  <div style={{fontSize:28,fontWeight:500,color:pc(dailyReport.totalTodayPnl),lineHeight:1}}>
                     {dailyReport.totalTodayPnl>=0?"+":""}{dailyReport.totalTodayPnl.toLocaleString()}
                   </div>
                 </div>
@@ -1874,20 +1868,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             {/* AI 策略分析 — Markdown 渲染 */}
             {dailyReport.aiInsight && (
-              <div style={{...card,marginBottom:14,
-                borderTop:`2px solid ${alpha(C.lavender,0.4)}`,
-                background:`linear-gradient(180deg, ${alpha(C.lavender,0.04)}, ${C.card} 40%)`}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-                  <span style={{fontSize:16}}>🧠</span>
-                  <span style={{...lbl,color:C.lavender,marginBottom:0}}>AI 策略分析</span>
+              <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+                  <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400}}>AI 策 略 分 析</span>
                 </div>
                 <Md text={dailyReport.aiInsight} color={C.textSec} />
               </div>
             )}
 
             {!dailyReport.aiInsight && (
-              <div style={{...card,marginBottom:10,background:C.subtle}}>
-                <div style={{fontSize:13,color:C.textMute,textAlign:"center",padding:"8px 0"}}>
+              <div style={{marginBottom:14,padding:"8px 0"}}>
+                <div style={{fontSize:12,color:C.textMute,textAlign:"center",fontWeight:400}}>
                   AI 分析未產生
                 </div>
               </div>
@@ -1895,26 +1886,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             {/* 自動驗證事件結果 */}
             {(dailyReport.autoVerified||[]).length>0 && (
-              <div style={{...card,marginBottom:14,
-                borderTop:`2px solid ${alpha(C.olive,0.4)}`,
-                background:`linear-gradient(180deg, ${alpha(C.olive,0.04)}, ${C.card} 40%)`}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-                  <span style={{fontSize:16}}>🔬</span>
-                  <span style={{...lbl,color:C.olive,marginBottom:0}}>自動驗證事件 · {dailyReport.autoVerified.length}件</span>
+              <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:10}}>
+                  自 動 驗 證 · {dailyReport.autoVerified.length}件
                 </div>
                 {dailyReport.autoVerified.map((v,i)=>(
                   <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                    padding:"8px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${C.borderSub}`:"none"}}>
+                    padding:"6px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${alpha(C.textMute,'04')}`:"none"}}>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:500,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
-                      <div style={{fontSize:12,color:C.textMute,marginTop:2}}>
+                      <div style={{fontSize:12,fontWeight:400,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
+                      <div style={{fontSize:11,color:C.textMute,marginTop:2,fontWeight:400}}>
                         預測{v.pred==="up"?"看漲":"看跌"} → 實際{v.actual==="up"?"漲":v.actual==="down"?"跌":"中性"}
                       </div>
                     </div>
-                    <span style={{fontSize:12,fontWeight:600,padding:"3px 10px",borderRadius:20,flexShrink:0,
-                      background:v.correct?C.oliveBg:C.upBg,
-                      color:v.correct?C.olive:C.up}}>
-                      {v.correct?"✓ 命中":"✗ 失誤"}
+                    <span style={{fontSize:11,fontWeight:400,flexShrink:0,
+                      color:v.correct?C.teal:C.up}}>
+                      {v.correct?"命中":"失誤"}
                     </span>
                   </div>
                 ))}
@@ -1923,20 +1910,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             {/* 需要復盤的事件 */}
             {(dailyReport.needsReview||[]).length>0 && (
-              <div style={{...card,marginBottom:14,
-                borderTop:`2px solid ${alpha(C.up,0.4)}`,
-                background:`linear-gradient(180deg, ${alpha(C.up,0.04)}, ${C.card} 40%)`}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-                  <span style={{fontSize:16}}>📋</span>
-                  <span style={{...lbl,color:C.up,marginBottom:0}}>需要復盤 · {dailyReport.needsReview.length}件</span>
+              <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:10}}>
+                  需 要 復 盤 · {dailyReport.needsReview.length}件
                 </div>
                 {dailyReport.needsReview.map(e=>(
-                  <div key={e.id} style={{marginBottom:10}}>
-                    <div style={{fontSize:13,fontWeight:500,color:C.text}}>{e.title}</div>
-                    <div style={{fontSize:12,color:C.textMute,marginTop:2}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
+                  <div key={e.id} style={{marginBottom:8}}>
+                    <div style={{fontSize:12,fontWeight:400,color:C.text}}>{e.title}</div>
+                    <div style={{fontSize:11,color:C.textMute,marginTop:2,fontWeight:400}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
                     <button onClick={()=>{setTab("news");setExpandedNews(new Set([e.id]))}}
-                      style={{marginTop:6,padding:"5px 12px",borderRadius:6,border:`1px solid ${C.olive}55`,
-                        background:alpha(C.olive,0.06),color:C.olive,fontSize:12,cursor:"pointer"}}>
+                      style={{marginTop:4,padding:"4px 10px",borderRadius:4,border:"none",
+                        background:"transparent",color:C.textSec,fontSize:11,cursor:"pointer",fontWeight:400}}>
                       前往復盤 →
                     </button>
                   </div>
@@ -1956,25 +1940,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* 策略大腦 */}
           {strategyBrain && (
-            <div style={{...card,marginBottom:14,
-              borderTop:`2px solid ${alpha(C.lavender,0.4)}`,
-              background:`linear-gradient(180deg, ${alpha(C.lavender,0.04)}, ${C.card} 40%)`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:16}}>🧬</span>
-                  <span style={{...lbl,color:C.lavender,marginBottom:0}}>策略大腦</span>
-                </div>
-                <span style={{fontSize:12,color:C.textMute}}>
-                  更新：{strategyBrain.lastUpdate||"—"} | 分析次數：{strategyBrain.stats?.totalAnalyses||0}
+            <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400}}>策 略 大 腦</span>
+                <span style={{fontSize:11,color:C.textMute,fontWeight:400}}>
+                  更新：{strategyBrain.lastUpdate||"—"} | 分析：{strategyBrain.stats?.totalAnalyses||0}次
                 </span>
               </div>
 
               {(strategyBrain.rules||[]).length>0 && (
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:12,color:C.amber,fontWeight:600,marginBottom:5}}>核心策略規則</div>
+                  <div style={{fontSize:10,color:C.textMute,fontWeight:400,letterSpacing:"0.08em",marginBottom:5}}>核心策略規則</div>
                   {strategyBrain.rules.map((r,i)=>(
-                    <div key={i} style={{fontSize:13,color:C.textSec,lineHeight:1.8,
-                      padding:"3px 0",borderBottom:`1px solid ${C.borderSub}`}}>
+                    <div key={i} style={{fontSize:12,color:C.textSec,lineHeight:1.8,fontWeight:400,
+                      padding:"3px 0",borderBottom:`1px solid ${alpha(C.textMute,'04')}`}}>
                       {i+1}. {r}
                     </div>
                   ))}
@@ -1983,21 +1962,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
               {(strategyBrain.commonMistakes||[]).length>0 && (
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:12,color:C.up,fontWeight:600,marginBottom:5}}>常犯錯誤（警醒）</div>
+                  <div style={{fontSize:10,color:C.textMute,fontWeight:400,letterSpacing:"0.08em",marginBottom:5}}>常犯錯誤</div>
                   {strategyBrain.commonMistakes.map((m,i)=>(
-                    <div key={i} style={{fontSize:13,color:C.textSec,lineHeight:1.8}}>⚠ {m}</div>
+                    <div key={i} style={{fontSize:12,color:C.textSec,lineHeight:1.8,fontWeight:400}}>{m}</div>
                   ))}
                 </div>
               )}
 
               {(strategyBrain.lessons||[]).length>0 && (
                 <div>
-                  <div style={{fontSize:12,color:C.olive,fontWeight:600,marginBottom:5}}>
+                  <div style={{fontSize:10,color:C.textMute,fontWeight:400,letterSpacing:"0.08em",marginBottom:5}}>
                     最近教訓（共 {strategyBrain.lessons.length} 條）
                   </div>
                   {strategyBrain.lessons.slice(-5).reverse().map((l,i)=>(
-                    <div key={i} style={{fontSize:12,color:C.textMute,lineHeight:1.7,
-                      padding:"4px 0",borderBottom:`1px solid ${C.borderSub}`}}>
+                    <div key={i} style={{fontSize:11,color:C.textMute,lineHeight:1.7,fontWeight:400,
+                      padding:"4px 0",borderBottom:`1px solid ${alpha(C.textMute,'04')}`}}>
                       <span style={{color:C.textSec}}>[{l.date}]</span> {l.text}
                     </div>
                   ))}
@@ -2005,7 +1984,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               )}
 
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
-                <div style={{fontSize:12,color:C.lavender,fontWeight:500}}>
+                <div style={{fontSize:11,color:C.textMute,fontWeight:400}}>
                   命中率：{strategyBrain.stats?.hitRate||"計算中"}
                 </div>
                 <div style={{display:"flex",gap:6}}>
@@ -2016,7 +1995,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     a.href = URL.createObjectURL(blob);
                     a.download = `strategy-brain-${new Date().toISOString().slice(0,10)}.json`;
                     a.click();
-                  }} style={{fontSize:12,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMute,cursor:"pointer"}}>
+                  }} style={{fontSize:11,padding:"3px 8px",borderRadius:4,border:"none",background:"transparent",color:C.textMute,cursor:"pointer",fontWeight:400}}>
                     匯出
                   </button>
                   <button onClick={()=>{
@@ -2024,20 +2003,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       setStrategyBrain(null);
                       save("pf-brain-v1", null);
                     }
-                  }} style={{fontSize:12,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.up}44`,background:"transparent",color:C.up,cursor:"pointer"}}>
+                  }} style={{fontSize:11,padding:"3px 8px",borderRadius:4,border:"none",background:"transparent",color:C.textMute,cursor:"pointer",fontWeight:400}}>
                     重置
                   </button>
                 </div>
               </div>
-              <div style={{fontSize:12,color:cloudSync?C.olive:C.textMute,marginTop:6}}>
-                {cloudSync ? "☁ 已雲端同步" : "⚡ 本機模式"}
+              <div style={{fontSize:11,color:C.textMute,marginTop:6,fontWeight:400,opacity:0.6}}>
+                {cloudSync ? "雲端同步" : "本機模式"}
               </div>
             </div>
           )}
 
           {!strategyBrain && (
-            <div style={{...card,marginBottom:12,textAlign:"center",padding:"16px"}}>
-              <div style={{fontSize:13,color:C.textMute}}>
+            <div style={{marginBottom:14,textAlign:"center",padding:"16px 0"}}>
+              <div style={{fontSize:12,color:C.textMute,fontWeight:400}}>
                 執行第一次收盤分析後，策略大腦將自動建立並持續進化
               </div>
             </div>
@@ -2049,13 +2028,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const validHistory = (analysisHistory||[]).filter(r => r.changes && r.changes.length > 0);
             if (validHistory.length === 0) return null;
             return (
-              <div style={{...card}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:14}}>📊</span>
-                    <span style={lbl}>歷史分析記錄</span>
-                  </div>
-                  <span style={{fontSize:12,color:C.textMute}}>共 {validHistory.length} 筆</span>
+              <div style={{marginTop:14}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400}}>歷 史 記 錄</span>
+                  <span style={{fontSize:11,color:C.textMute,fontWeight:400}}>共 {validHistory.length} 筆</span>
                 </div>
                 {validHistory.slice(0,15).map(r=>{
                   const isExpanded = dailyReport?.id === r.id;
@@ -2065,37 +2041,31 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         if (isExpanded) { setDailyReport(null); } else { setDailyReport(r); }
                       }}
                       style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                        padding:"9px 8px",cursor:"pointer",
-                        background:isExpanded?alpha(C.amber,0.05):"transparent",
-                        borderRadius:6,
-                        borderBottom:`1px solid ${C.borderSub}`,
+                        padding:"8px 0",cursor:"pointer",
+                        borderBottom:`1px solid ${alpha(C.textMute,'06')}`,
                         transition:"background 0.15s"}}>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <span style={{fontSize:12,color:isExpanded?C.amber:C.textMute,transition:"transform 0.15s",
+                        <span style={{fontSize:10,color:C.textMute,transition:"transform 0.15s",
                           display:"inline-block",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                        <span style={{fontSize:14,color:C.text,fontWeight:500}}>{r.date}</span>
-                        <span style={{fontSize:11,color:C.textMute}}>{r.time}</span>
+                        <span style={{fontSize:12,color:C.text,fontWeight:400}}>{r.date}</span>
+                        <span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{r.time}</span>
                       </div>
-                      <span style={{fontSize:13,fontWeight:600,padding:"2px 10px",borderRadius:20,
-                        background:r.totalTodayPnl>=0?C.upBg:C.downBg,
+                      <span style={{fontSize:12,fontWeight:500,
                         color:pc(r.totalTodayPnl)}}>
                         {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
                       </span>
                     </div>
-                    {/* 展開的報告內容 — Markdown 渲染 AI 摘要 */}
                     {isExpanded && (
-                      <div style={{padding:"12px 8px",borderBottom:`1px solid ${C.border}`,marginBottom:4,
-                        background:alpha(C.lavender,0.02),borderRadius:"0 0 6px 6px"}}>
+                      <div style={{padding:"10px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`,marginBottom:4}}>
                         {r.aiInsight && (
-                          <div style={{maxHeight:300,overflow:"auto",background:C.subtle,borderRadius:8,padding:"10px 12px"}}>
+                          <div style={{marginBottom:6}}>
                             <Md text={r.aiInsight} color={C.textSec} />
                           </div>
                         )}
-                        {/* 查看完整報告 */}
                         <button onClick={(ev)=>{ev.stopPropagation();setDailyReport(r);
                           setTimeout(()=>document.getElementById("daily-report-top")?.scrollIntoView({behavior:"smooth"}),50);
-                        }} style={{marginTop:6,padding:"5px 12px",borderRadius:5,border:`1px solid ${C.blue}55`,
-                          background:"transparent",color:C.blue,fontSize:12,cursor:"pointer",width:"100%"}}>
+                        }} style={{marginTop:4,padding:"4px 10px",borderRadius:4,border:"none",
+                          background:"transparent",color:C.textSec,fontSize:11,cursor:"pointer",width:"100%",fontWeight:400}}>
                           查看完整報告 ↑
                         </button>
                       </div>
