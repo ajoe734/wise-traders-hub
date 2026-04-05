@@ -2137,7 +2137,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 </button>
               )}
               {parseErr && <div style={{marginTop:10, background:C.upBg,
-                border:`1px solid ${C.up}44`, borderRadius:10,
+                border:`1px solid ${alpha(C.up,'44')}`, borderRadius:10,
                 padding:12, fontSize:14, color:C.up}}>
                 {parseErr}
               </div>}
