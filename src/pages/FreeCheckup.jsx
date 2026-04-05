@@ -1367,7 +1367,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
           <div style={{textAlign:"right"}}>
             <div style={{fontSize:10,color:C.textMute,marginBottom:2,letterSpacing:"0.05em"}}>未實現損益</div>
-            <div style={{fontSize:20,fontWeight:400,color:pc(totalPnl),letterSpacing:"-0.01em",lineHeight:1.2}}>
+            <div style={{fontSize:20,fontWeight:500,color:pc(totalPnl),letterSpacing:"-0.01em",lineHeight:1.2}}>
               {totalPnl>=0?"+":""}{totalPnl.toLocaleString()}
             </div>
             <div style={{fontSize:12,fontWeight:400,color:pc(retPct),opacity:0.6}}>
@@ -1389,9 +1389,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {TABS.map(t=>(
             <button key={t.k} onClick={()=>{setTab(t.k);window.scrollTo({top:0,behavior:"smooth"})}} style={{
               background:"transparent",
-              color: tab===t.k ? C.textSec : C.textMute,
+              color: tab===t.k ? C.text : C.textMute,
               border:"none",
-              borderBottom: tab===t.k ? `1px solid ${C.textMute}` : "1px solid transparent",
+              borderBottom: tab===t.k ? `1px solid ${C.textSec}` : "1px solid transparent",
               padding:"7px 11px",
               fontSize:12, fontWeight:400,
               cursor:"pointer", whiteSpace:"nowrap",
@@ -1415,7 +1415,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             return (
               <div style={{padding:"18px 20px",marginBottom:14,textAlign:"center"}}>
                 <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:6}}>總 損 益</div>
-                <div style={{fontSize:22,fontWeight:400,color:heroColor,lineHeight:1.2,letterSpacing:"-0.01em"}}>
+                <div style={{fontSize:22,fontWeight:500,color:heroColor,lineHeight:1.2,letterSpacing:"-0.01em"}}>
                   {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
                 </div>
                 <div style={{marginTop:6,fontSize:12,fontWeight:400,color:heroColor,opacity:0.5}}>
@@ -1432,7 +1432,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               ["持股數",H.length+"檔"]].map(([l,v])=>(
               <div key={l} style={{textAlign:"center"}}>
                 <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>{l}</div>
-                <div style={{fontSize:13,fontWeight:400,color:C.textMute,marginTop:2}}>{v}</div>
+                <div style={{fontSize:13,fontWeight:400,color:C.textSec,marginTop:2}}>{v}</div>
               </div>
             ))}
           </div>
@@ -1620,7 +1620,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
                     <span style={{fontSize:11,fontWeight:400,color:C.textMute}}>{h.value?.toLocaleString()}</span>
-                    <span style={{fontSize:12,fontWeight:400,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                    <span style={{fontSize:12,fontWeight:500,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
                     <span style={{fontSize:10,fontWeight:400,color:pc(h.pct),opacity:0.7}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                 </div>
