@@ -1319,10 +1319,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       `}</style>
 
       {/* ── BACK BUTTON ── */}
-      <div style={{background:C.shell,borderBottom:`1px solid ${C.border}`,padding:"8px 16px",position:"sticky",top:0,zIndex:11}}>
+      <div style={{background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"8px 16px",position:"sticky",top:0,zIndex:11}}>
         <button onClick={()=>navigate("/")} style={{
           background:"none",border:"none",cursor:"pointer",padding:"2px 0",
-          color:C.textSec,fontSize:14,fontWeight:500,display:"flex",alignItems:"center",gap:4,
+          color:C.textMute,fontSize:13,fontWeight:400,display:"flex",alignItems:"center",gap:4,
           letterSpacing:"0.01em",
         }}>
           ← 返回
