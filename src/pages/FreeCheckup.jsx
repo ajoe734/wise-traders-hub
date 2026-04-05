@@ -2095,12 +2095,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
           {/* 每日限制提示 */}
           {hasReachedDailyLimit && !isDemo && (
-            <div style={{...card, marginBottom:16, background:C.cardBlue, border:`1px solid ${C.blue}44`, textAlign:"center"}}>
-              <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:6}}>
+            <div style={{marginBottom:16, padding:"20px 16px", background:alpha(C.blue,'06'), borderRadius:10, textAlign:"center"}}>
+              <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
                 今日免費健檢次數已用完
               </div>
-              <div style={{fontSize:13,color:C.textSec,lineHeight:1.6}}>
-                每日可免費上傳一次成交截圖進行 AI 分析，明天再來！
+              <div style={{fontSize:12,color:C.textMute,lineHeight:1.6}}>
+                每日可免費上傳一次成交截圖進行 AI 分析，明天再來
               </div>
             </div>
           )}
