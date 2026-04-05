@@ -2418,8 +2418,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {/* 預測/結果標籤 */}
                   <div style={{
                     minWidth:26, textAlign:"center",
-                    fontSize:16, fontWeight:700,
-                    color: predC(e.pred), opacity: 0.85,
+                    fontSize:13, fontWeight:400,
+                    color: predC(e.pred), opacity: 0.7,
                   }}>{predIcon(e.pred)}</div>
 
                   {/* 標題區 */}
