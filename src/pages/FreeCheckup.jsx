@@ -1491,7 +1491,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   (v)=>setReviewingEvent(v?`rev-${h.code}`:null)
                 ];
                 return <div key={h.code} style={{marginTop:8,padding:"8px 0",
-                  borderBottom:`1px solid ${C.borderSub}`}}>
+                  borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
                       <span style={{fontSize:14,fontWeight:500,color:C.text}}>{h.name}</span>
