@@ -1808,14 +1808,26 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
 
           {analyzing && (
-            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:15,color:C.amber,fontWeight:500,animation:"pulse 1.5s ease-in-out infinite"}}>
+            <div style={{...card,textAlign:"center",padding:"36px 16px",
+              background:`linear-gradient(135deg, ${C.card}, ${alpha(C.amber,0.04)})`,
+              border:`1px solid ${alpha(C.amber,0.15)}`}}>
+              <div style={{fontSize:28,marginBottom:12,animation:"pulse 2s ease-in-out infinite"}}>◎</div>
+              <div style={{fontSize:16,color:C.amber,fontWeight:600,marginBottom:6}}>
                 {analyzeStep || "正在分析今日收盤數據..."}
               </div>
-              <div style={{fontSize:13,color:C.textMute,marginTop:8}}>取得股價 → 比對事件 → AI策略分析 → 大腦進化</div>
-              <div style={{width:"100%",height:3,background:C.borderSub,borderRadius:2,marginTop:12,overflow:"hidden"}}>
-                <div style={{height:"100%",background:C.amber,borderRadius:2,animation:"progress 8s ease-in-out infinite",width:"70%"}} />
+              <div style={{fontSize:13,color:C.textMute,marginTop:4,display:"flex",justifyContent:"center",gap:6,flexWrap:"wrap"}}>
+                {["取得股價","比對事件","AI策略分析","大腦進化"].map((s,i)=>(
+                  <span key={i} style={{padding:"2px 10px",borderRadius:20,background:alpha(C.amber,0.08),fontSize:12}}>{s}</span>
+                ))}
               </div>
+              <div style={{width:"100%",height:4,background:C.borderSub,borderRadius:3,marginTop:16,overflow:"hidden"}}>
+                <div style={{height:"100%",borderRadius:3,
+                  background:`linear-gradient(90deg, ${C.amber}, ${C.orange}, ${C.amber})`,
+                  backgroundSize:"200% 100%",
+                  animation:"shimmer 2s linear infinite",
+                  width:"70%"}} />
+              </div>
+              <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
             </div>
           )}
 
