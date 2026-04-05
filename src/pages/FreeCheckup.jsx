@@ -1389,9 +1389,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {TABS.map(t=>(
             <button key={t.k} onClick={()=>{setTab(t.k);window.scrollTo({top:0,behavior:"smooth"})}} style={{
               background:"transparent",
-              color: tab===t.k ? C.textSec : C.textMute,
+              color: tab===t.k ? C.text : C.textMute,
               border:"none",
-              borderBottom: tab===t.k ? `1px solid ${C.textMute}` : "1px solid transparent",
+              borderBottom: tab===t.k ? `1px solid ${C.textSec}` : "1px solid transparent",
               padding:"7px 11px",
               fontSize:12, fontWeight:400,
               cursor:"pointer", whiteSpace:"nowrap",
