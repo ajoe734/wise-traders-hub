@@ -1603,10 +1603,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
               const isNew  = T?.isNew;
               const meta   = STOCK_META[h.code] || null;
-              const periodColor = { "短": C.up, "短中": C.orange, "中": C.teal, "中長": C.olive, "長": C.mint };
-              const periodBg = { "短": C.upBg, "短中": C.orangeBg, "中": C.tealBg, "中長": C.oliveBg, "長": C.mintBg };
-              const posColor = { "核心": C.blue, "衛星": C.lavender, "戰術": C.amber };
-              const posBg = { "核心": C.blueBg, "衛星": C.lavBg, "戰術": C.amberBg };
+              const muteTag = (text) => (
+                <span key={text} style={{fontSize:9,color:C.textMute,fontWeight:400,opacity:0.6,letterSpacing:"0.04em"}}>{text}</span>
+              );
               const badge = (text, fg, bg) => (
                 <span key={text} style={{fontSize:10,padding:"1px 6px",borderRadius:4,
                   background:bg,color:fg,fontWeight:500,lineHeight:"16px",letterSpacing:"0.01em"}}>{text}</span>
@@ -1614,17 +1613,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               return (
               <div key={h.code} style={{
                 padding:"12px 0",
-                borderBottom: i<displayed.length-1 ? `1px solid ${C.borderSub}` : "none"}}>
+                borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none"}}>
                 {/* 第一行：名稱 + 代碼 + 核心標籤 */}
                 <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
-                  <span style={{fontSize:15,fontWeight:600,color:C.text,letterSpacing:"-0.01em"}}>{h.name}</span>
-                  <span style={{fontSize:11,color:C.textMute,fontWeight:400}}>{h.code}</span>
+                  <span style={{fontSize:13,fontWeight:500,color:C.text,letterSpacing:"0.02em"}}>{h.name}</span>
+                  <span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{h.code}</span>
                   {h.type==="權證"&&badge("權證",C.amber,C.amberBg)}
                   {h.type==="ETF"&&badge("ETF",C.blue,C.blueBg)}
-                  {meta?.period && badge(
-                    meta.period==="短"?"短線":meta.period==="中"?"中線":meta.period==="中長"?"中長線":meta.period==="短中"?"短中線":"長線",
-                    periodColor[meta.period]||C.textSec, periodBg[meta.period]||C.subtle)}
-                  {meta?.position && badge(meta.position, posColor[meta.position]||C.textSec, posBg[meta.position]||C.subtle)}
+                  {meta?.period && muteTag(
+                    meta.period==="短"?"短線":meta.period==="中"?"中線":meta.period==="中長"?"中長線":meta.period==="短中"?"短中線":"長線")}
+                  {meta?.position && muteTag(meta.position)}
                   {h.expire&&<span style={{fontSize:10,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
                   {h.alert&&<span style={{fontSize:10,color:C.up,fontWeight:600}}>{h.alert}</span>}
                   {isNew&&badge("新目標價",C.teal,C.tealBg)}
