@@ -1338,7 +1338,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           <div>
             <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.1em",fontWeight:500,marginBottom:4}}>
               {isDemo && <span style={{background:C.amber+"22",color:C.amber,padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,marginRight:6}}>DEMO</span>}
-              {lineProfile && <span style={{background:"#06C75518",color:"#22C55E",padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,marginRight:6}}>{lineProfile.displayName}</span>}
+              {lineProfile && <span style={{background:alpha(C.olive,'08'),color:C.olive,padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,marginRight:6}}>{lineProfile.displayName}</span>}
               <span style={{color:cloudSync?C.olive:C.textMute,fontSize:10,letterSpacing:"0.04em"}}>{cloudSync?"雲端":"本地"}</span>
               {saved && <span style={{color:C.olive,marginLeft:6,fontWeight:500,fontSize:12}}>{saved}</span>}
             </div>
@@ -1355,7 +1355,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {refreshing ? "更新中..." : cooldownText ? `⟳ ${cooldownText}` : "⟳ 刷新股價"}
               </button>
               <button onClick={() => setShowResetConfirm(true)} style={{
-                background: C.up+"0f", color: C.textMute, border:`1px solid ${C.border}`,
+                background: "transparent", color: C.textMute, border:`1px solid ${C.border}`,
                 borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:500,
                 cursor:"pointer", whiteSpace:"nowrap",
               }}>清除</button>
@@ -1393,7 +1393,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               background:"transparent",
               color: tab===t.k ? C.text : C.textMute,
               border:"none",
-              borderBottom: tab===t.k ? `2px solid ${C.blue}` : "2px solid transparent",
+              borderBottom: tab===t.k ? `1px solid ${C.textSec}` : "1px solid transparent",
               padding:"7px 11px",
               fontSize:12, fontWeight: tab===t.k ? 500 : 400,
               cursor:"pointer", whiteSpace:"nowrap",
@@ -1552,7 +1552,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         });
                         setEditing(false);
                       }} style={{width:"100%",padding:"8px",borderRadius:6,border:"none",
-                        background:C.olive+"cc",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer"}}>
+                        background:C.olive+"cc",color:C.onFill,fontSize:13,fontWeight:500,cursor:"pointer"}}>
                         儲存反轉條件
                       </button>
                     </div>;
@@ -1697,7 +1697,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   ].map(([l,v,c])=>(
                     <div key={l}>
                       <div style={{fontSize:10,color:C.textMute,marginBottom:2,letterSpacing:"0.05em"}}>{l}</div>
-                      <div style={{fontSize:13,fontWeight:500,color:c}}>{v}</div>
+                      <div style={{fontSize:13,fontWeight:400,color:c}}>{v}</div>
                     </div>
                   ))}
                 </div>
