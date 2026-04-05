@@ -1,19 +1,12 @@
 import { createElement as h } from 'react'
 import { C } from '../../theme.js'
+import { STOCK_META } from '../../seedData.js'
 import { Card } from '../common'
 import {
   getHoldingMarketValue,
   getHoldingReturnPct,
   getHoldingUnrealizedPnl,
 } from '../../lib/holdings.js'
-
-const card = {
-  background: C.card,
-  border: `1px solid ${C.border}`,
-  borderRadius: 12,
-  padding: '14px 16px',
-  boxShadow: C.shadow,
-}
 
 const lbl = {
   fontSize: 10,
@@ -26,8 +19,25 @@ const lbl = {
 const pc = (p) => (p == null ? C.textMute : p >= 0 ? C.up : C.down)
 const pcBg = (p) => (p == null ? 'transparent' : p >= 0 ? C.upBg : C.downBg)
 
+/** Period label helper */
+const periodLabel = (p) => {
+  if (p === '短') return '短線'
+  if (p === '中') return '中線'
+  if (p === '短中') return '短中'
+  if (p === '中長') return '中長'
+  return p || ''
+}
+
+/** Period tag color */
+const periodColor = (p) => {
+  if (p === '短') return C.orange
+  if (p === '中') return C.blue
+  if (p === '短中') return C.amber
+  return C.teal
+}
+
 /**
- * Single Holding Row
+ * Single Holding Row — 3-row stacked layout (mobile-first)
  */
 export function HoldingRow({
   holding,
@@ -39,93 +49,176 @@ export function HoldingRow({
   const pnl = getHoldingUnrealizedPnl(holding)
   const pct = getHoldingReturnPct(holding)
   const value = getHoldingMarketValue(holding)
+  const meta = STOCK_META[holding.code]
+  const qty = Number(holding.qty) || 0
+  const cost = Number(holding.cost) || 0
+
+  // PnL bar width (relative, max 60px)
+  const absPct = Math.min(Math.abs(pct), 30) // cap at 30%
+  const barW = (absPct / 30) * 60
 
   return h(
     'div',
-    null,
-    // Main row
+    { style: { marginBottom: expanded ? 0 : 6 } },
+
+    // Main card
     h(
       'div',
       {
         style: {
-          display: 'grid',
-          gridTemplateColumns: '2fr 1fr 1fr 1fr 36px',
-          gap: 10,
-          alignItems: 'center',
-          padding: '11px 14px',
           background: C.card,
           border: `1px solid ${C.borderSoft}`,
-          borderRadius: 10,
-          marginBottom: expanded ? 0 : 5,
+          borderRadius: expanded ? '10px 10px 0 0' : 10,
+          padding: '12px 14px',
           transition: 'background 0.15s',
         },
       },
-      // Name + Code
+
+      // Row 1: Name + Code + Tags + Expand button
       h(
         'div',
-        { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+        {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 4,
+          },
+        },
         h(
           'div',
-          null,
-          h('div', { style: { fontSize: 11, fontWeight: 600, color: C.text } }, holding.name),
-          h('div', { style: { fontSize: 9, color: C.textMute } }, holding.code)
+          { style: { display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 } },
+          h('span', { style: { fontSize: 13, fontWeight: 600, color: C.text } }, holding.name),
+          h('span', { style: { fontSize: 10, color: C.textMute } }, holding.code),
+          // Period tag
+          meta?.period && h(
+            'span',
+            {
+              style: {
+                fontSize: 9,
+                fontWeight: 600,
+                color: periodColor(meta.period),
+                background: `${periodColor(meta.period)}12`,
+                borderRadius: 4,
+                padding: '1px 5px',
+              },
+            },
+            periodLabel(meta.period)
+          ),
+          // Position tag
+          meta?.position && h(
+            'span',
+            {
+              style: {
+                fontSize: 9,
+                fontWeight: 500,
+                color: C.textMute,
+                background: C.subtle,
+                border: `1px solid ${C.border}`,
+                borderRadius: 4,
+                padding: '1px 5px',
+              },
+            },
+            meta.position
+          )
+        ),
+        // Expand button
+        h(
+          'button',
+          {
+            onClick: onToggle,
+            style: {
+              background: 'transparent',
+              border: 'none',
+              color: C.textMute,
+              cursor: 'pointer',
+              fontSize: 11,
+              padding: '4px 6px',
+              borderRadius: 4,
+              transition: 'background 0.15s',
+            },
+          },
+          expanded ? '▲' : '▼'
         )
       ),
 
-      // Qty + Cost
-      h(
-        'div',
-        { style: { fontSize: 10, color: C.textSec } },
-        h('div', null, `${holding.qty.toLocaleString()} 股`),
-        h('div', { style: { fontSize: 9, color: C.textMute } }, `成本 ${holding.cost}`)
-      ),
-
-      // Price + Value
-      h(
-        'div',
-        { style: { fontSize: 10, color: C.textSec } },
-        h('div', { style: { fontWeight: 600, color: C.text } }, holding.price),
-        h('div', { style: { fontSize: 9, color: C.textMute } }, value.toLocaleString())
-      ),
-
-      // P&L
-      h(
+      // Row 2: Industry + Strategy (low brightness)
+      meta && h(
         'div',
         {
           style: {
             fontSize: 10,
-            fontWeight: 600,
-            color: pc(pnl),
-            background: pcBg(pnl),
-            borderRadius: 8,
-            padding: '5px 8px',
-            textAlign: 'center',
-            lineHeight: 1.5,
+            color: C.textMute,
+            marginBottom: 8,
+            display: 'flex',
+            gap: 8,
           },
         },
-        h('div', null, `${pnl >= 0 ? '+' : ''}${Math.round(pnl).toLocaleString()}`),
-        h(
-          'div',
-          { style: { fontSize: 9, fontWeight: 500, opacity: 0.85 } },
-          `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`
-        )
+        meta.industry && h('span', null, meta.industry),
+        meta.strategy && h('span', null, meta.strategy)
       ),
 
-      // Expand button
+      // Row 3: Financial data row
       h(
-        'button',
+        'div',
         {
-          onClick: onToggle,
           style: {
-            background: 'transparent',
-            border: 'none',
-            color: C.textMute,
-            cursor: 'pointer',
-            fontSize: 12,
-            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 6,
           },
         },
-        expanded ? '▲' : '▼'
+        // Qty · Cost · Price
+        h(
+          'div',
+          { style: { display: 'flex', gap: 10, fontSize: 11, color: C.textSec } },
+          h('span', null, `${qty.toLocaleString()}股`),
+          h('span', { style: { color: C.textMute } }, `成本 ${cost}`),
+          h('span', { style: { fontWeight: 600, color: C.text } }, holding.price),
+          h('span', { style: { fontSize: 10, color: C.textMute } }, value.toLocaleString())
+        ),
+        // PnL pill + mini bar
+        h(
+          'div',
+          {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            },
+          },
+          // Mini color bar
+          h('div', {
+            style: {
+              width: Math.max(barW, 3),
+              height: 4,
+              borderRadius: 2,
+              background: pc(pnl),
+              opacity: 0.6,
+              flexShrink: 0,
+            },
+          }),
+          // PnL value
+          h(
+            'div',
+            {
+              style: {
+                fontSize: 11,
+                fontWeight: 700,
+                color: pc(pnl),
+                background: pcBg(pnl),
+                borderRadius: 6,
+                padding: '3px 8px',
+                textAlign: 'right',
+                lineHeight: 1.4,
+                whiteSpace: 'nowrap',
+              },
+            },
+            h('span', null, `${pnl >= 0 ? '+' : ''}${Math.round(pnl).toLocaleString()}`),
+            h('span', { style: { fontSize: 10, fontWeight: 500, opacity: 0.85, marginLeft: 4 } }, `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`)
+          )
+        )
       )
     ),
 
@@ -138,19 +231,19 @@ export function HoldingRow({
             background: C.subtle,
             border: `1px solid ${C.border}`,
             borderTop: 'none',
-            borderRadius: '0 0 8px 8px',
-            padding: '10px 12px',
+            borderRadius: '0 0 10px 10px',
+            padding: '12px 14px',
             marginBottom: 6,
           },
         },
         h(
           'div',
-          { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+          { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 } },
           // Target price
           h(
             'div',
             null,
-            h('div', { style: { ...lbl, marginBottom: 3 } }, '目標價'),
+            h('div', { style: { ...lbl, marginBottom: 4 } }, '🎯 目標價'),
             h('input', {
               type: 'number',
               value: holding.targetPrice || '',
@@ -159,21 +252,35 @@ export function HoldingRow({
               placeholder: '輸入目標價',
               style: {
                 width: '100%',
-                background: C.subtle,
+                background: C.card,
                 border: `1px solid ${C.border}`,
-                borderRadius: 6,
-                padding: '6px 8px',
+                borderRadius: 8,
+                padding: '8px 10px',
                 color: C.text,
-                fontSize: 11,
+                fontSize: 12,
+                outline: 'none',
+                transition: 'border-color 0.15s',
               },
-            })
+            }),
+            // Target distance hint
+            holding.targetPrice && holding.price && h(
+              'div',
+              {
+                style: {
+                  fontSize: 9,
+                  color: holding.price < holding.targetPrice ? C.up : C.down,
+                  marginTop: 3,
+                },
+              },
+              `距目標 ${(((holding.targetPrice - holding.price) / holding.price) * 100).toFixed(1)}%`
+            )
           ),
 
           // Alert
           h(
             'div',
             null,
-            h('div', { style: { ...lbl, marginBottom: 3 } }, '警報'),
+            h('div', { style: { ...lbl, marginBottom: 4 } }, '🔔 警報'),
             h('input', {
               type: 'text',
               value: holding.alert || '',
@@ -181,12 +288,14 @@ export function HoldingRow({
               placeholder: '如：跌破月線',
               style: {
                 width: '100%',
-                background: C.subtle,
+                background: C.card,
                 border: `1px solid ${C.border}`,
-                borderRadius: 6,
-                padding: '6px 8px',
+                borderRadius: 8,
+                padding: '8px 10px',
                 color: C.text,
-                fontSize: 11,
+                fontSize: 12,
+                outline: 'none',
+                transition: 'border-color 0.15s',
               },
             })
           )
@@ -196,7 +305,7 @@ export function HoldingRow({
         holding.type &&
           h(
             'div',
-            { style: { fontSize: 9, color: C.textMute, marginTop: 8 } },
+            { style: { fontSize: 10, color: C.textMute, marginTop: 10 } },
             '類型：',
             holding.type
           )
@@ -219,7 +328,16 @@ export function HoldingsTable({
   if (!holdings || holdings.length === 0) {
     return h(
       'div',
-      { style: { ...card, textAlign: 'center', padding: '32px 16px' } },
+      {
+        style: {
+          background: C.card,
+          border: `1px solid ${C.border}`,
+          borderRadius: 12,
+          padding: '32px 16px',
+          textAlign: 'center',
+          boxShadow: C.shadow,
+        },
+      },
       h('div', { style: { fontSize: 28, marginBottom: 8, opacity: 0.6 } }, '∅'),
       h('div', { style: { fontSize: 11, color: C.textSec, fontWeight: 600 } }, '尚無持股'),
       h(
@@ -263,29 +381,7 @@ export function HoldingsTable({
   return h(
     Card,
     null,
-    h('div', { style: { ...lbl, marginBottom: 8 } }, `持股明細 · ${holdings.length}檔`),
-
-    // Header
-    h(
-      'div',
-      {
-        style: {
-          display: 'grid',
-          gridTemplateColumns: '2fr 1fr 1fr 1fr 40px',
-          gap: 8,
-          padding: '8px 12px',
-          fontSize: 9,
-          color: C.textMute,
-          fontWeight: 600,
-          letterSpacing: '0.05em',
-        },
-      },
-      h('div', null, '股票'),
-      h('div', null, '數量 / 成本'),
-      h('div', null, '股價 / 市值'),
-      h('div', null, '損益'),
-      h('div', null, '')
-    ),
+    h('div', { style: { ...lbl, marginBottom: 10 } }, `📋 持股明細 · ${holdings.length}檔`),
 
     // Rows
     h(
