@@ -1804,25 +1804,25 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* ══════════ DAILY ANALYSIS ══════════ */}
         {tab==="daily" && <>
           {/* 手動觸發按鈕 */}
-          {!dailyReport && !analyzing && (
-            <div style={{...card,textAlign:"center",padding:"28px 16px",marginBottom:12}}>
-              <div style={{fontSize:32,marginBottom:10,opacity:0.4}}>◎</div>
-              <div style={{fontSize:15,color:C.textSec,fontWeight:500,marginBottom:6}}>每日收盤分析</div>
-              <div style={{fontSize:13,color:C.textMute,marginBottom:16,lineHeight:1.7}}>
-                分析今日股價變動與事件連動性<br/>自動比對持倉漲跌、異常波動、策略建議
-              </div>
-              <button onClick={runDailyAnalysis} style={{
-                padding:"12px 28px",borderRadius:10,border:"none",
-                background:`linear-gradient(135deg,${C.blue}cc,${C.olive}cc)`,
-                color:"#fff",fontSize:15,fontWeight:600,cursor:"pointer",
-                letterSpacing:"0.03em"}}>
-                開始今日收盤分析
-              </button>
-              <div style={{fontSize:12,color:C.textMute,marginTop:10}}>
-                收盤後按下即可開始分析
-              </div>
-            </div>
-          )}
+           {!dailyReport && !analyzing && (
+             <div style={{textAlign:"center",padding:"36px 16px",marginBottom:14}}>
+               <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:10}}>每 日 收 盤 分 析</div>
+               <div style={{fontSize:13,color:C.textMute,marginBottom:20,lineHeight:1.8,fontWeight:400}}>
+                 分析今日股價變動與事件連動性<br/>自動比對持倉漲跌、異常波動、策略建議
+               </div>
+               <button onClick={runDailyAnalysis} style={{
+                 padding:"10px 24px",borderRadius:8,
+                 border:`1px solid ${alpha(C.teal,'30')}`,
+                 background:alpha(C.teal,'06'),
+                 color:C.teal,fontSize:13,fontWeight:400,cursor:"pointer",
+                 letterSpacing:"0.04em"}}>
+                 開始今日收盤分析
+               </button>
+               <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.6}}>
+                 收盤後按下即可開始分析
+               </div>
+             </div>
+           )}
 
           {analyzing && (
             <div style={{...card,textAlign:"center",padding:"36px 16px",
