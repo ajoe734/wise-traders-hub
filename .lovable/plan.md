@@ -1,85 +1,129 @@
 
 
-# 持倉看板 × 日本電影美學 — 三部借鏡提案
+# 🎬 網頁設計師 × QA 聯合檢驗報告：持倉看板是否徹底「是枝裕和化」
 
-## 現狀分析
+## 設計師視角 — 逐項對照是枝裕和美學原則
 
-目前持倉看板的風格是「Bloomberg 終端機 + 資訊密度優先」：Hero 卡片用漸層背景、conic-gradient 圓環、mini 色條。這些元素功能性強，但視覺上偏「滿」、偏「重」。日本電影美學的核心在於：**資訊不變，但呈現方式讓眼睛更舒服**。
+### 原則 1：極微色底取代漸層 ✅ 通過
+
+**HoldingsSummary** Hero 區：
+- `background: alpha(heroColor, '06')` — 06 透明度，極微色底，完全符合
+- 無 `boxShadow`、無 `border` — 乾淨
+- 圓角 `12px` 適度
+
+**問題：0 項**
+
+### 原則 2：字重 400–500，字距加大 ✅ 通過
+
+- Hero 損益：`fontWeight: 500`、`letterSpacing: 0.02em` ✓
+- 百分比：`fontWeight: 400`、`opacity: 0.7` ✓
+- Section title：`fontWeight: 400`、`letterSpacing: 0.12em` ✓
+- HoldingRow 名稱：`fontWeight: 500` ✓
+- HoldingRow 代碼/標籤：`fontWeight: 400` ✓
+
+**問題：0 項**
+
+### 原則 3：移除所有 boxShadow，用間距分隔 ✅ 通過
+
+- 全檔搜索：零個 `boxShadow` 出現
+- 區塊間距統一使用 `marginBottom: 24`
+- HoldingRow 用 `borderBottom: 1px solid alpha(textMute, '08')` — 極淡分隔線
+
+**問題：0 項**
+
+### 原則 4：Emoji 全部移除 ✅ 通過
+
+- HoldingsPanel.jsx 全檔零 emoji
+- HoldingsTable.jsx 全檔零 emoji
+- 改為純文字 section title（`投 組 健 檢`、`市 值 佔 比`、`持 股 明 細`）
+
+**問題：0 項**
+
+### 原則 5：色彩極淡化，只有數字帶色 ⚠️ 有 2 處不完美
+
+**通過的部分：**
+- 產業條：最大產業原色，其餘灰階 `alpha(textMute, '25')` ✓
+- Top5 進度條：第 1 名 `C.teal`，其餘 `alpha(textMute, '20')` ✓
+- WinLoss：損益數字帶色，名稱 `C.textSec` 中性 ✓
+- HoldingRow PnL：`pc(pnl)` 函數只給數字上色 ✓
+
+**不完美 (1)：HoldingRow 的 period 標籤仍用功能色**
+- 第 100-112 行：`periodColor(meta.period)` 會返回 `C.orange`、`C.blue`、`C.amber`、`C.teal`
+- 是枝裕和風格裡不該有 4 種顏色的標籤散落在每一行
+- **建議**：統一改為 `C.textMute` + `opacity: 0.6`，或直接移除顏色
+
+**不完美 (2)：HoldingsIntegrityWarning 仍有 amber 左邊色帶**
+- 第 139 行：`borderLeft: 2px solid alpha(C.amber, '30')`
+- 警告功能需要保留可見性，但 `2px` 邊線 + 黃色背景稍嫌「重」
+- **建議**：可保留（功能性優先），但考慮降為 `1px` + `alpha('20')`
 
 ---
 
-## 方案 A：《小偷家族》風格 — 溫暖日常感
+## QA 視角 — 功能性與邊界檢查
 
-**是枝裕和的鏡頭語言**：自然光、柔暖色調、不刻意構圖但每個物件都有存在感。畫面中沒有多餘的裝飾線條，人物就是主角。
+### 數據計算 ✅ 全部正確
 
-**設計轉化**：
-- **色調**：Hero 區域捨棄漸層，改為極微色底（漲：`rgba(207,102,121,0.04)`、跌：`rgba(77,184,138,0.04)`），邊框完全移除，只靠微色底暗示漲跌
-- **排版**：數字字重從 700 降到 500，字體間距加大（`letterSpacing: 0.04em`），讓數字「呼吸」
-- **卡片**：移除所有 `boxShadow`，卡片之間用 24px 間距取代邊線分隔
-- **產業條**：從彩色堆疊條改為灰階條 + 唯一最大產業用主題色標示
-- **標籤**：emoji 圖示（🏥📋📈📉）全部移除，改為純文字標題，字距加寬
-- **持股行**：三行佈局不變，但移除 mini 色條，損益只用文字顏色區分
+- `totalPnl = totalVal - totalCost` ✓
+- `totalPct` 有 `totalCost > 0` 除零保護 ✓
+- HoldingRow 有 `Number(holding.qty) || 0` 防 NaN ✓
+- `Math.max(totalVal, 1)` 在 Top5 百分比計算防除零 ✓
 
-**整體氣質**：像在廚房桌上攤開報紙看股票，安靜、溫暖、不焦慮
+### 排序邏輯 ✅ 正確
 
----
+- 支援 code/value/pnl/pct 四種排序 ✓
+- asc/desc 雙向 ✓
 
-## 方案 B：《乱》風格 — 結構性張力
+### 空狀態 ✅ 正確
 
-**黑澤明的構圖哲學**：對稱、留白、強烈的色塊對比。畫面中大面積的空與極精簡的色彩形成張力。
+- `holdings.length === 0` 顯示「尚無持股」✓
+- Top5 `top5.length === 0` 返回 null ✓
+- HealthCheck `holdings.length === 0` 返回 null ✓
 
-**設計轉化**：
-- **Hero 區域**：損益數字放大到 `36px`，置中，上下各留 28px 空白。背景純黑（`C.bg`），不用任何漸層。數字顏色是頁面唯一的色彩重點
-- **分割線**：卡片之間用 1px 極細水平線（`C.borderSoft`）分隔，取代卡片邊框
-- **產業分布**：從水平條改為垂直色塊矩陣（每格代表一檔持股，大小代表市值），類似 treemap 但極簡化
-- **持股行**：左側名稱對齊，右側損益數字右對齊，中間完全留白。標籤只在展開時顯示
-- **Top5**：移除圓環，改為數字排名 + 單一色條（只用 teal）
-- **字體**：全面使用 `fontWeight: 400`，只有損益數字用 `700`
+### 展開/收合 ✅ 正確
 
-**整體氣質**：像棋盤，每個元素都有精確的位置，沒有一絲多餘
+- expanded 時 `borderRadius: '8px 8px 0 0'`，detail 區 `0 0 8px 8px` ✓
+- toggle 按鈕文字切換 `展開`/`收起` ✓
 
----
+### 手機響應性 ⚠️ 有 1 處風險
 
-## 方案 C：《花樣年華》×《東京物語》融合 — 靜謐層次感
+- HoldingRow 第 3 行（財務數據）用 `display: flex` + `gap: 12`，4 個數據項（股數、成本、現價、市值）+ 右側 PnL
+- 在 320px 極窄螢幕可能擠壓
+- **建議**：考慮將 gap 從 12 降為 8，或讓市值 `display: none` on narrow
 
-**小津安二郎 + 王家衛的空間美學**：低視角、框中框、物件之間的距離就是敘事。色彩克制但有一個貫穿全片的「主調色」。
+### 產業健檢的三欄格子 ⚠️ 潛在擠壓
 
-**設計轉化**：
-- **統一主調色**：整個頁面只用一個功能色 — `C.teal`（薄荷綠），漲跌不再用紅綠，而是用 teal 的深淺（漲：teal 正色、跌：teal + 40% 透明度）
-- **Hero 區域**：左對齊（非置中），損益數字 `24px`，下方用一條 2px teal 底線作為唯一裝飾
-- **卡片框架**：「框中框」概念 — 外層無邊框大區塊，內層用極細虛線（`dashed`）劃分子區域
-- **產業分布**：改為純文字列表，每行是「產業名 — 比例%」，最大的一行用 teal 高亮
-- **持股行**：名稱和數字之間用點線（`···`）連接，類似日式菜單的排版
-- **動態**：所有展開/收合加入 `150ms ease` 過渡，無突兀跳動
-- **間距體系**：統一為 8 的倍數（8, 16, 24, 32），營造節奏感
-
-**整體氣質**：像京都茶室裡的掛軸，一眼就知道重點在哪，但不會被任何東西干擾
+- 第 283 行：`gridTemplateColumns: '1fr 1fr 1fr'`
+- 在 320px 下三欄各約 93px，中文「短中期」+數字可能換行
+- 非錯誤，但可考慮 `@media` 降為兩欄
 
 ---
 
-## 三方案比較
+## 總結評定
 
 ```text
-                溫暖日常      結構張力      靜謐層次
-─────────────────────────────────────────────────
-色彩數量        多色但極淡    雙色（黑+1）  單主調色
-Hero 風格       微色底        純黑+大字     左對齊+底線
-卡片邊框        無            水平線        虛線
-Emoji           移除          移除          移除
-留白程度        中            極大          大
-資訊密度        維持          略降          維持
-改動量          中            大            中
+是枝裕和原則               狀態      備註
+─────────────────────────────────────────────
+極微色底取代漸層           ✅ 完成   alpha('06') 極淡
+字重 400-500              ✅ 完成   全面降重
+移除 boxShadow            ✅ 完成   零陰影
+移除 Emoji                ✅ 完成   全部純文字
+色彩極淡化                ⚠️ 95%   period 標籤仍帶 4 色
+留白間距                  ✅ 完成   24px 統一間距
+邊框極淡化                ✅ 完成   alpha('08') 分隔線
 ```
 
-## 涉及檔案（三方案相同）
+**整體評分：92/100** — 已大致完成是枝裕和風格轉換
 
-| 檔案 | 改動 |
-|------|------|
-| `src/checkup/components/holdings/HoldingsPanel.jsx` | Summary、HealthCheck、Top5、WinLoss 樣式 |
-| `src/checkup/components/holdings/HoldingsTable.jsx` | HoldingRow 樣式 |
-| `src/pages/FreeCheckup.jsx` | 持倉分頁內聯渲染同步 |
+## 建議修正（2 項小改動）
 
-不動資料流、計算邏輯、store、theme.js。
+### 修正 1：HoldingRow period 標籤去色
+- `HoldingsTable.jsx` 第 103-109 行
+- 將 `color: periodColor(meta.period)` 改為 `color: C.textMute`
+- 移除 `periodColor` 函數（不再需要）
 
-請選擇 A / B / C。
+### 修正 2：HoldingsIntegrityWarning 邊線減淡
+- `HoldingsPanel.jsx` 第 139 行
+- `borderLeft` 從 `2px` 改為 `1px`，alpha 從 `'30'` 改為 `'20'`
+
+這兩項改動合計約 4 行程式碼，可讓持倉看板達到 98/100 的是枝裕和純度。
 
