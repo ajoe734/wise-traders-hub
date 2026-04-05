@@ -1415,7 +1415,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             return (
               <div style={{padding:"18px 20px",marginBottom:14,textAlign:"center"}}>
                 <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:6}}>總 損 益</div>
-                <div style={{fontSize:22,fontWeight:400,color:heroColor,lineHeight:1.2,letterSpacing:"-0.01em"}}>
+                <div style={{fontSize:22,fontWeight:500,color:heroColor,lineHeight:1.2,letterSpacing:"-0.01em"}}>
                   {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
                 </div>
                 <div style={{marginTop:6,fontSize:12,fontWeight:400,color:heroColor,opacity:0.5}}>
