@@ -1605,7 +1605,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {meta?.position && muteTag(meta.position)}
                   {h.expire&&<span style={{fontSize:10,color:C.amber,fontWeight:500}}>到期{h.expire}</span>}
                   {h.alert&&<span style={{fontSize:10,color:C.up,fontWeight:600}}>{h.alert}</span>}
-                  {isNew&&badge("新目標價",C.teal,C.tealBg)}
+                  {isNew&&badge("新目標價")}
                 </div>
                 {/* 第二行：產業 + 策略（淡化顯示）*/}
                 {meta?.industry && (
