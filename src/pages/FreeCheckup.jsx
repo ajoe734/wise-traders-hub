@@ -1833,19 +1833,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {dailyReport && !analyzing && <>
             {/* 今日損益摘要 */}
-            <div id="daily-report-top" style={{...card,marginBottom:10,
-              borderLeft:`3px solid ${dailyReport.totalTodayPnl>=0?C.up:C.down}88`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div id="daily-report-top" style={{
+              background:`linear-gradient(135deg, ${C.card}, ${dailyReport.totalTodayPnl>=0?alpha(C.up,0.06):alpha(C.down,0.06)})`,
+              border:`1px solid ${dailyReport.totalTodayPnl>=0?alpha(C.up,0.15):alpha(C.down,0.15)}`,
+              borderRadius:12,padding:"18px 18px 16px",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                 <div>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <button onClick={()=>setDailyReport(null)} style={{fontSize:12,padding:"2px 8px",borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMute,cursor:"pointer"}}>← 返回</button>
-                    <div style={lbl}>{dailyReport.date} 收盤分析</div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                    <button onClick={()=>setDailyReport(null)} style={{fontSize:12,padding:"3px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:alpha(C.bg,0.5),color:C.textMute,cursor:"pointer",backdropFilter:"blur(4px)"}}>← 返回</button>
+                    <span style={{fontSize:13,fontWeight:600,color:C.text,padding:"3px 10px",borderRadius:6,background:alpha(C.amber,0.1),border:`1px solid ${alpha(C.amber,0.15)}`}}>{dailyReport.date}</span>
                   </div>
-                  <div style={{fontSize:12,color:C.textMute}}>{dailyReport.time} 更新</div>
+                  <div style={{fontSize:12,color:C.textMute,marginTop:2}}>🕐 {dailyReport.time} 更新</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:12,color:C.textMute}}>今日損益</div>
-                  <div style={{fontSize:20,fontWeight:700,color:pc(dailyReport.totalTodayPnl)}}>
+                  <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.05em",marginBottom:4}}>TODAY P&L</div>
+                  <div style={{fontSize:28,fontWeight:700,color:pc(dailyReport.totalTodayPnl),lineHeight:1}}>
                     {dailyReport.totalTodayPnl>=0?"+":""}{dailyReport.totalTodayPnl.toLocaleString()}
                   </div>
                 </div>
