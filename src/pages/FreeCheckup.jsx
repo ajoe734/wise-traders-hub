@@ -2530,7 +2530,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                                 style={{flex:1,padding:"6px",borderRadius:6,fontSize:12,fontWeight:500,cursor:"pointer",
                                   background:reviewForm.actual===v?(v==="up"?C.upBg:v==="down"?C.downBg:C.subtle):"transparent",
                                   color:reviewForm.actual===v?(v==="up"?C.up:v==="down"?C.down:C.textSec):C.textMute,
-                                  border:`1px solid ${reviewForm.actual===v?(v==="up"?C.up+"55":v==="down"?C.down+"55":C.border):C.border}`}}>
+                                  border:`1px solid ${reviewForm.actual===v?(v==="up"?alpha(C.up,'55'):v==="down"?alpha(C.down,'55'):C.border):C.border}`}}>
                                 {v==="up"?"↑ 漲":v==="down"?"↓ 跌":"— 中性"}
                               </button>
                             ))}
