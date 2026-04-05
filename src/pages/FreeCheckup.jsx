@@ -2509,7 +2509,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {(e.status==="pending" || e.status==="verifying") && (
                       <button onClick={(ev)=>{ev.stopPropagation();setReviewingEvent(e.id);setReviewForm({actual:"up",actualNote:"",lessons:""})}}
                         style={{marginTop:10,width:"100%",padding:"9px",
-                          background:C.olive+"22",border:`1px solid ${C.olive}55`,
+                          background:alpha(C.olive,'22'),border:`1px solid ${alpha(C.olive,'55')}`,
                           borderRadius:8,color:C.olive,fontSize:13,fontWeight:500,cursor:"pointer"}}>
                         標記結果 · 撰寫復盤
                       </button>
