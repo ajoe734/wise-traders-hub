@@ -2033,8 +2033,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             if (validHistory.length === 0) return null;
             return (
               <div style={{...card}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div style={lbl}>歷史分析記錄</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:14}}>📊</span>
+                    <span style={lbl}>歷史分析記錄</span>
+                  </div>
                   <span style={{fontSize:12,color:C.textMute}}>共 {validHistory.length} 筆</span>
                 </div>
                 {validHistory.slice(0,15).map(r=>{
@@ -2045,28 +2048,30 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         if (isExpanded) { setDailyReport(null); } else { setDailyReport(r); }
                       }}
                       style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                        padding:"8px 6px",cursor:"pointer",
-                        background:isExpanded?C.subtle:"transparent",
+                        padding:"9px 8px",cursor:"pointer",
+                        background:isExpanded?alpha(C.amber,0.05):"transparent",
                         borderRadius:6,
-                        borderBottom:`1px solid ${C.borderSub}`}}>
+                        borderBottom:`1px solid ${C.borderSub}`,
+                        transition:"background 0.15s"}}>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
                         <span style={{fontSize:12,color:isExpanded?C.amber:C.textMute,transition:"transform 0.15s",
                           display:"inline-block",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                        <span style={{fontSize:14,color:C.text}}>{r.date}</span>
-                        <span style={{fontSize:12,color:C.textMute}}>{r.time}</span>
+                        <span style={{fontSize:14,color:C.text,fontWeight:500}}>{r.date}</span>
+                        <span style={{fontSize:11,color:C.textMute}}>{r.time}</span>
                       </div>
-                      <span style={{fontSize:14,fontWeight:600,color:pc(r.totalTodayPnl)}}>
+                      <span style={{fontSize:13,fontWeight:600,padding:"2px 10px",borderRadius:20,
+                        background:r.totalTodayPnl>=0?C.upBg:C.downBg,
+                        color:pc(r.totalTodayPnl)}}>
                         {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
                       </span>
                     </div>
-                    {/* 展開的報告內容 — 直接顯示 AI 摘要 */}
+                    {/* 展開的報告內容 — Markdown 渲染 AI 摘要 */}
                     {isExpanded && (
-                      <div style={{padding:"10px 4px",borderBottom:`1px solid ${C.border}`,marginBottom:4}}>
-                        {/* AI 摘要 */}
+                      <div style={{padding:"12px 8px",borderBottom:`1px solid ${C.border}`,marginBottom:4,
+                        background:alpha(C.lavender,0.02),borderRadius:"0 0 6px 6px"}}>
                         {r.aiInsight && (
-                          <div style={{fontSize:12,color:C.textSec,lineHeight:1.8,whiteSpace:"pre-wrap",
-                            maxHeight:200,overflow:"auto",background:C.subtle,borderRadius:6,padding:"8px 10px"}}>
-                            {r.aiInsight.slice(0,500)}{r.aiInsight.length>500?"...":""}
+                          <div style={{maxHeight:300,overflow:"auto",background:C.subtle,borderRadius:8,padding:"10px 12px"}}>
+                            <Md text={r.aiInsight} color={C.textSec} />
                           </div>
                         )}
                         {/* 查看完整報告 */}
