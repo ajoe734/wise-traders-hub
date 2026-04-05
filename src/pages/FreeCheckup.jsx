@@ -1620,7 +1620,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
                     <span style={{fontSize:11,fontWeight:400,color:C.textMute}}>{h.value?.toLocaleString()}</span>
-                    <span style={{fontSize:12,fontWeight:500,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                    <span style={{fontSize:12,fontWeight:400,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
                     <span style={{fontSize:10,fontWeight:400,color:pc(h.pct),opacity:0.7}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                 </div>
