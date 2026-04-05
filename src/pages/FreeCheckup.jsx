@@ -1549,8 +1549,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                           note: document.getElementById(`rv-n-${h.code}`).value,
                         });
                         setEditing(false);
-                      }} style={{width:"100%",padding:"8px",borderRadius:6,border:"none",
-                        background:alpha(C.olive,'cc'),color:C.onFill,fontSize:13,fontWeight:500,cursor:"pointer"}}>
+                       }} style={{width:"100%",padding:"8px",borderRadius:6,border:`1px solid ${C.border}`,
+                         background:"transparent",color:C.textSec,fontSize:13,fontWeight:400,cursor:"pointer"}}>
                         儲存反轉條件
                       </button>
                     </div>;
