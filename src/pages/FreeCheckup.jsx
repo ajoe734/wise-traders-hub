@@ -1678,7 +1678,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div>
-                    <span style={{fontSize:13,fontWeight:500,color:C.text}}>{h.name}</span>
+                    <span style={{fontSize:13,fontWeight:400,color:C.text}}>{h.name}</span>
                     <span style={{fontSize:10,color:C.textMute,fontWeight:400,marginLeft:6}}>{h.code}</span>
                     <span style={{fontSize:11,color:C.textMute,marginLeft:8}}>持有 {h.qty} {h.unit || "股"}</span>
                   </div>
