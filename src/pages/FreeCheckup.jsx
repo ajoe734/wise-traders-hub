@@ -1568,7 +1568,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 background:"transparent",
                 color: sortBy===k ? C.textSec : C.textMute,
                 border:"none",
-                borderBottom: sortBy===k ? `1px solid ${C.textSec}` : "1px solid transparent",
+                borderBottom: sortBy===k ? `1px solid ${C.textMute}` : "1px solid transparent",
                 borderRadius:0, padding:"3px 8px", fontSize:11, fontWeight:400, cursor:"pointer",
                 transition:"all 0.15s",
               }}>{l}</button>
