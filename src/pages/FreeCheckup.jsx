@@ -684,7 +684,7 @@ export default function App() {
       }
     } catch (err) {
       console.error('刷新股價失敗:', err);
-      setSaved("❌ 刷新失敗，請稍後再試");
+      setSaved("刷新失敗，請稍後再試");
       setTimeout(() => setSaved(""), 3000);
     }
     setRefreshing(false);
