@@ -2077,17 +2077,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="trade" && <>
           {/* Demo 模式提示 */}
           {isDemo && (
-            <div style={{...card, marginBottom:16, background:C.cardAmber, border:`1px solid ${C.amber}44`, textAlign:"center"}}>
-              <div style={{fontSize:18,marginBottom:8}}>🔒</div>
-              <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:6}}>
+            <div style={{marginBottom:16, padding:"20px 16px", background:alpha(C.amber,'06'), borderRadius:10, textAlign:"center"}}>
+              <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
                 上傳成交需要先登入
               </div>
-              <div style={{fontSize:13,color:C.textSec,marginBottom:14,lineHeight:1.6}}>
+              <div style={{fontSize:12,color:C.textMute,marginBottom:14,lineHeight:1.6}}>
                 透過 LINE 快速登入，即可免費使用 AI 健檢功能（每日一次）
               </div>
               <button onClick={startLineLogin} style={{
                 background:"#06C755", color:"#fff", border:"none",
-                borderRadius:10, padding:"12px 28px", fontSize:15, fontWeight:600,
+                borderRadius:8, padding:"10px 24px", fontSize:13, fontWeight:500,
                 cursor:"pointer", letterSpacing:"0.02em",
               }}>
                 使用 LINE 快速登入
