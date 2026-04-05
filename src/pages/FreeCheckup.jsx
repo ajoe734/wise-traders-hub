@@ -1634,19 +1634,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         目標 {tp.toLocaleString()}
                         {T?.reports?.length>1 && <span style={{color:C.textMute}}> ({T.reports.length}家均)</span>}
                       </span>
-                      <span style={{fontSize:11,fontWeight:600,
-                        color: upside>=0 ? C.up : C.down}}>
+                      <span style={{fontSize:11,fontWeight:400,
+                        color: upside>=0 ? C.up : C.down, opacity:0.7}}>
                         {upside>=0?"+":""}{upside?.toFixed(1)}%
                       </span>
                     </div>
-                    <div style={{background:C.subtle,borderRadius:3,height:3,width:"100%",overflow:"hidden"}}>
+                    <div style={{background:alpha(C.textMute,'08'),borderRadius:1,height:2,width:"100%",overflow:"hidden"}}>
                       <div style={{
                         width:`${Math.min(Math.max((h.price/tp)*100,0),100)}%`,
                         height:"100%",
-                        background: upside>=15 ? C.up+"99"
-                          : upside>=0  ? C.amber+"99"
-                          : C.down+"99",
-                        borderRadius:3,
+                        background:C.teal,
+                        borderRadius:1,
                       }}/>
                     </div>
                   </div>
