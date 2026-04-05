@@ -1641,7 +1641,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div style={{
                         width:`${Math.min(Math.max((h.price/tp)*100,0),100)}%`,
                         height:"100%",
-                        background:C.teal,
+                        background:alpha(C.textMute,'20'),
                         borderRadius:1,
                       }}/>
                     </div>
