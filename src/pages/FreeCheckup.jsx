@@ -2397,8 +2397,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const open   = expandedNews.has(e.id);
             const isCorrect = e.correct;
             const borderC = e.status==="past"
-              ? (isCorrect===true ? C.olive+"99" : isCorrect===false ? C.up+"99" : C.border)
-              : predC(e.pred)+"55";
+              ? (isCorrect===true ? alpha(C.olive,'99') : isCorrect===false ? alpha(C.up,'99') : C.border)
+              : alpha(predC(e.pred),'55');
 
             return (
               <div
