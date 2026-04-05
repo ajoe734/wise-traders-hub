@@ -1408,8 +1408,31 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
-          {/* 摘要 */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
+          {/* Hero PnL Card */}
+          {(()=>{
+            const totalPnl = totalVal - totalCost;
+            const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
+            const isUp = totalPnl >= 0;
+            const heroGrad = isUp
+              ? "linear-gradient(135deg, rgba(207,102,121,0.12) 0%, rgba(207,102,121,0.03) 100%)"
+              : "linear-gradient(135deg, rgba(77,184,138,0.12) 0%, rgba(77,184,138,0.03) 100%)";
+            const heroBorder = isUp ? "1px solid rgba(207,102,121,0.15)" : "1px solid rgba(77,184,138,0.15)";
+            return (
+              <div style={{background:heroGrad,border:heroBorder,borderRadius:14,padding:"18px 20px",marginBottom:10,textAlign:"center"}}>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",marginBottom:6}}>總損益</div>
+                <div style={{fontSize:28,fontWeight:700,color:isUp?C.up:C.down,lineHeight:1.2}}>
+                  {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
+                </div>
+                <span style={{display:"inline-block",marginTop:6,fontSize:12,fontWeight:600,
+                  color:isUp?C.up:C.down,background:isUp?C.upBg:C.downBg,borderRadius:20,padding:"3px 12px"}}>
+                  {isUp?"+":""}{totalPct.toFixed(2)}%
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* 摘要 Sub-metrics */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
             {[["總成本",totalCost.toLocaleString(),C.textSec],
               ["總市值",totalVal.toLocaleString(),C.blue],
               ["持股數",H.length+"檔",C.textSec]].map(([l,v,c])=>(
@@ -1420,44 +1443,63 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             ))}
           </div>
 
-          {/* top5 */}
-          <div style={{...card,marginBottom:10}}>
-            <div style={lbl}>市值佔比 Top 5</div>
+          {/* top5 with conic-gradient circles */}
+          <div style={{...card,marginBottom:14}}>
+            <div style={lbl}>📊 市值佔比 Top 5</div>
             {top5.map((h,i)=>{
               const pct=h.value/totalVal*100;
-              return <div key={h.code} style={{marginTop:10}}>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                  <span style={{fontSize:15,color:C.textSec,fontWeight:500}}>{h.name}</span>
-                  <span style={{fontSize:15,fontWeight:600,color:topColors[i]}}>{pct.toFixed(1)}%</span>
+              return <div key={h.code} style={{display:"flex",alignItems:"center",gap:10,marginTop:8,
+                background:C.subtle,border:`1px solid ${C.border}`,borderRadius:10,padding:"8px 12px"}}>
+                <div style={{width:32,height:32,borderRadius:"50%",flexShrink:0,
+                  background:`conic-gradient(${topColors[i]} ${pct*3.6}deg, ${C.borderSoft} ${pct*3.6}deg)`,
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <div style={{width:22,height:22,borderRadius:"50%",background:C.subtle}}/>
                 </div>
-                <div style={{background:C.subtle,borderRadius:4,height:4}}>
-                  <div style={{width:`${pct}%`,height:"100%",background:topColors[i]+"88",borderRadius:4}}/>
-                </div>
+                <span style={{fontSize:12,color:C.textSec,fontWeight:500,flex:1}}>{h.name}</span>
+                <span style={{fontSize:13,fontWeight:700,color:topColors[i]}}>{pct.toFixed(1)}%</span>
               </div>;
             })}
           </div>
 
-          {/* 勝負摘要 */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-            <div style={{...card,borderLeft:`3px solid ${C.up}88`}}>
-              <div style={{...lbl,color:C.up}}>獲利 {winners.length}檔</div>
-              {winners.slice(0,3).map(h=>(
-                <div key={h.code} style={{display:"flex",justifyContent:"space-between",marginTop:7}}>
-                  <span style={{fontSize:13,color:C.textSec}}>{h.name}</span>
-                  <span style={{fontSize:13,fontWeight:600,color:C.up}}>+{h.pct}%</span>
-                </div>
-              ))}
+          {/* 勝負摘要 with mini bars */}
+          {(()=>{
+            const maxWinPct = winners.length>0 ? Math.max(...winners.slice(0,5).map(w=>Math.abs(w.pct||0))) : 1;
+            const maxLosePct = losers.length>0 ? Math.max(...losers.slice(0,5).map(l=>Math.abs(l.pct||0))) : 1;
+            return (
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+              <div style={{...card,borderLeft:`3px solid ${C.up}88`,padding:"10px 12px"}}>
+                <div style={{...lbl,color:C.up,marginBottom:6}}>📈 獲利 {winners.length}檔</div>
+                {winners.slice(0,5).map(h=>(
+                  <div key={h.code} style={{marginTop:5}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                      <span style={{fontSize:11,color:C.textSec}}>{h.name}</span>
+                      <span style={{fontSize:12,fontWeight:700,color:C.up}}>+{h.pct}%</span>
+                    </div>
+                    <div style={{height:3,borderRadius:2,background:C.upBg,overflow:"hidden"}}>
+                      <div style={{width:`${Math.min((Math.abs(h.pct||0)/Math.max(maxWinPct,0.01))*100,100)}%`,
+                        height:"100%",background:C.up,borderRadius:2,transition:"width 0.3s ease"}}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{...card,borderLeft:`3px solid ${C.down}88`,padding:"10px 12px"}}>
+                <div style={{...lbl,color:C.down,marginBottom:6}}>📉 虧損 {losers.length}檔</div>
+                {losers.slice(0,5).map(h=>(
+                  <div key={h.code} style={{marginTop:5}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                      <span style={{fontSize:11,color:C.textSec}}>{h.name}</span>
+                      <span style={{fontSize:12,fontWeight:700,color:C.down}}>{h.pct}%</span>
+                    </div>
+                    <div style={{height:3,borderRadius:2,background:C.downBg,overflow:"hidden"}}>
+                      <div style={{width:`${Math.min((Math.abs(h.pct||0)/Math.max(maxLosePct,0.01))*100,100)}%`,
+                        height:"100%",background:C.down,borderRadius:2,transition:"width 0.3s ease"}}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{...card,borderLeft:`3px solid ${C.down}88`}}>
-              <div style={{...lbl,color:C.down}}>虧損 {losers.length}檔</div>
-              {losers.slice(0,3).map(h=>(
-                <div key={h.code} style={{display:"flex",justifyContent:"space-between",marginTop:7}}>
-                  <span style={{fontSize:13,color:C.textSec}}>{h.name}</span>
-                  <span style={{fontSize:13,fontWeight:600,color:C.down}}>{h.pct}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
+            );
+          })()}
 
           {/* 反轉追蹤（虧損持股） */}
           {losers.length>0 && (
