@@ -1577,7 +1577,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             ))}
           </div>
 
-          <div style={card}>
+          <div>
             {displayed.map((h,i)=>{
               const T      = targets?.[h.code];
               const tp     = T ? avgTarget(h.code) : null;
