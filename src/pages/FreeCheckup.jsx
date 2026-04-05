@@ -1940,25 +1940,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* 策略大腦 */}
           {strategyBrain && (
-            <div style={{...card,marginBottom:14,
-              borderTop:`2px solid ${alpha(C.lavender,0.4)}`,
-              background:`linear-gradient(180deg, ${alpha(C.lavender,0.04)}, ${C.card} 40%)`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:16}}>🧬</span>
-                  <span style={{...lbl,color:C.lavender,marginBottom:0}}>策略大腦</span>
-                </div>
-                <span style={{fontSize:12,color:C.textMute}}>
-                  更新：{strategyBrain.lastUpdate||"—"} | 分析次數：{strategyBrain.stats?.totalAnalyses||0}
+            <div style={{marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400}}>策 略 大 腦</span>
+                <span style={{fontSize:11,color:C.textMute,fontWeight:400}}>
+                  更新：{strategyBrain.lastUpdate||"—"} | 分析：{strategyBrain.stats?.totalAnalyses||0}次
                 </span>
               </div>
 
               {(strategyBrain.rules||[]).length>0 && (
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:12,color:C.amber,fontWeight:600,marginBottom:5}}>核心策略規則</div>
+                  <div style={{fontSize:10,color:C.textMute,fontWeight:400,letterSpacing:"0.08em",marginBottom:5}}>核心策略規則</div>
                   {strategyBrain.rules.map((r,i)=>(
-                    <div key={i} style={{fontSize:13,color:C.textSec,lineHeight:1.8,
-                      padding:"3px 0",borderBottom:`1px solid ${C.borderSub}`}}>
+                    <div key={i} style={{fontSize:12,color:C.textSec,lineHeight:1.8,fontWeight:400,
+                      padding:"3px 0",borderBottom:`1px solid ${alpha(C.textMute,'04')}`}}>
                       {i+1}. {r}
                     </div>
                   ))}
@@ -1967,21 +1962,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
               {(strategyBrain.commonMistakes||[]).length>0 && (
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:12,color:C.up,fontWeight:600,marginBottom:5}}>常犯錯誤（警醒）</div>
+                  <div style={{fontSize:10,color:C.textMute,fontWeight:400,letterSpacing:"0.08em",marginBottom:5}}>常犯錯誤</div>
                   {strategyBrain.commonMistakes.map((m,i)=>(
-                    <div key={i} style={{fontSize:13,color:C.textSec,lineHeight:1.8}}>⚠ {m}</div>
+                    <div key={i} style={{fontSize:12,color:C.textSec,lineHeight:1.8,fontWeight:400}}>{m}</div>
                   ))}
                 </div>
               )}
 
               {(strategyBrain.lessons||[]).length>0 && (
                 <div>
-                  <div style={{fontSize:12,color:C.olive,fontWeight:600,marginBottom:5}}>
+                  <div style={{fontSize:10,color:C.textMute,fontWeight:400,letterSpacing:"0.08em",marginBottom:5}}>
                     最近教訓（共 {strategyBrain.lessons.length} 條）
                   </div>
                   {strategyBrain.lessons.slice(-5).reverse().map((l,i)=>(
-                    <div key={i} style={{fontSize:12,color:C.textMute,lineHeight:1.7,
-                      padding:"4px 0",borderBottom:`1px solid ${C.borderSub}`}}>
+                    <div key={i} style={{fontSize:11,color:C.textMute,lineHeight:1.7,fontWeight:400,
+                      padding:"4px 0",borderBottom:`1px solid ${alpha(C.textMute,'04')}`}}>
                       <span style={{color:C.textSec}}>[{l.date}]</span> {l.text}
                     </div>
                   ))}
@@ -1989,7 +1984,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               )}
 
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
-                <div style={{fontSize:12,color:C.lavender,fontWeight:500}}>
+                <div style={{fontSize:11,color:C.textMute,fontWeight:400}}>
                   命中率：{strategyBrain.stats?.hitRate||"計算中"}
                 </div>
                 <div style={{display:"flex",gap:6}}>
@@ -2000,7 +1995,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     a.href = URL.createObjectURL(blob);
                     a.download = `strategy-brain-${new Date().toISOString().slice(0,10)}.json`;
                     a.click();
-                  }} style={{fontSize:12,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMute,cursor:"pointer"}}>
+                  }} style={{fontSize:11,padding:"3px 8px",borderRadius:4,border:"none",background:"transparent",color:C.textMute,cursor:"pointer",fontWeight:400}}>
                     匯出
                   </button>
                   <button onClick={()=>{
@@ -2008,13 +2003,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       setStrategyBrain(null);
                       save("pf-brain-v1", null);
                     }
-                  }} style={{fontSize:12,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.up}44`,background:"transparent",color:C.up,cursor:"pointer"}}>
+                  }} style={{fontSize:11,padding:"3px 8px",borderRadius:4,border:"none",background:"transparent",color:C.textMute,cursor:"pointer",fontWeight:400}}>
                     重置
                   </button>
                 </div>
               </div>
-              <div style={{fontSize:12,color:cloudSync?C.olive:C.textMute,marginTop:6}}>
-                {cloudSync ? "☁ 已雲端同步" : "⚡ 本機模式"}
+              <div style={{fontSize:11,color:C.textMute,marginTop:6,fontWeight:400,opacity:0.6}}>
+                {cloudSync ? "雲端同步" : "本機模式"}
               </div>
             </div>
           )}
