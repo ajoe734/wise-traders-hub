@@ -1445,10 +1445,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               return <div key={h.code} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
                 <span style={{fontSize:11,color:C.textMute,fontWeight:400,width:14,textAlign:"right"}}>{i+1}</span>
                 <span style={{fontSize:12,color:C.textSec,fontWeight:400,flex:1}}>{h.name}</span>
-                <span style={{fontSize:11,fontWeight:500,color:C.textSec,width:42,textAlign:"right"}}>{pct.toFixed(1)}%</span>
-                <div style={{width:60,height:2,borderRadius:1,background:alpha(C.textMute,'12'),overflow:"hidden",flexShrink:0}}>
+                <span style={{fontSize:11,fontWeight:400,color:C.textMute,width:42,textAlign:"right"}}>{pct.toFixed(1)}%</span>
+                <div style={{width:60,height:2,borderRadius:1,background:alpha(C.textMute,'08'),overflow:"hidden",flexShrink:0}}>
                   <div style={{width:`${pct}%`,height:"100%",borderRadius:1,
-                    background:i===0?C.teal:alpha(C.textMute,'25')}}/>
+                    background:alpha(C.textMute,'30')}}/>
                 </div>
               </div>;
             })}
