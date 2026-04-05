@@ -2130,7 +2130,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   width:"100%",padding:"13px",borderRadius:10,
                   background: parsing ? C.subtle : C.cardHover,
                   color: parsing ? C.textMute : C.text,
-                  border: `1px solid ${parsing ? C.border : C.amber+"66"}`,
+                  border: `1px solid ${parsing ? C.border : alpha(C.amber,'66')}`,
                   fontSize:15, fontWeight:500, cursor:parsing?"not-allowed":"pointer",
                   letterSpacing:"0.02em"}}>
                   {parsing ? "解析中..." : "解析這筆交易"}
