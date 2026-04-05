@@ -1335,11 +1335,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
           <div>
-            <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.1em",fontWeight:500,marginBottom:4}}>
-              {isDemo && <span style={{background:alpha(C.amber,'22'),color:C.amber,padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,marginRight:6}}>DEMO</span>}
-              {lineProfile && <span style={{background:alpha(C.olive,'08'),color:C.olive,padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,marginRight:6}}>{lineProfile.displayName}</span>}
-              <span style={{color:cloudSync?C.olive:C.textMute,fontSize:10,letterSpacing:"0.04em"}}>{cloudSync?"雲端":"本地"}</span>
-              {saved && <span style={{color:C.olive,marginLeft:6,fontWeight:500,fontSize:12}}>{saved}</span>}
+            <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.1em",fontWeight:400,marginBottom:4}}>
+              {isDemo && <span style={{color:C.textMute,padding:"2px 0",fontSize:10,fontWeight:400,marginRight:6}}>DEMO</span>}
+              {lineProfile && <span style={{color:C.textMute,padding:"2px 0",fontSize:10,fontWeight:400,marginRight:6}}>{lineProfile.displayName}</span>}
+              <span style={{color:C.textMute,fontSize:10,letterSpacing:"0.04em"}}>{cloudSync?"雲端":"本地"}</span>
+              {saved && <span style={{color:C.textMute,marginLeft:6,fontWeight:400,fontSize:11}}>{saved}</span>}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:22,fontWeight:500,color:C.text,letterSpacing:"-0.02em"}}>持倉看板</span>
