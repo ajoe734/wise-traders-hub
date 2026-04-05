@@ -1492,7 +1492,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      <span style={{fontSize:14,fontWeight:500,color:C.text}}>{h.name}</span>
+                      <span style={{fontSize:13,fontWeight:400,color:C.text}}>{h.name}</span>
                       <span style={{fontSize:12,color:C.down,marginLeft:6}}>{h.pct}%</span>
                     </div>
                     <button onClick={()=>setEditing(!editing)} style={{
