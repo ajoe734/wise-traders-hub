@@ -2028,13 +2028,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const validHistory = (analysisHistory||[]).filter(r => r.changes && r.changes.length > 0);
             if (validHistory.length === 0) return null;
             return (
-              <div style={{...card}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:14}}>📊</span>
-                    <span style={lbl}>歷史分析記錄</span>
-                  </div>
-                  <span style={{fontSize:12,color:C.textMute}}>共 {validHistory.length} 筆</span>
+              <div style={{marginTop:14}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400}}>歷 史 記 錄</span>
+                  <span style={{fontSize:11,color:C.textMute,fontWeight:400}}>共 {validHistory.length} 筆</span>
                 </div>
                 {validHistory.slice(0,15).map(r=>{
                   const isExpanded = dailyReport?.id === r.id;
@@ -2044,37 +2041,31 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         if (isExpanded) { setDailyReport(null); } else { setDailyReport(r); }
                       }}
                       style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                        padding:"9px 8px",cursor:"pointer",
-                        background:isExpanded?alpha(C.amber,0.05):"transparent",
-                        borderRadius:6,
-                        borderBottom:`1px solid ${C.borderSub}`,
+                        padding:"8px 0",cursor:"pointer",
+                        borderBottom:`1px solid ${alpha(C.textMute,'06')}`,
                         transition:"background 0.15s"}}>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <span style={{fontSize:12,color:isExpanded?C.amber:C.textMute,transition:"transform 0.15s",
+                        <span style={{fontSize:10,color:C.textMute,transition:"transform 0.15s",
                           display:"inline-block",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                        <span style={{fontSize:14,color:C.text,fontWeight:500}}>{r.date}</span>
-                        <span style={{fontSize:11,color:C.textMute}}>{r.time}</span>
+                        <span style={{fontSize:12,color:C.text,fontWeight:400}}>{r.date}</span>
+                        <span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{r.time}</span>
                       </div>
-                      <span style={{fontSize:13,fontWeight:600,padding:"2px 10px",borderRadius:20,
-                        background:r.totalTodayPnl>=0?C.upBg:C.downBg,
+                      <span style={{fontSize:12,fontWeight:500,
                         color:pc(r.totalTodayPnl)}}>
                         {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
                       </span>
                     </div>
-                    {/* 展開的報告內容 — Markdown 渲染 AI 摘要 */}
                     {isExpanded && (
-                      <div style={{padding:"12px 8px",borderBottom:`1px solid ${C.border}`,marginBottom:4,
-                        background:alpha(C.lavender,0.02),borderRadius:"0 0 6px 6px"}}>
+                      <div style={{padding:"10px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`,marginBottom:4}}>
                         {r.aiInsight && (
-                          <div style={{maxHeight:300,overflow:"auto",background:C.subtle,borderRadius:8,padding:"10px 12px"}}>
+                          <div style={{marginBottom:6}}>
                             <Md text={r.aiInsight} color={C.textSec} />
                           </div>
                         )}
-                        {/* 查看完整報告 */}
                         <button onClick={(ev)=>{ev.stopPropagation();setDailyReport(r);
                           setTimeout(()=>document.getElementById("daily-report-top")?.scrollIntoView({behavior:"smooth"}),50);
-                        }} style={{marginTop:6,padding:"5px 12px",borderRadius:5,border:`1px solid ${C.blue}55`,
-                          background:"transparent",color:C.blue,fontSize:12,cursor:"pointer",width:"100%"}}>
+                        }} style={{marginTop:4,padding:"4px 10px",borderRadius:4,border:"none",
+                          background:"transparent",color:C.textSec,fontSize:11,cursor:"pointer",width:"100%",fontWeight:400}}>
                           查看完整報告 ↑
                         </button>
                       </div>
