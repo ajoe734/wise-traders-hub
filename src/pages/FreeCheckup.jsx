@@ -1753,15 +1753,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {visibleEvents.map((e,i)=>{
                   const tc = TYPE_COLOR[e.type]||C.textMute;
                   const globalIdx = CE.indexOf(e);
-                  return <div key={i} style={{...card,marginBottom:7,
-                    borderLeft:`2px solid ${e.urgent ? C.up : tc+"66"}`}}>
+                  return <div key={i} style={{marginBottom:0,padding:"10px 0",
+                    borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
                     <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
                       <div style={{minWidth:48}}>
-                        <div style={{background: e.urgent ? C.upBg : tc+"18",
-                          color: e.urgent ? C.up : tc,
-                          fontSize:12,fontWeight:600,padding:"2px 5px",borderRadius:4,
+                        <div style={{
+                          color: e.urgent ? C.up : C.textMute,
+                          fontSize:11,fontWeight:400,
                           textAlign:"center",marginBottom:3}}>{e.type}</div>
-                        <div style={{fontSize:12,color:C.textMute,textAlign:"center",lineHeight:1.4}}>{e.date}</div>
+                        <div style={{fontSize:11,color:C.textMute,textAlign:"center",lineHeight:1.4,opacity:0.6}}>{e.date}</div>
                       </div>
                       <div style={{flex:1}}>
                         <div style={{fontSize:14,fontWeight:500,color:e.urgent?C.up:C.text}}>{e.label}</div>
