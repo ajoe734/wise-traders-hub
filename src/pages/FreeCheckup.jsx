@@ -1664,7 +1664,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="watchlist" && <>
           {H.length === 0 ? (
             <div style={{textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:13,color:C.textSec,fontWeight:500}}>尚無觀察股</div>
+              <div style={{fontSize:13,color:C.textMute,fontWeight:400}}>尚無觀察股</div>
               <div style={{fontSize:12,color:C.textMute,marginTop:6,lineHeight:1.7}}>
                 上傳成交截圖後，持倉股票會自動出現在觀察清單
               </div>
