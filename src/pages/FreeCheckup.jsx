@@ -2278,7 +2278,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   disabled={!tpCode.trim()||!tpVal}
                   style={{
                     width:"100%",padding:"10px",border:"none",borderRadius:8,
-                    background: tpCode.trim()&&tpVal ? C.teal+"cc" : C.subtle,
+                    background: tpCode.trim()&&tpVal ? alpha(C.teal,'cc') : C.subtle,
                     color: tpCode.trim()&&tpVal ? "#fff" : C.textMute,
                     fontSize:14,fontWeight:500,cursor:tpCode.trim()&&tpVal?"pointer":"not-allowed",
                   }}>
