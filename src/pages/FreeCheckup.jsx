@@ -1343,7 +1343,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               {saved && <span style={{color:C.olive,marginLeft:6,fontWeight:600,fontSize:12}}>{saved}</span>}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-              <span style={{fontSize:22,fontWeight:700,color:C.text,letterSpacing:"-0.02em"}}>持倉看板</span>
+              <span style={{fontSize:22,fontWeight:500,color:C.text,letterSpacing:"-0.02em"}}>持倉看板</span>
               <button onClick={refreshPrices} disabled={refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)} style={{
                 background: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.subtle : C.blue+"14",
                 color: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.textMute : C.blue,
