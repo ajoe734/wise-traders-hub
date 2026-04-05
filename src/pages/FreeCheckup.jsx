@@ -2172,7 +2172,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {parsed.targetPriceUpdates?.length>0 && (
                   <div style={{marginTop:10,background:C.tealBg,border:`1px solid ${C.teal}44`,
                     borderRadius:7,padding:"8px 10px"}}>
-                    <div style={{fontSize:12,color:C.teal,fontWeight:600,marginBottom:4}}>
+                    <div style={{fontSize:11,color:C.teal,fontWeight:400,marginBottom:4,letterSpacing:"0.04em"}}>
                       偵測到目標價更新
                     </div>
                     {parsed.targetPriceUpdates.map((u,i)=>(
