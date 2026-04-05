@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Md from "@/checkup/components/Md";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
@@ -1807,32 +1808,46 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
 
           {analyzing && (
-            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:15,color:C.amber,fontWeight:500,animation:"pulse 1.5s ease-in-out infinite"}}>
+            <div style={{...card,textAlign:"center",padding:"36px 16px",
+              background:`linear-gradient(135deg, ${C.card}, ${alpha(C.amber,0.04)})`,
+              border:`1px solid ${alpha(C.amber,0.15)}`}}>
+              <div style={{fontSize:28,marginBottom:12,animation:"pulse 2s ease-in-out infinite"}}>◎</div>
+              <div style={{fontSize:16,color:C.amber,fontWeight:600,marginBottom:6}}>
                 {analyzeStep || "正在分析今日收盤數據..."}
               </div>
-              <div style={{fontSize:13,color:C.textMute,marginTop:8}}>取得股價 → 比對事件 → AI策略分析 → 大腦進化</div>
-              <div style={{width:"100%",height:3,background:C.borderSub,borderRadius:2,marginTop:12,overflow:"hidden"}}>
-                <div style={{height:"100%",background:C.amber,borderRadius:2,animation:"progress 8s ease-in-out infinite",width:"70%"}} />
+              <div style={{fontSize:13,color:C.textMute,marginTop:4,display:"flex",justifyContent:"center",gap:6,flexWrap:"wrap"}}>
+                {["取得股價","比對事件","AI策略分析","大腦進化"].map((s,i)=>(
+                  <span key={i} style={{padding:"2px 10px",borderRadius:20,background:alpha(C.amber,0.08),fontSize:12}}>{s}</span>
+                ))}
               </div>
+              <div style={{width:"100%",height:4,background:C.borderSub,borderRadius:3,marginTop:16,overflow:"hidden"}}>
+                <div style={{height:"100%",borderRadius:3,
+                  background:`linear-gradient(90deg, ${C.amber}, ${C.orange}, ${C.amber})`,
+                  backgroundSize:"200% 100%",
+                  animation:"shimmer 2s linear infinite",
+                  width:"70%"}} />
+              </div>
+              <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
             </div>
           )}
 
           {dailyReport && !analyzing && <>
             {/* 今日損益摘要 */}
-            <div id="daily-report-top" style={{...card,marginBottom:10,
-              borderLeft:`3px solid ${dailyReport.totalTodayPnl>=0?C.up:C.down}88`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div id="daily-report-top" style={{
+              background:`linear-gradient(135deg, ${C.card}, ${dailyReport.totalTodayPnl>=0?alpha(C.up,0.06):alpha(C.down,0.06)})`,
+              border:`1px solid ${dailyReport.totalTodayPnl>=0?alpha(C.up,0.15):alpha(C.down,0.15)}`,
+              borderRadius:12,padding:"18px 18px 16px",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                 <div>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <button onClick={()=>setDailyReport(null)} style={{fontSize:12,padding:"2px 8px",borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMute,cursor:"pointer"}}>← 返回</button>
-                    <div style={lbl}>{dailyReport.date} 收盤分析</div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                    <button onClick={()=>setDailyReport(null)} style={{fontSize:12,padding:"3px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:alpha(C.bg,0.5),color:C.textMute,cursor:"pointer",backdropFilter:"blur(4px)"}}>← 返回</button>
+                    <span style={{fontSize:13,fontWeight:600,color:C.text,padding:"3px 10px",borderRadius:6,background:alpha(C.amber,0.1),border:`1px solid ${alpha(C.amber,0.15)}`}}>{dailyReport.date}</span>
                   </div>
-                  <div style={{fontSize:12,color:C.textMute}}>{dailyReport.time} 更新</div>
+                  <div style={{fontSize:12,color:C.textMute,marginTop:2}}>🕐 {dailyReport.time} 更新</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:12,color:C.textMute}}>今日損益</div>
-                  <div style={{fontSize:20,fontWeight:700,color:pc(dailyReport.totalTodayPnl)}}>
+                  <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.05em",marginBottom:4}}>TODAY P&L</div>
+                  <div style={{fontSize:28,fontWeight:700,color:pc(dailyReport.totalTodayPnl),lineHeight:1}}>
                     {dailyReport.totalTodayPnl>=0?"+":""}{dailyReport.totalTodayPnl.toLocaleString()}
                   </div>
                 </div>
@@ -1840,13 +1855,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
 
 
-            {/* AI 策略分析 — 直接顯示完整內容 */}
+            {/* AI 策略分析 — Markdown 渲染 */}
             {dailyReport.aiInsight && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.lavender}88`}}>
-                <div style={{...lbl,color:C.lavender}}>AI 策略分析</div>
-                <div style={{fontSize:13,color:C.textSec,lineHeight:2,whiteSpace:"pre-wrap"}}>
-                  {dailyReport.aiInsight}
+              <div style={{...card,marginBottom:14,
+                borderTop:`2px solid ${alpha(C.lavender,0.4)}`,
+                background:`linear-gradient(180deg, ${alpha(C.lavender,0.04)}, ${C.card} 40%)`}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <span style={{fontSize:16}}>🧠</span>
+                  <span style={{...lbl,color:C.lavender,marginBottom:0}}>AI 策略分析</span>
                 </div>
+                <Md text={dailyReport.aiInsight} color={C.textSec} />
               </div>
             )}
 
@@ -1860,18 +1878,23 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             {/* 自動驗證事件結果 */}
             {(dailyReport.autoVerified||[]).length>0 && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.olive}88`}}>
-                <div style={{...lbl,color:C.olive}}>自動驗證事件 · {dailyReport.autoVerified.length}件</div>
+              <div style={{...card,marginBottom:14,
+                borderTop:`2px solid ${alpha(C.olive,0.4)}`,
+                background:`linear-gradient(180deg, ${alpha(C.olive,0.04)}, ${C.card} 40%)`}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <span style={{fontSize:16}}>🔬</span>
+                  <span style={{...lbl,color:C.olive,marginBottom:0}}>自動驗證事件 · {dailyReport.autoVerified.length}件</span>
+                </div>
                 {dailyReport.autoVerified.map((v,i)=>(
                   <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                    padding:"6px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${C.borderSub}`:"none"}}>
+                    padding:"8px 0",borderBottom:i<dailyReport.autoVerified.length-1?`1px solid ${C.borderSub}`:"none"}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:500,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
                       <div style={{fontSize:12,color:C.textMute,marginTop:2}}>
                         預測{v.pred==="up"?"看漲":"看跌"} → 實際{v.actual==="up"?"漲":v.actual==="down"?"跌":"中性"}
                       </div>
                     </div>
-                    <span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:20,flexShrink:0,
+                    <span style={{fontSize:12,fontWeight:600,padding:"3px 10px",borderRadius:20,flexShrink:0,
                       background:v.correct?C.oliveBg:C.upBg,
                       color:v.correct?C.olive:C.up}}>
                       {v.correct?"✓ 命中":"✗ 失誤"}
@@ -1883,16 +1906,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             {/* 需要復盤的事件 */}
             {(dailyReport.needsReview||[]).length>0 && (
-              <div style={{...card,marginBottom:10,borderLeft:`3px solid ${C.up}88`}}>
-                <div style={{...lbl,color:C.up}}>需要復盤 · {dailyReport.needsReview.length}件</div>
+              <div style={{...card,marginBottom:14,
+                borderTop:`2px solid ${alpha(C.up,0.4)}`,
+                background:`linear-gradient(180deg, ${alpha(C.up,0.04)}, ${C.card} 40%)`}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <span style={{fontSize:16}}>📋</span>
+                  <span style={{...lbl,color:C.up,marginBottom:0}}>需要復盤 · {dailyReport.needsReview.length}件</span>
+                </div>
                 {dailyReport.needsReview.map(e=>(
-                  <div key={e.id} style={{marginBottom:8}}>
+                  <div key={e.id} style={{marginBottom:10}}>
                     <div style={{fontSize:13,fontWeight:500,color:C.text}}>{e.title}</div>
-                    <div style={{fontSize:12,color:C.textMute}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
+                    <div style={{fontSize:12,color:C.textMute,marginTop:2}}>{e.date} — 預測{e.pred==="up"?"看漲":"看跌"}</div>
                     <button onClick={()=>{setTab("news");setExpandedNews(new Set([e.id]))}}
-                      style={{marginTop:4,padding:"4px 10px",borderRadius:5,border:`1px solid ${C.olive}55`,
-                        background:"transparent",color:C.olive,fontSize:12,cursor:"pointer"}}>
-                      前往復盤
+                      style={{marginTop:6,padding:"5px 12px",borderRadius:6,border:`1px solid ${C.olive}55`,
+                        background:alpha(C.olive,0.06),color:C.olive,fontSize:12,cursor:"pointer"}}>
+                      前往復盤 →
                     </button>
                   </div>
                 ))}
@@ -1911,9 +1939,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* 策略大腦 */}
           {strategyBrain && (
-            <div style={{...card,marginBottom:12,borderLeft:`3px solid ${C.lavender}88`}}>
+            <div style={{...card,marginBottom:14,
+              borderTop:`2px solid ${alpha(C.lavender,0.4)}`,
+              background:`linear-gradient(180deg, ${alpha(C.lavender,0.04)}, ${C.card} 40%)`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{...lbl,color:C.lavender,marginBottom:0}}>策略大腦</div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:16}}>🧬</span>
+                  <span style={{...lbl,color:C.lavender,marginBottom:0}}>策略大腦</span>
+                </div>
                 <span style={{fontSize:12,color:C.textMute}}>
                   更新：{strategyBrain.lastUpdate||"—"} | 分析次數：{strategyBrain.stats?.totalAnalyses||0}
                 </span>
@@ -2000,8 +2033,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             if (validHistory.length === 0) return null;
             return (
               <div style={{...card}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div style={lbl}>歷史分析記錄</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:14}}>📊</span>
+                    <span style={lbl}>歷史分析記錄</span>
+                  </div>
                   <span style={{fontSize:12,color:C.textMute}}>共 {validHistory.length} 筆</span>
                 </div>
                 {validHistory.slice(0,15).map(r=>{
@@ -2012,28 +2048,30 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         if (isExpanded) { setDailyReport(null); } else { setDailyReport(r); }
                       }}
                       style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                        padding:"8px 6px",cursor:"pointer",
-                        background:isExpanded?C.subtle:"transparent",
+                        padding:"9px 8px",cursor:"pointer",
+                        background:isExpanded?alpha(C.amber,0.05):"transparent",
                         borderRadius:6,
-                        borderBottom:`1px solid ${C.borderSub}`}}>
+                        borderBottom:`1px solid ${C.borderSub}`,
+                        transition:"background 0.15s"}}>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
                         <span style={{fontSize:12,color:isExpanded?C.amber:C.textMute,transition:"transform 0.15s",
                           display:"inline-block",transform:isExpanded?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-                        <span style={{fontSize:14,color:C.text}}>{r.date}</span>
-                        <span style={{fontSize:12,color:C.textMute}}>{r.time}</span>
+                        <span style={{fontSize:14,color:C.text,fontWeight:500}}>{r.date}</span>
+                        <span style={{fontSize:11,color:C.textMute}}>{r.time}</span>
                       </div>
-                      <span style={{fontSize:14,fontWeight:600,color:pc(r.totalTodayPnl)}}>
+                      <span style={{fontSize:13,fontWeight:600,padding:"2px 10px",borderRadius:20,
+                        background:r.totalTodayPnl>=0?C.upBg:C.downBg,
+                        color:pc(r.totalTodayPnl)}}>
                         {r.totalTodayPnl>=0?"+":""}{r.totalTodayPnl.toLocaleString()}
                       </span>
                     </div>
-                    {/* 展開的報告內容 — 直接顯示 AI 摘要 */}
+                    {/* 展開的報告內容 — Markdown 渲染 AI 摘要 */}
                     {isExpanded && (
-                      <div style={{padding:"10px 4px",borderBottom:`1px solid ${C.border}`,marginBottom:4}}>
-                        {/* AI 摘要 */}
+                      <div style={{padding:"12px 8px",borderBottom:`1px solid ${C.border}`,marginBottom:4,
+                        background:alpha(C.lavender,0.02),borderRadius:"0 0 6px 6px"}}>
                         {r.aiInsight && (
-                          <div style={{fontSize:12,color:C.textSec,lineHeight:1.8,whiteSpace:"pre-wrap",
-                            maxHeight:200,overflow:"auto",background:C.subtle,borderRadius:6,padding:"8px 10px"}}>
-                            {r.aiInsight.slice(0,500)}{r.aiInsight.length>500?"...":""}
+                          <div style={{maxHeight:300,overflow:"auto",background:C.subtle,borderRadius:8,padding:"10px 12px"}}>
+                            <Md text={r.aiInsight} color={C.textSec} />
                           </div>
                         )}
                         {/* 查看完整報告 */}
