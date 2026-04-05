@@ -115,7 +115,7 @@ const pc    = (p) => p==null ? C.textMute : p>=0 ? C.up : C.down;
 const pcBg  = (p) => p==null ? "transparent" : p>=0 ? C.upBg : C.downBg;
 const fmtN  = (n) => n==null?"—":Math.abs(n)>=10000?(n/10000).toFixed(1)+"萬":n.toLocaleString();
 const card  = { background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" };
-const lbl   = { fontSize:11, color:C.textMute, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:6 };
+const lbl   = { fontSize:11, color:C.textMute, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:400, marginBottom:6 };
 
 // 所有 pf-* key 的雲端同步 key 清單
 const CLOUD_SYNC_KEYS = [
