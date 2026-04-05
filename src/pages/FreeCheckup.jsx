@@ -1496,10 +1496,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <span style={{fontSize:12,color:C.down,marginLeft:6}}>{h.pct}%</span>
                     </div>
                     <button onClick={()=>setEditing(!editing)} style={{
-                      padding:"3px 9px",borderRadius:5,fontSize:12,cursor:"pointer",
-                      background:rc?alpha(C.olive,'22'):"transparent",
-                      border:`1px solid ${rc?alpha(C.olive,'55'):C.border}`,
-                      color:rc?C.olive:C.textMute}}>
+                       padding:"3px 9px",borderRadius:5,fontSize:11,cursor:"pointer",
+                       background:"transparent",
+                       border:`1px solid ${C.border}`,
+                       color:C.textMute}}>
                       {rc?"查看條件":"設定反轉條件"}
                     </button>
                   </div>
