@@ -2184,7 +2184,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 
               </div>
 
-              <div style={{...card,borderLeft:`2px solid ${C.blue}88`}}>
+              <div style={{...card,borderLeft:`2px solid ${alpha(C.blue,'88')}`}}>
                 <div style={lbl}>交易備忘錄</div>
                 {memoAns.map((a,i)=>(
                   <div key={i} style={{marginBottom:12}}>
