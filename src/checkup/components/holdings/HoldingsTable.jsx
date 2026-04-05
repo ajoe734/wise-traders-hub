@@ -103,8 +103,8 @@ export function HoldingRow({
               style: {
                 fontSize: 9,
                 fontWeight: 400,
-                color: periodColor(meta.period),
-                opacity: 0.7,
+                color: C.textMute,
+                opacity: 0.6,
                 letterSpacing: '0.04em',
               },
             },
