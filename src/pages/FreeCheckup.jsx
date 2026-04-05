@@ -2499,7 +2499,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {e.lessons && (
                       <div style={{background:C.blueBg,border:`1px solid ${alpha(C.blue,'33')}`,
                         borderRadius:7,padding:"9px 11px",marginTop:8}}>
-                        <div style={{fontSize:12,color:C.blue,fontWeight:600,marginBottom:3}}>策略覆盤教訓</div>
+                        <div style={{fontSize:12,color:C.textSec,fontWeight:400,marginBottom:3}}>策略覆盤教訓</div>
                         <div style={{fontSize:13,color:C.textSec,lineHeight:1.7}}>{e.lessons}</div>
                       </div>
                     )}
