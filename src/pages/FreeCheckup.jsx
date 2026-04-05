@@ -1379,11 +1379,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* today alert - match calendar events by today's date */}
         {todayEvents.length>0 && (
-          <div style={{background:C.upBg,border:`1px solid ${C.up}22`,
-            borderLeft:`2px solid ${C.up}88`,
+          <div style={{background:alpha(C.up,'06'),
+            borderLeft:`1px solid ${alpha(C.up,'20')}`,
             borderRadius:6,padding:"7px 10px",marginBottom:10,
-            fontSize:12,color:C.up,lineHeight:1.7,fontWeight:500}}>
-            📅 今日 · {todayEvents.map(e=>e.label).join(" · ")}
+            fontSize:12,color:C.up,lineHeight:1.7,fontWeight:400}}>
+            今日 · {todayEvents.map(e=>e.label).join(" · ")}
           </div>
         )}
 
