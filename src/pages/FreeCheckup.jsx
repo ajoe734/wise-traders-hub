@@ -1877,8 +1877,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             )}
 
             {!dailyReport.aiInsight && (
-              <div style={{...card,marginBottom:10,background:C.subtle}}>
-                <div style={{fontSize:13,color:C.textMute,textAlign:"center",padding:"8px 0"}}>
+              <div style={{marginBottom:14,padding:"8px 0"}}>
+                <div style={{fontSize:12,color:C.textMute,textAlign:"center",fontWeight:400}}>
                   AI 分析未產生
                 </div>
               </div>
