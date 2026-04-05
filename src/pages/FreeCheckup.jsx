@@ -2602,7 +2602,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </button>
 
             {showAddEvent && (
-              <div style={{...card,marginBottom:12,borderLeft:`2px solid ${C.blue}88`}}>
+              <div style={{...card,marginBottom:12,borderLeft:`2px solid ${alpha(C.blue,'88')}`}}>
                 <div style={{...lbl,color:C.blue}}>新增事件</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:7}}>
                   <div>
