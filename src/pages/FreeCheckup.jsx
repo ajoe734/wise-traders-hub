@@ -1825,26 +1825,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
            )}
 
           {analyzing && (
-            <div style={{...card,textAlign:"center",padding:"36px 16px",
-              background:`linear-gradient(135deg, ${C.card}, ${alpha(C.amber,0.04)})`,
-              border:`1px solid ${alpha(C.amber,0.15)}`}}>
-              <div style={{fontSize:28,marginBottom:12,animation:"pulse 2s ease-in-out infinite"}}>◎</div>
-              <div style={{fontSize:16,color:C.amber,fontWeight:600,marginBottom:6}}>
+            <div style={{textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:13,color:C.textSec,fontWeight:400,marginBottom:10,letterSpacing:"0.04em"}}>
                 {analyzeStep || "正在分析今日收盤數據..."}
               </div>
-              <div style={{fontSize:13,color:C.textMute,marginTop:4,display:"flex",justifyContent:"center",gap:6,flexWrap:"wrap"}}>
+              <div style={{fontSize:11,color:C.textMute,marginTop:8,display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap"}}>
                 {["取得股價","比對事件","AI策略分析","大腦進化"].map((s,i)=>(
-                  <span key={i} style={{padding:"2px 10px",borderRadius:20,background:alpha(C.amber,0.08),fontSize:12}}>{s}</span>
+                  <span key={i} style={{fontSize:10,color:C.textMute,fontWeight:400,opacity:0.6}}>{s}</span>
                 ))}
               </div>
-              <div style={{width:"100%",height:4,background:C.borderSub,borderRadius:3,marginTop:16,overflow:"hidden"}}>
-                <div style={{height:"100%",borderRadius:3,
-                  background:`linear-gradient(90deg, ${C.amber}, ${C.orange}, ${C.amber})`,
-                  backgroundSize:"200% 100%",
-                  animation:"shimmer 2s linear infinite",
-                  width:"70%"}} />
+              <div style={{width:"100%",height:2,background:alpha(C.textMute,'08'),borderRadius:1,marginTop:16,overflow:"hidden"}}>
+                <div style={{height:"100%",borderRadius:1,
+                  background:C.teal,
+                  width:"70%",
+                  transition:"width 0.5s ease"}} />
               </div>
-              <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
             </div>
           )}
 
