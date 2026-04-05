@@ -1610,7 +1610,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {/* 第二行：產業 + 策略（淡化顯示）*/}
                 {meta?.industry && (
                   <div style={{fontSize:11,color:C.textMute,marginBottom:4,fontWeight:400}}>
-                    <span style={{color:IND_COLOR[meta.industry]||C.textMute}}>{meta.industry}</span>
+                    <span style={{color:C.textMute}}>{meta.industry}</span>
                     {meta.strategy && <span style={{marginLeft:6,color:C.textMute}}>· {meta.strategy}</span>}
                     {meta.leader && meta.leader!=="N/A" && <span style={{marginLeft:6,color:C.textMute}}>· {meta.leader}</span>}
                   </div>
