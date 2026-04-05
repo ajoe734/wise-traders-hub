@@ -1715,16 +1715,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {/* ══════════ EVENTS ══════════ */}
         {tab==="events" && <>
           {calendarLoading ? (
-            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:15,color:C.amber,fontWeight:500,animation:"pulse 1.5s ease-in-out infinite"}}>
+            <div style={{textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:13,color:C.textMute,fontWeight:400}}>
                 正在根據持倉產生行事曆...
               </div>
             </div>
           ) : H.length === 0 && CE.length === 0 ? (
-            <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:32,marginBottom:10,opacity:0.3}}>📅</div>
-              <div style={{fontSize:15,color:C.textSec,fontWeight:500}}>尚無行事曆事件</div>
-              <div style={{fontSize:13,color:C.textMute,marginTop:6,lineHeight:1.7}}>
+            <div style={{textAlign:"center",padding:"36px 16px"}}>
+              <div style={{fontSize:20,marginBottom:10,opacity:0.2}}>◌</div>
+              <div style={{fontSize:13,color:C.textMute,fontWeight:400}}>尚無行事曆事件</div>
+              <div style={{fontSize:12,color:C.textMute,marginTop:6,lineHeight:1.7,opacity:0.6}}>
                 上傳成交截圖後，相關股票的財報、法說、催化事件會自動列出
               </div>
             </div>
