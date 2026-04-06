@@ -175,7 +175,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={returnCurve.length > 0 ? returnCurve : [{ label: '', returnPct: 0 }]}
-                  margin={{ top: 16, right: 16, left: 8, bottom: period === 'monthly' ? 48 : 8 }}
+                  margin={{ top: 16, right: period === 'monthly' ? 32 : 24, left: 8, bottom: period === 'monthly' ? 48 : 8 }}
                   onClick={(e) => {
                     if (e?.activePayload?.[0] && returnCurve.length > 0) {
                       handlePointClick(e.activePayload[0].payload);
