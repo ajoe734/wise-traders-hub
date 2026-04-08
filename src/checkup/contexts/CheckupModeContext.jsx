@@ -80,12 +80,14 @@ export function CheckupModeProvider({ children }) {
     const lineUid = params.get('line_uid')
     const lineName = params.get('line_name')
     const lineSession = params.get('line_session')
+    const lineFriend = params.get('line_friend')
 
     if (lineUid && lineSession) {
       setLineProfile({
         lineUserId: lineUid,
         displayName: decodeURIComponent(lineName || 'LINE 用戶'),
       })
+      setIsLineFriend(lineFriend === '1')
       setMode('line_only')
 
       // Clean URL
