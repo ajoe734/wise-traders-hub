@@ -16,6 +16,7 @@ export function CheckupModeProvider({ children }) {
   const [lineProfile, setLineProfile] = useState(null) // { lineUserId, displayName }
   const [supabaseUser, setSupabaseUser] = useState(null)
   const [uploadCountToday, setUploadCountToday] = useState(0)
+  const [isLineFriend, setIsLineFriend] = useState(false) // whether user added OA as friend
   const [isReady, setIsReady] = useState(false)
 
   // Check auth state on mount

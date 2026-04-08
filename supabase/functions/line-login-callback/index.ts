@@ -127,15 +127,26 @@ serve(async (req) => {
         .eq('user_id', userId);
     }
 
-    // Store LINE friendship for remarketing
-    // The bot_prompt=aggressive ensures they add the OA as friend during login
+    // Check if user is friends with the OA via LINE friendship API
+    let isFriend = false;
+    try {
+      const friendRes = await fetch('https://api.line.me/friendship/v1/status', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      if (friendRes.ok) {
+        const friendData = await friendRes.json();
+        isFriend = friendData.friendFlag === true;
+      }
+    } catch (e) {
+      console.error('Failed to check friendship:', e);
+    }
 
     // Redirect back with a temporary token for client-side session setup
     // We'll use a short-lived entry in checkup_storage as a session bridge
     const sessionBridgeKey = `line-session-${crypto.randomUUID()}`;
     await supabaseAdmin.from('checkup_storage').upsert({
       key: sessionBridgeKey,
-      data: { user_id: userId, line_user_id: lineUserId, created_at: new Date().toISOString() },
+      data: { user_id: userId, line_user_id: lineUserId, is_friend: isFriend, created_at: new Date().toISOString() },
       updated_at: new Date().toISOString(),
     }, { onConflict: 'key' });
 
@@ -143,7 +154,7 @@ serve(async (req) => {
     return new Response(null, {
       status: 302,
       headers: {
-        Location: `${siteUrl}${returnTo}?line_session=${sessionBridgeKey}&line_uid=${lineUserId}&line_name=${encodeURIComponent(displayName)}`,
+        Location: `${siteUrl}${returnTo}?line_session=${sessionBridgeKey}&line_uid=${lineUserId}&line_name=${encodeURIComponent(displayName)}&line_friend=${isFriend ? '1' : '0'}`,
       },
     });
   } catch (error) {
