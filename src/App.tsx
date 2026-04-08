@@ -121,6 +121,7 @@ const App = () => (
             {/* Auth */}
             <Route path="/auth/login" element={<Login />} />
             <Route path="/auth/register" element={<Register />} />
+            <Route path="/auth/line-callback" element={<LineCallback />} />
 
             {/* Account (aggregated view) */}
             <Route path="/account/subscriptions" element={<Navigate to="/app/account" replace />} />
