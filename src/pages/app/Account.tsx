@@ -467,17 +467,19 @@ const Account = () => {
           )}
         </div>
 
-        {/* Quick Links */}
-        <Card>
-          <CardContent className="p-4 space-y-2">
-            <Link to="/account/profile" className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors">
-              <span className="text-sm flex items-center gap-2">
-                <Settings className="h-4 w-4" /> 編輯個人資料
-              </span>
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
-            </Link>
-          </CardContent>
-        </Card>
+        {/* Quick Links — hide profile edit for LINE users */}
+        {!user?.isLineUser && (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              <Link to="/account/profile" className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors">
+                <span className="text-sm flex items-center gap-2">
+                  <Settings className="h-4 w-4" /> 編輯個人資料
+                </span>
+                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         {/* LINE Binding */}
         <div className="space-y-4">
