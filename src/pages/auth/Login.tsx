@@ -16,6 +16,7 @@ const Login = () => {
   const [pendingRedirect, setPendingRedirect] = useState(false);
   const { login, user, isAuthenticated, hasRole } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   // Auto-redirect only after successful login/profile load
