@@ -59,10 +59,11 @@ const Login = () => {
   };
 
   const handleLineLogin = () => {
-    toast({
-      title: 'LINE 登入即將開放',
-      description: '目前請先使用 Email 註冊登入，未來將提供 LINE 一鍵登入。',
-    });
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`;
+    const returnTo = (location.state as any)?.from?.pathname || '/app';
+    const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}`;
+    window.location.href = authorizeUrl;
   };
 
   return (
