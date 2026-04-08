@@ -131,7 +131,6 @@ const Login = () => {
               >
                 <MessageCircle className="h-4 w-4 mr-2" />
                 使用 LINE 快速登入
-                <span className="ml-2 text-xs bg-[#06C755]/20 px-2 py-0.5 rounded-full">即將開放</span>
               </Button>
 
               <p className="text-center text-sm text-muted-foreground mt-6">
