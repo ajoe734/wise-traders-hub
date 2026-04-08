@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ const Login = () => {
   const [pendingRedirect, setPendingRedirect] = useState(false);
   const { login, user, isAuthenticated, hasRole } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   // Auto-redirect only after successful login/profile load
@@ -59,10 +60,11 @@ const Login = () => {
   };
 
   const handleLineLogin = () => {
-    toast({
-      title: 'LINE 登入即將開放',
-      description: '目前請先使用 Email 註冊登入，未來將提供 LINE 一鍵登入。',
-    });
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`;
+    const returnTo = (location as any).state?.from?.pathname || '/app';
+    const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}`;
+    window.location.href = authorizeUrl;
   };
 
   return (
@@ -130,7 +132,6 @@ const Login = () => {
               >
                 <MessageCircle className="h-4 w-4 mr-2" />
                 使用 LINE 快速登入
-                <span className="ml-2 text-xs bg-[#06C755]/20 px-2 py-0.5 rounded-full">即將開放</span>
               </Button>
 
               <p className="text-center text-sm text-muted-foreground mt-6">
