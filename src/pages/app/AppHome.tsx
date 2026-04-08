@@ -103,16 +103,23 @@ const AppHome = () => {
     <UnifiedAppLayout>
       <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
         <div className="relative animate-fade-in">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-[0_0_20px_-5px_hsl(var(--primary)/0.5)]">
-                <Target className="h-6 w-6 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-[0_0_20px_-5px_hsl(var(--primary)/0.5)]">
+                  <Target className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-primary font-semibold tracking-wider uppercase">會員戰情室</p>
+                <h1 className="text-xl font-bold">嗨，{user?.displayName || '會員'}</h1>
               </div>
             </div>
-            <div>
-              <p className="text-xs text-primary font-semibold tracking-wider uppercase">會員戰情室</p>
-              <h1 className="text-xl font-bold">嗨，{user?.displayName || '會員'}</h1>
-            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/free-checkup" className="gap-1 text-xs">
+                免費健檢 →
+              </Link>
+            </Button>
           </div>
         </div>
 
