@@ -8,8 +8,8 @@ const CheckupModeContext = createContext(null)
  * Checkup mode: 'demo' | 'line_only' | 'full'
  *
  * demo      → not authenticated, show fake data, upload disabled
- * line_only → authenticated via LINE, free tier (1 upload/day, passive refresh)
- * full      → authenticated with paid subscription, all features enabled
+ * line_only → authenticated via LINE (has line_user_id in profile), free tier
+ * full      → authenticated with paid subscription or email account, all features enabled
  */
 export function CheckupModeProvider({ children }) {
   const [mode, setMode] = useState('demo') // demo | line_only | full
@@ -19,102 +19,67 @@ export function CheckupModeProvider({ children }) {
   const [isLineFriend, setIsLineFriend] = useState(false) // whether user added OA as friend
   const [isReady, setIsReady] = useState(false)
 
-  // Handle LINE login callback params AND auth state on mount (single effect to avoid race conditions)
+  // Determine mode from Supabase auth session + profile
   useEffect(() => {
-    // 1) Check URL params first (LINE login callback redirect)
-    const params = new URLSearchParams(window.location.search)
-    const lineUid = params.get('line_uid')
-    const lineName = params.get('line_name')
-    const lineSession = params.get('line_session')
-    const lineFriend = params.get('line_friend')
-
-    if (lineUid && lineSession) {
-      setLineProfile({
-        lineUserId: lineUid,
-        displayName: decodeURIComponent(lineName || 'LINE 用戶'),
-      })
-      setIsLineFriend(lineFriend === '1')
-      setMode('line_only')
-      setIsReady(true)
-
-      // Clean URL
-      const cleanUrl = window.location.pathname
-      window.history.replaceState({}, '', cleanUrl)
-
-      // Persist LINE session so it survives page refresh
-      try {
-        sessionStorage.setItem('checkup_line_session', JSON.stringify({
-          lineUserId: lineUid,
-          displayName: decodeURIComponent(lineName || 'LINE 用戶'),
-          isLineFriend: lineFriend === '1',
-          sessionKey: lineSession,
-        }))
-      } catch {}
-      return // skip Supabase auth check — LINE session takes priority
-    }
-
-    // 2) Check sessionStorage for persisted LINE session
-    try {
-      const saved = sessionStorage.getItem('checkup_line_session')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        setLineProfile({
-          lineUserId: parsed.lineUserId,
-          displayName: parsed.displayName,
-        })
-        setIsLineFriend(parsed.isLineFriend)
-        setMode('line_only')
-        setIsReady(true)
-        return // skip Supabase auth check
-      }
-    } catch {}
-
-    // 3) Fall back to Supabase auth
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        setSupabaseUser(session.user)
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('line_user_id, display_name')
-          .eq('user_id', session.user.id)
-          .maybeSingle()
-
-        if (profile?.line_user_id) {
-          setLineProfile({
-            lineUserId: profile.line_user_id,
-            displayName: profile.display_name || 'LINE 用戶',
-          })
-          setMode('line_only')
-        } else {
-          setMode('full')
-        }
-
-        const today = new Date().toISOString().slice(0, 10)
-        const countKey = `checkup-upload-count-${session.user.id}-${today}`
-        const { data: countRow } = await supabase
-          .from('checkup_storage')
-          .select('data')
-          .eq('key', countKey)
-          .maybeSingle()
-        setUploadCountToday(countRow?.data?.count || 0)
-      } else {
+    const determineMode = async (user) => {
+      if (!user) {
         setMode('demo')
-      }
-      setIsReady(true)
-    }
-
-    checkAuth()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setSupabaseUser(session.user)
-      } else {
-        setSupabaseUser(null)
         setLineProfile(null)
-        setMode('demo')
-        try { sessionStorage.removeItem('checkup_line_session') } catch {}
+        setIsLineFriend(false)
+        setSupabaseUser(null)
+        setIsReady(true)
+        return
+      }
+
+      setSupabaseUser(user)
+
+      // Fetch profile to check if this is a LINE user
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('line_user_id, display_name, avatar_url, is_line_friend')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (profile?.line_user_id) {
+        // LINE user
+        setLineProfile({
+          lineUserId: profile.line_user_id,
+          displayName: profile.display_name || 'LINE 用戶',
+          avatarUrl: profile.avatar_url || null,
+        })
+        setIsLineFriend(profile.is_line_friend === true)
+        setMode('line_only')
+      } else {
+        // Email/regular user → full access
+        setLineProfile(null)
+        setIsLineFriend(false)
+        setMode('full')
+      }
+
+      // Load upload count for today
+      const today = new Date().toISOString().slice(0, 10)
+      const countKey = `checkup-upload-count-${user.id}-${today}`
+      const { data: countRow } = await supabase
+        .from('checkup_storage')
+        .select('data')
+        .eq('key', countKey)
+        .maybeSingle()
+      setUploadCountToday(countRow?.data?.count || 0)
+
+      setIsReady(true)
+    }
+
+    // Check existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      determineMode(session?.user || null)
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'SIGNED_OUT') {
+        determineMode(null)
+      } else if (session?.user) {
+        determineMode(session.user)
       }
     })
 
@@ -164,7 +129,7 @@ export function CheckupModeProvider({ children }) {
     supabaseUser,
     demoData,
     incrementUploadCount,
-    // LINE login trigger
+    // LINE login trigger — now goes through the unified Supabase auth flow
     startLineLogin: () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`
