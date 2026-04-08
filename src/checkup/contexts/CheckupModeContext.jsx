@@ -133,6 +133,8 @@ export function CheckupModeProvider({ children }) {
     canUpload,
     canRefreshManually,
     hasReachedDailyLimit,
+    needsAddFriend,
+    isLineFriend,
     lineProfile,
     supabaseUser,
     demoData,
