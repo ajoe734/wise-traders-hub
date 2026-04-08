@@ -97,9 +97,10 @@ export function CheckupModeProvider({ children }) {
   }, [])
 
   const isDemo = mode === 'demo'
-  const canUpload = mode !== 'demo'
+  const canUpload = mode !== 'demo' && (mode === 'full' || isLineFriend)
   const hasReachedDailyLimit = mode === 'line_only' && uploadCountToday >= 1
   const canRefreshManually = mode === 'full' // line_only users get passive refresh only
+  const needsAddFriend = mode === 'line_only' && !isLineFriend
 
   const incrementUploadCount = async () => {
     if (!supabaseUser) return
