@@ -1318,8 +1318,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         }
       `}</style>
 
-      {/* ── BACK BUTTON ── */}
-      <div style={{background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"8px 16px",position:"sticky",top:0,zIndex:11}}>
+      {/* ── BACK BUTTON + 戰情室入口 ── */}
+      <div style={{background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"8px 16px",position:"sticky",top:0,zIndex:11,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <button onClick={()=>navigate("/")} style={{
           background:"none",border:"none",cursor:"pointer",padding:"2px 0",
           color:C.textMute,fontSize:13,fontWeight:400,display:"flex",alignItems:"center",gap:4,
@@ -1327,6 +1327,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         }}>
           ← 返回
         </button>
+        {!isDemo && (
+          <button onClick={()=>navigate("/app")} style={{
+            background:C.blue,border:"none",cursor:"pointer",padding:"4px 12px",borderRadius:6,
+            color:"#fff",fontSize:12,fontWeight:500,display:"flex",alignItems:"center",gap:4,
+          }}>
+            前往戰情室 →
+          </button>
+        )}
       </div>
 
       {/* ── HEADER ── */}
