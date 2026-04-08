@@ -61,7 +61,7 @@ const Login = () => {
   const handleLineLogin = () => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`;
-    const returnTo = (location.state as any)?.from?.pathname || '/app';
+    const returnTo = (location as any).state?.from?.pathname || '/app';
     const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}`;
     window.location.href = authorizeUrl;
   };
