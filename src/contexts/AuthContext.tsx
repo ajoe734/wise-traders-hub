@@ -11,6 +11,8 @@ interface AuthUser {
   avatarUrl: string | null;
   roles: AppRole[];
   expertSlug: string | null;
+  isLineUser: boolean;
+  lineUserId: string | null;
 }
 
 interface AuthContextType {
