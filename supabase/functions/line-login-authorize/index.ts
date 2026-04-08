@@ -38,7 +38,7 @@ serve(async (req) => {
     lineAuthUrl.searchParams.set('redirect_uri', callbackUrl);
     lineAuthUrl.searchParams.set('state', state);
     lineAuthUrl.searchParams.set('scope', 'profile openid');
-    lineAuthUrl.searchParams.set('bot_prompt', 'aggressive');
+    lineAuthUrl.searchParams.set('bot_prompt', 'normal');
 
     return new Response(null, {
       status: 302,
