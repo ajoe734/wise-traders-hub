@@ -930,6 +930,24 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_names: {
+        Row: {
+          created_at: string
+          name: string
+          symbol: string
+        }
+        Insert: {
+          created_at?: string
+          name: string
+          symbol: string
+        }
+        Update: {
+          created_at?: string
+          name?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
       trade_records: {
         Row: {
           created_at: string
