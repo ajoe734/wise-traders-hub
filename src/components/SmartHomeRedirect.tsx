@@ -4,8 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Wraps the public landing page.
- * If a user is already authenticated, redirect to their role-based home.
- * Otherwise show the public page (children).
+ * Role-based users (company_admin, analyst) are still redirected to their dashboard.
+ * Regular users (including LINE login) can always see the public landing page.
  */
 export function SmartHomeRedirect({ children }: { children: ReactNode }) {
   const { user, isAuthenticated, isLoading, hasRole } = useAuth();
@@ -14,13 +14,14 @@ export function SmartHomeRedirect({ children }: { children: ReactNode }) {
   if (isLoading) return null;
 
   if (isAuthenticated && user) {
+    // Only redirect role-based users (admins / analysts) to their dashboards
     if (hasRole('company_admin')) {
       return <Navigate to="/company" replace />;
     }
     if (user.expertSlug) {
       return <Navigate to={`/admin/${user.expertSlug}`} replace />;
     }
-    return <Navigate to="/app" replace />;
+    // Regular users (including LINE login) stay on the landing page
   }
 
   return <>{children}</>;
