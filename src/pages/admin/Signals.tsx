@@ -174,11 +174,10 @@ const AdminSignals = () => {
         // 如果 user_performances 沒有該股票，fallback 到 API
       }
 
-      const res = await fetch(`https://subsystem-production.up.railway.app/stock_info?symbol=${code.trim()}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.name) setStockName(data.name);
-      }
+      // Use stockNameResolver: cache-first → DB → batched TWSE API
+      const { resolveStockName } = await import('@/lib/stockNameResolver');
+      const name = await resolveStockName(code.trim());
+      if (name) setStockName(name);
     } catch (e) {
       console.error('stock_info fetch error:', e);
     }
