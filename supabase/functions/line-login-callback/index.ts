@@ -25,14 +25,17 @@ serve(async (req) => {
     // Parse state
     let returnTo = '/free-checkup';
     let redirectUri = '';
+    let appOrigin = '';
     try {
       const stateData = JSON.parse(atob(stateParam));
       returnTo = stateData.return_to || '/free-checkup';
       redirectUri = stateData.redirect_uri || '';
+      appOrigin = stateData.app_origin || '';
     } catch {}
 
+    const siteUrl = Deno.env.get('SITE_URL') || appOrigin || 'https://wise-traders-hub.lovable.app';
+
     if (error || !code) {
-      const siteUrl = Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
       return new Response(null, {
         status: 302,
         headers: { Location: `${siteUrl}${returnTo}?line_error=${error || 'no_code'}` },
@@ -56,7 +59,6 @@ serve(async (req) => {
     if (!tokenRes.ok) {
       const err = await tokenRes.text();
       console.error('LINE token exchange failed:', err);
-      const siteUrl = Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
       return new Response(null, {
         status: 302,
         headers: { Location: `${siteUrl}${returnTo}?line_error=token_exchange_failed` },
@@ -84,14 +86,14 @@ serve(async (req) => {
       .maybeSingle();
 
     let userId: string;
+    const email = `line_${lineUserId}@line.local`;
 
     if (existingProfile) {
       // Existing user
       userId = existingProfile.user_id;
     } else {
       // New user — create account with LINE identity
-      const email = `line_${lineUserId}@line.local`;
-      const password = crypto.randomUUID(); // Random password, user won't use it
+      const password = crypto.randomUUID();
 
       const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
         email,
@@ -107,7 +109,6 @@ serve(async (req) => {
 
       if (signUpError) {
         console.error('Failed to create user:', signUpError);
-        const siteUrl = Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
         return new Response(null, {
           status: 302,
           headers: { Location: `${siteUrl}${returnTo}?line_error=signup_failed` },
@@ -115,16 +116,6 @@ serve(async (req) => {
       }
 
       userId = newUser.user.id;
-
-      // Update profile with LINE data
-      await supabaseAdmin
-        .from('profiles')
-        .update({
-          line_user_id: lineUserId,
-          display_name: displayName,
-          avatar_url: pictureUrl,
-        })
-        .eq('user_id', userId);
     }
 
     // Check if user is friends with the OA via LINE friendship API
@@ -141,20 +132,52 @@ serve(async (req) => {
       console.error('Failed to check friendship:', e);
     }
 
-    // Redirect back with a temporary token for client-side session setup
-    // We'll use a short-lived entry in checkup_storage as a session bridge
-    const sessionBridgeKey = `line-session-${crypto.randomUUID()}`;
-    await supabaseAdmin.from('checkup_storage').upsert({
-      key: sessionBridgeKey,
-      data: { user_id: userId, line_user_id: lineUserId, is_friend: isFriend, created_at: new Date().toISOString() },
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'key' });
+    // Update profile with LINE data on every login (sync display name + avatar + friendship)
+    await supabaseAdmin
+      .from('profiles')
+      .update({
+        line_user_id: lineUserId,
+        display_name: displayName,
+        avatar_url: pictureUrl,
+        is_line_friend: isFriend,
+      })
+      .eq('user_id', userId);
 
-    const siteUrl = Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
+    // Generate a magic link token for the client to establish a real Supabase session
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+    });
+
+    if (linkError || !linkData) {
+      console.error('Failed to generate magic link:', linkError);
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `${siteUrl}${returnTo}?line_error=session_failed` },
+      });
+    }
+
+    // Extract token_hash from the generated link
+    const tokenHash = linkData.properties?.hashed_token;
+    if (!tokenHash) {
+      console.error('No hashed_token in link data');
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `${siteUrl}${returnTo}?line_error=session_failed` },
+      });
+    }
+
+    // Redirect to client with token_hash for session exchange
+    const params = new URLSearchParams({
+      token_hash: tokenHash,
+      type: 'magiclink',
+      return_to: returnTo,
+    });
+
     return new Response(null, {
       status: 302,
       headers: {
-        Location: `${siteUrl}${returnTo}?line_session=${sessionBridgeKey}&line_uid=${lineUserId}&line_name=${encodeURIComponent(displayName)}&line_friend=${isFriend ? '1' : '0'}`,
+        Location: `${siteUrl}/auth/line-callback?${params.toString()}`,
       },
     });
   } catch (error) {
