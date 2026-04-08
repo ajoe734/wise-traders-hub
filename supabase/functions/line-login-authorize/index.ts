@@ -21,11 +21,13 @@ serve(async (req) => {
     const url = new URL(req.url);
     const redirectUri = url.searchParams.get('redirect_uri') || '';
     const returnTo = url.searchParams.get('return_to') || '/free-checkup';
+    const appOrigin = url.searchParams.get('app_origin') || '';
 
     // Build state with return_to for post-login redirect
     const state = btoa(JSON.stringify({
       redirect_uri: redirectUri,
       return_to: returnTo,
+      app_origin: appOrigin,
       ts: Date.now(),
     }));
 

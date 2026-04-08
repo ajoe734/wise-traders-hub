@@ -56,7 +56,8 @@ const Register = () => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`;
     const returnTo = '/app';
-    const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}`;
+    const appOrigin = window.location.origin;
+    const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}&app_origin=${encodeURIComponent(appOrigin)}`;
     window.location.href = authorizeUrl;
   };
 
