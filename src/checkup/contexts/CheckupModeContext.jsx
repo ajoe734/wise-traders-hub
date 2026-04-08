@@ -19,14 +19,62 @@ export function CheckupModeProvider({ children }) {
   const [isLineFriend, setIsLineFriend] = useState(false) // whether user added OA as friend
   const [isReady, setIsReady] = useState(false)
 
-  // Check auth state on mount
+  // Handle LINE login callback params AND auth state on mount (single effect to avoid race conditions)
   useEffect(() => {
+    // 1) Check URL params first (LINE login callback redirect)
+    const params = new URLSearchParams(window.location.search)
+    const lineUid = params.get('line_uid')
+    const lineName = params.get('line_name')
+    const lineSession = params.get('line_session')
+    const lineFriend = params.get('line_friend')
+
+    if (lineUid && lineSession) {
+      setLineProfile({
+        lineUserId: lineUid,
+        displayName: decodeURIComponent(lineName || 'LINE 用戶'),
+      })
+      setIsLineFriend(lineFriend === '1')
+      setMode('line_only')
+      setIsReady(true)
+
+      // Clean URL
+      const cleanUrl = window.location.pathname
+      window.history.replaceState({}, '', cleanUrl)
+
+      // Persist LINE session so it survives page refresh
+      try {
+        sessionStorage.setItem('checkup_line_session', JSON.stringify({
+          lineUserId: lineUid,
+          displayName: decodeURIComponent(lineName || 'LINE 用戶'),
+          isLineFriend: lineFriend === '1',
+          sessionKey: lineSession,
+        }))
+      } catch {}
+      return // skip Supabase auth check — LINE session takes priority
+    }
+
+    // 2) Check sessionStorage for persisted LINE session
+    try {
+      const saved = sessionStorage.getItem('checkup_line_session')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        setLineProfile({
+          lineUserId: parsed.lineUserId,
+          displayName: parsed.displayName,
+        })
+        setIsLineFriend(parsed.isLineFriend)
+        setMode('line_only')
+        setIsReady(true)
+        return // skip Supabase auth check
+      }
+    } catch {}
+
+    // 3) Fall back to Supabase auth
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
         setSupabaseUser(session.user)
 
-        // Check if user has line_user_id
         const { data: profile } = await supabase
           .from('profiles')
           .select('line_user_id, display_name')
@@ -40,11 +88,9 @@ export function CheckupModeProvider({ children }) {
           })
           setMode('line_only')
         } else {
-          // Authenticated but no LINE binding → treat as full user (normal login)
           setMode('full')
         }
 
-        // Check today's upload count
         const today = new Date().toISOString().slice(0, 10)
         const countKey = `checkup-upload-count-${session.user.id}-${today}`
         const { data: countRow } = await supabase
@@ -68,32 +114,11 @@ export function CheckupModeProvider({ children }) {
         setSupabaseUser(null)
         setLineProfile(null)
         setMode('demo')
+        try { sessionStorage.removeItem('checkup_line_session') } catch {}
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [])
-
-  // Handle LINE login callback params
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const lineUid = params.get('line_uid')
-    const lineName = params.get('line_name')
-    const lineSession = params.get('line_session')
-    const lineFriend = params.get('line_friend')
-
-    if (lineUid && lineSession) {
-      setLineProfile({
-        lineUserId: lineUid,
-        displayName: decodeURIComponent(lineName || 'LINE 用戶'),
-      })
-      setIsLineFriend(lineFriend === '1')
-      setMode('line_only')
-
-      // Clean URL
-      const cleanUrl = window.location.pathname
-      window.history.replaceState({}, '', cleanUrl)
-    }
   }, [])
 
   const isDemo = mode === 'demo'
