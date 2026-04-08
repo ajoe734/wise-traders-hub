@@ -16,6 +16,7 @@ export function CheckupModeProvider({ children }) {
   const [lineProfile, setLineProfile] = useState(null) // { lineUserId, displayName }
   const [supabaseUser, setSupabaseUser] = useState(null)
   const [uploadCountToday, setUploadCountToday] = useState(0)
+  const [isLineFriend, setIsLineFriend] = useState(false) // whether user added OA as friend
   const [isReady, setIsReady] = useState(false)
 
   // Check auth state on mount
@@ -79,12 +80,14 @@ export function CheckupModeProvider({ children }) {
     const lineUid = params.get('line_uid')
     const lineName = params.get('line_name')
     const lineSession = params.get('line_session')
+    const lineFriend = params.get('line_friend')
 
     if (lineUid && lineSession) {
       setLineProfile({
         lineUserId: lineUid,
         displayName: decodeURIComponent(lineName || 'LINE 用戶'),
       })
+      setIsLineFriend(lineFriend === '1')
       setMode('line_only')
 
       // Clean URL
@@ -94,9 +97,10 @@ export function CheckupModeProvider({ children }) {
   }, [])
 
   const isDemo = mode === 'demo'
-  const canUpload = mode !== 'demo'
+  const canUpload = mode !== 'demo' && (mode === 'full' || isLineFriend)
   const hasReachedDailyLimit = mode === 'line_only' && uploadCountToday >= 1
   const canRefreshManually = mode === 'full' // line_only users get passive refresh only
+  const needsAddFriend = mode === 'line_only' && !isLineFriend
 
   const incrementUploadCount = async () => {
     if (!supabaseUser) return
@@ -129,6 +133,8 @@ export function CheckupModeProvider({ children }) {
     canUpload,
     canRefreshManually,
     hasReachedDailyLimit,
+    needsAddFriend,
+    isLineFriend,
     lineProfile,
     supabaseUser,
     demoData,
