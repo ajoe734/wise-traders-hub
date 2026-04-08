@@ -36,6 +36,7 @@ import {
 // Auth pages
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
+import LineCallback from "./pages/auth/LineCallback";
 
 // Account pages
 import AccountProfile from "./pages/account/Profile";
