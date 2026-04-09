@@ -38,7 +38,7 @@ interface WeekGroup {
   expert: JournalSignal['experts'];
 }
 
-const fetchJournalsData = async (userId: string | undefined) => {
+const fetchJournalsData = async (userId: string | undefined, isTester: boolean) => {
   if (!userId) return { signals: [] as JournalSignal[], hasSubscription: false };
 
   const { data: subs } = await supabase
@@ -50,12 +50,13 @@ const fetchJournalsData = async (userId: string | undefined) => {
 
   const expertIds = subs.map((s: any) => s.expert_id);
 
+  const expectedStatus = isTester ? 'draft' : 'active';
   const { data: mentorExperts } = await supabase
     .from('experts')
     .select('id')
     .in('id', expertIds)
     .eq('role', 'mentor')
-    .eq('status', 'active');
+    .eq('status', expectedStatus);
 
   const mentorIds = (mentorExperts || []).map(e => e.id);
   if (mentorIds.length === 0) {
@@ -89,8 +90,8 @@ const Journals = () => {
   }, []);
 
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['app-journals', user?.id],
-    queryFn: () => fetchJournalsData(user?.id),
+    queryKey: ['app-journals', user?.id, user?.isTester],
+    queryFn: () => fetchJournalsData(user?.id, user?.isTester ?? false),
     staleTime: 30_000,
     refetchOnMount: 'always',
   });

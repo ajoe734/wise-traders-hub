@@ -38,7 +38,7 @@ interface DbSignal {
   } | null;
 }
 
-const fetchSignalsData = async (userId: string | undefined) => {
+const fetchSignalsData = async (userId: string | undefined, isTester: boolean) => {
   if (!userId) return { signals: [] as DbSignal[], hasSubscription: false };
 
   const { data: activeSubs, error: subsError } = await supabase
@@ -58,14 +58,14 @@ const fetchSignalsData = async (userId: string | undefined) => {
 
   if (expertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: false };
 
-  // Only show advisor signals in the signal wall, not mentor weekly reviews
-  // Also filter out suspended experts
+  // Only show advisor signals; filter by visibility (testers see draft, regular see active)
+  const expectedStatus = isTester ? 'draft' : 'active';
   const { data: advisorExperts, error: advisorError } = await supabase
     .from('experts')
     .select('id')
     .in('id', expertIds)
     .eq('role', 'advisor')
-    .eq('status', 'active');
+    .eq('status', expectedStatus);
 
   if (advisorError) {
     console.error('Error fetching advisor experts:', advisorError);
@@ -97,8 +97,8 @@ const Signals = () => {
   const { user } = useAuth();
 
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['app-signals', user?.id],
-    queryFn: () => fetchSignalsData(user?.id),
+    queryKey: ['app-signals', user?.id, user?.isTester],
+    queryFn: () => fetchSignalsData(user?.id, user?.isTester ?? false),
     staleTime: 30_000,
     refetchOnMount: 'always',
   });
