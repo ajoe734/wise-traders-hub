@@ -1,0 +1,2 @@
+UPDATE public.payment_providers SET is_default = false WHERE id = 'c1000000-0000-0000-0000-000000000001';
+UPDATE public.payment_providers SET is_default = true WHERE id = '4907e0ee-ad6e-4833-aa48-5d742e5ee262';
