@@ -305,9 +305,9 @@ const CompanyAnalysts = () => {
                       <td className="p-4 text-sm text-muted-foreground">{exp.slug}</td>
                       <td className="p-4">
                         <Badge 
-                          className={`text-xs ${exp.status === 'suspended' ? 'bg-red-500 text-white' : exp.status === 'draft' ? 'bg-yellow-600 text-white' : 'bg-emerald-500 text-white'}`}
+                          className={`text-xs ${exp.status === 'suspended' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}
                         >
-                          {exp.status === 'active' ? '啟用中' : exp.status === 'draft' ? '測試中' : '已停用'}
+                          {exp.status === 'suspended' ? '已停用' : '啟用中'}
                         </Badge>
                       </td>
                       <td className="p-4">
