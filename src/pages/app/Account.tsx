@@ -128,10 +128,11 @@ const Account = () => {
   const fetchExperts = async () => {
     if (!user) return;
 
+    const expectedStatus = user.isTester ? 'draft' : 'active';
     const { data: experts } = await supabase
       .from('experts')
       .select('id, slug, name, role, avatar_url, status')
-      .in('status', ['active', 'draft']);
+      .eq('status', expectedStatus);
 
     if (!experts) return;
 
