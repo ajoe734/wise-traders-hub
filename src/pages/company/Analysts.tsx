@@ -116,25 +116,28 @@ const CompanyAnalysts = () => {
   };
 
   const toggleStatus = async (id: string, currentStatus: string) => {
-    // suspended → restore to draft for test experts, active for real ones
-    // anything else (active/draft) → suspended
-    const isCurrentlySuspended = currentStatus === 'suspended';
     let newStatus: string;
-    if (isCurrentlySuspended) {
-      // Determine restore target: check if this was a test expert (draft)
-      // by looking at is_tester-related status. For simplicity, we ask the DB
-      // We'll just refetch after update to get accurate state
-      // For now: if expert was created as draft (test), restore to draft; else active
+    if (currentStatus === 'suspended') {
+      // When restoring, check created_at to determine if test or real expert
+      // Real experts (like 老古) were created with 'active', test ones with 'draft'
+      // Simple heuristic: if expert has no active approved plans, restore to draft
       const expert = experts.find(e => e.id === id);
-      // Default: restore to active. Test experts should be restored to draft.
-      newStatus = 'active';
+      // Use the slug to determine: known real experts restore to active, others to draft
+      // Better approach: just let admin choose, but for now default to draft for safety
+      // We'll check if the expert has any active+approved plans
+      const { count } = await supabase
+        .from('expert_plans')
+        .select('id', { count: 'exact', head: true })
+        .eq('expert_id', id)
+        .eq('is_active', true)
+        .eq('review_status', 'approved');
+      newStatus = (count && count > 0) ? 'active' : 'draft';
     } else {
       newStatus = 'suspended';
     }
     setExperts(prev => prev.map(e => e.id === id ? { ...e, status: newStatus } : e));
     await supabase.from('experts').update({ status: newStatus }).eq('id', id);
     toast.success(newStatus === 'suspended' ? '已停用' : '已啟用');
-    // Refetch to get accurate state
     fetchExperts();
   };
 
