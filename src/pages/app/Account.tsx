@@ -130,8 +130,8 @@ const Account = () => {
 
     const { data: experts } = await supabase
       .from('experts')
-      .select('id, slug, name, role, avatar_url')
-      .eq('status', 'active');
+      .select('id, slug, name, role, avatar_url, status')
+      .in('status', ['active', 'draft']);
 
     if (!experts) return;
 
