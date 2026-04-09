@@ -41,7 +41,6 @@ export function useExperts() {
       const { data, error } = await supabase
         .from('experts')
         .select('*, expert_plans(*)')
-        .eq('status', 'active')
         .order('created_at');
       if (error) throw error;
       return (data || []).map(mapToPersonWithPlans);
