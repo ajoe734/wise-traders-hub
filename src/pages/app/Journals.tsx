@@ -90,8 +90,8 @@ const Journals = () => {
   }, []);
 
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['app-journals', user?.id],
-    queryFn: () => fetchJournalsData(user?.id),
+    queryKey: ['app-journals', user?.id, user?.isTester],
+    queryFn: () => fetchJournalsData(user?.id, user?.isTester ?? false),
     staleTime: 30_000,
     refetchOnMount: 'always',
   });
