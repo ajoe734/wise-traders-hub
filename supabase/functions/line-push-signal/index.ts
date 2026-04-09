@@ -64,6 +64,8 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
     `【${label} ${signal.instrument}】`,
   ]
   if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}${qtyLabel}`)
+  if (signal.teaching_topic) copyLines.push(`\n📚 教學主題：\n${signal.teaching_topic}`)
+  if (signal.overall_summary) copyLines.push(`\n📝 整體摘要：\n${signal.overall_summary}`)
   if (signal.reason_summary) copyLines.push(`\n❓ 為什麼這樣操作？\n${signal.reason_summary}`)
   if (signal.reason_detail) copyLines.push(`\n◉ 部位控管想法：\n${signal.reason_detail}`)
   if (signal.risk_notes) copyLines.push(`\n⚠️ 風險提醒：\n${signal.risk_notes}`)
@@ -89,6 +91,20 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
       color: '#666666',
       margin: 'md',
     })
+  }
+
+  if (signal.teaching_topic) {
+    bodyContents.push(
+      { type: 'text', text: '📚 教學主題', size: 'sm', color: '#333333', margin: 'lg', weight: 'bold' },
+      { type: 'text', text: signal.teaching_topic, size: 'sm', color: '#444444', margin: 'sm', wrap: true },
+    )
+  }
+
+  if (signal.overall_summary) {
+    bodyContents.push(
+      { type: 'text', text: '📝 整體摘要', size: 'sm', color: '#333333', margin: 'lg', weight: 'bold' },
+      { type: 'text', text: signal.overall_summary, size: 'sm', color: '#444444', margin: 'sm', wrap: true },
+    )
   }
 
   if (signal.reason_summary) {
