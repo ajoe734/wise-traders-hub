@@ -127,7 +127,6 @@ const CompanyAnalysts = () => {
     setExperts(prev => prev.map(e => e.id === id ? { ...e, status: newStatus } : e));
     await supabase.from('experts').update({ status: newStatus }).eq('id', id);
     toast.success(newStatus === 'suspended' ? '已停用' : '已啟用');
-    fetchExperts();
   };
 
   // LINE channel management
