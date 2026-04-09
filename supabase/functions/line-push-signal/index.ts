@@ -93,6 +93,20 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
     })
   }
 
+  if (signal.teaching_topic) {
+    bodyContents.push(
+      { type: 'text', text: '📚 教學主題', size: 'sm', color: '#333333', margin: 'lg', weight: 'bold' },
+      { type: 'text', text: signal.teaching_topic, size: 'sm', color: '#444444', margin: 'sm', wrap: true },
+    )
+  }
+
+  if (signal.overall_summary) {
+    bodyContents.push(
+      { type: 'text', text: '📝 整體摘要', size: 'sm', color: '#333333', margin: 'lg', weight: 'bold' },
+      { type: 'text', text: signal.overall_summary, size: 'sm', color: '#444444', margin: 'sm', wrap: true },
+    )
+  }
+
   if (signal.reason_summary) {
     bodyContents.push(
       { type: 'text', text: '❓ 為什麼這樣操作？', size: 'sm', color: '#333333', margin: 'lg', weight: 'bold' },
