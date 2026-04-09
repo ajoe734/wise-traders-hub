@@ -321,7 +321,7 @@ const CompanyAnalysts = () => {
                             <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
                           </Button>
                           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleStatus(exp.id, exp.status)}>
-                            {exp.status === 'active' ? '停用' : '啟用'}
+                            {exp.status === 'suspended' ? '啟用' : '停用'}
                           </Button>
                         </div>
                       </td>
