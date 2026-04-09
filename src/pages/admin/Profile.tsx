@@ -32,6 +32,10 @@ const AdminProfile = () => {
   const [newTag, setNewTag] = useState('');
   const [newMarket, setNewMarket] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [startingCapital, setStartingCapital] = useState<string>('');
+  const [startingCapitalLocked, setStartingCapitalLocked] = useState(false);
+  const [showCapitalConfirm, setShowCapitalConfirm] = useState(false);
+  const [pendingCapital, setPendingCapital] = useState<number>(0);
 
   useEffect(() => { fetchExpert(); }, [expertSlug]);
 
