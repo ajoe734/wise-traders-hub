@@ -220,9 +220,6 @@ const CompanyPayments = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        {!p.is_default && (
-                          <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDefault(p.id)}>設為預設</Button>
-                        )}
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">{p.is_active ? '啟用' : '停用'}</span>
                           <Switch checked={p.is_active} onCheckedChange={() => toggleProvider(p.id, p.is_active)} className="data-[state=checked]:bg-company" />
