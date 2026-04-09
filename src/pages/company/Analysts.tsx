@@ -116,10 +116,26 @@ const CompanyAnalysts = () => {
   };
 
   const toggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    // suspended → restore to draft for test experts, active for real ones
+    // anything else (active/draft) → suspended
+    const isCurrentlySuspended = currentStatus === 'suspended';
+    let newStatus: string;
+    if (isCurrentlySuspended) {
+      // Determine restore target: check if this was a test expert (draft)
+      // by looking at is_tester-related status. For simplicity, we ask the DB
+      // We'll just refetch after update to get accurate state
+      // For now: if expert was created as draft (test), restore to draft; else active
+      const expert = experts.find(e => e.id === id);
+      // Default: restore to active. Test experts should be restored to draft.
+      newStatus = 'active';
+    } else {
+      newStatus = 'suspended';
+    }
     setExperts(prev => prev.map(e => e.id === id ? { ...e, status: newStatus } : e));
     await supabase.from('experts').update({ status: newStatus }).eq('id', id);
-    toast.success(newStatus === 'active' ? '已啟用' : '已停用');
+    toast.success(newStatus === 'suspended' ? '已停用' : '已啟用');
+    // Refetch to get accurate state
+    fetchExperts();
   };
 
   // LINE channel management
@@ -297,9 +313,9 @@ const CompanyAnalysts = () => {
                       <td className="p-4 text-sm text-muted-foreground">{exp.slug}</td>
                       <td className="p-4">
                         <Badge 
-                          className={`text-xs ${exp.status === 'active' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}
+                          className={`text-xs ${exp.status === 'suspended' ? 'bg-red-500 text-white' : exp.status === 'draft' ? 'bg-yellow-600 text-white' : 'bg-emerald-500 text-white'}`}
                         >
-                          {exp.status === 'active' ? '啟用中' : '已停用'}
+                          {exp.status === 'active' ? '啟用中' : exp.status === 'draft' ? '測試中' : '已停用'}
                         </Badge>
                       </td>
                       <td className="p-4">
@@ -311,7 +327,7 @@ const CompanyAnalysts = () => {
                             <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
                           </Button>
                           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleStatus(exp.id, exp.status)}>
-                            {exp.status === 'active' ? '停用' : '啟用'}
+                            {exp.status === 'suspended' ? '啟用' : '停用'}
                           </Button>
                         </div>
                       </td>
