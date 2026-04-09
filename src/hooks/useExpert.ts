@@ -1,6 +1,33 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PersonWithPlans, PlanType, Plan } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+
+type ExpertVisibilityMode = 'default' | 'tester' | 'privileged';
+
+function getVisibilityMode(user: { isTester: boolean; roles: Array<'company_admin' | 'analyst'> } | null): ExpertVisibilityMode {
+  if (user?.roles.includes('company_admin') || user?.roles.includes('analyst')) {
+    return 'privileged';
+  }
+
+  if (user?.isTester) {
+    return 'tester';
+  }
+
+  return 'default';
+}
+
+function filterExpertRows(rows: any[], visibilityMode: ExpertVisibilityMode) {
+  if (visibilityMode === 'privileged') {
+    return rows;
+  }
+
+  if (visibilityMode === 'tester') {
+    return rows.filter((row) => row.status === 'draft');
+  }
+
+  return rows.filter((row) => row.status === 'active');
+}
 
 export function mapToPersonWithPlans(row: any): PersonWithPlans {
   return {
@@ -35,23 +62,30 @@ export function mapToPersonWithPlans(row: any): PersonWithPlans {
 }
 
 export function useExperts() {
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const visibilityMode = getVisibilityMode(user);
+
   return useQuery({
-    queryKey: ['experts'],
+    queryKey: ['experts', user?.id ?? 'guest', visibilityMode],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('experts')
         .select('*, expert_plans(*)')
         .order('created_at');
       if (error) throw error;
-      return (data || []).map(mapToPersonWithPlans);
+      return filterExpertRows(data || [], visibilityMode).map(mapToPersonWithPlans);
     },
+    enabled: !isAuthLoading,
     staleTime: 30_000,
   });
 }
 
 export function useExpert(slug: string | undefined) {
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const visibilityMode = getVisibilityMode(user);
+
   return useQuery({
-    queryKey: ['expert', slug],
+    queryKey: ['expert', slug, user?.id ?? 'guest', visibilityMode],
     queryFn: async () => {
       if (!slug) return null;
       const { data, error } = await supabase
@@ -59,9 +93,13 @@ export function useExpert(slug: string | undefined) {
         .select('*, expert_plans(*)')
         .eq('slug', slug);
       if (error || !data || data.length === 0) return null;
-      return mapToPersonWithPlans(data[0]);
+
+      const visibleRows = filterExpertRows(data, visibilityMode);
+      if (visibleRows.length === 0) return null;
+
+      return mapToPersonWithPlans(visibleRows[0]);
     },
-    enabled: !!slug,
+    enabled: !!slug && !isAuthLoading,
     staleTime: 30_000,
   });
 }
