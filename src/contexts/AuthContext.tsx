@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { queryClient } from '@/lib/queryClient';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 type AppRole = 'company_admin' | 'analyst';
@@ -9,6 +10,7 @@ interface AuthUser {
   email: string;
   displayName: string | null;
   avatarUrl: string | null;
+  isTester: boolean;
   roles: AppRole[];
   expertSlug: string | null;
   isLineUser: boolean;
@@ -32,7 +34,7 @@ AuthContext.displayName = 'AuthContext';
 
 async function fetchUserProfile(userId: string, email: string): Promise<AuthUser> {
   const [profileRes, rolesRes] = await Promise.all([
-    supabase.from('profiles').select('display_name, expert_slug, avatar_url, line_user_id').eq('user_id', userId).single(),
+    supabase.from('profiles').select('display_name, expert_slug, avatar_url, line_user_id, is_tester').eq('user_id', userId).single(),
     supabase.from('user_roles').select('role').eq('user_id', userId),
   ]);
 
@@ -43,6 +45,7 @@ async function fetchUserProfile(userId: string, email: string): Promise<AuthUser
     email,
     displayName: profileRes.data?.display_name || null,
     avatarUrl: profileRes.data?.avatar_url || null,
+    isTester: profileRes.data?.is_tester ?? false,
     roles: (rolesRes.data || []).map((r: any) => r.role as AppRole),
     expertSlug: profileRes.data?.expert_slug || null,
     isLineUser: !!lineUserId,
@@ -60,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearAuth = useCallback(() => {
     loadingUserRef.current = null;
+    queryClient.clear();
     setSupabaseUser(null);
     setUser(null);
   }, []);
@@ -75,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Different user — clear stale state
     if (loadingUserRef.current && loadingUserRef.current !== userId) {
+      queryClient.clear();
       setUser(null);
     }
 
