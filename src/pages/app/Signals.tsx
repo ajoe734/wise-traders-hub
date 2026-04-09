@@ -65,7 +65,7 @@ const fetchSignalsData = async (userId: string | undefined) => {
     .select('id')
     .in('id', expertIds)
     .eq('role', 'advisor')
-    .eq('status', 'active');
+    .in('status', ['active', 'draft']);
 
   if (advisorError) {
     console.error('Error fetching advisor experts:', advisorError);

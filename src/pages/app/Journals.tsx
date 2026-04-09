@@ -55,7 +55,7 @@ const fetchJournalsData = async (userId: string | undefined) => {
     .select('id')
     .in('id', expertIds)
     .eq('role', 'mentor')
-    .eq('status', 'active');
+    .in('status', ['active', 'draft']);
 
   const mentorIds = (mentorExperts || []).map(e => e.id);
   if (mentorIds.length === 0) {
