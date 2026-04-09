@@ -17,6 +17,7 @@ import { CreditCard, Plus, Search, Download, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const providerLabels: Record<string, string> = {
+  acpay: 'ACpay',
   ecpay: '綠界 ECPay',
   newebpay: '藍新 NewebPay',
   line_pay: 'LINE Pay',
