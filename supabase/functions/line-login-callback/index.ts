@@ -31,11 +31,15 @@ serve(async (req) => {
       returnTo = stateData.return_to || '/free-checkup';
       redirectUri = stateData.redirect_uri || '';
       appOrigin = stateData.app_origin || '';
-    } catch {}
+      console.log('[LINE-CB-FN] Parsed state:', JSON.stringify({ returnTo, appOrigin, hasCode: !!code, error }));
+    } catch {
+      console.warn('[LINE-CB-FN] Failed to parse state param');
+    }
 
     const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/free-checkup';
     const normalizedAppOrigin = appOrigin && /^https?:\/\//.test(appOrigin) ? appOrigin : '';
     const siteUrl = normalizedAppOrigin || Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
+    console.log('[LINE-CB-FN] Resolved siteUrl:', siteUrl, 'safeReturnTo:', safeReturnTo);
 
     if (error || !code) {
       return new Response(null, {
@@ -176,10 +180,13 @@ serve(async (req) => {
       return_to: safeReturnTo,
     });
 
+    const finalUrl = `${siteUrl}/auth/line-callback?${params.toString()}`;
+    console.log('[LINE-CB-FN] ✅ Final redirect:', finalUrl);
+
     return new Response(null, {
       status: 302,
       headers: {
-        Location: `${siteUrl}/auth/line-callback?${params.toString()}`,
+        Location: finalUrl,
       },
     });
   } catch (error) {
