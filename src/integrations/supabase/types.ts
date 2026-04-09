@@ -905,6 +905,7 @@ export type Database = {
           expert_slug: string | null
           id: string
           is_line_friend: boolean | null
+          is_tester: boolean
           line_user_id: string | null
           updated_at: string
           user_id: string
@@ -916,6 +917,7 @@ export type Database = {
           expert_slug?: string | null
           id?: string
           is_line_friend?: boolean | null
+          is_tester?: boolean
           line_user_id?: string | null
           updated_at?: string
           user_id: string
@@ -927,6 +929,7 @@ export type Database = {
           expert_slug?: string | null
           id?: string
           is_line_friend?: boolean | null
+          is_tester?: boolean
           line_user_id?: string | null
           updated_at?: string
           user_id?: string
