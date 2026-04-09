@@ -14,12 +14,26 @@ export default function LineCallback() {
   useEffect(() => {
     const tokenHash = searchParams.get('token_hash');
     const type = searchParams.get('type');
-    const returnTo = searchParams.get('return_to') || '/free-checkup';
+    const returnTo = searchParams.get('return_to') || sessionStorage.getItem('line_login_return_to') || '/free-checkup';
     const lineError = searchParams.get('line_error');
+    const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/free-checkup';
+
+    const waitForSession = async () => {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          return true;
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 150));
+      }
+
+      return false;
+    };
 
     if (lineError) {
       setError(`LINE 登入失敗：${lineError}`);
-      setTimeout(() => window.location.replace(returnTo), 2000);
+      setTimeout(() => window.location.replace(safeReturnTo), 2000);
       return;
     }
 
@@ -31,7 +45,7 @@ export default function LineCallback() {
 
     const exchangeToken = async () => {
       try {
-        const { error: verifyError } = await supabase.auth.verifyOtp({
+        const { data, error: verifyError } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
           type: 'magiclink',
         });
@@ -39,17 +53,37 @@ export default function LineCallback() {
         if (verifyError) {
           console.error('OTP verification failed:', verifyError);
           setError('登入驗證失敗，請重試');
-          setTimeout(() => window.location.replace(returnTo), 2000);
+          setTimeout(() => window.location.replace(safeReturnTo), 2000);
+          return;
+        }
+
+        if (data.session?.access_token && data.session?.refresh_token) {
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          });
+
+          if (setSessionError) {
+            console.error('Session persistence failed:', setSessionError);
+          }
+        }
+
+        const sessionReady = await waitForSession();
+        sessionStorage.removeItem('line_login_return_to');
+
+        if (!sessionReady) {
+          setError('登入狀態同步逾時，請重試');
+          setTimeout(() => window.location.replace(safeReturnTo), 1500);
           return;
         }
 
         // Full-page redirect so all auth contexts (AuthContext, CheckupModeContext)
         // reinitialize with the fresh session from storage
-        window.location.replace(returnTo);
+        window.location.replace(safeReturnTo);
       } catch (e) {
         console.error('Token exchange error:', e);
         setError('登入過程發生錯誤');
-        setTimeout(() => window.location.replace(returnTo), 2000);
+        setTimeout(() => window.location.replace(safeReturnTo), 2000);
       }
     };
 
