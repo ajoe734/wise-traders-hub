@@ -594,6 +594,7 @@ export type Database = {
           name: string
           role: Database["public"]["Enums"]["expert_role"]
           slug: string
+          starting_capital: number | null
           status: string
           strategy_summary: string | null
           style_tags: string[] | null
@@ -613,6 +614,7 @@ export type Database = {
           name: string
           role: Database["public"]["Enums"]["expert_role"]
           slug: string
+          starting_capital?: number | null
           status?: string
           strategy_summary?: string | null
           style_tags?: string[] | null
@@ -632,6 +634,7 @@ export type Database = {
           name?: string
           role?: Database["public"]["Enums"]["expert_role"]
           slug?: string
+          starting_capital?: number | null
           status?: string
           strategy_summary?: string | null
           style_tags?: string[] | null
