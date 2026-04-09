@@ -118,20 +118,9 @@ const CompanyAnalysts = () => {
   const toggleStatus = async (id: string, currentStatus: string) => {
     let newStatus: string;
     if (currentStatus === 'suspended') {
-      // When restoring, check created_at to determine if test or real expert
-      // Real experts (like 老古) were created with 'active', test ones with 'draft'
-      // Simple heuristic: if expert has no active approved plans, restore to draft
+      // Restore: real experts (created_by is set) go back to 'active', test experts to 'draft'
       const expert = experts.find(e => e.id === id);
-      // Use the slug to determine: known real experts restore to active, others to draft
-      // Better approach: just let admin choose, but for now default to draft for safety
-      // We'll check if the expert has any active+approved plans
-      const { count } = await supabase
-        .from('expert_plans')
-        .select('id', { count: 'exact', head: true })
-        .eq('expert_id', id)
-        .eq('is_active', true)
-        .eq('review_status', 'approved');
-      newStatus = (count && count > 0) ? 'active' : 'draft';
+      newStatus = expert?.created_by ? 'active' : 'draft';
     } else {
       newStatus = 'suspended';
     }
