@@ -46,7 +46,7 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
               <Building2 className="h-5 w-5 text-company" />
             </div>
             <div className="min-w-0">
-              <h2 className="font-semibold truncate">公司管理後台</h2>
+              <h2 className="font-semibold truncate">海洋福星</h2>
               <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             </div>
             <NotificationBell />
