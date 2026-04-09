@@ -133,7 +133,10 @@ export function CheckupModeProvider({ children }) {
     startLineLogin: () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`
-      const returnTo = window.location.pathname
+      const returnTo = `${window.location.pathname}${window.location.search}`
+      try {
+        sessionStorage.setItem('line_login_return_to', returnTo)
+      } catch {}
       const appOrigin = window.location.origin
       const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}&app_origin=${encodeURIComponent(appOrigin)}`
       window.location.href = authorizeUrl

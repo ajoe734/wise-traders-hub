@@ -63,9 +63,12 @@ const Login = () => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`;
     // LINE login from /auth/login → redirect to /app after success
-    const returnTo = (location as any).state?.from?.pathname || '/app';
-    // Save redirect target so LineCallback can use it (though we pass via return_to)
-    sessionStorage.setItem('redirect_after_login', returnTo);
+    const fromLocation = (location as any).state?.from;
+    const returnTo = fromLocation
+      ? `${fromLocation.pathname || ''}${fromLocation.search || ''}${fromLocation.hash || ''}`
+      : '/app';
+    // Persist LINE return target in case the query string is lost during the OAuth round-trip
+    sessionStorage.setItem('line_login_return_to', returnTo);
     const appOrigin = window.location.origin;
     const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}&app_origin=${encodeURIComponent(appOrigin)}`;
     window.location.href = authorizeUrl;

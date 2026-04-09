@@ -33,12 +33,14 @@ serve(async (req) => {
       appOrigin = stateData.app_origin || '';
     } catch {}
 
-    const siteUrl = Deno.env.get('SITE_URL') || appOrigin || 'https://wise-traders-hub.lovable.app';
+    const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/free-checkup';
+    const normalizedAppOrigin = appOrigin && /^https?:\/\//.test(appOrigin) ? appOrigin : '';
+    const siteUrl = normalizedAppOrigin || Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
 
     if (error || !code) {
       return new Response(null, {
         status: 302,
-        headers: { Location: `${siteUrl}${returnTo}?line_error=${error || 'no_code'}` },
+        headers: { Location: `${siteUrl}${safeReturnTo}?line_error=${error || 'no_code'}` },
       });
     }
 
@@ -61,7 +63,7 @@ serve(async (req) => {
       console.error('LINE token exchange failed:', err);
       return new Response(null, {
         status: 302,
-        headers: { Location: `${siteUrl}${returnTo}?line_error=token_exchange_failed` },
+        headers: { Location: `${siteUrl}${safeReturnTo}?line_error=token_exchange_failed` },
       });
     }
 
@@ -111,7 +113,7 @@ serve(async (req) => {
         console.error('Failed to create user:', signUpError);
         return new Response(null, {
           status: 302,
-          headers: { Location: `${siteUrl}${returnTo}?line_error=signup_failed` },
+          headers: { Location: `${siteUrl}${safeReturnTo}?line_error=signup_failed` },
         });
       }
 
@@ -153,7 +155,7 @@ serve(async (req) => {
       console.error('Failed to generate magic link:', linkError);
       return new Response(null, {
         status: 302,
-        headers: { Location: `${siteUrl}${returnTo}?line_error=session_failed` },
+        headers: { Location: `${siteUrl}${safeReturnTo}?line_error=session_failed` },
       });
     }
 
@@ -163,7 +165,7 @@ serve(async (req) => {
       console.error('No hashed_token in link data');
       return new Response(null, {
         status: 302,
-        headers: { Location: `${siteUrl}${returnTo}?line_error=session_failed` },
+        headers: { Location: `${siteUrl}${safeReturnTo}?line_error=session_failed` },
       });
     }
 
@@ -171,7 +173,7 @@ serve(async (req) => {
     const params = new URLSearchParams({
       token_hash: tokenHash,
       type: 'magiclink',
-      return_to: returnTo,
+      return_to: safeReturnTo,
     });
 
     return new Response(null, {
