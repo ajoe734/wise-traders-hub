@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Save, Upload, X, Plus, Eye, EyeOff } from 'lucide-react';
+import { Save, Upload, X, Plus, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const AdminProfile = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -31,6 +32,10 @@ const AdminProfile = () => {
   const [newTag, setNewTag] = useState('');
   const [newMarket, setNewMarket] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [startingCapital, setStartingCapital] = useState<string>('');
+  const [startingCapitalLocked, setStartingCapitalLocked] = useState(false);
+  const [showCapitalConfirm, setShowCapitalConfirm] = useState(false);
+  const [pendingCapital, setPendingCapital] = useState<number>(0);
 
   useEffect(() => { fetchExpert(); }, [expertSlug]);
 
@@ -45,6 +50,10 @@ const AdminProfile = () => {
       setDescription(data.description || '');
       setStyleTags(data.style_tags || []);
       setMarkets(data.markets || []);
+      if (data.starting_capital != null) {
+        setStartingCapital(String(data.starting_capital));
+        setStartingCapitalLocked(true);
+      }
     }
     setLoading(false);
   };
@@ -255,7 +264,71 @@ const AdminProfile = () => {
           </CardContent>
         </Card>
 
-        {/* Password Change */}
+        {/* Starting Capital */}
+        {!isReadOnly && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">起始資金</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2 max-w-sm">
+                <Label>起始資金（NT$）</Label>
+                <Input
+                  type="number"
+                  value={startingCapital}
+                  onChange={e => setStartingCapital(e.target.value)}
+                  placeholder="例：1000000"
+                  disabled={startingCapitalLocked}
+                />
+                {startingCapitalLocked && (
+                  <p className="text-xs text-muted-foreground">起始資金已設定，無法修改。</p>
+                )}
+              </div>
+              {!startingCapitalLocked && (
+                <Button
+                  size="sm"
+                  disabled={!startingCapital || Number(startingCapital) <= 0}
+                  onClick={() => {
+                    setPendingCapital(Number(startingCapital));
+                    setShowCapitalConfirm(true);
+                  }}
+                >
+                  確認設定
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <AlertDialog open={showCapitalConfirm} onOpenChange={setShowCapitalConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                確認起始資金
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                您即將設定起始資金為 <strong>NT$ {pendingCapital.toLocaleString()}</strong>。
+                <br /><br />
+                <span className="text-destructive font-medium">起始資金設定後將無法更改，請確認金額正確。</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={async () => {
+                if (!expert) return;
+                const { error } = await supabase.from('experts').update({ starting_capital: pendingCapital } as any).eq('id', expert.id);
+                if (error) { toast.error('設定失敗：' + error.message); return; }
+                toast.success('起始資金已設定');
+                setStartingCapitalLocked(true);
+                setExpert({ ...expert, starting_capital: pendingCapital });
+              }}>
+                確認設定
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {!isReadOnly && (
           <Card>
             <CardHeader>

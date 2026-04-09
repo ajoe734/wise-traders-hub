@@ -79,6 +79,7 @@ export interface Person {
   riskTolerance?: string;
   timeframe?: string;
   lineChannelId?: string;
+  startingCapital?: number | null;
 }
 
 export interface TradingSystem {

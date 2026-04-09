@@ -21,7 +21,7 @@ import { usePeriodPerformance, PeriodBucket } from "@/hooks/usePeriodPerformance
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
 
-const INITIAL_CAPITAL = 1_000_000;
+const DEFAULT_INITIAL_CAPITAL = 1_000_000;
 
 interface PerformanceOverviewPanelProps {
   expertSlug: string;
@@ -38,6 +38,8 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   // Resolve slug → expert ID
   const { data: expert } = useExpert(expertSlug);
   const expertId = expert?.id;
+  const startingCapital = (expert as any)?.startingCapital ?? null;
+  const INITIAL_CAPITAL = startingCapital || DEFAULT_INITIAL_CAPITAL;
 
   // Fetch overall performance
   const { data: perfData } = useExpertPerformance(expertId);
@@ -47,8 +49,9 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   const { data: performanceData = [], isLoading } = usePeriodPerformance(expertId, period);
 
   const currentAsset = useMemo(() => {
+    if (!startingCapital) return 0;
     return Math.round(INITIAL_CAPITAL * (1 + sinceInceptionReturn / 100));
-  }, [sinceInceptionReturn]);
+  }, [sinceInceptionReturn, startingCapital, INITIAL_CAPITAL]);
 
   // Overall trend for chart color
   const overallTrend = useMemo(() => {

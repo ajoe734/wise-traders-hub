@@ -17,6 +17,7 @@ import { CreditCard, Plus, Search, Download, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const providerLabels: Record<string, string> = {
+  acpay: 'ACpay',
   ecpay: '綠界 ECPay',
   newebpay: '藍新 NewebPay',
   line_pay: 'LINE Pay',
@@ -48,7 +49,7 @@ const CompanyPayments = () => {
   const fetchProviders = async () => {
     const { data } = await supabase.from('payment_providers').select('*').order('created_at');
     const filtered = (data || []).filter((p) => p.provider_type !== 'stripe');
-    const order: Record<string, number> = { ecpay: 0, newebpay: 1, line_pay: 2 };
+    const order: Record<string, number> = { acpay: 0, ecpay: 1, newebpay: 2, line_pay: 3 };
     filtered.sort((a, b) => (order[a.provider_type] ?? 99) - (order[b.provider_type] ?? 99));
     setProviders(filtered);
   };
@@ -176,6 +177,7 @@ const CompanyPayments = () => {
                       <Select value={newProviderType} onValueChange={setNewProviderType}>
                         <SelectTrigger><SelectValue placeholder="選擇金流" /></SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="acpay">ACpay</SelectItem>
                           <SelectItem value="ecpay">綠界 ECPay</SelectItem>
                           <SelectItem value="newebpay">藍新 NewebPay</SelectItem>
                           <SelectItem value="line_pay">LINE Pay</SelectItem>

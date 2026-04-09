@@ -1,0 +1,1 @@
+ALTER TABLE public.experts ADD COLUMN starting_capital integer DEFAULT NULL;
