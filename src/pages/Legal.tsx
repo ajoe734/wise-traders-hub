@@ -141,7 +141,8 @@ const Legal = () => {
                 如有任何問題或建議，歡迎透過以下方式聯繫：
               </p>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>電子郵件：support@example.com</li>
+                <li>公司名稱：海洋福星生物科技股份有限公司</li>
+                <li>統一編號：83479669</li>
                 <li>服務時間：週一至週五 09:00-18:00</li>
               </ul>
             </CardContent>

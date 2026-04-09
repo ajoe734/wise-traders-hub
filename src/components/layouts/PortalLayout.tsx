@@ -230,8 +230,9 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
               </ul>
             </div>
           </div>
-          <div className="border-t border-border dark:border-white/10 mt-8 pt-8 text-center text-sm text-muted-foreground dark:text-white/50">
-            © {new Date().getFullYear()} 智富股市實戰學院. 投資一定有風險，基金投資有賺有賠，申購前應詳閱公開說明書。
+          <div className="border-t border-border dark:border-white/10 mt-8 pt-8 text-center text-sm text-muted-foreground dark:text-white/50 space-y-1">
+            <p>© {new Date().getFullYear()} 海洋福星生物科技股份有限公司（統編：83479669）</p>
+            <p>投資一定有風險，基金投資有賺有賠，申購前應詳閱公開說明書。</p>
           </div>
         </div>
       </footer>

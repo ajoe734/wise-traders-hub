@@ -55,7 +55,7 @@ const CompanyDashboard = () => {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">公司總覽</h1>
-          <p className="text-muted-foreground text-sm mt-1">全平台營運數據一覽</p>
+          <p className="text-muted-foreground text-sm mt-1">海洋福星生物科技股份有限公司（統編：83479669）・全平台營運數據一覽</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
