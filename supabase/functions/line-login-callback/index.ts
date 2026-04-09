@@ -97,15 +97,15 @@ serve(async (req) => {
     if (existingProfile) {
       userId = existingProfile.user_id;
     } else {
-      const { data: listedUsers, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
-      if (listUsersError) {
-        console.error('Failed to list auth users:', listUsersError);
+      // Try to find existing auth user by email (handles case where profile lacks line_user_id)
+      const { data: existingAuthUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+      if (getUserError && !(getUserError as any)?.status) {
+        console.error('[LINE-CB-FN] getUserByEmail error:', getUserError);
       }
 
-      const existingAuthUser = listedUsers?.users?.find((user) => user.email?.toLowerCase() === email.toLowerCase());
-
-      if (existingAuthUser) {
-        userId = existingAuthUser.id;
+      if (existingAuthUser?.user) {
+        userId = existingAuthUser.user.id;
+        console.log('[LINE-CB-FN] Found existing auth user by email:', userId);
       } else {
         const password = crypto.randomUUID();
 
