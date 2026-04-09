@@ -50,6 +50,10 @@ const AdminProfile = () => {
       setDescription(data.description || '');
       setStyleTags(data.style_tags || []);
       setMarkets(data.markets || []);
+      if (data.starting_capital != null) {
+        setStartingCapital(String(data.starting_capital));
+        setStartingCapitalLocked(true);
+      }
     }
     setLoading(false);
   };
