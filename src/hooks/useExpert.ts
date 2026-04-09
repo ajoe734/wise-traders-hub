@@ -41,7 +41,6 @@ export function useExperts() {
       const { data, error } = await supabase
         .from('experts')
         .select('*, expert_plans(*)')
-        .eq('status', 'active')
         .order('created_at');
       if (error) throw error;
       return (data || []).map(mapToPersonWithPlans);
@@ -58,8 +57,7 @@ export function useExpert(slug: string | undefined) {
       const { data, error } = await supabase
         .from('experts')
         .select('*, expert_plans(*)')
-        .eq('slug', slug)
-        .eq('status', 'active');
+        .eq('slug', slug);
       if (error || !data || data.length === 0) return null;
       return mapToPersonWithPlans(data[0]);
     },
