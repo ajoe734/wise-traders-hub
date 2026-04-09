@@ -62,7 +62,15 @@ const ExpertProfile = () => {
         .eq('slug', slug)
         .single();
 
-      if (!expert || expert.status !== 'active') {
+      if (!expert) {
+        setExpertNotFound(true);
+        setLoading(false);
+        return;
+      }
+
+      // Testers can view draft experts; regular users can only view active
+      const isVisible = expert.status === 'active' || (expert.status === 'draft' && user?.isTester);
+      if (!isVisible) {
         setExpertNotFound(true);
         setLoading(false);
         return;
