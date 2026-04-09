@@ -38,7 +38,7 @@ interface WeekGroup {
   expert: JournalSignal['experts'];
 }
 
-const fetchJournalsData = async (userId: string | undefined) => {
+const fetchJournalsData = async (userId: string | undefined, isTester: boolean) => {
   if (!userId) return { signals: [] as JournalSignal[], hasSubscription: false };
 
   const { data: subs } = await supabase
@@ -50,12 +50,13 @@ const fetchJournalsData = async (userId: string | undefined) => {
 
   const expertIds = subs.map((s: any) => s.expert_id);
 
+  const expectedStatus = isTester ? 'draft' : 'active';
   const { data: mentorExperts } = await supabase
     .from('experts')
     .select('id')
     .in('id', expertIds)
     .eq('role', 'mentor')
-    .in('status', ['active', 'draft']);
+    .eq('status', expectedStatus);
 
   const mentorIds = (mentorExperts || []).map(e => e.id);
   if (mentorIds.length === 0) {
