@@ -71,6 +71,7 @@ const Login = () => {
     sessionStorage.setItem('line_login_return_to', returnTo);
     const appOrigin = window.location.origin;
     const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}&app_origin=${encodeURIComponent(appOrigin)}`;
+    console.log('[LINE-LOGIN] Login page → LINE authorize', { returnTo, appOrigin, authorizeUrl });
     window.location.href = authorizeUrl;
   };
 
