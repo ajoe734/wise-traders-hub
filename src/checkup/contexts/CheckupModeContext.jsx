@@ -139,6 +139,7 @@ export function CheckupModeProvider({ children }) {
       } catch {}
       const appOrigin = window.location.origin
       const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}&app_origin=${encodeURIComponent(appOrigin)}`
+      console.log('[LINE-LOGIN] Checkup page → LINE authorize', { returnTo, appOrigin, authorizeUrl })
       window.location.href = authorizeUrl
     },
   }
