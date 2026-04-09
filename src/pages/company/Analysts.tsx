@@ -116,10 +116,20 @@ const CompanyAnalysts = () => {
   };
 
   const toggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
-    setExperts(prev => prev.map(e => e.id === id ? { ...e, status: newStatus } : e));
+    const expert = experts.find(e => e.id === id);
+    // Store original status before suspending so we can restore it
+    const isCurrentlySuspended = currentStatus === 'suspended';
+    const newStatus = isCurrentlySuspended
+      ? (expert?._original_status || 'active')
+      : 'suspended';
+    const updatedExperts = experts.map(e =>
+      e.id === id
+        ? { ...e, status: newStatus, _original_status: isCurrentlySuspended ? undefined : currentStatus }
+        : e
+    );
+    setExperts(updatedExperts);
     await supabase.from('experts').update({ status: newStatus }).eq('id', id);
-    toast.success(newStatus === 'active' ? '已啟用' : '已停用');
+    toast.success(newStatus === 'suspended' ? '已停用' : '已啟用');
   };
 
   // LINE channel management
