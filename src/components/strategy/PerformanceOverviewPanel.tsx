@@ -21,7 +21,7 @@ import { usePeriodPerformance, PeriodBucket } from "@/hooks/usePeriodPerformance
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
 
-const INITIAL_CAPITAL = 1_000_000;
+const DEFAULT_INITIAL_CAPITAL = 1_000_000;
 
 interface PerformanceOverviewPanelProps {
   expertSlug: string;
