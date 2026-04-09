@@ -91,33 +91,42 @@ serve(async (req) => {
     const email = `line_${lineUserId}@line.local`;
 
     if (existingProfile) {
-      // Existing user
       userId = existingProfile.user_id;
     } else {
-      // New user — create account with LINE identity
-      const password = crypto.randomUUID();
-
-      const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          name: displayName,
-          avatar_url: pictureUrl,
-          provider: 'line',
-          line_user_id: lineUserId,
-        },
-      });
-
-      if (signUpError) {
-        console.error('Failed to create user:', signUpError);
-        return new Response(null, {
-          status: 302,
-          headers: { Location: `${siteUrl}${safeReturnTo}?line_error=signup_failed` },
-        });
+      const { data: listedUsers, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
+      if (listUsersError) {
+        console.error('Failed to list auth users:', listUsersError);
       }
 
-      userId = newUser.user.id;
+      const existingAuthUser = listedUsers?.users?.find((user) => user.email?.toLowerCase() === email.toLowerCase());
+
+      if (existingAuthUser) {
+        userId = existingAuthUser.id;
+      } else {
+        const password = crypto.randomUUID();
+
+        const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            name: displayName,
+            avatar_url: pictureUrl,
+            provider: 'line',
+            line_user_id: lineUserId,
+          },
+        });
+
+        if (signUpError) {
+          console.error('Failed to create user:', signUpError);
+          return new Response(null, {
+            status: 302,
+            headers: { Location: `${siteUrl}${safeReturnTo}?line_error=signup_failed` },
+          });
+        }
+
+        userId = newUser.user.id;
+      }
     }
 
     // Check if user is friends with the OA via LINE friendship API
@@ -134,16 +143,49 @@ serve(async (req) => {
       console.error('Failed to check friendship:', e);
     }
 
-    // Update profile with LINE data on every login (sync display name + avatar + friendship)
-    await supabaseAdmin
+    const profilePayload = {
+      user_id: userId,
+      line_user_id: lineUserId,
+      display_name: displayName,
+      avatar_url: pictureUrl,
+      is_line_friend: isFriend,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: existingUserProfile, error: profileLookupError } = await supabaseAdmin
       .from('profiles')
-      .update({
-        line_user_id: lineUserId,
-        display_name: displayName,
-        avatar_url: pictureUrl,
-        is_line_friend: isFriend,
-      })
-      .eq('user_id', userId);
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (profileLookupError) {
+      console.error('Failed to lookup profile:', profileLookupError);
+    }
+
+    if (existingUserProfile?.id) {
+      const { error: profileUpdateError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          line_user_id: lineUserId,
+          display_name: displayName,
+          avatar_url: pictureUrl,
+          is_line_friend: isFriend,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingUserProfile.id);
+
+      if (profileUpdateError) {
+        console.error('Failed to update profile:', profileUpdateError);
+      }
+    } else {
+      const { error: profileInsertError } = await supabaseAdmin
+        .from('profiles')
+        .insert(profilePayload);
+
+      if (profileInsertError) {
+        console.error('Failed to create profile:', profileInsertError);
+      }
+    }
 
     // Generate a magic link token for the client to establish a real Supabase session
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
