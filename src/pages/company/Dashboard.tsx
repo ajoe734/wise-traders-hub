@@ -24,9 +24,9 @@ const CompanyDashboard = () => {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
     const [ecRes, scRes, pcRes, sigRes, subsRes, txRes] = await Promise.all([
-      supabase.from('experts').select('*', { count: 'exact', head: true }),
+      supabase.from('experts').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('expert_plans').select('*', { count: 'exact', head: true }).eq('is_active', true),
+      supabase.from('expert_plans').select('*, experts!inner(status)', { count: 'exact', head: true }).eq('is_active', true).eq('review_status', 'approved').eq('experts.status', 'active'),
       supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published'),
       // ISSUE-021: MRR only counts auto_renew=true subscriptions (excludes canceled)
       supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active').eq('auto_renew', true),

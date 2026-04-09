@@ -177,6 +177,7 @@ const CompanyPayments = () => {
                       <Select value={newProviderType} onValueChange={setNewProviderType}>
                         <SelectTrigger><SelectValue placeholder="選擇金流" /></SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="acpay">ACpay</SelectItem>
                           <SelectItem value="ecpay">綠界 ECPay</SelectItem>
                           <SelectItem value="newebpay">藍新 NewebPay</SelectItem>
                           <SelectItem value="line_pay">LINE Pay</SelectItem>
