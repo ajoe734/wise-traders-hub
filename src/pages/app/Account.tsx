@@ -582,27 +582,6 @@ const Account = () => {
             )}
           </div>
 
-          {/* 綁定機制規劃筆記 */}
-          <Card className="border-dashed border-muted-foreground/30 bg-muted/30">
-            <CardContent className="p-4 space-y-2 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">📌 綁定機制規劃</p>
-              <div className="space-y-2">
-                <div>
-                  <p className="font-semibold">現行：手動綁定</p>
-                  <p>目前用 Email 登入，系統不知道用戶的 LINE user ID，需透過「加好友 → 傳驗證碼」步驟建立對應關係。</p>
-                </div>
-                <div>
-                  <p className="font-semibold">未來：自動化綁定（LINE Login）</p>
-                  <ol className="list-decimal list-inside space-y-0.5 ml-1">
-                    <li>用戶點擊「LINE 登入」→ LINE OAuth 授權</li>
-                    <li>系統自動取得用戶的 LINE user ID</li>
-                    <li>LINE Login 的「Bot Link」功能可在授權畫面同時提示加入 OA 好友</li>
-                    <li>用戶授權 + 加好友 → 自動完成綁定，不需要驗證碼</li>
-                  </ol>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </UnifiedAppLayout>
