@@ -39,7 +39,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   const { data: expert } = useExpert(expertSlug);
   const expertId = expert?.id;
   const startingCapital = (expert as any)?.startingCapital ?? null;
-  const INITIAL_CAPITAL = startingCapital || DEFAULT_INITIAL_CAPITAL;
+  const INITIAL_CAPITAL = startingCapital ?? 0;
 
   // Fetch overall performance
   const { data: perfData } = useExpertPerformance(expertId);
