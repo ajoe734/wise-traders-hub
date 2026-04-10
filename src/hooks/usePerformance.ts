@@ -10,6 +10,7 @@ export interface ExpertPerformance {
   avg_hold_days: number;
   total_pnl: number;
   return_1y: number;
+  current_asset: number;
 }
 
 export function useExpertPerformance(expertId: string | undefined) {

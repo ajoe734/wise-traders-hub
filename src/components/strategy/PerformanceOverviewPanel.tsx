@@ -49,9 +49,13 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   const { data: performanceData = [], isLoading } = usePeriodPerformance(expertId, period);
 
   const currentAsset = useMemo(() => {
+    // Use current_asset from RPC (open positions market value)
+    const rpcAsset = (perfData as any)?.current_asset ?? 0;
+    if (rpcAsset > 0) return Math.round(rpcAsset);
+    // Fallback to old formula if no open positions
     if (!startingCapital) return 0;
     return Math.round(INITIAL_CAPITAL * (1 + sinceInceptionReturn / 100));
-  }, [sinceInceptionReturn, startingCapital, INITIAL_CAPITAL]);
+  }, [perfData, sinceInceptionReturn, startingCapital, INITIAL_CAPITAL]);
 
   // Overall trend for chart color
   const overallTrend = useMemo(() => {
