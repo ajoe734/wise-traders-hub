@@ -13,7 +13,7 @@ const CompanyDashboard = () => {
   const [expertCount, setExpertCount] = useState(0);
   const [newSubCount, setNewSubCount] = useState(0);
   const [signalCount, setSignalCount] = useState(0);
-  const [churnRate, setChurnRate] = useState('0%');
+  const [cancelCount, setCancelCount] = useState(0);
   const [mrr, setMrr] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
 
@@ -23,13 +23,12 @@ const CompanyDashboard = () => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [ecRes, newSubRes, sigRes, subsRes, txRes, activeSubRes, churnRes] = await Promise.all([
+    const [ecRes, newSubRes, sigRes, subsRes, txRes, churnRes] = await Promise.all([
       supabase.from('experts').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).gte('created_at', monthStart),
       supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published'),
       supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active').eq('auto_renew', true),
       supabase.from('payment_transactions').select('amount').eq('status', 'paid').gte('paid_at', monthStart),
-      supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).in('status', ['canceled', 'expired']).gte('canceled_at', monthStart),
     ]);
 
@@ -38,17 +37,14 @@ const CompanyDashboard = () => {
     setSignalCount(sigRes.count || 0);
     setMrr((subsRes.data || []).reduce((s, sub) => s + (sub.expert_plans?.price_monthly || 0), 0));
     setMonthlyRevenue((txRes.data || []).reduce((s, tx) => s + (tx.amount || 0), 0));
-
-    const totalActive = (activeSubRes.count || 0) + (churnRes.count || 0);
-    const churnCount = churnRes.count || 0;
-    setChurnRate(totalActive > 0 ? `${((churnCount / totalActive) * 100).toFixed(1)}%` : '0%');
+    setCancelCount(churnRes.count || 0);
   };
 
   const stats = [
     { label: '總分析師數', value: expertCount, icon: Users },
-    { label: '本月新增訂閱', value: newSubCount, icon: UserPlus },
+    { label: '本月新增訂閱人數', value: newSubCount, icon: UserPlus },
+    { label: '本月取消訂閱人數', value: cancelCount, icon: TrendingDown },
     { label: '已發布訊號', value: signalCount, icon: Radio },
-    { label: '本月流失率', value: churnRate, icon: TrendingDown },
     { label: 'MRR', value: `NT$${mrr.toLocaleString()}`, icon: Repeat },
     { label: '本月營收', value: `NT$${monthlyRevenue.toLocaleString()}`, icon: DollarSign },
   ];
