@@ -35,6 +35,12 @@ import useEmblaCarousel from 'embla-carousel-react';
 import { useCallback, useEffect, useState } from 'react';
 
 
+const WeeklyLimitUpLeaderboardSection = () => {
+  const { data: entries = [], isLoading } = useWeeklyLeaderboard();
+  return <WeeklyLimitUpLeaderboard entries={entries} isLoading={isLoading} />;
+};
+
+
 // Mobile VS Carousel Component - Showcase/Turntable style
 const MobileVsCarousel = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
