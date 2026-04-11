@@ -13,7 +13,7 @@ const CompanyDashboard = () => {
   const [expertCount, setExpertCount] = useState(0);
   const [newSubCount, setNewSubCount] = useState(0);
   const [signalCount, setSignalCount] = useState(0);
-  const [churnRate, setChurnRate] = useState('0%');
+  const [cancelCount, setCancelCount] = useState(0);
   const [mrr, setMrr] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
 
