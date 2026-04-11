@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Megaphone, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Megaphone, Pencil, Trash2, Send, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 const CompanyAnnouncements = () => {
@@ -159,10 +159,16 @@ const CompanyAnnouncements = () => {
                         {a.published_at && ` · 發布於 ${new Date(a.published_at).toLocaleString('zh-TW')}`}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => togglePublish(a)} title={a.status === 'published' ? '取消發布' : '發布'}>
-                        {a.status === 'published' ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {a.status === 'draft' ? (
+                        <Button size="sm" className="h-8 text-xs bg-company hover:bg-company/90 text-white" onClick={() => togglePublish(a)}>
+                          <Send className="h-3.5 w-3.5 mr-1" />發布
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => togglePublish(a)}>
+                          <RotateCcw className="h-3.5 w-3.5 mr-1" />取消發布
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(a)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
