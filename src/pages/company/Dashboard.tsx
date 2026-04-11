@@ -23,13 +23,12 @@ const CompanyDashboard = () => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [ecRes, newSubRes, sigRes, subsRes, txRes, activeSubRes, churnRes] = await Promise.all([
+    const [ecRes, newSubRes, sigRes, subsRes, txRes, churnRes] = await Promise.all([
       supabase.from('experts').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).gte('created_at', monthStart),
       supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published'),
       supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active').eq('auto_renew', true),
       supabase.from('payment_transactions').select('amount').eq('status', 'paid').gte('paid_at', monthStart),
-      supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).in('status', ['canceled', 'expired']).gte('canceled_at', monthStart),
     ]);
 
