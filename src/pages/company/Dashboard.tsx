@@ -90,9 +90,6 @@ const CompanyDashboard = () => {
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
                 <Link to="/company/payments"><CreditCard className="h-5 w-5" /><span className="text-xs">金流管理</span></Link>
               </Button>
-              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-                <Link to="/company/review"><Clock className="h-5 w-5" /><span className="text-xs">內容監管</span></Link>
-              </Button>
             </div>
           </CardContent>
         </Card>
