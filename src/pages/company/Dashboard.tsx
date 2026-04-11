@@ -42,7 +42,7 @@ const CompanyDashboard = () => {
 
   const stats = [
     { label: '總分析師數', value: expertCount, icon: Users },
-    { label: '本月新增訂閱', value: newSubCount, icon: UserPlus },
+    { label: '活躍訂閱者', value: activeSubCount, icon: UserPlus },
     { label: '已發布訊號', value: signalCount, icon: Radio },
     { label: '本月退款數', value: refundCount, icon: CreditCard },
     { label: 'MRR', value: `NT$${mrr.toLocaleString()}`, icon: Repeat },
