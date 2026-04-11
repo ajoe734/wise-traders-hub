@@ -147,6 +147,9 @@ const AppHome = () => {
   return (
     <UnifiedAppLayout>
       <div className="p-4 space-y-6 max-w-lg mx-auto pb-24">
+        {/* Announcement Banner */}
+        <AnnouncementBanner />
+
         <div className="relative animate-fade-in">
           <div className="flex items-center gap-3">
             <div className="relative">
