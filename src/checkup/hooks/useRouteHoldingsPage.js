@@ -9,8 +9,6 @@ export function useRouteHoldingsPage() {
     updateTargetPrice = () => {},
     updateAlert = () => {},
     updateReversal = () => {},
-    refreshPrices = () => {},
-    refreshing = false,
   } = usePortfolioRouteContext()
 
   const expandedStock = useBrainStore((state) => state.expandedStock)
@@ -44,8 +42,6 @@ export function useRouteHoldingsPage() {
         setShowReversal: () => {},
         reversalConditions,
         updateReversal,
-        refreshPrices,
-        refreshing,
       },
       tableProps: {
         holdings,
