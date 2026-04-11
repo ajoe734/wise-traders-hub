@@ -11,9 +11,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useExpertPerformance } from '@/hooks/usePerformance';
 import { 
-  Target, Compass, Radio, ChevronRight, BookOpen, Lock, CheckCircle2, BarChart3
+  Target, Compass, Radio, ChevronRight, BookOpen, Lock, CheckCircle2, BarChart3,
+  Megaphone, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface SubExpert {
   slug: string;

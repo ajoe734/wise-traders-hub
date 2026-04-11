@@ -303,6 +303,9 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
             </Link>
           </div>
           <div className="flex items-center gap-1">
+            {/* Notification Bell */}
+            <NotificationBell />
+            
             {/* Theme Toggle */}
             <ThemeToggleButton />
             
