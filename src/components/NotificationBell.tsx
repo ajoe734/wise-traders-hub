@@ -61,7 +61,7 @@ export function NotificationBell() {
     signal: '📡',
     subscription: '🎫',
     warning: '⚠️',
-    takedown: '🚫',
+    recall: '🔄',
   };
 
   return (

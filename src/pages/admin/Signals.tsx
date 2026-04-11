@@ -456,7 +456,7 @@ const AdminSignals = () => {
               instrument: signal.instrument,
               price_hint: signal.price_hint,
             },
-            type: 'takedown',
+            type: 'recall',
           },
         }).then(({ data: pushData }) => {
           if (pushData?.pushed) {
@@ -825,7 +825,7 @@ const AdminSignals = () => {
                                     instrument,
                                     price_hint: priceHint ? parseFloat(priceHint) : null,
                                   },
-                                  type: 'takedown',
+                                  type: 'recall',
                                 },
                               });
                               toast.success('已推播收回通知');
