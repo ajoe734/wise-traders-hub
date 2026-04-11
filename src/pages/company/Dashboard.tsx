@@ -11,7 +11,7 @@ import { Link } from 'react-router-dom';
 
 const CompanyDashboard = () => {
   const [expertCount, setExpertCount] = useState(0);
-  const [newSubCount, setNewSubCount] = useState(0);
+  const [activeSubCount, setActiveSubCount] = useState(0);
   const [signalCount, setSignalCount] = useState(0);
   const [refundCount, setRefundCount] = useState(0);
   const [mrr, setMrr] = useState(0);
