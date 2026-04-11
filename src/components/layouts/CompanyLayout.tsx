@@ -49,7 +49,7 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
               <h2 className="font-semibold truncate">海洋福星</h2>
               <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             </div>
-            <NotificationBell />
+            
           </div>
         </div>
 

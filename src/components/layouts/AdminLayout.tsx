@@ -98,8 +98,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </Badge>
             </div>
           </div>
-          <div className="flex items-center gap-2 mt-2">
-            <NotificationBell />
+          <div className="mt-2">
             <p className="text-xs text-muted-foreground">分析師後台管理</p>
           </div>
         </div>
