@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Radio, Users, UserCog, BarChart3,
   LogOut, Moon, Sun, Building2, FileText, Loader2
 } from 'lucide-react';
+import { NotificationBell } from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
