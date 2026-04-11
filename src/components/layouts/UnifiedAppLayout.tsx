@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
+import { NotificationBell } from '@/components/NotificationBell';
 import { 
   Home, Radio, BookOpen, User, LogOut, ChevronRight, ChevronLeft,
   Target, Compass, Moon, Sun
