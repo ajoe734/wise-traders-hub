@@ -1032,7 +1032,6 @@ const AdminSignals = () => {
                              <td className="p-3 text-sm" style={{ maxWidth: '200px' }}>
                                   <p className="text-muted-foreground truncate overflow-hidden text-ellipsis whitespace-nowrap">{stripDotPrefix(signal.reason_summary || '-')}</p>
                               </td>
-                             </td>
                                 {isMentor && (
                                   <td className="p-3">
                                     {signal.status === 'pending' ? (
