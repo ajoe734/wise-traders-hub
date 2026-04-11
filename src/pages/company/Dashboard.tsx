@@ -37,17 +37,14 @@ const CompanyDashboard = () => {
     setSignalCount(sigRes.count || 0);
     setMrr((subsRes.data || []).reduce((s, sub) => s + (sub.expert_plans?.price_monthly || 0), 0));
     setMonthlyRevenue((txRes.data || []).reduce((s, tx) => s + (tx.amount || 0), 0));
-
-    const totalActive = (activeSubRes.count || 0) + (churnRes.count || 0);
-    const churnCount = churnRes.count || 0;
-    setChurnRate(totalActive > 0 ? `${((churnCount / totalActive) * 100).toFixed(1)}%` : '0%');
+    setCancelCount(churnRes.count || 0);
   };
 
   const stats = [
     { label: '總分析師數', value: expertCount, icon: Users },
-    { label: '本月新增訂閱', value: newSubCount, icon: UserPlus },
+    { label: '本月新增訂閱人數', value: newSubCount, icon: UserPlus },
+    { label: '本月取消訂閱人數', value: cancelCount, icon: TrendingDown },
     { label: '已發布訊號', value: signalCount, icon: Radio },
-    { label: '本月流失率', value: churnRate, icon: TrendingDown },
     { label: 'MRR', value: `NT$${mrr.toLocaleString()}`, icon: Repeat },
     { label: '本月營收', value: `NT$${monthlyRevenue.toLocaleString()}`, icon: DollarSign },
   ];
