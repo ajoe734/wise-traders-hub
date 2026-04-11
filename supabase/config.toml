@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.daily-snapshot]
 verify_jwt = false
+
+[functions.cleanup-announcements-cron]
+verify_jwt = false
