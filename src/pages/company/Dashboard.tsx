@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { 
-  Users, DollarSign, Radio, Activity, CreditCard, Clock,
+  Users, DollarSign, Radio, Activity, CreditCard,
   Repeat
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -89,9 +89,6 @@ const CompanyDashboard = () => {
               </Button>
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
                 <Link to="/company/payments"><CreditCard className="h-5 w-5" /><span className="text-xs">金流管理</span></Link>
-              </Button>
-              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-                <Link to="/company/review"><Clock className="h-5 w-5" /><span className="text-xs">內容監管</span></Link>
               </Button>
             </div>
           </CardContent>
