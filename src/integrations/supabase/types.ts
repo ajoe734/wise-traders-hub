@@ -275,6 +275,103 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_price_snapshots: {
+        Row: {
+          change_percent: number | null
+          close_price: number | null
+          created_at: string
+          id: string
+          is_limit_up: boolean
+          limit_up_price: number | null
+          symbol: string
+          trade_date: string
+          volume: number | null
+          yesterday_close: number | null
+        }
+        Insert: {
+          change_percent?: number | null
+          close_price?: number | null
+          created_at?: string
+          id?: string
+          is_limit_up?: boolean
+          limit_up_price?: number | null
+          symbol: string
+          trade_date: string
+          volume?: number | null
+          yesterday_close?: number | null
+        }
+        Update: {
+          change_percent?: number | null
+          close_price?: number | null
+          created_at?: string
+          id?: string
+          is_limit_up?: boolean
+          limit_up_price?: number | null
+          symbol?: string
+          trade_date?: string
+          volume?: number | null
+          yesterday_close?: number | null
+        }
+        Relationships: []
+      }
+      expert_limit_up_hits: {
+        Row: {
+          close_price: number | null
+          created_at: string
+          entry_price: number | null
+          expert_id: string
+          id: string
+          instrument: string | null
+          symbol: string
+          trade_date: string
+          trade_record_id: string | null
+        }
+        Insert: {
+          close_price?: number | null
+          created_at?: string
+          entry_price?: number | null
+          expert_id: string
+          id?: string
+          instrument?: string | null
+          symbol: string
+          trade_date: string
+          trade_record_id?: string | null
+        }
+        Update: {
+          close_price?: number | null
+          created_at?: string
+          entry_price?: number | null
+          expert_id?: string
+          id?: string
+          instrument?: string | null
+          symbol?: string
+          trade_date?: string
+          trade_record_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_limit_up_hits_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_limit_up_hits_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_limit_up_hits_trade_record_id_fkey"
+            columns: ["trade_record_id"]
+            isOneToOne: false
+            referencedRelation: "trade_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_line_channels: {
         Row: {
           channel_access_token: string
@@ -1253,6 +1350,18 @@ export type Database = {
       }
       delete_expired_binding_codes: { Args: never; Returns: undefined }
       delete_old_prices: { Args: never; Returns: undefined }
+      get_weekly_limit_up_leaderboard: {
+        Args: { _end_date?: string; _start_date?: string }
+        Returns: {
+          avatar_url: string
+          expert_id: string
+          expert_name: string
+          expert_slug: string
+          limit_up_count: number
+          weekly_return: number
+          win_rate: number
+        }[]
+      }
       has_active_subscription: {
         Args: { _user_id: string }
         Returns: {
