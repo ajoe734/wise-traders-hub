@@ -87,6 +87,49 @@ function ExpertPerfRow({ sub }: { sub: DbSubscription }) {
   );
 }
 
+function AnnouncementBanner() {
+  const [dismissed, setDismissed] = useState<string | null>(null);
+
+  const { data: announcement } = useQuery({
+    queryKey: ['latest-announcement'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('announcements')
+        .select('id, title, content, published_at')
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
+  if (!announcement || dismissed === announcement.id) return null;
+
+  return (
+    <div className="relative rounded-xl border border-primary/20 bg-primary/5 p-3 animate-fade-in">
+      <button
+        onClick={() => setDismissed(announcement.id)}
+        className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="關閉公告"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+      <div className="flex items-start gap-2.5 pr-6">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <Megaphone className="h-4 w-4 text-primary" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-primary mb-0.5">系統公告</p>
+          <p className="text-sm font-medium">{announcement.title}</p>
+          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{announcement.content}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const AppHome = () => {
   const { user } = useAuth();
 
