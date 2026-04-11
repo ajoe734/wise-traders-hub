@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Radio, Users, UserCog, BarChart3,
   LogOut, Moon, Sun, Building2, FileText, Loader2
 } from 'lucide-react';
+import { NotificationBell } from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
@@ -98,8 +99,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </Badge>
             </div>
           </div>
-          <div className="mt-2">
+          <div className="mt-2 flex items-center justify-between">
             <p className="text-xs text-muted-foreground">分析師後台管理</p>
+            <NotificationBell />
           </div>
         </div>
 
