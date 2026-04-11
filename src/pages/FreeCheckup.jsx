@@ -1351,16 +1351,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:18,fontWeight:400,color:C.text,letterSpacing:"-0.01em"}}>持倉看板</span>
-              <button onClick={refreshPrices} disabled={refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)} style={{
-                background: "transparent",
-                color: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? C.textMute : C.textSec,
-                border:`1px solid ${C.border}`,
-                borderRadius:6, padding:"3px 10px", fontSize:11, fontWeight:400,
-                cursor: (refreshing || (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN)) ? "not-allowed" : "pointer",
-                transition:"all 0.2s", whiteSpace:"nowrap",
-              }}>
-                {refreshing ? "更新中..." : cooldownText ? `${cooldownText}` : "刷新股價"}
-              </button>
               <button onClick={() => setShowResetConfirm(true)} style={{
                 background: "transparent", color: C.textMute, border:`1px solid ${C.border}`,
                 borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
