@@ -11,7 +11,6 @@ export function useExpertPlans(expertId: string | undefined) {
         .select('*')
         .eq('expert_id', expertId)
         .eq('is_active', true)
-        .eq('review_status', 'approved')
         .order('price_monthly');
       if (error) throw error;
       return data || [];

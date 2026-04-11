@@ -46,7 +46,7 @@ export function mapToPersonWithPlans(row: any): PersonWithPlans {
     backtestAnnualReturn: row.backtest_annual_return ?? null,
     startingCapital: row.starting_capital ?? null,
     plans: (row.expert_plans || [])
-      .filter((p: any) => p.is_active && p.review_status === 'approved')
+      .filter((p: any) => p.is_active)
       .map((p: any): Plan => ({
         id: p.id,
         personId: row.id,

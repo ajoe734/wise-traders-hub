@@ -71,7 +71,6 @@ const AppExpertDetail = () => {
         .select("id, plan_type, price_monthly, name, description")
         .eq("expert_id", dbExpert.id)
         .eq("is_active", true)
-        .eq("review_status", "approved")
         .order("price_monthly");
       return (plans || []) as DbPlan[];
     },
