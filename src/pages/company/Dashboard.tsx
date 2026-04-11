@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { 
-  Users, DollarSign, Radio, Activity, CreditCard,
+  Users, DollarSign, Radio, CreditCard,
   Repeat
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -13,7 +13,7 @@ const CompanyDashboard = () => {
   const [expertCount, setExpertCount] = useState(0);
   const [subCount, setSubCount] = useState(0);
   const [signalCount, setSignalCount] = useState(0);
-  const [planCount, setPlanCount] = useState(0);
+  const [refundCount, setRefundCount] = useState(0);
   const [mrr, setMrr] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
 
@@ -23,19 +23,18 @@ const CompanyDashboard = () => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [ecRes, scRes, pcRes, sigRes, subsRes, txRes] = await Promise.all([
+    const [ecRes, scRes, sigRes, subsRes, txRes, refundRes] = await Promise.all([
       supabase.from('experts').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('expert_plans').select('*, experts!inner(status)', { count: 'exact', head: true }).eq('is_active', true).eq('experts.status', 'active'),
       supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published'),
-      // ISSUE-021: MRR only counts auto_renew=true subscriptions (excludes canceled)
       supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active').eq('auto_renew', true),
       supabase.from('payment_transactions').select('amount').eq('status', 'paid').gte('paid_at', monthStart),
+      supabase.from('payment_transactions').select('*', { count: 'exact', head: true }).eq('status', 'refunded').gte('created_at', monthStart),
     ]);
 
     setExpertCount(ecRes.count || 0);
     setSubCount(scRes.count || 0);
-    setPlanCount(pcRes.count || 0);
+    setRefundCount(refundRes.count || 0);
     setSignalCount(sigRes.count || 0);
     setMrr((subsRes.data || []).reduce((s, sub) => s + (sub.expert_plans?.price_monthly || 0), 0));
     setMonthlyRevenue((txRes.data || []).reduce((s, tx) => s + (tx.amount || 0), 0));
@@ -45,7 +44,7 @@ const CompanyDashboard = () => {
     { label: '總分析師數', value: expertCount, icon: Users },
     { label: '活躍訂閱者', value: subCount, icon: Users },
     { label: '已發布訊號', value: signalCount, icon: Radio },
-    { label: '總上架方案數', value: planCount, icon: Activity },
+    { label: '本月退款數', value: refundCount, icon: CreditCard },
     { label: 'MRR', value: `NT$${mrr.toLocaleString()}`, icon: Repeat },
     { label: '本月營收', value: `NT$${monthlyRevenue.toLocaleString()}`, icon: DollarSign },
   ];
