@@ -1,7 +1,7 @@
 import { ReactNode, useMemo, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Home, Radio, BarChart3, User, TrendingUp, LogOut, ChevronRight, Briefcase, ChevronLeft } from 'lucide-react';
+import { Home, Radio, User, TrendingUp, LogOut, ChevronRight, Briefcase, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -30,7 +30,6 @@ const getBreadcrumbConfig = (pathname: string) => {
   const routeLabels: Record<string, string> = {
     signals: '即時訊號',
     holdings: '持倉一覽',
-    performance: '績效統計',
     account: '帳號設定',
   };
 
@@ -54,7 +53,6 @@ const getNavGroup = (pathname: string): string => {
   if (pathname === '/app') return '/app';
   if (pathname === '/app/signals' || pathname.startsWith('/app/signal/')) return '/app/signals';
   if (pathname === '/app/holdings' || pathname.startsWith('/app/holdings')) return '/app/holdings';
-  if (pathname === '/app/performance' || pathname.startsWith('/app/performance')) return '/app/performance';
   if (pathname === '/app/account' || pathname.startsWith('/app/account')) return '/app/account';
   return '/app';
 };
@@ -67,7 +65,6 @@ const bottomNavItems = [
   { href: '/app', icon: Home, label: '戰情室', group: '/app' },
   { href: '/app/signals', icon: Radio, label: '訊號', group: '/app/signals' },
   { href: '/app/holdings', icon: Briefcase, label: '持倉', group: '/app/holdings' },
-  { href: '/app/performance', icon: BarChart3, label: '績效', group: '/app/performance' },
   { href: '/app/account', icon: User, label: '帳號', group: '/app/account' },
 ];
 

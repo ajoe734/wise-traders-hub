@@ -134,7 +134,6 @@ const App = () => (
             <Route path="/app/journal/:id" element={<ProtectedRoute subscriberOnly><AppJournalDetail /></ProtectedRoute>} />
             <Route path="/app/account" element={<ProtectedRoute subscriberOnly><AppAccount /></ProtectedRoute>} />
             <Route path="/app/holdings" element={<Navigate to="/app" replace />} />
-            <Route path="/app/performance" element={<Navigate to="/app" replace />} />
             <Route path="/app/explore" element={<ProtectedRoute subscriberOnly><AppExplore /></ProtectedRoute>} />
             <Route path="/app/expert/:slug" element={<ProtectedRoute subscriberOnly><AppExpertDetail /></ProtectedRoute>} />
             <Route path="/app/checkout/:slug/:planId" element={<ProtectedRoute subscriberOnly><AppCheckout /></ProtectedRoute>} />

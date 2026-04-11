@@ -26,7 +26,6 @@ const getNavGroup = (pathname: string): string => {
   if (pathname === '/app') return '/app';
   if (pathname === '/app/signals' || pathname.startsWith('/app/signal/')) return '/app/signals';
   if (pathname === '/app/journals' || pathname.startsWith('/app/journal/')) return '/app/journals';
-  if (pathname === '/app/performance' || pathname.startsWith('/app/performance')) return '/app/performance';
   if (pathname === '/app/courses' || pathname.startsWith('/app/course/')) return '/app/courses';
   if (pathname === '/app/library' || pathname.startsWith('/app/library')) return '/app/library';
   if (pathname === '/app/account' || pathname.startsWith('/app/account')) return '/app/account';
@@ -66,7 +65,6 @@ const getBreadcrumbConfig = (pathname: string, mode: 'signals' | 'learning' | 'b
   const routeLabels: Record<string, string> = {
     signals: '即時訊號',
     journals: '週記教學',
-    performance: '績效統計',
     courses: '課程系統',
     library: '知識庫',
     account: '帳號設定',
