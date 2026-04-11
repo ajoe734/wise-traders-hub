@@ -29,9 +29,16 @@ import featureFiveFactions from '@/assets/feature-five-factions.png';
 import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
 import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 import { VsBrushMark } from '@/components/VsBrushMark';
-import { WeeklyLimitUpLeaderboard, mockLeaderboardEntries } from '@/components/WeeklyLimitUpLeaderboard';
+import { WeeklyLimitUpLeaderboard } from '@/components/WeeklyLimitUpLeaderboard';
+import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
 import useEmblaCarousel from 'embla-carousel-react';
 import { useCallback, useEffect, useState } from 'react';
+
+
+const WeeklyLimitUpLeaderboardSection = () => {
+  const { data: entries = [], isLoading } = useWeeklyLeaderboard();
+  return <WeeklyLimitUpLeaderboard entries={entries} isLoading={isLoading} />;
+};
 
 
 // Mobile VS Carousel Component - Showcase/Turntable style
@@ -1250,7 +1257,7 @@ const Index = () => {
             <h2 className="text-h2 text-foreground">本週漲停王排行榜</h2>
           </div>
           <div className="max-w-2xl mx-auto">
-            <WeeklyLimitUpLeaderboard entries={mockLeaderboardEntries} />
+            <WeeklyLimitUpLeaderboardSection />
           </div>
         </div>
       </section>

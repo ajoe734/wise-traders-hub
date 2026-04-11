@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.stock-price-sync]
 verify_jwt = false
+
+[functions.daily-snapshot]
+verify_jwt = false
