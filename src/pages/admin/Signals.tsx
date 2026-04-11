@@ -1030,44 +1030,35 @@ const AdminSignals = () => {
                                ) : '-'}
                              </td>
                              <td className="p-3 text-sm" style={{ maxWidth: '200px' }}>
-                                {isTakenDown && signal.taken_down_reason ? (
-                                  <p className="text-primary text-xs truncate overflow-hidden text-ellipsis whitespace-nowrap">
-                                    <span className="font-medium">收回理由：</span>{stripDotPrefix(signal.taken_down_reason)}
-                                 </p>
-                                ) : (
                                   <p className="text-muted-foreground truncate overflow-hidden text-ellipsis whitespace-nowrap">{stripDotPrefix(signal.reason_summary || '-')}</p>
-                                )}
+                              </td>
                              </td>
                                 {isMentor && (
                                   <td className="p-3">
                                     {signal.status === 'pending' ? (
                                       <Badge className="text-xs border border-mentor/40 bg-mentor/10 text-mentor">待發布</Badge>
-                                    ) : signal.status === 'taken_down' ? (
-                                      <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已收回</Badge>
                                     ) : (
                                       <Badge className="text-xs border border-success/40 bg-success/10 text-success">已發布</Badge>
                                     )}
                                   </td>
                                 )}
                                  <td className="p-3">
-                                    {isTakenDown ? (
-                                      <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary">已收回</Badge>
-                                   ) : signal.action === 'exit' ? (
-                                     <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
-                                   ) : ['sell', 'trim'].includes(signal.action) ? (
-                                     openInstruments.has(signal.instrument) ? (
-                                       <Badge className="text-xs border border-amber-400/40 bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">減碼</Badge>
-                                     ) : (
-                                       <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
-                                     )
-                                   ) : signal.action === 'add' ? (
-                                     <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
-                                    ) : signal.action === 'buy' && addBuySignalIds.has(signal.id) ? (
+                                    {signal.action === 'exit' ? (
+                                      <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
+                                    ) : ['sell', 'trim'].includes(signal.action) ? (
+                                      openInstruments.has(signal.instrument) ? (
+                                        <Badge className="text-xs border border-amber-400/40 bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">減碼</Badge>
+                                      ) : (
+                                        <Badge className="text-xs border border-muted-foreground/40 bg-muted text-muted-foreground">已平倉</Badge>
+                                      )
+                                    ) : signal.action === 'add' ? (
                                       <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
-                                    ) : (
-                                      <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
-                                     )}
-                                  </td>
+                                     ) : signal.action === 'buy' && addBuySignalIds.has(signal.id) ? (
+                                       <Badge className="text-xs border border-blue-400/40 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">加碼</Badge>
+                                     ) : (
+                                       <Badge className="text-xs border border-border bg-white text-foreground dark:bg-white dark:text-black">持有中</Badge>
+                                      )}
+                                   </td>
                                <td className="p-3">
                                 <div className="flex items-center gap-1">
                                   {hasDetail && (
@@ -1076,7 +1067,7 @@ const AdminSignals = () => {
                                       {isExpanded ? '收起' : '展開'}
                                     </Button>
                                   )}
-                                   {!isTakenDown && !isReadOnly && (
+                                   {!isReadOnly && (
                                      <Button
                                        size="sm"
                                        variant="ghost"
@@ -1095,13 +1086,7 @@ const AdminSignals = () => {
                              <tr className="border-b last:border-0">
                                <td colSpan={isMentor ? 8 : 7} className="p-0">
                                  <div className="bg-muted/30 px-6 py-3 text-xs space-y-2">
-                                     {isTakenDown && signal.taken_down_reason && (
-                                       <div>
-                                         <span className="font-medium text-primary">收回理由</span>
-                                         <p className="text-primary/90 mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.taken_down_reason)}</p>
-                                      </div>
-                                    )}
-                                    {(signal as any).teaching_topic && (
+                                     {(signal as any).teaching_topic && (
                                       <div>
                                         <span className="font-medium text-foreground">教學主題</span>
                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{(signal as any).teaching_topic}</p>
