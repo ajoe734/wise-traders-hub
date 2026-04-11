@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Users, DollarSign, Radio, CreditCard, UserPlus,
-  Repeat
+  Repeat, Megaphone
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const CompanyDashboard = () => {
   const [expertCount, setExpertCount] = useState(0);
-  const [newSubCount, setNewSubCount] = useState(0);
+  const [activeSubCount, setActiveSubCount] = useState(0);
   const [signalCount, setSignalCount] = useState(0);
   const [refundCount, setRefundCount] = useState(0);
   const [mrr, setMrr] = useState(0);
@@ -23,9 +23,9 @@ const CompanyDashboard = () => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [ecRes, newSubRes, sigRes, subsRes, txRes, refundRes] = await Promise.all([
+    const [ecRes, activeSubRes, sigRes, subsRes, txRes, refundRes] = await Promise.all([
       supabase.from('experts').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-      supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).gte('started_at', monthStart),
+      supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published'),
       supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active').eq('auto_renew', true),
       supabase.from('payment_transactions').select('amount').eq('status', 'paid').gte('paid_at', monthStart),
@@ -33,7 +33,7 @@ const CompanyDashboard = () => {
     ]);
 
     setExpertCount(ecRes.count || 0);
-    setNewSubCount(newSubRes.count || 0);
+    setActiveSubCount(activeSubRes.count || 0);
     setRefundCount(refundRes.count || 0);
     setSignalCount(sigRes.count || 0);
     setMrr((subsRes.data || []).reduce((s, sub) => s + (sub.expert_plans?.price_monthly || 0), 0));
@@ -42,7 +42,7 @@ const CompanyDashboard = () => {
 
   const stats = [
     { label: '總分析師數', value: expertCount, icon: Users },
-    { label: '本月新增訂閱', value: newSubCount, icon: UserPlus },
+    { label: '活躍訂閱者', value: activeSubCount, icon: UserPlus },
     { label: '已發布訊號', value: signalCount, icon: Radio },
     { label: '本月退款數', value: refundCount, icon: CreditCard },
     { label: 'MRR', value: `NT$${mrr.toLocaleString()}`, icon: Repeat },
@@ -88,6 +88,9 @@ const CompanyDashboard = () => {
               </Button>
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
                 <Link to="/company/payments"><CreditCard className="h-5 w-5" /><span className="text-xs">金流管理</span></Link>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+                <Link to="/company/announcements"><Megaphone className="h-5 w-5" /><span className="text-xs">公告管理</span></Link>
               </Button>
             </div>
           </CardContent>
