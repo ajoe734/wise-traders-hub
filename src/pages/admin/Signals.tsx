@@ -208,12 +208,7 @@ const AdminSignals = () => {
         .select('*')
         .eq('expert_id', exp.id)
         .order('created_at', { ascending: false });
-      const fiveMinAgo = Date.now() - 5 * 60 * 1000;
-      const filtered = (s || []).filter(sig => {
-        if (sig.status !== 'taken_down') return true;
-        const publishedTime = sig.published_at ? new Date(sig.published_at).getTime() : 0;
-        return publishedTime > fiveMinAgo;
-      });
+      const filtered = s || [];
       setSignals(filtered);
       const { data: openTrades } = await supabase
         .from('trade_records')
@@ -531,7 +526,6 @@ const AdminSignals = () => {
     const sorted = [...signals].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     const openPositions = new Map<string, boolean>();
     for (const s of sorted) {
-      if (s.status === 'taken_down') continue;
       const inst = s.instrument;
       if (s.action === 'buy') {
         if (openPositions.get(inst)) {
@@ -554,11 +548,10 @@ const AdminSignals = () => {
 
   // Multi-condition search: conditions separated by "、"
   const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
-  const statusOnlyKeywords = ['持有中', '已平倉', '已收回', '待發布'];
+  const statusOnlyKeywords = ['持有中', '已平倉', '待發布'];
 
   const getDisplayStatus = (s: any) => {
     if (s.status === 'pending') return '待發布';
-    if (s.status === 'taken_down') return '已收回';
     if (s.action === 'exit') return '已平倉';
     if (['sell', 'trim'].includes(s.action)) return openInstruments.has(s.instrument) ? '減碼' : '已平倉';
     if (s.action === 'add') return '加碼';
@@ -597,7 +590,6 @@ const AdminSignals = () => {
     const sorted = [...filtered].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
     for (const s of sorted) {
-      if (s.status === 'taken_down') continue;
 
       const inst = s.instrument;
       const qty = s.quantity || 1;
@@ -1020,14 +1012,10 @@ const AdminSignals = () => {
                      filtered.map((signal) => {
                        const ai = actionLabels[signal.action] || actionLabels.buy;
                        const isExpanded = expandedId === signal.id;
-                       const isTakenDown = signal.status === 'taken_down';
-                       const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points || (isTakenDown && signal.taken_down_reason);
+                       const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points;
                        return (
                          <React.Fragment key={signal.id}>
-                            <tr className={cn(
-                              "border-b last:border-0 hover:bg-muted/30",
-                              isTakenDown && "opacity-40"
-                            )}>
+                            <tr className="border-b last:border-0 hover:bg-muted/30">
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                              <td className="p-3 text-sm font-medium">{signal.instrument}</td>
                              <td className="p-3"><Badge className={`${ai.className} text-xs`}>{ai.label}</Badge></td>
