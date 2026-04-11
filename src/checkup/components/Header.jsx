@@ -119,22 +119,6 @@ export default function Header(props) {
           'button',
           {
             className: 'ui-btn',
-            onClick: refreshPrices,
-            disabled: refreshing,
-            style: {
-              background: refreshing ? C.subtle : alpha(C.blue, A.faint),
-              color: refreshing ? C.textMute : C.blue,
-              border: `1px solid ${refreshing ? C.border : alpha(C.blue, A.strongLine)}`,
-              ...ghostBtn,
-              cursor: refreshing ? 'not-allowed' : 'pointer',
-            },
-          },
-          refreshing ? '同步中...' : '⟳ 收盤價'
-        ),
-        h(
-          'button',
-          {
-            className: 'ui-btn',
             onClick: copyWeeklyReport,
             style: {
               background: C.lavBg,
