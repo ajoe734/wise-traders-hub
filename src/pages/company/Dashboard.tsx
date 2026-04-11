@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { 
-  DollarSign, Radio, CreditCard, UserPlus,
+  Users, DollarSign, Radio, CreditCard, UserPlus,
   Repeat
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
