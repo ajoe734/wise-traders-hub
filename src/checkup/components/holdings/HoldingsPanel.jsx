@@ -495,39 +495,11 @@ export function HoldingsPanel({
   showReversal: _showReversal = false,
   setShowReversal: _setShowReversal = () => {},
   reversalConditions: _reversalConditions = {},
-  refreshPrices,
-  refreshing = false,
   children,
 }) {
   return h(
     'div',
     null,
-    // Refresh button
-    refreshPrices &&
-      h(
-        'div',
-        { style: { display: 'flex', justifyContent: 'flex-end', marginBottom: 8 } },
-        h(
-          'button',
-          {
-            onClick: refreshPrices,
-            disabled: refreshing,
-            style: {
-              fontSize: 11,
-              padding: '5px 12px',
-              borderRadius: 6,
-              border: `1px solid ${alpha(C.textMute, '20')}`,
-              background: refreshing ? alpha(C.textMute, '08') : 'transparent',
-              color: refreshing ? C.textMute : C.textSec,
-              cursor: refreshing ? 'not-allowed' : 'pointer',
-              fontWeight: 400,
-              letterSpacing: '0.04em',
-              transition: 'all 0.2s ease',
-            },
-          },
-          refreshing ? '同步中…' : '刷新報價'
-        )
-      ),
     h(HoldingsSummary, { holdings, totalVal, totalCost }),
     h(HoldingsIntegrityWarning, { issues: holdingsIntegrityIssues }),
     h(PortfolioHealthCheck, { holdings }),
