@@ -96,7 +96,6 @@ const ExpertProfile = () => {
         .select('id, name, plan_type, price_monthly, price_yearly, description, features')
         .eq('expert_id', expert.id)
         .eq('is_active', true)
-        .eq('review_status', 'approved')
         .order('price_monthly');
 
       setDbPlans(plans || []);

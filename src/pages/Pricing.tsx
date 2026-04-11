@@ -54,8 +54,7 @@ const Pricing = () => {
       const { data } = await supabase
         .from('expert_plans')
         .select('plan_type, price_monthly')
-        .eq('is_active', true)
-        .eq('review_status', 'approved');
+        .eq('is_active', true);
       if (data && data.length > 0) {
         // Group by plan_type category and find lowest price
         const advisorPlans = data.filter(p => p.plan_type.startsWith('analyst_'));

@@ -438,10 +438,6 @@ export type Database = {
           plan_type: Database["public"]["Enums"]["plan_type"]
           price_monthly: number
           price_yearly: number | null
-          review_note: string | null
-          review_status: Database["public"]["Enums"]["review_status"]
-          reviewed_at: string | null
-          reviewed_by: string | null
         }
         Insert: {
           created_at?: string
@@ -454,10 +450,6 @@ export type Database = {
           plan_type: Database["public"]["Enums"]["plan_type"]
           price_monthly?: number
           price_yearly?: number | null
-          review_note?: string | null
-          review_status?: Database["public"]["Enums"]["review_status"]
-          reviewed_at?: string | null
-          reviewed_by?: string | null
         }
         Update: {
           created_at?: string
@@ -470,10 +462,6 @@ export type Database = {
           plan_type?: Database["public"]["Enums"]["plan_type"]
           price_monthly?: number
           price_yearly?: number | null
-          review_note?: string | null
-          review_status?: Database["public"]["Enums"]["review_status"]
-          reviewed_at?: string | null
-          reviewed_by?: string | null
         }
         Relationships: [
           {
@@ -1398,7 +1386,6 @@ export type Database = {
         | "analyst_signal_diag_l2"
         | "mentor_weekly_journal"
       provider_type: "ecpay" | "newebpay" | "stripe" | "line_pay" | "acpay"
-      review_status: "draft" | "pending" | "approved" | "rejected"
       signal_action: "buy" | "sell" | "add" | "trim" | "exit"
       signal_status: "published" | "taken_down" | "pending"
       subscription_status: "active" | "canceled" | "expired"
@@ -1540,7 +1527,6 @@ export const Constants = {
         "mentor_weekly_journal",
       ],
       provider_type: ["ecpay", "newebpay", "stripe", "line_pay", "acpay"],
-      review_status: ["draft", "pending", "approved", "rejected"],
       signal_action: ["buy", "sell", "add", "trim", "exit"],
       signal_status: ["published", "taken_down", "pending"],
       subscription_status: ["active", "canceled", "expired"],

@@ -127,7 +127,6 @@ Deno.serve(async (req) => {
         expert_id: expert.id,
         ...planDefaults,
         is_active: true,
-        review_status: 'approved',
       })
 
       // 6. Audit log
