@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Users, DollarSign, Radio, CreditCard, UserPlus,
-  Repeat
+  Repeat, Megaphone
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
