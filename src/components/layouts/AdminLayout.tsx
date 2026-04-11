@@ -11,7 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
-import { NotificationBell } from '@/components/NotificationBell';
+
 
 interface AdminLayoutProps {
   children: ReactNode;
