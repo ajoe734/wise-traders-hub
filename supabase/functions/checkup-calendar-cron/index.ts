@@ -130,27 +130,33 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // 1. 讀取目前持倉
-    const { data: holdingsRow } = await supabase
+    // 0. 取得所有有持倉的使用者
+    const { data: allHoldings } = await supabase
       .from('checkup_storage')
-      .select('data')
-      .eq('key', 'pf-calendar-holdings')
-      .maybeSingle();
+      .select('user_id, data')
+      .eq('key', 'pf-calendar-holdings');
 
-    if (!holdingsRow?.data?.stocks) {
-      console.log('Cron: No holdings found, skipping');
-      return new Response(JSON.stringify({ status: 'skipped', reason: 'no holdings' }), {
+    const usersWithHoldings = (allHoldings || []).filter((r: any) => r.data?.stocks && r.user_id !== '00000000-0000-0000-0000-000000000000');
+    if (usersWithHoldings.length === 0) {
+      console.log('Cron: No users with holdings found, skipping');
+      return new Response(JSON.stringify({ status: 'skipped', reason: 'no users with holdings' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const stocks = holdingsRow.data.stocks;
-    const holdingCodes = holdingsRow.data.holdingCodes || '';
+    let totalAdded = 0;
+    let totalPredicted = 0;
+
+    for (const holdingsRow of usersWithHoldings) {
+      const userId = holdingsRow.user_id;
+      const stocks = holdingsRow.data.stocks;
+      const holdingCodes = holdingsRow.data.holdingCodes || '';
 
     // 2. 讀取現有行事曆事件
     const { data: calRow } = await supabase
       .from('checkup_storage')
       .select('data')
+      .eq('user_id', userId)
       .eq('key', 'pf-calendar-v1')
       .maybeSingle();
 
@@ -225,18 +231,14 @@ ${outputFormat}
 
     const result = await callGeminiWithGrounding(apiKey, prompt);
     if (!result.ok) {
-      console.error('Cron: Gemini call failed');
-      return new Response(JSON.stringify({ status: 'error', reason: 'Gemini failed' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.error(`Cron: Gemini call failed for user ${userId}`);
+      continue;
     }
 
     const newEvents = tryParseEvents(result.text);
     if (!newEvents) {
-      console.error('Cron: Failed to parse events');
-      return new Response(JSON.stringify({ status: 'error', reason: 'parse failed' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.error(`Cron: Failed to parse events for user ${userId}`);
+      continue;
     }
 
     // 4. 合併去重
@@ -256,11 +258,13 @@ ${outputFormat}
 
     // 5. 儲存回 checkup_storage
     await supabase.from('checkup_storage').upsert({
+      user_id: userId,
       key: 'pf-calendar-v1',
       data: { events: merged, holdingCodes },
-    });
+    }, { onConflict: 'user_id,key' });
 
-    console.log(`Cron: Calendar done. Existing: ${existingEvents.length}, New: ${addedCount}, Total: ${merged.length}`);
+    console.log(`Cron: Calendar done for user ${userId}. Existing: ${existingEvents.length}, New: ${addedCount}, Total: ${merged.length}`);
+    totalAdded += addedCount;
 
     // ── 6. 自動預測 7 天內的 pending 事件 ──
     let predictedCount = 0;
