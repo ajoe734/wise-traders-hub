@@ -204,7 +204,7 @@ const Checkout = () => {
 
       // Fetch active payment providers
       const { data: providerData } = await supabase
-        .from('payment_providers')
+        .from('payment_providers_safe')
         .select('id, display_name, provider_type, is_active, is_default')
         .eq('is_active', true)
         .order('is_default', { ascending: false });
