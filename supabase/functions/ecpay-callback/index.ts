@@ -112,6 +112,19 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Idempotency check: prevent duplicate processing
+    const txId = ecpayTxId || tradeNo;
+    const { data: existingTx } = await supabase
+      .from("payment_transactions")
+      .select("id")
+      .eq("provider_tx_id", txId)
+      .eq("status", "paid");
+
+    if (existingTx && existingTx.length > 0) {
+      console.log("ECPay duplicate notification for:", txId);
+      return new Response("1|OK", { status: 200 });
+    }
+
     // Get ECPay provider
     const { data: provider } = await supabase
       .from("payment_providers")

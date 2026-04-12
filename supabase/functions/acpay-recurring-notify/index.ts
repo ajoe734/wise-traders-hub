@@ -109,6 +109,20 @@ Deno.serve(async (req) => {
       .eq("is_active", true)
       .single();
 
+    // Idempotency check: prevent duplicate processing of same transaction
+    const { data: existingTx } = await supabase
+      .from("payment_transactions")
+      .select("id")
+      .eq("provider_tx_id", transactionId)
+      .eq("status", "paid");
+
+    if (existingTx && existingTx.length > 0) {
+      console.log("ACREC duplicate notification for:", transactionId);
+      return new Response(JSON.stringify({ err_code: "0", err_msg: "成功" }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Find active subscription and extend expiry
     let subscriptionId: string | null = null;
     if (userId && planId) {

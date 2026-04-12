@@ -37,8 +37,19 @@ serve(async (req) => {
     }
 
     const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/free-checkup';
-    const normalizedAppOrigin = appOrigin && /^https?:\/\//.test(appOrigin) ? appOrigin : '';
-    const siteUrl = normalizedAppOrigin || Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
+
+    // Open Redirect protection: whitelist allowed origins
+    const ALLOWED_ORIGINS = [
+      'https://wise-traders-hub.lovable.app',
+      'https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app',
+    ];
+    const fallbackSiteUrl = Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
+    let siteUrl = fallbackSiteUrl;
+    if (appOrigin && ALLOWED_ORIGINS.includes(appOrigin)) {
+      siteUrl = appOrigin;
+    } else if (appOrigin) {
+      console.warn('[LINE-CB-FN] Rejected untrusted app_origin:', appOrigin);
+    }
     console.log('[LINE-CB-FN] Resolved siteUrl:', siteUrl, 'safeReturnTo:', safeReturnTo);
 
     if (error || !code) {
