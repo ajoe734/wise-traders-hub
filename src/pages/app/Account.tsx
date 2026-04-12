@@ -170,19 +170,17 @@ const Account = () => {
       (new Date(sub.expires_at).getTime() - startedAt.getTime()) > 180 * 86400000);
 
     if (!isYearly) {
-      // Monthly: no refund, service until end of current month
       return { isYearly: false, refundAmount: 0, remainingMonths: 0, originalAmount: sub.plan.price_monthly, monthlyPrice: sub.plan.price_monthly };
     }
 
-    // Yearly: refund = monthly_price * remaining full months (from next month)
+    // Yearly: refund = monthly_price * remaining full months (from next month to expiry)
     const yearlyAmount = sub.plan.price_yearly || sub.plan.price_monthly * 12;
     const monthlyPrice = Math.floor(yearlyAmount / 12);
-    // Calculate how many full months remain from next month to year end
     const expiresAt = new Date(sub.expires_at!);
-    const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    // Remaining full months = months between end of current month and expires_at
-    const remainingMs = expiresAt.getTime() - endOfCurrentMonth.getTime();
-    const remainingMonths = Math.max(0, Math.floor(remainingMs / (30 * 86400000)));
+    // Start of next month (the first day the user will NOT be using the service)
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    // Use calendar-aware month difference to avoid 28/29/30/31-day drift
+    const remainingMonths = Math.max(0, differenceInMonths(expiresAt, nextMonthStart));
     const refundAmount = monthlyPrice * remainingMonths;
     return { isYearly: true, refundAmount, remainingMonths, originalAmount: yearlyAmount, monthlyPrice };
   };
