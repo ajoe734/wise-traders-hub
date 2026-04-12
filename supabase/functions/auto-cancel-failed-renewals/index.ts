@@ -41,11 +41,13 @@ Deno.serve(async (req) => {
     console.log("Checking failed renewals before deadline:", deadlineUTC.toISOString());
 
     // Find audit_logs for payment_failure_notification where isRenewal = true
-    // and created_at is before the deadline
+    // Only look back 7 days to prevent scanning entire history
+    const lookbackDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const { data: failureLogs, error: logErr } = await supabase
       .from("audit_logs")
       .select("actor_id, target_id, created_at, detail")
       .eq("action", "payment_failure_notification")
+      .gte("created_at", lookbackDate.toISOString())
       .lte("created_at", deadlineUTC.toISOString());
 
     if (logErr) throw logErr;
