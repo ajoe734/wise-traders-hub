@@ -30,19 +30,19 @@ function getSupabaseAdmin() {
 
 async function getCachedPrediction(supabase: any, eventId: string): Promise<any | null> {
   try {
+    const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
     const cacheKey = `prediction-cache-${eventId}`;
     const { data } = await supabase
       .from('checkup_storage')
       .select('data, updated_at')
+      .eq('user_id', SYSTEM_UID)
       .eq('key', cacheKey)
       .single();
 
     if (!data) return null;
-
     const updatedAt = new Date(data.updated_at).getTime();
     const now = Date.now();
     const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-
     if (now - updatedAt < TWENTY_FOUR_HOURS) {
       console.log(`Cache hit for event ${eventId}`);
       return data.data;
@@ -55,10 +55,11 @@ async function getCachedPrediction(supabase: any, eventId: string): Promise<any 
 
 async function setCachedPrediction(supabase: any, eventId: string, prediction: any) {
   try {
+    const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
     const cacheKey = `prediction-cache-${eventId}`;
     await supabase
       .from('checkup_storage')
-      .upsert({ key: cacheKey, data: prediction, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      .upsert({ user_id: SYSTEM_UID, key: cacheKey, data: prediction, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
   } catch (err) {
     console.error('Cache write error:', err);
   }
