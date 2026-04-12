@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { User, MessageCircle, Calendar, ExternalLink, Radio, Settings, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, differenceInMonths } from 'date-fns';
 import { LineBindingCard } from '@/components/LineBindingCard';
 import { supabase } from '@/integrations/supabase/client';
 
