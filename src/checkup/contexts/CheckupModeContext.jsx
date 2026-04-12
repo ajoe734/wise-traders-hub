@@ -62,6 +62,7 @@ export function CheckupModeProvider({ children }) {
       const { data: countRow } = await supabase
         .from('checkup_storage')
         .select('data')
+        .eq('user_id', user.id)
         .eq('key', countKey)
         .maybeSingle()
       setUploadCountToday(countRow?.data?.count || 0)
