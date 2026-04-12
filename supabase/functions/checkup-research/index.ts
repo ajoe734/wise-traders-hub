@@ -60,6 +60,20 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // Extract user_id from JWT
+  const authHeader = req.headers.get('authorization') || '';
+  const token = authHeader.replace('Bearer ', '');
+  let userId: string | null = null;
+  try {
+    const { data: { user } } = await supabase.auth.getUser(token);
+    userId = user?.id || null;
+  } catch {}
+  if (!userId) {
+    return new Response(JSON.stringify({ error: '未認證' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const body = await req.json();
     const { action, code, name, holdings, brain, dossier, researchHistory } = body;
@@ -100,13 +114,14 @@ ${brainContext}
       const { data: existing } = await supabase
         .from('checkup_storage')
         .select('data')
+        .eq('user_id', userId)
         .eq('key', 'research-history')
         .maybeSingle();
       const history = Array.isArray(existing?.data) ? existing.data : [];
       const updated = [report, ...history].slice(0, 30);
       await supabase
         .from('checkup_storage')
-        .upsert({ key: 'research-history', data: updated, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+        .upsert({ user_id: userId, key: 'research-history', data: updated, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
 
       return new Response(JSON.stringify({ text, report }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -144,6 +159,7 @@ ${JSON.stringify(researchHistory?.slice(0, 5) || [], null, 2)}
       const { data } = await supabase
         .from('checkup_storage')
         .select('data')
+        .eq('user_id', userId)
         .eq('key', 'research-history')
         .maybeSingle();
       return new Response(JSON.stringify({ history: data?.data || [] }), {
