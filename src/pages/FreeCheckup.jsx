@@ -123,11 +123,13 @@ const CLOUD_SYNC_KEYS = [
   "pf-analysis-history-v1", "pf-reversal-v1", "pf-brain-v1", "pf-calendar-v1",
 ];
 
-async function loadAllFromCloud() {
+async function loadAllFromCloud(userId) {
+  if (!userId) return {};
   try {
     const { data: rows } = await supabase
       .from("checkup_storage")
       .select("key, data")
+      .eq("user_id", userId)
       .in("key", CLOUD_SYNC_KEYS);
     const map = {};
     (rows || []).forEach(r => { map[r.key] = r.data; });
@@ -142,13 +144,18 @@ function loadLocal(key, fallback) {
   } catch { return fallback; }
 }
 
-async function save(key, data) {
+let _currentUserId = null;
+function setCurrentUserId(uid) { _currentUserId = uid; }
+
+async function save(key, data, userId) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+  const uid = userId || _currentUserId;
+  if (!uid) return;
   // 雲端同步（fire-and-forget）
   try {
     supabase.from("checkup_storage").upsert(
-      { key, data: data ?? {}, updated_at: new Date().toISOString() },
-      { onConflict: "key" }
+      { user_id: uid, key, data: data ?? {}, updated_at: new Date().toISOString() },
+      { onConflict: "user_id,key" }
     ).then(() => {});
   } catch {}
 }
@@ -374,6 +381,10 @@ export default function App() {
       }
 
       // ── 雲端優先：批次載入所有 pf-* key ──
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const userId = currentUser?.id;
+      if (userId) setCurrentUserId(userId);
+
       const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
       if (wasReset) {
         sessionStorage.removeItem("pf-reset-flag");
@@ -381,8 +392,8 @@ export default function App() {
       }
 
       let cloud = {};
-      if (!wasReset) {
-        cloud = await loadAllFromCloud();
+      if (!wasReset && userId) {
+        cloud = await loadAllFromCloud(userId);
       }
 
       const pick = (key, fallback) => {
@@ -455,20 +466,24 @@ export default function App() {
     if (ready && holdings && !isDemo) {
       save("pf-holdings-v2", holdings);
       // 同步持倉代碼到雲端供定時任務使用
-      const codes = holdings.map(h => `${h.code} ${h.name}`).join("、");
-      const codesKey = holdings.map(h => h.code).sort().join(",");
-      supabase.from("checkup_storage").upsert({ key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }).then(() => {});
+      const uid = _currentUserId;
+      if (uid) {
+        const codes = holdings.map(h => `${h.code} ${h.name}`).join("、");
+        const codesKey = holdings.map(h => h.code).sort().join(",");
+        supabase.from("checkup_storage").upsert({ user_id: uid, key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }, { onConflict: "user_id,key" }).then(() => {});
+      }
     }
   }, [holdings, ready, isDemo]);
   // tradeLog 存到 Supabase（不再只存 localStorage）
   const saveTradeLogToCloud = async (logs) => {
-    if (!logs) return;
+    if (!logs || !_currentUserId) return;
     try {
       // 先清空舊資料再批次插入
       await supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
       if (logs.length > 0) {
         const rows = logs.map(l => ({
           ...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
+          user_id: _currentUserId,
           trade_date: l.date || null,
           trade_time: l.time || null,
           action: l.action || null,
@@ -1270,14 +1285,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setShowResetConfirm(false);
 
     // 雲端清空所有 pf-* key
-    CLOUD_SYNC_KEYS.forEach(k => {
-      const emptyVal = k === "pf-calendar-v1" ? { events: [], holdingCodes: "" }
-        : k === "pf-brain-v1" ? {} : (k.includes("history") || k.includes("news") ? [] : {});
-      supabase.from("checkup_storage").upsert({ key: k, data: emptyVal, updated_at: new Date().toISOString() }, { onConflict: "key" }).then(() => {}).catch(() => {});
-    });
-    supabase.from("checkup_storage").upsert({ key: "pf-calendar-holdings", data: { stocks: "", holdingCodes: "" }, updated_at: new Date().toISOString() }, { onConflict: "key" }).then(() => {}).catch(() => {});
-    // 清除雲端交易備忘錄
-    supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000").then(() => {}).catch(() => {});
+    const uid = _currentUserId;
+    if (uid) {
+      CLOUD_SYNC_KEYS.forEach(k => {
+        const emptyVal = k === "pf-calendar-v1" ? { events: [], holdingCodes: "" }
+          : k === "pf-brain-v1" ? {} : (k.includes("history") || k.includes("news") ? [] : {});
+        supabase.from("checkup_storage").upsert({ user_id: uid, key: k, data: emptyVal, updated_at: new Date().toISOString() }, { onConflict: "user_id,key" }).then(() => {}).catch(() => {});
+      });
+      supabase.from("checkup_storage").upsert({ user_id: uid, key: "pf-calendar-holdings", data: { stocks: "", holdingCodes: "" }, updated_at: new Date().toISOString() }, { onConflict: "user_id,key" }).then(() => {}).catch(() => {});
+      // 清除雲端交易備忘錄
+      supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000").then(() => {}).catch(() => {});
+    }
 
     setSaved("🗑️ 已全部清除");
     setTimeout(() => setSaved(""), 2500);

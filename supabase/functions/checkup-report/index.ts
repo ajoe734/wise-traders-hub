@@ -19,11 +19,24 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // Extract user_id from JWT
+  const authHeader = req.headers.get('authorization') || '';
+  const token = authHeader.replace('Bearer ', '');
+  let userId: string | null = null;
+  try {
+    const { data: { user } } = await supabase.auth.getUser(token);
+    userId = user?.id || null;
+  } catch {}
+  if (!userId) {
+    return new Response('未認證', { status: 401, headers: corsHeaders });
+  }
+
   try {
     const keys = ['strategy-brain', 'analysis-history', 'events', 'pf-holdings-v2'];
     const { data: rows } = await supabase
       .from('checkup_storage')
       .select('key, data')
+      .eq('user_id', userId)
       .in('key', keys);
 
     const map: Record<string, any> = {};

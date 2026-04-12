@@ -130,27 +130,33 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // 1. 讀取目前持倉
-    const { data: holdingsRow } = await supabase
+    // 0. 取得所有有持倉的使用者
+    const { data: allHoldings } = await supabase
       .from('checkup_storage')
-      .select('data')
-      .eq('key', 'pf-calendar-holdings')
-      .maybeSingle();
+      .select('user_id, data')
+      .eq('key', 'pf-calendar-holdings');
 
-    if (!holdingsRow?.data?.stocks) {
-      console.log('Cron: No holdings found, skipping');
-      return new Response(JSON.stringify({ status: 'skipped', reason: 'no holdings' }), {
+    const usersWithHoldings = (allHoldings || []).filter((r: any) => r.data?.stocks && r.user_id !== '00000000-0000-0000-0000-000000000000');
+    if (usersWithHoldings.length === 0) {
+      console.log('Cron: No users with holdings found, skipping');
+      return new Response(JSON.stringify({ status: 'skipped', reason: 'no users with holdings' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const stocks = holdingsRow.data.stocks;
-    const holdingCodes = holdingsRow.data.holdingCodes || '';
+    let totalAdded = 0;
+    let totalPredicted = 0;
+
+    for (const holdingsRow of usersWithHoldings) {
+      const userId = holdingsRow.user_id;
+      const stocks = holdingsRow.data.stocks;
+      const holdingCodes = holdingsRow.data.holdingCodes || '';
 
     // 2. 讀取現有行事曆事件
     const { data: calRow } = await supabase
       .from('checkup_storage')
       .select('data')
+      .eq('user_id', userId)
       .eq('key', 'pf-calendar-v1')
       .maybeSingle();
 
@@ -225,18 +231,14 @@ ${outputFormat}
 
     const result = await callGeminiWithGrounding(apiKey, prompt);
     if (!result.ok) {
-      console.error('Cron: Gemini call failed');
-      return new Response(JSON.stringify({ status: 'error', reason: 'Gemini failed' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.error(`Cron: Gemini call failed for user ${userId}`);
+      continue;
     }
 
     const newEvents = tryParseEvents(result.text);
     if (!newEvents) {
-      console.error('Cron: Failed to parse events');
-      return new Response(JSON.stringify({ status: 'error', reason: 'parse failed' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.error(`Cron: Failed to parse events for user ${userId}`);
+      continue;
     }
 
     // 4. 合併去重
@@ -256,11 +258,13 @@ ${outputFormat}
 
     // 5. 儲存回 checkup_storage
     await supabase.from('checkup_storage').upsert({
+      user_id: userId,
       key: 'pf-calendar-v1',
       data: { events: merged, holdingCodes },
-    });
+    }, { onConflict: 'user_id,key' });
 
-    console.log(`Cron: Calendar done. Existing: ${existingEvents.length}, New: ${addedCount}, Total: ${merged.length}`);
+    console.log(`Cron: Calendar done for user ${userId}. Existing: ${existingEvents.length}, New: ${addedCount}, Total: ${merged.length}`);
+    totalAdded += addedCount;
 
     // ── 6. 自動預測 7 天內的 pending 事件 ──
     let predictedCount = 0;
@@ -274,6 +278,7 @@ ${outputFormat}
       const { data: newsRow } = await supabase
         .from('checkup_storage')
         .select('data')
+        .eq('user_id', userId)
         .eq('key', 'pf-news-events-v1')
         .maybeSingle();
 
@@ -288,9 +293,8 @@ ${outputFormat}
       });
 
       if (needsPrediction.length > 0) {
-        console.log(`Cron: Found ${needsPrediction.length} events needing prediction`);
+        console.log(`Cron: Found ${needsPrediction.length} events needing prediction for user ${userId}`);
 
-        // 呼叫 checkup-predict-events edge function
         const predictRes = await fetch(`${supabaseUrl}/functions/v1/checkup-predict-events`, {
           method: 'POST',
           headers: {
@@ -305,7 +309,7 @@ ${outputFormat}
               detail: e.detail || e.sub || '',
               stocks: e.stocks || [],
             })),
-            holdings: stocks.map((s: any) => ({
+            holdings: typeof stocks === 'string' ? [] : stocks.map((s: any) => ({
               code: s.code,
               name: s.name,
               costPrice: s.costPrice,
@@ -318,7 +322,6 @@ ${outputFormat}
           const predData = await predictRes.json();
           const preds = predData.predictions || [];
 
-          // 更新 newsEvents 中對應事件的狀態
           const updatedNews = [...newsEvents];
           needsPrediction.forEach((e: any, i: number) => {
             const idx = updatedNews.findIndex((x: any) => x.id === e.id);
@@ -333,30 +336,27 @@ ${outputFormat}
             predictedCount++;
           });
 
-          // 儲存回 checkup_storage
           await supabase.from('checkup_storage').upsert({
+            user_id: userId,
             key: 'pf-news-events-v1',
             data: updatedNews,
-          });
+          }, { onConflict: 'user_id,key' });
 
-          console.log(`Cron: Predicted ${predictedCount} events`);
-        } else {
-          const errText = await predictRes.text();
-          console.error(`Cron: Predict call failed (${predictRes.status}):`, errText.slice(0, 200));
+          console.log(`Cron: Predicted ${predictedCount} events for user ${userId}`);
         }
-      } else {
-        console.log('Cron: No pending events in 7-day window');
       }
     } catch (predErr) {
       console.error('Cron: Prediction step error:', predErr);
     }
 
+    totalPredicted += predictedCount;
+    } // end for each user
+
     return new Response(JSON.stringify({
       status: 'ok',
-      existing: existingEvents.length,
-      added: addedCount,
-      total: merged.length,
-      predicted: predictedCount,
+      usersProcessed: usersWithHoldings.length,
+      totalAdded,
+      totalPredicted,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

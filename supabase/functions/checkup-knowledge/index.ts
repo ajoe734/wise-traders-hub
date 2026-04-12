@@ -23,10 +23,12 @@ Deno.serve(async (req) => {
       const category = url.searchParams.get('category');
       const stockId = url.searchParams.get('stockId');
 
+      const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
       if (action === 'search' && q) {
         const { data: rows } = await supabase
           .from('checkup_storage')
           .select('key, data')
+          .eq('user_id', SYSTEM_UID)
           .like('key', 'knowledge-%');
 
         const results: any[] = [];
@@ -51,6 +53,7 @@ Deno.serve(async (req) => {
         const { data: row } = await supabase
           .from('checkup_storage')
           .select('data')
+          .eq('user_id', SYSTEM_UID)
           .eq('key', 'knowledge-strategy-cases')
           .maybeSingle();
         const items = (row?.data as any)?.items || [];
@@ -66,6 +69,7 @@ Deno.serve(async (req) => {
         const { data: rows } = await supabase
           .from('checkup_storage')
           .select('key, data')
+          .eq('user_id', SYSTEM_UID)
           .like('key', 'knowledge-%');
         const stats = (rows || []).map(r => {
           const d = r.data as any;
@@ -86,12 +90,12 @@ Deno.serve(async (req) => {
       if (action === 'add' && category && item) {
         const key = `knowledge-${category}`;
         const { data: existing } = await supabase
-          .from('checkup_storage').select('data').eq('key', key).maybeSingle();
+          .from('checkup_storage').select('data').eq('user_id', SYSTEM_UID).eq('key', key).maybeSingle();
         const d = (existing?.data as any) || { category, name: category, items: [] };
         d.items = [...(d.items || []), { ...item, id: `${Date.now()}`, createdAt: new Date().toISOString().split('T')[0] }];
         await supabase.from('checkup_storage').upsert(
-          { key, data: d, updated_at: new Date().toISOString() },
-          { onConflict: 'key' }
+          { user_id: SYSTEM_UID, key, data: d, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,key' }
         );
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
