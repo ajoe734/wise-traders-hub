@@ -123,11 +123,13 @@ const CLOUD_SYNC_KEYS = [
   "pf-analysis-history-v1", "pf-reversal-v1", "pf-brain-v1", "pf-calendar-v1",
 ];
 
-async function loadAllFromCloud() {
+async function loadAllFromCloud(userId) {
+  if (!userId) return {};
   try {
     const { data: rows } = await supabase
       .from("checkup_storage")
       .select("key, data")
+      .eq("user_id", userId)
       .in("key", CLOUD_SYNC_KEYS);
     const map = {};
     (rows || []).forEach(r => { map[r.key] = r.data; });
@@ -142,13 +144,18 @@ function loadLocal(key, fallback) {
   } catch { return fallback; }
 }
 
-async function save(key, data) {
+let _currentUserId = null;
+function setCurrentUserId(uid) { _currentUserId = uid; }
+
+async function save(key, data, userId) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+  const uid = userId || _currentUserId;
+  if (!uid) return;
   // 雲端同步（fire-and-forget）
   try {
     supabase.from("checkup_storage").upsert(
-      { key, data: data ?? {}, updated_at: new Date().toISOString() },
-      { onConflict: "key" }
+      { user_id: uid, key, data: data ?? {}, updated_at: new Date().toISOString() },
+      { onConflict: "user_id,key" }
     ).then(() => {});
   } catch {}
 }
