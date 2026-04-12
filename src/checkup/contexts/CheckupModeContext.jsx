@@ -100,10 +100,11 @@ export function CheckupModeProvider({ children }) {
     const newCount = uploadCountToday + 1
     setUploadCountToday(newCount)
     await supabase.from('checkup_storage').upsert({
+      user_id: supabaseUser.id,
       key: countKey,
       data: { count: newCount },
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'key' })
+    }, { onConflict: 'user_id,key' })
   }
 
   // Demo data for unauthenticated users
