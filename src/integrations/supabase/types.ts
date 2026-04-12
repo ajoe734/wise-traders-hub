@@ -163,16 +163,19 @@ export type Database = {
           data: Json
           key: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           data?: Json
           key: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           data?: Json
           key?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -188,6 +191,7 @@ export type Database = {
           qty: number | null
           trade_date: string | null
           trade_time: string | null
+          user_id: string
         }
         Insert: {
           action?: string | null
@@ -200,6 +204,7 @@ export type Database = {
           qty?: number | null
           trade_date?: string | null
           trade_time?: string | null
+          user_id: string
         }
         Update: {
           action?: string | null
@@ -212,6 +217,7 @@ export type Database = {
           qty?: number | null
           trade_date?: string | null
           trade_time?: string | null
+          user_id?: string
         }
         Relationships: []
       }
