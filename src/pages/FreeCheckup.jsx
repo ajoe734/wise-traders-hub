@@ -381,6 +381,10 @@ export default function App() {
       }
 
       // ── 雲端優先：批次載入所有 pf-* key ──
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const userId = currentUser?.id;
+      if (userId) setCurrentUserId(userId);
+
       const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
       if (wasReset) {
         sessionStorage.removeItem("pf-reset-flag");
@@ -388,8 +392,8 @@ export default function App() {
       }
 
       let cloud = {};
-      if (!wasReset) {
-        cloud = await loadAllFromCloud();
+      if (!wasReset && userId) {
+        cloud = await loadAllFromCloud(userId);
       }
 
       const pick = (key, fallback) => {
@@ -462,20 +466,24 @@ export default function App() {
     if (ready && holdings && !isDemo) {
       save("pf-holdings-v2", holdings);
       // 同步持倉代碼到雲端供定時任務使用
-      const codes = holdings.map(h => `${h.code} ${h.name}`).join("、");
-      const codesKey = holdings.map(h => h.code).sort().join(",");
-      supabase.from("checkup_storage").upsert({ key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }).then(() => {});
+      const uid = _currentUserId;
+      if (uid) {
+        const codes = holdings.map(h => `${h.code} ${h.name}`).join("、");
+        const codesKey = holdings.map(h => h.code).sort().join(",");
+        supabase.from("checkup_storage").upsert({ user_id: uid, key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }, { onConflict: "user_id,key" }).then(() => {});
+      }
     }
   }, [holdings, ready, isDemo]);
   // tradeLog 存到 Supabase（不再只存 localStorage）
   const saveTradeLogToCloud = async (logs) => {
-    if (!logs) return;
+    if (!logs || !_currentUserId) return;
     try {
       // 先清空舊資料再批次插入
       await supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
       if (logs.length > 0) {
         const rows = logs.map(l => ({
           ...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
+          user_id: _currentUserId,
           trade_date: l.date || null,
           trade_time: l.time || null,
           action: l.action || null,
