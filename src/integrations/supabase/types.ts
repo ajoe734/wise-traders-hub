@@ -1350,6 +1350,48 @@ export type Database = {
         }
         Relationships: []
       }
+      member_line_bindings_analyst: {
+        Row: {
+          bound_at: string | null
+          display_name: string | null
+          expert_id: string | null
+          id: string | null
+          is_active: boolean | null
+          user_id: string | null
+        }
+        Insert: {
+          bound_at?: string | null
+          display_name?: string | null
+          expert_id?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          user_id?: string | null
+        }
+        Update: {
+          bound_at?: string | null
+          display_name?: string | null
+          expert_id?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_line_bindings_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_line_bindings_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_providers_safe: {
         Row: {
           created_at: string | null

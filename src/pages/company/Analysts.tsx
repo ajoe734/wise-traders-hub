@@ -163,7 +163,7 @@ const CompanyAnalysts = () => {
         setLineActive(ch.is_active);
       }
       const { count } = await supabase
-        .from('member_line_bindings')
+        .from('member_line_bindings_analyst')
         .select('id', { count: 'exact', head: true })
         .eq('expert_id', expert.id)
         .eq('is_active', true);
