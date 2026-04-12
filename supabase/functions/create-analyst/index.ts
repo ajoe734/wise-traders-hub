@@ -101,6 +101,7 @@ Deno.serve(async (req) => {
         role,
         bio: bio || null,
         created_by: caller.id,
+        status: 'suspended',
       }).select().single()
       if (expertError) throw expertError
 
