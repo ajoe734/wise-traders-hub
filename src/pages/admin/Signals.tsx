@@ -250,6 +250,11 @@ const AdminSignals = () => {
       return;
     }
 
+    if (!priceHint || parseFloat(priceHint) <= 0) {
+      toast.error('請輸入參考價格');
+      return;
+    }
+
     const latestName = stockName.trim();
 
     // ISSUE-014: Validate open position exists for ADD/TRIM/EXIT actions
@@ -767,10 +772,14 @@ const AdminSignals = () => {
                         disabled={linePushing || linePushed || !reasonSummary.trim()}
                         onClick={async () => {
                           if (!expert) return;
-                          if (!quantity || parseInt(quantity) <= 0) {
-                            toast.error('請輸入數量');
-                            return;
-                          }
+                           if (!quantity || parseInt(quantity) <= 0) {
+                             toast.error('請輸入數量');
+                             return;
+                           }
+                           if (!priceHint || parseFloat(priceHint) <= 0) {
+                             toast.error('請輸入參考價格');
+                             return;
+                           }
                           setLinePushing(true);
                           try {
                             const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
