@@ -33,8 +33,9 @@ Deno.serve(async (req) => {
 
   try {
     if (req.method === 'GET') {
+      const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
       const { data: row } = await supabase
-        .from('checkup_storage').select('data').eq('key', 'telemetry-events').maybeSingle();
+        .from('checkup_storage').select('data').eq('user_id', SYSTEM_UID).eq('key', 'telemetry-events').maybeSingle();
       const entries = Array.isArray(row?.data) ? row.data.slice(0, 50) : [];
       return new Response(JSON.stringify({ entries }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -42,6 +43,7 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === 'POST') {
+      const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
       const { action, data } = await req.json();
       if (action !== 'capture-diagnostics') {
         return new Response(JSON.stringify({ error: '未知 action' }), {
@@ -51,13 +53,13 @@ Deno.serve(async (req) => {
 
       const incoming = (data?.entries || []).map(normalizeEntry).filter(Boolean);
       const { data: existing } = await supabase
-        .from('checkup_storage').select('data').eq('key', 'telemetry-events').maybeSingle();
+        .from('checkup_storage').select('data').eq('user_id', SYSTEM_UID).eq('key', 'telemetry-events').maybeSingle();
       const current = Array.isArray(existing?.data) ? existing.data : [];
       const merged = [...incoming, ...current].slice(0, TELEMETRY_LIMIT);
 
       await supabase.from('checkup_storage').upsert(
-        { key: 'telemetry-events', data: merged, updated_at: new Date().toISOString() },
-        { onConflict: 'key' }
+        { user_id: SYSTEM_UID, key: 'telemetry-events', data: merged, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,key' }
       );
 
       return new Response(JSON.stringify({ ok: true, accepted: incoming.length, stored: merged.length }), {
