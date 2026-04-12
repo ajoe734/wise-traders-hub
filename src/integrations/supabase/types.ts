@@ -869,6 +869,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_member_subscriptions_provider"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "payment_providers_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "member_subscriptions_plan_id_fkey"
             columns: ["plan_id"]
             isOneToOne: false
@@ -980,6 +987,13 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "payment_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "payment_providers_safe"
             referencedColumns: ["id"]
           },
           {
@@ -1333,6 +1347,33 @@ export type Database = {
           slug?: string | null
           status?: string | null
           style_tags?: string[] | null
+        }
+        Relationships: []
+      }
+      payment_providers_safe: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          id: string | null
+          is_active: boolean | null
+          is_default: boolean | null
+          provider_type: Database["public"]["Enums"]["provider_type"] | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_default?: boolean | null
+          provider_type?: Database["public"]["Enums"]["provider_type"] | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_default?: boolean | null
+          provider_type?: Database["public"]["Enums"]["provider_type"] | null
         }
         Relationships: []
       }
