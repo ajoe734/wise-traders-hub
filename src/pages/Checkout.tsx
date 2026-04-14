@@ -783,6 +783,83 @@ const Checkout = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* ACpay card fields — shown when ACpay is selected */}
+              {isAcpay && (
+                <Card>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CreditCard className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-medium">信用卡資訊</h3>
+                    </div>
+
+                    {/* ACpay SDK renders card input fields here */}
+                    <div ref={acpayCardRef} className="space-y-3">
+                      <div>
+                        <Label htmlFor="portal-acpay-card-number" className="text-xs text-muted-foreground">卡號</Label>
+                        <div id="portal-acpay-card-number" className="h-10 border rounded-md border-input bg-background px-3 py-2" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="portal-acpay-expiry" className="text-xs text-muted-foreground">有效日期</Label>
+                          <div id="portal-acpay-expiry" className="h-10 border rounded-md border-input bg-background px-3 py-2" />
+                        </div>
+                        <div>
+                          <Label htmlFor="portal-acpay-ccv" className="text-xs text-muted-foreground">安全碼</Label>
+                          <div id="portal-acpay-ccv" className="h-10 border rounded-md border-input bg-background px-3 py-2" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4 space-y-3">
+                      <h4 className="text-xs font-medium text-muted-foreground">持卡人資訊</h4>
+                      <div>
+                        <Label htmlFor="portal-card-holder-name" className="text-xs text-muted-foreground">英文姓名（如卡片上所示）</Label>
+                        <Input
+                          id="portal-card-holder-name"
+                          value={cardHolderName}
+                          onChange={(e) => setCardHolderName(e.target.value)}
+                          placeholder="WANG DA MING"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="portal-card-holder-email" className="text-xs text-muted-foreground">電子郵件</Label>
+                        <Input
+                          id="portal-card-holder-email"
+                          type="email"
+                          value={cardHolderEmail}
+                          onChange={(e) => setCardHolderEmail(e.target.value)}
+                          placeholder="example@mail.com"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label htmlFor="portal-country-code" className="text-xs text-muted-foreground">國碼</Label>
+                          <Input
+                            id="portal-country-code"
+                            value={countryCode}
+                            onChange={(e) => setCountryCode(e.target.value)}
+                            placeholder="886"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Label htmlFor="portal-card-holder-phone" className="text-xs text-muted-foreground">手機號碼（去掉前綴 0）</Label>
+                          <Input
+                            id="portal-card-holder-phone"
+                            value={cardHolderPhone}
+                            onChange={(e) => setCardHolderPhone(e.target.value)}
+                            placeholder="912345678"
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Right: Payment Summary */}
