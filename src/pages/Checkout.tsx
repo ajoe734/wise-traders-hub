@@ -516,6 +516,77 @@ const Checkout = () => {
         return;
       }
 
+      if (provider?.provider_type === 'acpay') {
+        // Validate cardholder fields
+        if (!cardHolderName.trim() || !cardHolderEmail.trim() || !cardHolderPhone.trim()) {
+          setResultDialog({ open: true, success: false, message: '請填寫持卡人資訊（英文姓名、電子郵件、手機號碼）' });
+          return;
+        }
+
+        let prime: string | null = null;
+        const ACPay = (window as any).ACPay;
+        if (ACPay && acpayFieldsRef.current) {
+          try {
+            const result = await new Promise<any>((resolve, reject) => {
+              ACPay.getPrime(acpayFieldsRef.current, (primeResult: any) => {
+                if (primeResult.status !== 0) {
+                  reject(new Error(primeResult.msg || '取得 prime token 失敗'));
+                } else {
+                  resolve(primeResult);
+                }
+              });
+            });
+            prime = result.prime;
+          } catch (e: any) {
+            console.error('ACpay getPrime error:', e);
+            setResultDialog({ open: true, success: false, message: e.message || '信用卡資訊有誤，請確認後重試' });
+            return;
+          }
+        } else {
+          console.warn('ACpay SDK not available, using simulate mode');
+          prime = 'SIMULATE_PRIME';
+        }
+
+        const { data, error } = await supabase.functions.invoke('create-acpay-order', {
+          body: {
+            prime,
+            amount: price,
+            phone: cardHolderPhone,
+            countryCode,
+            cardHolderName,
+            cardHolderEmail,
+            planId: plan.id,
+            billingCycle,
+            userId: user.id,
+            origin: window.location.origin,
+            slug,
+            planName: plan.name,
+            expertName: expert.name,
+          },
+        });
+
+        if (error) {
+          console.error('ACpay checkout error:', error);
+          setResultDialog({ open: true, success: false, message: '建立 ACpay 訂單失敗，請稍後再試' });
+          return;
+        }
+
+        // 3DS flow: redirect to code_url for OTP
+        if (data?.threeDS && data?.codeUrl) {
+          window.location.href = data.codeUrl;
+          return;
+        }
+
+        // non-3DS flow: synchronous success
+        if (data?.success) {
+          setResultDialog({ open: true, success: true });
+          return;
+        }
+
+        setResultDialog({ open: true, success: false, message: '付款失敗，請稍後再試' });
+        return;
+      }
+
       // Other providers: simulate payment and create subscription directly
       const expiresAt = new Date();
       if (billingCycle === 'monthly') {
