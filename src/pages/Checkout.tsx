@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -75,6 +77,135 @@ const Checkout = () => {
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string } | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
+
+  // ACpay cardholder form fields
+  const [cardHolderName, setCardHolderName] = useState('');
+  const [cardHolderEmail, setCardHolderEmail] = useState('');
+  const [cardHolderPhone, setCardHolderPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('886');
+
+  // ACpay SDK refs
+  const acpayCardRef = useRef<HTMLDivElement>(null);
+  const acpaySdkLoaded = useRef(false);
+  const acpayFieldsRef = useRef<any>(null);
+
+  // Determine if selected provider is ACpay
+  const selectedProviderObj = providers.find(p => p.id === selectedProvider);
+  const isAcpay = selectedProviderObj?.provider_type === 'acpay';
+
+  // Load ACpay JS SDK when acpay provider is selected
+  useEffect(() => {
+    if (!isAcpay || acpaySdkLoaded.current) return;
+
+    const sdkUrl = 'https://js.payloop.com.tw/sdk/v1.0/acpay.js';
+    const existingScript = document.querySelector(`script[src="${sdkUrl}"]`);
+    if (existingScript) {
+      acpaySdkLoaded.current = true;
+      initACpayFields();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = sdkUrl;
+    script.async = true;
+    script.onload = () => {
+      acpaySdkLoaded.current = true;
+      initACpayFields();
+    };
+    script.onerror = () => {
+      console.error('Failed to load ACpay SDK');
+    };
+    document.head.appendChild(script);
+  }, [isAcpay]);
+
+  const initACpayFields = useCallback(() => {
+    if (!acpayCardRef.current || !(window as any).ACPay) return;
+
+    try {
+      const ACPay = (window as any).ACPay;
+      const fields = ACPay.setupSDK({
+        fields: {
+          number: { element: '#portal-acpay-card-number', placeholder: '卡號' },
+          expirationDate: { element: '#portal-acpay-expiry', placeholder: 'MM/YY' },
+          ccv: { element: '#portal-acpay-ccv', placeholder: '安全碼' },
+        },
+      });
+      acpayFieldsRef.current = fields;
+    } catch (e) {
+      console.error('ACpay SDK init error:', e);
+    }
+  }, []);
+
+  // Handle ACpay 3DS return
+  useEffect(() => {
+    const acpayResult = searchParams.get('acpay');
+    if (acpayResult !== 'result' || !user || !planId || resultDialog) return;
+
+    setIsConfirming(true);
+
+    const checkAndListen = async () => {
+      const { data: existing } = await supabase
+        .from('member_subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('plan_id', planId)
+        .eq('status', 'active');
+
+      if (existing && existing.length > 0) {
+        setIsConfirming(false);
+        setResultDialog({ open: true, success: true });
+        return;
+      }
+
+      let resolved = false;
+      const channel = supabase
+        .channel('acpay-portal-confirm')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'member_subscriptions',
+          filter: `user_id=eq.${user.id}`,
+        }, (payload) => {
+          const row = payload.new as any;
+          if (row.plan_id === planId && row.status === 'active' && !resolved) {
+            resolved = true;
+            clearInterval(pollTimer);
+            setIsConfirming(false);
+            setResultDialog({ open: true, success: true });
+          }
+        })
+        .subscribe();
+
+      const pollTimer = setInterval(async () => {
+        if (resolved) { clearInterval(pollTimer); return; }
+        const { data: polled } = await supabase
+          .from('member_subscriptions')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('plan_id', planId)
+          .eq('status', 'active');
+        if (polled && polled.length > 0 && !resolved) {
+          resolved = true;
+          clearInterval(pollTimer);
+          supabase.removeChannel(channel);
+          setIsConfirming(false);
+          setResultDialog({ open: true, success: true });
+        }
+      }, 5000);
+
+      setTimeout(() => {
+        clearInterval(pollTimer);
+        supabase.removeChannel(channel);
+        if (!resolved) {
+          setIsConfirming(false);
+          setResultDialog({ open: true, success: false, message: '付款確認逾時，如已扣款請聯繫客服' });
+        }
+      }, 60000);
+    };
+
+    checkAndListen();
+  }, [searchParams, user, planId]);
+
   // Handle LINE Pay return
   useEffect(() => {
     const linepay = searchParams.get('linepay');
@@ -287,6 +418,7 @@ const Checkout = () => {
 
   const getProviderIcon = (providerType: string) => {
     switch (providerType) {
+      case 'acpay': return '💳';
       case 'ecpay': return '🏦';
       case 'line_pay': return '💚';
       case 'newebpay': return '🔵';
@@ -381,6 +513,77 @@ const Checkout = () => {
         document.body.appendChild(form);
         form.submit();
         document.body.removeChild(form);
+        return;
+      }
+
+      if (provider?.provider_type === 'acpay') {
+        // Validate cardholder fields
+        if (!cardHolderName.trim() || !cardHolderEmail.trim() || !cardHolderPhone.trim()) {
+          setResultDialog({ open: true, success: false, message: '請填寫持卡人資訊（英文姓名、電子郵件、手機號碼）' });
+          return;
+        }
+
+        let prime: string | null = null;
+        const ACPay = (window as any).ACPay;
+        if (ACPay && acpayFieldsRef.current) {
+          try {
+            const result = await new Promise<any>((resolve, reject) => {
+              ACPay.getPrime(acpayFieldsRef.current, (primeResult: any) => {
+                if (primeResult.status !== 0) {
+                  reject(new Error(primeResult.msg || '取得 prime token 失敗'));
+                } else {
+                  resolve(primeResult);
+                }
+              });
+            });
+            prime = result.prime;
+          } catch (e: any) {
+            console.error('ACpay getPrime error:', e);
+            setResultDialog({ open: true, success: false, message: e.message || '信用卡資訊有誤，請確認後重試' });
+            return;
+          }
+        } else {
+          console.warn('ACpay SDK not available, using simulate mode');
+          prime = 'SIMULATE_PRIME';
+        }
+
+        const { data, error } = await supabase.functions.invoke('create-acpay-order', {
+          body: {
+            prime,
+            amount: price,
+            phone: cardHolderPhone,
+            countryCode,
+            cardHolderName,
+            cardHolderEmail,
+            planId: plan.id,
+            billingCycle,
+            userId: user.id,
+            origin: window.location.origin,
+            slug,
+            planName: plan.name,
+            expertName: expert.name,
+          },
+        });
+
+        if (error) {
+          console.error('ACpay checkout error:', error);
+          setResultDialog({ open: true, success: false, message: '建立 ACpay 訂單失敗，請稍後再試' });
+          return;
+        }
+
+        // 3DS flow: redirect to code_url for OTP
+        if (data?.threeDS && data?.codeUrl) {
+          window.location.href = data.codeUrl;
+          return;
+        }
+
+        // non-3DS flow: synchronous success
+        if (data?.success) {
+          setResultDialog({ open: true, success: true });
+          return;
+        }
+
+        setResultDialog({ open: true, success: false, message: '付款失敗，請稍後再試' });
         return;
       }
 
@@ -558,6 +761,7 @@ const Checkout = () => {
                           <div className="flex-1">
                             <p className="font-semibold">{provider.display_name}</p>
                             <p className="text-xs text-muted-foreground">
+                              {provider.provider_type === 'acpay' && '信用卡付款'}
                               {provider.provider_type === 'ecpay' && '信用卡 / ATM / 超商代碼'}
                               {provider.provider_type === 'line_pay' && 'LINE Pay 行動支付'}
                               {provider.provider_type === 'newebpay' && '信用卡 / WebATM'}
@@ -579,6 +783,83 @@ const Checkout = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* ACpay card fields — shown when ACpay is selected */}
+              {isAcpay && (
+                <Card>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CreditCard className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-medium">信用卡資訊</h3>
+                    </div>
+
+                    {/* ACpay SDK renders card input fields here */}
+                    <div ref={acpayCardRef} className="space-y-3">
+                      <div>
+                        <Label htmlFor="portal-acpay-card-number" className="text-xs text-muted-foreground">卡號</Label>
+                        <div id="portal-acpay-card-number" className="h-10 border rounded-md border-input bg-background px-3 py-2" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="portal-acpay-expiry" className="text-xs text-muted-foreground">有效日期</Label>
+                          <div id="portal-acpay-expiry" className="h-10 border rounded-md border-input bg-background px-3 py-2" />
+                        </div>
+                        <div>
+                          <Label htmlFor="portal-acpay-ccv" className="text-xs text-muted-foreground">安全碼</Label>
+                          <div id="portal-acpay-ccv" className="h-10 border rounded-md border-input bg-background px-3 py-2" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4 space-y-3">
+                      <h4 className="text-xs font-medium text-muted-foreground">持卡人資訊</h4>
+                      <div>
+                        <Label htmlFor="portal-card-holder-name" className="text-xs text-muted-foreground">英文姓名（如卡片上所示）</Label>
+                        <Input
+                          id="portal-card-holder-name"
+                          value={cardHolderName}
+                          onChange={(e) => setCardHolderName(e.target.value)}
+                          placeholder="WANG DA MING"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="portal-card-holder-email" className="text-xs text-muted-foreground">電子郵件</Label>
+                        <Input
+                          id="portal-card-holder-email"
+                          type="email"
+                          value={cardHolderEmail}
+                          onChange={(e) => setCardHolderEmail(e.target.value)}
+                          placeholder="example@mail.com"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label htmlFor="portal-country-code" className="text-xs text-muted-foreground">國碼</Label>
+                          <Input
+                            id="portal-country-code"
+                            value={countryCode}
+                            onChange={(e) => setCountryCode(e.target.value)}
+                            placeholder="886"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Label htmlFor="portal-card-holder-phone" className="text-xs text-muted-foreground">手機號碼（去掉前綴 0）</Label>
+                          <Input
+                            id="portal-card-holder-phone"
+                            value={cardHolderPhone}
+                            onChange={(e) => setCardHolderPhone(e.target.value)}
+                            placeholder="912345678"
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Right: Payment Summary */}
