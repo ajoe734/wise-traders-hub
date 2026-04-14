@@ -73,7 +73,8 @@ const Checkout = () => {
   const [loading, setLoading] = useState(true);
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string } | null>(null);
-
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
   // Handle LINE Pay return
   useEffect(() => {
     const linepay = searchParams.get('linepay');
