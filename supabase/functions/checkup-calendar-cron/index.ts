@@ -7,52 +7,69 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+const CLAUDE_MODELS = ['claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022'];
 
-async function callGeminiWithGrounding(apiKey: string, prompt: string): Promise<{ ok: boolean; text: string }> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 65536 },
-            tools: [{ google_search: {} }],
-          }),
-        },
-      );
-      if (response.status === 429 && attempt === 0) {
-        console.log('Cron: Gemini 429, waiting 60s...');
-        await sleep(60000);
-        continue;
-      }
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`Cron: Gemini failed (${response.status}):`, errText.slice(0, 300));
-        return { ok: false, text: errText };
-      }
-      const data = await response.json();
-      const parts = data.candidates?.[0]?.content?.parts || [];
-      const text = parts.filter((p: any) => p.text).map((p: any) => p.text).join('').trim();
-      if (!text) return { ok: false, text: '' };
-      return { ok: true, text };
-    } catch (err) {
-      console.error('Cron: Gemini exception:', err);
-      return { ok: false, text: String(err) };
-    }
-  }
-  return { ok: false, text: 'retry exhausted' };
+/* ── RSS helpers ── */
+
+function decodeHtml(value: string) {
+  return String(value || '').replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
+function pickTag(block: string, tag: string) {
+  const match = block.match(new RegExp(`<${tag}(?:[^>]*)>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return decodeHtml(match?.[1] || '');
+}
+
+async function fetchNewsForStocks(stocksStr: string): Promise<string> {
+  const items = stocksStr.split(/[、,]/).map(s => s.trim()).filter(Boolean).slice(0, 10);
+  const allNews: string[] = [];
+  for (const item of items) {
+    const code = item.match(/^(\d{4,6})/)?.[1] || '';
+    const name = item.replace(/^\d+\s*/, '').trim();
+    const q = `${code} ${name} 台股 法說 財報 除息 營收`;
+    try {
+      const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'portfolio-dashboard/1.0' } });
+      clearTimeout(timer);
+      const xml = await res.text();
+      const rssItems = Array.from(xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)).map(m => m[0]).slice(0, 3);
+      for (const ri of rssItems) allNews.push(`- ${pickTag(ri, 'title')} (${pickTag(ri, 'source')})`);
+    } catch {}
+    await new Promise(r => setTimeout(r, 200));
+  }
+  return allNews.length > 0 ? allNews.join('\n') : '（無即時新聞）';
+}
+
+/* ── Claude caller ── */
+
+async function callClaude(apiKey: string, system: string, user: string, maxTokens = 8192): Promise<{ ok: boolean; text: string }> {
+  for (const model of CLAUDE_MODELS) {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model, max_tokens: maxTokens, temperature: 0.3, system,
+          messages: [{ role: 'user', content: user }] }),
+      });
+      if (response.status === 429) { console.log(`Claude ${model} 429`); continue; }
+      if (!response.ok) { console.error(`Claude ${model} failed (${response.status})`); continue; }
+      const data = await response.json();
+      const text = data.content?.map((b: any) => b.text || '').join('').trim();
+      if (text) return { ok: true, text };
+    } catch (err) { console.error(`Claude ${model} error:`, err); }
+  }
+  return { ok: false, text: '' };
+}
+
+/* ── JSON helpers ── */
 
 function extractJsonArray(text: string): string | null {
   const start = text.indexOf('[');
   if (start === -1) return null;
-  let depth = 0;
-  let inString = false;
-  let escape = false;
+  let depth = 0, inString = false, escape = false;
   for (let i = start; i < text.length; i++) {
     const ch = text[i];
     if (escape) { escape = false; continue; }
@@ -60,43 +77,22 @@ function extractJsonArray(text: string): string | null {
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
     if (ch === '[') depth++;
-    else if (ch === ']') {
-      depth--;
-      if (depth === 0) return text.substring(start, i + 1);
-    }
+    else if (ch === ']') { depth--; if (depth === 0) return text.substring(start, i + 1); }
   }
   return null;
 }
 
 function tryParseEvents(text: string): any[] | null {
-  try {
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    return null;
-  } catch {}
+  try { const p = JSON.parse(text); if (Array.isArray(p) && p.length > 0) return p; } catch {}
   const cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
   const jsonStr = extractJsonArray(cleaned);
-  if (jsonStr) {
-    try {
-      const parsed = JSON.parse(jsonStr);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch {}
-  }
-  const jsonStr2 = extractJsonArray(text);
-  if (jsonStr2 && jsonStr2 !== jsonStr) {
-    try {
-      const parsed = JSON.parse(jsonStr2);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch {}
-  }
+  if (jsonStr) { try { const p = JSON.parse(jsonStr); if (Array.isArray(p) && p.length > 0) return p; } catch {} }
   return null;
 }
 
 function classifyHoldings(stocks: string): { stockList: string; warrantList: string; parentStocks: string[] } {
   const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
-  const stockItems: string[] = [];
-  const warrantItems: string[] = [];
-  const parentStocks: string[] = [];
+  const stockItems: string[] = [], warrantItems: string[] = [], parentStocks: string[] = [];
   for (const item of items) {
     const code = item.match(/^(\d+)/)?.[1] || '';
     const name = item.replace(/^\d+\s*/, '');
@@ -105,262 +101,182 @@ function classifyHoldings(stocks: string): { stockList: string; warrantList: str
       warrantItems.push(item);
       const brokerMatch = name.match(/^(.+?)(凱基|元大|富邦|群益|統一|國票|永豐|中信|日盛|兆豐|台新|玉山|永昌)/);
       if (brokerMatch?.[1]) parentStocks.push(brokerMatch[1]);
-    } else {
-      stockItems.push(item);
-    }
+    } else stockItems.push(item);
   }
   return { stockList: stockItems.join('、'), warrantList: warrantItems.join('、'), parentStocks: [...new Set(parentStocks)] };
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  const apiKey = Deno.env.get('GEMINI_ANALYSIS_API_KEY');
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
   if (!apiKey) {
-    console.log('Cron: No GEMINI_ANALYSIS_API_KEY, skipping');
+    console.log('Cron: No ANTHROPIC_API_KEY, skipping');
     return new Response(JSON.stringify({ status: 'skipped', reason: 'no API key' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   try {
-    // 0. 取得所有有持倉的使用者
-    const { data: allHoldings } = await supabase
-      .from('checkup_storage')
-      .select('user_id, data')
-      .eq('key', 'pf-calendar-holdings');
+    const { data: allHoldings } = await supabase.from('checkup_storage')
+      .select('user_id, data').eq('key', 'pf-calendar-holdings');
 
     const usersWithHoldings = (allHoldings || []).filter((r: any) => r.data?.stocks && r.user_id !== '00000000-0000-0000-0000-000000000000');
     if (usersWithHoldings.length === 0) {
-      console.log('Cron: No users with holdings found, skipping');
-      return new Response(JSON.stringify({ status: 'skipped', reason: 'no users with holdings' }), {
+      return new Response(JSON.stringify({ status: 'skipped', reason: 'no users' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    let totalAdded = 0;
-    let totalPredicted = 0;
+    let totalAdded = 0, totalPredicted = 0;
 
     for (const holdingsRow of usersWithHoldings) {
       const userId = holdingsRow.user_id;
       const stocks = holdingsRow.data.stocks;
       const holdingCodes = holdingsRow.data.holdingCodes || '';
 
-    // 2. 讀取現有行事曆事件
-    const { data: calRow } = await supabase
-      .from('checkup_storage')
-      .select('data')
-      .eq('user_id', userId)
-      .eq('key', 'pf-calendar-v1')
-      .maybeSingle();
+      const { data: calRow } = await supabase.from('checkup_storage')
+        .select('data').eq('user_id', userId).eq('key', 'pf-calendar-v1').maybeSingle();
+      const existingEvents: any[] = calRow?.data?.events || [];
 
-    const existingEvents: any[] = calRow?.data?.events || [];
+      const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/');
+      const oneYearLater = new Date();
+      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+      const endDate = oneYearLater.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/');
 
-    // 3. 呼叫 Gemini 取得新事件
-    const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/');
-    const oneYearLater = new Date();
-    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-    const endDate = oneYearLater.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '/');
+      const stocksStr = typeof stocks === 'string' ? stocks : stocks.map((s: any) => `${s.code} ${s.name}`).join('、');
 
-    const outputFormat = `JSON陣列，每個元素格式：
-{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/權證","sources":["來源網址1","來源網址2"]}
+      // Fetch news context
+      const newsContext = await fetchNewsForStocks(stocksStr);
 
-規則：
-- sources 欄位：必須填入你搜尋到該事件資訊的真實外部網址（如 https://www.twse.com.tw/...、https://mops.twse.com.tw/...、https://finance.yahoo.com/... 等），不能是 lovable.app 或 vertexaisearch 的網址。如果找不到來源，填空陣列 []。每個事件最多 3 個來源。
-- date 欄位：如果有精確日期，用 YYYY/MM/DD 格式；如果只知道月份，用「2025/07月」；如果只知道季度，用「2025 Q2」；如果尚未公布，用「尚未公布」或「待確認」。總之不要因為日期不精確就省略事件。
-- urgent=true 僅限未來一週內的事件（模糊日期的事件 urgent=false）
-- type 只能用：法說、財報、營收、催化、操作、總經、除息、權證
-- 按日期由近到遠排序，模糊日期的排在精確日期之後`;
+      const { stockList, warrantList, parentStocks } = classifyHoldings(stocksStr);
+      let holdingsSection = '';
+      if (stockList) holdingsSection += `## 股票持倉\n${stockList}\n\n`;
+      if (warrantList) holdingsSection += `## 權證持倉（僅需列出「到期日」事件）\n${warrantList}\n\n`;
+      if (parentStocks.length > 0) holdingsSection += `## 權證母股\n${parentStocks.join('、')}\n\n`;
 
-    const stocksStr = typeof stocks === 'string' ? stocks : stocks.map((s: any) => `${s.code} ${s.name}`).join('、');
-    const { stockList, warrantList, parentStocks } = classifyHoldings(stocksStr);
-    
-    let holdingsSection = '';
-    if (stockList) holdingsSection += `## 股票持倉\n${stockList}\n\n`;
-    if (warrantList) holdingsSection += `## 權證持倉（僅需列出「到期日」事件）\n${warrantList}\n\n`;
-    if (parentStocks.length > 0) {
-      holdingsSection += `## 權證母股（需列出營收/財報/法說/除息/股東會等事件，標明影響哪檔權證）\n${parentStocks.join('、')}（請搜尋正確股票代碼）\n\n`;
-    }
+      const outputFormat = `JSON陣列，每個元素格式：
+{"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/權證","sources":[]}
 
-    const prompt = `# Role
-你是一位頂級 AI 財經分析師，精通台股市場，善於搜尋並彙整即時資訊。
+規則：date 精確日期用 YYYY/MM/DD；模糊用「2025/07月」；urgent=true 僅未來一週內；按日期排序`;
 
-# Task Objective
-針對以下持倉標的，利用網路搜尋找出「${today} 的隔天起到 ${endDate}」的重要事件行事曆。
+      const systemPrompt = `你是頂級 AI 財經分析師，精通台股市場。根據即時新聞和知識整理事件行事曆。
+營收公布日（每月10日前）和財報公布截止日是固定規律，必須列出。只輸出 JSON 陣列。`;
+
+      const userPrompt = `# 即時新聞（Google News RSS）
+${newsContext}
+
+# Task
+針對以下持倉，找出「${today} 隔天起到 ${endDate}」的重要事件。
 
 ${holdingsSection}
 
-# ⚠️ 重要：標的分類規則
-- **股票**（4碼代碼）：每支股票一次搜尋，涵蓋所有類別
-- **權證**（6碼代碼）：**只需列出到期日事件**（type 填「權證」）
-- **權證母股**：搜尋母股的重要事件，在 label 中標明「（影響權證 XXXXXX）」
-
-# 搜尋策略
-- **一股一次搜全部**：針對每支股票，一次搜尋該股所有類別的事件
-- 不要按類別分開搜尋，而是按個股整合搜尋
-
 # 事件類別（8 大類）
-1. **營收**：每月營收公布（次月10日前）— 僅適用於股票
-2. **財報**：季度財報公布截止日 — 僅適用於股票
-3. **法說**：法說會、業績發表會 — 僅適用於股票
-4. **除息**：除權息日、配息基準日 — 僅適用於股票
-5. **總經**：央行會議、FOMC、CPI、GDP、非農就業等
-6. **催化**：產業展覽、新品發表、重大訂單、政策利多、**股東會** — 僅適用於股票
-7. **權證**：權證到期日 — 適用於權證
-8. **操作**：董事會、庫藏股 — 僅適用於股票
+營收、財報、法說、除息、總經、催化、權證、操作
 
-# ⚠️ 嚴格限制
-- **絕對禁止**搜尋或列出上述持倉清單以外的任何股票標的
-- 只能針對上方明確列出的「股票代碼」「權證代碼」「權證母股名稱」進行搜尋
-- 如果某事件與持倉標的無關，即使搜尋到也必須丟棄，不得列入結果
-
-# 重要指引
-- **即使搜尋不到精確日期，也必須列出事件**
-- 不要包含今天(${today})或過去的事件
+# 嚴格限制
+- 只能針對上方持倉標的
+- 不要包含今天或過去事件
+- 即使日期不精確也要列出
 
 # Output Format
 ${outputFormat}
 
-只輸出 JSON 陣列，不要包含任何其他文字。`;
+只輸出 JSON 陣列。`;
 
-    const result = await callGeminiWithGrounding(apiKey, prompt);
-    if (!result.ok) {
-      console.error(`Cron: Gemini call failed for user ${userId}`);
-      continue;
-    }
-
-    const newEvents = tryParseEvents(result.text);
-    if (!newEvents) {
-      console.error(`Cron: Failed to parse events for user ${userId}`);
-      continue;
-    }
-
-    // 4. 合併去重
-    const seen = new Set(existingEvents.map((e: any) => `${e.label}||${e.date}`));
-    const merged = [...existingEvents];
-    let addedCount = 0;
-    for (const ne of newEvents) {
-      if (!ne || !ne.label) continue;
-      const key = `${ne.label}||${ne.date}`;
-      if (!seen.has(key)) {
-        merged.push(ne);
-        seen.add(key);
-        addedCount++;
+      const result = await callClaude(apiKey, systemPrompt, userPrompt, 8192);
+      if (!result.ok) {
+        console.error(`Cron: Claude failed for user ${userId}`);
+        continue;
       }
-    }
-    merged.sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''));
 
-    // 5. 儲存回 checkup_storage
-    await supabase.from('checkup_storage').upsert({
-      user_id: userId,
-      key: 'pf-calendar-v1',
-      data: { events: merged, holdingCodes },
-    }, { onConflict: 'user_id,key' });
+      const newEvents = tryParseEvents(result.text);
+      if (!newEvents) {
+        console.error(`Cron: Parse failed for user ${userId}`);
+        continue;
+      }
 
-    console.log(`Cron: Calendar done for user ${userId}. Existing: ${existingEvents.length}, New: ${addedCount}, Total: ${merged.length}`);
-    totalAdded += addedCount;
+      // Merge & deduplicate
+      const seen = new Set(existingEvents.map((e: any) => `${e.label}||${e.date}`));
+      const merged = [...existingEvents];
+      let addedCount = 0;
+      for (const ne of newEvents) {
+        if (!ne?.label) continue;
+        const key = `${ne.label}||${ne.date}`;
+        if (!seen.has(key)) { merged.push(ne); seen.add(key); addedCount++; }
+      }
+      merged.sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''));
 
-    // ── 6. 自動預測 7 天內的 pending 事件 ──
-    let predictedCount = 0;
-    try {
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const sevenDaysLater = new Date(now);
-      sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+      await supabase.from('checkup_storage').upsert({
+        user_id: userId, key: 'pf-calendar-v1',
+        data: { events: merged, holdingCodes },
+      }, { onConflict: 'user_id,key' });
 
-      // 同時讀取 newsEvents (pf-news-events-v1)
-      const { data: newsRow } = await supabase
-        .from('checkup_storage')
-        .select('data')
-        .eq('user_id', userId)
-        .eq('key', 'pf-news-events-v1')
-        .maybeSingle();
+      console.log(`Cron: Calendar done for user ${userId}. Existing: ${existingEvents.length}, New: ${addedCount}, Total: ${merged.length}`);
+      totalAdded += addedCount;
 
-      const newsEvents: any[] = newsRow?.data || [];
+      // Auto-predict 7-day events
+      let predictedCount = 0;
+      try {
+        const now = new Date(); now.setHours(0, 0, 0, 0);
+        const sevenDaysLater = new Date(now); sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
 
-      const needsPrediction = newsEvents.filter((e: any) => {
-        if (e.status !== 'pending') return false;
-        if (!e.date || !e.date.match(/^\d{4}\/\d{2}\/\d{2}/)) return false;
-        const evDate = new Date(e.date.replace(/\//g, '-'));
-        evDate.setHours(0, 0, 0, 0);
-        return evDate >= now && evDate <= sevenDaysLater;
-      });
+        const { data: newsRow } = await supabase.from('checkup_storage')
+          .select('data').eq('user_id', userId).eq('key', 'pf-news-events-v1').maybeSingle();
+        const newsEvents: any[] = newsRow?.data || [];
 
-      if (needsPrediction.length > 0) {
-        console.log(`Cron: Found ${needsPrediction.length} events needing prediction for user ${userId}`);
-
-        const predictRes = await fetch(`${supabaseUrl}/functions/v1/checkup-predict-events`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${serviceKey}`,
-          },
-          body: JSON.stringify({
-            events: needsPrediction.map((e: any, i: number) => ({
-              index: i + 1,
-              date: e.date,
-              title: e.title || e.label,
-              detail: e.detail || e.sub || '',
-              stocks: e.stocks || [],
-            })),
-            holdings: typeof stocks === 'string' ? [] : stocks.map((s: any) => ({
-              code: s.code,
-              name: s.name,
-              costPrice: s.costPrice,
-              marketPrice: s.marketPrice,
-            })),
-          }),
+        const needsPrediction = newsEvents.filter((e: any) => {
+          if (e.status !== 'pending') return false;
+          if (!e.date?.match(/^\d{4}\/\d{2}\/\d{2}/)) return false;
+          const evDate = new Date(e.date.replace(/\//g, '-')); evDate.setHours(0, 0, 0, 0);
+          return evDate >= now && evDate <= sevenDaysLater;
         });
 
-        if (predictRes.ok) {
-          const predData = await predictRes.json();
-          const preds = predData.predictions || [];
-
-          const updatedNews = [...newsEvents];
-          needsPrediction.forEach((e: any, i: number) => {
-            const idx = updatedNews.findIndex((x: any) => x.id === e.id);
-            if (idx < 0) return;
-            const p = preds.find((pp: any) => pp.index === i + 1);
-            updatedNews[idx] = {
-              ...updatedNews[idx],
-              status: 'verifying',
-              pred: p?.pred || 'neutral',
-              predReason: p?.predReason || 'AI 自動預測（Cron）',
-            };
-            predictedCount++;
+        if (needsPrediction.length > 0) {
+          console.log(`Cron: ${needsPrediction.length} events need prediction for user ${userId}`);
+          const predictRes = await fetch(`${supabaseUrl}/functions/v1/checkup-predict-events`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+            body: JSON.stringify({
+              events: needsPrediction.map((e: any, i: number) => ({
+                index: i + 1, date: e.date, title: e.title || e.label,
+                detail: e.detail || e.sub || '', stocks: e.stocks || [],
+              })),
+              holdings: typeof stocks === 'string' ? [] : stocks.map((s: any) => ({
+                code: s.code, name: s.name, costPrice: s.costPrice, marketPrice: s.marketPrice,
+              })),
+            }),
           });
 
-          await supabase.from('checkup_storage').upsert({
-            user_id: userId,
-            key: 'pf-news-events-v1',
-            data: updatedNews,
-          }, { onConflict: 'user_id,key' });
-
-          console.log(`Cron: Predicted ${predictedCount} events for user ${userId}`);
+          if (predictRes.ok) {
+            const predData = await predictRes.json();
+            const preds = predData.predictions || [];
+            const updatedNews = [...newsEvents];
+            needsPrediction.forEach((e: any, i: number) => {
+              const idx = updatedNews.findIndex((x: any) => x.id === e.id);
+              if (idx < 0) return;
+              const p = preds.find((pp: any) => pp.index === i + 1);
+              updatedNews[idx] = { ...updatedNews[idx], status: 'verifying',
+                pred: p?.pred || 'neutral', predReason: p?.predReason || 'AI 自動預測（Cron）' };
+              predictedCount++;
+            });
+            await supabase.from('checkup_storage').upsert({
+              user_id: userId, key: 'pf-news-events-v1', data: updatedNews,
+            }, { onConflict: 'user_id,key' });
+          }
         }
-      }
-    } catch (predErr) {
-      console.error('Cron: Prediction step error:', predErr);
+      } catch (predErr) { console.error('Cron: Prediction error:', predErr); }
+
+      totalPredicted += predictedCount;
     }
 
-    totalPredicted += predictedCount;
-    } // end for each user
-
-    return new Response(JSON.stringify({
-      status: 'ok',
-      usersProcessed: usersWithHoldings.length,
-      totalAdded,
-      totalPredicted,
-    }), {
+    return new Response(JSON.stringify({ status: 'ok', usersProcessed: usersWithHoldings.length, totalAdded, totalPredicted }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (err) {
     console.error('Cron error:', err);
     return new Response(JSON.stringify({ status: 'error', detail: String(err) }), {
