@@ -305,14 +305,10 @@ const Checkout = () => {
       return;
     }
 
-    // For mentor plans, show consent dialog first
-    if (!isAdvisor) {
-      setConsentChecked(false);
-      setConsentOpen(true);
-      return;
-    }
-
-    await proceedCheckout();
+    // Show consent dialog for all plan types
+    setConsentChecked(false);
+    setConsentOpen(true);
+    return;
   };
 
   const proceedCheckout = async () => {
