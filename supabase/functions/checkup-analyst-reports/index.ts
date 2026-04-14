@@ -74,27 +74,30 @@ async function fetchTextWithTimeout(url: string, timeoutMs = 8000): Promise<stri
 async function extractInsights(apiKey: string, stock: any, items: any[]) {
   if (!items.length || !apiKey) return new Map();
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [{ text: `你是台股公開報告索引整理器。從以下新聞標題與摘要中抽出結構化資訊。
-回傳純 JSON，格式：{"items":[{"id":"原樣回傳","summary":"一句話摘要","target":數字或null,"firm":"券商或空","stance":"bullish/neutral/bearish/unknown","tags":["標籤"],"confidence":0到1}]}
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 900,
+        temperature: 0.1,
+        system: '你是台股公開報告索引整理器。從新聞標題與摘要中抽出結構化資訊。回傳純 JSON，不要 markdown。',
+        messages: [{
+          role: 'user',
+          content: `回傳格式：{"items":[{"id":"原樣回傳","summary":"一句話摘要","target":數字或null,"firm":"券商或空","stance":"bullish/neutral/bearish/unknown","tags":["標籤"],"confidence":0到1}]}
 
 股票：${stock.name}(${stock.code})
-${items.map(i => `- [${i.id}] ${i.title}\n  來源：${i.source || '未知'} | 日期：${i.publishedAt || '未知'}\n  摘要：${i.snippet || '無'}`).join('\n\n')}` }],
-          }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 900 },
-        }),
-      }
-    );
+${items.map(i => `- [${i.id}] ${i.title}\n  來源：${i.source || '未知'} | 日期：${i.publishedAt || '未知'}\n  摘要：${i.snippet || '無'}`).join('\n\n')}`,
+        }],
+      }),
+    });
     if (!response.ok) return new Map();
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    const text = data.content?.map((b: any) => b.text || '').join('').trim() || '';
     const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
     return new Map((parsed?.items || []).filter((i: any) => i?.id).map((i: any) => [i.id, i]));
   } catch { return new Map(); }
@@ -108,7 +111,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('GEMINI_ANALYSIS_API_KEY') || Deno.env.get('GOOGLE_GEMINI_API_KEY');
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
 
   try {
     const { code, name, knownHashes = [], maxItems = 6, maxExtract = 2 } = await req.json();
