@@ -186,7 +186,7 @@ async function callClaude(apiKey: string, system: string, user: string, maxToken
           messages: [{ role: 'user', content: user }] }),
       });
       if (response.status === 429) { console.log(`Claude ${model} 429, trying next`); continue; }
-      if (!response.ok) { console.error(`Claude ${model} failed (${response.status})`); continue; }
+      if (!response.ok) { const errBody = await response.text(); console.error(`Claude ${model} failed (${response.status}):`, errBody.slice(0, 500)); continue; }
       const data = await response.json();
       const text = data.content?.map((b: any) => b.text || '').join('').trim();
       if (text) return text;
