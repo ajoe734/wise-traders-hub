@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can view active providers" ON public.payment_providers FOR SELECT TO public USING (is_active = true);
