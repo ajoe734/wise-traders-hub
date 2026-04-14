@@ -77,6 +77,135 @@ const Checkout = () => {
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string } | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
+
+  // ACpay cardholder form fields
+  const [cardHolderName, setCardHolderName] = useState('');
+  const [cardHolderEmail, setCardHolderEmail] = useState('');
+  const [cardHolderPhone, setCardHolderPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('886');
+
+  // ACpay SDK refs
+  const acpayCardRef = useRef<HTMLDivElement>(null);
+  const acpaySdkLoaded = useRef(false);
+  const acpayFieldsRef = useRef<any>(null);
+
+  // Determine if selected provider is ACpay
+  const selectedProviderObj = providers.find(p => p.id === selectedProvider);
+  const isAcpay = selectedProviderObj?.provider_type === 'acpay';
+
+  // Load ACpay JS SDK when acpay provider is selected
+  useEffect(() => {
+    if (!isAcpay || acpaySdkLoaded.current) return;
+
+    const sdkUrl = 'https://js.payloop.com.tw/sdk/v1.0/acpay.js';
+    const existingScript = document.querySelector(`script[src="${sdkUrl}"]`);
+    if (existingScript) {
+      acpaySdkLoaded.current = true;
+      initACpayFields();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = sdkUrl;
+    script.async = true;
+    script.onload = () => {
+      acpaySdkLoaded.current = true;
+      initACpayFields();
+    };
+    script.onerror = () => {
+      console.error('Failed to load ACpay SDK');
+    };
+    document.head.appendChild(script);
+  }, [isAcpay]);
+
+  const initACpayFields = useCallback(() => {
+    if (!acpayCardRef.current || !(window as any).ACPay) return;
+
+    try {
+      const ACPay = (window as any).ACPay;
+      const fields = ACPay.setupSDK({
+        fields: {
+          number: { element: '#portal-acpay-card-number', placeholder: '卡號' },
+          expirationDate: { element: '#portal-acpay-expiry', placeholder: 'MM/YY' },
+          ccv: { element: '#portal-acpay-ccv', placeholder: '安全碼' },
+        },
+      });
+      acpayFieldsRef.current = fields;
+    } catch (e) {
+      console.error('ACpay SDK init error:', e);
+    }
+  }, []);
+
+  // Handle ACpay 3DS return
+  useEffect(() => {
+    const acpayResult = searchParams.get('acpay');
+    if (acpayResult !== 'result' || !user || !planId || resultDialog) return;
+
+    setIsConfirming(true);
+
+    const checkAndListen = async () => {
+      const { data: existing } = await supabase
+        .from('member_subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('plan_id', planId)
+        .eq('status', 'active');
+
+      if (existing && existing.length > 0) {
+        setIsConfirming(false);
+        setResultDialog({ open: true, success: true });
+        return;
+      }
+
+      let resolved = false;
+      const channel = supabase
+        .channel('acpay-portal-confirm')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'member_subscriptions',
+          filter: `user_id=eq.${user.id}`,
+        }, (payload) => {
+          const row = payload.new as any;
+          if (row.plan_id === planId && row.status === 'active' && !resolved) {
+            resolved = true;
+            clearInterval(pollTimer);
+            setIsConfirming(false);
+            setResultDialog({ open: true, success: true });
+          }
+        })
+        .subscribe();
+
+      const pollTimer = setInterval(async () => {
+        if (resolved) { clearInterval(pollTimer); return; }
+        const { data: polled } = await supabase
+          .from('member_subscriptions')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('plan_id', planId)
+          .eq('status', 'active');
+        if (polled && polled.length > 0 && !resolved) {
+          resolved = true;
+          clearInterval(pollTimer);
+          supabase.removeChannel(channel);
+          setIsConfirming(false);
+          setResultDialog({ open: true, success: true });
+        }
+      }, 5000);
+
+      setTimeout(() => {
+        clearInterval(pollTimer);
+        supabase.removeChannel(channel);
+        if (!resolved) {
+          setIsConfirming(false);
+          setResultDialog({ open: true, success: false, message: '付款確認逾時，如已扣款請聯繫客服' });
+        }
+      }, 60000);
+    };
+
+    checkAndListen();
+  }, [searchParams, user, planId]);
+
   // Handle LINE Pay return
   useEffect(() => {
     const linepay = searchParams.get('linepay');
