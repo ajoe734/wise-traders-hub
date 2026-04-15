@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const CLAUDE_MODELS = ['claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022'];
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
 /* ── RSS helpers ── */
 
@@ -54,7 +54,6 @@ async function fetchNewsRSS(query: string, timeoutMs = 8000): Promise<string> {
 /** Fetch news context for stocks via Google News RSS */
 async function fetchNewsContext(stocks: string): Promise<string> {
   const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
-  // Extract stock names/codes
   const queries = items.slice(0, 10).map(item => {
     const code = item.match(/^(\d{4,6})/)?.[1] || '';
     const name = item.replace(/^\d+\s*/, '').trim();
@@ -72,7 +71,6 @@ async function fetchNewsContext(stocks: string): Promise<string> {
     } catch (err) {
       console.error(`RSS fetch error for "${q}":`, err);
     }
-    // Small delay to avoid rate limiting
     await new Promise(r => setTimeout(r, 300));
   }
 
@@ -80,43 +78,38 @@ async function fetchNewsContext(stocks: string): Promise<string> {
   return allNews.join('\n');
 }
 
-/* ── Claude API ── */
+/* ── Gemini API ── */
 
-async function callClaude(apiKey: string, system: string, user: string, maxTokens = 8192): Promise<{ ok: boolean; text: string; status: number }> {
-  for (const model of CLAUDE_MODELS) {
+async function callGemini(apiKey: string, system: string, user: string, maxTokens = 8192): Promise<{ ok: boolean; text: string; status: number }> {
+  for (const model of GEMINI_MODELS) {
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: maxTokens,
-          temperature: 0.3,
-          system,
-          messages: [{ role: 'user', content: user }],
-        }),
-      });
+      const body: any = {
+        contents: [{ role: 'user', parts: [{ text: user }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens },
+      };
+      if (system) body.systemInstruction = { parts: [{ text: system }] };
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+      );
 
       if (response.status === 429) {
-        console.log(`Claude ${model} rate limited, trying next`);
+        console.log(`Gemini ${model} rate limited, trying next`);
         continue;
       }
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error(`Claude ${model} failed (${response.status}):`, errText.slice(0, 300));
+        console.error(`Gemini ${model} failed (${response.status}):`, errText.slice(0, 300));
         continue;
       }
 
       const data = await response.json();
-      const text = data.content?.map((b: any) => b.text || '').join('').trim();
+      const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
       if (text) return { ok: true, text, status: 200 };
     } catch (err) {
-      console.error(`Claude ${model} exception:`, err);
+      console.error(`Gemini ${model} exception:`, err);
     }
   }
   return { ok: false, text: '', status: 500 };
@@ -263,9 +256,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  const apiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY 未設定' }), {
+    return new Response(JSON.stringify({ error: 'GOOGLE_GEMINI_API_KEY 未設定' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -299,12 +292,12 @@ Deno.serve(async (req) => {
 重要：營收公布日（每月10日前）和財報公布截止日是固定規律，即使新聞沒提到也必須列出。
 只輸出 JSON 陣列。`;
 
-    const result = await callClaude(apiKey, systemPrompt, prompt, 8192);
+    const result = await callGemini(apiKey, systemPrompt, prompt, 8192);
 
     if (result.ok && result.text) {
       const events = tryParseEvents(result.text);
       if (events) {
-        console.log(`Calendar: Claude succeeded, ${events.length} events`);
+        console.log(`Calendar: Gemini succeeded, ${events.length} events`);
         return new Response(
           JSON.stringify({ text: JSON.stringify(events), response: JSON.stringify(events) }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
