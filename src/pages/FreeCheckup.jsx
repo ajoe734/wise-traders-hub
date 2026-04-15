@@ -404,8 +404,8 @@ export default function App() {
         return loadLocal(key, fallback);
       };
 
-      const h = pick("pf-holdings-v2", INIT_HOLDINGS);
-      const t = pick("pf-targets-v1", INIT_TARGETS);
+      const h = pick("pf-holdings-v2", []);
+      const t = pick("pf-targets-v1", {});
       const ne = pick("pf-news-events-v1", []);
       const ah = pick("pf-analysis-history-v1", []);
       const rc = pick("pf-reversal-v1", {});
