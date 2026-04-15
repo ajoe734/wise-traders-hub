@@ -435,6 +435,7 @@ export default function App() {
     (async () => {
       // ── Demo 模式：直接使用假資料 ──
       if (isDemo) {
+        setLocalStorageOwner("demo");
         setHoldings(SEED_HOLDINGS);
         setTradeLog([]);
         setTargets(INIT_TARGETS);
@@ -464,11 +465,12 @@ export default function App() {
       }
 
       const pick = (key, fallback) => {
-        if (cloud[key] != null && !(Array.isArray(cloud[key]) && cloud[key].length === 0 && Object.keys(cloud[key]).length === 0)) {
+        if (Object.prototype.hasOwnProperty.call(cloud, key)) {
+          if (userId) setLocalStorageOwner(userId);
           try { localStorage.setItem(key, JSON.stringify(cloud[key])); } catch {}
           return cloud[key];
         }
-        return loadLocal(key, fallback);
+        return loadScopedLocal(key, fallback, userId);
       };
 
       const h = pick("pf-holdings-v2", []);
@@ -486,6 +488,15 @@ export default function App() {
       } else {
         ce = ceRaw || [];
       }
+
+      const sanitizedHoldings = stripDemoSeedHoldings(Array.isArray(h) ? h : []);
+      const removedDemoSeedCount = (Array.isArray(h) ? h.length : 0) - sanitizedHoldings.length;
+      const holdingCodesKey = getHoldingCodesKey(sanitizedHoldings);
+      const storedCalendarHoldingCodes = Array.isArray(ce) ? (ce._holdingCodes || "") : "";
+      const shouldRebuildDerivedEvents =
+        holdingCodesKey.length > 0 &&
+        (removedDemoSeedCount > 0 || storedCalendarHoldingCodes !== holdingCodesKey);
+      const manualNewsEvents = (Array.isArray(ne) ? ne : []).filter((event) => event?.source !== "calendar");
 
       let l = [];
       try {
@@ -509,10 +520,10 @@ export default function App() {
         l = loadLocal("pf-log-v2", []);
       }
 
-      setHoldings(h); setTradeLog(l); setTargets(t);
-      setStrategyBrain(sb); setCalendarEvents(ce);
+      setHoldings(sanitizedHoldings); setTradeLog(l); setTargets(t);
+      setStrategyBrain(sb); setCalendarEvents(shouldRebuildDerivedEvents ? [] : ce);
 
-      const hasHoldings = h && h.length > 0;
+      const hasHoldings = sanitizedHoldings.length > 0;
       if (!hasHoldings) {
         setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
         setStrategyBrain(null); setCalendarEvents([]);
@@ -521,10 +532,15 @@ export default function App() {
         save("pf-targets-v1", {});
         setTargets({});
       } else {
-        setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
+        setNewsEvents(shouldRebuildDerivedEvents ? manualNewsEvents : ne);
+        setAnalysisHistory(ah); setReversalConditions(rc);
       }
       setReady(true);
       setCloudSync(true);
+
+      if (shouldRebuildDerivedEvents) {
+        fetchCalendarEvents(sanitizedHoldings, resetGuardRef.current, []);
+      }
     })();
   }, [authReady, isDemo]);
 
