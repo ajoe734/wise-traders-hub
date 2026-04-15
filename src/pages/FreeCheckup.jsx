@@ -163,7 +163,7 @@ async function save(key, data, userId) {
 // ── Main ─────────────────────────────────────────────────────────
 export default function App() {
   const navigate = useNavigate();
-  const { isDemo, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData } = useCheckupMode();
+  const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
   const [ready, setReady] = useState(false);
 
@@ -365,6 +365,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!authReady) return; // wait for auth state to be determined
     (async () => {
       // ── Demo 模式：直接使用假資料 ──
       if (isDemo) {
@@ -459,7 +460,7 @@ export default function App() {
       setReady(true);
       setCloudSync(true);
     })();
-  }, []);
+  }, [authReady, isDemo]);
 
   // auto-save
   useEffect(() => {
