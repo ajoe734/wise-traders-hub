@@ -2118,7 +2118,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
             </div>
           )}
-          {!parsed && !isDemo && (
+          {!parsed && !isDemo && !hasReachedDailyLimit && (
             <>
               <div
                 onDragOver={e=>{e.preventDefault();setDragOver(true)}}
