@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
 /* ── helpers ── */
 
@@ -189,13 +189,47 @@ async function callGemini(apiKey: string, system: string, user: string, maxToken
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
       );
-      if (response.status === 429) { console.log(`Gemini ${model} 429, trying next`); continue; }
+      if (response.status === 429 || response.status === 503) {
+        console.log(`Gemini ${model} ${response.status}, trying next`);
+        await response.text(); // consume body
+        continue;
+      }
       if (!response.ok) { const errBody = await response.text(); console.error(`Gemini ${model} failed (${response.status}):`, errBody.slice(0, 500)); continue; }
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
       if (text) return text;
     } catch (err) { console.error(`Gemini ${model} error:`, err); }
   }
+
+  // Fallback: Lovable AI Gateway
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  if (lovableKey) {
+    try {
+      console.log('All Gemini models failed, falling back to Lovable AI Gateway');
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${lovableKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+          max_tokens: maxTokens,
+          temperature: 0.3,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (text) return text;
+      } else {
+        const errText = await response.text();
+        console.error(`Lovable AI Gateway failed (${response.status}):`, errText.slice(0, 300));
+      }
+    } catch (err) { console.error('Lovable AI Gateway error:', err); }
+  }
+
   return '';
 }
 
