@@ -7,7 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const GATEWAY_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
 
 /* ── RSS helpers ── */
 
@@ -43,28 +44,54 @@ async function fetchNewsForStocks(stocksStr: string): Promise<string> {
   return allNews.length > 0 ? allNews.join('\n') : '（無即時新聞）';
 }
 
-/* ── Gemini caller ── */
+/* ── AI caller ── */
 
-async function callGemini(apiKey: string, system: string, user: string, maxTokens = 8192): Promise<{ ok: boolean; text: string }> {
-  for (const model of GEMINI_MODELS) {
-    try {
-      const body: any = {
-        contents: [{ role: 'user', parts: [{ text: user }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens },
-      };
-      if (system) body.systemInstruction = { parts: [{ text: system }] };
+async function callAI(system: string, user: string, maxTokens = 8192): Promise<{ ok: boolean; text: string }> {
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+  const messages = [
+    ...(system ? [{ role: 'system', content: system }] : []),
+    { role: 'user', content: user },
+  ];
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-      );
-      if (response.status === 429) { console.log(`Gemini ${model} 429`); continue; }
-      if (!response.ok) { console.error(`Gemini ${model} failed (${response.status})`); continue; }
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
-      if (text) return { ok: true, text };
-    } catch (err) { console.error(`Gemini ${model} error:`, err); }
+  if (lovableKey) {
+    for (const model of GATEWAY_MODELS) {
+      try {
+        const response = await fetch(GATEWAY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${lovableKey}` },
+          body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens }),
+        });
+        if (response.status === 429) { console.log(`Gateway ${model} 429`); continue; }
+        if (!response.ok) { console.error(`Gateway ${model} failed (${response.status})`); continue; }
+        const data = await response.json();
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (text) return { ok: true, text };
+      } catch (err) { console.error(`Gateway ${model} error:`, err); }
+    }
   }
+
+  if (geminiKey) {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
+      try {
+        const body: any = {
+          contents: [{ role: 'user', parts: [{ text: user }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens },
+        };
+        if (system) body.systemInstruction = { parts: [{ text: system }] };
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+        );
+        if (response.status === 429) continue;
+        if (!response.ok) continue;
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
+        if (text) return { ok: true, text };
+      } catch {}
+    }
+  }
+
   return { ok: false, text: '' };
 }
 
@@ -113,13 +140,12 @@ function classifyHoldings(stocks: string): { stockList: string; warrantList: str
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  const apiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  if (!apiKey) {
-    console.log('Cron: No GOOGLE_GEMINI_API_KEY, skipping');
+  if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
+    console.log('Cron: No AI API key, skipping');
     return new Response(JSON.stringify({ status: 'skipped', reason: 'no API key' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -154,7 +180,6 @@ Deno.serve(async (req) => {
 
       const stocksStr = typeof stocks === 'string' ? stocks : stocks.map((s: any) => `${s.code} ${s.name}`).join('、');
 
-      // Fetch news context
       const newsContext = await fetchNewsForStocks(stocksStr);
 
       const { stockList, warrantList, parentStocks } = classifyHoldings(stocksStr);
@@ -192,9 +217,9 @@ ${outputFormat}
 
 只輸出 JSON 陣列。`;
 
-      const result = await callGemini(apiKey, systemPrompt, userPrompt, 8192);
+      const result = await callAI(systemPrompt, userPrompt, 8192);
       if (!result.ok) {
-        console.error(`Cron: Gemini failed for user ${userId}`);
+        console.error(`Cron: AI failed for user ${userId}`);
         continue;
       }
 

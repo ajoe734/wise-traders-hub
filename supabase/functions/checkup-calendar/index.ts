@@ -6,7 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const GATEWAY_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
 
 /* ── RSS helpers ── */
 
@@ -51,7 +52,6 @@ async function fetchNewsRSS(query: string, timeoutMs = 8000): Promise<string> {
   }
 }
 
-/** Fetch news context for stocks via Google News RSS */
 async function fetchNewsContext(stocks: string): Promise<string> {
   const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
   const queries = items.slice(0, 10).map(item => {
@@ -78,41 +78,55 @@ async function fetchNewsContext(stocks: string): Promise<string> {
   return allNews.join('\n');
 }
 
-/* ── Gemini API ── */
+/* ── AI caller ── */
 
-async function callGemini(apiKey: string, system: string, user: string, maxTokens = 8192): Promise<{ ok: boolean; text: string; status: number }> {
-  for (const model of GEMINI_MODELS) {
-    try {
-      const body: any = {
-        contents: [{ role: 'user', parts: [{ text: user }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens },
-      };
-      if (system) body.systemInstruction = { parts: [{ text: system }] };
+async function callAI(system: string, user: string, maxTokens = 8192): Promise<{ ok: boolean; text: string }> {
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+  const messages = [
+    ...(system ? [{ role: 'system', content: system }] : []),
+    { role: 'user', content: user },
+  ];
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-      );
-
-      if (response.status === 429) {
-        console.log(`Gemini ${model} rate limited, trying next`);
-        continue;
-      }
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`Gemini ${model} failed (${response.status}):`, errText.slice(0, 300));
-        continue;
-      }
-
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
-      if (text) return { ok: true, text, status: 200 };
-    } catch (err) {
-      console.error(`Gemini ${model} exception:`, err);
+  if (lovableKey) {
+    for (const model of GATEWAY_MODELS) {
+      try {
+        const response = await fetch(GATEWAY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${lovableKey}` },
+          body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens }),
+        });
+        if (response.status === 429) { console.log(`Gateway ${model} rate limited`); continue; }
+        if (!response.ok) { console.error(`Gateway ${model} failed (${response.status})`); continue; }
+        const data = await response.json();
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (text) return { ok: true, text };
+      } catch (err) { console.error(`Gateway ${model} error:`, err); }
     }
   }
-  return { ok: false, text: '', status: 500 };
+
+  if (geminiKey) {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
+      try {
+        const body: any = {
+          contents: [{ role: 'user', parts: [{ text: user }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens },
+        };
+        if (system) body.systemInstruction = { parts: [{ text: system }] };
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+        );
+        if (response.status === 429) continue;
+        if (!response.ok) continue;
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
+        if (text) return { ok: true, text };
+      } catch {}
+    }
+  }
+
+  return { ok: false, text: '' };
 }
 
 /* ── JSON parsing helpers ── */
@@ -256,9 +270,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'GOOGLE_GEMINI_API_KEY 未設定' }), {
+  if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
+    return new Response(JSON.stringify({ error: 'AI API key 未設定' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -292,12 +305,12 @@ Deno.serve(async (req) => {
 重要：營收公布日（每月10日前）和財報公布截止日是固定規律，即使新聞沒提到也必須列出。
 只輸出 JSON 陣列。`;
 
-    const result = await callGemini(apiKey, systemPrompt, prompt, 8192);
+    const result = await callAI(systemPrompt, prompt, 8192);
 
     if (result.ok && result.text) {
       const events = tryParseEvents(result.text);
       if (events) {
-        console.log(`Calendar: Gemini succeeded, ${events.length} events`);
+        console.log(`Calendar: succeeded, ${events.length} events`);
         return new Response(
           JSON.stringify({ text: JSON.stringify(events), response: JSON.stringify(events) }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
