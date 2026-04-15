@@ -7,7 +7,59 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const GATEWAY_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
+
+/* ── AI caller ── */
+
+async function callAI(system: string, user: string, maxTokens = 4096): Promise<string> {
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+  const messages = [
+    ...(system ? [{ role: 'system', content: system }] : []),
+    { role: 'user', content: user },
+  ];
+
+  if (lovableKey) {
+    for (const model of GATEWAY_MODELS) {
+      try {
+        const response = await fetch(GATEWAY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${lovableKey}` },
+          body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens }),
+        });
+        if (response.status === 429) { console.log(`Gateway ${model} rate limited`); continue; }
+        if (!response.ok) { console.error(`Gateway ${model} failed (${response.status})`); continue; }
+        const data = await response.json();
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (text) return text;
+      } catch (err) { console.error(`Gateway ${model} error:`, err); }
+    }
+  }
+
+  if (geminiKey) {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite']) {
+      try {
+        const body: any = {
+          contents: [{ role: 'user', parts: [{ text: user }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens },
+        };
+        if (system) body.systemInstruction = { parts: [{ text: system }] };
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+        );
+        if (response.status === 429 || response.status === 503) continue;
+        if (!response.ok) continue;
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
+        if (text) return text;
+      } catch {}
+    }
+  }
+
+  return '';
+}
 
 /* ── helpers ── */
 
@@ -174,65 +226,6 @@ async function fetchRealtimeQuotes(codes: string[]): Promise<Map<string, any>> {
   return result;
 }
 
-/* ── Gemini caller ── */
-
-async function callGemini(apiKey: string, system: string, user: string, maxTokens = 4096): Promise<string> {
-  for (const model of GEMINI_MODELS) {
-    try {
-      const body: any = {
-        contents: [{ role: 'user', parts: [{ text: user }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens },
-      };
-      if (system) body.systemInstruction = { parts: [{ text: system }] };
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-      );
-      if (response.status === 429 || response.status === 503) {
-        console.log(`Gemini ${model} ${response.status}, trying next`);
-        await response.text(); // consume body
-        continue;
-      }
-      if (!response.ok) { const errBody = await response.text(); console.error(`Gemini ${model} failed (${response.status}):`, errBody.slice(0, 500)); continue; }
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
-      if (text) return text;
-    } catch (err) { console.error(`Gemini ${model} error:`, err); }
-  }
-
-  // Fallback: Lovable AI Gateway
-  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
-  if (lovableKey) {
-    try {
-      console.log('All Gemini models failed, falling back to Lovable AI Gateway');
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${lovableKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: user },
-          ],
-          max_tokens: maxTokens,
-          temperature: 0.3,
-        }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const text = data.choices?.[0]?.message?.content?.trim();
-        if (text) return text;
-      } else {
-        const errText = await response.text();
-        console.error(`Lovable AI Gateway failed (${response.status}):`, errText.slice(0, 300));
-      }
-    } catch (err) { console.error('Lovable AI Gateway error:', err); }
-  }
-
-  return '';
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') {
@@ -241,9 +234,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'GOOGLE_GEMINI_API_KEY 未設定' }), {
+  if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
+    return new Response(JSON.stringify({ error: 'AI API key 未設定' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -332,7 +324,7 @@ ${eventsForPrompt}
 - predReason 必須具體，引用數據
 - 只輸出 JSON 陣列`;
 
-    const resultText = await callGemini(apiKey, systemPrompt, userPrompt, 4096);
+    const resultText = await callAI(systemPrompt, userPrompt, 4096);
 
     if (!resultText) {
       return new Response(JSON.stringify({ error: '預測失敗，所有模型均無法使用' }), {
