@@ -365,6 +365,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!authReady) return; // wait for auth state to be determined
     (async () => {
       // ── Demo 模式：直接使用假資料 ──
       if (isDemo) {
@@ -459,7 +460,7 @@ export default function App() {
       setReady(true);
       setCloudSync(true);
     })();
-  }, []);
+  }, [authReady, isDemo]);
 
   // auto-save
   useEffect(() => {
