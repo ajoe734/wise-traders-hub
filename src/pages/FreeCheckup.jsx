@@ -1184,7 +1184,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           cost: price,
           totalCost: tradeTotalCost,
           fee: tradeFee,
-          type: "股票",
+          type: inferHoldingType(code, name),
         };
         const { value, pnl, pct } = calcPnlWithNet(newH, mktPrice);
         arr.push({ ...newH, value, pnl, pct });
@@ -1213,6 +1213,45 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         };
       }
     }
+
+    return arr;
+  };
+
+  const hasExplicitTradeAction = (trade) => {
+    const action = String(trade?.action || "").trim();
+    return action === "買進" || action === "賣出";
+  };
+
+  const upsertSnapshotHolding = (holdingsList, trade) => {
+    const code = String(trade?.code || "").trim();
+    const name = String(trade?.name || "").trim();
+    const qty = Number(trade?.qty) || 0;
+    const cost = Number(trade?.price) || 0;
+    const marketPrice = Number(trade?.market_price) || cost;
+    const totalCost = trade?.total_cost != null ? Number(trade.total_cost) : null;
+    const fee = trade?.fee != null ? Number(trade.fee) : null;
+
+    if (!code || qty <= 0 || cost <= 0) return holdingsList;
+
+    const arr = [...holdingsList];
+    const idx = arr.findIndex((holding) => holding.code === code);
+    const prev = idx >= 0 ? arr[idx] : null;
+    const nextHolding = {
+      ...(prev || {}),
+      code,
+      name: name || prev?.name || code,
+      qty,
+      price: marketPrice,
+      cost,
+      totalCost,
+      fee,
+      type: prev?.type || inferHoldingType(code, name),
+    };
+    const { value, pnl, pct } = calcPnlWithNet(nextHolding, marketPrice);
+    const finalizedHolding = { ...nextHolding, value, pnl, pct };
+
+    if (idx >= 0) arr[idx] = finalizedHolding;
+    else arr.push(finalizedHolding);
 
     return arr;
   };
@@ -1258,22 +1297,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         const clean = (data.content?.[0]?.text||"").replace(/```json|```/g,"").trim();
         const parsedResult = JSON.parse(clean);
+        const parsedTrades = Array.isArray(parsedResult?.trades) ? parsedResult.trades : [];
+        const isSnapshotImport = parsedTrades.length > 0 && parsedTrades.every((trade) => !hasExplicitTradeAction(trade));
+        const preparedTrades = parsedTrades.map((trade) => ({
+          ...trade,
+          action: hasExplicitTradeAction(trade)
+            ? String(trade.action).trim()
+            : (isSnapshotImport ? SNAPSHOT_IMPORT_ACTION : "買進"),
+        }));
+        parsedResult.trades = preparedTrades;
         setParsed(parsedResult);
 
         // 解析成功後立即同步持倉 & 交易記錄
-        if (parsedResult?.trades?.length) {
+        if (preparedTrades.length) {
           holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
-          setHoldings(prev => parsedResult.trades.reduce(
-            (acc, trade) => mergeTradeIntoHoldings(acc, trade),
-            [...(prev || [])],
+          setHoldings(prev => preparedTrades.reduce(
+            (acc, trade) => isSnapshotImport ? upsertSnapshotHolding(acc, trade) : mergeTradeIntoHoldings(acc, trade),
+            stripDemoSeedHoldings(prev || []),
           ));
           setTradeLog(prev => {
             const existing = prev || [];
-            const newEntries = parsedResult.trades.map(t => ({
+            const newEntries = preparedTrades.map(t => ({
               id: Date.now() + Math.random(),
               date: t.date || new Date().toLocaleDateString("zh-TW"),
               time: t.time || new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}),
-              action: t.action, code: t.code, name: t.name, qty: t.qty, price: t.price,
+              action: t.action === SNAPSHOT_IMPORT_ACTION ? "匯入" : t.action,
+              code: t.code, name: t.name, qty: t.qty, price: t.price,
               qa: [],
             }));
             return [...newEntries, ...existing];
