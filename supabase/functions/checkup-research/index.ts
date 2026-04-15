@@ -7,33 +7,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MODELS = ['claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022'];
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
-async function callClaude(apiKey: string, model: string, system: string, user: string, maxTokens = 4000): Promise<string> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      temperature: 0.3,
-      system,
-      messages: [{ role: 'user', content: user }],
-    }),
-  });
-  if (!response.ok) throw new Error(`Claude ${model} failed (${response.status})`);
+async function callGemini(apiKey: string, model: string, system: string, user: string, maxTokens = 4000): Promise<string> {
+  const body: any = {
+    contents: [{ role: 'user', parts: [{ text: user }] }],
+    generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens },
+  };
+  if (system) body.systemInstruction = { parts: [{ text: system }] };
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  );
+  if (!response.ok) throw new Error(`Gemini ${model} failed (${response.status})`);
   const data = await response.json();
-  return data.content?.map((b: any) => b.text || '').join('').trim() || '';
+  return data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim() || '';
 }
 
 async function callAiText(apiKey: string, system: string, user: string, maxTokens = 4000): Promise<string> {
-  for (const model of MODELS) {
+  for (const model of GEMINI_MODELS) {
     try {
-      const text = await callClaude(apiKey, model, system, user, maxTokens);
+      const text = await callGemini(apiKey, model, system, user, maxTokens);
       if (text) return text;
     } catch (e) {
       console.error(`Model ${model} failed:`, e);
@@ -51,9 +46,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  const apiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY 未設定' }), {
+    return new Response(JSON.stringify({ error: 'GOOGLE_GEMINI_API_KEY 未設定' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

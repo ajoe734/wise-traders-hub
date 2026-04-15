@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const CLAUDE_MODELS = ['claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022'];
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
 /* ── RSS helpers ── */
 
@@ -43,23 +43,27 @@ async function fetchNewsForStocks(stocksStr: string): Promise<string> {
   return allNews.length > 0 ? allNews.join('\n') : '（無即時新聞）';
 }
 
-/* ── Claude caller ── */
+/* ── Gemini caller ── */
 
-async function callClaude(apiKey: string, system: string, user: string, maxTokens = 8192): Promise<{ ok: boolean; text: string }> {
-  for (const model of CLAUDE_MODELS) {
+async function callGemini(apiKey: string, system: string, user: string, maxTokens = 8192): Promise<{ ok: boolean; text: string }> {
+  for (const model of GEMINI_MODELS) {
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model, max_tokens: maxTokens, temperature: 0.3, system,
-          messages: [{ role: 'user', content: user }] }),
-      });
-      if (response.status === 429) { console.log(`Claude ${model} 429`); continue; }
-      if (!response.ok) { console.error(`Claude ${model} failed (${response.status})`); continue; }
+      const body: any = {
+        contents: [{ role: 'user', parts: [{ text: user }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens },
+      };
+      if (system) body.systemInstruction = { parts: [{ text: system }] };
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+      );
+      if (response.status === 429) { console.log(`Gemini ${model} 429`); continue; }
+      if (!response.ok) { console.error(`Gemini ${model} failed (${response.status})`); continue; }
       const data = await response.json();
-      const text = data.content?.map((b: any) => b.text || '').join('').trim();
+      const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
       if (text) return { ok: true, text };
-    } catch (err) { console.error(`Claude ${model} error:`, err); }
+    } catch (err) { console.error(`Gemini ${model} error:`, err); }
   }
   return { ok: false, text: '' };
 }
@@ -109,13 +113,13 @@ function classifyHoldings(stocks: string): { stockList: string; warrantList: str
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  const apiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
   if (!apiKey) {
-    console.log('Cron: No ANTHROPIC_API_KEY, skipping');
+    console.log('Cron: No GOOGLE_GEMINI_API_KEY, skipping');
     return new Response(JSON.stringify({ status: 'skipped', reason: 'no API key' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -188,9 +192,9 @@ ${outputFormat}
 
 只輸出 JSON 陣列。`;
 
-      const result = await callClaude(apiKey, systemPrompt, userPrompt, 8192);
+      const result = await callGemini(apiKey, systemPrompt, userPrompt, 8192);
       if (!result.ok) {
-        console.error(`Cron: Claude failed for user ${userId}`);
+        console.error(`Cron: Gemini failed for user ${userId}`);
         continue;
       }
 
