@@ -123,6 +123,71 @@ const CLOUD_SYNC_KEYS = [
   "pf-analysis-history-v1", "pf-reversal-v1", "pf-brain-v1", "pf-calendar-v1",
 ];
 
+const LOCAL_STORAGE_OWNER_KEY = "pf-storage-owner-v1";
+const SNAPSHOT_IMPORT_ACTION = "持倉匯入";
+
+const inferHoldingType = (code, name = "") => {
+  if (String(code || "").startsWith("00")) return "ETF";
+  if (String(code || "").length === 6 || /(購|售|牛|熊)/.test(String(name || ""))) return "權證";
+  return "股票";
+};
+
+const normalizeNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const isSameNumber = (a, b) => {
+  const na = normalizeNumber(a);
+  const nb = normalizeNumber(b);
+  if (na == null && nb == null) return true;
+  if (na == null || nb == null) return false;
+  return Math.abs(na - nb) < 0.0001;
+};
+
+const DEMO_HOLDING_LOOKUP = new Map(INIT_HOLDINGS.map((holding) => [holding.code, holding]));
+
+const isExactDemoHolding = (holding) => {
+  const demoHolding = DEMO_HOLDING_LOOKUP.get(holding?.code);
+  if (!demoHolding) return false;
+
+  return (
+    isSameNumber(holding?.qty, demoHolding.qty) &&
+    isSameNumber(holding?.cost, demoHolding.cost) &&
+    isSameNumber(holding?.price, demoHolding.price) &&
+    isSameNumber(holding?.value, demoHolding.value) &&
+    isSameNumber(holding?.pnl, demoHolding.pnl) &&
+    isSameNumber(holding?.pct, demoHolding.pct)
+  );
+};
+
+const stripDemoSeedHoldings = (holdingsList = []) =>
+  (Array.isArray(holdingsList) ? holdingsList : []).filter((holding) => !isExactDemoHolding(holding));
+
+const getHoldingCodesKey = (holdingsList = []) =>
+  (Array.isArray(holdingsList) ? holdingsList : [])
+    .map((holding) => String(holding?.code || "").trim())
+    .filter(Boolean)
+    .sort()
+    .join(",");
+
+const setLocalStorageOwner = (userId) => {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_OWNER_KEY, userId || "demo");
+  } catch {}
+};
+
+const loadScopedLocal = (key, fallback, userId) => {
+  if (!userId) return loadLocal(key, fallback);
+  try {
+    const ownerId = localStorage.getItem(LOCAL_STORAGE_OWNER_KEY);
+    if (ownerId !== userId) return fallback;
+  } catch {
+    return fallback;
+  }
+  return loadLocal(key, fallback);
+};
+
 async function loadAllFromCloud(userId) {
   if (!userId) return {};
   try {
@@ -150,6 +215,7 @@ function setCurrentUserId(uid) { _currentUserId = uid; }
 async function save(key, data, userId) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
   const uid = userId || _currentUserId;
+  if (uid) setLocalStorageOwner(uid);
   if (!uid) return;
   // 雲端同步（fire-and-forget）
   try {
