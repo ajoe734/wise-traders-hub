@@ -84,6 +84,7 @@ const PARSE_PROMPT = `你是台股券商成交回報截圖的解析器。解析�
 4. 權證名稱通常包含「購」「售」「牛」「熊」等字，其價格可能很小（如 0.61、1.55），務必精確辨識。
 5. total_cost（成本）：截圖中若有「成本」欄位，必須精確辨識並填入整數金額。若截圖中無此欄位則填 null。
 6. fee（手續費）：截圖中若有「手續費」欄位，必須精確辨識並填入整數金額。若截圖中無此欄位則填 null。
+7. 若截圖其實是「持倉/庫存/未實現損益」列表，沒有明確顯示買進或賣出，仍要輸出 trades；此時 action 留空即可，不要亂猜賣出。
 
 targetPriceUpdates：如果截圖中有提到分析師目標價或研究報告目標價，請一併擷取。否則為空陣列。`;
 
@@ -123,6 +124,71 @@ const CLOUD_SYNC_KEYS = [
   "pf-analysis-history-v1", "pf-reversal-v1", "pf-brain-v1", "pf-calendar-v1",
 ];
 
+const LOCAL_STORAGE_OWNER_KEY = "pf-storage-owner-v1";
+const SNAPSHOT_IMPORT_ACTION = "持倉匯入";
+
+const inferHoldingType = (code, name = "") => {
+  if (String(code || "").startsWith("00")) return "ETF";
+  if (String(code || "").length === 6 || /(購|售|牛|熊)/.test(String(name || ""))) return "權證";
+  return "股票";
+};
+
+const normalizeNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const isSameNumber = (a, b) => {
+  const na = normalizeNumber(a);
+  const nb = normalizeNumber(b);
+  if (na == null && nb == null) return true;
+  if (na == null || nb == null) return false;
+  return Math.abs(na - nb) < 0.0001;
+};
+
+const DEMO_HOLDING_LOOKUP = new Map(INIT_HOLDINGS.map((holding) => [holding.code, holding]));
+
+const isExactDemoHolding = (holding) => {
+  const demoHolding = DEMO_HOLDING_LOOKUP.get(holding?.code);
+  if (!demoHolding) return false;
+
+  return (
+    isSameNumber(holding?.qty, demoHolding.qty) &&
+    isSameNumber(holding?.cost, demoHolding.cost) &&
+    isSameNumber(holding?.price, demoHolding.price) &&
+    isSameNumber(holding?.value, demoHolding.value) &&
+    isSameNumber(holding?.pnl, demoHolding.pnl) &&
+    isSameNumber(holding?.pct, demoHolding.pct)
+  );
+};
+
+const stripDemoSeedHoldings = (holdingsList = []) =>
+  (Array.isArray(holdingsList) ? holdingsList : []).filter((holding) => !isExactDemoHolding(holding));
+
+const getHoldingCodesKey = (holdingsList = []) =>
+  (Array.isArray(holdingsList) ? holdingsList : [])
+    .map((holding) => String(holding?.code || "").trim())
+    .filter(Boolean)
+    .sort()
+    .join(",");
+
+const setLocalStorageOwner = (userId) => {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_OWNER_KEY, userId || "demo");
+  } catch {}
+};
+
+const loadScopedLocal = (key, fallback, userId) => {
+  if (!userId) return loadLocal(key, fallback);
+  try {
+    const ownerId = localStorage.getItem(LOCAL_STORAGE_OWNER_KEY);
+    if (ownerId !== userId) return fallback;
+  } catch {
+    return fallback;
+  }
+  return loadLocal(key, fallback);
+};
+
 async function loadAllFromCloud(userId) {
   if (!userId) return {};
   try {
@@ -150,6 +216,7 @@ function setCurrentUserId(uid) { _currentUserId = uid; }
 async function save(key, data, userId) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
   const uid = userId || _currentUserId;
+  if (uid) setLocalStorageOwner(uid);
   if (!uid) return;
   // 雲端同步（fire-and-forget）
   try {
@@ -369,6 +436,7 @@ export default function App() {
     (async () => {
       // ── Demo 模式：直接使用假資料 ──
       if (isDemo) {
+        setLocalStorageOwner("demo");
         setHoldings(SEED_HOLDINGS);
         setTradeLog([]);
         setTargets(INIT_TARGETS);
@@ -398,11 +466,12 @@ export default function App() {
       }
 
       const pick = (key, fallback) => {
-        if (cloud[key] != null && !(Array.isArray(cloud[key]) && cloud[key].length === 0 && Object.keys(cloud[key]).length === 0)) {
+        if (Object.prototype.hasOwnProperty.call(cloud, key)) {
+          if (userId) setLocalStorageOwner(userId);
           try { localStorage.setItem(key, JSON.stringify(cloud[key])); } catch {}
           return cloud[key];
         }
-        return loadLocal(key, fallback);
+        return loadScopedLocal(key, fallback, userId);
       };
 
       const h = pick("pf-holdings-v2", []);
@@ -420,6 +489,15 @@ export default function App() {
       } else {
         ce = ceRaw || [];
       }
+
+      const sanitizedHoldings = stripDemoSeedHoldings(Array.isArray(h) ? h : []);
+      const removedDemoSeedCount = (Array.isArray(h) ? h.length : 0) - sanitizedHoldings.length;
+      const holdingCodesKey = getHoldingCodesKey(sanitizedHoldings);
+      const storedCalendarHoldingCodes = Array.isArray(ce) ? (ce._holdingCodes || "") : "";
+      const shouldRebuildDerivedEvents =
+        holdingCodesKey.length > 0 &&
+        (removedDemoSeedCount > 0 || storedCalendarHoldingCodes !== holdingCodesKey);
+      const manualNewsEvents = (Array.isArray(ne) ? ne : []).filter((event) => event?.source !== "calendar");
 
       let l = [];
       try {
@@ -443,10 +521,10 @@ export default function App() {
         l = loadLocal("pf-log-v2", []);
       }
 
-      setHoldings(h); setTradeLog(l); setTargets(t);
-      setStrategyBrain(sb); setCalendarEvents(ce);
+      setHoldings(sanitizedHoldings); setTradeLog(l); setTargets(t);
+      setStrategyBrain(sb); setCalendarEvents(shouldRebuildDerivedEvents ? [] : ce);
 
-      const hasHoldings = h && h.length > 0;
+      const hasHoldings = sanitizedHoldings.length > 0;
       if (!hasHoldings) {
         setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
         setStrategyBrain(null); setCalendarEvents([]);
@@ -455,10 +533,15 @@ export default function App() {
         save("pf-targets-v1", {});
         setTargets({});
       } else {
-        setNewsEvents(ne); setAnalysisHistory(ah); setReversalConditions(rc);
+        setNewsEvents(shouldRebuildDerivedEvents ? manualNewsEvents : ne);
+        setAnalysisHistory(ah); setReversalConditions(rc);
       }
       setReady(true);
       setCloudSync(true);
+
+      if (shouldRebuildDerivedEvents) {
+        fetchCalendarEvents(sanitizedHoldings, resetGuardRef.current, []);
+      }
     })();
   }, [authReady, isDemo]);
 
@@ -1102,7 +1185,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           cost: price,
           totalCost: tradeTotalCost,
           fee: tradeFee,
-          type: "股票",
+          type: inferHoldingType(code, name),
         };
         const { value, pnl, pct } = calcPnlWithNet(newH, mktPrice);
         arr.push({ ...newH, value, pnl, pct });
@@ -1131,6 +1214,45 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         };
       }
     }
+
+    return arr;
+  };
+
+  const hasExplicitTradeAction = (trade) => {
+    const action = String(trade?.action || "").trim();
+    return action === "買進" || action === "賣出";
+  };
+
+  const upsertSnapshotHolding = (holdingsList, trade) => {
+    const code = String(trade?.code || "").trim();
+    const name = String(trade?.name || "").trim();
+    const qty = Number(trade?.qty) || 0;
+    const cost = Number(trade?.price) || 0;
+    const marketPrice = Number(trade?.market_price) || cost;
+    const totalCost = trade?.total_cost != null ? Number(trade.total_cost) : null;
+    const fee = trade?.fee != null ? Number(trade.fee) : null;
+
+    if (!code || qty <= 0 || cost <= 0) return holdingsList;
+
+    const arr = [...holdingsList];
+    const idx = arr.findIndex((holding) => holding.code === code);
+    const prev = idx >= 0 ? arr[idx] : null;
+    const nextHolding = {
+      ...(prev || {}),
+      code,
+      name: name || prev?.name || code,
+      qty,
+      price: marketPrice,
+      cost,
+      totalCost,
+      fee,
+      type: prev?.type || inferHoldingType(code, name),
+    };
+    const { value, pnl, pct } = calcPnlWithNet(nextHolding, marketPrice);
+    const finalizedHolding = { ...nextHolding, value, pnl, pct };
+
+    if (idx >= 0) arr[idx] = finalizedHolding;
+    else arr.push(finalizedHolding);
 
     return arr;
   };
@@ -1176,22 +1298,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         const clean = (data.content?.[0]?.text||"").replace(/```json|```/g,"").trim();
         const parsedResult = JSON.parse(clean);
+        const parsedTrades = Array.isArray(parsedResult?.trades) ? parsedResult.trades : [];
+        const isSnapshotImport = parsedTrades.length > 0 && parsedTrades.every((trade) => !hasExplicitTradeAction(trade));
+        const preparedTrades = parsedTrades.map((trade) => ({
+          ...trade,
+          action: hasExplicitTradeAction(trade)
+            ? String(trade.action).trim()
+            : (isSnapshotImport ? SNAPSHOT_IMPORT_ACTION : "買進"),
+        }));
+        parsedResult.trades = preparedTrades;
         setParsed(parsedResult);
 
         // 解析成功後立即同步持倉 & 交易記錄
-        if (parsedResult?.trades?.length) {
+        if (preparedTrades.length) {
           holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
-          setHoldings(prev => parsedResult.trades.reduce(
-            (acc, trade) => mergeTradeIntoHoldings(acc, trade),
-            [...(prev || [])],
+          setHoldings(prev => preparedTrades.reduce(
+            (acc, trade) => isSnapshotImport ? upsertSnapshotHolding(acc, trade) : mergeTradeIntoHoldings(acc, trade),
+            stripDemoSeedHoldings(prev || []),
           ));
           setTradeLog(prev => {
             const existing = prev || [];
-            const newEntries = parsedResult.trades.map(t => ({
+            const newEntries = preparedTrades.map(t => ({
               id: Date.now() + Math.random(),
               date: t.date || new Date().toLocaleDateString("zh-TW"),
               time: t.time || new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}),
-              action: t.action, code: t.code, name: t.name, qty: t.qty, price: t.price,
+              action: t.action === SNAPSHOT_IMPORT_ACTION ? "匯入" : t.action,
+              code: t.code, name: t.name, qty: t.qty, price: t.price,
               qa: [],
             }));
             return [...newEntries, ...existing];
