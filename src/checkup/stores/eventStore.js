@@ -84,6 +84,17 @@ export const useEventStore = create((set, get) => ({
     return { expandedNews: next };
   }),
   
+  // Actions - User Overrides (Decision v6)
+  setUserOverrides: (userOverrides) => set({ userOverrides }),
+  setUserOverride: (code, override) => set((state) => ({
+    userOverrides: { ...state.userOverrides, [code]: override }
+  })),
+  removeUserOverride: (code) => set((state) => {
+    const next = { ...state.userOverrides };
+    delete next[code];
+    return { userOverrides: next };
+  }),
+  
   // Selectors
   getEventsByStatus: () => {
     const { newsEvents } = get();
