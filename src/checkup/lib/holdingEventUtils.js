@@ -206,7 +206,7 @@ export function buildDecisionFingerprint(openEvents) {
     return String(a.id || '').localeCompare(String(b.id || ''))
   })
   // Simple hash: concatenate and produce a stable string
-  const raw = sorted.map(e => `${e.id}:${e.impact}`).join('|')
+  const raw = sorted.map(e => `${e.id}:${e.decisionImpact || e.impact}`).join('|')
   // Use a simple djb2 hash for stability (no crypto needed)
   let hash = 5381
   for (let i = 0; i < raw.length; i++) {
@@ -244,7 +244,7 @@ export function mergeEvents(existing, incoming) {
   // Severity: take higher
   result.severity = maxSeverity(existing.severity, incoming.severity)
   // Impact: if clash, flag conflict, don't overwrite
-  if (existing.impact && incoming.impact && existing.impact !== incoming.impact) {
+  if (existing.decisionImpact && incoming.decisionImpact && existing.decisionImpact !== incoming.decisionImpact) {
     result._hasMergeConflict = true
   }
   return result
@@ -338,7 +338,7 @@ export function buildDecision(code, allEvents, userOverrides = {}, now = new Dat
         `override: ${effectiveOverride ? effectiveOverride.actionType : 'none'}`,
       ],
       conflictSources: hasConflict ? {
-        impactClash: openEvents.map(e => `${e.id}:${e.impact}`),
+        impactClash: openEvents.map(e => `${e.id}:${e.decisionImpact || e.impact}`),
         overrideMismatch: effectiveOverride ? `override=${effectiveOverride.actionType} vs derived=${positionState}` : null,
       } : null,
     }
