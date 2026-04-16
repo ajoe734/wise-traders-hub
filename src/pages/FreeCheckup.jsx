@@ -717,33 +717,13 @@ export default function App() {
     return map;
   }, [H, normalizedEvents, userOverrides, debugMode]);
 
+  // Expose for debug toggle
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    // ── Layer-by-layer debug ──
-    const rawNE = newsEvents;
-    const rawIsArray = Array.isArray(rawNE);
-    const rawLen = rawIsArray ? rawNE.length : 'not-array';
-    const nonDemoEvents = rawIsArray ? rawNE.filter(e => e?.source !== 'demo') : [];
-    const withRelatedCodes = normalizedEvents.filter(e => e.relatedCodes && e.relatedCodes.length > 0);
-    const nonDemoNormalized = normalizedEvents.filter(e => e.source !== 'demo');
-    const holdingCodes = H.map(h => h.code);
-    const decKeys = Object.keys(decisionsMap);
-    const nonZeroDecisions = decKeys.filter(k => decisionsMap[k]?.openEventCount > 0);
-
-    console.log("[DV6-DEBUG] Layer 0: newsEvents raw length =", rawLen);
-    console.log("[DV6-DEBUG] Layer 0: newsEvents sources =", rawIsArray ? [...new Set(rawNE.map(e=>e?.source))] : 'N/A');
-    console.log("[DV6-DEBUG] Layer 0: non-demo raw events =", nonDemoEvents.length, nonDemoEvents.map(e=>({id:e.id,source:e.source,stocks:e.stocks})));
-    console.log("[DV6-DEBUG] Layer 1: normalizedEvents.length =", normalizedEvents.length);
-    console.log("[DV6-DEBUG] Layer 1: non-demo normalized =", nonDemoNormalized.length);
-    console.log("[DV6-DEBUG] Layer 1: with relatedCodes =", withRelatedCodes.length, withRelatedCodes.map(e=>({id:e.id,source:e.source,relatedCodes:e.relatedCodes})));
-    console.log("[DV6-DEBUG] Layer 2: H.length =", H.length, "codes =", holdingCodes.slice(0,5));
-    console.log("[DV6-DEBUG] Layer 3: decisionsMap keys =", decKeys.length, "nonZero =", nonZeroDecisions);
-    if (nonZeroDecisions.length > 0) {
-      console.log("[DV6-DEBUG] Layer 3: sample =", decisionsMap[nonZeroDecisions[0]]);
+    if (typeof window !== "undefined") {
+      window.__DECISIONS_MAP__ = decisionsMap;
+      window.__NORMALIZED_EVENTS__ = normalizedEvents;
     }
-    window.__DECISIONS_MAP__ = decisionsMap;
-    window.__NORMALIZED_EVENTS__ = normalizedEvents;
-  }, [newsEvents, normalizedEvents, H, decisionsMap]);
+  }, [decisionsMap, normalizedEvents]);
 
   // Sort: decision priority first when sortBy==="decision", otherwise standard sort
   const sorted = [...H].sort((a,b)=>{
