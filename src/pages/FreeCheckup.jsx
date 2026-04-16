@@ -715,7 +715,7 @@ export default function App() {
       map[h.code] = buildDecision(h.code, normalizedEvents, userOverrides, now);
     });
     return map;
-  }, [H, normalizedEvents, userOverrides, debugMode]);
+  }, [H, normalizedEvents, userOverrides]);
 
 
   // Sort: decision priority first when sortBy==="decision", otherwise standard sort
