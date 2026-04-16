@@ -2998,6 +2998,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         })()}
 
       </div>
+      {/* Decision Debug toggle */}
+      <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:8}}>
+        <label style={{fontSize:10,color:C.textMute,fontWeight:400,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+          <input type="checkbox" checked={debugMode} onChange={e => {
+            setDebugMode(e.target.checked);
+            if (typeof window !== 'undefined') window.__DECISION_DEBUG = e.target.checked;
+          }} style={{width:12,height:12}} />
+          Decision Debug
+        </label>
+      </div>
       {/* Reset confirmation modal */}
       {showResetConfirm && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,
