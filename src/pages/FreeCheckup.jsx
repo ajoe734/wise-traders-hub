@@ -1742,7 +1742,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {/* 排序 + 列表 */}
           <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center"}}>
             <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>排序</span>
-            {[["value","市值"],["pnl","損益"],["pct","報酬%"]].map(([k,l])=>(
+            {[["value","市值"],["pnl","損益"],["pct","報酬%"],["decision","決策"]].map(([k,l])=>(
               <button key={k} onClick={()=>setSortBy(k)} style={{
                 background:"transparent",
                 color: sortBy===k ? C.textSec : C.textMute,
