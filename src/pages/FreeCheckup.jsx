@@ -717,6 +717,14 @@ export default function App() {
     return map;
   }, [H, normalizedEvents, userOverrides, debugMode]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sampleDecision = decisionsMap["3443"] || decisionsMap["3017"] || Object.values(decisionsMap)[0] || null;
+    window.__DECISIONS_MAP__ = decisionsMap;
+    console.log("[DecisionUI] decisionsMap", decisionsMap);
+    console.log("[DecisionUI] sampleDecision", sampleDecision);
+  }, [decisionsMap]);
+
   // Sort: decision priority first when sortBy==="decision", otherwise standard sort
   const sorted = [...H].sort((a,b)=>{
     if(sortBy==="decision") {
@@ -1794,6 +1802,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {h.alert&&<span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{h.alert}</span>}
                   {isNew&&badge("新目標價")}
                   {/* Decision v6 badges */}
+                  <span style={{fontSize:9,color:C.down,fontWeight:500,border:`1px solid ${alpha(C.down,'30')}`,borderRadius:3,padding:"0 4px",lineHeight:"16px"}}>TEST EXIT</span>
                   {urgencyDot && <span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:urgencyDot,flexShrink:0,animation:dec?.urgency==='now'?'pulse 1.5s infinite':undefined}} />}
                   {thesisColor && <span style={{fontSize:9,color:thesisColor,fontWeight:400,letterSpacing:"0.04em"}}>{dec.thesisState==='broken'?'論點破裂':'論點弱化'}</span>}
                   {actionLabel && <span style={{fontSize:9,color:actionColor,fontWeight:400,border:`1px solid ${alpha(actionColor,'30')}`,borderRadius:3,padding:"0 4px",lineHeight:"16px"}}>{actionLabel}</span>}
