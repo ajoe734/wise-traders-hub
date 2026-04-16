@@ -191,7 +191,7 @@ export const DEMO_EVENTS = [
     predReason: '液冷大單可彌補氣冷減少',
     source: 'user',
     category: 'catalyst',
-    decisionImpact: 'neutral',
+    decisionImpact: 'strengthen',
     severity: 'high',
     occurredAt: today,
     relatedCodes: ['3017'],
