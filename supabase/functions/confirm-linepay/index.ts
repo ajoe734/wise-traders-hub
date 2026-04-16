@@ -1,23 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { linepayHmacSha256Base64 as hmacSha256Base64 } from "../_shared/paymentVerify.ts";
+import { createSubscriptionAndTransaction } from "../_shared/paymentProcessor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-async function hmacSha256Base64(secret: string, message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
-  return btoa(String.fromCharCode(...new Uint8Array(signature)));
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -105,14 +94,7 @@ Deno.serve(async (req) => {
       .eq("is_active", true)
       .single();
 
-    // Calculate expiry
     const now = new Date();
-    const expiresAt = new Date(now);
-    if (billingCycle === "yearly") {
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-    } else {
-      expiresAt.setMonth(expiresAt.getMonth() + 1);
-    }
 
     // Duplicate subscription protection
     let subscriptionId: string | null = null;
@@ -130,41 +112,30 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: sub, error: subError } = await supabase
-        .from("member_subscriptions")
-        .insert({
-          user_id: userId,
-          plan_id: planId,
-          status: "active",
-          started_at: now.toISOString(),
-          expires_at: expiresAt.toISOString(),
-          provider_id: provider?.id || null,
-        })
-        .select("id")
-        .single();
-
-      if (subError) {
-        console.error("Subscription insert error:", subError);
-      } else {
-        subscriptionId = sub.id;
-      }
-    }
-
-    // Create payment transaction
-    const { error: txError } = await supabase
-      .from("payment_transactions")
-      .insert({
-        amount,
-        currency: "TWD",
-        status: "paid",
-        paid_at: now.toISOString(),
-        provider_id: provider?.id || null,
-        provider_tx_id: String(transactionId),
-        subscription_id: subscriptionId,
+      // 原子性建立訂閱 + 交易紀錄（若訂閱失敗不建立交易）
+      const result = await createSubscriptionAndTransaction(supabase, {
+        userId, planId, billingCycle, amount, currency: "TWD",
+        providerTxId: String(transactionId), providerId: provider?.id || null, now,
       });
-
-    if (txError) {
-      console.error("Transaction insert error:", txError);
+      if (result.error) {
+        console.error("Failed to create subscription and transaction:", result.error);
+      } else {
+        subscriptionId = result.subscriptionId;
+      }
+    } else {
+      // 無訂閱資訊時仍建立交易紀錄
+      const { error: txError } = await supabase
+        .from("payment_transactions")
+        .insert({
+          amount,
+          currency: "TWD",
+          status: "paid",
+          paid_at: now.toISOString(),
+          provider_id: provider?.id || null,
+          provider_tx_id: String(transactionId),
+          subscription_id: null,
+        });
+      if (txError) console.error("Transaction insert error:", txError);
     }
 
     return new Response(

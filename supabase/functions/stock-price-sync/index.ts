@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { parsePrice, extractPrice, shouldWritePrice, type MsgItem } from '../_shared/stockPriceWaterfall.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,43 +11,6 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
 ]
 
-interface MsgItem {
-  c: string   // code
-  n: string   // name
-  z: string   // latest trade price
-  a: string   // best ask (pipe-separated)
-  b: string   // best bid (pipe-separated)
-  y: string   // yesterday close
-  o: string   // open
-  h: string   // high
-  l: string   // low
-  v: string   // volume
-  u: string   // limit up
-  w: string   // limit down
-  ex: string  // exchange type
-}
-
-function parsePrice(val: string | undefined): number | null {
-  if (!val || val === '-') return null
-  const n = parseFloat(val)
-  return isNaN(n) ? null : n
-}
-
-/** 4-layer waterfall: z > h(有量) > a(first) > y */
-function extractPrice(item: MsgItem): number | null {
-  const z = parsePrice(item.z)
-  if (z && z > 0) return z
-  
-  const h = parsePrice(item.h)
-  const v = parseInt(item.v || '0', 10)
-  if (h && h > 0 && v > 0) return h
-  
-  const aFirst = item.a?.split('_')?.[0]
-  const a = parsePrice(aFirst)
-  if (a && a > 0) return a
-  
-  return parsePrice(item.y)
-}
 
 async function fetchStockBatch(symbols: string[]): Promise<Map<string, { price: number; name: string; raw: MsgItem }>> {
   const results = new Map<string, { price: number; name: string; raw: MsgItem }>()
@@ -91,7 +55,7 @@ async function fetchStockBatch(symbols: string[]): Promise<Map<string, { price: 
       
       for (const [code, item] of bestByCode) {
         const price = extractPrice(item)
-        if (price && price > 0) {
+        if (shouldWritePrice(price)) {
           results.set(code, { price, name: item.n || '', raw: item })
         }
       }

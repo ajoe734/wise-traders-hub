@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchMemberSubscriptions } from '@/lib/memberDataAccess';
 
 export function useMySubscriptions() {
   const { user } = useAuth();
@@ -8,13 +9,9 @@ export function useMySubscriptions() {
     queryKey: ['my-subscriptions', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
-        .from('member_subscriptions')
-        .select('*, expert_plans(*, experts(*))')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-      if (error) throw error;
-      return (data || []).filter((sub: any) => {
+      const { subscriptions, error } = await fetchMemberSubscriptions(supabase, user.id);
+      if (error) throw new Error(error);
+      return subscriptions.filter((sub: any) => {
         const expert = sub.expert_plans?.experts;
         return expert && expert.status === 'active';
       });

@@ -8,9 +8,17 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+coverage
 dist
 dist-ssr
 *.local
+
+# Environment variables (contains secrets)
+.env
+.env.*
+
+# Bun binary lockfile (package-lock.json is used instead)
+bun.lockb
 
 # Editor directories and files
 .vscode/*

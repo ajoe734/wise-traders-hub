@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "allowImportingTsExtensions": true,
+    "allowJs": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
     "lib": [
@@ -24,7 +25,8 @@
     "skipLibCheck": true,
     "strict": false,
     "target": "ES2020",
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "types": ["vitest/globals"]
   },
   "include": [
     "src"

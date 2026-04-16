@@ -6,6 +6,7 @@ import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 import { DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS } from "@/checkup/data/demoData";
 import { INIT_HOLDINGS as SEED_HOLDINGS, STOCK_META, IND_COLOR } from "@/checkup/seedData";
 import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
+import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 
@@ -91,28 +92,8 @@ const PARSE_PROMPT = `你是台股券商成交回報截圖的解析器。解析�
 targetPriceUpdates：如果截圖中有提到分析師目標價或研究報告目標價，請一併擷取。否則為空陣列。`;
 
 // ── helpers ─────────────────────────────────────────────────────
-// 預估淨收付計算：市值 - 手續費 - 證交稅
-// 證交稅率：6碼(權證)=0.1%, 4碼(股票)=0.3%
-const calcNetSettlement = (marketValue, fee, code) => {
-  const taxRate = (code || "").length === 6 ? 0.001 : 0.003;
-  const tax = Math.round(marketValue * taxRate);
-  return marketValue - (fee || 0) - tax;
-};
-// 用新公式計算損益（有 totalCost & fee 時）或 fallback 到舊公式
-const calcPnlWithNet = (h, newPrice) => {
-  const newValue = Math.round(newPrice * h.qty);
-  const hasCostAndFee = h.totalCost != null && h.fee != null;
-  if (hasCostAndFee) {
-    const net = calcNetSettlement(newValue, h.fee, h.code);
-    const pnl = net - h.totalCost;
-    const pct = h.totalCost > 0 ? Math.round((pnl / h.totalCost) * 10000) / 100 : 0;
-    return { value: newValue, pnl, pct };
-  }
-  // fallback: 原本的計算方式
-  const pnl = Math.round((newPrice - h.cost) * h.qty);
-  const pct = Math.round((newPrice / h.cost - 1) * 10000) / 100;
-  return { value: newValue, pnl, pct };
-};
+// calcPnlWithNet / calcNetSettlement / calcWeightedAvgCost / calcRemainingCostAfterPartialSell
+// 已提取至 src/checkup/lib/holdingMath.ts（可測試純函數）
 // 台股慣例：紅=漲/獲利，綠=跌/虧損
 const pc    = (p) => p==null ? C.textMute : p>=0 ? C.up : C.down;
 const pcBg  = (p) => p==null ? "transparent" : p>=0 ? C.upBg : C.downBg;
@@ -1186,7 +1167,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       if (idx >= 0) {
         const h = arr[idx];
         const nq = h.qty + qty;
-        const nc = (h.cost * h.qty + price * qty) / nq;
+        const nc = calcWeightedAvgCost(h.cost, h.qty, price, qty);
         const mp = mktPrice || h.price;
         // 合併 totalCost 和 fee
         const newTotalCost = (h.totalCost != null && tradeTotalCost != null)
@@ -1232,9 +1213,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       } else {
         const mp = mktPrice || h.price;
         // 賣出時按比例縮減 totalCost 和 fee
-        const ratio = nq / h.qty;
-        const newTotalCost = h.totalCost != null ? Math.round(h.totalCost * ratio) : null;
-        const newFee = h.fee != null ? Math.round(h.fee * ratio) : null;
+        const { newTotalCost, newFee } = calcRemainingCostAfterPartialSell(h.totalCost, h.fee, nq, h.qty);
         const { value, pnl, pct } = calcPnlWithNet(
           { ...h, qty: nq, totalCost: newTotalCost, fee: newFee, code: h.code },
           mp

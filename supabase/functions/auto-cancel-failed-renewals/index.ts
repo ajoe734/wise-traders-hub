@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { processRenewalCancellations, calcAutoCancelDeadlineUTC, filterRenewalFailures } from "../_shared/subscriptionRenewal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,15 +29,7 @@ Deno.serve(async (req) => {
     const nowTW = new Date(now.getTime() + 8 * 60 * 60 * 1000);
 
     // Deadline: 3:30 PM TWD today (if now >= 15:30) or yesterday (if now < 15:30)
-    // We look for failures that happened BEFORE the most recent 3:30 PM deadline
-    const deadlineTW = new Date(nowTW);
-    deadlineTW.setHours(15, 30, 0, 0);
-    if (nowTW < deadlineTW) {
-      // Before today's 3:30 PM → deadline is yesterday's 3:30 PM
-      deadlineTW.setDate(deadlineTW.getDate() - 1);
-    }
-    // Convert deadline back to UTC
-    const deadlineUTC = new Date(deadlineTW.getTime() - 8 * 60 * 60 * 1000);
+    const deadlineUTC = calcAutoCancelDeadlineUTC(now);
 
     console.log("Checking failed renewals before deadline:", deadlineUTC.toISOString());
 
@@ -60,9 +53,7 @@ Deno.serve(async (req) => {
     }
 
     // Filter only renewal failures
-    const renewalFailures = failureLogs.filter(
-      (log: any) => log.detail?.isRenewal === true
-    );
+    const renewalFailures = filterRenewalFailures(failureLogs);
 
     if (renewalFailures.length === 0) {
       return new Response(
@@ -71,106 +62,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    let canceledCount = 0;
-
-    for (const log of renewalFailures) {
-      const userId = log.actor_id;
-      const planId = log.target_id;
-      if (!userId || !planId) continue;
-
-      // Check if this subscription is still active (not already canceled/expired)
-      const { data: activeSub } = await supabase
-        .from("member_subscriptions")
-        .select("id, plan_id, canceled_at")
-        .eq("user_id", userId)
-        .eq("plan_id", planId)
-        .eq("status", "active")
-        .is("canceled_at", null) // not manually canceled
-        .maybeSingle();
-
-      if (!activeSub) continue;
-
-      // Check if a successful payment was made AFTER the failure
-      const { data: successPayments } = await supabase
-        .from("payment_transactions")
-        .select("id")
-        .eq("subscription_id", activeSub.id)
-        .eq("status", "paid")
-        .gte("created_at", log.created_at)
-        .limit(1);
-
-      if (successPayments && successPayments.length > 0) {
-        // User paid successfully after the failure — skip
-        continue;
-      }
-
-      // Cancel the subscription — expires at end of current month (TW time)
-      const endOfMonth = new Date(nowTW);
-      endOfMonth.setMonth(endOfMonth.getMonth() + 1, 0); // last day of current month
-      endOfMonth.setHours(23, 59, 59, 999);
-      const endOfMonthUTC = new Date(endOfMonth.getTime() - 8 * 60 * 60 * 1000);
-
-      const { error: updateErr } = await supabase
-        .from("member_subscriptions")
-        .update({
-          auto_renew: false,
-          canceled_at: now.toISOString(),
-          expires_at: endOfMonthUTC.toISOString(),
-        })
-        .eq("id", activeSub.id);
-
-      if (updateErr) {
-        console.error("Failed to cancel subscription:", activeSub.id, updateErr);
-        continue;
-      }
-
-      // Audit log
-      await supabase.from("audit_logs").insert({
-        action: "auto_cancel_failed_renewal",
-        actor_id: userId,
-        target_id: activeSub.id,
-        target_type: "subscription",
-        detail: {
-          planId,
-          reason: "Payment failed and not resolved by 15:30 next day deadline",
-          failedAt: log.created_at,
-          deadlineAt: deadlineUTC.toISOString(),
-        },
-      });
-
-      // Notify user via LINE + Email
-      try {
-        const notifyUrl = `${supabaseUrl}/functions/v1/notify-payment-failure`;
-        await fetch(notifyUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceRoleKey}`,
-          },
-          body: JSON.stringify({
-            userId,
-            planId,
-            amount: 0,
-            provider: "system",
-            errorDetail: "自動取消：扣款失敗超過截止時間（隔天下午3:30），訂閱已自動取消",
-          }),
-        });
-      } catch (e) {
-        console.error("Failed to send auto-cancel notification:", e);
-      }
-
-      canceledCount++;
-      console.log("Auto-canceled subscription:", activeSub.id, "user:", userId);
-    }
-
-    // Note: We don't delete audit_logs — they're kept for history.
-    // The check for active + non-canceled subscription prevents re-processing.
+    const { checked, canceled } = await processRenewalCancellations(supabase, renewalFailures, now);
 
     return new Response(
       JSON.stringify({
         message: "Auto-cancel check complete",
-        checked: renewalFailures.length,
-        canceled: canceledCount,
+        checked,
+        canceled,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -15,6 +15,7 @@ import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2, Ligh
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPublishingWindowOpen } from '@/lib/publishingWindow';
+import { fetchAnalystSignals } from '@/lib/analystDataAccess';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
@@ -206,13 +207,8 @@ const AdminSignals = () => {
     const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
     setExpert(exp);
     if (exp) {
-      const { data: s } = await supabase
-        .from('expert_signals')
-        .select('*')
-        .eq('expert_id', exp.id)
-        .order('created_at', { ascending: false });
-      const filtered = s || [];
-      setSignals(filtered);
+      const { signals: fetchedSignals } = await fetchAnalystSignals(supabase, exp.id);
+      setSignals(fetchedSignals);
       const { data: openTrades } = await supabase
         .from('trade_records')
         .select('instrument')

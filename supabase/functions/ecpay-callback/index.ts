@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ecpayGenerateCheckMacValue as generateCheckMacValueAsync, ecpayExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";
+import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription } from "../_shared/paymentProcessor.ts";
 
 // ECPay server callback - no CORS needed (server-to-server)
 // But we add CORS for the client-side result check endpoint
@@ -8,39 +10,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-async function generateCheckMacValueAsync(
-  params: Record<string, string>,
-  hashKey: string,
-  hashIV: string
-): Promise<string> {
-  const sorted = Object.keys(params)
-    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
-    .map((key) => `${key}=${params[key]}`)
-    .join("&");
-
-  const raw = `HashKey=${hashKey}&${sorted}&HashIV=${hashIV}`;
-
-  let encoded = encodeURIComponent(raw).toLowerCase();
-  encoded = encoded
-    .replace(/%2d/g, "-")
-    .replace(/%5f/g, "_")
-    .replace(/%2e/g, ".")
-    .replace(/%21/g, "!")
-    .replace(/%2a/g, "*")
-    .replace(/%28/g, "(")
-    .replace(/%29/g, ")")
-    .replace(/%20/g, "+")
-    .replace(/%7e/g, "~");
-
-  const encoder = new TextEncoder();
-  const data = encoder.encode(encoded);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-
-  return hashHex.toUpperCase();
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -113,14 +82,8 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Idempotency check: prevent duplicate processing
-    const txId = ecpayTxId || tradeNo;
-    const { data: existingTx } = await supabase
-      .from("payment_transactions")
-      .select("id")
-      .eq("provider_tx_id", txId)
-      .eq("status", "paid");
-
-    if (existingTx && existingTx.length > 0) {
+    const txId = ecpayExtractTxId(params);
+    if (await isDuplicatePaymentTx(supabase, txId)) {
       console.log("ECPay duplicate notification for:", txId);
       return new Response("1|OK", { status: 200 });
     }
@@ -133,14 +96,7 @@ Deno.serve(async (req) => {
       .eq("is_active", true)
       .single();
 
-    // Calculate expiry
     const now = new Date();
-    const expiresAt = new Date(now);
-    if (billingCycle === "yearly") {
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-    } else {
-      expiresAt.setMonth(expiresAt.getMonth() + 1);
-    }
 
     // Duplicate subscription protection
     let subscriptionId: string | null = null;
@@ -155,54 +111,43 @@ Deno.serve(async (req) => {
       if (existing && existing.length > 0) {
         console.log("Active subscription already exists, skipping insert");
         // Still create the transaction record for payment tracking
-        await supabase.from("payment_transactions").insert({
+        const { error: txError } = await recordPaymentForExistingSubscription(supabase, {
+          subscriptionId: existing[0].id,
+          amount: tradeAmt,
+          currency: "TWD",
+          providerTxId: txId,
+          providerId: provider?.id || null,
+          now,
+        });
+        if (txError) console.error("Transaction insert error:", txError);
+        return new Response("1|OK", { status: 200 });
+      }
+
+      // 原子性建立訂閱 + 交易紀錄（若訂閱失敗不建立交易）
+      const result = await createSubscriptionAndTransaction(supabase, {
+        userId, planId, billingCycle, amount: tradeAmt, currency: "TWD",
+        providerTxId: txId, providerId: provider?.id || null, now,
+      });
+      if (result.error) {
+        console.error("Failed to create subscription and transaction:", result.error);
+      } else {
+        subscriptionId = result.subscriptionId;
+        console.log("Subscription created:", subscriptionId);
+      }
+    } else {
+      // 無訂閱資訊時仍建立交易紀錄
+      const { error: txError } = await supabase
+        .from("payment_transactions")
+        .insert({
           amount: tradeAmt,
           currency: "TWD",
           status: "paid",
           paid_at: now.toISOString(),
           provider_id: provider?.id || null,
-          provider_tx_id: ecpayTxId || tradeNo,
-          subscription_id: existing[0].id,
+          provider_tx_id: txId,
+          subscription_id: null,
         });
-        return new Response("1|OK", { status: 200 });
-      }
-
-      const { data: subData, error: subError } = await supabase
-        .from("member_subscriptions")
-        .insert({
-          user_id: userId,
-          plan_id: planId,
-          status: "active",
-          provider_id: provider?.id || null,
-          started_at: now.toISOString(),
-          expires_at: expiresAt.toISOString(),
-        })
-        .select("id")
-        .single();
-
-      if (subError) {
-        console.error("Subscription insert error:", subError);
-      } else {
-        subscriptionId = subData?.id || null;
-        console.log("Subscription created:", subscriptionId);
-      }
-    }
-
-    // Create transaction record
-    const { error: txError } = await supabase
-      .from("payment_transactions")
-      .insert({
-        amount: tradeAmt,
-        currency: "TWD",
-        status: "paid",
-        paid_at: now.toISOString(),
-        provider_id: provider?.id || null,
-        provider_tx_id: ecpayTxId || tradeNo,
-        subscription_id: subscriptionId,
-      });
-
-    if (txError) {
-      console.error("Transaction insert error:", txError);
+      if (txError) console.error("Transaction insert error:", txError);
     }
 
     // ECPay expects "1|OK" response

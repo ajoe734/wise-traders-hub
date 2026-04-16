@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { processRefundInDB } from "../_shared/refundProcessor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,80 +72,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // BUG-025: Idempotency check — skip if already refunded
-    const { data: existingRefund } = await adminClient
-      .from("payment_transactions")
-      .select("id")
-      .eq("subscription_id", subscription_id)
-      .eq("status", "refunded")
-      .limit(1);
+    const result = await processRefundInDB(adminClient, {
+      subscriptionId: subscription_id,
+      userId,
+      refundAmount: refund_amount,
+      remainingMonths: remaining_months,
+      originalAmount: original_amount,
+      monthlyPrice: monthly_price,
+    });
 
-    if (existingRefund && existingRefund.length > 0) {
-      return new Response(JSON.stringify({ success: true, message: "已退款", refund_amount: refund_amount }), {
+    if (result.alreadyRefunded) {
+      return new Response(JSON.stringify({ success: true, message: "已退款", refund_amount }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Look up original payment transaction
-    const { data: originalTx } = await adminClient
-      .from("payment_transactions")
-      .select("id, provider_id, provider_tx_id, amount")
-      .eq("subscription_id", subscription_id)
-      .eq("status", "paid")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    // ISSUE-008: Cap refund at original paid amount
-    const cappedRefundAmount = originalTx?.amount
-      ? Math.min(Math.abs(refund_amount), Math.abs(originalTx.amount))
-      : Math.abs(refund_amount);
-
-    // Insert refund record (capped amount)
-    const { error: txError } = await adminClient
-      .from("payment_transactions")
-      .insert({
-        subscription_id,
-        amount: -cappedRefundAmount,
-        status: "refunded",
-        paid_at: new Date().toISOString(),
-        provider_id: originalTx?.provider_id || null,
-        provider_tx_id: originalTx?.provider_tx_id
-          ? `REFUND-${originalTx.provider_tx_id}`
-          : null,
-      });
-
-    if (txError) {
-      console.error("Failed to insert refund transaction:", txError);
+    if (!result.success) {
+      console.error("Failed to create refund record:", result.error);
       return new Response(JSON.stringify({ error: "Failed to create refund record" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Insert audit log
-    const { error: auditError } = await adminClient
-      .from("audit_logs")
-      .insert({
-        action: "yearly_refund",
-        actor_id: userId,
-        target_id: subscription_id,
-        target_type: "member_subscriptions",
-        detail: {
-          reason: "年繳中途取消，退還剩餘月份",
-          remaining_months,
-          refund_amount,
-          original_amount,
-          monthly_price,
-        },
-      });
-
-    if (auditError) {
-      console.error("Failed to insert audit log:", auditError);
-    }
-
-    return new Response(JSON.stringify({ success: true, refund_amount: cappedRefundAmount }), {
+    return new Response(JSON.stringify({ success: true, refund_amount: result.cappedRefundAmount }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
