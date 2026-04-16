@@ -63,14 +63,21 @@ export const DEMO_BRAIN = {
 *上傳真實交易紀錄後，AI 將根據您的實際操作模式給出個人化建議。*`,
 }
 
+// Decision v6 test events — these have source !== 'demo' so buildDecision picks them up
+const today = new Date().toISOString().slice(0, 10)
+const todaySlash = today.replace(/-/g, '/')
+const threeDaysLater = (() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toISOString().slice(0, 10) })()
+const fiveDaysLater = (() => { const d = new Date(); d.setDate(d.getDate() + 5); return d.toISOString().slice(0, 10) })()
+const sevenDaysLater = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10) })()
+const tenDaysLater = (() => { const d = new Date(); d.setDate(d.getDate() + 10); return d.toISOString().slice(0, 10) })()
+const fourteenDaysLater = (() => { const d = new Date(); d.setDate(d.getDate() + 14); return d.toISOString().slice(0, 10) })()
+const thirtyDaysAgo = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10) })()
+
 export const DEMO_EVENTS = [
+  // ── Legacy demo events (source: 'demo', filtered out by buildDecision) ──
   {
     id: 'demo-1',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 3)
-      return d.toISOString().slice(0, 10).replace(/-/g, '/')
-    })(),
+    date: threeDaysLater.replace(/-/g, '/'),
     title: '3443 創意法說會',
     detail: 'Q1 財報公布暨法說會，關注 CoWoS 進度',
     stocks: [{ code: '3443', name: '創意' }],
@@ -82,11 +89,7 @@ export const DEMO_EVENTS = [
   },
   {
     id: 'demo-2',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 5)
-      return d.toISOString().slice(0, 10).replace(/-/g, '/')
-    })(),
+    date: fiveDaysLater.replace(/-/g, '/'),
     title: '6274 台燿法說會',
     detail: '法說會＋Q4 財報',
     stocks: [{ code: '6274', name: '台燿' }],
@@ -98,11 +101,7 @@ export const DEMO_EVENTS = [
   },
   {
     id: 'demo-3',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 7)
-      return d.toISOString().slice(0, 10).replace(/-/g, '/')
-    })(),
+    date: sevenDaysLater.replace(/-/g, '/'),
     title: '3017 奇鋐營收公布',
     detail: '3月營收公告',
     stocks: [{ code: '3017', name: '奇鋐' }],
@@ -114,11 +113,7 @@ export const DEMO_EVENTS = [
   },
   {
     id: 'demo-4',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 14)
-      return d.toISOString().slice(0, 10).replace(/-/g, '/')
-    })(),
+    date: fourteenDaysLater.replace(/-/g, '/'),
     title: '美國 CPI 數據公布',
     detail: '消費者物價指數',
     stocks: [],
@@ -130,11 +125,7 @@ export const DEMO_EVENTS = [
   },
   {
     id: 'demo-5',
-    date: (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 10)
-      return d.toISOString().slice(0, 10).replace(/-/g, '/')
-    })(),
+    date: tenDaysLater.replace(/-/g, '/'),
     title: '2308 台達電除息',
     detail: '現金股利 $12.5',
     stocks: [{ code: '2308', name: '台達電' }],
@@ -143,5 +134,111 @@ export const DEMO_EVENTS = [
     pred: 'neutral',
     predReason: '殖利率約 0.9%，預期快速填息',
     source: 'demo',
+  },
+
+  // ── Decision v6 test events (source: 'user'/'ai', visible to buildDecision) ──
+
+  // Scenario 1: 創意 — broken thesis (break impact), exit urgency
+  {
+    id: 'decision-test-1',
+    date: todaySlash,
+    title: '創意 CoWoS 良率問題',
+    detail: '供應鏈消息指出 CoWoS 良率不如預期，可能影響 Q2 出貨',
+    stocks: [{ code: '3443', name: '創意' }],
+    type: '供應鏈',
+    status: 'tracking',
+    pred: 'down',
+    predReason: '良率問題可能導致訂單遞延',
+    source: 'user',
+    category: 'supply_chain',
+    decisionImpact: 'break',
+    severity: 'high',
+    occurredAt: today,
+    relatedCodes: ['3443'],
+    summary: 'CoWoS 良率不如預期，可能影響 Q2 出貨時程',
+    evidence: '供應鏈調查、法人報告',
+  },
+
+  // Scenario 2: 奇鋐 — weakening + conflict (opposing impacts from different sources)
+  {
+    id: 'decision-test-2a',
+    date: todaySlash,
+    title: '奇鋐散熱訂單縮減',
+    detail: '部分伺服器廠砍單，散熱模組需求下修',
+    stocks: [{ code: '3017', name: '奇鋐' }],
+    type: '營收',
+    status: 'tracking',
+    pred: 'down',
+    predReason: '短期營收可能低於預期',
+    source: 'ai',
+    category: 'earnings',
+    decisionImpact: 'weaken',
+    severity: 'medium',
+    occurredAt: today,
+    relatedCodes: ['3017'],
+    summary: '部分伺服器廠砍單，散熱模組需求下修 10-15%',
+    evidence: 'AI 分析供應鏈數據',
+  },
+  {
+    id: 'decision-test-2b',
+    date: todaySlash,
+    title: '奇鋐獲液冷大單',
+    detail: 'NVIDIA GB200 液冷模組獨家供應',
+    stocks: [{ code: '3017', name: '奇鋐' }],
+    type: '訂單',
+    status: 'tracking',
+    pred: 'up',
+    predReason: '液冷大單可彌補氣冷減少',
+    source: 'user',
+    category: 'catalyst',
+    decisionImpact: 'strengthen',
+    severity: 'high',
+    occurredAt: today,
+    relatedCodes: ['3017'],
+    summary: 'NVIDIA GB200 液冷模組獨家供應，中長期利多',
+    evidence: '法人報告確認',
+  },
+
+  // Scenario 3: 台達電 — stale event (30 days ago, tests freshness)
+  {
+    id: 'decision-test-3',
+    date: thirtyDaysAgo.replace(/-/g, '/'),
+    title: '台達電 Q4 財報優於預期',
+    detail: 'EPS 超出市場共識 8%',
+    stocks: [{ code: '2308', name: '台達電' }],
+    type: '法說',
+    status: 'tracking',
+    pred: 'up',
+    predReason: '財報利多但已反映完畢',
+    source: 'user',
+    category: 'earnings',
+    decisionImpact: 'weaken',
+    severity: 'low',
+    occurredAt: thirtyDaysAgo,
+    relatedCodes: ['2308'],
+    summary: 'Q4 EPS 超出共識 8%，但股價已反映',
+    evidence: '財報數據',
+  },
+
+  // Scenario 4: 台燿 — open event with review deadline (urgency: soon)
+  {
+    id: 'decision-test-4',
+    date: fiveDaysLater.replace(/-/g, '/'),
+    title: '台燿 CCL 報價調漲',
+    detail: '主要客戶接受 Q2 調漲 5-8%',
+    stocks: [{ code: '6274', name: '台燿' }],
+    type: '產業',
+    status: 'tracking',
+    pred: 'up',
+    predReason: '毛利率有望改善',
+    source: 'user',
+    category: 'catalyst',
+    decisionImpact: 'weaken',
+    severity: 'medium',
+    occurredAt: today,
+    relatedCodes: ['6274'],
+    summary: 'CCL 報價 Q2 調漲 5-8%，觀察實際反映',
+    evidence: '產業調查',
+    reviewAt: fiveDaysLater,
   },
 ]
