@@ -703,7 +703,31 @@ export default function App() {
   const todayEvents = CE.filter(e => e.date === todayStr);
   const urgentCount = todayEvents.length;
 
+  // Decision System v6: compute decisions for all holding codes
+  const normalizedEvents = useMemo(() =>
+    (Array.isArray(newsEvents) ? newsEvents : []).map(e => normalizeEventRecord(e)).filter(Boolean),
+    [newsEvents]
+  );
+  const decisionsMap = useMemo(() => {
+    const map = {};
+    const now = new Date();
+    H.forEach(h => {
+      map[h.code] = buildDecision(h.code, normalizedEvents, userOverrides, now);
+    });
+    return map;
+  }, [H, normalizedEvents, userOverrides]);
+
+  // Sort: decision priority first when sortBy==="decision", otherwise standard sort
   const sorted = [...H].sort((a,b)=>{
+    if(sortBy==="decision") {
+      const da = decisionsMap[a.code];
+      const db = decisionsMap[b.code];
+      if (da && db) {
+        const sorted = sortByDecisionPriority([da, db]);
+        return sorted[0] === da ? -1 : 1;
+      }
+      return da ? -1 : db ? 1 : 0;
+    }
     if(sortBy==="value") return b.value-a.value;
     if(sortBy==="pnl")   return b.pnl-a.pnl;
     if(sortBy==="pct")   return b.pct-a.pct;
