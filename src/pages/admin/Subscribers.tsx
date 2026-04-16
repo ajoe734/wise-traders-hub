@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { fetchAnalystSubscribers } from '@/lib/analystDataAccess';
 import { Users, TrendingUp, UserPlus, UserMinus, Search, RefreshCw } from 'lucide-react';
 
 const AdminSubscribers = () => {
@@ -26,23 +27,7 @@ const AdminSubscribers = () => {
     setExpert(exp);
     if (!exp) { setLoading(false); return; }
 
-    // Get expert's plan IDs
-    const { data: plans } = await supabase.from('expert_plans').select('id').eq('expert_id', exp.id);
-    const planIds = (plans || []).map(p => p.id);
-
-    if (planIds.length === 0) {
-      setSubs([]);
-      setLoading(false);
-      return;
-    }
-
-    // Get subscriptions for those plans
-    const { data: subData } = await supabase
-      .from('member_subscriptions')
-      .select('*, expert_plans(name)')
-      .in('plan_id', planIds)
-      .order('created_at', { ascending: false });
-    const subscriptions = subData || [];
+    const { subscriptions } = await fetchAnalystSubscribers(supabase, exp.id);
     setSubs(subscriptions);
 
     // Fetch profile names

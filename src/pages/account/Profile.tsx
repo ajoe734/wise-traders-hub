@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { User, MessageCircle, Loader2, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { updateProfileFields } from '@/lib/profileFieldGuard';
 
 const AccountProfile = () => {
   const { user, isAuthenticated, logout, refreshProfile } = useAuth();
@@ -50,12 +51,9 @@ const AccountProfile = () => {
       const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
       // Update profile
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: avatarUrl })
-        .eq('user_id', user.id);
+      const { error: updateError } = await updateProfileFields(supabase, user.id, { avatar_url: avatarUrl });
 
-      if (updateError) throw updateError;
+      if (updateError) throw new Error(updateError);
 
       await refreshProfile();
       toast.success('頭貼已更新');
@@ -71,13 +69,10 @@ const AccountProfile = () => {
   const handleSave = async () => {
     if (!user) return;
     setIsSaving(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ display_name: displayName })
-      .eq('user_id', user.id);
+    const { error: errMsg } = await updateProfileFields(supabase, user.id, { display_name: displayName });
     setIsSaving(false);
-    if (error) {
-      toast.error('儲存失敗：' + error.message);
+    if (errMsg) {
+      toast.error('儲存失敗：' + errMsg);
     } else {
       await refreshProfile();
       toast.success('已儲存');

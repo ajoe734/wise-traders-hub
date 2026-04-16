@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchSubscriberSignals } from '@/lib/subscriptionVisibility';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Radio, Clock, ChevronRight } from 'lucide-react';
@@ -38,60 +39,8 @@ interface DbSignal {
   } | null;
 }
 
-const fetchSignalsData = async (userId: string | undefined, isTester: boolean) => {
-  if (!userId) return { signals: [] as DbSignal[], hasSubscription: false };
-
-  const { data: activeSubs, error: subsError } = await supabase
-    .from('member_subscriptions')
-    .select('plan_id, expert_plans(expert_id)')
-    .eq('user_id', userId)
-    .eq('status', 'active');
-
-  if (subsError) {
-    console.error('Error fetching subscriptions:', subsError);
-    return { signals: [] as DbSignal[], hasSubscription: false };
-  }
-
-  const expertIds = (activeSubs || [])
-    .map((s: any) => s.expert_plans?.expert_id)
-    .filter(Boolean);
-
-  if (expertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: false };
-
-  // Only show advisor signals; filter by visibility (testers see draft, regular see active)
-  const expectedStatus = isTester ? 'draft' : 'active';
-  const { data: advisorExperts, error: advisorError } = await supabase
-    .from('experts')
-    .select('id')
-    .in('id', expertIds)
-    .eq('role', 'advisor')
-    .eq('status', expectedStatus);
-
-  if (advisorError) {
-    console.error('Error fetching advisor experts:', advisorError);
-    return { signals: [] as DbSignal[], hasSubscription: false };
-  }
-
-  const advisorExpertIds = (advisorExperts || []).map(e => e.id);
-  if (advisorExpertIds.length === 0) return { signals: [] as DbSignal[], hasSubscription: false };
-
-  const { data, error } = await supabase
-    .from('expert_signals')
-    .select('id, instrument, action, price_hint, reason_summary, risk_notes, published_at, status, expert_id, plan_id, experts(name, slug, role, avatar_url)')
-    .eq('status', 'published')
-    .in('expert_id', advisorExpertIds)
-    .order('published_at', { ascending: false })
-    .limit(50);
-
-  if (error) {
-    console.error('Error fetching signals:', error);
-  }
-
-  return {
-    signals: (!error && data ? data : []) as unknown as DbSignal[],
-    hasSubscription: true,
-  };
-};
+const fetchSignalsData = (userId: string | undefined, isTester: boolean) =>
+  fetchSubscriberSignals(supabase, userId, isTester);
 
 const Signals = () => {
   const { user } = useAuth();

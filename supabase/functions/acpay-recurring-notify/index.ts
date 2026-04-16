@@ -1,28 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { acpayDeriveKeyAndIv as deriveKeyAndIv, acpayAesDecrypt as aesDecrypt, acpayRecurringExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";
+import { extendSubscriptionExpiry } from "../_shared/subscriptionRenewal.ts";
 
 // ACREC periodic billing notification handler (XLSX Page 3)
 // Receives AES-encrypted JSON POST from ACpay ACREC engine
 // Must return { err_code: "0", err_msg: "成功" }
-
-function deriveKeyAndIv(merchantKey: string, nonceStr: string) {
-  // Key = merchantKey with hyphens removed, first 32 bytes
-  const keyStr = merchantKey.replace(/-/g, "").slice(0, 32);
-  // IV = nonceStr with hyphens removed, first 16 chars
-  const ivStr = nonceStr.replace(/-/g, "").slice(0, 16);
-  return {
-    key: new TextEncoder().encode(keyStr),
-    iv: new TextEncoder().encode(ivStr),
-  };
-}
-
-async function aesDecrypt(encryptedBase64: string, key: Uint8Array, iv: Uint8Array): Promise<string> {
-  const encryptedData = Uint8Array.from(atob(encryptedBase64), (c) => c.charCodeAt(0));
-  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "AES-CBC" }, false, ["decrypt"]);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, encryptedData);
-  // NoPadding: trim trailing null bytes
-  const decoded = new TextDecoder().decode(decrypted);
-  return decoded.replace(/\0+$/, "");
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -55,7 +37,7 @@ Deno.serve(async (req) => {
     const payResult = String(order.currentPeriodPayResult ?? order.pay_result ?? "");
     const outTradeNo = order.out_trade_no || order.outTradeNo || "";
     const totalFee = parseInt(order.total_fee || order.totalFee || "0", 10);
-    const transactionId = order.transaction_id || order.transactionId || outTradeNo;
+    const transactionId = acpayRecurringExtractTxId(order);
 
     // Retrieve metadata
     let metadata: any = {};
@@ -110,13 +92,7 @@ Deno.serve(async (req) => {
       .single();
 
     // Idempotency check: prevent duplicate processing of same transaction
-    const { data: existingTx } = await supabase
-      .from("payment_transactions")
-      .select("id")
-      .eq("provider_tx_id", transactionId)
-      .eq("status", "paid");
-
-    if (existingTx && existingTx.length > 0) {
+    if (await isDuplicatePaymentTx(supabase, transactionId)) {
       console.log("ACREC duplicate notification for:", transactionId);
       return new Response(JSON.stringify({ err_code: "0", err_msg: "成功" }), {
         headers: { "Content-Type": "application/json" },
@@ -126,33 +102,17 @@ Deno.serve(async (req) => {
     // Find active subscription and extend expiry
     let subscriptionId: string | null = null;
     if (userId && planId) {
-      const { data: activeSub } = await supabase
-        .from("member_subscriptions")
-        .select("id, expires_at")
-        .eq("user_id", userId)
-        .eq("plan_id", planId)
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (activeSub) {
-        subscriptionId = activeSub.id;
-        const currentExpiry = new Date(activeSub.expires_at || new Date());
-        const newExpiry = new Date(currentExpiry);
-        if (billingCycle === "yearly") {
-          newExpiry.setFullYear(newExpiry.getFullYear() + 1);
-        } else {
-          newExpiry.setMonth(newExpiry.getMonth() + 1);
-        }
-
-        const { error: updateError } = await supabase
-          .from("member_subscriptions")
-          .update({ expires_at: newExpiry.toISOString() })
-          .eq("id", activeSub.id);
-
-        if (updateError) console.error("Subscription update error:", updateError);
-        else console.log("Subscription extended to:", newExpiry.toISOString());
+      const result = await extendSubscriptionExpiry(supabase, {
+        userId,
+        planId,
+        billingCycle,
+        now: new Date(),
+      });
+      if (result.error) {
+        console.error("Subscription extend error:", result.error);
+      } else {
+        subscriptionId = result.subscriptionId;
+        console.log("Subscription extended to:", result.newExpiresAt);
       }
     }
 

@@ -8,8 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { User, MessageCircle, Calendar, ExternalLink, Radio, Settings, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, differenceInMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { LineBindingCard } from '@/components/LineBindingCard';
+import { calcRefund } from '@/lib/refundCalc';
+import { cancelSubscriptionInDB } from '@/lib/cancelSubscription';
 import { supabase } from '@/integrations/supabase/client';
 
 import {
@@ -161,68 +163,20 @@ const Account = () => {
     fetchExperts();
   }, [user]);
 
-  // Calculate refund for cancellation
-  // Monthly: no refund. Yearly: refund remaining full months from next month.
-  const calcRefund = (sub: DbSubscription) => {
-    const now = new Date();
-    const startedAt = new Date(sub.started_at);
-    const isYearly = !!(sub.plan.price_yearly && sub.plan.price_yearly > 0 && sub.expires_at &&
-      (new Date(sub.expires_at).getTime() - startedAt.getTime()) > 180 * 86400000);
-
-    if (!isYearly) {
-      return { isYearly: false, refundAmount: 0, remainingMonths: 0, originalAmount: sub.plan.price_monthly, monthlyPrice: sub.plan.price_monthly };
-    }
-
-    // Yearly: refund = monthly_price * remaining full months (from next month to expiry)
-    const yearlyAmount = sub.plan.price_yearly || sub.plan.price_monthly * 12;
-    const monthlyPrice = Math.floor(yearlyAmount / 12);
-    const expiresAt = new Date(sub.expires_at!);
-    // Start of next month (the first day the user will NOT be using the service)
-    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    // Use calendar-aware month difference to avoid 28/29/30/31-day drift
-    const remainingMonths = Math.max(0, differenceInMonths(expiresAt, nextMonthStart));
-    const refundAmount = monthlyPrice * remainingMonths;
-    return { isYearly: true, refundAmount, remainingMonths, originalAmount: yearlyAmount, monthlyPrice };
-  };
-
-  // Get end of current month as ISO string
-  const getEndOfMonth = () => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-  };
-
   const handleCancelSubscription = async (subId: string) => {
     setCancelingId(subId);
     try {
       const sub = subscriptions.find(s => s.id === subId);
-      const refund = sub ? calcRefund(sub) : null;
+      if (!sub) return;
 
-      // ISSUE-019: Monthly → keep original expires_at (subscription cycle end), don't override to calendar month end
-      // Yearly → set to end of current month (immediate stop, refund remaining)
-      const updatePayload: any = {
-        auto_renew: false,
-        canceled_at: new Date().toISOString(),
-      };
-
-      if (refund?.isYearly) {
-        // Yearly: terminate at end of current calendar month
-        updatePayload.expires_at = getEndOfMonth();
-      }
-      // Monthly: don't touch expires_at — let it expire naturally at cycle end
-
-      const { error } = await supabase
-        .from('member_subscriptions')
-        .update(updatePayload)
-        .eq('id', subId)
-        .eq('user_id', user!.id);
-
-      if (error) throw error;
+      const { error: cancelError, refund } = await cancelSubscriptionInDB(supabase, sub, user!.id);
+      if (cancelError) throw new Error(cancelError);
 
       // Do NOT deactivate LINE binding - keep it active
       // LINE push will differentiate content based on canceled_at status
 
       // Write refund record via edge function for yearly plans only
-      if (sub && refund && refund.refundAmount > 0) {
+      if (refund.refundAmount > 0) {
         try {
           await supabase.functions.invoke('process-refund', {
             body: {

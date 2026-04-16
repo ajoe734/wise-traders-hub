@@ -1,34 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { acpayGenerateSign as generateSign, acpayParseXml as parseXml, acpayExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";
+import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription } from "../_shared/paymentProcessor.ts";
 
 // ACpay 3DS notify_url handler (PDF section 4.6)
 // Receives XML POST from ACpay after 3DS OTP verification
 // Must return plain text "SUCCESS" on success
-
-async function generateSign(params: Record<string, string>, merchantKey: string): Promise<string> {
-  const filtered = Object.entries(params)
-    .filter(([k, v]) => k !== "sign" && v !== "" && v !== undefined && v !== null)
-    .sort(([a], [b]) => a.localeCompare(b));
-  const str = filtered.map(([k, v]) => `${k}=${v}`).join("&") + `&key=${merchantKey}`;
-  const encoder = new TextEncoder();
-  const data = encoder.encode(str);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
-    .toUpperCase();
-}
-
-function parseXml(xml: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  const regex = /<(\w+)><!\[CDATA\[(.*?)\]\]><\/\1>|<(\w+)>(.*?)<\/\3>/g;
-  let match;
-  while ((match = regex.exec(xml)) !== null) {
-    const key = match[1] || match[3];
-    const value = match[2] || match[4];
-    if (key && value !== undefined) result[key] = value;
-  }
-  return result;
-}
 
 Deno.serve(async (req) => {
   // notify_url only receives POST from ACpay server, no CORS needed
@@ -57,7 +33,7 @@ Deno.serve(async (req) => {
     const payResult = params.pay_result;
     const outTradeNo = params.out_trade_no;
     const totalFee = parseInt(params.total_fee || "0", 10);
-    const transactionId = params.transaction_id || outTradeNo;
+    const transactionId = acpayExtractTxId(params);
 
     // Parse metadata from attach field
     let metadata: any = {};
@@ -103,14 +79,8 @@ Deno.serve(async (req) => {
     // Payment successful — write to DB
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Duplicate check by out_trade_no
-    const { data: existingTx } = await supabase
-      .from("payment_transactions")
-      .select("id")
-      .eq("provider_tx_id", transactionId)
-      .eq("status", "paid");
-
-    if (existingTx && existingTx.length > 0) {
+    // Duplicate check by provider_tx_id
+    if (await isDuplicatePaymentTx(supabase, transactionId)) {
       console.log("Duplicate notification for:", transactionId);
       return new Response("SUCCESS", { status: 200 });
     }
@@ -124,12 +94,6 @@ Deno.serve(async (req) => {
       .single();
 
     const now = new Date();
-    const expiresAt = new Date(now);
-    if (billingCycle === "yearly") {
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-    } else {
-      expiresAt.setMonth(expiresAt.getMonth() + 1);
-    }
 
     let subscriptionId: string | null = null;
     if (userId && planId) {
@@ -144,37 +108,37 @@ Deno.serve(async (req) => {
       if (existing && existing.length > 0) {
         console.log("Active subscription already exists, skipping insert");
         subscriptionId = existing[0].id;
+        const { error: txError } = await recordPaymentForExistingSubscription(supabase, {
+          subscriptionId,
+          amount: totalFee,
+          currency: "TWD",
+          providerTxId: transactionId,
+          providerId: provider?.id || null,
+          now,
+        });
+        if (txError) console.error("Transaction insert error:", txError);
       } else {
-        const { data: sub, error: subError } = await supabase
-          .from("member_subscriptions")
-          .insert({
-            user_id: userId,
-            plan_id: planId,
-            status: "active",
-            started_at: now.toISOString(),
-            expires_at: expiresAt.toISOString(),
-            provider_id: provider?.id || null,
-          })
-          .select("id")
-          .single();
-
-        if (subError) console.error("Subscription insert error:", subError);
-        else subscriptionId = sub.id;
+        // 原子性建立訂閱 + 交易紀錄（若訂閱失敗不建立交易）
+        const result = await createSubscriptionAndTransaction(supabase, {
+          userId, planId, billingCycle, amount: totalFee, currency: "TWD",
+          providerTxId: transactionId, providerId: provider?.id || null, now,
+        });
+        if (result.error) console.error("Failed to create subscription and transaction:", result.error);
+        else subscriptionId = result.subscriptionId;
       }
+    } else {
+      // 無訂閱資訊時仍建立交易紀錄
+      const { error: txError } = await supabase.from("payment_transactions").insert({
+        amount: totalFee,
+        currency: "TWD",
+        status: "paid",
+        paid_at: now.toISOString(),
+        provider_id: provider?.id || null,
+        provider_tx_id: transactionId,
+        subscription_id: null,
+      });
+      if (txError) console.error("Transaction insert error:", txError);
     }
-
-    // Create payment transaction
-    const { error: txError } = await supabase.from("payment_transactions").insert({
-      amount: totalFee,
-      currency: "TWD",
-      status: "paid",
-      paid_at: now.toISOString(),
-      provider_id: provider?.id || null,
-      provider_tx_id: transactionId,
-      subscription_id: subscriptionId,
-    });
-
-    if (txError) console.error("Transaction insert error:", txError);
 
     console.log("ACpay notify processed successfully for:", outTradeNo);
     return new Response("SUCCESS", { status: 200 });

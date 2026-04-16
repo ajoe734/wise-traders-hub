@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { fetchMemberNotifications } from '@/lib/memberDataAccess';
 
 export function NotificationBell() {
   const { user } = useAuth();
@@ -22,13 +23,7 @@ export function NotificationBell() {
 
   const fetchNotifications = async () => {
     if (!user?.id) return;
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(20);
-    const items = data || [];
+    const { notifications: items } = await fetchMemberNotifications(supabase, user.id, 20);
     setNotifications(items);
     setUnreadCount(items.filter(n => !n.is_read).length);
   };

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { lineWebhookVerifySignature as verifySignature } from '../_shared/paymentVerify.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,6 +43,10 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Read raw body first — needed for X-Line-Signature verification
+    const rawBody = await req.text()
+    const lineSignature = req.headers.get('x-line-signature')
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -51,7 +56,7 @@ Deno.serve(async (req) => {
     const [{ data: channel }, { data: expert }] = await Promise.all([
       supabase
         .from('expert_line_channels')
-        .select('channel_access_token, is_active')
+        .select('channel_access_token, channel_secret, is_active')
         .eq('expert_id', expertId)
         .single(),
       supabase
@@ -70,7 +75,16 @@ Deno.serve(async (req) => {
       })
     }
 
-    const body = await req.json()
+    // Verify X-Line-Signature before processing any events
+    if (!channel.channel_secret || !await verifySignature(rawBody, lineSignature, channel.channel_secret)) {
+      console.error('LINE webhook signature verification failed for expert:', expertId)
+      return new Response('Unauthorized', {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const body = JSON.parse(rawBody)
     const events = body.events || []
 
     for (const event of events) {

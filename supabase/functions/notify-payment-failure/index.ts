@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { recordPaymentFailureInDB } from "../_shared/subscriptionRenewal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -243,7 +244,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 6. Record failed transaction
+    // 6. Fetch provider id
     const { data: providerRow } = await supabase
       .from("payment_providers")
       .select("id")
@@ -251,28 +252,17 @@ Deno.serve(async (req) => {
       .eq("is_active", true)
       .maybeSingle();
 
-    await supabase.from("payment_transactions").insert({
+    // 7. Record failed transaction + audit log
+    await recordPaymentFailureInDB(supabase, {
+      userId,
+      planId,
       amount,
-      currency: "TWD",
-      status: "failed",
-      provider_id: providerRow?.id || null,
-      provider_tx_id: `FAILED-${Date.now()}`,
-    });
-
-    // 7. Audit log
-    await supabase.from("audit_logs").insert({
-      action: "payment_failure_notification",
-      actor_id: userId,
-      target_id: planId,
-      target_type: "plan",
-      detail: {
-        provider,
-        amount,
-        isRenewal,
-        lineSent,
-        emailSent,
-        errorDetail: errorDetail || null,
-      },
+      provider,
+      providerId: providerRow?.id || null,
+      isRenewal,
+      lineSent,
+      emailSent,
+      errorDetail: errorDetail || null,
     });
 
     return new Response(

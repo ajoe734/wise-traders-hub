@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 type ExpertVisibilityMode = 'default' | 'tester' | 'privileged';
 
-function getVisibilityMode(user: { isTester: boolean; roles: Array<'company_admin' | 'analyst'> } | null): ExpertVisibilityMode {
+export function getVisibilityMode(user: { isTester: boolean; roles: Array<'company_admin' | 'analyst'> } | null): ExpertVisibilityMode {
   if (user?.roles.includes('company_admin') || user?.roles.includes('analyst')) {
     return 'privileged';
   }
@@ -17,7 +17,7 @@ function getVisibilityMode(user: { isTester: boolean; roles: Array<'company_admi
   return 'default';
 }
 
-function filterExpertRows(rows: any[], visibilityMode: ExpertVisibilityMode) {
+export function filterExpertRows(rows: any[], visibilityMode: ExpertVisibilityMode) {
   if (visibilityMode === 'privileged') {
     return rows;
   }
