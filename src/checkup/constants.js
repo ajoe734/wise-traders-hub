@@ -311,6 +311,30 @@ export const LEGACY_STORAGE_KEYS = PORTFOLIO_STORAGE_FIELDS.filter(
   (item) => item.hasLegacy !== false
 ).map((item) => `pf-${item.suffix}`)
 export const CLOSED_EVENT_STATUSES = new Set(['past', 'closed'])
+
+// ── Decision System v6 ───────────────────────────────────────────
+export const EVENT_CATEGORIES = ['earnings','guidance','target_cut','thesis_break','catalyst','user_review','price_alert']
+export const IMPACT_TYPES_DECISION = ['break','weaken','strengthen','neutral']
+export const SEVERITY_LEVELS = ['high','medium','low']
+export const ACTION_TYPES = ['hold','review','exit']
+export const IMMUTABLE_EVENT_FIELDS = ['category','impact','severity','occurredAt']
+
+export const FRESHNESS_RULES = {
+  earnings:     { agingDays: 1,  staleDays: 3  },
+  guidance:     { agingDays: 1,  staleDays: 3  },
+  target_cut:   { agingDays: 14, staleDays: 30 },
+  thesis_break: { agingDays: 3,  staleDays: 7  },
+  user_review:  { agingDays: 7,  staleDays: 14 },
+  catalyst:     { agingDays: 7,  staleDays: 30 },
+  price_alert:  { agingDays: 1,  staleDays: 3  },
+}
+
+export const ACTION_TEMPLATES = {
+  hold:   { default: '維持持有，持續觀察', with_review: '維持持有，{reviewAt} 前複查' },
+  review: { default: '需要檢查，確認 thesis 是否仍成立', earnings: '等待財報公布後再決定', deadline: '{days} 天內需完成複查' },
+  exit:   { default: '建議出場，thesis 已失效' },
+}
+
 export const GLOBAL_STORAGE_KEYS = [...BACKUP_GLOBAL_KEYS, ...GLOBAL_SYNC_KEYS]
 
 export function buildPortfolioRoute(portfolioId = OWNER_PORTFOLIO_ID, tab = 'holdings') {
