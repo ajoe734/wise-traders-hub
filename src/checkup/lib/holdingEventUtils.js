@@ -68,9 +68,10 @@ export function deriveFreshness(event, now = new Date()) {
 
 export function deriveThesisState(openEvents) {
   if (!openEvents || openEvents.length === 0) return 'intact'
-  const hasBreak = openEvents.some(e => e.impact === 'break')
+  const getImpact = e => e.decisionImpact || e.impact
+  const hasBreak = openEvents.some(e => getImpact(e) === 'break')
   if (hasBreak) return 'broken'
-  const hasWeaken = openEvents.some(e => e.impact === 'weaken')
+  const hasWeaken = openEvents.some(e => getImpact(e) === 'weaken')
   if (hasWeaken) return 'weakening'
   return 'intact'
 }
@@ -108,8 +109,8 @@ export function deriveUrgency(positionState, openEvents, now = new Date()) {
 // ── Conflict detection ───────────────────────────────────────────
 
 export function detectConflict(openEvents, override) {
-  // Check impact direction clash among open events
-  const impacts = new Set(openEvents.map(e => e.impact).filter(Boolean))
+  // Check impact direction clash among open events (use decisionImpact preferentially)
+  const impacts = new Set(openEvents.map(e => e.decisionImpact || e.impact).filter(Boolean))
   const hasDirectionClash = (impacts.has('break') || impacts.has('weaken')) && impacts.has('strengthen')
 
   // Check override vs derived mismatch
@@ -205,7 +206,7 @@ export function buildDecisionFingerprint(openEvents) {
     return String(a.id || '').localeCompare(String(b.id || ''))
   })
   // Simple hash: concatenate and produce a stable string
-  const raw = sorted.map(e => `${e.id}:${e.impact}`).join('|')
+  const raw = sorted.map(e => `${e.id}:${e.decisionImpact || e.impact}`).join('|')
   // Use a simple djb2 hash for stability (no crypto needed)
   let hash = 5381
   for (let i = 0; i < raw.length; i++) {
@@ -243,7 +244,7 @@ export function mergeEvents(existing, incoming) {
   // Severity: take higher
   result.severity = maxSeverity(existing.severity, incoming.severity)
   // Impact: if clash, flag conflict, don't overwrite
-  if (existing.impact && incoming.impact && existing.impact !== incoming.impact) {
+  if (existing.decisionImpact && incoming.decisionImpact && existing.decisionImpact !== incoming.decisionImpact) {
     result._hasMergeConflict = true
   }
   return result
@@ -337,7 +338,7 @@ export function buildDecision(code, allEvents, userOverrides = {}, now = new Dat
         `override: ${effectiveOverride ? effectiveOverride.actionType : 'none'}`,
       ],
       conflictSources: hasConflict ? {
-        impactClash: openEvents.map(e => `${e.id}:${e.impact}`),
+        impactClash: openEvents.map(e => `${e.id}:${e.decisionImpact || e.impact}`),
         overrideMismatch: effectiveOverride ? `override=${effectiveOverride.actionType} vs derived=${positionState}` : null,
       } : null,
     }

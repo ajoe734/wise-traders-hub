@@ -347,7 +347,7 @@ export function normalizeEventRecord(event) {
   const relatedCodes = event.relatedCodes || getEventStockCodes(event)
   const summary = event.summary || event.detail || ''
   const evidence = event.evidence || ''
-  const source = event.source || 'demo'
+  const source = event.source || (event._fromCalendar ? 'calendar' : event._fromAi ? 'ai' : 'user')
 
   return {
     ...event,
