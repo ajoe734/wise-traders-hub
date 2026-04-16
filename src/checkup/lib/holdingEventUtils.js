@@ -68,9 +68,10 @@ export function deriveFreshness(event, now = new Date()) {
 
 export function deriveThesisState(openEvents) {
   if (!openEvents || openEvents.length === 0) return 'intact'
-  const hasBreak = openEvents.some(e => e.impact === 'break')
+  const getImpact = e => e.decisionImpact || e.impact
+  const hasBreak = openEvents.some(e => getImpact(e) === 'break')
   if (hasBreak) return 'broken'
-  const hasWeaken = openEvents.some(e => e.impact === 'weaken')
+  const hasWeaken = openEvents.some(e => getImpact(e) === 'weaken')
   if (hasWeaken) return 'weakening'
   return 'intact'
 }
@@ -108,8 +109,8 @@ export function deriveUrgency(positionState, openEvents, now = new Date()) {
 // ── Conflict detection ───────────────────────────────────────────
 
 export function detectConflict(openEvents, override) {
-  // Check impact direction clash among open events
-  const impacts = new Set(openEvents.map(e => e.impact).filter(Boolean))
+  // Check impact direction clash among open events (use decisionImpact preferentially)
+  const impacts = new Set(openEvents.map(e => e.decisionImpact || e.impact).filter(Boolean))
   const hasDirectionClash = (impacts.has('break') || impacts.has('weaken')) && impacts.has('strengthen')
 
   // Check override vs derived mismatch
