@@ -296,7 +296,7 @@ export default function App() {
   const [analyzeStep, setAnalyzeStep]   = useState("");
   const [dailyReport, setDailyReport]   = useState(null);
   const [analysisHistory, setAnalysisHistory] = useState(null);
-  const [newsEvents, setNewsEvents]     = useState(null);
+  const [newsEvents, setNewsEvents]     = useState(() => isDemo ? DEMO_EVENTS : null);
   const [reviewingEvent, setReviewingEvent] = useState(null);
   const [reviewForm, setReviewForm]     = useState({actual:"up",actualNote:"",lessons:""});
   const [showAddEvent, setShowAddEvent] = useState(false);
@@ -715,15 +715,8 @@ export default function App() {
       map[h.code] = buildDecision(h.code, normalizedEvents, userOverrides, now);
     });
     return map;
-  }, [H, normalizedEvents, userOverrides, debugMode]);
+  }, [H, normalizedEvents, userOverrides]);
 
-  // Expose for debug toggle
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.__DECISIONS_MAP__ = decisionsMap;
-      window.__NORMALIZED_EVENTS__ = normalizedEvents;
-    }
-  }, [decisionsMap, normalizedEvents]);
 
   // Sort: decision priority first when sortBy==="decision", otherwise standard sort
   const sorted = [...H].sort((a,b)=>{
