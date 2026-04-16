@@ -36,19 +36,19 @@ export function CheckupModeProvider({ children }) {
       // Fetch profile to check if this is a LINE user
       const { data: profile } = await supabase
         .from('profiles')
-        .select('line_user_id, display_name, avatar_url, is_line_friend')
+        .select('line_user_id, display_name, avatar_url, is_line_friend, is_tester')
         .eq('user_id', user.id)
         .maybeSingle()
 
       if (profile?.line_user_id) {
-        // LINE user
+        // LINE user — testers get full access
         setLineProfile({
           lineUserId: profile.line_user_id,
           displayName: profile.display_name || 'LINE 用戶',
           avatarUrl: profile.avatar_url || null,
         })
         setIsLineFriend(profile.is_line_friend === true)
-        setMode('line_only')
+        setMode(profile.is_tester ? 'full' : 'line_only')
       } else {
         // Email/regular user → full access
         setLineProfile(null)

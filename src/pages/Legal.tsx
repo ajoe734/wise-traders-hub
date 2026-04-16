@@ -143,6 +143,9 @@ const Legal = () => {
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>公司名稱：海洋福星生物科技股份有限公司</li>
                 <li>統一編號：83479669</li>
+                <li>電子信箱：ajoe734@cctech-support.com</li>
+                <li>聯絡電話：07-7351077</li>
+                <li>聯絡地址：高雄市左營區重義路57號</li>
                 <li>服務時間：週一至週五 09:00-18:00</li>
               </ul>
             </CardContent>

@@ -6,27 +6,53 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const GATEWAY_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
 
-async function callGemini(apiKey: string, model: string, messages: any[], maxTokens = 900): Promise<string> {
-  const contents = messages.map((m: any) => ({
-    role: m.role === 'system' ? 'user' : m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
-  }));
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        generationConfig: { temperature: 0.1, maxOutputTokens: maxTokens },
-      }),
+async function callAI(messages: any[], temperature = 0.1, maxTokens = 900): Promise<string> {
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+
+  if (lovableKey) {
+    for (const model of GATEWAY_MODELS) {
+      try {
+        const response = await fetch(GATEWAY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${lovableKey}` },
+          body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens }),
+        });
+        if (response.status === 429) continue;
+        if (!response.ok) { console.error(`Gateway ${model} failed (${response.status})`); continue; }
+        const data = await response.json();
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (text) return text;
+      } catch (err) { console.error(`Gateway ${model} error:`, err); }
     }
-  );
-  if (!response.ok) throw new Error(`Gemini ${model} failed (${response.status})`);
-  const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+  }
+
+  if (geminiKey) {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
+      try {
+        const systemMsg = messages.find((m: any) => m.role === 'system');
+        const body: any = {
+          contents: [{ role: 'user', parts: [{ text: messages.find((m: any) => m.role === 'user')?.content || '' }] }],
+          generationConfig: { temperature, maxOutputTokens: maxTokens },
+        };
+        if (systemMsg) body.systemInstruction = { parts: [{ text: systemMsg.content }] };
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+        );
+        if (response.status === 429) continue;
+        if (!response.ok) continue;
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
+        if (text) return text;
+      } catch {}
+    }
+  }
+
+  return '';
 }
 
 Deno.serve(async (req) => {
@@ -37,9 +63,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apiKey = Deno.env.get('GEMINI_ANALYSIS_API_KEY') || Deno.env.get('GOOGLE_GEMINI_API_KEY');
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'GEMINI API KEY 未設定' }), {
+  if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
+    return new Response(JSON.stringify({ error: 'AI API key 未設定' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -89,21 +114,10 @@ ${report.text}
 
 請抽出可回寫的財報/營收/目標價資料。`;
 
-    const messages = [
+    const text = await callAI([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
-    ];
-
-    let text = '';
-    for (const model of MODELS) {
-      try {
-        text = await callGemini(apiKey, model, messages, 900);
-        if (text) break;
-      } catch (e) {
-        console.error(`Model ${model} failed:`, e);
-        continue;
-      }
-    }
+    ], 0.1, 900);
 
     if (!text) {
       return new Response(JSON.stringify({ error: '所有 AI 模型均無法使用' }), {

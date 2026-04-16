@@ -6,66 +6,70 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-];
+const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const GATEWAY_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
 
-async function callGemini(apiKey: string, model: string, messages: any[], temperature: number): Promise<{ ok: boolean; text: string; status: number }> {
-  try {
-    const contents = messages.map((m: any) => ({
-      role: m.role === 'system' ? 'user' : m.role === 'assistant' ? 'model' : 'user',
+async function callAI(messages: any[], temperature = 0.3, maxTokens = 4096): Promise<string> {
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+
+  // Primary: Lovable AI Gateway
+  if (lovableKey) {
+    for (const model of GATEWAY_MODELS) {
+      try {
+        const response = await fetch(GATEWAY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${lovableKey}` },
+          body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens }),
+        });
+        if (response.status === 429) { console.log(`Gateway ${model} rate limited`); continue; }
+        if (!response.ok) { console.error(`Gateway ${model} failed (${response.status})`); continue; }
+        const data = await response.json();
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (text) return text;
+      } catch (err) { console.error(`Gateway ${model} error:`, err); }
+    }
+  }
+
+  // Fallback: Direct Gemini API
+  if (geminiKey) {
+    const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+    const systemMsg = messages.find((m: any) => m.role === 'system');
+    const nonSystem = messages.filter((m: any) => m.role !== 'system');
+    const contents = nonSystem.map((m: any) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     }));
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          tools: [{ google_search: {} }],
-          generationConfig: { temperature, maxOutputTokens: 4096 },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`Gemini ${model} failed (${response.status}):`, errText);
-      return { ok: false, text: errText, status: response.status };
+    for (const model of GEMINI_MODELS) {
+      try {
+        const body: any = { contents, generationConfig: { temperature, maxOutputTokens: maxTokens } };
+        if (systemMsg) body.systemInstruction = { parts: [{ text: systemMsg.content }] };
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+        );
+        if (response.status === 429) { continue; }
+        if (!response.ok) { continue; }
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
+        if (text) return text;
+      } catch {}
     }
-
-    const data = await response.json();
-    const parts = data.candidates?.[0]?.content?.parts || [];
-    const firstTextPart = parts.find((p: any) => p.text);
-    const text = firstTextPart?.text?.trim() || '';
-    if (!text) {
-      console.error(`Gemini ${model} returned empty content`, JSON.stringify(data).slice(0, 500));
-      return { ok: false, text: '', status: 200 };
-    }
-    return { ok: true, text, status: 200 };
-  } catch (err) {
-    console.error(`Gemini ${model} exception:`, err);
-    return { ok: false, text: String(err), status: 500 };
   }
+
+  return '';
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const apiKey = Deno.env.get('GEMINI_ANALYSIS_API_KEY');
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'GEMINI_ANALYSIS_API_KEY is not configured' }), {
+  if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
+    return new Response(JSON.stringify({ error: 'AI API key 未設定' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -76,36 +80,21 @@ Deno.serve(async (req) => {
     const userPrompt = body.userPrompt || body.prompt || '';
 
     const messages: any[] = [];
-    if (systemPrompt) {
-      messages.push({ role: 'system', content: systemPrompt });
-    }
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
     messages.push({ role: 'user', content: userPrompt });
 
-    for (let i = 0; i < MODELS.length; i++) {
-      const model = MODELS[i];
-      console.log(`Analyze: trying Gemini ${model} (${i + 1}/${MODELS.length})`);
+    const text = await callAI(messages, 0.3);
 
-      const result = await callGemini(apiKey, model, messages, 0.3);
-
-      if (result.ok) {
-        console.log(`Gemini ${model} succeeded`);
-        return new Response(JSON.stringify({
-          content: [{ text: result.text }],
-          text: result.text,
-          response: result.text,
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      if (result.status === 429) {
-        console.log(`Gemini rate limited, trying next model`);
-        continue;
-      }
+    if (!text) {
+      return new Response(JSON.stringify({ error: 'AI 分析失敗，所有模型均無法使用' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    return new Response(JSON.stringify({ error: 'AI 分析失敗，所有模型均無法使用' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({
+      content: [{ text }], text, response: text,
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
     console.error('AI analysis error:', err);

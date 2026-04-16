@@ -339,6 +339,16 @@ export function normalizeEventRecord(event) {
   const catalystType = event.catalystType || inferCatalystType(event)
   const impact = event.impact || inferImpact({ catalystType })
 
+  // ── Decision System v6 fields ──
+  const category = event.category || catalystType || 'catalyst'
+  const decisionImpact = event.decisionImpact || (impact === 'high' ? 'break' : impact === 'medium' ? 'weaken' : 'neutral')
+  const severity = event.severity || impact || 'medium'
+  const occurredAt = event.occurredAt || eventDate || event.createdAt || new Date().toISOString()
+  const relatedCodes = event.relatedCodes || getEventStockCodes(event)
+  const summary = event.summary || event.detail || ''
+  const evidence = event.evidence || ''
+  const source = event.source || 'demo'
+
   return {
     ...event,
     status,
@@ -360,6 +370,21 @@ export function normalizeEventRecord(event) {
     impact: impact || null,
     relatedThesisIds: Array.isArray(event.relatedThesisIds) ? event.relatedThesisIds : [],
     pillarImpact: event.pillarImpact || null,
+    // Decision v6 fields
+    category,
+    decisionImpact,
+    severity,
+    occurredAt,
+    relatedCodes,
+    summary,
+    evidence,
+    source,
+    // Pass through decision-specific fields if present
+    decisionStatus: event.decisionStatus || undefined,
+    resolvedAt: event.resolvedAt || undefined,
+    effectiveUntil: event.effectiveUntil || undefined,
+    reviewAt: event.reviewAt || undefined,
+    _hasMergeConflict: event._hasMergeConflict || false,
   }
 }
 

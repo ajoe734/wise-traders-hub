@@ -7,6 +7,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { EVENT_HISTORY_LIMIT, CLOSED_EVENT_STATUSES } from '../constants.js'
 import { normalizeEventRecord, normalizeNewsEvents, transitionEventStatus } from '../lib/events.js'
+import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from '../lib/holdingEventUtils.js'
 
 /**
  * Create default event draft
@@ -207,6 +208,35 @@ export const useEvents = ({
     return parts.join(' · ') || '無事件'
   }, [newsEvents])
 
+  // ── Decision System v6 ──
+  const [userOverrides, setUserOverrides] = useState({})
+
+  const setUserOverride = useCallback((code, override) => {
+    setUserOverrides(prev => ({ ...prev, [code]: override }))
+  }, [])
+
+  const removeUserOverride = useCallback((code) => {
+    setUserOverrides(prev => {
+      const next = { ...prev }
+      delete next[code]
+      return next
+    })
+  }, [])
+
+  const decisionsMap = useMemo(() => {
+    const allCodes = new Set(newsEvents.flatMap(e => e.relatedCodes || []))
+    const map = {}
+    const now = new Date()
+    allCodes.forEach(code => {
+      map[code] = buildDecision(code, newsEvents, userOverrides, now)
+    })
+    return map
+  }, [newsEvents, userOverrides])
+
+  const getDecision = useCallback((code) => {
+    return decisionsMap[code] || null
+  }, [decisionsMap])
+
   return {
     // State
     newsEvents,
@@ -217,11 +247,16 @@ export const useEvents = ({
     calendarMonth,
     showCalendar,
     reversalConditions,
+    userOverrides,
 
     // Statistics
     eventsByStatus,
     urgentCount,
     todayAlertSummary,
+
+    // Decision System v6
+    decisionsMap,
+    getDecision,
 
     // Operations
     updateEvents,
@@ -242,11 +277,16 @@ export const useEvents = ({
     setCalendarMonth,
     setShowCalendar,
     setReversalConditions,
+    setUserOverrides,
+    setUserOverride,
+    removeUserOverride,
 
     // Helpers
     normalizeEventRecord,
     normalizeNewsEvents,
     createDefaultEventDraft,
     createDefaultReviewForm,
+    isEventOpen,
+    getEffectiveStatus,
   }
 }
