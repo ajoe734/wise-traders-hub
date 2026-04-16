@@ -717,13 +717,6 @@ export default function App() {
     return map;
   }, [H, normalizedEvents, userOverrides, debugMode]);
 
-  // Expose for debug toggle
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.__DECISIONS_MAP__ = decisionsMap;
-      window.__NORMALIZED_EVENTS__ = normalizedEvents;
-    }
-  }, [decisionsMap, normalizedEvents]);
 
   // Sort: decision priority first when sortBy==="decision", otherwise standard sort
   const sorted = [...H].sort((a,b)=>{
