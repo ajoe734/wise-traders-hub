@@ -118,4 +118,17 @@ export const APP_RUNTIME_WORKFLOW_HELPERS = {
   createDefaultFundamentalDraft,
   toSlashDate,
   createDefaultReviewForm,
+  // Decision System v6
+  buildDecision,
+  buildDecisionFingerprint,
+  isEventOpen,
+  getEffectiveStatus,
+  toLegacyDisplayStatus,
+  sortByDecisionPriority,
+  isDuplicateEvent,
+  mergeEvents,
+  validateEventMutation,
+  validateAiEvent,
+  detectConflict,
+  deriveConfidence,
 }

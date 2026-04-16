@@ -25,6 +25,8 @@ const createInitialState = () => ({
   reversalConditions: {},
   filterType: '全部',
   expandedNews: new Set(),
+  // Decision System v6
+  userOverrides: {},
 });
 
 export const useEventStore = create((set, get) => ({
@@ -80,6 +82,17 @@ export const useEventStore = create((set, get) => ({
       next.add(newsId);
     }
     return { expandedNews: next };
+  }),
+  
+  // Actions - User Overrides (Decision v6)
+  setUserOverrides: (userOverrides) => set({ userOverrides }),
+  setUserOverride: (code, override) => set((state) => ({
+    userOverrides: { ...state.userOverrides, [code]: override }
+  })),
+  removeUserOverride: (code) => set((state) => {
+    const next = { ...state.userOverrides };
+    delete next[code];
+    return { userOverrides: next };
   }),
   
   // Selectors

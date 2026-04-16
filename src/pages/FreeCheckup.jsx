@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Md from "@/checkup/components/Md";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,8 @@ import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 import { DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS } from "@/checkup/data/demoData";
 import { INIT_HOLDINGS as SEED_HOLDINGS, STOCK_META, IND_COLOR } from "@/checkup/seedData";
 import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
+import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
+import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -305,6 +307,10 @@ export default function App() {
   const [calendarEvents, setCalendarEvents] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
+  // Decision System v6
+  const [userOverrides, setUserOverrides] = useState({});
+  const [expandedDecision, setExpandedDecision] = useState(null);
+  const [debugMode, setDebugMode] = useState(false);
 
   // reset guard — 清除全部後忽略 in-flight 的行事曆回應
   const resetGuardRef = useRef(0);
@@ -697,7 +703,31 @@ export default function App() {
   const todayEvents = CE.filter(e => e.date === todayStr);
   const urgentCount = todayEvents.length;
 
+  // Decision System v6: compute decisions for all holding codes
+  const normalizedEvents = useMemo(() =>
+    (Array.isArray(newsEvents) ? newsEvents : []).map(e => normalizeEventRecord(e)).filter(Boolean),
+    [newsEvents]
+  );
+  const decisionsMap = useMemo(() => {
+    const map = {};
+    const now = new Date();
+    H.forEach(h => {
+      map[h.code] = buildDecision(h.code, normalizedEvents, userOverrides, now);
+    });
+    return map;
+  }, [H, normalizedEvents, userOverrides]);
+
+  // Sort: decision priority first when sortBy==="decision", otherwise standard sort
   const sorted = [...H].sort((a,b)=>{
+    if(sortBy==="decision") {
+      const da = decisionsMap[a.code];
+      const db = decisionsMap[b.code];
+      if (da && db) {
+        const sorted = sortByDecisionPriority([da, db]);
+        return sorted[0] === da ? -1 : 1;
+      }
+      return da ? -1 : db ? 1 : 0;
+    }
     if(sortBy==="value") return b.value-a.value;
     if(sortBy==="pnl")   return b.pnl-a.pnl;
     if(sortBy==="pct")   return b.pct-a.pct;
@@ -1712,7 +1742,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {/* 排序 + 列表 */}
           <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center"}}>
             <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>排序</span>
-            {[["value","市值"],["pnl","損益"],["pct","報酬%"]].map(([k,l])=>(
+            {[["value","市值"],["pnl","損益"],["pct","報酬%"],["decision","決策"]].map(([k,l])=>(
               <button key={k} onClick={()=>setSortBy(k)} style={{
                 background:"transparent",
                 color: sortBy===k ? C.textSec : C.textMute,
@@ -1731,18 +1761,28 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
               const isNew  = T?.isNew;
               const meta   = STOCK_META[h.code] || null;
+              const dec    = decisionsMap[h.code];
               const muteTag = (text) => (
                 <span key={text} style={{fontSize:9,color:C.textMute,fontWeight:400,opacity:0.6,letterSpacing:"0.04em"}}>{text}</span>
               );
               const badge = (text) => (
                 <span key={text} style={{fontSize:9,color:C.textMute,fontWeight:400,opacity:0.6,letterSpacing:"0.04em"}}>{text}</span>
               );
+              // Decision badges
+              const thesisColor = dec?.thesisState === 'broken' ? C.down : dec?.thesisState === 'weakening' ? C.amber : null;
+              const actionLabel = dec?.actionType === 'exit' ? '出場' : dec?.actionType === 'review' ? '檢查' : null;
+              const actionColor = dec?.actionType === 'exit' ? C.down : dec?.actionType === 'review' ? C.amber : null;
+              const urgencyDot = dec?.urgency === 'now' ? C.down : dec?.urgency === 'soon' ? C.amber : null;
+              const isDecisionExpanded = expandedDecision === h.code;
+
               return (
               <div key={h.code} style={{
                 padding:"12px 0",
-                borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none"}}>
-                {/* 第一行：名稱 + 代碼 + 核心標籤 */}
-                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
+                borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none",
+                cursor: dec?.openEventCount > 0 ? "pointer" : "default",
+              }} onClick={() => dec?.openEventCount > 0 && setExpandedDecision(isDecisionExpanded ? null : h.code)}>
+                {/* 第一行：名稱 + 代碼 + 核心標籤 + Decision 標籤 */}
+                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3,flexWrap:"wrap"}}>
                   <span style={{fontSize:13,fontWeight:400,color:C.text,letterSpacing:"0.02em"}}>{h.name}</span>
                   <span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{h.code}</span>
                   {h.type==="權證"&&badge("權證")}
@@ -1753,6 +1793,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {h.expire&&<span style={{fontSize:10,color:C.textMute,fontWeight:400}}>到期{h.expire}</span>}
                   {h.alert&&<span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{h.alert}</span>}
                   {isNew&&badge("新目標價")}
+                  {/* Decision v6 badges */}
+                  {urgencyDot && <span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:urgencyDot,flexShrink:0,animation:dec?.urgency==='now'?'pulse 1.5s infinite':undefined}} />}
+                  {thesisColor && <span style={{fontSize:9,color:thesisColor,fontWeight:400,letterSpacing:"0.04em"}}>{dec.thesisState==='broken'?'論點破裂':'論點弱化'}</span>}
+                  {actionLabel && <span style={{fontSize:9,color:actionColor,fontWeight:400,border:`1px solid ${alpha(actionColor,'30')}`,borderRadius:3,padding:"0 4px",lineHeight:"16px"}}>{actionLabel}</span>}
+                  {dec?.hasConflict && <span style={{fontSize:9,color:C.amber,fontWeight:400}}>⚠️</span>}
+                  {dec?.confidence === 'low' && dec?.openEventCount > 0 && <span style={{fontSize:9,color:C.textMute,fontWeight:400}} title="低可信度">ⓘ</span>}
                 </div>
                 {/* 第二行：產業 + 策略（淡化顯示）*/}
                 {meta?.industry && (
@@ -1794,6 +1840,71 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         borderRadius:1,
                       }}/>
                     </div>
+                  </div>
+                )}
+                {/* ── Decision Box (expanded) ── */}
+                {isDecisionExpanded && dec && dec.openEventCount > 0 && (
+                  <div onClick={e => e.stopPropagation()} style={{marginTop:8,padding:"10px 12px",background:alpha(C.textMute,'04'),borderRadius:8,border:`1px solid ${alpha(C.textMute,'10')}`}}>
+                    {/* Action summary */}
+                    <div style={{fontSize:12,color:actionColor || C.textSec,fontWeight:500,marginBottom:6}}>
+                      {dec.actionText}
+                    </div>
+                    {/* Thesis + confidence */}
+                    <div style={{display:"flex",gap:8,fontSize:10,color:C.textMute,marginBottom:6,flexWrap:"wrap"}}>
+                      <span>論點：{dec.thesisState==='broken'?'破裂':dec.thesisState==='weakening'?'弱化':'完整'}</span>
+                      <span>可信度：{dec.confidence==='high'?'高':dec.confidence==='medium'?'中':'低'}</span>
+                      <span>事件：{dec.openEventCount}</span>
+                      {dec.hasConflict && <span style={{color:C.amber}}>⚠️ 存在衝突</span>}
+                    </div>
+                    {/* Open events list */}
+                    <div style={{fontSize:11,color:C.textMute,marginBottom:6}}>
+                      {normalizedEvents
+                        .filter(e => (e.relatedCodes || []).includes(h.code) && e.source !== 'demo' && isEventOpen(e))
+                        .slice(0, 5)
+                        .map((e, idx) => (
+                          <div key={e.id || idx} style={{padding:"3px 0",display:"flex",gap:6,alignItems:"center"}}>
+                            <span style={{fontSize:9,color:e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,border:`1px solid ${alpha(e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,'25')}`,borderRadius:3,padding:"0 3px"}}>{e.source==='user'?'手動':e.source==='ai'?'AI':e.source==='calendar'?'日曆':'其他'}</span>
+                            <span style={{flex:1}}>{e.summary || e.title || '(無摘要)'}</span>
+                            <span style={{fontSize:9,color:e.impact==='break'||e.decisionImpact==='break'?C.down:e.impact==='weaken'||e.decisionImpact==='weaken'?C.amber:C.textMute}}>{e.decisionImpact||e.impact||'—'}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                    {/* Override button */}
+                    {!userOverrides[h.code] ? (
+                      <button onClick={() => {
+                        setUserOverrides(prev => ({...prev, [h.code]: {
+                          actionType: 'hold',
+                          actionText: '手動覆寫：維持持有',
+                          expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+                          appliesToEventIds: normalizedEvents.filter(e => (e.relatedCodes||[]).includes(h.code) && isEventOpen(e)).map(e => e.id),
+                          basedOnDerivedAt: new Date().toISOString(),
+                          decisionFingerprint: dec.fingerprint,
+                        }}));
+                      }} style={{fontSize:11,color:C.textMute,background:"transparent",border:`1px solid ${C.border}`,borderRadius:5,padding:"4px 10px",cursor:"pointer",fontWeight:400}}>
+                        覆寫決策為「持有」
+                      </button>
+                    ) : (
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <span style={{fontSize:10,color:C.blue}}>已覆寫：{userOverrides[h.code].actionType}</span>
+                        <button onClick={() => {
+                          setUserOverrides(prev => {
+                            const next = {...prev};
+                            delete next[h.code];
+                            return next;
+                          });
+                        }} style={{fontSize:10,color:C.textMute,background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline"}}>
+                          移除覆寫
+                        </button>
+                      </div>
+                    )}
+                    {/* Debug output */}
+                    {debugMode && dec._debug && (
+                      <details style={{marginTop:8,fontSize:10,color:C.textMute}}>
+                        <summary style={{cursor:"pointer"}}>Debug</summary>
+                        <pre style={{whiteSpace:"pre-wrap",fontSize:9,marginTop:4,maxHeight:200,overflow:"auto"}}>{JSON.stringify(dec._debug, null, 2)}</pre>
+                      </details>
+                    )}
                   </div>
                 )}
               </div>
@@ -2886,6 +2997,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </>;
         })()}
 
+      </div>
+      {/* Decision Debug toggle */}
+      <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:8}}>
+        <label style={{fontSize:10,color:C.textMute,fontWeight:400,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+          <input type="checkbox" checked={debugMode} onChange={e => {
+            setDebugMode(e.target.checked);
+            if (typeof window !== 'undefined') window.__DECISION_DEBUG = e.target.checked;
+          }} style={{width:12,height:12}} />
+          Decision Debug
+        </label>
       </div>
       {/* Reset confirmation modal */}
       {showResetConfirm && (
