@@ -307,6 +307,10 @@ export default function App() {
   const [calendarEvents, setCalendarEvents] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
+  // Decision System v6
+  const [userOverrides, setUserOverrides] = useState({});
+  const [expandedDecision, setExpandedDecision] = useState(null);
+  const [debugMode, setDebugMode] = useState(false);
 
   // reset guard — 清除全部後忽略 in-flight 的行事曆回應
   const resetGuardRef = useRef(0);
