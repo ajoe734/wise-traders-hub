@@ -96,7 +96,7 @@ export function useDailyAnalysisWorkflow({
 
       let marketContext = ''
       try {
-        const indexResponse = await fetch(`${API_ENDPOINTS.TWSE}?ex_ch=tse_t00.tw|tse_t01.tw')
+        const indexResponse = await fetch(`${API_ENDPOINTS.TWSE}?ex_ch=tse_t00.tw|tse_t01.tw`)
         const indexData = await indexResponse.json()
         marketContext = buildMarketContextFromIndexData(indexData)
       } catch (indexError) {

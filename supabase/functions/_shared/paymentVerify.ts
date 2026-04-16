@@ -64,14 +64,29 @@ export function acpayDeriveKeyAndIv(
   };
 }
 
+function toPlainArrayBuffer(view: Uint8Array): ArrayBuffer {
+  const sliced = view.slice();
+  return sliced.buffer as ArrayBuffer;
+}
+
 export async function acpayAesDecrypt(
   encryptedBase64: string,
   key: Uint8Array,
   iv: Uint8Array,
 ): Promise<string> {
   const encryptedData = Uint8Array.from(atob(encryptedBase64), (c) => c.charCodeAt(0));
-  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "AES-CBC" }, false, ["decrypt"]);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, encryptedData);
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    toPlainArrayBuffer(key),
+    { name: "AES-CBC" },
+    false,
+    ["decrypt"],
+  );
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-CBC", iv: new Uint8Array(toPlainArrayBuffer(iv)) },
+    cryptoKey,
+    new Uint8Array(toPlainArrayBuffer(encryptedData)),
+  );
   return new TextDecoder().decode(decrypted).replace(/\0+$/, "");
 }
 

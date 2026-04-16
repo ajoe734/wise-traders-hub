@@ -139,7 +139,7 @@ export function usePortfolioBootstrap({
       try {
         const [cloudBrain, cloudEvents, cloudHoldings, cloudHistory, cloudResearch] =
           await Promise.all([
-            fetch(`${API_ENDPOINTS.BRAIN}?action=brain')
+            fetch(`${API_ENDPOINTS.BRAIN}?action=brain`)
               .then((res) => res.json())
               .catch(() => ({ brain: null })),
             fetch(API_ENDPOINTS.BRAIN, {
@@ -156,7 +156,7 @@ export function usePortfolioBootstrap({
             })
               .then((res) => res.json())
               .catch(() => ({ holdings: null })),
-            fetch(`${API_ENDPOINTS.BRAIN}?action=history')
+            fetch(`${API_ENDPOINTS.BRAIN}?action=history`)
               .then((res) => res.json())
               .catch(() => ({ history: null })),
             fetch(API_ENDPOINTS.RESEARCH)
