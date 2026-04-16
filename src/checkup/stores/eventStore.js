@@ -25,6 +25,8 @@ const createInitialState = () => ({
   reversalConditions: {},
   filterType: '全部',
   expandedNews: new Set(),
+  // Decision System v6
+  userOverrides: {},
 });
 
 export const useEventStore = create((set, get) => ({
