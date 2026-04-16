@@ -717,6 +717,14 @@ export default function App() {
     return map;
   }, [H, normalizedEvents, userOverrides, debugMode]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sampleDecision = decisionsMap["3443"] || decisionsMap["3017"] || Object.values(decisionsMap)[0] || null;
+    window.__DECISIONS_MAP__ = decisionsMap;
+    console.log("[DecisionUI] decisionsMap", decisionsMap);
+    console.log("[DecisionUI] sampleDecision", sampleDecision);
+  }, [decisionsMap]);
+
   // Sort: decision priority first when sortBy==="decision", otherwise standard sort
   const sorted = [...H].sort((a,b)=>{
     if(sortBy==="decision") {
