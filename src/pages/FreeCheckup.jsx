@@ -296,7 +296,7 @@ export default function App() {
   const [analyzeStep, setAnalyzeStep]   = useState("");
   const [dailyReport, setDailyReport]   = useState(null);
   const [analysisHistory, setAnalysisHistory] = useState(null);
-  const [newsEvents, setNewsEvents]     = useState(null);
+  const [newsEvents, setNewsEvents]     = useState(() => isDemo ? DEMO_EVENTS : null);
   const [reviewingEvent, setReviewingEvent] = useState(null);
   const [reviewForm, setReviewForm]     = useState({actual:"up",actualNote:"",lessons:""});
   const [showAddEvent, setShowAddEvent] = useState(false);
