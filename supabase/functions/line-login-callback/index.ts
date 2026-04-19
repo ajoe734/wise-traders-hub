@@ -108,39 +108,66 @@ serve(async (req) => {
     if (existingProfile) {
       userId = existingProfile.user_id;
     } else {
-      // Try to find existing auth user by email (handles case where profile lacks line_user_id)
-      const { data: existingAuthUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
-      if (getUserError && !(getUserError as any)?.status) {
-        console.error('[LINE-CB-FN] getUserByEmail error:', getUserError);
-      }
+      const password = crypto.randomUUID();
+      const userMetadata = {
+        name: displayName,
+        avatar_url: pictureUrl,
+        provider: 'line',
+        line_user_id: lineUserId,
+      };
 
-      if (existingAuthUser?.user) {
-        userId = existingAuthUser.user.id;
-        console.log('[LINE-CB-FN] Found existing auth user by email:', userId);
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: userMetadata,
+      });
+
+      if (!createError && newUser?.user) {
+        userId = newUser.user.id;
       } else {
-        const password = crypto.randomUUID();
+        const errMsg = (createError?.message || '').toLowerCase();
+        const errCode = (createError as { code?: string })?.code;
+        const isEmailConflict =
+          errCode === 'email_exists' ||
+          errCode === 'user_already_exists' ||
+          errMsg.includes('already been registered') ||
+          errMsg.includes('already exists') ||
+          errMsg.includes('email_exists');
 
-        const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: {
-            name: displayName,
-            avatar_url: pictureUrl,
-            provider: 'line',
-            line_user_id: lineUserId,
-          },
-        });
-
-        if (signUpError) {
-          console.error('Failed to create user:', signUpError);
+        if (!isEmailConflict) {
+          console.error('Failed to create user:', createError);
           return new Response(null, {
             status: 302,
             headers: { Location: `${siteUrl}${safeReturnTo}?line_error=signup_failed` },
           });
         }
 
-        userId = newUser.user.id;
+        let existingAuthUserId: string | null = null;
+        for (let page = 1; page <= 20; page++) {
+          const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+          if (listError) {
+            console.error('[LINE-CB-FN] listUsers error:', listError);
+            break;
+          }
+          const match = listData.users.find((u: { email?: string | null; id: string }) => u.email === email);
+          if (match) {
+            existingAuthUserId = match.id;
+            break;
+          }
+          if (listData.users.length < 1000) break;
+        }
+
+        if (!existingAuthUserId) {
+          console.error('[LINE-CB-FN] Email conflict but user not found via listUsers; original error:', createError);
+          return new Response(null, {
+            status: 302,
+            headers: { Location: `${siteUrl}${safeReturnTo}?line_error=signup_failed` },
+          });
+        }
+
+        userId = existingAuthUserId;
+        console.log('[LINE-CB-FN] Found existing auth user by email via listUsers:', userId);
       }
     }
 
