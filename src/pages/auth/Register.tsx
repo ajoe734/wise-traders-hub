@@ -102,11 +102,11 @@ const Register = () => {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="至少 6 位字元"
+                    placeholder="至少 8 位，避免使用常見密碼"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
                 <div className="space-y-2">
@@ -118,7 +118,7 @@ const Register = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
 

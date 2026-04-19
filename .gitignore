@@ -30,3 +30,4 @@ bun.lockb
 *.njsproj
 *.sln
 *.sw?
+deno.lock
