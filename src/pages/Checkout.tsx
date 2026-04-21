@@ -1219,10 +1219,16 @@ const Checkout = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
               <AlertDialogAction
-                onClick={() => navigate('/app/account')}
+                onClick={() => {
+                  if (resultDialog?.success) {
+                    navigate('/app/account');
+                  } else {
+                    setResultDialog(null);
+                  }
+                }}
                 className={cn(!isAdvisor && "bg-mentor hover:bg-mentor/90")}
               >
-                確定
+                {resultDialog?.success ? '前往帳號頁' : '重試'}
               </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
