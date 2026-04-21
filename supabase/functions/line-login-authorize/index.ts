@@ -46,8 +46,8 @@ serve(async (req) => {
       status: 302,
       headers: { ...corsHeaders, 'Location': lineAuthUrl.toString() },
     });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
