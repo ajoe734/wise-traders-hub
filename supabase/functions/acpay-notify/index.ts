@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
         console.log("Active subscription already exists, skipping insert");
         subscriptionId = existing[0].id;
         const { error: txError } = await recordPaymentForExistingSubscription(supabase, {
-          subscriptionId,
+          subscriptionId: subscriptionId!,
           amount: totalFee,
           currency: "TWD",
           providerTxId: transactionId,
