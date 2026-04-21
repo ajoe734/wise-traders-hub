@@ -1,105 +1,54 @@
 
 
-# Decision System v6 — 實作計畫（含硬性規則）
+# Fix Plan: Build Errors + LINE Login Redirect
 
-## 硬性規則（寫入 holdingEventUtils.js 檔頭註釋，所有開發者必讀）
+## What's Wrong
 
-| 規則 | 內容 |
-|------|------|
-| **R1** | 禁止直接使用 `event.status` 判斷 open/closed。一律透過 `isEventOpen()` 或 `getEffectiveStatus()`。違反視為 bug。 |
-| **R2** | `buildDecisionFingerprint()` 排序固定：先 `occurredAt` 升序 → 再 `id` 字串升序。確保穩定 hash。 |
-| **R3** | Dedupe merge 統一實作於 `mergeEvents()`：保留 `existing.id`、summary/evidence 取最新 `updatedAt`、severity 取較高值、impact 衝突時標記 `_hasMergeConflict` 不覆蓋。 |
-| **R4** | `category` / `impact` / `severity` / `occurredAt` 建立後不可變。修正需建新 event 並將舊 event resolved。透過 `validateEventMutation()` 攔截。 |
-| **R5** | `effectiveUntil` 過期不回寫 `status`。expired 僅為 `getEffectiveStatus(event, now)` 的讀取時計算結果。 |
+1. **LINE login redirects to `/free-checkup` instead of `/app`**: Two bugs in the `line-login-callback` Edge Function:
+   - `legendflow.tw` is not in `ALLOWED_ORIGINS`, so `app_origin` is rejected and falls back to the wrong site URL
+   - The deployed function still has old code with `getUserByEmail` (which doesn't exist in the Supabase SDK) instead of the current `listUsers` approach — the function needs redeployment
 
----
+2. **Build errors in Edge Functions**: Multiple TypeScript issues accumulated across many files
 
-## 實作步驟
+## Changes
 
-### Step 1: 常數定義 — `constants.js` (+30 行)
+### 1. Fix LINE Login Callback — `supabase/functions/line-login-callback/index.ts`
 
-新增：
-- `EVENT_CATEGORIES`, `IMPACT_TYPES_DECISION`, `SEVERITY_LEVELS`, `ACTION_TYPES`
-- `IMMUTABLE_EVENT_FIELDS = ['category', 'impact', 'severity', 'occurredAt']`
-- `FRESHNESS_RULES`（依 category 分類的 aging/stale 天數）
-- `ACTION_TEMPLATES`（hold/review/exit 固定模板文字）
-- `PORTFOLIO_STORAGE_FIELDS` 新增 `{ suffix: 'user-overrides-v1', alias: 'userOverrides', ... }`
+- Add `https://legendflow.tw` and `https://www.legendflow.tw` to `ALLOWED_ORIGINS` (line 42-45)
+- This ensures `app_origin` from the custom domain is trusted, and the redirect goes to the correct site
 
-### Step 2: 核心邏輯 — `src/checkup/lib/holdingEventUtils.js` (新建, ~200 行)
+### 2. Fix `acpay-recurring-manage/index.ts` — AES crypto type errors
 
-純函數庫，無 side effect：
+- Apply the same `toPlainArrayBuffer` pattern already used in `_shared/paymentVerify.ts` to fix `Uint8Array` → `BufferSource` type mismatches on all 5 `crypto.subtle` calls (lines 31, 32, 46, 57, 68)
+- Type the catch block `error` as `Error` (line 232)
 
-- `getEffectiveStatus(event, now)` — 唯一 status 判斷入口（R1, R5）
-- `isEventOpen(event, now)` — 包裝 getEffectiveStatus
-- `deriveThesisState(openEvents)` — break→broken, weaken→weakening, else intact
-- `derivePositionState(thesisState)` — exit/warning/holding
-- `deriveUrgency(positionState, openEvents, now)` — 多維（state + severity + reviewAt）
-- `detectConflict(openEvents, override)` — impact 方向衝突 + override 不一致
-- `deriveConfidence(openEvents, hasConflict)` — 資料品質導向（R4 限制條件）
-- `buildAction(positionState, openEvents, override, now)` — `{actionType, actionText}` 固定模板
-- `buildDecision(code, allEvents, userOverrides, now)` — 主入口，含 `_debug`（R6）
-- `buildDecisionFingerprint(openEvents)` — R2 固定排序 hash
-- `isDuplicateEvent(existing, incoming)` — category + codes + 24h
-- `mergeEvents(existing, incoming)` — R3 策略
-- `validateAiEvent(event)` — 必填驗證
-- `validateEventMutation(original, updates)` — R4 不可變攔截
-- `deriveFreshness(event, now)` — category 查表
-- `sortByDecisionPriority(decisions)` — conflict > urgency > severity > updatedAt
-- `toLegacyDisplayStatus(event, now)` — 行事曆 UI adapter
+### 3. Fix `acpay-notify/index.ts` — `subscriptionId` nullable
 
-### Step 3: 事件正規化擴充 — `eventUtils.js` (~25 行修改)
+- Line 112: `subscriptionId` comes from `existing[0].id` which could be `string | null`. Add a non-null assertion or default since it's guaranteed by the `length > 0` check above
 
-`normalizeEventRecord` 新增欄位推導（不影響現有欄位）：
-- `category` ← `catalystType || inferCatalystType() || 'catalyst'`
-- `impact` ← existing || `inferImpact()` || `'neutral'`
-- `severity` ← existing || `'medium'`
-- `occurredAt` ← `eventDate || createdAt`
-- `relatedCodes` ← `getEventStockCodes(event)`
-- `summary` ← `detail || ''`
-- `evidence` ← existing || `''`
-- `source` ← existing || `'demo'`
+### 4. Fix `error is of type 'unknown'` across 10+ Edge Functions
 
-### Step 4: Store 擴充 — `eventStore.js` (+15 行)
+All catch blocks use `error.message` without typing. Fix pattern: `(error as Error).message`
 
-新增 `userOverrides: {}` state + `setUserOverride` / `removeUserOverride` / `setUserOverrides`
+Affected files:
+- `acpay-recurring-notify/index.ts` (line 138)
+- `acpay-refund/index.ts` (line 224)
+- `auto-cancel-failed-renewals/index.ts` (line 77)
+- `confirm-linepay/index.ts` (line 147)
+- `create-acpay-order/index.ts` (line 296)
+- `create-analyst/index.ts` (line 158)
+- `create-ecpay-order/index.ts` (line 107)
+- `create-linepay-order/index.ts` (line 106)
+- `daily-performance/index.ts` (line 103)
+- And remaining truncated errors (same pattern)
 
-### Step 5: Hook 整合 — `useEvents.js` (+30 行)
+### 5. Fix `checkup-knowledge/index.ts` — `SYSTEM_UID` scope
 
-新增 `decisionsMap` 的 `useMemo` 計算：對所有持倉 code 呼叫 `buildDecision()`。匯出 `decisionsMap` 與 `getDecision(code)`。
+The `SYSTEM_UID` constant is defined inside a GET block (line 26) but used in the POST block (lines 93, 97). Move it to the top-level scope of the handler.
 
-### Step 6: Helper 匯出 — `useAppRuntimeHelperCatalog.js` (+10 行)
+## Result
 
-匯出 holdingEventUtils 核心函數。
-
-### Step 7: UI 整合 — `FreeCheckup.jsx` (~250 行)
-
-- 持股列表每列加 badge：thesis（intact 無/weakening 琥珀/broken 紅）、action（hold/review/exit）、urgency 圓點、conflict ⚠️、confidence ⓘ
-- 排序改用 `sortByDecisionPriority`
-- 展開行加 Decision Box：該做什麼 / 為什麼 / 觀察期限 / open events 列表 / override 按鈕
-- 設定區加 Debug toggle（`window.__DECISION_DEBUG`）
-
----
-
-## 驗收標準
-
-1. 同一檔股票在 open event、override、conflict、stale event 四種情境下 decision 輸出正確
-2. 新增程式碼不得直接用 `event.status` 判斷 open/closed
-3. `source === 'demo'` 不參與 decision 推導
-4. `reversal-v1` 不被 `buildDecision()` 讀取
-
----
-
-## 檔案清單
-
-| 檔案 | 類型 | 預估行數 |
-|------|------|----------|
-| `src/checkup/lib/holdingEventUtils.js` | 新建 | +200 |
-| `src/checkup/constants.js` | 修改 | +30 |
-| `src/checkup/lib/eventUtils.js` | 修改 | +25 |
-| `src/checkup/stores/eventStore.js` | 修改 | +15 |
-| `src/checkup/hooks/useEvents.js` | 修改 | +30 |
-| `src/checkup/hooks/useAppRuntimeHelperCatalog.js` | 修改 | +10 |
-| `src/pages/FreeCheckup.jsx` | 修改 | +250 |
-
-不變更：AI Edge Functions、雲端同步、資料庫、行事曆/事件分析 UI、reversal-v1。
+- LINE login from `/auth/login` → callback trusts `legendflow.tw` → redirects to `/app`
+- All Edge Function build errors resolved
+- No functional logic changes — only type fixes and origin whitelist update
 
