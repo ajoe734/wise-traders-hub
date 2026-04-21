@@ -15,6 +15,7 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
   try {
     if (req.method === 'GET') {
       const url = new URL(req.url);
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
       const category = url.searchParams.get('category');
       const stockId = url.searchParams.get('stockId');
 
-      const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
+      
       if (action === 'search' && q) {
         const { data: rows } = await supabase
           .from('checkup_storage')

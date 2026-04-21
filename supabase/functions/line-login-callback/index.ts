@@ -42,6 +42,8 @@ serve(async (req) => {
     const ALLOWED_ORIGINS = [
       'https://wise-traders-hub.lovable.app',
       'https://id-preview--0f5bdae6-cb07-4e2a-88dc-334c90cb5b02.lovable.app',
+      'https://legendflow.tw',
+      'https://www.legendflow.tw',
     ];
     const fallbackSiteUrl = Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
     let siteUrl = fallbackSiteUrl;

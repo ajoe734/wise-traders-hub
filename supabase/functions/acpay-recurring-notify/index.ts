@@ -133,9 +133,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ err_code: "0", err_msg: "成功" }), {
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("acpay-recurring-notify error:", error);
-    return new Response(JSON.stringify({ err_code: "1", err_msg: error.message }), {
+    return new Response(JSON.stringify({ err_code: "1", err_msg: (error as Error).message }), {
       headers: { "Content-Type": "application/json" },
     });
   }

@@ -19,6 +19,10 @@ function deriveKeyAndIv(merchantKey: string, nonceStr: string) {
 }
 
 // AES/CBC/ZeroPadding encryption for request
+function toPlainAB(buf: Uint8Array): ArrayBuffer {
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+}
+
 async function aesEncrypt(plaintext: string, key: Uint8Array, iv: Uint8Array): Promise<string> {
   // ZeroPadding: pad to block size (32 bytes for 256-bit)
   const blockSize = 32;
@@ -28,8 +32,8 @@ async function aesEncrypt(plaintext: string, key: Uint8Array, iv: Uint8Array): P
   padded.set(data);
   // remaining bytes are already 0
 
-  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "AES-CBC" }, false, ["encrypt"]);
-  const encrypted = await crypto.subtle.encrypt({ name: "AES-CBC", iv }, cryptoKey, padded);
+  const cryptoKey = await crypto.subtle.importKey("raw", toPlainAB(key), { name: "AES-CBC" }, false, ["encrypt"]);
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-CBC", iv: toPlainAB(iv) }, cryptoKey, toPlainAB(padded));
 
   // Remove the extra PKCS7 padding block that WebCrypto adds
   // WebCrypto always adds PKCS7 padding, so we need the raw output minus the last block
@@ -43,7 +47,7 @@ async function aesEncrypt(plaintext: string, key: Uint8Array, iv: Uint8Array): P
 // AES/CBC/NoPadding decryption for response
 async function aesDecrypt(encryptedBase64: string, key: Uint8Array, iv: Uint8Array): Promise<string> {
   const encryptedData = Uint8Array.from(atob(encryptedBase64), (c) => c.charCodeAt(0));
-  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "AES-CBC" }, false, ["decrypt"]);
+  const cryptoKey = await crypto.subtle.importKey("raw", toPlainAB(key), { name: "AES-CBC" }, false, ["decrypt"]);
 
   // WebCrypto requires PKCS7 padding, so we append a valid padding block for decryption
   // For NoPadding, we add 16 bytes of 0x10 (PKCS7 for a full block)
@@ -54,7 +58,7 @@ async function aesDecrypt(encryptedBase64: string, key: Uint8Array, iv: Uint8Arr
   // For simplicity, if the data is block-aligned, WebCrypto will try PKCS7 unpadding.
   // We'll catch and handle.
   try {
-    const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, encryptedData);
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv: toPlainAB(iv) }, cryptoKey, toPlainAB(encryptedData));
     const decoded = new TextDecoder().decode(decrypted);
     return decoded.replace(/\0+$/, "");
   } catch {
@@ -65,7 +69,7 @@ async function aesDecrypt(encryptedBase64: string, key: Uint8Array, iv: Uint8Arr
     for (let i = encryptedData.length; i < padded.length; i++) {
       padded[i] = 16;
     }
-    const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, padded);
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv: toPlainAB(iv) }, cryptoKey, toPlainAB(padded));
     const decoded = new TextDecoder().decode(decrypted);
     return decoded.replace(/[\0\x01-\x1f]+$/, "");
   }
@@ -227,9 +231,9 @@ Deno.serve(async (req) => {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("acpay-recurring-manage error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
