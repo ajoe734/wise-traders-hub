@@ -1,54 +1,29 @@
 
 
-# Fix Plan: Build Errors + LINE Login Redirect
+# Fix: Subscription Failure Should Not Redirect to Account Page
 
-## What's Wrong
+## Problem
 
-1. **LINE login redirects to `/free-checkup` instead of `/app`**: Two bugs in the `line-login-callback` Edge Function:
-   - `legendflow.tw` is not in `ALLOWED_ORIGINS`, so `app_origin` is rejected and falls back to the wrong site URL
-   - The deployed function still has old code with `getUserByEmail` (which doesn't exist in the Supabase SDK) instead of the current `listUsers` approach — the function needs redeployment
+In `src/pages/Checkout.tsx`, the result dialog's "確定" button always navigates to `/app/account` — even when the subscription **failed**. This is confusing because the user lands on the account settings page with no subscription, as shown in the screenshots.
 
-2. **Build errors in Edge Functions**: Multiple TypeScript issues accumulated across many files
+The `AppCheckout.tsx` version already handles this correctly (failure → `/app`, success → `/app/account`), but the portal `Checkout.tsx` does not.
 
-## Changes
+## Change
 
-### 1. Fix LINE Login Callback — `supabase/functions/line-login-callback/index.ts`
+### `src/pages/Checkout.tsx` — Line 1220-1226
 
-- Add `https://legendflow.tw` and `https://www.legendflow.tw` to `ALLOWED_ORIGINS` (line 42-45)
-- This ensures `app_origin` from the custom domain is trusted, and the redirect goes to the correct site
+Update the `AlertDialogAction` to differentiate between success and failure:
 
-### 2. Fix `acpay-recurring-manage/index.ts` — AES crypto type errors
+- **Success**: Navigate to `/app/account` (so user can bind LINE, view subscription)
+- **Failure**: Stay on the current checkout page (let user retry) or navigate back to the expert's page
 
-- Apply the same `toPlainArrayBuffer` pattern already used in `_shared/paymentVerify.ts` to fix `Uint8Array` → `BufferSource` type mismatches on all 5 `crypto.subtle` calls (lines 31, 32, 46, 57, 68)
-- Type the catch block `error` as `Error` (line 232)
-
-### 3. Fix `acpay-notify/index.ts` — `subscriptionId` nullable
-
-- Line 112: `subscriptionId` comes from `existing[0].id` which could be `string | null`. Add a non-null assertion or default since it's guaranteed by the `length > 0` check above
-
-### 4. Fix `error is of type 'unknown'` across 10+ Edge Functions
-
-All catch blocks use `error.message` without typing. Fix pattern: `(error as Error).message`
-
-Affected files:
-- `acpay-recurring-notify/index.ts` (line 138)
-- `acpay-refund/index.ts` (line 224)
-- `auto-cancel-failed-renewals/index.ts` (line 77)
-- `confirm-linepay/index.ts` (line 147)
-- `create-acpay-order/index.ts` (line 296)
-- `create-analyst/index.ts` (line 158)
-- `create-ecpay-order/index.ts` (line 107)
-- `create-linepay-order/index.ts` (line 106)
-- `daily-performance/index.ts` (line 103)
-- And remaining truncated errors (same pattern)
-
-### 5. Fix `checkup-knowledge/index.ts` — `SYSTEM_UID` scope
-
-The `SYSTEM_UID` constant is defined inside a GET block (line 26) but used in the POST block (lines 93, 97). Move it to the top-level scope of the handler.
+Specifically:
+- Change the `onClick` handler to check `resultDialog?.success`
+- If success → `/app/account`
+- If failure → remain on checkout (close the dialog and reset state so the user can retry)
+- Update button text: success → "前往帳號頁" / failure → "重試" or "關閉"
 
 ## Result
 
-- LINE login from `/auth/login` → callback trusts `legendflow.tw` → redirects to `/app`
-- All Edge Function build errors resolved
-- No functional logic changes — only type fixes and origin whitelist update
+After a failed payment, the user stays on the checkout page and can retry immediately, instead of being sent to a confusing account settings page with no subscription.
 
