@@ -1,29 +1,66 @@
 
 
-# Fix: Subscription Failure Should Not Redirect to Account Page
+# Fix: Add Inline Form Validation to All Checkout and Auth Forms
 
 ## Problem
 
-In `src/pages/Checkout.tsx`, the result dialog's "確定" button always navigates to `/app/account` — even when the subscription **failed**. This is confusing because the user lands on the account settings page with no subscription, as shown in the screenshots.
+All forms across the app lack proper inline field validation. When required fields are empty or invalid, errors are either shown as browser `alert()` popups, result dialogs, or not shown at all. Users see no per-field feedback (red borders, error text below inputs) before submission.
 
-The `AppCheckout.tsx` version already handles this correctly (failure → `/app`, success → `/app/account`), but the portal `Checkout.tsx` does not.
+**Affected forms:**
 
-## Change
+| Page | Current behavior | Missing |
+|------|-----------------|---------|
+| `Checkout.tsx` (Portal ACpay) | Shows result dialog popup | No inline field errors |
+| `AppCheckout.tsx` (App ACpay) | Uses `alert()` popup | No inline field errors |
+| `Register.tsx` | Only checks password match via toast | No empty/format validation |
+| `Login.tsx` | No client-side validation | No empty field check |
 
-### `src/pages/Checkout.tsx` — Line 1220-1226
+## Changes
 
-Update the `AlertDialogAction` to differentiate between success and failure:
+### 1. Add inline validation state to both Checkout pages
 
-- **Success**: Navigate to `/app/account` (so user can bind LINE, view subscription)
-- **Failure**: Stay on the current checkout page (let user retry) or navigate back to the expert's page
+**Files:** `src/pages/Checkout.tsx`, `src/pages/app/AppCheckout.tsx`
 
-Specifically:
-- Change the `onClick` handler to check `resultDialog?.success`
-- If success → `/app/account`
-- If failure → remain on checkout (close the dialog and reset state so the user can retry)
-- Update button text: success → "前往帳號頁" / failure → "重試" or "關閉"
+- Add a `fieldErrors` state object: `{ cardHolderName?: string, cardHolderEmail?: string, cardHolderPhone?: string }`
+- Create a `validateCardholderFields()` function that checks:
+  - `cardHolderName` — required, must be English letters + spaces only
+  - `cardHolderEmail` — required, must match email format
+  - `cardHolderPhone` — required, must be digits only, 9-10 chars
+- Call validation on submit; if errors exist, set `fieldErrors` and **return early** (no dialog, no alert)
+- Clear individual field errors `onChange` as user corrects them
+- Render error messages as `<p className="text-xs text-destructive mt-1">` below each input
+- Apply `border-destructive` class to inputs with errors
+
+### 2. Add inline validation to Register page
+
+**File:** `src/pages/auth/Register.tsx`
+
+- Validate before submit:
+  - Name: required
+  - Email: required, valid format
+  - Password: required, min 6 chars
+  - Confirm password: must match
+- Show per-field error text below each input
+- Prevent submit until fixed
+
+### 3. Add inline validation to Login page
+
+**File:** `src/pages/auth/Login.tsx`
+
+- Validate before submit:
+  - Email: required
+  - Password: required
+- Show per-field error text below each input
+
+### 4. Remove `alert()` calls
+
+- Replace all `alert("請填寫持卡人資訊...")` with inline error rendering
+- In `Checkout.tsx`, replace the `setResultDialog` for missing fields with inline errors instead of a modal
 
 ## Result
 
-After a failed payment, the user stays on the checkout page and can retry immediately, instead of being sent to a confusing account settings page with no subscription.
+- Every required field shows a red border and error message when invalid
+- Errors clear as the user corrects each field
+- No more `alert()` popups or modal dialogs for simple validation errors
+- Submit button behavior unchanged — just blocked until fields are valid
 
