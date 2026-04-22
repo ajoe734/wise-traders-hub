@@ -83,6 +83,7 @@ const Checkout = () => {
   const [cardHolderEmail, setCardHolderEmail] = useState('');
   const [cardHolderPhone, setCardHolderPhone] = useState('');
   const [countryCode, setCountryCode] = useState('886');
+  const [cardFieldErrors, setCardFieldErrors] = useState<{ name?: string; email?: string; phone?: string }>({});
 
   // ACpay SDK refs
   const acpayCardRef = useRef<HTMLDivElement>(null);
@@ -518,10 +519,18 @@ const Checkout = () => {
 
       if (provider?.provider_type === 'acpay') {
         // Validate cardholder fields
-        if (!cardHolderName.trim() || !cardHolderEmail.trim() || !cardHolderPhone.trim()) {
-          setResultDialog({ open: true, success: false, message: '請填寫持卡人資訊（英文姓名、電子郵件、手機號碼）' });
+        const cErrors: { name?: string; email?: string; phone?: string } = {};
+        if (!cardHolderName.trim()) cErrors.name = '請輸入英文姓名';
+        else if (!/^[a-zA-Z\s]+$/.test(cardHolderName.trim())) cErrors.name = '姓名須為英文字母';
+        if (!cardHolderEmail.trim()) cErrors.email = '請輸入電子郵件';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cardHolderEmail.trim())) cErrors.email = '電子郵件格式不正確';
+        if (!cardHolderPhone.trim()) cErrors.phone = '請輸入手機號碼';
+        else if (!/^\d{9,10}$/.test(cardHolderPhone.trim())) cErrors.phone = '手機號碼須為 9-10 位數字';
+        if (Object.keys(cErrors).length > 0) {
+          setCardFieldErrors(cErrors);
           return;
         }
+        setCardFieldErrors({});
 
         let prime: string | null = null;
         const ACPay = (window as any).ACPay;
@@ -818,10 +827,11 @@ const Checkout = () => {
                         <Input
                           id="portal-card-holder-name"
                           value={cardHolderName}
-                          onChange={(e) => setCardHolderName(e.target.value)}
+                          onChange={(e) => { setCardHolderName(e.target.value); setCardFieldErrors(prev => ({ ...prev, name: undefined })); }}
                           placeholder="WANG DA MING"
-                          className="mt-1"
+                          className={`mt-1 ${cardFieldErrors.name ? 'border-destructive' : ''}`}
                         />
+                        {cardFieldErrors.name && <p className="text-xs text-destructive mt-1">{cardFieldErrors.name}</p>}
                       </div>
                       <div>
                         <Label htmlFor="portal-card-holder-email" className="text-xs text-muted-foreground">電子郵件</Label>
@@ -829,10 +839,11 @@ const Checkout = () => {
                           id="portal-card-holder-email"
                           type="email"
                           value={cardHolderEmail}
-                          onChange={(e) => setCardHolderEmail(e.target.value)}
+                          onChange={(e) => { setCardHolderEmail(e.target.value); setCardFieldErrors(prev => ({ ...prev, email: undefined })); }}
                           placeholder="example@mail.com"
-                          className="mt-1"
+                          className={`mt-1 ${cardFieldErrors.email ? 'border-destructive' : ''}`}
                         />
+                        {cardFieldErrors.email && <p className="text-xs text-destructive mt-1">{cardFieldErrors.email}</p>}
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
@@ -850,10 +861,11 @@ const Checkout = () => {
                           <Input
                             id="portal-card-holder-phone"
                             value={cardHolderPhone}
-                            onChange={(e) => setCardHolderPhone(e.target.value)}
+                            onChange={(e) => { setCardHolderPhone(e.target.value); setCardFieldErrors(prev => ({ ...prev, phone: undefined })); }}
                             placeholder="912345678"
-                            className="mt-1"
+                            className={`mt-1 ${cardFieldErrors.phone ? 'border-destructive' : ''}`}
                           />
+                          {cardFieldErrors.phone && <p className="text-xs text-destructive mt-1">{cardFieldErrors.phone}</p>}
                         </div>
                       </div>
                     </div>
