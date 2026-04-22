@@ -15,21 +15,26 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string; password?: string; confirmPassword?: string }>({});
   const { register } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (password !== confirmPassword) {
-      toast({
-        title: '密碼不一致',
-        description: '請確認兩次輸入的密碼相同',
-        variant: 'destructive',
-      });
+    const errors: { name?: string; email?: string; password?: string; confirmPassword?: string } = {};
+    if (!name.trim()) errors.name = '請輸入姓名';
+    if (!email.trim()) errors.email = '請輸入電子郵件';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = '電子郵件格式不正確';
+    if (!password) errors.password = '請輸入密碼';
+    else if (password.length < 8) errors.password = '密碼至少需要 8 個字元';
+    if (!confirmPassword) errors.confirmPassword = '請再次輸入密碼';
+    else if (password !== confirmPassword) errors.confirmPassword = '兩次輸入的密碼不一致';
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
+    setFieldErrors({});
 
     setIsLoading(true);
 
@@ -82,9 +87,11 @@ const Register = () => {
                     type="text"
                     placeholder="您的姓名"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => { setName(e.target.value); setFieldErrors(prev => ({ ...prev, name: undefined })); }}
+                    className={fieldErrors.name ? 'border-destructive' : ''}
                     required
                   />
+                  {fieldErrors.name && <p className="text-xs text-destructive mt-1">{fieldErrors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">電子郵件</Label>
@@ -93,9 +100,11 @@ const Register = () => {
                     type="email"
                     placeholder="your@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setFieldErrors(prev => ({ ...prev, email: undefined })); }}
+                    className={fieldErrors.email ? 'border-destructive' : ''}
                     required
                   />
+                  {fieldErrors.email && <p className="text-xs text-destructive mt-1">{fieldErrors.email}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">密碼</Label>
@@ -104,10 +113,12 @@ const Register = () => {
                     type="password"
                     placeholder="至少 8 位，避免使用常見密碼"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); setFieldErrors(prev => ({ ...prev, password: undefined })); }}
+                    className={fieldErrors.password ? 'border-destructive' : ''}
                     required
                     minLength={8}
                   />
+                  {fieldErrors.password && <p className="text-xs text-destructive mt-1">{fieldErrors.password}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">確認密碼</Label>
@@ -116,10 +127,12 @@ const Register = () => {
                     type="password"
                     placeholder="再次輸入密碼"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => { setConfirmPassword(e.target.value); setFieldErrors(prev => ({ ...prev, confirmPassword: undefined })); }}
+                    className={fieldErrors.confirmPassword ? 'border-destructive' : ''}
                     required
                     minLength={8}
                   />
+                  {fieldErrors.confirmPassword && <p className="text-xs text-destructive mt-1">{fieldErrors.confirmPassword}</p>}
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isLoading}>

@@ -14,6 +14,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pendingRedirect, setPendingRedirect] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const { login, user, isAuthenticated, hasRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -43,6 +44,14 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: { email?: string; password?: string } = {};
+    if (!email.trim()) errors.email = '請輸入電子郵件';
+    if (!password) errors.password = '請輸入密碼';
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
     setIsLoading(true);
 
     const result = await login(email, password);
@@ -95,9 +104,11 @@ const Login = () => {
                     type="email"
                     placeholder="your@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setFieldErrors(prev => ({ ...prev, email: undefined })); }}
+                    className={fieldErrors.email ? 'border-destructive' : ''}
                     required
                   />
+                  {fieldErrors.email && <p className="text-xs text-destructive mt-1">{fieldErrors.email}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">密碼</Label>
@@ -106,9 +117,11 @@ const Login = () => {
                     type="password"
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); setFieldErrors(prev => ({ ...prev, password: undefined })); }}
+                    className={fieldErrors.password ? 'border-destructive' : ''}
                     required
                   />
+                  {fieldErrors.password && <p className="text-xs text-destructive mt-1">{fieldErrors.password}</p>}
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
