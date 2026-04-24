@@ -117,7 +117,7 @@ describe('Checkout ACpay validation', () => {
   it('blocks submission when ACpay cardholder fields are empty', async () => {
     renderAt('/checkout/alice/plan-1');
     // Wait for plan to load
-    await screen.findByText('訊號方案');
+    await waitForLoaded();
 
     await openConsentAndConfirm();
 
@@ -132,7 +132,7 @@ describe('Checkout ACpay validation', () => {
 
   it('clears name error after the user types', async () => {
     renderAt('/checkout/alice/plan-1');
-    await screen.findByText('訊號方案');
+    await waitForLoaded();
     await openConsentAndConfirm();
     await waitFor(() => expect(screen.getByText('請輸入英文姓名')).toBeInTheDocument());
 
@@ -143,7 +143,7 @@ describe('Checkout ACpay validation', () => {
 
   it('rejects non-ASCII cardholder name', async () => {
     renderAt('/checkout/alice/plan-1');
-    await screen.findByText('訊號方案');
+    await waitForLoaded();
 
     fireEvent.change(screen.getByLabelText(/英文姓名/), { target: { value: '王大明' } });
     fireEvent.change(screen.getByLabelText(/電子郵件/), { target: { value: 'a@b.co' } });
@@ -156,7 +156,7 @@ describe('Checkout ACpay validation', () => {
 
   it('rejects malformed email', async () => {
     renderAt('/checkout/alice/plan-1');
-    await screen.findByText('訊號方案');
+    await waitForLoaded();
 
     fireEvent.change(screen.getByLabelText(/英文姓名/), { target: { value: 'WANG' } });
     fireEvent.change(screen.getByLabelText(/電子郵件/), { target: { value: 'oops' } });
@@ -169,7 +169,7 @@ describe('Checkout ACpay validation', () => {
 
   it('rejects phone with wrong digit count', async () => {
     renderAt('/checkout/alice/plan-1');
-    await screen.findByText('訊號方案');
+    await waitForLoaded();
 
     fireEvent.change(screen.getByLabelText(/英文姓名/), { target: { value: 'WANG' } });
     fireEvent.change(screen.getByLabelText(/電子郵件/), { target: { value: 'a@b.co' } });
