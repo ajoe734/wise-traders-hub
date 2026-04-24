@@ -2395,72 +2395,37 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const urgencyDot = dec?.urgency === 'now' ? C.down : dec?.urgency === 'soon' ? C.amber : null;
               const isDecisionExpanded = expandedDecision === h.code;
 
-              // Phase 2.5: 視覺權重 4 階分層 — 強化對比版
+              // Phase 2.5 — 克制版：留白與排版分層，色彩只在小點
               const isExitRow = dec?.actionType === 'exit';
               const isReviewRow = dec?.actionType === 'review';
               const isAlertRow = !isExitRow && !isReviewRow && (dec?.urgency === 'now' || dec?.urgency === 'soon' || dec?.hasConflict);
 
-              // 卡片整體樣式 — 像紙張，明顯分隔
-              const cardBg = isExitRow
-                ? alpha(C.down, '12')
-                : isReviewRow
-                  ? alpha(C.amber, '10')
-                  : isAlertRow
-                    ? alpha(C.amber, '04')
-                    : C.card;
-              const cardBorder = isExitRow
-                ? `1px solid ${alpha(C.down, '40')}`
-                : isReviewRow
-                  ? `1px solid ${alpha(C.amber, '40')}`
-                  : isAlertRow
-                    ? `1px solid ${alpha(C.amber, '20')}`
-                    : `1px solid ${alpha(C.textMute, '12')}`;
-              const cardBorderLeft = isExitRow
-                ? `5px solid ${C.down}`
-                : isReviewRow
-                  ? `5px solid ${C.amber}`
-                  : isAlertRow
-                    ? `3px solid ${alpha(C.amber, '70')}`
-                    : `3px solid transparent`;
-              const cardShadow = isExitRow
-                ? `0 3px 10px ${alpha(C.down, '18')}, 0 1px 2px ${alpha(C.text, '06')}`
-                : isReviewRow
-                  ? `0 2px 8px ${alpha(C.amber, '15')}, 0 1px 2px ${alpha(C.text, '05')}`
-                  : isAlertRow
-                    ? `0 1px 3px ${alpha(C.text, '06')}`
-                    : `0 1px 2px ${alpha(C.text, '04')}`;
-              const hoverShadowColor = isExitRow
-                ? alpha(C.down, '28')
-                : isReviewRow
-                  ? alpha(C.amber, '22')
-                  : alpha(C.text, '12');
+              // 卡片如紙張：白底、極細分隔線、無陰影、無強邊框
+              // 狀態差異只用「左側 2px 細色條」+「股名旁小色點」表達
+              const accentColor = isExitRow ? C.down : (isReviewRow || isAlertRow) ? C.amber : null;
 
               return (
               <div key={h.code} style={{
                 position:"relative",
-                padding:"12px 14px 12px 12px",
-                marginBottom: 8,
-                background: cardBg,
-                border: cardBorder,
-                borderLeft: cardBorderLeft,
-                borderRadius: 8,
+                padding:"14px 16px 14px 14px",
+                marginBottom: 6,
+                background: C.card,
+                border: `1px solid ${alpha(C.textMute, '10')}`,
+                borderLeft: accentColor ? `2px solid ${accentColor}` : `2px solid transparent`,
+                borderRadius: 4,
                 cursor: "pointer",
-                boxShadow: cardShadow,
-                transition: "transform 200ms ease, box-shadow 200ms ease, background 200ms ease",
-                willChange: "transform",
+                transition: "background 160ms ease",
               }}
               tabIndex={0}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 6px 20px ${hoverShadowColor}`;
+                e.currentTarget.style.background = alpha(C.textMute, '04');
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = '';
-                e.currentTarget.style.boxShadow = cardShadow;
+                e.currentTarget.style.background = C.card;
               }}
               onFocus={(e) => {
-                e.currentTarget.style.outline = `2px solid ${alpha(C.text, '20')}`;
-                e.currentTarget.style.outlineOffset = '2px';
+                e.currentTarget.style.outline = `1px solid ${alpha(C.text, '20')}`;
+                e.currentTarget.style.outlineOffset = '1px';
               }}
               onBlur={(e) => {
                 e.currentTarget.style.outline = 'none';
