@@ -2720,26 +2720,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 gap:24,
                 alignItems:'flex-start',
               }} className="holdings-workbench">
-                {/* 左：卡片牆 */}
+                {/* 左：卡片牆（3 欄穩定 grid，ink 卡 span 2） */}
                 <div style={{
                   display:'grid',
-                  gridTemplateColumns:'repeat(2, minmax(0, 1fr))',
-                  gap:14,
+                  gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
+                  gap:12,
                 }} className="holdings-card-grid">
-                  {displayed.map(h => {
-                    const dec = decisionsMap[h.code];
-                    const isLarge = dec?.actionType === 'exit' || dec?.actionType === 'review' || dec?.urgency === 'now';
-                    return renderCard(h, { large: isLarge });
-                  })}
+                  {displayed.map(h => renderCard(h))}
                   {!showAll && sorted.length > 12 && (
                     <button
                       onClick={() => setShowAll(true)}
                       style={{
-                        gridColumn:'span 2',
+                        gridColumn:'span 3',
                         padding:'12px',
                         background:'transparent',
                         border:`1px dashed ${alpha(C.textMute, '20')}`,
-                        borderRadius:10,
+                        borderRadius:6,
                         color:C.textMute, fontSize:12, cursor:'pointer', fontWeight:400,
                         letterSpacing:'0.06em',
                       }}
