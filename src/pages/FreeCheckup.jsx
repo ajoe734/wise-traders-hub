@@ -2293,17 +2293,26 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                 </div>
 
-                {/* Filter chips */}
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  <FilterGroup label="決策" options={[["hold","持有"],["review","檢查"],["exit","出場"]]} set={filterDecision} setter={setFilterDecision} />
-                  <FilterGroup label="論點" options={[["intact","完整"],["weakening","弱化"],["broken","破裂"]]} set={filterThesis} setter={setFilterThesis} />
-                  <FilterGroup label="緊急" options={[["now","立即"],["soon","近期"],["monitor","觀察"]]} set={filterUrgency} setter={setFilterUrgency} />
-                  <FilterGroup label="衝突" options={[["conflict","有衝突"],["no_conflict","無衝突"]]} set={filterConflict} setter={setFilterConflict} />
-                  <FilterGroup label="損益" options={[["win","獲利"],["loss","虧損"],["flat","平盤"]]} set={filterPnl} setter={setFilterPnl} />
-                  {strategyOptions.length > 0 && (
-                    <FilterGroup label="題材" options={strategyOptions.map(s=>[s,s])} set={filterStrategy} setter={setFilterStrategy} />
-                  )}
-                </div>
+                {/* Filter chips（預設折疊） */}
+                <details>
+                  <summary style={{
+                    cursor:"pointer", listStyle:"none",
+                    fontSize:10, color:C.textMute, fontWeight:400, letterSpacing:"0.10em",
+                    textTransform:"uppercase", padding:"2px 0",
+                  }}>
+                    Filters {activeTags.length > 0 ? `(${activeTags.length})` : ''} <span style={{opacity:0.5,marginLeft:4}}>▾</span>
+                  </summary>
+                  <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+                    <FilterGroup label="決策" options={[["hold","持有"],["review","檢查"],["exit","出場"]]} set={filterDecision} setter={setFilterDecision} />
+                    <FilterGroup label="論點" options={[["intact","完整"],["weakening","弱化"],["broken","破裂"]]} set={filterThesis} setter={setFilterThesis} />
+                    <FilterGroup label="緊急" options={[["now","立即"],["soon","近期"],["monitor","觀察"]]} set={filterUrgency} setter={setFilterUrgency} />
+                    <FilterGroup label="衝突" options={[["conflict","有衝突"],["no_conflict","無衝突"]]} set={filterConflict} setter={setFilterConflict} />
+                    <FilterGroup label="損益" options={[["win","獲利"],["loss","虧損"],["flat","平盤"]]} set={filterPnl} setter={setFilterPnl} />
+                    {strategyOptions.length > 0 && (
+                      <FilterGroup label="題材" options={strategyOptions.map(s=>[s,s])} set={filterStrategy} setter={setFilterStrategy} />
+                    )}
+                  </div>
+                </details>
 
                 {/* Active tags + counter */}
                 {activeTags.length > 0 && (
