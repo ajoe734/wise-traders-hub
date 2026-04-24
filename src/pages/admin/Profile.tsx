@@ -272,7 +272,58 @@ const AdminProfile = () => {
           </CardContent>
         </Card>
 
-        {/* Starting Capital */}
+        {/* Strategy & Backtest (KPIs are system-calculated, read-only) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              策略與回測
+              <Badge variant="outline" className="text-[10px] font-normal">
+                <Lock className="h-3 w-3 mr-1" />KPI 系統計算
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>策略摘要</Label>
+              <Textarea
+                value={strategySummary}
+                onChange={(e) => setStrategySummary(e.target.value)}
+                rows={3}
+                placeholder="一段話總結您的選股與操作邏輯，會顯示於前台 Hero 區"
+                disabled={isReadOnly}
+              />
+              <p className="text-xs text-muted-foreground">出現在前台個人頁的策略區段</p>
+            </div>
+
+            <div>
+              <Label className="mb-2 block">回測 KPI（系統依實際交易紀錄自動計算，不可手動修改）</Label>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground">1 年累積報酬</div>
+                  <div className="text-lg font-semibold tabular-nums mt-1">
+                    {perf?.return_1y != null ? `${perf.return_1y.toFixed(2)}%` : '—'}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground">最大回撤</div>
+                  <div className="text-lg font-semibold tabular-nums mt-1">
+                    {perf?.max_drawdown != null ? `${perf.max_drawdown.toFixed(2)}%` : '—'}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground">累積總報酬</div>
+                  <div className="text-lg font-semibold tabular-nums mt-1">
+                    {perf?.cumulative_return != null ? `${perf.cumulative_return.toFixed(2)}%` : '—'}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                數值會隨您發布的訊號與已平倉交易自動更新
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {!isReadOnly && (
           <Card>
             <CardHeader>
