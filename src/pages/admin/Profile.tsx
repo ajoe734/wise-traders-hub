@@ -346,29 +346,30 @@ const AdminProfile = () => {
           </CardContent>
         </Card>
 
-        {!isReadOnly && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">起始資金</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2 max-w-sm">
-                <Label>起始資金（NT$）</Label>
-                <Input
-                  type="number"
-                  value={startingCapital}
-                  onChange={e => setStartingCapital(e.target.value)}
-                  placeholder="例：1000000"
-                  disabled={startingCapitalLocked}
-                />
-                {startingCapitalLocked && (
-                  <p className="text-xs text-muted-foreground">起始資金已設定，無法修改。</p>
-                )}
-              </div>
-              {!startingCapitalLocked && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">起始資金</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2 max-w-sm">
+              <Label>起始資金（NT$）</Label>
+              <Input
+                type="number"
+                value={startingCapital}
+                onChange={e => setStartingCapital(e.target.value)}
+                placeholder="例：1000000"
+                disabled={startingCapitalLocked || isReadOnly}
+                className={cn(isReadOnly && !startingCapitalLocked && 'bg-muted/50 cursor-not-allowed')}
+              />
+              {startingCapitalLocked && (
+                <p className="text-xs text-muted-foreground">起始資金已設定，無法修改。</p>
+              )}
+            </div>
+            {!startingCapitalLocked && (
+              <PermissionTooltip disabled={isReadOnly}>
                 <Button
                   size="sm"
-                  disabled={!startingCapital || Number(startingCapital) <= 0}
+                  disabled={!startingCapital || Number(startingCapital) <= 0 || isReadOnly}
                   onClick={() => {
                     setPendingCapital(Number(startingCapital));
                     setShowCapitalConfirm(true);
@@ -376,10 +377,10 @@ const AdminProfile = () => {
                 >
                   確認設定
                 </Button>
-              )}
-            </CardContent>
-          </Card>
-        )}
+              </PermissionTooltip>
+            )}
+          </CardContent>
+        </Card>
 
         <AlertDialog open={showCapitalConfirm} onOpenChange={setShowCapitalConfirm}>
           <AlertDialogContent>
