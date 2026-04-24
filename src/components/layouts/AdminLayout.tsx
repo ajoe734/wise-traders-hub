@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, Radio, Users, UserCog, BarChart3,
-  LogOut, Moon, Sun, Building2, FileText, Loader2, Megaphone
+  LogOut, Moon, Sun, Building2, FileText, Loader2, Megaphone, Wallet
 } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
@@ -69,6 +69,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const navItems = [
     { path: basePath, icon: LayoutDashboard, label: '總覽', exact: true },
     { path: `${basePath}/signals`, icon: Radio, label: isAdvisor ? '訊號管理' : '週記管理' },
+    { path: `${basePath}/plans`, icon: Wallet, label: '訂閱方案' },
     { path: `${basePath}/subscribers`, icon: Users, label: '訂閱者' },
     { path: `${basePath}/signal-templates`, icon: FileText, label: '訊號模板' },
     { path: `${basePath}/performance`, icon: BarChart3, label: '績效總覽' },

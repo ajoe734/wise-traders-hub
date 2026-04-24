@@ -63,6 +63,7 @@ import AdminPerformance from "./pages/admin/Performance";
 import AdminReasonTemplates from "./pages/admin/ReasonTemplates";
 import AdminSignalTemplates from "./pages/admin/SignalTemplates";
 import AdminAnnouncements from "./pages/admin/Announcements";
+import AdminPlans from "./pages/admin/Plans";
 
 // Company pages (internal backend)
 import CompanyDashboard from "./pages/company/Dashboard";
@@ -156,6 +157,7 @@ const App = () => (
             {/* Admin (expert backend) */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signals" element={<ProtectedRoute><AdminSignals /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/plans" element={<ProtectedRoute><AdminPlans /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute><AdminSubscribers /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />

@@ -281,7 +281,10 @@ const ExpertProfile = () => {
                     <CardContent className="space-y-4">
                       {plan.description && <p className="text-muted-foreground text-sm">{plan.description}</p>}
                       <ul className="space-y-2">
-                        {getPlanFeatures(plan.plan_type).map((feature, idx) => (
+                        {(Array.isArray(plan.features) && plan.features.filter((f: any) => typeof f === 'string' && f.trim()).length > 0
+                          ? (plan.features as string[]).filter((f) => typeof f === 'string' && f.trim())
+                          : getPlanFeatures(plan.plan_type)
+                        ).map((feature, idx) => (
                           <li key={idx} className="flex items-center gap-2 text-sm">
                             <CheckCircle className={cn("h-4 w-4 shrink-0", isFollowerType ? "text-advisor" : "text-mentor")} />
                             {feature}
