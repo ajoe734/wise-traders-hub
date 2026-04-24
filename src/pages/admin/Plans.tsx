@@ -60,7 +60,8 @@ const AdminPlans = () => {
   const { user, hasRole } = useAuth();
   const isCompanyAdmin = hasRole('company_admin');
   const isOwner = !!user?.expertSlug && user.expertSlug === expertSlug;
-  const isReadOnly = isCompanyAdmin && !isOwner;
+  // company_admin 擁有最高權限，可完整操作任一分析師後台；其他角色僅自己的後台可寫入
+  const isReadOnly = !isCompanyAdmin && !isOwner;
 
   const [expert, setExpert] = useState<{ id: string; role: 'advisor' | 'mentor' } | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
