@@ -2764,8 +2764,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             );
           })()}
 
-          {/* 行動裝置 detail：選中時 inline 展開（細節已在 drawer，行動版用 drawer 即可） */}
+          {/* RWD：mid 折成 2 欄、行動端 1 欄並隱藏 detail panel */}
           <style>{`
+            @media (max-width: 1279px) {
+              .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            }
             @media (max-width: 1023px) {
               .holdings-workbench { grid-template-columns: 1fr !important; }
               .holdings-detail-panel { display: none !important; }
