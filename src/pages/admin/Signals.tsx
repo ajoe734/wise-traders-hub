@@ -81,8 +81,11 @@ const PreviewTradeItem = ({ action, instrument, priceHint, reasonSummary, reason
 
 const AdminSignals = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
-  const { hasRole } = useAuth();
-  const isReadOnly = hasRole('company_admin');
+  const { user, hasRole } = useAuth();
+  // company_admin 與分析師本人皆有完整寫入權；其他人為唯讀
+  const isCompanyAdmin = hasRole('company_admin');
+  const isOwner = !!user?.expertSlug && user.expertSlug === expertSlug;
+  const isReadOnly = !isCompanyAdmin && !isOwner;
   const [expert, setExpert] = useState<any>(null);
   const [signals, setSignals] = useState<any[]>([]);
   const [openInstruments, setOpenInstruments] = useState<Set<string>>(new Set());
