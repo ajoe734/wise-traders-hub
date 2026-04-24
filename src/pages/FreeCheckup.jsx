@@ -2435,58 +2435,68 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const urgencyDot = dec?.urgency === 'now' ? C.down : dec?.urgency === 'soon' ? C.amber : null;
               const isDecisionExpanded = expandedDecision === h.code;
 
-              // Phase 2.5: 視覺權重 4 階分層
+              // Phase 2.5: 視覺權重 4 階分層 — 強化對比版
               const isExitRow = dec?.actionType === 'exit';
               const isReviewRow = dec?.actionType === 'review';
               const isAlertRow = !isExitRow && !isReviewRow && (dec?.urgency === 'now' || dec?.urgency === 'soon' || dec?.hasConflict);
-              const rowBorderLeft = isExitRow
-                ? `4px solid ${C.down}`
+
+              // 卡片整體樣式 — 像紙張，明顯分隔
+              const cardBg = isExitRow
+                ? alpha(C.down, '12')
                 : isReviewRow
-                  ? `4px solid ${C.amber}`
+                  ? alpha(C.amber, '10')
                   : isAlertRow
-                    ? `2px solid ${alpha(C.amber, '60')}`
-                    : "2px solid transparent";
-              const rowBg = isExitRow
-                ? alpha(C.down, '08')
+                    ? alpha(C.amber, '04')
+                    : C.card;
+              const cardBorder = isExitRow
+                ? `1px solid ${alpha(C.down, '40')}`
                 : isReviewRow
-                  ? alpha(C.amber, '06')
+                  ? `1px solid ${alpha(C.amber, '40')}`
                   : isAlertRow
-                    ? alpha(C.amber, '02')
-                    : "transparent";
-              const rowShadow = isExitRow
-                ? `0 1px 3px ${alpha(C.down, '12')}`
+                    ? `1px solid ${alpha(C.amber, '20')}`
+                    : `1px solid ${alpha(C.textMute, '12')}`;
+              const cardBorderLeft = isExitRow
+                ? `5px solid ${C.down}`
                 : isReviewRow
-                  ? `0 1px 2px ${alpha(C.amber, '10')}`
-                  : "none";
+                  ? `5px solid ${C.amber}`
+                  : isAlertRow
+                    ? `3px solid ${alpha(C.amber, '70')}`
+                    : `3px solid transparent`;
+              const cardShadow = isExitRow
+                ? `0 3px 10px ${alpha(C.down, '18')}, 0 1px 2px ${alpha(C.text, '06')}`
+                : isReviewRow
+                  ? `0 2px 8px ${alpha(C.amber, '15')}, 0 1px 2px ${alpha(C.text, '05')}`
+                  : isAlertRow
+                    ? `0 1px 3px ${alpha(C.text, '06')}`
+                    : `0 1px 2px ${alpha(C.text, '04')}`;
               const hoverShadowColor = isExitRow
-                ? alpha(C.down, '15')
+                ? alpha(C.down, '28')
                 : isReviewRow
-                  ? alpha(C.amber, '12')
-                  : alpha(C.text, '08');
-              const rowPadLeft = (isExitRow || isReviewRow || isAlertRow) ? 10 : 2;
+                  ? alpha(C.amber, '22')
+                  : alpha(C.text, '12');
 
               return (
               <div key={h.code} style={{
                 position:"relative",
-                padding:`12px 0 12px ${rowPadLeft}px`,
-                borderLeft: rowBorderLeft,
-                background: rowBg,
-                borderRadius: (isExitRow || isReviewRow) ? 4 : 0,
-                marginBottom: (isExitRow || isReviewRow) ? 4 : 0,
-                borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none",
+                padding:"12px 14px 12px 12px",
+                marginBottom: 8,
+                background: cardBg,
+                border: cardBorder,
+                borderLeft: cardBorderLeft,
+                borderRadius: 8,
                 cursor: "pointer",
-                boxShadow: rowShadow,
+                boxShadow: cardShadow,
                 transition: "transform 200ms ease, box-shadow 200ms ease, background 200ms ease",
                 willChange: "transform",
               }}
               tabIndex={0}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-1px) scale(1.005)';
-                e.currentTarget.style.boxShadow = `0 4px 16px ${hoverShadowColor}`;
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = `0 6px 20px ${hoverShadowColor}`;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = '';
-                e.currentTarget.style.boxShadow = rowShadow;
+                e.currentTarget.style.boxShadow = cardShadow;
               }}
               onFocus={(e) => {
                 e.currentTarget.style.outline = `2px solid ${alpha(C.text, '20')}`;
