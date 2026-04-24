@@ -758,6 +758,60 @@ export default function App() {
     return candidates.length ? Math.max(...candidates) : 0;
   };
 
+  // Phase 2.5: 決策優先度（4 階）
+  const priorityOf = useCallback((h) => {
+    const dec = decisionsMap[h.code];
+    if (!dec) return 5;
+    if (dec.actionType === 'exit') return 0;
+    if (dec.actionType === 'review') return 1;
+    if (dec.urgency === 'now' || dec.hasConflict) return 2;
+    if (dec.urgency === 'soon') return 3;
+    if (dec.thesisState === 'weakening') return 4;
+    return 5;
+  }, [decisionsMap]);
+
+  const compareByPriority = useCallback((a, b) => {
+    const pa = priorityOf(a), pb = priorityOf(b);
+    if (pa !== pb) return pa - pb;
+    const da = decisionsMap[a.code], db = decisionsMap[b.code];
+    const ua = URGENCY_RANK[da?.urgency] || 0, ub = URGENCY_RANK[db?.urgency] || 0;
+    if (ua !== ub) return ub - ua;
+    const ca = CONF_RANK[da?.confidence] || 0, cb = CONF_RANK[db?.confidence] || 0;
+    if (ca !== cb) return cb - ca;
+    return (b.value || 0) - (a.value || 0);
+  }, [priorityOf, decisionsMap]);
+
+  // 全局優先排序（不受 filter 影響）
+  const globalSortedList = useMemo(() => {
+    return [...H].sort(compareByPriority);
+  }, [H, compareByPriority]);
+
+  const globalPriorityList = useMemo(
+    () => globalSortedList.filter(h => priorityOf(h) <= 4).slice(0, 3),
+    [globalSortedList, priorityOf]
+  );
+
+  const exitList = useMemo(
+    () => globalSortedList.filter(h => decisionsMap[h.code]?.actionType === 'exit'),
+    [globalSortedList, decisionsMap]
+  );
+  const reviewList = useMemo(
+    () => globalSortedList.filter(h => {
+      const d = decisionsMap[h.code];
+      return d?.actionType === 'review' || d?.hasConflict;
+    }),
+    [globalSortedList, decisionsMap]
+  );
+  const upcomingList = useMemo(
+    () => globalSortedList.filter(h => {
+      const d = decisionsMap[h.code];
+      if (!d) return false;
+      if (d.actionType === 'exit' || d.actionType === 'review') return false;
+      return d.urgency === 'now' || d.urgency === 'soon';
+    }),
+    [globalSortedList, decisionsMap]
+  );
+
   // 過濾
   const filteredSortedList = useMemo(() => {
     const tokens = searchQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
