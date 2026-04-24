@@ -1016,7 +1016,6 @@ const AdminSignals = () => {
             </DialogContent>
           </Dialog>
           </div>
-          )}
         </div>
 
         <div className="flex gap-3">
