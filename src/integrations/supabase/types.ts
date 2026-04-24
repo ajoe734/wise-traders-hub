@@ -444,6 +444,10 @@ export type Database = {
           plan_type: Database["public"]["Enums"]["plan_type"]
           price_monthly: number
           price_yearly: number | null
+          review_note: string | null
+          review_status: Database["public"]["Enums"]["plan_review_status"]
+          reviewed_at: string | null
+          reviewed_by: string | null
         }
         Insert: {
           created_at?: string
@@ -456,6 +460,10 @@ export type Database = {
           plan_type: Database["public"]["Enums"]["plan_type"]
           price_monthly?: number
           price_yearly?: number | null
+          review_note?: string | null
+          review_status?: Database["public"]["Enums"]["plan_review_status"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
         }
         Update: {
           created_at?: string
@@ -468,6 +476,10 @@ export type Database = {
           plan_type?: Database["public"]["Enums"]["plan_type"]
           price_monthly?: number
           price_yearly?: number | null
+          review_note?: string | null
+          review_status?: Database["public"]["Enums"]["plan_review_status"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
         }
         Relationships: [
           {
@@ -1492,6 +1504,7 @@ export type Database = {
       app_role: "company_admin" | "analyst"
       expert_role: "advisor" | "mentor"
       payment_status: "pending" | "paid" | "failed" | "refunded"
+      plan_review_status: "draft" | "pending" | "approved" | "rejected"
       plan_type:
         | "analyst_signal_l1"
         | "analyst_signal_diag_l2"
@@ -1632,6 +1645,7 @@ export const Constants = {
       app_role: ["company_admin", "analyst"],
       expert_role: ["advisor", "mentor"],
       payment_status: ["pending", "paid", "failed", "refunded"],
+      plan_review_status: ["draft", "pending", "approved", "rejected"],
       plan_type: [
         "analyst_signal_l1",
         "analyst_signal_diag_l2",

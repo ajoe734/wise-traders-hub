@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { UnifiedAppLayout, markAppJournalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ActionBadge } from '@/components/ActionBadge';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle } from 'lucide-react';
+import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye } from 'lucide-react';
 
 interface SignalDetail {
   id: string;
@@ -86,9 +88,15 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
 
 const JournalDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const { user, hasRole } = useAuth();
   const [signal, setSignal] = useState<SignalDetail | null>(null);
   const [weekSignals, setWeekSignals] = useState<SignalDetail[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isPreview = searchParams.get('preview') === '1' && (
+    (signal?.experts?.slug && user?.expertSlug === signal.experts.slug) || hasRole('company_admin')
+  );
 
   useEffect(() => {
     markAppJournalsAsRead();
@@ -158,6 +166,15 @@ const JournalDetail = () => {
 
   return (
     <UnifiedAppLayout>
+      {isPreview && (
+        <div className="sticky top-0 z-50 bg-amber-500 text-amber-50 px-4 py-2 text-sm flex items-center justify-center gap-2 shadow">
+          <Eye className="h-4 w-4" />
+          <span className="font-medium">🔍 訂閱者預覽模式</span>
+          <Button size="sm" variant="outline" className="ml-2 h-7 bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100" onClick={() => window.close()}>
+            退出預覽
+          </Button>
+        </div>
+      )}
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">

@@ -1,17 +1,24 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { ExpertRole } from '@/types';
-import { CheckCircle, ArrowRight, Shield, Clock, Loader2 } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Clock, Loader2, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePlan } from '@/hooks/useExpertPlans';
+import { useAuth } from '@/contexts/AuthContext';
 
 const PlanDetail = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
+  const [searchParams] = useSearchParams();
+  const { user, hasRole } = useAuth();
   const { data: planData, isLoading } = usePlan(planId);
+
+  const isPreview = searchParams.get('preview') === '1' && (
+    (user?.expertSlug && user.expertSlug === slug) || hasRole('company_admin')
+  );
 
   if (isLoading) {
     return (
@@ -47,10 +54,30 @@ const PlanDetail = () => {
     }
   };
 
+  const dbFeatures = Array.isArray((planData as any).features)
+    ? ((planData as any).features as any[]).filter((f) => typeof f === 'string' && f.trim())
+    : [];
+  const featureList: string[] = dbFeatures.length > 0 ? dbFeatures : getPlanFeatures(planData.plan_type);
+
   const formatPrice = (price: number) => new Intl.NumberFormat('zh-TW').format(price);
 
   return (
     <PortalLayout>
+      {isPreview && (
+        <div className="sticky top-0 z-50 bg-amber-500 text-amber-50 px-4 py-2 text-sm flex items-center justify-center gap-3 shadow">
+          <Eye className="h-4 w-4" />
+          <span className="font-medium">🔍 訂閱者預覽模式</span>
+          <span className="opacity-80">此畫面僅自己可見，結帳按鈕已停用</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-2 h-7 bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100"
+            onClick={() => window.close()}
+          >
+            退出預覽
+          </Button>
+        </div>
+      )}
       <div className="container py-8 md:py-12 max-w-3xl">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
@@ -74,7 +101,7 @@ const PlanDetail = () => {
             <p className="text-muted-foreground mb-6">{planData.description || ''}</p>
 
             <div className="space-y-3 mb-6">
-              {getPlanFeatures(planData.plan_type).map((feature, idx) => (
+              {featureList.map((feature, idx) => (
                 <div key={idx} className="flex items-center gap-3">
                   <CheckCircle className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
                   <span>{feature}</span>
@@ -108,14 +135,20 @@ const PlanDetail = () => {
               </div>
             </div>
 
-            <Button variant={isAdvisor ? 'advisor' : 'mentor'} size="xl" className="w-full" asChild>
-              <Link to={`/checkout/${slug}/${planId}`}>前往結帳<ArrowRight className="h-4 w-4 ml-2" /></Link>
-            </Button>
+            {isPreview ? (
+              <Button variant={isAdvisor ? 'advisor' : 'mentor'} size="xl" className="w-full" disabled>
+                <Eye className="h-4 w-4 mr-2" />預覽模式：結帳已停用
+              </Button>
+            ) : (
+              <Button variant={isAdvisor ? 'advisor' : 'mentor'} size="xl" className="w-full" asChild>
+                <Link to={`/checkout/${slug}/${planId}`}>前往結帳<ArrowRight className="h-4 w-4 ml-2" /></Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
 
         <div className="mt-6 text-center">
-          <Link to={`/expert/${slug}`} className="text-muted-foreground hover:text-foreground text-sm">
+          <Link to={`/expert/${slug}${isPreview ? '?preview=1' : ''}`} className="text-muted-foreground hover:text-foreground text-sm">
             ← 返回 {expert.name} 的介紹頁
           </Link>
         </div>

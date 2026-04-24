@@ -23,6 +23,8 @@ import { cn } from '@/lib/utils';
 
 type PlanType = 'analyst_signal_l1' | 'analyst_signal_diag_l2' | 'mentor_weekly_journal';
 
+type ReviewStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
 interface Plan {
   id: string;
   expert_id: string;
@@ -33,7 +35,16 @@ interface Plan {
   price_yearly: number | null;
   features: any;
   is_active: boolean;
+  review_status: ReviewStatus;
+  review_note: string | null;
 }
+
+const REVIEW_STATUS_LABEL: Record<ReviewStatus, { label: string; cls: string }> = {
+  draft: { label: '草稿', cls: 'bg-muted text-muted-foreground' },
+  pending: { label: '待審核', cls: 'bg-amber-500/15 text-amber-600 border-amber-500/30 dark:text-amber-400' },
+  approved: { label: '已核准', cls: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30 dark:text-emerald-400' },
+  rejected: { label: '已退回', cls: 'bg-destructive/15 text-destructive border-destructive/30' },
+};
 
 const PLAN_TYPE_LABEL: Record<PlanType, string> = {
   analyst_signal_l1: '即時訊號',
@@ -180,7 +191,15 @@ const AdminPlans = () => {
 
     setSaving(false);
     if (res.error) { toast.error('儲存失敗：' + res.error.message); return; }
-    toast.success(editingPlan ? '已更新方案' : '已建立方案');
+    if (isCompanyAdmin) {
+      toast.success(editingPlan ? '已更新方案' : '已建立方案');
+    } else {
+      toast.success(
+        editingPlan
+          ? '方案已送審，公司審核通過後即上架'
+          : '方案已建立並送審，公司審核通過後即上架',
+      );
+    }
     setDialogOpen(false);
     fetchAll();
   };
@@ -246,49 +265,63 @@ const AdminPlans = () => {
                     <TableHead className="text-right">月費</TableHead>
                     <TableHead className="text-right">年費</TableHead>
                     <TableHead className="text-center">訂閱人數</TableHead>
+                    <TableHead className="text-center">審核狀態</TableHead>
                     <TableHead className="text-center">啟用</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {plans.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>
-                        <div className="font-medium">{p.name}</div>
-                        {p.description && (
-                          <div className="text-xs text-muted-foreground line-clamp-1">{p.description}</div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs">
-                          {PLAN_TYPE_LABEL[p.plan_type]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        NT$ {p.price_monthly.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {p.price_yearly != null ? `NT$ ${p.price_yearly.toLocaleString()}` : '—'}
-                      </TableCell>
-                      <TableCell className="text-center tabular-nums">
-                        {counts[p.id] || 0}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={p.is_active}
-                          onCheckedChange={() => !isReadOnly && toggleActive(p)}
-                          disabled={isReadOnly}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {!isReadOnly && (
-                          <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {plans.map((p) => {
+                    const rs = REVIEW_STATUS_LABEL[p.review_status] || REVIEW_STATUS_LABEL.draft;
+                    return (
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          <div className="font-medium">{p.name}</div>
+                          {p.description && (
+                            <div className="text-xs text-muted-foreground line-clamp-1">{p.description}</div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs">
+                            {PLAN_TYPE_LABEL[p.plan_type]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          NT$ {p.price_monthly.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {p.price_yearly != null ? `NT$ ${p.price_yearly.toLocaleString()}` : '—'}
+                        </TableCell>
+                        <TableCell className="text-center tabular-nums">
+                          {counts[p.id] || 0}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={cn('text-[11px] border', rs.cls)} variant="outline">
+                            {rs.label}
+                          </Badge>
+                          {p.review_status === 'rejected' && p.review_note && (
+                            <div className="text-[10px] text-destructive mt-1 max-w-[160px] mx-auto line-clamp-2">
+                              退回原因：{p.review_note}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Switch
+                            checked={p.is_active}
+                            onCheckedChange={() => !isReadOnly && toggleActive(p)}
+                            disabled={isReadOnly}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {!isReadOnly && (
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -297,7 +330,7 @@ const AdminPlans = () => {
 
         {!isReadOnly && (
           <p className="text-xs text-muted-foreground">
-            提示：方案不可永久刪除（保留歷史紀錄）。如需停售請切換「啟用」開關。已有訂閱者的方案改價後，現有訂閱維持原價直到下次續扣。
+            提示：方案不可永久刪除（保留歷史紀錄）。如需停售請切換「啟用」開關。「啟用」需配合「審核狀態 = 已核准」才會在前台上架。已有訂閱者的方案改價後，現有訂閱維持原價直到下次續扣。
           </p>
         )}
       </div>

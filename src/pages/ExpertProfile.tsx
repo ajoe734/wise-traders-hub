@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users } from 'lucide-react';
+import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
 
@@ -40,9 +40,12 @@ const ExpertProfile = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const fromAccount = searchParams.get('from') === 'account';
   const fromExplore = searchParams.get('from') === 'explore';
+  const isPreview = searchParams.get('preview') === '1' && (
+    (user?.expertSlug && user.expertSlug === slug) || hasRole('company_admin')
+  );
 
   const [expertInfo, setExpertInfo] = useState<ExpertInfo | null>(null);
   const [expertNotFound, setExpertNotFound] = useState(false);
@@ -182,6 +185,21 @@ const ExpertProfile = () => {
 
   return (
     <PortalLayout hideAppEntry hideHeader={!!user}>
+      {isPreview && (
+        <div className="sticky top-0 z-50 bg-amber-500 text-amber-50 px-4 py-2 text-sm flex items-center justify-center gap-3 shadow">
+          <Eye className="h-4 w-4" />
+          <span className="font-medium">🔍 訂閱者預覽模式</span>
+          <span className="opacity-80 hidden sm:inline">此畫面僅自己可見，訂閱按鈕已停用</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-2 h-7 bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100"
+            onClick={() => window.close()}
+          >
+            退出預覽
+          </Button>
+        </div>
+      )}
       <div className="container py-8 md:py-12 space-y-12">
         {backButton}
 
@@ -307,6 +325,10 @@ const ExpertProfile = () => {
                       {isSubscribed ? (
                         <Button variant="outline" className={cn("w-full", isFollowerType ? "border-advisor text-advisor hover:bg-advisor/10" : "border-mentor text-mentor hover:bg-mentor/10")} disabled>
                           <Check className="h-4 w-4 mr-1" />已訂閱
+                        </Button>
+                      ) : isPreview ? (
+                        <Button variant={isFollowerType ? 'advisor' as any : 'mentor' as any} size="xl" className="w-full" disabled>
+                          <Eye className="h-4 w-4 mr-1" />預覽模式：訂閱按鈕已停用
                         </Button>
                       ) : (
                         <Button variant={isFollowerType ? 'advisor' as any : 'mentor' as any} size="xl" className="w-full" asChild>
