@@ -364,9 +364,9 @@ Deno.serve(async (req) => {
     console.log('Caller:', userId)
 
     const body = await req.json()
-    const { signal_id, expert_id, type, mode, signal_data } = body
-    const pushType = type === 'takedown' ? 'takedown' : 'publish'
-    console.log('Push request:', { signal_id, expert_id, pushType, mode })
+    const { signal_id, expert_id, type, mode, signal_data, is_update } = body
+    const pushType: 'publish' | 'takedown' | 'update' = type === 'takedown' ? 'takedown' : (is_update ? 'update' : 'publish')
+    console.log('Push request:', { signal_id, expert_id, pushType, mode, is_update })
 
     if (!expert_id) {
       console.error('Missing expert_id')
@@ -489,6 +489,31 @@ Deno.serve(async (req) => {
     }
 
     console.log('Total pushed:', totalPushed)
+
+    // Audit log for repush operations (company_admin can insert; analyst owners may not)
+    if (is_update && isAdmin) {
+      try {
+        await supabaseAdmin.from('audit_logs').insert({
+          actor_id: userId,
+          action: 'signal_repush',
+          target_type: 'expert_signal',
+          target_id: signal_id,
+          detail: { expert_id, instrument: signal.instrument, action: signal.action, count: totalPushed },
+        })
+      } catch (e) {
+        console.error('audit_logs insert failed:', e)
+      }
+    } else if (is_update) {
+      // Analyst owner: log via a separate channel — we still mark line_pushed_at
+    }
+
+    // Update line_pushed_at timestamp on repush
+    if (is_update && totalPushed > 0) {
+      await supabaseAdmin.from('expert_signals')
+        .update({ line_pushed_at: new Date().toISOString() })
+        .eq('id', signal_id)
+    }
+
     return new Response(JSON.stringify({ pushed: true, count: totalPushed, subscribed: subscribedTargets.length, canceled: canceledTargets.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
