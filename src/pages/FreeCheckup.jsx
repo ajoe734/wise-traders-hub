@@ -2043,165 +2043,236 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             if (totalAction === 0 && !showPriority) {
               return (
                 <div id="action-banner" style={{
-                  marginBottom: 14, padding: "10px 14px",
-                  background: alpha(C.up, '04'),
-                  border: `1px solid ${alpha(C.up, '15')}`,
-                  borderRadius: 8, fontSize: 12, color: C.textSec, fontWeight: 400,
+                  marginBottom: 16, padding: "12px 16px",
+                  background: alpha(C.up, '08'),
+                  border: `1px solid ${alpha(C.up, '25')}`,
+                  borderLeft: `4px solid ${C.up}`,
+                  borderRadius: 8, fontSize: 13, color: C.text, fontWeight: 500,
                 }}>
                   ✅ 持倉狀態良好，無待處理決策
                 </div>
               );
             }
 
+            // ── Banner 主視覺：依最高優先級決定主色 ──
+            const bannerAccent = exitCount > 0 ? C.down : reviewCount > 0 ? C.amber : C.text;
+            const bannerHeadline = exitCount > 0
+              ? `今日有 ${exitCount} 檔建議出場`
+              : reviewCount > 0
+                ? `今日有 ${reviewCount} 檔需要檢查`
+                : `今日有 ${upcomingCount} 檔即將到期`;
+
             return (
               <div id="action-banner" style={{
-                marginBottom: 14,
-                display: "flex", flexDirection: "column", gap: 10,
+                marginBottom: 18,
+                background: C.card,
+                border: `1px solid ${alpha(bannerAccent, '30')}`,
+                borderLeft: `5px solid ${bannerAccent}`,
+                borderRadius: 10,
+                boxShadow: `0 4px 16px ${alpha(bannerAccent, '15')}, 0 1px 3px ${alpha(C.text, '06')}`,
+                overflow: "hidden",
               }}>
-                {/* 3a. 🎯 今日優先（全局視角） */}
-                {showPriority && (
-                  <div style={{
-                    padding: "10px 12px",
-                    background: alpha(C.text, '03'),
-                    border: `1px solid ${alpha(C.text, '10')}`,
-                    borderRadius: 8,
-                  }}>
-                    <div style={{
-                      fontSize: 11, color: C.textMute, fontWeight: 500,
-                      letterSpacing: "0.06em", marginBottom: 8,
-                      display: "flex", alignItems: "center", gap: 6,
-                    }}>
-                      <span>🎯 今日優先處理</span>
-                      <span style={{fontSize: 10, fontWeight: 400, opacity: 0.7}}>（全局，不受篩選影響）</span>
+                {/* Banner 主標 — 第一視覺焦點 */}
+                <div style={{
+                  padding: "12px 16px 10px",
+                  background: alpha(bannerAccent, '08'),
+                  borderBottom: `1px solid ${alpha(bannerAccent, '15')}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: 12, flexWrap: "wrap",
+                }}>
+                  <div style={{display: "flex", alignItems: "center", gap: 10}}>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      width: 28, height: 28, borderRadius: 6,
+                      background: bannerAccent, color: "#fff",
+                      fontSize: 14, fontWeight: 600,
+                    }}>!</span>
+                    <div style={{display: "flex", flexDirection: "column", gap: 2}}>
+                      <div style={{fontSize: 14, fontWeight: 600, color: C.text, letterSpacing: "0.01em"}}>
+                        {bannerHeadline}
+                      </div>
+                      <div style={{fontSize: 11, color: C.textMute, fontWeight: 400, letterSpacing: "0.04em"}}>
+                        決策工作台 · 由上至下處理優先標的
+                      </div>
                     </div>
+                  </div>
+                  <div style={{display: "flex", gap: 8, fontSize: 11, color: C.textSec, flexWrap: "wrap"}}>
+                    {exitCount > 0 && (
+                      <span style={{
+                        background: alpha(C.down, '12'), color: C.down,
+                        padding: "3px 8px", borderRadius: 4, fontWeight: 500,
+                      }}>⛔ 出場 {exitCount}</span>
+                    )}
+                    {reviewCount > 0 && (
+                      <span style={{
+                        background: alpha(C.amber, '15'), color: C.amber,
+                        padding: "3px 8px", borderRadius: 4, fontWeight: 500,
+                      }}>⚠ 檢查 {reviewCount}</span>
+                    )}
+                    {upcomingCount > 0 && (
+                      <span style={{
+                        background: alpha(C.amber, '08'), color: C.amber,
+                        padding: "3px 8px", borderRadius: 4, fontWeight: 500,
+                      }}>⏰ 到期 {upcomingCount}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 12}}>
+                  {/* 3a. 🎯 今日優先（全局視角） */}
+                  {showPriority && (
+                    <div>
+                      <div style={{
+                        fontSize: 11, color: C.textSec, fontWeight: 600,
+                        letterSpacing: "0.08em", marginBottom: 8,
+                        display: "flex", alignItems: "center", gap: 6,
+                      }}>
+                        <span>🎯 今日優先處理</span>
+                        <span style={{fontSize: 10, fontWeight: 400, color: C.textMute, letterSpacing: "0.02em"}}>（全局，不受篩選影響）</span>
+                      </div>
+                      <div style={{
+                        display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2,
+                        scrollbarWidth: "thin",
+                      }}>
+                        {globalPriorityList.map((h, idx) => {
+                          const b = priorityBadge(h);
+                          const pnlColor = h.pnl >= 0 ? C.up : C.down;
+                          return (
+                            <button
+                              key={h.code}
+                              onClick={() => openHoldingDrawer(h.code, { type: 'priority-global', label: '🎯 今日優先（全局）' })}
+                              style={{
+                                flex: "1 1 0", minWidth: 150,
+                                background: alpha(b.color, '06'),
+                                border: `1px solid ${alpha(b.color, '30')}`,
+                                borderLeft: `4px solid ${b.color}`,
+                                borderRadius: 6, padding: "10px 12px",
+                                cursor: "pointer", textAlign: "left",
+                                display: "flex", flexDirection: "column", gap: 6,
+                                transition: "transform 200ms ease, box-shadow 200ms ease, background 200ms ease",
+                                fontFamily: "inherit",
+                                boxShadow: `0 1px 2px ${alpha(b.color, '10')}`,
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.boxShadow = `0 6px 16px ${alpha(b.color, '25')}`;
+                                e.currentTarget.style.background = alpha(b.color, '10');
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = '';
+                                e.currentTarget.style.boxShadow = `0 1px 2px ${alpha(b.color, '10')}`;
+                                e.currentTarget.style.background = alpha(b.color, '06');
+                              }}
+                            >
+                              <div style={{display: "flex", alignItems: "center", gap: 6}}>
+                                <span style={{
+                                  fontSize: 10, color: "#fff", fontWeight: 600,
+                                  background: b.color, padding: "1px 5px", borderRadius: 3,
+                                  minWidth: 18, textAlign: "center",
+                                }}>{idx + 1}</span>
+                                <span style={{fontSize: 13, color: C.text, fontWeight: 500}}>{h.name}</span>
+                                <span style={{fontSize: 10, color: C.textMute}}>{h.code}</span>
+                              </div>
+                              <div style={{display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between"}}>
+                                <span style={{
+                                  fontSize: 10, color: "#fff", fontWeight: 600, letterSpacing: "0.04em",
+                                  background: b.color, padding: "2px 7px", borderRadius: 3,
+                                }}>{b.label}</span>
+                                <span style={{fontSize: 12, fontWeight: 500, color: pnlColor}}>
+                                  {h.pct >= 0 ? '+' : ''}{h.pct?.toFixed(1)}%
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3b. 分類概覽（全量計數 + 直達標的） */}
+                  {totalAction > 0 && (
                     <div style={{
-                      display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2,
-                      scrollbarWidth: "thin",
+                      paddingTop: showPriority ? 10 : 0,
+                      borderTop: showPriority ? `1px dashed ${alpha(C.textMute, '15')}` : "none",
+                      display: "flex", flexDirection: "column", gap: 8,
                     }}>
-                      {globalPriorityList.map((h, idx) => {
-                        const b = priorityBadge(h);
-                        const pnlColor = h.pnl >= 0 ? C.up : C.down;
+                      {[
+                        { key: 'exit', icon: '⛔', label: '建議出場', list: exitList, color: C.down },
+                        { key: 'review', icon: '⚠', label: '需要處理', list: reviewList, color: C.amber },
+                        { key: 'upcoming', icon: '⏰', label: '即將到期', list: upcomingList, color: C.amber },
+                      ].filter(row => row.list.length > 0).map(row => {
+                        const sample = row.list.slice(0, 3);
+                        const more = row.list.length - sample.length;
                         return (
-                          <button
-                            key={h.code}
-                            onClick={() => openHoldingDrawer(h.code, { type: 'priority-global', label: '🎯 今日優先（全局）' })}
-                            style={{
-                              flex: "1 1 0", minWidth: 140,
-                              background: C.card,
-                              border: `1px solid ${alpha(b.color, '25')}`,
-                              borderLeft: `3px solid ${b.color}`,
-                              borderRadius: 6, padding: "8px 10px",
-                              cursor: "pointer", textAlign: "left",
-                              display: "flex", flexDirection: "column", gap: 4,
-                              transition: "transform 200ms ease, box-shadow 200ms ease",
-                              fontFamily: "inherit",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = 'translateY(-1px)';
-                              e.currentTarget.style.boxShadow = `0 4px 12px ${alpha(b.color, '20')}`;
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = '';
-                              e.currentTarget.style.boxShadow = '';
-                            }}
-                          >
-                            <div style={{display: "flex", alignItems: "center", gap: 6}}>
-                              <span style={{fontSize: 10, color: C.textMute, fontWeight: 500}}>#{idx + 1}</span>
-                              <span style={{fontSize: 12, color: C.text, fontWeight: 500}}>{h.name}</span>
-                              <span style={{fontSize: 10, color: C.textMute}}>{h.code}</span>
-                            </div>
-                            <div style={{display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between"}}>
-                              <span style={{
-                                fontSize: 10, color: "#fff", fontWeight: 500,
-                                background: b.color, padding: "1px 6px", borderRadius: 3,
-                              }}>{b.label}</span>
-                              <span style={{fontSize: 11, fontWeight: 500, color: pnlColor}}>
-                                {h.pct >= 0 ? '+' : ''}{h.pct?.toFixed(1)}%
-                              </span>
-                            </div>
-                          </button>
+                          <div key={row.key} style={{
+                            display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+                            fontSize: 12, color: C.textSec,
+                            padding: "6px 8px",
+                            background: alpha(row.color, '04'),
+                            borderRadius: 5,
+                          }}>
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              color: row.color, fontWeight: 600, minWidth: 110,
+                            }}>
+                              <span>{row.icon}</span>
+                              <span>{row.label}</span>
+                              <span style={{color: C.textMute, fontWeight: 400}}>{row.list.length} 檔</span>
+                            </span>
+                            <span style={{color: C.textMute, fontSize: 11}}>→</span>
+                            <span style={{display: "inline-flex", flexWrap: "wrap", gap: 6, flex: 1}}>
+                              {sample.map(h => (
+                                <button
+                                  key={h.code}
+                                  onClick={() => openHoldingDrawer(h.code, {
+                                    type: 'category', key: row.key,
+                                    label: `${row.icon} ${row.label}`,
+                                  })}
+                                  style={{
+                                    background: C.card,
+                                    border: `1px solid ${alpha(row.color, '35')}`,
+                                    borderRadius: 4, padding: "3px 9px",
+                                    fontSize: 11, color: C.text, fontWeight: 500,
+                                    cursor: "pointer", fontFamily: "inherit",
+                                    transition: "all 0.15s",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = alpha(row.color, '12');
+                                    e.currentTarget.style.borderColor = row.color;
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = C.card;
+                                    e.currentTarget.style.borderColor = alpha(row.color, '35');
+                                  }}
+                                >
+                                  {h.name} <span style={{color: C.textMute, fontSize: 10}}>{h.code}</span>
+                                </button>
+                              ))}
+                              {more > 0 && (
+                                <span style={{fontSize: 11, color: C.textMute, alignSelf: "center"}}>
+                                  +{more}
+                                </span>
+                              )}
+                            </span>
+                            <button
+                              onClick={() => applyQuickFilter(row.key)}
+                              title="套用篩選"
+                              style={{
+                                background: "transparent",
+                                border: `1px solid ${alpha(row.color, '40')}`,
+                                borderRadius: 4, padding: "3px 9px",
+                                fontSize: 11, color: row.color, cursor: "pointer",
+                                fontFamily: "inherit", fontWeight: 500,
+                              }}
+                            >
+                              篩選 →
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
-                  </div>
-                )}
-
-                {/* 3b. 分類概覽（全量計數 + 直達標的） */}
-                {totalAction > 0 && (
-                  <div style={{
-                    padding: "10px 12px",
-                    background: alpha(C.textMute, '04'),
-                    border: `1px solid ${alpha(C.textMute, '10')}`,
-                    borderRadius: 8,
-                    display: "flex", flexDirection: "column", gap: 8,
-                  }}>
-                    {[
-                      { key: 'exit', icon: '⛔', label: '建議出場', list: exitList, color: C.down },
-                      { key: 'review', icon: '⚠', label: '需要處理', list: reviewList, color: C.amber },
-                      { key: 'upcoming', icon: '⏰', label: '即將到期', list: upcomingList, color: C.amber },
-                    ].filter(row => row.list.length > 0).map(row => {
-                      const sample = row.list.slice(0, 3);
-                      const more = row.list.length - sample.length;
-                      return (
-                        <div key={row.key} style={{
-                          display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
-                          fontSize: 12, color: C.textSec,
-                        }}>
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", gap: 4,
-                            color: row.color, fontWeight: 500, minWidth: 110,
-                          }}>
-                            <span>{row.icon}</span>
-                            <span>{row.label}</span>
-                            <span style={{color: C.textMute, fontWeight: 400}}>{row.list.length} 檔</span>
-                          </span>
-                          <span style={{color: C.textMute, fontSize: 11}}>→</span>
-                          <span style={{display: "inline-flex", flexWrap: "wrap", gap: 6, flex: 1}}>
-                            {sample.map(h => (
-                              <button
-                                key={h.code}
-                                onClick={() => openHoldingDrawer(h.code, {
-                                  type: 'category', key: row.key,
-                                  label: `${row.icon} ${row.label}`,
-                                })}
-                                style={{
-                                  background: "transparent",
-                                  border: `1px solid ${alpha(row.color, '25')}`,
-                                  borderRadius: 4, padding: "2px 8px",
-                                  fontSize: 11, color: C.text, fontWeight: 400,
-                                  cursor: "pointer", fontFamily: "inherit",
-                                  transition: "background 0.15s",
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = alpha(row.color, '08')}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                              >
-                                {h.name} <span style={{color: C.textMute, fontSize: 10}}>{h.code}</span>
-                              </button>
-                            ))}
-                            {more > 0 && (
-                              <span style={{fontSize: 11, color: C.textMute, alignSelf: "center"}}>
-                                +{more}
-                              </span>
-                            )}
-                          </span>
-                          <button
-                            onClick={() => applyQuickFilter(row.key)}
-                            title="套用篩選"
-                            style={{
-                              background: "transparent",
-                              border: `1px solid ${C.border}`,
-                              borderRadius: 4, padding: "2px 8px",
-                              fontSize: 11, color: C.textMute, cursor: "pointer",
-                              fontFamily: "inherit",
-                            }}
-                          >
-                            篩選 →
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })()}
@@ -2364,58 +2435,68 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const urgencyDot = dec?.urgency === 'now' ? C.down : dec?.urgency === 'soon' ? C.amber : null;
               const isDecisionExpanded = expandedDecision === h.code;
 
-              // Phase 2.5: 視覺權重 4 階分層
+              // Phase 2.5: 視覺權重 4 階分層 — 強化對比版
               const isExitRow = dec?.actionType === 'exit';
               const isReviewRow = dec?.actionType === 'review';
               const isAlertRow = !isExitRow && !isReviewRow && (dec?.urgency === 'now' || dec?.urgency === 'soon' || dec?.hasConflict);
-              const rowBorderLeft = isExitRow
-                ? `4px solid ${C.down}`
+
+              // 卡片整體樣式 — 像紙張，明顯分隔
+              const cardBg = isExitRow
+                ? alpha(C.down, '12')
                 : isReviewRow
-                  ? `4px solid ${C.amber}`
+                  ? alpha(C.amber, '10')
                   : isAlertRow
-                    ? `2px solid ${alpha(C.amber, '60')}`
-                    : "2px solid transparent";
-              const rowBg = isExitRow
-                ? alpha(C.down, '08')
+                    ? alpha(C.amber, '04')
+                    : C.card;
+              const cardBorder = isExitRow
+                ? `1px solid ${alpha(C.down, '40')}`
                 : isReviewRow
-                  ? alpha(C.amber, '06')
+                  ? `1px solid ${alpha(C.amber, '40')}`
                   : isAlertRow
-                    ? alpha(C.amber, '02')
-                    : "transparent";
-              const rowShadow = isExitRow
-                ? `0 1px 3px ${alpha(C.down, '12')}`
+                    ? `1px solid ${alpha(C.amber, '20')}`
+                    : `1px solid ${alpha(C.textMute, '12')}`;
+              const cardBorderLeft = isExitRow
+                ? `5px solid ${C.down}`
                 : isReviewRow
-                  ? `0 1px 2px ${alpha(C.amber, '10')}`
-                  : "none";
+                  ? `5px solid ${C.amber}`
+                  : isAlertRow
+                    ? `3px solid ${alpha(C.amber, '70')}`
+                    : `3px solid transparent`;
+              const cardShadow = isExitRow
+                ? `0 3px 10px ${alpha(C.down, '18')}, 0 1px 2px ${alpha(C.text, '06')}`
+                : isReviewRow
+                  ? `0 2px 8px ${alpha(C.amber, '15')}, 0 1px 2px ${alpha(C.text, '05')}`
+                  : isAlertRow
+                    ? `0 1px 3px ${alpha(C.text, '06')}`
+                    : `0 1px 2px ${alpha(C.text, '04')}`;
               const hoverShadowColor = isExitRow
-                ? alpha(C.down, '15')
+                ? alpha(C.down, '28')
                 : isReviewRow
-                  ? alpha(C.amber, '12')
-                  : alpha(C.text, '08');
-              const rowPadLeft = (isExitRow || isReviewRow || isAlertRow) ? 10 : 2;
+                  ? alpha(C.amber, '22')
+                  : alpha(C.text, '12');
 
               return (
               <div key={h.code} style={{
                 position:"relative",
-                padding:`12px 0 12px ${rowPadLeft}px`,
-                borderLeft: rowBorderLeft,
-                background: rowBg,
-                borderRadius: (isExitRow || isReviewRow) ? 4 : 0,
-                marginBottom: (isExitRow || isReviewRow) ? 4 : 0,
-                borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none",
+                padding:"12px 14px 12px 12px",
+                marginBottom: 8,
+                background: cardBg,
+                border: cardBorder,
+                borderLeft: cardBorderLeft,
+                borderRadius: 8,
                 cursor: "pointer",
-                boxShadow: rowShadow,
+                boxShadow: cardShadow,
                 transition: "transform 200ms ease, box-shadow 200ms ease, background 200ms ease",
                 willChange: "transform",
               }}
               tabIndex={0}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-1px) scale(1.005)';
-                e.currentTarget.style.boxShadow = `0 4px 16px ${hoverShadowColor}`;
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = `0 6px 20px ${hoverShadowColor}`;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = '';
-                e.currentTarget.style.boxShadow = rowShadow;
+                e.currentTarget.style.boxShadow = cardShadow;
               }}
               onFocus={(e) => {
                 e.currentTarget.style.outline = `2px solid ${alpha(C.text, '20')}`;
