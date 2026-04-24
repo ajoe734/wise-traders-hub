@@ -1851,158 +1851,145 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
-          {/* Hero PnL Card */}
+          {/* ── Compact Hero Strip（單列高 ~64px，讓持倉卡片成為第一視覺）── */}
           {(()=>{
             const totalPnl = totalVal - totalCost;
             const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
             const isUp = totalPnl >= 0;
             const heroColor = isUp ? C.up : C.down;
             return (
-              <div style={{padding:"18px 20px",marginBottom:14,textAlign:"center"}}>
-                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:6}}>總 損 益</div>
-                <div style={{fontSize:22,fontWeight:500,color:heroColor,lineHeight:1.2,letterSpacing:"-0.01em"}}>
-                  {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
+              <div style={{
+                display:"flex", alignItems:"center", justifyContent:"space-between",
+                gap:18, padding:"14px 18px", marginBottom:14,
+                background: alpha(C.text, '03'),
+                border: `1px solid ${alpha(C.textMute, '10')}`,
+                borderRadius: 6,
+              }}>
+                {/* 左：總損益 */}
+                <div style={{display:"flex", alignItems:"baseline", gap:10, flexShrink:0}}>
+                  <span style={{
+                    fontSize:9, color:C.textMute, letterSpacing:"0.16em",
+                    fontWeight:400, textTransform:"uppercase",
+                  }}>Total P&L</span>
+                  <span style={{
+                    fontSize:24, fontWeight:400, color:heroColor,
+                    letterSpacing:"-0.01em", fontVariantNumeric:"tabular-nums", lineHeight:1,
+                  }}>
+                    {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
+                  </span>
+                  <span style={{
+                    fontSize:12, color:heroColor, opacity:0.6,
+                    fontVariantNumeric:"tabular-nums", fontWeight:400,
+                  }}>
+                    {isUp?"+":""}{totalPct.toFixed(2)}%
+                  </span>
                 </div>
-                <div style={{marginTop:6,fontSize:12,fontWeight:400,color:heroColor,opacity:0.5}}>
-                  {isUp?"+":""}{totalPct.toFixed(2)}%
+
+                {/* 右：迷你 KPI 群（成本／市值／檔數／勝負） */}
+                <div style={{
+                  display:"flex", alignItems:"baseline", gap:18,
+                  fontSize:11, color:C.textMute, fontVariantNumeric:"tabular-nums",
+                }}>
+                  <span><span style={{opacity:0.6, marginRight:4}}>成本</span>{totalCost.toLocaleString()}</span>
+                  <span><span style={{opacity:0.6, marginRight:4}}>市值</span>{totalVal.toLocaleString()}</span>
+                  <span><span style={{opacity:0.6, marginRight:4}}>持股</span>{H.length}</span>
+                  <span style={{color:C.up}}>↑{winners.length}</span>
+                  <span style={{color:C.down}}>↓{losers.length}</span>
                 </div>
               </div>
             );
           })()}
 
-          {/* 摘要 Sub-metrics */}
-          <div style={{display:"flex",justifyContent:"space-around",marginBottom:14,padding:"6px 0"}}>
-            {[["總成本",totalCost.toLocaleString()],
-              ["總市值",totalVal.toLocaleString()],
-              ["持股數",H.length+"檔"]].map(([l,v])=>(
-              <div key={l} style={{textAlign:"center"}}>
-                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>{l}</div>
-                <div style={{fontSize:13,fontWeight:400,color:C.textSec,marginTop:2}}>{v}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* top5 with conic-gradient circles */}
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:10}}>市 值 佔 比</div>
-            {top5.map((h,i)=>{
-              const pct=h.value/totalVal*100;
-              return <div key={h.code} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                <span style={{fontSize:11,color:C.textMute,fontWeight:400,width:14,textAlign:"right"}}>{i+1}</span>
-                <span style={{fontSize:12,color:C.textSec,fontWeight:400,flex:1}}>{h.name}</span>
-                <span style={{fontSize:11,fontWeight:400,color:C.textMute,width:42,textAlign:"right"}}>{pct.toFixed(1)}%</span>
-                <div style={{width:60,height:2,borderRadius:1,background:alpha(C.textMute,'08'),overflow:"hidden",flexShrink:0}}>
-                  <div style={{width:`${pct}%`,height:"100%",borderRadius:1,
-                    background:alpha(C.textMute,'30')}}/>
-                </div>
-              </div>;
-            })}
-          </div>
-
-          {/* 勝負摘要 */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-            <div>
-              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>獲 利 {winners.length}檔</div>
-              {winners.slice(0,5).map(h=>(
-                <div key={h.code} style={{display:"flex",justifyContent:"space-between",
-                  padding:"5px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                  <span style={{fontSize:11,color:C.textSec,fontWeight:400}}>{h.name}</span>
-                  <span style={{fontSize:11,fontWeight:400,color:C.up}}>+{h.pct}%</span>
-                </div>
-              ))}
-            </div>
-            <div>
-              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>虧 損 {losers.length}檔</div>
-              {losers.slice(0,5).map(h=>(
-                <div key={h.code} style={{display:"flex",justifyContent:"space-between",
-                  padding:"5px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                  <span style={{fontSize:11,color:C.textSec,fontWeight:400}}>{h.name}</span>
-                  <span style={{fontSize:11,fontWeight:400,color:C.down}}>{h.pct}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 反轉追蹤（虧損持股） */}
+          {/* 反轉追蹤（虧損持股）— 預設折疊，避免擠壓卡片牆 */}
           {losers.length>0 && (
-            <div style={{marginBottom:14,paddingLeft:12}}>
-              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>反 轉 追 蹤 · {losers.length}檔</div>
-              {losers.map(h=>{
-                const rc = (reversalConditions||{})[h.code];
-                const [editing, setEditing] = [
-                  reviewingEvent===`rev-${h.code}`,
-                  (v)=>setReviewingEvent(v?`rev-${h.code}`:null)
-                ];
-                return <div key={h.code} style={{marginTop:8,padding:"8px 0",
-                  borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div>
-                      <span style={{fontSize:13,fontWeight:400,color:C.text}}>{h.name}</span>
-                      <span style={{fontSize:12,color:C.down,marginLeft:6}}>{h.pct}%</span>
-                    </div>
-                    <button onClick={()=>setEditing(!editing)} style={{
-                       padding:"3px 9px",borderRadius:5,fontSize:11,cursor:"pointer",
-                       background:"transparent",
-                       border:`1px solid ${C.border}`,
-                       color:C.textMute}}>
-                      {rc?"查看條件":"設定反轉條件"}
-                    </button>
-                  </div>
-                  {rc && !editing && (
-                    <div style={{fontSize:12,color:C.textSec,marginTop:4,lineHeight:1.7}}>
-                      反轉訊號：{rc.signal} | 目標：{rc.target} | 停損：{rc.stopLoss}
-                    </div>
-                  )}
-                  {editing && (()=>{
-                    const draft = rc || {signal:"",target:"",stopLoss:"",note:""};
-                    return <div style={{marginTop:8,background:C.subtle,borderRadius:7,padding:10}}>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
-                        <div>
-                          <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>反轉目標價</div>
-                          <input defaultValue={draft.target} id={`rv-t-${h.code}`}
-                            placeholder="如 130"
-                            style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                        </div>
-                        <div>
-                          <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>停損價</div>
-                          <input defaultValue={draft.stopLoss} id={`rv-s-${h.code}`}
-                            placeholder="如 85"
-                            style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                        </div>
+            <details style={{marginBottom:14}}>
+              <summary style={{
+                cursor:"pointer", listStyle:"none",
+                fontSize:11, color:C.textMute, fontWeight:400, letterSpacing:"0.06em",
+                padding:"6px 0", display:"inline-flex", alignItems:"center", gap:6,
+              }}>
+                <span style={{display:"inline-block",width:5,height:5,borderRadius:"50%",background:C.down}}/>
+                反轉追蹤 · {losers.length} 檔虧損持股
+                <span style={{opacity:0.5, marginLeft:2}}>展開設定</span>
+              </summary>
+              <div style={{paddingLeft:12, marginTop:6}}>
+                {losers.map(h=>{
+                  const rc = (reversalConditions||{})[h.code];
+                  const [editing, setEditing] = [
+                    reviewingEvent===`rev-${h.code}`,
+                    (v)=>setReviewingEvent(v?`rev-${h.code}`:null)
+                  ];
+                  return <div key={h.code} style={{marginTop:8,padding:"8px 0",
+                    borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <span style={{fontSize:13,fontWeight:400,color:C.text}}>{h.name}</span>
+                        <span style={{fontSize:12,color:C.down,marginLeft:6}}>{h.pct}%</span>
                       </div>
-                      <div style={{marginBottom:6}}>
-                        <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>反轉訊號（什麼條件出現代表反轉？）</div>
-                        <input defaultValue={draft.signal} id={`rv-g-${h.code}`}
-                          placeholder="如：月營收連續兩月成長、法人轉買超"
-                          style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                            borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                      </div>
-                      <div style={{marginBottom:8}}>
-                        <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>備註</div>
-                        <input defaultValue={draft.note} id={`rv-n-${h.code}`}
-                          placeholder="其他觀察..."
-                          style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                            borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                      </div>
-                      <button onClick={()=>{
-                        updateReversal(h.code, {
-                          signal: document.getElementById(`rv-g-${h.code}`).value,
-                          target: document.getElementById(`rv-t-${h.code}`).value,
-                          stopLoss: document.getElementById(`rv-s-${h.code}`).value,
-                          note: document.getElementById(`rv-n-${h.code}`).value,
-                        });
-                        setEditing(false);
-                       }} style={{width:"100%",padding:"8px",borderRadius:6,border:`1px solid ${C.border}`,
-                         background:"transparent",color:C.textSec,fontSize:13,fontWeight:400,cursor:"pointer"}}>
-                        儲存反轉條件
+                      <button onClick={()=>setEditing(!editing)} style={{
+                         padding:"3px 9px",borderRadius:5,fontSize:11,cursor:"pointer",
+                         background:"transparent",
+                         border:`1px solid ${C.border}`,
+                         color:C.textMute}}>
+                        {rc?"查看條件":"設定反轉條件"}
                       </button>
-                    </div>;
-                  })()}
-                </div>;
-              })}
-            </div>
+                    </div>
+                    {rc && !editing && (
+                      <div style={{fontSize:12,color:C.textSec,marginTop:4,lineHeight:1.7}}>
+                        反轉訊號：{rc.signal} | 目標：{rc.target} | 停損：{rc.stopLoss}
+                      </div>
+                    )}
+                    {editing && (()=>{
+                      const draft = rc || {signal:"",target:"",stopLoss:"",note:""};
+                      return <div style={{marginTop:8,background:C.subtle,borderRadius:7,padding:10}}>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+                          <div>
+                            <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>反轉目標價</div>
+                            <input defaultValue={draft.target} id={`rv-t-${h.code}`}
+                              placeholder="如 130"
+                              style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
+                                borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+                          </div>
+                          <div>
+                            <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>停損價</div>
+                            <input defaultValue={draft.stopLoss} id={`rv-s-${h.code}`}
+                              placeholder="如 85"
+                              style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
+                                borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+                          </div>
+                        </div>
+                        <div style={{marginBottom:6}}>
+                          <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>反轉訊號（什麼條件出現代表反轉？）</div>
+                          <input defaultValue={draft.signal} id={`rv-g-${h.code}`}
+                            placeholder="如：月營收連續兩月成長、法人轉買超"
+                            style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
+                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+                        </div>
+                        <div style={{marginBottom:8}}>
+                          <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>備註</div>
+                          <input defaultValue={draft.note} id={`rv-n-${h.code}`}
+                            placeholder="其他觀察..."
+                            style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
+                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+                        </div>
+                        <button onClick={()=>{
+                          updateReversal(h.code, {
+                            signal: document.getElementById(`rv-g-${h.code}`).value,
+                            target: document.getElementById(`rv-t-${h.code}`).value,
+                            stopLoss: document.getElementById(`rv-s-${h.code}`).value,
+                            note: document.getElementById(`rv-n-${h.code}`).value,
+                          });
+                          setEditing(false);
+                         }} style={{width:"100%",padding:"8px",borderRadius:6,border:`1px solid ${C.border}`,
+                           background:"transparent",color:C.textSec,fontSize:13,fontWeight:400,cursor:"pointer"}}>
+                          儲存反轉條件
+                        </button>
+                      </div>;
+                    })()}
+                  </div>;
+                })}
+              </div>
+            </details>
           )}
 
           {/* ══════════ Phase 2.5: Action Banner（決策工作台） ══════════ */}
@@ -2306,17 +2293,26 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                 </div>
 
-                {/* Filter chips */}
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  <FilterGroup label="決策" options={[["hold","持有"],["review","檢查"],["exit","出場"]]} set={filterDecision} setter={setFilterDecision} />
-                  <FilterGroup label="論點" options={[["intact","完整"],["weakening","弱化"],["broken","破裂"]]} set={filterThesis} setter={setFilterThesis} />
-                  <FilterGroup label="緊急" options={[["now","立即"],["soon","近期"],["monitor","觀察"]]} set={filterUrgency} setter={setFilterUrgency} />
-                  <FilterGroup label="衝突" options={[["conflict","有衝突"],["no_conflict","無衝突"]]} set={filterConflict} setter={setFilterConflict} />
-                  <FilterGroup label="損益" options={[["win","獲利"],["loss","虧損"],["flat","平盤"]]} set={filterPnl} setter={setFilterPnl} />
-                  {strategyOptions.length > 0 && (
-                    <FilterGroup label="題材" options={strategyOptions.map(s=>[s,s])} set={filterStrategy} setter={setFilterStrategy} />
-                  )}
-                </div>
+                {/* Filter chips（預設折疊） */}
+                <details>
+                  <summary style={{
+                    cursor:"pointer", listStyle:"none",
+                    fontSize:10, color:C.textMute, fontWeight:400, letterSpacing:"0.10em",
+                    textTransform:"uppercase", padding:"2px 0",
+                  }}>
+                    Filters {activeTags.length > 0 ? `(${activeTags.length})` : ''} <span style={{opacity:0.5,marginLeft:4}}>▾</span>
+                  </summary>
+                  <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+                    <FilterGroup label="決策" options={[["hold","持有"],["review","檢查"],["exit","出場"]]} set={filterDecision} setter={setFilterDecision} />
+                    <FilterGroup label="論點" options={[["intact","完整"],["weakening","弱化"],["broken","破裂"]]} set={filterThesis} setter={setFilterThesis} />
+                    <FilterGroup label="緊急" options={[["now","立即"],["soon","近期"],["monitor","觀察"]]} set={filterUrgency} setter={setFilterUrgency} />
+                    <FilterGroup label="衝突" options={[["conflict","有衝突"],["no_conflict","無衝突"]]} set={filterConflict} setter={setFilterConflict} />
+                    <FilterGroup label="損益" options={[["win","獲利"],["loss","虧損"],["flat","平盤"]]} set={filterPnl} setter={setFilterPnl} />
+                    {strategyOptions.length > 0 && (
+                      <FilterGroup label="題材" options={strategyOptions.map(s=>[s,s])} set={filterStrategy} setter={setFilterStrategy} />
+                    )}
+                  </div>
+                </details>
 
                 {/* Active tags + counter */}
                 {activeTags.length > 0 && (
@@ -2405,14 +2401,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ? '#1E1E1D'
                 : isAccent
                   ? '#FFFFFF'
-                  : (isActive ? alpha(C.text, '04') : 'transparent');
+                  : (isActive ? '#FFFFFF' : '#FBFAF6');
               const cardColor = isInk ? '#EFEDE8' : C.text;
               const cardBorder = isInk
                 ? 'none'
-                : `1px solid ${isActive ? alpha(C.text, '18') : alpha(C.textMute, '10')}`;
+                : `1px solid ${isActive ? alpha(C.text, '22') : alpha(C.textMute, '10')}`;
               const accentBar = isAccent ? '#EC662D' : null;
-              const fontHero = isInk ? 44 : isAccent ? 36 : 30;
-              const minH = isInk ? 196 : 168;
+              const fontHero = isInk ? 52 : isAccent ? 40 : 32;
+              const minH = isInk ? 232 : isAccent ? 196 : 172;
               const colSpan = isInk ? 'span 2' : 'span 1';
 
               const muteColor = isInk ? 'rgba(239,237,232,0.55)' : C.textMute;
@@ -2536,13 +2532,89 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             const renderDetailPanel = () => {
               if (!selected) {
+                // 預設：顯示 Portfolio Overview，讓工作區永遠有內容
                 return (
-                  <div style={{
-                    padding:'48px 24px', textAlign:'center',
-                    color:C.textMute, fontSize:12, fontWeight:400, letterSpacing:'0.04em',
-                  }}>
-                    <div style={{fontSize:11, letterSpacing:'0.16em', marginBottom:14, opacity:0.7}}>RESEARCH NOTE</div>
-                    <div style={{lineHeight:1.8}}>選擇一檔股票<br/>查看研究筆記</div>
+                  <div style={{display:'flex',flexDirection:'column',gap:22}}>
+                    {/* 市值佔比 */}
+                    <div>
+                      <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.16em', marginBottom:10, fontWeight:400, textTransform:'uppercase'}}>
+                        Allocation
+                      </div>
+                      {top5.map((h,i)=>{
+                        const pct = totalVal > 0 ? h.value/totalVal*100 : 0;
+                        return (
+                          <button
+                            key={h.code}
+                            onClick={()=>setExpandedDecision(h.code)}
+                            style={{
+                              width:'100%', display:'flex', alignItems:'center', gap:8, padding:'5px 0',
+                              background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit',
+                              textAlign:'left',
+                            }}
+                          >
+                            <span style={{fontSize:10, color:C.textMute, fontVariantNumeric:'tabular-nums', width:14, textAlign:'right'}}>{i+1}</span>
+                            <span style={{fontSize:12, color:C.textSec, fontWeight:400, flex:1}}>{h.name}</span>
+                            <span style={{fontSize:10, color:C.textMute, fontVariantNumeric:'tabular-nums', width:42, textAlign:'right'}}>{pct.toFixed(1)}%</span>
+                            <div style={{width:50, height:2, background:alpha(C.textMute,'08'), overflow:'hidden', flexShrink:0}}>
+                              <div style={{width:`${pct}%`, height:'100%', background:alpha(C.textMute,'30')}}/>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* 勝負一覽 */}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                      <div>
+                        <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.14em', marginBottom:8, textTransform:'uppercase'}}>
+                          Winners <span style={{marginLeft:3, opacity:0.6}}>{winners.length}</span>
+                        </div>
+                        {winners.slice(0,5).map(h=>(
+                          <button
+                            key={h.code}
+                            onClick={()=>setExpandedDecision(h.code)}
+                            style={{
+                              width:'100%', display:'flex', justifyContent:'space-between',
+                              padding:'4px 0', borderBottom:`1px solid ${alpha(C.textMute,'06')}`,
+                              background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit',
+                              textAlign:'left',
+                            }}
+                          >
+                            <span style={{fontSize:11, color:C.textSec, fontWeight:400}}>{h.name}</span>
+                            <span style={{fontSize:11, color:C.up, fontVariantNumeric:'tabular-nums'}}>+{h.pct}%</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div>
+                        <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.14em', marginBottom:8, textTransform:'uppercase'}}>
+                          Losers <span style={{marginLeft:3, opacity:0.6}}>{losers.length}</span>
+                        </div>
+                        {losers.slice(0,5).map(h=>(
+                          <button
+                            key={h.code}
+                            onClick={()=>setExpandedDecision(h.code)}
+                            style={{
+                              width:'100%', display:'flex', justifyContent:'space-between',
+                              padding:'4px 0', borderBottom:`1px solid ${alpha(C.textMute,'06')}`,
+                              background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit',
+                              textAlign:'left',
+                            }}
+                          >
+                            <span style={{fontSize:11, color:C.textSec, fontWeight:400}}>{h.name}</span>
+                            <span style={{fontSize:11, color:C.down, fontVariantNumeric:'tabular-nums'}}>{h.pct}%</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 提示 */}
+                    <div style={{
+                      fontSize:11, color:C.textMute, lineHeight:1.7,
+                      paddingTop:16, borderTop:`1px solid ${alpha(C.textMute,'10')}`,
+                      letterSpacing:'0.02em',
+                    }}>
+                      點選左側任一卡片查看完整研究筆記
+                    </div>
                   </div>
                 );
               }
@@ -2716,15 +2788,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             return (
               <div style={{
                 display:'grid',
-                gridTemplateColumns:'minmax(0, 1fr) minmax(0, 320px)',
-                gap:24,
+                gridTemplateColumns:'minmax(0, 1fr) minmax(0, 360px)',
+                gap:20,
                 alignItems:'flex-start',
               }} className="holdings-workbench">
                 {/* 左：卡片牆（3 欄穩定 grid，ink 卡 span 2） */}
                 <div style={{
                   display:'grid',
                   gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
-                  gap:12,
+                  gap:14,
                 }} className="holdings-card-grid">
                   {displayed.map(h => renderCard(h))}
                   {!showAll && sorted.length > 12 && (
@@ -2745,20 +2817,37 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   )}
                 </div>
 
-                {/* 右：Detail Panel（桌面 sticky） */}
+                {/* 右：Detail Panel — 工作區（桌面 sticky，深色框 + 強分隔） */}
                 <aside
                   className="holdings-detail-panel"
                   style={{
                     position:'sticky', top:12,
-                    background:alpha(C.text,'02'),
-                    border:`1px solid ${alpha(C.textMute,'10')}`,
-                    borderRadius:12,
-                    padding:'20px 18px',
+                    background:'#FFFFFF',
+                    border:`1px solid ${alpha(C.text,'14')}`,
+                    borderTop:`2px solid ${C.text}`,
+                    borderRadius:6,
                     maxHeight:'calc(100vh - 24px)',
                     overflowY:'auto',
+                    boxShadow: `0 1px 0 ${alpha(C.text,'04')}`,
                   }}
                 >
-                  {renderDetailPanel()}
+                  {/* 工作區標頭（永遠顯示，建立空間感） */}
+                  <div style={{
+                    padding:'12px 18px', borderBottom:`1px solid ${alpha(C.textMute,'12')}`,
+                    display:'flex', alignItems:'baseline', justifyContent:'space-between',
+                    background: alpha(C.text,'02'),
+                  }}>
+                    <span style={{
+                      fontSize:10, color:C.text, fontWeight:500, letterSpacing:'0.18em',
+                      textTransform:'uppercase',
+                    }}>Workspace</span>
+                    <span style={{fontSize:10, color:C.textMute, letterSpacing:'0.04em'}}>
+                      {selected ? `${selected.code} · ${selected.name}` : '未選擇'}
+                    </span>
+                  </div>
+                  <div style={{padding:'18px 18px 22px'}}>
+                    {renderDetailPanel()}
+                  </div>
                 </aside>
               </div>
             );
@@ -2767,11 +2856,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {/* RWD：mid 折成 2 欄、行動端 1 欄並隱藏 detail panel */}
           <style>{`
             @media (max-width: 1279px) {
+              .holdings-workbench { grid-template-columns: minmax(0, 1fr) minmax(0, 320px) !important; }
               .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
             }
             @media (max-width: 1023px) {
               .holdings-workbench { grid-template-columns: 1fr !important; }
               .holdings-detail-panel { display: none !important; }
+              .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            }
+            @media (max-width: 640px) {
               .holdings-card-grid { grid-template-columns: 1fr !important; }
             }
           `}</style>
