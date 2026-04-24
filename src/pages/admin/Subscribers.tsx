@@ -3,11 +3,13 @@ import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { fetchAnalystSubscribers } from '@/lib/analystDataAccess';
-import { Users, TrendingUp, UserPlus, UserMinus, Search, RefreshCw } from 'lucide-react';
+import { Users, TrendingUp, UserPlus, UserMinus, Search, RefreshCw, Info, XCircle } from 'lucide-react';
 
 const AdminSubscribers = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -76,8 +78,17 @@ const AdminSubscribers = () => {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">訂閱者管理</h1>
-          <p className="text-muted-foreground text-sm mt-1">查看與管理您的訂閱者</p>
+          <p className="text-muted-foreground text-sm mt-1">查看您的訂閱者名單與續訂狀態</p>
         </div>
+
+        <Card className="bg-muted/30 border-dashed">
+          <CardContent className="p-3 flex items-start gap-2">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              為保障訂閱者權益，僅訂閱者本人可主動取消訂閱。如需協助處理特殊情況，請聯絡公司管理員。
+            </p>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (
@@ -116,11 +127,12 @@ const AdminSubscribers = () => {
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">剩餘天數</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">續訂</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">狀態</th>
+                    <th className="text-right p-3 text-xs font-medium text-muted-foreground">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
-                    <tr><td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">尚無訂閱者</td></tr>
+                    <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-sm">尚無訂閱者</td></tr>
                   ) : (
                     filtered.map((sub) => {
                       const remaining = getRemainingDays(sub.expires_at);
@@ -149,6 +161,27 @@ const AdminSubscribers = () => {
                             <Badge variant={sub.status === 'active' ? 'secondary' : 'outline'} className="text-xs">
                               {sub.status === 'active' ? '有效' : sub.status === 'expired' ? '已到期' : '已取消'}
                             </Badge>
+                          </td>
+                          <td className="p-3 text-right">
+                            <TooltipProvider delayDuration={150}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span tabIndex={0} className="inline-block">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled
+                                      className="h-7 text-xs gap-1 text-muted-foreground"
+                                    >
+                                      <XCircle className="h-3 w-3" /> 取消訂閱
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-[260px] text-xs">
+                                  為保障訂閱者權益，僅訂閱者本人可主動取消；如需協助請聯絡公司管理員。
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </td>
                         </tr>
                       );
