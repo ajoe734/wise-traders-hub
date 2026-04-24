@@ -877,21 +877,38 @@ export default function App() {
   const sorted = filteredSortedList; // 保留原命名相容性
   const displayed = showAll ? sorted : sorted.slice(0,12);
 
-  // ── activeCode 安全處理：filter 改變時防 undefined ──
+  // ── 來源清單推導：依 drawerSource 決定 prev/next 的循環範圍 ──
+  const sourceList = useMemo(() => {
+    if (!drawerSource) return filteredSortedList;
+    if (drawerSource.type === 'priority-global') return globalPriorityList;
+    if (drawerSource.type === 'category') {
+      if (drawerSource.key === 'exit') return exitList;
+      if (drawerSource.key === 'review') return reviewList;
+      if (drawerSource.key === 'upcoming') return upcomingList;
+    }
+    return filteredSortedList;
+  }, [drawerSource, filteredSortedList, globalPriorityList, exitList, reviewList, upcomingList]);
+
+  // ── activeCode 安全處理：sourceList 改變時防 undefined ──
   const activeIndex = useMemo(
+    () => sourceList.findIndex(h => h.code === activeCode),
+    [sourceList, activeCode]
+  );
+  const activeIndexInFiltered = useMemo(
     () => filteredSortedList.findIndex(h => h.code === activeCode),
     [filteredSortedList, activeCode]
   );
   useEffect(() => {
     if (!drawerOpen) return;
     if (activeIndex !== -1) return;
-    if (filteredSortedList.length === 0) {
+    if (sourceList.length === 0) {
       setDrawerOpen(false);
       setActiveCode(null);
+      setDrawerSource(null);
     } else {
-      setActiveCode(filteredSortedList[0].code);
+      setActiveCode(sourceList[0].code);
     }
-  }, [drawerOpen, activeIndex, filteredSortedList]);
+  }, [drawerOpen, activeIndex, sourceList]);
 
   // 同步 drawer draft 內容
   useEffect(() => {
@@ -912,17 +929,17 @@ export default function App() {
   }, [activeCode, draftNote, draftExitCue]);
 
   const goPrev = useCallback(() => {
-    if (filteredSortedList.length < 2 || activeIndex < 0) return;
+    if (sourceList.length < 2 || activeIndex < 0) return;
     persistDraftIfDirty();
-    const next = (activeIndex - 1 + filteredSortedList.length) % filteredSortedList.length;
-    setActiveCode(filteredSortedList[next].code);
-  }, [filteredSortedList, activeIndex, persistDraftIfDirty]);
+    const next = (activeIndex - 1 + sourceList.length) % sourceList.length;
+    setActiveCode(sourceList[next].code);
+  }, [sourceList, activeIndex, persistDraftIfDirty]);
   const goNext = useCallback(() => {
-    if (filteredSortedList.length < 2 || activeIndex < 0) return;
+    if (sourceList.length < 2 || activeIndex < 0) return;
     persistDraftIfDirty();
-    const next = (activeIndex + 1) % filteredSortedList.length;
-    setActiveCode(filteredSortedList[next].code);
-  }, [filteredSortedList, activeIndex, persistDraftIfDirty]);
+    const next = (activeIndex + 1) % sourceList.length;
+    setActiveCode(sourceList[next].code);
+  }, [sourceList, activeIndex, persistDraftIfDirty]);
 
   // ── 鍵盤快捷鍵 ←/→ ──
   useEffect(() => {
@@ -948,20 +965,39 @@ export default function App() {
   const handleDrawerOpenChange = (open) => {
     if (!open) {
       persistDraftIfDirty();
+      const src = drawerSource;
       setDrawerOpen(false);
       setActiveCode(null);
-      const y = scrollPosRef.current;
-      requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" }));
+      setDrawerSource(null);
+      if (src && (src.type === 'priority-global' || src.type === 'category')) {
+        requestAnimationFrame(() => {
+          const el = document.getElementById('action-banner');
+          if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' });
+        });
+      } else {
+        const y = scrollPosRef.current;
+        requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" }));
+      }
     } else {
       setDrawerOpen(true);
     }
   };
 
-  const openHoldingDrawer = (code) => {
+  const openHoldingDrawer = (code, source = null) => {
     scrollPosRef.current = window.scrollY;
     setActiveCode(code);
+    if (source) {
+      setDrawerSource(source);
+    } else {
+      const hasSearch = !!searchQ.trim();
+      const hasFilter = filterDecision.size || filterThesis.size || filterUrgency.size || filterConflict.size || filterPnl.size || filterStrategy.size;
+      setDrawerSource(hasSearch || hasFilter
+        ? { type: 'search', label: '📋 持倉列表（篩選結果）' }
+        : { type: 'list', label: '📋 持倉列表' });
+    }
     setDrawerOpen(true);
   };
+
 
   const activeHolding = activeIndex >= 0 ? filteredSortedList[activeIndex] : null;
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
