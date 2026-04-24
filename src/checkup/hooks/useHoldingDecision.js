@@ -2,6 +2,8 @@
  * useHoldingDecision
  * 從 holding + dossier 推算決策狀態（hold / review / exit / add）
  * 與 urgency（high / medium / low）
+ *
+ * 並提供 assignCardVariants：依排序產生 ink/accent/plain 配額
  */
 import { useMemo } from 'react'
 import {
@@ -44,7 +46,6 @@ const urgencyFor = (decision, pct) => {
 }
 
 const todayChangeFor = (holding) => {
-  // 用 change 或 changeValue 估今日損益
   const cp = Number(holding?.changePercent ?? holding?.change_percent)
   const cv = Number(holding?.changeValue ?? holding?.change_value)
   const qty = Number(holding?.qty) || 0
@@ -77,7 +78,6 @@ export function useHoldingDecisions(holdings = [], holdingDossiers = []) {
         decision,
         urgency,
         today,
-        // 大卡判定：高優先（exit/review/high urgency）
         isFeatured: urgency === 'high' || decision.kind === 'exit' || decision.kind === 'review',
       }
     })
@@ -85,3 +85,84 @@ export function useHoldingDecisions(holdings = [], holdingDossiers = []) {
 }
 
 export const URGENCY_RANK = { high: 3, medium: 2, low: 1 }
+
+/**
+ * 配額規則：限制畫面上強視覺卡片數量
+ *
+ * 規則：
+ *  - 最多 1 張 ink 卡（exit 中報酬率最差的那張）
+ *  - 最多 2 張 accent 卡（exit 第 2、3 張 OR review 中最緊急的）
+ *  - 其餘全部 plain 卡
+ *
+ * 排序基準：
+ *  - exit 優先於 review
+ *  - exit 內按 pct 升冪（越虧越前面）
+ *  - review 內按 |pct| 降冪（變動越大越前面）
+ *
+ * @param {Array} items - holdings (with optional .actionType / .urgency from decisionsMap)
+ * @param {Object} options
+ * @param {(item) => string} options.getActionType - 從 item 取得 actionType ('exit' | 'review' | 'hold' | 'add')
+ * @param {(item) => number} options.getPct - 從 item 取得 pct
+ * @returns {Map<string, 'ink'|'accent'|'plain'>} key 為 holding.code
+ */
+export function assignCardVariants(items = [], { getActionType, getPct } = {}) {
+  const result = new Map()
+  if (!Array.isArray(items) || items.length === 0) return result
+
+  const _getActionType = getActionType || ((it) => it?.actionType || it?.decision?.kind || 'hold')
+  const _getPct = getPct || ((it) => it?.pct ?? 0)
+
+  // 分組
+  const exits = []
+  const reviews = []
+  for (const item of items) {
+    const kind = _getActionType(item)
+    if (kind === 'exit') exits.push(item)
+    else if (kind === 'review') reviews.push(item)
+  }
+
+  // exit 升冪（最虧的在前）
+  exits.sort((a, b) => _getPct(a) - _getPct(b))
+  // review 按 |pct| 降冪
+  reviews.sort((a, b) => Math.abs(_getPct(b)) - Math.abs(_getPct(a)))
+
+  let inkUsed = 0
+  let accentUsed = 0
+  const INK_QUOTA = 1
+  const ACCENT_QUOTA = 2
+
+  // 第一名 exit → ink
+  for (const item of exits) {
+    const code = item?.code
+    if (!code) continue
+    if (inkUsed < INK_QUOTA) {
+      result.set(code, 'ink')
+      inkUsed += 1
+    } else if (accentUsed < ACCENT_QUOTA) {
+      result.set(code, 'accent')
+      accentUsed += 1
+    } else {
+      result.set(code, 'plain')
+    }
+  }
+
+  // review 補滿 accent quota
+  for (const item of reviews) {
+    const code = item?.code
+    if (!code || result.has(code)) continue
+    if (accentUsed < ACCENT_QUOTA) {
+      result.set(code, 'accent')
+      accentUsed += 1
+    } else {
+      result.set(code, 'plain')
+    }
+  }
+
+  // 其餘 plain
+  for (const item of items) {
+    const code = item?.code
+    if (code && !result.has(code)) result.set(code, 'plain')
+  }
+
+  return result
+}
