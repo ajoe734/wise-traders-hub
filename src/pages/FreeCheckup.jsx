@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Md from "@/checkup/components/Md";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 import { DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS } from "@/checkup/data/demoData";
 import { INIT_HOLDINGS as SEED_HOLDINGS, STOCK_META, IND_COLOR } from "@/checkup/seedData";
@@ -292,6 +295,39 @@ export default function App() {
   const [userOverrides, setUserOverrides] = useState({});
   const [expandedDecision, setExpandedDecision] = useState(null);
   const [debugMode, setDebugMode] = useState(false);
+
+  // ── 持倉資料庫（Notion 模式）：搜尋 / 篩選 / 排序方向 / Drawer ──
+  const [searchQ, setSearchQ] = useState("");
+  const [filterDecision, setFilterDecision] = useState(new Set()); // hold/review/exit
+  const [filterThesis, setFilterThesis] = useState(new Set());     // intact/weakening/broken
+  const [filterUrgency, setFilterUrgency] = useState(new Set());   // now/soon/monitor
+  const [filterConflict, setFilterConflict] = useState(new Set()); // conflict/no_conflict
+  const [filterPnl, setFilterPnl] = useState(new Set());           // win/loss/flat
+  const [filterStrategy, setFilterStrategy] = useState(new Set()); // dynamic
+  const [sortDir, setSortDir] = useState("desc");                  // asc / desc
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeCode, setActiveCode] = useState(null);
+  const [draftNote, setDraftNote] = useState("");
+  const [draftExitCue, setDraftExitCue] = useState("");
+  const scrollPosRef = useRef(0);
+  const draftDirtyRef = useRef(false);
+
+  const toggleSetItem = (setter) => (val) => {
+    setter(prev => {
+      const next = new Set(prev);
+      if (next.has(val)) next.delete(val); else next.add(val);
+      return next;
+    });
+  };
+  const clearAllFilters = () => {
+    setSearchQ("");
+    setFilterDecision(new Set());
+    setFilterThesis(new Set());
+    setFilterUrgency(new Set());
+    setFilterConflict(new Set());
+    setFilterPnl(new Set());
+    setFilterStrategy(new Set());
+  };
 
   // reset guard — 清除全部後忽略 in-flight 的行事曆回應
   const resetGuardRef = useRef(0);
@@ -699,23 +735,185 @@ export default function App() {
   }, [H, normalizedEvents, userOverrides]);
 
 
-  // Sort: decision priority first when sortBy==="decision", otherwise standard sort
-  const sorted = [...H].sort((a,b)=>{
-    if(sortBy==="decision") {
-      const da = decisionsMap[a.code];
-      const db = decisionsMap[b.code];
-      if (da && db) {
-        const sorted = sortByDecisionPriority([da, db]);
-        return sorted[0] === da ? -1 : 1;
+  // ── 持倉資料庫：篩選 + 排序 ──
+  // 動態題材選項
+  const strategyOptions = useMemo(() => {
+    const set = new Set();
+    H.forEach(h => {
+      const s = STOCK_META[h.code]?.strategy;
+      if (s) set.add(s);
+    });
+    return Array.from(set).sort();
+  }, [H]);
+
+  const URGENCY_RANK = { now: 3, soon: 2, monitor: 1 };
+  const CONF_RANK = { high: 3, medium: 2, low: 1 };
+
+  const getUpdatedAt = (h, dec) => {
+    const candidates = [];
+    if (dec?.lastUpdatedAt) candidates.push(new Date(dec.lastUpdatedAt).getTime());
+    const evts = normalizedEvents.filter(e => (e.relatedCodes || []).includes(h.code));
+    evts.forEach(e => { if (e.occurredAt) candidates.push(new Date(e.occurredAt).getTime()); });
+    if (h.priceUpdatedAt) candidates.push(new Date(h.priceUpdatedAt).getTime());
+    return candidates.length ? Math.max(...candidates) : 0;
+  };
+
+  // 過濾
+  const filteredSortedList = useMemo(() => {
+    const tokens = searchQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const matchSearch = (h) => {
+      if (!tokens.length) return true;
+      const meta = STOCK_META[h.code] || {};
+      const hay = [
+        h.code, h.name,
+        meta.strategy, meta.industry, meta.position, meta.leader,
+        ...(Array.isArray(meta.themes) ? meta.themes : []),
+      ].filter(Boolean).join(" ").toLowerCase();
+      return tokens.every(t => hay.includes(t));
+    };
+    const list = H.filter(h => {
+      if (!matchSearch(h)) return false;
+      const dec = decisionsMap[h.code];
+      if (filterDecision.size && !filterDecision.has(dec?.actionType || "hold")) return false;
+      if (filterThesis.size && !filterThesis.has(dec?.thesisState || "intact")) return false;
+      if (filterUrgency.size && !filterUrgency.has(dec?.urgency || "monitor")) return false;
+      if (filterConflict.size) {
+        const key = dec?.hasConflict ? "conflict" : "no_conflict";
+        if (!filterConflict.has(key)) return false;
       }
-      return da ? -1 : db ? 1 : 0;
-    }
-    if(sortBy==="value") return b.value-a.value;
-    if(sortBy==="pnl")   return b.pnl-a.pnl;
-    if(sortBy==="pct")   return b.pct-a.pct;
-    return 0;
-  });
+      if (filterPnl.size) {
+        const key = h.pnl > 0 ? "win" : h.pnl < 0 ? "loss" : "flat";
+        if (!filterPnl.has(key)) return false;
+      }
+      if (filterStrategy.size) {
+        const s = STOCK_META[h.code]?.strategy;
+        if (!s || !filterStrategy.has(s)) return false;
+      }
+      return true;
+    });
+
+    const dirMul = sortDir === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      if (sortBy === "decision") {
+        const da = decisionsMap[a.code];
+        const db = decisionsMap[b.code];
+        if (da && db) {
+          const sortedPair = sortByDecisionPriority([da, db]);
+          return (sortedPair[0] === da ? -1 : 1) * dirMul;
+        }
+        return ((da ? -1 : db ? 1 : 0)) * dirMul;
+      }
+      if (sortBy === "value")  return (b.value - a.value) * dirMul;
+      if (sortBy === "pnl")    return (b.pnl - a.pnl) * dirMul;
+      if (sortBy === "pct")    return (b.pct - a.pct) * dirMul;
+      if (sortBy === "urgency") {
+        const ra = URGENCY_RANK[decisionsMap[a.code]?.urgency] || 0;
+        const rb = URGENCY_RANK[decisionsMap[b.code]?.urgency] || 0;
+        return (rb - ra) * dirMul;
+      }
+      if (sortBy === "confidence") {
+        const ra = CONF_RANK[decisionsMap[a.code]?.confidence] || 0;
+        const rb = CONF_RANK[decisionsMap[b.code]?.confidence] || 0;
+        return (rb - ra) * dirMul;
+      }
+      if (sortBy === "updated") {
+        return (getUpdatedAt(b, decisionsMap[b.code]) - getUpdatedAt(a, decisionsMap[a.code])) * dirMul;
+      }
+      return 0;
+    });
+    return list;
+  }, [H, searchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents]);
+
+  const sorted = filteredSortedList; // 保留原命名相容性
   const displayed = showAll ? sorted : sorted.slice(0,12);
+
+  // ── activeCode 安全處理：filter 改變時防 undefined ──
+  const activeIndex = useMemo(
+    () => filteredSortedList.findIndex(h => h.code === activeCode),
+    [filteredSortedList, activeCode]
+  );
+  useEffect(() => {
+    if (!drawerOpen) return;
+    if (activeIndex !== -1) return;
+    if (filteredSortedList.length === 0) {
+      setDrawerOpen(false);
+      setActiveCode(null);
+    } else {
+      setActiveCode(filteredSortedList[0].code);
+    }
+  }, [drawerOpen, activeIndex, filteredSortedList]);
+
+  // 同步 drawer draft 內容
+  useEffect(() => {
+    if (!drawerOpen || !activeCode) return;
+    const ov = userOverrides[activeCode] || {};
+    setDraftNote(ov.note || "");
+    setDraftExitCue(ov.exitCue || "");
+    draftDirtyRef.current = false;
+  }, [drawerOpen, activeCode, userOverrides]);
+
+  const persistDraftIfDirty = useCallback(() => {
+    if (!draftDirtyRef.current || !activeCode) return;
+    setUserOverrides(prev => ({
+      ...prev,
+      [activeCode]: { ...(prev[activeCode] || {}), note: draftNote, exitCue: draftExitCue },
+    }));
+    draftDirtyRef.current = false;
+  }, [activeCode, draftNote, draftExitCue]);
+
+  const goPrev = useCallback(() => {
+    if (filteredSortedList.length < 2 || activeIndex < 0) return;
+    persistDraftIfDirty();
+    const next = (activeIndex - 1 + filteredSortedList.length) % filteredSortedList.length;
+    setActiveCode(filteredSortedList[next].code);
+  }, [filteredSortedList, activeIndex, persistDraftIfDirty]);
+  const goNext = useCallback(() => {
+    if (filteredSortedList.length < 2 || activeIndex < 0) return;
+    persistDraftIfDirty();
+    const next = (activeIndex + 1) % filteredSortedList.length;
+    setActiveCode(filteredSortedList[next].code);
+  }, [filteredSortedList, activeIndex, persistDraftIfDirty]);
+
+  // ── 鍵盤快捷鍵 ←/→ ──
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || "").toLowerCase();
+      if (tag === "textarea" || tag === "input") return;
+      if (e.key === "ArrowLeft")  { e.preventDefault(); goPrev(); }
+      if (e.key === "ArrowRight") { e.preventDefault(); goNext(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawerOpen, goPrev, goNext]);
+
+  // ── Drawer 開啟期間追蹤背景 scroll，關閉時還原 ──
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onScroll = () => { scrollPosRef.current = window.scrollY; };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [drawerOpen]);
+
+  const handleDrawerOpenChange = (open) => {
+    if (!open) {
+      persistDraftIfDirty();
+      setDrawerOpen(false);
+      setActiveCode(null);
+      const y = scrollPosRef.current;
+      requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" }));
+    } else {
+      setDrawerOpen(true);
+    }
+  };
+
+  const openHoldingDrawer = (code) => {
+    scrollPosRef.current = window.scrollY;
+    setActiveCode(code);
+    setDrawerOpen(true);
+  };
+
+  const activeHolding = activeIndex >= 0 ? filteredSortedList[activeIndex] : null;
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
   const topColors = [C.blue, C.amber, C.lavender, C.olive, C.teal];
   const winners = H.filter(h=>h.pnl>0).sort((a,b)=>b.pct-a.pct);
@@ -1720,19 +1918,140 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           )}
 
-          {/* 排序 + 列表 */}
-          <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center"}}>
+          {/* ── 持倉資料庫 Filter Bar ── */}
+          {(() => {
+            const totalCount = H.length;
+            const filteredCount = filteredSortedList.length;
+            const chipBtn = (active, onClick, label, key) => (
+              <button key={key} onClick={onClick} style={{
+                background: active ? alpha(C.text, '12') : "transparent",
+                color: active ? C.text : C.textMute,
+                border: `1px solid ${active ? alpha(C.text,'20') : C.border}`,
+                borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 400,
+                cursor: "pointer", transition: "all 0.15s", letterSpacing: "0.02em",
+              }}>{label}</button>
+            );
+            const FilterGroup = ({label, options, set, setter}) => (
+              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400,minWidth:36}}>{label}</span>
+                {options.map(([val, l]) =>
+                  chipBtn(set.has(val), () => toggleSetItem(setter)(val), l, val)
+                )}
+              </div>
+            );
+            const decLabel = { hold:"持有", review:"檢查", exit:"出場" };
+            const thLabel  = { intact:"完整", weakening:"弱化", broken:"破裂" };
+            const urLabel  = { now:"立即", soon:"近期", monitor:"觀察" };
+            const cfLabel  = { conflict:"有衝突", no_conflict:"無衝突" };
+            const pnlLabel = { win:"獲利", loss:"虧損", flat:"平盤" };
+            const activeTags = [];
+            if (searchQ.trim()) activeTags.push({key:"q", label:`🔍 "${searchQ.trim()}"`, clear:()=>setSearchQ("")});
+            filterDecision.forEach(v => activeTags.push({key:`d-${v}`, label:`決策：${decLabel[v]||v}`, clear:()=>toggleSetItem(setFilterDecision)(v)}));
+            filterThesis.forEach(v => activeTags.push({key:`t-${v}`, label:`論點：${thLabel[v]||v}`, clear:()=>toggleSetItem(setFilterThesis)(v)}));
+            filterUrgency.forEach(v => activeTags.push({key:`u-${v}`, label:`緊急：${urLabel[v]||v}`, clear:()=>toggleSetItem(setFilterUrgency)(v)}));
+            filterConflict.forEach(v => activeTags.push({key:`c-${v}`, label:cfLabel[v]||v, clear:()=>toggleSetItem(setFilterConflict)(v)}));
+            filterPnl.forEach(v => activeTags.push({key:`p-${v}`, label:`損益：${pnlLabel[v]||v}`, clear:()=>toggleSetItem(setFilterPnl)(v)}));
+            filterStrategy.forEach(v => activeTags.push({key:`s-${v}`, label:`題材：${v}`, clear:()=>toggleSetItem(setFilterStrategy)(v)}));
+
+            return (
+              <div style={{
+                marginBottom:14, padding:"10px 12px",
+                background: alpha(C.textMute,'04'),
+                border:`1px solid ${alpha(C.textMute,'10')}`,
+                borderRadius:8, display:"flex", flexDirection:"column", gap:10,
+                position:"sticky", top:0, zIndex:5,
+              }}>
+                {/* 搜尋框 */}
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{position:"relative",flex:1}}>
+                    <input
+                      type="text" value={searchQ}
+                      onChange={e=>setSearchQ(e.target.value)}
+                      placeholder="搜尋代碼／名稱／題材／策略"
+                      style={{
+                        width:"100%", padding:"7px 28px 7px 30px",
+                        background:C.card, border:`1px solid ${C.border}`,
+                        borderRadius:6, fontSize:12, color:C.text,
+                        outline:"none", fontFamily:"inherit",
+                      }}
+                    />
+                    <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:C.textMute}}>🔍</span>
+                    {searchQ && (
+                      <button onClick={()=>setSearchQ("")} style={{
+                        position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",
+                        background:"transparent",border:"none",color:C.textMute,fontSize:14,cursor:"pointer",lineHeight:1,padding:0,
+                      }}>✕</button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Filter chips */}
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  <FilterGroup label="決策" options={[["hold","持有"],["review","檢查"],["exit","出場"]]} set={filterDecision} setter={setFilterDecision} />
+                  <FilterGroup label="論點" options={[["intact","完整"],["weakening","弱化"],["broken","破裂"]]} set={filterThesis} setter={setFilterThesis} />
+                  <FilterGroup label="緊急" options={[["now","立即"],["soon","近期"],["monitor","觀察"]]} set={filterUrgency} setter={setFilterUrgency} />
+                  <FilterGroup label="衝突" options={[["conflict","有衝突"],["no_conflict","無衝突"]]} set={filterConflict} setter={setFilterConflict} />
+                  <FilterGroup label="損益" options={[["win","獲利"],["loss","虧損"],["flat","平盤"]]} set={filterPnl} setter={setFilterPnl} />
+                  {strategyOptions.length > 0 && (
+                    <FilterGroup label="題材" options={strategyOptions.map(s=>[s,s])} set={filterStrategy} setter={setFilterStrategy} />
+                  )}
+                </div>
+
+                {/* Active tags + counter */}
+                {activeTags.length > 0 && (
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",borderTop:`1px dashed ${alpha(C.textMute,'15')}`,paddingTop:8}}>
+                    {activeTags.map(t => (
+                      <span key={t.key} style={{
+                        display:"inline-flex",alignItems:"center",gap:4,
+                        background:alpha(C.text,'08'),color:C.textSec,
+                        padding:"2px 4px 2px 8px",borderRadius:4,fontSize:11,fontWeight:400,
+                      }}>
+                        {t.label}
+                        <button onClick={t.clear} style={{background:"transparent",border:"none",color:C.textMute,cursor:"pointer",padding:"0 4px",fontSize:12,lineHeight:1}}>✕</button>
+                      </span>
+                    ))}
+                    <span style={{flex:1}} />
+                    <span style={{fontSize:11,color:C.textMute,fontWeight:400}}>
+                      已篩選 {filteredCount} / {totalCount} 檔
+                    </span>
+                    <button onClick={clearAllFilters} style={{
+                      background:"transparent",border:"none",color:C.textMute,fontSize:11,cursor:"pointer",
+                      textDecoration:"underline",fontWeight:400,
+                    }}>清除全部</button>
+                  </div>
+                )}
+                {activeTags.length === 0 && (
+                  <div style={{fontSize:11,color:C.textMute,textAlign:"right",fontWeight:400}}>
+                    共 {totalCount} 檔
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* 排序 */}
+          <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
             <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>排序</span>
-            {[["value","市值"],["pnl","損益"],["pct","報酬%"],["decision","決策"]].map(([k,l])=>(
-              <button key={k} onClick={()=>setSortBy(k)} style={{
-                background:"transparent",
-                color: sortBy===k ? C.textSec : C.textMute,
-                border:"none",
-                borderBottom: sortBy===k ? `1px solid ${C.textMute}` : "1px solid transparent",
-                borderRadius:0, padding:"3px 8px", fontSize:11, fontWeight:400, cursor:"pointer",
-                transition:"all 0.15s",
-              }}>{l}</button>
-            ))}
+            {[["value","市值"],["pnl","損益"],["pct","報酬%"],["urgency","緊急"],["confidence","信心"],["updated","更新"],["decision","決策"]].map(([k,l])=>{
+              const active = sortBy === k;
+              return (
+                <button key={k} onClick={()=>{
+                  if (active) setSortDir(d => d === "desc" ? "asc" : "desc");
+                  else { setSortBy(k); setSortDir("desc"); }
+                }} style={{
+                  background:"transparent",
+                  color: active ? C.textSec : C.textMute,
+                  border:"none",
+                  borderBottom: active ? `1px solid ${C.textMute}` : "1px solid transparent",
+                  borderRadius:0, padding:"3px 8px", fontSize:11, fontWeight:400, cursor:"pointer",
+                  transition:"all 0.15s",
+                  display:"inline-flex", alignItems:"center", gap:2,
+                }}>
+                  {l}
+                  {active && <span style={{fontSize:9,opacity:0.7}}>{sortDir === "desc" ? "↓" : "↑"}</span>}
+                </button>
+              );
+            })}
           </div>
 
           <div>
@@ -1783,9 +2102,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderRadius: (isExitRow || isReviewRow) ? 4 : 0,
                 marginBottom: (isExitRow || isReviewRow) ? 2 : 0,
                 borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none",
-                cursor: dec?.openEventCount > 0 ? "pointer" : "default",
+                cursor: "pointer",
                 transition:"background 0.2s ease",
-              }} onClick={() => dec?.openEventCount > 0 && setExpandedDecision(isDecisionExpanded ? null : h.code)}>
+              }} onClick={() => openHoldingDrawer(h.code)}>
+                {/* chevron 提示可點開 detail */}
+                <span style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",color:C.textMute,fontSize:14,opacity:0.5,pointerEvents:"none"}}>›</span>
                 {/* Conflict corner dot */}
                 {dec?.hasConflict && (
                   <span style={{position:"absolute",top:8,right:8,width:8,height:8,borderRadius:"50%",background:C.down,animation:"pulse 1.4s infinite"}} />
@@ -3078,6 +3399,215 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         </div>
       )}
+
+      {/* ══════════ 持倉資料庫 Detail Drawer ══════════ */}
+      <Sheet open={drawerOpen} onOpenChange={handleDrawerOpenChange}>
+        <SheetContent
+          side="right"
+          className="overflow-y-auto"
+          style={{
+            background: C.bg, color: C.text, width: "min(480px, 100vw)",
+            maxWidth: "100vw", padding: 0, border: "none",
+          }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          {activeHolding ? (() => {
+            const h = activeHolding;
+            const dec = decisionsMap[h.code];
+            const meta = STOCK_META[h.code] || null;
+            const T = targets?.[h.code];
+            const tp = T ? avgTarget(h.code) : null;
+            const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
+            const total = filteredSortedList.length;
+            const evtsAll = normalizedEvents
+              .filter(e => (e.relatedCodes || []).includes(h.code) && e.source !== 'demo');
+            const openEvts = evtsAll.filter(isEventOpen)
+              .sort((a,b) => new Date(b.occurredAt||0) - new Date(a.occurredAt||0));
+            const resolvedEvts = evtsAll.filter(e => !isEventOpen(e))
+              .sort((a,b) => new Date(b.occurredAt||0) - new Date(a.occurredAt||0)).slice(0, 5);
+            const timeline = [...openEvts, ...resolvedEvts];
+
+            return (
+              <div style={{padding:"18px 20px 32px"}}>
+                {/* Header: 上一檔 / 名稱 (i/N) / 下一檔 */}
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,paddingRight:32}}>
+                  <button
+                    onClick={goPrev}
+                    disabled={total < 2}
+                    aria-label="上一檔"
+                    style={{
+                      background:"transparent",border:`1px solid ${C.border}`,
+                      borderRadius:6,padding:"4px 10px",fontSize:13,
+                      color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
+                      cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
+                    }}
+                  >‹</button>
+                  <div style={{flex:1,textAlign:"center"}}>
+                    <div style={{fontSize:14,fontWeight:500,color:C.text,letterSpacing:"0.02em"}}>
+                      {h.name} <span style={{fontSize:11,color:C.textMute,fontWeight:400,marginLeft:4}}>{h.code}</span>
+                    </div>
+                    <div style={{fontSize:10,color:C.textMute,marginTop:2,letterSpacing:"0.05em"}}>
+                      {activeIndex + 1} / {total}
+                    </div>
+                  </div>
+                  <button
+                    onClick={goNext}
+                    disabled={total < 2}
+                    aria-label="下一檔"
+                    style={{
+                      background:"transparent",border:`1px solid ${C.border}`,
+                      borderRadius:6,padding:"4px 10px",fontSize:13,
+                      color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
+                      cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
+                    }}
+                  >›</button>
+                </div>
+
+                {/* 數量·成本·市價·市值·損益·% */}
+                <div style={{
+                  background:alpha(C.textMute,'04'),borderRadius:8,padding:"10px 12px",marginBottom:14,
+                  display:"flex",flexDirection:"column",gap:4,
+                }}>
+                  <div style={{fontSize:11,color:C.textMute,fontWeight:400}}>
+                    {h.qty}{h.unit || "股"} · 成本 {h.cost} · 市價 {h.price?.toLocaleString()}
+                  </div>
+                  <div style={{display:"flex",gap:10,alignItems:"baseline"}}>
+                    <span style={{fontSize:11,color:C.textMute}}>市值 {h.value?.toLocaleString()}</span>
+                    <span style={{fontSize:13,fontWeight:500,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
+                    <span style={{fontSize:11,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
+                  </div>
+                  {meta && (
+                    <div style={{fontSize:10,color:C.textMute,marginTop:2}}>
+                      {meta.industry}{meta.strategy && ` · ${meta.strategy}`}{meta.position && ` · ${meta.position}`}
+                    </div>
+                  )}
+                </div>
+
+                {/* Decision Box */}
+                {dec && (
+                  <section style={{marginBottom:16}}>
+                    <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>DECISION</div>
+                    <div style={{padding:"10px 12px",border:`1px solid ${alpha(C.textMute,'12')}`,borderRadius:8}}>
+                      <div style={{fontSize:13,color:dec.actionType==='exit'?C.down:dec.actionType==='review'?C.amber:C.text,fontWeight:500,marginBottom:6}}>
+                        {dec.actionText || (dec.actionType==='exit'?'建議出場':dec.actionType==='review'?'需要檢查':'維持持有')}
+                      </div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:8,fontSize:11,color:C.textMute}}>
+                        <span>論點：{dec.thesisState==='broken'?'破裂':dec.thesisState==='weakening'?'弱化':'完整'}</span>
+                        <span>可信度：{dec.confidence==='high'?'高':dec.confidence==='medium'?'中':'低'}</span>
+                        <span>緊急：{dec.urgency==='now'?'立即':dec.urgency==='soon'?'近期':'觀察'}</span>
+                        <span>事件：{dec.openEventCount || 0}</span>
+                        {dec.hasConflict && <span style={{color:C.down}}>⚠ 存在衝突</span>}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Thesis */}
+                <section style={{marginBottom:16}}>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>THESIS · 進場理由</div>
+                  <div style={{fontSize:12,color:C.textSec,lineHeight:1.7,padding:"8px 12px",background:alpha(C.textMute,'04'),borderRadius:6}}>
+                    {(userOverrides[h.code]?.note) || (meta?.thesis) || meta?.strategy || "尚未填寫進場理由。"}
+                  </div>
+                </section>
+
+                {/* Events Timeline */}
+                <section style={{marginBottom:16}}>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>
+                    EVENTS · 事件時序（{openEvts.length} open / {resolvedEvts.length} 近期已結）
+                  </div>
+                  {timeline.length === 0 ? (
+                    <div style={{fontSize:12,color:C.textMute,padding:"8px 12px"}}>無事件紀錄</div>
+                  ) : (
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {timeline.map((e, idx) => {
+                        const open = isEventOpen(e);
+                        const impact = e.decisionImpact || e.impact;
+                        const impactColor = impact==='break' ? C.down : impact==='weaken' ? C.amber : C.textMute;
+                        return (
+                          <div key={e.id || idx} style={{
+                            padding:"8px 10px",borderLeft:`2px solid ${open?C.amber:alpha(C.textMute,'25')}`,
+                            background: open ? alpha(C.amber,'05') : "transparent",
+                            borderRadius:"0 4px 4px 0",
+                          }}>
+                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                              <span style={{fontSize:9,color:e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,border:`1px solid ${alpha(e.source==='user'?C.blue:e.source==='ai'?C.teal:C.textMute,'25')}`,borderRadius:3,padding:"0 4px"}}>
+                                {e.source==='user'?'手動':e.source==='ai'?'AI':e.source==='calendar'?'日曆':'其他'}
+                              </span>
+                              <span style={{fontSize:9,color:C.textMute}}>{e.occurredAt ? new Date(e.occurredAt).toLocaleDateString("zh-TW") : ''}</span>
+                              {impact && <span style={{fontSize:9,color:impactColor,marginLeft:"auto"}}>{impact}</span>}
+                            </div>
+                            <div style={{fontSize:12,color:C.textSec,lineHeight:1.5}}>
+                              {e.summary || e.title || '(無摘要)'}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                {/* 筆記 / Exit Cue */}
+                <section style={{marginBottom:16}}>
+                  <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>NOTES · 筆記與出場條件</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    <div>
+                      <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>筆記</div>
+                      <Textarea
+                        value={draftNote}
+                        onChange={(e)=>{ setDraftNote(e.target.value); draftDirtyRef.current = true; }}
+                        placeholder="進場理由、研究心得、後續觀察重點..."
+                        style={{minHeight:60,fontSize:12,background:C.card,color:C.text,borderColor:C.border}}
+                      />
+                    </div>
+                    <div>
+                      <div style={{fontSize:10,color:C.textMute,marginBottom:3}}>Exit Cue · 出場條件</div>
+                      <Textarea
+                        value={draftExitCue}
+                        onChange={(e)=>{ setDraftExitCue(e.target.value); draftDirtyRef.current = true; }}
+                        placeholder="達標出場、停損觸發、論點破裂訊號..."
+                        style={{minHeight:50,fontSize:12,background:C.card,color:C.text,borderColor:C.border}}
+                      />
+                    </div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <button onClick={persistDraftIfDirty} style={{
+                        background:C.text,color:C.bg,border:"none",borderRadius:6,
+                        padding:"6px 14px",fontSize:12,fontWeight:500,cursor:"pointer",
+                      }}>儲存</button>
+                      {userOverrides[h.code]?.actionType && (
+                        <span style={{fontSize:10,color:C.blue}}>已覆寫決策：{userOverrides[h.code].actionType}</span>
+                      )}
+                    </div>
+                  </div>
+                </section>
+
+                {/* 目標價清單 */}
+                {T?.reports?.length > 0 && (
+                  <section style={{marginBottom:8}}>
+                    <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",marginBottom:6}}>
+                      TARGETS · 分析師目標價
+                      {tp && (
+                        <span style={{marginLeft:8,color:upside>=0?C.up:C.down,fontWeight:500}}>
+                          均 {tp.toLocaleString()}（{upside>=0?"+":""}{upside?.toFixed(1)}%）
+                        </span>
+                      )}
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                      {T.reports.map((r, idx) => (
+                        <div key={idx} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textSec,padding:"4px 10px",background:alpha(C.textMute,'04'),borderRadius:4}}>
+                          <span>{r.firm}</span>
+                          <span>{r.target?.toLocaleString()} <span style={{color:C.textMute,marginLeft:4}}>{r.date}</span></span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            );
+          })() : (
+            <div style={{padding:32,textAlign:"center",color:C.textMute,fontSize:13}}>無資料</div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
