@@ -1102,31 +1102,33 @@ const AdminSignals = () => {
                                       {isExpanded ? '收起' : '展開'}
                                     </Button>
                                   )}
-                                   {!isReadOnly && isAdvisor && signal.status === 'published' && (
-                                     <Button
-                                       size="sm"
-                                       variant="ghost"
-                                       className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                                       onClick={() => handleRepush(signal.id)}
-                                       disabled={repushingId === signal.id}
-                                       title="重新推送此訊號給 LINE 訂閱者（標記為「已更新」）"
-                                     >
-                                       {repushingId === signal.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                                       重推 LINE
-                                     </Button>
+                                   {isAdvisor && signal.status === 'published' && (
+                                     <PermissionTooltip disabled={isReadOnly}>
+                                       <Button
+                                         size="sm"
+                                         variant="ghost"
+                                         className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                                         onClick={() => handleRepush(signal.id)}
+                                         disabled={repushingId === signal.id || isReadOnly}
+                                         title="重新推送此訊號給 LINE 訂閱者（標記為「已更新」）"
+                                       >
+                                         {repushingId === signal.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                                         重推 LINE
+                                       </Button>
+                                     </PermissionTooltip>
                                    )}
-                                   {!isReadOnly && (
+                                   <PermissionTooltip disabled={isReadOnly}>
                                      <Button
                                        size="sm"
                                        variant="ghost"
                                        className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
                                        onClick={() => handleRecall(signal.id)}
-                                       disabled={recalling || (isMentor && signal.status === 'published')}
+                                       disabled={recalling || isReadOnly || (isMentor && signal.status === 'published')}
                                        title={isMentor && signal.status === 'published' ? '已發布的週記不可收回' : undefined}
                                      >
                                        <Undo2 className="h-3 w-3" />收回
                                      </Button>
-                                   )}
+                                   </PermissionTooltip>
                                 </div>
                               </td>
                            </tr>
