@@ -20,7 +20,8 @@ const AdminProfile = () => {
   const { user, hasRole } = useAuth();
   const isCompanyAdmin = hasRole('company_admin');
   const isOwner = !!user?.expertSlug && user.expertSlug === expertSlug;
-  const isReadOnly = isCompanyAdmin && !isOwner;
+  // company_admin 擁有最高權限，可代為編輯任一分析師個人檔案
+  const isReadOnly = !isCompanyAdmin && !isOwner;
 
   const [expert, setExpert] = useState<any>(null);
   const [loading, setLoading] = useState(true);
