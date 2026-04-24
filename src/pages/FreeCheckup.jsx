@@ -12,6 +12,7 @@ import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
+import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -2379,8 +2380,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const selectedCode = expandedDecision;
             const selected = selectedCode ? displayed.find(x => x.code === selectedCode) || sorted.find(x => x.code === selectedCode) : null;
 
-            const renderCard = (h, opts = {}) => {
-              const { large = false } = opts;
+            // 配額：最多 1 張 ink（exit 第一張），最多 2 張 accent（其餘 exit 或最緊急 review）
+            const variantsMap = assignCardVariants(displayed, {
+              getActionType: (it) => decisionsMap[it.code]?.actionType || 'hold',
+              getPct: (it) => it.pct ?? 0,
+            });
+
+            const renderCard = (h) => {
+              const variant = variantsMap.get(h.code) || 'plain';
               const T      = targets?.[h.code];
               const tp     = T ? avgTarget(h.code) : null;
               const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
@@ -2388,13 +2395,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const meta   = STOCK_META[h.code] || null;
               const dec    = decisionsMap[h.code];
               const actionLabel = dec?.actionType === 'exit' ? '出場' : dec?.actionType === 'review' ? '檢查' : null;
-              const actionColor = dec?.actionType === 'exit' ? C.down : dec?.actionType === 'review' ? C.amber : null;
-              const isExitRow = dec?.actionType === 'exit';
-              const isReviewRow = dec?.actionType === 'review';
-              const accentDot = isExitRow ? C.down : isReviewRow ? C.amber : null;
               const isActive = selectedCode === h.code;
               const pctVal = h.pct ?? 0;
-              const pnlColor = pctVal >= 0 ? C.up : C.down;
+
+              // 變體樣式
+              const isInk = variant === 'ink';
+              const isAccent = variant === 'accent';
+              const cardBg = isInk
+                ? '#1E1E1D'
+                : isAccent
+                  ? '#FFFFFF'
+                  : (isActive ? alpha(C.text, '04') : 'transparent');
+              const cardColor = isInk ? '#EFEDE8' : C.text;
+              const cardBorder = isInk
+                ? 'none'
+                : `1px solid ${isActive ? alpha(C.text, '18') : alpha(C.textMute, '10')}`;
+              const accentBar = isAccent ? '#EC662D' : null;
+              const fontHero = isInk ? 44 : isAccent ? 36 : 30;
+              const minH = isInk ? 196 : 168;
+              const colSpan = isInk ? 'span 2' : 'span 1';
+
+              const muteColor = isInk ? 'rgba(239,237,232,0.55)' : C.textMute;
+              const subColor = isInk ? 'rgba(239,237,232,0.75)' : C.textSec;
+              const hairColor = isInk ? 'rgba(239,237,232,0.12)' : alpha(C.textMute, '08');
+              const pnlColor = isInk
+                ? (pctVal >= 0 ? '#FF7A6B' : '#7BC8A4')
+                : (pctVal >= 0 ? C.up : C.down);
 
               return (
                 <button
@@ -2402,100 +2428,87 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   onClick={() => setExpandedDecision(prev => prev === h.code ? null : h.code)}
                   onDoubleClick={() => openHoldingDrawer(h.code)}
                   style={{
-                    gridColumn: large ? 'span 2' : 'span 1',
-                    minHeight: large ? 220 : 168,
+                    position: 'relative',
+                    gridColumn: colSpan,
+                    minHeight: minH,
                     textAlign: 'left',
-                    background: isActive ? alpha(C.text, '04') : 'transparent',
-                    border: `1px solid ${isActive ? alpha(C.text, '18') : alpha(C.textMute, '10')}`,
-                    borderRadius: 12,
-                    padding: large ? '22px 22px 18px' : '18px 18px 16px',
+                    background: cardBg,
+                    border: cardBorder,
+                    borderRadius: 6,
+                    padding: '18px 18px 14px',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 10,
                     transition: 'background 160ms ease, border-color 160ms ease',
                     fontFamily: 'inherit',
-                    color: 'inherit',
+                    color: cardColor,
+                    overflow: 'hidden',
                   }}
                 >
-                  {/* 名稱與代碼 */}
+                  {accentBar && (
+                    <span style={{
+                      position:'absolute', left:0, top:0, bottom:0, width:2,
+                      background: accentBar,
+                    }} />
+                  )}
+
                   <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
-                    {accentDot && (
-                      <span style={{
-                        display:'inline-block', width:6, height:6, borderRadius:'50%',
-                        background:accentDot, transform:'translateY(-2px)', flexShrink:0,
-                      }} />
-                    )}
-                    <span style={{fontSize: large ? 16 : 14, fontWeight:500, color:C.text, letterSpacing:'0.01em'}}>{h.name}</span>
-                    <span style={{fontSize:11, color:C.textMute, fontWeight:400, fontVariantNumeric:'tabular-nums'}}>{h.code}</span>
+                    <span style={{fontSize: 15, fontWeight:500, color: cardColor, letterSpacing:'0.01em'}}>{h.name}</span>
+                    <span style={{fontSize:11, color: muteColor, fontWeight:400, fontVariantNumeric:'tabular-nums'}}>{h.code}</span>
                   </div>
 
-                  {/* 報酬率主視覺 */}
                   <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:'auto'}}>
                     <span style={{
-                      fontSize: large ? 42 : 32,
-                      fontWeight: 300,
+                      fontSize: fontHero,
+                      fontWeight: isInk ? 400 : 300,
                       color: pnlColor,
                       letterSpacing: '-0.02em',
                       lineHeight: 1,
                       fontVariantNumeric: 'tabular-nums',
                     }}>
-                      {pctVal >= 0 ? '+' : ''}{pctVal.toFixed(2)}<span style={{fontSize:'0.5em',marginLeft:2,opacity:0.6}}>%</span>
+                      {pctVal >= 0 ? '+' : ''}{pctVal.toFixed(2)}<span style={{fontSize:'0.45em',marginLeft:2,opacity:0.55}}>%</span>
                     </span>
                     <span style={{
-                      fontSize: 11, color: C.textMute, fontWeight: 400, fontVariantNumeric: 'tabular-nums',
+                      fontSize: 11, color: subColor, fontWeight: 400, fontVariantNumeric: 'tabular-nums',
                     }}>
                       {h.pnl >= 0 ? '+' : ''}{Math.round(h.pnl||0).toLocaleString()}
                     </span>
                   </div>
 
-                  {/* 標籤群組 */}
-                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                    {actionLabel && (
-                      <span style={{
-                        fontSize:10, color:actionColor, fontWeight:400, letterSpacing:'0.06em',
-                        padding:'2px 8px', borderRadius:999,
-                        border:`1px solid ${alpha(actionColor, '30')}`,
-                      }}>{actionLabel}</span>
-                    )}
-                    {meta?.strategy && (
-                      <span style={{
-                        fontSize:10, color:C.textMute, fontWeight:400, letterSpacing:'0.06em',
-                        padding:'2px 8px', borderRadius:999,
-                        border:`1px solid ${alpha(C.textMute, '12')}`,
-                      }}>{meta.strategy}</span>
-                    )}
-                    {meta?.period && (
-                      <span style={{
-                        fontSize:10, color:C.textMute, fontWeight:400, letterSpacing:'0.06em',
-                        padding:'2px 8px', borderRadius:999,
-                        border:`1px solid ${alpha(C.textMute, '12')}`,
-                      }}>
-                        {meta.period === '短' ? '短線' : meta.period === '中' ? '中線' : meta.period === '中長' ? '中長' : meta.period === '短中' ? '短中' : '長線'}
-                      </span>
-                    )}
-                    {dec?.urgency === 'now' && (
-                      <span style={{
-                        fontSize:10, color:C.orange, fontWeight:400, letterSpacing:'0.06em',
-                        padding:'2px 8px', borderRadius:999,
-                        border:`1px solid ${alpha(C.orange, '30')}`,
-                      }}>立即</span>
-                    )}
-                    {isNew && (
-                      <span style={{
-                        fontSize:10, color:C.orange, fontWeight:400, letterSpacing:'0.06em',
-                        padding:'2px 8px', borderRadius:999,
-                        border:`1px solid ${alpha(C.orange, '30')}`,
-                      }}>新目標</span>
-                    )}
-                  </div>
+                  {(actionLabel || meta?.strategy || isNew) && (
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                      {actionLabel && (
+                        <span style={{
+                          fontSize:10, fontWeight:400, letterSpacing:'0.06em',
+                          padding:'2px 8px', borderRadius:999,
+                          color: isInk ? '#EFEDE8' : (isAccent ? '#EC662D' : (dec?.actionType === 'exit' ? C.down : C.amber)),
+                          border: `1px solid ${isInk ? 'rgba(239,237,232,0.30)' : (isAccent ? 'rgba(236,102,45,0.40)' : alpha(dec?.actionType === 'exit' ? C.down : C.amber, '30'))}`,
+                        }}>{actionLabel}</span>
+                      )}
+                      {meta?.strategy && (
+                        <span style={{
+                          fontSize:10, color: muteColor, fontWeight:400, letterSpacing:'0.06em',
+                          padding:'2px 8px', borderRadius:999,
+                          border:`1px solid ${isInk ? 'rgba(239,237,232,0.18)' : alpha(C.textMute, '12')}`,
+                        }}>{meta.strategy}</span>
+                      )}
+                      {isNew && (
+                        <span style={{
+                          fontSize:10, color: isInk ? '#FFB088' : C.orange, fontWeight:400, letterSpacing:'0.06em',
+                          padding:'2px 8px', borderRadius:999,
+                          border:`1px solid ${isInk ? 'rgba(255,176,136,0.35)' : alpha(C.orange, '30')}`,
+                        }}>新目標</span>
+                      )}
+                    </div>
+                  )}
 
-                  {/* 角落補充 */}
+                  {/* 底部資料密度行（永遠存在） */}
                   <div style={{
                     display:'flex', justifyContent:'space-between', alignItems:'baseline',
                     paddingTop:10, marginTop:4,
-                    borderTop:`1px solid ${alpha(C.textMute, '08')}`,
-                    fontSize:10, color:C.textMute, fontWeight:400, fontVariantNumeric:'tabular-nums',
+                    borderTop:`1px solid ${hairColor}`,
+                    fontSize:10, color: muteColor, fontWeight:400, fontVariantNumeric:'tabular-nums',
                     letterSpacing:'0.04em',
                   }}>
                     <span>{h.qty?.toLocaleString()}{h.unit || '股'} · 成本 {h.cost}</span>
@@ -2503,11 +2516,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                   {tp && upside != null && (
                     <div style={{
-                      fontSize:10, color:C.textMute, fontWeight:400, letterSpacing:'0.04em',
+                      fontSize:10, color: muteColor, fontWeight:400, letterSpacing:'0.04em',
                       display:'flex', justifyContent:'space-between',
                     }}>
                       <span>目標 {tp.toLocaleString()}</span>
-                      <span style={{color: upside >= 0 ? C.up : C.down, opacity:0.7}}>
+                      <span style={{
+                        color: isInk
+                          ? (upside >= 0 ? '#FF7A6B' : '#7BC8A4')
+                          : (upside >= 0 ? C.up : C.down),
+                        opacity: 0.75,
+                      }}>
                         {upside >= 0 ? '+' : ''}{upside.toFixed(1)}%
                       </span>
                     </div>
@@ -2702,26 +2720,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 gap:24,
                 alignItems:'flex-start',
               }} className="holdings-workbench">
-                {/* 左：卡片牆 */}
+                {/* 左：卡片牆（3 欄穩定 grid，ink 卡 span 2） */}
                 <div style={{
                   display:'grid',
-                  gridTemplateColumns:'repeat(2, minmax(0, 1fr))',
-                  gap:14,
+                  gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
+                  gap:12,
                 }} className="holdings-card-grid">
-                  {displayed.map(h => {
-                    const dec = decisionsMap[h.code];
-                    const isLarge = dec?.actionType === 'exit' || dec?.actionType === 'review' || dec?.urgency === 'now';
-                    return renderCard(h, { large: isLarge });
-                  })}
+                  {displayed.map(h => renderCard(h))}
                   {!showAll && sorted.length > 12 && (
                     <button
                       onClick={() => setShowAll(true)}
                       style={{
-                        gridColumn:'span 2',
+                        gridColumn:'span 3',
                         padding:'12px',
                         background:'transparent',
                         border:`1px dashed ${alpha(C.textMute, '20')}`,
-                        borderRadius:10,
+                        borderRadius:6,
                         color:C.textMute, fontSize:12, cursor:'pointer', fontWeight:400,
                         letterSpacing:'0.06em',
                       }}
@@ -2750,8 +2764,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             );
           })()}
 
-          {/* 行動裝置 detail：選中時 inline 展開（細節已在 drawer，行動版用 drawer 即可） */}
+          {/* RWD：mid 折成 2 欄、行動端 1 欄並隱藏 detail panel */}
           <style>{`
+            @media (max-width: 1279px) {
+              .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            }
             @media (max-width: 1023px) {
               .holdings-workbench { grid-template-columns: 1fr !important; }
               .holdings-detail-panel { display: none !important; }
