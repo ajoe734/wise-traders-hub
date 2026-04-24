@@ -255,6 +255,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true };
   };
 
+  const requestPasswordReset = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    const trimmed = email.trim();
+    if (/@line\.local$/i.test(trimmed)) {
+      return { success: false, error: '此帳號為 LINE 登入帳號，請改用「使用 LINE 快速登入」' };
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+    if (error) {
+      return { success: false, error: mapAuthError(error, 'reset') };
+    }
+    return { success: true };
+  };
+
+  const updatePassword = async (password: string): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      return { success: false, error: mapAuthError(error, 'update') };
+    }
+    return { success: true };
+  };
+
   const logout = async () => {
     clearAuth();
     setIsLoading(true);
@@ -265,7 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!user && !isLoading;
 
   return (
-    <AuthContext.Provider value={{ user, supabaseUser, isLoading, isAuthenticated, hasRole, refreshProfile, login, register, logout }}>
+    <AuthContext.Provider value={{ user, supabaseUser, isLoading, isAuthenticated, hasRole, refreshProfile, login, register, requestPasswordReset, updatePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );
