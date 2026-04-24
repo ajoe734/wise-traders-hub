@@ -296,6 +296,39 @@ export default function App() {
   const [expandedDecision, setExpandedDecision] = useState(null);
   const [debugMode, setDebugMode] = useState(false);
 
+  // ── 持倉資料庫（Notion 模式）：搜尋 / 篩選 / 排序方向 / Drawer ──
+  const [searchQ, setSearchQ] = useState("");
+  const [filterDecision, setFilterDecision] = useState(new Set()); // hold/review/exit
+  const [filterThesis, setFilterThesis] = useState(new Set());     // intact/weakening/broken
+  const [filterUrgency, setFilterUrgency] = useState(new Set());   // now/soon/monitor
+  const [filterConflict, setFilterConflict] = useState(new Set()); // conflict/no_conflict
+  const [filterPnl, setFilterPnl] = useState(new Set());           // win/loss/flat
+  const [filterStrategy, setFilterStrategy] = useState(new Set()); // dynamic
+  const [sortDir, setSortDir] = useState("desc");                  // asc / desc
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeCode, setActiveCode] = useState(null);
+  const [draftNote, setDraftNote] = useState("");
+  const [draftExitCue, setDraftExitCue] = useState("");
+  const scrollPosRef = useRef(0);
+  const draftDirtyRef = useRef(false);
+
+  const toggleSetItem = (setter) => (val) => {
+    setter(prev => {
+      const next = new Set(prev);
+      if (next.has(val)) next.delete(val); else next.add(val);
+      return next;
+    });
+  };
+  const clearAllFilters = () => {
+    setSearchQ("");
+    setFilterDecision(new Set());
+    setFilterThesis(new Set());
+    setFilterUrgency(new Set());
+    setFilterConflict(new Set());
+    setFilterPnl(new Set());
+    setFilterStrategy(new Set());
+  };
+
   // reset guard — 清除全部後忽略 in-flight 的行事曆回應
   const resetGuardRef = useRef(0);
   // 追蹤是否為使用者主動操作（上傳截圖）造成的持倉變動
