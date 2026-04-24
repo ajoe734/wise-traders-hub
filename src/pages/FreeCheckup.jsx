@@ -3738,7 +3738,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const T = targets?.[h.code];
             const tp = T ? avgTarget(h.code) : null;
             const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
-            const total = filteredSortedList.length;
+            const total = sourceList.length;
             const evtsAll = normalizedEvents
               .filter(e => (e.relatedCodes || []).includes(h.code) && e.source !== 'demo');
             const openEvts = evtsAll.filter(isEventOpen)
@@ -3747,40 +3747,66 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               .sort((a,b) => new Date(b.occurredAt||0) - new Date(a.occurredAt||0)).slice(0, 5);
             const timeline = [...openEvts, ...resolvedEvts];
 
+            const srcLabel = drawerSource?.label || '📋 持倉列表';
+            const backText = drawerSource?.type === 'priority-global'
+              ? '返回今日優先'
+              : drawerSource?.type === 'category'
+                ? `返回${drawerSource.label?.replace(/^[^\s]+\s/, '') || '分類'}`
+                : '返回列表';
+
             return (
               <div style={{padding:"18px 20px 32px"}}>
-                {/* Header: 上一檔 / 名稱 (i/N) / 下一檔 */}
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,paddingRight:32}}>
+                {/* Phase 2.5 Drawer Header (3 layers) */}
+                <div style={{marginBottom:14, paddingRight:32}}>
+                  {/* 第一行：返回 [來源] */}
                   <button
-                    onClick={goPrev}
-                    disabled={total < 2}
-                    aria-label="上一檔"
+                    onClick={() => handleDrawerOpenChange(false)}
                     style={{
-                      background:"transparent",border:`1px solid ${C.border}`,
-                      borderRadius:6,padding:"4px 10px",fontSize:13,
-                      color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
-                      cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
+                      background:"transparent",border:"none",
+                      color:C.textMute,fontSize:11,fontWeight:400,
+                      cursor:"pointer",padding:"2px 0",
+                      display:"inline-flex",alignItems:"center",gap:4,
+                      letterSpacing:"0.04em",
                     }}
-                  >‹</button>
-                  <div style={{flex:1,textAlign:"center"}}>
-                    <div style={{fontSize:14,fontWeight:500,color:C.text,letterSpacing:"0.02em"}}>
-                      {h.name} <span style={{fontSize:11,color:C.textMute,fontWeight:400,marginLeft:4}}>{h.code}</span>
+                  >‹ {backText}</button>
+                  {/* 第二行：來源 label */}
+                  <div style={{
+                    fontSize:10,color:C.textMute,marginTop:4,marginBottom:8,
+                    letterSpacing:"0.06em",fontWeight:400,
+                  }}>來自：{srcLabel}</div>
+                  {/* 第三行：上一檔 / 名稱 (i/N) / 下一檔 */}
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <button
+                      onClick={goPrev}
+                      disabled={total < 2}
+                      aria-label="上一檔"
+                      style={{
+                        background:"transparent",border:`1px solid ${C.border}`,
+                        borderRadius:6,padding:"4px 10px",fontSize:13,
+                        color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
+                        cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
+                      }}
+                    >‹</button>
+                    <div style={{flex:1,textAlign:"center"}}>
+                      <div style={{fontSize:14,fontWeight:500,color:C.text,letterSpacing:"0.02em"}}>
+                        {h.name} <span style={{fontSize:11,color:C.textMute,fontWeight:400,marginLeft:4}}>{h.code}</span>
+                      </div>
+                      <div style={{fontSize:10,color:C.textMute,marginTop:2,letterSpacing:"0.05em"}}>
+                        {activeIndex + 1} / {total}
+                      </div>
                     </div>
-                    <div style={{fontSize:10,color:C.textMute,marginTop:2,letterSpacing:"0.05em"}}>
-                      {activeIndex + 1} / {total}
-                    </div>
+                    <button
+                      onClick={goNext}
+                      disabled={total < 2}
+                      aria-label="下一檔"
+                      style={{
+                        background:"transparent",border:`1px solid ${C.border}`,
+                        borderRadius:6,padding:"4px 10px",fontSize:13,
+                        color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
+                        cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
+                      }}
+                    >›</button>
                   </div>
-                  <button
-                    onClick={goNext}
-                    disabled={total < 2}
-                    aria-label="下一檔"
-                    style={{
-                      background:"transparent",border:`1px solid ${C.border}`,
-                      borderRadius:6,padding:"4px 10px",fontSize:13,
-                      color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
-                      cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
-                    }}
-                  >›</button>
                 </div>
 
                 {/* 數量·成本·市價·市值·損益·% */}
