@@ -94,10 +94,19 @@ function renderAt(path: string) {
   );
 }
 
+async function waitForLoaded() {
+  // Plan name appears in multiple places once loaded; use findAllByText
+  await waitFor(() => expect(screen.getAllByText('訊號方案').length).toBeGreaterThan(0));
+}
+
 async function openConsentAndConfirm() {
-  // Click "確認付款" (top-level checkout trigger opens the consent dialog)
   const confirmBtn = await screen.findByRole('button', { name: /確認付款/ });
   fireEvent.click(confirmBtn);
+  const agreeBtn = await screen.findByRole('button', { name: /同意並繼續/ });
+  const checkbox = document.querySelector('[role="checkbox"]') as HTMLElement;
+  if (checkbox) fireEvent.click(checkbox);
+  fireEvent.click(agreeBtn);
+}
   // Tick the consent checkbox + click 同意並繼續
   const agreeBtn = await screen.findByRole('button', { name: /同意並繼續/ });
   // Find the checkbox inside the dialog and check it
