@@ -7,7 +7,7 @@ const corsHeaders = {
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
-function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish') {
+function buildFlexMessage(signal: any, type: 'publish' | 'takedown' | 'update' = 'publish') {
   const actionLabel: Record<string, string> = {
     buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
   }
@@ -55,14 +55,14 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
     }
   }
 
-  // Default: publish message
+  // Default: publish or update message
+  const isUpdate = type === 'update'
   const isBullish = ['buy', 'add'].includes(signal.action)
-  const color = isBullish ? '#00B900' : '#DC3545'
+  const color = isUpdate ? '#FF8C00' : (isBullish ? '#00B900' : '#DC3545')
 
   const qtyLabel = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
-  const copyLines: string[] = [
-    `【${label} ${signal.instrument}】`,
-  ]
+  const headerLine = isUpdate ? `🔄 訊號更新通知\n【${label} ${signal.instrument}】` : `【${label} ${signal.instrument}】`
+  const copyLines: string[] = [headerLine]
   if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}${qtyLabel}`)
   if (signal.teaching_topic) copyLines.push(`\n📚 教學主題：\n${signal.teaching_topic}`)
   if (signal.overall_summary) copyLines.push(`\n📝 整體摘要：\n${signal.overall_summary}`)
@@ -72,15 +72,26 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
   if (signal.learning_points) copyLines.push(`\n🎯 教學重點：\n${signal.learning_points}`)
   const copyText = copyLines.join('\n')
 
-  const bodyContents: any[] = [
-    {
+  const bodyContents: any[] = []
+
+  if (isUpdate) {
+    bodyContents.push({
       type: 'text',
-      text: `${label} ${signal.instrument}`,
+      text: '🔄 訊號更新通知',
       weight: 'bold',
-      size: 'xl',
-      color,
-    },
-  ]
+      size: 'sm',
+      color: '#FF8C00',
+    })
+  }
+
+  bodyContents.push({
+    type: 'text',
+    text: `${label} ${signal.instrument}`,
+    weight: 'bold',
+    size: 'xl',
+    color,
+    margin: isUpdate ? 'sm' : 'none',
+  })
 
   if (signal.price_hint) {
     const qtyText = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
