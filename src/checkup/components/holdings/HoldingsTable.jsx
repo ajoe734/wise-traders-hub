@@ -40,7 +40,8 @@ const periodColor = (p) => {
 }
 
 /**
- * Single Holding Row — 溫暖極簡三行佈局
+ * Single Holding Card — 直向閱讀卡片
+ * 結構：名稱(上) → 報酬率(主視覺) → 標籤 → 補充資訊(下)
  */
 export function HoldingRow({
   holding,
@@ -55,73 +56,69 @@ export function HoldingRow({
   const meta = STOCK_META[holding.code]
   const qty = Number(holding.qty) || 0
   const cost = Number(holding.cost) || 0
+  const pnlColor = pc(pnl)
+
+  const tagStyle = {
+    fontSize: 10,
+    fontWeight: 400,
+    color: C.textMute,
+    letterSpacing: '0.06em',
+    padding: '2px 8px',
+    border: `1px solid ${alpha(C.textMute, '12')}`,
+    borderRadius: 999,
+    lineHeight: 1.4,
+  }
 
   return h(
     'div',
-    { style: { marginBottom: expanded ? 0 : 10 } },
+    { style: { marginBottom: 14 } },
 
     h(
       'div',
       {
         style: {
           background: 'transparent',
-          borderBottom: `1px solid ${alpha(C.textMute, '08')}`,
-          borderRadius: expanded ? '8px 8px 0 0' : 0,
-          padding: '12px 4px',
-          transition: 'background 0.2s ease',
+          border: `1px solid ${alpha(C.textMute, '10')}`,
+          borderRadius: 10,
+          padding: '20px 18px 18px',
+          transition: 'border-color 0.2s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
         },
       },
 
-      // Row 1: Name + Code + Tags + Expand
+      // ── 區塊 1：名稱 + 代號 + 展開按鈕（標頭）
       h(
         'div',
         {
           style: {
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'baseline',
             justifyContent: 'space-between',
-            marginBottom: 4,
+            gap: 10,
           },
         },
         h(
           'div',
-          { style: { display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 } },
+          { style: { display: 'flex', alignItems: 'baseline', gap: 8, flex: 1, minWidth: 0 } },
           h('span', {
             style: {
-              fontSize: 13,
+              fontSize: 15,
               fontWeight: 500,
               color: C.text,
               letterSpacing: '0.02em',
             },
           }, holding.name),
           h('span', {
-            style: { fontSize: 10, color: C.textMute, fontWeight: 400 },
-          }, holding.code),
-          meta?.period && h(
-            'span',
-            {
-              style: {
-                fontSize: 9,
-                fontWeight: 400,
-                color: C.textMute,
-                opacity: 0.6,
-                letterSpacing: '0.04em',
-              },
+            style: {
+              fontSize: 11,
+              color: C.textMute,
+              fontWeight: 400,
+              opacity: 0.7,
+              letterSpacing: '0.04em',
             },
-            periodLabel(meta.period)
-          ),
-          meta?.position && h(
-            'span',
-            {
-              style: {
-                fontSize: 9,
-                fontWeight: 400,
-                color: C.textMute,
-                letterSpacing: '0.04em',
-              },
-            },
-            meta.position
-          )
+          }, holding.code)
         ),
         h(
           'button',
@@ -136,72 +133,114 @@ export function HoldingRow({
               padding: '4px 6px',
               opacity: 0.5,
               transition: 'opacity 0.2s',
+              letterSpacing: '0.08em',
             },
           },
           expanded ? '收起' : '展開'
         )
       ),
 
-      // Row 2: Industry + Strategy
-      meta && h(
-        'div',
-        {
-          style: {
-            fontSize: 10,
-            color: C.textMute,
-            marginBottom: 8,
-            fontWeight: 400,
-            letterSpacing: '0.04em',
-          },
-        },
-        [meta.industry, meta.strategy].filter(Boolean).join(' · ')
-      ),
-
-      // Row 3: Financial data
+      // ── 區塊 2：報酬率（主視覺焦點，特大字）
       h(
         'div',
         {
           style: {
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            gap: 10,
+            paddingTop: 2,
+            paddingBottom: 4,
           },
         },
         h(
-          'div',
+          'span',
           {
+            className: 'tn',
             style: {
-              display: 'flex',
-              gap: 12,
-              fontSize: 11,
-              color: C.textMute,
-              fontWeight: 400,
-              letterSpacing: '0.02em',
+              fontSize: 32,
+              fontWeight: 300,
+              color: pnlColor,
+              letterSpacing: '-0.01em',
+              lineHeight: 1,
             },
           },
-          h('span', null, `${qty.toLocaleString()}股`),
-          h('span', null, `${cost}`),
-          h('span', { style: { color: C.textSec, fontWeight: 500 } }, holding.price),
-          h('span', { className: 'tn', style: { fontSize: 10 } }, value.toLocaleString())
+          `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`
         ),
-        // PnL — 純文字，無色條，無 pill
         h(
-          'div',
+          'span',
           {
             className: 'tn',
             style: {
               fontSize: 12,
-              fontWeight: 500,
-              color: pc(pnl),
+              fontWeight: 400,
+              color: pnlColor,
+              opacity: 0.75,
               letterSpacing: '0.02em',
-              textAlign: 'right',
             },
           },
-          h('span', null, `${pnl >= 0 ? '+' : ''}${Math.round(pnl).toLocaleString()}`),
-          h('span', {
-            style: { fontSize: 10, fontWeight: 400, opacity: 0.7, marginLeft: 6 },
-          }, `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`)
+          `${pnl >= 0 ? '+' : ''}${Math.round(pnl).toLocaleString()}`
         )
+      ),
+
+      // ── 區塊 3：標籤群組（產業 / 策略 / 週期 / 部位）
+      (meta?.industry || meta?.strategy || meta?.period || meta?.position) && h(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+          },
+        },
+        meta?.industry && h('span', { style: tagStyle }, meta.industry),
+        meta?.strategy && h('span', { style: tagStyle }, meta.strategy),
+        meta?.period && h(
+          'span',
+          { style: { ...tagStyle, color: alpha(periodColor(meta.period), 'cc'), borderColor: alpha(periodColor(meta.period), '30') } },
+          periodLabel(meta.period)
+        ),
+        meta?.position && h('span', { style: tagStyle }, meta.position)
+      ),
+
+      // ── 區塊 4：補充資訊（持股 / 成本 / 現價 / 市值）
+      h(
+        'div',
+        {
+          style: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 10,
+            paddingTop: 12,
+            borderTop: `1px solid ${alpha(C.textMute, '08')}`,
+          },
+        },
+        [
+          { label: '股數', value: qty.toLocaleString() },
+          { label: '成本', value: cost.toString() },
+          { label: '現價', value: holding.price ?? '—' },
+          { label: '市值', value: value ? value.toLocaleString() : '—' },
+        ].map((item, idx) => h(
+          'div',
+          { key: idx, style: { display: 'flex', flexDirection: 'column', gap: 3 } },
+          h('span', {
+            style: {
+              fontSize: 9,
+              color: C.textMute,
+              fontWeight: 400,
+              letterSpacing: '0.1em',
+              opacity: 0.7,
+            },
+          }, item.label),
+          h('span', {
+            className: 'tn',
+            style: {
+              fontSize: 12,
+              color: C.textSec,
+              fontWeight: 400,
+              letterSpacing: '0.02em',
+            },
+          }, item.value)
+        ))
       )
     ),
 
