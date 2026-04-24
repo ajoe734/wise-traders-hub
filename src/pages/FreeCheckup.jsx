@@ -12,6 +12,7 @@ import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
+import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
