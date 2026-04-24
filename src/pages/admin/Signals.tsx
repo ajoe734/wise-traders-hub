@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPublishingWindowOpen } from '@/lib/publishingWindow';
 import { fetchAnalystSignals } from '@/lib/analystDataAccess';
+import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
@@ -677,20 +678,21 @@ const AdminSignals = () => {
                 : '發布即上線，可自行收回'}
             </p>
           </div>
-          {!isReadOnly && (
           <div className="flex flex-col items-end gap-1">
-            {!publishWindow.open && (
+            {!publishWindow.open && !isReadOnly && (
               <p className="text-xs text-destructive">{publishWindow.reason}</p>
             )}
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button
-                disabled={!publishWindow.open}
-                className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
-                onClick={() => { clearForm(); setIsCreateOpen(true); }}
-              >
-                <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
-              </Button>
+              <PermissionTooltip disabled={isReadOnly}>
+                <Button
+                  disabled={!publishWindow.open || isReadOnly}
+                  className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
+                  onClick={() => { clearForm(); setIsCreateOpen(true); }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
+                </Button>
+              </PermissionTooltip>
             </DialogTrigger>
             <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
               <DialogHeader><DialogTitle>發布新{contentLabel}</DialogTitle></DialogHeader>
