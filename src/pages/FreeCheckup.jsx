@@ -2004,7 +2004,210 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           )}
 
+          {/* ══════════ Phase 2.5: Action Banner（決策工作台） ══════════ */}
+          {(() => {
+            const exitCount = exitList.length;
+            const reviewCount = reviewList.length;
+            const upcomingCount = upcomingList.length;
+            const totalAction = exitCount + reviewCount + upcomingCount;
+            const showPriority = globalPriorityList.length > 0;
+
+            // 套用對應 quick filter
+            const applyQuickFilter = (key) => {
+              setFilterDecision(new Set());
+              setFilterUrgency(new Set());
+              setFilterConflict(new Set());
+              setFilterThesis(new Set());
+              setFilterPnl(new Set());
+              setFilterStrategy(new Set());
+              if (key === 'exit') setFilterDecision(new Set(['exit']));
+              else if (key === 'review') setFilterDecision(new Set(['review']));
+              else if (key === 'upcoming') setFilterUrgency(new Set(['now', 'soon']));
+              // scroll to list 區
+              requestAnimationFrame(() => {
+                const el = document.getElementById('holdings-filter-bar');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            };
+
+            const priorityBadge = (h) => {
+              const d = decisionsMap[h.code];
+              if (d?.actionType === 'exit') return { label: '出場', color: C.down };
+              if (d?.actionType === 'review') return { label: '檢查', color: C.amber };
+              if (d?.urgency === 'now') return { label: '立即', color: C.down };
+              if (d?.urgency === 'soon') return { label: '近期', color: C.amber };
+              return { label: '注意', color: C.textMute };
+            };
+
+            // 全無決策需處理
+            if (totalAction === 0 && !showPriority) {
+              return (
+                <div id="action-banner" style={{
+                  marginBottom: 14, padding: "10px 14px",
+                  background: alpha(C.up, '04'),
+                  border: `1px solid ${alpha(C.up, '15')}`,
+                  borderRadius: 8, fontSize: 12, color: C.textSec, fontWeight: 400,
+                }}>
+                  ✅ 持倉狀態良好，無待處理決策
+                </div>
+              );
+            }
+
+            return (
+              <div id="action-banner" style={{
+                marginBottom: 14,
+                display: "flex", flexDirection: "column", gap: 10,
+              }}>
+                {/* 3a. 🎯 今日優先（全局視角） */}
+                {showPriority && (
+                  <div style={{
+                    padding: "10px 12px",
+                    background: alpha(C.text, '03'),
+                    border: `1px solid ${alpha(C.text, '10')}`,
+                    borderRadius: 8,
+                  }}>
+                    <div style={{
+                      fontSize: 11, color: C.textMute, fontWeight: 500,
+                      letterSpacing: "0.06em", marginBottom: 8,
+                      display: "flex", alignItems: "center", gap: 6,
+                    }}>
+                      <span>🎯 今日優先處理</span>
+                      <span style={{fontSize: 10, fontWeight: 400, opacity: 0.7}}>（全局，不受篩選影響）</span>
+                    </div>
+                    <div style={{
+                      display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2,
+                      scrollbarWidth: "thin",
+                    }}>
+                      {globalPriorityList.map((h, idx) => {
+                        const b = priorityBadge(h);
+                        const pnlColor = h.pnl >= 0 ? C.up : C.down;
+                        return (
+                          <button
+                            key={h.code}
+                            onClick={() => openHoldingDrawer(h.code, { type: 'priority-global', label: '🎯 今日優先（全局）' })}
+                            style={{
+                              flex: "1 1 0", minWidth: 140,
+                              background: C.card,
+                              border: `1px solid ${alpha(b.color, '25')}`,
+                              borderLeft: `3px solid ${b.color}`,
+                              borderRadius: 6, padding: "8px 10px",
+                              cursor: "pointer", textAlign: "left",
+                              display: "flex", flexDirection: "column", gap: 4,
+                              transition: "transform 200ms ease, box-shadow 200ms ease",
+                              fontFamily: "inherit",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                              e.currentTarget.style.boxShadow = `0 4px 12px ${alpha(b.color, '20')}`;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = '';
+                              e.currentTarget.style.boxShadow = '';
+                            }}
+                          >
+                            <div style={{display: "flex", alignItems: "center", gap: 6}}>
+                              <span style={{fontSize: 10, color: C.textMute, fontWeight: 500}}>#{idx + 1}</span>
+                              <span style={{fontSize: 12, color: C.text, fontWeight: 500}}>{h.name}</span>
+                              <span style={{fontSize: 10, color: C.textMute}}>{h.code}</span>
+                            </div>
+                            <div style={{display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between"}}>
+                              <span style={{
+                                fontSize: 10, color: "#fff", fontWeight: 500,
+                                background: b.color, padding: "1px 6px", borderRadius: 3,
+                              }}>{b.label}</span>
+                              <span style={{fontSize: 11, fontWeight: 500, color: pnlColor}}>
+                                {h.pct >= 0 ? '+' : ''}{h.pct?.toFixed(1)}%
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3b. 分類概覽（全量計數 + 直達標的） */}
+                {totalAction > 0 && (
+                  <div style={{
+                    padding: "10px 12px",
+                    background: alpha(C.textMute, '04'),
+                    border: `1px solid ${alpha(C.textMute, '10')}`,
+                    borderRadius: 8,
+                    display: "flex", flexDirection: "column", gap: 8,
+                  }}>
+                    {[
+                      { key: 'exit', icon: '⛔', label: '建議出場', list: exitList, color: C.down },
+                      { key: 'review', icon: '⚠', label: '需要處理', list: reviewList, color: C.amber },
+                      { key: 'upcoming', icon: '⏰', label: '即將到期', list: upcomingList, color: C.amber },
+                    ].filter(row => row.list.length > 0).map(row => {
+                      const sample = row.list.slice(0, 3);
+                      const more = row.list.length - sample.length;
+                      return (
+                        <div key={row.key} style={{
+                          display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+                          fontSize: 12, color: C.textSec,
+                        }}>
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            color: row.color, fontWeight: 500, minWidth: 110,
+                          }}>
+                            <span>{row.icon}</span>
+                            <span>{row.label}</span>
+                            <span style={{color: C.textMute, fontWeight: 400}}>{row.list.length} 檔</span>
+                          </span>
+                          <span style={{color: C.textMute, fontSize: 11}}>→</span>
+                          <span style={{display: "inline-flex", flexWrap: "wrap", gap: 6, flex: 1}}>
+                            {sample.map(h => (
+                              <button
+                                key={h.code}
+                                onClick={() => openHoldingDrawer(h.code, {
+                                  type: 'category', key: row.key,
+                                  label: `${row.icon} ${row.label}`,
+                                })}
+                                style={{
+                                  background: "transparent",
+                                  border: `1px solid ${alpha(row.color, '25')}`,
+                                  borderRadius: 4, padding: "2px 8px",
+                                  fontSize: 11, color: C.text, fontWeight: 400,
+                                  cursor: "pointer", fontFamily: "inherit",
+                                  transition: "background 0.15s",
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = alpha(row.color, '08')}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              >
+                                {h.name} <span style={{color: C.textMute, fontSize: 10}}>{h.code}</span>
+                              </button>
+                            ))}
+                            {more > 0 && (
+                              <span style={{fontSize: 11, color: C.textMute, alignSelf: "center"}}>
+                                +{more}
+                              </span>
+                            )}
+                          </span>
+                          <button
+                            onClick={() => applyQuickFilter(row.key)}
+                            title="套用篩選"
+                            style={{
+                              background: "transparent",
+                              border: `1px solid ${C.border}`,
+                              borderRadius: 4, padding: "2px 8px",
+                              fontSize: 11, color: C.textMute, cursor: "pointer",
+                              fontFamily: "inherit",
+                            }}
+                          >
+                            篩選 →
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* ── 持倉資料庫 Filter Bar ── */}
+
           {(() => {
             const totalCount = H.length;
             const filteredCount = filteredSortedList.length;
