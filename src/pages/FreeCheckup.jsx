@@ -849,13 +849,8 @@ export default function App() {
     const dirMul = sortDir === "asc" ? 1 : -1;
     list.sort((a, b) => {
       if (sortBy === "decision") {
-        const da = decisionsMap[a.code];
-        const db = decisionsMap[b.code];
-        if (da && db) {
-          const sortedPair = sortByDecisionPriority([da, db]);
-          return (sortedPair[0] === da ? -1 : 1) * dirMul;
-        }
-        return ((da ? -1 : db ? 1 : 0)) * dirMul;
+        // 決策優先（4 階）：desc=最緊急在前，asc=反向
+        return compareByPriority(a, b) * (sortDir === "asc" ? -1 : 1);
       }
       if (sortBy === "value")  return (b.value - a.value) * dirMul;
       if (sortBy === "pnl")    return (b.pnl - a.pnl) * dirMul;
