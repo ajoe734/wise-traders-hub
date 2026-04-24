@@ -44,7 +44,7 @@ const acpayProvider = {
   is_default: true,
 };
 
-const invokeMock = vi.fn();
+const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
 
 vi.mock('@/integrations/supabase/client', () => {
   const buildQuery = (table: string) => {

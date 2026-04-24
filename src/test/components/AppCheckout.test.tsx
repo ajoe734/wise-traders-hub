@@ -23,7 +23,7 @@ vi.mock('@/hooks/useExpertPlans', () => ({
 }));
 
 // Mock supabase to short-circuit any side calls
-const invokeMock = vi.fn();
+const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     auth: {
