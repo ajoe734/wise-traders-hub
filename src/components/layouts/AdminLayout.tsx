@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, Radio, Users, UserCog, BarChart3,
-  LogOut, Moon, Sun, Building2, FileText, Loader2, Megaphone, Wallet
+  LogOut, Moon, Sun, Building2, FileText, Loader2, Megaphone, Wallet, Eye
 } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
@@ -68,7 +68,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const navItems = [
     { path: basePath, icon: LayoutDashboard, label: '總覽', exact: true },
-    { path: `${basePath}/signals`, icon: Radio, label: isAdvisor ? '訊號管理' : '週記管理' },
+    { path: `${basePath}/signals`, icon: Radio, label: isAdvisor ? '訊號管理' : '週記管理',
+      hint: isAdvisor ? undefined : '週記於每週五 20:00 自動發布' },
     { path: `${basePath}/plans`, icon: Wallet, label: '訂閱方案' },
     { path: `${basePath}/subscribers`, icon: Users, label: '訂閱者' },
     { path: `${basePath}/signal-templates`, icon: FileText, label: '訊號模板' },
@@ -105,28 +106,44 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <p className="text-xs text-muted-foreground">分析師後台管理</p>
             <NotificationBell />
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mt-3 gap-2 h-8 text-xs"
+            onClick={() => window.open(`/expert/${expertSlug}?preview=1`, '_blank')}
+          >
+            <Eye className="h-3.5 w-3.5" />
+            訂閱者預覽
+          </Button>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1">
           {navItems.map((item) => {
             const active = isActive(item.path, item.exact);
+            const hint = (item as any).hint as string | undefined;
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                  active
-                    ? isAdvisor
-                      ? "bg-advisor/10 text-advisor"
-                      : "bg-mentor/10 text-mentor"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              <div key={item.path}>
+                <Link
+                  to={item.path}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    active
+                      ? isAdvisor
+                        ? "bg-advisor/10 text-advisor"
+                        : "bg-mentor/10 text-mentor"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </Link>
+                {hint && (
+                  <p className="text-[10px] text-muted-foreground/70 pl-10 pr-3 -mt-0.5 mb-1 leading-tight">
+                    {hint}
+                  </p>
                 )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
-              </Link>
+              </div>
             );
           })}
         </nav>
