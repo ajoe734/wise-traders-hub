@@ -162,9 +162,10 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' | 'update' =
     paddingAll: 'lg',
   }
 
+  const altPrefix = isUpdate ? '🔄 訊號更新通知 - ' : ''
   return {
     type: 'flex',
-    altText: `${label} ${signal.instrument}${signal.price_hint ? ` @ ${signal.price_hint}` : ''}`,
+    altText: `${altPrefix}${label} ${signal.instrument}${signal.price_hint ? ` @ ${signal.price_hint}` : ''}`,
     contents: {
       type: 'bubble',
       body: { type: 'box', layout: 'vertical', contents: bodyContents },
