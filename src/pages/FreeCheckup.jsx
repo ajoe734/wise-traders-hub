@@ -2401,14 +2401,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ? '#1E1E1D'
                 : isAccent
                   ? '#FFFFFF'
-                  : (isActive ? alpha(C.text, '04') : 'transparent');
+                  : (isActive ? '#FFFFFF' : '#FBFAF6');
               const cardColor = isInk ? '#EFEDE8' : C.text;
               const cardBorder = isInk
                 ? 'none'
-                : `1px solid ${isActive ? alpha(C.text, '18') : alpha(C.textMute, '10')}`;
+                : `1px solid ${isActive ? alpha(C.text, '22') : alpha(C.textMute, '10')}`;
               const accentBar = isAccent ? '#EC662D' : null;
-              const fontHero = isInk ? 44 : isAccent ? 36 : 30;
-              const minH = isInk ? 196 : 168;
+              const fontHero = isInk ? 52 : isAccent ? 40 : 32;
+              const minH = isInk ? 232 : isAccent ? 196 : 172;
               const colSpan = isInk ? 'span 2' : 'span 1';
 
               const muteColor = isInk ? 'rgba(239,237,232,0.55)' : C.textMute;
