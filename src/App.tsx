@@ -75,6 +75,7 @@ import CompanyPayments from "./pages/company/Payments";
 
 import CompanyAnnouncements from "./pages/company/Announcements";
 import CompanyAuditLogs from "./pages/company/AuditLogs";
+import CompanyPlanReview from "./pages/company/PlanReview";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
@@ -153,6 +154,7 @@ const App = () => (
             
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />
             <Route path="/company/audit-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyAuditLogs /></ProtectedRoute>} />
+            <Route path="/company/plan-review" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlanReview /></ProtectedRoute>} />
 
             {/* Admin (expert backend) */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
