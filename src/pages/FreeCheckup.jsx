@@ -2364,23 +2364,35 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const urgencyDot = dec?.urgency === 'now' ? C.down : dec?.urgency === 'soon' ? C.amber : null;
               const isDecisionExpanded = expandedDecision === h.code;
 
-              // Row emphasis (kept restrained — only exit / review / urgency=now)
+              // Phase 2.5: 視覺權重 4 階分層
               const isExitRow = dec?.actionType === 'exit';
-              const isReviewRow = dec?.actionType === 'review' || dec?.urgency === 'now';
-              const isSoonRow = !isExitRow && !isReviewRow && dec?.urgency === 'soon';
+              const isReviewRow = dec?.actionType === 'review';
+              const isAlertRow = !isExitRow && !isReviewRow && (dec?.urgency === 'now' || dec?.urgency === 'soon' || dec?.hasConflict);
               const rowBorderLeft = isExitRow
-                ? `3px solid ${C.down}`
+                ? `4px solid ${C.down}`
                 : isReviewRow
-                  ? `3px solid ${C.amber}`
-                  : isSoonRow
-                    ? `3px solid ${alpha(C.amber,'40')}`
-                    : "3px solid transparent";
+                  ? `4px solid ${C.amber}`
+                  : isAlertRow
+                    ? `2px solid ${alpha(C.amber, '60')}`
+                    : "2px solid transparent";
               const rowBg = isExitRow
-                ? alpha(C.down, '06')
+                ? alpha(C.down, '08')
                 : isReviewRow
-                  ? alpha(C.amber, '05')
-                  : "transparent";
-              const rowPadLeft = (isExitRow || isReviewRow || isSoonRow) ? 10 : 0;
+                  ? alpha(C.amber, '06')
+                  : isAlertRow
+                    ? alpha(C.amber, '02')
+                    : "transparent";
+              const rowShadow = isExitRow
+                ? `0 1px 3px ${alpha(C.down, '12')}`
+                : isReviewRow
+                  ? `0 1px 2px ${alpha(C.amber, '10')}`
+                  : "none";
+              const hoverShadowColor = isExitRow
+                ? alpha(C.down, '15')
+                : isReviewRow
+                  ? alpha(C.amber, '12')
+                  : alpha(C.text, '08');
+              const rowPadLeft = (isExitRow || isReviewRow || isAlertRow) ? 10 : 2;
 
               return (
               <div key={h.code} style={{
@@ -2389,11 +2401,30 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderLeft: rowBorderLeft,
                 background: rowBg,
                 borderRadius: (isExitRow || isReviewRow) ? 4 : 0,
-                marginBottom: (isExitRow || isReviewRow) ? 2 : 0,
+                marginBottom: (isExitRow || isReviewRow) ? 4 : 0,
                 borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none",
                 cursor: "pointer",
-                transition:"background 0.2s ease",
-              }} onClick={() => openHoldingDrawer(h.code)}>
+                boxShadow: rowShadow,
+                transition: "transform 200ms ease, box-shadow 200ms ease, background 200ms ease",
+                willChange: "transform",
+              }}
+              tabIndex={0}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px) scale(1.005)';
+                e.currentTarget.style.boxShadow = `0 4px 16px ${hoverShadowColor}`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = '';
+                e.currentTarget.style.boxShadow = rowShadow;
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.outline = `2px solid ${alpha(C.text, '20')}`;
+                e.currentTarget.style.outlineOffset = '2px';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.outline = 'none';
+              }}
+              onClick={() => openHoldingDrawer(h.code)}>
                 {/* chevron 提示可點開 detail */}
                 <span style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",color:C.textMute,fontSize:14,opacity:0.5,pointerEvents:"none"}}>›</span>
                 {/* Conflict corner dot */}
