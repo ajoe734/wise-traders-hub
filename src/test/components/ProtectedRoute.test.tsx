@@ -4,11 +4,16 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 // Mock useAuth — controlled per-test via a mutable holder
-const authMock = {
-  user: null as any,
+const authMock: {
+  user: any;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  hasRole: (role: string) => boolean;
+} = {
+  user: null,
   isAuthenticated: false,
   isLoading: false,
-  hasRole: vi.fn(() => false),
+  hasRole: () => false,
 };
 
 vi.mock('@/contexts/AuthContext', () => ({
@@ -40,7 +45,7 @@ describe('ProtectedRoute', () => {
     authMock.user = null;
     authMock.isAuthenticated = false;
     authMock.isLoading = false;
-    authMock.hasRole = vi.fn(() => false);
+    authMock.hasRole = () => false;
   });
 
   it('shows loading spinner while auth state is loading', () => {
@@ -65,7 +70,7 @@ describe('ProtectedRoute', () => {
   it('shows "permission denied" when user lacks required role', () => {
     authMock.isAuthenticated = true;
     authMock.user = { id: 'u1' };
-    authMock.hasRole = vi.fn(() => false);
+    authMock.hasRole = () => false;
     renderWithRoutes('/protected', 'company_admin');
     expect(screen.getByText('權限不足')).toBeInTheDocument();
   });
@@ -73,7 +78,7 @@ describe('ProtectedRoute', () => {
   it('renders children when user has the required role', () => {
     authMock.isAuthenticated = true;
     authMock.user = { id: 'u1' };
-    authMock.hasRole = vi.fn((role) => role === 'analyst');
+    authMock.hasRole = (role: string) => role === 'analyst';
     renderWithRoutes('/protected', 'analyst');
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
@@ -81,7 +86,7 @@ describe('ProtectedRoute', () => {
   it('redirects company_admin to /company when subscriberOnly is true', () => {
     authMock.isAuthenticated = true;
     authMock.user = { id: 'u1' };
-    authMock.hasRole = vi.fn((role) => role === 'company_admin');
+    authMock.hasRole = (role: string) => role === 'company_admin';
     renderWithRoutes('/protected', undefined, true);
     expect(screen.getByText('Company Dashboard')).toBeInTheDocument();
   });
@@ -89,7 +94,7 @@ describe('ProtectedRoute', () => {
   it('redirects analyst to /admin/:slug when subscriberOnly is true', () => {
     authMock.isAuthenticated = true;
     authMock.user = { id: 'u1', expertSlug: 'alice' };
-    authMock.hasRole = vi.fn((role) => role === 'analyst');
+    authMock.hasRole = (role: string) => role === 'analyst';
     renderWithRoutes('/protected', undefined, true);
     expect(screen.getByText('Admin Dashboard')).toBeInTheDocument();
   });
