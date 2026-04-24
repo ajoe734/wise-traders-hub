@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useExpertPerformance } from '@/hooks/usePerformance';
+import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 
 const AdminProfile = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -137,16 +138,16 @@ const AdminProfile = () => {
             <h1 className="text-2xl font-bold">個人檔案</h1>
             <p className="text-muted-foreground text-sm mt-1">編輯您的公開資訊</p>
           </div>
-          {!isReadOnly && (
+          <PermissionTooltip disabled={isReadOnly}>
             <Button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || isReadOnly}
               className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
             >
               <Save className="h-4 w-4 mr-2" />
               {saving ? '儲存中...' : '儲存變更'}
             </Button>
-          )}
+          </PermissionTooltip>
         </div>
 
         {/* Avatar */}
@@ -162,17 +163,23 @@ const AdminProfile = () => {
                 className="h-20 w-20 rounded-full object-cover border-2 border-border"
               />
               <div>
-                {!isReadOnly && (
-                  <label>
-                    <Button variant="outline" size="sm" asChild disabled={uploading}>
+                <PermissionTooltip disabled={isReadOnly}>
+                  <label className={cn(isReadOnly && 'pointer-events-none')}>
+                    <Button variant="outline" size="sm" asChild disabled={uploading || isReadOnly}>
                       <span>
                         <Upload className="h-4 w-4 mr-2" />
                         {uploading ? '上傳中...' : '更換頭像'}
                       </span>
                     </Button>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                      disabled={isReadOnly}
+                    />
                   </label>
-                )}
+                </PermissionTooltip>
                 <p className="text-xs text-muted-foreground mt-2">建議尺寸 400x400px，JPG 或 PNG</p>
               </div>
             </div>
@@ -222,25 +229,32 @@ const AdminProfile = () => {
                 {styleTags.map((tag) => (
                   <Badge key={tag} variant="secondary" className="gap-1">
                     {tag}
-                    {!isReadOnly && (
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setStyleTags(styleTags.filter(t => t !== tag))} />
-                    )}
+                    <PermissionTooltip disabled={isReadOnly}>
+                      <X
+                        className={cn(
+                          'h-3 w-3',
+                          isReadOnly ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                        )}
+                        onClick={() => !isReadOnly && setStyleTags(styleTags.filter(t => t !== tag))}
+                      />
+                    </PermissionTooltip>
                   </Badge>
                 ))}
-                {!isReadOnly && (
-                  <div className="flex gap-1">
-                    <Input
-                      value={newTag}
-                      onChange={e => setNewTag(e.target.value)}
-                      placeholder="新標籤"
-                      className="h-6 w-24 text-xs"
-                      onKeyDown={e => e.key === 'Enter' && addTag()}
-                    />
-                    <Button variant="outline" size="sm" className="h-6 text-xs" onClick={addTag}>
+                <div className="flex gap-1">
+                  <Input
+                    value={newTag}
+                    onChange={e => setNewTag(e.target.value)}
+                    placeholder="新標籤"
+                    className={cn('h-6 w-24 text-xs', isReadOnly && 'bg-muted/50 cursor-not-allowed')}
+                    onKeyDown={e => e.key === 'Enter' && !isReadOnly && addTag()}
+                    readOnly={isReadOnly}
+                  />
+                  <PermissionTooltip disabled={isReadOnly}>
+                    <Button variant="outline" size="sm" className="h-6 text-xs" onClick={addTag} disabled={isReadOnly}>
                       <Plus className="h-3 w-3" />
                     </Button>
-                  </div>
-                )}
+                  </PermissionTooltip>
+                </div>
               </div>
             </div>
             <div className="space-y-2">
@@ -249,25 +263,32 @@ const AdminProfile = () => {
                 {markets.map((market) => (
                   <Badge key={market} variant="outline" className="gap-1">
                     {market}
-                    {!isReadOnly && (
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setMarkets(markets.filter(m => m !== market))} />
-                    )}
+                    <PermissionTooltip disabled={isReadOnly}>
+                      <X
+                        className={cn(
+                          'h-3 w-3',
+                          isReadOnly ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                        )}
+                        onClick={() => !isReadOnly && setMarkets(markets.filter(m => m !== market))}
+                      />
+                    </PermissionTooltip>
                   </Badge>
                 ))}
-                {!isReadOnly && (
-                  <div className="flex gap-1">
-                    <Input
-                      value={newMarket}
-                      onChange={e => setNewMarket(e.target.value)}
-                      placeholder="新市場"
-                      className="h-6 w-24 text-xs"
-                      onKeyDown={e => e.key === 'Enter' && addMarket()}
-                    />
-                    <Button variant="outline" size="sm" className="h-6 text-xs" onClick={addMarket}>
+                <div className="flex gap-1">
+                  <Input
+                    value={newMarket}
+                    onChange={e => setNewMarket(e.target.value)}
+                    placeholder="新市場"
+                    className={cn('h-6 w-24 text-xs', isReadOnly && 'bg-muted/50 cursor-not-allowed')}
+                    onKeyDown={e => e.key === 'Enter' && !isReadOnly && addMarket()}
+                    readOnly={isReadOnly}
+                  />
+                  <PermissionTooltip disabled={isReadOnly}>
+                    <Button variant="outline" size="sm" className="h-6 text-xs" onClick={addMarket} disabled={isReadOnly}>
                       <Plus className="h-3 w-3" />
                     </Button>
-                  </div>
-                )}
+                  </PermissionTooltip>
+                </div>
               </div>
             </div>
           </CardContent>
