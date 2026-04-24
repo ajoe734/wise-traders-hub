@@ -999,7 +999,7 @@ export default function App() {
   };
 
 
-  const activeHolding = activeIndex >= 0 ? filteredSortedList[activeIndex] : null;
+  const activeHolding = activeIndex >= 0 ? sourceList[activeIndex] : null;
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
   const topColors = [C.blue, C.amber, C.lavender, C.olive, C.teal];
   const winners = H.filter(h=>h.pnl>0).sort((a,b)=>b.pct-a.pct);
