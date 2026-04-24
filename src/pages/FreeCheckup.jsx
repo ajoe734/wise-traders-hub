@@ -2102,9 +2102,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderRadius: (isExitRow || isReviewRow) ? 4 : 0,
                 marginBottom: (isExitRow || isReviewRow) ? 2 : 0,
                 borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none",
-                cursor: dec?.openEventCount > 0 ? "pointer" : "default",
+                cursor: "pointer",
                 transition:"background 0.2s ease",
-              }} onClick={() => dec?.openEventCount > 0 && setExpandedDecision(isDecisionExpanded ? null : h.code)}>
+              }} onClick={() => openHoldingDrawer(h.code)}>
+                {/* chevron 提示可點開 detail */}
+                <span style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",color:C.textMute,fontSize:14,opacity:0.5,pointerEvents:"none"}}>›</span>
                 {/* Conflict corner dot */}
                 {dec?.hasConflict && (
                   <span style={{position:"absolute",top:8,right:8,width:8,height:8,borderRadius:"50%",background:C.down,animation:"pulse 1.4s infinite"}} />
