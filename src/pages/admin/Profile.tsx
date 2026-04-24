@@ -9,15 +9,18 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Save, Upload, X, Plus, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Save, Upload, X, Plus, Eye, EyeOff, AlertTriangle, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useExpertPerformance } from '@/hooks/usePerformance';
 
 const AdminProfile = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
-  const { hasRole } = useAuth();
-  const isReadOnly = hasRole('company_admin');
+  const { user, hasRole } = useAuth();
+  const isCompanyAdmin = hasRole('company_admin');
+  const isOwner = !!user?.expertSlug && user.expertSlug === expertSlug;
+  const isReadOnly = isCompanyAdmin && !isOwner;
 
   const [expert, setExpert] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -27,6 +30,7 @@ const AdminProfile = () => {
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [description, setDescription] = useState('');
+  const [strategySummary, setStrategySummary] = useState('');
   const [styleTags, setStyleTags] = useState<string[]>([]);
   const [markets, setMarkets] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
@@ -36,6 +40,8 @@ const AdminProfile = () => {
   const [startingCapitalLocked, setStartingCapitalLocked] = useState(false);
   const [showCapitalConfirm, setShowCapitalConfirm] = useState(false);
   const [pendingCapital, setPendingCapital] = useState<number>(0);
+
+  const { data: perf } = useExpertPerformance(expert?.id);
 
   useEffect(() => { fetchExpert(); }, [expertSlug]);
 
@@ -48,6 +54,7 @@ const AdminProfile = () => {
       setName(data.name || '');
       setBio(data.bio || '');
       setDescription(data.description || '');
+      setStrategySummary((data as any).strategy_summary || '');
       setStyleTags(data.style_tags || []);
       setMarkets(data.markets || []);
       if (data.starting_capital != null) {
@@ -65,13 +72,14 @@ const AdminProfile = () => {
       name,
       bio,
       description,
+      strategy_summary: strategySummary,
       style_tags: styleTags,
       markets,
-    }).eq('id', expert.id);
+    } as any).eq('id', expert.id);
     setSaving(false);
     if (error) { toast.error('儲存失敗：' + error.message); return; }
     toast.success('已儲存');
-    setExpert({ ...expert, name, bio, description, style_tags: styleTags, markets });
+    setExpert({ ...expert, name, bio, description, strategy_summary: strategySummary, style_tags: styleTags, markets });
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,7 +272,58 @@ const AdminProfile = () => {
           </CardContent>
         </Card>
 
-        {/* Starting Capital */}
+        {/* Strategy & Backtest (KPIs are system-calculated, read-only) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              策略與回測
+              <Badge variant="outline" className="text-[10px] font-normal">
+                <Lock className="h-3 w-3 mr-1" />KPI 系統計算
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>策略摘要</Label>
+              <Textarea
+                value={strategySummary}
+                onChange={(e) => setStrategySummary(e.target.value)}
+                rows={3}
+                placeholder="一段話總結您的選股與操作邏輯，會顯示於前台 Hero 區"
+                disabled={isReadOnly}
+              />
+              <p className="text-xs text-muted-foreground">出現在前台個人頁的策略區段</p>
+            </div>
+
+            <div>
+              <Label className="mb-2 block">回測 KPI（系統依實際交易紀錄自動計算，不可手動修改）</Label>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground">1 年累積報酬</div>
+                  <div className="text-lg font-semibold tabular-nums mt-1">
+                    {perf?.return_1y != null ? `${perf.return_1y.toFixed(2)}%` : '—'}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground">最大回撤</div>
+                  <div className="text-lg font-semibold tabular-nums mt-1">
+                    {perf?.max_drawdown != null ? `${perf.max_drawdown.toFixed(2)}%` : '—'}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground">累積總報酬</div>
+                  <div className="text-lg font-semibold tabular-nums mt-1">
+                    {perf?.cumulative_return != null ? `${perf.cumulative_return.toFixed(2)}%` : '—'}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                數值會隨您發布的訊號與已平倉交易自動更新
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {!isReadOnly && (
           <Card>
             <CardHeader>
