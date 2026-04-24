@@ -1918,19 +1918,140 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           )}
 
-          {/* 排序 + 列表 */}
-          <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center"}}>
+          {/* ── 持倉資料庫 Filter Bar ── */}
+          {(() => {
+            const totalCount = H.length;
+            const filteredCount = filteredSortedList.length;
+            const chipBtn = (active, onClick, label, key) => (
+              <button key={key} onClick={onClick} style={{
+                background: active ? alpha(C.text, '12') : "transparent",
+                color: active ? C.text : C.textMute,
+                border: `1px solid ${active ? alpha(C.text,'20') : C.border}`,
+                borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 400,
+                cursor: "pointer", transition: "all 0.15s", letterSpacing: "0.02em",
+              }}>{label}</button>
+            );
+            const FilterGroup = ({label, options, set, setter}) => (
+              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400,minWidth:36}}>{label}</span>
+                {options.map(([val, l]) =>
+                  chipBtn(set.has(val), () => toggleSetItem(setter)(val), l, val)
+                )}
+              </div>
+            );
+            const decLabel = { hold:"持有", review:"檢查", exit:"出場" };
+            const thLabel  = { intact:"完整", weakening:"弱化", broken:"破裂" };
+            const urLabel  = { now:"立即", soon:"近期", monitor:"觀察" };
+            const cfLabel  = { conflict:"有衝突", no_conflict:"無衝突" };
+            const pnlLabel = { win:"獲利", loss:"虧損", flat:"平盤" };
+            const activeTags = [];
+            if (searchQ.trim()) activeTags.push({key:"q", label:`🔍 "${searchQ.trim()}"`, clear:()=>setSearchQ("")});
+            filterDecision.forEach(v => activeTags.push({key:`d-${v}`, label:`決策：${decLabel[v]||v}`, clear:()=>toggleSetItem(setFilterDecision)(v)}));
+            filterThesis.forEach(v => activeTags.push({key:`t-${v}`, label:`論點：${thLabel[v]||v}`, clear:()=>toggleSetItem(setFilterThesis)(v)}));
+            filterUrgency.forEach(v => activeTags.push({key:`u-${v}`, label:`緊急：${urLabel[v]||v}`, clear:()=>toggleSetItem(setFilterUrgency)(v)}));
+            filterConflict.forEach(v => activeTags.push({key:`c-${v}`, label:cfLabel[v]||v, clear:()=>toggleSetItem(setFilterConflict)(v)}));
+            filterPnl.forEach(v => activeTags.push({key:`p-${v}`, label:`損益：${pnlLabel[v]||v}`, clear:()=>toggleSetItem(setFilterPnl)(v)}));
+            filterStrategy.forEach(v => activeTags.push({key:`s-${v}`, label:`題材：${v}`, clear:()=>toggleSetItem(setFilterStrategy)(v)}));
+
+            return (
+              <div style={{
+                marginBottom:14, padding:"10px 12px",
+                background: alpha(C.textMute,'04'),
+                border:`1px solid ${alpha(C.textMute,'10')}`,
+                borderRadius:8, display:"flex", flexDirection:"column", gap:10,
+                position:"sticky", top:0, zIndex:5,
+              }}>
+                {/* 搜尋框 */}
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{position:"relative",flex:1}}>
+                    <input
+                      type="text" value={searchQ}
+                      onChange={e=>setSearchQ(e.target.value)}
+                      placeholder="搜尋代碼／名稱／題材／策略"
+                      style={{
+                        width:"100%", padding:"7px 28px 7px 30px",
+                        background:C.card, border:`1px solid ${C.border}`,
+                        borderRadius:6, fontSize:12, color:C.text,
+                        outline:"none", fontFamily:"inherit",
+                      }}
+                    />
+                    <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:C.textMute}}>🔍</span>
+                    {searchQ && (
+                      <button onClick={()=>setSearchQ("")} style={{
+                        position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",
+                        background:"transparent",border:"none",color:C.textMute,fontSize:14,cursor:"pointer",lineHeight:1,padding:0,
+                      }}>✕</button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Filter chips */}
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  <FilterGroup label="決策" options={[["hold","持有"],["review","檢查"],["exit","出場"]]} set={filterDecision} setter={setFilterDecision} />
+                  <FilterGroup label="論點" options={[["intact","完整"],["weakening","弱化"],["broken","破裂"]]} set={filterThesis} setter={setFilterThesis} />
+                  <FilterGroup label="緊急" options={[["now","立即"],["soon","近期"],["monitor","觀察"]]} set={filterUrgency} setter={setFilterUrgency} />
+                  <FilterGroup label="衝突" options={[["conflict","有衝突"],["no_conflict","無衝突"]]} set={filterConflict} setter={setFilterConflict} />
+                  <FilterGroup label="損益" options={[["win","獲利"],["loss","虧損"],["flat","平盤"]]} set={filterPnl} setter={setFilterPnl} />
+                  {strategyOptions.length > 0 && (
+                    <FilterGroup label="題材" options={strategyOptions.map(s=>[s,s])} set={filterStrategy} setter={setFilterStrategy} />
+                  )}
+                </div>
+
+                {/* Active tags + counter */}
+                {activeTags.length > 0 && (
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",borderTop:`1px dashed ${alpha(C.textMute,'15')}`,paddingTop:8}}>
+                    {activeTags.map(t => (
+                      <span key={t.key} style={{
+                        display:"inline-flex",alignItems:"center",gap:4,
+                        background:alpha(C.text,'08'),color:C.textSec,
+                        padding:"2px 4px 2px 8px",borderRadius:4,fontSize:11,fontWeight:400,
+                      }}>
+                        {t.label}
+                        <button onClick={t.clear} style={{background:"transparent",border:"none",color:C.textMute,cursor:"pointer",padding:"0 4px",fontSize:12,lineHeight:1}}>✕</button>
+                      </span>
+                    ))}
+                    <span style={{flex:1}} />
+                    <span style={{fontSize:11,color:C.textMute,fontWeight:400}}>
+                      已篩選 {filteredCount} / {totalCount} 檔
+                    </span>
+                    <button onClick={clearAllFilters} style={{
+                      background:"transparent",border:"none",color:C.textMute,fontSize:11,cursor:"pointer",
+                      textDecoration:"underline",fontWeight:400,
+                    }}>清除全部</button>
+                  </div>
+                )}
+                {activeTags.length === 0 && (
+                  <div style={{fontSize:11,color:C.textMute,textAlign:"right",fontWeight:400}}>
+                    共 {totalCount} 檔
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* 排序 */}
+          <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
             <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>排序</span>
-            {[["value","市值"],["pnl","損益"],["pct","報酬%"],["decision","決策"]].map(([k,l])=>(
-              <button key={k} onClick={()=>setSortBy(k)} style={{
-                background:"transparent",
-                color: sortBy===k ? C.textSec : C.textMute,
-                border:"none",
-                borderBottom: sortBy===k ? `1px solid ${C.textMute}` : "1px solid transparent",
-                borderRadius:0, padding:"3px 8px", fontSize:11, fontWeight:400, cursor:"pointer",
-                transition:"all 0.15s",
-              }}>{l}</button>
-            ))}
+            {[["value","市值"],["pnl","損益"],["pct","報酬%"],["urgency","緊急"],["confidence","信心"],["updated","更新"],["decision","決策"]].map(([k,l])=>{
+              const active = sortBy === k;
+              return (
+                <button key={k} onClick={()=>{
+                  if (active) setSortDir(d => d === "desc" ? "asc" : "desc");
+                  else { setSortBy(k); setSortDir("desc"); }
+                }} style={{
+                  background:"transparent",
+                  color: active ? C.textSec : C.textMute,
+                  border:"none",
+                  borderBottom: active ? `1px solid ${C.textMute}` : "1px solid transparent",
+                  borderRadius:0, padding:"3px 8px", fontSize:11, fontWeight:400, cursor:"pointer",
+                  transition:"all 0.15s",
+                  display:"inline-flex", alignItems:"center", gap:2,
+                }}>
+                  {l}
+                  {active && <span style={{fontSize:9,opacity:0.7}}>{sortDir === "desc" ? "↓" : "↑"}</span>}
+                </button>
+              );
+            })}
           </div>
 
           <div>
