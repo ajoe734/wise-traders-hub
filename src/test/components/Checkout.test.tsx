@@ -107,13 +107,6 @@ async function openConsentAndConfirm() {
   if (checkbox) fireEvent.click(checkbox);
   fireEvent.click(agreeBtn);
 }
-  // Tick the consent checkbox + click 同意並繼續
-  const agreeBtn = await screen.findByRole('button', { name: /同意並繼續/ });
-  // Find the checkbox inside the dialog and check it
-  const checkbox = document.querySelector('[role="checkbox"]') as HTMLElement;
-  if (checkbox) fireEvent.click(checkbox);
-  fireEvent.click(agreeBtn);
-}
 
 describe('Checkout ACpay validation', () => {
   beforeEach(() => {
