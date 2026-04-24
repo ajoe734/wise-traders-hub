@@ -735,23 +735,185 @@ export default function App() {
   }, [H, normalizedEvents, userOverrides]);
 
 
-  // Sort: decision priority first when sortBy==="decision", otherwise standard sort
-  const sorted = [...H].sort((a,b)=>{
-    if(sortBy==="decision") {
-      const da = decisionsMap[a.code];
-      const db = decisionsMap[b.code];
-      if (da && db) {
-        const sorted = sortByDecisionPriority([da, db]);
-        return sorted[0] === da ? -1 : 1;
+  // ── 持倉資料庫：篩選 + 排序 ──
+  // 動態題材選項
+  const strategyOptions = useMemo(() => {
+    const set = new Set();
+    H.forEach(h => {
+      const s = STOCK_META[h.code]?.strategy;
+      if (s) set.add(s);
+    });
+    return Array.from(set).sort();
+  }, [H]);
+
+  const URGENCY_RANK = { now: 3, soon: 2, monitor: 1 };
+  const CONF_RANK = { high: 3, medium: 2, low: 1 };
+
+  const getUpdatedAt = (h, dec) => {
+    const candidates = [];
+    if (dec?.lastUpdatedAt) candidates.push(new Date(dec.lastUpdatedAt).getTime());
+    const evts = normalizedEvents.filter(e => (e.relatedCodes || []).includes(h.code));
+    evts.forEach(e => { if (e.occurredAt) candidates.push(new Date(e.occurredAt).getTime()); });
+    if (h.priceUpdatedAt) candidates.push(new Date(h.priceUpdatedAt).getTime());
+    return candidates.length ? Math.max(...candidates) : 0;
+  };
+
+  // 過濾
+  const filteredSortedList = useMemo(() => {
+    const tokens = searchQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const matchSearch = (h) => {
+      if (!tokens.length) return true;
+      const meta = STOCK_META[h.code] || {};
+      const hay = [
+        h.code, h.name,
+        meta.strategy, meta.industry, meta.position, meta.leader,
+        ...(Array.isArray(meta.themes) ? meta.themes : []),
+      ].filter(Boolean).join(" ").toLowerCase();
+      return tokens.every(t => hay.includes(t));
+    };
+    const list = H.filter(h => {
+      if (!matchSearch(h)) return false;
+      const dec = decisionsMap[h.code];
+      if (filterDecision.size && !filterDecision.has(dec?.actionType || "hold")) return false;
+      if (filterThesis.size && !filterThesis.has(dec?.thesisState || "intact")) return false;
+      if (filterUrgency.size && !filterUrgency.has(dec?.urgency || "monitor")) return false;
+      if (filterConflict.size) {
+        const key = dec?.hasConflict ? "conflict" : "no_conflict";
+        if (!filterConflict.has(key)) return false;
       }
-      return da ? -1 : db ? 1 : 0;
-    }
-    if(sortBy==="value") return b.value-a.value;
-    if(sortBy==="pnl")   return b.pnl-a.pnl;
-    if(sortBy==="pct")   return b.pct-a.pct;
-    return 0;
-  });
+      if (filterPnl.size) {
+        const key = h.pnl > 0 ? "win" : h.pnl < 0 ? "loss" : "flat";
+        if (!filterPnl.has(key)) return false;
+      }
+      if (filterStrategy.size) {
+        const s = STOCK_META[h.code]?.strategy;
+        if (!s || !filterStrategy.has(s)) return false;
+      }
+      return true;
+    });
+
+    const dirMul = sortDir === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      if (sortBy === "decision") {
+        const da = decisionsMap[a.code];
+        const db = decisionsMap[b.code];
+        if (da && db) {
+          const sortedPair = sortByDecisionPriority([da, db]);
+          return (sortedPair[0] === da ? -1 : 1) * dirMul;
+        }
+        return ((da ? -1 : db ? 1 : 0)) * dirMul;
+      }
+      if (sortBy === "value")  return (b.value - a.value) * dirMul;
+      if (sortBy === "pnl")    return (b.pnl - a.pnl) * dirMul;
+      if (sortBy === "pct")    return (b.pct - a.pct) * dirMul;
+      if (sortBy === "urgency") {
+        const ra = URGENCY_RANK[decisionsMap[a.code]?.urgency] || 0;
+        const rb = URGENCY_RANK[decisionsMap[b.code]?.urgency] || 0;
+        return (rb - ra) * dirMul;
+      }
+      if (sortBy === "confidence") {
+        const ra = CONF_RANK[decisionsMap[a.code]?.confidence] || 0;
+        const rb = CONF_RANK[decisionsMap[b.code]?.confidence] || 0;
+        return (rb - ra) * dirMul;
+      }
+      if (sortBy === "updated") {
+        return (getUpdatedAt(b, decisionsMap[b.code]) - getUpdatedAt(a, decisionsMap[a.code])) * dirMul;
+      }
+      return 0;
+    });
+    return list;
+  }, [H, searchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents]);
+
+  const sorted = filteredSortedList; // 保留原命名相容性
   const displayed = showAll ? sorted : sorted.slice(0,12);
+
+  // ── activeCode 安全處理：filter 改變時防 undefined ──
+  const activeIndex = useMemo(
+    () => filteredSortedList.findIndex(h => h.code === activeCode),
+    [filteredSortedList, activeCode]
+  );
+  useEffect(() => {
+    if (!drawerOpen) return;
+    if (activeIndex !== -1) return;
+    if (filteredSortedList.length === 0) {
+      setDrawerOpen(false);
+      setActiveCode(null);
+    } else {
+      setActiveCode(filteredSortedList[0].code);
+    }
+  }, [drawerOpen, activeIndex, filteredSortedList]);
+
+  // 同步 drawer draft 內容
+  useEffect(() => {
+    if (!drawerOpen || !activeCode) return;
+    const ov = userOverrides[activeCode] || {};
+    setDraftNote(ov.note || "");
+    setDraftExitCue(ov.exitCue || "");
+    draftDirtyRef.current = false;
+  }, [drawerOpen, activeCode, userOverrides]);
+
+  const persistDraftIfDirty = useCallback(() => {
+    if (!draftDirtyRef.current || !activeCode) return;
+    setUserOverrides(prev => ({
+      ...prev,
+      [activeCode]: { ...(prev[activeCode] || {}), note: draftNote, exitCue: draftExitCue },
+    }));
+    draftDirtyRef.current = false;
+  }, [activeCode, draftNote, draftExitCue]);
+
+  const goPrev = useCallback(() => {
+    if (filteredSortedList.length < 2 || activeIndex < 0) return;
+    persistDraftIfDirty();
+    const next = (activeIndex - 1 + filteredSortedList.length) % filteredSortedList.length;
+    setActiveCode(filteredSortedList[next].code);
+  }, [filteredSortedList, activeIndex, persistDraftIfDirty]);
+  const goNext = useCallback(() => {
+    if (filteredSortedList.length < 2 || activeIndex < 0) return;
+    persistDraftIfDirty();
+    const next = (activeIndex + 1) % filteredSortedList.length;
+    setActiveCode(filteredSortedList[next].code);
+  }, [filteredSortedList, activeIndex, persistDraftIfDirty]);
+
+  // ── 鍵盤快捷鍵 ←/→ ──
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || "").toLowerCase();
+      if (tag === "textarea" || tag === "input") return;
+      if (e.key === "ArrowLeft")  { e.preventDefault(); goPrev(); }
+      if (e.key === "ArrowRight") { e.preventDefault(); goNext(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawerOpen, goPrev, goNext]);
+
+  // ── Drawer 開啟期間追蹤背景 scroll，關閉時還原 ──
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onScroll = () => { scrollPosRef.current = window.scrollY; };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [drawerOpen]);
+
+  const handleDrawerOpenChange = (open) => {
+    if (!open) {
+      persistDraftIfDirty();
+      setDrawerOpen(false);
+      setActiveCode(null);
+      const y = scrollPosRef.current;
+      requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" }));
+    } else {
+      setDrawerOpen(true);
+    }
+  };
+
+  const openHoldingDrawer = (code) => {
+    scrollPosRef.current = window.scrollY;
+    setActiveCode(code);
+    setDrawerOpen(true);
+  };
+
+  const activeHolding = activeIndex >= 0 ? filteredSortedList[activeIndex] : null;
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
   const topColors = [C.blue, C.amber, C.lavender, C.olive, C.teal];
   const winners = H.filter(h=>h.pnl>0).sort((a,b)=>b.pct-a.pct);
