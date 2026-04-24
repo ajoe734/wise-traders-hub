@@ -2395,37 +2395,31 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const urgencyDot = dec?.urgency === 'now' ? C.down : dec?.urgency === 'soon' ? C.amber : null;
               const isDecisionExpanded = expandedDecision === h.code;
 
-              // Phase 2.5 — 克制版：留白與排版分層，色彩只在小點
+              // 雜誌排版：無 border、無 radius、無背景塊；分層靠 spacing + 細底線
               const isExitRow = dec?.actionType === 'exit';
               const isReviewRow = dec?.actionType === 'review';
               const isAlertRow = !isExitRow && !isReviewRow && (dec?.urgency === 'now' || dec?.urgency === 'soon' || dec?.hasConflict);
-
-              // 卡片如紙張：白底、極細分隔線、無陰影、無強邊框
-              // 狀態差異只用「左側 2px 細色條」+「股名旁小色點」表達
-              const accentColor = isExitRow ? C.down : (isReviewRow || isAlertRow) ? C.amber : null;
+              const dotColor = isExitRow ? C.down : (isReviewRow || isAlertRow) ? C.amber : null;
+              const isLast = i === displayed.length - 1;
 
               return (
               <div key={h.code} style={{
                 position:"relative",
-                padding:"14px 16px 14px 14px",
-                marginBottom: 6,
-                background: C.card,
-                border: `1px solid ${alpha(C.textMute, '10')}`,
-                borderLeft: accentColor ? `2px solid ${accentColor}` : `2px solid transparent`,
-                borderRadius: 4,
+                padding:"18px 4px 18px 0",
+                borderBottom: isLast ? "none" : `1px solid ${alpha(C.textMute, '10')}`,
                 cursor: "pointer",
                 transition: "background 160ms ease",
               }}
               tabIndex={0}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = alpha(C.textMute, '04');
+                e.currentTarget.style.background = alpha(C.textMute, '03');
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = C.card;
+                e.currentTarget.style.background = "transparent";
               }}
               onFocus={(e) => {
                 e.currentTarget.style.outline = `1px solid ${alpha(C.text, '20')}`;
-                e.currentTarget.style.outlineOffset = '1px';
+                e.currentTarget.style.outlineOffset = '2px';
               }}
               onBlur={(e) => {
                 e.currentTarget.style.outline = 'none';
