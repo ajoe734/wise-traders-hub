@@ -62,6 +62,7 @@ import AdminProfile from "./pages/admin/Profile";
 import AdminPerformance from "./pages/admin/Performance";
 import AdminReasonTemplates from "./pages/admin/ReasonTemplates";
 import AdminSignalTemplates from "./pages/admin/SignalTemplates";
+import AdminAnnouncements from "./pages/admin/Announcements";
 
 // Company pages (internal backend)
 import CompanyDashboard from "./pages/company/Dashboard";
@@ -72,6 +73,7 @@ import CompanyRevenue from "./pages/company/Revenue";
 import CompanyPayments from "./pages/company/Payments";
 
 import CompanyAnnouncements from "./pages/company/Announcements";
+import CompanyAuditLogs from "./pages/company/AuditLogs";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
@@ -149,6 +151,7 @@ const App = () => (
             <Route path="/company/payments" element={<ProtectedRoute requiredRole="company_admin"><CompanyPayments /></ProtectedRoute>} />
             
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />
+            <Route path="/company/audit-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyAuditLogs /></ProtectedRoute>} />
 
             {/* Admin (expert backend) */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
@@ -158,6 +161,7 @@ const App = () => (
             <Route path="/admin/:expertSlug/performance" element={<ProtectedRoute><AdminPerformance /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/reason-templates" element={<ProtectedRoute><AdminReasonTemplates /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signal-templates" element={<ProtectedRoute><AdminSignalTemplates /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/announcements" element={<ProtectedRoute><AdminAnnouncements /></ProtectedRoute>} />
 
             {/* Legacy /me routes - redirect */}
             <Route path="/me" element={<Navigate to="/app/account" replace />} />
