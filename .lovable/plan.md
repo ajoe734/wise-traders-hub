@@ -1,122 +1,144 @@
+# 持倉看板 Phase 2.5 — 決策工作台（最終修正版）
 
-
-# 持倉資料庫（Notion 模式）— Phase 1 Plan（最終版）
+## 補丁內容
+在前一版基礎上，修正「今日優先」的全局視角問題，避免被 filter 影響。
 
 ## 範圍
-僅 `src/pages/FreeCheckup.jsx` 持股清單區塊。遵守 inline rendering 原則，不抽元件、不改 DB schema、不新 hook。
+僅 `src/pages/FreeCheckup.jsx`。在 Phase 2 卡片化基礎上，加入決策優先排序、Action Banner、視覺權重分層、hover 行為與來源 context。
 
-## 1. Filter Bar（搜尋 + 多條件篩選 + Active Tags）
+## 1. 預設排序改為「決策優先」
 
-清單上方新增 sticky filter bar，三層結構：
+`sortBy` 預設改為 `decision`，`sortByDecisionPriority` 重寫為四階優先：
 
-**第一層：搜尋框**
-- placeholder「搜尋代碼／名稱／題材／策略」，即時過濾
-- 比對來源：`code`、`name`、`STOCK_META[code].strategy`、`STOCK_META[code].theme`
-- 大小寫不敏感、空白 trim、多關鍵字以空白分隔（AND）
-- 右側顯示 ✕ 一鍵清除
-
-**第二層：Filter chips（多選）**
-| 維度 | 選項 |
-|---|---|
-| Decision | hold / review / exit |
-| Thesis | intact / weakening / broken |
-| Urgency | now / soon / monitor |
-| Conflict | 有衝突 / 無衝突 |
-| 損益 | 獲利 / 虧損 / 平盤 |
-| 題材 | 動態取自 `STOCK_META[code].strategy` 去重 |
-
-維度內 OR、維度間 AND；選中 chip 用 `alpha(C.text,'12')` 背景。
-
-**第三層：Active Filters 狀態列**（新增）
-- 當搜尋字串非空 或 任一 chip 被選中 時顯示
-- 每個 active 條件渲染為可關閉 tag：
-  - 搜尋：`🔍 "關鍵字" ✕`（點 ✕ 清空搜尋）
-  - chip：`Decision: exit ✕`（點 ✕ 取消該選項）
-- 右側顯示 `已篩選 X / Y 檔`（即時更新，搜尋與 filter 同時作用）
-- 最右側「清除全部」連結（搜尋 + chips 一起清空）
-- 全部無條件時整列隱藏，避免佔空間
-
-state 存 `useState`，本階段不持久化。
-
-## 2. 排序強化
-
-把現有 4 個排序按鈕擴成 7 個，支援 asc↔desc：
-
-`市值 / 損益 / 報酬% / urgency / confidence / 更新時間 / 決策優先`
-
-- 點同一鍵切方向，按鈕右側顯示 `↑ ↓`
-- urgency：`now=3 > soon=2 > monitor=1`
-- confidence：`high > medium > low`
-- 更新時間：`dec.lastUpdatedAt || max(events.occurredAt) || h.priceUpdatedAt`
-
-## 3. Detail Drawer + 上一檔／下一檔 + 安全處理
-
-點擊任一列開啟右側 drawer（`src/components/ui/sheet.tsx`，`side="right"`，width ~480px，米白底）：
-
-```
-┌── Sheet ────────────────────────────────────────────┐
-│ ‹ 上一檔   名稱 代碼 ( i / N )   下一檔 ›   ✕        │
-│ 數量·成本·市價·市值·損益·%                          │
-│ ───────────────────────────────────────             │
-│ 【Decision Box】 actionText / thesis / confidence / urgency
-│ 【Thesis】 進場理由（INIT_THESIS or override note）
-│ 【Events Timeline】 該檔 open + 最近 5 個 resolved
-│ 【筆記 / Exit Cue】可編輯 textarea
-│ 【目標價清單】 reuse INIT_TARGETS
-└─────────────────────────────────────────────────────┘
+```text
+priority(h) =
+  exit                                → 0
+  review                              → 1
+  hold + (urgency=now || conflict)    → 2
+  hold + urgency=soon                 → 3
+  hold + thesis=weakening             → 4
+  其他 (normal hold + intact)         → 5
 ```
 
-**狀態設計**：
-- 不儲存 holding 物件，只存 `activeCode` (string) + `drawerOpen` (boolean)
-- drawer 內容由 `filteredSortedList.find(h => h.code === activeCode)` 即時取得
+同優先級內次序：urgency(now>soon>monitor) → confidence(high>med>low) → 市值 desc。
 
-**activeCode 安全處理**（新增）：
-- 在 render 前用 `useMemo` 計算 `activeIndex = filteredSortedList.findIndex(h => h.code === activeCode)`
-- `useEffect` 監聽 `[filteredSortedList, activeCode, drawerOpen]`：
-  - 若 `drawerOpen && activeIndex === -1`（filter 把目前檔過濾掉）：
-    - 若 `filteredSortedList.length === 0` → 自動關閉 drawer
-    - 若 `> 0` → fallback 到 `filteredSortedList[0].code`，drawer 維持開啟
-- drawer 內所有讀取一律走 `filteredSortedList[activeIndex]`，並先做 null guard，杜絕 undefined render
+## 2. 視覺權重分層
 
-**上一檔／下一檔**：
-- 取目前 `activeIndex`，上一檔 `(idx - 1 + len) % len`，下一檔 `(idx + 1) % len`（環狀）
-- 列表只剩 1 檔時兩按鈕 disabled
-- 依目前篩選後、排序後的列表順序，不是原始資料
-- header 顯示 `(i / N)` 即時反映目前位置
+| 狀態 | 左 border | 背景 | 陰影 | 角標 |
+|---|---|---|---|---|
+| exit | 4px `C.down` | `alpha(C.down,'08')` | `0 1px 3px alpha(C.down,'12')` | 🔴 出場 |
+| review | 4px `C.amber` | `alpha(C.amber,'06')` | `0 1px 2px alpha(C.amber,'10')` | 🟡 檢查 |
+| hold+alert | 2px `C.amber` 60% | `alpha(C.amber,'02')` | 無 | 無 |
+| normal | 無 | 無 | 無 | 無 |
 
-**鍵盤快捷鍵**：
-- drawer 開啟時 `←` / `→` 切換（`Esc` 由 Sheet 內建關閉）
-- 切換／關閉時若有未儲存的筆記/exitCue，先呼叫 `setUserOverrides` + cloud sync
+## 3. Action Banner（具體標的 + 全局今日優先）
 
-**Drawer 關閉維持 scroll 位置**（新增）：
-- 點列開啟前先 `scrollPosRef.current = window.scrollY`
-- 為避免 Sheet 預設行為改動 `<body>` overflow 觸發跳動：drawer 開啟時不鎖 body scroll（Sheet 本身為 fixed overlay，不必鎖）
-- drawer `onOpenChange(false)` 時：先清 `activeCode`，下一個 frame 用 `requestAnimationFrame(() => window.scrollTo({ top: scrollPosRef.current, behavior: 'instant' }))` 還原
-- 若使用者在 drawer 開啟期間有滾動列表（drawer 為 overlay 不阻擋背景滾動），以最後一次 scrollY 為準（每次背景 scroll 更新 ref）
+Filter bar 上方插入 banner，兩個區塊：
 
-## 4. 列本身微調（最小幅度）
+**3a. 🎯 今日優先（全局視角，不受 filter 影響）**
 
-- 點擊整列：開 drawer 並設 `activeCode = h.code`、記錄 `scrollPosRef`
-- 第一行右側補 chevron `›`
-- 既有 exit / review border 與背景**保留不動**，Decision UI 視覺不擴充
+```text
+🎯 今日優先處理
+[#1 名稱 代碼 │ exit │ +12% ] [#2 ...] [#3 ...]
+```
 
-## 5. 不在範圍
+- 來源：`globalPriorityList`（從**未經 filter** 的 `holdings` 全量計算 priority，取前 3 檔）
+- 點擊 mini-card：`setActiveCode(code)` + `setDrawerSource({ type: 'priority-global', label: '🎯 今日優先（全局）' })` + 開 drawer
+- 即使套用 filter，這 3 張 mini-card 仍維持全局最優先 3 檔不變
 
-- Decision UI 視覺擴充（Phase 2）
-- Notion 風格 column header 表格化（Phase 3）
-- DB schema 新欄位（thesis、exitCue 仍走 `userOverrides` JSON）
-- filter / sort 狀態持久化到 cloud sync
+**3b. 分類概覽（局部 + filter 連動）**
 
-## 變更檔案
+```text
+⛔ 建議出場 2 檔  →  2330, 3443
+⚠ 需要處理 5 檔  →  2317, 1101, 2454...（顯示前 3 個 code 連結）
+⏰ 即將到期 3 檔  →  ...
+```
 
-- `src/pages/FreeCheckup.jsx`：搜尋框、filter chips、active tags 列、排序擴充、列點擊開 drawer、drawer + 上下切換 + 鍵盤 + 安全 fallback + scroll 還原（全部 inline）
+- 計數來源：`holdings` 全量（不受 filter 影響）
+- 每個 code 連結：點擊 → 開 drawer + `drawerSource = { type: 'category', key: 'exit', label: '⛔ 建議出場' }`
+- 區塊右側 `→` 按鈕：套用對應 quick filter（保留搜尋字串、清除其他 chip）
+- 三項皆 0 時顯示「✅ 持倉狀態良好，無待處理決策」
+- Mobile 改水平捲動
 
-## 驗證
+## 4. Drawer 來源 Context
 
-1. 搜尋「台積」→ 列表只剩 2330；Active tags 顯示 `🔍 "台積" ✕`，已篩選數即時更新
-2. 同時開搜尋 + `decision=exit`：active tags 同時顯示兩個 tag，點任一 ✕ 各別關閉
-3. drawer 開啟 2330 後，搜尋改成「3443」→ activeCode 不在清單，drawer 自動 fallback 或關閉，無 undefined error
-4. drawer 開啟後關閉，scroll 位置與點擊前一致（不跳頂）
-5. 鍵盤 `←` / `→` 切換正常，header `(i/N)` 同步更新
-6. 截圖 (a) filter+search+active tags bar (b) drawer 開啟含上下切換 header
+新增 state：
+- `drawerSource: { type, key?, label } | null`
+  - `type: 'priority-global'` → 來源清單為 `globalPriorityList`
+  - `type: 'category'`，`key: 'exit' | 'review' | 'upcoming'` → 來源清單為對應全量 category 子集
+  - `type: 'list'`（預設，從卡片列表點入）→ 來源清單為 `filteredSortedList`
+  - `type: 'search'`（搜尋有結果 + 從列表點入）→ 同上，但 label 顯示「（篩選結果）」
 
+`sourceList` 由 `useMemo` 依 `drawerSource.type` 推導。
+
+**Drawer header 三層**：
+
+```text
+┌──────────────────────────────────────────────────┐
+│ ‹ 返回[來源]                                  ✕  │
+│ 來自：🎯 今日優先（全局）                        │
+│ ‹ 上一檔   名稱 代碼  ( i / N )   下一檔 ›       │
+└──────────────────────────────────────────────────┘
+```
+
+- 第一行「返回[來源]」：點擊關閉 drawer，並依 source type scroll 回對應位置
+  - priority-global / category → scroll 到 Action Banner
+  - list / search → 還原 `scrollPosRef`（沿用現有邏輯）
+- 第二行 label：
+  - `🎯 今日優先（全局）`
+  - `⛔ 建議出場`、`⚠ 需要處理`、`⏰ 即將到期`
+  - `📋 持倉列表`、`📋 持倉列表（篩選結果）`
+- 第三行：上一檔／下一檔依 `sourceList` 環狀循環，`(i/N)` 為相對於 sourceList 位置
+
+## 5. activeCode 安全處理（沿用 + 擴充）
+
+`useEffect` 監聽 `[sourceList, activeCode, drawerOpen]`：
+- `drawerOpen && sourceList.findIndex(h => h.code === activeCode) === -1`：
+  - `sourceList.length === 0` → 關 drawer + 清 source
+  - `> 0` → fallback 到 `sourceList[0].code`
+
+## 6. Hover / Focus
+
+```css
+transition: transform 200ms ease, box-shadow 200ms ease;
+hover/focus: translateY(-1px) scale(1.005) + shadow（依狀態色調）
+```
+
+- exit hover shadow：`alpha(C.down,'15')`
+- review hover shadow：`alpha(C.amber,'12')`
+- 一般 hover shadow：`alpha(C.text,'08')`
+- focus 加 `outline 2px alpha(C.text,'20')`
+- mobile 不啟用 scale，保留 focus
+- 遵守 `prefers-reduced-motion: reduce`
+
+## 7. 不在範圍
+
+- buildDecision 邏輯修改
+- Drawer 內容區塊調整（Phase 2 已定）
+- 新 actionType 或 DB schema
+- filter / sort 持久化
+
+## 8. 變更檔案
+
+`src/pages/FreeCheckup.jsx`：
+- 新增 `globalPriorityList`、`exitList`、`reviewList`、`upcomingList` 四個 `useMemo`（皆從 `holdings` 全量算）
+- 新增 `drawerSource` state + `sourceList` 推導
+- `sortByDecisionPriority` 重寫四階
+- 預設 `sortBy = 'decision'`
+- 插入 Action Banner（priority + category 兩區）
+- Drawer header 改三層 + 來源 label
+- activeCode fallback 改用 `sourceList`
+- 卡片 inline style 改 hover transform + shadow
+
+## 9. 驗證
+
+1. 預設排序 exit 在最上、normal 在最下
+2. Action Banner 顯示 🎯 今日優先 3 張 mini-card + 分類概覽含具體 code 連結
+3. **套用 filter 例如 thesis=intact 後，🎯 今日優先 3 張 mini-card 仍為全局最優先 3 檔（不變）**
+4. 從 mini-card 進 drawer：header 顯示「🎯 今日優先（全局）」，左右切換僅在這 3 檔內循環
+5. 從分類「⛔ 建議出場 → 2330」進 drawer：header「⛔ 建議出場」，左右切換僅在 exit 子集內循環
+6. 從卡片列表點入：header「📋 持倉列表」或「📋 持倉列表（篩選結果）」，左右循環走 `filteredSortedList`
+7. 點 header「‹ 返回」：drawer 關閉，scroll 回 banner 或原列表位置
+8. filter 將 activeCode 過濾掉時自動 fallback 或關閉
+9. hover 卡片有上浮 + 狀態色陰影
+10. 截圖 desktop + mobile 兩種 viewport

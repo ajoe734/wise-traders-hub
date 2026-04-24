@@ -307,6 +307,7 @@ export default function App() {
   const [sortDir, setSortDir] = useState("desc");                  // asc / desc
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeCode, setActiveCode] = useState(null);
+  const [drawerSource, setDrawerSource] = useState(null); // {type:'priority-global'|'category'|'list'|'search', key?, label}
   const [draftNote, setDraftNote] = useState("");
   const [draftExitCue, setDraftExitCue] = useState("");
   const scrollPosRef = useRef(0);
@@ -758,6 +759,60 @@ export default function App() {
     return candidates.length ? Math.max(...candidates) : 0;
   };
 
+  // Phase 2.5: 決策優先度（4 階）
+  const priorityOf = useCallback((h) => {
+    const dec = decisionsMap[h.code];
+    if (!dec) return 5;
+    if (dec.actionType === 'exit') return 0;
+    if (dec.actionType === 'review') return 1;
+    if (dec.urgency === 'now' || dec.hasConflict) return 2;
+    if (dec.urgency === 'soon') return 3;
+    if (dec.thesisState === 'weakening') return 4;
+    return 5;
+  }, [decisionsMap]);
+
+  const compareByPriority = useCallback((a, b) => {
+    const pa = priorityOf(a), pb = priorityOf(b);
+    if (pa !== pb) return pa - pb;
+    const da = decisionsMap[a.code], db = decisionsMap[b.code];
+    const ua = URGENCY_RANK[da?.urgency] || 0, ub = URGENCY_RANK[db?.urgency] || 0;
+    if (ua !== ub) return ub - ua;
+    const ca = CONF_RANK[da?.confidence] || 0, cb = CONF_RANK[db?.confidence] || 0;
+    if (ca !== cb) return cb - ca;
+    return (b.value || 0) - (a.value || 0);
+  }, [priorityOf, decisionsMap]);
+
+  // 全局優先排序（不受 filter 影響）
+  const globalSortedList = useMemo(() => {
+    return [...H].sort(compareByPriority);
+  }, [H, compareByPriority]);
+
+  const globalPriorityList = useMemo(
+    () => globalSortedList.filter(h => priorityOf(h) <= 4).slice(0, 3),
+    [globalSortedList, priorityOf]
+  );
+
+  const exitList = useMemo(
+    () => globalSortedList.filter(h => decisionsMap[h.code]?.actionType === 'exit'),
+    [globalSortedList, decisionsMap]
+  );
+  const reviewList = useMemo(
+    () => globalSortedList.filter(h => {
+      const d = decisionsMap[h.code];
+      return d?.actionType === 'review' || d?.hasConflict;
+    }),
+    [globalSortedList, decisionsMap]
+  );
+  const upcomingList = useMemo(
+    () => globalSortedList.filter(h => {
+      const d = decisionsMap[h.code];
+      if (!d) return false;
+      if (d.actionType === 'exit' || d.actionType === 'review') return false;
+      return d.urgency === 'now' || d.urgency === 'soon';
+    }),
+    [globalSortedList, decisionsMap]
+  );
+
   // 過濾
   const filteredSortedList = useMemo(() => {
     const tokens = searchQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -795,13 +850,8 @@ export default function App() {
     const dirMul = sortDir === "asc" ? 1 : -1;
     list.sort((a, b) => {
       if (sortBy === "decision") {
-        const da = decisionsMap[a.code];
-        const db = decisionsMap[b.code];
-        if (da && db) {
-          const sortedPair = sortByDecisionPriority([da, db]);
-          return (sortedPair[0] === da ? -1 : 1) * dirMul;
-        }
-        return ((da ? -1 : db ? 1 : 0)) * dirMul;
+        // 決策優先（4 階）：desc=最緊急在前，asc=反向
+        return compareByPriority(a, b) * (sortDir === "asc" ? -1 : 1);
       }
       if (sortBy === "value")  return (b.value - a.value) * dirMul;
       if (sortBy === "pnl")    return (b.pnl - a.pnl) * dirMul;
@@ -822,26 +872,43 @@ export default function App() {
       return 0;
     });
     return list;
-  }, [H, searchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents]);
+  }, [H, searchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents, compareByPriority]);
 
   const sorted = filteredSortedList; // 保留原命名相容性
   const displayed = showAll ? sorted : sorted.slice(0,12);
 
-  // ── activeCode 安全處理：filter 改變時防 undefined ──
+  // ── 來源清單推導：依 drawerSource 決定 prev/next 的循環範圍 ──
+  const sourceList = useMemo(() => {
+    if (!drawerSource) return filteredSortedList;
+    if (drawerSource.type === 'priority-global') return globalPriorityList;
+    if (drawerSource.type === 'category') {
+      if (drawerSource.key === 'exit') return exitList;
+      if (drawerSource.key === 'review') return reviewList;
+      if (drawerSource.key === 'upcoming') return upcomingList;
+    }
+    return filteredSortedList;
+  }, [drawerSource, filteredSortedList, globalPriorityList, exitList, reviewList, upcomingList]);
+
+  // ── activeCode 安全處理：sourceList 改變時防 undefined ──
   const activeIndex = useMemo(
+    () => sourceList.findIndex(h => h.code === activeCode),
+    [sourceList, activeCode]
+  );
+  const activeIndexInFiltered = useMemo(
     () => filteredSortedList.findIndex(h => h.code === activeCode),
     [filteredSortedList, activeCode]
   );
   useEffect(() => {
     if (!drawerOpen) return;
     if (activeIndex !== -1) return;
-    if (filteredSortedList.length === 0) {
+    if (sourceList.length === 0) {
       setDrawerOpen(false);
       setActiveCode(null);
+      setDrawerSource(null);
     } else {
-      setActiveCode(filteredSortedList[0].code);
+      setActiveCode(sourceList[0].code);
     }
-  }, [drawerOpen, activeIndex, filteredSortedList]);
+  }, [drawerOpen, activeIndex, sourceList]);
 
   // 同步 drawer draft 內容
   useEffect(() => {
@@ -862,17 +929,17 @@ export default function App() {
   }, [activeCode, draftNote, draftExitCue]);
 
   const goPrev = useCallback(() => {
-    if (filteredSortedList.length < 2 || activeIndex < 0) return;
+    if (sourceList.length < 2 || activeIndex < 0) return;
     persistDraftIfDirty();
-    const next = (activeIndex - 1 + filteredSortedList.length) % filteredSortedList.length;
-    setActiveCode(filteredSortedList[next].code);
-  }, [filteredSortedList, activeIndex, persistDraftIfDirty]);
+    const next = (activeIndex - 1 + sourceList.length) % sourceList.length;
+    setActiveCode(sourceList[next].code);
+  }, [sourceList, activeIndex, persistDraftIfDirty]);
   const goNext = useCallback(() => {
-    if (filteredSortedList.length < 2 || activeIndex < 0) return;
+    if (sourceList.length < 2 || activeIndex < 0) return;
     persistDraftIfDirty();
-    const next = (activeIndex + 1) % filteredSortedList.length;
-    setActiveCode(filteredSortedList[next].code);
-  }, [filteredSortedList, activeIndex, persistDraftIfDirty]);
+    const next = (activeIndex + 1) % sourceList.length;
+    setActiveCode(sourceList[next].code);
+  }, [sourceList, activeIndex, persistDraftIfDirty]);
 
   // ── 鍵盤快捷鍵 ←/→ ──
   useEffect(() => {
@@ -898,22 +965,41 @@ export default function App() {
   const handleDrawerOpenChange = (open) => {
     if (!open) {
       persistDraftIfDirty();
+      const src = drawerSource;
       setDrawerOpen(false);
       setActiveCode(null);
-      const y = scrollPosRef.current;
-      requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" }));
+      setDrawerSource(null);
+      if (src && (src.type === 'priority-global' || src.type === 'category')) {
+        requestAnimationFrame(() => {
+          const el = document.getElementById('action-banner');
+          if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' });
+        });
+      } else {
+        const y = scrollPosRef.current;
+        requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" }));
+      }
     } else {
       setDrawerOpen(true);
     }
   };
 
-  const openHoldingDrawer = (code) => {
+  const openHoldingDrawer = (code, source = null) => {
     scrollPosRef.current = window.scrollY;
     setActiveCode(code);
+    if (source) {
+      setDrawerSource(source);
+    } else {
+      const hasSearch = !!searchQ.trim();
+      const hasFilter = filterDecision.size || filterThesis.size || filterUrgency.size || filterConflict.size || filterPnl.size || filterStrategy.size;
+      setDrawerSource(hasSearch || hasFilter
+        ? { type: 'search', label: '📋 持倉列表（篩選結果）' }
+        : { type: 'list', label: '📋 持倉列表' });
+    }
     setDrawerOpen(true);
   };
 
-  const activeHolding = activeIndex >= 0 ? filteredSortedList[activeIndex] : null;
+
+  const activeHolding = activeIndex >= 0 ? sourceList[activeIndex] : null;
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
   const topColors = [C.blue, C.amber, C.lavender, C.olive, C.teal];
   const winners = H.filter(h=>h.pnl>0).sort((a,b)=>b.pct-a.pct);
@@ -1918,7 +2004,210 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           )}
 
+          {/* ══════════ Phase 2.5: Action Banner（決策工作台） ══════════ */}
+          {(() => {
+            const exitCount = exitList.length;
+            const reviewCount = reviewList.length;
+            const upcomingCount = upcomingList.length;
+            const totalAction = exitCount + reviewCount + upcomingCount;
+            const showPriority = globalPriorityList.length > 0;
+
+            // 套用對應 quick filter
+            const applyQuickFilter = (key) => {
+              setFilterDecision(new Set());
+              setFilterUrgency(new Set());
+              setFilterConflict(new Set());
+              setFilterThesis(new Set());
+              setFilterPnl(new Set());
+              setFilterStrategy(new Set());
+              if (key === 'exit') setFilterDecision(new Set(['exit']));
+              else if (key === 'review') setFilterDecision(new Set(['review']));
+              else if (key === 'upcoming') setFilterUrgency(new Set(['now', 'soon']));
+              // scroll to list 區
+              requestAnimationFrame(() => {
+                const el = document.getElementById('holdings-filter-bar');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            };
+
+            const priorityBadge = (h) => {
+              const d = decisionsMap[h.code];
+              if (d?.actionType === 'exit') return { label: '出場', color: C.down };
+              if (d?.actionType === 'review') return { label: '檢查', color: C.amber };
+              if (d?.urgency === 'now') return { label: '立即', color: C.down };
+              if (d?.urgency === 'soon') return { label: '近期', color: C.amber };
+              return { label: '注意', color: C.textMute };
+            };
+
+            // 全無決策需處理
+            if (totalAction === 0 && !showPriority) {
+              return (
+                <div id="action-banner" style={{
+                  marginBottom: 14, padding: "10px 14px",
+                  background: alpha(C.up, '04'),
+                  border: `1px solid ${alpha(C.up, '15')}`,
+                  borderRadius: 8, fontSize: 12, color: C.textSec, fontWeight: 400,
+                }}>
+                  ✅ 持倉狀態良好，無待處理決策
+                </div>
+              );
+            }
+
+            return (
+              <div id="action-banner" style={{
+                marginBottom: 14,
+                display: "flex", flexDirection: "column", gap: 10,
+              }}>
+                {/* 3a. 🎯 今日優先（全局視角） */}
+                {showPriority && (
+                  <div style={{
+                    padding: "10px 12px",
+                    background: alpha(C.text, '03'),
+                    border: `1px solid ${alpha(C.text, '10')}`,
+                    borderRadius: 8,
+                  }}>
+                    <div style={{
+                      fontSize: 11, color: C.textMute, fontWeight: 500,
+                      letterSpacing: "0.06em", marginBottom: 8,
+                      display: "flex", alignItems: "center", gap: 6,
+                    }}>
+                      <span>🎯 今日優先處理</span>
+                      <span style={{fontSize: 10, fontWeight: 400, opacity: 0.7}}>（全局，不受篩選影響）</span>
+                    </div>
+                    <div style={{
+                      display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2,
+                      scrollbarWidth: "thin",
+                    }}>
+                      {globalPriorityList.map((h, idx) => {
+                        const b = priorityBadge(h);
+                        const pnlColor = h.pnl >= 0 ? C.up : C.down;
+                        return (
+                          <button
+                            key={h.code}
+                            onClick={() => openHoldingDrawer(h.code, { type: 'priority-global', label: '🎯 今日優先（全局）' })}
+                            style={{
+                              flex: "1 1 0", minWidth: 140,
+                              background: C.card,
+                              border: `1px solid ${alpha(b.color, '25')}`,
+                              borderLeft: `3px solid ${b.color}`,
+                              borderRadius: 6, padding: "8px 10px",
+                              cursor: "pointer", textAlign: "left",
+                              display: "flex", flexDirection: "column", gap: 4,
+                              transition: "transform 200ms ease, box-shadow 200ms ease",
+                              fontFamily: "inherit",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                              e.currentTarget.style.boxShadow = `0 4px 12px ${alpha(b.color, '20')}`;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = '';
+                              e.currentTarget.style.boxShadow = '';
+                            }}
+                          >
+                            <div style={{display: "flex", alignItems: "center", gap: 6}}>
+                              <span style={{fontSize: 10, color: C.textMute, fontWeight: 500}}>#{idx + 1}</span>
+                              <span style={{fontSize: 12, color: C.text, fontWeight: 500}}>{h.name}</span>
+                              <span style={{fontSize: 10, color: C.textMute}}>{h.code}</span>
+                            </div>
+                            <div style={{display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between"}}>
+                              <span style={{
+                                fontSize: 10, color: "#fff", fontWeight: 500,
+                                background: b.color, padding: "1px 6px", borderRadius: 3,
+                              }}>{b.label}</span>
+                              <span style={{fontSize: 11, fontWeight: 500, color: pnlColor}}>
+                                {h.pct >= 0 ? '+' : ''}{h.pct?.toFixed(1)}%
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3b. 分類概覽（全量計數 + 直達標的） */}
+                {totalAction > 0 && (
+                  <div style={{
+                    padding: "10px 12px",
+                    background: alpha(C.textMute, '04'),
+                    border: `1px solid ${alpha(C.textMute, '10')}`,
+                    borderRadius: 8,
+                    display: "flex", flexDirection: "column", gap: 8,
+                  }}>
+                    {[
+                      { key: 'exit', icon: '⛔', label: '建議出場', list: exitList, color: C.down },
+                      { key: 'review', icon: '⚠', label: '需要處理', list: reviewList, color: C.amber },
+                      { key: 'upcoming', icon: '⏰', label: '即將到期', list: upcomingList, color: C.amber },
+                    ].filter(row => row.list.length > 0).map(row => {
+                      const sample = row.list.slice(0, 3);
+                      const more = row.list.length - sample.length;
+                      return (
+                        <div key={row.key} style={{
+                          display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+                          fontSize: 12, color: C.textSec,
+                        }}>
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            color: row.color, fontWeight: 500, minWidth: 110,
+                          }}>
+                            <span>{row.icon}</span>
+                            <span>{row.label}</span>
+                            <span style={{color: C.textMute, fontWeight: 400}}>{row.list.length} 檔</span>
+                          </span>
+                          <span style={{color: C.textMute, fontSize: 11}}>→</span>
+                          <span style={{display: "inline-flex", flexWrap: "wrap", gap: 6, flex: 1}}>
+                            {sample.map(h => (
+                              <button
+                                key={h.code}
+                                onClick={() => openHoldingDrawer(h.code, {
+                                  type: 'category', key: row.key,
+                                  label: `${row.icon} ${row.label}`,
+                                })}
+                                style={{
+                                  background: "transparent",
+                                  border: `1px solid ${alpha(row.color, '25')}`,
+                                  borderRadius: 4, padding: "2px 8px",
+                                  fontSize: 11, color: C.text, fontWeight: 400,
+                                  cursor: "pointer", fontFamily: "inherit",
+                                  transition: "background 0.15s",
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = alpha(row.color, '08')}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              >
+                                {h.name} <span style={{color: C.textMute, fontSize: 10}}>{h.code}</span>
+                              </button>
+                            ))}
+                            {more > 0 && (
+                              <span style={{fontSize: 11, color: C.textMute, alignSelf: "center"}}>
+                                +{more}
+                              </span>
+                            )}
+                          </span>
+                          <button
+                            onClick={() => applyQuickFilter(row.key)}
+                            title="套用篩選"
+                            style={{
+                              background: "transparent",
+                              border: `1px solid ${C.border}`,
+                              borderRadius: 4, padding: "2px 8px",
+                              fontSize: 11, color: C.textMute, cursor: "pointer",
+                              fontFamily: "inherit",
+                            }}
+                          >
+                            篩選 →
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* ── 持倉資料庫 Filter Bar ── */}
+
           {(() => {
             const totalCount = H.length;
             const filteredCount = filteredSortedList.length;
@@ -1954,7 +2243,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             filterStrategy.forEach(v => activeTags.push({key:`s-${v}`, label:`題材：${v}`, clear:()=>toggleSetItem(setFilterStrategy)(v)}));
 
             return (
-              <div style={{
+              <div id="holdings-filter-bar" style={{
                 marginBottom:14, padding:"10px 12px",
                 background: alpha(C.textMute,'04'),
                 border:`1px solid ${alpha(C.textMute,'10')}`,
@@ -2075,23 +2364,35 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const urgencyDot = dec?.urgency === 'now' ? C.down : dec?.urgency === 'soon' ? C.amber : null;
               const isDecisionExpanded = expandedDecision === h.code;
 
-              // Row emphasis (kept restrained — only exit / review / urgency=now)
+              // Phase 2.5: 視覺權重 4 階分層
               const isExitRow = dec?.actionType === 'exit';
-              const isReviewRow = dec?.actionType === 'review' || dec?.urgency === 'now';
-              const isSoonRow = !isExitRow && !isReviewRow && dec?.urgency === 'soon';
+              const isReviewRow = dec?.actionType === 'review';
+              const isAlertRow = !isExitRow && !isReviewRow && (dec?.urgency === 'now' || dec?.urgency === 'soon' || dec?.hasConflict);
               const rowBorderLeft = isExitRow
-                ? `3px solid ${C.down}`
+                ? `4px solid ${C.down}`
                 : isReviewRow
-                  ? `3px solid ${C.amber}`
-                  : isSoonRow
-                    ? `3px solid ${alpha(C.amber,'40')}`
-                    : "3px solid transparent";
+                  ? `4px solid ${C.amber}`
+                  : isAlertRow
+                    ? `2px solid ${alpha(C.amber, '60')}`
+                    : "2px solid transparent";
               const rowBg = isExitRow
-                ? alpha(C.down, '06')
+                ? alpha(C.down, '08')
                 : isReviewRow
-                  ? alpha(C.amber, '05')
-                  : "transparent";
-              const rowPadLeft = (isExitRow || isReviewRow || isSoonRow) ? 10 : 0;
+                  ? alpha(C.amber, '06')
+                  : isAlertRow
+                    ? alpha(C.amber, '02')
+                    : "transparent";
+              const rowShadow = isExitRow
+                ? `0 1px 3px ${alpha(C.down, '12')}`
+                : isReviewRow
+                  ? `0 1px 2px ${alpha(C.amber, '10')}`
+                  : "none";
+              const hoverShadowColor = isExitRow
+                ? alpha(C.down, '15')
+                : isReviewRow
+                  ? alpha(C.amber, '12')
+                  : alpha(C.text, '08');
+              const rowPadLeft = (isExitRow || isReviewRow || isAlertRow) ? 10 : 2;
 
               return (
               <div key={h.code} style={{
@@ -2100,11 +2401,30 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderLeft: rowBorderLeft,
                 background: rowBg,
                 borderRadius: (isExitRow || isReviewRow) ? 4 : 0,
-                marginBottom: (isExitRow || isReviewRow) ? 2 : 0,
+                marginBottom: (isExitRow || isReviewRow) ? 4 : 0,
                 borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none",
                 cursor: "pointer",
-                transition:"background 0.2s ease",
-              }} onClick={() => openHoldingDrawer(h.code)}>
+                boxShadow: rowShadow,
+                transition: "transform 200ms ease, box-shadow 200ms ease, background 200ms ease",
+                willChange: "transform",
+              }}
+              tabIndex={0}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px) scale(1.005)';
+                e.currentTarget.style.boxShadow = `0 4px 16px ${hoverShadowColor}`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = '';
+                e.currentTarget.style.boxShadow = rowShadow;
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.outline = `2px solid ${alpha(C.text, '20')}`;
+                e.currentTarget.style.outlineOffset = '2px';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.outline = 'none';
+              }}
+              onClick={() => openHoldingDrawer(h.code)}>
                 {/* chevron 提示可點開 detail */}
                 <span style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",color:C.textMute,fontSize:14,opacity:0.5,pointerEvents:"none"}}>›</span>
                 {/* Conflict corner dot */}
@@ -3418,7 +3738,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const T = targets?.[h.code];
             const tp = T ? avgTarget(h.code) : null;
             const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
-            const total = filteredSortedList.length;
+            const total = sourceList.length;
             const evtsAll = normalizedEvents
               .filter(e => (e.relatedCodes || []).includes(h.code) && e.source !== 'demo');
             const openEvts = evtsAll.filter(isEventOpen)
@@ -3427,40 +3747,66 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               .sort((a,b) => new Date(b.occurredAt||0) - new Date(a.occurredAt||0)).slice(0, 5);
             const timeline = [...openEvts, ...resolvedEvts];
 
+            const srcLabel = drawerSource?.label || '📋 持倉列表';
+            const backText = drawerSource?.type === 'priority-global'
+              ? '返回今日優先'
+              : drawerSource?.type === 'category'
+                ? `返回${drawerSource.label?.replace(/^[^\s]+\s/, '') || '分類'}`
+                : '返回列表';
+
             return (
               <div style={{padding:"18px 20px 32px"}}>
-                {/* Header: 上一檔 / 名稱 (i/N) / 下一檔 */}
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,paddingRight:32}}>
+                {/* Phase 2.5 Drawer Header (3 layers) */}
+                <div style={{marginBottom:14, paddingRight:32}}>
+                  {/* 第一行：返回 [來源] */}
                   <button
-                    onClick={goPrev}
-                    disabled={total < 2}
-                    aria-label="上一檔"
+                    onClick={() => handleDrawerOpenChange(false)}
                     style={{
-                      background:"transparent",border:`1px solid ${C.border}`,
-                      borderRadius:6,padding:"4px 10px",fontSize:13,
-                      color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
-                      cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
+                      background:"transparent",border:"none",
+                      color:C.textMute,fontSize:11,fontWeight:400,
+                      cursor:"pointer",padding:"2px 0",
+                      display:"inline-flex",alignItems:"center",gap:4,
+                      letterSpacing:"0.04em",
                     }}
-                  >‹</button>
-                  <div style={{flex:1,textAlign:"center"}}>
-                    <div style={{fontSize:14,fontWeight:500,color:C.text,letterSpacing:"0.02em"}}>
-                      {h.name} <span style={{fontSize:11,color:C.textMute,fontWeight:400,marginLeft:4}}>{h.code}</span>
+                  >‹ {backText}</button>
+                  {/* 第二行：來源 label */}
+                  <div style={{
+                    fontSize:10,color:C.textMute,marginTop:4,marginBottom:8,
+                    letterSpacing:"0.06em",fontWeight:400,
+                  }}>來自：{srcLabel}</div>
+                  {/* 第三行：上一檔 / 名稱 (i/N) / 下一檔 */}
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <button
+                      onClick={goPrev}
+                      disabled={total < 2}
+                      aria-label="上一檔"
+                      style={{
+                        background:"transparent",border:`1px solid ${C.border}`,
+                        borderRadius:6,padding:"4px 10px",fontSize:13,
+                        color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
+                        cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
+                      }}
+                    >‹</button>
+                    <div style={{flex:1,textAlign:"center"}}>
+                      <div style={{fontSize:14,fontWeight:500,color:C.text,letterSpacing:"0.02em"}}>
+                        {h.name} <span style={{fontSize:11,color:C.textMute,fontWeight:400,marginLeft:4}}>{h.code}</span>
+                      </div>
+                      <div style={{fontSize:10,color:C.textMute,marginTop:2,letterSpacing:"0.05em"}}>
+                        {activeIndex + 1} / {total}
+                      </div>
                     </div>
-                    <div style={{fontSize:10,color:C.textMute,marginTop:2,letterSpacing:"0.05em"}}>
-                      {activeIndex + 1} / {total}
-                    </div>
+                    <button
+                      onClick={goNext}
+                      disabled={total < 2}
+                      aria-label="下一檔"
+                      style={{
+                        background:"transparent",border:`1px solid ${C.border}`,
+                        borderRadius:6,padding:"4px 10px",fontSize:13,
+                        color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
+                        cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
+                      }}
+                    >›</button>
                   </div>
-                  <button
-                    onClick={goNext}
-                    disabled={total < 2}
-                    aria-label="下一檔"
-                    style={{
-                      background:"transparent",border:`1px solid ${C.border}`,
-                      borderRadius:6,padding:"4px 10px",fontSize:13,
-                      color: total < 2 ? alpha(C.textMute,'40') : C.textSec,
-                      cursor: total < 2 ? "not-allowed" : "pointer",fontWeight:400,
-                    }}
-                  >›</button>
                 </div>
 
                 {/* 數量·成本·市價·市值·損益·% */}
