@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2, Lightbulb, Target, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2, Lightbulb, Target, AlertTriangle, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPublishingWindowOpen } from '@/lib/publishingWindow';
@@ -117,6 +117,7 @@ const AdminSignals = () => {
   const [linePushing, setLinePushing] = useState(false);
   const [linePushed, setLinePushed] = useState(false);
   const [recalling, setRecalling] = useState(false);
+  const [repushingId, setRepushingId] = useState<string | null>(null);
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
