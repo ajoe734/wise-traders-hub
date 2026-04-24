@@ -235,7 +235,7 @@ export default function App() {
   const [saved,   setSaved]     = useState("");
 
   // dashboard UI
-  const [sortBy,      setSortBy]      = useState("value");
+  const [sortBy,      setSortBy]      = useState("decision");
   const [filterType,  setFilterType]  = useState("全部");
   const [showAll,     setShowAll]     = useState(false);
   const [expandedNews, setExpandedNews] = useState(new Set());
@@ -1474,6 +1474,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         textarea::placeholder,input::placeholder{color:${C.textMute}}
         input,textarea,button{font-family:inherit;-webkit-appearance:none}
         @keyframes progress{0%{width:5%}50%{width:70%}100%{width:95%}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
         @media(max-width:480px){
           body{font-size:14px}
         }
@@ -1755,14 +1756,49 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const urgencyDot = dec?.urgency === 'now' ? C.down : dec?.urgency === 'soon' ? C.amber : null;
               const isDecisionExpanded = expandedDecision === h.code;
 
+              // Row emphasis (kept restrained — only exit / review / urgency=now)
+              const isExitRow = dec?.actionType === 'exit';
+              const isReviewRow = dec?.actionType === 'review' || dec?.urgency === 'now';
+              const isSoonRow = !isExitRow && !isReviewRow && dec?.urgency === 'soon';
+              const rowBorderLeft = isExitRow
+                ? `3px solid ${C.down}`
+                : isReviewRow
+                  ? `3px solid ${C.amber}`
+                  : isSoonRow
+                    ? `3px solid ${alpha(C.amber,'40')}`
+                    : "3px solid transparent";
+              const rowBg = isExitRow
+                ? alpha(C.down, '06')
+                : isReviewRow
+                  ? alpha(C.amber, '05')
+                  : "transparent";
+              const rowPadLeft = (isExitRow || isReviewRow || isSoonRow) ? 10 : 0;
+
               return (
               <div key={h.code} style={{
-                padding:"12px 0",
+                position:"relative",
+                padding:`12px 0 12px ${rowPadLeft}px`,
+                borderLeft: rowBorderLeft,
+                background: rowBg,
+                borderRadius: (isExitRow || isReviewRow) ? 4 : 0,
+                marginBottom: (isExitRow || isReviewRow) ? 2 : 0,
                 borderBottom: i<displayed.length-1 ? `1px solid ${alpha(C.textMute,'08')}` : "none",
                 cursor: dec?.openEventCount > 0 ? "pointer" : "default",
+                transition:"background 0.2s ease",
               }} onClick={() => dec?.openEventCount > 0 && setExpandedDecision(isDecisionExpanded ? null : h.code)}>
+                {/* Conflict corner dot */}
+                {dec?.hasConflict && (
+                  <span style={{position:"absolute",top:8,right:8,width:8,height:8,borderRadius:"50%",background:C.down,animation:"pulse 1.4s infinite"}} />
+                )}
                 {/* 第一行：名稱 + 代碼 + 核心標籤 + Decision 標籤 */}
-                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3,flexWrap:"wrap"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
+                  {/* Urgency dot — 置於股名左側 */}
+                  {dec?.urgency === 'now' && (
+                    <span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:C.down,flexShrink:0,animation:"pulse 1.4s infinite"}} />
+                  )}
+                  {dec?.urgency === 'soon' && (
+                    <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:C.amber,flexShrink:0}} />
+                  )}
                   <span style={{fontSize:13,fontWeight:400,color:C.text,letterSpacing:"0.02em"}}>{h.name}</span>
                   <span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{h.code}</span>
                   {h.type==="權證"&&badge("權證")}
@@ -1773,12 +1809,25 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {h.expire&&<span style={{fontSize:10,color:C.textMute,fontWeight:400}}>到期{h.expire}</span>}
                   {h.alert&&<span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{h.alert}</span>}
                   {isNew&&badge("新目標價")}
-                  {/* Decision v6 badges */}
-                  {urgencyDot && <span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:urgencyDot,flexShrink:0,animation:dec?.urgency==='now'?'pulse 1.5s infinite':undefined}} />}
-                  {urgencyDot && <span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:urgencyDot,flexShrink:0,animation:dec?.urgency==='now'?'pulse 1.5s infinite':undefined}} />}
-                  {thesisColor && <span style={{fontSize:9,color:thesisColor,fontWeight:400,letterSpacing:"0.04em"}}>{dec.thesisState==='broken'?'論點破裂':'論點弱化'}</span>}
-                  {actionLabel && <span style={{fontSize:9,color:actionColor,fontWeight:400,border:`1px solid ${alpha(actionColor,'30')}`,borderRadius:3,padding:"0 4px",lineHeight:"16px"}}>{actionLabel}</span>}
-                  {dec?.hasConflict && <span style={{fontSize:9,color:C.amber,fontWeight:400}}>⚠️</span>}
+                  {/* Decision badges — 高對比實心 pill */}
+                  {thesisColor && (
+                    <span style={{
+                      fontSize:11,color:"#fff",fontWeight:500,letterSpacing:"0.02em",
+                      background:thesisColor,padding:"2px 8px",borderRadius:4,lineHeight:"16px"
+                    }}>{dec.thesisState==='broken'?'論點破裂':'論點弱化'}</span>
+                  )}
+                  {actionLabel && (
+                    <span style={{
+                      fontSize:11,color:"#fff",fontWeight:500,letterSpacing:"0.02em",
+                      background:actionColor,padding:"2px 8px",borderRadius:4,lineHeight:"16px"
+                    }}>{actionLabel}</span>
+                  )}
+                  {dec?.hasConflict && (
+                    <span style={{
+                      fontSize:11,color:"#fff",fontWeight:500,
+                      background:C.down,padding:"2px 6px",borderRadius:4,lineHeight:"16px"
+                    }}>⚠ 衝突</span>
+                  )}
                   {dec?.confidence === 'low' && dec?.openEventCount > 0 && <span style={{fontSize:9,color:C.textMute,fontWeight:400}} title="低可信度">ⓘ</span>}
                 </div>
                 {/* 第二行：產業 + 策略（淡化顯示）*/}
