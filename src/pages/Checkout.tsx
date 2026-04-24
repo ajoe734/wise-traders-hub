@@ -688,7 +688,10 @@ const Checkout = () => {
                       <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
                     )}
                     <ul className="space-y-2">
-                      {getPlanFeatures(plan.plan_type).map((feature, idx) => (
+                      {(Array.isArray(plan.features) && (plan.features as any[]).filter((f: any) => typeof f === 'string' && f.trim()).length > 0
+                        ? (plan.features as string[]).filter((f) => typeof f === 'string' && f.trim())
+                        : getPlanFeatures(plan.plan_type)
+                      ).map((feature, idx) => (
                         <li key={idx} className="flex items-center gap-2 text-sm">
                           <CheckCircle className={cn(
                             "h-4 w-4",
