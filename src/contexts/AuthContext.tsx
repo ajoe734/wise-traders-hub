@@ -55,8 +55,14 @@ const AUTH_ERROR_BY_MESSAGE: Record<string, string> = {
   'New password should be different from the old password.': '新密碼不可與舊密碼相同',
 };
 
-function mapAuthError(error: AuthError | { message: string; code?: string } | null | undefined, context: 'login' | 'register'): string {
-  const fallback = context === 'login' ? '登入失敗，請稍後再試' : '註冊失敗，請稍後再試';
+function mapAuthError(error: AuthError | { message: string; code?: string } | null | undefined, context: 'login' | 'register' | 'reset' | 'update'): string {
+  const fallbackMap = {
+    login: '登入失敗，請稍後再試',
+    register: '註冊失敗，請稍後再試',
+    reset: '寄送重設信失敗，請稍後再試',
+    update: '更新密碼失敗，請稍後再試',
+  };
+  const fallback = fallbackMap[context];
   if (!error) return fallback;
 
   const code = (error as { code?: string }).code;
@@ -99,6 +105,8 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
+  requestPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -247,6 +255,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true };
   };
 
+  const requestPasswordReset = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    const trimmed = email.trim();
+    if (/@line\.local$/i.test(trimmed)) {
+      return { success: false, error: '此帳號為 LINE 登入帳號，請改用「使用 LINE 快速登入」' };
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+    if (error) {
+      return { success: false, error: mapAuthError(error, 'reset') };
+    }
+    return { success: true };
+  };
+
+  const updatePassword = async (password: string): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      return { success: false, error: mapAuthError(error, 'update') };
+    }
+    return { success: true };
+  };
+
   const logout = async () => {
     clearAuth();
     setIsLoading(true);
@@ -257,7 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!user && !isLoading;
 
   return (
-    <AuthContext.Provider value={{ user, supabaseUser, isLoading, isAuthenticated, hasRole, refreshProfile, login, register, logout }}>
+    <AuthContext.Provider value={{ user, supabaseUser, isLoading, isAuthenticated, hasRole, refreshProfile, login, register, requestPasswordReset, updatePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

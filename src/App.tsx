@@ -38,6 +38,8 @@ import {
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import LineCallback from "./pages/auth/LineCallback";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
 
 // Account pages
 import AccountProfile from "./pages/account/Profile";
@@ -125,6 +127,8 @@ const App = () => (
             <Route path="/auth/login" element={<Login />} />
             <Route path="/auth/register" element={<Register />} />
             <Route path="/auth/line-callback" element={<LineCallback />} />
+            <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+            <Route path="/auth/reset-password" element={<ResetPassword />} />
 
             {/* Account (aggregated view) */}
             <Route path="/account/subscriptions" element={<Navigate to="/app/account" replace />} />
