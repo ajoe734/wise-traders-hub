@@ -1,51 +1,74 @@
 
 
-# 修正計畫：回測 KPI 改為系統自動計算
+# 強化持倉 Decision UI 視覺權重（最終版）
 
-## 變更重點
+## 設計原則
 
-撤回原計畫中「分析師可手動編輯回測 KPI」的設計。回測數據必須由系統根據 `trade_records` 自動計算，分析師與管理員皆不可手動修改，避免數據造假。
+**高對比僅限決策狀態**，其餘維持 Kore-eda 低干擾。表格不會變成警示牆——hold 狀態完全保留現狀，只有 exit / review / conflict 三類進入高對比。
 
-## 範圍
+## 變更範圍
 
-### 1. 個人檔案頁（`src/pages/admin/Profile.tsx`）
-- 「策略與回測」卡片**只保留** `strategy_summary`（策略摘要）為可編輯欄位
-- 移除 `backtest_1y_return` / `backtest_max_drawdown` / `backtest_annual_return` 的輸入欄位
-- 改為**唯讀展示區塊**：顯示由 RPC 即時計算的數字，旁邊標註「系統依實際交易紀錄自動計算」
+僅改 `src/pages/FreeCheckup.jsx` 持股列表渲染區，無新檔、無 DB、無 hook 變更。
 
-### 2. 資料來源
-- 直接使用既有 `calculate_expert_performance(_expert_id)` RPC 回傳值：
-  - `cumulative_return` → 1 年累積報酬
-  - `max_drawdown` → 最大回撤
-  - 年化報酬：以 `cumulative_return` 與最早 `entry_date` 推算（前端純函數），或新增 RPC 回傳欄位
-- Profile 頁掛載 `usePerformance(expertId)` hook 取數
+### 1. 整列強調（克制版）
 
-### 3. 訂閱方案管理頁（不變）
-維持原計畫第 2 點 `src/pages/admin/Plans.tsx` 完整實作（名稱／價格／features／上下架）。
+| 狀態 | 左側標記 | 背景 |
+|---|---|---|
+| `actionType=exit` | 3px 實心紅左 border | `alpha(C.down,'06')` 極淡紅底 |
+| `actionType=review` 或 `urgency=now` | 3px 實心琥珀左 border | `alpha(C.amber,'05')` 極淡黃底 |
+| `urgency=soon` | 3px 琥珀色左 border (40% opacity) | 無 |
+| `hold` / 無事件 | 無 border、無背景（**完全維持現狀**） |
 
-### 4. 前台讀取自訂 features（不變）
-維持原計畫第 3 點 `ExpertProfile.tsx` 改為優先讀 DB `plan.features`。
+### 2. Action Badge — 實心高對比 pill（僅 exit / review）
 
-### 5. 公司管理員 read-only（不變）
-維持原計畫第 4 點，新增頁面對 `company_admin && !isOwner` 顯示 disabled。
+```
+exit   → 背景 C.down, 白字, fontSize 11, fontWeight 500, padding "2px 8px", radius 4
+review → 背景 C.amber, 白字, 同上
+hold   → 不顯示 badge（保持乾淨）
+```
 
-## 資料庫處理
+### 3. Thesis Badge
 
-- **不新增 schema 欄位**
-- `experts.backtest_1y_return` / `backtest_max_drawdown` / `backtest_annual_return` 三欄為「歷史殘留欄位」：
-  - **保留欄位**避免破壞現有讀取點
-  - 建立 migration **撤銷既有寫入權限**：在 `experts` UPDATE policy 加 `WITH CHECK` 阻擋這三欄變更，或新增 `BEFORE UPDATE` trigger 強制保持原值（推薦 trigger 方案，policy 不易表達單欄保護）
-  - 後續可另案規劃由排程任務同步寫入
+```
+broken    → 紅實心 pill「論點破裂」
+weakening → 琥珀實心 pill「論點弱化」
+intact    → 不顯示
+```
+
+### 4. Conflict 強提示
+
+紅底白字 pill「⚠ 衝突」+ 整列右上角 8px 紅點 `pulse` 動畫。
+
+### 5. Urgency Dot
+
+- `urgency=now` → 10px 紅實心圓 + `pulse`，置於股名左側
+- `urgency=soon` → 8px 琥珀實心圓，無動畫
+- 修掉目前 line 1777–1778 的重複渲染 bug
+
+### 6. 排序預設改為「決策」
+
+`sortBy` 初始值 `"decision"`，排序：`exit > review > hold`，同層按 `now > soon > later`。讓使用者進頁面就一眼看到關鍵決策。
+
+### 7. CSS
+
+確認 `@keyframes pulse { 0%,100% {opacity:1} 50% {opacity:0.4} }` 已註冊；缺則補上。
+
+## 驗證流程（強制）
+
+實作後立即執行：
+1. `browser--navigate_to_sandbox` → `/free-checkup`
+2. `browser--screenshot` 擷取持股列表
+3. 確認 3443 / 3017 / 2308 三檔呈現三種明顯不同視覺狀態
+4. **截圖貼回對話**（不只文字描述）
+5. 若對比不足或過度，立即微調再截圖
+
+## 記憶更新
+
+更新 `mem://style/checkup/japanese-minimalist-aesthetic`：「低干擾為預設，但 decision exit / review / conflict / urgency=now 為高對比例外」。
 
 ## 不在範圍
 
-- 公司管理員手動覆寫回測數值的後門
-- 自動排程把 RPC 結果寫回 `experts` 三欄（可後續另案）
-- 年化報酬 RPC 欄位新增（若前端純函數計算可接受則不動 RPC）
-
-## 預期成果
-
-- 分析師後台「策略與回測」區只能改文字摘要，三項 KPI 為唯讀即時計算
-- 即使透過 API 直接打 PATCH，trigger 也會擋下三欄變更
-- 改動 4 檔（Profile.tsx、ExpertProfile.tsx、AdminLayout.tsx、App.tsx）+ 新增 2 檔（Plans.tsx、migration sql）
+- 重構持股列表為獨立元件
+- 修改 decision 計算邏輯
+- 修改其他分頁視覺權重
 
