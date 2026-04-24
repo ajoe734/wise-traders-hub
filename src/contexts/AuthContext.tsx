@@ -55,8 +55,14 @@ const AUTH_ERROR_BY_MESSAGE: Record<string, string> = {
   'New password should be different from the old password.': '新密碼不可與舊密碼相同',
 };
 
-function mapAuthError(error: AuthError | { message: string; code?: string } | null | undefined, context: 'login' | 'register'): string {
-  const fallback = context === 'login' ? '登入失敗，請稍後再試' : '註冊失敗，請稍後再試';
+function mapAuthError(error: AuthError | { message: string; code?: string } | null | undefined, context: 'login' | 'register' | 'reset' | 'update'): string {
+  const fallbackMap = {
+    login: '登入失敗，請稍後再試',
+    register: '註冊失敗，請稍後再試',
+    reset: '寄送重設信失敗，請稍後再試',
+    update: '更新密碼失敗，請稍後再試',
+  };
+  const fallback = fallbackMap[context];
   if (!error) return fallback;
 
   const code = (error as { code?: string }).code;
