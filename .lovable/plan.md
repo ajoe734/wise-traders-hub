@@ -1,66 +1,59 @@
 
 
-# 補強測試覆蓋計畫
+# 補齊後台四項缺口
 
-## 目標
+## 範圍
 
-針對目前測試套件的三大缺口進行補強：(1) 前端表單驗證、(2) 純函式單元測試、(3) 關鍵 UI 元件渲染測試。
+### 1. 分析師後台 - 公告唯讀入口
+新增頁面 `src/pages/admin/Announcements.tsx`，路徑 `/admin/:expertSlug/announcements`。
+- 唯讀列出公司發布的 `announcements`（status='published'）
+- 頁首顯示「公告由公司統一發布，如需協助請聯絡管理員」說明文字
+- `AdminLayout` 側邊欄新增「系統公告」項目（Megaphone icon）
+- `App.tsx` 註冊路由
 
-## 範圍與檔案
+### 2. 分析師後台 - 訂閱者頁面 UX 提示
+修改 `src/pages/admin/Subscribers.tsx`：
+- 每列右側新增 disabled「取消訂閱」按鈕，搭配 Tooltip：「為保障訂閱者權益，僅訂閱者本人可主動取消；如需協助請聯絡公司管理員」
+- 頁首加一行 muted 說明文字，避免分析師誤以為功能缺失
 
-### 1. 前端表單驗證測試（最高優先）
+### 3. 訊號編輯重推 LINE
+修改 `src/pages/admin/Signals.tsx` 編輯流程：
+- 編輯 dialog 新增 checkbox「同步重推給 LINE 訂閱者（將標記為「已更新」）」，預設取消勾選
+- 勾選並儲存後呼叫 `supabase.functions.invoke('line-push-signal', { body: { signal_id, is_update: true } })`
+- 推送成功後 `expert_signals.line_pushed_at` 由 edge function 更新
+- 修改 `supabase/functions/line-push-signal/index.ts`：
+  - 接受 `is_update: boolean` 參數
+  - 訊息前綴改為「🔄 訊號更新通知」（原為「🔔 新訊號」）
+  - 維持既有 multicast 與訂閱者篩選邏輯（沿用 `subscriber-push-eligibility` 規範）
+  - 寫一筆 `audit_logs`：action='signal_repush', target_type='expert_signal', target_id=signal_id
 
-新增 4 個測試檔，驗證上一輪實作的 inline validation 不會回歸。
-
-| 測試檔 | 對應元件 | 涵蓋情境 |
-|--------|---------|----------|
-| `src/test/components/Login.test.tsx` | `pages/auth/Login.tsx` | 空 Email/密碼顯示紅框與錯誤文字；輸入後錯誤清除；驗證通過才呼叫 `login()` |
-| `src/test/components/Register.test.tsx` | `pages/auth/Register.tsx` | 姓名/Email/密碼 ≥8 字/密碼一致性；onChange 清除；阻擋送出 |
-| `src/test/components/Checkout.test.tsx` | `pages/Checkout.tsx` | ACpay 持卡人三欄位（英文姓名 / Email 格式 / 9-10 碼電話）驗證；按下「確認付款」時阻擋送出 |
-| `src/test/components/AppCheckout.test.tsx` | `pages/app/AppCheckout.tsx` | 同上，且驗證已不再呼叫 `alert()` |
-
-每個檔案約 4–6 個 `it()` 案例，使用既有 `renderWithProviders` 並 mock `useAuth` / `supabase.functions.invoke`。
-
-### 2. 純函式單元測試
-
-補齊 `src/lib` 中尚未測試的關鍵商業邏輯：
-
-| 測試檔 | 對應模組 | 重點 |
-|--------|---------|------|
-| `src/test/unit/1.25-leaderboard-calc.test.ts` | `lib/leaderboardCalc.ts` | 漲停王精確比對、排序、平手規則 |
-| `src/test/unit/1.26-scheduler-calc.test.ts` | `lib/schedulerCalc.ts` | 週年扣款時間推算、閏年邊界 |
-| `src/test/unit/1.27-signal-trade-logic.test.ts` | `lib/signalTradeLogic.ts` | UI→system action 對應（buy/add/trim/sell/exit）、加碼數量驗證 |
-| `src/test/unit/1.28-refund-calc.test.ts` | `lib/refundCalc.ts` | 年繳剩餘月數計算、月繳不予退費 |
-| `src/test/unit/1.29-publishing-window.test.ts` | `lib/publishingWindow.ts` | 台股交易時段（週一–五 08:00–20:00 UTC+8） |
-
-### 3. 關鍵 UI 元件渲染煙霧測試
-
-| 測試檔 | 對應元件 | 重點 |
-|--------|---------|------|
-| `src/test/components/ProtectedRoute.test.tsx` | `components/ProtectedRoute.tsx` | 未登入導向 `/auth/login`、保留 `from` state |
-| `src/test/components/RoleBadge.test.tsx` | `components/RoleBadge.tsx` | Mentor 顯示藍色、Advisor 顯示主色 |
-| `src/test/components/WeeklyLimitUpLeaderboard.test.tsx` | `components/WeeklyLimitUpLeaderboard.tsx` | 空資料 / 有資料兩種狀態 |
+### 4. 公司後台 - 審計日誌 UI
+新增頁面 `src/pages/company/AuditLogs.tsx`，路徑 `/company/audit-logs`。
+- 表格欄位：時間、操作者（join `profiles.display_name` / email）、動作、目標類型、目標 ID、詳情（JSON 收合）
+- 篩選：動作類型 dropdown（refund_executed / analyst_created / signal_repush / 其他）、日期區間、操作者搜尋
+- 分頁：每頁 50 筆，使用 `range()` 而非 1000 筆預設限制
+- `CompanyLayout` 側邊欄新增「審計日誌」（FileClock icon），位於「系統公告」之上
+- `App.tsx` 註冊路由
 
 ## 技術細節
 
-- **框架**：沿用既有 Vitest 3.x + jsdom + React Testing Library，不引入新依賴
-- **共用工具**：所有元件測試使用 `src/test/utils/renderWithProviders.tsx` 包裝 `QueryClient` + `MemoryRouter`
-- **Mock 策略**：
-  - Supabase：沿用 `src/test/mocks/supabase.ts` 的 `createMockSupabase()`
-  - `useAuth`：以 `vi.mock('@/contexts/AuthContext')` 注入假的 `login` / `user` / `hasRole`
-  - `useToast`、`useNavigate`：以 `vi.fn()` 監看呼叫，確保驗證失敗時不觸發
-- **斷言重點**：紅框 class（`border-destructive`）、錯誤文字、`login`/`invoke` 是否被呼叫
-- **CI**：既有 `.github/workflows/test.yml` 會自動納入新檔（glob `src/**/*.test.{ts,tsx}`）
+- **資料存取**：所有查詢沿用既有 RLS（`audit_logs` 已限 company_admin、`announcements` 已開放 authenticated 讀 published）
+- **UI 元件**：沿用 shadcn `Table`、`Dialog`、`Tooltip`、`Badge`、`Select`、`Pagination`，不引入新依賴
+- **Hook**：`useAuditLogs(filters, page)` 與 `useAnnouncementsReadOnly()` 用 React Query
+- **Edge Function**：僅修改 `line-push-signal`，不新增函式；維持 `verify_jwt = false`
+- **無 schema 變更**：`audit_logs`、`expert_signals.line_pushed_at` 欄位已存在，無需 migration
 
 ## 不在範圍內
 
-- E2E（Playwright/Cypress）—需另起框架，本輪不引入
-- Edge Function 真實呼叫測試—維持 mock 策略
-- `src/checkup/**` 模組—屬獨立子應用，另案處理
+- 主動取消他人訂閱的後端能力（合規限制，僅補 UX 提示）
+- 公告留言／回覆功能
+- 審計日誌匯出 CSV（如需可後續另案）
+- 訊號編輯歷史版本紀錄（僅推一次更新通知，不存 diff）
 
 ## 預期成果
 
-- 新增 12 個測試檔，約 60–80 個測試案例
-- 覆蓋率：前端表單 0% → ~90%；`src/lib` 純函式由 3 模組擴充至 8 模組
-- 表單驗證 UX 受 CI 守護，未來修改若破壞 inline 驗證會立即失敗
+- 分析師後台多 1 頁（公告）+ 訂閱者頁多 1 個提示按鈕 + 訊號編輯多 1 個推播選項
+- 公司後台多 1 頁（審計日誌），可追蹤退款／建立分析師／訊號重推等操作
+- LINE 推播覆蓋訊號更新場景，沿用既有訂閱者驗證與 multicast 邏輯
+- 改動 6 檔（5 個前端 + 1 個 edge function），新增 2 個前端檔，無 DB schema 變更
 
