@@ -1851,77 +1851,54 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
-          {/* Hero PnL Card */}
+          {/* ── Compact Hero Strip（單列高 ~64px，讓持倉卡片成為第一視覺）── */}
           {(()=>{
             const totalPnl = totalVal - totalCost;
             const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
             const isUp = totalPnl >= 0;
             const heroColor = isUp ? C.up : C.down;
             return (
-              <div style={{padding:"18px 20px",marginBottom:14,textAlign:"center"}}>
-                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:6}}>總 損 益</div>
-                <div style={{fontSize:22,fontWeight:500,color:heroColor,lineHeight:1.2,letterSpacing:"-0.01em"}}>
-                  {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
+              <div style={{
+                display:"flex", alignItems:"center", justifyContent:"space-between",
+                gap:18, padding:"14px 18px", marginBottom:14,
+                background: alpha(C.text, '03'),
+                border: `1px solid ${alpha(C.textMute, '10')}`,
+                borderRadius: 6,
+              }}>
+                {/* 左：總損益 */}
+                <div style={{display:"flex", alignItems:"baseline", gap:10, flexShrink:0}}>
+                  <span style={{
+                    fontSize:9, color:C.textMute, letterSpacing:"0.16em",
+                    fontWeight:400, textTransform:"uppercase",
+                  }}>Total P&L</span>
+                  <span style={{
+                    fontSize:24, fontWeight:400, color:heroColor,
+                    letterSpacing:"-0.01em", fontVariantNumeric:"tabular-nums", lineHeight:1,
+                  }}>
+                    {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
+                  </span>
+                  <span style={{
+                    fontSize:12, color:heroColor, opacity:0.6,
+                    fontVariantNumeric:"tabular-nums", fontWeight:400,
+                  }}>
+                    {isUp?"+":""}{totalPct.toFixed(2)}%
+                  </span>
                 </div>
-                <div style={{marginTop:6,fontSize:12,fontWeight:400,color:heroColor,opacity:0.5}}>
-                  {isUp?"+":""}{totalPct.toFixed(2)}%
+
+                {/* 右：迷你 KPI 群（成本／市值／檔數／勝負） */}
+                <div style={{
+                  display:"flex", alignItems:"baseline", gap:18,
+                  fontSize:11, color:C.textMute, fontVariantNumeric:"tabular-nums",
+                }}>
+                  <span><span style={{opacity:0.6, marginRight:4}}>成本</span>{totalCost.toLocaleString()}</span>
+                  <span><span style={{opacity:0.6, marginRight:4}}>市值</span>{totalVal.toLocaleString()}</span>
+                  <span><span style={{opacity:0.6, marginRight:4}}>持股</span>{H.length}</span>
+                  <span style={{color:C.up}}>↑{winners.length}</span>
+                  <span style={{color:C.down}}>↓{losers.length}</span>
                 </div>
               </div>
             );
           })()}
-
-          {/* 摘要 Sub-metrics */}
-          <div style={{display:"flex",justifyContent:"space-around",marginBottom:14,padding:"6px 0"}}>
-            {[["總成本",totalCost.toLocaleString()],
-              ["總市值",totalVal.toLocaleString()],
-              ["持股數",H.length+"檔"]].map(([l,v])=>(
-              <div key={l} style={{textAlign:"center"}}>
-                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>{l}</div>
-                <div style={{fontSize:13,fontWeight:400,color:C.textSec,marginTop:2}}>{v}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* top5 with conic-gradient circles */}
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:10}}>市 值 佔 比</div>
-            {top5.map((h,i)=>{
-              const pct=h.value/totalVal*100;
-              return <div key={h.code} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                <span style={{fontSize:11,color:C.textMute,fontWeight:400,width:14,textAlign:"right"}}>{i+1}</span>
-                <span style={{fontSize:12,color:C.textSec,fontWeight:400,flex:1}}>{h.name}</span>
-                <span style={{fontSize:11,fontWeight:400,color:C.textMute,width:42,textAlign:"right"}}>{pct.toFixed(1)}%</span>
-                <div style={{width:60,height:2,borderRadius:1,background:alpha(C.textMute,'08'),overflow:"hidden",flexShrink:0}}>
-                  <div style={{width:`${pct}%`,height:"100%",borderRadius:1,
-                    background:alpha(C.textMute,'30')}}/>
-                </div>
-              </div>;
-            })}
-          </div>
-
-          {/* 勝負摘要 */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-            <div>
-              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>獲 利 {winners.length}檔</div>
-              {winners.slice(0,5).map(h=>(
-                <div key={h.code} style={{display:"flex",justifyContent:"space-between",
-                  padding:"5px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                  <span style={{fontSize:11,color:C.textSec,fontWeight:400}}>{h.name}</span>
-                  <span style={{fontSize:11,fontWeight:400,color:C.up}}>+{h.pct}%</span>
-                </div>
-              ))}
-            </div>
-            <div>
-              <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400,marginBottom:8}}>虧 損 {losers.length}檔</div>
-              {losers.slice(0,5).map(h=>(
-                <div key={h.code} style={{display:"flex",justifyContent:"space-between",
-                  padding:"5px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                  <span style={{fontSize:11,color:C.textSec,fontWeight:400}}>{h.name}</span>
-                  <span style={{fontSize:11,fontWeight:400,color:C.down}}>{h.pct}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* 反轉追蹤（虧損持股） */}
           {losers.length>0 && (
