@@ -2425,69 +2425,82 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 e.currentTarget.style.outline = 'none';
               }}
               onClick={() => openHoldingDrawer(h.code)}>
-                {/* chevron 提示可點開 detail */}
-                <span style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",color:C.textMute,fontSize:14,opacity:0.5,pointerEvents:"none"}}>›</span>
-                {/* Conflict corner dot */}
-                {dec?.hasConflict && (
-                  <span style={{position:"absolute",top:8,right:8,width:8,height:8,borderRadius:"50%",background:C.down,animation:"pulse 1.4s infinite"}} />
-                )}
-                {/* 第一行：名稱 + 代碼 + 核心標籤 + Decision 標籤 */}
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
-                  {/* Urgency dot — 置於股名左側 */}
-                  {dec?.urgency === 'now' && (
-                    <span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:C.down,flexShrink:0,animation:"pulse 1.4s infinite"}} />
-                  )}
-                  {dec?.urgency === 'soon' && (
-                    <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:C.amber,flexShrink:0}} />
-                  )}
-                  <span style={{fontSize:13,fontWeight:400,color:C.text,letterSpacing:"0.02em"}}>{h.name}</span>
-                  <span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{h.code}</span>
-                  {h.type==="權證"&&badge("權證")}
-                  {h.type==="ETF"&&badge("ETF")}
-                  {meta?.period && muteTag(
-                    meta.period==="短"?"短線":meta.period==="中"?"中線":meta.period==="中長"?"中長線":meta.period==="短中"?"短中線":"長線")}
-                  {meta?.position && muteTag(meta.position)}
-                  {h.expire&&<span style={{fontSize:10,color:C.textMute,fontWeight:400}}>到期{h.expire}</span>}
-                  {h.alert&&<span style={{fontSize:10,color:C.textMute,fontWeight:400}}>{h.alert}</span>}
-                  {isNew&&badge("新目標價")}
-                  {/* Decision badges — 高對比實心 pill */}
-                  {thesisColor && (
-                    <span style={{
-                      fontSize:11,color:"#fff",fontWeight:500,letterSpacing:"0.02em",
-                      background:thesisColor,padding:"2px 8px",borderRadius:4,lineHeight:"16px"
-                    }}>{dec.thesisState==='broken'?'論點破裂':'論點弱化'}</span>
-                  )}
-                  {actionLabel && (
-                    <span style={{
-                      fontSize:11,color:"#fff",fontWeight:500,letterSpacing:"0.02em",
-                      background:actionColor,padding:"2px 8px",borderRadius:4,lineHeight:"16px"
-                    }}>{actionLabel}</span>
-                  )}
-                  {dec?.hasConflict && (
-                    <span style={{
-                      fontSize:11,color:"#fff",fontWeight:500,
-                      background:C.down,padding:"2px 6px",borderRadius:4,lineHeight:"16px"
-                    }}>⚠ 衝突</span>
-                  )}
-                  {dec?.confidence === 'low' && dec?.openEventCount > 0 && <span style={{fontSize:9,color:C.textMute,fontWeight:400}} title="低可信度">ⓘ</span>}
-                </div>
-                {/* 第二行：產業 + 策略（淡化顯示）*/}
-                {meta?.industry && (
-                  <div style={{fontSize:11,color:C.textMute,marginBottom:4,fontWeight:400}}>
-                    <span style={{color:C.textMute}}>{meta.industry}</span>
-                    {meta.strategy && <span style={{marginLeft:6,color:C.textMute}}>· {meta.strategy}</span>}
-                    {meta.leader && meta.leader!=="N/A" && <span style={{marginLeft:6,color:C.textMute}}>· {meta.leader}</span>}
+                {/* 雜誌排版：左欄資訊 + 右欄大字報酬 */}
+                <div style={{display:"flex", gap:16, alignItems:"flex-start"}}>
+                  <div style={{flex:1, minWidth:0}}>
+                    {/* 第一行：股名 + 代碼 + 細分標籤 */}
+                    <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:5,flexWrap:"wrap"}}>
+                      {dotColor && (
+                        <span style={{
+                          display:"inline-block", width:5, height:5, borderRadius:"50%",
+                          background:dotColor, transform:"translateY(-2px)", flexShrink:0,
+                        }} />
+                      )}
+                      <span style={{fontSize:15,fontWeight:400,color:C.text,letterSpacing:"0.01em"}}>{h.name}</span>
+                      <span style={{fontSize:11,color:C.textMute,fontWeight:400,fontVariantNumeric:"tabular-nums"}}>{h.code}</span>
+                      {h.type==="權證"&&badge("權證")}
+                      {h.type==="ETF"&&badge("ETF")}
+                      {meta?.period && muteTag(
+                        meta.period==="短"?"短線":meta.period==="中"?"中線":meta.period==="中長"?"中長線":meta.period==="短中"?"短中線":"長線")}
+                      {meta?.position && muteTag(meta.position)}
+                      {h.expire&&<span style={{fontSize:10,color:C.textMute,fontWeight:400}}>到期{h.expire}</span>}
+                      {isNew&&badge("新目標價")}
+                      {/* Decision label — 純文字 + underline，無實心 pill */}
+                      {actionLabel && (
+                        <span style={{
+                          fontSize:11, color:actionColor, fontWeight:400, letterSpacing:"0.04em",
+                          borderBottom:`1px solid ${alpha(actionColor, '50')}`, paddingBottom:1,
+                        }}>{actionLabel}</span>
+                      )}
+                      {thesisColor && !actionLabel && (
+                        <span style={{
+                          fontSize:11, color:thesisColor, fontWeight:400, letterSpacing:"0.04em",
+                          borderBottom:`1px solid ${alpha(thesisColor, '50')}`, paddingBottom:1,
+                        }}>{dec.thesisState==='broken'?'論點破裂':'論點弱化'}</span>
+                      )}
+                      {dec?.hasConflict && (
+                        <span style={{fontSize:11, color:C.down, fontWeight:400, letterSpacing:"0.04em"}}>衝突</span>
+                      )}
+                    </div>
+                    {/* 第二行：產業 / 策略 — 極淡 metadata */}
+                    {meta?.industry && (
+                      <div style={{fontSize:11,color:C.textMute,marginBottom:4,fontWeight:400,letterSpacing:"0.02em"}}>
+                        <span>{meta.industry}</span>
+                        {meta.strategy && <span style={{marginLeft:8}}>· {meta.strategy}</span>}
+                        {meta.leader && meta.leader!=="N/A" && <span style={{marginLeft:8}}>· {meta.leader}</span>}
+                      </div>
+                    )}
+                    {/* 第三行：數量 · 成本 · 市價 — 表格化資訊 */}
+                    <div style={{fontSize:11,color:C.textMute,fontWeight:400,fontVariantNumeric:"tabular-nums",letterSpacing:"0.02em"}}>
+                      {h.qty}{h.unit || "股"} <span style={{margin:"0 6px",opacity:0.4}}>·</span> 成本 {h.cost} <span style={{margin:"0 6px",opacity:0.4}}>·</span> 市價 {h.price?.toLocaleString()}
+                    </div>
                   </div>
-                )}
-                {/* 第三行：數量·成本·市價 / 市值·損益·報酬 */}
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                  <div style={{fontSize:12,color:C.textMute,fontWeight:400}}>
-                    {h.qty}{h.unit || "股"} · 成本{h.cost} · 市價{h.price?.toLocaleString()}
-                  </div>
-                  <div style={{display:"flex",gap:8,alignItems:"baseline",flexShrink:0,paddingLeft:8}}>
-                    <span style={{fontSize:11,fontWeight:400,color:C.textMute}}>{h.value?.toLocaleString()}</span>
-                    <span style={{fontSize:12,fontWeight:500,color:pc(h.pnl)}}>{h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}</span>
-                    <span style={{fontSize:10,fontWeight:400,color:pc(h.pct),opacity:0.7}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
+
+                  {/* 右欄：報酬作為視覺主焦點（位置 + 字級強調，最少色彩） */}
+                  <div style={{
+                    flexShrink:0, textAlign:"right",
+                    display:"flex", flexDirection:"column", gap:2,
+                    minWidth:90,
+                  }}>
+                    <div style={{
+                      fontSize:18, fontWeight:400, color:pc(h.pnl),
+                      letterSpacing:"-0.01em", lineHeight:1.1,
+                      fontVariantNumeric:"tabular-nums",
+                    }}>
+                      {h.pct>=0?"+":""}{h.pct?.toFixed(2)}<span style={{fontSize:12,opacity:0.7,marginLeft:1}}>%</span>
+                    </div>
+                    <div style={{
+                      fontSize:11, color:C.textMute, fontWeight:400,
+                      fontVariantNumeric:"tabular-nums", letterSpacing:"0.02em",
+                    }}>
+                      {h.pnl>=0?"+":""}{h.pnl?.toLocaleString()}
+                    </div>
+                    <div style={{
+                      fontSize:10, color:C.textMute, fontWeight:400, opacity:0.6,
+                      fontVariantNumeric:"tabular-nums", letterSpacing:"0.02em",
+                    }}>
+                      {h.value?.toLocaleString()}
+                    </div>
                   </div>
                 </div>
                 {/* 目標價進度條 */}
