@@ -235,7 +235,7 @@ export default function App() {
   const [saved,   setSaved]     = useState("");
 
   // dashboard UI
-  const [sortBy,      setSortBy]      = useState("value");
+  const [sortBy,      setSortBy]      = useState("decision");
   const [filterType,  setFilterType]  = useState("全部");
   const [showAll,     setShowAll]     = useState(false);
   const [expandedNews, setExpandedNews] = useState(new Set());
@@ -1474,6 +1474,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         textarea::placeholder,input::placeholder{color:${C.textMute}}
         input,textarea,button{font-family:inherit;-webkit-appearance:none}
         @keyframes progress{0%{width:5%}50%{width:70%}100%{width:95%}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
         @media(max-width:480px){
           body{font-size:14px}
         }
