@@ -134,6 +134,12 @@ const Login = () => {
                     '登入'
                   )}
                 </Button>
+
+                <div className="text-right">
+                  <Link to="/auth/forgot-password" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+                    忘記密碼？
+                  </Link>
+                </div>
               </form>
 
               <div className="relative my-6">
