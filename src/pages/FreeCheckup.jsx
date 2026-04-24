@@ -2243,7 +2243,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             filterStrategy.forEach(v => activeTags.push({key:`s-${v}`, label:`題材：${v}`, clear:()=>toggleSetItem(setFilterStrategy)(v)}));
 
             return (
-              <div style={{
+              <div id="holdings-filter-bar" style={{
                 marginBottom:14, padding:"10px 12px",
                 background: alpha(C.textMute,'04'),
                 border:`1px solid ${alpha(C.textMute,'10')}`,
