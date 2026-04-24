@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2, Lightbulb, Target, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2, Lightbulb, Target, AlertTriangle, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPublishingWindowOpen } from '@/lib/publishingWindow';
@@ -117,6 +117,7 @@ const AdminSignals = () => {
   const [linePushing, setLinePushing] = useState(false);
   const [linePushed, setLinePushed] = useState(false);
   const [recalling, setRecalling] = useState(false);
+  const [repushingId, setRepushingId] = useState<string | null>(null);
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -508,6 +509,29 @@ const AdminSignals = () => {
       toast.error('收回失敗，請重試');
     }
     setRecalling(false);
+  };
+
+  const handleRepush = async (signalId: string) => {
+    if (!expert || repushingId) return;
+    setRepushingId(signalId);
+    try {
+      const { data, error } = await supabase.functions.invoke('line-push-signal', {
+        body: { signal_id: signalId, expert_id: expert.id, is_update: true },
+      });
+      if (error) {
+        toast.error(`重推失敗：${error.message}`);
+      } else if (data?.pushed) {
+        toast.success(`已重推給 ${data.count} 位 LINE 訂閱者（標記為「已更新」）`);
+      } else if (data?.reason) {
+        toast.info(`未推播：${data.reason}`);
+      } else {
+        toast.info('未推播：無有效收件者');
+      }
+    } catch (err: any) {
+      console.error('Repush failed:', err);
+      toast.error('重推失敗，請重試');
+    }
+    setRepushingId(null);
   };
 
   const isAdvisor = expert?.role === 'advisor';
@@ -1074,6 +1098,19 @@ const AdminSignals = () => {
                                       {isExpanded ? '收起' : '展開'}
                                     </Button>
                                   )}
+                                   {!isReadOnly && isAdvisor && signal.status === 'published' && (
+                                     <Button
+                                       size="sm"
+                                       variant="ghost"
+                                       className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                                       onClick={() => handleRepush(signal.id)}
+                                       disabled={repushingId === signal.id}
+                                       title="重新推送此訊號給 LINE 訂閱者（標記為「已更新」）"
+                                     >
+                                       {repushingId === signal.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                                       重推 LINE
+                                     </Button>
+                                   )}
                                    {!isReadOnly && (
                                      <Button
                                        size="sm"

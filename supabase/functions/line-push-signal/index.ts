@@ -7,7 +7,7 @@ const corsHeaders = {
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
-function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish') {
+function buildFlexMessage(signal: any, type: 'publish' | 'takedown' | 'update' = 'publish') {
   const actionLabel: Record<string, string> = {
     buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
   }
@@ -55,14 +55,14 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
     }
   }
 
-  // Default: publish message
+  // Default: publish or update message
+  const isUpdate = type === 'update'
   const isBullish = ['buy', 'add'].includes(signal.action)
-  const color = isBullish ? '#00B900' : '#DC3545'
+  const color = isUpdate ? '#FF8C00' : (isBullish ? '#00B900' : '#DC3545')
 
   const qtyLabel = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
-  const copyLines: string[] = [
-    `【${label} ${signal.instrument}】`,
-  ]
+  const headerLine = isUpdate ? `🔄 訊號更新通知\n【${label} ${signal.instrument}】` : `【${label} ${signal.instrument}】`
+  const copyLines: string[] = [headerLine]
   if (signal.price_hint) copyLines.push(`參考價位：${signal.price_hint}${qtyLabel}`)
   if (signal.teaching_topic) copyLines.push(`\n📚 教學主題：\n${signal.teaching_topic}`)
   if (signal.overall_summary) copyLines.push(`\n📝 整體摘要：\n${signal.overall_summary}`)
@@ -72,15 +72,26 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
   if (signal.learning_points) copyLines.push(`\n🎯 教學重點：\n${signal.learning_points}`)
   const copyText = copyLines.join('\n')
 
-  const bodyContents: any[] = [
-    {
+  const bodyContents: any[] = []
+
+  if (isUpdate) {
+    bodyContents.push({
       type: 'text',
-      text: `${label} ${signal.instrument}`,
+      text: '🔄 訊號更新通知',
       weight: 'bold',
-      size: 'xl',
-      color,
-    },
-  ]
+      size: 'sm',
+      color: '#FF8C00',
+    })
+  }
+
+  bodyContents.push({
+    type: 'text',
+    text: `${label} ${signal.instrument}`,
+    weight: 'bold',
+    size: 'xl',
+    color,
+    margin: isUpdate ? 'sm' : 'none',
+  })
 
   if (signal.price_hint) {
     const qtyText = signal.quantity ? `(${signal.quantity}${signal.quantity_unit || '張'})` : ''
@@ -151,9 +162,10 @@ function buildFlexMessage(signal: any, type: 'publish' | 'takedown' = 'publish')
     paddingAll: 'lg',
   }
 
+  const altPrefix = isUpdate ? '🔄 訊號更新通知 - ' : ''
   return {
     type: 'flex',
-    altText: `${label} ${signal.instrument}${signal.price_hint ? ` @ ${signal.price_hint}` : ''}`,
+    altText: `${altPrefix}${label} ${signal.instrument}${signal.price_hint ? ` @ ${signal.price_hint}` : ''}`,
     contents: {
       type: 'bubble',
       body: { type: 'box', layout: 'vertical', contents: bodyContents },
@@ -352,9 +364,9 @@ Deno.serve(async (req) => {
     console.log('Caller:', userId)
 
     const body = await req.json()
-    const { signal_id, expert_id, type, mode, signal_data } = body
-    const pushType = type === 'takedown' ? 'takedown' : 'publish'
-    console.log('Push request:', { signal_id, expert_id, pushType, mode })
+    const { signal_id, expert_id, type, mode, signal_data, is_update } = body
+    const pushType: 'publish' | 'takedown' | 'update' = type === 'takedown' ? 'takedown' : (is_update ? 'update' : 'publish')
+    console.log('Push request:', { signal_id, expert_id, pushType, mode, is_update })
 
     if (!expert_id) {
       console.error('Missing expert_id')
@@ -477,6 +489,31 @@ Deno.serve(async (req) => {
     }
 
     console.log('Total pushed:', totalPushed)
+
+    // Audit log for repush operations (company_admin can insert; analyst owners may not)
+    if (is_update && isAdmin) {
+      try {
+        await supabaseAdmin.from('audit_logs').insert({
+          actor_id: userId,
+          action: 'signal_repush',
+          target_type: 'expert_signal',
+          target_id: signal_id,
+          detail: { expert_id, instrument: signal.instrument, action: signal.action, count: totalPushed },
+        })
+      } catch (e) {
+        console.error('audit_logs insert failed:', e)
+      }
+    } else if (is_update) {
+      // Analyst owner: log via a separate channel — we still mark line_pushed_at
+    }
+
+    // Update line_pushed_at timestamp on repush
+    if (is_update && totalPushed > 0) {
+      await supabaseAdmin.from('expert_signals')
+        .update({ line_pushed_at: new Date().toISOString() })
+        .eq('id', signal_id)
+    }
+
     return new Response(JSON.stringify({ pushed: true, count: totalPushed, subscribed: subscribedTargets.length, canceled: canceledTargets.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
