@@ -2532,13 +2532,89 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             const renderDetailPanel = () => {
               if (!selected) {
+                // 預設：顯示 Portfolio Overview，讓工作區永遠有內容
                 return (
-                  <div style={{
-                    padding:'48px 24px', textAlign:'center',
-                    color:C.textMute, fontSize:12, fontWeight:400, letterSpacing:'0.04em',
-                  }}>
-                    <div style={{fontSize:11, letterSpacing:'0.16em', marginBottom:14, opacity:0.7}}>RESEARCH NOTE</div>
-                    <div style={{lineHeight:1.8}}>選擇一檔股票<br/>查看研究筆記</div>
+                  <div style={{display:'flex',flexDirection:'column',gap:22}}>
+                    {/* 市值佔比 */}
+                    <div>
+                      <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.16em', marginBottom:10, fontWeight:400, textTransform:'uppercase'}}>
+                        Allocation
+                      </div>
+                      {top5.map((h,i)=>{
+                        const pct = totalVal > 0 ? h.value/totalVal*100 : 0;
+                        return (
+                          <button
+                            key={h.code}
+                            onClick={()=>setExpandedDecision(h.code)}
+                            style={{
+                              width:'100%', display:'flex', alignItems:'center', gap:8, padding:'5px 0',
+                              background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit',
+                              textAlign:'left',
+                            }}
+                          >
+                            <span style={{fontSize:10, color:C.textMute, fontVariantNumeric:'tabular-nums', width:14, textAlign:'right'}}>{i+1}</span>
+                            <span style={{fontSize:12, color:C.textSec, fontWeight:400, flex:1}}>{h.name}</span>
+                            <span style={{fontSize:10, color:C.textMute, fontVariantNumeric:'tabular-nums', width:42, textAlign:'right'}}>{pct.toFixed(1)}%</span>
+                            <div style={{width:50, height:2, background:alpha(C.textMute,'08'), overflow:'hidden', flexShrink:0}}>
+                              <div style={{width:`${pct}%`, height:'100%', background:alpha(C.textMute,'30')}}/>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* 勝負一覽 */}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                      <div>
+                        <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.14em', marginBottom:8, textTransform:'uppercase'}}>
+                          Winners <span style={{marginLeft:3, opacity:0.6}}>{winners.length}</span>
+                        </div>
+                        {winners.slice(0,5).map(h=>(
+                          <button
+                            key={h.code}
+                            onClick={()=>setExpandedDecision(h.code)}
+                            style={{
+                              width:'100%', display:'flex', justifyContent:'space-between',
+                              padding:'4px 0', borderBottom:`1px solid ${alpha(C.textMute,'06')}`,
+                              background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit',
+                              textAlign:'left',
+                            }}
+                          >
+                            <span style={{fontSize:11, color:C.textSec, fontWeight:400}}>{h.name}</span>
+                            <span style={{fontSize:11, color:C.up, fontVariantNumeric:'tabular-nums'}}>+{h.pct}%</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div>
+                        <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.14em', marginBottom:8, textTransform:'uppercase'}}>
+                          Losers <span style={{marginLeft:3, opacity:0.6}}>{losers.length}</span>
+                        </div>
+                        {losers.slice(0,5).map(h=>(
+                          <button
+                            key={h.code}
+                            onClick={()=>setExpandedDecision(h.code)}
+                            style={{
+                              width:'100%', display:'flex', justifyContent:'space-between',
+                              padding:'4px 0', borderBottom:`1px solid ${alpha(C.textMute,'06')}`,
+                              background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit',
+                              textAlign:'left',
+                            }}
+                          >
+                            <span style={{fontSize:11, color:C.textSec, fontWeight:400}}>{h.name}</span>
+                            <span style={{fontSize:11, color:C.down, fontVariantNumeric:'tabular-nums'}}>{h.pct}%</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 提示 */}
+                    <div style={{
+                      fontSize:11, color:C.textMute, lineHeight:1.7,
+                      paddingTop:16, borderTop:`1px solid ${alpha(C.textMute,'10')}`,
+                      letterSpacing:'0.02em',
+                    }}>
+                      點選左側任一卡片查看完整研究筆記
+                    </div>
                   </div>
                 );
               }
