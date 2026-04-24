@@ -17,8 +17,10 @@ import { useExpertPerformance } from '@/hooks/usePerformance';
 
 const AdminProfile = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
-  const { hasRole } = useAuth();
-  const isReadOnly = hasRole('company_admin');
+  const { user, hasRole } = useAuth();
+  const isCompanyAdmin = hasRole('company_admin');
+  const isOwner = !!user?.expertSlug && user.expertSlug === expertSlug;
+  const isReadOnly = isCompanyAdmin && !isOwner;
 
   const [expert, setExpert] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,7 @@ const AdminProfile = () => {
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [description, setDescription] = useState('');
+  const [strategySummary, setStrategySummary] = useState('');
   const [styleTags, setStyleTags] = useState<string[]>([]);
   const [markets, setMarkets] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
@@ -37,6 +40,8 @@ const AdminProfile = () => {
   const [startingCapitalLocked, setStartingCapitalLocked] = useState(false);
   const [showCapitalConfirm, setShowCapitalConfirm] = useState(false);
   const [pendingCapital, setPendingCapital] = useState<number>(0);
+
+  const { data: perf } = useExpertPerformance(expert?.id);
 
   useEffect(() => { fetchExpert(); }, [expertSlug]);
 
@@ -49,6 +54,7 @@ const AdminProfile = () => {
       setName(data.name || '');
       setBio(data.bio || '');
       setDescription(data.description || '');
+      setStrategySummary((data as any).strategy_summary || '');
       setStyleTags(data.style_tags || []);
       setMarkets(data.markets || []);
       if (data.starting_capital != null) {
@@ -66,13 +72,14 @@ const AdminProfile = () => {
       name,
       bio,
       description,
+      strategy_summary: strategySummary,
       style_tags: styleTags,
       markets,
-    }).eq('id', expert.id);
+    } as any).eq('id', expert.id);
     setSaving(false);
     if (error) { toast.error('儲存失敗：' + error.message); return; }
     toast.success('已儲存');
-    setExpert({ ...expert, name, bio, description, style_tags: styleTags, markets });
+    setExpert({ ...expert, name, bio, description, strategy_summary: strategySummary, style_tags: styleTags, markets });
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
