@@ -511,6 +511,29 @@ const AdminSignals = () => {
     setRecalling(false);
   };
 
+  const handleRepush = async (signalId: string) => {
+    if (!expert || repushingId) return;
+    setRepushingId(signalId);
+    try {
+      const { data, error } = await supabase.functions.invoke('line-push-signal', {
+        body: { signal_id: signalId, expert_id: expert.id, is_update: true },
+      });
+      if (error) {
+        toast.error(`重推失敗：${error.message}`);
+      } else if (data?.pushed) {
+        toast.success(`已重推給 ${data.count} 位 LINE 訂閱者（標記為「已更新」）`);
+      } else if (data?.reason) {
+        toast.info(`未推播：${data.reason}`);
+      } else {
+        toast.info('未推播：無有效收件者');
+      }
+    } catch (err: any) {
+      console.error('Repush failed:', err);
+      toast.error('重推失敗，請重試');
+    }
+    setRepushingId(null);
+  };
+
   const isAdvisor = expert?.role === 'advisor';
   const isMentor = expert?.role === 'mentor';
   const contentLabel = isMentor ? '週記' : '訊號';
