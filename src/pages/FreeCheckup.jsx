@@ -307,6 +307,7 @@ export default function App() {
   const [sortDir, setSortDir] = useState("desc");                  // asc / desc
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeCode, setActiveCode] = useState(null);
+  const [drawerSource, setDrawerSource] = useState(null); // {type:'priority-global'|'category'|'list'|'search', key?, label}
   const [draftNote, setDraftNote] = useState("");
   const [draftExitCue, setDraftExitCue] = useState("");
   const scrollPosRef = useRef(0);
