@@ -1,74 +1,92 @@
 
 
-# 強化持倉 Decision UI 視覺權重（最終版）
+# 補齊：方案審核流程 + 前台 features + 週記澄清 + 訂閱者預覽
 
-## 設計原則
+針對你提出的 4 個缺口，逐項補上。
 
-**高對比僅限決策狀態**，其餘維持 Kore-eda 低干擾。表格不會變成警示牆——hold 狀態完全保留現狀，只有 exit / review / conflict 三類進入高對比。
+## 1. 訂閱方案管理 — 加回「公司審核」流程
 
-## 變更範圍
+### Schema 變更
+重新加入 `expert_plans.review_status` 欄位（曾被移除）：
+- 型別：`review_status` enum (`draft`, `pending`, `approved`, `rejected`)
+- 預設值：`draft`
+- 加 `review_note text`、`reviewed_by uuid`、`reviewed_at timestamptz`
 
-僅改 `src/pages/FreeCheckup.jsx` 持股列表渲染區，無新檔、無 DB、無 hook 變更。
+### RLS 調整
+- **公開可見條件**改為：`is_active = true AND review_status = 'approved'`（前台只看得到審核通過的方案）
+- 分析師：可 SELECT/INSERT/UPDATE 自己的方案，但 UPDATE 時不得自行修改 `review_status`（用 trigger 強制：分析師更新會把 `review_status` 重設為 `pending`、清空審核註記）
+- 公司管理員：可改 `review_status` 與 `review_note`
 
-### 1. 整列強調（克制版）
+### 分析師後台（`Plans.tsx`）
+- 列表新增「審核狀態」欄位：`draft`(灰)/`pending`(琥珀)/`approved`(綠)/`rejected`(紅+顯示退回原因)
+- 「啟用」開關保留，但加註：「審核通過後啟用才會在前台上架」
+- 編輯儲存後 toast 提示：「方案已送審，公司審核通過後即上架」
+- 被退回的方案再次編輯送審時自動轉回 `pending`
 
-| 狀態 | 左側標記 | 背景 |
-|---|---|---|
-| `actionType=exit` | 3px 實心紅左 border | `alpha(C.down,'06')` 極淡紅底 |
-| `actionType=review` 或 `urgency=now` | 3px 實心琥珀左 border | `alpha(C.amber,'05')` 極淡黃底 |
-| `urgency=soon` | 3px 琥珀色左 border (40% opacity) | 無 |
-| `hold` / 無事件 | 無 border、無背景（**完全維持現狀**） |
+### 公司後台（新檔 `src/pages/company/PlanReview.tsx`）
+- 路徑 `/company/plan-review`，側欄新增「方案審核」項目
+- Tab：待審核 / 全部
+- 列表顯示分析師、方案名、價格、亮點、`review_status`
+- 操作：「核准」「退回（須填原因）」
+- 核准會寫 `reviewed_by = auth.uid()`、`reviewed_at = now()`、`review_status = 'approved'`
+- 退回會寫 `review_status = 'rejected'` 與 `review_note`
 
-### 2. Action Badge — 實心高對比 pill（僅 exit / review）
+## 2. 前台 features 三處統一讀 DB
+
+修改 `Checkout.tsx` 與 `PlanDetail.tsx`，套用與 `ExpertProfile.tsx` 相同的 fallback 邏輯：
 
 ```
-exit   → 背景 C.down, 白字, fontSize 11, fontWeight 500, padding "2px 8px", radius 4
-review → 背景 C.amber, 白字, 同上
-hold   → 不顯示 badge（保持乾淨）
+features 為非空字串陣列 → 顯示 DB 內容
+否則 → fallback 到 getPlanFeatures(planType) 預設清單
 ```
 
-### 3. Thesis Badge
+確保分析師在後台填寫的方案亮點，可以同步出現在「個人頁」「方案詳情頁」「結帳頁」三個前台位置。
 
-```
-broken    → 紅實心 pill「論點破裂」
-weakening → 琥珀實心 pill「論點弱化」
-intact    → 不顯示
-```
+## 3. 週記功能澄清（無程式碼變更，只改文案）
 
-### 4. Conflict 強提示
+實戰導師已可在 `/admin/:slug/signals`（側欄顯示「週記管理」）撰寫週記，發布後狀態為 `pending`，週五 20:00 由排程自動轉 `published`。會被誤解的原因是側欄項目雖有切換但不夠明顯。
 
-紅底白字 pill「⚠ 衝突」+ 整列右上角 8px 紅點 `pulse` 動畫。
+**改進**：
+- `AdminLayout.tsx` 側欄「週記管理」項目下方加一行小字提示：「週記於每週五 20:00 自動發布」
+- `admin/Dashboard.tsx` 對 mentor 角色加一張卡片「📓 撰寫本週週記」直接跳 `/admin/:slug/signals`，避免分析師找不到入口
 
-### 5. Urgency Dot
+## 4. 訂閱者預覽模式（最重要的可用性補強）
 
-- `urgency=now` → 10px 紅實心圓 + `pulse`，置於股名左側
-- `urgency=soon` → 8px 琥珀實心圓，無動畫
-- 修掉目前 line 1777–1778 的重複渲染 bug
+新增「以訂閱者視角預覽」按鈕，讓分析師/導師可即時驗證自己的方案內容、訊號／週記、個人頁如何呈現。
 
-### 6. 排序預設改為「決策」
+### 實作方式
+- `AdminLayout.tsx` 頂部側欄 Header 區塊新增「👁 訂閱者預覽」按鈕
+- 點擊後在新分頁開啟 `/expert/:slug?preview=1`
+- `ExpertProfile.tsx`、`PlanDetail.tsx`、`AppSignalDetail.tsx`、`AppJournalDetail.tsx` 偵測 `preview=1` 且 `user.expertSlug === slug`（或 `hasRole('company_admin')`）時：
+  - 略過訂閱檢查，直接顯示完整訂閱者畫面
+  - 頁面頂端顯示固定 banner：「🔍 訂閱者預覽模式 | 此畫面僅自己可見 | 退出預覽」
+  - 所有「立即訂閱／結帳」按鈕禁用，避免誤點
+- 額外提供 `/admin/:slug/preview/signals/:id`、`/admin/:slug/preview/journals/:id` 入口（從訊號列表「預覽」按鈕直接跳轉）
 
-`sortBy` 初始值 `"decision"`，排序：`exit > review > hold`，同層按 `now > soon > later`。讓使用者進頁面就一眼看到關鍵決策。
+### 安全性
+- preview 模式僅在前端顯示已 RLS 通過的資料（分析師本來就能讀自己的訊號）
+- 不繞過任何 DB 權限，僅繞過 UI 層的「需訂閱才能看」檢查
 
-### 7. CSS
+## 變更檔案清單
 
-確認 `@keyframes pulse { 0%,100% {opacity:1} 50% {opacity:0.4} }` 已註冊；缺則補上。
-
-## 驗證流程（強制）
-
-實作後立即執行：
-1. `browser--navigate_to_sandbox` → `/free-checkup`
-2. `browser--screenshot` 擷取持股列表
-3. 確認 3443 / 3017 / 2308 三檔呈現三種明顯不同視覺狀態
-4. **截圖貼回對話**（不只文字描述）
-5. 若對比不足或過度，立即微調再截圖
-
-## 記憶更新
-
-更新 `mem://style/checkup/japanese-minimalist-aesthetic`：「低干擾為預設，但 decision exit / review / conflict / urgency=now 為高對比例外」。
+| 類型 | 檔案 |
+|---|---|
+| Migration | 新增 `expert_plans.review_status` 等欄位、調整 RLS、新增分析師更新 trigger |
+| 編輯 | `src/pages/admin/Plans.tsx`（審核狀態欄、提示文案） |
+| 新增 | `src/pages/company/PlanReview.tsx`（審核頁） |
+| 編輯 | `src/components/layouts/CompanyLayout.tsx` 側欄項目（如有則改，無則用現有 layout） |
+| 編輯 | `src/App.tsx`（註冊 `/company/plan-review` 路由） |
+| 編輯 | `src/pages/Checkout.tsx`（features fallback） |
+| 編輯 | `src/pages/PlanDetail.tsx`（features fallback） |
+| 編輯 | `src/components/layouts/AdminLayout.tsx`（週記提示、訂閱者預覽按鈕） |
+| 編輯 | `src/pages/admin/Dashboard.tsx`（mentor 撰寫週記卡片） |
+| 編輯 | `src/pages/ExpertProfile.tsx`（preview=1 模式 + banner） |
+| 編輯 | `src/pages/PlanDetail.tsx`（preview=1 模式） |
+| 編輯 | `src/pages/app/SignalDetail.tsx`、`src/pages/app/JournalDetail.tsx`（preview=1 繞過訂閱檢查） |
 
 ## 不在範圍
 
-- 重構持股列表為獨立元件
-- 修改 decision 計算邏輯
-- 修改其他分頁視覺權重
+- 重新設計訊號／週記發布流程
+- 方案實體刪除（仍只允許停用）
+- 預覽模式下的 LINE 推播模擬（推播本身已可發送）
 
