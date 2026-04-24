@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { AlertTriangle, BookOpen, Lightbulb, Shield, Target, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, BookOpen, Lightbulb, Shield, Target, ArrowLeft, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -55,8 +56,14 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
 const SignalDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user, hasRole } = useAuth();
   const [signal, setSignal] = useState<DbSignal | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const isPreview = searchParams.get('preview') === '1' && (
+    (signal?.experts?.slug && user?.expertSlug === signal.experts.slug) || hasRole('company_admin')
+  );
 
   useEffect(() => {
     markAppSignalsAsRead();
@@ -89,6 +96,15 @@ const SignalDetail = () => {
 
   return (
     <UnifiedAppLayout>
+      {isPreview && (
+        <div className="sticky top-0 z-50 bg-amber-500 text-amber-50 px-4 py-2 text-sm flex items-center justify-center gap-2 shadow">
+          <Eye className="h-4 w-4" />
+          <span className="font-medium">🔍 訂閱者預覽模式</span>
+          <Button size="sm" variant="outline" className="ml-2 h-7 bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100" onClick={() => window.close()}>
+            退出預覽
+          </Button>
+        </div>
+      )}
       <div className="p-4 space-y-4">
         {/* Back button */}
         <Button

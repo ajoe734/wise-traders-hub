@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, Radio, TrendingUp, DollarSign } from 'lucide-react';
+import { Users, Radio, TrendingUp, DollarSign, BookOpen, ArrowRight } from 'lucide-react';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 
 const actionLabels: Record<string, { label: string; className: string }> = {
@@ -232,6 +233,28 @@ const AdminDashboard = () => {
             </Card>
           ))}
         </div>
+        {!isAdvisor && (
+          <Card className="border-mentor/30 bg-mentor/5">
+            <CardContent className="p-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-mentor/15 flex items-center justify-center shrink-0">
+                  <BookOpen className="h-5 w-5 text-mentor" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">📓 撰寫本週週記</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    週記儲存後狀態為「待發布」，週五 20:00 由系統自動上線
+                  </p>
+                </div>
+              </div>
+              <Button asChild size="sm" className="bg-mentor hover:bg-mentor/90 shrink-0">
+                <Link to={`/admin/${expertSlug}/signals`}>
+                  前往撰寫<ArrowRight className="h-4 w-4 ml-1" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
 
         <Card>
