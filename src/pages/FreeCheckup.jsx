@@ -2712,15 +2712,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             return (
               <div style={{
                 display:'grid',
-                gridTemplateColumns:'minmax(0, 1fr) minmax(0, 320px)',
-                gap:24,
+                gridTemplateColumns:'minmax(0, 1fr) minmax(0, 360px)',
+                gap:20,
                 alignItems:'flex-start',
               }} className="holdings-workbench">
                 {/* 左：卡片牆（3 欄穩定 grid，ink 卡 span 2） */}
                 <div style={{
                   display:'grid',
                   gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
-                  gap:12,
+                  gap:14,
                 }} className="holdings-card-grid">
                   {displayed.map(h => renderCard(h))}
                   {!showAll && sorted.length > 12 && (
@@ -2741,20 +2741,37 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   )}
                 </div>
 
-                {/* 右：Detail Panel（桌面 sticky） */}
+                {/* 右：Detail Panel — 工作區（桌面 sticky，深色框 + 強分隔） */}
                 <aside
                   className="holdings-detail-panel"
                   style={{
                     position:'sticky', top:12,
-                    background:alpha(C.text,'02'),
-                    border:`1px solid ${alpha(C.textMute,'10')}`,
-                    borderRadius:12,
-                    padding:'20px 18px',
+                    background:'#FFFFFF',
+                    border:`1px solid ${alpha(C.text,'14')}`,
+                    borderTop:`2px solid ${C.text}`,
+                    borderRadius:6,
                     maxHeight:'calc(100vh - 24px)',
                     overflowY:'auto',
+                    boxShadow: `0 1px 0 ${alpha(C.text,'04')}`,
                   }}
                 >
-                  {renderDetailPanel()}
+                  {/* 工作區標頭（永遠顯示，建立空間感） */}
+                  <div style={{
+                    padding:'12px 18px', borderBottom:`1px solid ${alpha(C.textMute,'12')}`,
+                    display:'flex', alignItems:'baseline', justifyContent:'space-between',
+                    background: alpha(C.text,'02'),
+                  }}>
+                    <span style={{
+                      fontSize:10, color:C.text, fontWeight:500, letterSpacing:'0.18em',
+                      textTransform:'uppercase',
+                    }}>Workspace</span>
+                    <span style={{fontSize:10, color:C.textMute, letterSpacing:'0.04em'}}>
+                      {selected ? `${selected.code} · ${selected.name}` : '未選擇'}
+                    </span>
+                  </div>
+                  <div style={{padding:'18px 18px 22px'}}>
+                    {renderDetailPanel()}
+                  </div>
                 </aside>
               </div>
             );
@@ -2763,11 +2780,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {/* RWD：mid 折成 2 欄、行動端 1 欄並隱藏 detail panel */}
           <style>{`
             @media (max-width: 1279px) {
+              .holdings-workbench { grid-template-columns: minmax(0, 1fr) minmax(0, 320px) !important; }
               .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
             }
             @media (max-width: 1023px) {
               .holdings-workbench { grid-template-columns: 1fr !important; }
               .holdings-detail-panel { display: none !important; }
+              .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            }
+            @media (max-width: 640px) {
               .holdings-card-grid { grid-template-columns: 1fr !important; }
             }
           `}</style>
