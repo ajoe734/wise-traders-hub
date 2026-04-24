@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Plus, Pencil, X, Loader2, Sparkles, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 
 type PlanType = 'analyst_signal_l1' | 'analyst_signal_diag_l2' | 'mentor_weekly_journal';
 
@@ -241,14 +242,15 @@ const AdminPlans = () => {
               管理前台展示的訂閱方案、定價與亮點
             </p>
           </div>
-          {!isReadOnly && (
+          <PermissionTooltip disabled={isReadOnly}>
             <Button
               onClick={openCreate}
+              disabled={isReadOnly}
               className={cn(isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90')}
             >
               <Plus className="h-4 w-4 mr-2" />新增方案
             </Button>
-          )}
+          </PermissionTooltip>
         </div>
 
         <Card>
@@ -307,18 +309,25 @@ const AdminPlans = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-center">
-                          <Switch
-                            checked={p.is_active}
-                            onCheckedChange={() => !isReadOnly && toggleActive(p)}
-                            disabled={isReadOnly}
-                          />
+                          <PermissionTooltip disabled={isReadOnly}>
+                            <Switch
+                              checked={p.is_active}
+                              onCheckedChange={() => !isReadOnly && toggleActive(p)}
+                              disabled={isReadOnly}
+                            />
+                          </PermissionTooltip>
                         </TableCell>
                         <TableCell className="text-right">
-                          {!isReadOnly && (
-                            <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
+                          <PermissionTooltip disabled={isReadOnly}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(p)}
+                              disabled={isReadOnly}
+                            >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                          )}
+                          </PermissionTooltip>
                         </TableCell>
                       </TableRow>
                     );
@@ -346,9 +355,20 @@ const AdminPlans = () => {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {isReadOnly && (
+              <div className="rounded-md border border-muted-foreground/20 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                您目前以唯讀模式檢視此方案內容。僅限方案擁有者或公司管理員可編輯。
+              </div>
+            )}
             <div className="space-y-2">
               <Label>方案名稱</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例：即時訊號通知" />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="例：即時訊號通知"
+                readOnly={isReadOnly}
+                className={cn(isReadOnly && 'bg-muted/50 cursor-not-allowed')}
+              />
             </div>
 
             <div className="space-y-2">
@@ -358,14 +378,18 @@ const AdminPlans = () => {
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
                 placeholder="一句話說明此方案的價值"
+                readOnly={isReadOnly}
+                className={cn(isReadOnly && 'bg-muted/50 cursor-not-allowed')}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>方案類型</Label>
-                <Select value={planType} onValueChange={(v) => setPlanType(v as PlanType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select value={planType} onValueChange={(v) => setPlanType(v as PlanType)} disabled={isReadOnly}>
+                  <SelectTrigger className={cn(isReadOnly && 'bg-muted/50 cursor-not-allowed')}>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {allowedTypes.map((t) => (
                       <SelectItem key={t} value={t}>{PLAN_TYPE_LABEL[t]}</SelectItem>
@@ -376,7 +400,7 @@ const AdminPlans = () => {
               <div className="space-y-2">
                 <Label>啟用狀態</Label>
                 <div className="flex items-center h-9 gap-2">
-                  <Switch checked={isActive} onCheckedChange={setIsActive} />
+                  <Switch checked={isActive} onCheckedChange={setIsActive} disabled={isReadOnly} />
                   <span className="text-sm text-muted-foreground">
                     {isActive ? '前台可見' : '前台隱藏'}
                   </span>
@@ -393,6 +417,8 @@ const AdminPlans = () => {
                   value={priceMonthly}
                   onChange={(e) => setPriceMonthly(e.target.value)}
                   placeholder="例：1980"
+                  readOnly={isReadOnly}
+                  className={cn(isReadOnly && 'bg-muted/50 cursor-not-allowed')}
                 />
               </div>
               <div className="space-y-2">
@@ -403,6 +429,8 @@ const AdminPlans = () => {
                   value={priceYearly}
                   onChange={(e) => setPriceYearly(e.target.value)}
                   placeholder="≥ 月費 × 6"
+                  readOnly={isReadOnly}
+                  className={cn(isReadOnly && 'bg-muted/50 cursor-not-allowed')}
                 />
               </div>
             </div>
@@ -415,26 +443,33 @@ const AdminPlans = () => {
                 {features.map((f, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <div className="flex-1 px-3 py-2 rounded-md border bg-muted/30 text-sm">{f}</div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setFeatures(features.filter((_, idx) => idx !== i))}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <PermissionTooltip disabled={isReadOnly}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={isReadOnly}
+                        onClick={() => setFeatures(features.filter((_, idx) => idx !== i))}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </PermissionTooltip>
                   </div>
                 ))}
                 <div className="flex gap-2">
                   <Input
                     value={newFeature}
                     onChange={(e) => setNewFeature(e.target.value)}
-                    placeholder="例：即時訊號推播通知"
+                    placeholder="例:即時訊號推播通知"
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
+                    readOnly={isReadOnly}
+                    className={cn(isReadOnly && 'bg-muted/50 cursor-not-allowed')}
                   />
-                  <Button type="button" variant="outline" onClick={addFeature}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                  <PermissionTooltip disabled={isReadOnly}>
+                    <Button type="button" variant="outline" onClick={addFeature} disabled={isReadOnly}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </PermissionTooltip>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   留空時前台顯示系統預設亮點清單
@@ -444,10 +479,14 @@ const AdminPlans = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>取消</Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? '儲存中...' : (editingPlan ? '更新' : '建立')}
+            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
+              {isReadOnly ? '關閉' : '取消'}
             </Button>
+            <PermissionTooltip disabled={isReadOnly}>
+              <Button onClick={handleSave} disabled={saving || isReadOnly}>
+                {saving ? '儲存中...' : (editingPlan ? '更新' : '建立')}
+              </Button>
+            </PermissionTooltip>
           </DialogFooter>
         </DialogContent>
       </Dialog>

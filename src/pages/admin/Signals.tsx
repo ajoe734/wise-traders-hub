@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPublishingWindowOpen } from '@/lib/publishingWindow';
 import { fetchAnalystSignals } from '@/lib/analystDataAccess';
+import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
@@ -677,20 +678,21 @@ const AdminSignals = () => {
                 : '發布即上線，可自行收回'}
             </p>
           </div>
-          {!isReadOnly && (
           <div className="flex flex-col items-end gap-1">
-            {!publishWindow.open && (
+            {!publishWindow.open && !isReadOnly && (
               <p className="text-xs text-destructive">{publishWindow.reason}</p>
             )}
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button
-                disabled={!publishWindow.open}
-                className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
-                onClick={() => { clearForm(); setIsCreateOpen(true); }}
-              >
-                <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
-              </Button>
+              <PermissionTooltip disabled={isReadOnly}>
+                <Button
+                  disabled={!publishWindow.open || isReadOnly}
+                  className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
+                  onClick={() => { clearForm(); setIsCreateOpen(true); }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
+                </Button>
+              </PermissionTooltip>
             </DialogTrigger>
             <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
               <DialogHeader><DialogTitle>發布新{contentLabel}</DialogTitle></DialogHeader>
@@ -1014,7 +1016,6 @@ const AdminSignals = () => {
             </DialogContent>
           </Dialog>
           </div>
-          )}
         </div>
 
         <div className="flex gap-3">
@@ -1101,31 +1102,33 @@ const AdminSignals = () => {
                                       {isExpanded ? '收起' : '展開'}
                                     </Button>
                                   )}
-                                   {!isReadOnly && isAdvisor && signal.status === 'published' && (
-                                     <Button
-                                       size="sm"
-                                       variant="ghost"
-                                       className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                                       onClick={() => handleRepush(signal.id)}
-                                       disabled={repushingId === signal.id}
-                                       title="重新推送此訊號給 LINE 訂閱者（標記為「已更新」）"
-                                     >
-                                       {repushingId === signal.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                                       重推 LINE
-                                     </Button>
+                                   {isAdvisor && signal.status === 'published' && (
+                                     <PermissionTooltip disabled={isReadOnly}>
+                                       <Button
+                                         size="sm"
+                                         variant="ghost"
+                                         className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                                         onClick={() => handleRepush(signal.id)}
+                                         disabled={repushingId === signal.id || isReadOnly}
+                                         title="重新推送此訊號給 LINE 訂閱者（標記為「已更新」）"
+                                       >
+                                         {repushingId === signal.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                                         重推 LINE
+                                       </Button>
+                                     </PermissionTooltip>
                                    )}
-                                   {!isReadOnly && (
+                                   <PermissionTooltip disabled={isReadOnly}>
                                      <Button
                                        size="sm"
                                        variant="ghost"
                                        className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
                                        onClick={() => handleRecall(signal.id)}
-                                       disabled={recalling || (isMentor && signal.status === 'published')}
+                                       disabled={recalling || isReadOnly || (isMentor && signal.status === 'published')}
                                        title={isMentor && signal.status === 'published' ? '已發布的週記不可收回' : undefined}
                                      >
                                        <Undo2 className="h-3 w-3" />收回
                                      </Button>
-                                   )}
+                                   </PermissionTooltip>
                                 </div>
                               </td>
                            </tr>
