@@ -297,6 +297,22 @@ export default function App() {
   const [sortBy,      setSortBy]      = useState("decision");
   const [filterType,  setFilterType]  = useState("全部");
   const [showAll,     setShowAll]     = useState(false);
+  // Viewport-aware grid columns（繞過 CSS cascade 在某些 Chromium dev/preview 環境
+  // 下對 `<style>` 內 `grid-template-columns: 1fr !important` 不生效的詭異問題）
+  const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onResize = () => setVw(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const cardGridCols = vw <= 640
+    ? '1fr'
+    : vw <= 1023
+      ? 'repeat(2, minmax(0, 1fr))'
+      : vw <= 1279
+        ? 'repeat(2, minmax(0, 1fr))'
+        : 'repeat(3, minmax(0, 1fr))';
   const [expandedNews, setExpandedNews] = useState(new Set());
   const [newsPendingExpanded, setNewsPendingExpanded] = useState(false);
   const [newsVerifyingExpanded, setNewsVerifyingExpanded] = useState(false);
@@ -2887,7 +2903,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {/* 左：卡片牆 */}
                 <div style={{
                   display:'grid',
-                  gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
+                  gridTemplateColumns: cardGridCols,
                   columnGap: 16,
                   rowGap: 20,
                 }} className="holdings-card-grid">
@@ -2984,6 +3000,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* RWD：mid 折成 2 欄、行動端 1 欄並隱藏 detail panel */}
           <style>{`
+            /* Desktop 預設：3 欄。改用 class 而非 inline style，讓下方 media query 能在行動端生效 */
+            .holdings-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             @media (max-width: 1279px) {
               .holdings-workbench { grid-template-columns: minmax(0, 1fr) minmax(0, 320px) !important; }
               .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
