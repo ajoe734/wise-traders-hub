@@ -2441,6 +2441,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 return (
                   <button
                     key={h.code}
+                    className="wb-card wb-card-feature"
                     onClick={() => setExpandedDecision(prev => prev === h.code ? null : h.code)}
                     onDoubleClick={() => openHoldingDrawer(h.code)}
                     style={{
