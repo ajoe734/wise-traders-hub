@@ -2365,6 +2365,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               getPct: (it) => it.pct ?? 0,
             });
 
+            // 固定節奏：ink → accent → plain（保留原排序）
+            // 第一格永遠是 feature（ink 若存在則 span 2；否則保持 grid 整齊）
+            const variantOrder = { ink: 0, accent: 1, plain: 2 };
+            const orderedDisplayed = [...displayed].sort((a, b) => {
+              const va = variantOrder[variantsMap.get(a.code) || 'plain'];
+              const vb = variantOrder[variantsMap.get(b.code) || 'plain'];
+              if (va !== vb) return va - vb;
+              return 0;
+            }).map((h, idx) => ({ ...h, __featureSlot: idx === 0 }));
+
             const renderCard = (h) => {
               const variant = variantsMap.get(h.code) || 'plain';
               const T      = targets?.[h.code];
