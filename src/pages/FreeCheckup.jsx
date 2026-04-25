@@ -2718,7 +2718,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {/* PnL */}
                     <div style={{marginBottom:20,paddingBottom:16,borderBottom:`1px solid ${WB.hair}`}}>
                       <div style={{
-                        fontSize:48,fontWeight:300,color:pnlColor,
+                        fontSize:48,fontWeight:500,color:WB.ink,
                         letterSpacing:'-0.03em',lineHeight:1,
                         fontVariantNumeric:'tabular-nums',
                       }}>
