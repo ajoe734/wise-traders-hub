@@ -3668,6 +3668,95 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     )}
                   </div>
                 )}
+                {/* 更新日誌（除錯用）：可摺疊 */}
+                {updateLog.length > 0 && (
+                  <div style={{
+                    marginTop:6,
+                    border:`1px solid ${alpha(C.textMute,'1a')}`,
+                    borderRadius:6,
+                    background:alpha(C.textMute,'04'),
+                    fontSize:11,
+                  }}>
+                    <button
+                      onClick={() => setUpdateLogOpen(o => !o)}
+                      style={{
+                        display:"flex",alignItems:"center",justifyContent:"space-between",
+                        width:"100%",padding:"6px 10px",
+                        background:"transparent",border:"none",
+                        cursor:"pointer",color:C.textMute,fontSize:11,
+                      }}
+                    >
+                      <span style={{display:"inline-flex",alignItems:"center",gap:6}}>
+                        <span style={{opacity:0.6}}>更新日誌</span>
+                        <span style={{opacity:0.5}}>({updateLog.length})</span>
+                      </span>
+                      <span style={{display:"inline-flex",alignItems:"center",gap:8}}>
+                        {updateLog.length > 0 && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); setUpdateLog([]); }}
+                            style={{fontSize:10,color:C.textMute,opacity:0.6,cursor:"pointer"}}
+                          >清除</span>
+                        )}
+                        <span style={{opacity:0.5}}>{updateLogOpen ? '▾' : '▸'}</span>
+                      </span>
+                    </button>
+                    {updateLogOpen && (
+                      <div style={{
+                        maxHeight:240,overflowY:"auto",
+                        borderTop:`1px solid ${alpha(C.textMute,'14')}`,
+                        padding:"4px 0",
+                      }}>
+                        {updateLog.map(entry => {
+                          const STATUS_COLOR = {
+                            fetching: C.amber,
+                            success: C.up,
+                            error: C.amber,
+                            throttled: C.textMute,
+                            'skipped-idempotent': C.textMute,
+                            skipped: C.textMute,
+                            cooldown: C.amber,
+                            aborted: C.textMute,
+                          };
+                          const sc = STATUS_COLOR[entry.status] || C.text;
+                          const ts = new Date(entry.ts).toLocaleTimeString('zh-TW',{hour12:false});
+                          return (
+                            <div
+                              key={entry.id}
+                              style={{
+                                display:"grid",
+                                gridTemplateColumns:"60px 56px 56px 1fr",
+                                gap:6,padding:"3px 10px",
+                                fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",
+                                fontSize:10,lineHeight:1.5,
+                                borderBottom:`1px dotted ${alpha(C.textMute,'10')}`,
+                              }}
+                              title={`key: ${entry.key}`}
+                            >
+                              <span style={{color:C.textMute,opacity:0.7}}>{ts}</span>
+                              <span style={{color:C.textMute}}>
+                                {entry.source === 'calendar' ? '行事曆' : '事件預測'}
+                              </span>
+                              <span style={{color:entry.trigger==='manual'?C.text:C.textMute,opacity:entry.trigger==='manual'?0.9:0.6}}>
+                                {entry.trigger === 'manual' ? '手動' : '自動'}
+                              </span>
+                              <span style={{display:"flex",gap:6,minWidth:0}}>
+                                <span style={{color:sc,fontWeight:500,whiteSpace:"nowrap"}}>{entry.status}</span>
+                                <span style={{color:C.textMute,opacity:0.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                                  {entry.msg}
+                                </span>
+                                <span style={{color:C.textMute,opacity:0.4,marginLeft:"auto",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:140}}>
+                                  {entry.key && entry.key !== '(n/a)' ? `key:${String(entry.key).slice(0,18)}${String(entry.key).length>18?'…':''}` : ''}
+                                </span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}
