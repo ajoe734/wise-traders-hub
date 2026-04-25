@@ -2903,6 +2903,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {/* 左：卡片牆 */}
                 <div style={{
                   display:'grid',
+                  gridTemplateColumns: cardGridCols,
                   columnGap: 16,
                   rowGap: 20,
                 }} className="holdings-card-grid">
