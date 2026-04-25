@@ -2490,7 +2490,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       </div>
                       {sparkData.length >= 2 && (
                         <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
-                          <Sparkline data={sparkData} width={60} height={20} color="#F4F1EC" opacity={0.85} />
+                          <Sparkline data={sparkData} width={60} height={20} color={isInk ? '#F4F1EC' : (pctVal >= 0 ? WB.accent : '#9B968D')} opacity={pctVal >= 0 ? 0.85 : 0.6} />
                         </span>
                       )}
                       <span style={{
@@ -2499,16 +2499,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       }}>{actionLabel}</span>
                     </div>
 
-                    {/* L2：ROI 主視覺（橘紅，64px，字重 500） */}
+                    {/* L2：ROI 主視覺（橘=正、灰=負，加方向箭頭） */}
                     <div style={{
                       display:'flex',alignItems:'baseline',gap:14,marginTop:8,marginBottom:10,
                     }}>
                       <span className="wb-roi" style={{
-                        fontSize:'clamp(40px, 6vw + 12px, 64px)',fontWeight:500,color:pnlColor,
+                        fontSize:'clamp(40px, 6vw + 12px, 64px)',fontWeight:pnlWeight,color:pnlColor,
                         letterSpacing:'-0.04em',lineHeight:1,
                         fontVariantNumeric:'tabular-nums',
+                        display:'inline-flex',alignItems:'baseline',gap:6,
                       }}>
-                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span>
+                        {pnlArrow && <span style={{fontSize:'0.40em',opacity:0.7,fontWeight:400}}>{pnlArrow}</span>}
+                        <span>{pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span></span>
                       </span>
                       <span style={{fontSize:13,color:subColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
                         {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
@@ -2596,7 +2598,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
                     {sparkData.length >= 2 && (
                       <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
-                        <Sparkline data={sparkData} width={60} height={20} color={WB.accent} opacity={0.85} />
+                        <Sparkline data={sparkData} width={60} height={20} color={pctVal >= 0 ? WB.accent : '#9B968D'} opacity={pctVal >= 0 ? 0.85 : 0.55} />
                       </span>
                     )}
                     <span style={{
@@ -2605,14 +2607,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }}>{actionLabel}</span>
                   </div>
 
-                  {/* L2：ROI 52px (字重 500) */}
+                  {/* L2：ROI 52px（橘=正、灰=負，加方向箭頭） */}
                   <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:8,marginBottom:8}}>
                     <span className="wb-roi" style={{
-                      fontSize:'clamp(36px, 4.5vw + 10px, 52px)',fontWeight:500,color:pnlColor,
+                      fontSize:'clamp(36px, 4.5vw + 10px, 52px)',fontWeight:pnlWeight,color:pnlColor,
                       letterSpacing:'-0.035em',lineHeight:1,
                       fontVariantNumeric:'tabular-nums',
+                      display:'inline-flex',alignItems:'baseline',gap:5,
                     }}>
-                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span>
+                      {pnlArrow && <span style={{fontSize:'0.40em',opacity:0.7,fontWeight:400}}>{pnlArrow}</span>}
+                      <span>{pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span></span>
                     </span>
                   </div>
 
