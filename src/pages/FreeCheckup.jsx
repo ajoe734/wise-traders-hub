@@ -373,6 +373,22 @@ export default function App() {
   const [predictAutoStatus, setPredictAutoStatus] = useState({ status: 'idle', msg: '' });
   const calendarStatusTimerRef = useRef(null);
   const predictStatusTimerRef = useRef(null);
+  // 最近一次失敗錯誤明細：{ message, reason: 'network'|'data'|'server'|'unknown', at: ISOString }
+  const [calendarLastError, setCalendarLastError] = useState(null);
+  const [predictLastError, setPredictLastError] = useState(null);
+  // 重試計數與冷卻：每連續失敗一次累計，達上限或冷卻期內禁止重試
+  const RETRY_MAX = 3;
+  const RETRY_COOLDOWN_MS = 15_000;
+  const [calendarRetry, setCalendarRetry] = useState({ count: 0, cooldownUntil: 0 });
+  const [predictRetry, setPredictRetry] = useState({ count: 0, cooldownUntil: 0 });
+  // 強制每秒 re-render 以更新冷卻倒數
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const inCooldown = calendarRetry.cooldownUntil > Date.now() || predictRetry.cooldownUntil > Date.now();
+    if (!inCooldown) return;
+    const t = setInterval(() => setNowTick(n => n + 1), 500);
+    return () => clearInterval(t);
+  }, [calendarRetry.cooldownUntil, predictRetry.cooldownUntil]);
   // Decision System v6
   const [userOverrides, setUserOverrides] = useState({});
   const [expandedDecision, setExpandedDecision] = useState(null);
@@ -427,10 +443,31 @@ export default function App() {
   const calendarAbortRef = useRef(null);
   const CALENDAR_DEDUP_MS = 30_000;
 
+  // 錯誤分類：根據 Error/HTTP status/訊息內容判斷錯誤類型
+  const classifyError = (err, httpStatus) => {
+    if (httpStatus) {
+      if (httpStatus >= 500) return { reason: 'server', label: '伺服器錯誤' };
+      if (httpStatus === 429) return { reason: 'server', label: '請求過於頻繁' };
+      if (httpStatus >= 400) return { reason: 'data', label: '資料錯誤' };
+    }
+    const msg = String(err?.message || err || '').toLowerCase();
+    if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('networkerror')) {
+      return { reason: 'network', label: '網路連線錯誤' };
+    }
+    if (msg.includes('timeout') || msg.includes('aborted')) return { reason: 'network', label: '請求逾時' };
+    if (msg.includes('json') || msg.includes('parse')) return { reason: 'data', label: '資料解析錯誤' };
+    return { reason: 'unknown', label: '未知錯誤' };
+  };
+
   // 短暫顯示節流/冪等/結果狀態（fetching 持續到完成；其餘 4 秒後回 idle）
   const flashCalendarStatus = (status, msg = '') => {
     setCalendarAutoStatus({ status, msg });
     if (calendarStatusTimerRef.current) clearTimeout(calendarStatusTimerRef.current);
+    if (status === 'success') {
+      // 成功後重置重試計數與錯誤記錄
+      setCalendarRetry({ count: 0, cooldownUntil: 0 });
+      setCalendarLastError(null);
+    }
     if (status !== 'fetching' && status !== 'idle') {
       calendarStatusTimerRef.current = setTimeout(() => setCalendarAutoStatus({ status: 'idle', msg: '' }), 4000);
     }
@@ -438,9 +475,39 @@ export default function App() {
   const flashPredictStatus = (status, msg = '') => {
     setPredictAutoStatus({ status, msg });
     if (predictStatusTimerRef.current) clearTimeout(predictStatusTimerRef.current);
+    if (status === 'success') {
+      setPredictRetry({ count: 0, cooldownUntil: 0 });
+      setPredictLastError(null);
+    }
     if (status !== 'fetching' && status !== 'idle') {
       predictStatusTimerRef.current = setTimeout(() => setPredictAutoStatus({ status: 'idle', msg: '' }), 4000);
     }
+  };
+
+  // 記錄錯誤明細並啟動冷卻；回傳是否仍在可重試範圍
+  const recordCalendarError = (err, httpStatus) => {
+    const { reason, label } = classifyError(err, httpStatus);
+    const message = String(err?.message || err || '').slice(0, 240) || label;
+    setCalendarLastError({ message, reason, label, at: new Date().toISOString() });
+    setCalendarRetry(prev => {
+      const count = prev.count + 1;
+      const cooldownUntil = count >= RETRY_MAX
+        ? Date.now() + RETRY_COOLDOWN_MS * 4   // 達上限：長冷卻
+        : Date.now() + RETRY_COOLDOWN_MS;
+      return { count, cooldownUntil };
+    });
+  };
+  const recordPredictError = (err, httpStatus) => {
+    const { reason, label } = classifyError(err, httpStatus);
+    const message = String(err?.message || err || '').slice(0, 240) || label;
+    setPredictLastError({ message, reason, label, at: new Date().toISOString() });
+    setPredictRetry(prev => {
+      const count = prev.count + 1;
+      const cooldownUntil = count >= RETRY_MAX
+        ? Date.now() + RETRY_COOLDOWN_MS * 4
+        : Date.now() + RETRY_COOLDOWN_MS;
+      return { count, cooldownUntil };
+    });
   };
 
   // ── 根據持倉自動產生行事曆事件 ──
@@ -512,11 +579,17 @@ export default function App() {
         syncCalendarToNews(merged);
       }
       calendarLastFetchRef.current = { key: requestKey, at: Date.now() };
+      // 成功：重置重試計數與錯誤
+      setCalendarRetry({ count: 0, cooldownUntil: 0 });
+      setCalendarLastError(null);
       setCalendarAutoStatus({ status: 'idle', msg: '' });
     } catch (e) {
       if (e?.name !== 'AbortError') {
         console.error("Calendar fetch error:", e);
-        setCalendarAutoStatus({ status: 'idle', msg: '' });
+        recordCalendarError(e);
+        const { label } = classifyError(e);
+        flashCalendarStatus('error', label);
+        throw e;
       } else {
         flashCalendarStatus('aborted');
       }
@@ -762,6 +835,18 @@ export default function App() {
 
   // 共用：執行一次預測（force=true 會繞過節流並重置已嘗試清單）
   const runPredictEvents = (force = false) => {
+    // 重試上限與冷卻檢查（僅作用於 force 觸發；自動觸發不受限）
+    if (force) {
+      const now = Date.now();
+      if (predictRetry.cooldownUntil > now) {
+        const sec = Math.ceil((predictRetry.cooldownUntil - now) / 1000);
+        const reachedMax = predictRetry.count >= RETRY_MAX;
+        flashPredictStatus('error', reachedMax
+          ? `已達重試上限 ${RETRY_MAX} 次，請 ${sec}s 後再試`
+          : `冷卻中，請 ${sec}s 後再試`);
+        return;
+      }
+    }
     if (!ready || !newsEvents || newsEvents.length === 0) {
       if (force) flashPredictStatus('error', '尚無事件可預測');
       return;
@@ -826,7 +911,10 @@ export default function App() {
         if (!res.ok) {
           console.error("Predict events failed:", res.status);
           needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
-          flashPredictStatus('error', `預測失敗（${res.status}）`);
+          const httpErr = new Error(`HTTP ${res.status}`);
+          recordPredictError(httpErr, res.status);
+          const { label } = classifyError(httpErr, res.status);
+          flashPredictStatus('error', `${label}（${res.status}）`);
           return;
         }
         const data = await res.json();
@@ -851,7 +939,9 @@ export default function App() {
       } catch (err) {
         console.error("Predict events error:", err);
         needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
-        flashPredictStatus('error', '預測發生錯誤');
+        recordPredictError(err);
+        const { label } = classifyError(err);
+        flashPredictStatus('error', label);
       } finally {
         setPredictingEvents(false);
         if (predictBatchInflightRef.current === batchKey) {
@@ -865,6 +955,16 @@ export default function App() {
 
   // 手動刷新行事曆（繞過 30 秒節流，但保留 inflight 冪等保護）
   const manualRefreshCalendar = async () => {
+    // 重試上限與冷卻檢查
+    const now = Date.now();
+    if (calendarRetry.cooldownUntil > now) {
+      const sec = Math.ceil((calendarRetry.cooldownUntil - now) / 1000);
+      const reachedMax = calendarRetry.count >= RETRY_MAX;
+      flashCalendarStatus('error', reachedMax
+        ? `已達重試上限 ${RETRY_MAX} 次，請 ${sec}s 後再試`
+        : `冷卻中，請 ${sec}s 後再試`);
+      return;
+    }
     if (!holdings || holdings.length === 0) {
       flashCalendarStatus('error', '尚無持倉');
       return;
@@ -878,7 +978,7 @@ export default function App() {
       await fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
       flashCalendarStatus('success', '行事曆已更新');
     } catch {
-      flashCalendarStatus('error', '行事曆更新失敗');
+      // fetchCalendarEvents 內部已 recordCalendarError + flash error
     }
   };
 
@@ -3393,32 +3493,49 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const pre = STATUS_LABEL[predictAutoStatus.status];
             const calBusy = calendarAutoStatus.status === 'fetching' || calendarLoading;
             const preBusy = predictAutoStatus.status === 'fetching' || predictingEvents;
+            const nowMs = Date.now();
+            const calCool = Math.max(0, calendarRetry.cooldownUntil - nowMs);
+            const preCool = Math.max(0, predictRetry.cooldownUntil - nowMs);
+            const calRetryDisabled = calBusy || calCool > 0;
+            const preRetryDisabled = preBusy || preCool > 0;
+            const calCoolSec = Math.ceil(calCool / 1000);
+            const preCoolSec = Math.ceil(preCool / 1000);
+            const REASON_LABEL = { network: '網路', data: '資料', server: '伺服器', unknown: '未知' };
+            const retryBtnStyle = (disabled) => ({
+              padding:"2px 8px",fontSize:10,fontWeight:500,
+              border:`1px solid ${alpha(C.amber, disabled?'33':'66')}`,borderRadius:4,
+              background:alpha(C.amber, disabled?'08':'14'),
+              color:disabled?C.textMute:C.amber,
+              cursor:disabled?"not-allowed":"pointer",
+              letterSpacing:"0.02em",
+              opacity:disabled?0.6:1,
+            });
             return (
               <div style={{marginBottom:10}}>
                 {/* 手動按鈕列 */}
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
                   <button
                     onClick={manualRefreshCalendar}
-                    disabled={calBusy || !holdings || holdings.length === 0}
+                    disabled={calBusy || !holdings || holdings.length === 0 || calCool > 0}
                     style={{
                       padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
                       border:`1px solid ${alpha(C.textMute,'33')}`,borderRadius:6,
-                      background:"transparent",color:calBusy?C.textMute:C.text,
-                      cursor:calBusy||!holdings?.length?"not-allowed":"pointer",
-                      opacity:calBusy||!holdings?.length?0.5:1,
+                      background:"transparent",color:(calBusy||calCool>0)?C.textMute:C.text,
+                      cursor:calBusy||!holdings?.length||calCool>0?"not-allowed":"pointer",
+                      opacity:calBusy||!holdings?.length||calCool>0?0.5:1,
                     }}
-                  >{calBusy ? '⟳ 更新中…' : '↻ 立刻更新行事曆'}</button>
+                  >{calBusy ? '⟳ 更新中…' : (calCool>0 ? `↻ 冷卻中 ${calCoolSec}s` : '↻ 立刻更新行事曆')}</button>
                   <button
                     onClick={() => runPredictEvents(true)}
-                    disabled={preBusy || !newsEvents || newsEvents.length === 0}
+                    disabled={preBusy || !newsEvents || newsEvents.length === 0 || preCool > 0}
                     style={{
                       padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
                       border:`1px solid ${alpha(C.textMute,'33')}`,borderRadius:6,
-                      background:"transparent",color:preBusy?C.textMute:C.text,
-                      cursor:preBusy||!newsEvents?.length?"not-allowed":"pointer",
-                      opacity:preBusy||!newsEvents?.length?0.5:1,
+                      background:"transparent",color:(preBusy||preCool>0)?C.textMute:C.text,
+                      cursor:preBusy||!newsEvents?.length||preCool>0?"not-allowed":"pointer",
+                      opacity:preBusy||!newsEvents?.length||preCool>0?0.5:1,
                     }}
-                  >{preBusy ? '⟳ 預測中…' : '↻ 立刻預測事件'}</button>
+                  >{preBusy ? '⟳ 預測中…' : (preCool>0 ? `↻ 冷卻中 ${preCoolSec}s` : '↻ 立刻預測事件')}</button>
                 </div>
                 {/* 狀態徽章 */}
                 {(cal || pre) && (
@@ -3434,13 +3551,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {calendarAutoStatus.status === 'error' && (
                           <button
                             onClick={manualRefreshCalendar}
-                            style={{
-                              padding:"2px 8px",fontSize:10,fontWeight:500,
-                              border:`1px solid ${alpha(C.amber,'66')}`,borderRadius:4,
-                              background:alpha(C.amber,'14'),color:C.amber,cursor:"pointer",
-                              letterSpacing:"0.02em",
-                            }}
-                          >↻ 重試</button>
+                            disabled={calRetryDisabled}
+                            style={retryBtnStyle(calRetryDisabled)}
+                          >{calCool>0 ? `↻ ${calCoolSec}s` : `↻ 重試 (${calendarRetry.count}/${RETRY_MAX})`}</button>
                         )}
                       </span>
                     )}
@@ -3452,15 +3565,62 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {predictAutoStatus.status === 'error' && (
                           <button
                             onClick={() => runPredictEvents(true)}
-                            style={{
-                              padding:"2px 8px",fontSize:10,fontWeight:500,
-                              border:`1px solid ${alpha(C.amber,'66')}`,borderRadius:4,
-                              background:alpha(C.amber,'14'),color:C.amber,cursor:"pointer",
-                              letterSpacing:"0.02em",
-                            }}
-                          >↻ 重試</button>
+                            disabled={preRetryDisabled}
+                            style={retryBtnStyle(preRetryDisabled)}
+                          >{preCool>0 ? `↻ ${preCoolSec}s` : `↻ 重試 (${predictRetry.count}/${RETRY_MAX})`}</button>
                         )}
                       </span>
+                    )}
+                  </div>
+                )}
+                {/* 失敗錯誤明細卡片 */}
+                {(calendarLastError && calendarAutoStatus.status === 'error') && (
+                  <div style={{
+                    marginTop:6,padding:"8px 10px",
+                    background:alpha(C.amber,'08'),
+                    border:`1px solid ${alpha(C.amber,'33')}`,
+                    borderRadius:6,fontSize:11,lineHeight:1.6,
+                  }}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:3}}>
+                      <span style={{color:C.amber,fontWeight:500}}>
+                        行事曆 · {REASON_LABEL[calendarLastError.reason] || '未知'}類錯誤
+                      </span>
+                      <span style={{color:C.textMute,fontSize:10,opacity:0.7}}>
+                        {new Date(calendarLastError.at).toLocaleTimeString('zh-TW',{hour12:false})}
+                      </span>
+                    </div>
+                    <div style={{color:C.textMute,fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",fontSize:10,wordBreak:"break-word"}}>
+                      {calendarLastError.message}
+                    </div>
+                    {calendarRetry.count >= RETRY_MAX && (
+                      <div style={{marginTop:4,color:C.amber,fontSize:10,opacity:0.8}}>
+                        已連續失敗 {calendarRetry.count} 次，{calCool>0 ? `將於 ${calCoolSec}s 後解除冷卻` : '可再次重試'}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {(predictLastError && predictAutoStatus.status === 'error') && (
+                  <div style={{
+                    marginTop:6,padding:"8px 10px",
+                    background:alpha(C.amber,'08'),
+                    border:`1px solid ${alpha(C.amber,'33')}`,
+                    borderRadius:6,fontSize:11,lineHeight:1.6,
+                  }}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:3}}>
+                      <span style={{color:C.amber,fontWeight:500}}>
+                        事件預測 · {REASON_LABEL[predictLastError.reason] || '未知'}類錯誤
+                      </span>
+                      <span style={{color:C.textMute,fontSize:10,opacity:0.7}}>
+                        {new Date(predictLastError.at).toLocaleTimeString('zh-TW',{hour12:false})}
+                      </span>
+                    </div>
+                    <div style={{color:C.textMute,fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",fontSize:10,wordBreak:"break-word"}}>
+                      {predictLastError.message}
+                    </div>
+                    {predictRetry.count >= RETRY_MAX && (
+                      <div style={{marginTop:4,color:C.amber,fontSize:10,opacity:0.8}}>
+                        已連續失敗 {predictRetry.count} 次，{preCool>0 ? `將於 ${preCoolSec}s 後解除冷卻` : '可再次重試'}
+                      </div>
                     )}
                   </div>
                 )}
