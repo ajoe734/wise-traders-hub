@@ -2515,29 +2515,29 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       </div>
                     </div>
 
-                    {/* L5：底部雙區塊 TODAY / VALUE */}
+                    {/* L5：底部雙區塊 TODAY / VALUE — 固定 grid 對齊 baseline */}
                     <div className="wb-bottom" style={{
                       paddingTop:12,marginTop:8,
                       borderTop:`1px solid ${hairColor}`,
-                      display:'grid',gridTemplateColumns:'1fr 1px 1fr',gap:16,alignItems:'baseline',
+                      display:'grid',
+                      gridTemplateColumns:'minmax(0,1fr) 1px minmax(0,1fr)',
+                      gridTemplateRows:'auto auto',
+                      columnGap:16,rowGap:2,
+                      alignItems:'baseline',
                     }}>
-                      <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                        <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>TODAY</span>
-                        <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
-                          {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
-                          <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
-                        </span>
-                      </div>
-                      <div style={{background:hairColor,width:1,height:'100%'}} />
-                      <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                        <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>VALUE</span>
-                        <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
-                          {h.value?.toLocaleString() || '—'}
-                          {tp && upside != null && (
-                            <span style={{marginLeft:6,color:muteColor}}>TGT {upside>=0?'+':''}{upside.toFixed(1)}%</span>
-                          )}
-                        </span>
-                      </div>
+                      <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>TODAY</span>
+                      <span style={{gridColumn:'3',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>VALUE</span>
+                      <div style={{gridColumn:'2',gridRow:'1 / span 2',background:hairColor,width:1,height:'100%'}} />
+                      <span className="wb-bottom-val" style={{gridColumn:'1',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
+                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
+                        <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
+                      </span>
+                      <span className="wb-bottom-val" style={{gridColumn:'3',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
+                        {h.value?.toLocaleString() || '—'}
+                        {tp && upside != null && (
+                          <span style={{marginLeft:6,color:muteColor}}>TGT {upside>=0?'+':''}{upside.toFixed(1)}%</span>
+                        )}
+                      </span>
                     </div>
                   </button>
                 );
@@ -2617,28 +2617,28 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
                   </div>
 
-                  {/* L5：底部雙區塊 TODAY / VALUE */}
+                  {/* L5：底部雙區塊 TODAY / VALUE — 固定 grid 對齊 baseline */}
                   <div className="wb-bottom" style={{
                     paddingTop:10,marginTop:8,
                     borderTop:`1px solid ${hairColor}`,
-                    display:'grid',gridTemplateColumns:'1fr 1px 1fr',gap:12,alignItems:'baseline',
+                    display:'grid',
+                    gridTemplateColumns:'minmax(0,1fr) 1px minmax(0,1fr)',
+                    gridTemplateRows:'auto auto',
+                    columnGap:12,rowGap:2,
+                    alignItems:'baseline',
                     fontSize:10,color:muteColor,fontWeight:400,
                     fontVariantNumeric:'tabular-nums',letterSpacing:'0.06em',
                   }}>
-                    <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                      <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>TODAY</span>
-                      <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
-                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
-                        <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
-                      </span>
-                    </div>
-                    <div style={{background:hairColor,width:1,height:'100%'}} />
-                    <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                      <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>VALUE</span>
-                      <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
-                        {h.value?.toLocaleString() || '—'}
-                      </span>
-                    </div>
+                    <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>TODAY</span>
+                    <span style={{gridColumn:'3',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>VALUE</span>
+                    <div style={{gridColumn:'2',gridRow:'1 / span 2',background:hairColor,width:1,height:'100%'}} />
+                    <span className="wb-bottom-val" style={{gridColumn:'1',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
+                      {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
+                      <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
+                    </span>
+                    <span className="wb-bottom-val" style={{gridColumn:'3',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
+                      {h.value?.toLocaleString() || '—'}
+                    </span>
                   </div>
                 </button>
               );
@@ -3004,7 +3004,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             }
             .wb-card .wb-roi > * { white-space: nowrap; }
             .wb-card .wb-bottom { align-items: baseline !important; min-width: 0; }
-            .wb-card .wb-bottom > div { display: flex !important; flex-direction: column !important; justify-content: flex-end; min-width: 0; overflow: hidden; }
+            .wb-card .wb-bottom > span { min-width: 0; overflow: hidden; }
             .wb-card .wb-bottom-val {
               display: inline-block;
               vertical-align: baseline;
