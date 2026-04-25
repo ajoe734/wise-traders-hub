@@ -64,6 +64,61 @@ const INIT_WATCHLIST = [
 // 使用統一主題
 const C = ThemeL;
 
+// ── Workbench 配色 Token（僅用於 /free-checkup 持倉工作台，本頁破例採單色橘紅；不污染他頁）──
+const WB = {
+  bg: '#F5F3EF',
+  surface: '#FFFFFF',
+  surfaceSoft: '#FBFAF6',
+  ink: '#0A0A0A',
+  inkSub: '#3A3A3A',
+  inkMute: '#6B6862',
+  inkLight: '#9B968D',
+  hair: '#E8E6E1',
+  hairStrong: '#D4D1C9',
+  accent: '#FF4D1F',
+  accentSoft: 'rgba(255,77,31,0.08)',
+};
+const wbTone = (n) => (Number(n) >= 0 ? WB.accent : WB.ink);
+
+// ── Sparkline：純 SVG，無依賴 ──
+function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, strokeWidth = 1.4, opacity = 0.85 }) {
+  const arr = Array.isArray(data) ? data.filter((n) => Number.isFinite(n)) : [];
+  if (arr.length < 2) {
+    return (
+      <svg width={width} height={height} aria-hidden="true">
+        <line x1={0} y1={height / 2} x2={width} y2={height / 2}
+          stroke={WB.hair} strokeWidth={1} strokeDasharray="2 3" />
+      </svg>
+    );
+  }
+  const min = Math.min(...arr);
+  const max = Math.max(...arr);
+  const range = max - min || 1;
+  const stepX = arr.length > 1 ? width / (arr.length - 1) : width;
+  const points = arr.map((v, i) => {
+    const x = i * stepX;
+    const y = height - ((v - min) / range) * (height - 4) - 2;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  const last = arr[arr.length - 1];
+  const lastX = (arr.length - 1) * stepX;
+  const lastY = height - ((last - min) / range) * (height - 4) - 2;
+  return (
+    <svg width={width} height={height} aria-hidden="true" style={{ display: 'block' }}>
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={opacity}
+        points={points.join(' ')}
+      />
+      <circle cx={lastX} cy={lastY} r={1.8} fill={color} opacity={Math.min(1, opacity + 0.1)} />
+    </svg>
+  );
+}
+
 const TYPE_COLOR = {
   法說: C.blue,
   財報: C.cyan,
@@ -296,6 +351,7 @@ export default function App() {
   const [userOverrides, setUserOverrides] = useState({});
   const [expandedDecision, setExpandedDecision] = useState(null);
   const [debugMode, setDebugMode] = useState(false);
+  const [sparklines, setSparklines] = useState({}); // { [code]: number[] }
 
   // ── 持倉資料庫（Notion 模式）：搜尋 / 篩選 / 排序方向 / Drawer ──
   const [searchQ, setSearchQ] = useState("");
@@ -711,6 +767,29 @@ export default function App() {
     }
   }, [holdings, ready]);
   const H = holdings || [];
+
+  // ── Sparkline 載入：持倉變動時，僅補抓還沒快取的代碼 ──
+  useEffect(() => {
+    if (!H || H.length === 0) return;
+    const codes = H.map((h) => String(h.code).trim()).filter(Boolean);
+    const missing = codes.filter((c) => !sparklines[c]);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('checkup-sparkline', {
+          body: { codes: missing.slice(0, 30) },
+        });
+        if (cancelled || error || !data?.result) return;
+        setSparklines((prev) => ({ ...prev, ...data.result }));
+      } catch {
+        /* silent — sparkline 為非關鍵裝飾 */
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [H.map((h) => h.code).join(',')]);
+
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
   const totalCost = H.reduce((s,h)=> s + (h.totalCost != null ? h.totalCost : h.cost * h.qty), 0);
   const totalPnl  = H.reduce((s,h)=>s+h.pnl,0);
@@ -1851,135 +1930,130 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
-          {/* ── 今日戰績 Hero（截圖分享用主視覺：大數字 + 留白 + 每日語句） ── */}
+          {/* ── Hero：橫向 2 欄構圖（左大數字 + 右市場狀態），底部 4 欄 KPI ── */}
           {(()=>{
             const totalPnl = totalVal - totalCost;
             const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
             const isUp = totalPnl >= 0;
-            const heroColor = isUp ? C.up : C.down;
+            const heroColor = wbTone(totalPnl);
             const winRate = H.length > 0 ? Math.round((winners.length / H.length) * 100) : 0;
-            const themeCount = {};
-            H.forEach(h => {
-              const tag = (STOCK_META?.[h.code]?.industry) || (STOCK_META?.[h.code]?.theme);
-              if (tag) themeCount[tag] = (themeCount[tag] || 0) + 1;
-            });
-            const topTheme = Object.entries(themeCount).sort((a,b)=>b[1]-a[1])[0]?.[0]
-              || (H[0]?.name ? `${H[0].name}領銜` : "—");
-            const phrasesUp = [
-              "把波動收進節奏",
-              "讓時間幫你做事",
-              "穩住心跳，看見方向",
-              "節奏對了，數字會跟上",
-              "持有，是一種選擇",
-            ];
-            const phrasesDown = [
-              "回檔不是錯誤，是過程",
-              "在不確定裡，保持秩序",
-              "守住紀律，等下一個浪",
-              "下跌時，更該安靜",
-              "市場會錯，計畫不能錯",
-            ];
-            const phrasesFlat = [
-              "等待，也是部位的一部分",
-              "靜下來，看清楚",
-              "節奏比速度重要",
-            ];
-            const pool = Math.abs(totalPct) < 0.3 ? phrasesFlat : (isUp ? phrasesUp : phrasesDown);
-            const dayIdx = new Date().getDate();
-            const phrase = pool[dayIdx % pool.length];
             const today = new Date();
             const dateStr = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+            const timeStr = today.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+            const pendingCount = (exitList?.length || 0) + (reviewList?.length || 0);
 
             return (
               <section
-                aria-label="今日戰績"
+                aria-label="Portfolio Overview"
                 style={{
-                  padding: "36px 6px 40px",
+                  padding: '20px 4px 22px',
                   marginBottom: 18,
-                  borderBottom: `1px solid ${alpha(C.textMute, '10')}`,
+                  borderBottom: `1px solid ${WB.hair}`,
                 }}
               >
                 <div style={{
-                  display:"flex", justifyContent:"space-between", alignItems:"baseline",
-                  marginBottom: 28,
-                }}>
-                  <span style={{
-                    fontSize: 10, color: C.textMute, letterSpacing: "0.22em",
-                    textTransform: "uppercase", fontWeight: 400,
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
+                  gap: 24,
+                  alignItems: 'flex-end',
+                  marginBottom: 22,
+                }} className="wb-hero-grid">
+                  {/* 左：Today P&L 大字 */}
+                  <div>
+                    <div style={{
+                      fontSize: 9.5, color: WB.inkMute, letterSpacing: '0.22em',
+                      textTransform: 'uppercase', fontWeight: 500, marginBottom: 12,
+                      display: 'inline-flex', alignItems: 'baseline', gap: 8,
+                    }}>
+                      Portfolio
+                      <span style={{
+                        display: 'inline-block', width: 4, height: 4, borderRadius: '50%',
+                        background: WB.accent, transform: 'translateY(-1px)',
+                      }} />
+                      <span style={{ color: WB.inkLight, letterSpacing: '0.18em' }}>Today</span>
+                    </div>
+                    <div style={{
+                      display: 'flex', alignItems: 'baseline', gap: 18, flexWrap: 'wrap',
+                    }}>
+                      <span style={{
+                        fontSize: 88, fontWeight: 300, color: heroColor,
+                        letterSpacing: '-0.045em', lineHeight: 0.92,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {isUp ? '+' : ''}{Math.round(totalPnl).toLocaleString()}
+                      </span>
+                      <span style={{
+                        fontSize: 22, fontWeight: 400, color: heroColor, opacity: 0.85,
+                        letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {isUp ? '+' : ''}{totalPct.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 右：Market 狀態 */}
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+                    gap: 6, paddingBottom: 8,
                   }}>
-                    Today · {dateStr}
-                  </span>
-                  <span style={{
-                    fontSize: 9, color: C.textMute, letterSpacing: "0.18em",
-                    textTransform: "uppercase", opacity: 0.7,
-                  }}>
-                    Daily Report
-                  </span>
+                    <div style={{
+                      fontSize: 9.5, color: WB.inkMute, letterSpacing: '0.22em',
+                      textTransform: 'uppercase', fontWeight: 500,
+                      display: 'inline-flex', alignItems: 'baseline', gap: 8,
+                    }}>
+                      Market <span style={{ color: WB.ink }}>TAIWAN</span>
+                      <span style={{
+                        display: 'inline-block', width: 5, height: 5, borderRadius: '50%',
+                        background: WB.accent,
+                      }} />
+                    </div>
+                    <div style={{
+                      fontSize: 11, color: WB.inkMute, letterSpacing: '0.04em',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>
+                      Updated {dateStr} {timeStr}
+                    </div>
+                    {pendingCount > 0 && (
+                      <div style={{
+                        fontSize: 11, color: WB.accent, letterSpacing: '0.04em',
+                        marginTop: 2, fontWeight: 500,
+                      }}>
+                        {pendingCount} pending action{pendingCount > 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
+                {/* 4 欄 KPI 帶 */}
                 <div style={{
-                  display: "flex", flexDirection: "column", alignItems: "flex-start",
-                  marginBottom: 6,
-                }}>
-                  <div style={{
-                    fontSize: 11, color: C.textMute, letterSpacing: "0.16em",
-                    marginBottom: 10, fontWeight: 400, textTransform: "uppercase",
-                  }}>
-                    Today P/L
-                  </div>
-                  <div style={{
-                    fontSize: 72, fontWeight: 300, color: heroColor,
-                    letterSpacing: "-0.035em", lineHeight: 0.95,
-                    fontVariantNumeric: "tabular-nums",
-                  }}>
-                    {isUp ? "+" : ""}{Math.round(totalPnl).toLocaleString()}
-                  </div>
-                  <div style={{
-                    fontSize: 28, fontWeight: 300, color: heroColor,
-                    letterSpacing: "-0.02em", lineHeight: 1.1, marginTop: 8,
-                    fontVariantNumeric: "tabular-nums", opacity: 0.85,
-                  }}>
-                    {isUp ? "+" : ""}{totalPct.toFixed(2)}%
-                  </div>
-                </div>
-
-                <div style={{
-                  marginTop: 28, marginBottom: 28,
-                  fontSize: 14, color: C.textSec, fontWeight: 400,
-                  letterSpacing: "0.04em", lineHeight: 1.5,
-                }}>
-                  「{phrase}」
-                </div>
-
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                  gap: 14,
-                  paddingTop: 18,
-                  borderTop: `1px solid ${alpha(C.textMute, '08')}`,
-                }}>
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                  gap: 18,
+                  paddingTop: 16,
+                  borderTop: `1px solid ${WB.hair}`,
+                }} className="wb-hero-kpi">
                   {[
-                    { label: "持倉", value: `${H.length}`, sub: "檔" },
-                    { label: "勝率", value: `${winRate}`, sub: "%" },
-                    { label: "主題", value: topTheme, sub: "" },
+                    { label: 'Total Value', value: totalVal > 0 ? Math.round(totalVal).toLocaleString() : '—', sub: 'TWD' },
+                    { label: 'Holdings', value: String(H.length), sub: H.length > 0 ? 'positions' : '' },
+                    { label: 'Win Rate', value: H.length > 0 ? `${winRate}` : '—', sub: H.length > 0 ? '%' : '' },
+                    { label: 'Cost Basis', value: totalCost > 0 ? Math.round(totalCost).toLocaleString() : '—', sub: 'TWD' },
                   ].map((item) => (
                     <div key={item.label}>
                       <div style={{
-                        fontSize: 9, color: C.textMute, letterSpacing: "0.18em",
-                        marginBottom: 6, textTransform: "uppercase", fontWeight: 400,
+                        fontSize: 9, color: WB.inkLight, letterSpacing: '0.20em',
+                        marginBottom: 6, textTransform: 'uppercase', fontWeight: 500,
                       }}>
                         {item.label}
                       </div>
                       <div style={{
-                        fontSize: 16, fontWeight: 400, color: C.text,
-                        letterSpacing: "-0.005em", fontVariantNumeric: "tabular-nums",
-                        lineHeight: 1.2,
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        fontSize: 18, fontWeight: 400, color: WB.ink,
+                        letterSpacing: '-0.005em', fontVariantNumeric: 'tabular-nums',
+                        lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       }}>
                         {item.value}
                         {item.sub && (
                           <span style={{
-                            fontSize: 11, color: C.textMute, marginLeft: 3, fontWeight: 400,
+                            fontSize: 10.5, color: WB.inkLight, marginLeft: 4, fontWeight: 400, letterSpacing: '0.04em',
                           }}>
                             {item.sub}
                           </span>
@@ -1991,6 +2065,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </section>
             );
           })()}
+
 
           {/* 反轉追蹤（虧損持股）— 預設折疊，避免擠壓卡片牆 */}
           {losers.length>0 && (
@@ -2084,225 +2159,83 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </details>
           )}
 
-          {/* ══════════ Phase 2.5: Action Banner（決策工作台） ══════════ */}
+          {/* ══════════ Action Priority（單行 inline 文字流） ══════════ */}
           {(() => {
-            const exitCount = exitList.length;
-            const reviewCount = reviewList.length;
-            const upcomingCount = upcomingList.length;
-            const totalAction = exitCount + reviewCount + upcomingCount;
-            const showPriority = globalPriorityList.length > 0;
-
-            // 套用對應 quick filter
-            const applyQuickFilter = (key) => {
-              setFilterDecision(new Set());
-              setFilterUrgency(new Set());
-              setFilterConflict(new Set());
-              setFilterThesis(new Set());
-              setFilterPnl(new Set());
-              setFilterStrategy(new Set());
-              if (key === 'exit') setFilterDecision(new Set(['exit']));
-              else if (key === 'review') setFilterDecision(new Set(['review']));
-              else if (key === 'upcoming') setFilterUrgency(new Set(['now', 'soon']));
-              // scroll to list 區
-              requestAnimationFrame(() => {
-                const el = document.getElementById('holdings-filter-bar');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              });
-            };
-
-            const priorityBadge = (h) => {
-              const d = decisionsMap[h.code];
-              if (d?.actionType === 'exit') return { label: '出場', color: C.down };
-              if (d?.actionType === 'review') return { label: '檢查', color: C.amber };
-              if (d?.urgency === 'now') return { label: '立即', color: C.down };
-              if (d?.urgency === 'soon') return { label: '近期', color: C.amber };
-              return { label: '注意', color: C.textMute };
-            };
-
-            // 全無決策需處理 — 極簡單行
-            if (totalAction === 0 && !showPriority) {
+            const items = (globalPriorityList || []).slice(0, 3);
+            if (items.length === 0) {
               return (
-                <div id="action-banner" style={{
-                  marginBottom: 20, padding: "8px 2px",
-                  fontSize: 12, color: C.textMute, fontWeight: 400,
-                  letterSpacing: "0.04em",
+                <div style={{
+                  marginBottom: 18, padding: '6px 2px',
+                  fontSize: 11, color: WB.inkLight, fontWeight: 400, letterSpacing: '0.04em',
                 }}>
-                  持倉狀態良好，目前無待處理決策。
+                  No pending actions · Portfolio in good standing
                 </div>
               );
             }
-
-            // ── 克制化 Banner：純排版分層，無色塊主體、無強邊框 ──
-            const accent = exitCount > 0 ? C.down : reviewCount > 0 ? C.amber : C.textSec;
-            const summaryParts = [
-              exitCount > 0 ? `出場 ${exitCount}` : null,
-              reviewCount > 0 ? `檢查 ${reviewCount}` : null,
-              upcomingCount > 0 ? `到期 ${upcomingCount}` : null,
-            ].filter(Boolean);
-
             return (
-              <div id="action-banner" style={{
-                marginBottom: 14,
-                paddingBottom: 10,
-                borderBottom: `1px solid ${alpha(C.textMute, '10')}`,
-                display: "flex", flexDirection: "column", gap: 8,
+              <div style={{
+                marginBottom: 18, padding: '8px 0 12px',
+                borderBottom: `1px solid ${WB.hair}`,
+                display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap',
               }}>
-                {/* 標題列 — 用排版分層，不用色塊 */}
-                <div style={{
-                  display: "flex", alignItems: "baseline", justifyContent: "space-between",
-                  gap: 12, flexWrap: "wrap",
+                <span style={{
+                  fontSize: 9.5, color: WB.inkMute, letterSpacing: '0.22em',
+                  textTransform: 'uppercase', fontWeight: 500,
+                  display: 'inline-flex', alignItems: 'baseline', gap: 8, flexShrink: 0,
                 }}>
-                  <div style={{display: "flex", alignItems: "baseline", gap: 8}}>
-                    <span style={{
-                      fontSize: 10, color: C.textMute, fontWeight: 400,
-                      letterSpacing: "0.16em", textTransform: "uppercase",
-                    }}>Today</span>
-                    <span style={{
-                      display: "inline-block", width: 3, height: 3, borderRadius: "50%",
-                      background: accent, transform: "translateY(-2px)",
-                    }} />
-                    <span style={{fontSize: 13, color: C.text, fontWeight: 400, letterSpacing: "0.02em"}}>
-                      {summaryParts.join(' ・ ') || '無待處理'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 今日優先 — 一行細字入口；不搶畫面，不做卡片 */}
-                {showPriority && (
-                  <div style={{
-                    display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap",
-                    fontSize: 12, color: C.textSec, padding: "2px 0",
-                  }}>
-                    <span style={{
-                      fontSize: 10, color: C.textMute, fontWeight: 400,
-                      letterSpacing: "0.14em", textTransform: "uppercase", minWidth: 96,
-                      display: "inline-flex", alignItems: "baseline", gap: 6,
-                    }}>
-                      <span style={{
-                        display: "inline-block", width: 4, height: 4, borderRadius: "50%",
-                        background: accent, transform: "translateY(-1px)",
-                      }} />
-                      Priority
-                      <span style={{color:C.textMute, fontSize: 11, fontWeight: 400, fontVariantNumeric: "tabular-nums"}}>
-                        {globalPriorityList.length}
-                      </span>
-                    </span>
-                    <span style={{display: "inline-flex", flexWrap: "wrap", gap: 12, flex: 1, alignItems: "baseline"}}>
-                      {globalPriorityList.slice(0, 6).map((h) => {
-                        const b = priorityBadge(h);
-                        return (
-                          <button
-                            key={h.code}
-                            onClick={() => openHoldingDrawer(h.code, { type: 'priority-global', label: '🎯 今日優先（全局）' })}
-                            style={{
-                              background: "transparent", border: "none", padding: 0,
-                              fontSize: 12, color: C.text, fontWeight: 400,
-                              cursor: "pointer", fontFamily: "inherit",
-                              borderBottom: `1px solid ${alpha(C.textMute, '20')}`,
-                              display: "inline-flex", alignItems: "baseline", gap: 4,
-                            }}
-                            onMouseEnter={(e)=>{e.currentTarget.style.borderBottomColor = b.color; e.currentTarget.style.color = b.color;}}
-                            onMouseLeave={(e)=>{e.currentTarget.style.borderBottomColor = alpha(C.textMute, '20'); e.currentTarget.style.color = C.text;}}
-                          >
-                            <span style={{
-                              display: "inline-block", width: 4, height: 4, borderRadius: "50%",
-                              background: b.color, transform: "translateY(-1px)",
-                            }} />
-                            {h.name}
-                            <span style={{color: C.textMute, fontSize: 10}}>{h.pct >= 0 ? '+' : ''}{h.pct?.toFixed(1)}%</span>
-                          </button>
-                        );
-                      })}
-                      {globalPriorityList.length > 6 && (
-                        <span style={{fontSize: 11, color: C.textMute}}>＋{globalPriorityList.length - 6}</span>
-                      )}
-                    </span>
-                  </div>
-                )}
-
-                {/* 分類概覽 — 純文字行，色彩只在類別點 */}
-                {totalAction > 0 && (
-                  <div style={{display: "flex", flexDirection: "column", gap: 6}}>
-                    {[
-                      { key: 'exit', label: '建議出場', list: exitList, color: C.down },
-                      { key: 'review', label: '需要處理', list: reviewList, color: C.amber },
-                      { key: 'upcoming', label: '即將到期', list: upcomingList, color: C.amber },
-                    ].filter(row => row.list.length > 0).map(row => {
-                      const sample = row.list.slice(0, 3);
-                      const more = row.list.length - sample.length;
-                      return (
-                        <div key={row.key} style={{
-                          display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap",
-                          fontSize: 12, color: C.textSec, padding: "2px 0",
+                  Action Priority
+                  <span style={{
+                    display: 'inline-block', width: 4, height: 4, borderRadius: '50%',
+                    background: WB.accent, transform: 'translateY(-1px)',
+                  }} />
+                </span>
+                <span style={{
+                  display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline',
+                  gap: 18, flex: 1, fontSize: 12, color: WB.ink,
+                }}>
+                  {items.map((h, idx) => {
+                    const dec = decisionsMap[h.code];
+                    const tag = dec?.actionType === 'exit' ? 'EXIT'
+                      : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH';
+                    return (
+                      <button
+                        key={h.code}
+                        onClick={() => setExpandedDecision(h.code)}
+                        style={{
+                          background: 'transparent', border: 'none', padding: 0,
+                          fontFamily: 'inherit', cursor: 'pointer', color: WB.ink,
+                          display: 'inline-flex', alignItems: 'baseline', gap: 6,
+                          fontSize: 12, fontWeight: 400, letterSpacing: '0.01em',
+                        }}
+                      >
+                        <span style={{
+                          fontSize: 9, color: WB.accent, letterSpacing: '0.16em',
+                          fontWeight: 500,
+                        }}>{tag}</span>
+                        <span style={{ fontWeight: 500 }}>{h.code}</span>
+                        <span style={{ color: WB.inkSub }}>{h.name}</span>
+                        <span style={{
+                          color: WB.inkLight, fontSize: 11, fontVariantNumeric: 'tabular-nums',
                         }}>
-                          <span style={{
-                            display: "inline-flex", alignItems: "baseline", gap: 6, minWidth: 96,
-                          }}>
-                            <span style={{
-                              display: "inline-block", width: 5, height: 5, borderRadius: "50%",
-                              background: row.color, transform: "translateY(-1px)",
-                            }} />
-                            <span style={{color: C.text, fontWeight: 400}}>{row.label}</span>
-                            <span style={{color: C.textMute, fontWeight: 400, fontSize: 11, fontVariantNumeric: "tabular-nums"}}>
-                              {row.list.length}
-                            </span>
-                          </span>
-                          <span style={{display: "inline-flex", flexWrap: "wrap", gap: 10, flex: 1, alignItems: "baseline"}}>
-                            {sample.map(h => (
-                              <button
-                                key={h.code}
-                                onClick={() => openHoldingDrawer(h.code, {
-                                  type: 'category', key: row.key,
-                                  label: `${row.label}`,
-                                })}
-                                style={{
-                                  background: "transparent",
-                                  border: "none",
-                                  padding: 0,
-                                  fontSize: 12, color: C.text, fontWeight: 400,
-                                  cursor: "pointer", fontFamily: "inherit",
-                                  borderBottom: `1px solid ${alpha(C.textMute, '20')}`,
-                                  transition: "border-color 160ms ease, color 160ms ease",
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.borderBottomColor = row.color;
-                                  e.currentTarget.style.color = row.color;
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.borderBottomColor = alpha(C.textMute, '20');
-                                  e.currentTarget.style.color = C.text;
-                                }}
-                              >
-                                {h.name}
-                                <span style={{color: C.textMute, fontSize: 10, marginLeft: 3}}>{h.code}</span>
-                              </button>
-                            ))}
-                            {more > 0 && (
-                              <span style={{fontSize: 11, color: C.textMute}}>+{more}</span>
-                            )}
-                          </span>
-                          <button
-                            onClick={() => applyQuickFilter(row.key)}
-                            title="套用篩選"
-                            style={{
-                              background: "transparent", border: "none", padding: 0,
-                              fontSize: 11, color: C.textMute, cursor: "pointer",
-                              fontFamily: "inherit", fontWeight: 400, letterSpacing: "0.02em",
-                              transition: "color 160ms ease",
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.color = row.color; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = C.textMute; }}
-                          >
-                            篩選
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                          {(h.pct ?? 0) >= 0 ? '+' : ''}{(h.pct ?? 0).toFixed(1)}%
+                        </span>
+                        {idx < items.length - 1 && (
+                          <span style={{ color: WB.hairStrong, marginLeft: 6 }}>/</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </span>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 22, height: 22, borderRadius: '50%',
+                  border: `1px solid ${WB.hairStrong}`, color: WB.inkMute, fontSize: 11,
+                  flexShrink: 0,
+                }}>→</span>
               </div>
             );
           })()}
+
 
           {/* ── 持倉資料庫 Filter Bar ── */}
 
