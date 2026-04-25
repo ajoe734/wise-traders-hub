@@ -3037,7 +3037,36 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             @media (max-width: 340px) {
               .wb-card .wb-roi { font-size: clamp(28px, 11vw, 36px) !important; }
               .wb-card-feature .wb-roi { font-size: clamp(32px, 13vw, 44px) !important; }
-              .wb-card .wb-bottom { grid-template-columns: 1fr 1px 1fr !important; }
+              /* TODAY/VALUE 雙區塊在極窄螢幕的安全溢出策略 */
+              .wb-card .wb-bottom {
+                grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr) !important;
+                column-gap: 6px !important;
+                row-gap: 1px !important;
+                max-width: 100% !important;
+                overflow: hidden !important;
+              }
+              .wb-card .wb-bottom > span {
+                min-width: 0 !important;
+                max-width: 100% !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+              }
+              .wb-card .wb-bottom-lbl,
+              .wb-card .wb-bottom > span:not(.wb-bottom-val) {
+                font-size: clamp(8.5px, 2.6vw, 10px) !important;
+                letter-spacing: 0 !important;
+              }
+              .wb-card .wb-bottom-val {
+                font-size: clamp(9px, 3vw, 11px) !important;
+                letter-spacing: -0.2px !important;
+                font-variant-numeric: tabular-nums !important;
+              }
+            }
+            /* 超極窄保險（≤320px iPhone SE 1st） */
+            @media (max-width: 320px) {
+              .wb-card .wb-bottom { column-gap: 4px !important; }
+              .wb-card .wb-bottom-val { font-size: clamp(8.5px, 2.8vw, 10.5px) !important; }
             }
           `}</style>
         </>}

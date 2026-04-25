@@ -132,8 +132,9 @@ describe.each([
   it('TODAY/VALUE 雙區塊保持 grid 兩欄 + 分隔線', () => {
     if (vw <= 340) {
       const css = effectiveCssAt(vw);
+      // ≤340px 升級為 minmax(0, 1fr) 以強制安全溢出（不擠壓卡片邊界）
       expect(css).toMatch(
-        /\.wb-bottom\s*\{[^}]*grid-template-columns:\s*1fr\s+1px\s+1fr/
+        /\.wb-bottom\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+1px\s+minmax\(0,\s*1fr\)/
       );
     }
     // 內聯預設 grid 結構必須存在
@@ -158,6 +159,21 @@ describe.each([
     if (vw <= 640) {
       const css = effectiveCssAt(vw);
       expect(css).toMatch(/\.wb-bottom-val\s*\{[^}]*font-size:\s*clamp\(/);
+    }
+  });
+
+  it('≤340px footer 強制 ellipsis + overflow:hidden + 縮小 column-gap', () => {
+    if (vw <= 340) {
+      const css = effectiveCssAt(vw);
+      // footer container 必須限制最大寬度與隱藏溢出
+      expect(css).toMatch(/\.wb-bottom\s*\{[^}]*max-width:\s*100%/);
+      expect(css).toMatch(/\.wb-bottom\s*\{[^}]*overflow:\s*hidden/);
+      // column-gap 緊縮（≤6px）
+      expect(css).toMatch(/\.wb-bottom\s*\{[^}]*column-gap:\s*[0-6]px/);
+      // 子 span 強制 ellipsis
+      expect(css).toMatch(
+        /\.wb-bottom\s*>\s*span\s*\{[\s\S]*?text-overflow:\s*ellipsis/
+      );
     }
   });
 });
