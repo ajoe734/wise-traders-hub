@@ -3428,16 +3428,38 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     borderRadius:6,fontSize:11,fontWeight:500,letterSpacing:"0.02em",
                   }}>
                     {cal && (
-                      <span style={{color:cal.color}}>
-                        <span style={{opacity:0.6,marginRight:4}}>行事曆</span>
-                        {cal.txt}{calendarAutoStatus.msg ? `・${calendarAutoStatus.msg}` : ''}
+                      <span style={{color:cal.color,display:"inline-flex",alignItems:"center",gap:6}}>
+                        <span style={{opacity:0.6}}>行事曆</span>
+                        <span>{cal.txt}{calendarAutoStatus.msg ? `・${calendarAutoStatus.msg}` : ''}</span>
+                        {calendarAutoStatus.status === 'error' && (
+                          <button
+                            onClick={manualRefreshCalendar}
+                            style={{
+                              padding:"2px 8px",fontSize:10,fontWeight:500,
+                              border:`1px solid ${alpha(C.amber,'66')}`,borderRadius:4,
+                              background:alpha(C.amber,'14'),color:C.amber,cursor:"pointer",
+                              letterSpacing:"0.02em",
+                            }}
+                          >↻ 重試</button>
+                        )}
                       </span>
                     )}
                     {cal && pre && <span style={{color:C.textMute,opacity:0.3}}>·</span>}
                     {pre && (
-                      <span style={{color:pre.color}}>
-                        <span style={{opacity:0.6,marginRight:4}}>事件預測</span>
-                        {pre.txt}{predictAutoStatus.msg ? `・${predictAutoStatus.msg}` : ''}
+                      <span style={{color:pre.color,display:"inline-flex",alignItems:"center",gap:6}}>
+                        <span style={{opacity:0.6}}>事件預測</span>
+                        <span>{pre.txt}{predictAutoStatus.msg ? `・${predictAutoStatus.msg}` : ''}</span>
+                        {predictAutoStatus.status === 'error' && (
+                          <button
+                            onClick={() => runPredictEvents(true)}
+                            style={{
+                              padding:"2px 8px",fontSize:10,fontWeight:500,
+                              border:`1px solid ${alpha(C.amber,'66')}`,borderRadius:4,
+                              background:alpha(C.amber,'14'),color:C.amber,cursor:"pointer",
+                              letterSpacing:"0.02em",
+                            }}
+                          >↻ 重試</button>
+                        )}
                       </span>
                     )}
                   </div>
