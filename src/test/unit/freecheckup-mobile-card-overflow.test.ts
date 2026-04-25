@@ -161,4 +161,19 @@ describe.each([
       expect(css).toMatch(/\.wb-bottom-val\s*\{[^}]*font-size:\s*clamp\(/);
     }
   });
+
+  it('≤340px footer 強制 ellipsis + overflow:hidden + 縮小 column-gap', () => {
+    if (vw <= 340) {
+      const css = effectiveCssAt(vw);
+      // footer container 必須限制最大寬度與隱藏溢出
+      expect(css).toMatch(/\.wb-bottom\s*\{[^}]*max-width:\s*100%/);
+      expect(css).toMatch(/\.wb-bottom\s*\{[^}]*overflow:\s*hidden/);
+      // column-gap 緊縮（≤6px）
+      expect(css).toMatch(/\.wb-bottom\s*\{[^}]*column-gap:\s*[0-6]px/);
+      // 子 span 強制 ellipsis
+      expect(css).toMatch(
+        /\.wb-bottom\s*>\s*span\s*\{[\s\S]*?text-overflow:\s*ellipsis/
+      );
+    }
+  });
 });
