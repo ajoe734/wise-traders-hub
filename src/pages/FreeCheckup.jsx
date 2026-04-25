@@ -579,11 +579,17 @@ export default function App() {
         syncCalendarToNews(merged);
       }
       calendarLastFetchRef.current = { key: requestKey, at: Date.now() };
+      // 成功：重置重試計數與錯誤
+      setCalendarRetry({ count: 0, cooldownUntil: 0 });
+      setCalendarLastError(null);
       setCalendarAutoStatus({ status: 'idle', msg: '' });
     } catch (e) {
       if (e?.name !== 'AbortError') {
         console.error("Calendar fetch error:", e);
-        setCalendarAutoStatus({ status: 'idle', msg: '' });
+        recordCalendarError(e);
+        const { label } = classifyError(e);
+        flashCalendarStatus('error', label);
+        throw e;
       } else {
         flashCalendarStatus('aborted');
       }
