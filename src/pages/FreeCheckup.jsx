@@ -3343,6 +3343,37 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ EVENTS ══════════ */}
         {tab==="events" && <>
+          {/* 自動更新狀態徽章（行事曆 + 預測） */}
+          {(() => {
+            const STATUS_LABEL = {
+              fetching: { txt: '⟳ 擷取中', color: C.amber },
+              throttled: { txt: '⏱ 已節流（30 秒內已更新）', color: C.textMute },
+              'skipped-idempotent': { txt: '⊘ 已跳過（同批次進行中）', color: C.textMute },
+              aborted: { txt: '✕ 已中斷舊請求', color: C.textMute },
+            };
+            const cal = STATUS_LABEL[calendarAutoStatus];
+            const pre = STATUS_LABEL[predictAutoStatus];
+            if (!cal && !pre) return null;
+            return (
+              <div style={{
+                display:"flex",gap:8,flexWrap:"wrap",marginBottom:10,
+                padding:"6px 10px",background:alpha(C.textMute,'04'),
+                borderRadius:6,fontSize:11,fontWeight:500,letterSpacing:"0.02em",
+              }}>
+                {cal && (
+                  <span style={{color:cal.color}}>
+                    <span style={{opacity:0.6,marginRight:4}}>行事曆</span>{cal.txt}
+                  </span>
+                )}
+                {cal && pre && <span style={{color:C.textMute,opacity:0.3}}>·</span>}
+                {pre && (
+                  <span style={{color:pre.color}}>
+                    <span style={{opacity:0.6,marginRight:4}}>事件預測</span>{pre.txt}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
           {calendarLoading ? (
             <div style={{textAlign:"center",padding:"36px 16px"}}>
               <div style={{fontSize:13,color:C.textMute,fontWeight:400}}>
