@@ -839,6 +839,7 @@ export default function App() {
         needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
       } finally {
         setPredictingEvents(false);
+        setPredictAutoStatus('idle');
         if (predictBatchInflightRef.current === batchKey) {
           predictBatchInflightRef.current = null;
         }
