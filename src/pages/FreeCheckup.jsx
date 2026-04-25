@@ -64,6 +64,61 @@ const INIT_WATCHLIST = [
 // 使用統一主題
 const C = ThemeL;
 
+// ── Workbench 配色 Token（僅用於 /free-checkup 持倉工作台，本頁破例採單色橘紅；不污染他頁）──
+const WB = {
+  bg: '#F5F3EF',
+  surface: '#FFFFFF',
+  surfaceSoft: '#FBFAF6',
+  ink: '#0A0A0A',
+  inkSub: '#3A3A3A',
+  inkMute: '#6B6862',
+  inkLight: '#9B968D',
+  hair: '#E8E6E1',
+  hairStrong: '#D4D1C9',
+  accent: '#FF4D1F',
+  accentSoft: 'rgba(255,77,31,0.08)',
+};
+const wbTone = (n) => (Number(n) >= 0 ? WB.accent : WB.ink);
+
+// ── Sparkline：純 SVG，無依賴 ──
+function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, strokeWidth = 1.4, opacity = 0.85 }) {
+  const arr = Array.isArray(data) ? data.filter((n) => Number.isFinite(n)) : [];
+  if (arr.length < 2) {
+    return (
+      <svg width={width} height={height} aria-hidden="true">
+        <line x1={0} y1={height / 2} x2={width} y2={height / 2}
+          stroke={WB.hair} strokeWidth={1} strokeDasharray="2 3" />
+      </svg>
+    );
+  }
+  const min = Math.min(...arr);
+  const max = Math.max(...arr);
+  const range = max - min || 1;
+  const stepX = arr.length > 1 ? width / (arr.length - 1) : width;
+  const points = arr.map((v, i) => {
+    const x = i * stepX;
+    const y = height - ((v - min) / range) * (height - 4) - 2;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  const last = arr[arr.length - 1];
+  const lastX = (arr.length - 1) * stepX;
+  const lastY = height - ((last - min) / range) * (height - 4) - 2;
+  return (
+    <svg width={width} height={height} aria-hidden="true" style={{ display: 'block' }}>
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={opacity}
+        points={points.join(' ')}
+      />
+      <circle cx={lastX} cy={lastY} r={1.8} fill={color} opacity={Math.min(1, opacity + 0.1)} />
+    </svg>
+  );
+}
+
 const TYPE_COLOR = {
   法說: C.blue,
   財報: C.cyan,
