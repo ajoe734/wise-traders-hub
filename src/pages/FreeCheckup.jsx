@@ -835,6 +835,18 @@ export default function App() {
 
   // 共用：執行一次預測（force=true 會繞過節流並重置已嘗試清單）
   const runPredictEvents = (force = false) => {
+    // 重試上限與冷卻檢查（僅作用於 force 觸發；自動觸發不受限）
+    if (force) {
+      const now = Date.now();
+      if (predictRetry.cooldownUntil > now) {
+        const sec = Math.ceil((predictRetry.cooldownUntil - now) / 1000);
+        const reachedMax = predictRetry.count >= RETRY_MAX;
+        flashPredictStatus('error', reachedMax
+          ? `已達重試上限 ${RETRY_MAX} 次，請 ${sec}s 後再試`
+          : `冷卻中，請 ${sec}s 後再試`);
+        return;
+      }
+    }
     if (!ready || !newsEvents || newsEvents.length === 0) {
       if (force) flashPredictStatus('error', '尚無事件可預測');
       return;
