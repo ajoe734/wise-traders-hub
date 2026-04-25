@@ -1958,32 +1958,26 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   alignItems: 'flex-end',
                   marginBottom: 22,
                 }} className="wb-hero-grid">
-                  {/* 左：Today P&L 大字 */}
+                  {/* 左：Today's P&L 大字 */}
                   <div>
                     <div style={{
-                      fontSize: 9.5, color: WB.inkMute, letterSpacing: '0.22em',
-                      textTransform: 'uppercase', fontWeight: 500, marginBottom: 12,
-                      display: 'inline-flex', alignItems: 'baseline', gap: 8,
+                      fontSize: 11, color: WB.inkMute, letterSpacing: '0.12em',
+                      textTransform: 'uppercase', fontWeight: 500, marginBottom: 14,
                     }}>
-                      Portfolio
-                      <span style={{
-                        display: 'inline-block', width: 4, height: 4, borderRadius: '50%',
-                        background: WB.accent, transform: 'translateY(-1px)',
-                      }} />
-                      <span style={{ color: WB.inkLight, letterSpacing: '0.18em' }}>Today</span>
+                      Today's P&amp;L
                     </div>
                     <div style={{
-                      display: 'flex', alignItems: 'baseline', gap: 18, flexWrap: 'wrap',
+                      display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap',
                     }}>
                       <span style={{
-                        fontSize: 88, fontWeight: 300, color: heroColor,
+                        fontSize: 88, fontWeight: 500, color: WB.ink,
                         letterSpacing: '-0.045em', lineHeight: 0.92,
                         fontVariantNumeric: 'tabular-nums',
                       }}>
                         {isUp ? '+' : ''}{Math.round(totalPnl).toLocaleString()}
                       </span>
                       <span style={{
-                        fontSize: 22, fontWeight: 400, color: heroColor, opacity: 0.85,
+                        fontSize: 22, fontWeight: 500, color: WB.accent,
                         letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums',
                       }}>
                         {isUp ? '+' : ''}{totalPct.toFixed(2)}%
@@ -2190,46 +2184,55 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   }} />
                 </span>
                 <span style={{
-                  display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline',
-                  gap: 18, flex: 1, fontSize: 12, color: WB.ink,
+                  display: 'flex', flexWrap: 'wrap',
+                  gap: '14px 28px', flex: 1,
                 }}>
-                  {items.map((h, idx) => {
+                  {items.map((h) => {
                     const dec = decisionsMap[h.code];
                     const tag = dec?.actionType === 'exit' ? 'EXIT'
                       : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH';
+                    const desc = dec?.actionText
+                      ? (dec.actionText.length > 32 ? dec.actionText.slice(0,30) + '…' : dec.actionText)
+                      : (STOCK_META[h.code]?.strategy || '持續監控');
                     return (
                       <button
                         key={h.code}
                         onClick={() => setExpandedDecision(h.code)}
                         style={{
                           background: 'transparent', border: 'none', padding: 0,
-                          fontFamily: 'inherit', cursor: 'pointer', color: WB.ink,
-                          display: 'inline-flex', alignItems: 'baseline', gap: 6,
-                          fontSize: 12, fontWeight: 400, letterSpacing: '0.01em',
+                          fontFamily: 'inherit', cursor: 'pointer',
+                          display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                          gap: 3, textAlign: 'left',
                         }}
                       >
                         <span style={{
-                          fontSize: 9, color: WB.accent, letterSpacing: '0.16em',
-                          fontWeight: 500,
-                        }}>{tag}</span>
-                        <span style={{ fontWeight: 500 }}>{h.code}</span>
-                        <span style={{ color: WB.inkSub }}>{h.name}</span>
-                        <span style={{
-                          color: WB.inkLight, fontSize: 11, fontVariantNumeric: 'tabular-nums',
+                          display: 'inline-flex', alignItems: 'baseline', gap: 6,
+                          fontSize: 12, color: WB.ink, fontWeight: 500, letterSpacing: '0.01em',
                         }}>
-                          {(h.pct ?? 0) >= 0 ? '+' : ''}{(h.pct ?? 0).toFixed(1)}%
+                          <span style={{
+                            fontSize: 9, color: WB.accent, letterSpacing: '0.16em',
+                            fontWeight: 500,
+                          }}>{tag}</span>
+                          <span>{h.code}</span>
+                          <span style={{ color: WB.inkSub, fontWeight: 400 }}>{h.name}</span>
+                          <span style={{
+                            color: WB.inkLight, fontSize: 11, fontVariantNumeric: 'tabular-nums', fontWeight: 400,
+                          }}>
+                            {(h.pct ?? 0) >= 0 ? '+' : ''}{(h.pct ?? 0).toFixed(1)}%
+                          </span>
                         </span>
-                        {idx < items.length - 1 && (
-                          <span style={{ color: WB.hairStrong, marginLeft: 6 }}>/</span>
-                        )}
+                        <span style={{
+                          fontSize: 11, color: WB.inkMute, letterSpacing: '0.01em',
+                          lineHeight: 1.5,
+                        }}>{desc}</span>
                       </button>
                     );
                   })}
                 </span>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 22, height: 22, borderRadius: '50%',
-                  border: `1px solid ${WB.hairStrong}`, color: WB.inkMute, fontSize: 11,
+                  width: 28, height: 28, borderRadius: '50%',
+                  border: `1px solid ${WB.hair}`, color: WB.inkMute, fontSize: 12,
                   flexShrink: 0,
                 }}>→</span>
               </div>
@@ -2447,7 +2450,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       textAlign: 'left',
                       background: cardBg,
                       border: 'none',
-                      borderRadius: 4,
+                      borderRadius: 0,
                       padding: '24px 28px 20px',
                       cursor: 'pointer',
                       display: 'flex', flexDirection: 'column',
@@ -2457,71 +2460,81 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       overflow: 'hidden',
                     }}
                   >
-                    {/* L1：股號 + 名稱 + FEATURE tag */}
-                    <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:10,marginBottom:6}}>
-                      <div style={{display:'flex',alignItems:'baseline',gap:8,minWidth:0}}>
+                    {/* L1：股號 + 名稱 + sparkline + FEATURE tag */}
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:6}}>
+                      <div style={{display:'flex',alignItems:'baseline',gap:8,minWidth:0,flex:1}}>
                         <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
                         <span style={{fontSize:15,fontWeight:400,color:cardColor,letterSpacing:'-0.005em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
                       </div>
+                      {sparkData.length >= 2 && (
+                        <Sparkline data={sparkData} width={60} height={20} color="#F4F1EC" opacity={0.85} />
+                      )}
                       <span style={{
                         fontSize:9,fontWeight:500,letterSpacing:'0.20em',
                         color:WB.accent,textTransform:'uppercase',flexShrink:0,
                       }}>{actionLabel}</span>
                     </div>
 
-                    {/* L2：ROI 主視覺（橘紅，52px → feature 用 64px） */}
+                    {/* L2：ROI 主視覺（橘紅，64px，字重 500） */}
                     <div style={{
                       display:'flex',alignItems:'baseline',gap:14,marginTop:8,marginBottom:10,
                     }}>
                       <span style={{
-                        fontSize:64,fontWeight:300,color:pnlColor,
+                        fontSize:64,fontWeight:500,color:pnlColor,
                         letterSpacing:'-0.04em',lineHeight:0.92,
                         fontVariantNumeric:'tabular-nums',
                       }}>
-                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.36em',marginLeft:3,opacity:0.55,fontWeight:400}}>%</span>
+                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500}}>%</span>
                       </span>
                       <span style={{fontSize:13,color:subColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
                         {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
                       </span>
                     </div>
 
-                    {/* L3：分類 tags */}
+                    {/* L3：分類 tags（filled chip） */}
                     {(meta?.industry || meta?.strategy) && (
                       <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
                         {meta?.industry && (
-                          <span style={{fontSize:10,color:muteColor,letterSpacing:'0.10em',padding:'2px 8px',border:`1px solid ${hairColor}`,borderRadius:2}}>{meta.industry}</span>
+                          <span style={{fontSize:10,color:'rgba(244,241,236,0.78)',letterSpacing:'0.08em',padding:'4px 8px',background:'rgba(255,255,255,0.08)',border:'none',borderRadius:0}}>{meta.industry}</span>
                         )}
                         {meta?.strategy && (
-                          <span style={{fontSize:10,color:muteColor,letterSpacing:'0.10em',padding:'2px 8px',border:`1px solid ${hairColor}`,borderRadius:2}}>{meta.strategy}</span>
+                          <span style={{fontSize:10,color:'rgba(244,241,236,0.78)',letterSpacing:'0.08em',padding:'4px 8px',background:'rgba(255,255,255,0.08)',border:'none',borderRadius:0}}>{meta.strategy}</span>
                         )}
                       </div>
                     )}
 
-                    {/* L4：說明 + sparkline */}
-                    <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'space-between',gap:18,minHeight:48}}>
+                    {/* L4：說明 */}
+                    <div style={{flex:1,display:'flex',alignItems:'center',gap:18,minHeight:48}}>
                       <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.7,letterSpacing:'0.01em'}}>
                         {dec?.actionText
                           ? (dec.actionText.length > 90 ? dec.actionText.slice(0,88) + '…' : dec.actionText)
                           : (meta?.strategy || '持續監控基本面與籌碼變動。')}
                       </div>
-                      {sparkData.length >= 2 && (
-                        <Sparkline data={sparkData} width={120} height={36} color={WB.accent} opacity={0.9} />
-                      )}
                     </div>
 
-                    {/* L5：底部數據帶 */}
+                    {/* L5：底部雙區塊 TODAY / VALUE */}
                     <div style={{
-                      display:'flex',justifyContent:'space-between',alignItems:'baseline',
                       paddingTop:12,marginTop:8,
                       borderTop:`1px solid ${hairColor}`,
-                      fontSize:10,color:muteColor,fontWeight:400,
-                      fontVariantNumeric:'tabular-nums',letterSpacing:'0.08em',
+                      display:'grid',gridTemplateColumns:'1fr 1px 1fr',gap:16,alignItems:'baseline',
                     }}>
-                      <span>{h.qty?.toLocaleString()}{h.unit || '股'} · COST {h.cost}</span>
-                      <span>VALUE {h.value?.toLocaleString() || '—'}</span>
-                      {tp && upside != null && (
-                        <span>TARGET {tp.toLocaleString()} · {upside>=0?'+':''}{upside.toFixed(1)}%</span>
-                      )}
+                      <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                        <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>TODAY</span>
+                        <span style={{fontSize:11,color:subColor,fontVariantNumeric:'tabular-nums'}}>
+                          {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
+                          <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
+                        </span>
+                      </div>
+                      <div style={{background:hairColor,width:1,height:'100%'}} />
+                      <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                        <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>VALUE</span>
+                        <span style={{fontSize:11,color:subColor,fontVariantNumeric:'tabular-nums'}}>
+                          {h.value?.toLocaleString() || '—'}
+                          {tp && upside != null && (
+                            <span style={{marginLeft:6,color:muteColor}}>TGT {upside>=0?'+':''}{upside.toFixed(1)}%</span>
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </button>
                 );
@@ -2540,7 +2553,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     textAlign: 'left',
                     background: cardBg,
                     border: cardBorder,
-                    borderRadius: 4,
+                    borderRadius: 0,
                     padding: '22px 22px 18px',
                     cursor: 'pointer',
                     display: 'flex',
@@ -2551,63 +2564,75 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     overflow: 'hidden',
                   }}
                 >
-                  {/* L1：股號 + 名稱 + action tag */}
-                  <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:10,marginBottom:4}}>
+                  {/* L1：股號 + 名稱 + sparkline + action tag */}
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:4}}>
                     <div style={{display:'flex',alignItems:'baseline',gap:8,minWidth:0,flex:1}}>
                       <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>{h.code}</span>
                       <span style={{fontSize:13,fontWeight:400,color:cardColor,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
                     </div>
+                    {sparkData.length >= 2 && (
+                      <Sparkline data={sparkData} width={60} height={20} color={WB.accent} opacity={0.85} />
+                    )}
                     <span style={{
                       fontSize:9,fontWeight:500,letterSpacing:'0.20em',
                       color:WB.accent,flexShrink:0,
                     }}>{actionLabel}</span>
                   </div>
 
-                  {/* L2：ROI 52px */}
+                  {/* L2：ROI 52px (字重 500) */}
                   <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:8,marginBottom:8}}>
                     <span style={{
-                      fontSize:52,fontWeight:300,color:pnlColor,
+                      fontSize:52,fontWeight:500,color:pnlColor,
                       letterSpacing:'-0.035em',lineHeight:0.95,
                       fontVariantNumeric:'tabular-nums',
                     }}>
-                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.36em',marginLeft:2,opacity:0.55}}>%</span>
+                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500}}>%</span>
                     </span>
                   </div>
 
-                  {/* L3：分類 tags */}
+                  {/* L3：分類 tags（filled chip） */}
                   {(meta?.industry || meta?.strategy) && (
                     <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
                       {meta?.industry && (
-                        <span style={{fontSize:10,color:muteColor,letterSpacing:'0.10em',padding:'2px 7px',border:`1px solid ${hairColor}`,borderRadius:2}}>{meta.industry}</span>
+                        <span style={{fontSize:10,color:isInk?'rgba(244,241,236,0.78)':WB.inkSub,letterSpacing:'0.08em',padding:'4px 8px',background:isInk?'rgba(255,255,255,0.08)':'#F4F2EE',border:'none',borderRadius:0}}>{meta.industry}</span>
                       )}
                       {meta?.strategy && (
-                        <span style={{fontSize:10,color:muteColor,letterSpacing:'0.10em',padding:'2px 7px',border:`1px solid ${hairColor}`,borderRadius:2}}>{meta.strategy}</span>
+                        <span style={{fontSize:10,color:isInk?'rgba(244,241,236,0.78)':WB.inkSub,letterSpacing:'0.08em',padding:'4px 8px',background:isInk?'rgba(255,255,255,0.08)':'#F4F2EE',border:'none',borderRadius:0}}>{meta.strategy}</span>
                       )}
                     </div>
                   )}
 
-                  {/* L4：說明 + sparkline */}
-                  <div style={{flex:1,display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:14,minHeight:40,paddingTop:4}}>
+                  {/* L4：說明 */}
+                  <div style={{flex:1,display:'flex',alignItems:'flex-end',gap:14,minHeight:40,paddingTop:4}}>
                     <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.65}}>
                       {dec?.actionText
                         ? (dec.actionText.length > 60 ? dec.actionText.slice(0,58) + '…' : dec.actionText)
                         : (meta?.strategy ? meta.strategy.slice(0,40) : '')}
                     </div>
-                    {sparkData.length >= 2 && (
-                      <Sparkline data={sparkData} width={84} height={28} color={WB.accent} opacity={0.85} />
-                    )}
                   </div>
 
-                  {/* L5：底部數據帶 */}
+                  {/* L5：底部雙區塊 TODAY / VALUE */}
                   <div style={{
                     paddingTop:10,marginTop:8,
                     borderTop:`1px solid ${hairColor}`,
-                    display:'flex',justifyContent:'space-between',alignItems:'baseline',
+                    display:'grid',gridTemplateColumns:'1fr 1px 1fr',gap:12,alignItems:'baseline',
                     fontSize:10,color:muteColor,fontWeight:400,
                     fontVariantNumeric:'tabular-nums',letterSpacing:'0.06em',
                   }}>
-                    <span>{h.qty?.toLocaleString()}{h.unit || '股'} · {h.cost}</span>
-                    <span>{h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}</span>
+                    <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                      <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>TODAY</span>
+                      <span style={{fontSize:11,color:subColor}}>
+                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
+                        <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
+                      </span>
+                    </div>
+                    <div style={{background:hairColor,width:1,height:'100%'}} />
+                    <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                      <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>VALUE</span>
+                      <span style={{fontSize:11,color:subColor}}>
+                        {h.value?.toLocaleString() || '—'}
+                      </span>
+                    </div>
                   </div>
                 </button>
               );
@@ -2693,7 +2718,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {/* PnL */}
                     <div style={{marginBottom:20,paddingBottom:16,borderBottom:`1px solid ${WB.hair}`}}>
                       <div style={{
-                        fontSize:48,fontWeight:300,color:pnlColor,
+                        fontSize:48,fontWeight:500,color:WB.ink,
                         letterSpacing:'-0.03em',lineHeight:1,
                         fontVariantNumeric:'tabular-nums',
                       }}>
