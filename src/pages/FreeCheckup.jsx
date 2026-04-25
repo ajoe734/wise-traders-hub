@@ -295,7 +295,6 @@ export default function App() {
 
   // dashboard UI
   const [sortBy,      setSortBy]      = useState("decision");
-  const [sortDir,     setSortDir]     = useState("desc");
   const [viewMode,    setViewMode]    = useState("grid"); // 'grid' | 'list'
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [filterType,  setFilterType]  = useState("全部");
