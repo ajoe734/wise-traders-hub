@@ -368,6 +368,11 @@ export default function App() {
   const [calendarEvents, setCalendarEvents] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
+  // 自動更新狀態徽章：'idle' | 'fetching' | 'throttled' | 'skipped-idempotent' | 'aborted'
+  const [calendarAutoStatus, setCalendarAutoStatus] = useState('idle');
+  const [predictAutoStatus, setPredictAutoStatus] = useState('idle');
+  const calendarStatusTimerRef = useRef(null);
+  const predictStatusTimerRef = useRef(null);
   // Decision System v6
   const [userOverrides, setUserOverrides] = useState({});
   const [expandedDecision, setExpandedDecision] = useState(null);
@@ -422,21 +427,36 @@ export default function App() {
   const calendarAbortRef = useRef(null);
   const CALENDAR_DEDUP_MS = 30_000;
 
+  // 短暫顯示節流/冪等狀態（3 秒後自動回復 idle）
+  const flashCalendarStatus = (status) => {
+    setCalendarAutoStatus(status);
+    if (calendarStatusTimerRef.current) clearTimeout(calendarStatusTimerRef.current);
+    calendarStatusTimerRef.current = setTimeout(() => setCalendarAutoStatus('idle'), 3000);
+  };
+  const flashPredictStatus = (status) => {
+    setPredictAutoStatus(status);
+    if (predictStatusTimerRef.current) clearTimeout(predictStatusTimerRef.current);
+    predictStatusTimerRef.current = setTimeout(() => setPredictAutoStatus('idle'), 3000);
+  };
+
   // ── 根據持倉自動產生行事曆事件 ──
   const fetchCalendarEvents = async (holdingsList, guard, existingEvents = []) => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
       save("pf-calendar-v1", { events: [], holdingCodes: "" });
+      setCalendarAutoStatus('idle');
       return;
     }
     const requestKey = holdingsList.map(h => h.code).sort().join(",");
     // 1) 同一個 key 已在飛行中 → 略過（避免併發）
     if (calendarInflightKeyRef.current === requestKey) {
+      flashCalendarStatus('skipped-idempotent');
       return;
     }
     // 2) 30 秒內剛抓過相同 key → 略過（節流）
     const last = calendarLastFetchRef.current;
     if (last.key === requestKey && Date.now() - last.at < CALENDAR_DEDUP_MS) {
+      flashCalendarStatus('throttled');
       return;
     }
     // 3) 不同 key 但有舊請求飛行中 → 中斷之
@@ -446,6 +466,7 @@ export default function App() {
     }
     calendarInflightKeyRef.current = requestKey;
     setCalendarLoading(true);
+    setCalendarAutoStatus('fetching');
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
@@ -487,8 +508,14 @@ export default function App() {
         syncCalendarToNews(merged);
       }
       calendarLastFetchRef.current = { key: requestKey, at: Date.now() };
+      setCalendarAutoStatus('idle');
     } catch (e) {
-      if (e?.name !== 'AbortError') console.error("Calendar fetch error:", e);
+      if (e?.name !== 'AbortError') {
+        console.error("Calendar fetch error:", e);
+        setCalendarAutoStatus('idle');
+      } else {
+        flashCalendarStatus('aborted');
+      }
     } finally {
       // 只有當前 key 還是這次請求的 key 才清除（避免被新請求覆寫後誤清）
       if (calendarInflightKeyRef.current === requestKey) {
@@ -731,7 +758,10 @@ export default function App() {
   useEffect(() => {
     if (!ready || !newsEvents || newsEvents.length === 0 || predictingEvents) return;
     // 全域節流：30 秒內已跑過則直接略過（即便事件清單變動）
-    if (Date.now() - predictLastRunRef.current < PREDICT_MIN_INTERVAL_MS) return;
+    if (Date.now() - predictLastRunRef.current < PREDICT_MIN_INTERVAL_MS) {
+      flashPredictStatus('throttled');
+      return;
+    }
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -752,7 +782,10 @@ export default function App() {
 
     // 批次冪等：相同事件 id 集合若已在飛行中則不重發
     const batchKey = needsPrediction.map(e => e.id).sort().join("|");
-    if (predictBatchInflightRef.current === batchKey) return;
+    if (predictBatchInflightRef.current === batchKey) {
+      flashPredictStatus('skipped-idempotent');
+      return;
+    }
     predictBatchInflightRef.current = batchKey;
 
     // 標記為已嘗試，避免重複觸發
@@ -760,6 +793,7 @@ export default function App() {
     predictLastRunRef.current = Date.now();
 
     setPredictingEvents(true);
+    setPredictAutoStatus('fetching');
     (async () => {
       try {
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events`, {
@@ -805,6 +839,7 @@ export default function App() {
         needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
       } finally {
         setPredictingEvents(false);
+        setPredictAutoStatus('idle');
         if (predictBatchInflightRef.current === batchKey) {
           predictBatchInflightRef.current = null;
         }
@@ -3308,6 +3343,37 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ EVENTS ══════════ */}
         {tab==="events" && <>
+          {/* 自動更新狀態徽章（行事曆 + 預測） */}
+          {(() => {
+            const STATUS_LABEL = {
+              fetching: { txt: '⟳ 擷取中', color: C.amber },
+              throttled: { txt: '⏱ 已節流（30 秒內已更新）', color: C.textMute },
+              'skipped-idempotent': { txt: '⊘ 已跳過（同批次進行中）', color: C.textMute },
+              aborted: { txt: '✕ 已中斷舊請求', color: C.textMute },
+            };
+            const cal = STATUS_LABEL[calendarAutoStatus];
+            const pre = STATUS_LABEL[predictAutoStatus];
+            if (!cal && !pre) return null;
+            return (
+              <div style={{
+                display:"flex",gap:8,flexWrap:"wrap",marginBottom:10,
+                padding:"6px 10px",background:alpha(C.textMute,'04'),
+                borderRadius:6,fontSize:11,fontWeight:500,letterSpacing:"0.02em",
+              }}>
+                {cal && (
+                  <span style={{color:cal.color}}>
+                    <span style={{opacity:0.6,marginRight:4}}>行事曆</span>{cal.txt}
+                  </span>
+                )}
+                {cal && pre && <span style={{color:C.textMute,opacity:0.3}}>·</span>}
+                {pre && (
+                  <span style={{color:pre.color}}>
+                    <span style={{opacity:0.6,marginRight:4}}>事件預測</span>{pre.txt}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
           {calendarLoading ? (
             <div style={{textAlign:"center",padding:"36px 16px"}}>
               <div style={{fontSize:13,color:C.textMute,fontWeight:400}}>
