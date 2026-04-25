@@ -2523,7 +2523,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }}>
                       <div style={{display:'flex',flexDirection:'column',gap:2}}>
                         <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>TODAY</span>
-                        <span className="wb-bottom-val" style={{fontSize:11,color:subColor,fontVariantNumeric:'tabular-nums'}}>
+                        <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                           {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
                           <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
                         </span>
@@ -2531,7 +2531,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div style={{background:hairColor,width:1,height:'100%'}} />
                       <div style={{display:'flex',flexDirection:'column',gap:2}}>
                         <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>VALUE</span>
-                        <span className="wb-bottom-val" style={{fontSize:11,color:subColor,fontVariantNumeric:'tabular-nums'}}>
+                        <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                           {h.value?.toLocaleString() || '—'}
                           {tp && upside != null && (
                             <span style={{marginLeft:6,color:muteColor}}>TGT {upside>=0?'+':''}{upside.toFixed(1)}%</span>
@@ -2627,7 +2627,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   }}>
                     <div style={{display:'flex',flexDirection:'column',gap:2}}>
                       <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>TODAY</span>
-                      <span className="wb-bottom-val" style={{fontSize:11,color:subColor}}>
+                      <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                         {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
                         <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
                       </span>
@@ -2635,7 +2635,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{background:hairColor,width:1,height:'100%'}} />
                     <div style={{display:'flex',flexDirection:'column',gap:2}}>
                       <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>VALUE</span>
-                      <span className="wb-bottom-val" style={{fontSize:11,color:subColor}}>
+                      <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                         {h.value?.toLocaleString() || '—'}
                       </span>
                     </div>
