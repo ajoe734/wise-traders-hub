@@ -368,9 +368,9 @@ export default function App() {
   const [calendarEvents, setCalendarEvents] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
-  // 自動更新狀態徽章：'idle' | 'fetching' | 'throttled' | 'skipped-idempotent' | 'aborted'
-  const [calendarAutoStatus, setCalendarAutoStatus] = useState('idle');
-  const [predictAutoStatus, setPredictAutoStatus] = useState('idle');
+  // 自動更新狀態徽章：'idle' | 'fetching' | 'throttled' | 'skipped-idempotent' | 'aborted' | 'success' | 'error'
+  const [calendarAutoStatus, setCalendarAutoStatus] = useState({ status: 'idle', msg: '' });
+  const [predictAutoStatus, setPredictAutoStatus] = useState({ status: 'idle', msg: '' });
   const calendarStatusTimerRef = useRef(null);
   const predictStatusTimerRef = useRef(null);
   // Decision System v6
@@ -427,16 +427,20 @@ export default function App() {
   const calendarAbortRef = useRef(null);
   const CALENDAR_DEDUP_MS = 30_000;
 
-  // 短暫顯示節流/冪等狀態（3 秒後自動回復 idle）
-  const flashCalendarStatus = (status) => {
-    setCalendarAutoStatus(status);
+  // 短暫顯示節流/冪等/結果狀態（fetching 持續到完成；其餘 4 秒後回 idle）
+  const flashCalendarStatus = (status, msg = '') => {
+    setCalendarAutoStatus({ status, msg });
     if (calendarStatusTimerRef.current) clearTimeout(calendarStatusTimerRef.current);
-    calendarStatusTimerRef.current = setTimeout(() => setCalendarAutoStatus('idle'), 3000);
+    if (status !== 'fetching' && status !== 'idle') {
+      calendarStatusTimerRef.current = setTimeout(() => setCalendarAutoStatus({ status: 'idle', msg: '' }), 4000);
+    }
   };
-  const flashPredictStatus = (status) => {
-    setPredictAutoStatus(status);
+  const flashPredictStatus = (status, msg = '') => {
+    setPredictAutoStatus({ status, msg });
     if (predictStatusTimerRef.current) clearTimeout(predictStatusTimerRef.current);
-    predictStatusTimerRef.current = setTimeout(() => setPredictAutoStatus('idle'), 3000);
+    if (status !== 'fetching' && status !== 'idle') {
+      predictStatusTimerRef.current = setTimeout(() => setPredictAutoStatus({ status: 'idle', msg: '' }), 4000);
+    }
   };
 
   // ── 根據持倉自動產生行事曆事件 ──
@@ -444,7 +448,7 @@ export default function App() {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
       save("pf-calendar-v1", { events: [], holdingCodes: "" });
-      setCalendarAutoStatus('idle');
+      setCalendarAutoStatus({ status: 'idle', msg: '' });
       return;
     }
     const requestKey = holdingsList.map(h => h.code).sort().join(",");
@@ -466,7 +470,7 @@ export default function App() {
     }
     calendarInflightKeyRef.current = requestKey;
     setCalendarLoading(true);
-    setCalendarAutoStatus('fetching');
+    setCalendarAutoStatus({ status: 'fetching', msg: '' });
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
@@ -508,11 +512,11 @@ export default function App() {
         syncCalendarToNews(merged);
       }
       calendarLastFetchRef.current = { key: requestKey, at: Date.now() };
-      setCalendarAutoStatus('idle');
+      setCalendarAutoStatus({ status: 'idle', msg: '' });
     } catch (e) {
       if (e?.name !== 'AbortError') {
         console.error("Calendar fetch error:", e);
-        setCalendarAutoStatus('idle');
+        setCalendarAutoStatus({ status: 'idle', msg: '' });
       } else {
         flashCalendarStatus('aborted');
       }
@@ -750,15 +754,23 @@ export default function App() {
   useEffect(() => { if (ready && targets && !isDemo)  save("pf-targets-v1",  targets);  }, [targets, ready, isDemo]);
   useEffect(() => { if (ready && newsEvents && !isDemo) save("pf-news-events-v1", newsEvents); }, [newsEvents, ready, isDemo]);
 
-  // ── 7天內事件自動觸發AI預測（僅一次） → 移入「待驗證」 ──
+  // ── 7天內事件自動觸發AI預測 → 移入「待驗證」 ──
   const predictedIdsRef = useRef(new Set());
-  const predictBatchInflightRef = useRef(null); // 當前批次 key（事件 id 排序後）
-  const predictLastRunRef = useRef(0);          // 上次觸發時間戳
-  const PREDICT_MIN_INTERVAL_MS = 30_000;       // 30 秒內不重複觸發
-  useEffect(() => {
-    if (!ready || !newsEvents || newsEvents.length === 0 || predictingEvents) return;
-    // 全域節流：30 秒內已跑過則直接略過（即便事件清單變動）
-    if (Date.now() - predictLastRunRef.current < PREDICT_MIN_INTERVAL_MS) {
+  const predictBatchInflightRef = useRef(null);
+  const predictLastRunRef = useRef(0);
+  const PREDICT_MIN_INTERVAL_MS = 30_000;
+
+  // 共用：執行一次預測（force=true 會繞過節流並重置已嘗試清單）
+  const runPredictEvents = (force = false) => {
+    if (!ready || !newsEvents || newsEvents.length === 0) {
+      if (force) flashPredictStatus('error', '尚無事件可預測');
+      return;
+    }
+    if (predictingEvents) {
+      if (force) flashPredictStatus('skipped-idempotent');
+      return;
+    }
+    if (!force && Date.now() - predictLastRunRef.current < PREDICT_MIN_INTERVAL_MS) {
       flashPredictStatus('throttled');
       return;
     }
@@ -768,7 +780,8 @@ export default function App() {
     const sevenDaysLater = new Date(now);
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
 
-    // 找出 status=pending 且日期在 7 天內、且尚未嘗試過預測的事件
+    if (force) predictedIdsRef.current = new Set();
+
     const needsPrediction = newsEvents.filter(e => {
       if (e.status !== "pending") return false;
       if (predictedIdsRef.current.has(e.id)) return false;
@@ -778,22 +791,22 @@ export default function App() {
       return evDate >= now && evDate <= sevenDaysLater;
     });
 
-    if (needsPrediction.length === 0) return;
+    if (needsPrediction.length === 0) {
+      if (force) flashPredictStatus('error', '7 天內無待預測事件');
+      return;
+    }
 
-    // 批次冪等：相同事件 id 集合若已在飛行中則不重發
     const batchKey = needsPrediction.map(e => e.id).sort().join("|");
     if (predictBatchInflightRef.current === batchKey) {
       flashPredictStatus('skipped-idempotent');
       return;
     }
     predictBatchInflightRef.current = batchKey;
-
-    // 標記為已嘗試，避免重複觸發
     needsPrediction.forEach(e => predictedIdsRef.current.add(e.id));
     predictLastRunRef.current = Date.now();
 
     setPredictingEvents(true);
-    setPredictAutoStatus('fetching');
+    setPredictAutoStatus({ status: 'fetching', msg: '' });
     (async () => {
       try {
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events`, {
@@ -812,8 +825,8 @@ export default function App() {
         });
         if (!res.ok) {
           console.error("Predict events failed:", res.status);
-          // 失敗時釋出 ids，下次允許重試
           needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
+          flashPredictStatus('error', `預測失敗（${res.status}）`);
           return;
         }
         const data = await res.json();
@@ -834,18 +847,41 @@ export default function App() {
           });
           return arr;
         });
+        flashPredictStatus('success', `已預測 ${needsPrediction.length} 件`);
       } catch (err) {
         console.error("Predict events error:", err);
         needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
+        flashPredictStatus('error', '預測發生錯誤');
       } finally {
         setPredictingEvents(false);
-        setPredictAutoStatus('idle');
         if (predictBatchInflightRef.current === batchKey) {
           predictBatchInflightRef.current = null;
         }
       }
     })();
-  }, [newsEvents, ready, holdings]);
+  };
+
+  useEffect(() => { runPredictEvents(false); }, [newsEvents, ready, holdings]);
+
+  // 手動刷新行事曆（繞過 30 秒節流，但保留 inflight 冪等保護）
+  const manualRefreshCalendar = async () => {
+    if (!holdings || holdings.length === 0) {
+      flashCalendarStatus('error', '尚無持倉');
+      return;
+    }
+    if (calendarLoading) {
+      flashCalendarStatus('skipped-idempotent');
+      return;
+    }
+    calendarLastFetchRef.current = { key: null, at: 0 };
+    try {
+      await fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
+      flashCalendarStatus('success', '行事曆已更新');
+    } catch {
+      flashCalendarStatus('error', '行事曆更新失敗');
+    }
+  };
+
   useEffect(() => { if (ready && analysisHistory) save("pf-analysis-history-v1", analysisHistory); }, [analysisHistory, ready]);
   useEffect(() => { if (ready && reversalConditions) save("pf-reversal-v1", reversalConditions); }, [reversalConditions, ready]);
   useEffect(() => { if (ready && strategyBrain) save("pf-brain-v1", strategyBrain); }, [strategyBrain, ready]);
@@ -3343,33 +3379,68 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ EVENTS ══════════ */}
         {tab==="events" && <>
-          {/* 自動更新狀態徽章（行事曆 + 預測） */}
+          {/* 手動更新 + 自動更新狀態徽章（行事曆 + 預測） */}
           {(() => {
             const STATUS_LABEL = {
-              fetching: { txt: '⟳ 擷取中', color: C.amber },
+              fetching: { txt: '⟳ 擷取中…', color: C.amber },
               throttled: { txt: '⏱ 已節流（30 秒內已更新）', color: C.textMute },
               'skipped-idempotent': { txt: '⊘ 已跳過（同批次進行中）', color: C.textMute },
               aborted: { txt: '✕ 已中斷舊請求', color: C.textMute },
+              success: { txt: '✓ 完成', color: C.up },
+              error: { txt: '⚠ 失敗', color: C.amber },
             };
-            const cal = STATUS_LABEL[calendarAutoStatus];
-            const pre = STATUS_LABEL[predictAutoStatus];
-            if (!cal && !pre) return null;
+            const cal = STATUS_LABEL[calendarAutoStatus.status];
+            const pre = STATUS_LABEL[predictAutoStatus.status];
+            const calBusy = calendarAutoStatus.status === 'fetching' || calendarLoading;
+            const preBusy = predictAutoStatus.status === 'fetching' || predictingEvents;
             return (
-              <div style={{
-                display:"flex",gap:8,flexWrap:"wrap",marginBottom:10,
-                padding:"6px 10px",background:alpha(C.textMute,'04'),
-                borderRadius:6,fontSize:11,fontWeight:500,letterSpacing:"0.02em",
-              }}>
-                {cal && (
-                  <span style={{color:cal.color}}>
-                    <span style={{opacity:0.6,marginRight:4}}>行事曆</span>{cal.txt}
-                  </span>
-                )}
-                {cal && pre && <span style={{color:C.textMute,opacity:0.3}}>·</span>}
-                {pre && (
-                  <span style={{color:pre.color}}>
-                    <span style={{opacity:0.6,marginRight:4}}>事件預測</span>{pre.txt}
-                  </span>
+              <div style={{marginBottom:10}}>
+                {/* 手動按鈕列 */}
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+                  <button
+                    onClick={manualRefreshCalendar}
+                    disabled={calBusy || !holdings || holdings.length === 0}
+                    style={{
+                      padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
+                      border:`1px solid ${alpha(C.textMute,'33')}`,borderRadius:6,
+                      background:"transparent",color:calBusy?C.textMute:C.text,
+                      cursor:calBusy||!holdings?.length?"not-allowed":"pointer",
+                      opacity:calBusy||!holdings?.length?0.5:1,
+                    }}
+                  >{calBusy ? '⟳ 更新中…' : '↻ 立刻更新行事曆'}</button>
+                  <button
+                    onClick={() => runPredictEvents(true)}
+                    disabled={preBusy || !newsEvents || newsEvents.length === 0}
+                    style={{
+                      padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
+                      border:`1px solid ${alpha(C.textMute,'33')}`,borderRadius:6,
+                      background:"transparent",color:preBusy?C.textMute:C.text,
+                      cursor:preBusy||!newsEvents?.length?"not-allowed":"pointer",
+                      opacity:preBusy||!newsEvents?.length?0.5:1,
+                    }}
+                  >{preBusy ? '⟳ 預測中…' : '↻ 立刻預測事件'}</button>
+                </div>
+                {/* 狀態徽章 */}
+                {(cal || pre) && (
+                  <div style={{
+                    display:"flex",gap:8,flexWrap:"wrap",
+                    padding:"6px 10px",background:alpha(C.textMute,'04'),
+                    borderRadius:6,fontSize:11,fontWeight:500,letterSpacing:"0.02em",
+                  }}>
+                    {cal && (
+                      <span style={{color:cal.color}}>
+                        <span style={{opacity:0.6,marginRight:4}}>行事曆</span>
+                        {cal.txt}{calendarAutoStatus.msg ? `・${calendarAutoStatus.msg}` : ''}
+                      </span>
+                    )}
+                    {cal && pre && <span style={{color:C.textMute,opacity:0.3}}>·</span>}
+                    {pre && (
+                      <span style={{color:pre.color}}>
+                        <span style={{opacity:0.6,marginRight:4}}>事件預測</span>
+                        {pre.txt}{predictAutoStatus.msg ? `・${predictAutoStatus.msg}` : ''}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             );
