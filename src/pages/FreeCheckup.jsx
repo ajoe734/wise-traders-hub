@@ -2483,11 +2483,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       display:'flex',alignItems:'baseline',gap:14,marginTop:8,marginBottom:10,
                     }}>
                       <span className="wb-roi" style={{
-                        fontSize:64,fontWeight:500,color:pnlColor,
-                        letterSpacing:'-0.04em',lineHeight:0.92,
+                        fontSize:'clamp(40px, 6vw + 12px, 64px)',fontWeight:500,color:pnlColor,
+                        letterSpacing:'-0.04em',lineHeight:1,
                         fontVariantNumeric:'tabular-nums',
                       }}>
-                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500}}>%</span>
+                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span>
                       </span>
                       <span style={{fontSize:13,color:subColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
                         {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
@@ -2523,7 +2523,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }}>
                       <div style={{display:'flex',flexDirection:'column',gap:2}}>
                         <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>TODAY</span>
-                        <span className="wb-bottom-val" style={{fontSize:11,color:subColor,fontVariantNumeric:'tabular-nums'}}>
+                        <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                           {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
                           <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
                         </span>
@@ -2531,7 +2531,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div style={{background:hairColor,width:1,height:'100%'}} />
                       <div style={{display:'flex',flexDirection:'column',gap:2}}>
                         <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>VALUE</span>
-                        <span className="wb-bottom-val" style={{fontSize:11,color:subColor,fontVariantNumeric:'tabular-nums'}}>
+                        <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                           {h.value?.toLocaleString() || '—'}
                           {tp && upside != null && (
                             <span style={{marginLeft:6,color:muteColor}}>TGT {upside>=0?'+':''}{upside.toFixed(1)}%</span>
@@ -2588,11 +2588,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {/* L2：ROI 52px (字重 500) */}
                   <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:8,marginBottom:8}}>
                     <span className="wb-roi" style={{
-                      fontSize:52,fontWeight:500,color:pnlColor,
-                      letterSpacing:'-0.035em',lineHeight:0.95,
+                      fontSize:'clamp(36px, 4.5vw + 10px, 52px)',fontWeight:500,color:pnlColor,
+                      letterSpacing:'-0.035em',lineHeight:1,
                       fontVariantNumeric:'tabular-nums',
                     }}>
-                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500}}>%</span>
+                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span>
                     </span>
                   </div>
 
@@ -2627,7 +2627,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   }}>
                     <div style={{display:'flex',flexDirection:'column',gap:2}}>
                       <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>TODAY</span>
-                      <span className="wb-bottom-val" style={{fontSize:11,color:subColor}}>
+                      <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                         {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
                         <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
                       </span>
@@ -2635,7 +2635,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{background:hairColor,width:1,height:'100%'}} />
                     <div style={{display:'flex',flexDirection:'column',gap:2}}>
                       <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>VALUE</span>
-                      <span className="wb-bottom-val" style={{fontSize:11,color:subColor}}>
+                      <span className="wb-bottom-val" style={{fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                         {h.value?.toLocaleString() || '—'}
                       </span>
                     </div>
@@ -2993,25 +2993,27 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               .holdings-detail-panel { display: none !important; }
               .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
             }
+            /* 卡片內元素 baseline 對齊強化（所有尺寸通用） */
+            .wb-card .wb-roi { font-feature-settings: "tnum" 1; vertical-align: baseline; }
+            .wb-card .wb-bottom { align-items: baseline !important; }
+            .wb-card .wb-bottom > div { display: flex !important; flex-direction: column !important; justify-content: flex-end; }
+            .wb-card .wb-bottom-val { display: inline-block; vertical-align: baseline; }
+
+            @media (max-width: 768px) {
+              .wb-card-feature { padding: 20px 18px 16px !important; }
+              .wb-card { padding: 18px 16px 14px !important; }
+              .wb-card .wb-bottom { gap: 10px !important; }
+              .wb-card .wb-tags { row-gap: 6px !important; }
+            }
             @media (max-width: 640px) {
               .holdings-card-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
-              /* feature card 在手機與一般卡同寬 */
-              .wb-card-feature { grid-column: span 1 !important; padding: 18px 16px 16px !important; }
-              .wb-card { padding: 18px 16px 14px !important; min-height: 0 !important; }
-              /* 縮小 ROI 字級避免溢位 */
-              .wb-card .wb-roi { font-size: 44px !important; }
-              .wb-card-feature .wb-roi { font-size: 52px !important; }
-              /* tags 允許換行 */
-              .wb-card .wb-tags { row-gap: 6px !important; }
-              /* 底部雙區塊：保留 grid 但縮小字距，避免擠壓 */
-              .wb-card .wb-bottom { gap: 10px !important; }
-              .wb-card .wb-bottom .wb-bottom-val { font-size: 10.5px !important; letter-spacing: 0 !important; }
-              /* sparkline 在窄螢幕縮小 */
-              .wb-card .wb-spark { width: 48px !important; }
+              .wb-card-feature { grid-column: span 1 !important; }
+              .wb-card { min-height: 0 !important; }
+              .wb-card .wb-spark { width: 52px !important; }
             }
             @media (max-width: 380px) {
               .wb-card .wb-spark { display: none !important; }
-              .wb-card .wb-roi { font-size: 38px !important; }
+              .wb-card .wb-bottom .wb-bottom-val { letter-spacing: 0 !important; }
             }
           `}</style>
         </>}
