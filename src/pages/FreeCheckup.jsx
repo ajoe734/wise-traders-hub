@@ -427,16 +427,20 @@ export default function App() {
   const calendarAbortRef = useRef(null);
   const CALENDAR_DEDUP_MS = 30_000;
 
-  // 短暫顯示節流/冪等狀態（3 秒後自動回復 idle）
-  const flashCalendarStatus = (status) => {
-    setCalendarAutoStatus(status);
+  // 短暫顯示節流/冪等/結果狀態（fetching 持續到完成；其餘 4 秒後回 idle）
+  const flashCalendarStatus = (status, msg = '') => {
+    setCalendarAutoStatus({ status, msg });
     if (calendarStatusTimerRef.current) clearTimeout(calendarStatusTimerRef.current);
-    calendarStatusTimerRef.current = setTimeout(() => setCalendarAutoStatus('idle'), 3000);
+    if (status !== 'fetching' && status !== 'idle') {
+      calendarStatusTimerRef.current = setTimeout(() => setCalendarAutoStatus({ status: 'idle', msg: '' }), 4000);
+    }
   };
-  const flashPredictStatus = (status) => {
-    setPredictAutoStatus(status);
+  const flashPredictStatus = (status, msg = '') => {
+    setPredictAutoStatus({ status, msg });
     if (predictStatusTimerRef.current) clearTimeout(predictStatusTimerRef.current);
-    predictStatusTimerRef.current = setTimeout(() => setPredictAutoStatus('idle'), 3000);
+    if (status !== 'fetching' && status !== 'idle') {
+      predictStatusTimerRef.current = setTimeout(() => setPredictAutoStatus({ status: 'idle', msg: '' }), 4000);
+    }
   };
 
   // ── 根據持倉自動產生行事曆事件 ──
