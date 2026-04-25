@@ -2500,10 +2500,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
                         <span style={{fontSize:15,fontWeight:400,color:cardColor,letterSpacing:'-0.005em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
                       </div>
-                      {sparkData.length >= 2 && (
+                      {sparkData.length >= 2 ? (
                         <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
                           <Sparkline data={sparkData} width={60} height={20} color={isInk ? '#F4F1EC' : (pctVal >= 0 ? WB.accent : '#9B968D')} opacity={pctVal >= 0 ? 0.85 : 0.6} />
                         </span>
+                      ) : (
+                        <span className="wb-spark" aria-hidden style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:20,fontSize:11,color:muteColor,opacity:0.4,flexShrink:0,letterSpacing:'0.3em'}}>———</span>
                       )}
                       <span style={{
                         fontSize:9,fontWeight:500,letterSpacing:'0.20em',
@@ -2608,10 +2610,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>{h.code}</span>
                       <span style={{fontSize:13,fontWeight:400,color:cardColor,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
                     </div>
-                    {sparkData.length >= 2 && (
+                    {sparkData.length >= 2 ? (
                       <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
                         <Sparkline data={sparkData} width={60} height={20} color={pctVal >= 0 ? WB.accent : '#9B968D'} opacity={pctVal >= 0 ? 0.85 : 0.55} />
                       </span>
+                    ) : (
+                      <span className="wb-spark" aria-hidden style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:20,fontSize:11,color:muteColor,opacity:0.4,flexShrink:0,letterSpacing:'0.3em'}}>———</span>
                     )}
                     <span style={{
                       fontSize:9,fontWeight:500,letterSpacing:'0.20em',
