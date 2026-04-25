@@ -2912,8 +2912,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {/* + Add Watchlist 虛線卡 */}
                   <button
                     onClick={() => setTab && setTab('watchlist')}
+                    className="wb-span-1"
                     style={{
-                      gridColumn:'span 1',
                       minHeight: 320,
                       background:'transparent',
                       border:`1px dashed ${WB.hairStrong}`,
