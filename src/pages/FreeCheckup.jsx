@@ -2935,8 +2935,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {!showAll && sorted.length > 12 && (
                     <button
                       onClick={() => setShowAll(true)}
+                      className="wb-span-full"
                       style={{
-                        gridColumn: vw <= 640 ? 'span 1' : vw <= 1279 ? 'span 2' : 'span 3',
                         padding:'12px',
                         background:'transparent',
                         border:`1px dashed ${WB.hair}`,
