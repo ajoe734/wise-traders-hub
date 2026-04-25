@@ -470,7 +470,7 @@ export default function App() {
     }
     calendarInflightKeyRef.current = requestKey;
     setCalendarLoading(true);
-    setCalendarAutoStatus('fetching');
+    setCalendarAutoStatus({ status: 'fetching', msg: '' });
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
