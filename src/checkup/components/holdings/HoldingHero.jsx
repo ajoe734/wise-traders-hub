@@ -1,4 +1,4 @@
-import { HOLDINGS_TOKENS, valueColor } from './holdingsTokens.js';
+import { HOLDINGS_TOKENS, valueColor, valueArrow, valueWeight } from './holdingsTokens.js';
 
 /**
  * HoldingHero — 持倉摘要列
@@ -27,24 +27,31 @@ export default function HoldingHero({
       label: '總市值',
       value: `NT$ ${fmt(totalValue)}`,
       color: HOLDINGS_TOKENS.ink,
+      weight: 400,
       sub: `成本 ${fmt(totalCost)}`,
     },
     {
       label: '今日損益',
-      value: todayPnl != null ? `${sign(todayPnl)}${fmt(todayPnl)}` : '—',
+      value:
+        todayPnl != null
+          ? `${valueArrow(todayPnl)} ${sign(todayPnl)}${fmt(todayPnl)}`.trim()
+          : '—',
       color: todayPnl != null ? valueColor(todayPnl) : HOLDINGS_TOKENS.inkLight,
+      weight: todayPnl != null ? valueWeight(todayPnl) : 400,
       sub: todayPct != null ? fmtPct(todayPct) : '尚無報價',
     },
     {
       label: '累積報酬',
-      value: fmtPct(totalPct),
+      value: `${valueArrow(totalPnl)} ${fmtPct(totalPct)}`.trim(),
       color: valueColor(totalPnl),
+      weight: valueWeight(totalPnl),
       sub: `${sign(totalPnl)}${fmt(totalPnl)}`,
     },
     {
       label: '部位',
       value: `${positionCount} 檔`,
       color: HOLDINGS_TOKENS.ink,
+      weight: 400,
       sub: '\u00A0',
     },
   ];
@@ -83,7 +90,7 @@ export default function HoldingHero({
           <div
             style={{
               fontSize: 26,
-              fontWeight: 400,
+              fontWeight: k.weight,
               color: k.color,
               letterSpacing: '-0.01em',
               lineHeight: 1.1,
