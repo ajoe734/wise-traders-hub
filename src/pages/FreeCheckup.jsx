@@ -2409,37 +2409,29 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const T      = targets?.[h.code];
               const tp     = T ? avgTarget(h.code) : null;
               const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
-              const isNew  = T?.isNew;
               const meta   = STOCK_META[h.code] || null;
               const dec    = decisionsMap[h.code];
-              const actionLabel = dec?.actionType === 'exit' ? '出場' : dec?.actionType === 'review' ? '檢查' : null;
+              const actionLabel = dec?.actionType === 'exit' ? 'EXIT' : dec?.actionType === 'review' ? 'REVIEW' : 'HOLD';
               const isActive = selectedCode === h.code;
               const pctVal = h.pct ?? 0;
+              const sparkData = sparklines[h.code] || [];
 
-              // 變體樣式
+              // ── Workbench 配色：feature card 採 ink 黑底；其餘白底 ──
               const isInk = variant === 'ink';
-              const isAccent = variant === 'accent';
-              const cardBg = isInk
-                ? '#1E1E1D'
-                : isAccent
-                  ? '#FFFFFF'
-                  : (isActive ? '#FFFFFF' : '#FBFAF6');
-              const cardColor = isInk ? '#EFEDE8' : C.text;
+              const cardBg = isInk ? WB.ink : WB.surface;
+              const cardColor = isInk ? '#F4F1EC' : WB.ink;
               const cardBorder = isInk
                 ? 'none'
-                : `1px solid ${isActive ? alpha(C.text, '22') : alpha(C.textMute, '10')}`;
-              const accentBar = isAccent ? '#EC662D' : null;
-              const fontHero = isInk ? 64 : isAccent ? 44 : 30;
-              const minH = isInk ? 280 : isAccent ? 220 : 160;
-              // 固定節奏：ink 卡只在 grid 第一格 span 2，其餘所有卡片 span 1（保持秩序）
-              const colSpan = (isInk && variantsMap.get(h.code) === 'ink' && h.__featureSlot) ? 'span 2' : 'span 1';
+                : `1px solid ${isActive ? WB.hairStrong : WB.hair}`;
+              // 固定節奏：feature 卡 span 2，其餘 span 1
+              const colSpan = (isInk && h.__featureSlot) ? 'span 2' : 'span 1';
+              const MIN_H = 320;
 
-              const muteColor = isInk ? 'rgba(239,237,232,0.55)' : C.textMute;
-              const subColor = isInk ? 'rgba(239,237,232,0.75)' : C.textSec;
-              const hairColor = isInk ? 'rgba(239,237,232,0.12)' : alpha(C.textMute, '08');
-              const pnlColor = isInk
-                ? (pctVal >= 0 ? '#FF7A6B' : '#7BC8A4')
-                : (pctVal >= 0 ? C.up : C.down);
+              // ROI / 損益顏色：破例採單一橘紅（漲跌皆同），ink 卡改用橘紅 over 黑底
+              const muteColor = isInk ? 'rgba(244,241,236,0.50)' : WB.inkLight;
+              const subColor = isInk ? 'rgba(244,241,236,0.80)' : WB.inkSub;
+              const hairColor = isInk ? 'rgba(244,241,236,0.14)' : WB.hair;
+              const pnlColor = WB.accent; // 漲跌皆橘紅
 
               // ─── Feature card (ink + span 2)：雜誌排版，ROI 佔據主視覺區 ───
               if (isInk && h.__featureSlot) {
