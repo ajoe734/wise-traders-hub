@@ -2994,10 +2994,25 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
             }
             /* 卡片內元素 baseline 對齊強化（所有尺寸通用） */
-            .wb-card .wb-roi { font-feature-settings: "tnum" 1; vertical-align: baseline; }
-            .wb-card .wb-bottom { align-items: baseline !important; }
-            .wb-card .wb-bottom > div { display: flex !important; flex-direction: column !important; justify-content: flex-end; }
-            .wb-card .wb-bottom-val { display: inline-block; vertical-align: baseline; }
+            .wb-card .wb-roi {
+              font-feature-settings: "tnum" 1;
+              vertical-align: baseline;
+              white-space: nowrap;
+              max-width: 100%;
+              overflow: hidden;
+              text-overflow: clip;
+            }
+            .wb-card .wb-roi > * { white-space: nowrap; }
+            .wb-card .wb-bottom { align-items: baseline !important; min-width: 0; }
+            .wb-card .wb-bottom > div { display: flex !important; flex-direction: column !important; justify-content: flex-end; min-width: 0; overflow: hidden; }
+            .wb-card .wb-bottom-val {
+              display: inline-block;
+              vertical-align: baseline;
+              white-space: nowrap;
+              max-width: 100%;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
 
             @media (max-width: 768px) {
               .wb-card-feature { padding: 20px 18px 16px !important; }
@@ -3010,10 +3025,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               .wb-card-feature { grid-column: span 1 !important; }
               .wb-card { min-height: 0 !important; }
               .wb-card .wb-spark { width: 52px !important; }
+              .wb-card .wb-bottom { gap: 8px !important; }
+              .wb-card .wb-bottom-val { font-size: clamp(10px, 2.6vw, 12px) !important; }
             }
             @media (max-width: 380px) {
               .wb-card .wb-spark { display: none !important; }
               .wb-card .wb-bottom .wb-bottom-val { letter-spacing: 0 !important; }
+              .wb-card .wb-bottom-val { font-size: clamp(9.5px, 2.4vw, 11px) !important; }
+            }
+            /* 極窄寬度安全溢出策略：縮放 ROI 數字避免擠壓換行 */
+            @media (max-width: 340px) {
+              .wb-card .wb-roi { font-size: clamp(28px, 11vw, 36px) !important; }
+              .wb-card-feature .wb-roi { font-size: clamp(32px, 13vw, 44px) !important; }
+              .wb-card .wb-bottom { grid-template-columns: 1fr 1px 1fr !important; }
             }
           `}</style>
         </>}
