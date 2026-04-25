@@ -3003,6 +3003,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           <style>{`
             /* Desktop 預設：3 欄。改用 class 而非 inline style，讓下方 media query 能在行動端生效 */
             .holdings-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            /* 卡片 span 工具類：以 CSS 控制，避免 inline style 在 RWD 切換時 race */
+            .wb-span-1 { grid-column: span 1; }
+            .wb-span-feature { grid-column: span 2; }
+            .wb-span-full { grid-column: 1 / -1; }
             @media (max-width: 1279px) {
               .holdings-workbench { grid-template-columns: minmax(0, 1fr) minmax(0, 320px) !important; }
               .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
