@@ -3105,6 +3105,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           <style>{`
             /* Desktop 預設：3 欄。改用 class 而非 inline style，讓下方 media query 能在行動端生效 */
             .holdings-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            /* 清單檢視：強制單欄並讓 feature 卡片佔滿一列 */
+            .holdings-card-grid--list { grid-template-columns: 1fr !important; }
+            .holdings-card-grid--list .wb-span-feature,
+            .holdings-card-grid--list .wb-card-feature { grid-column: 1 / -1 !important; }
+            .holdings-card-grid--list .wb-card { min-height: 0 !important; }
             /* 卡片 span 工具類：以 CSS 控制，避免 inline style 在 RWD 切換時 race */
             .wb-span-1 { grid-column: span 1; }
             .wb-span-feature { grid-column: span 2; }
