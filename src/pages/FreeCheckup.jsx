@@ -1958,32 +1958,26 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   alignItems: 'flex-end',
                   marginBottom: 22,
                 }} className="wb-hero-grid">
-                  {/* 左：Today P&L 大字 */}
+                  {/* 左：Today's P&L 大字 */}
                   <div>
                     <div style={{
-                      fontSize: 9.5, color: WB.inkMute, letterSpacing: '0.22em',
-                      textTransform: 'uppercase', fontWeight: 500, marginBottom: 12,
-                      display: 'inline-flex', alignItems: 'baseline', gap: 8,
+                      fontSize: 11, color: WB.inkMute, letterSpacing: '0.12em',
+                      textTransform: 'uppercase', fontWeight: 500, marginBottom: 14,
                     }}>
-                      Portfolio
-                      <span style={{
-                        display: 'inline-block', width: 4, height: 4, borderRadius: '50%',
-                        background: WB.accent, transform: 'translateY(-1px)',
-                      }} />
-                      <span style={{ color: WB.inkLight, letterSpacing: '0.18em' }}>Today</span>
+                      Today's P&amp;L
                     </div>
                     <div style={{
-                      display: 'flex', alignItems: 'baseline', gap: 18, flexWrap: 'wrap',
+                      display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap',
                     }}>
                       <span style={{
-                        fontSize: 88, fontWeight: 300, color: heroColor,
+                        fontSize: 88, fontWeight: 500, color: WB.ink,
                         letterSpacing: '-0.045em', lineHeight: 0.92,
                         fontVariantNumeric: 'tabular-nums',
                       }}>
                         {isUp ? '+' : ''}{Math.round(totalPnl).toLocaleString()}
                       </span>
                       <span style={{
-                        fontSize: 22, fontWeight: 400, color: heroColor, opacity: 0.85,
+                        fontSize: 22, fontWeight: 500, color: WB.accent,
                         letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums',
                       }}>
                         {isUp ? '+' : ''}{totalPct.toFixed(2)}%
