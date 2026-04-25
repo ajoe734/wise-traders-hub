@@ -299,9 +299,12 @@ export default function App() {
   const [showAll,     setShowAll]     = useState(false);
   // Viewport-aware grid columns（繞過 CSS cascade 在某些 Chromium dev/preview 環境
   // 下對 `<style>` 內 `grid-template-columns: 1fr !important` 不生效的詭異問題）
+  // 使用 useLayoutEffect 在 paint 前同步設定，避免 hydration race
   const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
+    // mount 後立即同步一次（覆寫 useState 初值，處理 SSR/hydration 落差）
+    setVw(window.innerWidth);
     const onResize = () => setVw(window.innerWidth);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
