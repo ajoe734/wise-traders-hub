@@ -861,28 +861,36 @@ export default function App() {
 
   // 共用：執行一次預測（force=true 會繞過節流並重置已嘗試清單）
   const runPredictEvents = (force = false) => {
+    const trigger = force ? 'manual' : 'auto';
     // 重試上限與冷卻檢查（僅作用於 force 觸發；自動觸發不受限）
     if (force) {
       const now = Date.now();
       if (predictRetry.cooldownUntil > now) {
         const sec = Math.ceil((predictRetry.cooldownUntil - now) / 1000);
         const reachedMax = predictRetry.count >= RETRY_MAX;
-        flashPredictStatus('error', reachedMax
+        const msg = reachedMax
           ? `已達重試上限 ${RETRY_MAX} 次，請 ${sec}s 後再試`
-          : `冷卻中，請 ${sec}s 後再試`);
+          : `冷卻中，請 ${sec}s 後再試`;
+        flashPredictStatus('error', msg);
+        pushUpdateLog({ source:'predict', trigger, status:'cooldown', key:'(n/a)', msg });
         return;
       }
     }
     if (!ready || !newsEvents || newsEvents.length === 0) {
-      if (force) flashPredictStatus('error', '尚無事件可預測');
+      if (force) {
+        flashPredictStatus('error', '尚無事件可預測');
+        pushUpdateLog({ source:'predict', trigger, status:'skipped', key:'(empty)', msg:'尚無事件' });
+      }
       return;
     }
     if (predictingEvents) {
       if (force) flashPredictStatus('skipped-idempotent');
+      pushUpdateLog({ source:'predict', trigger, status:'skipped-idempotent', key:'(inflight)', msg:'進行中' });
       return;
     }
     if (!force && Date.now() - predictLastRunRef.current < PREDICT_MIN_INTERVAL_MS) {
       flashPredictStatus('throttled');
+      pushUpdateLog({ source:'predict', trigger, status:'throttled', key:'(n/a)', msg:'30s 內已執行' });
       return;
     }
 
@@ -903,13 +911,17 @@ export default function App() {
     });
 
     if (needsPrediction.length === 0) {
-      if (force) flashPredictStatus('error', '7 天內無待預測事件');
+      if (force) {
+        flashPredictStatus('error', '7 天內無待預測事件');
+        pushUpdateLog({ source:'predict', trigger, status:'skipped', key:'(empty-7d)', msg:'7 天內無待預測' });
+      }
       return;
     }
 
     const batchKey = needsPrediction.map(e => e.id).sort().join("|");
     if (predictBatchInflightRef.current === batchKey) {
       flashPredictStatus('skipped-idempotent');
+      pushUpdateLog({ source:'predict', trigger, status:'skipped-idempotent', key:batchKey, msg:'同 batch 進行中' });
       return;
     }
     predictBatchInflightRef.current = batchKey;
@@ -918,6 +930,7 @@ export default function App() {
 
     setPredictingEvents(true);
     setPredictAutoStatus({ status: 'fetching', msg: '' });
+    pushUpdateLog({ source:'predict', trigger, status:'fetching', key:batchKey, msg:`${needsPrediction.length} 件` });
     (async () => {
       try {
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events`, {
@@ -941,6 +954,7 @@ export default function App() {
           recordPredictError(httpErr, res.status);
           const { label } = classifyError(httpErr, res.status);
           flashPredictStatus('error', `${label}（${res.status}）`);
+          pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:`${label} (${res.status})` });
           return;
         }
         const data = await res.json();
@@ -962,12 +976,14 @@ export default function App() {
           return arr;
         });
         flashPredictStatus('success', `已預測 ${needsPrediction.length} 件`);
+        pushUpdateLog({ source:'predict', trigger, status:'success', key:batchKey, msg:`已預測 ${needsPrediction.length} 件` });
       } catch (err) {
         console.error("Predict events error:", err);
         needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
         recordPredictError(err);
         const { label } = classifyError(err);
         flashPredictStatus('error', label);
+        pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:label });
       } finally {
         setPredictingEvents(false);
         if (predictBatchInflightRef.current === batchKey) {
