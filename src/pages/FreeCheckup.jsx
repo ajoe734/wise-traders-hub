@@ -413,6 +413,15 @@ export default function App() {
   // 追蹤是否為使用者主動操作（上傳截圖）造成的持倉變動
   const holdingsChangedByUserRef = useRef(false);
 
+  // ── Calendar 節流與冪等控制 ──
+  // - inflightKey：當下正在抓取的 holdingCodes，若相同則略過
+  // - lastFetch：{ key, at } 上次成功完成的請求（30 秒內相同 key 視為重複）
+  // - controller：保留中斷器，新請求進來會 abort 前一個
+  const calendarInflightKeyRef = useRef(null);
+  const calendarLastFetchRef = useRef({ key: null, at: 0 });
+  const calendarAbortRef = useRef(null);
+  const CALENDAR_DEDUP_MS = 30_000;
+
   // ── 根據持倉自動產生行事曆事件 ──
   const fetchCalendarEvents = async (holdingsList, guard, existingEvents = []) => {
     if (!holdingsList || holdingsList.length === 0) {
@@ -420,6 +429,22 @@ export default function App() {
       save("pf-calendar-v1", { events: [], holdingCodes: "" });
       return;
     }
+    const requestKey = holdingsList.map(h => h.code).sort().join(",");
+    // 1) 同一個 key 已在飛行中 → 略過（避免併發）
+    if (calendarInflightKeyRef.current === requestKey) {
+      return;
+    }
+    // 2) 30 秒內剛抓過相同 key → 略過（節流）
+    const last = calendarLastFetchRef.current;
+    if (last.key === requestKey && Date.now() - last.at < CALENDAR_DEDUP_MS) {
+      return;
+    }
+    // 3) 不同 key 但有舊請求飛行中 → 中斷之
+    if (calendarAbortRef.current) {
+      try { calendarAbortRef.current.abort(); } catch { /* noop */ }
+      calendarAbortRef.current = null;
+    }
+    calendarInflightKeyRef.current = requestKey;
     setCalendarLoading(true);
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
@@ -429,6 +454,7 @@ export default function App() {
       const endDate = oneYearLater.toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
 
       const controller = new AbortController();
+      calendarAbortRef.current = controller;
       const timer = setTimeout(() => controller.abort(), 300000); // 5 min timeout
       const res = await fetch(`${SUPABASE_FN_BASE}/checkup-calendar`, {
         method: "POST",
@@ -460,9 +486,17 @@ export default function App() {
         // 同步到事件分析
         syncCalendarToNews(merged);
       }
+      calendarLastFetchRef.current = { key: requestKey, at: Date.now() };
     } catch (e) {
-      console.error("Calendar fetch error:", e);
+      if (e?.name !== 'AbortError') console.error("Calendar fetch error:", e);
     } finally {
+      // 只有當前 key 還是這次請求的 key 才清除（避免被新請求覆寫後誤清）
+      if (calendarInflightKeyRef.current === requestKey) {
+        calendarInflightKeyRef.current = null;
+      }
+      if (calendarAbortRef.current && calendarAbortRef.current.signal.aborted === false) {
+        // 保留：可能已被新請求覆寫，不主動清
+      }
       setCalendarLoading(false);
     }
   };
