@@ -1,4 +1,4 @@
-import { HOLDINGS_TOKENS, valueColor } from './holdingsTokens.js';
+import { HOLDINGS_TOKENS, valueColor, valueArrow, valueWeight } from './holdingsTokens.js';
 
 const dotColor = (kind) => {
   if (kind === 'exit') return HOLDINGS_TOKENS.ink;
@@ -133,9 +133,10 @@ export default function PriorityStrip({ items = [], selectedCode = null, onSelec
                 color: valueColor(pct),
                 fontVariantNumeric: 'tabular-nums',
                 letterSpacing: '0.01em',
+                fontWeight: valueWeight(pct),
               }}
             >
-              {pct >= 0 ? '+' : ''}
+              {valueArrow(pct)} {pct >= 0 ? '+' : ''}
               {pct.toFixed(2)}%
             </span>
             <span
