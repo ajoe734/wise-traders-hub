@@ -3045,7 +3045,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             }
             @media (max-width: 640px) {
               .holdings-card-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
-              .wb-card-feature { grid-column: span 1 !important; }
+              .wb-card-feature, .wb-span-feature { grid-column: span 1 !important; }
               .wb-card { min-height: 0 !important; }
               .wb-card .wb-spark { width: 52px !important; }
               .wb-card .wb-bottom { gap: 8px !important; }
