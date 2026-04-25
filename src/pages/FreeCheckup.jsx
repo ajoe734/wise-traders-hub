@@ -2071,69 +2071,56 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                 </div>
 
-                {/* 今日優先 — 留白為主，色彩只在小點 */}
+                {/* 今日優先 — 一行細字入口；不搶畫面，不做卡片 */}
                 {showPriority && (
-                  <div style={{display: "flex", flexDirection: "column", gap: 8}}>
-                    <div style={{
+                  <div style={{
+                    display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap",
+                    fontSize: 12, color: C.textSec, padding: "2px 0",
+                  }}>
+                    <span style={{
                       fontSize: 10, color: C.textMute, fontWeight: 400,
-                      letterSpacing: "0.14em", textTransform: "uppercase",
+                      letterSpacing: "0.14em", textTransform: "uppercase", minWidth: 96,
+                      display: "inline-flex", alignItems: "baseline", gap: 6,
                     }}>
-                      Priority <span style={{textTransform: "none", letterSpacing: "0.02em", marginLeft: 4}}>· 全局</span>
-                    </div>
-                    <div style={{
-                      display: "grid",
-                      gridTemplateColumns: `repeat(${Math.min(globalPriorityList.length, 3)}, 1fr)`,
-                      gap: 1,
-                      background: alpha(C.textMute, '10'),
-                      padding: 1,
-                      borderRadius: 4,
-                    }}>
-                      {globalPriorityList.map((h, idx) => {
+                      <span style={{
+                        display: "inline-block", width: 4, height: 4, borderRadius: "50%",
+                        background: accent, transform: "translateY(-1px)",
+                      }} />
+                      Priority
+                      <span style={{color:C.textMute, fontSize: 11, fontWeight: 400, fontVariantNumeric: "tabular-nums"}}>
+                        {globalPriorityList.length}
+                      </span>
+                    </span>
+                    <span style={{display: "inline-flex", flexWrap: "wrap", gap: 12, flex: 1, alignItems: "baseline"}}>
+                      {globalPriorityList.slice(0, 6).map((h) => {
                         const b = priorityBadge(h);
-                        const pnlColor = h.pnl >= 0 ? C.up : C.down;
                         return (
                           <button
                             key={h.code}
                             onClick={() => openHoldingDrawer(h.code, { type: 'priority-global', label: '🎯 今日優先（全局）' })}
                             style={{
-                              background: C.card,
-                              border: "none",
-                              padding: "10px 12px",
-                              cursor: "pointer", textAlign: "left",
-                              display: "flex", flexDirection: "column", gap: 4,
-                              transition: "background 160ms ease",
-                              fontFamily: "inherit",
+                              background: "transparent", border: "none", padding: 0,
+                              fontSize: 12, color: C.text, fontWeight: 400,
+                              cursor: "pointer", fontFamily: "inherit",
+                              borderBottom: `1px solid ${alpha(C.textMute, '20')}`,
+                              display: "inline-flex", alignItems: "baseline", gap: 4,
                             }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = alpha(C.textMute, '06');
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = C.card;
-                            }}
+                            onMouseEnter={(e)=>{e.currentTarget.style.borderBottomColor = b.color; e.currentTarget.style.color = b.color;}}
+                            onMouseLeave={(e)=>{e.currentTarget.style.borderBottomColor = alpha(C.textMute, '20'); e.currentTarget.style.color = C.text;}}
                           >
-                            <div style={{display: "flex", alignItems: "baseline", gap: 6}}>
-                              <span style={{fontSize: 10, color: C.textMute, fontWeight: 400, fontVariantNumeric: "tabular-nums"}}>
-                                {String(idx + 1).padStart(2, '0')}
-                              </span>
-                              <span style={{
-                                display: "inline-block", width: 5, height: 5, borderRadius: "50%",
-                                background: b.color, transform: "translateY(-1px)",
-                              }} />
-                              <span style={{fontSize: 13, color: C.text, fontWeight: 400}}>{h.name}</span>
-                              <span style={{fontSize: 10, color: C.textMute, fontWeight: 400}}>{h.code}</span>
-                            </div>
-                            <div style={{display: "flex", alignItems: "baseline", gap: 8}}>
-                              <span style={{fontSize: 10, color: b.color, fontWeight: 400, letterSpacing: "0.04em"}}>
-                                {b.label}
-                              </span>
-                              <span style={{fontSize: 11, color: pnlColor, fontWeight: 400, fontVariantNumeric: "tabular-nums"}}>
-                                {h.pct >= 0 ? '+' : ''}{h.pct?.toFixed(1)}%
-                              </span>
-                            </div>
+                            <span style={{
+                              display: "inline-block", width: 4, height: 4, borderRadius: "50%",
+                              background: b.color, transform: "translateY(-1px)",
+                            }} />
+                            {h.name}
+                            <span style={{color: C.textMute, fontSize: 10}}>{h.pct >= 0 ? '+' : ''}{h.pct?.toFixed(1)}%</span>
                           </button>
                         );
                       })}
-                    </div>
+                      {globalPriorityList.length > 6 && (
+                        <span style={{fontSize: 11, color: C.textMute}}>＋{globalPriorityList.length - 6}</span>
+                      )}
+                    </span>
                   </div>
                 )}
 
