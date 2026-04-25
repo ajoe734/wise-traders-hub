@@ -1,3 +1,5 @@
+// @template-only — 樣板元件，未被 /free-checkup 引用，請見 ./README.md
+
 import { HOLDINGS_TOKENS, valueColor, valueArrow, valueWeight } from './holdingsTokens.js';
 
 const fmt = (n) =>

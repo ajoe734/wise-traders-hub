@@ -281,10 +281,10 @@ export function WatchlistRow({
               style: {
                 padding: '4px 8px',
                 background: 'transparent',
-                border: `1px solid ${C.up}`,
+                border: `1px solid ${C.border}`,
                 borderRadius: 12,
                 fontSize: 9,
-                color: C.up,
+                color: C.textMute,
                 cursor: 'pointer',
               },
             },
@@ -414,7 +414,7 @@ export function WatchlistRow({
                   hits > 0 &&
                     h('span', { style: { color: C.olive, marginRight: 8 } }, `準確 ${hits}`),
                   misses > 0 &&
-                    h('span', { style: { color: C.up, marginRight: 8 } }, `失誤 ${misses}`),
+                    h('span', { style: { color: C.amber, marginRight: 8 } }, `失誤 ${misses}`),
                   pendingCount + trackingCount > 0 &&
                     h(
                       'span',

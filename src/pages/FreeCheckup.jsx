@@ -1187,6 +1187,17 @@ export default function App() {
   // ── 每日收盤分析 ─────────────────────────────────────────────────
   const runDailyAnalysis = async () => {
     if (analyzing) return;
+    // Demo 模式 → 要求先 LINE 登入
+    if (isDemo) {
+      startLineLogin();
+      return;
+    }
+    // LINE 免費用戶每日 1 次 AI 分析限制（與截圖解析共用配額）
+    if (hasReachedDailyLimit) {
+      setSaved("今日免費 AI 分析次數已用完，明天再來");
+      setTimeout(() => setSaved(""), 4000);
+      return;
+    }
     setAnalyzing(true);
     setAnalyzeStep("取得即時股價...");
     try {
@@ -1402,6 +1413,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
 
       setDailyReport(report);
       setAnalysisHistory(prev => [report, ...(prev || []).filter(r => r.date !== today)].slice(0, 30));
+      incrementUploadCount(); // 計入今日 AI 配額（與截圖解析共用）
 
       // 8. 策略大腦進化 — 讓 AI 更新策略知識庫
       setAnalyzeStep("策略大腦進化中...");
@@ -2488,10 +2500,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
                         <span style={{fontSize:15,fontWeight:400,color:cardColor,letterSpacing:'-0.005em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
                       </div>
-                      {sparkData.length >= 2 && (
+                      {sparkData.length >= 2 ? (
                         <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
                           <Sparkline data={sparkData} width={60} height={20} color={isInk ? '#F4F1EC' : (pctVal >= 0 ? WB.accent : '#9B968D')} opacity={pctVal >= 0 ? 0.85 : 0.6} />
                         </span>
+                      ) : (
+                        <span className="wb-spark" aria-hidden style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:20,fontSize:11,color:muteColor,opacity:0.4,flexShrink:0,letterSpacing:'0.3em'}}>———</span>
                       )}
                       <span style={{
                         fontSize:9,fontWeight:500,letterSpacing:'0.20em',
@@ -2596,10 +2610,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>{h.code}</span>
                       <span style={{fontSize:13,fontWeight:400,color:cardColor,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
                     </div>
-                    {sparkData.length >= 2 && (
+                    {sparkData.length >= 2 ? (
                       <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
                         <Sparkline data={sparkData} width={60} height={20} color={pctVal >= 0 ? WB.accent : '#9B968D'} opacity={pctVal >= 0 ? 0.85 : 0.55} />
                       </span>
+                    ) : (
+                      <span className="wb-spark" aria-hidden style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:20,fontSize:11,color:muteColor,opacity:0.4,flexShrink:0,letterSpacing:'0.3em'}}>———</span>
                     )}
                     <span style={{
                       fontSize:9,fontWeight:500,letterSpacing:'0.20em',
@@ -3244,19 +3260,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                <div style={{fontSize:13,color:C.textMute,marginBottom:20,lineHeight:1.8,fontWeight:400}}>
                  分析今日股價變動與事件連動性<br/>自動比對持倉漲跌、異常波動、策略建議
                </div>
-               <button onClick={runDailyAnalysis} style={{
+               <button onClick={runDailyAnalysis} disabled={hasReachedDailyLimit} style={{
                  padding:"10px 24px",borderRadius:8,
                  border:`1px solid ${alpha(C.teal,'30')}`,
                  background:alpha(C.teal,'06'),
-                 color:C.teal,fontSize:13,fontWeight:400,cursor:"pointer",
+                 color:hasReachedDailyLimit ? C.textMute : C.teal,fontSize:13,fontWeight:400,
+                 cursor:hasReachedDailyLimit ? "not-allowed" : "pointer",
+                 opacity:hasReachedDailyLimit ? 0.5 : 1,
                  letterSpacing:"0.04em"}}>
-                 開始今日收盤分析
+                 {hasReachedDailyLimit ? "🔒 今日配額已用完" : "開始今日收盤分析"}
                </button>
                <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.6}}>
-                 收盤後按下即可開始分析
+                 {hasReachedDailyLimit ? "明日 00:00 重置（含截圖解析共用配額）" : "收盤後按下即可開始分析"}
                </div>
              </div>
-           )}
+            )}
 
           {analyzing && (
             <div style={{textAlign:"center",padding:"36px 16px"}}>
@@ -3882,9 +3900,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
                     {e.status==="past" && isCorrect!==null && (
                       <span style={{
-                        fontSize:11, fontWeight:400,
-                        color: isCorrect ? C.olive : C.up,
-                      }}>{isCorrect ? "正確" : "有誤"}</span>
+                        fontSize:11, fontWeight:500,
+                        color: isCorrect ? C.olive : C.amber,
+                      }}>{isCorrect ? "✓ 正確" : "⚠ 有誤"}</span>
                     )}
                     {e.status==="verifying" && (
                       <span style={{fontSize:11,color:C.amber,fontWeight:400}}>待驗證</span>
