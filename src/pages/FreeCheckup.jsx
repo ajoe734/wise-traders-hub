@@ -1860,7 +1860,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const winRate = H.length > 0 ? Math.round((winners.length / H.length) * 100) : 0;
             const themeCount = {};
             H.forEach(h => {
-              const tag = (stockMeta?.[h.code]?.industry) || (stockMeta?.[h.code]?.theme);
+              const tag = (STOCK_META?.[h.code]?.industry) || (STOCK_META?.[h.code]?.theme);
               if (tag) themeCount[tag] = (themeCount[tag] || 0) + 1;
             });
             const topTheme = Object.entries(themeCount).sort((a,b)=>b[1]-a[1])[0]?.[0]
