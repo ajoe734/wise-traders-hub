@@ -448,7 +448,7 @@ export default function App() {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
       save("pf-calendar-v1", { events: [], holdingCodes: "" });
-      setCalendarAutoStatus('idle');
+      setCalendarAutoStatus({ status: 'idle', msg: '' });
       return;
     }
     const requestKey = holdingsList.map(h => h.code).sort().join(",");
