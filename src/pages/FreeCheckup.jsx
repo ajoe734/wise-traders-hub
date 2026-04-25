@@ -373,6 +373,22 @@ export default function App() {
   const [predictAutoStatus, setPredictAutoStatus] = useState({ status: 'idle', msg: '' });
   const calendarStatusTimerRef = useRef(null);
   const predictStatusTimerRef = useRef(null);
+  // 最近一次失敗錯誤明細：{ message, reason: 'network'|'data'|'server'|'unknown', at: ISOString }
+  const [calendarLastError, setCalendarLastError] = useState(null);
+  const [predictLastError, setPredictLastError] = useState(null);
+  // 重試計數與冷卻：每連續失敗一次累計，達上限或冷卻期內禁止重試
+  const RETRY_MAX = 3;
+  const RETRY_COOLDOWN_MS = 15_000;
+  const [calendarRetry, setCalendarRetry] = useState({ count: 0, cooldownUntil: 0 });
+  const [predictRetry, setPredictRetry] = useState({ count: 0, cooldownUntil: 0 });
+  // 強制每秒 re-render 以更新冷卻倒數
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const inCooldown = calendarRetry.cooldownUntil > Date.now() || predictRetry.cooldownUntil > Date.now();
+    if (!inCooldown) return;
+    const t = setInterval(() => setNowTick(n => n + 1), 500);
+    return () => clearInterval(t);
+  }, [calendarRetry.cooldownUntil, predictRetry.cooldownUntil]);
   // Decision System v6
   const [userOverrides, setUserOverrides] = useState({});
   const [expandedDecision, setExpandedDecision] = useState(null);
