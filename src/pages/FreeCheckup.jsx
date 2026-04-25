@@ -3493,32 +3493,49 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const pre = STATUS_LABEL[predictAutoStatus.status];
             const calBusy = calendarAutoStatus.status === 'fetching' || calendarLoading;
             const preBusy = predictAutoStatus.status === 'fetching' || predictingEvents;
+            const nowMs = Date.now();
+            const calCool = Math.max(0, calendarRetry.cooldownUntil - nowMs);
+            const preCool = Math.max(0, predictRetry.cooldownUntil - nowMs);
+            const calRetryDisabled = calBusy || calCool > 0;
+            const preRetryDisabled = preBusy || preCool > 0;
+            const calCoolSec = Math.ceil(calCool / 1000);
+            const preCoolSec = Math.ceil(preCool / 1000);
+            const REASON_LABEL = { network: '網路', data: '資料', server: '伺服器', unknown: '未知' };
+            const retryBtnStyle = (disabled) => ({
+              padding:"2px 8px",fontSize:10,fontWeight:500,
+              border:`1px solid ${alpha(C.amber, disabled?'33':'66')}`,borderRadius:4,
+              background:alpha(C.amber, disabled?'08':'14'),
+              color:disabled?C.textMute:C.amber,
+              cursor:disabled?"not-allowed":"pointer",
+              letterSpacing:"0.02em",
+              opacity:disabled?0.6:1,
+            });
             return (
               <div style={{marginBottom:10}}>
                 {/* 手動按鈕列 */}
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
                   <button
                     onClick={manualRefreshCalendar}
-                    disabled={calBusy || !holdings || holdings.length === 0}
+                    disabled={calBusy || !holdings || holdings.length === 0 || calCool > 0}
                     style={{
                       padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
                       border:`1px solid ${alpha(C.textMute,'33')}`,borderRadius:6,
-                      background:"transparent",color:calBusy?C.textMute:C.text,
-                      cursor:calBusy||!holdings?.length?"not-allowed":"pointer",
-                      opacity:calBusy||!holdings?.length?0.5:1,
+                      background:"transparent",color:(calBusy||calCool>0)?C.textMute:C.text,
+                      cursor:calBusy||!holdings?.length||calCool>0?"not-allowed":"pointer",
+                      opacity:calBusy||!holdings?.length||calCool>0?0.5:1,
                     }}
-                  >{calBusy ? '⟳ 更新中…' : '↻ 立刻更新行事曆'}</button>
+                  >{calBusy ? '⟳ 更新中…' : (calCool>0 ? `↻ 冷卻中 ${calCoolSec}s` : '↻ 立刻更新行事曆')}</button>
                   <button
                     onClick={() => runPredictEvents(true)}
-                    disabled={preBusy || !newsEvents || newsEvents.length === 0}
+                    disabled={preBusy || !newsEvents || newsEvents.length === 0 || preCool > 0}
                     style={{
                       padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
                       border:`1px solid ${alpha(C.textMute,'33')}`,borderRadius:6,
-                      background:"transparent",color:preBusy?C.textMute:C.text,
-                      cursor:preBusy||!newsEvents?.length?"not-allowed":"pointer",
-                      opacity:preBusy||!newsEvents?.length?0.5:1,
+                      background:"transparent",color:(preBusy||preCool>0)?C.textMute:C.text,
+                      cursor:preBusy||!newsEvents?.length||preCool>0?"not-allowed":"pointer",
+                      opacity:preBusy||!newsEvents?.length||preCool>0?0.5:1,
                     }}
-                  >{preBusy ? '⟳ 預測中…' : '↻ 立刻預測事件'}</button>
+                  >{preBusy ? '⟳ 預測中…' : (preCool>0 ? `↻ 冷卻中 ${preCoolSec}s` : '↻ 立刻預測事件')}</button>
                 </div>
                 {/* 狀態徽章 */}
                 {(cal || pre) && (
@@ -3534,13 +3551,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {calendarAutoStatus.status === 'error' && (
                           <button
                             onClick={manualRefreshCalendar}
-                            style={{
-                              padding:"2px 8px",fontSize:10,fontWeight:500,
-                              border:`1px solid ${alpha(C.amber,'66')}`,borderRadius:4,
-                              background:alpha(C.amber,'14'),color:C.amber,cursor:"pointer",
-                              letterSpacing:"0.02em",
-                            }}
-                          >↻ 重試</button>
+                            disabled={calRetryDisabled}
+                            style={retryBtnStyle(calRetryDisabled)}
+                          >{calCool>0 ? `↻ ${calCoolSec}s` : `↻ 重試 (${calendarRetry.count}/${RETRY_MAX})`}</button>
                         )}
                       </span>
                     )}
@@ -3552,15 +3565,62 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {predictAutoStatus.status === 'error' && (
                           <button
                             onClick={() => runPredictEvents(true)}
-                            style={{
-                              padding:"2px 8px",fontSize:10,fontWeight:500,
-                              border:`1px solid ${alpha(C.amber,'66')}`,borderRadius:4,
-                              background:alpha(C.amber,'14'),color:C.amber,cursor:"pointer",
-                              letterSpacing:"0.02em",
-                            }}
-                          >↻ 重試</button>
+                            disabled={preRetryDisabled}
+                            style={retryBtnStyle(preRetryDisabled)}
+                          >{preCool>0 ? `↻ ${preCoolSec}s` : `↻ 重試 (${predictRetry.count}/${RETRY_MAX})`}</button>
                         )}
                       </span>
+                    )}
+                  </div>
+                )}
+                {/* 失敗錯誤明細卡片 */}
+                {(calendarLastError && calendarAutoStatus.status === 'error') && (
+                  <div style={{
+                    marginTop:6,padding:"8px 10px",
+                    background:alpha(C.amber,'08'),
+                    border:`1px solid ${alpha(C.amber,'33')}`,
+                    borderRadius:6,fontSize:11,lineHeight:1.6,
+                  }}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:3}}>
+                      <span style={{color:C.amber,fontWeight:500}}>
+                        行事曆 · {REASON_LABEL[calendarLastError.reason] || '未知'}類錯誤
+                      </span>
+                      <span style={{color:C.textMute,fontSize:10,opacity:0.7}}>
+                        {new Date(calendarLastError.at).toLocaleTimeString('zh-TW',{hour12:false})}
+                      </span>
+                    </div>
+                    <div style={{color:C.textMute,fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",fontSize:10,wordBreak:"break-word"}}>
+                      {calendarLastError.message}
+                    </div>
+                    {calendarRetry.count >= RETRY_MAX && (
+                      <div style={{marginTop:4,color:C.amber,fontSize:10,opacity:0.8}}>
+                        已連續失敗 {calendarRetry.count} 次，{calCool>0 ? `將於 ${calCoolSec}s 後解除冷卻` : '可再次重試'}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {(predictLastError && predictAutoStatus.status === 'error') && (
+                  <div style={{
+                    marginTop:6,padding:"8px 10px",
+                    background:alpha(C.amber,'08'),
+                    border:`1px solid ${alpha(C.amber,'33')}`,
+                    borderRadius:6,fontSize:11,lineHeight:1.6,
+                  }}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:3}}>
+                      <span style={{color:C.amber,fontWeight:500}}>
+                        事件預測 · {REASON_LABEL[predictLastError.reason] || '未知'}類錯誤
+                      </span>
+                      <span style={{color:C.textMute,fontSize:10,opacity:0.7}}>
+                        {new Date(predictLastError.at).toLocaleTimeString('zh-TW',{hour12:false})}
+                      </span>
+                    </div>
+                    <div style={{color:C.textMute,fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",fontSize:10,wordBreak:"break-word"}}>
+                      {predictLastError.message}
+                    </div>
+                    {predictRetry.count >= RETRY_MAX && (
+                      <div style={{marginTop:4,color:C.amber,fontSize:10,opacity:0.8}}>
+                        已連續失敗 {predictRetry.count} 次，{preCool>0 ? `將於 ${preCoolSec}s 後解除冷卻` : '可再次重試'}
+                      </div>
                     )}
                   </div>
                 )}
