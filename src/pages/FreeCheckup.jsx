@@ -2159,225 +2159,83 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </details>
           )}
 
-          {/* ══════════ Phase 2.5: Action Banner（決策工作台） ══════════ */}
+          {/* ══════════ Action Priority（單行 inline 文字流） ══════════ */}
           {(() => {
-            const exitCount = exitList.length;
-            const reviewCount = reviewList.length;
-            const upcomingCount = upcomingList.length;
-            const totalAction = exitCount + reviewCount + upcomingCount;
-            const showPriority = globalPriorityList.length > 0;
-
-            // 套用對應 quick filter
-            const applyQuickFilter = (key) => {
-              setFilterDecision(new Set());
-              setFilterUrgency(new Set());
-              setFilterConflict(new Set());
-              setFilterThesis(new Set());
-              setFilterPnl(new Set());
-              setFilterStrategy(new Set());
-              if (key === 'exit') setFilterDecision(new Set(['exit']));
-              else if (key === 'review') setFilterDecision(new Set(['review']));
-              else if (key === 'upcoming') setFilterUrgency(new Set(['now', 'soon']));
-              // scroll to list 區
-              requestAnimationFrame(() => {
-                const el = document.getElementById('holdings-filter-bar');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              });
-            };
-
-            const priorityBadge = (h) => {
-              const d = decisionsMap[h.code];
-              if (d?.actionType === 'exit') return { label: '出場', color: C.down };
-              if (d?.actionType === 'review') return { label: '檢查', color: C.amber };
-              if (d?.urgency === 'now') return { label: '立即', color: C.down };
-              if (d?.urgency === 'soon') return { label: '近期', color: C.amber };
-              return { label: '注意', color: C.textMute };
-            };
-
-            // 全無決策需處理 — 極簡單行
-            if (totalAction === 0 && !showPriority) {
+            const items = (globalPriorityList || []).slice(0, 3);
+            if (items.length === 0) {
               return (
-                <div id="action-banner" style={{
-                  marginBottom: 20, padding: "8px 2px",
-                  fontSize: 12, color: C.textMute, fontWeight: 400,
-                  letterSpacing: "0.04em",
+                <div style={{
+                  marginBottom: 18, padding: '6px 2px',
+                  fontSize: 11, color: WB.inkLight, fontWeight: 400, letterSpacing: '0.04em',
                 }}>
-                  持倉狀態良好，目前無待處理決策。
+                  No pending actions · Portfolio in good standing
                 </div>
               );
             }
-
-            // ── 克制化 Banner：純排版分層，無色塊主體、無強邊框 ──
-            const accent = exitCount > 0 ? C.down : reviewCount > 0 ? C.amber : C.textSec;
-            const summaryParts = [
-              exitCount > 0 ? `出場 ${exitCount}` : null,
-              reviewCount > 0 ? `檢查 ${reviewCount}` : null,
-              upcomingCount > 0 ? `到期 ${upcomingCount}` : null,
-            ].filter(Boolean);
-
             return (
-              <div id="action-banner" style={{
-                marginBottom: 14,
-                paddingBottom: 10,
-                borderBottom: `1px solid ${alpha(C.textMute, '10')}`,
-                display: "flex", flexDirection: "column", gap: 8,
+              <div style={{
+                marginBottom: 18, padding: '8px 0 12px',
+                borderBottom: `1px solid ${WB.hair}`,
+                display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap',
               }}>
-                {/* 標題列 — 用排版分層，不用色塊 */}
-                <div style={{
-                  display: "flex", alignItems: "baseline", justifyContent: "space-between",
-                  gap: 12, flexWrap: "wrap",
+                <span style={{
+                  fontSize: 9.5, color: WB.inkMute, letterSpacing: '0.22em',
+                  textTransform: 'uppercase', fontWeight: 500,
+                  display: 'inline-flex', alignItems: 'baseline', gap: 8, flexShrink: 0,
                 }}>
-                  <div style={{display: "flex", alignItems: "baseline", gap: 8}}>
-                    <span style={{
-                      fontSize: 10, color: C.textMute, fontWeight: 400,
-                      letterSpacing: "0.16em", textTransform: "uppercase",
-                    }}>Today</span>
-                    <span style={{
-                      display: "inline-block", width: 3, height: 3, borderRadius: "50%",
-                      background: accent, transform: "translateY(-2px)",
-                    }} />
-                    <span style={{fontSize: 13, color: C.text, fontWeight: 400, letterSpacing: "0.02em"}}>
-                      {summaryParts.join(' ・ ') || '無待處理'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 今日優先 — 一行細字入口；不搶畫面，不做卡片 */}
-                {showPriority && (
-                  <div style={{
-                    display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap",
-                    fontSize: 12, color: C.textSec, padding: "2px 0",
-                  }}>
-                    <span style={{
-                      fontSize: 10, color: C.textMute, fontWeight: 400,
-                      letterSpacing: "0.14em", textTransform: "uppercase", minWidth: 96,
-                      display: "inline-flex", alignItems: "baseline", gap: 6,
-                    }}>
-                      <span style={{
-                        display: "inline-block", width: 4, height: 4, borderRadius: "50%",
-                        background: accent, transform: "translateY(-1px)",
-                      }} />
-                      Priority
-                      <span style={{color:C.textMute, fontSize: 11, fontWeight: 400, fontVariantNumeric: "tabular-nums"}}>
-                        {globalPriorityList.length}
-                      </span>
-                    </span>
-                    <span style={{display: "inline-flex", flexWrap: "wrap", gap: 12, flex: 1, alignItems: "baseline"}}>
-                      {globalPriorityList.slice(0, 6).map((h) => {
-                        const b = priorityBadge(h);
-                        return (
-                          <button
-                            key={h.code}
-                            onClick={() => openHoldingDrawer(h.code, { type: 'priority-global', label: '🎯 今日優先（全局）' })}
-                            style={{
-                              background: "transparent", border: "none", padding: 0,
-                              fontSize: 12, color: C.text, fontWeight: 400,
-                              cursor: "pointer", fontFamily: "inherit",
-                              borderBottom: `1px solid ${alpha(C.textMute, '20')}`,
-                              display: "inline-flex", alignItems: "baseline", gap: 4,
-                            }}
-                            onMouseEnter={(e)=>{e.currentTarget.style.borderBottomColor = b.color; e.currentTarget.style.color = b.color;}}
-                            onMouseLeave={(e)=>{e.currentTarget.style.borderBottomColor = alpha(C.textMute, '20'); e.currentTarget.style.color = C.text;}}
-                          >
-                            <span style={{
-                              display: "inline-block", width: 4, height: 4, borderRadius: "50%",
-                              background: b.color, transform: "translateY(-1px)",
-                            }} />
-                            {h.name}
-                            <span style={{color: C.textMute, fontSize: 10}}>{h.pct >= 0 ? '+' : ''}{h.pct?.toFixed(1)}%</span>
-                          </button>
-                        );
-                      })}
-                      {globalPriorityList.length > 6 && (
-                        <span style={{fontSize: 11, color: C.textMute}}>＋{globalPriorityList.length - 6}</span>
-                      )}
-                    </span>
-                  </div>
-                )}
-
-                {/* 分類概覽 — 純文字行，色彩只在類別點 */}
-                {totalAction > 0 && (
-                  <div style={{display: "flex", flexDirection: "column", gap: 6}}>
-                    {[
-                      { key: 'exit', label: '建議出場', list: exitList, color: C.down },
-                      { key: 'review', label: '需要處理', list: reviewList, color: C.amber },
-                      { key: 'upcoming', label: '即將到期', list: upcomingList, color: C.amber },
-                    ].filter(row => row.list.length > 0).map(row => {
-                      const sample = row.list.slice(0, 3);
-                      const more = row.list.length - sample.length;
-                      return (
-                        <div key={row.key} style={{
-                          display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap",
-                          fontSize: 12, color: C.textSec, padding: "2px 0",
+                  Action Priority
+                  <span style={{
+                    display: 'inline-block', width: 4, height: 4, borderRadius: '50%',
+                    background: WB.accent, transform: 'translateY(-1px)',
+                  }} />
+                </span>
+                <span style={{
+                  display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline',
+                  gap: 18, flex: 1, fontSize: 12, color: WB.ink,
+                }}>
+                  {items.map((h, idx) => {
+                    const dec = decisionsMap[h.code];
+                    const tag = dec?.actionType === 'exit' ? 'EXIT'
+                      : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH';
+                    return (
+                      <button
+                        key={h.code}
+                        onClick={() => setExpandedDecision(h.code)}
+                        style={{
+                          background: 'transparent', border: 'none', padding: 0,
+                          fontFamily: 'inherit', cursor: 'pointer', color: WB.ink,
+                          display: 'inline-flex', alignItems: 'baseline', gap: 6,
+                          fontSize: 12, fontWeight: 400, letterSpacing: '0.01em',
+                        }}
+                      >
+                        <span style={{
+                          fontSize: 9, color: WB.accent, letterSpacing: '0.16em',
+                          fontWeight: 500,
+                        }}>{tag}</span>
+                        <span style={{ fontWeight: 500 }}>{h.code}</span>
+                        <span style={{ color: WB.inkSub }}>{h.name}</span>
+                        <span style={{
+                          color: WB.inkLight, fontSize: 11, fontVariantNumeric: 'tabular-nums',
                         }}>
-                          <span style={{
-                            display: "inline-flex", alignItems: "baseline", gap: 6, minWidth: 96,
-                          }}>
-                            <span style={{
-                              display: "inline-block", width: 5, height: 5, borderRadius: "50%",
-                              background: row.color, transform: "translateY(-1px)",
-                            }} />
-                            <span style={{color: C.text, fontWeight: 400}}>{row.label}</span>
-                            <span style={{color: C.textMute, fontWeight: 400, fontSize: 11, fontVariantNumeric: "tabular-nums"}}>
-                              {row.list.length}
-                            </span>
-                          </span>
-                          <span style={{display: "inline-flex", flexWrap: "wrap", gap: 10, flex: 1, alignItems: "baseline"}}>
-                            {sample.map(h => (
-                              <button
-                                key={h.code}
-                                onClick={() => openHoldingDrawer(h.code, {
-                                  type: 'category', key: row.key,
-                                  label: `${row.label}`,
-                                })}
-                                style={{
-                                  background: "transparent",
-                                  border: "none",
-                                  padding: 0,
-                                  fontSize: 12, color: C.text, fontWeight: 400,
-                                  cursor: "pointer", fontFamily: "inherit",
-                                  borderBottom: `1px solid ${alpha(C.textMute, '20')}`,
-                                  transition: "border-color 160ms ease, color 160ms ease",
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.borderBottomColor = row.color;
-                                  e.currentTarget.style.color = row.color;
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.borderBottomColor = alpha(C.textMute, '20');
-                                  e.currentTarget.style.color = C.text;
-                                }}
-                              >
-                                {h.name}
-                                <span style={{color: C.textMute, fontSize: 10, marginLeft: 3}}>{h.code}</span>
-                              </button>
-                            ))}
-                            {more > 0 && (
-                              <span style={{fontSize: 11, color: C.textMute}}>+{more}</span>
-                            )}
-                          </span>
-                          <button
-                            onClick={() => applyQuickFilter(row.key)}
-                            title="套用篩選"
-                            style={{
-                              background: "transparent", border: "none", padding: 0,
-                              fontSize: 11, color: C.textMute, cursor: "pointer",
-                              fontFamily: "inherit", fontWeight: 400, letterSpacing: "0.02em",
-                              transition: "color 160ms ease",
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.color = row.color; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = C.textMute; }}
-                          >
-                            篩選
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                          {(h.pct ?? 0) >= 0 ? '+' : ''}{(h.pct ?? 0).toFixed(1)}%
+                        </span>
+                        {idx < items.length - 1 && (
+                          <span style={{ color: WB.hairStrong, marginLeft: 6 }}>/</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </span>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 22, height: 22, borderRadius: '50%',
+                  border: `1px solid ${WB.hairStrong}`, color: WB.inkMute, fontSize: 11,
+                  flexShrink: 0,
+                }}>→</span>
               </div>
             );
           })()}
+
 
           {/* ── 持倉資料庫 Filter Bar ── */}
 
