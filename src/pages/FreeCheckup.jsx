@@ -1851,7 +1851,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
-          {/* ── Compact Hero Strip（單列高 ~64px，讓持倉卡片成為第一視覺）── */}
+          {/* ── Hero Strip（極簡單行；無底色，僅排版分層，避免與卡片牆爭主視覺） ── */}
           {(()=>{
             const totalPnl = totalVal - totalCost;
             const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
@@ -1859,42 +1859,38 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const heroColor = isUp ? C.up : C.down;
             return (
               <div style={{
-                display:"flex", alignItems:"center", justifyContent:"space-between",
-                gap:18, padding:"14px 18px", marginBottom:14,
-                background: alpha(C.text, '03'),
-                border: `1px solid ${alpha(C.textMute, '10')}`,
-                borderRadius: 6,
+                display:"flex", alignItems:"baseline", justifyContent:"space-between",
+                gap:18, padding:"4px 2px 12px", marginBottom:10,
+                borderBottom:`1px solid ${alpha(C.textMute, '12')}`,
               }}>
-                {/* 左：總損益 */}
                 <div style={{display:"flex", alignItems:"baseline", gap:10, flexShrink:0}}>
                   <span style={{
-                    fontSize:9, color:C.textMute, letterSpacing:"0.16em",
+                    fontSize:9, color:C.textMute, letterSpacing:"0.18em",
                     fontWeight:400, textTransform:"uppercase",
-                  }}>Total P&L</span>
+                  }}>Total</span>
                   <span style={{
-                    fontSize:24, fontWeight:400, color:heroColor,
+                    fontSize:18, fontWeight:400, color:heroColor,
                     letterSpacing:"-0.01em", fontVariantNumeric:"tabular-nums", lineHeight:1,
                   }}>
                     {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
                   </span>
                   <span style={{
-                    fontSize:12, color:heroColor, opacity:0.6,
+                    fontSize:11, color:heroColor, opacity:0.55,
                     fontVariantNumeric:"tabular-nums", fontWeight:400,
                   }}>
                     {isUp?"+":""}{totalPct.toFixed(2)}%
                   </span>
                 </div>
-
-                {/* 右：迷你 KPI 群（成本／市值／檔數／勝負） */}
                 <div style={{
-                  display:"flex", alignItems:"baseline", gap:18,
-                  fontSize:11, color:C.textMute, fontVariantNumeric:"tabular-nums",
+                  display:"flex", alignItems:"baseline", gap:14,
+                  fontSize:10, color:C.textMute, fontVariantNumeric:"tabular-nums",
+                  letterSpacing:"0.04em",
                 }}>
-                  <span><span style={{opacity:0.6, marginRight:4}}>成本</span>{totalCost.toLocaleString()}</span>
-                  <span><span style={{opacity:0.6, marginRight:4}}>市值</span>{totalVal.toLocaleString()}</span>
-                  <span><span style={{opacity:0.6, marginRight:4}}>持股</span>{H.length}</span>
-                  <span style={{color:C.up}}>↑{winners.length}</span>
-                  <span style={{color:C.down}}>↓{losers.length}</span>
+                  <span>成本 {totalCost.toLocaleString()}</span>
+                  <span>市值 {totalVal.toLocaleString()}</span>
+                  <span>{H.length} 檔</span>
+                  <span style={{color:C.up, opacity:0.7}}>↑{winners.length}</span>
+                  <span style={{color:C.down, opacity:0.7}}>↓{losers.length}</span>
                 </div>
               </div>
             );
