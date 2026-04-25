@@ -3552,8 +3552,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                           <button
                             onClick={manualRefreshCalendar}
                             disabled={calRetryDisabled}
+                            title={calBusy ? '正在更新中，請稍候' : (calCool>0 ? `冷卻中，${calCoolSec} 秒後可重試` : '重新嘗試擷取行事曆')}
                             style={retryBtnStyle(calRetryDisabled)}
-                          >{calCool>0 ? `↻ ${calCoolSec}s` : `↻ 重試 (${calendarRetry.count}/${RETRY_MAX})`}</button>
+                          >{calBusy ? '⟳ 正在更新…' : (calCool>0 ? `↻ ${calCoolSec}s` : `↻ 重試 (${calendarRetry.count}/${RETRY_MAX})`)}</button>
                         )}
                       </span>
                     )}
