@@ -2993,25 +2993,27 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               .holdings-detail-panel { display: none !important; }
               .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
             }
+            /* 卡片內元素 baseline 對齊強化（所有尺寸通用） */
+            .wb-card .wb-roi { font-feature-settings: "tnum" 1; vertical-align: baseline; }
+            .wb-card .wb-bottom { align-items: baseline !important; }
+            .wb-card .wb-bottom > div { display: flex !important; flex-direction: column !important; justify-content: flex-end; }
+            .wb-card .wb-bottom-val { display: inline-block; vertical-align: baseline; }
+
+            @media (max-width: 768px) {
+              .wb-card-feature { padding: 20px 18px 16px !important; }
+              .wb-card { padding: 18px 16px 14px !important; }
+              .wb-card .wb-bottom { gap: 10px !important; }
+              .wb-card .wb-tags { row-gap: 6px !important; }
+            }
             @media (max-width: 640px) {
               .holdings-card-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
-              /* feature card 在手機與一般卡同寬 */
-              .wb-card-feature { grid-column: span 1 !important; padding: 18px 16px 16px !important; }
-              .wb-card { padding: 18px 16px 14px !important; min-height: 0 !important; }
-              /* 縮小 ROI 字級避免溢位 */
-              .wb-card .wb-roi { font-size: 44px !important; }
-              .wb-card-feature .wb-roi { font-size: 52px !important; }
-              /* tags 允許換行 */
-              .wb-card .wb-tags { row-gap: 6px !important; }
-              /* 底部雙區塊：保留 grid 但縮小字距，避免擠壓 */
-              .wb-card .wb-bottom { gap: 10px !important; }
-              .wb-card .wb-bottom .wb-bottom-val { font-size: 10.5px !important; letter-spacing: 0 !important; }
-              /* sparkline 在窄螢幕縮小 */
-              .wb-card .wb-spark { width: 48px !important; }
+              .wb-card-feature { grid-column: span 1 !important; }
+              .wb-card { min-height: 0 !important; }
+              .wb-card .wb-spark { width: 52px !important; }
             }
             @media (max-width: 380px) {
               .wb-card .wb-spark { display: none !important; }
-              .wb-card .wb-roi { font-size: 38px !important; }
+              .wb-card .wb-bottom .wb-bottom-val { letter-spacing: 0 !important; }
             }
           `}</style>
         </>}
