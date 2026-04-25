@@ -1413,6 +1413,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
 
       setDailyReport(report);
       setAnalysisHistory(prev => [report, ...(prev || []).filter(r => r.date !== today)].slice(0, 30));
+      incrementUploadCount(); // 計入今日 AI 配額（與截圖解析共用）
 
       // 8. 策略大腦進化 — 讓 AI 更新策略知識庫
       setAnalyzeStep("策略大腦進化中...");
