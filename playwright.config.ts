@@ -1,4 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import { existsSync } from 'node:fs';
+
+const NIX_CHROMIUM =
+  '/nix/store/nw961dvpvik5m19kbay4cg27wxgl3sdv-playwright-chromium-headless-shell/chrome-linux/headless_shell';
+const RESOLVED_CHROMIUM =
+  process.env.PLAYWRIGHT_CHROMIUM_PATH ||
+  (existsSync(NIX_CHROMIUM) ? NIX_CHROMIUM : undefined);
+
 
 /**
  * Playwright config — Mobile visual regression for /free-checkup
@@ -32,17 +40,9 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     deviceScaleFactor: 2,
-    launchOptions: {
-      // Sandbox-friendly: nix-provided Chromium with all shared libs resolved.
-      // Falls back to Playwright's bundled binary when the nix path is absent
-      // (i.e. on a normal CI runner with `playwright install --with-deps`).
-      executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH
-        || (require('fs').existsSync(
-              '/nix/store/nw961dvpvik5m19kbay4cg27wxgl3sdv-playwright-chromium-headless-shell/chrome-linux/headless_shell'
-            )
-            ? '/nix/store/nw961dvpvik5m19kbay4cg27wxgl3sdv-playwright-chromium-headless-shell/chrome-linux/headless_shell'
-            : undefined),
-    },
+    launchOptions: RESOLVED_CHROMIUM
+      ? { executablePath: RESOLVED_CHROMIUM }
+      : undefined,
   },
   projects: [
     {
