@@ -1,42 +1,33 @@
 import { test } from '@playwright/test';
 
-test('dump matched rules', async ({ page }) => {
+test('precise grid debug', async ({ page }) => {
   await page.addInitScript(() => { try { window.localStorage.setItem('checkup-demo-mode','1'); } catch {} });
   await page.goto('/free-checkup', { waitUntil: 'networkidle' });
   await page.waitForSelector('.holdings-card-grid .wb-card', { timeout: 15000 });
   await page.waitForTimeout(300);
 
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('DOM.enable');
-  await cdp.send('CSS.enable');
-  const { root } = await cdp.send('DOM.getDocument', { depth: -1 });
-  const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: '.holdings-card-grid' });
-  const matched = await cdp.send('CSS.getMatchedStylesForNode', { nodeId });
+  const info = await page.evaluate(() => {
+    const g = document.querySelector('.holdings-card-grid') as HTMLElement;
+    const cs = getComputedStyle(g);
+    // Force a recompute with inline override to see what actually wins
+    const beforeGTC = cs.gridTemplateColumns;
 
-  const rules = (matched.matchedCSSRules || []).map((r: any) => ({
-    selector: r.rule.selectorList.text,
-    media: r.rule.media?.map((m: any) => m.text),
-    cssText: r.rule.style.cssText,
-  }));
-  console.log('=== MATCHED RULES for .holdings-card-grid ===');
-  console.log(JSON.stringify(rules, null, 2));
+    // Inline test override
+    g.style.gridTemplateColumns = '1fr';
+    const afterGTC = getComputedStyle(g).gridTemplateColumns;
 
-  // Print any rule mentioning grid-template-columns
-  console.log('\n=== ALL stylesheets containing 1fr ===');
-  const sheets = await cdp.send('CSS.getAllStyleSheets' as any).catch(() => null);
-  // fallback: dump full <style> contents
-  const allStyles = await page.evaluate(() => {
-    const out: { idx: number; len: number; has1fr: boolean; snippet: string }[] = [];
-    document.querySelectorAll('style').forEach((s, i) => {
-      const t = s.textContent || '';
-      if (t.includes('holdings-card-grid')) {
-        out.push({ idx: i, len: t.length, has1fr: t.includes('1fr !important'), snippet: t });
-      }
-    });
-    return out;
+    return {
+      mediaMatches640: window.matchMedia('(max-width: 640px)').matches,
+      mediaMatches1023: window.matchMedia('(max-width: 1023px)').matches,
+      mediaMatches1279: window.matchMedia('(max-width: 1279px)').matches,
+      innerWidth: window.innerWidth,
+      docClientWidth: document.documentElement.clientWidth,
+      beforeGTC,
+      afterInlineOverride: afterGTC,
+      // 還原
+      _: (() => { g.style.removeProperty('grid-template-columns'); return null; })(),
+      finalGTC: getComputedStyle(g).gridTemplateColumns,
+    };
   });
-  for (const s of allStyles) {
-    console.log(`\n--- STYLE[${s.idx}] len=${s.len} has1fr=${s.has1fr} ---`);
-    console.log(s.snippet);
-  }
+  console.log(JSON.stringify(info, null, 2));
 });
