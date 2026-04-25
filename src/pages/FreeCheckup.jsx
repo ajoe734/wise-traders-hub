@@ -2887,6 +2887,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {/* 左：卡片牆 */}
                 <div style={{
                   display:'grid',
+                  gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
                   columnGap: 16,
                   rowGap: 20,
                 }} className="holdings-card-grid">
