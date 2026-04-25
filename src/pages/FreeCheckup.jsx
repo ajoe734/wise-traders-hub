@@ -527,23 +527,26 @@ export default function App() {
   };
 
   // ── 根據持倉自動產生行事曆事件 ──
-  const fetchCalendarEvents = async (holdingsList, guard, existingEvents = []) => {
+  const fetchCalendarEvents = async (holdingsList, guard, existingEvents = [], trigger = 'auto') => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
       save("pf-calendar-v1", { events: [], holdingCodes: "" });
       setCalendarAutoStatus({ status: 'idle', msg: '' });
+      pushUpdateLog({ source:'calendar', trigger, status:'skipped', key:'(empty)', msg:'尚無持倉' });
       return;
     }
     const requestKey = holdingsList.map(h => h.code).sort().join(",");
     // 1) 同一個 key 已在飛行中 → 略過（避免併發）
     if (calendarInflightKeyRef.current === requestKey) {
       flashCalendarStatus('skipped-idempotent');
+      pushUpdateLog({ source:'calendar', trigger, status:'skipped-idempotent', key:requestKey, msg:'同 key 進行中' });
       return;
     }
     // 2) 30 秒內剛抓過相同 key → 略過（節流）
     const last = calendarLastFetchRef.current;
     if (last.key === requestKey && Date.now() - last.at < CALENDAR_DEDUP_MS) {
       flashCalendarStatus('throttled');
+      pushUpdateLog({ source:'calendar', trigger, status:'throttled', key:requestKey, msg:`30s 內已更新` });
       return;
     }
     // 3) 不同 key 但有舊請求飛行中 → 中斷之
@@ -554,6 +557,7 @@ export default function App() {
     calendarInflightKeyRef.current = requestKey;
     setCalendarLoading(true);
     setCalendarAutoStatus({ status: 'fetching', msg: '' });
+    pushUpdateLog({ source:'calendar', trigger, status:'fetching', key:requestKey, msg:`${holdingsList.length} 檔` });
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
@@ -572,7 +576,10 @@ export default function App() {
       });
       clearTimeout(timer);
       const result = await res.json();
-      if (guard !== undefined && guard !== resetGuardRef.current) return;
+      if (guard !== undefined && guard !== resetGuardRef.current) {
+        pushUpdateLog({ source:'calendar', trigger, status:'aborted', key:requestKey, msg:'guard 變更' });
+        return;
+      }
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
@@ -599,15 +606,18 @@ export default function App() {
       setCalendarRetry({ count: 0, cooldownUntil: 0 });
       setCalendarLastError(null);
       setCalendarAutoStatus({ status: 'idle', msg: '' });
+      pushUpdateLog({ source:'calendar', trigger, status:'success', key:requestKey, msg:'完成' });
     } catch (e) {
       if (e?.name !== 'AbortError') {
         console.error("Calendar fetch error:", e);
         recordCalendarError(e);
         const { label } = classifyError(e);
         flashCalendarStatus('error', label);
+        pushUpdateLog({ source:'calendar', trigger, status:'error', key:requestKey, msg:label });
         throw e;
       } else {
         flashCalendarStatus('aborted');
+        pushUpdateLog({ source:'calendar', trigger, status:'aborted', key:requestKey, msg:'AbortError' });
       }
     } finally {
       // 只有當前 key 還是這次請求的 key 才清除（避免被新請求覆寫後誤清）
