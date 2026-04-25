@@ -767,6 +767,29 @@ export default function App() {
     }
   }, [holdings, ready]);
   const H = holdings || [];
+
+  // ── Sparkline 載入：持倉變動時，僅補抓還沒快取的代碼 ──
+  useEffect(() => {
+    if (!H || H.length === 0) return;
+    const codes = H.map((h) => String(h.code).trim()).filter(Boolean);
+    const missing = codes.filter((c) => !sparklines[c]);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('checkup-sparkline', {
+          body: { codes: missing.slice(0, 30) },
+        });
+        if (cancelled || error || !data?.result) return;
+        setSparklines((prev) => ({ ...prev, ...data.result }));
+      } catch {
+        /* silent — sparkline 為非關鍵裝飾 */
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [H.map((h) => h.code).join(',')]);
+
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
   const totalCost = H.reduce((s,h)=> s + (h.totalCost != null ? h.totalCost : h.cost * h.qty), 0);
   const totalPnl  = H.reduce((s,h)=>s+h.pnl,0);
