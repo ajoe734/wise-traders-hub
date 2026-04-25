@@ -3005,21 +3005,98 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           }}>
             <span>{sorted.length} HOLDINGS</span>
             <div style={{display:'flex',alignItems:'center',gap:14}}>
-              <span style={{display:'flex',alignItems:'center',gap:6}}>
-                SORT BY <span style={{color:WB.ink}}>PRIORITY ▾</span>
-              </span>
+              {/* SORT BY 下拉選單 */}
+              <div style={{position:'relative'}}>
+                <button
+                  type="button"
+                  onClick={() => setSortMenuOpen(v => !v)}
+                  style={{
+                    background:'transparent', border:'none', padding:0, margin:0,
+                    fontSize:10, color:WB.inkMute, letterSpacing:'0.16em', fontWeight:500,
+                    cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6,
+                    fontFamily:'inherit',
+                  }}
+                >
+                  SORT BY <span style={{color:WB.ink}}>
+                    {(() => {
+                      const map = {decision:'PRIORITY', value:'VALUE', pnl:'P&L', pct:'RETURN', urgency:'URGENCY', confidence:'CONFIDENCE', updated:'UPDATED'};
+                      return map[sortBy] || 'PRIORITY';
+                    })()} {sortMenuOpen ? '▴' : '▾'}
+                  </span>
+                </button>
+                {sortMenuOpen && (
+                  <>
+                    <div
+                      onClick={() => setSortMenuOpen(false)}
+                      style={{position:'fixed', inset:0, zIndex:40}}
+                    />
+                    <div style={{
+                      position:'absolute', bottom:'calc(100% + 6px)', right:0, zIndex:50,
+                      background:WB.surface, border:`1px solid ${WB.hairStrong}`, borderRadius:4,
+                      minWidth:140, padding:'6px 0',
+                      boxShadow:'0 2px 12px rgba(0,0,0,0.04)',
+                    }}>
+                      {[['decision','PRIORITY'],['value','VALUE'],['pnl','P&L'],['pct','RETURN'],['urgency','URGENCY'],['confidence','CONFIDENCE'],['updated','UPDATED']].map(([k,l]) => {
+                        const active = sortBy === k;
+                        return (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => {
+                              if (active) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+                              else { setSortBy(k); setSortDir('desc'); }
+                              setSortMenuOpen(false);
+                            }}
+                            style={{
+                              display:'flex', alignItems:'center', justifyContent:'space-between',
+                              width:'100%', padding:'7px 14px', background:'transparent',
+                              border:'none', cursor:'pointer', fontFamily:'inherit',
+                              fontSize:10, letterSpacing:'0.14em', fontWeight:active?500:400,
+                              color: active ? WB.ink : WB.inkMute, textAlign:'left',
+                            }}
+                          >
+                            <span>{l}</span>
+                            {active && <span style={{fontSize:9,opacity:0.7}}>{sortDir === 'desc' ? '↓' : '↑'}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
               <span style={{width:1,height:12,background:WB.hair}}/>
+              {/* 檢視模式切換 */}
               <span style={{display:'flex',gap:4}}>
-                <span style={{
-                  display:'inline-flex',alignItems:'center',justifyContent:'center',
-                  width:22,height:22,border:`1px solid ${WB.ink}`,color:WB.ink,
-                  fontSize:10,borderRadius:2,
-                }}>▦</span>
-                <span style={{
-                  display:'inline-flex',alignItems:'center',justifyContent:'center',
-                  width:22,height:22,border:`1px solid ${WB.hair}`,color:WB.inkLight,
-                  fontSize:10,borderRadius:2,
-                }}>≡</span>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  aria-label="格狀檢視"
+                  aria-pressed={viewMode === 'grid'}
+                  style={{
+                    display:'inline-flex',alignItems:'center',justifyContent:'center',
+                    width:22,height:22,
+                    border:`1px solid ${viewMode === 'grid' ? WB.ink : WB.hair}`,
+                    color: viewMode === 'grid' ? WB.ink : WB.inkLight,
+                    background:'transparent', padding:0, cursor:'pointer',
+                    fontSize:10, borderRadius:2, fontFamily:'inherit',
+                    transition:'all 0.15s',
+                  }}
+                >▦</button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  aria-label="清單檢視"
+                  aria-pressed={viewMode === 'list'}
+                  style={{
+                    display:'inline-flex',alignItems:'center',justifyContent:'center',
+                    width:22,height:22,
+                    border:`1px solid ${viewMode === 'list' ? WB.ink : WB.hair}`,
+                    color: viewMode === 'list' ? WB.ink : WB.inkLight,
+                    background:'transparent', padding:0, cursor:'pointer',
+                    fontSize:10, borderRadius:2, fontFamily:'inherit',
+                    transition:'all 0.15s',
+                  }}
+                >≡</button>
               </span>
             </div>
           </div>
