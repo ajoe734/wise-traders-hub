@@ -351,6 +351,7 @@ export default function App() {
   const [userOverrides, setUserOverrides] = useState({});
   const [expandedDecision, setExpandedDecision] = useState(null);
   const [debugMode, setDebugMode] = useState(false);
+  const [sparklines, setSparklines] = useState({}); // { [code]: number[] }
 
   // ── 持倉資料庫（Notion 模式）：搜尋 / 篩選 / 排序方向 / Drawer ──
   const [searchQ, setSearchQ] = useState("");
