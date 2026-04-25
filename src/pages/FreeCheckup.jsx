@@ -2483,11 +2483,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       display:'flex',alignItems:'baseline',gap:14,marginTop:8,marginBottom:10,
                     }}>
                       <span className="wb-roi" style={{
-                        fontSize:64,fontWeight:500,color:pnlColor,
-                        letterSpacing:'-0.04em',lineHeight:0.92,
+                        fontSize:'clamp(40px, 6vw + 12px, 64px)',fontWeight:500,color:pnlColor,
+                        letterSpacing:'-0.04em',lineHeight:1,
                         fontVariantNumeric:'tabular-nums',
                       }}>
-                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500}}>%</span>
+                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span>
                       </span>
                       <span style={{fontSize:13,color:subColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
                         {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
@@ -2588,11 +2588,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {/* L2：ROI 52px (字重 500) */}
                   <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:8,marginBottom:8}}>
                     <span className="wb-roi" style={{
-                      fontSize:52,fontWeight:500,color:pnlColor,
-                      letterSpacing:'-0.035em',lineHeight:0.95,
+                      fontSize:'clamp(36px, 4.5vw + 10px, 52px)',fontWeight:500,color:pnlColor,
+                      letterSpacing:'-0.035em',lineHeight:1,
                       fontVariantNumeric:'tabular-nums',
                     }}>
-                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500}}>%</span>
+                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span>
                     </span>
                   </div>
 
