@@ -1,4 +1,4 @@
-import { HOLDINGS_TOKENS, valueColor } from './holdingsTokens.js';
+import { HOLDINGS_TOKENS, valueColor, valueArrow, valueWeight } from './holdingsTokens.js';
 
 const fmt = (n) =>
   typeof n === 'number' && Number.isFinite(n) ? Math.round(n).toLocaleString() : '—';
@@ -138,13 +138,18 @@ export default function HoldingDetailPanel({
         <div
           style={{
             fontSize: 44,
-            fontWeight: 300,
+            fontWeight: valueWeight(pct),
             color: pctColor,
             letterSpacing: '-0.02em',
             lineHeight: 1,
             fontVariantNumeric: 'tabular-nums',
           }}
         >
+          {valueArrow(pct) && (
+            <span style={{ fontSize: 20, opacity: 0.7, marginRight: 6, fontWeight: 400 }}>
+              {valueArrow(pct)}
+            </span>
+          )}
           {pct >= 0 ? '+' : ''}
           {pct.toFixed(2)}
           <span style={{ fontSize: 18, opacity: 0.5, marginLeft: 2 }}>%</span>
