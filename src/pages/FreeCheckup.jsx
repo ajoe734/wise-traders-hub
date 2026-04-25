@@ -899,7 +899,10 @@ export default function App() {
         if (!res.ok) {
           console.error("Predict events failed:", res.status);
           needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
-          flashPredictStatus('error', `預測失敗（${res.status}）`);
+          const httpErr = new Error(`HTTP ${res.status}`);
+          recordPredictError(httpErr, res.status);
+          const { label } = classifyError(httpErr, res.status);
+          flashPredictStatus('error', `${label}（${res.status}）`);
           return;
         }
         const data = await res.json();
@@ -924,7 +927,9 @@ export default function App() {
       } catch (err) {
         console.error("Predict events error:", err);
         needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
-        flashPredictStatus('error', '預測發生錯誤');
+        recordPredictError(err);
+        const { label } = classifyError(err);
+        flashPredictStatus('error', label);
       } finally {
         setPredictingEvents(false);
         if (predictBatchInflightRef.current === batchKey) {
