@@ -2614,275 +2614,276 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             };
 
             const renderDetailPanel = () => {
-              if (!selected) {
-                // 預設：顯示 Portfolio Overview，讓工作區永遠有內容
-                return (
-                  <div style={{display:'flex',flexDirection:'column',gap:22}}>
-                    {/* 市值佔比 */}
-                    <div>
-                      <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.16em', marginBottom:10, fontWeight:400, textTransform:'uppercase'}}>
-                        Allocation
-                      </div>
-                      {top5.map((h,i)=>{
-                        const pct = totalVal > 0 ? h.value/totalVal*100 : 0;
-                        return (
-                          <button
-                            key={h.code}
-                            onClick={()=>setExpandedDecision(h.code)}
-                            style={{
-                              width:'100%', display:'flex', alignItems:'center', gap:8, padding:'5px 0',
-                              background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit',
-                              textAlign:'left',
-                            }}
-                          >
-                            <span style={{fontSize:10, color:C.textMute, fontVariantNumeric:'tabular-nums', width:14, textAlign:'right'}}>{i+1}</span>
-                            <span style={{fontSize:12, color:C.textSec, fontWeight:400, flex:1}}>{h.name}</span>
-                            <span style={{fontSize:10, color:C.textMute, fontVariantNumeric:'tabular-nums', width:42, textAlign:'right'}}>{pct.toFixed(1)}%</span>
-                            <div style={{width:50, height:2, background:alpha(C.textMute,'08'), overflow:'hidden', flexShrink:0}}>
-                              <div style={{width:`${pct}%`, height:'100%', background:alpha(C.textMute,'30')}}/>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* 勝負一覽 */}
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-                      <div>
-                        <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.14em', marginBottom:8, textTransform:'uppercase'}}>
-                          Winners <span style={{marginLeft:3, opacity:0.6}}>{winners.length}</span>
-                        </div>
-                        {winners.slice(0,5).map(h=>(
-                          <button
-                            key={h.code}
-                            onClick={()=>setExpandedDecision(h.code)}
-                            style={{
-                              width:'100%', display:'flex', justifyContent:'space-between',
-                              padding:'4px 0', borderBottom:`1px solid ${alpha(C.textMute,'06')}`,
-                              background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit',
-                              textAlign:'left',
-                            }}
-                          >
-                            <span style={{fontSize:11, color:C.textSec, fontWeight:400}}>{h.name}</span>
-                            <span style={{fontSize:11, color:C.up, fontVariantNumeric:'tabular-nums'}}>+{h.pct}%</span>
-                          </button>
-                        ))}
-                      </div>
-                      <div>
-                        <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.14em', marginBottom:8, textTransform:'uppercase'}}>
-                          Losers <span style={{marginLeft:3, opacity:0.6}}>{losers.length}</span>
-                        </div>
-                        {losers.slice(0,5).map(h=>(
-                          <button
-                            key={h.code}
-                            onClick={()=>setExpandedDecision(h.code)}
-                            style={{
-                              width:'100%', display:'flex', justifyContent:'space-between',
-                              padding:'4px 0', borderBottom:`1px solid ${alpha(C.textMute,'06')}`,
-                              background:'transparent', border:'none', cursor:'pointer', fontFamily:'inherit',
-                              textAlign:'left',
-                            }}
-                          >
-                            <span style={{fontSize:11, color:C.textSec, fontWeight:400}}>{h.name}</span>
-                            <span style={{fontSize:11, color:C.down, fontVariantNumeric:'tabular-nums'}}>{h.pct}%</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 提示 */}
-                    <div style={{
-                      fontSize:11, color:C.textMute, lineHeight:1.7,
-                      paddingTop:16, borderTop:`1px solid ${alpha(C.textMute,'10')}`,
-                      letterSpacing:'0.02em',
-                    }}>
-                      點選左側任一卡片查看完整研究筆記
-                    </div>
-                  </div>
-                );
-              }
+              if (!selected) return null;
               const h = selected;
               const dec = decisionsMap[h.code];
               const meta = STOCK_META[h.code] || null;
               const T = targets?.[h.code];
               const tp = T ? avgTarget(h.code) : null;
               const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
-              const actionLabel = dec?.actionType === 'exit' ? '建議出場' : dec?.actionType === 'review' ? '需要檢查' : '繼續持有';
-              const actionColor = dec?.actionType === 'exit' ? C.down : dec?.actionType === 'review' ? C.amber : C.textSec;
+              const actionLabel = dec?.actionType === 'exit' ? 'EXIT' : dec?.actionType === 'review' ? 'REVIEW' : 'HOLD';
               const pctVal = h.pct ?? 0;
-              const pnlColor = pctVal >= 0 ? C.up : C.down;
+              const pnlColor = WB.accent;
+              // URGENCY 五點：now=4, soon=3, monitor=2, hold/none=1
+              const urgencyLevel = dec?.urgency === 'now' ? 4 : dec?.urgency === 'soon' ? 3 : dec?.urgency === 'monitor' ? 2 : 1;
               const relatedEvents = normalizedEvents
                 .filter(e => (e.relatedCodes || []).includes(h.code) && e.source !== 'demo')
-                .slice(0, 6);
+                .slice(0, 5);
+
+              const visibleList = orderedDisplayed;
+              const curIdx = visibleList.findIndex(x => x.code === h.code);
+              const prev = curIdx > 0 ? visibleList[curIdx - 1] : null;
+              const next = curIdx < visibleList.length - 1 ? visibleList[curIdx + 1] : null;
+              const tomorrowEv = relatedEvents[0];
 
               return (
-                <div style={{padding:'4px 4px 24px'}}>
-                  {/* Header */}
-                  <div style={{marginBottom:18}}>
-                    <div style={{fontSize:11, color:C.textMute, letterSpacing:'0.16em', marginBottom:8}}>RESEARCH NOTE</div>
-                    <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
-                      <span style={{fontSize:18, fontWeight:500, color:C.text}}>{h.name}</span>
-                      <span style={{fontSize:12, color:C.textMute, fontVariantNumeric:'tabular-nums'}}>{h.code}</span>
+                <div>
+                  {/* 頂部 nav: < > × */}
+                  <div style={{
+                    display:'flex',alignItems:'center',justifyContent:'space-between',
+                    padding:'12px 16px',borderBottom:`1px solid ${WB.hair}`,
+                  }}>
+                    <div style={{display:'flex',gap:4}}>
+                      <button
+                        onClick={() => prev && setExpandedDecision(prev.code)}
+                        disabled={!prev}
+                        style={{
+                          width:26,height:26,border:`1px solid ${WB.hair}`,background:'transparent',
+                          cursor: prev?'pointer':'not-allowed',color: prev?WB.ink:WB.inkLight,
+                          fontSize:12,borderRadius:2,fontFamily:'inherit',
+                        }}
+                      >‹</button>
+                      <button
+                        onClick={() => next && setExpandedDecision(next.code)}
+                        disabled={!next}
+                        style={{
+                          width:26,height:26,border:`1px solid ${WB.hair}`,background:'transparent',
+                          cursor: next?'pointer':'not-allowed',color: next?WB.ink:WB.inkLight,
+                          fontSize:12,borderRadius:2,fontFamily:'inherit',
+                        }}
+                      >›</button>
                     </div>
-                    {meta?.industry && (
-                      <div style={{fontSize:11, color:C.textMute, fontWeight:400, letterSpacing:'0.02em'}}>
-                        {meta.industry}{meta.strategy ? ` · ${meta.strategy}` : ''}
-                      </div>
-                    )}
+                    <span style={{fontSize:10,color:WB.inkMute,letterSpacing:'0.16em',fontWeight:500}}>
+                      {String(curIdx+1).padStart(2,'0')} / {String(visibleList.length).padStart(2,'0')}
+                    </span>
+                    <button
+                      onClick={() => setExpandedDecision(null)}
+                      style={{
+                        width:26,height:26,border:`1px solid ${WB.hair}`,background:'transparent',
+                        cursor:'pointer',color:WB.ink,fontSize:14,borderRadius:2,fontFamily:'inherit',
+                      }}
+                    >×</button>
                   </div>
 
-                  {/* Big PnL */}
-                  <div style={{marginBottom:22, paddingBottom:18, borderBottom:`1px solid ${alpha(C.textMute,'10')}`}}>
+                  <div style={{padding:'18px 22px 24px'}}>
+                    {/* Header */}
+                    <div style={{marginBottom:18}}>
+                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',marginBottom:6,fontWeight:500}}>HOLDING DETAIL</div>
+                      <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
+                        <span style={{fontSize:11,color:WB.inkMute,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
+                        <span style={{fontSize:18,fontWeight:500,color:WB.ink,letterSpacing:'-0.005em'}}>{h.name}</span>
+                      </div>
+                      {(meta?.industry || meta?.strategy) && (
+                        <div style={{fontSize:11,color:WB.inkMute,letterSpacing:'0.02em'}}>
+                          {meta?.industry || ''}{meta?.industry && meta?.strategy ? ' · ' : ''}{meta?.strategy || ''}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* PnL */}
+                    <div style={{marginBottom:20,paddingBottom:16,borderBottom:`1px solid ${WB.hair}`}}>
+                      <div style={{
+                        fontSize:48,fontWeight:300,color:pnlColor,
+                        letterSpacing:'-0.03em',lineHeight:1,
+                        fontVariantNumeric:'tabular-nums',
+                      }}>
+                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:18,opacity:0.55,marginLeft:2}}>%</span>
+                      </div>
+                      <div style={{marginTop:8,fontSize:12,color:WB.inkMute,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
+                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()} ・ VALUE {h.value?.toLocaleString() || '—'}
+                      </div>
+                    </div>
+
+                    {/* DECISION 黑底盒 */}
                     <div style={{
-                      fontSize:48, fontWeight:300, color:pnlColor,
-                      letterSpacing:'-0.02em', lineHeight:1,
-                      fontVariantNumeric:'tabular-nums',
+                      background:WB.ink,color:'#F4F1EC',
+                      padding:'18px 18px 20px',marginBottom:18,borderRadius:3,
                     }}>
-                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:18, opacity:0.5, marginLeft:2}}>%</span>
+                      <div style={{fontSize:9,color:'rgba(244,241,236,0.55)',letterSpacing:'0.20em',marginBottom:8,fontWeight:500}}>DECISION</div>
+                      <div style={{
+                        fontSize:22,fontWeight:500,color:WB.accent,letterSpacing:'0.04em',
+                        marginBottom:14,
+                      }}>{actionLabel}</div>
+                      <div style={{fontSize:12,color:'#E8E4DD',lineHeight:1.7,marginBottom:6}}>
+                        {dec?.actionText || (
+                          actionLabel==='EXIT' ? '建議出場：論點已破裂或重大事件衝擊。' :
+                          actionLabel==='REVIEW' ? '需要檢查：論點弱化或有未決事件。' :
+                          '繼續持有：論點完整,無近期催化事件。'
+                        )}
+                      </div>
+                      {dec && (
+                        <div style={{fontSize:11,color:'rgba(244,241,236,0.65)',lineHeight:1.7,letterSpacing:'0.02em'}}>
+                          論點 {dec.thesisState==='broken'?'破裂':dec.thesisState==='weakening'?'弱化':'完整'}
+                          {' · 信心 '}{dec.confidence==='high'?'高':dec.confidence==='medium'?'中':'低'}
+                          {' · 事件 '}{dec.openEventCount || 0}
+                        </div>
+                      )}
                     </div>
-                    <div style={{marginTop:8, fontSize:13, color:pnlColor, opacity:0.75, fontVariantNumeric:'tabular-nums'}}>
-                      {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()} ・ 市值 {h.value?.toLocaleString() || '—'}
-                    </div>
-                  </div>
 
-                  {/* Decision Box */}
-                  <div style={{marginBottom:20}}>
-                    <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.14em', marginBottom:8}}>DECISION</div>
-                    <div style={{
-                      fontSize:14, color:actionColor, fontWeight:500, letterSpacing:'0.02em',
-                      paddingBottom:8,
-                    }}>
-                      {actionLabel}
+                    {/* URGENCY 五點 */}
+                    <div style={{marginBottom:18,display:'flex',alignItems:'center',gap:14}}>
+                      <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',fontWeight:500}}>URGENCY</span>
+                      <div style={{display:'flex',gap:6,flex:1}}>
+                        {[1,2,3,4,5].map(i => (
+                          <span key={i} style={{
+                            width:7,height:7,borderRadius:'50%',
+                            background: i <= urgencyLevel ? WB.accent : 'transparent',
+                            border: i <= urgencyLevel ? 'none' : `1px solid ${WB.hairStrong}`,
+                          }} />
+                        ))}
+                      </div>
+                      <span style={{fontSize:10,color:WB.inkMute,letterSpacing:'0.10em'}}>
+                        {dec?.urgency==='now'?'NOW':dec?.urgency==='soon'?'SOON':dec?.urgency==='monitor'?'MONITOR':'LOW'}
+                      </span>
                     </div>
-                    {dec && (
-                      <div style={{display:'flex',gap:14,fontSize:11,color:C.textMute,fontWeight:400,flexWrap:'wrap'}}>
-                        <span>論點 {dec.thesisState==='broken'?'破裂':dec.thesisState==='weakening'?'弱化':'完整'}</span>
-                        <span>信心 {dec.confidence==='high'?'高':dec.confidence==='medium'?'中':'低'}</span>
-                        <span>事件 {dec.openEventCount || 0}</span>
-                        {dec.hasConflict && <span style={{color:C.amber}}>有衝突</span>}
+
+                    {/* Targets */}
+                    {tp && (
+                      <div style={{marginBottom:18}}>
+                        <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',marginBottom:8,fontWeight:500}}>TARGET</div>
+                        <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                          <span style={{fontSize:12,color:WB.inkSub,fontVariantNumeric:'tabular-nums'}}>{tp.toLocaleString()}</span>
+                          <span style={{fontSize:12,color:WB.accent,fontVariantNumeric:'tabular-nums'}}>
+                            {upside>=0?'+':''}{upside?.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div style={{background:WB.hair,height:2,width:'100%',overflow:'hidden'}}>
+                          <div style={{
+                            width:`${Math.min(Math.max((h.price/tp)*100,0),100)}%`,
+                            height:'100%',background:WB.accent,opacity:0.8,
+                          }}/>
+                        </div>
                       </div>
                     )}
-                    {dec?.actionText && (
-                      <div style={{marginTop:10, fontSize:12, color:C.textSec, lineHeight:1.7}}>
-                        {dec.actionText}
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Thesis */}
-                  {meta?.strategy && (
-                    <div style={{marginBottom:20}}>
-                      <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.14em', marginBottom:8}}>THESIS</div>
-                      <div style={{fontSize:12, color:C.textSec, lineHeight:1.8}}>
-                        {meta.strategy}{meta.leader && meta.leader!=='N/A' ? ` · 領頭 ${meta.leader}` : ''}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Targets */}
-                  {tp && (
-                    <div style={{marginBottom:20}}>
-                      <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.14em', marginBottom:8}}>TARGET</div>
-                      <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                        <span style={{fontSize:12, color:C.textSec}}>目標價 {tp.toLocaleString()}</span>
-                        <span style={{fontSize:12, color: upside>=0?C.up:C.down, opacity:0.8}}>
-                          距 {upside>=0?'+':''}{upside?.toFixed(1)}%
-                        </span>
-                      </div>
-                      <div style={{background:alpha(C.textMute,'08'),borderRadius:1,height:2,width:'100%',overflow:'hidden'}}>
-                        <div style={{
-                          width:`${Math.min(Math.max((h.price/tp)*100,0),100)}%`,
-                          height:'100%', background:alpha(C.textMute,'25'),
-                        }}/>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Event Timeline */}
-                  {relatedEvents.length > 0 && (
-                    <div style={{marginBottom:20}}>
-                      <div style={{fontSize:10, color:C.textMute, letterSpacing:'0.14em', marginBottom:8}}>TIMELINE</div>
-                      <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                        {relatedEvents.map((e, idx) => {
-                          const tone = (e.impact==='break' || e.decisionImpact==='break') ? C.down
-                            : (e.impact==='weaken' || e.decisionImpact==='weaken') ? C.amber : C.textMute;
-                          return (
+                    {/* EVENT TIMELINE */}
+                    {relatedEvents.length > 0 && (
+                      <div style={{marginBottom:18}}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                          <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',fontWeight:500}}>EVENT TIMELINE</span>
+                          {tomorrowEv && (
+                            <span style={{
+                              fontSize:9,color:WB.surface,background:WB.accent,
+                              padding:'2px 7px',letterSpacing:'0.16em',fontWeight:500,borderRadius:2,
+                            }}>TOMORROW</span>
+                          )}
+                        </div>
+                        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                          {relatedEvents.map((e, idx) => (
                             <div key={e.id || idx} style={{display:'flex',gap:10,alignItems:'flex-start'}}>
                               <span style={{
-                                marginTop:6, width:5, height:5, borderRadius:'50%',
-                                background:tone, flexShrink:0,
+                                marginTop:6,width:5,height:5,borderRadius:'50%',
+                                background: idx===0 ? WB.accent : WB.hairStrong,flexShrink:0,
                               }} />
-                              <div style={{flex:1, minWidth:0}}>
-                                <div style={{fontSize:12, color:C.textSec, fontWeight:400, lineHeight:1.5}}>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:12,color:WB.inkSub,fontWeight:400,lineHeight:1.5}}>
                                   {e.summary || e.title || '(無摘要)'}
                                 </div>
-                                <div style={{fontSize:10, color:C.textMute, marginTop:2, letterSpacing:'0.04em'}}>
+                                <div style={{fontSize:10,color:WB.inkLight,marginTop:2,letterSpacing:'0.04em'}}>
                                   {e.source==='user'?'手動':e.source==='ai'?'AI':e.source==='calendar'?'日曆':'其他'}
                                   {e.date ? ` · ${e.date}` : ''}
                                 </div>
                               </div>
                             </div>
-                          );
-                        })}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div style={{display:'flex',gap:8,paddingTop:14,borderTop:`1px solid ${alpha(C.textMute,'10')}`}}>
-                    <button
-                      onClick={() => openHoldingDrawer(h.code)}
-                      style={{
-                        flex:1, padding:'10px', background:'transparent',
-                        border:`1px solid ${alpha(C.textMute,'20')}`, borderRadius:8,
-                        color:C.textSec, fontSize:12, fontWeight:400, cursor:'pointer',
-                        letterSpacing:'0.04em',
-                      }}
-                    >
-                      展開完整研究
-                    </button>
-                    {dec && !userOverrides[h.code] && dec.actionType !== 'hold' && (
-                      <button
-                        onClick={() => {
-                          setUserOverrides(prev => ({...prev, [h.code]: {
-                            actionType: 'hold',
-                            actionText: '手動覆寫：維持持有',
-                            expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
-                            appliesToEventIds: normalizedEvents.filter(e => (e.relatedCodes||[]).includes(h.code) && isEventOpen(e)).map(e => e.id),
-                            basedOnDerivedAt: new Date().toISOString(),
-                            decisionFingerprint: dec.fingerprint,
-                          }}));
-                        }}
-                        style={{
-                          padding:'10px 14px', background:'transparent',
-                          border:`1px solid ${alpha(C.textMute,'20')}`, borderRadius:8,
-                          color:C.textMute, fontSize:12, fontWeight:400, cursor:'pointer',
-                          letterSpacing:'0.04em',
-                        }}
-                      >
-                        覆寫為持有
-                      </button>
                     )}
+
+                    {/* OVERRIDE */}
+                    <div style={{
+                      paddingTop:14,marginTop:6,borderTop:`1px solid ${WB.hair}`,
+                      display:'flex',alignItems:'center',gap:8,
+                    }}>
+                      {dec && !userOverrides[h.code] && dec.actionType !== 'hold' ? (
+                        <button
+                          onClick={() => {
+                            setUserOverrides(prev => ({...prev, [h.code]: {
+                              actionType: 'hold',
+                              actionText: '手動覆寫:維持持有',
+                              expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+                              appliesToEventIds: normalizedEvents.filter(e => (e.relatedCodes||[]).includes(h.code) && isEventOpen(e)).map(e => e.id),
+                              basedOnDerivedAt: new Date().toISOString(),
+                              decisionFingerprint: dec.fingerprint,
+                            }}));
+                          }}
+                          style={{
+                            flex:1,padding:'10px 14px',background:'transparent',
+                            border:`1px solid ${WB.ink}`,borderRadius:2,
+                            color:WB.ink,fontSize:11,fontWeight:500,cursor:'pointer',
+                            letterSpacing:'0.16em',fontFamily:'inherit',
+                          }}
+                        >MARK AS HOLD</button>
+                      ) : (
+                        <span style={{flex:1,fontSize:10,color:WB.inkLight,letterSpacing:'0.10em'}}>
+                          {userOverrides[h.code] ? '已覆寫為持有' : '無需覆寫'}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => openHoldingDrawer(h.code)}
+                        title="編輯 / 完整研究"
+                        style={{
+                          width:36,height:36,background:'transparent',
+                          border:`1px solid ${WB.hair}`,borderRadius:2,cursor:'pointer',
+                          color:WB.inkMute,fontSize:13,fontFamily:'inherit',
+                        }}
+                      >✎</button>
+                    </div>
                   </div>
                 </div>
               );
             };
 
+            // ── grid layout：selected 時才顯示 detail panel；否則卡片牆滿版 ──
+            const showPanel = !!selected;
             return (
               <div style={{
                 display:'grid',
-                gridTemplateColumns:'minmax(0, 1fr) minmax(0, 360px)',
-                gap:20,
+                gridTemplateColumns: showPanel ? 'minmax(0, 1fr) minmax(0, 420px)' : 'minmax(0, 1fr)',
+                gap: showPanel ? 20 : 0,
                 alignItems:'flex-start',
               }} className="holdings-workbench">
-                {/* 左：卡片牆（3 欄穩定 grid，ink 卡 span 2；卡片間留充足空氣感） */}
+                {/* 左：卡片牆 */}
                 <div style={{
                   display:'grid',
                   gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
-                  columnGap: 18,
-                  rowGap: 28,
+                  columnGap: 16,
+                  rowGap: 20,
                 }} className="holdings-card-grid">
                   {orderedDisplayed.map(h => renderCard(h))}
+                  {/* + Add Watchlist 虛線卡 */}
+                  <button
+                    onClick={() => setTab && setTab('watchlist')}
+                    style={{
+                      gridColumn:'span 1',
+                      minHeight: 320,
+                      background:'transparent',
+                      border:`1px dashed ${WB.hairStrong}`,
+                      borderRadius:4,
+                      color:WB.inkLight,
+                      cursor:'pointer',
+                      fontFamily:'inherit',
+                      display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+                      gap:10,
+                      letterSpacing:'0.18em',
+                      transition:'border-color 160ms ease, color 160ms ease',
+                    }}
+                    onMouseEnter={(e)=>{e.currentTarget.style.borderColor=WB.ink;e.currentTarget.style.color=WB.ink;}}
+                    onMouseLeave={(e)=>{e.currentTarget.style.borderColor=WB.hairStrong;e.currentTarget.style.color=WB.inkLight;}}
+                  >
+                    <span style={{fontSize:24,fontWeight:300,lineHeight:1}}>+</span>
+                    <span style={{fontSize:10,fontWeight:500}}>ADD WATCHLIST</span>
+                  </button>
                   {!showAll && sorted.length > 12 && (
                     <button
                       onClick={() => setShowAll(true)}
@@ -2890,52 +2891,65 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         gridColumn:'span 3',
                         padding:'12px',
                         background:'transparent',
-                        border:`1px dashed ${alpha(C.textMute, '20')}`,
-                        borderRadius:6,
-                        color:C.textMute, fontSize:12, cursor:'pointer', fontWeight:400,
-                        letterSpacing:'0.06em',
+                        border:`1px dashed ${WB.hair}`,
+                        borderRadius:4,
+                        color:WB.inkMute, fontSize:11, cursor:'pointer', fontWeight:500,
+                        letterSpacing:'0.16em',
+                        fontFamily:'inherit',
                       }}
                     >
-                      顯示全部 {sorted.length} 檔
+                      VIEW ALL {sorted.length}
                     </button>
                   )}
                 </div>
 
-                {/* 右：Detail Panel — 工作區（桌面 sticky，深色框 + 強分隔） */}
-                <aside
-                  className="holdings-detail-panel"
-                  style={{
-                    position:'sticky', top:12,
-                    background:'#FFFFFF',
-                    border:`1px solid ${alpha(C.text,'14')}`,
-                    borderTop:`2px solid ${C.text}`,
-                    borderRadius:6,
-                    maxHeight:'calc(100vh - 24px)',
-                    overflowY:'auto',
-                    boxShadow: `0 1px 0 ${alpha(C.text,'04')}`,
-                  }}
-                >
-                  {/* 工作區標頭（永遠顯示，建立空間感） */}
-                  <div style={{
-                    padding:'12px 18px', borderBottom:`1px solid ${alpha(C.textMute,'12')}`,
-                    display:'flex', alignItems:'baseline', justifyContent:'space-between',
-                    background: alpha(C.text,'02'),
-                  }}>
-                    <span style={{
-                      fontSize:10, color:C.text, fontWeight:500, letterSpacing:'0.18em',
-                      textTransform:'uppercase',
-                    }}>Workspace</span>
-                    <span style={{fontSize:10, color:C.textMute, letterSpacing:'0.04em'}}>
-                      {selected ? `${selected.code} · ${selected.name}` : '未選擇'}
-                    </span>
-                  </div>
-                  <div style={{padding:'18px 18px 22px'}}>
+                {/* 右：Detail Panel — 只在 selected 時顯示 */}
+                {showPanel && (
+                  <aside
+                    className="holdings-detail-panel"
+                    style={{
+                      position:'sticky', top:12,
+                      background: WB.surface,
+                      border:`1px solid ${WB.hairStrong}`,
+                      borderRadius:4,
+                      maxHeight:'calc(100vh - 24px)',
+                      overflowY:'auto',
+                    }}
+                  >
                     {renderDetailPanel()}
-                  </div>
-                </aside>
+                  </aside>
+                )}
               </div>
             );
           })()}
+
+          {/* Step 7：底部狀態列 */}
+          <div style={{
+            marginTop:24,paddingTop:14,
+            borderTop:`1px solid ${WB.hair}`,
+            display:'flex',justifyContent:'space-between',alignItems:'center',
+            fontSize:10,color:WB.inkMute,letterSpacing:'0.16em',fontWeight:500,
+          }}>
+            <span>{sorted.length} HOLDINGS</span>
+            <div style={{display:'flex',alignItems:'center',gap:14}}>
+              <span style={{display:'flex',alignItems:'center',gap:6}}>
+                SORT BY <span style={{color:WB.ink}}>PRIORITY ▾</span>
+              </span>
+              <span style={{width:1,height:12,background:WB.hair}}/>
+              <span style={{display:'flex',gap:4}}>
+                <span style={{
+                  display:'inline-flex',alignItems:'center',justifyContent:'center',
+                  width:22,height:22,border:`1px solid ${WB.ink}`,color:WB.ink,
+                  fontSize:10,borderRadius:2,
+                }}>▦</span>
+                <span style={{
+                  display:'inline-flex',alignItems:'center',justifyContent:'center',
+                  width:22,height:22,border:`1px solid ${WB.hair}`,color:WB.inkLight,
+                  fontSize:10,borderRadius:2,
+                }}>≡</span>
+              </span>
+            </div>
+          </div>
 
           {/* RWD：mid 折成 2 欄、行動端 1 欄並隱藏 detail panel */}
           <style>{`
