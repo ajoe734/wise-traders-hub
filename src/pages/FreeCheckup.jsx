@@ -2449,11 +2449,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const isFeatureCard = isInk && h.__featureSlot;
               const MIN_H = 320;
 
-              // ROI / 損益顏色：破例採單一橘紅（漲跌皆同），ink 卡改用橘紅 over 黑底
+              // ROI / 損益顏色憲法：正→accent 橘 + ↑、負→暖灰 + ↓、零→inkLight
               const muteColor = isInk ? 'rgba(244,241,236,0.50)' : WB.inkLight;
               const subColor = isInk ? 'rgba(244,241,236,0.80)' : WB.inkSub;
               const hairColor = isInk ? 'rgba(244,241,236,0.14)' : WB.hair;
-              const pnlColor = WB.accent; // 漲跌皆橘紅
+              const lossColor = isInk ? 'rgba(244,241,236,0.55)' : '#8A857F';
+              const pnlColor = pctVal > 0 ? WB.accent : pctVal < 0 ? lossColor : muteColor;
+              const pnlWeight = pctVal > 0 ? 500 : 400;
+              const pnlArrow = pctVal > 0 ? '↑' : pctVal < 0 ? '↓' : '';
 
               // ─── Feature card (ink + span 2)：黑底，橘紅 ROI，五層雜誌排版 ───
               if (isInk && h.__featureSlot) {
