@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import Md from "@/checkup/components/Md";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -299,9 +299,12 @@ export default function App() {
   const [showAll,     setShowAll]     = useState(false);
   // Viewport-aware grid columns（繞過 CSS cascade 在某些 Chromium dev/preview 環境
   // 下對 `<style>` 內 `grid-template-columns: 1fr !important` 不生效的詭異問題）
+  // 使用 useLayoutEffect 在 paint 前同步設定，避免 hydration race
   const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
+    // mount 後立即同步一次（覆寫 useState 初值，處理 SSR/hydration 落差）
+    setVw(window.innerWidth);
     const onResize = () => setVw(window.innerWidth);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
@@ -2442,8 +2445,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const cardBorder = isInk
                 ? 'none'
                 : `1px solid ${isActive ? WB.hairStrong : WB.hair}`;
-              // 固定節奏：feature 卡 span 2，其餘 span 1
-              const colSpan = (isInk && h.__featureSlot) ? 'span 2' : 'span 1';
+              // 固定節奏：feature 卡 span 2，其餘 span 1（mobile ≤640 強制 span 1，避免 grid implicit columns 異常）
+              const colSpan = (isInk && h.__featureSlot && vw > 640) ? 'span 2' : 'span 1';
               const MIN_H = 320;
 
               // ROI / 損益顏色：破例採單一橘紅（漲跌皆同），ink 卡改用橘紅 over 黑底
@@ -2935,7 +2938,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <button
                       onClick={() => setShowAll(true)}
                       style={{
-                        gridColumn:'span 3',
+                        gridColumn: vw <= 640 ? 'span 1' : vw <= 1279 ? 'span 2' : 'span 3',
                         padding:'12px',
                         background:'transparent',
                         border:`1px dashed ${WB.hair}`,
