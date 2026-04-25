@@ -516,7 +516,7 @@ export default function App() {
     } catch (e) {
       if (e?.name !== 'AbortError') {
         console.error("Calendar fetch error:", e);
-        setCalendarAutoStatus('idle');
+        setCalendarAutoStatus({ status: 'idle', msg: '' });
       } else {
         flashCalendarStatus('aborted');
       }
