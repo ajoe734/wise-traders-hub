@@ -2938,7 +2938,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <button
                       onClick={() => setShowAll(true)}
                       style={{
-                        gridColumn:'span 3',
+                        gridColumn: vw <= 640 ? 'span 1' : vw <= 1279 ? 'span 2' : 'span 3',
                         padding:'12px',
                         background:'transparent',
                         border:`1px dashed ${WB.hair}`,
