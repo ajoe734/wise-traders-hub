@@ -2468,7 +2468,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         <span style={{fontSize:15,fontWeight:400,color:cardColor,letterSpacing:'-0.005em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
                       </div>
                       {sparkData.length >= 2 && (
-                        <Sparkline data={sparkData} width={60} height={20} color="#F4F1EC" opacity={0.85} />
+                        <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
+                          <Sparkline data={sparkData} width={60} height={20} color="#F4F1EC" opacity={0.85} />
+                        </span>
                       )}
                       <span style={{
                         fontSize:9,fontWeight:500,letterSpacing:'0.20em',
@@ -2480,7 +2482,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{
                       display:'flex',alignItems:'baseline',gap:14,marginTop:8,marginBottom:10,
                     }}>
-                      <span style={{
+                      <span className="wb-roi" style={{
                         fontSize:64,fontWeight:500,color:pnlColor,
                         letterSpacing:'-0.04em',lineHeight:0.92,
                         fontVariantNumeric:'tabular-nums',
@@ -2494,7 +2496,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
                     {/* L3：分類 tags（filled chip） */}
                     {(meta?.industry || meta?.strategy) && (
-                      <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+                      <div className="wb-tags" style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
                         {meta?.industry && (
                           <span style={{fontSize:10,color:'rgba(244,241,236,0.78)',letterSpacing:'0.08em',padding:'4px 8px',background:'rgba(255,255,255,0.08)',border:'none',borderRadius:0}}>{meta.industry}</span>
                         )}
@@ -2514,7 +2516,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
 
                     {/* L5：底部雙區塊 TODAY / VALUE */}
-                    <div style={{
+                    <div className="wb-bottom" style={{
                       paddingTop:12,marginTop:8,
                       borderTop:`1px solid ${hairColor}`,
                       display:'grid',gridTemplateColumns:'1fr 1px 1fr',gap:16,alignItems:'baseline',
@@ -2573,7 +2575,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <span style={{fontSize:13,fontWeight:400,color:cardColor,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
                     </div>
                     {sparkData.length >= 2 && (
-                      <Sparkline data={sparkData} width={60} height={20} color={WB.accent} opacity={0.85} />
+                      <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
+                        <Sparkline data={sparkData} width={60} height={20} color={WB.accent} opacity={0.85} />
+                      </span>
                     )}
                     <span style={{
                       fontSize:9,fontWeight:500,letterSpacing:'0.20em',
@@ -2583,7 +2587,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
                   {/* L2：ROI 52px (字重 500) */}
                   <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:8,marginBottom:8}}>
-                    <span style={{
+                    <span className="wb-roi" style={{
                       fontSize:52,fontWeight:500,color:pnlColor,
                       letterSpacing:'-0.035em',lineHeight:0.95,
                       fontVariantNumeric:'tabular-nums',
@@ -2594,7 +2598,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
                   {/* L3：分類 tags（filled chip） */}
                   {(meta?.industry || meta?.strategy) && (
-                    <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+                    <div className="wb-tags" style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
                       {meta?.industry && (
                         <span style={{fontSize:10,color:isInk?'rgba(244,241,236,0.78)':WB.inkSub,letterSpacing:'0.08em',padding:'4px 8px',background:isInk?'rgba(255,255,255,0.08)':'#F4F2EE',border:'none',borderRadius:0}}>{meta.industry}</span>
                       )}
@@ -2614,7 +2618,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
 
                   {/* L5：底部雙區塊 TODAY / VALUE */}
-                  <div style={{
+                  <div className="wb-bottom" style={{
                     paddingTop:10,marginTop:8,
                     borderTop:`1px solid ${hairColor}`,
                     display:'grid',gridTemplateColumns:'1fr 1px 1fr',gap:12,alignItems:'baseline',
