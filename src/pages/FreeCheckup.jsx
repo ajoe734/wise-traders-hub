@@ -2890,7 +2890,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   columnGap: 16,
                   rowGap: 20,
                 }} className="holdings-card-grid">
-
+                  {orderedDisplayed.map(h => renderCard(h))}
                   {/* + Add Watchlist 虛線卡 */}
                   <button
                     onClick={() => setTab && setTab('watchlist')}
