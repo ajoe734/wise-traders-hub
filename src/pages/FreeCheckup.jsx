@@ -758,7 +758,10 @@ export default function App() {
   useEffect(() => {
     if (!ready || !newsEvents || newsEvents.length === 0 || predictingEvents) return;
     // 全域節流：30 秒內已跑過則直接略過（即便事件清單變動）
-    if (Date.now() - predictLastRunRef.current < PREDICT_MIN_INTERVAL_MS) return;
+    if (Date.now() - predictLastRunRef.current < PREDICT_MIN_INTERVAL_MS) {
+      flashPredictStatus('throttled');
+      return;
+    }
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -779,7 +782,10 @@ export default function App() {
 
     // 批次冪等：相同事件 id 集合若已在飛行中則不重發
     const batchKey = needsPrediction.map(e => e.id).sort().join("|");
-    if (predictBatchInflightRef.current === batchKey) return;
+    if (predictBatchInflightRef.current === batchKey) {
+      flashPredictStatus('skipped-idempotent');
+      return;
+    }
     predictBatchInflightRef.current = batchKey;
 
     // 標記為已嘗試，避免重複觸發
@@ -787,6 +793,7 @@ export default function App() {
     predictLastRunRef.current = Date.now();
 
     setPredictingEvents(true);
+    setPredictAutoStatus('fetching');
     (async () => {
       try {
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events`, {
