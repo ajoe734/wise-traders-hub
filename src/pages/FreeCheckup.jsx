@@ -2046,10 +2046,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             return (
               <div id="action-banner" style={{
-                marginBottom: 22,
-                paddingBottom: 16,
-                borderBottom: `1px solid ${alpha(C.textMute, '12')}`,
-                display: "flex", flexDirection: "column", gap: 14,
+                marginBottom: 14,
+                paddingBottom: 10,
+                borderBottom: `1px solid ${alpha(C.textMute, '10')}`,
+                display: "flex", flexDirection: "column", gap: 8,
               }}>
                 {/* 標題列 — 用排版分層，不用色塊 */}
                 <div style={{
