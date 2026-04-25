@@ -2881,11 +2881,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 gap:20,
                 alignItems:'flex-start',
               }} className="holdings-workbench">
-                {/* 左：卡片牆（3 欄穩定 grid，ink 卡 span 2） */}
+                {/* 左：卡片牆（3 欄穩定 grid，ink 卡 span 2；卡片間留充足空氣感） */}
                 <div style={{
                   display:'grid',
                   gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
-                  gap:14,
+                  columnGap: 18,
+                  rowGap: 28,
                 }} className="holdings-card-grid">
                   {orderedDisplayed.map(h => renderCard(h))}
                   {!showAll && sorted.length > 12 && (
