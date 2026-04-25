@@ -443,10 +443,31 @@ export default function App() {
   const calendarAbortRef = useRef(null);
   const CALENDAR_DEDUP_MS = 30_000;
 
+  // 錯誤分類：根據 Error/HTTP status/訊息內容判斷錯誤類型
+  const classifyError = (err, httpStatus) => {
+    if (httpStatus) {
+      if (httpStatus >= 500) return { reason: 'server', label: '伺服器錯誤' };
+      if (httpStatus === 429) return { reason: 'server', label: '請求過於頻繁' };
+      if (httpStatus >= 400) return { reason: 'data', label: '資料錯誤' };
+    }
+    const msg = String(err?.message || err || '').toLowerCase();
+    if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('networkerror')) {
+      return { reason: 'network', label: '網路連線錯誤' };
+    }
+    if (msg.includes('timeout') || msg.includes('aborted')) return { reason: 'network', label: '請求逾時' };
+    if (msg.includes('json') || msg.includes('parse')) return { reason: 'data', label: '資料解析錯誤' };
+    return { reason: 'unknown', label: '未知錯誤' };
+  };
+
   // 短暫顯示節流/冪等/結果狀態（fetching 持續到完成；其餘 4 秒後回 idle）
   const flashCalendarStatus = (status, msg = '') => {
     setCalendarAutoStatus({ status, msg });
     if (calendarStatusTimerRef.current) clearTimeout(calendarStatusTimerRef.current);
+    if (status === 'success') {
+      // 成功後重置重試計數與錯誤記錄
+      setCalendarRetry({ count: 0, cooldownUntil: 0 });
+      setCalendarLastError(null);
+    }
     if (status !== 'fetching' && status !== 'idle') {
       calendarStatusTimerRef.current = setTimeout(() => setCalendarAutoStatus({ status: 'idle', msg: '' }), 4000);
     }
@@ -454,9 +475,39 @@ export default function App() {
   const flashPredictStatus = (status, msg = '') => {
     setPredictAutoStatus({ status, msg });
     if (predictStatusTimerRef.current) clearTimeout(predictStatusTimerRef.current);
+    if (status === 'success') {
+      setPredictRetry({ count: 0, cooldownUntil: 0 });
+      setPredictLastError(null);
+    }
     if (status !== 'fetching' && status !== 'idle') {
       predictStatusTimerRef.current = setTimeout(() => setPredictAutoStatus({ status: 'idle', msg: '' }), 4000);
     }
+  };
+
+  // 記錄錯誤明細並啟動冷卻；回傳是否仍在可重試範圍
+  const recordCalendarError = (err, httpStatus) => {
+    const { reason, label } = classifyError(err, httpStatus);
+    const message = String(err?.message || err || '').slice(0, 240) || label;
+    setCalendarLastError({ message, reason, label, at: new Date().toISOString() });
+    setCalendarRetry(prev => {
+      const count = prev.count + 1;
+      const cooldownUntil = count >= RETRY_MAX
+        ? Date.now() + RETRY_COOLDOWN_MS * 4   // 達上限：長冷卻
+        : Date.now() + RETRY_COOLDOWN_MS;
+      return { count, cooldownUntil };
+    });
+  };
+  const recordPredictError = (err, httpStatus) => {
+    const { reason, label } = classifyError(err, httpStatus);
+    const message = String(err?.message || err || '').slice(0, 240) || label;
+    setPredictLastError({ message, reason, label, at: new Date().toISOString() });
+    setPredictRetry(prev => {
+      const count = prev.count + 1;
+      const cooldownUntil = count >= RETRY_MAX
+        ? Date.now() + RETRY_COOLDOWN_MS * 4
+        : Date.now() + RETRY_COOLDOWN_MS;
+      return { count, cooldownUntil };
+    });
   };
 
   // ── 根據持倉自動產生行事曆事件 ──
