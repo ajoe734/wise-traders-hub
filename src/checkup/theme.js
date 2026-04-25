@@ -25,11 +25,11 @@ export const C = {
   textSec:   "#8B90A0",
   textMute:  "#4D5264",
 
-  // ── 漲跌：降飽和度，護眼 ──
-  up:        "#CF6679",
-  upBg:      "rgba(207,102,121,0.07)",
-  down:      "#4DB88A",
-  downBg:    "rgba(77,184,138,0.06)",
+  // ── 損益方向：單色橘紅憲法（正=橘、負=灰），不採紅綠對撞 ──
+  up:        "#EC662D",
+  upBg:      "rgba(236,102,45,0.07)",
+  down:      "#8B8680",
+  downBg:    "rgba(139,134,128,0.06)",
 
   // ── 功能色：低飽和度柔和色系 ──
   blue:      "#6B9FD4",
@@ -53,13 +53,13 @@ export const C = {
   choco:     "#C49040",
   chocoBg:   "rgba(196,144,64,0.06)",
   stone:     "#646A7E",
-  urgent:    "#CF6679",
+  urgent:    "#EC662D",
   onFill:    "#F0F0F0",
   focusRing: "0 0 0 2px rgba(77,191,160,0.20)",
 
   // ── 實色填充 ──
   fillTeal:    "#2E8F72",
-  fillTomato:  "#A84040",
+  fillTomato:  "#EC662D",
   fillChoco:   "#7A5520",
 };
 
@@ -99,10 +99,10 @@ export const L = {
   text:      "#4A4640",
   textSec:   "#7A756C",
   textMute:  "#A8A298",
-  up:        "#9E4050",
-  upBg:      "rgba(158,64,80,0.05)",
-  down:      "#3A7A5A",
-  downBg:    "rgba(58,122,90,0.04)",
+  up:        "#EC662D",
+  upBg:      "rgba(236,102,45,0.06)",
+  down:      "#8A857F",
+  downBg:    "rgba(138,133,127,0.05)",
   blue:      "#5A7A98",
   blueBg:    "rgba(90,122,152,0.06)",
   cyan:      "#4A7888",
@@ -124,11 +124,11 @@ export const L = {
   choco:     "#7A5828",
   chocoBg:   "rgba(122,88,40,0.05)",
   stone:     "#787068",
-  urgent:    "#9E4050",
+  urgent:    "#EC662D",
   onFill:    "#FFFFFF",
   focusRing: "none",
   fillTeal:   "#3A7060",
-  fillTomato: "#9E4050",
+  fillTomato: "#EC662D",
   fillChoco:  "#7A5828",
 };
 
