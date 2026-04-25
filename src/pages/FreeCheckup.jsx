@@ -2445,8 +2445,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const cardBorder = isInk
                 ? 'none'
                 : `1px solid ${isActive ? WB.hairStrong : WB.hair}`;
-              // 固定節奏：feature 卡 span 2，其餘 span 1（mobile ≤640 強制 span 1，避免 grid implicit columns 異常）
-              const colSpan = (isInk && h.__featureSlot && vw > 640) ? 'span 2' : 'span 1';
+              // span 由 CSS class 控制 (.wb-span-feature 在 ≥641px 時 span 2)
+              const isFeatureCard = isInk && h.__featureSlot;
               const MIN_H = 320;
 
               // ROI / 損益顏色：破例採單一橘紅（漲跌皆同），ink 卡改用橘紅 over 黑底
@@ -2460,12 +2460,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 return (
                   <button
                     key={h.code}
-                    className="wb-card wb-card-feature"
+                    className="wb-card wb-card-feature wb-span-feature"
                     onClick={() => setExpandedDecision(prev => prev === h.code ? null : h.code)}
                     onDoubleClick={() => openHoldingDrawer(h.code)}
                     style={{
                       position: 'relative',
-                      gridColumn: colSpan,
                       minHeight: MIN_H,
                       textAlign: 'left',
                       background: cardBg,
@@ -2566,12 +2565,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               return (
                 <button
                   key={h.code}
-                  className="wb-card"
+                  className="wb-card wb-span-1"
                   onClick={() => setExpandedDecision(prev => prev === h.code ? null : h.code)}
                   onDoubleClick={() => openHoldingDrawer(h.code)}
                   style={{
                     position: 'relative',
-                    gridColumn: colSpan,
                     minHeight: MIN_H,
                     textAlign: 'left',
                     background: cardBg,
@@ -2914,8 +2912,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {/* + Add Watchlist 虛線卡 */}
                   <button
                     onClick={() => setTab && setTab('watchlist')}
+                    className="wb-span-1"
                     style={{
-                      gridColumn:'span 1',
                       minHeight: 320,
                       background:'transparent',
                       border:`1px dashed ${WB.hairStrong}`,
@@ -2937,8 +2935,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {!showAll && sorted.length > 12 && (
                     <button
                       onClick={() => setShowAll(true)}
+                      className="wb-span-full"
                       style={{
-                        gridColumn: vw <= 640 ? 'span 1' : vw <= 1279 ? 'span 2' : 'span 3',
                         padding:'12px',
                         background:'transparent',
                         border:`1px dashed ${WB.hair}`,
@@ -3005,6 +3003,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           <style>{`
             /* Desktop 預設：3 欄。改用 class 而非 inline style，讓下方 media query 能在行動端生效 */
             .holdings-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            /* 卡片 span 工具類：以 CSS 控制，避免 inline style 在 RWD 切換時 race */
+            .wb-span-1 { grid-column: span 1; }
+            .wb-span-feature { grid-column: span 2; }
+            .wb-span-full { grid-column: 1 / -1; }
             @media (max-width: 1279px) {
               .holdings-workbench { grid-template-columns: minmax(0, 1fr) minmax(0, 320px) !important; }
               .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -3043,7 +3045,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             }
             @media (max-width: 640px) {
               .holdings-card-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
-              .wb-card-feature { grid-column: span 1 !important; }
+              .wb-card-feature, .wb-span-feature { grid-column: span 1 !important; }
               .wb-card { min-height: 0 !important; }
               .wb-card .wb-spark { width: 52px !important; }
               .wb-card .wb-bottom { gap: 8px !important; }
