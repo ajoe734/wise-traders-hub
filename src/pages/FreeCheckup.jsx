@@ -1017,7 +1017,7 @@ export default function App() {
     }
     calendarLastFetchRef.current = { key: null, at: 0 };
     try {
-      await fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
+      await fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || [], 'manual');
       flashCalendarStatus('success', '行事曆已更新');
     } catch {
       // fetchCalendarEvents 內部已 recordCalendarError + flash error
