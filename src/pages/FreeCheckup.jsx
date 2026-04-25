@@ -3379,33 +3379,68 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ EVENTS ══════════ */}
         {tab==="events" && <>
-          {/* 自動更新狀態徽章（行事曆 + 預測） */}
+          {/* 手動更新 + 自動更新狀態徽章（行事曆 + 預測） */}
           {(() => {
             const STATUS_LABEL = {
-              fetching: { txt: '⟳ 擷取中', color: C.amber },
+              fetching: { txt: '⟳ 擷取中…', color: C.amber },
               throttled: { txt: '⏱ 已節流（30 秒內已更新）', color: C.textMute },
               'skipped-idempotent': { txt: '⊘ 已跳過（同批次進行中）', color: C.textMute },
               aborted: { txt: '✕ 已中斷舊請求', color: C.textMute },
+              success: { txt: '✓ 完成', color: C.up },
+              error: { txt: '⚠ 失敗', color: C.amber },
             };
-            const cal = STATUS_LABEL[calendarAutoStatus];
-            const pre = STATUS_LABEL[predictAutoStatus];
-            if (!cal && !pre) return null;
+            const cal = STATUS_LABEL[calendarAutoStatus.status];
+            const pre = STATUS_LABEL[predictAutoStatus.status];
+            const calBusy = calendarAutoStatus.status === 'fetching' || calendarLoading;
+            const preBusy = predictAutoStatus.status === 'fetching' || predictingEvents;
             return (
-              <div style={{
-                display:"flex",gap:8,flexWrap:"wrap",marginBottom:10,
-                padding:"6px 10px",background:alpha(C.textMute,'04'),
-                borderRadius:6,fontSize:11,fontWeight:500,letterSpacing:"0.02em",
-              }}>
-                {cal && (
-                  <span style={{color:cal.color}}>
-                    <span style={{opacity:0.6,marginRight:4}}>行事曆</span>{cal.txt}
-                  </span>
-                )}
-                {cal && pre && <span style={{color:C.textMute,opacity:0.3}}>·</span>}
-                {pre && (
-                  <span style={{color:pre.color}}>
-                    <span style={{opacity:0.6,marginRight:4}}>事件預測</span>{pre.txt}
-                  </span>
+              <div style={{marginBottom:10}}>
+                {/* 手動按鈕列 */}
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+                  <button
+                    onClick={manualRefreshCalendar}
+                    disabled={calBusy || !holdings || holdings.length === 0}
+                    style={{
+                      padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
+                      border:`1px solid ${alpha(C.textMute,'33')}`,borderRadius:6,
+                      background:"transparent",color:calBusy?C.textMute:C.text,
+                      cursor:calBusy||!holdings?.length?"not-allowed":"pointer",
+                      opacity:calBusy||!holdings?.length?0.5:1,
+                    }}
+                  >{calBusy ? '⟳ 更新中…' : '↻ 立刻更新行事曆'}</button>
+                  <button
+                    onClick={() => runPredictEvents(true)}
+                    disabled={preBusy || !newsEvents || newsEvents.length === 0}
+                    style={{
+                      padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
+                      border:`1px solid ${alpha(C.textMute,'33')}`,borderRadius:6,
+                      background:"transparent",color:preBusy?C.textMute:C.text,
+                      cursor:preBusy||!newsEvents?.length?"not-allowed":"pointer",
+                      opacity:preBusy||!newsEvents?.length?0.5:1,
+                    }}
+                  >{preBusy ? '⟳ 預測中…' : '↻ 立刻預測事件'}</button>
+                </div>
+                {/* 狀態徽章 */}
+                {(cal || pre) && (
+                  <div style={{
+                    display:"flex",gap:8,flexWrap:"wrap",
+                    padding:"6px 10px",background:alpha(C.textMute,'04'),
+                    borderRadius:6,fontSize:11,fontWeight:500,letterSpacing:"0.02em",
+                  }}>
+                    {cal && (
+                      <span style={{color:cal.color}}>
+                        <span style={{opacity:0.6,marginRight:4}}>行事曆</span>
+                        {cal.txt}{calendarAutoStatus.msg ? `・${calendarAutoStatus.msg}` : ''}
+                      </span>
+                    )}
+                    {cal && pre && <span style={{color:C.textMute,opacity:0.3}}>·</span>}
+                    {pre && (
+                      <span style={{color:pre.color}}>
+                        <span style={{opacity:0.6,marginRight:4}}>事件預測</span>
+                        {pre.txt}{predictAutoStatus.msg ? `・${predictAutoStatus.msg}` : ''}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             );
