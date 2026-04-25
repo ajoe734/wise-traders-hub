@@ -3896,9 +3896,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
                     {e.status==="past" && isCorrect!==null && (
                       <span style={{
-                        fontSize:11, fontWeight:400,
-                        color: isCorrect ? C.olive : C.up,
-                      }}>{isCorrect ? "正確" : "有誤"}</span>
+                        fontSize:11, fontWeight:500,
+                        color: isCorrect ? C.olive : C.amber,
+                      }}>{isCorrect ? "✓ 正確" : "⚠ 有誤"}</span>
                     )}
                     {e.status==="verifying" && (
                       <span style={{fontSize:11,color:C.amber,fontWeight:400}}>待驗證</span>
