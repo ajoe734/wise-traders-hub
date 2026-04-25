@@ -183,22 +183,24 @@ function pickTag(block: string, tag: string) {
 }
 
 async function fetchNewsForStocks(codes: string[]): Promise<string> {
-  const allNews: string[] = [];
-  for (const code of codes.slice(0, 10)) {
+  // Limit to 5 codes and run in parallel with a hard 3s timeout each to avoid edge runtime CPU/time exhaustion
+  const targets = codes.slice(0, 5);
+  const tasks = targets.map(async (code) => {
     try {
       const url = `https://news.google.com/rss/search?q=${encodeURIComponent(code + ' 台股')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
+      const timer = setTimeout(() => controller.abort(), 3000);
       const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'portfolio-dashboard/1.0' } });
       clearTimeout(timer);
       const xml = await res.text();
-      const items = Array.from(xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)).map(m => m[0]).slice(0, 3);
-      for (const item of items) {
-        allNews.push(`- ${pickTag(item, 'title')} (${pickTag(item, 'source')})`);
-      }
-    } catch {}
-    await new Promise(r => setTimeout(r, 200));
-  }
+      const items = Array.from(xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)).map(m => m[0]).slice(0, 2);
+      return items.map(item => `- ${pickTag(item, 'title')} (${pickTag(item, 'source')})`);
+    } catch {
+      return [];
+    }
+  });
+  const results = await Promise.all(tasks);
+  const allNews = results.flat();
   return allNews.length > 0 ? allNews.join('\n') : '（無即時新聞）';
 }
 
