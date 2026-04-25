@@ -955,6 +955,16 @@ export default function App() {
 
   // 手動刷新行事曆（繞過 30 秒節流，但保留 inflight 冪等保護）
   const manualRefreshCalendar = async () => {
+    // 重試上限與冷卻檢查
+    const now = Date.now();
+    if (calendarRetry.cooldownUntil > now) {
+      const sec = Math.ceil((calendarRetry.cooldownUntil - now) / 1000);
+      const reachedMax = calendarRetry.count >= RETRY_MAX;
+      flashCalendarStatus('error', reachedMax
+        ? `已達重試上限 ${RETRY_MAX} 次，請 ${sec}s 後再試`
+        : `冷卻中，請 ${sec}s 後再試`);
+      return;
+    }
     if (!holdings || holdings.length === 0) {
       flashCalendarStatus('error', '尚無持倉');
       return;
@@ -968,7 +978,7 @@ export default function App() {
       await fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
       flashCalendarStatus('success', '行事曆已更新');
     } catch {
-      flashCalendarStatus('error', '行事曆更新失敗');
+      // fetchCalendarEvents 內部已 recordCalendarError + flash error
     }
   };
 
