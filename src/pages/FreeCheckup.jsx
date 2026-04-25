@@ -1930,135 +1930,130 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
-          {/* ── 今日戰績 Hero（截圖分享用主視覺：大數字 + 留白 + 每日語句） ── */}
+          {/* ── Hero：橫向 2 欄構圖（左大數字 + 右市場狀態），底部 4 欄 KPI ── */}
           {(()=>{
             const totalPnl = totalVal - totalCost;
             const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
             const isUp = totalPnl >= 0;
-            const heroColor = isUp ? C.up : C.down;
+            const heroColor = wbTone(totalPnl);
             const winRate = H.length > 0 ? Math.round((winners.length / H.length) * 100) : 0;
-            const themeCount = {};
-            H.forEach(h => {
-              const tag = (STOCK_META?.[h.code]?.industry) || (STOCK_META?.[h.code]?.theme);
-              if (tag) themeCount[tag] = (themeCount[tag] || 0) + 1;
-            });
-            const topTheme = Object.entries(themeCount).sort((a,b)=>b[1]-a[1])[0]?.[0]
-              || (H[0]?.name ? `${H[0].name}領銜` : "—");
-            const phrasesUp = [
-              "把波動收進節奏",
-              "讓時間幫你做事",
-              "穩住心跳，看見方向",
-              "節奏對了，數字會跟上",
-              "持有，是一種選擇",
-            ];
-            const phrasesDown = [
-              "回檔不是錯誤，是過程",
-              "在不確定裡，保持秩序",
-              "守住紀律，等下一個浪",
-              "下跌時，更該安靜",
-              "市場會錯，計畫不能錯",
-            ];
-            const phrasesFlat = [
-              "等待，也是部位的一部分",
-              "靜下來，看清楚",
-              "節奏比速度重要",
-            ];
-            const pool = Math.abs(totalPct) < 0.3 ? phrasesFlat : (isUp ? phrasesUp : phrasesDown);
-            const dayIdx = new Date().getDate();
-            const phrase = pool[dayIdx % pool.length];
             const today = new Date();
             const dateStr = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+            const timeStr = today.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+            const pendingCount = (exitList?.length || 0) + (reviewList?.length || 0);
 
             return (
               <section
-                aria-label="今日戰績"
+                aria-label="Portfolio Overview"
                 style={{
-                  padding: "36px 6px 40px",
+                  padding: '20px 4px 22px',
                   marginBottom: 18,
-                  borderBottom: `1px solid ${alpha(C.textMute, '10')}`,
+                  borderBottom: `1px solid ${WB.hair}`,
                 }}
               >
                 <div style={{
-                  display:"flex", justifyContent:"space-between", alignItems:"baseline",
-                  marginBottom: 28,
-                }}>
-                  <span style={{
-                    fontSize: 10, color: C.textMute, letterSpacing: "0.22em",
-                    textTransform: "uppercase", fontWeight: 400,
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
+                  gap: 24,
+                  alignItems: 'flex-end',
+                  marginBottom: 22,
+                }} className="wb-hero-grid">
+                  {/* 左：Today P&L 大字 */}
+                  <div>
+                    <div style={{
+                      fontSize: 9.5, color: WB.inkMute, letterSpacing: '0.22em',
+                      textTransform: 'uppercase', fontWeight: 500, marginBottom: 12,
+                      display: 'inline-flex', alignItems: 'baseline', gap: 8,
+                    }}>
+                      Portfolio
+                      <span style={{
+                        display: 'inline-block', width: 4, height: 4, borderRadius: '50%',
+                        background: WB.accent, transform: 'translateY(-1px)',
+                      }} />
+                      <span style={{ color: WB.inkLight, letterSpacing: '0.18em' }}>Today</span>
+                    </div>
+                    <div style={{
+                      display: 'flex', alignItems: 'baseline', gap: 18, flexWrap: 'wrap',
+                    }}>
+                      <span style={{
+                        fontSize: 88, fontWeight: 300, color: heroColor,
+                        letterSpacing: '-0.045em', lineHeight: 0.92,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {isUp ? '+' : ''}{Math.round(totalPnl).toLocaleString()}
+                      </span>
+                      <span style={{
+                        fontSize: 22, fontWeight: 400, color: heroColor, opacity: 0.85,
+                        letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {isUp ? '+' : ''}{totalPct.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 右：Market 狀態 */}
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+                    gap: 6, paddingBottom: 8,
                   }}>
-                    Today · {dateStr}
-                  </span>
-                  <span style={{
-                    fontSize: 9, color: C.textMute, letterSpacing: "0.18em",
-                    textTransform: "uppercase", opacity: 0.7,
-                  }}>
-                    Daily Report
-                  </span>
+                    <div style={{
+                      fontSize: 9.5, color: WB.inkMute, letterSpacing: '0.22em',
+                      textTransform: 'uppercase', fontWeight: 500,
+                      display: 'inline-flex', alignItems: 'baseline', gap: 8,
+                    }}>
+                      Market <span style={{ color: WB.ink }}>TAIWAN</span>
+                      <span style={{
+                        display: 'inline-block', width: 5, height: 5, borderRadius: '50%',
+                        background: WB.accent,
+                      }} />
+                    </div>
+                    <div style={{
+                      fontSize: 11, color: WB.inkMute, letterSpacing: '0.04em',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>
+                      Updated {dateStr} {timeStr}
+                    </div>
+                    {pendingCount > 0 && (
+                      <div style={{
+                        fontSize: 11, color: WB.accent, letterSpacing: '0.04em',
+                        marginTop: 2, fontWeight: 500,
+                      }}>
+                        {pendingCount} pending action{pendingCount > 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
+                {/* 4 欄 KPI 帶 */}
                 <div style={{
-                  display: "flex", flexDirection: "column", alignItems: "flex-start",
-                  marginBottom: 6,
-                }}>
-                  <div style={{
-                    fontSize: 11, color: C.textMute, letterSpacing: "0.16em",
-                    marginBottom: 10, fontWeight: 400, textTransform: "uppercase",
-                  }}>
-                    Today P/L
-                  </div>
-                  <div style={{
-                    fontSize: 72, fontWeight: 300, color: heroColor,
-                    letterSpacing: "-0.035em", lineHeight: 0.95,
-                    fontVariantNumeric: "tabular-nums",
-                  }}>
-                    {isUp ? "+" : ""}{Math.round(totalPnl).toLocaleString()}
-                  </div>
-                  <div style={{
-                    fontSize: 28, fontWeight: 300, color: heroColor,
-                    letterSpacing: "-0.02em", lineHeight: 1.1, marginTop: 8,
-                    fontVariantNumeric: "tabular-nums", opacity: 0.85,
-                  }}>
-                    {isUp ? "+" : ""}{totalPct.toFixed(2)}%
-                  </div>
-                </div>
-
-                <div style={{
-                  marginTop: 28, marginBottom: 28,
-                  fontSize: 14, color: C.textSec, fontWeight: 400,
-                  letterSpacing: "0.04em", lineHeight: 1.5,
-                }}>
-                  「{phrase}」
-                </div>
-
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                  gap: 14,
-                  paddingTop: 18,
-                  borderTop: `1px solid ${alpha(C.textMute, '08')}`,
-                }}>
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                  gap: 18,
+                  paddingTop: 16,
+                  borderTop: `1px solid ${WB.hair}`,
+                }} className="wb-hero-kpi">
                   {[
-                    { label: "持倉", value: `${H.length}`, sub: "檔" },
-                    { label: "勝率", value: `${winRate}`, sub: "%" },
-                    { label: "主題", value: topTheme, sub: "" },
+                    { label: 'Total Value', value: totalVal > 0 ? Math.round(totalVal).toLocaleString() : '—', sub: 'TWD' },
+                    { label: 'Holdings', value: String(H.length), sub: H.length > 0 ? 'positions' : '' },
+                    { label: 'Win Rate', value: H.length > 0 ? `${winRate}` : '—', sub: H.length > 0 ? '%' : '' },
+                    { label: 'Cost Basis', value: totalCost > 0 ? Math.round(totalCost).toLocaleString() : '—', sub: 'TWD' },
                   ].map((item) => (
                     <div key={item.label}>
                       <div style={{
-                        fontSize: 9, color: C.textMute, letterSpacing: "0.18em",
-                        marginBottom: 6, textTransform: "uppercase", fontWeight: 400,
+                        fontSize: 9, color: WB.inkLight, letterSpacing: '0.20em',
+                        marginBottom: 6, textTransform: 'uppercase', fontWeight: 500,
                       }}>
                         {item.label}
                       </div>
                       <div style={{
-                        fontSize: 16, fontWeight: 400, color: C.text,
-                        letterSpacing: "-0.005em", fontVariantNumeric: "tabular-nums",
-                        lineHeight: 1.2,
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        fontSize: 18, fontWeight: 400, color: WB.ink,
+                        letterSpacing: '-0.005em', fontVariantNumeric: 'tabular-nums',
+                        lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       }}>
                         {item.value}
                         {item.sub && (
                           <span style={{
-                            fontSize: 11, color: C.textMute, marginLeft: 3, fontWeight: 400,
+                            fontSize: 10.5, color: WB.inkLight, marginLeft: 4, fontWeight: 400, letterSpacing: '0.04em',
                           }}>
                             {item.sub}
                           </span>
@@ -2070,6 +2065,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </section>
             );
           })()}
+
 
           {/* 反轉追蹤（虧損持股）— 預設折疊，避免擠壓卡片牆 */}
           {losers.length>0 && (
