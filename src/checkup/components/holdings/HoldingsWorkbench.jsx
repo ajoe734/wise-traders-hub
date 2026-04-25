@@ -1,3 +1,5 @@
+// @template-only — 樣板元件，未被 /free-checkup 引用，請見 ./README.md
+
 import HoldingHero from './HoldingHero.jsx';
 import PriorityStrip from './PriorityStrip.jsx';
 import HoldingCard from './HoldingCard.jsx';
