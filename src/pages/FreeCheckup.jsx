@@ -3567,8 +3567,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                           <button
                             onClick={() => runPredictEvents(true)}
                             disabled={preRetryDisabled}
+                            title={preBusy ? '正在更新中，請稍候' : (preCool>0 ? `冷卻中，${preCoolSec} 秒後可重試` : '重新嘗試預測事件')}
                             style={retryBtnStyle(preRetryDisabled)}
-                          >{preCool>0 ? `↻ ${preCoolSec}s` : `↻ 重試 (${predictRetry.count}/${RETRY_MAX})`}</button>
+                          >{preBusy ? '⟳ 正在更新…' : (preCool>0 ? `↻ ${preCoolSec}s` : `↻ 重試 (${predictRetry.count}/${RETRY_MAX})`)}</button>
                         )}
                       </span>
                     )}
