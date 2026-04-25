@@ -297,6 +297,22 @@ export default function App() {
   const [sortBy,      setSortBy]      = useState("decision");
   const [filterType,  setFilterType]  = useState("全部");
   const [showAll,     setShowAll]     = useState(false);
+  // Viewport-aware grid columns（繞過 CSS cascade 在某些 Chromium dev/preview 環境
+  // 下對 `<style>` 內 `grid-template-columns: 1fr !important` 不生效的詭異問題）
+  const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onResize = () => setVw(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const cardGridCols = vw <= 640
+    ? '1fr'
+    : vw <= 1023
+      ? 'repeat(2, minmax(0, 1fr))'
+      : vw <= 1279
+        ? 'repeat(2, minmax(0, 1fr))'
+        : 'repeat(3, minmax(0, 1fr))';
   const [expandedNews, setExpandedNews] = useState(new Set());
   const [newsPendingExpanded, setNewsPendingExpanded] = useState(false);
   const [newsVerifyingExpanded, setNewsVerifyingExpanded] = useState(false);
