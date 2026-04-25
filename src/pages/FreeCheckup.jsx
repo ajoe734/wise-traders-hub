@@ -368,9 +368,9 @@ export default function App() {
   const [calendarEvents, setCalendarEvents] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
-  // 自動更新狀態徽章：'idle' | 'fetching' | 'throttled' | 'skipped-idempotent' | 'aborted'
-  const [calendarAutoStatus, setCalendarAutoStatus] = useState('idle');
-  const [predictAutoStatus, setPredictAutoStatus] = useState('idle');
+  // 自動更新狀態徽章：'idle' | 'fetching' | 'throttled' | 'skipped-idempotent' | 'aborted' | 'success' | 'error'
+  const [calendarAutoStatus, setCalendarAutoStatus] = useState({ status: 'idle', msg: '' });
+  const [predictAutoStatus, setPredictAutoStatus] = useState({ status: 'idle', msg: '' });
   const calendarStatusTimerRef = useRef(null);
   const predictStatusTimerRef = useRef(null);
   // Decision System v6
