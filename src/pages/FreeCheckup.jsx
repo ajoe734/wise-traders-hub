@@ -2983,9 +2983,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* RWD：mid 折成 2 欄、行動端 1 欄並隱藏 detail panel */}
           <style>{`
-            /* 預設桌面 3 欄（取代原本的 inline style，確保 @media 能覆蓋）*/
-            .holdings-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-
             @media (max-width: 1279px) {
               .holdings-workbench { grid-template-columns: minmax(0, 1fr) minmax(0, 320px) !important; }
               .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -3023,7 +3020,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               .wb-card .wb-tags { row-gap: 6px !important; }
             }
             @media (max-width: 640px) {
-              .holdings-card-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 12px !important; }
+              .holdings-card-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
               .wb-card-feature { grid-column: span 1 !important; }
               .wb-card { min-height: 0 !important; }
               .wb-card .wb-spark { width: 52px !important; }
