@@ -427,21 +427,36 @@ export default function App() {
   const calendarAbortRef = useRef(null);
   const CALENDAR_DEDUP_MS = 30_000;
 
+  // 短暫顯示節流/冪等狀態（3 秒後自動回復 idle）
+  const flashCalendarStatus = (status) => {
+    setCalendarAutoStatus(status);
+    if (calendarStatusTimerRef.current) clearTimeout(calendarStatusTimerRef.current);
+    calendarStatusTimerRef.current = setTimeout(() => setCalendarAutoStatus('idle'), 3000);
+  };
+  const flashPredictStatus = (status) => {
+    setPredictAutoStatus(status);
+    if (predictStatusTimerRef.current) clearTimeout(predictStatusTimerRef.current);
+    predictStatusTimerRef.current = setTimeout(() => setPredictAutoStatus('idle'), 3000);
+  };
+
   // ── 根據持倉自動產生行事曆事件 ──
   const fetchCalendarEvents = async (holdingsList, guard, existingEvents = []) => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
       save("pf-calendar-v1", { events: [], holdingCodes: "" });
+      setCalendarAutoStatus('idle');
       return;
     }
     const requestKey = holdingsList.map(h => h.code).sort().join(",");
     // 1) 同一個 key 已在飛行中 → 略過（避免併發）
     if (calendarInflightKeyRef.current === requestKey) {
+      flashCalendarStatus('skipped-idempotent');
       return;
     }
     // 2) 30 秒內剛抓過相同 key → 略過（節流）
     const last = calendarLastFetchRef.current;
     if (last.key === requestKey && Date.now() - last.at < CALENDAR_DEDUP_MS) {
+      flashCalendarStatus('throttled');
       return;
     }
     // 3) 不同 key 但有舊請求飛行中 → 中斷之
@@ -451,6 +466,7 @@ export default function App() {
     }
     calendarInflightKeyRef.current = requestKey;
     setCalendarLoading(true);
+    setCalendarAutoStatus('fetching');
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
@@ -492,8 +508,14 @@ export default function App() {
         syncCalendarToNews(merged);
       }
       calendarLastFetchRef.current = { key: requestKey, at: Date.now() };
+      setCalendarAutoStatus('idle');
     } catch (e) {
-      if (e?.name !== 'AbortError') console.error("Calendar fetch error:", e);
+      if (e?.name !== 'AbortError') {
+        console.error("Calendar fetch error:", e);
+        setCalendarAutoStatus('idle');
+      } else {
+        flashCalendarStatus('aborted');
+      }
     } finally {
       // 只有當前 key 還是這次請求的 key 才清除（避免被新請求覆寫後誤清）
       if (calendarInflightKeyRef.current === requestKey) {
