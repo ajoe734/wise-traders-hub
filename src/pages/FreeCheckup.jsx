@@ -381,6 +381,22 @@ export default function App() {
   const RETRY_COOLDOWN_MS = 15_000;
   const [calendarRetry, setCalendarRetry] = useState({ count: 0, cooldownUntil: 0 });
   const [predictRetry, setPredictRetry] = useState({ count: 0, cooldownUntil: 0 });
+  // 更新日誌：記錄手動/自動觸發的時間、狀態、batchKey/requestKey，用於除錯
+  // entry: { id, ts, source: 'calendar'|'predict', trigger: 'manual'|'auto', status, key, msg }
+  const [updateLog, setUpdateLog] = useState([]);
+  const [updateLogOpen, setUpdateLogOpen] = useState(false);
+  const updateLogIdRef = useRef(0);
+  const pushUpdateLog = (entry) => {
+    setUpdateLog(prev => {
+      const next = [{
+        id: ++updateLogIdRef.current,
+        ts: Date.now(),
+        ...entry,
+      }, ...prev];
+      // 保留最近 50 筆
+      return next.slice(0, 50);
+    });
+  };
   // 強制每秒 re-render 以更新冷卻倒數
   const [, setNowTick] = useState(0);
   useEffect(() => {
@@ -511,23 +527,26 @@ export default function App() {
   };
 
   // ── 根據持倉自動產生行事曆事件 ──
-  const fetchCalendarEvents = async (holdingsList, guard, existingEvents = []) => {
+  const fetchCalendarEvents = async (holdingsList, guard, existingEvents = [], trigger = 'auto') => {
     if (!holdingsList || holdingsList.length === 0) {
       setCalendarEvents([]);
       save("pf-calendar-v1", { events: [], holdingCodes: "" });
       setCalendarAutoStatus({ status: 'idle', msg: '' });
+      pushUpdateLog({ source:'calendar', trigger, status:'skipped', key:'(empty)', msg:'尚無持倉' });
       return;
     }
     const requestKey = holdingsList.map(h => h.code).sort().join(",");
     // 1) 同一個 key 已在飛行中 → 略過（避免併發）
     if (calendarInflightKeyRef.current === requestKey) {
       flashCalendarStatus('skipped-idempotent');
+      pushUpdateLog({ source:'calendar', trigger, status:'skipped-idempotent', key:requestKey, msg:'同 key 進行中' });
       return;
     }
     // 2) 30 秒內剛抓過相同 key → 略過（節流）
     const last = calendarLastFetchRef.current;
     if (last.key === requestKey && Date.now() - last.at < CALENDAR_DEDUP_MS) {
       flashCalendarStatus('throttled');
+      pushUpdateLog({ source:'calendar', trigger, status:'throttled', key:requestKey, msg:`30s 內已更新` });
       return;
     }
     // 3) 不同 key 但有舊請求飛行中 → 中斷之
@@ -538,6 +557,7 @@ export default function App() {
     calendarInflightKeyRef.current = requestKey;
     setCalendarLoading(true);
     setCalendarAutoStatus({ status: 'fetching', msg: '' });
+    pushUpdateLog({ source:'calendar', trigger, status:'fetching', key:requestKey, msg:`${holdingsList.length} 檔` });
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
@@ -556,7 +576,10 @@ export default function App() {
       });
       clearTimeout(timer);
       const result = await res.json();
-      if (guard !== undefined && guard !== resetGuardRef.current) return;
+      if (guard !== undefined && guard !== resetGuardRef.current) {
+        pushUpdateLog({ source:'calendar', trigger, status:'aborted', key:requestKey, msg:'guard 變更' });
+        return;
+      }
       const text = result.text || result.response || "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
@@ -583,15 +606,18 @@ export default function App() {
       setCalendarRetry({ count: 0, cooldownUntil: 0 });
       setCalendarLastError(null);
       setCalendarAutoStatus({ status: 'idle', msg: '' });
+      pushUpdateLog({ source:'calendar', trigger, status:'success', key:requestKey, msg:'完成' });
     } catch (e) {
       if (e?.name !== 'AbortError') {
         console.error("Calendar fetch error:", e);
         recordCalendarError(e);
         const { label } = classifyError(e);
         flashCalendarStatus('error', label);
+        pushUpdateLog({ source:'calendar', trigger, status:'error', key:requestKey, msg:label });
         throw e;
       } else {
         flashCalendarStatus('aborted');
+        pushUpdateLog({ source:'calendar', trigger, status:'aborted', key:requestKey, msg:'AbortError' });
       }
     } finally {
       // 只有當前 key 還是這次請求的 key 才清除（避免被新請求覆寫後誤清）
@@ -835,28 +861,36 @@ export default function App() {
 
   // 共用：執行一次預測（force=true 會繞過節流並重置已嘗試清單）
   const runPredictEvents = (force = false) => {
+    const trigger = force ? 'manual' : 'auto';
     // 重試上限與冷卻檢查（僅作用於 force 觸發；自動觸發不受限）
     if (force) {
       const now = Date.now();
       if (predictRetry.cooldownUntil > now) {
         const sec = Math.ceil((predictRetry.cooldownUntil - now) / 1000);
         const reachedMax = predictRetry.count >= RETRY_MAX;
-        flashPredictStatus('error', reachedMax
+        const msg = reachedMax
           ? `已達重試上限 ${RETRY_MAX} 次，請 ${sec}s 後再試`
-          : `冷卻中，請 ${sec}s 後再試`);
+          : `冷卻中，請 ${sec}s 後再試`;
+        flashPredictStatus('error', msg);
+        pushUpdateLog({ source:'predict', trigger, status:'cooldown', key:'(n/a)', msg });
         return;
       }
     }
     if (!ready || !newsEvents || newsEvents.length === 0) {
-      if (force) flashPredictStatus('error', '尚無事件可預測');
+      if (force) {
+        flashPredictStatus('error', '尚無事件可預測');
+        pushUpdateLog({ source:'predict', trigger, status:'skipped', key:'(empty)', msg:'尚無事件' });
+      }
       return;
     }
     if (predictingEvents) {
       if (force) flashPredictStatus('skipped-idempotent');
+      pushUpdateLog({ source:'predict', trigger, status:'skipped-idempotent', key:'(inflight)', msg:'進行中' });
       return;
     }
     if (!force && Date.now() - predictLastRunRef.current < PREDICT_MIN_INTERVAL_MS) {
       flashPredictStatus('throttled');
+      pushUpdateLog({ source:'predict', trigger, status:'throttled', key:'(n/a)', msg:'30s 內已執行' });
       return;
     }
 
@@ -877,13 +911,17 @@ export default function App() {
     });
 
     if (needsPrediction.length === 0) {
-      if (force) flashPredictStatus('error', '7 天內無待預測事件');
+      if (force) {
+        flashPredictStatus('error', '7 天內無待預測事件');
+        pushUpdateLog({ source:'predict', trigger, status:'skipped', key:'(empty-7d)', msg:'7 天內無待預測' });
+      }
       return;
     }
 
     const batchKey = needsPrediction.map(e => e.id).sort().join("|");
     if (predictBatchInflightRef.current === batchKey) {
       flashPredictStatus('skipped-idempotent');
+      pushUpdateLog({ source:'predict', trigger, status:'skipped-idempotent', key:batchKey, msg:'同 batch 進行中' });
       return;
     }
     predictBatchInflightRef.current = batchKey;
@@ -892,6 +930,7 @@ export default function App() {
 
     setPredictingEvents(true);
     setPredictAutoStatus({ status: 'fetching', msg: '' });
+    pushUpdateLog({ source:'predict', trigger, status:'fetching', key:batchKey, msg:`${needsPrediction.length} 件` });
     (async () => {
       try {
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events`, {
@@ -915,6 +954,7 @@ export default function App() {
           recordPredictError(httpErr, res.status);
           const { label } = classifyError(httpErr, res.status);
           flashPredictStatus('error', `${label}（${res.status}）`);
+          pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:`${label} (${res.status})` });
           return;
         }
         const data = await res.json();
@@ -936,12 +976,14 @@ export default function App() {
           return arr;
         });
         flashPredictStatus('success', `已預測 ${needsPrediction.length} 件`);
+        pushUpdateLog({ source:'predict', trigger, status:'success', key:batchKey, msg:`已預測 ${needsPrediction.length} 件` });
       } catch (err) {
         console.error("Predict events error:", err);
         needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
         recordPredictError(err);
         const { label } = classifyError(err);
         flashPredictStatus('error', label);
+        pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:label });
       } finally {
         setPredictingEvents(false);
         if (predictBatchInflightRef.current === batchKey) {
@@ -975,7 +1017,7 @@ export default function App() {
     }
     calendarLastFetchRef.current = { key: null, at: 0 };
     try {
-      await fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
+      await fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || [], 'manual');
       flashCalendarStatus('success', '行事曆已更新');
     } catch {
       // fetchCalendarEvents 內部已 recordCalendarError + flash error
@@ -3622,6 +3664,95 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {predictRetry.count >= RETRY_MAX && (
                       <div style={{marginTop:4,color:C.amber,fontSize:10,opacity:0.8}}>
                         已連續失敗 {predictRetry.count} 次，{preCool>0 ? `將於 ${preCoolSec}s 後解除冷卻` : '可再次重試'}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* 更新日誌（除錯用）：可摺疊 */}
+                {updateLog.length > 0 && (
+                  <div style={{
+                    marginTop:6,
+                    border:`1px solid ${alpha(C.textMute,'1a')}`,
+                    borderRadius:6,
+                    background:alpha(C.textMute,'04'),
+                    fontSize:11,
+                  }}>
+                    <button
+                      onClick={() => setUpdateLogOpen(o => !o)}
+                      style={{
+                        display:"flex",alignItems:"center",justifyContent:"space-between",
+                        width:"100%",padding:"6px 10px",
+                        background:"transparent",border:"none",
+                        cursor:"pointer",color:C.textMute,fontSize:11,
+                      }}
+                    >
+                      <span style={{display:"inline-flex",alignItems:"center",gap:6}}>
+                        <span style={{opacity:0.6}}>更新日誌</span>
+                        <span style={{opacity:0.5}}>({updateLog.length})</span>
+                      </span>
+                      <span style={{display:"inline-flex",alignItems:"center",gap:8}}>
+                        {updateLog.length > 0 && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); setUpdateLog([]); }}
+                            style={{fontSize:10,color:C.textMute,opacity:0.6,cursor:"pointer"}}
+                          >清除</span>
+                        )}
+                        <span style={{opacity:0.5}}>{updateLogOpen ? '▾' : '▸'}</span>
+                      </span>
+                    </button>
+                    {updateLogOpen && (
+                      <div style={{
+                        maxHeight:240,overflowY:"auto",
+                        borderTop:`1px solid ${alpha(C.textMute,'14')}`,
+                        padding:"4px 0",
+                      }}>
+                        {updateLog.map(entry => {
+                          const STATUS_COLOR = {
+                            fetching: C.amber,
+                            success: C.up,
+                            error: C.amber,
+                            throttled: C.textMute,
+                            'skipped-idempotent': C.textMute,
+                            skipped: C.textMute,
+                            cooldown: C.amber,
+                            aborted: C.textMute,
+                          };
+                          const sc = STATUS_COLOR[entry.status] || C.text;
+                          const ts = new Date(entry.ts).toLocaleTimeString('zh-TW',{hour12:false});
+                          return (
+                            <div
+                              key={entry.id}
+                              style={{
+                                display:"grid",
+                                gridTemplateColumns:"60px 56px 56px 1fr",
+                                gap:6,padding:"3px 10px",
+                                fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",
+                                fontSize:10,lineHeight:1.5,
+                                borderBottom:`1px dotted ${alpha(C.textMute,'10')}`,
+                              }}
+                              title={`key: ${entry.key}`}
+                            >
+                              <span style={{color:C.textMute,opacity:0.7}}>{ts}</span>
+                              <span style={{color:C.textMute}}>
+                                {entry.source === 'calendar' ? '行事曆' : '事件預測'}
+                              </span>
+                              <span style={{color:entry.trigger==='manual'?C.text:C.textMute,opacity:entry.trigger==='manual'?0.9:0.6}}>
+                                {entry.trigger === 'manual' ? '手動' : '自動'}
+                              </span>
+                              <span style={{display:"flex",gap:6,minWidth:0}}>
+                                <span style={{color:sc,fontWeight:500,whiteSpace:"nowrap"}}>{entry.status}</span>
+                                <span style={{color:C.textMute,opacity:0.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                                  {entry.msg}
+                                </span>
+                                <span style={{color:C.textMute,opacity:0.4,marginLeft:"auto",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:140}}>
+                                  {entry.key && entry.key !== '(n/a)' ? `key:${String(entry.key).slice(0,18)}${String(entry.key).length>18?'…':''}` : ''}
+                                </span>
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
