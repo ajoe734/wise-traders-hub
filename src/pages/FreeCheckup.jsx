@@ -2433,7 +2433,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const hairColor = isInk ? 'rgba(244,241,236,0.14)' : WB.hair;
               const pnlColor = WB.accent; // 漲跌皆橘紅
 
-              // ─── Feature card (ink + span 2)：雜誌排版，ROI 佔據主視覺區 ───
+              // ─── Feature card (ink + span 2)：黑底，橘紅 ROI，五層雜誌排版 ───
               if (isInk && h.__featureSlot) {
                 return (
                   <button
@@ -2443,113 +2443,91 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     style={{
                       position: 'relative',
                       gridColumn: colSpan,
-                      minHeight: minH,
+                      minHeight: MIN_H,
                       textAlign: 'left',
                       background: cardBg,
                       border: 'none',
-                      borderRadius: 6,
-                      padding: '32px 36px 24px',
+                      borderRadius: 4,
+                      padding: '24px 28px 20px',
                       cursor: 'pointer',
-                      display: 'grid',
-                      gridTemplateColumns: '1.4fr 1fr',
-                      gridTemplateRows: 'auto 1fr auto',
-                      columnGap: 24,
-                      rowGap: 12,
+                      display: 'flex', flexDirection: 'column',
                       transition: 'background 160ms ease',
                       fontFamily: 'inherit',
                       color: cardColor,
                       overflow: 'hidden',
                     }}
                   >
-                    {/* 左上：股名（小） */}
-                    <div style={{
-                      gridColumn: '1 / 2', gridRow: '1 / 2',
-                      display:'flex', alignItems:'baseline', gap:8,
-                    }}>
+                    {/* L1：股號 + 名稱 + FEATURE tag */}
+                    <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:10,marginBottom:6}}>
+                      <div style={{display:'flex',alignItems:'baseline',gap:8,minWidth:0}}>
+                        <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
+                        <span style={{fontSize:15,fontWeight:400,color:cardColor,letterSpacing:'-0.005em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
+                      </div>
                       <span style={{
-                        fontSize: 10, color: muteColor, letterSpacing:'0.18em',
-                        textTransform:'uppercase', fontWeight:400,
-                      }}>Feature</span>
-                      <span style={{
-                        display:'inline-block', width:3, height:3, borderRadius:'50%',
-                        background:'#EC662D', transform:'translateY(-2px)',
-                      }} />
+                        fontSize:9,fontWeight:500,letterSpacing:'0.20em',
+                        color:WB.accent,textTransform:'uppercase',flexShrink:0,
+                      }}>{actionLabel}</span>
                     </div>
 
-                    {/* 右上：action tag（克制） */}
+                    {/* L2：ROI 主視覺（橘紅，52px → feature 用 64px） */}
                     <div style={{
-                      gridColumn: '2 / 3', gridRow: '1 / 2',
-                      display:'flex', justifyContent:'flex-end', alignItems:'baseline', gap:6,
+                      display:'flex',alignItems:'baseline',gap:14,marginTop:8,marginBottom:10,
                     }}>
-                      {actionLabel && (
-                        <span style={{
-                          fontSize:10, fontWeight:400, letterSpacing:'0.14em',
-                          color: '#EFEDE8', textTransform:'uppercase',
-                        }}>{actionLabel}</span>
+                      <span style={{
+                        fontSize:64,fontWeight:300,color:pnlColor,
+                        letterSpacing:'-0.04em',lineHeight:0.92,
+                        fontVariantNumeric:'tabular-nums',
+                      }}>
+                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.36em',marginLeft:3,opacity:0.55,fontWeight:400}}>%</span>
+                      </span>
+                      <span style={{fontSize:13,color:subColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
+                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {/* L3：分類 tags */}
+                    {(meta?.industry || meta?.strategy) && (
+                      <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+                        {meta?.industry && (
+                          <span style={{fontSize:10,color:muteColor,letterSpacing:'0.10em',padding:'2px 8px',border:`1px solid ${hairColor}`,borderRadius:2}}>{meta.industry}</span>
+                        )}
+                        {meta?.strategy && (
+                          <span style={{fontSize:10,color:muteColor,letterSpacing:'0.10em',padding:'2px 8px',border:`1px solid ${hairColor}`,borderRadius:2}}>{meta.strategy}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* L4：說明 + sparkline */}
+                    <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'space-between',gap:18,minHeight:48}}>
+                      <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.7,letterSpacing:'0.01em'}}>
+                        {dec?.actionText
+                          ? (dec.actionText.length > 90 ? dec.actionText.slice(0,88) + '…' : dec.actionText)
+                          : (meta?.strategy || '持續監控基本面與籌碼變動。')}
+                      </div>
+                      {sparkData.length >= 2 && (
+                        <Sparkline data={sparkData} width={120} height={36} color={WB.accent} opacity={0.9} />
                       )}
                     </div>
 
-                    {/* ROI：構圖主體，跨左欄滿版 */}
+                    {/* L5：底部數據帶 */}
                     <div style={{
-                      gridColumn: '1 / 2', gridRow: '2 / 3',
-                      display:'flex', flexDirection:'column', justifyContent:'center', gap:6,
-                    }}>
-                      <div style={{
-                        fontSize: 112,
-                        fontWeight: 300,
-                        color: pnlColor,
-                        letterSpacing: '-0.045em',
-                        lineHeight: 0.92,
-                        fontVariantNumeric: 'tabular-nums',
-                      }}>
-                        {pctVal >= 0 ? '+' : ''}{pctVal.toFixed(2)}<span style={{fontSize:'0.32em',marginLeft:4,opacity:0.5,fontWeight:400}}>%</span>
-                      </div>
-                      <div style={{
-                        fontSize: 13, color: subColor, fontWeight: 400,
-                        fontVariantNumeric: 'tabular-nums', letterSpacing:'0.02em',
-                      }}>
-                        {h.pnl >= 0 ? '+' : ''}{Math.round(h.pnl||0).toLocaleString()}
-                      </div>
-                    </div>
-
-                    {/* 右側：股名 + 標的資訊（次要區） */}
-                    <div style={{
-                      gridColumn: '2 / 3', gridRow: '2 / 3',
-                      display:'flex', flexDirection:'column', justifyContent:'flex-end',
-                      paddingBottom: 8, gap:10,
-                    }}>
-                      <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
-                        <span style={{fontSize: 22, fontWeight:400, color: cardColor, letterSpacing:'-0.005em', lineHeight:1.1}}>{h.name}</span>
-                        <span style={{fontSize:11, color: muteColor, fontWeight:400, fontVariantNumeric:'tabular-nums', letterSpacing:'0.04em'}}>{h.code}</span>
-                      </div>
-                      {meta?.strategy && (
-                        <div style={{fontSize:11, color: subColor, fontWeight:400, letterSpacing:'0.02em', lineHeight:1.6}}>
-                          {meta.strategy}{meta.industry ? ` · ${meta.industry}` : ''}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 底部 baseline：細字數據帶（跨整欄） */}
-                    <div style={{
-                      gridColumn: '1 / -1', gridRow: '3 / 4',
-                      display:'flex', justifyContent:'space-between', alignItems:'baseline',
-                      paddingTop: 14, marginTop: 8,
+                      display:'flex',justifyContent:'space-between',alignItems:'baseline',
+                      paddingTop:12,marginTop:8,
                       borderTop:`1px solid ${hairColor}`,
-                      fontSize:10, color: muteColor, fontWeight:400,
-                      fontVariantNumeric:'tabular-nums', letterSpacing:'0.08em',
-                      textTransform:'uppercase',
+                      fontSize:10,color:muteColor,fontWeight:400,
+                      fontVariantNumeric:'tabular-nums',letterSpacing:'0.08em',
                     }}>
-                      <span>{h.qty?.toLocaleString()}{h.unit || '股'} · 成本 {h.cost}</span>
-                      <span>市值 {h.value?.toLocaleString() || '—'}</span>
+                      <span>{h.qty?.toLocaleString()}{h.unit || '股'} · COST {h.cost}</span>
+                      <span>VALUE {h.value?.toLocaleString() || '—'}</span>
                       {tp && upside != null && (
-                        <span>目標 {tp.toLocaleString()} · {upside >= 0 ? '+' : ''}{upside.toFixed(1)}%</span>
+                        <span>TARGET {tp.toLocaleString()} · {upside>=0?'+':''}{upside.toFixed(1)}%</span>
                       )}
                     </div>
                   </button>
                 );
               }
 
-              // ─── 一般卡片（accent / plain）：ROI 居中為視覺中心，名稱壓上方 ───
+              // ─── Normal card：白底，相同 5 層結構，ROI 52px ───
               return (
                 <button
                   key={h.code}
@@ -2558,12 +2536,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   style={{
                     position: 'relative',
                     gridColumn: colSpan,
-                    minHeight: minH,
+                    minHeight: MIN_H,
                     textAlign: 'left',
                     background: cardBg,
                     border: cardBorder,
-                    borderRadius: 6,
-                    padding: isAccent ? '22px 22px 16px 24px' : '20px 20px 14px',
+                    borderRadius: 4,
+                    padding: '22px 22px 18px',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
@@ -2573,68 +2551,63 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     overflow: 'hidden',
                   }}
                 >
-                  {accentBar && (
-                    <span style={{
-                      position:'absolute', left:0, top:0, bottom:0, width:2,
-                      background: accentBar,
-                    }} />
-                  )}
-
-                  {/* 上方：名稱 + 動作 tag（克制） */}
-                  <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:8}}>
-                    <div style={{display:'flex',alignItems:'baseline',gap:6,minWidth:0,flex:1}}>
-                      <span style={{fontSize: isAccent ? 14 : 13, fontWeight:400, color: cardColor, letterSpacing:'0.005em', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{h.name}</span>
-                      <span style={{fontSize:10, color: muteColor, fontWeight:400, fontVariantNumeric:'tabular-nums', flexShrink:0}}>{h.code}</span>
+                  {/* L1：股號 + 名稱 + action tag */}
+                  <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:10,marginBottom:4}}>
+                    <div style={{display:'flex',alignItems:'baseline',gap:8,minWidth:0,flex:1}}>
+                      <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>{h.code}</span>
+                      <span style={{fontSize:13,fontWeight:400,color:cardColor,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
                     </div>
-                    {actionLabel && (
-                      <span style={{
-                        fontSize:9, fontWeight:400, letterSpacing:'0.16em',
-                        color: isAccent ? '#EC662D' : (dec?.actionType === 'exit' ? C.down : C.amber),
-                        textTransform:'uppercase', flexShrink:0,
-                      }}>{actionLabel}</span>
-                    )}
+                    <span style={{
+                      fontSize:9,fontWeight:500,letterSpacing:'0.20em',
+                      color:WB.accent,flexShrink:0,
+                    }}>{actionLabel}</span>
                   </div>
 
-                  {/* 中央：ROI 視覺中心 — 大量留白讓數字呼吸 */}
-                  <div style={{
-                    flex:1,
-                    display:'flex', alignItems:'center', justifyContent:'flex-start',
-                    padding: isAccent ? '12px 0 8px' : '8px 0',
-                  }}>
+                  {/* L2：ROI 52px */}
+                  <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:8,marginBottom:8}}>
                     <span style={{
-                      fontSize: fontHero,
-                      fontWeight: 300,
-                      color: pnlColor,
-                      letterSpacing: '-0.035em',
-                      lineHeight: 0.95,
-                      fontVariantNumeric: 'tabular-nums',
+                      fontSize:52,fontWeight:300,color:pnlColor,
+                      letterSpacing:'-0.035em',lineHeight:0.95,
+                      fontVariantNumeric:'tabular-nums',
                     }}>
-                      {pctVal >= 0 ? '+' : ''}{pctVal.toFixed(2)}<span style={{fontSize:'0.38em',marginLeft:3,opacity:0.5}}>%</span>
+                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.36em',marginLeft:2,opacity:0.55}}>%</span>
                     </span>
                   </div>
 
-                  {/* 底部：細字數據帶 + 損益（最低權重） */}
+                  {/* L3：分類 tags */}
+                  {(meta?.industry || meta?.strategy) && (
+                    <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+                      {meta?.industry && (
+                        <span style={{fontSize:10,color:muteColor,letterSpacing:'0.10em',padding:'2px 7px',border:`1px solid ${hairColor}`,borderRadius:2}}>{meta.industry}</span>
+                      )}
+                      {meta?.strategy && (
+                        <span style={{fontSize:10,color:muteColor,letterSpacing:'0.10em',padding:'2px 7px',border:`1px solid ${hairColor}`,borderRadius:2}}>{meta.strategy}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* L4：說明 + sparkline */}
+                  <div style={{flex:1,display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:14,minHeight:40,paddingTop:4}}>
+                    <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.65}}>
+                      {dec?.actionText
+                        ? (dec.actionText.length > 60 ? dec.actionText.slice(0,58) + '…' : dec.actionText)
+                        : (meta?.strategy ? meta.strategy.slice(0,40) : '')}
+                    </div>
+                    {sparkData.length >= 2 && (
+                      <Sparkline data={sparkData} width={84} height={28} color={WB.accent} opacity={0.85} />
+                    )}
+                  </div>
+
+                  {/* L5：底部數據帶 */}
                   <div style={{
-                    paddingTop: 10,
+                    paddingTop:10,marginTop:8,
                     borderTop:`1px solid ${hairColor}`,
-                    display:'flex', flexDirection:'column', gap:3,
+                    display:'flex',justifyContent:'space-between',alignItems:'baseline',
+                    fontSize:10,color:muteColor,fontWeight:400,
+                    fontVariantNumeric:'tabular-nums',letterSpacing:'0.06em',
                   }}>
-                    <div style={{
-                      display:'flex', justifyContent:'space-between', alignItems:'baseline',
-                      fontSize:10, color: muteColor, fontWeight:400,
-                      fontVariantNumeric:'tabular-nums', letterSpacing:'0.04em',
-                    }}>
-                      <span>{h.qty?.toLocaleString()}{h.unit || '股'}</span>
-                      <span>{h.pnl >= 0 ? '+' : ''}{Math.round(h.pnl||0).toLocaleString()}</span>
-                    </div>
-                    <div style={{
-                      display:'flex', justifyContent:'space-between', alignItems:'baseline',
-                      fontSize:10, color: muteColor, fontWeight:400,
-                      fontVariantNumeric:'tabular-nums', letterSpacing:'0.04em', opacity:0.75,
-                    }}>
-                      <span>成本 {h.cost}</span>
-                      <span>市值 {h.value?.toLocaleString() || '—'}</span>
-                    </div>
+                    <span>{h.qty?.toLocaleString()}{h.unit || '股'} · {h.cost}</span>
+                    <span>{h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}</span>
                   </div>
                 </button>
               );
