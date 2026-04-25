@@ -1,4 +1,4 @@
-import { CARD_VARIANTS, HOLDINGS_TOKENS, valueColor } from './holdingsTokens.js';
+import { CARD_VARIANTS, HOLDINGS_TOKENS, valueColor, valueArrow, valueWeight } from './holdingsTokens.js';
 
 const labelOf = (kind) => {
   if (kind === 'exit') return '出場';
@@ -165,7 +165,7 @@ export default function HoldingCard({
         <div
           style={{
             fontSize: v.fontHero,
-            fontWeight: isInk ? 400 : 300,
+            fontWeight: isInk ? 400 : valueWeight(pct),
             color: pctColor,
             letterSpacing: '-0.02em',
             lineHeight: 1,
@@ -175,6 +175,19 @@ export default function HoldingCard({
             gap: 6,
           }}
         >
+          {!isInk && valueArrow(pct) && (
+            <span
+              aria-hidden
+              style={{
+                fontSize: '0.42em',
+                opacity: 0.7,
+                fontWeight: 400,
+                marginRight: -2,
+              }}
+            >
+              {valueArrow(pct)}
+            </span>
+          )}
           <span>
             {pct >= 0 ? '+' : ''}
             {Number(pct).toFixed(2)}
