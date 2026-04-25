@@ -3004,7 +3004,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             }
             .wb-card .wb-roi > * { white-space: nowrap; }
             .wb-card .wb-bottom { align-items: baseline !important; min-width: 0; }
-            .wb-card .wb-bottom > div { display: flex !important; flex-direction: column !important; justify-content: flex-end; min-width: 0; overflow: hidden; }
+            .wb-card .wb-bottom > span { min-width: 0; overflow: hidden; }
             .wb-card .wb-bottom-val {
               display: inline-block;
               vertical-align: baseline;
