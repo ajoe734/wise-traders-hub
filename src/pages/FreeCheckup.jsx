@@ -725,8 +725,14 @@ export default function App() {
 
   // ── 7天內事件自動觸發AI預測（僅一次） → 移入「待驗證」 ──
   const predictedIdsRef = useRef(new Set());
+  const predictBatchInflightRef = useRef(null); // 當前批次 key（事件 id 排序後）
+  const predictLastRunRef = useRef(0);          // 上次觸發時間戳
+  const PREDICT_MIN_INTERVAL_MS = 30_000;       // 30 秒內不重複觸發
   useEffect(() => {
     if (!ready || !newsEvents || newsEvents.length === 0 || predictingEvents) return;
+    // 全域節流：30 秒內已跑過則直接略過（即便事件清單變動）
+    if (Date.now() - predictLastRunRef.current < PREDICT_MIN_INTERVAL_MS) return;
+
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     const sevenDaysLater = new Date(now);
@@ -744,8 +750,14 @@ export default function App() {
 
     if (needsPrediction.length === 0) return;
 
+    // 批次冪等：相同事件 id 集合若已在飛行中則不重發
+    const batchKey = needsPrediction.map(e => e.id).sort().join("|");
+    if (predictBatchInflightRef.current === batchKey) return;
+    predictBatchInflightRef.current = batchKey;
+
     // 標記為已嘗試，避免重複觸發
     needsPrediction.forEach(e => predictedIdsRef.current.add(e.id));
+    predictLastRunRef.current = Date.now();
 
     setPredictingEvents(true);
     (async () => {
@@ -764,7 +776,12 @@ export default function App() {
             holdings: holdings || [],
           }),
         });
-        if (!res.ok) { console.error("Predict events failed:", res.status); return; }
+        if (!res.ok) {
+          console.error("Predict events failed:", res.status);
+          // 失敗時釋出 ids，下次允許重試
+          needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
+          return;
+        }
         const data = await res.json();
         const preds = data.predictions || [];
 
@@ -785,8 +802,12 @@ export default function App() {
         });
       } catch (err) {
         console.error("Predict events error:", err);
+        needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
       } finally {
         setPredictingEvents(false);
+        if (predictBatchInflightRef.current === batchKey) {
+          predictBatchInflightRef.current = null;
+        }
       }
     })();
   }, [newsEvents, ready, holdings]);
