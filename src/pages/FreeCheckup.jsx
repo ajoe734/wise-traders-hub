@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import Md from "@/checkup/components/Md";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
