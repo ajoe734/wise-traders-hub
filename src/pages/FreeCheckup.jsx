@@ -381,6 +381,22 @@ export default function App() {
   const RETRY_COOLDOWN_MS = 15_000;
   const [calendarRetry, setCalendarRetry] = useState({ count: 0, cooldownUntil: 0 });
   const [predictRetry, setPredictRetry] = useState({ count: 0, cooldownUntil: 0 });
+  // 更新日誌：記錄手動/自動觸發的時間、狀態、batchKey/requestKey，用於除錯
+  // entry: { id, ts, source: 'calendar'|'predict', trigger: 'manual'|'auto', status, key, msg }
+  const [updateLog, setUpdateLog] = useState([]);
+  const [updateLogOpen, setUpdateLogOpen] = useState(false);
+  const updateLogIdRef = useRef(0);
+  const pushUpdateLog = (entry) => {
+    setUpdateLog(prev => {
+      const next = [{
+        id: ++updateLogIdRef.current,
+        ts: Date.now(),
+        ...entry,
+      }, ...prev];
+      // 保留最近 50 筆
+      return next.slice(0, 50);
+    });
+  };
   // 強制每秒 re-render 以更新冷卻倒數
   const [, setNowTick] = useState(0);
   useEffect(() => {
