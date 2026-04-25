@@ -73,10 +73,80 @@ async function assertNoOverflow(page: Page, selector: string) {
   ).toEqual([]);
 }
 
+/**
+ * Geometry-based column counter.
+ *
+ * Rather than reading `getComputedStyle(grid).gridTemplateColumns` (which can
+ * lie about implicit tracks or report `repeat(...)` strings that need parsing),
+ * we cluster card `boundingClientRect.left` values into buckets.  Two cards
+ * belong to the same column when their left edges are within `tolerance` px.
+ *
+ * This catches the real failure mode: cards visually rendering side-by-side
+ * even when CSS *says* the grid is single-column.
+ */
+async function countGridColumns(
+  page: Page,
+  selector: string,
+  tolerance = 4
+): Promise<{ columns: number; rows: number; lefts: number[] }> {
+  return page.$$eval(
+    selector,
+    (cards, tol) => {
+      if (cards.length === 0) return { columns: 0, rows: 0, lefts: [] };
+
+      const rects = cards.map((c) => c.getBoundingClientRect());
+
+      // Cluster by `left` (columns).
+      const sortedLefts = [...rects].map((r) => r.left).sort((a, b) => a - b);
+      const colBuckets: number[] = [];
+      sortedLefts.forEach((l) => {
+        if (colBuckets.every((b) => Math.abs(b - l) > tol)) colBuckets.push(l);
+      });
+
+      // Cluster by `top` (rows) — used to sanity-check the column count
+      // against `cards.length / rows`.
+      const sortedTops = [...rects].map((r) => r.top).sort((a, b) => a - b);
+      const rowBuckets: number[] = [];
+      sortedTops.forEach((t) => {
+        if (rowBuckets.every((b) => Math.abs(b - t) > tol)) rowBuckets.push(t);
+      });
+
+      return {
+        columns: colBuckets.length,
+        rows: rowBuckets.length,
+        lefts: colBuckets.map((n) => Number(n.toFixed(1))),
+      };
+    },
+    tolerance
+  );
+}
+
 test.describe('FreeCheckup mobile card', () => {
   test('cards never overflow ROI / TODAY / VALUE', async ({ page }) => {
     await gotoFreeCheckup(page);
     await assertNoOverflow(page, CARD_SELECTOR);
+  });
+
+  test('grid collapses to a single column at mobile widths', async ({ page }, testInfo) => {
+    await gotoFreeCheckup(page);
+
+    // Need at least 2 cards for a meaningful column count.
+    const cardCount = await page.locator(CARD_SELECTOR).count();
+    expect(cardCount, 'seeded portfolio should render multiple workbench cards').toBeGreaterThanOrEqual(2);
+
+    const geometry = await countGridColumns(page, CARD_SELECTOR);
+
+    // All four mobile projects (320/340/375/414) MUST collapse to 1 column —
+    // the @media (max-width: 640px) rule sets `grid-template-columns: 1fr`.
+    expect(
+      geometry.columns,
+      `[${testInfo.project.name}] expected 1 column, got ${geometry.columns}. ` +
+        `Column left edges: ${JSON.stringify(geometry.lefts)}, rows=${geometry.rows}, cards=${cardCount}`
+    ).toBe(1);
+
+    // Sanity: rows × columns should account for every card (allowing the last
+    // row to be partially filled when columns > 1, which we do not expect here).
+    expect(geometry.rows * geometry.columns).toBeGreaterThanOrEqual(cardCount);
   });
 
   test('first workbench card visual matches baseline', async ({ page }, testInfo) => {
