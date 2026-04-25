@@ -66,17 +66,17 @@ const C = ThemeL;
 
 // ── Workbench 配色 Token（僅用於 /free-checkup 持倉工作台，本頁破例採單色橘紅；不污染他頁）──
 const WB = {
-  bg: '#F5F3EF',
+  bg: '#FFFFFF',
   surface: '#FFFFFF',
-  surfaceSoft: '#FBFAF6',
+  surfaceSoft: '#FAFAFA',
   ink: '#0A0A0A',
   inkSub: '#3A3A3A',
   inkMute: '#6B6862',
   inkLight: '#9B968D',
-  hair: '#E8E6E1',
+  hair: '#ECEAE5',
   hairStrong: '#D4D1C9',
   accent: '#FF4D1F',
-  accentSoft: 'rgba(255,77,31,0.08)',
+  accentSoft: 'rgba(255,77,31,0.06)',
 };
 const wbTone = (n) => (Number(n) >= 0 ? WB.accent : WB.ink);
 
