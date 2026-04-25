@@ -512,7 +512,7 @@ export default function App() {
         syncCalendarToNews(merged);
       }
       calendarLastFetchRef.current = { key: requestKey, at: Date.now() };
-      setCalendarAutoStatus('idle');
+      setCalendarAutoStatus({ status: 'idle', msg: '' });
     } catch (e) {
       if (e?.name !== 'AbortError') {
         console.error("Calendar fetch error:", e);
