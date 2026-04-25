@@ -2184,46 +2184,55 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   }} />
                 </span>
                 <span style={{
-                  display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline',
-                  gap: 18, flex: 1, fontSize: 12, color: WB.ink,
+                  display: 'flex', flexWrap: 'wrap',
+                  gap: '14px 28px', flex: 1,
                 }}>
-                  {items.map((h, idx) => {
+                  {items.map((h) => {
                     const dec = decisionsMap[h.code];
                     const tag = dec?.actionType === 'exit' ? 'EXIT'
                       : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH';
+                    const desc = dec?.actionText
+                      ? (dec.actionText.length > 32 ? dec.actionText.slice(0,30) + '…' : dec.actionText)
+                      : (STOCK_META[h.code]?.strategy || '持續監控');
                     return (
                       <button
                         key={h.code}
                         onClick={() => setExpandedDecision(h.code)}
                         style={{
                           background: 'transparent', border: 'none', padding: 0,
-                          fontFamily: 'inherit', cursor: 'pointer', color: WB.ink,
-                          display: 'inline-flex', alignItems: 'baseline', gap: 6,
-                          fontSize: 12, fontWeight: 400, letterSpacing: '0.01em',
+                          fontFamily: 'inherit', cursor: 'pointer',
+                          display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                          gap: 3, textAlign: 'left',
                         }}
                       >
                         <span style={{
-                          fontSize: 9, color: WB.accent, letterSpacing: '0.16em',
-                          fontWeight: 500,
-                        }}>{tag}</span>
-                        <span style={{ fontWeight: 500 }}>{h.code}</span>
-                        <span style={{ color: WB.inkSub }}>{h.name}</span>
-                        <span style={{
-                          color: WB.inkLight, fontSize: 11, fontVariantNumeric: 'tabular-nums',
+                          display: 'inline-flex', alignItems: 'baseline', gap: 6,
+                          fontSize: 12, color: WB.ink, fontWeight: 500, letterSpacing: '0.01em',
                         }}>
-                          {(h.pct ?? 0) >= 0 ? '+' : ''}{(h.pct ?? 0).toFixed(1)}%
+                          <span style={{
+                            fontSize: 9, color: WB.accent, letterSpacing: '0.16em',
+                            fontWeight: 500,
+                          }}>{tag}</span>
+                          <span>{h.code}</span>
+                          <span style={{ color: WB.inkSub, fontWeight: 400 }}>{h.name}</span>
+                          <span style={{
+                            color: WB.inkLight, fontSize: 11, fontVariantNumeric: 'tabular-nums', fontWeight: 400,
+                          }}>
+                            {(h.pct ?? 0) >= 0 ? '+' : ''}{(h.pct ?? 0).toFixed(1)}%
+                          </span>
                         </span>
-                        {idx < items.length - 1 && (
-                          <span style={{ color: WB.hairStrong, marginLeft: 6 }}>/</span>
-                        )}
+                        <span style={{
+                          fontSize: 11, color: WB.inkMute, letterSpacing: '0.01em',
+                          lineHeight: 1.5,
+                        }}>{desc}</span>
                       </button>
                     );
                   })}
                 </span>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 22, height: 22, borderRadius: '50%',
-                  border: `1px solid ${WB.hairStrong}`, color: WB.inkMute, fontSize: 11,
+                  width: 28, height: 28, borderRadius: '50%',
+                  border: `1px solid ${WB.hair}`, color: WB.inkMute, fontSize: 12,
                   flexShrink: 0,
                 }}>→</span>
               </div>
