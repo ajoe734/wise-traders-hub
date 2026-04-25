@@ -3256,19 +3256,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                <div style={{fontSize:13,color:C.textMute,marginBottom:20,lineHeight:1.8,fontWeight:400}}>
                  分析今日股價變動與事件連動性<br/>自動比對持倉漲跌、異常波動、策略建議
                </div>
-               <button onClick={runDailyAnalysis} style={{
+               <button onClick={runDailyAnalysis} disabled={hasReachedDailyLimit} style={{
                  padding:"10px 24px",borderRadius:8,
                  border:`1px solid ${alpha(C.teal,'30')}`,
                  background:alpha(C.teal,'06'),
-                 color:C.teal,fontSize:13,fontWeight:400,cursor:"pointer",
+                 color:hasReachedDailyLimit ? C.textMute : C.teal,fontSize:13,fontWeight:400,
+                 cursor:hasReachedDailyLimit ? "not-allowed" : "pointer",
+                 opacity:hasReachedDailyLimit ? 0.5 : 1,
                  letterSpacing:"0.04em"}}>
-                 開始今日收盤分析
+                 {hasReachedDailyLimit ? "🔒 今日配額已用完" : "開始今日收盤分析"}
                </button>
                <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.6}}>
-                 收盤後按下即可開始分析
+                 {hasReachedDailyLimit ? "明日 00:00 重置（含截圖解析共用配額）" : "收盤後按下即可開始分析"}
                </div>
              </div>
-           )}
+            )}
 
           {analyzing && (
             <div style={{textAlign:"center",padding:"36px 16px"}}>
