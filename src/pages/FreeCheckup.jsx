@@ -2792,7 +2792,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
                   gap:14,
                 }} className="holdings-card-grid">
-                  {displayed.map(h => renderCard(h))}
+                  {orderedDisplayed.map(h => renderCard(h))}
                   {!showAll && sorted.length > 12 && (
                     <button
                       onClick={() => setShowAll(true)}
