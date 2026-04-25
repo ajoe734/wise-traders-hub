@@ -2543,7 +2543,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     textAlign: 'left',
                     background: cardBg,
                     border: cardBorder,
-                    borderRadius: 4,
+                    borderRadius: 0,
                     padding: '22px 22px 18px',
                     cursor: 'pointer',
                     display: 'flex',
@@ -2554,63 +2554,75 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     overflow: 'hidden',
                   }}
                 >
-                  {/* L1：股號 + 名稱 + action tag */}
-                  <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:10,marginBottom:4}}>
+                  {/* L1：股號 + 名稱 + sparkline + action tag */}
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:4}}>
                     <div style={{display:'flex',alignItems:'baseline',gap:8,minWidth:0,flex:1}}>
                       <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>{h.code}</span>
                       <span style={{fontSize:13,fontWeight:400,color:cardColor,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
                     </div>
+                    {sparkData.length >= 2 && (
+                      <Sparkline data={sparkData} width={60} height={20} color={WB.accent} opacity={0.85} />
+                    )}
                     <span style={{
                       fontSize:9,fontWeight:500,letterSpacing:'0.20em',
                       color:WB.accent,flexShrink:0,
                     }}>{actionLabel}</span>
                   </div>
 
-                  {/* L2：ROI 52px */}
+                  {/* L2：ROI 52px (字重 500) */}
                   <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:8,marginBottom:8}}>
                     <span style={{
-                      fontSize:52,fontWeight:300,color:pnlColor,
+                      fontSize:52,fontWeight:500,color:pnlColor,
                       letterSpacing:'-0.035em',lineHeight:0.95,
                       fontVariantNumeric:'tabular-nums',
                     }}>
-                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.36em',marginLeft:2,opacity:0.55}}>%</span>
+                      {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500}}>%</span>
                     </span>
                   </div>
 
-                  {/* L3：分類 tags */}
+                  {/* L3：分類 tags（filled chip） */}
                   {(meta?.industry || meta?.strategy) && (
                     <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
                       {meta?.industry && (
-                        <span style={{fontSize:10,color:muteColor,letterSpacing:'0.10em',padding:'2px 7px',border:`1px solid ${hairColor}`,borderRadius:2}}>{meta.industry}</span>
+                        <span style={{fontSize:10,color:isInk?'rgba(244,241,236,0.78)':WB.inkSub,letterSpacing:'0.08em',padding:'4px 8px',background:isInk?'rgba(255,255,255,0.08)':'#F4F2EE',border:'none',borderRadius:0}}>{meta.industry}</span>
                       )}
                       {meta?.strategy && (
-                        <span style={{fontSize:10,color:muteColor,letterSpacing:'0.10em',padding:'2px 7px',border:`1px solid ${hairColor}`,borderRadius:2}}>{meta.strategy}</span>
+                        <span style={{fontSize:10,color:isInk?'rgba(244,241,236,0.78)':WB.inkSub,letterSpacing:'0.08em',padding:'4px 8px',background:isInk?'rgba(255,255,255,0.08)':'#F4F2EE',border:'none',borderRadius:0}}>{meta.strategy}</span>
                       )}
                     </div>
                   )}
 
-                  {/* L4：說明 + sparkline */}
-                  <div style={{flex:1,display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:14,minHeight:40,paddingTop:4}}>
+                  {/* L4：說明 */}
+                  <div style={{flex:1,display:'flex',alignItems:'flex-end',gap:14,minHeight:40,paddingTop:4}}>
                     <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.65}}>
                       {dec?.actionText
                         ? (dec.actionText.length > 60 ? dec.actionText.slice(0,58) + '…' : dec.actionText)
                         : (meta?.strategy ? meta.strategy.slice(0,40) : '')}
                     </div>
-                    {sparkData.length >= 2 && (
-                      <Sparkline data={sparkData} width={84} height={28} color={WB.accent} opacity={0.85} />
-                    )}
                   </div>
 
-                  {/* L5：底部數據帶 */}
+                  {/* L5：底部雙區塊 TODAY / VALUE */}
                   <div style={{
                     paddingTop:10,marginTop:8,
                     borderTop:`1px solid ${hairColor}`,
-                    display:'flex',justifyContent:'space-between',alignItems:'baseline',
+                    display:'grid',gridTemplateColumns:'1fr 1px 1fr',gap:12,alignItems:'baseline',
                     fontSize:10,color:muteColor,fontWeight:400,
                     fontVariantNumeric:'tabular-nums',letterSpacing:'0.06em',
                   }}>
-                    <span>{h.qty?.toLocaleString()}{h.unit || '股'} · {h.cost}</span>
-                    <span>{h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}</span>
+                    <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                      <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>TODAY</span>
+                      <span style={{fontSize:11,color:subColor}}>
+                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
+                        <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
+                      </span>
+                    </div>
+                    <div style={{background:hairColor,width:1,height:'100%'}} />
+                    <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                      <span style={{fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7}}>VALUE</span>
+                      <span style={{fontSize:11,color:subColor}}>
+                        {h.value?.toLocaleString() || '—'}
+                      </span>
+                    </div>
                   </div>
                 </button>
               );
