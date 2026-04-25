@@ -3023,7 +3023,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               .wb-card .wb-tags { row-gap: 6px !important; }
             }
             @media (max-width: 640px) {
-              .holdings-card-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+              .holdings-card-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 12px !important; }
               .wb-card-feature { grid-column: span 1 !important; }
               .wb-card { min-height: 0 !important; }
               .wb-card .wb-spark { width: 52px !important; }
