@@ -2445,8 +2445,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const cardBorder = isInk
                 ? 'none'
                 : `1px solid ${isActive ? WB.hairStrong : WB.hair}`;
-              // 固定節奏：feature 卡 span 2，其餘 span 1
-              const colSpan = (isInk && h.__featureSlot) ? 'span 2' : 'span 1';
+              // 固定節奏：feature 卡 span 2，其餘 span 1（mobile ≤640 強制 span 1，避免 grid implicit columns 異常）
+              const colSpan = (isInk && h.__featureSlot && vw > 640) ? 'span 2' : 'span 1';
               const MIN_H = 320;
 
               // ROI / 損益顏色：破例採單一橘紅（漲跌皆同），ink 卡改用橘紅 over 黑底
