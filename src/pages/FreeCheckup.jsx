@@ -1851,7 +1851,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
-          {/* ── Compact Hero Strip（單列高 ~64px，讓持倉卡片成為第一視覺）── */}
+          {/* ── Hero Strip（極簡單行；無底色，僅排版分層，避免與卡片牆爭主視覺） ── */}
           {(()=>{
             const totalPnl = totalVal - totalCost;
             const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
@@ -1859,42 +1859,38 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const heroColor = isUp ? C.up : C.down;
             return (
               <div style={{
-                display:"flex", alignItems:"center", justifyContent:"space-between",
-                gap:18, padding:"14px 18px", marginBottom:14,
-                background: alpha(C.text, '03'),
-                border: `1px solid ${alpha(C.textMute, '10')}`,
-                borderRadius: 6,
+                display:"flex", alignItems:"baseline", justifyContent:"space-between",
+                gap:18, padding:"4px 2px 12px", marginBottom:10,
+                borderBottom:`1px solid ${alpha(C.textMute, '12')}`,
               }}>
-                {/* 左：總損益 */}
                 <div style={{display:"flex", alignItems:"baseline", gap:10, flexShrink:0}}>
                   <span style={{
-                    fontSize:9, color:C.textMute, letterSpacing:"0.16em",
+                    fontSize:9, color:C.textMute, letterSpacing:"0.18em",
                     fontWeight:400, textTransform:"uppercase",
-                  }}>Total P&L</span>
+                  }}>Total</span>
                   <span style={{
-                    fontSize:24, fontWeight:400, color:heroColor,
+                    fontSize:18, fontWeight:400, color:heroColor,
                     letterSpacing:"-0.01em", fontVariantNumeric:"tabular-nums", lineHeight:1,
                   }}>
                     {isUp?"+":""}{Math.round(totalPnl).toLocaleString()}
                   </span>
                   <span style={{
-                    fontSize:12, color:heroColor, opacity:0.6,
+                    fontSize:11, color:heroColor, opacity:0.55,
                     fontVariantNumeric:"tabular-nums", fontWeight:400,
                   }}>
                     {isUp?"+":""}{totalPct.toFixed(2)}%
                   </span>
                 </div>
-
-                {/* 右：迷你 KPI 群（成本／市值／檔數／勝負） */}
                 <div style={{
-                  display:"flex", alignItems:"baseline", gap:18,
-                  fontSize:11, color:C.textMute, fontVariantNumeric:"tabular-nums",
+                  display:"flex", alignItems:"baseline", gap:14,
+                  fontSize:10, color:C.textMute, fontVariantNumeric:"tabular-nums",
+                  letterSpacing:"0.04em",
                 }}>
-                  <span><span style={{opacity:0.6, marginRight:4}}>成本</span>{totalCost.toLocaleString()}</span>
-                  <span><span style={{opacity:0.6, marginRight:4}}>市值</span>{totalVal.toLocaleString()}</span>
-                  <span><span style={{opacity:0.6, marginRight:4}}>持股</span>{H.length}</span>
-                  <span style={{color:C.up}}>↑{winners.length}</span>
-                  <span style={{color:C.down}}>↓{losers.length}</span>
+                  <span>成本 {totalCost.toLocaleString()}</span>
+                  <span>市值 {totalVal.toLocaleString()}</span>
+                  <span>{H.length} 檔</span>
+                  <span style={{color:C.up, opacity:0.7}}>↑{winners.length}</span>
+                  <span style={{color:C.down, opacity:0.7}}>↓{losers.length}</span>
                 </div>
               </div>
             );
@@ -2050,10 +2046,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             return (
               <div id="action-banner" style={{
-                marginBottom: 22,
-                paddingBottom: 16,
-                borderBottom: `1px solid ${alpha(C.textMute, '12')}`,
-                display: "flex", flexDirection: "column", gap: 14,
+                marginBottom: 14,
+                paddingBottom: 10,
+                borderBottom: `1px solid ${alpha(C.textMute, '10')}`,
+                display: "flex", flexDirection: "column", gap: 8,
               }}>
                 {/* 標題列 — 用排版分層，不用色塊 */}
                 <div style={{
@@ -2075,69 +2071,56 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                 </div>
 
-                {/* 今日優先 — 留白為主，色彩只在小點 */}
+                {/* 今日優先 — 一行細字入口；不搶畫面，不做卡片 */}
                 {showPriority && (
-                  <div style={{display: "flex", flexDirection: "column", gap: 8}}>
-                    <div style={{
+                  <div style={{
+                    display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap",
+                    fontSize: 12, color: C.textSec, padding: "2px 0",
+                  }}>
+                    <span style={{
                       fontSize: 10, color: C.textMute, fontWeight: 400,
-                      letterSpacing: "0.14em", textTransform: "uppercase",
+                      letterSpacing: "0.14em", textTransform: "uppercase", minWidth: 96,
+                      display: "inline-flex", alignItems: "baseline", gap: 6,
                     }}>
-                      Priority <span style={{textTransform: "none", letterSpacing: "0.02em", marginLeft: 4}}>· 全局</span>
-                    </div>
-                    <div style={{
-                      display: "grid",
-                      gridTemplateColumns: `repeat(${Math.min(globalPriorityList.length, 3)}, 1fr)`,
-                      gap: 1,
-                      background: alpha(C.textMute, '10'),
-                      padding: 1,
-                      borderRadius: 4,
-                    }}>
-                      {globalPriorityList.map((h, idx) => {
+                      <span style={{
+                        display: "inline-block", width: 4, height: 4, borderRadius: "50%",
+                        background: accent, transform: "translateY(-1px)",
+                      }} />
+                      Priority
+                      <span style={{color:C.textMute, fontSize: 11, fontWeight: 400, fontVariantNumeric: "tabular-nums"}}>
+                        {globalPriorityList.length}
+                      </span>
+                    </span>
+                    <span style={{display: "inline-flex", flexWrap: "wrap", gap: 12, flex: 1, alignItems: "baseline"}}>
+                      {globalPriorityList.slice(0, 6).map((h) => {
                         const b = priorityBadge(h);
-                        const pnlColor = h.pnl >= 0 ? C.up : C.down;
                         return (
                           <button
                             key={h.code}
                             onClick={() => openHoldingDrawer(h.code, { type: 'priority-global', label: '🎯 今日優先（全局）' })}
                             style={{
-                              background: C.card,
-                              border: "none",
-                              padding: "10px 12px",
-                              cursor: "pointer", textAlign: "left",
-                              display: "flex", flexDirection: "column", gap: 4,
-                              transition: "background 160ms ease",
-                              fontFamily: "inherit",
+                              background: "transparent", border: "none", padding: 0,
+                              fontSize: 12, color: C.text, fontWeight: 400,
+                              cursor: "pointer", fontFamily: "inherit",
+                              borderBottom: `1px solid ${alpha(C.textMute, '20')}`,
+                              display: "inline-flex", alignItems: "baseline", gap: 4,
                             }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = alpha(C.textMute, '06');
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = C.card;
-                            }}
+                            onMouseEnter={(e)=>{e.currentTarget.style.borderBottomColor = b.color; e.currentTarget.style.color = b.color;}}
+                            onMouseLeave={(e)=>{e.currentTarget.style.borderBottomColor = alpha(C.textMute, '20'); e.currentTarget.style.color = C.text;}}
                           >
-                            <div style={{display: "flex", alignItems: "baseline", gap: 6}}>
-                              <span style={{fontSize: 10, color: C.textMute, fontWeight: 400, fontVariantNumeric: "tabular-nums"}}>
-                                {String(idx + 1).padStart(2, '0')}
-                              </span>
-                              <span style={{
-                                display: "inline-block", width: 5, height: 5, borderRadius: "50%",
-                                background: b.color, transform: "translateY(-1px)",
-                              }} />
-                              <span style={{fontSize: 13, color: C.text, fontWeight: 400}}>{h.name}</span>
-                              <span style={{fontSize: 10, color: C.textMute, fontWeight: 400}}>{h.code}</span>
-                            </div>
-                            <div style={{display: "flex", alignItems: "baseline", gap: 8}}>
-                              <span style={{fontSize: 10, color: b.color, fontWeight: 400, letterSpacing: "0.04em"}}>
-                                {b.label}
-                              </span>
-                              <span style={{fontSize: 11, color: pnlColor, fontWeight: 400, fontVariantNumeric: "tabular-nums"}}>
-                                {h.pct >= 0 ? '+' : ''}{h.pct?.toFixed(1)}%
-                              </span>
-                            </div>
+                            <span style={{
+                              display: "inline-block", width: 4, height: 4, borderRadius: "50%",
+                              background: b.color, transform: "translateY(-1px)",
+                            }} />
+                            {h.name}
+                            <span style={{color: C.textMute, fontSize: 10}}>{h.pct >= 0 ? '+' : ''}{h.pct?.toFixed(1)}%</span>
                           </button>
                         );
                       })}
-                    </div>
+                      {globalPriorityList.length > 6 && (
+                        <span style={{fontSize: 11, color: C.textMute}}>＋{globalPriorityList.length - 6}</span>
+                      )}
+                    </span>
                   </div>
                 )}
 
@@ -2382,6 +2365,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               getPct: (it) => it.pct ?? 0,
             });
 
+            // 固定節奏：ink → accent → plain（保留原排序）
+            // 第一格永遠是 feature（ink 若存在則 span 2；否則保持 grid 整齊）
+            const variantOrder = { ink: 0, accent: 1, plain: 2 };
+            const orderedDisplayed = [...displayed].sort((a, b) => {
+              const va = variantOrder[variantsMap.get(a.code) || 'plain'];
+              const vb = variantOrder[variantsMap.get(b.code) || 'plain'];
+              if (va !== vb) return va - vb;
+              return 0;
+            }).map((h, idx) => ({ ...h, __featureSlot: idx === 0 }));
+
             const renderCard = (h) => {
               const variant = variantsMap.get(h.code) || 'plain';
               const T      = targets?.[h.code];
@@ -2407,9 +2400,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ? 'none'
                 : `1px solid ${isActive ? alpha(C.text, '22') : alpha(C.textMute, '10')}`;
               const accentBar = isAccent ? '#EC662D' : null;
-              const fontHero = isInk ? 52 : isAccent ? 40 : 32;
-              const minH = isInk ? 232 : isAccent ? 196 : 172;
-              const colSpan = isInk ? 'span 2' : 'span 1';
+              const fontHero = isInk ? 64 : isAccent ? 44 : 30;
+              const minH = isInk ? 280 : isAccent ? 220 : 160;
+              // 固定節奏：ink 卡只在 grid 第一格 span 2，其餘所有卡片 span 1（保持秩序）
+              const colSpan = (isInk && variantsMap.get(h.code) === 'ink' && h.__featureSlot) ? 'span 2' : 'span 1';
 
               const muteColor = isInk ? 'rgba(239,237,232,0.55)' : C.textMute;
               const subColor = isInk ? 'rgba(239,237,232,0.75)' : C.textSec;
@@ -2798,7 +2792,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
                   gap:14,
                 }} className="holdings-card-grid">
-                  {displayed.map(h => renderCard(h))}
+                  {orderedDisplayed.map(h => renderCard(h))}
                   {!showAll && sorted.length > 12 && (
                     <button
                       onClick={() => setShowAll(true)}
