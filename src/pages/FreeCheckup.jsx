@@ -2932,7 +2932,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   gridTemplateColumns: cardGridCols,
                   columnGap: 16,
                   rowGap: 20,
-                }} className="holdings-card-grid">
+                }} className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}>
                   {orderedDisplayed.map(h => renderCard(h))}
                   {/* + Add Watchlist 虛線卡 */}
                   <button
