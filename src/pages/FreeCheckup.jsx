@@ -806,7 +806,7 @@ export default function App() {
     predictLastRunRef.current = Date.now();
 
     setPredictingEvents(true);
-    setPredictAutoStatus('fetching');
+    setPredictAutoStatus({ status: 'fetching', msg: '' });
     (async () => {
       try {
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events`, {
