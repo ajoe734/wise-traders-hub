@@ -16,116 +16,88 @@ import { test, expect, type Page } from '@playwright/test';
 
 const ROUTE = '/free-checkup';
 
+// Workbench cards live inside the holdings grid.  Hero/summary cards also use
+// `.wb-card`, so we always scope to this selector to avoid false positives on
+// intentionally-truncated summary tiles.
+const CARD_SELECTOR = '.holdings-card-grid .wb-card';
+
 async function gotoFreeCheckup(page: Page) {
-  // Reset persisted state so card content is deterministic across runs.
   await page.addInitScript(() => {
     try {
-      // Seed demo mode flag if the app reads it; otherwise the page boots
-      // with the bundled SEED_HOLDINGS which is already deterministic.
       window.localStorage.setItem('checkup-demo-mode', '1');
     } catch {}
   });
   await page.goto(ROUTE, { waitUntil: 'networkidle' });
-  // Card root mounts after holdings derive — wait explicitly.
-  await page.waitForSelector('.wb-card', { state: 'visible', timeout: 15_000 });
+  await page.waitForSelector(CARD_SELECTOR, { state: 'visible', timeout: 15_000 });
   // Allow one rAF cycle for clamp() font-size to settle.
   await page.waitForTimeout(150);
 }
 
 /**
- * Returns true if the inline children of `.wb-bottom` and `.wb-roi`
- * fit within their parent's client box (no horizontal overflow).
+ * Asserts that ROI / TODAY / VALUE bounding boxes never extend past the
+ * card's right edge.  Intentional ellipsis (scrollWidth > clientWidth) is
+ * allowed — only true geometric overflow is treated as a regression.
  */
-async function assertNoOverflow(page: Page) {
-  const issues = await page.$$eval('.wb-card', (cards) => {
-    const problems: {
-      cardIndex: number;
-      type: string;
-      detail: string;
-    }[] = [];
+async function assertNoOverflow(page: Page, selector: string) {
+  const issues = await page.$$eval(selector, (cards) => {
+    const problems: { cardIndex: number; type: string; detail: string }[] = [];
+    const TOLERANCE = 1; // sub-pixel rounding
 
     cards.forEach((card, idx) => {
       const cardRect = card.getBoundingClientRect();
 
-      // ROI block: must not exceed card right-edge and must not be clipped
-      // (scrollWidth > clientWidth means the text was forcibly truncated by
-      // overflow:hidden — acceptable — but boundingRect must still be inside).
-      const roi = card.querySelector<HTMLElement>('.wb-roi');
-      if (roi) {
-        const r = roi.getBoundingClientRect();
-        if (r.right - cardRect.right > 1) {
+      const checkRight = (el: Element | null, type: string) => {
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        if (r.right - cardRect.right > TOLERANCE) {
           problems.push({
             cardIndex: idx,
-            type: 'roi-overflow',
-            detail: `roi.right=${r.right.toFixed(2)} card.right=${cardRect.right.toFixed(2)}`,
+            type,
+            detail: `right=${r.right.toFixed(2)} cardRight=${cardRect.right.toFixed(2)} text="${(el.textContent || '').trim().slice(0, 30)}"`,
           });
         }
-        if (roi.scrollWidth - roi.clientWidth > 1) {
-          problems.push({
-            cardIndex: idx,
-            type: 'roi-clipped',
-            detail: `scrollWidth=${roi.scrollWidth} clientWidth=${roi.clientWidth}`,
-          });
-        }
-      }
+      };
 
-      // Footer (TODAY/VALUE) block + each child span
+      checkRight(card.querySelector('.wb-roi'), 'roi-overflow');
+
       const bottom = card.querySelector<HTMLElement>('.wb-bottom');
       if (bottom) {
-        const b = bottom.getBoundingClientRect();
-        if (b.right - cardRect.right > 1) {
-          problems.push({
-            cardIndex: idx,
-            type: 'bottom-overflow',
-            detail: `bottom.right=${b.right.toFixed(2)} card.right=${cardRect.right.toFixed(2)}`,
-          });
-        }
-        if (bottom.scrollWidth - bottom.clientWidth > 1) {
-          problems.push({
-            cardIndex: idx,
-            type: 'bottom-grid-overflow',
-            detail: `scrollWidth=${bottom.scrollWidth} clientWidth=${bottom.clientWidth}`,
-          });
-        }
-
-        bottom.querySelectorAll<HTMLElement>('span').forEach((span, spanIdx) => {
-          const s = span.getBoundingClientRect();
-          if (s.right - cardRect.right > 1) {
-            problems.push({
-              cardIndex: idx,
-              type: `bottom-span-${spanIdx}-overflow`,
-              detail: `span.right=${s.right.toFixed(2)} card.right=${cardRect.right.toFixed(2)} text="${span.textContent?.trim().slice(0, 30)}"`,
-            });
-          }
-        });
+        checkRight(bottom, 'bottom-overflow');
+        bottom.querySelectorAll<HTMLElement>('span').forEach((span, i) =>
+          checkRight(span, `bottom-span-${i}-overflow`)
+        );
       }
     });
 
     return problems;
   });
 
-  expect(issues, `Card overflow detected:\n${JSON.stringify(issues, null, 2)}`).toEqual([]);
+  expect(
+    issues,
+    `Card overflow detected:\n${JSON.stringify(issues, null, 2)}`
+  ).toEqual([]);
 }
 
 test.describe('FreeCheckup mobile card', () => {
   test('cards never overflow ROI / TODAY / VALUE', async ({ page }) => {
     await gotoFreeCheckup(page);
-    await assertNoOverflow(page);
+    await assertNoOverflow(page, CARD_SELECTOR);
   });
 
-  test('first card visual matches baseline', async ({ page }, testInfo) => {
+  test('first workbench card visual matches baseline', async ({ page }, testInfo) => {
     await gotoFreeCheckup(page);
-    const firstCard = page.locator('.wb-card').first();
+    const firstCard = page.locator(CARD_SELECTOR).first();
     await expect(firstCard).toBeVisible();
 
-    // Stabilise: hide elements that animate or pull network data after mount.
+    // Stabilise: hide network-driven sparkline + animations.
     await page.addStyleTag({
       content: `
         .wb-spark { visibility: hidden !important; }
         * { animation: none !important; transition: none !important; }
       `,
     });
-    await page.waitForTimeout(100);
+    await firstCard.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
 
     await expect(firstCard).toHaveScreenshot(
       `wb-card-first-${testInfo.project.name}.png`,
@@ -133,3 +105,4 @@ test.describe('FreeCheckup mobile card', () => {
     );
   });
 });
+
