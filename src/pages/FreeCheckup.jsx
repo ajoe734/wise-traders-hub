@@ -2390,9 +2390,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ? 'none'
                 : `1px solid ${isActive ? alpha(C.text, '22') : alpha(C.textMute, '10')}`;
               const accentBar = isAccent ? '#EC662D' : null;
-              const fontHero = isInk ? 52 : isAccent ? 40 : 32;
-              const minH = isInk ? 232 : isAccent ? 196 : 172;
-              const colSpan = isInk ? 'span 2' : 'span 1';
+              const fontHero = isInk ? 64 : isAccent ? 44 : 30;
+              const minH = isInk ? 280 : isAccent ? 220 : 160;
+              // 固定節奏：ink 卡只在 grid 第一格 span 2，其餘所有卡片 span 1（保持秩序）
+              const colSpan = (isInk && variantsMap.get(h.code) === 'ink' && h.__featureSlot) ? 'span 2' : 'span 1';
 
               const muteColor = isInk ? 'rgba(239,237,232,0.55)' : C.textMute;
               const subColor = isInk ? 'rgba(239,237,232,0.75)' : C.textSec;
