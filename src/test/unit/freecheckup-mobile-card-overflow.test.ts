@@ -132,8 +132,9 @@ describe.each([
   it('TODAY/VALUE 雙區塊保持 grid 兩欄 + 分隔線', () => {
     if (vw <= 340) {
       const css = effectiveCssAt(vw);
+      // ≤340px 升級為 minmax(0, 1fr) 以強制安全溢出（不擠壓卡片邊界）
       expect(css).toMatch(
-        /\.wb-bottom\s*\{[^}]*grid-template-columns:\s*1fr\s+1px\s+1fr/
+        /\.wb-bottom\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+1px\s+minmax\(0,\s*1fr\)/
       );
     }
     // 內聯預設 grid 結構必須存在
