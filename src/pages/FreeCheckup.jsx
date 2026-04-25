@@ -2460,12 +2460,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 return (
                   <button
                     key={h.code}
-                    className="wb-card wb-card-feature"
+                    className="wb-card wb-card-feature wb-span-feature"
                     onClick={() => setExpandedDecision(prev => prev === h.code ? null : h.code)}
                     onDoubleClick={() => openHoldingDrawer(h.code)}
                     style={{
                       position: 'relative',
-                      gridColumn: colSpan,
                       minHeight: MIN_H,
                       textAlign: 'left',
                       background: cardBg,
