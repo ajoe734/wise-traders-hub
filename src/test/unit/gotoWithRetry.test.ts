@@ -252,3 +252,323 @@ describe('summarizeAttempts', () => {
     expect(stats.recoveredAfterRetry).toBe(false);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Trace attachment shape — verifies the goto-retry-log.json payload that CI
+// downloads for post-mortem debugging.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CapturedAttachment {
+  name: string;
+  contentType: string;
+  body: string;
+}
+
+function makeFakeTestInfo(captured: CapturedAttachment[]) {
+  return {
+    attach: vi.fn(async (name: string, opts: { body: string; contentType: string }) => {
+      captured.push({ name, contentType: opts.contentType, body: opts.body });
+    }),
+    // gotoWithRetry only ever touches `attach`; cast through unknown so we
+    // don't have to stub the entire TestInfo surface.
+  } as unknown as Parameters<typeof gotoWithRetry>[2] extends infer O
+    ? O extends { testInfo?: infer T }
+      ? T
+      : never
+    : never;
+}
+
+describe('gotoWithRetry — goto-retry-log.json payload', () => {
+  it('records attempt index, duration and classification per error branch', async () => {
+    const captured: CapturedAttachment[] = [];
+    const goto = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Timeout 30000ms exceeded'))   // retryable
+      .mockRejectedValueOnce(new Error('net::ERR_EMPTY_RESPONSE'))    // retryable
+      .mockResolvedValueOnce(undefined);                              // success
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await gotoWithRetry(makePage(goto), '/checkout', {
+      maxAttempts: 3,
+      sleep,
+      testInfo: makeFakeTestInfo(captured),
+    });
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0].name).toBe('goto-retry-log.json');
+    expect(captured[0].contentType).toBe('application/json');
+
+    const payload = JSON.parse(captured[0].body);
+    expect(payload.url).toBe('/checkout');
+    expect(payload.attempts).toHaveLength(3);
+
+    // Attempt 1 → retryable timeout
+    expect(payload.attempts[0]).toMatchObject({
+      attempt: 1,
+      ok: false,
+      classification: 'retryable',
+      error: expect.stringMatching(/Timeout/),
+    });
+    expect(typeof payload.attempts[0].durationMs).toBe('number');
+
+    // Attempt 2 → retryable empty response
+    expect(payload.attempts[1]).toMatchObject({
+      attempt: 2,
+      ok: false,
+      classification: 'retryable',
+      error: expect.stringMatching(/EMPTY_RESPONSE/),
+    });
+
+    // Attempt 3 → success has no classification / error
+    expect(payload.attempts[2]).toMatchObject({ attempt: 3, ok: true });
+    expect(payload.attempts[2].classification).toBeUndefined();
+    expect(payload.attempts[2].error).toBeUndefined();
+
+    expect(payload.stats).toMatchObject({
+      url: '/checkout',
+      totalAttempts: 3,
+      succeeded: true,
+      recoveredAfterRetry: true,
+    });
+  });
+
+  it('classifies fatal errors correctly in the attached payload', async () => {
+    const captured: CapturedAttachment[] = [];
+    const goto = vi.fn().mockRejectedValue(new Error('net::ERR_NAME_NOT_RESOLVED'));
+
+    await expect(
+      gotoWithRetry(makePage(goto), '/x', {
+        maxAttempts: 5,
+        sleep: vi.fn(),
+        testInfo: makeFakeTestInfo(captured),
+      })
+    ).rejects.toThrow();
+
+    const payload = JSON.parse(captured[0].body);
+    expect(payload.attempts).toHaveLength(1);
+    expect(payload.attempts[0]).toMatchObject({
+      attempt: 1,
+      ok: false,
+      classification: 'fatal',
+    });
+    expect(payload.stats.succeeded).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lightweight property-based fuzzing — generates 200 random messages and
+// asserts classification stays deterministic for retryable-vs-fatal patterns.
+// We avoid pulling in `fast-check` to keep deps lean; a seeded LCG is enough.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RETRYABLE_FRAGMENTS = [
+  'Timeout 30000ms exceeded',
+  'Navigation timeout of 5000 ms exceeded',
+  'net::ERR_CONNECTION_RESET',
+  'net::ERR_NETWORK_CHANGED',
+  'net::ERR_EMPTY_RESPONSE',
+  'Target page, context or browser has been closed',
+  'Target frame, context or browser has been closed',
+];
+
+const FATAL_FRAGMENTS = [
+  'net::ERR_NAME_NOT_RESOLVED',
+  'net::ERR_CONNECTION_REFUSED',
+  'net::ERR_CERT_AUTHORITY_INVALID',
+  '500 Internal Server Error',
+  'TypeError: Cannot read properties of undefined',
+  'page crashed',
+  'Permission denied',
+];
+
+function seededRandom(seed: number) {
+  let state = seed;
+  return () => {
+    state = (state * 9301 + 49297) % 233280;
+    return state / 233280;
+  };
+}
+
+const NOISE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789 :/.,()-_';
+function noisify(rand: () => number, fragment: string): string {
+  const prefixLen = Math.floor(rand() * 30);
+  const suffixLen = Math.floor(rand() * 30);
+  const make = (n: number) =>
+    Array.from({ length: n }, () => NOISE_CHARS[Math.floor(rand() * NOISE_CHARS.length)]).join('');
+  return `${make(prefixLen)}${fragment}${make(suffixLen)}`;
+}
+
+describe('isRetryableNavigationError — property-based fuzzing', () => {
+  it('always returns true when message contains a known retryable fragment', () => {
+    const rand = seededRandom(0xc0ffee);
+    for (let i = 0; i < 200; i++) {
+      const fragment = RETRYABLE_FRAGMENTS[i % RETRYABLE_FRAGMENTS.length];
+      const message = noisify(rand, fragment);
+      const result = isRetryableNavigationError(new Error(message));
+      expect(result, `expected retryable for: "${message}"`).toBe(true);
+    }
+  });
+
+  it('always returns false for messages that contain ONLY fatal fragments', () => {
+    const rand = seededRandom(0xbadc0de);
+    for (let i = 0; i < 200; i++) {
+      const fragment = FATAL_FRAGMENTS[i % FATAL_FRAGMENTS.length];
+      const message = noisify(rand, fragment);
+      // Defence in depth: skip the rare case where noise injected a retryable
+      // substring (vanishingly unlikely with our charset, but cheap to check).
+      const polluted = RETRYABLE_FRAGMENTS.some((rf) => message.includes(rf));
+      if (polluted) continue;
+      const result = isRetryableNavigationError(new Error(message));
+      expect(result, `expected fatal for: "${message}"`).toBe(false);
+    }
+  });
+
+  it('classification is idempotent — same input always yields same output', () => {
+    const rand = seededRandom(0xdeadbeef);
+    for (let i = 0; i < 50; i++) {
+      const pool = i % 2 === 0 ? RETRYABLE_FRAGMENTS : FATAL_FRAGMENTS;
+      const fragment = pool[i % pool.length];
+      const message = noisify(rand, fragment);
+      const err = new Error(message);
+      const a = isRetryableNavigationError(err);
+      const b = isRetryableNavigationError(err);
+      const c = isRetryableNavigationError(new Error(message));
+      expect(a).toBe(b);
+      expect(b).toBe(c);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Defensive classification — Error objects with missing/weird fields must
+// default to non-retryable rather than throwing.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('isRetryableNavigationError — degenerate Error shapes', () => {
+  it('defaults to non-retryable when Error has no message field', () => {
+    const err = new Error();
+    expect(err.message).toBe('');
+    expect(isRetryableNavigationError(err)).toBe(false);
+  });
+
+  it('defaults to non-retryable when message has been deleted', () => {
+    const err = new Error('Timeout 30000ms exceeded');
+    // @ts-expect-error — intentionally hollowing out the field
+    delete err.message;
+    expect(isRetryableNavigationError(err)).toBe(false);
+  });
+
+  it('still classifies correctly when stack trace is stripped', () => {
+    const err = new Error('Timeout 30000ms exceeded');
+    err.stack = undefined;
+    // Removing the stack must not affect classification — some Playwright
+    // wrappers re-throw without a stack.
+    expect(isRetryableNavigationError(err)).toBe(true);
+  });
+
+  it('defaults to non-retryable for Error subclass with empty message', () => {
+    class WeirdError extends Error {
+      constructor() {
+        super('');
+        this.name = 'WeirdError';
+      }
+    }
+    expect(isRetryableNavigationError(new WeirdError())).toBe(false);
+  });
+
+  it('defaults to non-retryable for plain object that mimics Error', () => {
+    // Duck-typing must NOT be enough — we require a real Error instance to
+    // avoid false positives from arbitrary thrown values.
+    const fakeErr = { message: 'Timeout 30000ms exceeded', name: 'Error', stack: 'x' };
+    expect(isRetryableNavigationError(fakeErr)).toBe(false);
+  });
+
+  it('defaults to non-retryable for Symbol / BigInt / function inputs', () => {
+    expect(isRetryableNavigationError(Symbol('Timeout'))).toBe(false);
+    expect(isRetryableNavigationError(BigInt(42))).toBe(false);
+    expect(isRetryableNavigationError(() => 'Timeout')).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Integration: fatal classification short-circuits the retry loop — no
+// further goto attempts AND no sleep calls after the fatal verdict.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('gotoWithRetry — fatal short-circuit integration', () => {
+  it('stops the loop immediately when the FIRST attempt is fatal', async () => {
+    const fatal = new Error('net::ERR_CONNECTION_REFUSED');
+    const goto = vi.fn().mockRejectedValue(fatal);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      gotoWithRetry(makePage(goto), '/x', { maxAttempts: 5, sleep })
+    ).rejects.toBe(fatal);
+
+    expect(goto).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledTimes(0);
+  });
+
+  it('stops the loop immediately when a MID-sequence attempt is fatal', async () => {
+    const fatal = new Error('net::ERR_CERT_AUTHORITY_INVALID');
+    const goto = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Timeout 30000ms exceeded')) // retryable
+      .mockRejectedValueOnce(fatal)                                   // fatal → STOP
+      .mockResolvedValue(undefined);                                  // never reached
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      gotoWithRetry(makePage(goto), '/x', { maxAttempts: 10, sleep })
+    ).rejects.toBe(fatal);
+
+    expect(goto).toHaveBeenCalledTimes(2);
+    // Exactly one sleep — between attempt 1 and attempt 2. None after fatal.
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledWith(1_000);
+  });
+
+  it('does not invoke sleep after the LAST retryable attempt', async () => {
+    const goto = vi.fn().mockRejectedValue(new Error('Timeout exceeded'));
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      gotoWithRetry(makePage(goto), '/x', { maxAttempts: 3, sleep })
+    ).rejects.toThrow(/Timeout/);
+
+    expect(goto).toHaveBeenCalledTimes(3);
+    // Only sleeps BETWEEN attempts: between 1↔2 and 2↔3 → 2 sleeps total.
+    expect(sleep).toHaveBeenCalledTimes(2);
+  });
+
+  it('records exactly N attempts in the trace log when fatal short-circuits at N', async () => {
+    const captured: CapturedAttachment[] = [];
+    const goto = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Timeout exceeded'))
+      .mockRejectedValueOnce(new Error('net::ERR_NAME_NOT_RESOLVED'));
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      gotoWithRetry(makePage(goto), '/x', {
+        maxAttempts: 10,
+        sleep,
+        testInfo: makeFakeTestInfo(captured),
+      })
+    ).rejects.toThrow();
+
+    const payload = JSON.parse(captured[0].body);
+    // 2 attempts logged, NOT 10 — fatal classification stopped the loop.
+    expect(payload.attempts).toHaveLength(2);
+    expect(payload.attempts.map((a: GotoAttemptRecordLike) => a.classification)).toEqual([
+      'retryable',
+      'fatal',
+    ]);
+  });
+});
+
+// Local mirror of the public type to avoid importing implementation details
+// the test doesn't otherwise need.
+interface GotoAttemptRecordLike {
+  classification?: 'retryable' | 'fatal';
+}
