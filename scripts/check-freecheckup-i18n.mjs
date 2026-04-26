@@ -130,6 +130,36 @@ const push = (v) => {
 
 const ATTR_NAMES_TEXTUAL = ['aria-label', 'title', 'placeholder', 'alt'];
 
+// 「會被讀屏器朗讀」或「會被使用者直接看到」的擴充屬性
+// - aria-describedby / aria-labelledby 雖然官方語意是「ID 引用」，但實務上常被誤寫為直接文字
+//   （錯誤用法仍會被讀屏器朗讀為字面字串），故一併掃描以阻擋這類退化。
+// - aria-roledescription / aria-valuetext / aria-placeholder：直接朗讀字串。
+// - aria-keyshortcuts：通常為按鍵縮寫（Ctrl+K），靠白名單與 NON_PROSE_RE 過濾雜訊。
+const ATTR_NAMES_A11Y = [
+  'aria-describedby',
+  'aria-labelledby',
+  'aria-roledescription',
+  'aria-valuetext',
+  'aria-placeholder',
+  'aria-keyshortcuts',
+];
+
+// data-* 屬性中常被當「視覺/工具提示文字」使用的子集：
+// - data-tooltip / data-tip / data-hint / data-title / data-label / data-text / data-content
+//   → 這些常被第三方 tooltip 套件或自家元件直接 render 給使用者看
+// 其他一般 data-* 屬性（data-id / data-state / data-testid…）不在此列，避免誤殺。
+const DATA_ATTR_NAMES_VISIBLE = [
+  'data-tooltip',
+  'data-tip',
+  'data-hint',
+  'data-title',
+  'data-label',
+  'data-text',
+  'data-content',
+  'data-message',
+  'data-placeholder',
+];
+
 // 跳過區段：import / 註解
 const isSkipLine = (line) => {
   const t = line.trim();
@@ -213,6 +243,89 @@ lines.forEach((line, idx) => {
         detail:
           `JSX 屬性 \`${attr}\` 內含未翻譯英文："${text}"。` +
           `aria-label / title / placeholder / alt 都會被使用者看到或聽到。`,
+        snippet: line.trim().slice(0, 160),
+      });
+    }
+  }
+
+  // ── B2) 擴充 a11y 屬性（aria-describedby / aria-roledescription 等）──
+  for (const attr of ATTR_NAMES_A11Y) {
+    const re = new RegExp(`\\b${attr}=(?:"([^"]+)"|'([^']+)'|\\{["']([^"']+)["']\\})`, 'g');
+    let mm;
+    while ((mm = re.exec(line)) !== null) {
+      const text = (mm[1] || mm[2] || mm[3] || '').trim();
+      if (!text) continue;
+      if (!/[A-Za-z]/.test(text)) continue;
+      // aria-describedby / aria-labelledby 正確值是 ID（kebab/camel），由 looksLikeStyleOrAttr 放行
+      if (looksLikeStyleOrAttr(text)) continue;
+      if (isAllWhitelisted(text)) continue;
+      // 多字英文且含空白才視為「散文」→ 強烈代表是被誤當文案
+      const isProse = /\s/.test(text) && /[A-Za-z]{3,}/.test(text);
+      if (!isProse) continue;
+      push({
+        line: idx + 1,
+        rule: 'untranslated-a11y-attr',
+        text,
+        detail:
+          `a11y 屬性 \`${attr}\` 內疑似含未翻譯英文文案："${text}"。` +
+          `${attr} 的值若為直接朗讀字串，會被輔助科技唸給使用者；若應為 ID 引用，請改用 ID 而非英文句子。`,
+        snippet: line.trim().slice(0, 160),
+      });
+    }
+  }
+
+  // ── B3) data-* 視覺屬性（tooltip / hint / label 等常被直接渲染給使用者看）──
+  for (const attr of DATA_ATTR_NAMES_VISIBLE) {
+    const re = new RegExp(`\\b${attr}=(?:"([^"]+)"|'([^']+)'|\\{["']([^"']+)["']\\})`, 'g');
+    let mm;
+    while ((mm = re.exec(line)) !== null) {
+      const text = (mm[1] || mm[2] || mm[3] || '').trim();
+      if (!text) continue;
+      if (!/[A-Za-z]/.test(text)) continue;
+      if (isAllWhitelisted(text)) continue;
+      if (looksLikeStyleOrAttr(text)) continue;
+      push({
+        line: idx + 1,
+        rule: 'untranslated-data-attr',
+        text,
+        detail:
+          `data 屬性 \`${attr}\` 內含未翻譯英文："${text}"。` +
+          `這類屬性常被 tooltip / 自家元件直接 render 給使用者看，請翻譯或加 i18n-allow 豁免。`,
+        snippet: line.trim().slice(0, 160),
+      });
+    }
+  }
+
+  // ── C) <button>/<option> 標籤內的字面量子字串（可能被 JSX expression 包圍）──
+  // 僅針對「在 button/option 開合標籤的同一行內出現的英文字面量」做次級檢查。
+  // A) 已涵蓋大多數純文字節點，這裡額外捕捉：
+  //   <button>{cond ? "Save" : "Cancel"}</button>
+  //   <option value="x">Apply now</option>
+  //   <button aria-label="X">Click me</button>
+  const buttonLikeRe = /<(button|option)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+  let bm;
+  while ((bm = buttonLikeRe.exec(line)) !== null) {
+    const inner = bm[2] || '';
+    // 抓出三類英文字面量：
+    //   "..."、'...'、`...`（template literal 但不含 ${}）
+    const literalRe = /(["'`])((?:\\.|(?!\1).)*?)\1/g;
+    let lm;
+    while ((lm = literalRe.exec(inner)) !== null) {
+      const quote = lm[1];
+      const text = lm[2].trim();
+      if (!text) continue;
+      if (!/[A-Za-z]/.test(text)) continue;
+      // template literal 含變數插值 → 跳過（變數內容無法靜態判斷）
+      if (quote === '`' && lm[2].includes('${')) continue;
+      if (isAllWhitelisted(text)) continue;
+      if (looksLikeStyleOrAttr(text)) continue;
+      push({
+        line: idx + 1,
+        rule: 'untranslated-button-literal',
+        text,
+        detail:
+          `<${bm[1].toLowerCase()}> 內含字面量英文文案："${text}"。` +
+          `按鈕 / 選項文字會直接顯示給使用者，請翻譯或加 i18n-allow 豁免。`,
         snippet: line.trim().slice(0, 160),
       });
     }
