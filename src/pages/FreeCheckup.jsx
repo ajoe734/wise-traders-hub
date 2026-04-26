@@ -2270,7 +2270,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
 
                   {/* 右：Market 狀態 */}
-                  <div style={{
+                  <div className="wb-hero-market" style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
                     gap: 6, paddingBottom: 8,
                   }}>
