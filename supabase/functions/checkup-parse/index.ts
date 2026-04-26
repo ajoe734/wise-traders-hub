@@ -35,7 +35,7 @@ async function callVision(apiKey: string, model: string, systemPrompt: string, b
         model,
         messages,
         temperature: 0.1,
-        max_tokens: 4096,
+        max_tokens: MAX_TOKENS,
       }),
     });
 
