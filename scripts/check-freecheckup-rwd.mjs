@@ -22,8 +22,13 @@ const lines = src.split('\n');
 const violations = [];
 
 // ── Rule 1：fontSize ≥ 32 必須有 wb-* className ──
-const FONT_RE = /fontSize:\s*(\d+)/g;
+// 只在 JSX inline style 物件內檢查（{ ... fontSize: N ... }），跳過 CSS 註解
+const FONT_RE = /(?<![\w-])fontSize\s*:\s*(\d+)/g;
 lines.forEach((line, idx) => {
+  // 跳過 <style> 區塊內的 CSS 註解 / 純文字註解
+  const trimmed = line.trim();
+  if (trimmed.startsWith('/*') || trimmed.startsWith('*') || trimmed.startsWith('//')) return;
+  // 跳過 <style> 區塊內的 CSS 規則（CSS 用 font-size: 而非 fontSize:）
   let m;
   while ((m = FONT_RE.exec(line)) !== null) {
     const px = Number(m[1]);
