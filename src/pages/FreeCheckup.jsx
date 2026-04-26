@@ -1990,6 +1990,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         // 解析成功後立即同步持倉 & 交易記錄
         if (preparedTrades.length) {
+          // 50 檔上限防呆：估算合併後的代碼數，超過則擋下整批匯入
+          const currentCodes = new Set((holdings || []).map(h => h.code));
+          const incomingCodes = new Set(preparedTrades.map(t => String(t?.code || "").trim()).filter(Boolean));
+          const merged = new Set([...currentCodes, ...incomingCodes]);
+          if (merged.size > MAX_HOLDINGS) {
+            setParseErr(
+              `持倉上限 ${MAX_HOLDINGS} 檔，目前 ${currentCodes.size} 檔、本次解析新增 ${incomingCodes.size} 檔`
+              + `（合計 ${merged.size} 檔超出 ${merged.size - MAX_HOLDINGS} 檔），請先整理或減少匯入筆數`
+            );
+            setParsing(false);
+            return;
+          }
           holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
           setHoldings(prev => preparedTrades.reduce(
             (acc, trade) => isSnapshotImport ? upsertSnapshotHolding(acc, trade) : mergeTradeIntoHoldings(acc, trade),
