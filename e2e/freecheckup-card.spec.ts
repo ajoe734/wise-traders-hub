@@ -28,15 +28,31 @@ async function gotoFreeCheckup(page: Page, testInfo?: TestInfo) {
       window.localStorage.setItem('checkup-demo-mode', '1');
     } catch {}
   });
-  // Use `domcontentloaded` instead of `networkidle` — the dev server keeps
-  // long-lived HMR/websocket connections open which makes `networkidle`
-  // flaky and prone to 60s timeouts. We rely on the explicit card selector
-  // wait below to confirm the page is interactive.
-  await gotoWithRetry(page, ROUTE, { testInfo });
-  await page.waitForSelector(CARD_SELECTOR, { state: 'visible', timeout: 30_000 });
-  // Wait for the first card's geometry to stop shifting (clamp() font-size,
-  // sparkline mount) before any assertion / screenshot.
-  await waitForStableBoundingBox(page, CARD_SELECTOR);
+  // Unified entrypoint: retry-aware goto + selector wait + page health check
+  // (seeded portfolio rendered ≥1 card, no error banner) + bounding-box
+  // stability gate before snapshots.
+  await navigateAndWaitForCardReady(page, ROUTE, {
+    cardSelector: CARD_SELECTOR,
+    selectorTimeoutMs: 30_000,
+    testInfo,
+    stability: {
+      // Workbench cards have async sparklines + clamp() typography — give
+      // them a tighter tolerance and require 3 stable samples to be safe.
+      tolerancePx: 0.5,
+      stableSamples: 3,
+      timeoutMs: 6_000,
+      label: 'wb-card',
+    },
+    healthCheck: async ({ page: p }) => {
+      // Fail fast if the seeded demo portfolio didn't materialise or if a
+      // global error boundary is showing — both produce a "card visible"
+      // signal that would otherwise pass the selector wait.
+      const cardCount = await p.locator(CARD_SELECTOR).count();
+      if (cardCount < 1) return false;
+      const errorBanner = await p.locator('[data-testid="error-boundary"], .error-boundary').count();
+      return errorBanner === 0;
+    },
+  });
 }
 
 /**
