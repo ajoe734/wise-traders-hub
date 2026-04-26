@@ -1765,7 +1765,8 @@ export default function App() {
     }
     // 產生 correlation id 與紀錄使用者操作起始時間
     const cid = `daily_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const opStartedAt = new Date().toISOString();
+    const opStartedAtMs = Date.now();
+    const opStartedAt = new Date(opStartedAtMs).toISOString();
     setDailyLastError(null);
     setAnalyzing(true);
     setAnalyzeStep("取得即時股價...");
