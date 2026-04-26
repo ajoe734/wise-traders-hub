@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -394,14 +395,23 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { events, holdings, debug } = await req.json();
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+
+    const issues = validateInput({
+      fields: {
+        events: { required: true, type: 'array', minItems: 1, label: 'events 陣列（至少 1 筆）' },
+        holdings: { required: false, type: 'array', label: 'holdings' },
+        debug: { required: false, type: 'boolean', label: 'debug' },
+      },
+      source: body,
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
+    const { events, holdings, debug } = body;
     const url = new URL(req.url);
     const debugMode = debug === true || url.searchParams.get('debug') === '1';
-    if (!events || !Array.isArray(events) || events.length === 0) {
-      return new Response(JSON.stringify({ error: 'Missing events array' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+
 
     const supabase = getSupabaseAdmin();
 

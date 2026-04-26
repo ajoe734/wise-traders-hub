@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,7 +78,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { systemPrompt, base64, mediaType } = await req.json();
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+
+    const issues = validateInput({
+      fields: {
+        base64: { required: true, type: 'string', minLength: 32, label: '截圖 base64' },
+        mediaType: { required: false, type: 'string', label: 'mediaType' },
+        systemPrompt: { required: false, type: 'string', label: 'systemPrompt' },
+      },
+      source: body,
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
+    const { systemPrompt, base64, mediaType } = body;
     const mType = mediaType || 'image/jpeg';
 
     for (let i = 0; i < MODELS.length; i++) {

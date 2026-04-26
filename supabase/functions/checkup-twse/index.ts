@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,16 +16,18 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const exCh = url.searchParams.get('ex_ch');
 
-    if (!exCh) {
-      return new Response(JSON.stringify({ error: '缺少 ex_ch 參數' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const issues = validateInput({
+      fields: {
+        ex_ch: { required: true, type: 'string', minLength: 3, label: 'ex_ch（如 tse_2330.tw）' },
+      },
+      source: { ex_ch: exCh },
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
 
     // 只用 MIS 即時報價 API（對齊 Python 腳本）
     const ts = Date.now();
-    const twseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(exCh)}&json=1&delay=0&_=${ts}`;
+    const twseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(exCh as string)}&json=1&delay=0&_=${ts}`;
     const response = await fetch(twseUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
