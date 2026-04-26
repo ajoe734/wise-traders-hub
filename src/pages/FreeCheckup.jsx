@@ -1762,12 +1762,7 @@ export default function App() {
   // ── 每日收盤分析 ─────────────────────────────────────────────────
   const runDailyAnalysis = async () => {
     if (analyzing) return;
-    // Demo 模式 → 要求先 LINE 登入
-    if (isDemo) {
-      startLineLogin();
-      return;
-    }
-    // LINE 免費用戶每日 1 次 AI 分析限制（與截圖解析共用配額）
+    // Demo 模式也開放收盤分析（不再強制 LINE 登入），但仍受每日 1 次限制保護 Anthropic 額度
     if (hasReachedDailyLimit) {
       setSaved("今日免費 AI 分析次數已用完，明天再來");
       setTimeout(() => setSaved(""), 4000);
