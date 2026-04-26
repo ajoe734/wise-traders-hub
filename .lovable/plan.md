@@ -1,83 +1,79 @@
-# 持倉看板四階段壓測 + 50 檔上限 + 優化建議清單
+## 目標
+`/company/analysts` 每一列加一顆「帳號」按鈕，company_admin 可以對該分析師做：
+1. **改 Email**（同步更新 `auth.users.email` 與 `profiles`）
+2. **直接重設密碼**（後台輸入新密碼立即覆蓋）
+3. **寄出密碼重設信**（寄到該分析師信箱讓他自己改）
 
-## 範圍與前提
-- 目標：對 `/free-checkup` 持倉看板的「所有功能與聯動」進行四階段測試，並產出**優化建議清單**（不直接改業務邏輯）。
-- 壓測規模：最多 **50 檔**持倉（依使用者指示）。
-- AI 並發：**不限縮**配額，實打 `checkup-analyze / parse / predict-events / calendar`，順便驗證知識庫品質與 fallback。
-- 資料隔離：壓測注入只寫入 `localStorage`（demo 模式），絕不污染雲端 `checkup_storage`（依 `mem://infrastructure/checkup/sync-isolation-logic`）。
-
----
-
-## 階段 1：靜態程式碼與資料聯動審計（不跑瀏覽器）
-
-對 `src/pages/FreeCheckup.jsx`(5,111 行) 與相關 hook 進行靜態審計：
-
-1. **持倉資料流**：`setHoldings → upsertSnapshotHolding / mergeTradeIntoHoldings → 報價拉取 → totalPnl/totalValue 計算 → Hero/卡片渲染 → 行事曆 / 事件 / 大腦聯動**整條鏈路。
-2. **聯動鉤子**：
-   - `holdingsChangedByUserRef` 觸發行事曆重抓（line 1040）
-   - `incrementUploadCount` 與 `hasReachedDailyLimit` 一致性
-   - `RETRY_MAX / RETRY_COOLDOWN` 重試門檻與冷卻邏輯
-   - 雙寫 `pf-holdings-v2` localStorage ↔ `checkup_storage` upsert
-3. **Race condition 與 stale closure**：`useEffect` 依賴遺漏、`fetch` 競態、未取消的 in-flight request。
-4. **`bun run check:freecheckup-rwd`** + `tsc --noEmit` 跑一次。
-
-**產出**：審計報告（檔案 / 行號 / 風險 / 嚴重度 / 建議修法），存於 `/mnt/documents/portfolio-audit-phase1.md`。
+全部走新 edge function，service role + company_admin 雙重驗證 + audit log，並沿用既有 Resend / Lovable Email 寄信管道。
 
 ---
 
-## 階段 2：注入 50 檔測試資料 + 加入上限保護
+## 後端：新增 `update-analyst-credentials` edge function
 
-### 2A. 程式變更（最小侵入）
-- 在 `src/pages/FreeCheckup.jsx` 加入常數 `MAX_HOLDINGS = 50`。
-- **上傳成交截圖時**：解析後若 `holdings.length + 新增筆數 > 50`，直接擋下並顯示 toast：
-  > 「持倉最多 50 檔，目前已有 X 檔，請先整理或減少匯入筆數」
-- **上傳區 UI** 標示：在「上傳已成交截圖」副標下加一行小字「持倉上限 50 檔」。
-- **持倉看板 Hero 副標**：顯示 `X / 50` 持倉數，超過 45 檔時轉橘色提示。
-- 同步在 `mergeTradeIntoHoldings / upsertSnapshotHolding` 上游做防呆。
+**路徑**：`supabase/functions/update-analyst-credentials/index.ts`
 
-### 2B. 注入腳本
-- 建立 `/tmp/seed-50-holdings.js`，產生 50 檔 TWSE 真實代號 + 隨機成本/張數，灌進 `localStorage['pf-holdings-v2']`，含混合 PnL 分布（30 賺 / 15 賠 / 5 持平）與少量缺價標的。
+**驗證流程**（與 `create-analyst` 同模式）：
+1. 取 `Authorization` header → `auth.getUser()` → 必須有 `company_admin` role，否則 403
+2. body：`{ expert_id: uuid, action: 'update_email' | 'reset_password' | 'send_reset_email', email?, new_password? }`
+3. 由 `expert_id` 反查 `experts.user_id` 取得目標 auth user
 
----
+**三個 action**：
 
-## 階段 3：互動 / 壓力測試（瀏覽器）
+### A. `update_email`
+- 用 service role `auth.admin.updateUserById(targetUserId, { email, email_confirm: true })`
+- 同步 `profiles`（若有 email 鏡像欄位則更新；目前 profiles 沒有 email 欄位，僅做 auth 更新即可）
+- 拒絕修改虛擬 LINE email（`@line.local` 結尾）以免破壞 LINE 登入綁定
 
-依序在 1024 / 768 / 414 / 390 / 380 / 320 viewport 操作：
+### B. `reset_password`
+- 驗證密碼 ≥ 6 碼
+- `auth.admin.updateUserById(targetUserId, { password: new_password })`
+- 不寄信，直接生效
 
-1. **載入壓測**：50 檔同時渲染，量測 FCP / TTI、`browser--performance_profile` 抓 JS heap、DOM nodes、layout count。
-2. **報價刷新**：手動觸發報價更新 3 次，觀察 Hero 數字 / 卡片是否抖動、是否有 N+1 fetch。
-3. **AI 並發實打**（不限額）：
-   - 收盤分析（`checkup-analyze`）
-   - 事件預測（`checkup-predict-events`）
-   - 行事曆（`checkup-calendar`）
-   - 同時觸發，觀察 UI 是否封鎖、token 是否爆、429/503 是否有友善 fallback。
-4. **聯動測試**：刪除 / 新增 / 修改持倉 → 行事曆是否重抓、事件 tab 是否更新、知識庫快取是否命中。
-5. **錯誤注入**：模擬 `current_prices` 缺失、AI 回傳空字串、JSON parse 失敗 → 觀察 toast 與 retry 行為。
-6. **RWD 同步**：跑 `e2e/freecheckup-card.spec.ts` 全套（依 mem 強制 SOP）。
+### C. `send_reset_email`
+- 用 service role `auth.admin.generateLink({ type: 'recovery', email: targetEmail, options: { redirectTo: `${SITE_URL}/reset-password` } })`
+- 取得 `action_link` 後透過既有 Resend 整合寄到該分析師信箱
+- 標題「【LegendFlow】分析師後台密碼重設」，內文含一次性連結
 
-每個情境截圖存 `/tmp/`，僅最終問題截圖留存報告引用。
+**Audit log**：每個 action 都寫一筆 `audit_logs`，`action='update_analyst_credentials'`，`detail` 含 `{ sub_action, target_user_id, new_email? }`（不存密碼）
+
+**CORS**：與現有 edge functions 一致
 
 ---
 
-## 階段 4：知識庫品質驗證 + 優化建議交付
+## 前端：`src/pages/company/Analysts.tsx`
 
-1. **知識庫命中率**：撈取本輪 AI 並發測試的 prompt 片段，比對 `checkup_knowledge_items` 是否有對應條目被注入；輸出命中 / 未命中清單。
-2. **AI 回應品質抽樣**：50 檔中抽 5 檔（含半導體 / 金融 / ETF / 小型股 / 缺價標的），檢視收盤分析是否言之有物、是否被知識庫拉偏 / 拉正。
-3. **優化建議清單**（最終交付物，存 `/mnt/documents/portfolio-optimization-report.md`）：
-   - 🐛 Bug（檔案+行號+重現步驟+建議修法）
-   - 📱 RWD / 視覺（斷點+截圖+修法）
-   - ⚡ 效能（heap / render / fetch 量化數據+優化方向）
-   - 🧠 知識庫質量（命中率 / 缺漏主題 / 建議新增條目）
-   - 🏗️ 架構（race / stale closure / 雙寫一致性建議）
-   - ✅ 已驗證 OK 的功能清單（讓你知道哪些不用動）
+### 新按鈕
+在每列操作欄、「LINE / 後台 / 啟用」之間加一顆：
+```tsx
+<Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openAccountDialog(exp)}>
+  <Key className="h-3 w-3 mr-1" />帳號
+</Button>
+```
+
+### 新 Dialog「`{exp.name} — 帳號設定`」
+三個分頁（Tabs）：
+1. **改 Email** — 顯示目前 email（從 `auth.admin` 拿不到，改用 edge function 回傳；或改用 input 讓 admin 直接輸入新值）→ 「更新 Email」按鈕
+2. **重設密碼** — 兩個 input（新密碼 / 確認新密碼）→ 「立即重設」按鈕（含確認對話框防誤觸）
+3. **寄重設信** — 顯示目標 email，「發送重設密碼信」按鈕
+
+呼叫：`supabase.functions.invoke('update-analyst-credentials', { body: { expert_id, action, ... } })`，成功 toast，失敗顯示 error message。
+
+### 取得目前 Email
+Edge function 在初始 GET / 回應時帶回 `current_email`，前端 dialog 開啟時先 invoke 一次 `action='fetch_email'`（第 4 個唯讀 action）拿到顯示。
 
 ---
 
-## 不會做的事
-- 不直接修業務邏輯（除了 `MAX_HOLDINGS = 50` 防呆與 UI 標示）。
-- 不刪 / 不改你的雲端真實持倉（demo 隔離保護）。
-- 不修改 `mem://` 持倉憲法（橘色 PnL、Kore-eda 美學）。
+## 安全要點
+- 全程在 edge function 端驗證 `has_role('company_admin')`，不依賴前端
+- 拒絕對 `@line.local` 虛擬信箱改 email（會破壞 LINE 登入隔離，符合 mem://auth/account-identity-isolation）
+- 拒絕對自己（caller 自己的帳號）改密碼／email — 改自己的請走 `/account/profile`，避免誤鎖
+- 密碼最小長度 6（與 `create-analyst` 一致）
+- 不在 audit log 存任何密碼明文
 
-## 完成標準
-- 四階段全跑完，產出兩份 `.md` 報告 + 50 檔上限程式碼變更 + 上傳 UI 標示。
-- 報告以「檔案+行號+建議片段」形式呈現，可直接餵下一輪改版。
+---
+
+## 待確認
+- 「寄重設信」的寄送管道：直接用既有 `RESEND_API_KEY` 透過 Resend 連接器發送（不需要 Lovable Auth Email Hook）。標題與內文我會用繁中。確認可以這樣做嗎？
+- 「改 Email」是否要同步寄一封通知信到舊信箱（防被惡意改走）？建議要，但會多一次 Resend call。
+
+要我直接照這個計畫做嗎？

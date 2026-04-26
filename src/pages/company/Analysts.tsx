@@ -4,12 +4,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { Eye, UserPlus, MessageCircle } from 'lucide-react';
+import { Eye, UserPlus, MessageCircle, Key, Mail, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -218,6 +219,105 @@ const CompanyAnalysts = () => {
     closeLineSettings();
   };
 
+  // ── Account credentials management ──────────────────────────────
+  const [acctExpert, setAcctExpert] = useState<{ id: string; name: string } | null>(null);
+  const [acctTab, setAcctTab] = useState<'email' | 'password' | 'reset'>('email');
+  const [acctCurrentEmail, setAcctCurrentEmail] = useState('');
+  const [acctIsLineVirtual, setAcctIsLineVirtual] = useState(false);
+  const [acctLoading, setAcctLoading] = useState(false);
+  const [acctNewEmail, setAcctNewEmail] = useState('');
+  const [acctNewPassword, setAcctNewPassword] = useState('');
+  const [acctConfirmPassword, setAcctConfirmPassword] = useState('');
+  const [acctSubmitting, setAcctSubmitting] = useState(false);
+
+  const openAccountDialog = async (exp: any) => {
+    setAcctExpert({ id: exp.id, name: exp.name });
+    setAcctTab('email');
+    setAcctNewEmail('');
+    setAcctNewPassword('');
+    setAcctConfirmPassword('');
+    setAcctCurrentEmail('');
+    setAcctIsLineVirtual(false);
+    setAcctLoading(true);
+    const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
+      body: { expert_id: exp.id, action: 'fetch_email' },
+    });
+    setAcctLoading(false);
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || '無法讀取帳號資訊');
+      return;
+    }
+    setAcctCurrentEmail(data.email || '');
+    setAcctIsLineVirtual(!!data.is_line_virtual);
+    setAcctNewEmail(data.email || '');
+  };
+
+  const closeAccountDialog = () => {
+    setAcctExpert(null);
+    setAcctNewEmail('');
+    setAcctNewPassword('');
+    setAcctConfirmPassword('');
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!acctExpert) return;
+    if (!acctNewEmail || acctNewEmail === acctCurrentEmail) {
+      toast.error('請輸入新的 Email');
+      return;
+    }
+    setAcctSubmitting(true);
+    const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
+      body: { expert_id: acctExpert.id, action: 'update_email', email: acctNewEmail.trim() },
+    });
+    setAcctSubmitting(false);
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || '更新失敗');
+      return;
+    }
+    toast.success('Email 已更新');
+    setAcctCurrentEmail(data.email);
+  };
+
+  const handleResetPassword = async () => {
+    if (!acctExpert) return;
+    if (!acctNewPassword || acctNewPassword.length < 6) {
+      toast.error('密碼至少 6 碼');
+      return;
+    }
+    if (acctNewPassword !== acctConfirmPassword) {
+      toast.error('兩次密碼輸入不一致');
+      return;
+    }
+    if (!confirm(`確定要將 ${acctExpert.name} 的密碼重設為新密碼？此動作會立即生效。`)) return;
+    setAcctSubmitting(true);
+    const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
+      body: { expert_id: acctExpert.id, action: 'reset_password', new_password: acctNewPassword },
+    });
+    setAcctSubmitting(false);
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || '重設失敗');
+      return;
+    }
+    toast.success('密碼已重設');
+    setAcctNewPassword('');
+    setAcctConfirmPassword('');
+  };
+
+  const handleSendResetEmail = async () => {
+    if (!acctExpert) return;
+    if (!confirm(`寄送密碼重設信至 ${acctCurrentEmail}？`)) return;
+    setAcctSubmitting(true);
+    const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
+      body: { expert_id: acctExpert.id, action: 'send_reset_email' },
+    });
+    setAcctSubmitting(false);
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || '寄送失敗');
+      return;
+    }
+    toast.success(`已寄送至 ${data.sent_to}`);
+  };
+
   return (
     <CompanyLayout>
       <div className="space-y-6">
@@ -310,9 +410,12 @@ const CompanyAnalysts = () => {
                         </Badge>
                       </td>
                       <td className="p-4">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
                           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openLineSettings(exp)}>
                             <MessageCircle className="h-3 w-3 mr-1" />LINE
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openAccountDialog(exp)}>
+                            <Key className="h-3 w-3 mr-1" />帳號
                           </Button>
                           <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
                             <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
@@ -378,6 +481,89 @@ const CompanyAnalysts = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Account Credentials Dialog */}
+      <Dialog open={!!acctExpert} onOpenChange={(open) => { if (!open) closeAccountDialog(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{acctExpert?.name} — 帳號設定</DialogTitle>
+            <DialogDescription>
+              目前 Email：<span className="font-mono">{acctLoading ? '載入中...' : acctCurrentEmail || '—'}</span>
+              {acctIsLineVirtual && <span className="block mt-1 text-amber-500">⚠ 此帳號透過 LINE 登入，僅可重設密碼</span>}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Tabs value={acctTab} onValueChange={(v) => setAcctTab(v as any)} className="mt-2">
+            <TabsList className="grid grid-cols-3 w-full">
+              <TabsTrigger value="email" disabled={acctIsLineVirtual}><Mail className="h-3 w-3 mr-1" />改 Email</TabsTrigger>
+              <TabsTrigger value="password"><Key className="h-3 w-3 mr-1" />重設密碼</TabsTrigger>
+              <TabsTrigger value="reset" disabled={acctIsLineVirtual}><Send className="h-3 w-3 mr-1" />寄重設信</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="email" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>新 Email</Label>
+                <Input
+                  type="email"
+                  value={acctNewEmail}
+                  onChange={(e) => setAcctNewEmail(e.target.value)}
+                  placeholder="new@example.com"
+                  disabled={acctIsLineVirtual}
+                />
+                <p className="text-xs text-muted-foreground">更新後該分析師需以新 Email 登入。系統會自動標記新 Email 為已驗證。</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={closeAccountDialog}>取消</Button>
+                <Button onClick={handleUpdateEmail} disabled={acctSubmitting || acctIsLineVirtual}>
+                  {acctSubmitting ? '更新中...' : '更新 Email'}
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="password" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>新密碼</Label>
+                <Input
+                  type="password"
+                  value={acctNewPassword}
+                  onChange={(e) => setAcctNewPassword(e.target.value)}
+                  placeholder="至少 6 碼"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>確認新密碼</Label>
+                <Input
+                  type="password"
+                  value={acctConfirmPassword}
+                  onChange={(e) => setAcctConfirmPassword(e.target.value)}
+                  placeholder="再次輸入"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">立即覆蓋密碼。請務必透過安全管道告知該分析師。</p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={closeAccountDialog}>取消</Button>
+                <Button onClick={handleResetPassword} disabled={acctSubmitting}>
+                  {acctSubmitting ? '處理中...' : '立即重設'}
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="reset" className="space-y-4 mt-4">
+              <p className="text-sm">
+                系統將寄出含一次性重設連結的郵件至：
+                <span className="block mt-1 font-mono text-foreground">{acctCurrentEmail || '—'}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">分析師收到信後，可自行設定新密碼（連結 60 分鐘內有效）。</p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={closeAccountDialog}>取消</Button>
+                <Button onClick={handleSendResetEmail} disabled={acctSubmitting || acctIsLineVirtual || !acctCurrentEmail}>
+                  {acctSubmitting ? '寄送中...' : '發送重設密碼信'}
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </CompanyLayout>
