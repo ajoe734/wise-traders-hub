@@ -22,18 +22,40 @@ jobs:
   static-check:
     name: 靜態檢查（fontSize / media query / flex-end）
     runs-on: ubuntu-latest
+    outputs:
+      violations: ${{ steps.run.outputs.violations }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Run RWD static checker
-        run: node scripts/check-freecheckup-rwd.mjs
+
+      - name: Run RWD static checker (with JSON report)
+        id: run
+        run: |
+          mkdir -p reports
+          set +e
+          node scripts/check-freecheckup-rwd.mjs --json reports/static.json | tee reports/static.txt
+          code=$?
+          set -e
+          count=$(node -e "try{const r=require('./reports/static.json');console.log((r.violations||[]).length)}catch(e){console.log(0)}")
+          echo "violations=$count" >> "$GITHUB_OUTPUT"
+          exit $code
+
+      - name: Upload static-check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-check-report
+          path: reports/
+          retention-days: 14
+          if-no-files-found: ignore
 
   visual-regression:
     name: 視覺截圖 + Playwright (320 / 340 / 375 / 414)
     runs-on: ubuntu-latest
     needs: static-check
+    if: always()
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +72,7 @@ jobs:
 
       - name: Run Playwright visual regression
         id: pw
-        run: bunx playwright test e2e/freecheckup-card.spec.ts --reporter=line,html
+        run: bunx playwright test e2e/freecheckup-card.spec.ts
         env:
           CI: 'true'
 
@@ -75,55 +97,196 @@ jobs:
           if-no-files-found: ignore
 
   summary:
-    name: 回貼結果到 PR
+    name: 回貼結果到 PR（含 diff 行內標註）
     runs-on: ubuntu-latest
     needs: [static-check, visual-regression]
     if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
+      contents: read
+      issues: write
     steps:
-      - name: Comment PR with check status
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download static-check report
+        if: needs.static-check.result != 'skipped'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: static-check-report
+          path: reports/static
+
+      - name: Download Playwright report
+        if: needs.visual-regression.result != 'skipped'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: playwright-report
+          path: reports/playwright
+
+      - name: Annotate PR diff + summary comment
         uses: actions/github-script@v7
+        env:
+          STATIC_RESULT: ${{ needs.static-check.result }}
+          VISUAL_RESULT: ${{ needs.visual-regression.result }}
         with:
           script: |
-            const staticOk = '${{ needs.static-check.result }}' === 'success';
-            const visualOk = '${{ needs.visual-regression.result }}' === 'success';
-            const icon = (ok) => ok ? '✅' : '❌';
+            const fs = require('fs');
+            const path = require('path');
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            if (!pr) { core.info('Not a PR, skip'); return; }
+
+            const staticRes = process.env.STATIC_RESULT;
+            const visualRes = process.env.VISUAL_RESULT;
+            const ok = (s) => s === 'success';
+            const icon = (s) => ok(s) ? '✅' : (s === 'skipped' ? '⏭️' : '❌');
+
+            // ── 解析 PR diff → 取得每個檔案被改動的行集合（review comment 只能貼在 diff 行上）
+            const filesResp = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pr.number, per_page: 100,
+            });
+            /** @type {Map<string, Set<number>>} */
+            const diffLines = new Map();
+            for (const f of filesResp) {
+              if (!f.patch) continue;
+              const set = new Set();
+              let newLine = 0;
+              for (const line of f.patch.split('\n')) {
+                const h = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+                if (h) { newLine = parseInt(h[1], 10); continue; }
+                if (line.startsWith('+') && !line.startsWith('+++')) { set.add(newLine); newLine++; }
+                else if (line.startsWith(' ')) { newLine++; }
+              }
+              diffLines.set(f.filename, set);
+            }
+
+            // ── 收集違規 ──
+            /** @type {{file:string,line:number,rule:string,detail:string,snippet?:string,suggestion?:string,source:'static'|'visual'}[]} */
+            const all = [];
+
+            // 1) 靜態檢查
+            const staticJson = 'reports/static/static.json';
+            if (fs.existsSync(staticJson)) {
+              try {
+                const data = JSON.parse(fs.readFileSync(staticJson, 'utf8'));
+                for (const v of (data.violations || [])) {
+                  all.push({ ...v, source: 'static' });
+                }
+              } catch (e) { core.warning('parse static.json failed: ' + e.message); }
+            }
+
+            // 2) Playwright JSON
+            const pwJson = 'reports/playwright/results.json';
+            if (fs.existsSync(pwJson)) {
+              try {
+                const data = JSON.parse(fs.readFileSync(pwJson, 'utf8'));
+                const walk = (suite) => {
+                  for (const s of (suite.suites || [])) walk(s);
+                  for (const spec of (suite.specs || [])) {
+                    for (const t of (spec.tests || [])) {
+                      const failed = (t.results || []).some((r) => r.status === 'failed' || r.status === 'timedOut');
+                      if (!failed) continue;
+                      const result = t.results.find((r) => r.status === 'failed' || r.status === 'timedOut');
+                      const err = result?.error?.message || result?.errors?.[0]?.message || 'Playwright assertion failed';
+                      const file = (spec.file || suite.file || '').replace(/^.*\/(?=e2e\/)/, '');
+                      all.push({
+                        source: 'visual',
+                        file: file || 'e2e/freecheckup-card.spec.ts',
+                        line: spec.line || 1,
+                        rule: `playwright/${t.projectName || 'default'}`,
+                        detail: `[${t.projectName}] ${spec.title} — ${err.split('\n').slice(0, 4).join(' ')}`,
+                        suggestion: `# 重跑 / 更新基準\nbunx playwright test e2e/freecheckup-card.spec.ts --project=${t.projectName}\n# 若是預期內視覺改動：\nbun run test:e2e:update`,
+                      });
+                    }
+                  }
+                };
+                for (const s of (data.suites || [])) walk(s);
+              } catch (e) { core.warning('parse playwright results.json failed: ' + e.message); }
+            }
+
+            // ── Review comments：只挑命中 diff 的違規逐行標註 ──
+            const inDiff = [];
+            const outOfDiff = [];
+            for (const v of all) {
+              const set = diffLines.get(v.file);
+              if (set && set.has(v.line)) inDiff.push(v);
+              else outOfDiff.push(v);
+            }
+
+            if (inDiff.length > 0) {
+              const review = await github.rest.pulls.createReview({
+                owner, repo, pull_number: pr.number,
+                event: 'COMMENT',
+                body: `🔍 FreeCheckup RWD 自動標註：${inDiff.length} 筆違規落在本次 diff 行上（另有 ${outOfDiff.length} 筆在 diff 外，見下方總結）。`,
+                comments: inDiff.slice(0, 50).map((v) => ({
+                  path: v.file,
+                  line: v.line,
+                  side: 'RIGHT',
+                  body: [
+                    `**❌ ${v.rule}** (${v.source})`,
+                    ``,
+                    v.detail,
+                    v.snippet ? `\n\`\`\`jsx\n${v.snippet}\n\`\`\`` : '',
+                    v.suggestion ? `\n<details><summary>💡 建議修正</summary>\n\n\`\`\`\n${v.suggestion}\n\`\`\`\n</details>` : '',
+                  ].filter(Boolean).join('\n'),
+                })),
+              });
+              core.info(`Created review with ${inDiff.length} inline comments (id=${review.data.id})`);
+            }
+
+            // ── 總結 PR 留言（覆寫舊留言）──
+            const groupBy = (arr, fn) => arr.reduce((m, x) => { const k = fn(x); (m[k] ||= []).push(x); return m; }, {});
+            const byFile = groupBy(all, (v) => v.file);
+            const fileBlock = Object.entries(byFile).map(([file, vs]) => {
+              const rows = vs.map((v) =>
+                `| \`${v.file}:${v.line}\` | \`${v.rule}\` | ${v.detail.replace(/\|/g, '\\|').slice(0, 200)} |`
+              ).join('\n');
+              return `<details${vs.length <= 5 ? ' open' : ''}><summary><b>${file}</b>（${vs.length} 筆）</summary>\n\n| 位置 | 規則 | 說明 |\n|---|---|---|\n${rows}\n\n</details>`;
+            }).join('\n\n');
+
             const body = [
               `## FreeCheckup RWD 回歸檢查`,
               ``,
               `| 階段 | 狀態 |`,
               `|---|---|`,
-              `| ${icon(staticOk)} 靜態檢查（fontSize / media query / flex-end） | \`${{ needs.static-check.result }}\` |`,
-              `| ${icon(visualOk)} 視覺截圖 + Playwright (320/340/375/414) | \`${{ needs.visual-regression.result }}\` |`,
+              `| ${icon(staticRes)} 靜態檢查（fontSize / media query / flex-end） | \`${staticRes}\` |`,
+              `| ${icon(visualRes)} 視覺截圖 + Playwright (320/340/375/414) | \`${visualRes}\` |`,
               ``,
-              staticOk && visualOk
+              all.length === 0
                 ? `三層檢查全綠，可以合併。`
-                : `⚠️ 有檢查未通過，請至 Actions 頁面查看 \`playwright-report\` artifact，依 [手機回歸清單](../tree/main/scripts/check-freecheckup-rwd.mjs) 修正後再 push。`,
+                : [
+                    `⚠️ 共 **${all.length}** 筆違規（${inDiff.length} 筆已標註於 diff、${outOfDiff.length} 筆在 diff 外）。`,
+                    ``,
+                    `### 違規清單（依檔案分組）`,
+                    ``,
+                    fileBlock,
+                    ``,
+                    `### 本機修正流程`,
+                    `\`\`\`bash`,
+                    `bun run check:freecheckup-rwd     # 靜態檢查`,
+                    `bunx playwright test e2e/freecheckup-card.spec.ts   # 視覺回歸`,
+                    `bun run test:e2e:update           # 視覺改動為預期，更新基準`,
+                    `\`\`\``,
+                    ``,
+                    `Artifacts：[playwright-report](../actions/runs/${context.runId}) · [static-check-report](../actions/runs/${context.runId})`,
+                  ].join('\n'),
               ``,
-              `<sub>workflow: \`.github/workflows/freecheckup-rwd.yml\` · 規範：mem://qa/checkup/freecheckup-mobile-regression-checklist</sub>`,
+              `<sub>workflow: \`.github/workflows/freecheckup-rwd.yml\` · 規範：mem://qa/checkup/freecheckup-mobile-regression-checklist · run #${context.runId}</sub>`,
+              `<!-- freecheckup-rwd-marker -->`,
             ].join('\n');
 
             const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
+              owner, repo, issue_number: pr.number, per_page: 100,
             });
-            const existing = comments.find((c) =>
-              c.user.type === 'Bot' && c.body?.includes('FreeCheckup RWD 回歸檢查')
-            );
+            const existing = comments.find((c) => c.body?.includes('<!-- freecheckup-rwd-marker -->'));
             if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
             } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
+              await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
             }
+
+            // 若有違規，讓 summary job 也標紅
+            if (all.length > 0) core.setFailed(`${all.length} FreeCheckup RWD violations`);
