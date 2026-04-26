@@ -169,6 +169,10 @@ const CLOUD_SYNC_KEYS = [
 const LOCAL_STORAGE_OWNER_KEY = "pf-storage-owner-v1";
 const SNAPSHOT_IMPORT_ACTION = "持倉匯入";
 
+// 持倉數量上限：避免 AI 分析 token 爆量、UI 渲染卡頓、行事曆 / 事件預測超載
+// 觸發點：截圖解析新增 / 手動新增 / 批次匯入。超過上限直接擋下並提示使用者整理。
+const MAX_HOLDINGS = 50;
+
 const inferHoldingType = (code, name = "") => {
   if (String(code || "").startsWith("00")) return "ETF";
   if (String(code || "").length === 6 || /(購|售|牛|熊)/.test(String(name || ""))) return "權證";
