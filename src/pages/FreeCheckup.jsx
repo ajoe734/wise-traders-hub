@@ -1165,9 +1165,11 @@ export default function App() {
     pushUpdateLog({ source:'predict', trigger, status:'fetching', key:batchKey, msg:`${needsPrediction.length} 件` });
     (async () => {
       try {
+        const { newCorrelationId } = await import('../checkup/lib/correlationId.js');
+        const cid = newCorrelationId('pred');
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events?debug=1`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-correlation-id": cid },
           body: JSON.stringify({
             events: needsPrediction.map((e, i) => ({
               index: i + 1,
@@ -1184,7 +1186,7 @@ export default function App() {
         let data = null;
         try { data = await res.json(); } catch { /* ignore */ }
         if (data?.debug) {
-          setPredictLastDebug({ source: 'predict', at: new Date().toISOString(), httpStatus: res.status, ...data.debug });
+          setPredictLastDebug({ source: 'predict', at: new Date().toISOString(), httpStatus: res.status, cid: data.cid || cid, ...data.debug });
         }
         if (!res.ok) {
           console.error("Predict events failed:", res.status);
