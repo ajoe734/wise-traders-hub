@@ -2253,14 +2253,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{
                       display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap',
                     }}>
-                      <span style={{
+                      <span className="wb-hero-pnl-num" style={{
                         fontSize: 88, fontWeight: 500, color: WB.ink,
                         letterSpacing: '-0.045em', lineHeight: 0.92,
                         fontVariantNumeric: 'tabular-nums',
                       }}>
                         {isUp ? '+' : ''}{Math.round(totalPnl).toLocaleString()}
                       </span>
-                      <span style={{
+                      <span className="wb-hero-pnl-pct" style={{
                         fontSize: 22, fontWeight: 500, color: WB.accent,
                         letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums',
                       }}>
