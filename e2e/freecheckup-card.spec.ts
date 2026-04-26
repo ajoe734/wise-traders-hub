@@ -128,13 +128,13 @@ async function countGridColumns(
 }
 
 test.describe('FreeCheckup mobile card', () => {
-  test('cards never overflow ROI / TODAY / VALUE', async ({ page }) => {
-    await gotoFreeCheckup(page);
+  test('cards never overflow ROI / TODAY / VALUE', async ({ page }, testInfo) => {
+    await gotoFreeCheckup(page, testInfo);
     await assertNoOverflow(page, CARD_SELECTOR);
   });
 
   test('grid collapses to a single column at mobile widths', async ({ page }, testInfo) => {
-    await gotoFreeCheckup(page);
+    await gotoFreeCheckup(page, testInfo);
 
     // Need at least 2 cards for a meaningful column count.
     const cardCount = await page.locator(CARD_SELECTOR).count();
