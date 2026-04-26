@@ -96,7 +96,7 @@ export const EDGE_SCHEMAS = {
       action: REQ('string', { oneOf: ['brain', 'history', 'all'], label: 'action' }),
     },
     actions: {
-      'save-brain': { action: REQ('string'), data: REQ('any', { label: 'data') } },
+      'save-brain': { action: REQ('string'), data: REQ('any', { label: 'data' }) },
       'save-analysis': { action: REQ('string'), data: REQ('any') },
       'save-events': { action: REQ('string'), data: REQ('array') },
       'load-events': { action: REQ('string') },
