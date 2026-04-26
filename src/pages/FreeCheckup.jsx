@@ -3355,9 +3355,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     fontSize:10,color:muteColor,fontWeight:400,
                     fontVariantNumeric:'tabular-nums',letterSpacing:'0.06em',
                   }}>
-                    <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>TODAY</span>
-                    <span style={{gridColumn:'3',gridRow:'1',display:'flex',alignItems:'center',gap:6,fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>
-                      <span>VALUE</span>
+                    <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.08em',opacity:0.7,lineHeight:1}}>今日</span>
+                    <span style={{gridColumn:'3',gridRow:'1',display:'flex',alignItems:'center',gap:6,fontSize:9,color:muteColor,letterSpacing:'0.08em',opacity:0.7,lineHeight:1,flexWrap:'wrap'}}>
+                      <span>市值</span>
                       {srcLabel && (
                         <span title={srcTitle} style={{
                           fontSize:8,letterSpacing:'0.06em',padding:'1px 5px',borderRadius:2,
