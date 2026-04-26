@@ -747,16 +747,18 @@ export default function App() {
       const controller = new AbortController();
       calendarAbortRef.current = controller;
       const timer = setTimeout(() => controller.abort(), 300000); // 5 min timeout
+      const { newCorrelationId } = await import('../checkup/lib/correlationId.js');
+      const cid = newCorrelationId('cal');
       const res = await fetch(`${SUPABASE_FN_BASE}/checkup-calendar?debug=1`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-correlation-id": cid },
         body: JSON.stringify({ stocks: stockList, today, endDate, debug: true }),
         signal: controller.signal,
       });
       clearTimeout(timer);
       const result = await res.json();
       if (result?.debug) {
-        setCalendarLastDebug({ source: 'calendar', at: new Date().toISOString(), httpStatus: res.status, ...result.debug });
+        setCalendarLastDebug({ source: 'calendar', at: new Date().toISOString(), httpStatus: res.status, cid: result.cid || cid, ...result.debug });
       }
       if (guard !== undefined && guard !== resetGuardRef.current) {
         pushUpdateLog({ source:'calendar', trigger, status:'aborted', key:requestKey, msg:'guard 變更' });
@@ -1163,9 +1165,11 @@ export default function App() {
     pushUpdateLog({ source:'predict', trigger, status:'fetching', key:batchKey, msg:`${needsPrediction.length} 件` });
     (async () => {
       try {
+        const { newCorrelationId } = await import('../checkup/lib/correlationId.js');
+        const cid = newCorrelationId('pred');
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events?debug=1`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-correlation-id": cid },
           body: JSON.stringify({
             events: needsPrediction.map((e, i) => ({
               index: i + 1,
@@ -1182,7 +1186,7 @@ export default function App() {
         let data = null;
         try { data = await res.json(); } catch { /* ignore */ }
         if (data?.debug) {
-          setPredictLastDebug({ source: 'predict', at: new Date().toISOString(), httpStatus: res.status, ...data.debug });
+          setPredictLastDebug({ source: 'predict', at: new Date().toISOString(), httpStatus: res.status, cid: data.cid || cid, ...data.debug });
         }
         if (!res.ok) {
           console.error("Predict events failed:", res.status);

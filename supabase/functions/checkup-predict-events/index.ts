@@ -4,8 +4,37 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-correlation-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Expose-Headers': 'x-correlation-id',
 };
+
+/* ── Correlation ID & structured logging ─────────────────────────────────
+ * 每一個請求都有一個 cid，從前端 X-Correlation-Id header 來；若未提供則自動
+ * 產生。所有 console.log 改用 slog() 寫成單行 JSON，方便在 edge function
+ * logs 用 cid 過濾整條請求軌跡（含 AI provider 每一次嘗試）。
+ */
+const FN_NAME = 'checkup-predict-events';
+
+function newCid() {
+  const ts = Date.now().toString(36);
+  const rand = Array.from(crypto.getRandomValues(new Uint8Array(3)),
+    (b) => b.toString(16).padStart(2, '0')).join('');
+  return `cid_${ts}_${rand}`;
+}
+
+function getCid(req: Request): string {
+  const incoming = req.headers.get('x-correlation-id');
+  if (incoming && /^[A-Za-z0-9_\-:.]{4,128}$/.test(incoming)) return incoming;
+  return newCid();
+}
+
+function slog(cid: string, event: string, fields: Record<string, unknown> = {}) {
+  try {
+    console.log(JSON.stringify({ ts: new Date().toISOString(), fn: FN_NAME, cid, event, ...fields }));
+  } catch {
+    console.log(`[slog-failed] ${FN_NAME} ${cid} ${event}`);
+  }
+}
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 // Note: 'google/gemini-2.0-flash' is deprecated on the Gateway. Use only supported models.
@@ -28,7 +57,7 @@ export type AiAttempt = {
 
 export type AiResult = { text: string; attempts: AiAttempt[]; succeededWith?: AiAttempt };
 
-async function callAI(system: string, user: string, maxTokens = 4096): Promise<AiResult> {
+async function callAI(system: string, user: string, maxTokens = 4096, cid = 'cid_unknown'): Promise<AiResult> {
   const lovableKey = Deno.env.get('LOVABLE_API_KEY');
   const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
   const attempts: AiAttempt[] = [];
@@ -40,6 +69,7 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<A
   if (lovableKey) {
     for (const model of GATEWAY_MODELS) {
       const attempt: AiAttempt = { path: 'gateway', model, ok: false };
+      const startedAt = Date.now();
       try {
         const response = await fetch(GATEWAY_URL, {
           method: 'POST',
@@ -49,7 +79,7 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<A
         attempt.status = response.status;
         if (!response.ok) {
           attempt.errorBody = (await response.text()).slice(0, 300);
-          console.error(`Gateway ${model} failed (${response.status}): ${attempt.errorBody}`);
+          slog(cid, 'ai_attempt', { path: 'gateway', model, ok: false, status: response.status, durationMs: Date.now() - startedAt, errorBody: attempt.errorBody });
           attempts.push(attempt);
           continue;
         }
@@ -58,23 +88,27 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<A
         if (text) {
           attempt.ok = true;
           attempts.push(attempt);
+          slog(cid, 'ai_attempt', { path: 'gateway', model, ok: true, status: response.status, durationMs: Date.now() - startedAt });
           return { text, attempts, succeededWith: attempt };
         }
         attempt.errorMessage = 'empty content';
         attempts.push(attempt);
+        slog(cid, 'ai_attempt', { path: 'gateway', model, ok: false, status: response.status, durationMs: Date.now() - startedAt, errorMessage: 'empty content' });
       } catch (err) {
         attempt.errorMessage = String(err);
-        console.error(`Gateway ${model} error:`, err);
         attempts.push(attempt);
+        slog(cid, 'ai_attempt', { path: 'gateway', model, ok: false, durationMs: Date.now() - startedAt, errorMessage: String(err) });
       }
     }
   } else {
     attempts.push({ path: 'gateway', model: '(none)', ok: false, errorMessage: 'LOVABLE_API_KEY not set' });
+    slog(cid, 'ai_skip', { path: 'gateway', reason: 'LOVABLE_API_KEY not set' });
   }
 
   if (geminiKey) {
     for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
       const attempt: AiAttempt = { path: 'gemini-direct', model, ok: false };
+      const startedAt = Date.now();
       try {
         const body: any = {
           contents: [{ role: 'user', parts: [{ text: user }] }],
@@ -88,8 +122,8 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<A
         attempt.status = response.status;
         if (!response.ok) {
           attempt.errorBody = (await response.text()).slice(0, 300);
-          console.error(`Gemini direct ${model} failed (${response.status}): ${attempt.errorBody}`);
           attempts.push(attempt);
+          slog(cid, 'ai_attempt', { path: 'gemini-direct', model, ok: false, status: response.status, durationMs: Date.now() - startedAt, errorBody: attempt.errorBody });
           continue;
         }
         const data = await response.json();
@@ -97,18 +131,21 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<A
         if (text) {
           attempt.ok = true;
           attempts.push(attempt);
-          console.log(`Gemini direct ${model} succeeded`);
+          slog(cid, 'ai_attempt', { path: 'gemini-direct', model, ok: true, status: response.status, durationMs: Date.now() - startedAt });
           return { text, attempts, succeededWith: attempt };
         }
         attempt.errorMessage = 'empty content';
         attempts.push(attempt);
+        slog(cid, 'ai_attempt', { path: 'gemini-direct', model, ok: false, status: response.status, durationMs: Date.now() - startedAt, errorMessage: 'empty content' });
       } catch (err) {
         attempt.errorMessage = String(err);
         attempts.push(attempt);
+        slog(cid, 'ai_attempt', { path: 'gemini-direct', model, ok: false, durationMs: Date.now() - startedAt, errorMessage: String(err) });
       }
     }
   } else {
     attempts.push({ path: 'gemini-direct', model: '(none)', ok: false, errorMessage: 'GOOGLE_GEMINI_API_KEY not set' });
+    slog(cid, 'ai_skip', { path: 'gemini-direct', reason: 'GOOGLE_GEMINI_API_KEY not set' });
   }
 
   return { text: '', attempts };
@@ -381,26 +418,29 @@ async function fetchRealtimeQuotes(codes: string[]): Promise<Map<string, any>> {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+
+  // Correlation ID 在最早期就抽出，方便所有後續 log/response 共用
+  const cid = getCid(req);
+  const startedAt = Date.now();
+  const responseHeaders = { ...corsHeaders, 'Content-Type': 'application/json', 'x-correlation-id': cid };
+  const respond = (event: string, body: Record<string, unknown>, status = 200, extraLog: Record<string, unknown> = {}) => {
+    slog(cid, event, { status, durationMs: Date.now() - startedAt, ...extraLog });
+    return new Response(JSON.stringify({ cid, ...body }), { status, headers: responseHeaders });
+  };
+
+  if (req.method !== 'POST') return respond('request_done', { error: 'Method not allowed' }, 405, { reason: 'method_not_allowed' });
 
   if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
-    return new Response(JSON.stringify({ error: 'AI API key 未設定' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return respond('request_done', { error: 'AI API key 未設定' }, 500, { reason: 'no_ai_key' });
   }
 
   try {
     const { events, holdings, debug } = await req.json();
     const url = new URL(req.url);
     const debugMode = debug === true || url.searchParams.get('debug') === '1';
+    slog(cid, 'request_start', { events: events?.length || 0, holdings: holdings?.length || 0, debugMode });
     if (!events || !Array.isArray(events) || events.length === 0) {
-      return new Response(JSON.stringify({ error: 'Missing events array' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return respond('request_done', { error: 'Missing events array' }, 400, { reason: 'bad_request' });
     }
 
     const supabase = getSupabaseAdmin();
@@ -409,9 +449,7 @@ Deno.serve(async (req) => {
     if (events.length === 1 && events[0].id) {
       const cached = await getCachedPrediction(supabase, events[0].id);
       if (cached) {
-        return new Response(JSON.stringify({ predictions: [cached], cached: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return respond('request_done', { predictions: [cached], cached: true }, 200, { outcome: 'cache_hit' });
       }
     }
 
@@ -479,32 +517,26 @@ ${eventsForPrompt}
 - predReason 必須具體，引用數據
 - 只輸出 JSON 陣列`;
 
-    const aiResult = await callAI(systemPrompt, userPrompt, 8192);
-    const debugInfo = debugMode ? { attempts: aiResult.attempts, succeededWith: aiResult.succeededWith } : undefined;
+    const aiResult = await callAI(systemPrompt, userPrompt, 8192, cid);
+    const debugInfo = debugMode ? { cid, attempts: aiResult.attempts, succeededWith: aiResult.succeededWith } : undefined;
 
     if (!aiResult.text) {
       const failure = buildAiFailure(aiResult.attempts, '事件預測暫時不可用，已略過本次預測');
-      return new Response(JSON.stringify({
-        ...failure,
-        predictions: [],
-        ...(debugInfo ? { debug: debugInfo } : {}),
-      }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return respond('request_done', {
+        ...failure, predictions: [], ...(debugInfo ? { debug: debugInfo } : {}),
+      }, 200, { outcome: 'ai_unavailable', code: failure.code, attempts: aiResult.attempts.length });
     }
 
     let predictions: any[] = [];
     try {
       predictions = extractJsonArrayStr(aiResult.text);
     } catch (err) {
-      console.error('Parse predictions failed:', err, aiResult.text.slice(0, 500));
-      return new Response(JSON.stringify({
+      slog(cid, 'parse_failed', { rawTextSample: aiResult.text.slice(0, 200), errorMessage: String(err) });
+      return respond('request_done', {
         ...buildAiFailure(aiResult.attempts, '事件預測結果解析失敗，已略過本次預測'),
         predictions: [],
         ...(debugInfo ? { debug: { ...debugInfo, rawTextSample: aiResult.text.slice(0, 500) } } : {}),
-      }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      }, 200, { outcome: 'parse_failed' });
     }
 
     // Write cache
@@ -513,20 +545,16 @@ ${eventsForPrompt}
       if (event?.id) setCachedPrediction(supabase, event.id, predictions[i]).catch(() => {});
     }
 
-    return new Response(JSON.stringify({
-      predictions,
-      ...(debugInfo ? { debug: debugInfo } : {}),
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return respond('request_done', {
+      predictions, ...(debugInfo ? { debug: debugInfo } : {}),
+    }, 200, { outcome: 'success', count: predictions.length });
   } catch (err) {
-    console.error('Predict events error:', err);
-    return new Response(JSON.stringify({
+    slog(cid, 'unhandled_error', { errorMessage: String(err) });
+    return respond('request_done', {
       ...buildAiFailure([], '事件預測服務暫時不可用，已略過本次預測'),
       predictions: [],
       detail: String(err),
-    }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    }, 200, { outcome: 'unhandled_error' });
   }
 });
+
