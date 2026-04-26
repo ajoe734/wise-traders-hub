@@ -4461,7 +4461,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                             >
                               <span style={{color:C.textMute,opacity:0.7}}>{ts}</span>
                               <span style={{color:C.textMute}}>
-                                {entry.source === 'calendar' ? '行事曆' : '事件預測'}
+                                {entry.source === 'calendar' ? '行事曆' : entry.source === 'predict' ? '事件預測' : entry.source === 'daily' ? '收盤分析' : entry.source}
                               </span>
                               <span style={{color:entry.trigger==='manual'?C.text:C.textMute,opacity:entry.trigger==='manual'?0.9:0.6}}>
                                 {entry.trigger === 'manual' ? '手動' : '自動'}
