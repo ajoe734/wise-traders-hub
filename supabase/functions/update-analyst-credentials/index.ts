@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
         email: newEmail,
         email_confirm: true,
       });
-      if (updErr) return json({ error: updErr.message }, 400);
+      if (updErr) return json({ error: translateAuthError(updErr.message) }, 400);
 
       await adminClient.from('audit_logs').insert({
         actor_id: caller.id,
