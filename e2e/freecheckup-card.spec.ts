@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type TestInfo } from '@playwright/test';
+import { gotoWithRetry, waitForStableBoundingBox } from './helpers/navigation';
 
 /**
  * Mobile QA — /free-checkup decision-workbench card
@@ -21,40 +22,7 @@ const ROUTE = '/free-checkup';
 // intentionally-truncated summary tiles.
 const CARD_SELECTOR = '.holdings-card-grid .wb-card';
 
-/**
- * Navigate with retry. The dev server occasionally stalls during the first
- * load (HMR boot, cold module graph), so a single transient `goto` timeout
- * shouldn't fail the test. We retry up to `maxAttempts` times with a short
- * backoff before bubbling the error.
- */
-async function gotoWithRetry(
-  page: Page,
-  url: string,
-  {
-    maxAttempts = 3,
-    perAttemptTimeout = 30_000,
-    waitUntil = 'domcontentloaded' as const,
-  } = {}
-) {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      await page.goto(url, { waitUntil, timeout: perAttemptTimeout });
-      return;
-    } catch (err) {
-      lastError = err;
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[gotoWithRetry] attempt ${attempt}/${maxAttempts} failed for ${url}: ${(err as Error).message}`
-      );
-      if (attempt === maxAttempts) break;
-      await page.waitForTimeout(1_000 * attempt);
-    }
-  }
-  throw lastError;
-}
-
-async function gotoFreeCheckup(page: Page) {
+async function gotoFreeCheckup(page: Page, testInfo?: TestInfo) {
   await page.addInitScript(() => {
     try {
       window.localStorage.setItem('checkup-demo-mode', '1');
@@ -64,10 +32,11 @@ async function gotoFreeCheckup(page: Page) {
   // long-lived HMR/websocket connections open which makes `networkidle`
   // flaky and prone to 60s timeouts. We rely on the explicit card selector
   // wait below to confirm the page is interactive.
-  await gotoWithRetry(page, ROUTE);
+  await gotoWithRetry(page, ROUTE, { testInfo });
   await page.waitForSelector(CARD_SELECTOR, { state: 'visible', timeout: 30_000 });
-  // Allow one rAF cycle for clamp() font-size to settle.
-  await page.waitForTimeout(250);
+  // Wait for the first card's geometry to stop shifting (clamp() font-size,
+  // sparkline mount) before any assertion / screenshot.
+  await waitForStableBoundingBox(page, CARD_SELECTOR);
 }
 
 /**
@@ -159,13 +128,13 @@ async function countGridColumns(
 }
 
 test.describe('FreeCheckup mobile card', () => {
-  test('cards never overflow ROI / TODAY / VALUE', async ({ page }) => {
-    await gotoFreeCheckup(page);
+  test('cards never overflow ROI / TODAY / VALUE', async ({ page }, testInfo) => {
+    await gotoFreeCheckup(page, testInfo);
     await assertNoOverflow(page, CARD_SELECTOR);
   });
 
   test('grid collapses to a single column at mobile widths', async ({ page }, testInfo) => {
-    await gotoFreeCheckup(page);
+    await gotoFreeCheckup(page, testInfo);
 
     // Need at least 2 cards for a meaningful column count.
     const cardCount = await page.locator(CARD_SELECTOR).count();
@@ -187,7 +156,7 @@ test.describe('FreeCheckup mobile card', () => {
   });
 
   test('first workbench card visual matches baseline', async ({ page }, testInfo) => {
-    await gotoFreeCheckup(page);
+    await gotoFreeCheckup(page, testInfo);
     const firstCard = page.locator(CARD_SELECTOR).first();
     await expect(firstCard).toBeVisible();
 
