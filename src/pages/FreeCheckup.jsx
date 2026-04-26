@@ -1057,7 +1057,7 @@ export default function App() {
     pushUpdateLog({ source:'predict', trigger, status:'fetching', key:batchKey, msg:`${needsPrediction.length} 件` });
     (async () => {
       try {
-        const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events`, {
+        const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events?debug=1`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1069,8 +1069,15 @@ export default function App() {
               stocks: e.stocks,
             })),
             holdings: holdings || [],
+            debug: true,
           }),
         });
+        // Try to parse body even on failure (it may carry debug attempts)
+        let data = null;
+        try { data = await res.json(); } catch { /* ignore */ }
+        if (data?.debug) {
+          setPredictLastDebug({ source: 'predict', at: new Date().toISOString(), httpStatus: res.status, ...data.debug });
+        }
         if (!res.ok) {
           console.error("Predict events failed:", res.status);
           needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
@@ -1081,8 +1088,7 @@ export default function App() {
           pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:`${label} (${res.status})` });
           return;
         }
-        const data = await res.json();
-        const preds = data.predictions || [];
+        const preds = data?.predictions || [];
 
         setNewsEvents(prev => {
           const arr = [...(prev || [])];
