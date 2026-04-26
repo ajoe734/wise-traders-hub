@@ -1088,24 +1088,24 @@ export default function App() {
     }
   }, [calendarEvents, ready]);
 
-  // 持倉變動時自動產生行事曆（僅在使用者主動上傳截圖導致持倉變化時才重新抓取）
+  // 持倉組合（代碼集合）變動時自動重新抓取行事曆
+  // 原本以 holdingsChangedByUserRef 旗標判斷僅在「截圖上傳」觸發，導致手動編輯/刪除/清空持倉時行事曆未跟著更新
+  // 改用 codes 字串比對 prevCodes，價格刷新不會觸發（codes 不變），但任何組合變動皆會觸發
   useEffect(() => {
     if (!ready) return;
-    const codes = (holdings || []).map(h => h.code).sort().join(",");
+    const codes = holdingsCodesKey;
     if (!codes) {
       setCalendarEvents([]);
       return;
     }
-    // 只有使用者主動操作（上傳截圖）導致持倉變化時才重新抓取
-    if (holdingsChangedByUserRef.current) {
+    const prevCodes = calendarEvents?._holdingCodes || "";
+    if (codes !== prevCodes) {
+      // 重置舊有的「使用者旗標」以保持向後相容（仍允許截圖路徑顯式設置）
       holdingsChangedByUserRef.current = false;
-      const prevCodes = calendarEvents?._holdingCodes || "";
-      if (codes !== prevCodes) {
-        // 持倉組合變了，帶入現有事件做合併
-        fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
-      }
+      fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
     }
-  }, [holdings, ready]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdingsCodesKey, ready]);
   const H = holdings || [];
 
   // ── Sparkline 載入：持倉變動時，僅補抓還沒快取的代碼 ──
