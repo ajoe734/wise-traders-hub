@@ -17,9 +17,21 @@ const GATEWAY_MODELS = [
 
 /* ── AI caller ── */
 
-async function callAI(system: string, user: string, maxTokens = 4096): Promise<string> {
+export type AiAttempt = {
+  path: 'gateway' | 'gemini-direct';
+  model: string;
+  status?: number;
+  ok: boolean;
+  errorBody?: string;
+  errorMessage?: string;
+};
+
+export type AiResult = { text: string; attempts: AiAttempt[]; succeededWith?: AiAttempt };
+
+async function callAI(system: string, user: string, maxTokens = 4096): Promise<AiResult> {
   const lovableKey = Deno.env.get('LOVABLE_API_KEY');
   const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+  const attempts: AiAttempt[] = [];
   const messages = [
     ...(system ? [{ role: 'system', content: system }] : []),
     { role: 'user', content: user },
@@ -27,23 +39,42 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<s
 
   if (lovableKey) {
     for (const model of GATEWAY_MODELS) {
+      const attempt: AiAttempt = { path: 'gateway', model, ok: false };
       try {
         const response = await fetch(GATEWAY_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${lovableKey}` },
           body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens }),
         });
-        if (response.status === 429) { console.log(`Gateway ${model} rate limited`); continue; }
-        if (!response.ok) { console.error(`Gateway ${model} failed (${response.status})`); continue; }
+        attempt.status = response.status;
+        if (!response.ok) {
+          attempt.errorBody = (await response.text()).slice(0, 300);
+          console.error(`Gateway ${model} failed (${response.status}): ${attempt.errorBody}`);
+          attempts.push(attempt);
+          continue;
+        }
         const data = await response.json();
         const text = data.choices?.[0]?.message?.content?.trim();
-        if (text) return text;
-      } catch (err) { console.error(`Gateway ${model} error:`, err); }
+        if (text) {
+          attempt.ok = true;
+          attempts.push(attempt);
+          return { text, attempts, succeededWith: attempt };
+        }
+        attempt.errorMessage = 'empty content';
+        attempts.push(attempt);
+      } catch (err) {
+        attempt.errorMessage = String(err);
+        console.error(`Gateway ${model} error:`, err);
+        attempts.push(attempt);
+      }
     }
+  } else {
+    attempts.push({ path: 'gateway', model: '(none)', ok: false, errorMessage: 'LOVABLE_API_KEY not set' });
   }
 
   if (geminiKey) {
     for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
+      const attempt: AiAttempt = { path: 'gemini-direct', model, ok: false };
       try {
         const body: any = {
           contents: [{ role: 'user', parts: [{ text: user }] }],
@@ -54,27 +85,33 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<s
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
         );
+        attempt.status = response.status;
         if (!response.ok) {
-          const errText = await response.text();
-          console.error(`Gemini direct ${model} failed (${response.status}): ${errText.slice(0, 200)}`);
+          attempt.errorBody = (await response.text()).slice(0, 300);
+          console.error(`Gemini direct ${model} failed (${response.status}): ${attempt.errorBody}`);
+          attempts.push(attempt);
           continue;
         }
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
         if (text) {
+          attempt.ok = true;
+          attempts.push(attempt);
           console.log(`Gemini direct ${model} succeeded`);
-          return text;
+          return { text, attempts, succeededWith: attempt };
         }
-        console.error(`Gemini direct ${model} returned empty text`);
+        attempt.errorMessage = 'empty content';
+        attempts.push(attempt);
       } catch (err) {
-        console.error(`Gemini direct ${model} error:`, err);
+        attempt.errorMessage = String(err);
+        attempts.push(attempt);
       }
     }
   } else {
-    console.error('GOOGLE_GEMINI_API_KEY not set; cannot fallback');
+    attempts.push({ path: 'gemini-direct', model: '(none)', ok: false, errorMessage: 'GOOGLE_GEMINI_API_KEY not set' });
   }
 
-  return '';
+  return { text: '', attempts };
 }
 
 /* ── helpers ── */
@@ -259,7 +296,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { events, holdings } = await req.json();
+    const { events, holdings, debug } = await req.json();
+    const url = new URL(req.url);
+    const debugMode = debug === true || url.searchParams.get('debug') === '1';
     if (!events || !Array.isArray(events) || events.length === 0) {
       return new Response(JSON.stringify({ error: 'Missing events array' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -342,20 +381,27 @@ ${eventsForPrompt}
 - predReason 必須具體，引用數據
 - 只輸出 JSON 陣列`;
 
-    const resultText = await callAI(systemPrompt, userPrompt, 4096);
+    const aiResult = await callAI(systemPrompt, userPrompt, 4096);
+    const debugInfo = debugMode ? { attempts: aiResult.attempts, succeededWith: aiResult.succeededWith } : undefined;
 
-    if (!resultText) {
-      return new Response(JSON.stringify({ error: '預測失敗，所有模型均無法使用' }), {
+    if (!aiResult.text) {
+      return new Response(JSON.stringify({
+        error: '預測失敗，所有模型均無法使用',
+        ...(debugInfo ? { debug: debugInfo } : {}),
+      }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     let predictions: any[] = [];
     try {
-      predictions = extractJsonArrayStr(resultText);
+      predictions = extractJsonArrayStr(aiResult.text);
     } catch (err) {
-      console.error('Parse predictions failed:', err, resultText.slice(0, 500));
-      return new Response(JSON.stringify({ error: '預測結果解析失敗' }), {
+      console.error('Parse predictions failed:', err, aiResult.text.slice(0, 500));
+      return new Response(JSON.stringify({
+        error: '預測結果解析失敗',
+        ...(debugInfo ? { debug: { ...debugInfo, rawTextSample: aiResult.text.slice(0, 500) } } : {}),
+      }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -366,7 +412,10 @@ ${eventsForPrompt}
       if (event?.id) setCachedPrediction(supabase, event.id, predictions[i]).catch(() => {});
     }
 
-    return new Response(JSON.stringify({ predictions }), {
+    return new Response(JSON.stringify({
+      predictions,
+      ...(debugInfo ? { debug: debugInfo } : {}),
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
