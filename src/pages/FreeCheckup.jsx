@@ -1442,8 +1442,13 @@ export default function App() {
     try {
       const codes = H.map(h => h.code);
       if (codes.length === 0) { setRefreshing(false); return; }
-      // 同時嘗試上市(tse)和上櫃(otc)，API 只會回傳有效的
-      const queries = codes.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]);
+      // 同時嘗試上市(tse)、上櫃/興櫃(otc)、權證/盤後(oa/ob)
+      // 興櫃部分代碼 MIS 端會用 otc_ 通道；權證 6 碼以 oa_ 試
+      const queries = codes.flatMap(c => {
+        const base = [`tse_${c}.tw`, `otc_${c}.tw`];
+        if (c.length >= 6) base.push(`oa_${c}.tw`);
+        return base;
+      });
       const exCh = queries.join('|');
       const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
       const res = await fetch(url);
@@ -1525,7 +1530,11 @@ export default function App() {
       // 1. 取得最新股價
       const codes = H.map(h => h.code);
       if (codes.length === 0) { setAnalyzing(false); return; }
-      const queries = codes.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]);
+      const queries = codes.flatMap(c => {
+        const base = [`tse_${c}.tw`, `otc_${c}.tw`];
+        if (c.length >= 6) base.push(`oa_${c}.tw`);
+        return base;
+      });
       const exCh = queries.join('|');
       const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
       const res = await fetch(url);
@@ -2069,6 +2078,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           setSaved("✅ 成交已更新到持倉與記錄");
           incrementUploadCount(); // 記錄今日上傳次數
           setTimeout(() => setSaved(""), 2500);
+          // ✨ 解析成功後自動拉一次 TWSE 即時報價，避免依賴截圖內 market_price
+          // 重置冷卻避免被擋
+          try {
+            setLastUpdate(null);
+            setTimeout(() => { refreshPrices().catch(() => {}); }, 600);
+          } catch (e) { console.warn('auto-refresh after parse failed:', e); }
         }
         setParsing(false);
         return; // 成功，直接返回
