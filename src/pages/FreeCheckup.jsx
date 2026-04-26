@@ -4099,7 +4099,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {[
                           { label: '事件預測', dbg: predictLastDebug },
                           { label: '行事曆', dbg: calendarLastDebug },
-                        ].filter(x => x.dbg).map(({ label, dbg }) => (
+                        ].filter(x => x.dbg).map(({ label, dbg }) => {
+                          const suggestion = deriveSuggestion(dbg.attempts || []);
+                          // 統計各分類數量
+                          const buckets = {};
+                          (dbg.attempts || []).forEach(a => {
+                            const k = classifyAttempt(a);
+                            if (k.kind === 'ok') return;
+                            buckets[k.label] = (buckets[k.label] || 0) + 1;
+                          });
+                          const bucketEntries = Object.entries(buckets);
+                          return (
                           <div key={label} style={{marginTop:8}}>
                             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.textMute,marginBottom:4}}>
                               <span style={{fontWeight:500,color:C.text}}>{label}</span>
@@ -4112,14 +4122,34 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                                 ✓ 成功：{dbg.succeededWith.path} / {dbg.succeededWith.model}
                               </div>
                             )}
+                            {/* 分類 chips */}
+                            {bucketEntries.length > 0 && (
+                              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:4}}>
+                                {bucketEntries.map(([lbl, cnt]) => (
+                                  <span key={lbl} style={{
+                                    fontSize:10,padding:"2px 6px",borderRadius:10,
+                                    background:alpha(C.textMute,'10'),color:C.textMute,
+                                  }}>{lbl} ×{cnt}</span>
+                                ))}
+                              </div>
+                            )}
+                            {/* 建議 */}
+                            {suggestion && (
+                              <div style={{
+                                fontSize:10,padding:"5px 8px",borderRadius:4,marginBottom:6,
+                                background:alpha(suggestion.tone === 'amber' ? C.amber : C.down, '10'),
+                                color: suggestion.tone === 'amber' ? C.amber : C.down,
+                                lineHeight:1.5,
+                              }}>{suggestion.text}</div>
+                            )}
                             <div style={{display:"flex",flexDirection:"column",gap:3}}>
                               {(dbg.attempts || []).map((a, i) => {
-                                const ok = a.ok;
-                                const statusColor = ok ? C.up : (a.status === 402 || a.status === 429 ? C.amber : C.down);
+                                const cls = classifyAttempt(a);
+                                const statusColor = cls.tone === 'up' ? C.up : (cls.tone === 'amber' ? C.amber : C.down);
                                 return (
                                   <div key={i} style={{
                                     display:"grid",
-                                    gridTemplateColumns:"auto auto 1fr",
+                                    gridTemplateColumns:"auto auto auto 1fr",
                                     gap:6,alignItems:"start",
                                     padding:"4px 6px",
                                     borderRadius:4,
@@ -4128,20 +4158,24 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                                     fontSize:10,
                                   }}>
                                     <span style={{color:statusColor,fontWeight:600}}>
-                                      {ok ? '✓' : '✕'} {a.status ?? '—'}
+                                      {a.ok ? '✓' : '✕'} {a.status ?? '—'}
+                                    </span>
+                                    <span style={{color:statusColor,opacity:0.85,whiteSpace:"nowrap"}}>
+                                      {cls.label}
                                     </span>
                                     <span style={{color:C.textMute}}>
                                       {a.path === 'gateway' ? 'Gateway' : '直連'} · {a.model}
                                     </span>
                                     <span style={{color:C.textMute,opacity:0.85,wordBreak:"break-word"}}>
-                                      {a.errorBody || a.errorMessage || (ok ? '' : '—')}
+                                      {a.errorBody || a.errorMessage || (a.ok ? '' : '—')}
                                     </span>
                                   </div>
                                 );
                               })}
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
