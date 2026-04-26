@@ -3448,7 +3448,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{padding:'18px 22px 24px'}}>
                     {/* Header */}
                     <div style={{marginBottom:18}}>
-                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',marginBottom:6,fontWeight:500}}>HOLDING DETAIL</div>
+                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.12em',marginBottom:6,fontWeight:500}}>持倉細節</div>
                       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
                         <span style={{fontSize:11,color:WB.inkMute,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
                         <span style={{fontSize:18,fontWeight:500,color:WB.ink,letterSpacing:'-0.005em'}}>{h.name}</span>
