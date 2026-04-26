@@ -385,16 +385,18 @@ ${outputFormat}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
 
+  const cid = getCid(req);
+  const startedAt = Date.now();
+  const responseHeaders = { ...corsHeaders, 'Content-Type': 'application/json', 'x-correlation-id': cid };
+  const respond = (body: Record<string, unknown>, status = 200, logFields: Record<string, unknown> = {}) => {
+    slog(cid, 'request_done', { status, durationMs: Date.now() - startedAt, ...logFields });
+    return new Response(JSON.stringify({ cid, ...body }), { status, headers: responseHeaders });
+  };
+
+  if (req.method !== 'POST') return respond({ error: 'Method not allowed' }, 405, { reason: 'method_not_allowed' });
   if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
-    return new Response(JSON.stringify({ error: 'AI API key 未設定' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return respond({ error: 'AI API key 未設定' }, 500, { reason: 'no_ai_key' });
   }
 
   try {
@@ -402,11 +404,8 @@ Deno.serve(async (req) => {
     const { stocks, today, endDate, debug } = body;
     const url = new URL(req.url);
     const debugMode = debug === true || url.searchParams.get('debug') === '1';
-    if (!stocks) {
-      return new Response(JSON.stringify({ error: 'Missing stocks parameter' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    slog(cid, 'request_start', { stocksLen: typeof stocks === 'string' ? stocks.length : 0, debugMode });
+    if (!stocks) return respond({ error: 'Missing stocks parameter' }, 400, { reason: 'bad_request' });
 
     const currentYear = new Date().getFullYear();
     const nextYear = currentYear + 1;
@@ -419,13 +418,11 @@ Deno.serve(async (req) => {
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、權證
 - 按日期由近到遠排序`;
 
-    // Fetch news context via RSS
-    console.log('Calendar: fetching news context via RSS...');
+    slog(cid, 'rss_fetch_start', {});
     const newsContext = await fetchNewsContext(stocks);
-    console.log(`Calendar: got ${newsContext.split('\n').length} news items`);
+    slog(cid, 'rss_fetch_done', { itemsLines: newsContext.split('\n').length });
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat, newsContext);
-
     const todayIso = new Date().toISOString().split('T')[0];
     const systemPrompt = `你是一位頂級 AI 財經分析師，精通台股市場。今天是 ${todayIso}（西元 ${new Date().getFullYear()} 年）。你會根據提供的即時新聞資訊和你的知識，整理出未來事件行事曆。
 重要：
@@ -434,49 +431,36 @@ Deno.serve(async (req) => {
 只輸出 JSON 陣列。`;
 
     const result = await callAI(systemPrompt, prompt, 8192);
-    const debugInfo = debugMode ? { attempts: result.attempts, succeededWith: result.succeededWith } : undefined;
+    const debugInfo = debugMode ? { cid, attempts: result.attempts, succeededWith: result.succeededWith } : undefined;
 
     if (result.ok && result.text) {
       const events = tryParseEvents(result.text);
       if (events) {
-        console.log(`Calendar: succeeded, ${events.length} events`);
-        return new Response(
-          JSON.stringify({
-            text: JSON.stringify(events),
-            response: JSON.stringify(events),
-            ...(debugInfo ? { debug: debugInfo } : {}),
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
+        return respond({
+          text: JSON.stringify(events),
+          response: JSON.stringify(events),
+          ...(debugInfo ? { debug: debugInfo } : {}),
+        }, 200, { outcome: 'success', count: events.length });
       }
-      console.error('Calendar: parse failed. First 500:', result.text.slice(0, 500));
-      return new Response(JSON.stringify({
+      return respond({
         ...buildAiFailure(result.attempts, '行事曆結果解析失敗，已略過本次搜尋'),
-        text: '[]',
-        response: '[]',
+        text: '[]', response: '[]',
         ...(debugInfo ? { debug: { ...debugInfo, parseFailed: true, rawTextSample: result.text.slice(0, 500) } } : {}),
-      }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      }, 200, { outcome: 'parse_failed' });
     }
 
-    return new Response(JSON.stringify({
+    return respond({
       ...buildAiFailure(result.attempts, '行事曆事件暫時不可用，已略過本次搜尋'),
-      text: '[]',
-      response: '[]',
+      text: '[]', response: '[]',
       ...(debugInfo ? { debug: debugInfo } : {}),
-    }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    }, 200, { outcome: 'ai_unavailable', attempts: result.attempts.length });
   } catch (err) {
-    console.error('Calendar error:', err);
-    return new Response(JSON.stringify({
+    slog(cid, 'unhandled_error', { errorMessage: String(err) });
+    return respond({
       ...buildAiFailure([], '行事曆搜尋服務暫時不可用，已略過本次搜尋'),
-      text: '[]',
-      response: '[]',
+      text: '[]', response: '[]',
       detail: (err as Error).message,
-    }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    }, 200, { outcome: 'unhandled_error' });
   }
+});
 });
