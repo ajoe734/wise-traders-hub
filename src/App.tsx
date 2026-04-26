@@ -205,10 +205,22 @@ const AppShell = () => (
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+  </AuthProvider>
+);
+
+const App = () => (
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    {persistOptions ? (
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+        <AppShell />
+      </PersistQueryClientProvider>
+    ) : (
+      <QueryClientProvider client={queryClient}>
+        <AppShell />
+      </QueryClientProvider>
+    )}
   </ThemeProvider>
 );
 
