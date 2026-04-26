@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+// Note: 'google/gemini-2.0-flash' is deprecated on the Gateway. Use only supported models.
 const GATEWAY_MODELS = [
   'google/gemini-3-flash-preview',
   'google/gemini-2.5-flash',
@@ -42,7 +43,7 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<s
   }
 
   if (geminiKey) {
-    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite']) {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
       try {
         const body: any = {
           contents: [{ role: 'user', parts: [{ text: user }] }],
@@ -53,13 +54,24 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<s
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
         );
-        if (response.status === 429 || response.status === 503) continue;
-        if (!response.ok) continue;
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error(`Gemini direct ${model} failed (${response.status}): ${errText.slice(0, 200)}`);
+          continue;
+        }
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
-        if (text) return text;
-      } catch {}
+        if (text) {
+          console.log(`Gemini direct ${model} succeeded`);
+          return text;
+        }
+        console.error(`Gemini direct ${model} returned empty text`);
+      } catch (err) {
+        console.error(`Gemini direct ${model} error:`, err);
+      }
     }
+  } else {
+    console.error('GOOGLE_GEMINI_API_KEY not set; cannot fallback');
   }
 
   return '';
