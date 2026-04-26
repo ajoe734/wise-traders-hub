@@ -381,20 +381,27 @@ ${eventsForPrompt}
 - predReason 必須具體，引用數據
 - 只輸出 JSON 陣列`;
 
-    const resultText = await callAI(systemPrompt, userPrompt, 4096);
+    const aiResult = await callAI(systemPrompt, userPrompt, 4096);
+    const debugInfo = debugMode ? { attempts: aiResult.attempts, succeededWith: aiResult.succeededWith } : undefined;
 
-    if (!resultText) {
-      return new Response(JSON.stringify({ error: '預測失敗，所有模型均無法使用' }), {
+    if (!aiResult.text) {
+      return new Response(JSON.stringify({
+        error: '預測失敗，所有模型均無法使用',
+        ...(debugInfo ? { debug: debugInfo } : {}),
+      }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     let predictions: any[] = [];
     try {
-      predictions = extractJsonArrayStr(resultText);
+      predictions = extractJsonArrayStr(aiResult.text);
     } catch (err) {
-      console.error('Parse predictions failed:', err, resultText.slice(0, 500));
-      return new Response(JSON.stringify({ error: '預測結果解析失敗' }), {
+      console.error('Parse predictions failed:', err, aiResult.text.slice(0, 500));
+      return new Response(JSON.stringify({
+        error: '預測結果解析失敗',
+        ...(debugInfo ? { debug: { ...debugInfo, rawTextSample: aiResult.text.slice(0, 500) } } : {}),
+      }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -405,7 +412,10 @@ ${eventsForPrompt}
       if (event?.id) setCachedPrediction(supabase, event.id, predictions[i]).catch(() => {});
     }
 
-    return new Response(JSON.stringify({ predictions }), {
+    return new Response(JSON.stringify({
+      predictions,
+      ...(debugInfo ? { debug: debugInfo } : {}),
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
