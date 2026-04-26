@@ -88,23 +88,27 @@ async function callAI(system: string, user: string, maxTokens = 4096, cid = 'cid
         if (text) {
           attempt.ok = true;
           attempts.push(attempt);
+          slog(cid, 'ai_attempt', { path: 'gateway', model, ok: true, status: response.status, durationMs: Date.now() - startedAt });
           return { text, attempts, succeededWith: attempt };
         }
         attempt.errorMessage = 'empty content';
         attempts.push(attempt);
+        slog(cid, 'ai_attempt', { path: 'gateway', model, ok: false, status: response.status, durationMs: Date.now() - startedAt, errorMessage: 'empty content' });
       } catch (err) {
         attempt.errorMessage = String(err);
-        console.error(`Gateway ${model} error:`, err);
         attempts.push(attempt);
+        slog(cid, 'ai_attempt', { path: 'gateway', model, ok: false, durationMs: Date.now() - startedAt, errorMessage: String(err) });
       }
     }
   } else {
     attempts.push({ path: 'gateway', model: '(none)', ok: false, errorMessage: 'LOVABLE_API_KEY not set' });
+    slog(cid, 'ai_skip', { path: 'gateway', reason: 'LOVABLE_API_KEY not set' });
   }
 
   if (geminiKey) {
     for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
       const attempt: AiAttempt = { path: 'gemini-direct', model, ok: false };
+      const startedAt = Date.now();
       try {
         const body: any = {
           contents: [{ role: 'user', parts: [{ text: user }] }],
@@ -118,8 +122,8 @@ async function callAI(system: string, user: string, maxTokens = 4096, cid = 'cid
         attempt.status = response.status;
         if (!response.ok) {
           attempt.errorBody = (await response.text()).slice(0, 300);
-          console.error(`Gemini direct ${model} failed (${response.status}): ${attempt.errorBody}`);
           attempts.push(attempt);
+          slog(cid, 'ai_attempt', { path: 'gemini-direct', model, ok: false, status: response.status, durationMs: Date.now() - startedAt, errorBody: attempt.errorBody });
           continue;
         }
         const data = await response.json();
@@ -127,18 +131,21 @@ async function callAI(system: string, user: string, maxTokens = 4096, cid = 'cid
         if (text) {
           attempt.ok = true;
           attempts.push(attempt);
-          console.log(`Gemini direct ${model} succeeded`);
+          slog(cid, 'ai_attempt', { path: 'gemini-direct', model, ok: true, status: response.status, durationMs: Date.now() - startedAt });
           return { text, attempts, succeededWith: attempt };
         }
         attempt.errorMessage = 'empty content';
         attempts.push(attempt);
+        slog(cid, 'ai_attempt', { path: 'gemini-direct', model, ok: false, status: response.status, durationMs: Date.now() - startedAt, errorMessage: 'empty content' });
       } catch (err) {
         attempt.errorMessage = String(err);
         attempts.push(attempt);
+        slog(cid, 'ai_attempt', { path: 'gemini-direct', model, ok: false, durationMs: Date.now() - startedAt, errorMessage: String(err) });
       }
     }
   } else {
     attempts.push({ path: 'gemini-direct', model: '(none)', ok: false, errorMessage: 'GOOGLE_GEMINI_API_KEY not set' });
+    slog(cid, 'ai_skip', { path: 'gemini-direct', reason: 'GOOGLE_GEMINI_API_KEY not set' });
   }
 
   return { text: '', attempts };
