@@ -7,7 +7,9 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-const MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
+// Pro 模型先行：高密度截圖（20+ 持倉）需要 Vision + 大 token
+const MODELS = ['google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
+const MAX_TOKENS = 8192;
 
 async function callVision(apiKey: string, model: string, systemPrompt: string, base64: string, mediaType: string): Promise<{ ok: boolean; text: string; status: number }> {
   try {
