@@ -546,9 +546,27 @@ export default function App() {
   const [predictLastError, setPredictLastError] = useState(null);
   // 收盤分析錯誤：{ code, message, cid, opStartedAt, httpStatus, at }
   const [dailyLastError, setDailyLastError] = useState(null);
+  const dailyLastErrorRef = useRef(null);
+  useEffect(() => { dailyLastErrorRef.current = dailyLastError; }, [dailyLastError]);
   // 重試按鈕的瞬時鎖定：點擊後立即為 true，避免在 setAnalyzing 尚未 flush 前重複送出
   const [dailyRetryLocked, setDailyRetryLocked] = useState(false);
   const dailyRetryLockRef = useRef(false);
+  // 重試時間軸：每次點擊重試都會新增一筆 { id, attempt, cid, startedAt, endedAt, durationMs, success, code, message, httpStatus }
+  const [dailyRetryHistory, setDailyRetryHistory] = useState([]);
+  const dailyRetryAttemptRef = useRef(0);
+  // 重試後自動展開錯誤摘要：每次重試結束後遞增，觸發 UI 滾動聚焦
+  const [dailyErrorFocusKey, setDailyErrorFocusKey] = useState(0);
+  const dailyErrorRef = useRef(null);
+  // 重試結束後，若仍有錯誤則自動滾動聚焦於錯誤摘要卡
+  useEffect(() => {
+    if (!dailyErrorFocusKey) return;
+    if (!dailyLastError) return;
+    const el = dailyErrorRef.current;
+    if (el && typeof el.scrollIntoView === 'function') {
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyErrorFocusKey]);
   // AI 模型嘗試紀錄（debug）：{ source, at, attempts: [{path, model, status, ok, errorBody, errorMessage}], succeededWith }
   const [calendarLastDebug, setCalendarLastDebug] = useState(null);
   const [predictLastDebug, setPredictLastDebug] = useState(null);
@@ -1757,7 +1775,8 @@ export default function App() {
     }
     // 產生 correlation id 與紀錄使用者操作起始時間
     const cid = `daily_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const opStartedAt = new Date().toISOString();
+    const opStartedAtMs = Date.now();
+    const opStartedAt = new Date(opStartedAtMs).toISOString();
     setDailyLastError(null);
     setAnalyzing(true);
     setAnalyzeStep("取得即時股價...");
@@ -1959,7 +1978,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
                      : aiRes.status === 429 ? 'AI_RATE_LIMITED'
                      : aiRes.status === 401 ? 'AI_AUTH_FAILED'
                      : `HTTP_${aiRes.status}`;
-          const errInfo = { code, message: errBody.slice(0, 240) || `HTTP ${aiRes.status}`, cid, opStartedAt, httpStatus: aiRes.status, at: new Date().toISOString() };
+          const errInfo = { code, message: errBody.slice(0, 240) || `HTTP ${aiRes.status}`, cid, opStartedAt, opStartedAtMs, httpStatus: aiRes.status, at: new Date().toISOString() };
           setDailyLastError(errInfo);
           pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code} (${aiRes.status})` });
           console.error("[daily] AI 分析失敗", errInfo);
@@ -1967,7 +1986,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
           const aiData = await aiRes.json();
           if (aiData?.fallback) {
             const code = aiData.code || 'AI_FALLBACK';
-            const errInfo = { code, message: String(aiData.error || '').slice(0, 240) || code, cid, opStartedAt, httpStatus: 200, at: new Date().toISOString() };
+            const errInfo = { code, message: String(aiData.error || '').slice(0, 240) || code, cid, opStartedAt, opStartedAtMs, httpStatus: 200, at: new Date().toISOString() };
             setDailyLastError(errInfo);
             pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`fallback ${code}` });
             console.error("[daily] AI fallback", errInfo);
@@ -1977,7 +1996,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
         }
       } catch (e) {
         const code = e?.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR';
-        const errInfo = { code, message: String(e?.message || e).slice(0, 240), cid, opStartedAt, httpStatus: 0, at: new Date().toISOString() };
+        const errInfo = { code, message: String(e?.message || e).slice(0, 240), cid, opStartedAt, opStartedAtMs, httpStatus: 0, at: new Date().toISOString() };
         setDailyLastError(errInfo);
         pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code}` });
         console.error("[daily] AI 分析例外", errInfo);
@@ -2057,7 +2076,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       }
     } catch (err) {
       const code = err?.name === 'AbortError' ? 'TIMEOUT' : 'PIPELINE_ERROR';
-      const errInfo = { code, message: String(err?.message || err).slice(0, 240), cid, opStartedAt, httpStatus: 0, at: new Date().toISOString() };
+      const errInfo = { code, message: String(err?.message || err).slice(0, 240), cid, opStartedAt, opStartedAtMs, httpStatus: 0, at: new Date().toISOString() };
       setDailyLastError(errInfo);
       pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code}` });
       console.error("[daily] 收盤分析失敗", errInfo);
@@ -2069,15 +2088,52 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   };
 
   // 重試按鈕：點擊瞬間鎖定，避免重複送出；無論成功失敗都會在 finally 解鎖
+  // 同時記錄重試時間軸（開始/結束/結果）並在結束後自動展開錯誤摘要
   const handleDailyRetry = async () => {
     if (dailyRetryLockRef.current || analyzing) return;
     dailyRetryLockRef.current = true;
     setDailyRetryLocked(true);
+    const attempt = ++dailyRetryAttemptRef.current;
+    const startedAt = Date.now();
+    const entryId = `retry_${startedAt.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    // 先寫入「進行中」狀態
+    setDailyRetryHistory(prev => [{
+      id: entryId, attempt, startedAt, endedAt: null, durationMs: null,
+      success: null, cid: null, code: null, message: null, httpStatus: null,
+    }, ...prev].slice(0, 20));
+    pushUpdateLog({ source:'daily', trigger:'retry', status:'fetching', key:`#${attempt}`, msg:`重試開始 (第 ${attempt} 次)` });
+    setUpdateLogOpen(true);
+    let succeeded = false;
     try {
       await runDailyAnalysis();
+      succeeded = !dailyLastErrorRef.current;
     } finally {
+      const endedAt = Date.now();
+      const last = dailyLastErrorRef.current;
+      const finalSuccess = !last || (last && last.cid && last.opStartedAtMs && last.opStartedAtMs < startedAt);
+      setDailyRetryHistory(prev => prev.map(r => r.id === entryId ? {
+        ...r,
+        endedAt,
+        durationMs: endedAt - startedAt,
+        success: finalSuccess,
+        cid: last?.cid ?? null,
+        code: last?.code ?? null,
+        message: last?.message ?? null,
+        httpStatus: last?.httpStatus ?? null,
+      } : r));
+      pushUpdateLog({
+        source:'daily',
+        trigger:'retry',
+        status: finalSuccess ? 'success' : 'error',
+        key:`#${attempt}`,
+        msg: finalSuccess
+          ? `重試成功（${endedAt - startedAt}ms）`
+          : `重試失敗 ${last?.code || 'UNKNOWN'}（${endedAt - startedAt}ms）`,
+      });
       dailyRetryLockRef.current = false;
       setDailyRetryLocked(false);
+      // 觸發錯誤摘要自動聚焦
+      setDailyErrorFocusKey(k => k + 1);
     }
   };
 
@@ -4406,10 +4462,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                             >
                               <span style={{color:C.textMute,opacity:0.7}}>{ts}</span>
                               <span style={{color:C.textMute}}>
-                                {entry.source === 'calendar' ? '行事曆' : '事件預測'}
+                                {entry.source === 'calendar' ? '行事曆' : entry.source === 'predict' ? '事件預測' : entry.source === 'daily' ? '收盤分析' : entry.source}
                               </span>
                               <span style={{color:entry.trigger==='manual'?C.text:C.textMute,opacity:entry.trigger==='manual'?0.9:0.6}}>
-                                {entry.trigger === 'manual' ? '手動' : '自動'}
+                                {entry.trigger === 'manual' ? '手動' : entry.trigger === 'retry' ? '重試' : '自動'}
                               </span>
                               <span style={{display:"flex",gap:6,minWidth:0}}>
                                 <span style={{color:sc,fontWeight:500,whiteSpace:"nowrap"}}>{entry.status}</span>
@@ -4538,13 +4594,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             )}
 
           {dailyLastError && !analyzing && (
-            <div style={{
+            <div ref={dailyErrorRef} style={{
               margin:"0 0 14px",padding:"14px 16px",borderRadius:8,
               border:`1px solid ${alpha(C.down,'30')}`,
               background:alpha(C.down,'06'),
             }}>
-              <div style={{fontSize:12,color:C.down,fontWeight:500,marginBottom:6,letterSpacing:"0.04em"}}>
-                ⚠ 收盤分析失敗
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6}}>
+                <div style={{fontSize:12,color:C.down,fontWeight:500,letterSpacing:"0.04em"}}>
+                  ⚠ 收盤分析失敗
+                </div>
+                {dailyRetryHistory.length > 0 && (
+                  <div style={{fontSize:10,color:C.textMute,fontWeight:400,opacity:0.8,letterSpacing:"0.04em"}}>
+                    已重試 {dailyRetryHistory.length} 次
+                  </div>
+                )}
               </div>
               <div style={{fontSize:12,color:C.textSec,lineHeight:1.7,fontWeight:400}}>
                 錯誤代碼：<code style={{fontSize:11,color:C.text}}>{dailyLastError.code}</code><br/>
@@ -4580,6 +4643,56 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   關閉
                 </button>
               </div>
+              {dailyRetryHistory.length > 0 && (
+                <div style={{
+                  marginTop:14,paddingTop:12,
+                  borderTop:`1px dashed ${alpha(C.textMute,'20')}`,
+                }}>
+                  <div style={{fontSize:10,color:C.textMute,fontWeight:500,letterSpacing:"0.06em",marginBottom:8,opacity:0.7}}>
+                    重試時間軸
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {dailyRetryHistory.map((r) => {
+                      const inProgress = r.endedAt == null;
+                      const dotColor = inProgress ? C.amber : (r.success ? C.up : C.down);
+                      const startStr = new Date(r.startedAt).toLocaleTimeString('zh-TW',{hour12:false});
+                      const endStr = r.endedAt ? new Date(r.endedAt).toLocaleTimeString('zh-TW',{hour12:false}) : '—';
+                      const dur = r.durationMs != null ? `${(r.durationMs/1000).toFixed(1)}s` : '進行中';
+                      const statusLabel = inProgress ? '進行中' : (r.success ? '成功' : '失敗');
+                      return (
+                        <div key={r.id} style={{
+                          display:"grid",
+                          gridTemplateColumns:"10px 50px 1fr",
+                          gap:8,alignItems:"start",
+                          fontSize:10,fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",
+                          lineHeight:1.5,
+                        }}>
+                          <span style={{
+                            display:"inline-block",width:8,height:8,borderRadius:"50%",
+                            background:dotColor,marginTop:4,
+                          }} />
+                          <span style={{color:C.textMute,opacity:0.8}}>#{r.attempt}</span>
+                          <div style={{minWidth:0}}>
+                            <div style={{color:C.textSec}}>
+                              <span style={{color:dotColor,fontWeight:500}}>{statusLabel}</span>
+                              <span style={{color:C.textMute,opacity:0.7,marginLeft:6}}>
+                                {startStr} → {endStr}（{dur}）
+                              </span>
+                            </div>
+                            {!inProgress && !r.success && (
+                              <div style={{color:C.textMute,opacity:0.75,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                                {r.code || 'UNKNOWN'}
+                                {r.httpStatus ? ` · HTTP ${r.httpStatus}` : ''}
+                                {r.cid ? ` · cid:${String(r.cid).slice(0,18)}` : ''}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
