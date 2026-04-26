@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,12 +45,20 @@ Deno.serve(async (req) => {
 
     if (req.method === 'POST') {
       const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
-      const { action, data } = await req.json();
-      if (action !== 'capture-diagnostics') {
-        return new Response(JSON.stringify({ error: '未知 action' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      let body: any = {};
+      try { body = await req.json(); } catch { body = {}; }
+
+      const issues = validateInput({
+        fields: {
+          action: { required: true, type: 'string', oneOf: ['capture-diagnostics'], label: 'action' },
+          data: { required: true, type: 'object', label: 'data' },
+        },
+        source: body,
+      });
+      if (issues.length) return validationResponse(issues, corsHeaders);
+
+      const { action, data } = body;
+
 
       const incoming = (data?.entries || []).map(normalizeEntry).filter(Boolean);
       const { data: existing } = await supabase

@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,12 +16,14 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const exCh = url.searchParams.get('ex_ch');
 
-    if (!exCh) {
-      return new Response(JSON.stringify({ error: '缺少 ex_ch 參數' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const issues = validateInput({
+      fields: {
+        ex_ch: { required: true, type: 'string', minLength: 3, label: 'ex_ch（如 tse_2330.tw）' },
+      },
+      source: { ex_ch: exCh },
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
 
     // 只用 MIS 即時報價 API（對齊 Python 腳本）
     const ts = Date.now();

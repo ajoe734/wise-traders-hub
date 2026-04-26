@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -89,8 +90,28 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
     const { action, code, name, holdings, brain, dossier, researchHistory } = body;
+
+    const ACTIONS = ['deep-research', 'system-review', 'get-history'];
+    if (!action || !ACTIONS.includes(action)) {
+      return validationResponse(
+        [{ key: 'action', label: 'action', reason: `值需為 ${ACTIONS.join(' / ')}（收到 ${action ?? '空值'}）` }],
+        corsHeaders,
+      );
+    }
+
+    if (action === 'deep-research') {
+      const issues = validateInput({
+        fields: {
+          code: { required: true, type: 'string', pattern: /^\d{4,6}[A-Z]?$/i, label: '股票代碼' },
+          name: { required: true, type: 'string', label: '股票名稱' },
+        },
+        source: body,
+      });
+      if (issues.length) return validationResponse(issues, corsHeaders);
+    }
 
     if (action === 'deep-research') {
       const dossierContext = dossier ? JSON.stringify(dossier, null, 2) : '無 dossier 資料';

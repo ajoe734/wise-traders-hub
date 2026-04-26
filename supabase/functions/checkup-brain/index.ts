@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,7 +68,24 @@ Deno.serve(async (req) => {
 
     // POST — write
     if (req.method === 'POST') {
-      const { action, data } = await req.json();
+      let body: any = {};
+      try { body = await req.json(); } catch { body = {}; }
+      const { action, data } = body;
+
+      const POST_ACTIONS = ['save-brain','save-analysis','save-events','load-events','delete-analysis','save-holdings','get-holdings','get-brain','get-analysis-history','get-research-history','save-research-history'];
+      if (!action || !POST_ACTIONS.includes(action)) {
+        return validationResponse(
+          [{ key: 'action', label: 'action', reason: `值需為 ${POST_ACTIONS.join(' / ')}` }],
+          corsHeaders,
+        );
+      }
+      const NEEDS_DATA = ['save-brain','save-analysis','save-events','delete-analysis','save-holdings','save-research-history'];
+      if (NEEDS_DATA.includes(action) && (data === undefined || data === null)) {
+        return validationResponse(
+          [{ key: 'data', label: 'data', reason: `action=${action} 需要 data 欄位` }],
+          corsHeaders,
+        );
+      }
 
       if (action === 'save-brain') {
         await supabase

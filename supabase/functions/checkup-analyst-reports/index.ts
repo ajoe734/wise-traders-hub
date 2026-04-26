@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -114,12 +115,23 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
 
   try {
-    const { code, name, knownHashes = [], maxItems = 6, maxExtract = 2 } = await req.json();
-    if (!code || !name) {
-      return new Response(JSON.stringify({ error: '缺少 code 或 name' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+
+    const issues = validateInput({
+      fields: {
+        code: { required: true, type: 'string', pattern: /^\d{4,6}[A-Z]?$/i, label: '股票代碼' },
+        name: { required: true, type: 'string', label: '股票名稱' },
+        knownHashes: { required: false, type: 'array', label: 'knownHashes' },
+        maxItems: { required: false, type: 'number', label: 'maxItems' },
+        maxExtract: { required: false, type: 'number', label: 'maxExtract' },
+      },
+      source: body,
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
+    const { code, name, knownHashes = [], maxItems = 6, maxExtract = 2 } = body;
+
 
     const query = `${code} ${name} 台股 目標價 投顧 研究報告 法說 財報 when:30d`;
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;

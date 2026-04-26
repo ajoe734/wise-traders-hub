@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,12 +71,29 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { report, stock, dossier } = await req.json();
-    if (!report?.code || !report?.text) {
-      return new Response(JSON.stringify({ error: '缺少 report.code 或 report.text' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+
+    const issues = validateInput({
+      fields: {
+        report: {
+          required: true,
+          type: 'object',
+          label: 'report',
+          nested: {
+            code: { required: true, type: 'string', pattern: /^\d{4,6}[A-Z]?$/i, label: 'report.code' },
+            text: { required: true, type: 'string', minLength: 10, label: 'report.text' },
+          },
+        },
+        stock: { required: false, type: 'object', label: 'stock' },
+        dossier: { required: false, type: 'object', label: 'dossier' },
+      },
+      source: body,
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
+    const { report, stock, dossier } = body;
+
 
     const systemPrompt = `你是台股研究資料抽取器。你的任務是從研究報告文字中抽出可回寫到持股 dossier 的結構化資料。
 只能抽出文字裡有明確提到的數字或來源，不可猜測。

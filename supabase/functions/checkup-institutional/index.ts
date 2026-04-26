@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,11 +19,14 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const date = url.searchParams.get('date');
 
-    if (!date || !/^\d{8}$/.test(date)) {
-      return new Response(JSON.stringify({ error: '日期格式錯誤，請使用 YYYYMMDD' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const issues = validateInput({
+      fields: {
+        date: { required: true, type: 'string', pattern: /^\d{8}$/, label: 'date YYYYMMDD' },
+      },
+      source: { date },
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
 
     const twseUrl = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${date}&rt=true`;
     const response = await fetch(twseUrl, {

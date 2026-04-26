@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -376,15 +377,24 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+
+    const issues = validateInput({
+      fields: {
+        stocks: { required: true, type: 'array', label: 'stocks 陣列' },
+        today: { required: false, type: 'string', label: 'today YYYY/MM/DD' },
+        endDate: { required: false, type: 'string', label: 'endDate YYYY/MM/DD' },
+        debug: { required: false, type: 'boolean', label: 'debug' },
+      },
+      source: body,
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
     const { stocks, today, endDate, debug } = body;
     const url = new URL(req.url);
     const debugMode = debug === true || url.searchParams.get('debug') === '1';
-    if (!stocks) {
-      return new Response(JSON.stringify({ error: 'Missing stocks parameter' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+
 
     const currentYear = new Date().getFullYear();
     const nextYear = currentYear + 1;

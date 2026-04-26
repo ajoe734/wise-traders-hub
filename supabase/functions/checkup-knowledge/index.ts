@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,7 +25,26 @@ Deno.serve(async (req) => {
       const category = url.searchParams.get('category');
       const stockId = url.searchParams.get('stockId');
 
-      
+      const GET_ACTIONS = ['search', 'similar', 'stats'];
+      if (!action || !GET_ACTIONS.includes(action)) {
+        return validationResponse(
+          [{ key: 'action', label: 'action', reason: `值需為 ${GET_ACTIONS.join(' / ')}` }],
+          corsHeaders,
+        );
+      }
+      if (action === 'search' && !q) {
+        return validationResponse(
+          [{ key: 'q', label: 'q', reason: 'action=search 時為必填' }],
+          corsHeaders,
+        );
+      }
+      if (action === 'similar' && !stockId) {
+        return validationResponse(
+          [{ key: 'stockId', label: 'stockId', reason: 'action=similar 時為必填' }],
+          corsHeaders,
+        );
+      }
+
       if (action === 'search' && q) {
         const { data: rows } = await supabase
           .from('checkup_storage')
@@ -87,7 +107,20 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === 'POST') {
-      const { action, category, item } = await req.json();
+      let body: any = {};
+      try { body = await req.json(); } catch { body = {}; }
+
+      const issues = validateInput({
+        fields: {
+          action: { required: true, type: 'string', oneOf: ['add'], label: 'action' },
+          category: { required: true, type: 'string', label: 'category' },
+          item: { required: true, type: 'object', label: 'item' },
+        },
+        source: body,
+      });
+      if (issues.length) return validationResponse(issues, corsHeaders);
+
+      const { action, category, item } = body;
       if (action === 'add' && category && item) {
         const key = `knowledge-${category}`;
         const { data: existing } = await supabase

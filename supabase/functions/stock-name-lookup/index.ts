@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { validateInput, validationResponse } from '../_shared/inputValidator.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,13 +18,19 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { symbols } = await req.json()
-    if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
-      return new Response(JSON.stringify({ error: 'Missing symbols array' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    let body: any = {}
+    try { body = await req.json() } catch { body = {} }
+
+    const issues = validateInput({
+      fields: {
+        symbols: { required: true, type: 'array', minItems: 1, label: 'symbols 陣列（至少 1 筆）' },
+      },
+      source: body,
+    })
+    if (issues.length) return validationResponse(issues, corsHeaders)
+
+    const { symbols } = body
+
 
     // Cap at 200 symbols per request
     const uniqueSymbols = [...new Set(symbols.map((s: string) => s.trim()))].slice(0, 200)

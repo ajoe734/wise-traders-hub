@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -87,18 +88,23 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const body = await req.json().catch(() => ({}));
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+
+    const issues = validateInput({
+      fields: {
+        codes: { required: true, type: 'array', minItems: 1, label: 'codes 陣列（至少 1 筆）' },
+      },
+      source: body,
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
     const codesRaw: unknown = body?.codes;
-    if (!Array.isArray(codesRaw)) {
-      return new Response(JSON.stringify({ error: "codes must be array" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     const codes = (codesRaw as unknown[])
       .map((v) => String(v).trim())
       .filter((v) => /^\d{4,6}[A-Z]?$/i.test(v))
       .slice(0, 30);
+
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,11 +21,16 @@ Deno.serve(async (req) => {
     const year = url.searchParams.get('year');
     const month = url.searchParams.get('month');
 
-    if (!stockId) {
-      return new Response(JSON.stringify({ error: '缺少 stockId' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const issues = validateInput({
+      fields: {
+        stockId: { required: true, type: 'string', pattern: /^\d{4,6}[A-Z]?(\.(TW|TWO))?$/i, label: 'stockId（如 2330 或 2330.TWO）' },
+        year: { required: false, type: 'string', label: 'year' },
+        month: { required: false, type: 'string', label: 'month' },
+      },
+      source: { stockId, year, month },
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
 
     // Anti-scraping delay
     await new Promise(r => setTimeout(r, 1000 + Math.floor(Math.random() * 2000)));
