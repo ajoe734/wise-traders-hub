@@ -429,7 +429,7 @@ ${eventsForPrompt}
 - predReason 必須具體，引用數據
 - 只輸出 JSON 陣列`;
 
-    const aiResult = await callAI(systemPrompt, userPrompt, 4096);
+    const aiResult = await callAI(systemPrompt, userPrompt, 8192);
     const debugInfo = debugMode ? { attempts: aiResult.attempts, succeededWith: aiResult.succeededWith } : undefined;
 
     if (!aiResult.text) {
