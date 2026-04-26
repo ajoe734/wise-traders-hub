@@ -216,3 +216,80 @@ function json(payload: unknown, status = 200) {
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
+
+/**
+ * 將 Supabase Auth 原始英文錯誤訊息翻譯成中文，並附上「怎麼解」的指引。
+ * 對照表來源：Supabase GoTrue / Auth API 常見錯誤碼。
+ */
+function translateAuthError(raw: string): string {
+  const msg = (raw || '').toLowerCase();
+
+  // ── 密碼類 ──────────────────────────────────────────────
+  if (msg.includes('password is known to be weak') || msg.includes('pwned')) {
+    return '此密碼曾在資料外洩名單中或過於常見，請改用獨特的新密碼（建議：英文大小寫 + 數字 + 符號，例如 Lf-Mx7q!92Kp）';
+  }
+  if (msg.includes('password should be at least') || msg.includes('password is too short')) {
+    return '密碼長度不足，請至少使用 8 碼以上';
+  }
+  if (msg.includes('password should contain')) {
+    return '密碼複雜度不足，需混合英文大小寫、數字與符號';
+  }
+  if (msg.includes('new password should be different')) {
+    return '新密碼不可與舊密碼相同';
+  }
+  if (msg.includes('weak_password')) {
+    return '密碼強度不足，請改用更複雜的密碼（建議混合英文大小寫、數字與符號）';
+  }
+
+  // ── Email 類 ────────────────────────────────────────────
+  if (msg.includes('email address') && msg.includes('invalid')) {
+    return 'Email 格式錯誤，請確認拼字（例如缺 @ 或網域）';
+  }
+  if (msg.includes('email address') && (msg.includes('already') || msg.includes('registered') || msg.includes('exists'))) {
+    return '此 Email 已被其他帳號使用，請改用其他信箱';
+  }
+  if (msg.includes('email_address_invalid')) {
+    return 'Email 格式無效或網域不被接受';
+  }
+  if (msg.includes('email_exists') || msg.includes('user already registered')) {
+    return '此 Email 已存在於系統，無法重複建立';
+  }
+  if (msg.includes('signup is disabled') || msg.includes('signups not allowed')) {
+    return '系統已停用註冊功能，無法新增帳號';
+  }
+  if (msg.includes('email not confirmed')) {
+    return '對方 Email 尚未驗證，無法執行此操作';
+  }
+  if (msg.includes('email rate limit') || msg.includes('email_send_rate_limit')) {
+    return '寄信次數過於頻繁，請稍候 60 秒後再試';
+  }
+
+  // ── 帳號 / 權限 ─────────────────────────────────────────
+  if (msg.includes('user not found')) {
+    return '找不到對應的使用者帳號';
+  }
+  if (msg.includes('user_already_exists')) {
+    return '使用者已存在';
+  }
+  if (msg.includes('not_admin') || msg.includes('not allowed') || msg.includes('forbidden')) {
+    return '權限不足，僅 company_admin 可執行此操作';
+  }
+  if (msg.includes('invalid token') || msg.includes('jwt expired') || msg.includes('jwt malformed')) {
+    return '登入憑證已失效，請重新登入後再試';
+  }
+  if (msg.includes('rate limit') || msg.includes('too many requests')) {
+    return '操作過於頻繁，請稍候片刻再試';
+  }
+
+  // ── 連線 / 服務 ─────────────────────────────────────────
+  if (msg.includes('network') || msg.includes('fetch failed') || msg.includes('econn')) {
+    return '網路連線異常，請檢查網路後重試';
+  }
+  if (msg.includes('database') || msg.includes('internal server')) {
+    return '後端服務暫時異常，請稍後再試';
+  }
+
+  // ── 其他：原樣回傳但加前綴提示，方便判斷 ──────────────
+  return `操作失敗：${raw}（如持續發生請聯繫工程師）`;
+}
+
