@@ -54,13 +54,30 @@ const TextBlock = ({ text, dotColor }: { text: string; dotColor?: string }) => {
   );
 };
 
+const fetchSignalDetail = async (signalId: string): Promise<DbSignal | null> => {
+  const { data } = await supabase
+    .from('expert_signals')
+    .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url)')
+    .eq('id', signalId)
+    .single();
+  return (data as unknown as DbSignal | null) ?? null;
+};
+
 const SignalDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, hasRole } = useAuth();
-  const [signal, setSignal] = useState<DbSignal | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const { data: signal, isLoading: loading } = useQuery({
+    queryKey: ['app-signal-detail', id],
+    queryFn: () => fetchSignalDetail(id!),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnMount: false,
+    placeholderData: (prev) => prev,
+  });
 
   const isPreview = searchParams.get('preview') === '1' && (
     (signal?.experts?.slug && user?.expertSlug === signal.experts.slug) || hasRole('company_admin')
@@ -68,19 +85,7 @@ const SignalDetail = () => {
 
   useEffect(() => {
     markAppSignalsAsRead();
-    if (id) fetchSignal(id);
-  }, [id]);
-
-  const fetchSignal = async (signalId: string) => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('expert_signals')
-      .select('id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, published_at, experts(name, slug, role, avatar_url)')
-      .eq('id', signalId)
-      .single();
-    setSignal(data as unknown as DbSignal | null);
-    setLoading(false);
-  };
+  }, []);
 
   if (loading) {
     return <UnifiedAppLayout><div className="p-4 text-center text-muted-foreground">載入中...</div></UnifiedAppLayout>;
