@@ -130,6 +130,36 @@ const push = (v) => {
 
 const ATTR_NAMES_TEXTUAL = ['aria-label', 'title', 'placeholder', 'alt'];
 
+// 「會被讀屏器朗讀」或「會被使用者直接看到」的擴充屬性
+// - aria-describedby / aria-labelledby 雖然官方語意是「ID 引用」，但實務上常被誤寫為直接文字
+//   （錯誤用法仍會被讀屏器朗讀為字面字串），故一併掃描以阻擋這類退化。
+// - aria-roledescription / aria-valuetext / aria-placeholder：直接朗讀字串。
+// - aria-keyshortcuts：通常為按鍵縮寫（Ctrl+K），靠白名單與 NON_PROSE_RE 過濾雜訊。
+const ATTR_NAMES_A11Y = [
+  'aria-describedby',
+  'aria-labelledby',
+  'aria-roledescription',
+  'aria-valuetext',
+  'aria-placeholder',
+  'aria-keyshortcuts',
+];
+
+// data-* 屬性中常被當「視覺/工具提示文字」使用的子集：
+// - data-tooltip / data-tip / data-hint / data-title / data-label / data-text / data-content
+//   → 這些常被第三方 tooltip 套件或自家元件直接 render 給使用者看
+// 其他一般 data-* 屬性（data-id / data-state / data-testid…）不在此列，避免誤殺。
+const DATA_ATTR_NAMES_VISIBLE = [
+  'data-tooltip',
+  'data-tip',
+  'data-hint',
+  'data-title',
+  'data-label',
+  'data-text',
+  'data-content',
+  'data-message',
+  'data-placeholder',
+];
+
 // 跳過區段：import / 註解
 const isSkipLine = (line) => {
   const t = line.trim();
@@ -217,6 +247,120 @@ lines.forEach((line, idx) => {
       });
     }
   }
+
+  // ── B2) 擴充 a11y 屬性（aria-describedby / aria-roledescription 等）──
+  for (const attr of ATTR_NAMES_A11Y) {
+    const re = new RegExp(`\\b${attr}=(?:"([^"]+)"|'([^']+)'|\\{["']([^"']+)["']\\})`, 'g');
+    let mm;
+    while ((mm = re.exec(line)) !== null) {
+      const text = (mm[1] || mm[2] || mm[3] || '').trim();
+      if (!text) continue;
+      if (!/[A-Za-z]/.test(text)) continue;
+      // aria-describedby / aria-labelledby 正確值是 ID（kebab/camel），由 looksLikeStyleOrAttr 放行
+      if (looksLikeStyleOrAttr(text)) continue;
+      if (isAllWhitelisted(text)) continue;
+      // 多字英文且含空白才視為「散文」→ 強烈代表是被誤當文案
+      const isProse = /\s/.test(text) && /[A-Za-z]{3,}/.test(text);
+      if (!isProse) continue;
+      push({
+        line: idx + 1,
+        rule: 'untranslated-a11y-attr',
+        text,
+        detail:
+          `a11y 屬性 \`${attr}\` 內疑似含未翻譯英文文案："${text}"。` +
+          `${attr} 的值若為直接朗讀字串，會被輔助科技唸給使用者；若應為 ID 引用，請改用 ID 而非英文句子。`,
+        snippet: line.trim().slice(0, 160),
+      });
+    }
+  }
+
+  // ── B3) data-* 視覺屬性（tooltip / hint / label 等常被直接渲染給使用者看）──
+  for (const attr of DATA_ATTR_NAMES_VISIBLE) {
+    const re = new RegExp(`\\b${attr}=(?:"([^"]+)"|'([^']+)'|\\{["']([^"']+)["']\\})`, 'g');
+    let mm;
+    while ((mm = re.exec(line)) !== null) {
+      const text = (mm[1] || mm[2] || mm[3] || '').trim();
+      if (!text) continue;
+      if (!/[A-Za-z]/.test(text)) continue;
+      if (isAllWhitelisted(text)) continue;
+      if (looksLikeStyleOrAttr(text)) continue;
+      push({
+        line: idx + 1,
+        rule: 'untranslated-data-attr',
+        text,
+        detail:
+          `data 屬性 \`${attr}\` 內含未翻譯英文："${text}"。` +
+          `這類屬性常被 tooltip / 自家元件直接 render 給使用者看，請翻譯或加 i18n-allow 豁免。`,
+        snippet: line.trim().slice(0, 160),
+      });
+    }
+  }
+
+  // ── C) <button>/<option> 標籤「內容區」的字面量字串 ──
+  // 只取 `<button …>` 與 `</button>` 之間的「內容」字串，**屬性區（含 style/onClick）排除**，
+  // 否則會誤掃到 style 內的 CSS 字串如 "3px 8px"。
+  //
+  // 額外捕捉：
+  //   <button>{cond ? "Save" : "Cancel"}</button>
+  //   <option value="x">Apply now</option>
+  //
+  // 屬性已經由 ATTR_NAMES_TEXTUAL / ATTR_NAMES_A11Y / DATA_ATTR_NAMES_VISIBLE 覆蓋。
+  // 找「JSX 開頭標籤」的結束 `>`：必須跳過 `{...}` 內的 `>` 與字串內的 `>`，
+  // 否則 style={{padding:"3px 8px",...}} 內的 `=>` 與 `8px"` 的 `>` 會被誤判。
+  const findOpenTagEnd = (s, fromIdx) => {
+    let depth = 0; // {} 巢狀
+    let inStr = null; // ' " ` 任一
+    let esc = false;
+    for (let i = fromIdx; i < s.length; i++) {
+      const c = s[i];
+      if (esc) { esc = false; continue; }
+      if (inStr) {
+        if (c === '\\') { esc = true; continue; }
+        if (c === inStr) inStr = null;
+        continue;
+      }
+      if (c === '"' || c === "'" || c === '`') { inStr = c; continue; }
+      if (c === '{') { depth++; continue; }
+      if (c === '}') { depth = Math.max(0, depth - 1); continue; }
+      if (c === '>' && depth === 0) return i;
+    }
+    return -1;
+  };
+
+  const tagOpenRe = /<(button|option)\b/gi;
+  let bm;
+  while ((bm = tagOpenRe.exec(line)) !== null) {
+    const tag = bm[1].toLowerCase();
+    const openTagStart = bm.index;
+    const openTagEnd = findOpenTagEnd(line, openTagStart + 1);
+    if (openTagEnd < 0) continue;
+    const closeStart = line.indexOf(`</${tag}`, openTagEnd);
+    if (closeStart < 0) continue;
+    const inner = line.slice(openTagEnd + 1, closeStart);
+    // 抓出三類英文字面量：
+    //   "..."、'...'、`...`（template literal 但不含 ${}）
+    const literalRe = /(["'`])((?:\\.|(?!\1).)*?)\1/g;
+    let lm;
+    while ((lm = literalRe.exec(inner)) !== null) {
+      const quote = lm[1];
+      const text = lm[2].trim();
+      if (!text) continue;
+      if (!/[A-Za-z]/.test(text)) continue;
+      // template literal 含變數插值 → 跳過（變數內容無法靜態判斷）
+      if (quote === '`' && lm[2].includes('${')) continue;
+      if (isAllWhitelisted(text)) continue;
+      if (looksLikeStyleOrAttr(text)) continue;
+      push({
+        line: idx + 1,
+        rule: 'untranslated-button-literal',
+        text,
+        detail:
+          `<${tag}> 內含字面量英文文案："${text}"。` +
+          `按鈕 / 選項文字會直接顯示給使用者，請翻譯或加 i18n-allow 豁免。`,
+        snippet: line.trim().slice(0, 160),
+      });
+    }
+  }
 });
 
 // ── 輸出 JSON 報告 ──
@@ -244,7 +388,12 @@ if (violations.length === 0) {
   console.log('✅ FreeCheckup i18n 檢查通過');
   console.log(`   • 檢查檔案：${REL_FILE} (${lines.length} 行)`);
   console.log(`   • 白名單：${ALLOWLIST.size} 個專有名詞 / 縮寫`);
-  console.log(`   • 規則：JSX 文字節點 + JSX 屬性（aria-label/title/placeholder/alt）`);
+  console.log(
+    `   • 規則：JSX 文字節點 + JSX 屬性（aria-label/title/placeholder/alt）` +
+      ` + a11y 屬性（aria-describedby/labelledby/roledescription/valuetext/placeholder/keyshortcuts）` +
+      ` + 視覺 data-* 屬性（data-tooltip/tip/hint/title/label/text/content/message/placeholder）` +
+      ` + <button>/<option> 內字面量`
+  );
   process.exit(0);
 }
 
