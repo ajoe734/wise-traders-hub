@@ -2075,15 +2075,51 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   };
 
   // 重試按鈕：點擊瞬間鎖定，避免重複送出；無論成功失敗都會在 finally 解鎖
+  // 同時記錄重試時間軸（開始/結束/結果）並在結束後自動展開錯誤摘要
   const handleDailyRetry = async () => {
     if (dailyRetryLockRef.current || analyzing) return;
     dailyRetryLockRef.current = true;
     setDailyRetryLocked(true);
+    const attempt = ++dailyRetryAttemptRef.current;
+    const startedAt = Date.now();
+    const entryId = `retry_${startedAt.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    // 先寫入「進行中」狀態
+    setDailyRetryHistory(prev => [{
+      id: entryId, attempt, startedAt, endedAt: null, durationMs: null,
+      success: null, cid: null, code: null, message: null, httpStatus: null,
+    }, ...prev].slice(0, 20));
+    pushUpdateLog({ source:'daily', trigger:'retry', status:'fetching', key:`#${attempt}`, msg:`重試開始 (第 ${attempt} 次)` });
+    let succeeded = false;
     try {
       await runDailyAnalysis();
+      succeeded = !dailyLastErrorRef.current;
     } finally {
+      const endedAt = Date.now();
+      const last = dailyLastErrorRef.current;
+      const finalSuccess = !last || (last && last.cid && last.opStartedAtMs && last.opStartedAtMs < startedAt);
+      setDailyRetryHistory(prev => prev.map(r => r.id === entryId ? {
+        ...r,
+        endedAt,
+        durationMs: endedAt - startedAt,
+        success: finalSuccess,
+        cid: last?.cid ?? null,
+        code: last?.code ?? null,
+        message: last?.message ?? null,
+        httpStatus: last?.httpStatus ?? null,
+      } : r));
+      pushUpdateLog({
+        source:'daily',
+        trigger:'retry',
+        status: finalSuccess ? 'success' : 'error',
+        key:`#${attempt}`,
+        msg: finalSuccess
+          ? `重試成功（${endedAt - startedAt}ms）`
+          : `重試失敗 ${last?.code || 'UNKNOWN'}（${endedAt - startedAt}ms）`,
+      });
       dailyRetryLockRef.current = false;
       setDailyRetryLocked(false);
+      // 觸發錯誤摘要自動聚焦
+      setDailyErrorFocusKey(k => k + 1);
     }
   };
 
