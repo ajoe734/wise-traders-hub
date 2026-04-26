@@ -2203,12 +2203,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           } catch (e) { console.warn('auto-refresh after parse failed:', e); }
         }
         setParseStep({ stage: 'done', label: '解析完成', progress: 100, detail: `共 ${preparedTrades.length} 筆持倉已寫入` });
+        appendLog({ task: 'parse-screenshot', status: 'ok', attempt, detail: `${preparedTrades.length} 筆部位` });
         setTimeout(() => setParseStep(null), 4000);
         setParsing(false);
         return; // 成功，直接返回
       } catch (e) {
         lastErr = e?.message || "網路錯誤";
         console.warn(`Parse attempt ${attempt}/${MAX_RETRIES} exception:`, e);
+        appendLog({ task: 'parse-screenshot', status: 'retry', attempt, detail: lastErr });
         if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 2000)); continue; }
       }
     }
@@ -2217,6 +2219,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     const finalErr = lastErr || "解析失敗，請確認截圖清晰";
     setParseErr(finalErr);
     setParseStep({ stage: 'error', label: 'AI 解析失敗', progress: 100, detail: finalErr });
+    appendLog({ task: 'parse-screenshot', status: 'error', detail: `所有重試失敗：${finalErr}` });
     setTimeout(() => setParseStep(null), 6000);
     setParsing(false);
   };
