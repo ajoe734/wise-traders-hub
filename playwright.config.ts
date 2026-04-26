@@ -24,7 +24,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
-  reporter: process.env.CI ? 'line' : [['list']],
+  reporter: process.env.CI
+    ? [
+        ['line'],
+        ['html', { open: 'never', outputFolder: 'playwright-report' }],
+        ['json', { outputFile: 'playwright-report/results.json' }],
+      ]
+    : [['list']],
   timeout: 60_000,
   expect: {
     // Strict pixel diff for layout regressions; tolerate sub-pixel AA.
