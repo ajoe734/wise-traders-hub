@@ -4335,6 +4335,37 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   {parsing ? "解析中..." : "解析這筆交易"}
                 </button>
               )}
+              {parseStep && (
+                <div style={{
+                  marginTop:10, background:C.subtle,
+                  border:`1px solid ${parseStep.stage==='error'?alpha(C.down,'55'):parseStep.stage==='done'?alpha(C.olive,'55'):C.border}`,
+                  borderRadius:10, padding:'10px 12px',
+                }}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:6}}>
+                    <span style={{fontSize:12,fontWeight:500,letterSpacing:'0.04em',color:parseStep.stage==='error'?C.down:parseStep.stage==='done'?C.olive:C.text}}>
+                      {parseStep.stage==='upload' && '① '}
+                      {parseStep.stage==='ai' && '② '}
+                      {parseStep.stage==='retry' && '② '}
+                      {parseStep.stage==='persist' && '③ '}
+                      {parseStep.stage==='refresh' && '④ '}
+                      {parseStep.stage==='done' && '✓ '}
+                      {parseStep.stage==='error' && '✕ '}
+                      {parseStep.label}
+                    </span>
+                    <span style={{fontSize:11,color:C.textMute,fontVariantNumeric:'tabular-nums'}}>{parseStep.progress}%</span>
+                  </div>
+                  <div style={{height:3,background:alpha(C.textMute,'22'),borderRadius:2,overflow:'hidden'}}>
+                    <div style={{
+                      height:'100%',width:`${parseStep.progress}%`,
+                      background: parseStep.stage==='error'?C.down:parseStep.stage==='done'?C.olive:C.amber,
+                      transition:'width 360ms ease',
+                    }}/>
+                  </div>
+                  {parseStep.detail && (
+                    <div style={{marginTop:6,fontSize:11,color:C.textMute,letterSpacing:'0.02em'}}>{parseStep.detail}</div>
+                  )}
+                </div>
+              )}
               {parseErr && <div style={{marginTop:10, background:C.upBg,
                 border:`1px solid ${alpha(C.up,'44')}`, borderRadius:10,
                 padding:12, fontSize:14, color:C.up}}>
