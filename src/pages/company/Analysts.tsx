@@ -533,7 +533,7 @@ const CompanyAnalysts = () => {
                   type="password"
                   value={acctNewPassword}
                   onChange={(e) => setAcctNewPassword(e.target.value)}
-                  placeholder="至少 6 碼"
+                  placeholder="至少 8 碼，需含英文與數字"
                 />
               </div>
               <div className="space-y-2">
