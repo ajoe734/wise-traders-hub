@@ -357,7 +357,12 @@ if (violations.length === 0) {
   console.log('✅ FreeCheckup i18n 檢查通過');
   console.log(`   • 檢查檔案：${REL_FILE} (${lines.length} 行)`);
   console.log(`   • 白名單：${ALLOWLIST.size} 個專有名詞 / 縮寫`);
-  console.log(`   • 規則：JSX 文字節點 + JSX 屬性（aria-label/title/placeholder/alt）`);
+  console.log(
+    `   • 規則：JSX 文字節點 + JSX 屬性（aria-label/title/placeholder/alt）` +
+      ` + a11y 屬性（aria-describedby/labelledby/roledescription/valuetext/placeholder/keyshortcuts）` +
+      ` + 視覺 data-* 屬性（data-tooltip/tip/hint/title/label/text/content/message/placeholder）` +
+      ` + <button>/<option> 內字面量`
+  );
   process.exit(0);
 }
 
