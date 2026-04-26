@@ -548,6 +548,16 @@ export default function App() {
   const [dailyLastError, setDailyLastError] = useState(null);
   const dailyLastErrorRef = useRef(null);
   useEffect(() => { dailyLastErrorRef.current = dailyLastError; }, [dailyLastError]);
+  // 重試結束後，若仍有錯誤則自動滾動聚焦於錯誤摘要卡
+  useEffect(() => {
+    if (!dailyErrorFocusKey) return;
+    if (!dailyLastError) return;
+    const el = dailyErrorRef.current;
+    if (el && typeof el.scrollIntoView === 'function') {
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyErrorFocusKey]);
   // 重試按鈕的瞬時鎖定：點擊後立即為 true，避免在 setAnalyzing 尚未 flush 前重複送出
   const [dailyRetryLocked, setDailyRetryLocked] = useState(false);
   const dailyRetryLockRef = useRef(false);
