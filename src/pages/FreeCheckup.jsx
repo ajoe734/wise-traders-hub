@@ -292,6 +292,11 @@ export default function App() {
   const [parsing, setParsing]   = useState(false);
   const [parsed,  setParsed]    = useState(null);
   const [parseErr,setParseErr]  = useState(null);
+  // 解析/同步進度追蹤：{ stage, label, progress(0-100), detail }
+  // stage: 'upload' | 'ai' | 'retry' | 'persist' | 'refresh' | 'done' | 'error'
+  const [parseStep, setParseStep] = useState(null);
+  // 報價刷新狀態：{ phase, total, ok, fail, missingNames }
+  const [refreshStatus, setRefreshStatus] = useState(null);
   const [dragOver,setDragOver]  = useState(false);
   const [memoStep,setMemoStep]  = useState(0);
   const [memoAns, setMemoAns]   = useState([]);
