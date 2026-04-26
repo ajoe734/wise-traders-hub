@@ -169,6 +169,10 @@ const CLOUD_SYNC_KEYS = [
 const LOCAL_STORAGE_OWNER_KEY = "pf-storage-owner-v1";
 const SNAPSHOT_IMPORT_ACTION = "持倉匯入";
 
+// 持倉數量上限：避免 AI 分析 token 爆量、UI 渲染卡頓、行事曆 / 事件預測超載
+// 觸發點：截圖解析新增 / 手動新增 / 批次匯入。超過上限直接擋下並提示使用者整理。
+const MAX_HOLDINGS = 50;
+
 const inferHoldingType = (code, name = "") => {
   if (String(code || "").startsWith("00")) return "ETF";
   if (String(code || "").length === 6 || /(購|售|牛|熊)/.test(String(name || ""))) return "權證";
@@ -1986,6 +1990,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         // 解析成功後立即同步持倉 & 交易記錄
         if (preparedTrades.length) {
+          // 50 檔上限防呆：估算合併後的代碼數，超過則擋下整批匯入
+          const currentCodes = new Set((holdings || []).map(h => h.code));
+          const incomingCodes = new Set(preparedTrades.map(t => String(t?.code || "").trim()).filter(Boolean));
+          const merged = new Set([...currentCodes, ...incomingCodes]);
+          if (merged.size > MAX_HOLDINGS) {
+            setParseErr(
+              `持倉上限 ${MAX_HOLDINGS} 檔，目前 ${currentCodes.size} 檔、本次解析新增 ${incomingCodes.size} 檔`
+              + `（合計 ${merged.size} 檔超出 ${merged.size - MAX_HOLDINGS} 檔），請先整理或減少匯入筆數`
+            );
+            setParsing(false);
+            return;
+          }
           holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
           setHoldings(prev => preparedTrades.reduce(
             (acc, trade) => isSnapshotImport ? upsertSnapshotHolding(acc, trade) : mergeTradeIntoHoldings(acc, trade),
@@ -2362,7 +2378,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 }} className="wb-hero-kpi">
                   {[
                     { label: 'Total Value', value: totalVal > 0 ? Math.round(totalVal).toLocaleString() : '—', sub: 'TWD' },
-                    { label: 'Holdings', value: String(H.length), sub: H.length > 0 ? 'positions' : '' },
+                    { label: 'Holdings', value: H.length > 0 ? `${H.length} / ${MAX_HOLDINGS}` : '—', sub: H.length > 0 ? (H.length >= MAX_HOLDINGS - 5 ? '⚠ 接近上限' : 'positions') : '' },
                     { label: 'Win Rate', value: H.length > 0 ? `${winRate}` : '—', sub: H.length > 0 ? '%' : '' },
                     { label: 'Cost Basis', value: totalCost > 0 ? Math.round(totalCost).toLocaleString() : '—', sub: 'TWD' },
                   ].map((item) => (
@@ -4204,7 +4220,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ) : (
                   <><div style={{fontSize:32,marginBottom:10,opacity:0.5}}>↑</div> {/* rwd-allow:純裝飾箭頭非數字 */}
                   <div style={{fontSize:15,fontWeight:500,color:C.textSec}}>上傳已成交截圖</div>
-                  <div style={{fontSize:13,color:C.textMute,marginTop:4}}>截圖需要包含代碼、名稱、股數、市價、成本、成本價、手續費</div></>
+                  <div style={{fontSize:13,color:C.textMute,marginTop:4}}>截圖需要包含代碼、名稱、股數、市價、成本、成本價、手續費</div>
+                  <div style={{fontSize:11,color:C.textMute,marginTop:6,letterSpacing:'0.04em'}}>持倉上限 {MAX_HOLDINGS} 檔（目前 {(holdings || []).length} 檔）</div></>
                 )}
               </div>
               {img && (
