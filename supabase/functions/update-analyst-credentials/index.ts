@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
         options: { redirectTo: `${siteUrl}/reset-password` },
       });
       if (linkErr || !linkData?.properties?.action_link) {
-        return json({ error: linkErr?.message || '產生重設連結失敗' }, 400);
+        return json({ error: linkErr ? translateAuthError(linkErr.message) : '產生重設連結失敗' }, 400);
       }
       const actionLink = linkData.properties.action_link;
 
