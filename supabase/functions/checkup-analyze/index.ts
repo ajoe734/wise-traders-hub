@@ -7,9 +7,10 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-const GATEWAY_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
+// 把 Pro 放在第一順位，因 23+ 持倉時 Flash 8K context 不夠完成完整 markdown 報告
+const GATEWAY_MODELS = ['google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
 
-async function callAI(messages: any[], temperature = 0.3, maxTokens = 4096): Promise<string> {
+async function callAI(messages: any[], temperature = 0.3, maxTokens = 8192): Promise<string> {
   const lovableKey = Deno.env.get('LOVABLE_API_KEY');
   const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
 
