@@ -3502,7 +3502,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
                     {/* URGENCY 五點 */}
                     <div style={{marginBottom:18,display:'flex',alignItems:'center',gap:14}}>
-                      <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',fontWeight:500}}>URGENCY</span>
+                      <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.12em',fontWeight:500}}>急迫程度</span>
                       <div style={{display:'flex',gap:6,flex:1}}>
                         {[1,2,3,4,5].map(i => (
                           <span key={i} style={{
