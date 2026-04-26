@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { processRefundInDB } from "../_shared/refundProcessor.ts";
 
 const corsHeaders = {
