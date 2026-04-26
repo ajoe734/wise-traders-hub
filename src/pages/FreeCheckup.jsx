@@ -544,6 +544,8 @@ export default function App() {
   // 最近一次失敗錯誤明細：{ message, reason: 'network'|'data'|'server'|'unknown', at: ISOString }
   const [calendarLastError, setCalendarLastError] = useState(null);
   const [predictLastError, setPredictLastError] = useState(null);
+  // 收盤分析錯誤：{ code, message, cid, opStartedAt, httpStatus, at }
+  const [dailyLastError, setDailyLastError] = useState(null);
   // AI 模型嘗試紀錄（debug）：{ source, at, attempts: [{path, model, status, ok, errorBody, errorMessage}], succeededWith }
   const [calendarLastDebug, setCalendarLastDebug] = useState(null);
   const [predictLastDebug, setPredictLastDebug] = useState(null);
