@@ -817,18 +817,36 @@ export default function App() {
   }, [authReady, isDemo]);
 
   // auto-save
+  // 雲端 upsert debounce + 錯誤處理（避免快速操作時觸發過多請求）
+  const cloudHoldingsTimerRef = useRef(null);
+  const cloudHoldingsErrorShownRef = useRef(false);
   useEffect(() => {
-    if (ready && holdings && !isDemo) {
-      save("pf-holdings-v2", holdings);
-      // 同步持倉代碼到雲端供定時任務使用
-      const uid = _currentUserId;
-      if (uid) {
+    if (!(ready && holdings && !isDemo)) return;
+    save("pf-holdings-v2", holdings);
+    const uid = _currentUserId;
+    if (!uid) return;
+    if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
+    cloudHoldingsTimerRef.current = setTimeout(async () => {
+      try {
         const codes = holdings.map(h => `${h.code} ${h.name}`).join("、");
         const codesKey = holdings.map(h => h.code).sort().join(",");
-        supabase.from("checkup_storage").upsert({ user_id: uid, key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }, { onConflict: "user_id,key" }).then(() => {});
+        const { error } = await supabase
+          .from("checkup_storage")
+          .upsert({ user_id: uid, key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }, { onConflict: "user_id,key" });
+        if (error) throw error;
+        cloudHoldingsErrorShownRef.current = false;
+      } catch (e) {
+        console.error("[cloud-sync] pf-holdings-v2 upsert failed:", e);
+        if (!cloudHoldingsErrorShownRef.current) {
+          cloudHoldingsErrorShownRef.current = true;
+          toast.error("持倉雲端同步失敗，僅保存於本機");
+        }
       }
-    }
-  }, [holdings, ready, isDemo]);
+    }, 800);
+    return () => {
+      if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
+    };
+  }, [holdings, ready, isDemo, _currentUserId]);
   // tradeLog 存到 Supabase（不再只存 localStorage）
   const saveTradeLogToCloud = async (logs) => {
     if (!logs || !_currentUserId) return;
