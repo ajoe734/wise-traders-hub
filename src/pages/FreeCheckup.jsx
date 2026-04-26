@@ -2101,6 +2101,31 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         @media(max-width:480px){
           body{font-size:14px}
         }
+        /* Hero RWD：inline fontSize:88 在窄螢幕會壓爆右側，必須用 className 覆寫 */
+        @media(max-width:560px){
+          .wb-hero-grid{
+            grid-template-columns: 1fr !important;
+            align-items: flex-start !important;
+            gap: 14px !important;
+          }
+          .wb-hero-market{
+            align-items: flex-start !important;
+          }
+          .wb-hero-pnl-num{
+            font-size: 56px !important;
+            letter-spacing: -0.03em !important;
+          }
+          .wb-hero-pnl-pct{
+            font-size: 18px !important;
+          }
+          .wb-hero-kpi{
+            grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+            gap: 14px 18px !important;
+          }
+        }
+        @media(max-width:380px){
+          .wb-hero-pnl-num{ font-size: 44px !important; }
+        }
       `}</style>
 
       {/* ── BACK BUTTON + 戰情室入口 ── */}
