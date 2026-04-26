@@ -8,7 +8,11 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-const GATEWAY_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
+const GATEWAY_MODELS = [
+  'google/gemini-3-flash-preview',
+  'google/gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite',
+];
 
 /* ── AI caller ── */
 
