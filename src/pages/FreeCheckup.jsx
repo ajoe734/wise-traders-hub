@@ -546,6 +546,8 @@ export default function App() {
   const [predictLastError, setPredictLastError] = useState(null);
   // 收盤分析錯誤：{ code, message, cid, opStartedAt, httpStatus, at }
   const [dailyLastError, setDailyLastError] = useState(null);
+  const dailyLastErrorRef = useRef(null);
+  useEffect(() => { dailyLastErrorRef.current = dailyLastError; }, [dailyLastError]);
   // 重試按鈕的瞬時鎖定：點擊後立即為 true，避免在 setAnalyzing 尚未 flush 前重複送出
   const [dailyRetryLocked, setDailyRetryLocked] = useState(false);
   const dailyRetryLockRef = useRef(false);
