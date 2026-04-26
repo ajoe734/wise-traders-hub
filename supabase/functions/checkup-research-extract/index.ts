@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-const GATEWAY_MODELS = ['google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
+const GATEWAY_MODELS = ['google/gemini-3-flash-preview', 'google/gemini-2.5-flash', 'google/gemini-2.5-flash-lite'];
 
 async function callAI(messages: any[], temperature = 0.1, maxTokens = 900): Promise<string> {
   const lovableKey = Deno.env.get('LOVABLE_API_KEY');
@@ -31,7 +31,7 @@ async function callAI(messages: any[], temperature = 0.1, maxTokens = 900): Prom
   }
 
   if (geminiKey) {
-    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
       try {
         const systemMsg = messages.find((m: any) => m.role === 'system');
         const body: any = {
