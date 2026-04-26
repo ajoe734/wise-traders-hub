@@ -453,6 +453,10 @@ export default function App() {
   // 最近一次失敗錯誤明細：{ message, reason: 'network'|'data'|'server'|'unknown', at: ISOString }
   const [calendarLastError, setCalendarLastError] = useState(null);
   const [predictLastError, setPredictLastError] = useState(null);
+  // AI 模型嘗試紀錄（debug）：{ source, at, attempts: [{path, model, status, ok, errorBody, errorMessage}], succeededWith }
+  const [calendarLastDebug, setCalendarLastDebug] = useState(null);
+  const [predictLastDebug, setPredictLastDebug] = useState(null);
+  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
   // 重試計數與冷卻：每連續失敗一次累計，達上限或冷卻期內禁止重試
   const RETRY_MAX = 3;
   const RETRY_COOLDOWN_MS = 15_000;
