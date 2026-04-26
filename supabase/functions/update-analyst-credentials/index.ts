@@ -122,16 +122,7 @@ Deno.serve(async (req) => {
       const { error: updErr } = await adminClient.auth.admin.updateUserById(targetUserId, {
         password: newPassword,
       });
-      if (updErr) {
-        const msg = updErr.message || '';
-        if (/weak|known/i.test(msg)) {
-          return json({ error: '此密碼過於常見容易被猜測，請改用更獨特的密碼（建議混合英文大小寫、數字與符號）' }, 400);
-        }
-        if (/should be at least/i.test(msg)) {
-          return json({ error: '密碼長度不足，請使用更長的密碼' }, 400);
-        }
-        return json({ error: msg }, 400);
-      }
+      if (updErr) return json({ error: translateAuthError(updErr.message) }, 400);
 
       await adminClient.from('audit_logs').insert({
         actor_id: caller.id,
