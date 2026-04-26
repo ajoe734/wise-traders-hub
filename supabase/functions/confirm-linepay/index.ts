@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { linepayHmacSha256Base64 as hmacSha256Base64 } from "../_shared/paymentVerify.ts";
 import { createSubscriptionAndTransaction } from "../_shared/paymentProcessor.ts";
 

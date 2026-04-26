@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { ecpayGenerateCheckMacValue as generateCheckMacValueAsync, ecpayExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";
 import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription } from "../_shared/paymentProcessor.ts";
 
