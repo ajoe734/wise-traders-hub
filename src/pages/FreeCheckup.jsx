@@ -1442,8 +1442,13 @@ export default function App() {
     try {
       const codes = H.map(h => h.code);
       if (codes.length === 0) { setRefreshing(false); return; }
-      // 同時嘗試上市(tse)和上櫃(otc)，API 只會回傳有效的
-      const queries = codes.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]);
+      // 同時嘗試上市(tse)、上櫃/興櫃(otc)、權證/盤後(oa/ob)
+      // 興櫃部分代碼 MIS 端會用 otc_ 通道；權證 6 碼以 oa_ 試
+      const queries = codes.flatMap(c => {
+        const base = [`tse_${c}.tw`, `otc_${c}.tw`];
+        if (c.length >= 6) base.push(`oa_${c}.tw`);
+        return base;
+      });
       const exCh = queries.join('|');
       const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
       const res = await fetch(url);
