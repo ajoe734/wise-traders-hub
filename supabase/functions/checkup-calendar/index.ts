@@ -107,7 +107,7 @@ async function callAI(system: string, user: string, maxTokens = 8192): Promise<{
   }
 
   if (geminiKey) {
-    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
       try {
         const body: any = {
           contents: [{ role: 'user', parts: [{ text: user }] }],
@@ -118,13 +118,24 @@ async function callAI(system: string, user: string, maxTokens = 8192): Promise<{
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
         );
-        if (response.status === 429) continue;
-        if (!response.ok) continue;
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error(`Gemini direct ${model} failed (${response.status}): ${errText.slice(0, 200)}`);
+          continue;
+        }
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
-        if (text) return { ok: true, text };
-      } catch {}
+        if (text) {
+          console.log(`Gemini direct ${model} succeeded`);
+          return { ok: true, text };
+        }
+        console.error(`Gemini direct ${model} returned empty text`);
+      } catch (err) {
+        console.error(`Gemini direct ${model} error:`, err);
+      }
     }
+  } else {
+    console.error('GOOGLE_GEMINI_API_KEY not set; cannot fallback');
   }
 
   return { ok: false, text: '' };
