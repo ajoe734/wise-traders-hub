@@ -114,6 +114,56 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<A
   return { text: '', attempts };
 }
 
+type AiFailurePayload = {
+  code: string;
+  error: string;
+  fallback: true;
+  retryable: boolean;
+  suggestedWaitSeconds: number;
+};
+
+function buildAiFailure(attempts: AiAttempt[], fallbackError: string): AiFailurePayload {
+  const statuses = attempts.map((attempt) => attempt.status).filter((status): status is number => typeof status === 'number');
+
+  if (statuses.includes(402)) {
+    return {
+      code: 'AI_BILLING_REQUIRED',
+      error: 'AI 額度不足，已略過本次事件預測',
+      fallback: true,
+      retryable: false,
+      suggestedWaitSeconds: 0,
+    };
+  }
+
+  if (statuses.includes(429)) {
+    return {
+      code: 'AI_RATE_LIMITED',
+      error: 'AI 服務忙碌中，已略過本次事件預測',
+      fallback: true,
+      retryable: true,
+      suggestedWaitSeconds: 60,
+    };
+  }
+
+  if (statuses.includes(401) || statuses.includes(403)) {
+    return {
+      code: 'AI_AUTH_FAILED',
+      error: 'AI 服務驗證失敗，已略過本次事件預測',
+      fallback: true,
+      retryable: false,
+      suggestedWaitSeconds: 0,
+    };
+  }
+
+  return {
+    code: 'AI_UNAVAILABLE',
+    error: fallbackError,
+    fallback: true,
+    retryable: true,
+    suggestedWaitSeconds: 30,
+  };
+}
+
 /* ── helpers ── */
 
 function extractJsonArrayStr(text: string): any[] {
@@ -433,11 +483,13 @@ ${eventsForPrompt}
     const debugInfo = debugMode ? { attempts: aiResult.attempts, succeededWith: aiResult.succeededWith } : undefined;
 
     if (!aiResult.text) {
+      const failure = buildAiFailure(aiResult.attempts, '事件預測暫時不可用，已略過本次預測');
       return new Response(JSON.stringify({
-        error: '預測失敗，所有模型均無法使用',
+        ...failure,
+        predictions: [],
         ...(debugInfo ? { debug: debugInfo } : {}),
       }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -447,10 +499,11 @@ ${eventsForPrompt}
     } catch (err) {
       console.error('Parse predictions failed:', err, aiResult.text.slice(0, 500));
       return new Response(JSON.stringify({
-        error: '預測結果解析失敗',
+        ...buildAiFailure(aiResult.attempts, '事件預測結果解析失敗，已略過本次預測'),
+        predictions: [],
         ...(debugInfo ? { debug: { ...debugInfo, rawTextSample: aiResult.text.slice(0, 500) } } : {}),
       }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -468,8 +521,12 @@ ${eventsForPrompt}
     });
   } catch (err) {
     console.error('Predict events error:', err);
-    return new Response(JSON.stringify({ error: '預測失敗', detail: String(err) }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({
+      ...buildAiFailure([], '事件預測服務暫時不可用，已略過本次預測'),
+      predictions: [],
+      detail: String(err),
+    }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
