@@ -117,13 +117,61 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<A
 /* ── helpers ── */
 
 function extractJsonArrayStr(text: string): any[] {
-  const cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+  // Strip markdown fences (``` or ''' variants the model sometimes emits)
+  const cleaned = text
+    .replace(/```(?:json)?\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .replace(/'''(?:json)?\s*/gi, '')
+    .replace(/'''\s*/g, '');
+
+  // Fast path: try a clean parse if the array closes properly.
   let depth = 0, start = -1;
   for (let i = 0; i < cleaned.length; i++) {
-    if (cleaned[i] === '[') { if (depth === 0) start = i; depth++; }
-    else if (cleaned[i] === ']') { depth--; if (depth === 0 && start !== -1) return JSON.parse(cleaned.substring(start, i + 1)); }
+    const ch = cleaned[i];
+    if (ch === '[') { if (depth === 0) start = i; depth++; }
+    else if (ch === ']') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        try { return JSON.parse(cleaned.substring(start, i + 1)); } catch { /* fall through */ }
+      }
+    }
   }
-  throw new Error('No JSON array found');
+
+  // Recovery path: array opened but never closed (model output truncated).
+  // Walk top-level objects inside the array and collect every complete `{...}`.
+  const arrStart = cleaned.indexOf('[');
+  if (arrStart === -1) throw new Error('No JSON array found');
+
+  const items: any[] = [];
+  let i = arrStart + 1;
+  while (i < cleaned.length) {
+    while (i < cleaned.length && cleaned[i] !== '{') i++;
+    if (i >= cleaned.length) break;
+    const objStart = i;
+    let objDepth = 0, inStr = false, esc = false;
+    for (; i < cleaned.length; i++) {
+      const c = cleaned[i];
+      if (esc) { esc = false; continue; }
+      if (c === '\\') { esc = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === '{') objDepth++;
+      else if (c === '}') {
+        objDepth--;
+        if (objDepth === 0) {
+          const slice = cleaned.substring(objStart, i + 1);
+          try { items.push(JSON.parse(slice)); } catch { /* skip malformed */ }
+          i++;
+          break;
+        }
+      }
+    }
+    if (objDepth !== 0) break; // truncated mid-object, stop.
+  }
+
+  if (items.length === 0) throw new Error('No JSON array found');
+  console.log(`extractJsonArrayStr: recovered ${items.length} items from truncated output`);
+  return items;
 }
 
 function getSupabaseAdmin() {
