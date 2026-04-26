@@ -53,6 +53,38 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  i18n-check:
+    name: i18n 檢查（無未翻譯英文字串進入正式繁中畫面）
+    runs-on: ubuntu-latest
+    outputs:
+      violations: ${{ steps.run.outputs.violations }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run i18n scanner (with JSON report)
+        id: run
+        run: |
+          mkdir -p reports
+          set +e
+          node scripts/check-freecheckup-i18n.mjs --json reports/i18n.json | tee reports/i18n.txt
+          code=$?
+          set -e
+          count=$(node -e "try{const r=require('./reports/i18n.json');console.log((r.violations||[]).length)}catch(e){console.log(0)}")
+          echo "violations=$count" >> "$GITHUB_OUTPUT"
+          exit $code
+
+      - name: Upload i18n-check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-check-report
+          path: reports/
+          retention-days: 14
+          if-no-files-found: ignore
+
   visual-regression:
     name: 視覺截圖 + Playwright (320 / 340 / 375 / 414)
     runs-on: ubuntu-latest
