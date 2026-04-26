@@ -2164,9 +2164,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             grid-template-columns: repeat(2, minmax(0,1fr)) !important;
             gap: 14px 18px !important;
           }
+          .wb-card-pnl-num{
+            font-size: 36px !important;
+            letter-spacing: -0.03em !important;
+          }
+          .wb-card-pnl-pct{
+            font-size: 14px !important;
+          }
         }
         @media(max-width:380px){
           .wb-hero-pnl-num{ font-size: 44px !important; }
+          .wb-card-pnl-num{ font-size: 30px !important; }
         }
       `}</style>
 
@@ -3058,12 +3066,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
                     {/* PnL */}
                     <div style={{marginBottom:20,paddingBottom:16,borderBottom:`1px solid ${WB.hair}`}}>
-                      <div style={{
+                      <div className="wb-card-pnl-num" style={{
                         fontSize:48,fontWeight:500,color:WB.ink,
                         letterSpacing:'-0.03em',lineHeight:1,
                         fontVariantNumeric:'tabular-nums',
                       }}>
-                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:18,opacity:0.55,marginLeft:2}}>%</span>
+                        {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span className="wb-card-pnl-pct" style={{fontSize:18,opacity:0.55,marginLeft:2}}>%</span>
                       </div>
                       <div style={{marginTop:8,fontSize:12,color:WB.inkMute,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
                         {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()} ・ VALUE {h.value?.toLocaleString() || '—'}
