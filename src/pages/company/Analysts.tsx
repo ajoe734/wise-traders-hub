@@ -410,9 +410,12 @@ const CompanyAnalysts = () => {
                         </Badge>
                       </td>
                       <td className="p-4">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
                           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openLineSettings(exp)}>
                             <MessageCircle className="h-3 w-3 mr-1" />LINE
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openAccountDialog(exp)}>
+                            <Key className="h-3 w-3 mr-1" />帳號
                           </Button>
                           <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
                             <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
