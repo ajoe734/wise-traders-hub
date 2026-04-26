@@ -31,8 +31,8 @@ const FILE = resolve(process.cwd(), REL_FILE);
 const src = readFileSync(FILE, 'utf8');
 const lines = src.split('\n');
 
-// ── 白名單（專有名詞 + 短金融縮寫 + 單位 + 平台/品牌）──
-// 全部以「大小寫不敏感、整字比對」處理；連字號與 & 視為字內字元
+// ── 白名單（專有名詞 + 短金融縮寫 + 單位 + 平台/品牌 + 區塊標題）──
+// 全部以「大小寫不敏感、整字比對」處理；連字號、& 視為字內字元
 const ALLOWLIST = new Set(
   [
     // 平台 / 品牌
@@ -44,6 +44,11 @@ const ALLOWLIST = new Set(
     'TGT', 'AVG', 'VOL', 'OHLC', 'IPO', 'EX', 'TWD', 'USD',
     // 單位 / 通用詞
     'NT', 'NTD', 'PCT', 'NA', 'N/A',
+    // ── 視覺裝飾用大寫區塊標籤（全大寫、無語意句構，作為設計排版錨點）──
+    // 來源：mem://style/checkup/japanese-minimalist-aesthetic 的 Kore-eda 美學規範
+    // 新增此類字串請先確認是否屬於「無敘述性、純當分隔錨點」的裝飾標題
+    'TODAY', 'VALUE', 'DECISION', 'TARGET', 'TOMORROW', 'THESIS', 'NOTES',
+    'PORTFOLIO', 'OVERVIEW', 'MARKET', 'TARGETS',
   ].map((w) => w.toUpperCase())
 );
 
