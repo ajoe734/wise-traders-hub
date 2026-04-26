@@ -2920,6 +2920,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const pnlWeight = pctVal > 0 ? 500 : 400;
               const pnlArrow = pctVal > 0 ? '↑' : pctVal < 0 ? '↓' : '';
 
+              // 報價來源徽章：screenshot=截圖價 / live=即時 / high=最高(成交清空) / ask=賣一(無成交) / yclose=昨收
+              const SRC_LABEL = { screenshot: '截圖', live: '即時', high: '最高', ask: '賣一', yclose: '昨收' };
+              const srcLabel = h.priceSource ? SRC_LABEL[h.priceSource] : null;
+              const srcTitle = h.priceError
+                ? `報價問題：${h.priceError}`
+                : h.priceUpdatedAt
+                  ? `來源：${srcLabel || '—'}　更新於 ${new Date(h.priceUpdatedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`
+                  : '尚未同步即時報價';
+
               // ─── Feature card (ink + span 2)：黑底，橘紅 ROI，五層雜誌排版 ───
               if (isInk && h.__featureSlot) {
                 return (
