@@ -41,8 +41,24 @@ function classifyAttempt(a) {
   return { kind: 'other', label: `其他 (${s})`, tone: 'down' };
 }
 
-// 根據 attempts 整體推導建議下一步
-function deriveSuggestion(attempts) {
+// 失敗分類 → 重試規則對應表
+const RETRY_POLICY = {
+  quota:            { maxRetries: 0, waitSec: 0,    switchPath: 'yes',      desc: '配額用盡，重試無意義' },
+  rateLimit:        { maxRetries: 3, waitSec: 60,   switchPath: 'optional', desc: '指數退避：60s → 120s → 240s' },
+  serverBusy:       { maxRetries: 3, waitSec: 30,   switchPath: 'optional', desc: '指數退避：30s → 60s → 120s' },
+  serverError:      { maxRetries: 2, waitSec: 15,   switchPath: 'optional', desc: '短退避後重試' },
+  modelUnavailable: { maxRetries: 0, waitSec: 0,    switchPath: 'no',       desc: '改用其他模型名稱' },
+  auth:             { maxRetries: 0, waitSec: 0,    switchPath: 'no',       desc: '檢查並更新 API Key' },
+  network:          { maxRetries: 5, waitSec: 5,    switchPath: 'no',       desc: '檢查網路後重試' },
+  other:            { maxRetries: 1, waitSec: 10,   switchPath: 'optional', desc: '回報並查看 logs' },
+};
+
+const SOURCE_TO_FN = {
+  predict: 'checkup-predict-events',
+  calendar: 'checkup-calendar',
+};
+
+function deriveSuggestion(attempts, source) {
   if (!attempts?.length) return null;
   const kinds = attempts.map(classifyAttempt);
   if (kinds.some(k => k.kind === 'ok')) return null;
@@ -50,25 +66,46 @@ function deriveSuggestion(attempts) {
   const direct = attempts.filter(a => a.path === 'gemini-direct');
   const gwAllQuota = gw.length > 0 && gw.every(a => classifyAttempt(a).kind === 'quota');
   const directAllQuota = direct.length > 0 && direct.every(a => ['quota','rateLimit'].includes(classifyAttempt(a).kind));
-  if (gwAllQuota && direct.length === 0) {
-    return { tone: 'amber', text: '🟡 Lovable Gateway 配額用盡，建議切換直連 Gemini 或為 workspace 加值。' };
+
+  const order = ['auth','modelUnavailable','quota','rateLimit','serverBusy','serverError','network','other'];
+  let primary = 'other';
+  for (const k of order) {
+    if (kinds.some(x => x.kind === k)) { primary = k; break; }
   }
+  const policy = RETRY_POLICY[primary] || RETRY_POLICY.other;
+
+  let text;
+  let tone = policy.maxRetries === 0 ? 'down' : 'amber';
   if (gwAllQuota && directAllQuota) {
-    return { tone: 'down', text: '🔴 Gateway 與直連配額皆已用盡，建議補值 Lovable Gateway 或升級 Gemini API 方案。' };
+    text = '🔴 Gateway 與直連配額皆用盡：補值 Lovable Gateway 或升級 Gemini API 方案後再試。';
+    tone = 'down';
+  } else if (gwAllQuota && direct.length === 0) {
+    text = '🟡 Lovable Gateway 配額用盡：建議立即切換直連 Gemini（無需等待）。';
+  } else if (primary === 'rateLimit') {
+    text = `🟡 限流：等待 ${policy.waitSec}s 後重試，最多 ${policy.maxRetries} 次（指數退避）。`;
+  } else if (primary === 'serverBusy') {
+    text = `🟡 服務忙碌：等待 ${policy.waitSec}s 後重試，可考慮切換另一條路徑。`;
+  } else if (primary === 'modelUnavailable') {
+    text = '🔴 模型不可用：請改用其他模型（如 gemini-2.5-flash），勿原樣重試。';
+  } else if (primary === 'auth') {
+    text = '🔴 認證失敗：檢查 LOVABLE_API_KEY 或 GOOGLE_GEMINI_API_KEY 是否有效，重試無意義。';
+  } else if (primary === 'serverError') {
+    text = `🔴 服務端錯誤：等待 ${policy.waitSec}s 後重試最多 ${policy.maxRetries} 次。`;
+  } else if (primary === 'network') {
+    text = `🟡 網路錯誤：檢查連線後等待 ${policy.waitSec}s 重試（最多 ${policy.maxRetries} 次）。`;
+  } else {
+    text = '🟡 多種錯誤混合：建議延後重試；持續失敗請切換直連或檢查金鑰。';
   }
-  if (kinds.every(k => ['rateLimit','serverBusy'].includes(k.kind))) {
-    return { tone: 'amber', text: '🟡 全為限流／服務忙碌，建議延後 30–60 秒重試。' };
-  }
-  if (kinds.some(k => k.kind === 'modelUnavailable')) {
-    return { tone: 'down', text: '🔴 模型不可用，建議檢查模型名稱或改用其他可用模型。' };
-  }
-  if (kinds.some(k => k.kind === 'auth')) {
-    return { tone: 'down', text: '🔴 認證失敗，請檢查 LOVABLE_API_KEY 或 GOOGLE_GEMINI_API_KEY 是否有效。' };
-  }
-  if (kinds.every(k => k.kind === 'serverError')) {
-    return { tone: 'down', text: '🔴 後端服務皆異常，建議稍後再試或回報。' };
-  }
-  return { tone: 'amber', text: '🟡 多種錯誤混合，建議延後重試；若持續失敗請切換直連或檢查金鑰。' };
+
+  const fn = SOURCE_TO_FN[source] || 'checkup-predict-events';
+  const baseUrl = `${import.meta.env.VITE_SUPABASE_URL || 'https://YOUR_PROJECT.supabase.co'}/functions/v1/${fn}`;
+  const curl =
+`curl -X POST '${baseUrl}?debug=1' \\
+  -H 'Content-Type: application/json' \\
+  -H 'Authorization: Bearer YOUR_ANON_KEY' \\
+  -d '{"debug": true${primary === 'modelUnavailable' ? ', "model": "google/gemini-2.5-flash"' : ''}}'`;
+
+  return { tone, text, primary, policy, curl };
 }
 
 // ── 目標價資料庫（分析師共識）─────────────────────────────────────
@@ -4097,10 +4134,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {debugPanelOpen && (
                       <div style={{padding:"4px 10px 10px",borderTop:`1px solid ${alpha(C.textMute,'14')}`}}>
                         {[
-                          { label: '事件預測', dbg: predictLastDebug },
-                          { label: '行事曆', dbg: calendarLastDebug },
-                        ].filter(x => x.dbg).map(({ label, dbg }) => {
-                          const suggestion = deriveSuggestion(dbg.attempts || []);
+                          { label: '事件預測', dbg: predictLastDebug, source: 'predict' },
+                          { label: '行事曆', dbg: calendarLastDebug, source: 'calendar' },
+                        ].filter(x => x.dbg).map(({ label, dbg, source }) => {
+                          const suggestion = deriveSuggestion(dbg.attempts || [], source);
                           // 統計各分類數量
                           const buckets = {};
                           (dbg.attempts || []).forEach(a => {
@@ -4133,14 +4170,61 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                                 ))}
                               </div>
                             )}
-                            {/* 建議 */}
+                            {/* 建議 + 重試規則 + cURL */}
                             {suggestion && (
                               <div style={{
-                                fontSize:10,padding:"5px 8px",borderRadius:4,marginBottom:6,
+                                marginBottom:6,padding:"6px 8px",borderRadius:4,
                                 background:alpha(suggestion.tone === 'amber' ? C.amber : C.down, '10'),
                                 color: suggestion.tone === 'amber' ? C.amber : C.down,
-                                lineHeight:1.5,
-                              }}>{suggestion.text}</div>
+                              }}>
+                                <div style={{fontSize:10,lineHeight:1.5}}>{suggestion.text}</div>
+                                {/* 規則表 */}
+                                <div style={{
+                                  marginTop:6,display:"grid",
+                                  gridTemplateColumns:"auto 1fr",columnGap:8,rowGap:2,
+                                  fontSize:10,color:C.textMute,
+                                }}>
+                                  <span style={{opacity:0.7}}>最多重試</span>
+                                  <span>{suggestion.policy.maxRetries} 次</span>
+                                  <span style={{opacity:0.7}}>建議等待</span>
+                                  <span>{suggestion.policy.waitSec > 0 ? `${suggestion.policy.waitSec}s` : '不需等待'}</span>
+                                  <span style={{opacity:0.7}}>切換直連</span>
+                                  <span>{suggestion.policy.switchPath === 'yes' ? '✅ 立即切換' : suggestion.policy.switchPath === 'optional' ? '⚪ 可選' : '❌ 無助於修復'}</span>
+                                  <span style={{opacity:0.7}}>策略</span>
+                                  <span>{suggestion.policy.desc}</span>
+                                </div>
+                                {/* cURL 範例 */}
+                                <div style={{marginTop:6}}>
+                                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                                    <span style={{fontSize:10,opacity:0.7,color:C.textMute}}>可複製的請求範例</span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        const btn = e.currentTarget;
+                                        try {
+                                          navigator.clipboard?.writeText(suggestion.curl);
+                                          const orig = btn.textContent;
+                                          btn.textContent = '已複製 ✓';
+                                          setTimeout(() => { btn.textContent = orig; }, 1500);
+                                        } catch { /* noop */ }
+                                      }}
+                                      style={{
+                                        fontSize:10,padding:"2px 8px",borderRadius:3,
+                                        border:`1px solid ${alpha(C.textMute,'30')}`,
+                                        background:"transparent",color:C.textMute,cursor:"pointer",
+                                      }}
+                                    >複製</button>
+                                  </div>
+                                  <pre style={{
+                                    margin:0,padding:6,borderRadius:3,
+                                    background:alpha(C.textMute,'10'),color:C.text,
+                                    fontSize:10,lineHeight:1.4,
+                                    fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",
+                                    whiteSpace:"pre-wrap",wordBreak:"break-all",
+                                    maxHeight:120,overflow:"auto",
+                                  }}>{suggestion.curl}</pre>
+                                </div>
+                              </div>
                             )}
                             <div style={{display:"flex",flexDirection:"column",gap:3}}>
                               {(dbg.attempts || []).map((a, i) => {
