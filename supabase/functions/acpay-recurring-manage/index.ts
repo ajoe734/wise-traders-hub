@@ -20,7 +20,9 @@ function deriveKeyAndIv(merchantKey: string, nonceStr: string) {
 
 // AES/CBC/ZeroPadding encryption for request
 function toPlainAB(buf: Uint8Array): ArrayBuffer {
-  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+  const out = new ArrayBuffer(buf.byteLength);
+  new Uint8Array(out).set(buf);
+  return out;
 }
 
 async function aesEncrypt(plaintext: string, key: Uint8Array, iv: Uint8Array): Promise<string> {
