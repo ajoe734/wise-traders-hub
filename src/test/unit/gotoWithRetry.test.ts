@@ -451,10 +451,10 @@ describe('isRetryableNavigationError — degenerate Error shapes', () => {
     expect(isRetryableNavigationError(err)).toBe(false);
   });
 
-  it('defaults to non-retryable when message has been deleted', () => {
+  it('defaults to non-retryable when message has been hollowed out to empty', () => {
     const err = new Error('Timeout 30000ms exceeded');
-    // @ts-expect-error — intentionally hollowing out the field
-    delete err.message;
+    // Some upstream wrappers reset .message to '' or undefined before rethrow.
+    (err as { message: string }).message = '';
     expect(isRetryableNavigationError(err)).toBe(false);
   });
 
