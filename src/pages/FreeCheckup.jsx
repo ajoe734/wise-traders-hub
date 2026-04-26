@@ -544,6 +544,8 @@ export default function App() {
   // 最近一次失敗錯誤明細：{ message, reason: 'network'|'data'|'server'|'unknown', at: ISOString }
   const [calendarLastError, setCalendarLastError] = useState(null);
   const [predictLastError, setPredictLastError] = useState(null);
+  // 收盤分析錯誤：{ code, message, cid, opStartedAt, httpStatus, at }
+  const [dailyLastError, setDailyLastError] = useState(null);
   // AI 模型嘗試紀錄（debug）：{ source, at, attempts: [{path, model, status, ok, errorBody, errorMessage}], succeededWith }
   const [calendarLastDebug, setCalendarLastDebug] = useState(null);
   const [predictLastDebug, setPredictLastDebug] = useState(null);
@@ -1750,8 +1752,13 @@ export default function App() {
       setTimeout(() => setSaved(""), 4000);
       return;
     }
+    // 產生 correlation id 與紀錄使用者操作起始時間
+    const cid = `daily_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const opStartedAt = new Date().toISOString();
+    setDailyLastError(null);
     setAnalyzing(true);
     setAnalyzeStep("取得即時股價...");
+    pushUpdateLog({ source:'daily', trigger:'manual', status:'fetching', key:cid, msg:'開始收盤分析' });
     try {
       // 1. 取得最新股價
       const codes = H.map(h => h.code);
@@ -1894,7 +1901,7 @@ ${losers.map(h=>{
         const analyzeTimer = setTimeout(() => analyzeController.abort(), 120000); // 2 min timeout
         const aiRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-correlation-id": cid },
           signal: analyzeController.signal,
           body: JSON.stringify({
             systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
@@ -1944,13 +1951,33 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
         });
         clearTimeout(analyzeTimer);
         if (!aiRes.ok) {
-          console.error("AI 分析 HTTP 錯誤:", aiRes.status, await aiRes.text());
+          const errBody = await aiRes.text().catch(() => '');
+          const code = aiRes.status === 402 ? 'AI_BILLING_REQUIRED'
+                     : aiRes.status === 429 ? 'AI_RATE_LIMITED'
+                     : aiRes.status === 401 ? 'AI_AUTH_FAILED'
+                     : `HTTP_${aiRes.status}`;
+          const errInfo = { code, message: errBody.slice(0, 240) || `HTTP ${aiRes.status}`, cid, opStartedAt, httpStatus: aiRes.status, at: new Date().toISOString() };
+          setDailyLastError(errInfo);
+          pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code} (${aiRes.status})` });
+          console.error("[daily] AI 分析失敗", errInfo);
         } else {
           const aiData = await aiRes.json();
-          aiInsight = aiData.content?.[0]?.text || aiData.text || aiData.response || null;
+          if (aiData?.fallback) {
+            const code = aiData.code || 'AI_FALLBACK';
+            const errInfo = { code, message: String(aiData.error || '').slice(0, 240) || code, cid, opStartedAt, httpStatus: 200, at: new Date().toISOString() };
+            setDailyLastError(errInfo);
+            pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`fallback ${code}` });
+            console.error("[daily] AI fallback", errInfo);
+          } else {
+            aiInsight = aiData.content?.[0]?.text || aiData.text || aiData.response || null;
+          }
         }
       } catch (e) {
-        console.error("AI 分析失敗:", e);
+        const code = e?.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR';
+        const errInfo = { code, message: String(e?.message || e).slice(0, 240), cid, opStartedAt, httpStatus: 0, at: new Date().toISOString() };
+        setDailyLastError(errInfo);
+        pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code}` });
+        console.error("[daily] AI 分析例外", errInfo);
       }
 
       // 7. 組裝報告
@@ -2022,8 +2049,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       }));
 
       setLastUpdate(new Date());
+      if (!dailyLastError) {
+        pushUpdateLog({ source:'daily', trigger:'manual', status:'success', key:cid, msg:'完成' });
+      }
     } catch (err) {
-      console.error("收盤分析失敗:", err);
+      const code = err?.name === 'AbortError' ? 'TIMEOUT' : 'PIPELINE_ERROR';
+      const errInfo = { code, message: String(err?.message || err).slice(0, 240), cid, opStartedAt, httpStatus: 0, at: new Date().toISOString() };
+      setDailyLastError(errInfo);
+      pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code}` });
+      console.error("[daily] 收盤分析失敗", errInfo);
       setSaved("❌ 分析失敗");
       setTimeout(() => setSaved(""), 3000);
     }
@@ -4486,6 +4520,47 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                </div>
              </div>
             )}
+
+          {dailyLastError && !analyzing && (
+            <div style={{
+              margin:"0 0 14px",padding:"14px 16px",borderRadius:8,
+              border:`1px solid ${alpha(C.down,'30')}`,
+              background:alpha(C.down,'06'),
+            }}>
+              <div style={{fontSize:12,color:C.down,fontWeight:500,marginBottom:6,letterSpacing:"0.04em"}}>
+                ⚠ 收盤分析失敗
+              </div>
+              <div style={{fontSize:12,color:C.textSec,lineHeight:1.7,fontWeight:400}}>
+                錯誤代碼：<code style={{fontSize:11,color:C.text}}>{dailyLastError.code}</code><br/>
+                {dailyLastError.message}
+              </div>
+              <div style={{fontSize:10,color:C.textMute,marginTop:8,fontFamily:"ui-monospace,monospace",lineHeight:1.6,opacity:0.8}}>
+                cid: {dailyLastError.cid}<br/>
+                操作時間：{dailyLastError.opStartedAt}<br/>
+                {dailyLastError.httpStatus ? `HTTP: ${dailyLastError.httpStatus}` : ""}
+              </div>
+              <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+                <button onClick={runDailyAnalysis} disabled={analyzing || hasReachedDailyLimit} style={{
+                  padding:"6px 14px",borderRadius:6,
+                  border:`1px solid ${alpha(C.teal,'40')}`,
+                  background:alpha(C.teal,'08'),
+                  color:C.teal,fontSize:12,fontWeight:400,
+                  cursor:(analyzing||hasReachedDailyLimit)?"not-allowed":"pointer",
+                  opacity:(analyzing||hasReachedDailyLimit)?0.5:1,
+                  letterSpacing:"0.04em"}}>
+                  重試
+                </button>
+                <button onClick={() => setDailyLastError(null)} style={{
+                  padding:"6px 14px",borderRadius:6,
+                  border:`1px solid ${alpha(C.textMute,'25')}`,
+                  background:"transparent",
+                  color:C.textMute,fontSize:12,fontWeight:400,
+                  cursor:"pointer",letterSpacing:"0.04em"}}>
+                  關閉
+                </button>
+              </div>
+            </div>
+          )}
 
           {analyzing && (
             <div style={{textAlign:"center",padding:"36px 16px"}}>
