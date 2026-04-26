@@ -2030,12 +2030,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       return;
     }
     setParsing(true); setParseErr(null);
+    setParseStep({ stage: 'upload', label: '上傳截圖至 AI Vision', progress: 10, detail: `影像大小約 ${Math.round((b64?.length || 0) * 0.75 / 1024)} KB` });
 
     const MAX_RETRIES = 3;
     let lastErr = "";
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
+        setParseStep({
+          stage: attempt === 1 ? 'ai' : 'retry',
+          label: attempt === 1 ? 'AI 解析持倉資料中' : `AI 解析重試 ${attempt}/${MAX_RETRIES}`,
+          progress: attempt === 1 ? 30 : 30 + (attempt - 1) * 10,
+          detail: attempt === 1 ? '使用 Gemini 2.5 Pro Vision' : `上次失敗：${lastErr || '未知錯誤'}`,
+        });
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-parse`, {
           method:"POST",
           headers:{"Content-Type":"application/json"},
@@ -2067,6 +2074,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         }));
         parsedResult.trades = preparedTrades;
         setParsed(parsedResult);
+        setParseStep({ stage: 'persist', label: '寫入持倉與交易記錄', progress: 70, detail: `辨識出 ${preparedTrades.length} 筆部位` });
 
         // 解析成功後立即同步持倉 & 交易記錄
         if (preparedTrades.length) {
@@ -2079,6 +2087,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               `持倉上限 ${MAX_HOLDINGS} 檔，目前 ${currentCodes.size} 檔、本次解析新增 ${incomingCodes.size} 檔`
               + `（合計 ${merged.size} 檔超出 ${merged.size - MAX_HOLDINGS} 檔），請先整理或減少匯入筆數`
             );
+            setParseStep({ stage: 'error', label: '持倉超出上限', progress: 70, detail: `合計 ${merged.size} / 上限 ${MAX_HOLDINGS}` });
             setParsing(false);
             return;
           }
@@ -2103,12 +2112,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           incrementUploadCount(); // 記錄今日上傳次數
           setTimeout(() => setSaved(""), 2500);
           // ✨ 解析成功後自動拉一次 TWSE 即時報價，避免依賴截圖內 market_price
-          // 重置冷卻避免被擋
+          setParseStep({ stage: 'refresh', label: '同步 TWSE 即時報價', progress: 90, detail: '繞過冷卻自動執行一次' });
           try {
             setLastUpdate(null);
             setTimeout(() => { refreshPrices().catch(() => {}); }, 600);
           } catch (e) { console.warn('auto-refresh after parse failed:', e); }
         }
+        setParseStep({ stage: 'done', label: '解析完成', progress: 100, detail: `共 ${preparedTrades.length} 筆持倉已寫入` });
+        setTimeout(() => setParseStep(null), 4000);
         setParsing(false);
         return; // 成功，直接返回
       } catch (e) {
@@ -2119,7 +2130,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     }
 
     // 所有重試都失敗
-    setParseErr(lastErr || "解析失敗，請確認截圖清晰");
+    const finalErr = lastErr || "解析失敗，請確認截圖清晰";
+    setParseErr(finalErr);
+    setParseStep({ stage: 'error', label: 'AI 解析失敗', progress: 100, detail: finalErr });
+    setTimeout(() => setParseStep(null), 6000);
     setParsing(false);
   };
 
