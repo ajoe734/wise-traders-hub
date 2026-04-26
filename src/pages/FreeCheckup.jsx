@@ -2378,7 +2378,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 }} className="wb-hero-kpi">
                   {[
                     { label: 'Total Value', value: totalVal > 0 ? Math.round(totalVal).toLocaleString() : '—', sub: 'TWD' },
-                    { label: 'Holdings', value: String(H.length), sub: H.length > 0 ? 'positions' : '' },
+                    { label: 'Holdings', value: H.length > 0 ? `${H.length} / ${MAX_HOLDINGS}` : '—', sub: H.length > 0 ? (H.length >= MAX_HOLDINGS - 5 ? '⚠ 接近上限' : 'positions') : '' },
                     { label: 'Win Rate', value: H.length > 0 ? `${winRate}` : '—', sub: H.length > 0 ? '%' : '' },
                     { label: 'Cost Basis', value: totalCost > 0 ? Math.round(totalCost).toLocaleString() : '—', sub: 'TWD' },
                   ].map((item) => (
@@ -4220,7 +4220,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ) : (
                   <><div style={{fontSize:32,marginBottom:10,opacity:0.5}}>↑</div> {/* rwd-allow:純裝飾箭頭非數字 */}
                   <div style={{fontSize:15,fontWeight:500,color:C.textSec}}>上傳已成交截圖</div>
-                  <div style={{fontSize:13,color:C.textMute,marginTop:4}}>截圖需要包含代碼、名稱、股數、市價、成本、成本價、手續費</div></>
+                  <div style={{fontSize:13,color:C.textMute,marginTop:4}}>截圖需要包含代碼、名稱、股數、市價、成本、成本價、手續費</div>
+                  <div style={{fontSize:11,color:C.textMute,marginTop:6,letterSpacing:'0.04em'}}>持倉上限 {MAX_HOLDINGS} 檔（目前 {(holdings || []).length} 檔）</div></>
                 )}
               </div>
               {img && (
