@@ -14,7 +14,8 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:update": "playwright test --update-snapshots"
+    "test:e2e:update": "playwright test --update-snapshots",
+    "check:freecheckup-rwd": "node scripts/check-freecheckup-rwd.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
