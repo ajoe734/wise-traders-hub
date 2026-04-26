@@ -121,15 +121,21 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+
+    const issues = validateInput({
+      fields: {
+        userPrompt: { required: true, type: 'string', minLength: 4, label: 'userPrompt（或 prompt）', altKey: 'prompt' },
+        systemPrompt: { required: false, type: 'string', label: 'systemPrompt' },
+      },
+      source: body,
+    });
+    if (issues.length) return validationResponse(issues, corsHeaders);
+
     const systemPrompt = (body.systemPrompt || '').toString().trim();
     const userPrompt = (body.userPrompt || body.prompt || '').toString().trim();
 
-    if (!userPrompt || userPrompt.length < 4) {
-      return new Response(JSON.stringify({ error: 'userPrompt 為必填且不可過短' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     const messages: any[] = [];
     if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
