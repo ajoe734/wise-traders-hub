@@ -3470,7 +3470,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span className="wb-card-pnl-pct" style={{fontSize:18,opacity:0.55,marginLeft:2}}>%</span>
                       </div>
                       <div style={{marginTop:8,fontSize:12,color:WB.inkMute,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
-                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()} ・ VALUE {h.value?.toLocaleString() || '—'}
+                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()} ・ 市值 {h.value?.toLocaleString() || '—'}
                       </div>
                     </div>
 
