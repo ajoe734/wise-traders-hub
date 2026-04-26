@@ -3591,9 +3591,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                             flex:1,padding:'10px 14px',background:'transparent',
                             border:`1px solid ${WB.ink}`,borderRadius:2,
                             color:WB.ink,fontSize:11,fontWeight:500,cursor:'pointer',
-                            letterSpacing:'0.16em',fontFamily:'inherit',
+                            letterSpacing:'0.08em',fontFamily:'inherit',
                           }}
-                        >MARK AS HOLD</button>
+                        >標記為持有</button>
                       ) : (
                         <span style={{flex:1,fontSize:10,color:WB.inkLight,letterSpacing:'0.10em'}}>
                           {userOverrides[h.code] ? '已覆寫為持有' : '無需覆寫'}
