@@ -55,7 +55,7 @@ async function fetchStockBatch(symbols: string[]): Promise<Map<string, { price: 
       
       for (const [code, item] of bestByCode) {
         const price = extractPrice(item)
-        if (shouldWritePrice(price)) {
+        if (shouldWritePrice(price) && price !== null) {
           results.set(code, { price, name: item.n || '', raw: item })
         }
       }
