@@ -3652,7 +3652,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     onMouseLeave={(e)=>{e.currentTarget.style.borderColor=WB.hairStrong;e.currentTarget.style.color=WB.inkLight;}}
                   >
                     <span style={{fontSize:24,fontWeight:300,lineHeight:1}}>+</span>
-                    <span style={{fontSize:10,fontWeight:500}}>ADD WATCHLIST</span>
+                    <span style={{fontSize:10,fontWeight:500}}>加入觀察</span>
                   </button>
                   {!showAll && sorted.length > 12 && (
                     <button
