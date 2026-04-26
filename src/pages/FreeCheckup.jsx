@@ -2332,6 +2332,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
                 cursor:"pointer", whiteSpace:"nowrap",
               }}>清除</button>
+              {refreshing && (
+                <span style={{fontSize:11,color:C.amber,letterSpacing:'0.04em'}}>
+                  ⟳ 同步報價中
+                </span>
+              )}
               {lastUpdate && !refreshing && (
                 <span style={{fontSize:11,color:C.textMute}}>
                   {lastUpdate.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}
