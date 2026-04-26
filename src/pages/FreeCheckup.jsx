@@ -4134,10 +4134,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {debugPanelOpen && (
                       <div style={{padding:"4px 10px 10px",borderTop:`1px solid ${alpha(C.textMute,'14')}`}}>
                         {[
-                          { label: '事件預測', dbg: predictLastDebug },
-                          { label: '行事曆', dbg: calendarLastDebug },
-                        ].filter(x => x.dbg).map(({ label, dbg }) => {
-                          const suggestion = deriveSuggestion(dbg.attempts || []);
+                          { label: '事件預測', dbg: predictLastDebug, source: 'predict' },
+                          { label: '行事曆', dbg: calendarLastDebug, source: 'calendar' },
+                        ].filter(x => x.dbg).map(({ label, dbg, source }) => {
+                          const suggestion = deriveSuggestion(dbg.attempts || [], source);
                           // 統計各分類數量
                           const buckets = {};
                           (dbg.attempts || []).forEach(a => {
