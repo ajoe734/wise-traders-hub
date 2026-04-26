@@ -1530,7 +1530,11 @@ export default function App() {
       // 1. 取得最新股價
       const codes = H.map(h => h.code);
       if (codes.length === 0) { setAnalyzing(false); return; }
-      const queries = codes.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]);
+      const queries = codes.flatMap(c => {
+        const base = [`tse_${c}.tw`, `otc_${c}.tw`];
+        if (c.length >= 6) base.push(`oa_${c}.tw`);
+        return base;
+      });
       const exCh = queries.join('|');
       const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
       const res = await fetch(url);
