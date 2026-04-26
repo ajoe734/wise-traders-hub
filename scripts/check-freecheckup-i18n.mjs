@@ -58,13 +58,25 @@ const NON_PROSE_RE = /^[\s\d.,:;%+\-*/()[\]{}<>=&·•。、，？！?!"'`~|^]*$
 const isWhitelistedWord = (word) => ALLOWLIST.has(word.toUpperCase());
 
 /**
- * 判斷一個字串是否「整段都由白名單詞 + 標點 + 數字 + 空白」組成
- * 例如 "TODAY P&L"、"AI · DEMO" 通過；"Mark as hold" 不通過
+ * 判斷一個字串是否「不算需要翻譯的英文文案」
+ * 通過條件（任一即可）：
+ *   1. 全為符號 / 數字 / 空白
+ *   2. 所有英文字詞都在白名單
+ *   3. 含 CJK 字元（視為中文 / 中英混排，夾雜的英文視為專有名詞）
+ *
+ * 例如：
+ *   "TODAY P&L"            → ✅（白名單）
+ *   "THESIS · 進場理由"    → ✅（含 CJK）
+ *   "如：台燿 Q1 財報"     → ✅（含 CJK）
+ *   "Mark as hold"         → ❌
+ *   "Exit Cue · 出場條件"  → ✅（含 CJK；若想擋需走 i18n-allow 反向豁免機制）
  */
+const CJK_RE = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u309F\u30A0-\u30FF]/;
 const isAllWhitelisted = (str) => {
   const trimmed = str.trim();
   if (!trimmed) return true;
   if (NON_PROSE_RE.test(trimmed)) return true;
+  if (CJK_RE.test(trimmed)) return true; // 含中文 → 視為已本地化
   // 拆出所有英文字詞（允許 & 與 - 在字內）
   const words = trimmed.match(/[A-Za-z][A-Za-z&-]*/g) || [];
   if (words.length === 0) return true;
