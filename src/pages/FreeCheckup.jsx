@@ -48,9 +48,9 @@ const avgTarget = (code) => {
 const INIT_HOLDINGS = SEED_HOLDINGS;
 
 const INIT_WATCHLIST = [
-  { code:"1513", name:"中興電",  price:158.5, target:193,  status:"等Q4財報",  catalyst:"3–4月財報",      sc:"#f59e0b", note:"積極163–165元；保守155–160元；催化：台電GIS+台積電" },
-  { code:"4588", name:"玖鼎電力",price:69.1,  target:154,  status:"持有中",    catalyst:"台電電表訂單",    sc:"#22c55e", note:"訂單排到2028；現價已偏高不追；持有者繼續抱" },
-  { code:"6274", name:"台燿",    price:505,   target:710,  status:"⚡今日法說", catalyst:"3/18法說+財報",  sc:"#ef4444", note:"成本507；毛利率回沖→補足2/3；展望差→停損430" },
+  { code:"1513", name:"中興電",  price:158.5, target:193,  status:"等Q4財報",  catalyst:"3–4月財報",      note:"積極163–165元；保守155–160元；催化：台電GIS+台積電" },
+  { code:"4588", name:"玖鼎電力",price:69.1,  target:154,  status:"持有中",    catalyst:"台電電表訂單",    note:"訂單排到2028；現價已偏高不追；持有者繼續抱" },
+  { code:"6274", name:"台燿",    price:505,   target:710,  status:"⚡今日法說", catalyst:"3/18法說+財報",  note:"成本507；毛利率回沖→補足2/3；展望差→停損430" },
 ];
 
 // EVENTS 不再寫死，由 AI 根據持倉動態產生，存於 calendarEvents state
