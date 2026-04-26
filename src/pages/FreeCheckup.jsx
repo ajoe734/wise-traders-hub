@@ -2069,6 +2069,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           setSaved("✅ 成交已更新到持倉與記錄");
           incrementUploadCount(); // 記錄今日上傳次數
           setTimeout(() => setSaved(""), 2500);
+          // ✨ 解析成功後自動拉一次 TWSE 即時報價，避免依賴截圖內 market_price
+          // 重置冷卻避免被擋
+          try {
+            setLastUpdate(null);
+            setTimeout(() => { refreshPrices().catch(() => {}); }, 600);
+          } catch (e) { console.warn('auto-refresh after parse failed:', e); }
         }
         setParsing(false);
         return; // 成功，直接返回
