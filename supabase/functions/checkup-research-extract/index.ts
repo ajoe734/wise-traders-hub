@@ -31,7 +31,7 @@ async function callAI(messages: any[], temperature = 0.1, maxTokens = 900): Prom
   }
 
   if (geminiKey) {
-    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
+    for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
       try {
         const systemMsg = messages.find((m: any) => m.role === 'system');
         const body: any = {
