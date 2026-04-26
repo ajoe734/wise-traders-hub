@@ -2068,6 +2068,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setAnalyzeStep("");
   };
 
+  // 重試按鈕：點擊瞬間鎖定，避免重複送出；無論成功失敗都會在 finally 解鎖
+  const handleDailyRetry = async () => {
+    if (dailyRetryLockRef.current || analyzing) return;
+    dailyRetryLockRef.current = true;
+    setDailyRetryLocked(true);
+    try {
+      await runDailyAnalysis();
+    } finally {
+      dailyRetryLockRef.current = false;
+      setDailyRetryLocked(false);
+    }
+  };
+
   // ── 事件復盤 ─────────────────────────────────────────────────────
   const submitReview = (eventId) => {
     setNewsEvents(prev => {
