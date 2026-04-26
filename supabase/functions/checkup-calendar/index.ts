@@ -285,11 +285,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    const currentYear = new Date().getFullYear();
+    const nextYear = currentYear + 1;
     const outputFormat = `JSON陣列，每個元素格式：
 {"date":"日期","label":"事件標題含代碼","sub":"簡要說明","urgent":boolean,"type":"法說/財報/營收/催化/操作/總經/除息/權證","sources":[]}
 
 規則：
-- date 欄位：精確日期用 YYYY/MM/DD；只知月份用「2025/07月」；只知季度用「2025 Q2」；尚未公布用「尚未公布」
+- date 欄位：精確日期用 YYYY/MM/DD（年份必須是 ${currentYear} 或 ${nextYear}）；只知月份用「${currentYear}/07月」；只知季度用「${currentYear} Q2」；尚未公布用「尚未公布」
 - urgent=true 僅限未來一週內的事件
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、權證
 - 按日期由近到遠排序`;
@@ -301,8 +303,11 @@ Deno.serve(async (req) => {
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat, newsContext);
 
-    const systemPrompt = `你是一位頂級 AI 財經分析師，精通台股市場。你會根據提供的即時新聞資訊和你的知識，整理出未來事件行事曆。
-重要：營收公布日（每月10日前）和財報公布截止日是固定規律，即使新聞沒提到也必須列出。
+    const todayIso = new Date().toISOString().split('T')[0];
+    const systemPrompt = `你是一位頂級 AI 財經分析師，精通台股市場。今天是 ${todayIso}（西元 ${new Date().getFullYear()} 年）。你會根據提供的即時新聞資訊和你的知識，整理出未來事件行事曆。
+重要：
+- 所有日期必須使用當前或下一年份（${new Date().getFullYear()} 或 ${new Date().getFullYear() + 1}），絕對不可輸出過去年份。
+- 營收公布日（每月10日前）和財報公布截止日是固定規律，即使新聞沒提到也必須列出。
 只輸出 JSON 陣列。`;
 
     const result = await callAI(systemPrompt, prompt, 8192);
