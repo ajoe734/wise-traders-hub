@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // ── Step A: Collect all open symbols from trade_signals ──
+    // ── Step A: Collect symbols from trade_signals AND checkup_storage (Free Checkup holdings) ──
     const { data: openSignals, error: sigError } = await supabase
       .from('trade_signals')
       .select('symbol, user_id, id, entry_price, name')
@@ -90,13 +90,33 @@ Deno.serve(async (req) => {
 
     if (sigError) throw sigError
 
-    const allSymbols = [...new Set((openSignals || []).map(s => s.symbol).filter(Boolean))]
+    // Free Checkup holdings (key='pf-holdings-v2')
+    const { data: checkupRows, error: chkError } = await supabase
+      .from('checkup_storage')
+      .select('data')
+      .eq('key', 'pf-holdings-v2')
+
+    if (chkError) console.error('checkup_storage fetch error:', chkError)
+
+    const checkupSymbols = new Set<string>()
+    for (const row of (checkupRows || [])) {
+      const arr = Array.isArray(row?.data) ? row.data : []
+      for (const h of arr) {
+        const code = String(h?.code || '').trim()
+        if (code && /^\d{4,6}$/.test(code)) checkupSymbols.add(code)
+      }
+    }
+
+    const signalSymbols = (openSignals || []).map(s => s.symbol).filter(Boolean)
+    const allSymbols = [...new Set([...signalSymbols, ...checkupSymbols])]
 
     if (allSymbols.length === 0) {
       return new Response(JSON.stringify({ message: 'No open positions', updated: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    console.log(`Sync: ${signalSymbols.length} signal symbols + ${checkupSymbols.size} checkup symbols = ${allSymbols.length} unique`)
 
     // ── Step B: Batch fetch prices from TWSE ──
     const priceMap = await fetchStockBatch(allSymbols)
