@@ -1,0 +1,129 @@
+name: FreeCheckup RWD Regression
+
+# 觸發條件：PR 動到 FreeCheckup Hero / 持倉看板相關檔案
+# 對應 mem://qa/checkup/freecheckup-mobile-regression-checklist
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/pages/FreeCheckup.jsx'
+      - 'src/checkup/components/holdings/**'
+      - 'e2e/freecheckup-card.spec.ts'
+      - 'playwright.config.ts'
+      - 'scripts/check-freecheckup-rwd.mjs'
+      - '.github/workflows/freecheckup-rwd.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: freecheckup-rwd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-check:
+    name: 靜態檢查（fontSize / media query / flex-end）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run RWD static checker
+        run: node scripts/check-freecheckup-rwd.mjs
+
+  visual-regression:
+    name: 視覺截圖 + Playwright (320 / 340 / 375 / 414)
+    runs-on: ubuntu-latest
+    needs: static-check
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run Playwright visual regression
+        id: pw
+        run: bunx playwright test e2e/freecheckup-card.spec.ts --reporter=line,html
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload diff screenshots (failures only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-screenshots
+          path: |
+            test-results/
+            **/*-actual.png
+            **/*-diff.png
+          retention-days: 14
+          if-no-files-found: ignore
+
+  summary:
+    name: 回貼結果到 PR
+    runs-on: ubuntu-latest
+    needs: [static-check, visual-regression]
+    if: always() && github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment PR with check status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const staticOk = '${{ needs.static-check.result }}' === 'success';
+            const visualOk = '${{ needs.visual-regression.result }}' === 'success';
+            const icon = (ok) => ok ? '✅' : '❌';
+            const body = [
+              `## FreeCheckup RWD 回歸檢查`,
+              ``,
+              `| 階段 | 狀態 |`,
+              `|---|---|`,
+              `| ${icon(staticOk)} 靜態檢查（fontSize / media query / flex-end） | \`${{ needs.static-check.result }}\` |`,
+              `| ${icon(visualOk)} 視覺截圖 + Playwright (320/340/375/414) | \`${{ needs.visual-regression.result }}\` |`,
+              ``,
+              staticOk && visualOk
+                ? `三層檢查全綠，可以合併。`
+                : `⚠️ 有檢查未通過，請至 Actions 頁面查看 \`playwright-report\` artifact，依 [手機回歸清單](../tree/main/scripts/check-freecheckup-rwd.mjs) 修正後再 push。`,
+              ``,
+              `<sub>workflow: \`.github/workflows/freecheckup-rwd.yml\` · 規範：mem://qa/checkup/freecheckup-mobile-regression-checklist</sub>`,
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) =>
+              c.user.type === 'Bot' && c.body?.includes('FreeCheckup RWD 回歸檢查')
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
