@@ -3520,7 +3520,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {/* Targets */}
                     {tp && (
                       <div style={{marginBottom:18}}>
-                        <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',marginBottom:8,fontWeight:500}}>TARGET</div>
+                        <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.10em',marginBottom:8,fontWeight:500}}>目標價</div>
                         <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
                           <span style={{fontSize:12,color:WB.inkSub,fontVariantNumeric:'tabular-nums'}}>{tp.toLocaleString()}</span>
                           <span style={{fontSize:12,color:WB.accent,fontVariantNumeric:'tabular-nums'}}>
