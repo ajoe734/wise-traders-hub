@@ -1929,6 +1929,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           totalCost: newTotalCost,
           fee: newFee,
           value, pnl, pct,
+          priceSource: 'screenshot',
+          priceUpdatedAt: new Date().toISOString(),
+          priceError: null,
         };
       } else {
         const newH = {
@@ -1938,6 +1941,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           totalCost: tradeTotalCost,
           fee: tradeFee,
           type: inferHoldingType(code, name),
+          priceSource: 'screenshot',
+          priceUpdatedAt: new Date().toISOString(),
+          priceError: null,
         };
         const { value, pnl, pct } = calcPnlWithNet(newH, mktPrice);
         arr.push({ ...newH, value, pnl, pct });
