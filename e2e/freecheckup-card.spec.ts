@@ -1,5 +1,5 @@
 import { test, expect, type Page, type TestInfo } from '@playwright/test';
-import { gotoWithRetry, waitForStableBoundingBox } from './helpers/navigation';
+import { navigateAndWaitForCardReady } from './helpers/navigation';
 
 /**
  * Mobile QA — /free-checkup decision-workbench card
