@@ -546,6 +546,9 @@ export default function App() {
   const [predictLastError, setPredictLastError] = useState(null);
   // 收盤分析錯誤：{ code, message, cid, opStartedAt, httpStatus, at }
   const [dailyLastError, setDailyLastError] = useState(null);
+  // 重試按鈕的瞬時鎖定：點擊後立即為 true，避免在 setAnalyzing 尚未 flush 前重複送出
+  const [dailyRetryLocked, setDailyRetryLocked] = useState(false);
+  const dailyRetryLockRef = useRef(false);
   // AI 模型嘗試紀錄（debug）：{ source, at, attempts: [{path, model, status, ok, errorBody, errorMessage}], succeededWith }
   const [calendarLastDebug, setCalendarLastDebug] = useState(null);
   const [predictLastDebug, setPredictLastDebug] = useState(null);
@@ -2063,6 +2066,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     }
     setAnalyzing(false);
     setAnalyzeStep("");
+  };
+
+  // 重試按鈕：點擊瞬間鎖定，避免重複送出；無論成功失敗都會在 finally 解鎖
+  const handleDailyRetry = async () => {
+    if (dailyRetryLockRef.current || analyzing) return;
+    dailyRetryLockRef.current = true;
+    setDailyRetryLocked(true);
+    try {
+      await runDailyAnalysis();
+    } finally {
+      dailyRetryLockRef.current = false;
+      setDailyRetryLocked(false);
+    }
   };
 
   // ── 事件復盤 ─────────────────────────────────────────────────────
@@ -4540,15 +4556,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {dailyLastError.httpStatus ? `HTTP: ${dailyLastError.httpStatus}` : ""}
               </div>
               <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
-                <button onClick={runDailyAnalysis} disabled={analyzing || hasReachedDailyLimit} style={{
-                  padding:"6px 14px",borderRadius:6,
-                  border:`1px solid ${alpha(C.teal,'40')}`,
-                  background:alpha(C.teal,'08'),
-                  color:C.teal,fontSize:12,fontWeight:400,
-                  cursor:(analyzing||hasReachedDailyLimit)?"not-allowed":"pointer",
-                  opacity:(analyzing||hasReachedDailyLimit)?0.5:1,
-                  letterSpacing:"0.04em"}}>
-                  重試
+                <button
+                  onClick={handleDailyRetry}
+                  disabled={analyzing || dailyRetryLocked || hasReachedDailyLimit}
+                  aria-busy={analyzing || dailyRetryLocked}
+                  title={dailyRetryLocked || analyzing ? '重試中，請稍候' : '重新嘗試收盤分析'}
+                  style={{
+                    padding:"6px 14px",borderRadius:6,
+                    border:`1px solid ${alpha(C.teal,'40')}`,
+                    background:alpha(C.teal,'08'),
+                    color:C.teal,fontSize:12,fontWeight:400,
+                    cursor:(analyzing||dailyRetryLocked||hasReachedDailyLimit)?"not-allowed":"pointer",
+                    opacity:(analyzing||dailyRetryLocked||hasReachedDailyLimit)?0.5:1,
+                    letterSpacing:"0.04em"}}>
+                  {(analyzing || dailyRetryLocked) ? "重試中…" : "重試"}
                 </button>
                 <button onClick={() => setDailyLastError(null)} style={{
                   padding:"6px 14px",borderRadius:6,
