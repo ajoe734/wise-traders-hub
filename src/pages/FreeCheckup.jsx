@@ -2049,8 +2049,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       }));
 
       setLastUpdate(new Date());
+      if (!dailyLastError) {
+        pushUpdateLog({ source:'daily', trigger:'manual', status:'success', key:cid, msg:'完成' });
+      }
     } catch (err) {
-      console.error("收盤分析失敗:", err);
+      const code = err?.name === 'AbortError' ? 'TIMEOUT' : 'PIPELINE_ERROR';
+      const errInfo = { code, message: String(err?.message || err).slice(0, 240), cid, opStartedAt, httpStatus: 0, at: new Date().toISOString() };
+      setDailyLastError(errInfo);
+      pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code}` });
+      console.error("[daily] 收盤分析失敗", errInfo);
       setSaved("❌ 分析失敗");
       setTimeout(() => setSaved(""), 3000);
     }
