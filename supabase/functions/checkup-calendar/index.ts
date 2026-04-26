@@ -327,7 +327,9 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { stocks, today, endDate } = body;
+    const { stocks, today, endDate, debug } = body;
+    const url = new URL(req.url);
+    const debugMode = debug === true || url.searchParams.get('debug') === '1';
     if (!stocks) {
       return new Response(JSON.stringify({ error: 'Missing stocks parameter' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -360,20 +362,34 @@ Deno.serve(async (req) => {
 只輸出 JSON 陣列。`;
 
     const result = await callAI(systemPrompt, prompt, 8192);
+    const debugInfo = debugMode ? { attempts: result.attempts, succeededWith: result.succeededWith } : undefined;
 
     if (result.ok && result.text) {
       const events = tryParseEvents(result.text);
       if (events) {
         console.log(`Calendar: succeeded, ${events.length} events`);
         return new Response(
-          JSON.stringify({ text: JSON.stringify(events), response: JSON.stringify(events) }),
+          JSON.stringify({
+            text: JSON.stringify(events),
+            response: JSON.stringify(events),
+            ...(debugInfo ? { debug: debugInfo } : {}),
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
       console.error('Calendar: parse failed. First 500:', result.text.slice(0, 500));
+      return new Response(JSON.stringify({
+        error: '行事曆事件搜尋失敗',
+        ...(debugInfo ? { debug: { ...debugInfo, parseFailed: true, rawTextSample: result.text.slice(0, 500) } } : {}),
+      }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    return new Response(JSON.stringify({ error: '行事曆事件搜尋失敗' }), {
+    return new Response(JSON.stringify({
+      error: '行事曆事件搜尋失敗',
+      ...(debugInfo ? { debug: debugInfo } : {}),
+    }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
