@@ -7,14 +7,58 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-// 把 Pro 放在第一順位，因 23+ 持倉時 Flash 8K context 不夠完成完整 markdown 報告
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_MODELS = ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest'];
 const GATEWAY_MODELS = ['google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
 
+async function callClaude(messages: any[], temperature: number, maxTokens: number, anthropicKey: string): Promise<string> {
+  const systemMsg = messages.find((m: any) => m.role === 'system');
+  const nonSystem = messages
+    .filter((m: any) => m.role !== 'system')
+    .map((m: any) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }));
+
+  for (const model of ANTHROPIC_MODELS) {
+    try {
+      const body: any = { model, max_tokens: maxTokens, temperature, messages: nonSystem };
+      if (systemMsg) body.system = systemMsg.content;
+      const response = await fetch(ANTHROPIC_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(body),
+      });
+      if (response.status === 429) { console.log(`Claude ${model} rate limited`); continue; }
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        console.error(`Claude ${model} failed (${response.status}): ${errText.slice(0, 300)}`);
+        continue;
+      }
+      const data = await response.json();
+      const text = (data.content || []).map((p: any) => p.text || '').join('').trim();
+      if (text) return text;
+    } catch (err) {
+      console.error(`Claude ${model} error:`, err);
+    }
+  }
+  return '';
+}
+
 async function callAI(messages: any[], temperature = 0.3, maxTokens = 8192): Promise<string> {
+  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
   const lovableKey = Deno.env.get('LOVABLE_API_KEY');
   const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
 
-  // Primary: Lovable AI Gateway
+  // Primary: Anthropic Claude (per user request — uses user's own Anthropic credits)
+  if (anthropicKey) {
+    const text = await callClaude(messages, temperature, maxTokens, anthropicKey);
+    if (text) return text;
+    console.warn('Claude failed across all models, falling back to Lovable Gateway / Gemini');
+  }
+
+  // Fallback 1: Lovable AI Gateway
   if (lovableKey) {
     for (const model of GATEWAY_MODELS) {
       try {
@@ -32,7 +76,7 @@ async function callAI(messages: any[], temperature = 0.3, maxTokens = 8192): Pro
     }
   }
 
-  // Fallback: Direct Gemini API
+  // Fallback 2: Direct Gemini API
   if (geminiKey) {
     const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
     const systemMsg = messages.find((m: any) => m.role === 'system');
