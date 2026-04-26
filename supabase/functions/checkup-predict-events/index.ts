@@ -557,10 +557,4 @@ ${eventsForPrompt}
     }, 200, { outcome: 'unhandled_error' });
   }
 });
-      predictions: [],
-      detail: String(err),
-    }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-});
+
