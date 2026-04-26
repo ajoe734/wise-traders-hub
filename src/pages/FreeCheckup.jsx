@@ -3129,7 +3129,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     fontVariantNumeric:'tabular-nums',letterSpacing:'0.06em',
                   }}>
                     <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>TODAY</span>
-                    <span style={{gridColumn:'3',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>VALUE</span>
+                    <span style={{gridColumn:'3',gridRow:'1',display:'flex',alignItems:'center',gap:6,fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>
+                      <span>VALUE</span>
+                      {srcLabel && (
+                        <span title={srcTitle} style={{
+                          fontSize:8,letterSpacing:'0.06em',padding:'1px 5px',borderRadius:2,
+                          background: h.priceSource==='live' ? alpha(WB.accent,'22') : h.priceSource==='screenshot' ? alpha(muteColor,'18') : alpha(lossColor,'22'),
+                          color: h.priceSource==='live' ? WB.accent : subColor,
+                          opacity:0.85,fontWeight:500,
+                        }}>{srcLabel}</span>
+                      )}
+                      {h.priceError && !srcLabel && (
+                        <span title={h.priceError} style={{fontSize:8,padding:'1px 5px',borderRadius:2,background:alpha(lossColor,'22'),color:lossColor}}>失敗</span>
+                      )}
+                    </span>
                     <div style={{gridColumn:'2',gridRow:'1 / span 2',background:hairColor,width:1,height:'100%'}} />
                     <span className="wb-bottom-val" style={{gridColumn:'1',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                       {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
