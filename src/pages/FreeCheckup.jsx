@@ -17,6 +17,60 @@ import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
+// ── AI 失敗分類 ─────────────────────────────────────
+// 將 attempts 歸類為：quota(402) / rateLimit(429) / serverError(5xx) / modelUnavailable(404/400 model) / network / other
+function classifyAttempt(a) {
+  if (a?.ok) return { kind: 'ok', label: '成功', tone: 'up' };
+  const s = Number(a?.status) || 0;
+  const body = String(a?.errorBody || a?.errorMessage || '').toLowerCase();
+  if (s === 402 || body.includes('payment_required') || body.includes('not enough credits') || body.includes('insufficient')) {
+    return { kind: 'quota', label: '配額用盡 (402)', tone: 'amber' };
+  }
+  if (s === 429 || body.includes('rate limit') || body.includes('quota') || body.includes('exceeded')) {
+    return { kind: 'rateLimit', label: '限流 (429)', tone: 'amber' };
+  }
+  if (s === 503 || body.includes('unavailable') || body.includes('overloaded') || body.includes('high demand')) {
+    return { kind: 'serverBusy', label: '服務忙碌 (503)', tone: 'amber' };
+  }
+  if (s >= 500) return { kind: 'serverError', label: `服務端錯誤 (${s})`, tone: 'down' };
+  if (s === 404 || body.includes('not found') || body.includes('model')) {
+    return { kind: 'modelUnavailable', label: `模型不可用 (${s || '—'})`, tone: 'down' };
+  }
+  if (s === 401 || s === 403) return { kind: 'auth', label: `認證失敗 (${s})`, tone: 'down' };
+  if (!s) return { kind: 'network', label: '網路錯誤', tone: 'down' };
+  return { kind: 'other', label: `其他 (${s})`, tone: 'down' };
+}
+
+// 根據 attempts 整體推導建議下一步
+function deriveSuggestion(attempts) {
+  if (!attempts?.length) return null;
+  const kinds = attempts.map(classifyAttempt);
+  if (kinds.some(k => k.kind === 'ok')) return null;
+  const gw = attempts.filter(a => a.path === 'gateway');
+  const direct = attempts.filter(a => a.path === 'gemini-direct');
+  const gwAllQuota = gw.length > 0 && gw.every(a => classifyAttempt(a).kind === 'quota');
+  const directAllQuota = direct.length > 0 && direct.every(a => ['quota','rateLimit'].includes(classifyAttempt(a).kind));
+  if (gwAllQuota && direct.length === 0) {
+    return { tone: 'amber', text: '🟡 Lovable Gateway 配額用盡，建議切換直連 Gemini 或為 workspace 加值。' };
+  }
+  if (gwAllQuota && directAllQuota) {
+    return { tone: 'down', text: '🔴 Gateway 與直連配額皆已用盡，建議補值 Lovable Gateway 或升級 Gemini API 方案。' };
+  }
+  if (kinds.every(k => ['rateLimit','serverBusy'].includes(k.kind))) {
+    return { tone: 'amber', text: '🟡 全為限流／服務忙碌，建議延後 30–60 秒重試。' };
+  }
+  if (kinds.some(k => k.kind === 'modelUnavailable')) {
+    return { tone: 'down', text: '🔴 模型不可用，建議檢查模型名稱或改用其他可用模型。' };
+  }
+  if (kinds.some(k => k.kind === 'auth')) {
+    return { tone: 'down', text: '🔴 認證失敗，請檢查 LOVABLE_API_KEY 或 GOOGLE_GEMINI_API_KEY 是否有效。' };
+  }
+  if (kinds.every(k => k.kind === 'serverError')) {
+    return { tone: 'down', text: '🔴 後端服務皆異常，建議稍後再試或回報。' };
+  }
+  return { tone: 'amber', text: '🟡 多種錯誤混合，建議延後重試；若持續失敗請切換直連或檢查金鑰。' };
+}
+
 // ── 目標價資料庫（分析師共識）─────────────────────────────────────
 // reports: [{firm, target, date}]  avg 自動計算
 const INIT_TARGETS = {
@@ -4045,7 +4099,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {[
                           { label: '事件預測', dbg: predictLastDebug },
                           { label: '行事曆', dbg: calendarLastDebug },
-                        ].filter(x => x.dbg).map(({ label, dbg }) => (
+                        ].filter(x => x.dbg).map(({ label, dbg }) => {
+                          const suggestion = deriveSuggestion(dbg.attempts || []);
+                          // 統計各分類數量
+                          const buckets = {};
+                          (dbg.attempts || []).forEach(a => {
+                            const k = classifyAttempt(a);
+                            if (k.kind === 'ok') return;
+                            buckets[k.label] = (buckets[k.label] || 0) + 1;
+                          });
+                          const bucketEntries = Object.entries(buckets);
+                          return (
                           <div key={label} style={{marginTop:8}}>
                             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.textMute,marginBottom:4}}>
                               <span style={{fontWeight:500,color:C.text}}>{label}</span>
@@ -4058,14 +4122,34 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                                 ✓ 成功：{dbg.succeededWith.path} / {dbg.succeededWith.model}
                               </div>
                             )}
+                            {/* 分類 chips */}
+                            {bucketEntries.length > 0 && (
+                              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:4}}>
+                                {bucketEntries.map(([lbl, cnt]) => (
+                                  <span key={lbl} style={{
+                                    fontSize:10,padding:"2px 6px",borderRadius:10,
+                                    background:alpha(C.textMute,'10'),color:C.textMute,
+                                  }}>{lbl} ×{cnt}</span>
+                                ))}
+                              </div>
+                            )}
+                            {/* 建議 */}
+                            {suggestion && (
+                              <div style={{
+                                fontSize:10,padding:"5px 8px",borderRadius:4,marginBottom:6,
+                                background:alpha(suggestion.tone === 'amber' ? C.amber : C.down, '10'),
+                                color: suggestion.tone === 'amber' ? C.amber : C.down,
+                                lineHeight:1.5,
+                              }}>{suggestion.text}</div>
+                            )}
                             <div style={{display:"flex",flexDirection:"column",gap:3}}>
                               {(dbg.attempts || []).map((a, i) => {
-                                const ok = a.ok;
-                                const statusColor = ok ? C.up : (a.status === 402 || a.status === 429 ? C.amber : C.down);
+                                const cls = classifyAttempt(a);
+                                const statusColor = cls.tone === 'up' ? C.up : (cls.tone === 'amber' ? C.amber : C.down);
                                 return (
                                   <div key={i} style={{
                                     display:"grid",
-                                    gridTemplateColumns:"auto auto 1fr",
+                                    gridTemplateColumns:"auto auto auto 1fr",
                                     gap:6,alignItems:"start",
                                     padding:"4px 6px",
                                     borderRadius:4,
@@ -4074,20 +4158,24 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                                     fontSize:10,
                                   }}>
                                     <span style={{color:statusColor,fontWeight:600}}>
-                                      {ok ? '✓' : '✕'} {a.status ?? '—'}
+                                      {a.ok ? '✓' : '✕'} {a.status ?? '—'}
+                                    </span>
+                                    <span style={{color:statusColor,opacity:0.85,whiteSpace:"nowrap"}}>
+                                      {cls.label}
                                     </span>
                                     <span style={{color:C.textMute}}>
                                       {a.path === 'gateway' ? 'Gateway' : '直連'} · {a.model}
                                     </span>
                                     <span style={{color:C.textMute,opacity:0.85,wordBreak:"break-word"}}>
-                                      {a.errorBody || a.errorMessage || (ok ? '' : '—')}
+                                      {a.errorBody || a.errorMessage || (a.ok ? '' : '—')}
                                     </span>
                                   </div>
                                 );
                               })}
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
