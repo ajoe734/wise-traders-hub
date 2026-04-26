@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+// Note: 'google/gemini-2.0-flash' is deprecated on the Gateway. Use only supported models.
 const GATEWAY_MODELS = [
   'google/gemini-3-flash-preview',
   'google/gemini-2.5-flash',
