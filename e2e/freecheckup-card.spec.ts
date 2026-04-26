@@ -27,10 +27,14 @@ async function gotoFreeCheckup(page: Page) {
       window.localStorage.setItem('checkup-demo-mode', '1');
     } catch {}
   });
-  await page.goto(ROUTE, { waitUntil: 'networkidle' });
-  await page.waitForSelector(CARD_SELECTOR, { state: 'visible', timeout: 15_000 });
+  // Use `domcontentloaded` instead of `networkidle` — the dev server keeps
+  // long-lived HMR/websocket connections open which makes `networkidle`
+  // flaky and prone to 60s timeouts. We rely on the explicit card selector
+  // wait below to confirm the page is interactive.
+  await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector(CARD_SELECTOR, { state: 'visible', timeout: 30_000 });
   // Allow one rAF cycle for clamp() font-size to settle.
-  await page.waitForTimeout(150);
+  await page.waitForTimeout(250);
 }
 
 /**
