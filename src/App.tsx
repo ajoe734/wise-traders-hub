@@ -2,10 +2,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { queryClient } from "@/lib/queryClient";
+import {
+  queryClient,
+  queryPersister,
+  PERSISTED_QUERY_PREFIXES,
+} from "@/lib/queryClient";
+import { useSignalRealtimeInvalidation } from "@/hooks/useSignalRealtimeInvalidation";
 
 // Portal pages
 import Index from "./pages/Index";
@@ -83,14 +89,35 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
 import { ScrollToTop } from "./components/ScrollToTop";
 
-const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-        <BrowserRouter>
+const RealtimeBridge = () => {
+  useSignalRealtimeInvalidation();
+  return null;
+};
+
+const persistOptions = queryPersister
+  ? {
+      persister: queryPersister,
+      maxAge: 24 * 60 * 60 * 1000, // 24h
+      buster: "v1",
+      dehydrateOptions: {
+        shouldDehydrateQuery: (query: { queryKey: readonly unknown[] }) => {
+          const head = query.queryKey?.[0];
+          return (
+            typeof head === "string" &&
+            (PERSISTED_QUERY_PREFIXES as readonly string[]).includes(head)
+          );
+        },
+      },
+    }
+  : null;
+
+const AppShell = () => (
+  <AuthProvider>
+    <RealtimeBridge />
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
           <ScrollToTop />
           <Routes>
             {/* Portal (public) */}
