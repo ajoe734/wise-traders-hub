@@ -2143,6 +2143,31 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         @media(max-width:480px){
           body{font-size:14px}
         }
+        /* Hero RWD：inline fontSize:88 在窄螢幕會壓爆右側，必須用 className 覆寫 */
+        @media(max-width:560px){
+          .wb-hero-grid{
+            grid-template-columns: 1fr !important;
+            align-items: flex-start !important;
+            gap: 14px !important;
+          }
+          .wb-hero-market{
+            align-items: flex-start !important;
+          }
+          .wb-hero-pnl-num{
+            font-size: 56px !important;
+            letter-spacing: -0.03em !important;
+          }
+          .wb-hero-pnl-pct{
+            font-size: 18px !important;
+          }
+          .wb-hero-kpi{
+            grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+            gap: 14px 18px !important;
+          }
+        }
+        @media(max-width:380px){
+          .wb-hero-pnl-num{ font-size: 44px !important; }
+        }
       `}</style>
 
       {/* ── BACK BUTTON + 戰情室入口 ── */}
@@ -2270,14 +2295,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{
                       display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap',
                     }}>
-                      <span style={{
+                      <span className="wb-hero-pnl-num" style={{
                         fontSize: 88, fontWeight: 500, color: WB.ink,
                         letterSpacing: '-0.045em', lineHeight: 0.92,
                         fontVariantNumeric: 'tabular-nums',
                       }}>
                         {isUp ? '+' : ''}{Math.round(totalPnl).toLocaleString()}
                       </span>
-                      <span style={{
+                      <span className="wb-hero-pnl-pct" style={{
                         fontSize: 22, fontWeight: 500, color: WB.accent,
                         letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums',
                       }}>
@@ -2287,7 +2312,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
 
                   {/* 右：Market 狀態 */}
-                  <div style={{
+                  <div className="wb-hero-market" style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
                     gap: 6, paddingBottom: 8,
                   }}>
