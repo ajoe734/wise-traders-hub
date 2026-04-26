@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   gotoWithRetry,
   isRetryableNavigationError,
+  summarizeAttempts,
 } from '../../../e2e/helpers/navigation';
 
 /**
