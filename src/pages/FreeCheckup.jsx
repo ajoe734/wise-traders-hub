@@ -3448,7 +3448,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{padding:'18px 22px 24px'}}>
                     {/* Header */}
                     <div style={{marginBottom:18}}>
-                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',marginBottom:6,fontWeight:500}}>HOLDING DETAIL</div>
+                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.12em',marginBottom:6,fontWeight:500}}>持倉細節</div>
                       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
                         <span style={{fontSize:11,color:WB.inkMute,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
                         <span style={{fontSize:18,fontWeight:500,color:WB.ink,letterSpacing:'-0.005em'}}>{h.name}</span>
@@ -3502,7 +3502,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
                     {/* URGENCY 五點 */}
                     <div style={{marginBottom:18,display:'flex',alignItems:'center',gap:14}}>
-                      <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',fontWeight:500}}>URGENCY</span>
+                      <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.12em',fontWeight:500}}>急迫程度</span>
                       <div style={{display:'flex',gap:6,flex:1}}>
                         {[1,2,3,4,5].map(i => (
                           <span key={i} style={{
@@ -3540,7 +3540,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {relatedEvents.length > 0 && (
                       <div style={{marginBottom:18}}>
                         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                          <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',fontWeight:500}}>EVENT TIMELINE</span>
+                          <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.12em',fontWeight:500}}>事件時程</span>
                           {tomorrowEv && (
                             <span style={{
                               fontSize:9,color:WB.surface,background:WB.accent,
@@ -3591,9 +3591,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                             flex:1,padding:'10px 14px',background:'transparent',
                             border:`1px solid ${WB.ink}`,borderRadius:2,
                             color:WB.ink,fontSize:11,fontWeight:500,cursor:'pointer',
-                            letterSpacing:'0.16em',fontFamily:'inherit',
+                            letterSpacing:'0.08em',fontFamily:'inherit',
                           }}
-                        >MARK AS HOLD</button>
+                        >標記為持有</button>
                       ) : (
                         <span style={{flex:1,fontSize:10,color:WB.inkLight,letterSpacing:'0.10em'}}>
                           {userOverrides[h.code] ? '已覆寫為持有' : '無需覆寫'}
@@ -3652,7 +3652,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     onMouseLeave={(e)=>{e.currentTarget.style.borderColor=WB.hairStrong;e.currentTarget.style.color=WB.inkLight;}}
                   >
                     <span style={{fontSize:24,fontWeight:300,lineHeight:1}}>+</span>
-                    <span style={{fontSize:10,fontWeight:500}}>ADD WATCHLIST</span>
+                    <span style={{fontSize:10,fontWeight:500}}>加入觀察</span>
                   </button>
                   {!showAll && sorted.length > 12 && (
                     <button
