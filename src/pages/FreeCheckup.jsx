@@ -2419,6 +2419,42 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
                 cursor:"pointer", whiteSpace:"nowrap",
               }}>清除</button>
+              {H.length > 0 && (
+                <>
+                  <button
+                    onClick={triggerServerSync}
+                    disabled={serverSyncing}
+                    title="繞過 30 分冷卻，立即向後端排程要求最新報價"
+                    style={{
+                      background: serverSyncing ? alpha(C.subtle,'aa') : C.text,
+                      color: serverSyncing ? C.textMute : C.bg,
+                      border:`1px solid ${serverSyncing ? C.border : C.text}`,
+                      borderRadius:6, padding:"3px 10px", fontSize:11, fontWeight:500,
+                      cursor: serverSyncing ? 'wait' : 'pointer', whiteSpace:"nowrap",
+                      letterSpacing:'0.04em',
+                    }}>
+                    {serverSyncing ? '同步中…' : '⟳ 立即更新'}
+                  </button>
+                  <button
+                    onClick={() => setCoverageOpen(true)}
+                    title="檢視持倉同步覆蓋率與缺失代碼"
+                    style={{
+                      background:'transparent', color:C.textSec, border:`1px solid ${C.border}`,
+                      borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
+                      cursor:"pointer", whiteSpace:"nowrap",
+                    }}>覆蓋率</button>
+                </>
+              )}
+              {syncLog.length > 0 && (
+                <button
+                  onClick={downloadSyncLog}
+                  title={`下載任務日誌（共 ${syncLog.length} 筆）`}
+                  style={{
+                    background:'transparent', color:C.textMute, border:`1px solid ${C.border}`,
+                    borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
+                    cursor:"pointer", whiteSpace:"nowrap",
+                  }}>↓ Log ({syncLog.length})</button>
+              )}
               {refreshing && (
                 <span style={{fontSize:11,color:C.amber,letterSpacing:'0.04em'}}>
                   ⟳ 同步報價中
