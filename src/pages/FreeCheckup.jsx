@@ -2355,6 +2355,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         </div>
 
+        {/* 報價同步狀態 — 顯示成功/失敗檔數與卡關標的 */}
+        {refreshStatus && (
+          <div style={{
+            margin:'10px 0 4px', padding:'8px 12px',
+            borderRadius:6,
+            border:`1px solid ${refreshStatus.phase==='error'?alpha(C.down,'44'):refreshStatus.phase==='done' && refreshStatus.fail===0?alpha(C.olive,'44'):C.border}`,
+            background: alpha(C.subtle,'88'),
+            display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',
+          }}>
+            <span style={{fontSize:11,fontWeight:500,letterSpacing:'0.06em',color:refreshStatus.phase==='error'?C.down:C.text}}>
+              {refreshStatus.phase==='fetching' && '⟳ 抓取 TWSE 報價'}
+              {refreshStatus.phase==='done' && refreshStatus.fail===0 && '✓ 報價同步完成'}
+              {refreshStatus.phase==='done' && refreshStatus.fail>0 && `△ 同步部分完成 ${refreshStatus.ok}/${refreshStatus.total}`}
+              {refreshStatus.phase==='error' && '✕ 同步失敗'}
+            </span>
+            {refreshStatus.phase!=='fetching' && refreshStatus.missingNames?.length>0 && (
+              <span style={{fontSize:11,color:C.textMute}}>
+                無報價：{refreshStatus.missingNames.slice(0,5).join('、')}{refreshStatus.missingNames.length>5?` 等 ${refreshStatus.missingNames.length} 檔`:''}
+              </span>
+            )}
+            {refreshStatus.error && (
+              <span style={{fontSize:11,color:C.down}}>{refreshStatus.error}</span>
+            )}
+          </div>
+        )}
+
         {/* today alert - match calendar events by today's date */}
         {todayEvents.length>0 && (
           <div style={{
