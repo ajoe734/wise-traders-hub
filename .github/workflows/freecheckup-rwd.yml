@@ -11,6 +11,8 @@ on:
       - 'e2e/freecheckup-card.spec.ts'
       - 'playwright.config.ts'
       - 'scripts/check-freecheckup-rwd.mjs'
+      - 'scripts/check-freecheckup-i18n.mjs'
+      - 'src/test/unit/freecheckup-i18n.test.ts'
       - '.github/workflows/freecheckup-rwd.yml'
   workflow_dispatch:
 
