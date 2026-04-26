@@ -698,6 +698,13 @@ export default function App() {
     });
   };
 
+  const mapFallbackCodeToStatus = (code) => {
+    if (code === 'AI_BILLING_REQUIRED') return 402;
+    if (code === 'AI_RATE_LIMITED') return 429;
+    if (code === 'AI_AUTH_FAILED') return 401;
+    return 503;
+  };
+
   // ── 根據持倉自動產生行事曆事件 ──
   const fetchCalendarEvents = async (holdingsList, guard, existingEvents = [], trigger = 'auto') => {
     if (!holdingsList || holdingsList.length === 0) {
@@ -753,6 +760,14 @@ export default function App() {
       }
       if (guard !== undefined && guard !== resetGuardRef.current) {
         pushUpdateLog({ source:'calendar', trigger, status:'aborted', key:requestKey, msg:'guard 變更' });
+        return;
+      }
+      if (result?.fallback) {
+        const fallbackStatus = mapFallbackCodeToStatus(result.code);
+        const fallbackErr = new Error(result.error || '行事曆暫時不可用');
+        recordCalendarError(fallbackErr, fallbackStatus);
+        flashCalendarStatus('error', result.error || '行事曆暫時不可用');
+        pushUpdateLog({ source:'calendar', trigger, status:'error', key:requestKey, msg:result.error || `fallback (${result.code || 'unknown'})` });
         return;
       }
       const text = result.text || result.response || "";
@@ -1177,6 +1192,15 @@ export default function App() {
           const { label } = classifyError(httpErr, res.status);
           flashPredictStatus('error', `${label}（${res.status}）`);
           pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:`${label} (${res.status})` });
+          return;
+        }
+        if (data?.fallback) {
+          needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
+          const fallbackStatus = mapFallbackCodeToStatus(data.code);
+          const fallbackErr = new Error(data.error || '事件預測暫時不可用');
+          recordPredictError(fallbackErr, fallbackStatus);
+          flashPredictStatus('error', data.error || '事件預測暫時不可用');
+          pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:data.error || `fallback (${data.code || 'unknown'})` });
           return;
         }
         const preds = data?.predictions || [];
