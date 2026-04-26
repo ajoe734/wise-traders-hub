@@ -178,6 +178,56 @@ async function callAI(system: string, user: string, maxTokens = 8192): Promise<A
   return { ok: false, text: '', attempts };
 }
 
+type AiFailurePayload = {
+  code: string;
+  error: string;
+  fallback: true;
+  retryable: boolean;
+  suggestedWaitSeconds: number;
+};
+
+function buildAiFailure(attempts: AiAttempt[], fallbackError: string): AiFailurePayload {
+  const statuses = attempts.map((attempt) => attempt.status).filter((status): status is number => typeof status === 'number');
+
+  if (statuses.includes(402)) {
+    return {
+      code: 'AI_BILLING_REQUIRED',
+      error: 'AI 額度不足，已略過本次行事曆搜尋',
+      fallback: true,
+      retryable: false,
+      suggestedWaitSeconds: 0,
+    };
+  }
+
+  if (statuses.includes(429)) {
+    return {
+      code: 'AI_RATE_LIMITED',
+      error: 'AI 服務忙碌中，已略過本次行事曆搜尋',
+      fallback: true,
+      retryable: true,
+      suggestedWaitSeconds: 60,
+    };
+  }
+
+  if (statuses.includes(401) || statuses.includes(403)) {
+    return {
+      code: 'AI_AUTH_FAILED',
+      error: 'AI 服務驗證失敗，已略過本次行事曆搜尋',
+      fallback: true,
+      retryable: false,
+      suggestedWaitSeconds: 0,
+    };
+  }
+
+  return {
+    code: 'AI_UNAVAILABLE',
+    error: fallbackError,
+    fallback: true,
+    retryable: true,
+    suggestedWaitSeconds: 30,
+  };
+}
+
 /* ── JSON parsing helpers ── */
 
 function extractJsonArray(text: string): string | null {
@@ -379,23 +429,32 @@ Deno.serve(async (req) => {
       }
       console.error('Calendar: parse failed. First 500:', result.text.slice(0, 500));
       return new Response(JSON.stringify({
-        error: '行事曆事件搜尋失敗',
+        ...buildAiFailure(result.attempts, '行事曆結果解析失敗，已略過本次搜尋'),
+        text: '[]',
+        response: '[]',
         ...(debugInfo ? { debug: { ...debugInfo, parseFailed: true, rawTextSample: result.text.slice(0, 500) } } : {}),
       }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     return new Response(JSON.stringify({
-      error: '行事曆事件搜尋失敗',
+      ...buildAiFailure(result.attempts, '行事曆事件暫時不可用，已略過本次搜尋'),
+      text: '[]',
+      response: '[]',
       ...(debugInfo ? { debug: debugInfo } : {}),
     }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
     console.error('Calendar error:', err);
-    return new Response(JSON.stringify({ error: '行事曆搜尋失敗', detail: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({
+      ...buildAiFailure([], '行事曆搜尋服務暫時不可用，已略過本次搜尋'),
+      text: '[]',
+      response: '[]',
+      detail: (err as Error).message,
+    }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
