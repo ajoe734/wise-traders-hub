@@ -4170,14 +4170,58 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                                 ))}
                               </div>
                             )}
-                            {/* 建議 */}
+                            {/* 建議 + 重試規則 + cURL */}
                             {suggestion && (
                               <div style={{
-                                fontSize:10,padding:"5px 8px",borderRadius:4,marginBottom:6,
+                                marginBottom:6,padding:"6px 8px",borderRadius:4,
                                 background:alpha(suggestion.tone === 'amber' ? C.amber : C.down, '10'),
                                 color: suggestion.tone === 'amber' ? C.amber : C.down,
-                                lineHeight:1.5,
-                              }}>{suggestion.text}</div>
+                              }}>
+                                <div style={{fontSize:10,lineHeight:1.5}}>{suggestion.text}</div>
+                                {/* 規則表 */}
+                                <div style={{
+                                  marginTop:6,display:"grid",
+                                  gridTemplateColumns:"auto 1fr",columnGap:8,rowGap:2,
+                                  fontSize:10,color:C.textMute,
+                                }}>
+                                  <span style={{opacity:0.7}}>最多重試</span>
+                                  <span>{suggestion.policy.maxRetries} 次</span>
+                                  <span style={{opacity:0.7}}>建議等待</span>
+                                  <span>{suggestion.policy.waitSec > 0 ? `${suggestion.policy.waitSec}s` : '不需等待'}</span>
+                                  <span style={{opacity:0.7}}>切換直連</span>
+                                  <span>{suggestion.policy.switchPath === 'yes' ? '✅ 立即切換' : suggestion.policy.switchPath === 'optional' ? '⚪ 可選' : '❌ 無助於修復'}</span>
+                                  <span style={{opacity:0.7}}>策略</span>
+                                  <span>{suggestion.policy.desc}</span>
+                                </div>
+                                {/* cURL 範例 */}
+                                <div style={{marginTop:6}}>
+                                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                                    <span style={{fontSize:10,opacity:0.7,color:C.textMute}}>可複製的請求範例</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        try {
+                                          navigator.clipboard?.writeText(suggestion.curl);
+                                          setToast?.('✅ 已複製 cURL 範例');
+                                        } catch { /* noop */ }
+                                      }}
+                                      style={{
+                                        fontSize:10,padding:"2px 8px",borderRadius:3,
+                                        border:`1px solid ${alpha(C.textMute,'30')}`,
+                                        background:"transparent",color:C.textMute,cursor:"pointer",
+                                      }}
+                                    >複製</button>
+                                  </div>
+                                  <pre style={{
+                                    margin:0,padding:6,borderRadius:3,
+                                    background:alpha(C.textMute,'10'),color:C.text,
+                                    fontSize:10,lineHeight:1.4,
+                                    fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",
+                                    whiteSpace:"pre-wrap",wordBreak:"break-all",
+                                    maxHeight:120,overflow:"auto",
+                                  }}>{suggestion.curl}</pre>
+                                </div>
+                              </div>
                             )}
                             <div style={{display:"flex",flexDirection:"column",gap:3}}>
                               {(dbg.attempts || []).map((a, i) => {
