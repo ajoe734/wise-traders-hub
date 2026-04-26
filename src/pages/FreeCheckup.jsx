@@ -292,6 +292,11 @@ export default function App() {
   const [parsing, setParsing]   = useState(false);
   const [parsed,  setParsed]    = useState(null);
   const [parseErr,setParseErr]  = useState(null);
+  // 解析/同步進度追蹤：{ stage, label, progress(0-100), detail }
+  // stage: 'upload' | 'ai' | 'retry' | 'persist' | 'refresh' | 'done' | 'error'
+  const [parseStep, setParseStep] = useState(null);
+  // 報價刷新狀態：{ phase, total, ok, fail, missingNames }
+  const [refreshStatus, setRefreshStatus] = useState(null);
   const [dragOver,setDragOver]  = useState(false);
   const [memoStep,setMemoStep]  = useState(0);
   const [memoAns, setMemoAns]   = useState([]);
@@ -1439,11 +1444,11 @@ export default function App() {
       return;
     }
     setRefreshing(true);
+    const codes = H.map(h => h.code);
+    if (codes.length === 0) { setRefreshing(false); return; }
+    setRefreshStatus({ phase: 'fetching', total: codes.length, ok: 0, fail: codes.length, missingNames: [] });
     try {
-      const codes = H.map(h => h.code);
-      if (codes.length === 0) { setRefreshing(false); return; }
       // 同時嘗試上市(tse)、上櫃/興櫃(otc)、權證/盤後(oa/ob)
-      // 興櫃部分代碼 MIS 端會用 otc_ 通道；權證 6 碼以 oa_ 試
       const queries = codes.flatMap(c => {
         const base = [`tse_${c}.tw`, `otc_${c}.tw`];
         if (c.length >= 6) base.push(`oa_${c}.tw`);
@@ -1452,60 +1457,70 @@ export default function App() {
       const exCh = queries.join('|');
       const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
       const res = await fetch(url);
+      if (!res.ok) throw new Error(`報價伺服器回應 ${res.status}`);
       const data = await res.json();
 
       if (data.msgArray && data.msgArray.length > 0) {
+        // 每筆 symbol 回報來源：live(成交)/high(最高)/ask(賣一)/yclose(昨收)
         const priceMap = {};
         data.msgArray.forEach(item => {
           if (!item.c || priceMap[item.c]) return;
-
           const z = parseFloat(item.z);
-          const h = parseFloat(item.h);
+          const hp = parseFloat(item.h);
           const vol = parseInt(item.v, 10) || 0;
           const bestAsk = item.a ? parseFloat(item.a.split('_')[0]) : NaN;
           const yClose = parseFloat(item.y);
-
-          // 4 層瀑布邏輯（對齊富貴角）
-          let price = null;
-          if (!isNaN(z) && z > 0) {
-            price = z;                                       // 1. 最新成交價
-          } else if (vol > 0 && !isNaN(h) && h > 0) {
-            price = h;                                       // 2. 有成交但 z 被清空，用最高價
-          } else if (!isNaN(bestAsk) && bestAsk > 0) {
-            price = bestAsk;                                 // 3. 沒成交，用造市商賣一價
-          } else if (!isNaN(yClose) && yClose > 0) {
-            price = yClose;                                  // 4. 什麼都沒有，用昨收
-          }
-
-          if (price) priceMap[item.c] = price;
+          let price = null, source = null;
+          if (!isNaN(z) && z > 0) { price = z; source = 'live'; }
+          else if (vol > 0 && !isNaN(hp) && hp > 0) { price = hp; source = 'high'; }
+          else if (!isNaN(bestAsk) && bestAsk > 0) { price = bestAsk; source = 'ask'; }
+          else if (!isNaN(yClose) && yClose > 0) { price = yClose; source = 'yclose'; }
+          if (price) priceMap[item.c] = { price, source };
         });
 
+        const nowIso = new Date().toISOString();
         setHoldings(prev => (prev || []).map(h => {
-          const newPrice = priceMap[h.code];
-          if (newPrice == null) return h;
-          const { value, pnl, pct } = calcPnlWithNet(h, newPrice);
-          return { ...h, price: newPrice, value, pnl, pct };
+          const hit = priceMap[h.code];
+          if (!hit) {
+            // 標記失敗原因，不變動價格
+            return { ...h, priceError: '無即時報價（可能停牌、興櫃或非交易時段）' };
+          }
+          const { value, pnl, pct } = calcPnlWithNet(h, hit.price);
+          return {
+            ...h,
+            price: hit.price,
+            value, pnl, pct,
+            priceSource: hit.source,
+            priceUpdatedAt: nowIso,
+            priceError: null,
+          };
         }));
 
         const updated = Object.keys(priceMap).length;
         const total = codes.length;
         const stillMissed = codes.filter(c => !priceMap[c]);
+        const missedNames = stillMissed.map(c => { const hh = H.find(x=>x.code===c); return hh ? hh.name : c; });
         setLastUpdate(new Date());
+        setRefreshStatus({ phase: 'done', total, ok: updated, fail: stillMissed.length, missingNames: missedNames });
         if (stillMissed.length > 0 && stillMissed.length < total) {
-          const missedNames = stillMissed.map(c => { const h = H.find(x=>x.code===c); return h ? h.name : c; }).join("、");
-          setSaved(`✅ ${updated}/${total} 檔已更新（${missedNames} 無即時報價）`);
+          setSaved(`✅ ${updated}/${total} 檔已更新（${missedNames.join('、')} 無即時報價）`);
         } else {
           setSaved(`✅ ${updated} 檔股價已更新`);
         }
         setTimeout(() => setSaved(""), 4000);
+        setTimeout(() => setRefreshStatus(null), 6000);
       } else {
+        setRefreshStatus({ phase: 'error', total: codes.length, ok: 0, fail: codes.length, missingNames: [], error: '報價來源無回應（可能非交易時段）' });
         setSaved("！無法取得報價（可能非交易時間）");
         setTimeout(() => setSaved(""), 3000);
+        setTimeout(() => setRefreshStatus(null), 6000);
       }
     } catch (err) {
       console.error('刷新股價失敗:', err);
+      setRefreshStatus({ phase: 'error', total: codes.length, ok: 0, fail: codes.length, missingNames: [], error: err?.message || '網路錯誤' });
       setSaved("刷新失敗，請稍後再試");
       setTimeout(() => setSaved(""), 3000);
+      setTimeout(() => setRefreshStatus(null), 6000);
     }
     setRefreshing(false);
   };
@@ -1914,6 +1929,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           totalCost: newTotalCost,
           fee: newFee,
           value, pnl, pct,
+          priceSource: 'screenshot',
+          priceUpdatedAt: new Date().toISOString(),
+          priceError: null,
         };
       } else {
         const newH = {
@@ -1923,6 +1941,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           totalCost: tradeTotalCost,
           fee: tradeFee,
           type: inferHoldingType(code, name),
+          priceSource: 'screenshot',
+          priceUpdatedAt: new Date().toISOString(),
+          priceError: null,
         };
         const { value, pnl, pct } = calcPnlWithNet(newH, mktPrice);
         arr.push({ ...newH, value, pnl, pct });
@@ -1982,6 +2003,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       totalCost,
       fee,
       type: prev?.type || inferHoldingType(code, name),
+      priceSource: 'screenshot',
+      priceUpdatedAt: new Date().toISOString(),
+      priceError: null,
     };
     const { value, pnl, pct } = calcPnlWithNet(nextHolding, marketPrice);
     const finalizedHolding = { ...nextHolding, value, pnl, pct };
@@ -2006,12 +2030,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       return;
     }
     setParsing(true); setParseErr(null);
+    setParseStep({ stage: 'upload', label: '上傳截圖至 AI Vision', progress: 10, detail: `影像大小約 ${Math.round((b64?.length || 0) * 0.75 / 1024)} KB` });
 
     const MAX_RETRIES = 3;
     let lastErr = "";
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
+        setParseStep({
+          stage: attempt === 1 ? 'ai' : 'retry',
+          label: attempt === 1 ? 'AI 解析持倉資料中' : `AI 解析重試 ${attempt}/${MAX_RETRIES}`,
+          progress: attempt === 1 ? 30 : 30 + (attempt - 1) * 10,
+          detail: attempt === 1 ? '使用 Gemini 2.5 Pro Vision' : `上次失敗：${lastErr || '未知錯誤'}`,
+        });
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-parse`, {
           method:"POST",
           headers:{"Content-Type":"application/json"},
@@ -2043,6 +2074,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         }));
         parsedResult.trades = preparedTrades;
         setParsed(parsedResult);
+        setParseStep({ stage: 'persist', label: '寫入持倉與交易記錄', progress: 70, detail: `辨識出 ${preparedTrades.length} 筆部位` });
 
         // 解析成功後立即同步持倉 & 交易記錄
         if (preparedTrades.length) {
@@ -2055,6 +2087,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               `持倉上限 ${MAX_HOLDINGS} 檔，目前 ${currentCodes.size} 檔、本次解析新增 ${incomingCodes.size} 檔`
               + `（合計 ${merged.size} 檔超出 ${merged.size - MAX_HOLDINGS} 檔），請先整理或減少匯入筆數`
             );
+            setParseStep({ stage: 'error', label: '持倉超出上限', progress: 70, detail: `合計 ${merged.size} / 上限 ${MAX_HOLDINGS}` });
             setParsing(false);
             return;
           }
@@ -2079,12 +2112,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           incrementUploadCount(); // 記錄今日上傳次數
           setTimeout(() => setSaved(""), 2500);
           // ✨ 解析成功後自動拉一次 TWSE 即時報價，避免依賴截圖內 market_price
-          // 重置冷卻避免被擋
+          setParseStep({ stage: 'refresh', label: '同步 TWSE 即時報價', progress: 90, detail: '繞過冷卻自動執行一次' });
           try {
             setLastUpdate(null);
             setTimeout(() => { refreshPrices().catch(() => {}); }, 600);
           } catch (e) { console.warn('auto-refresh after parse failed:', e); }
         }
+        setParseStep({ stage: 'done', label: '解析完成', progress: 100, detail: `共 ${preparedTrades.length} 筆持倉已寫入` });
+        setTimeout(() => setParseStep(null), 4000);
         setParsing(false);
         return; // 成功，直接返回
       } catch (e) {
@@ -2095,7 +2130,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     }
 
     // 所有重試都失敗
-    setParseErr(lastErr || "解析失敗，請確認截圖清晰");
+    const finalErr = lastErr || "解析失敗，請確認截圖清晰";
+    setParseErr(finalErr);
+    setParseStep({ stage: 'error', label: 'AI 解析失敗', progress: 100, detail: finalErr });
+    setTimeout(() => setParseStep(null), 6000);
     setParsing(false);
   };
 
@@ -2294,6 +2332,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
                 cursor:"pointer", whiteSpace:"nowrap",
               }}>清除</button>
+              {refreshing && (
+                <span style={{fontSize:11,color:C.amber,letterSpacing:'0.04em'}}>
+                  ⟳ 同步報價中
+                </span>
+              )}
               {lastUpdate && !refreshing && (
                 <span style={{fontSize:11,color:C.textMute}}>
                   {lastUpdate.toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}
@@ -2311,6 +2354,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           </div>
         </div>
+
+        {/* 報價同步狀態 — 顯示成功/失敗檔數與卡關標的 */}
+        {refreshStatus && (
+          <div style={{
+            margin:'10px 0 4px', padding:'8px 12px',
+            borderRadius:6,
+            border:`1px solid ${refreshStatus.phase==='error'?alpha(C.down,'44'):refreshStatus.phase==='done' && refreshStatus.fail===0?alpha(C.olive,'44'):C.border}`,
+            background: alpha(C.subtle,'88'),
+            display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',
+          }}>
+            <span style={{fontSize:11,fontWeight:500,letterSpacing:'0.06em',color:refreshStatus.phase==='error'?C.down:C.text}}>
+              {refreshStatus.phase==='fetching' && '⟳ 抓取 TWSE 報價'}
+              {refreshStatus.phase==='done' && refreshStatus.fail===0 && '✓ 報價同步完成'}
+              {refreshStatus.phase==='done' && refreshStatus.fail>0 && `△ 同步部分完成 ${refreshStatus.ok}/${refreshStatus.total}`}
+              {refreshStatus.phase==='error' && '✕ 同步失敗'}
+            </span>
+            {refreshStatus.phase!=='fetching' && refreshStatus.missingNames?.length>0 && (
+              <span style={{fontSize:11,color:C.textMute}}>
+                無報價：{refreshStatus.missingNames.slice(0,5).join('、')}{refreshStatus.missingNames.length>5?` 等 ${refreshStatus.missingNames.length} 檔`:''}
+              </span>
+            )}
+            {refreshStatus.error && (
+              <span style={{fontSize:11,color:C.down}}>{refreshStatus.error}</span>
+            )}
+          </div>
+        )}
 
         {/* today alert - match calendar events by today's date */}
         {todayEvents.length>0 && (
@@ -2851,6 +2920,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const pnlWeight = pctVal > 0 ? 500 : 400;
               const pnlArrow = pctVal > 0 ? '↑' : pctVal < 0 ? '↓' : '';
 
+              // 報價來源徽章：screenshot=截圖價 / live=即時 / high=最高(成交清空) / ask=賣一(無成交) / yclose=昨收
+              const SRC_LABEL = { screenshot: '截圖', live: '即時', high: '最高', ask: '賣一', yclose: '昨收' };
+              const srcLabel = h.priceSource ? SRC_LABEL[h.priceSource] : null;
+              const srcTitle = h.priceError
+                ? `報價問題：${h.priceError}`
+                : h.priceUpdatedAt
+                  ? `來源：${srcLabel || '—'}　更新於 ${new Date(h.priceUpdatedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`
+                  : '尚未同步即時報價';
+
               // ─── Feature card (ink + span 2)：黑底，橘紅 ROI，五層雜誌排版 ───
               if (isInk && h.__featureSlot) {
                 return (
@@ -3051,7 +3129,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     fontVariantNumeric:'tabular-nums',letterSpacing:'0.06em',
                   }}>
                     <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>TODAY</span>
-                    <span style={{gridColumn:'3',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>VALUE</span>
+                    <span style={{gridColumn:'3',gridRow:'1',display:'flex',alignItems:'center',gap:6,fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>
+                      <span>VALUE</span>
+                      {srcLabel && (
+                        <span title={srcTitle} style={{
+                          fontSize:8,letterSpacing:'0.06em',padding:'1px 5px',borderRadius:2,
+                          background: h.priceSource==='live' ? alpha(WB.accent,'22') : h.priceSource==='screenshot' ? alpha(muteColor,'18') : alpha(lossColor,'22'),
+                          color: h.priceSource==='live' ? WB.accent : subColor,
+                          opacity:0.85,fontWeight:500,
+                        }}>{srcLabel}</span>
+                      )}
+                      {h.priceError && !srcLabel && (
+                        <span title={h.priceError} style={{fontSize:8,padding:'1px 5px',borderRadius:2,background:alpha(lossColor,'22'),color:lossColor}}>失敗</span>
+                      )}
+                    </span>
                     <div style={{gridColumn:'2',gridRow:'1 / span 2',background:hairColor,width:1,height:'100%'}} />
                     <span className="wb-bottom-val" style={{gridColumn:'1',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                       {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
@@ -4296,6 +4387,37 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   letterSpacing:"0.02em"}}>
                   {parsing ? "解析中..." : "解析這筆交易"}
                 </button>
+              )}
+              {parseStep && (
+                <div style={{
+                  marginTop:10, background:C.subtle,
+                  border:`1px solid ${parseStep.stage==='error'?alpha(C.down,'55'):parseStep.stage==='done'?alpha(C.olive,'55'):C.border}`,
+                  borderRadius:10, padding:'10px 12px',
+                }}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:6}}>
+                    <span style={{fontSize:12,fontWeight:500,letterSpacing:'0.04em',color:parseStep.stage==='error'?C.down:parseStep.stage==='done'?C.olive:C.text}}>
+                      {parseStep.stage==='upload' && '① '}
+                      {parseStep.stage==='ai' && '② '}
+                      {parseStep.stage==='retry' && '② '}
+                      {parseStep.stage==='persist' && '③ '}
+                      {parseStep.stage==='refresh' && '④ '}
+                      {parseStep.stage==='done' && '✓ '}
+                      {parseStep.stage==='error' && '✕ '}
+                      {parseStep.label}
+                    </span>
+                    <span style={{fontSize:11,color:C.textMute,fontVariantNumeric:'tabular-nums'}}>{parseStep.progress}%</span>
+                  </div>
+                  <div style={{height:3,background:alpha(C.textMute,'22'),borderRadius:2,overflow:'hidden'}}>
+                    <div style={{
+                      height:'100%',width:`${parseStep.progress}%`,
+                      background: parseStep.stage==='error'?C.down:parseStep.stage==='done'?C.olive:C.amber,
+                      transition:'width 360ms ease',
+                    }}/>
+                  </div>
+                  {parseStep.detail && (
+                    <div style={{marginTop:6,fontSize:11,color:C.textMute,letterSpacing:'0.02em'}}>{parseStep.detail}</div>
+                  )}
+                </div>
               )}
               {parseErr && <div style={{marginTop:10, background:C.upBg,
                 border:`1px solid ${alpha(C.up,'44')}`, borderRadius:10,
