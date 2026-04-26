@@ -1752,8 +1752,13 @@ export default function App() {
       setTimeout(() => setSaved(""), 4000);
       return;
     }
+    // 產生 correlation id 與紀錄使用者操作起始時間
+    const cid = `daily_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const opStartedAt = new Date().toISOString();
+    setDailyLastError(null);
     setAnalyzing(true);
     setAnalyzeStep("取得即時股價...");
+    pushUpdateLog({ source:'daily', trigger:'manual', status:'fetching', key:cid, msg:'開始收盤分析' });
     try {
       // 1. 取得最新股價
       const codes = H.map(h => h.code);
