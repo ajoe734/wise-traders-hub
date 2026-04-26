@@ -548,6 +548,15 @@ export default function App() {
   const [dailyLastError, setDailyLastError] = useState(null);
   const dailyLastErrorRef = useRef(null);
   useEffect(() => { dailyLastErrorRef.current = dailyLastError; }, [dailyLastError]);
+  // 重試按鈕的瞬時鎖定：點擊後立即為 true，避免在 setAnalyzing 尚未 flush 前重複送出
+  const [dailyRetryLocked, setDailyRetryLocked] = useState(false);
+  const dailyRetryLockRef = useRef(false);
+  // 重試時間軸：每次點擊重試都會新增一筆 { id, attempt, cid, startedAt, endedAt, durationMs, success, code, message, httpStatus }
+  const [dailyRetryHistory, setDailyRetryHistory] = useState([]);
+  const dailyRetryAttemptRef = useRef(0);
+  // 重試後自動展開錯誤摘要：每次重試結束後遞增，觸發 UI 滾動聚焦
+  const [dailyErrorFocusKey, setDailyErrorFocusKey] = useState(0);
+  const dailyErrorRef = useRef(null);
   // 重試結束後，若仍有錯誤則自動滾動聚焦於錯誤摘要卡
   useEffect(() => {
     if (!dailyErrorFocusKey) return;
@@ -558,15 +567,6 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dailyErrorFocusKey]);
-  // 重試按鈕的瞬時鎖定：點擊後立即為 true，避免在 setAnalyzing 尚未 flush 前重複送出
-  const [dailyRetryLocked, setDailyRetryLocked] = useState(false);
-  const dailyRetryLockRef = useRef(false);
-  // 重試時間軸：每次點擊重試都會新增一筆 { id, attempt, cid, startedAt, endedAt, durationMs, success, code, message, httpStatus }
-  const [dailyRetryHistory, setDailyRetryHistory] = useState([]);
-  const dailyRetryAttemptRef = useRef(0);
-  // 重試後自動展開錯誤摘要：每次重試結束後遞增，觸發 UI 滾動聚焦
-  const [dailyErrorFocusKey, setDailyErrorFocusKey] = useState(0);
-  const dailyErrorRef = useRef(null);
   // AI 模型嘗試紀錄（debug）：{ source, at, attempts: [{path, model, status, ok, errorBody, errorMessage}], succeededWith }
   const [calendarLastDebug, setCalendarLastDebug] = useState(null);
   const [predictLastDebug, setPredictLastDebug] = useState(null);
