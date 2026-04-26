@@ -296,16 +296,25 @@ lines.forEach((line, idx) => {
     }
   }
 
-  // ── C) <button>/<option> 標籤內的字面量子字串（可能被 JSX expression 包圍）──
-  // 僅針對「在 button/option 開合標籤的同一行內出現的英文字面量」做次級檢查。
-  // A) 已涵蓋大多數純文字節點，這裡額外捕捉：
+  // ── C) <button>/<option> 標籤「內容區」的字面量字串 ──
+  // 只取 `<button …>` 與 `</button>` 之間的「內容」字串，**屬性區（含 style/onClick）排除**，
+  // 否則會誤掃到 style 內的 CSS 字串如 "3px 8px"。
+  //
+  // 額外捕捉：
   //   <button>{cond ? "Save" : "Cancel"}</button>
   //   <option value="x">Apply now</option>
-  //   <button aria-label="X">Click me</button>
-  const buttonLikeRe = /<(button|option)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+  //
+  // 屬性已經由 ATTR_NAMES_TEXTUAL / ATTR_NAMES_A11Y / DATA_ATTR_NAMES_VISIBLE 覆蓋。
+  const buttonLikeRe = /<(button|option)\b[^>]*?>([\s\S]*?)<\/\1>/gi;
   let bm;
   while ((bm = buttonLikeRe.exec(line)) !== null) {
-    const inner = bm[2] || '';
+    const tag = bm[1];
+    const fullMatch = bm[0];
+    // 找開頭 `>` 的位置 → 之後到 `</tag>` 才是「內容區」
+    const openEnd = fullMatch.indexOf('>');
+    const closeStart = fullMatch.lastIndexOf(`</${tag}`);
+    if (openEnd < 0 || closeStart < 0 || closeStart <= openEnd) continue;
+    const inner = fullMatch.slice(openEnd + 1, closeStart);
     // 抓出三類英文字面量：
     //   "..."、'...'、`...`（template literal 但不含 ${}）
     const literalRe = /(["'`])((?:\\.|(?!\1).)*?)\1/g;
@@ -324,7 +333,7 @@ lines.forEach((line, idx) => {
         rule: 'untranslated-button-literal',
         text,
         detail:
-          `<${bm[1].toLowerCase()}> 內含字面量英文文案："${text}"。` +
+          `<${tag.toLowerCase()}> 內含字面量英文文案："${text}"。` +
           `按鈕 / 選項文字會直接顯示給使用者，請翻譯或加 i18n-allow 豁免。`,
         snippet: line.trim().slice(0, 160),
       });
