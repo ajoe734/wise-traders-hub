@@ -1038,7 +1038,13 @@ export default function App() {
     })();
   };
 
-  useEffect(() => { runPredictEvents(false); }, [newsEvents, ready, holdings]);
+  // 持倉代碼字串作為穩定依賴，避免 holdings array reference 變動觸發過多預測
+  const holdingsCodesKey = useMemo(
+    () => (holdings || []).map(h => h.code).sort().join(","),
+    [holdings]
+  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { runPredictEvents(false); }, [newsEvents, ready, holdingsCodesKey]);
 
   // 手動刷新行事曆（繞過 30 秒節流，但保留 inflight 冪等保護）
   const manualRefreshCalendar = async () => {
