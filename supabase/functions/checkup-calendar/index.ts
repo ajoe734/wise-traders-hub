@@ -3,8 +3,30 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-correlation-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Expose-Headers': 'x-correlation-id',
 };
+
+/* ── Correlation ID & structured logging（與 checkup-predict-events 同源）── */
+const FN_NAME = 'checkup-calendar';
+function newCid() {
+  const ts = Date.now().toString(36);
+  const rand = Array.from(crypto.getRandomValues(new Uint8Array(3)),
+    (b) => b.toString(16).padStart(2, '0')).join('');
+  return `cid_${ts}_${rand}`;
+}
+function getCid(req: Request): string {
+  const incoming = req.headers.get('x-correlation-id');
+  if (incoming && /^[A-Za-z0-9_\-:.]{4,128}$/.test(incoming)) return incoming;
+  return newCid();
+}
+function slog(cid: string, event: string, fields: Record<string, unknown> = {}) {
+  try {
+    console.log(JSON.stringify({ ts: new Date().toISOString(), fn: FN_NAME, cid, event, ...fields }));
+  } catch {
+    console.log(`[slog-failed] ${FN_NAME} ${cid} ${event}`);
+  }
+}
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 // Note: 'google/gemini-2.0-flash' is deprecated on the Gateway (returns 400). Use only supported models.
