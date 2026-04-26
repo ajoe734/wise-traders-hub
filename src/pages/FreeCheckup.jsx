@@ -3591,7 +3591,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                             flex:1,padding:'10px 14px',background:'transparent',
                             border:`1px solid ${WB.ink}`,borderRadius:2,
                             color:WB.ink,fontSize:11,fontWeight:500,cursor:'pointer',
-                            letterSpacing:'0.16em',fontFamily:'inherit',
+                            letterSpacing:'0.10em',fontFamily:'inherit',whiteSpace:'nowrap',
                           }}
                         >標記為持有</button>
                       ) : (
