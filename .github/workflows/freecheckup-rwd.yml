@@ -11,6 +11,8 @@ on:
       - 'e2e/freecheckup-card.spec.ts'
       - 'playwright.config.ts'
       - 'scripts/check-freecheckup-rwd.mjs'
+      - 'scripts/check-freecheckup-i18n.mjs'
+      - 'src/test/unit/freecheckup-i18n.test.ts'
       - '.github/workflows/freecheckup-rwd.yml'
   workflow_dispatch:
 
@@ -47,6 +49,38 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: static-check-report
+          path: reports/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  i18n-check:
+    name: i18n 檢查（無未翻譯英文字串進入正式繁中畫面）
+    runs-on: ubuntu-latest
+    outputs:
+      violations: ${{ steps.run.outputs.violations }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run i18n scanner (with JSON report)
+        id: run
+        run: |
+          mkdir -p reports
+          set +e
+          node scripts/check-freecheckup-i18n.mjs --json reports/i18n.json | tee reports/i18n.txt
+          code=$?
+          set -e
+          count=$(node -e "try{const r=require('./reports/i18n.json');console.log((r.violations||[]).length)}catch(e){console.log(0)}")
+          echo "violations=$count" >> "$GITHUB_OUTPUT"
+          exit $code
+
+      - name: Upload i18n-check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-check-report
           path: reports/
           retention-days: 14
           if-no-files-found: ignore
@@ -99,7 +133,7 @@ jobs:
   summary:
     name: 回貼結果到 PR（含 diff 行內標註）
     runs-on: ubuntu-latest
-    needs: [static-check, visual-regression]
+    needs: [static-check, i18n-check, visual-regression]
     if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
@@ -118,6 +152,14 @@ jobs:
           name: static-check-report
           path: reports/static
 
+      - name: Download i18n-check report
+        if: needs.i18n-check.result != 'skipped'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: i18n-check-report
+          path: reports/i18n
+
       - name: Download Playwright report
         if: needs.visual-regression.result != 'skipped'
         uses: actions/download-artifact@v4
@@ -130,6 +172,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           STATIC_RESULT: ${{ needs.static-check.result }}
+          I18N_RESULT: ${{ needs.i18n-check.result }}
           VISUAL_RESULT: ${{ needs.visual-regression.result }}
         with:
           script: |
@@ -140,6 +183,7 @@ jobs:
             if (!pr) { core.info('Not a PR, skip'); return; }
 
             const staticRes = process.env.STATIC_RESULT;
+            const i18nRes = process.env.I18N_RESULT;
             const visualRes = process.env.VISUAL_RESULT;
             const ok = (s) => s === 'success';
             const icon = (s) => ok(s) ? '✅' : (s === 'skipped' ? '⏭️' : '❌');
@@ -164,10 +208,10 @@ jobs:
             }
 
             // ── 收集違規 ──
-            /** @type {{file:string,line:number,rule:string,detail:string,snippet?:string,suggestion?:string,source:'static'|'visual'}[]} */
+            /** @type {{file:string,line:number,rule:string,detail:string,snippet?:string,suggestion?:string,source:'static'|'i18n'|'visual'}[]} */
             const all = [];
 
-            // 1) 靜態檢查
+            // 1) 靜態檢查（RWD）
             const staticJson = 'reports/static/static.json';
             if (fs.existsSync(staticJson)) {
               try {
@@ -176,6 +220,17 @@ jobs:
                   all.push({ ...v, source: 'static' });
                 }
               } catch (e) { core.warning('parse static.json failed: ' + e.message); }
+            }
+
+            // 1b) i18n 檢查
+            const i18nJson = 'reports/i18n/i18n.json';
+            if (fs.existsSync(i18nJson)) {
+              try {
+                const data = JSON.parse(fs.readFileSync(i18nJson, 'utf8'));
+                for (const v of (data.violations || [])) {
+                  all.push({ ...v, source: 'i18n' });
+                }
+              } catch (e) { core.warning('parse i18n.json failed: ' + e.message); }
             }
 
             // 2) Playwright JSON
@@ -248,15 +303,16 @@ jobs:
             }).join('\n\n');
 
             const body = [
-              `## FreeCheckup RWD 回歸檢查`,
+              `## FreeCheckup RWD + i18n 回歸檢查`,
               ``,
               `| 階段 | 狀態 |`,
               `|---|---|`,
               `| ${icon(staticRes)} 靜態檢查（fontSize / media query / flex-end） | \`${staticRes}\` |`,
+              `| ${icon(i18nRes)} i18n 檢查（無未翻譯英文進入正式繁中畫面） | \`${i18nRes}\` |`,
               `| ${icon(visualRes)} 視覺截圖 + Playwright (320/340/375/414) | \`${visualRes}\` |`,
               ``,
               all.length === 0
-                ? `三層檢查全綠，可以合併。`
+                ? `四層檢查全綠，可以合併。`
                 : [
                     `⚠️ 共 **${all.length}** 筆違規（${inDiff.length} 筆已標註於 diff、${outOfDiff.length} 筆在 diff 外）。`,
                     ``,
@@ -266,12 +322,14 @@ jobs:
                     ``,
                     `### 本機修正流程`,
                     `\`\`\`bash`,
-                    `bun run check:freecheckup-rwd     # 靜態檢查`,
+                    `bun run check:freecheckup-rwd      # 靜態檢查（RWD）`,
+                    `bun run check:freecheckup-i18n     # i18n 檢查（英文掃描）`,
+                    `bunx vitest run src/test/unit/freecheckup-i18n.test.ts   # i18n 單元測試`,
                     `bunx playwright test e2e/freecheckup-card.spec.ts   # 視覺回歸`,
-                    `bun run test:e2e:update           # 視覺改動為預期，更新基準`,
+                    `bun run test:e2e:update            # 視覺改動為預期，更新基準`,
                     `\`\`\``,
                     ``,
-                    `Artifacts：[playwright-report](../actions/runs/${context.runId}) · [static-check-report](../actions/runs/${context.runId})`,
+                    `Artifacts：[playwright-report](../actions/runs/${context.runId}) · [static-check-report](../actions/runs/${context.runId}) · [i18n-check-report](../actions/runs/${context.runId})`,
                   ].join('\n'),
               ``,
               `<sub>workflow: \`.github/workflows/freecheckup-rwd.yml\` · 規範：mem://qa/checkup/freecheckup-mobile-regression-checklist · run #${context.runId}</sub>`,
