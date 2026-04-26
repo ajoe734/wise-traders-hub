@@ -345,6 +345,73 @@ export default function App() {
   const [lastUpdate, setLastUpdate] = useState(null);
   const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
   const [cooldownText, setCooldownText] = useState("");
+  // 任務日誌：{ id, ts, task, status, attempt, detail } — 用於下載排錯
+  const [syncLog, setSyncLog] = useState([]);
+  // 持倉覆蓋率彈窗
+  const [coverageOpen, setCoverageOpen] = useState(false);
+  // 立即同步排程（呼叫 stock-price-sync edge function）
+  const [serverSyncing, setServerSyncing] = useState(false);
+
+  const appendLog = (entry) => {
+    setSyncLog(prev => {
+      const next = [{ id: Date.now() + Math.random(), ts: new Date().toISOString(), ...entry }, ...prev];
+      return next.slice(0, 200); // 最多保留 200 筆
+    });
+  };
+
+  const downloadSyncLog = () => {
+    const lines = [
+      `# Free Checkup 同步任務日誌 (${new Date().toLocaleString('zh-TW')})`,
+      `# 共 ${syncLog.length} 筆事件`,
+      '',
+      ...syncLog.map(e => `[${e.ts}] ${e.task} | ${e.status}${e.attempt?` | 嘗試 ${e.attempt}`:''}${e.detail?` | ${e.detail}`:''}`),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `freecheckup-sync-log-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.txt`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  // 立即觸發後端排程：stock-price-sync
+  const triggerServerSync = async () => {
+    if (serverSyncing) return;
+    setServerSyncing(true);
+    appendLog({ task: 'server-sync', status: 'start', detail: '呼叫 stock-price-sync edge function' });
+    const MAX = 3;
+    let lastErr = '';
+    for (let attempt = 1; attempt <= MAX; attempt++) {
+      try {
+        const res = await fetch(`${SUPABASE_FN_BASE}/stock-price-sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        appendLog({
+          task: 'server-sync', status: 'ok', attempt,
+          detail: `symbols=${data.symbols ?? '?'} fetched=${data.prices_fetched ?? '?'}`
+        });
+        setSaved(`✅ 排程已執行：拉取 ${data.prices_fetched ?? 0} 檔報價`);
+        setTimeout(() => setSaved(''), 4000);
+        // 後端 sync 完，前台再拉一次最新價
+        setLastUpdate(null);
+        setTimeout(() => { refreshPrices().catch(() => {}); }, 800);
+        setServerSyncing(false);
+        return;
+      } catch (e) {
+        lastErr = e?.message || '網路錯誤';
+        appendLog({ task: 'server-sync', status: 'retry', attempt, detail: lastErr });
+        if (attempt < MAX) await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
+    }
+    appendLog({ task: 'server-sync', status: 'error', detail: `所有重試失敗：${lastErr}` });
+    setSaved(`✕ 排程失敗：${lastErr}`);
+    setTimeout(() => setSaved(''), 5000);
+    setServerSyncing(false);
+  };
 
   // Countdown timer for refresh cooldown
   useEffect(() => {
@@ -1447,81 +1514,97 @@ export default function App() {
     const codes = H.map(h => h.code);
     if (codes.length === 0) { setRefreshing(false); return; }
     setRefreshStatus({ phase: 'fetching', total: codes.length, ok: 0, fail: codes.length, missingNames: [] });
-    try {
-      // 同時嘗試上市(tse)、上櫃/興櫃(otc)、權證/盤後(oa/ob)
-      const queries = codes.flatMap(c => {
-        const base = [`tse_${c}.tw`, `otc_${c}.tw`];
-        if (c.length >= 6) base.push(`oa_${c}.tw`);
-        return base;
-      });
-      const exCh = queries.join('|');
-      const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`報價伺服器回應 ${res.status}`);
-      const data = await res.json();
+    appendLog({ task: 'refresh-prices', status: 'start', detail: `${codes.length} 檔` });
 
-      if (data.msgArray && data.msgArray.length > 0) {
-        // 每筆 symbol 回報來源：live(成交)/high(最高)/ask(賣一)/yclose(昨收)
-        const priceMap = {};
-        data.msgArray.forEach(item => {
-          if (!item.c || priceMap[item.c]) return;
-          const z = parseFloat(item.z);
-          const hp = parseFloat(item.h);
-          const vol = parseInt(item.v, 10) || 0;
-          const bestAsk = item.a ? parseFloat(item.a.split('_')[0]) : NaN;
-          const yClose = parseFloat(item.y);
-          let price = null, source = null;
-          if (!isNaN(z) && z > 0) { price = z; source = 'live'; }
-          else if (vol > 0 && !isNaN(hp) && hp > 0) { price = hp; source = 'high'; }
-          else if (!isNaN(bestAsk) && bestAsk > 0) { price = bestAsk; source = 'ask'; }
-          else if (!isNaN(yClose) && yClose > 0) { price = yClose; source = 'yclose'; }
-          if (price) priceMap[item.c] = { price, source };
+    const MAX_RETRIES = 3;
+    let lastErr = '';
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // 同時嘗試上市(tse)、上櫃/興櫃(otc)、權證/盤後(oa/ob)
+        const queries = codes.flatMap(c => {
+          const base = [`tse_${c}.tw`, `otc_${c}.tw`];
+          if (c.length >= 6) base.push(`oa_${c}.tw`);
+          return base;
         });
+        const exCh = queries.join('|');
+        const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`報價伺服器回應 ${res.status}`);
+        const data = await res.json();
 
-        const nowIso = new Date().toISOString();
-        setHoldings(prev => (prev || []).map(h => {
-          const hit = priceMap[h.code];
-          if (!hit) {
-            // 標記失敗原因，不變動價格
-            return { ...h, priceError: '無即時報價（可能停牌、興櫃或非交易時段）' };
+        if (data.msgArray && data.msgArray.length > 0) {
+          // 每筆 symbol 回報來源：live(成交)/high(最高)/ask(賣一)/yclose(昨收)
+          const priceMap = {};
+          data.msgArray.forEach(item => {
+            if (!item.c || priceMap[item.c]) return;
+            const z = parseFloat(item.z);
+            const hp = parseFloat(item.h);
+            const vol = parseInt(item.v, 10) || 0;
+            const bestAsk = item.a ? parseFloat(item.a.split('_')[0]) : NaN;
+            const yClose = parseFloat(item.y);
+            let price = null, source = null;
+            if (!isNaN(z) && z > 0) { price = z; source = 'live'; }
+            else if (vol > 0 && !isNaN(hp) && hp > 0) { price = hp; source = 'high'; }
+            else if (!isNaN(bestAsk) && bestAsk > 0) { price = bestAsk; source = 'ask'; }
+            else if (!isNaN(yClose) && yClose > 0) { price = yClose; source = 'yclose'; }
+            if (price) priceMap[item.c] = { price, source };
+          });
+
+          const nowIso = new Date().toISOString();
+          setHoldings(prev => (prev || []).map(h => {
+            const hit = priceMap[h.code];
+            if (!hit) {
+              return { ...h, priceError: '無即時報價（可能停牌、興櫃或非交易時段）' };
+            }
+            const { value, pnl, pct } = calcPnlWithNet(h, hit.price);
+            return {
+              ...h,
+              price: hit.price,
+              value, pnl, pct,
+              priceSource: hit.source,
+              priceUpdatedAt: nowIso,
+              priceError: null,
+            };
+          }));
+
+          const updated = Object.keys(priceMap).length;
+          const total = codes.length;
+          const stillMissed = codes.filter(c => !priceMap[c]);
+          const missedNames = stillMissed.map(c => { const hh = H.find(x=>x.code===c); return hh ? hh.name : c; });
+          setLastUpdate(new Date());
+          setRefreshStatus({ phase: 'done', total, ok: updated, fail: stillMissed.length, missingNames: missedNames });
+          appendLog({
+            task: 'refresh-prices', status: 'ok', attempt,
+            detail: `${updated}/${total} 成功${stillMissed.length?`，缺：${missedNames.slice(0,10).join(',')}`:''}`,
+          });
+          if (stillMissed.length > 0 && stillMissed.length < total) {
+            setSaved(`✅ ${updated}/${total} 檔已更新（${missedNames.join('、')} 無即時報價）`);
+          } else {
+            setSaved(`✅ ${updated} 檔股價已更新`);
           }
-          const { value, pnl, pct } = calcPnlWithNet(h, hit.price);
-          return {
-            ...h,
-            price: hit.price,
-            value, pnl, pct,
-            priceSource: hit.source,
-            priceUpdatedAt: nowIso,
-            priceError: null,
-          };
-        }));
-
-        const updated = Object.keys(priceMap).length;
-        const total = codes.length;
-        const stillMissed = codes.filter(c => !priceMap[c]);
-        const missedNames = stillMissed.map(c => { const hh = H.find(x=>x.code===c); return hh ? hh.name : c; });
-        setLastUpdate(new Date());
-        setRefreshStatus({ phase: 'done', total, ok: updated, fail: stillMissed.length, missingNames: missedNames });
-        if (stillMissed.length > 0 && stillMissed.length < total) {
-          setSaved(`✅ ${updated}/${total} 檔已更新（${missedNames.join('、')} 無即時報價）`);
+          setTimeout(() => setSaved(""), 4000);
+          setTimeout(() => setRefreshStatus(null), 6000);
+          setRefreshing(false);
+          return;
         } else {
-          setSaved(`✅ ${updated} 檔股價已更新`);
+          lastErr = '報價來源無回應（可能非交易時段）';
+          appendLog({ task: 'refresh-prices', status: 'retry', attempt, detail: lastErr });
+          if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 1500 * attempt)); continue; }
         }
-        setTimeout(() => setSaved(""), 4000);
-        setTimeout(() => setRefreshStatus(null), 6000);
-      } else {
-        setRefreshStatus({ phase: 'error', total: codes.length, ok: 0, fail: codes.length, missingNames: [], error: '報價來源無回應（可能非交易時段）' });
-        setSaved("！無法取得報價（可能非交易時間）");
-        setTimeout(() => setSaved(""), 3000);
-        setTimeout(() => setRefreshStatus(null), 6000);
+      } catch (err) {
+        lastErr = err?.message || '網路錯誤';
+        console.warn(`refreshPrices attempt ${attempt}/${MAX_RETRIES} failed:`, err);
+        appendLog({ task: 'refresh-prices', status: 'retry', attempt, detail: lastErr });
+        if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 1500 * attempt)); continue; }
       }
-    } catch (err) {
-      console.error('刷新股價失敗:', err);
-      setRefreshStatus({ phase: 'error', total: codes.length, ok: 0, fail: codes.length, missingNames: [], error: err?.message || '網路錯誤' });
-      setSaved("刷新失敗，請稍後再試");
-      setTimeout(() => setSaved(""), 3000);
-      setTimeout(() => setRefreshStatus(null), 6000);
     }
+
+    // 全部重試失敗
+    appendLog({ task: 'refresh-prices', status: 'error', detail: `所有重試失敗：${lastErr}` });
+    setRefreshStatus({ phase: 'error', total: codes.length, ok: 0, fail: codes.length, missingNames: [], error: lastErr });
+    setSaved(`✕ 刷新失敗：${lastErr}`);
+    setTimeout(() => setSaved(""), 4000);
+    setTimeout(() => setRefreshStatus(null), 8000);
     setRefreshing(false);
   };
 
@@ -2058,6 +2141,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         if (data.error) {
           lastErr = data.error;
           console.warn(`Parse attempt ${attempt}/${MAX_RETRIES} failed:`, data.error);
+          appendLog({ task: 'parse-screenshot', status: 'retry', attempt, detail: data.error });
           if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 2000)); continue; }
           break;
         }
@@ -2119,12 +2203,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           } catch (e) { console.warn('auto-refresh after parse failed:', e); }
         }
         setParseStep({ stage: 'done', label: '解析完成', progress: 100, detail: `共 ${preparedTrades.length} 筆持倉已寫入` });
+        appendLog({ task: 'parse-screenshot', status: 'ok', attempt, detail: `${preparedTrades.length} 筆部位` });
         setTimeout(() => setParseStep(null), 4000);
         setParsing(false);
         return; // 成功，直接返回
       } catch (e) {
         lastErr = e?.message || "網路錯誤";
         console.warn(`Parse attempt ${attempt}/${MAX_RETRIES} exception:`, e);
+        appendLog({ task: 'parse-screenshot', status: 'retry', attempt, detail: lastErr });
         if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 2000)); continue; }
       }
     }
@@ -2133,6 +2219,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     const finalErr = lastErr || "解析失敗，請確認截圖清晰";
     setParseErr(finalErr);
     setParseStep({ stage: 'error', label: 'AI 解析失敗', progress: 100, detail: finalErr });
+    appendLog({ task: 'parse-screenshot', status: 'error', detail: `所有重試失敗：${finalErr}` });
     setTimeout(() => setParseStep(null), 6000);
     setParsing(false);
   };
@@ -2332,6 +2419,42 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
                 cursor:"pointer", whiteSpace:"nowrap",
               }}>清除</button>
+              {H.length > 0 && (
+                <>
+                  <button
+                    onClick={triggerServerSync}
+                    disabled={serverSyncing}
+                    title="繞過 30 分冷卻，立即向後端排程要求最新報價"
+                    style={{
+                      background: serverSyncing ? alpha(C.subtle,'aa') : C.text,
+                      color: serverSyncing ? C.textMute : C.bg,
+                      border:`1px solid ${serverSyncing ? C.border : C.text}`,
+                      borderRadius:6, padding:"3px 10px", fontSize:11, fontWeight:500,
+                      cursor: serverSyncing ? 'wait' : 'pointer', whiteSpace:"nowrap",
+                      letterSpacing:'0.04em',
+                    }}>
+                    {serverSyncing ? '同步中…' : '⟳ 立即更新'}
+                  </button>
+                  <button
+                    onClick={() => setCoverageOpen(true)}
+                    title="檢視持倉同步覆蓋率與缺失代碼"
+                    style={{
+                      background:'transparent', color:C.textSec, border:`1px solid ${C.border}`,
+                      borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
+                      cursor:"pointer", whiteSpace:"nowrap",
+                    }}>覆蓋率</button>
+                </>
+              )}
+              {syncLog.length > 0 && (
+                <button
+                  onClick={downloadSyncLog}
+                  title={`下載任務日誌（共 ${syncLog.length} 筆）`}
+                  style={{
+                    background:'transparent', color:C.textMute, border:`1px solid ${C.border}`,
+                    borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
+                    cursor:"pointer", whiteSpace:"nowrap",
+                  }}>↓ Log ({syncLog.length})</button>
+              )}
               {refreshing && (
                 <span style={{fontSize:11,color:C.amber,letterSpacing:'0.04em'}}>
                   ⟳ 同步報價中
@@ -4171,7 +4294,142 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                 ))}
               </div>
-            )}
+      )}
+
+      {/* ══════════ 持倉覆蓋率報表 ══════════ */}
+      {coverageOpen && (() => {
+        const rows = (H || []).map(h => {
+          const ok = !!h.priceSource && !h.priceError;
+          let sourceLabel = '—';
+          if (h.priceSource === 'live') sourceLabel = '即時成交';
+          else if (h.priceSource === 'high') sourceLabel = '當日最高';
+          else if (h.priceSource === 'ask') sourceLabel = '委賣價';
+          else if (h.priceSource === 'yclose') sourceLabel = '昨收價';
+          else if (h.priceSource === 'screenshot') sourceLabel = '截圖市場價';
+          return {
+            code: h.code,
+            name: h.name,
+            type: h.type,
+            ok,
+            source: sourceLabel,
+            updatedAt: h.priceUpdatedAt ? new Date(h.priceUpdatedAt).toLocaleString('zh-TW') : '—',
+            error: h.priceError || (ok ? '' : '尚未同步報價'),
+          };
+        });
+        const okCount = rows.filter(r => r.ok).length;
+        const total = rows.length;
+        const coverage = total ? Math.round((okCount / total) * 1000) / 10 : 0;
+        const missing = rows.filter(r => !r.ok);
+
+        const exportCsv = () => {
+          const header = '代碼,名稱,類型,狀態,價格來源,更新時間,失敗原因';
+          const lines = rows.map(r => [
+            r.code, r.name, r.type, r.ok?'OK':'MISS', r.source, r.updatedAt, r.error
+          ].map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(','));
+          const csv = '\uFEFF' + [header, ...lines].join('\n');
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `freecheckup-coverage-${new Date().toISOString().slice(0,10)}.csv`;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+
+        return (
+          <div
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:120,
+              display:'flex',alignItems:'center',justifyContent:'center',padding:16}}
+            onClick={() => setCoverageOpen(false)}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background:C.card, borderRadius:10, width:'min(720px, 100%)',
+                maxHeight:'min(86vh, 760px)', display:'flex', flexDirection:'column',
+                border:`1px solid ${C.border}`,
+              }}
+            >
+              <div style={{padding:'18px 22px 12px',borderBottom:`1px solid ${C.border}`}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <div style={{fontSize:15,fontWeight:500,color:C.text,letterSpacing:'0.02em'}}>持倉覆蓋率報表</div>
+                  <button onClick={() => setCoverageOpen(false)} style={{
+                    background:'transparent',border:'none',color:C.textMute,cursor:'pointer',fontSize:18,padding:0,lineHeight:1}}>✕</button>
+                </div>
+                <div style={{display:'flex',gap:18,alignItems:'baseline',flexWrap:'wrap'}}>
+                  <div>
+                    <div style={{fontSize:10,color:C.textMute,letterSpacing:'0.08em'}}>覆蓋率</div>
+                    <div style={{fontSize:22,fontWeight:500,color:coverage>=80?C.olive:coverage>=50?C.amber:C.down,letterSpacing:'-0.02em'}}>
+                      {coverage.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:C.textMute,letterSpacing:'0.08em'}}>已同步</div>
+                    <div style={{fontSize:16,fontWeight:500,color:C.text}}>{okCount} / {total}</div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:C.textMute,letterSpacing:'0.08em'}}>缺失</div>
+                    <div style={{fontSize:16,fontWeight:500,color:missing.length?C.down:C.textMute}}>{missing.length}</div>
+                  </div>
+                  <div style={{marginLeft:'auto',display:'flex',gap:8}}>
+                    <button onClick={triggerServerSync} disabled={serverSyncing} style={{
+                      background:serverSyncing?alpha(C.subtle,'aa'):C.text,color:serverSyncing?C.textMute:C.bg,
+                      border:'none',borderRadius:6,padding:'5px 12px',fontSize:11,fontWeight:500,
+                      cursor:serverSyncing?'wait':'pointer',letterSpacing:'0.04em'}}>
+                      {serverSyncing?'同步中…':'立即重跑同步'}
+                    </button>
+                    <button onClick={exportCsv} style={{
+                      background:'transparent',color:C.textSec,border:`1px solid ${C.border}`,
+                      borderRadius:6,padding:'5px 10px',fontSize:11,fontWeight:400,cursor:'pointer'}}>
+                      ↓ 匯出 CSV
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{flex:1,overflowY:'auto',padding:'8px 0'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                  <thead>
+                    <tr style={{background:alpha(C.subtle,'66'),color:C.textMute,letterSpacing:'0.05em'}}>
+                      <th style={{textAlign:'left',padding:'8px 14px',fontWeight:400,fontSize:11}}>代碼</th>
+                      <th style={{textAlign:'left',padding:'8px 8px',fontWeight:400,fontSize:11}}>名稱</th>
+                      <th style={{textAlign:'left',padding:'8px 8px',fontWeight:400,fontSize:11}}>類型</th>
+                      <th style={{textAlign:'left',padding:'8px 8px',fontWeight:400,fontSize:11}}>狀態</th>
+                      <th style={{textAlign:'left',padding:'8px 8px',fontWeight:400,fontSize:11}}>來源</th>
+                      <th style={{textAlign:'left',padding:'8px 14px',fontWeight:400,fontSize:11}}>失敗原因</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(r => (
+                      <tr key={r.code} style={{borderBottom:`1px solid ${alpha(C.border,'88')}`}}>
+                        <td style={{padding:'8px 14px',fontFamily:'ui-monospace,monospace',color:C.text}}>{r.code}</td>
+                        <td style={{padding:'8px 8px',color:C.text}}>{r.name}</td>
+                        <td style={{padding:'8px 8px',color:C.textMute}}>{r.type || '—'}</td>
+                        <td style={{padding:'8px 8px'}}>
+                          <span style={{
+                            display:'inline-block',padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:500,letterSpacing:'0.05em',
+                            background: r.ok ? alpha(C.olive,'22') : alpha(C.down,'22'),
+                            color: r.ok ? C.olive : C.down,
+                          }}>{r.ok?'OK':'缺失'}</span>
+                        </td>
+                        <td style={{padding:'8px 8px',color:C.textSec}}>{r.source}</td>
+                        <td style={{padding:'8px 14px',color:r.ok?C.textMute:C.down,fontSize:11}}>{r.error || '—'}</td>
+                      </tr>
+                    ))}
+                    {rows.length === 0 && (
+                      <tr><td colSpan={6} style={{padding:'24px',textAlign:'center',color:C.textMute}}>尚無持倉資料</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{padding:'10px 22px',borderTop:`1px solid ${C.border}`,fontSize:11,color:C.textMute,lineHeight:1.6}}>
+                提示：覆蓋率反映目前前端 holdings 中已成功取得最新報價的比例。後端排程「stock-price-sync」每 30 分鐘執行一次，亦會同步寫入 current_prices 資料表。
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
 
             {/* 重新分析 */}
