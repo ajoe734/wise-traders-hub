@@ -57,7 +57,7 @@ export type AiAttempt = {
 
 export type AiResult = { text: string; attempts: AiAttempt[]; succeededWith?: AiAttempt };
 
-async function callAI(system: string, user: string, maxTokens = 4096): Promise<AiResult> {
+async function callAI(system: string, user: string, maxTokens = 4096, cid = 'cid_unknown'): Promise<AiResult> {
   const lovableKey = Deno.env.get('LOVABLE_API_KEY');
   const geminiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
   const attempts: AiAttempt[] = [];
@@ -69,6 +69,7 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<A
   if (lovableKey) {
     for (const model of GATEWAY_MODELS) {
       const attempt: AiAttempt = { path: 'gateway', model, ok: false };
+      const startedAt = Date.now();
       try {
         const response = await fetch(GATEWAY_URL, {
           method: 'POST',
@@ -78,7 +79,7 @@ async function callAI(system: string, user: string, maxTokens = 4096): Promise<A
         attempt.status = response.status;
         if (!response.ok) {
           attempt.errorBody = (await response.text()).slice(0, 300);
-          console.error(`Gateway ${model} failed (${response.status}): ${attempt.errorBody}`);
+          slog(cid, 'ai_attempt', { path: 'gateway', model, ok: false, status: response.status, durationMs: Date.now() - startedAt, errorBody: attempt.errorBody });
           attempts.push(attempt);
           continue;
         }
