@@ -1444,11 +1444,11 @@ export default function App() {
       return;
     }
     setRefreshing(true);
+    const codes = H.map(h => h.code);
+    if (codes.length === 0) { setRefreshing(false); return; }
+    setRefreshStatus({ phase: 'fetching', total: codes.length, ok: 0, fail: codes.length, missingNames: [] });
     try {
-      const codes = H.map(h => h.code);
-      if (codes.length === 0) { setRefreshing(false); return; }
       // 同時嘗試上市(tse)、上櫃/興櫃(otc)、權證/盤後(oa/ob)
-      // 興櫃部分代碼 MIS 端會用 otc_ 通道；權證 6 碼以 oa_ 試
       const queries = codes.flatMap(c => {
         const base = [`tse_${c}.tw`, `otc_${c}.tw`];
         if (c.length >= 6) base.push(`oa_${c}.tw`);
@@ -1457,60 +1457,70 @@ export default function App() {
       const exCh = queries.join('|');
       const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
       const res = await fetch(url);
+      if (!res.ok) throw new Error(`報價伺服器回應 ${res.status}`);
       const data = await res.json();
 
       if (data.msgArray && data.msgArray.length > 0) {
+        // 每筆 symbol 回報來源：live(成交)/high(最高)/ask(賣一)/yclose(昨收)
         const priceMap = {};
         data.msgArray.forEach(item => {
           if (!item.c || priceMap[item.c]) return;
-
           const z = parseFloat(item.z);
-          const h = parseFloat(item.h);
+          const hp = parseFloat(item.h);
           const vol = parseInt(item.v, 10) || 0;
           const bestAsk = item.a ? parseFloat(item.a.split('_')[0]) : NaN;
           const yClose = parseFloat(item.y);
-
-          // 4 層瀑布邏輯（對齊富貴角）
-          let price = null;
-          if (!isNaN(z) && z > 0) {
-            price = z;                                       // 1. 最新成交價
-          } else if (vol > 0 && !isNaN(h) && h > 0) {
-            price = h;                                       // 2. 有成交但 z 被清空，用最高價
-          } else if (!isNaN(bestAsk) && bestAsk > 0) {
-            price = bestAsk;                                 // 3. 沒成交，用造市商賣一價
-          } else if (!isNaN(yClose) && yClose > 0) {
-            price = yClose;                                  // 4. 什麼都沒有，用昨收
-          }
-
-          if (price) priceMap[item.c] = price;
+          let price = null, source = null;
+          if (!isNaN(z) && z > 0) { price = z; source = 'live'; }
+          else if (vol > 0 && !isNaN(hp) && hp > 0) { price = hp; source = 'high'; }
+          else if (!isNaN(bestAsk) && bestAsk > 0) { price = bestAsk; source = 'ask'; }
+          else if (!isNaN(yClose) && yClose > 0) { price = yClose; source = 'yclose'; }
+          if (price) priceMap[item.c] = { price, source };
         });
 
+        const nowIso = new Date().toISOString();
         setHoldings(prev => (prev || []).map(h => {
-          const newPrice = priceMap[h.code];
-          if (newPrice == null) return h;
-          const { value, pnl, pct } = calcPnlWithNet(h, newPrice);
-          return { ...h, price: newPrice, value, pnl, pct };
+          const hit = priceMap[h.code];
+          if (!hit) {
+            // 標記失敗原因，不變動價格
+            return { ...h, priceError: '無即時報價（可能停牌、興櫃或非交易時段）' };
+          }
+          const { value, pnl, pct } = calcPnlWithNet(h, hit.price);
+          return {
+            ...h,
+            price: hit.price,
+            value, pnl, pct,
+            priceSource: hit.source,
+            priceUpdatedAt: nowIso,
+            priceError: null,
+          };
         }));
 
         const updated = Object.keys(priceMap).length;
         const total = codes.length;
         const stillMissed = codes.filter(c => !priceMap[c]);
+        const missedNames = stillMissed.map(c => { const hh = H.find(x=>x.code===c); return hh ? hh.name : c; });
         setLastUpdate(new Date());
+        setRefreshStatus({ phase: 'done', total, ok: updated, fail: stillMissed.length, missingNames: missedNames });
         if (stillMissed.length > 0 && stillMissed.length < total) {
-          const missedNames = stillMissed.map(c => { const h = H.find(x=>x.code===c); return h ? h.name : c; }).join("、");
-          setSaved(`✅ ${updated}/${total} 檔已更新（${missedNames} 無即時報價）`);
+          setSaved(`✅ ${updated}/${total} 檔已更新（${missedNames.join('、')} 無即時報價）`);
         } else {
           setSaved(`✅ ${updated} 檔股價已更新`);
         }
         setTimeout(() => setSaved(""), 4000);
+        setTimeout(() => setRefreshStatus(null), 6000);
       } else {
+        setRefreshStatus({ phase: 'error', total: codes.length, ok: 0, fail: codes.length, missingNames: [], error: '報價來源無回應（可能非交易時段）' });
         setSaved("！無法取得報價（可能非交易時間）");
         setTimeout(() => setSaved(""), 3000);
+        setTimeout(() => setRefreshStatus(null), 6000);
       }
     } catch (err) {
       console.error('刷新股價失敗:', err);
+      setRefreshStatus({ phase: 'error', total: codes.length, ok: 0, fail: codes.length, missingNames: [], error: err?.message || '網路錯誤' });
       setSaved("刷新失敗，請稍後再試");
       setTimeout(() => setSaved(""), 3000);
+      setTimeout(() => setRefreshStatus(null), 6000);
     }
     setRefreshing(false);
   };
