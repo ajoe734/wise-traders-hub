@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
 
     // Cap at 200 symbols per request
-    const uniqueSymbols = [...new Set(symbols.map((s: string) => s.trim()))].slice(0, 200)
+    const uniqueSymbols: string[] = [...new Set((symbols as unknown[]).map((s) => String(s).trim()))].slice(0, 200)
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,

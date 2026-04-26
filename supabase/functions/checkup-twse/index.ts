@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
     // 只用 MIS 即時報價 API（對齊 Python 腳本）
     const ts = Date.now();
-    const twseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(exCh)}&json=1&delay=0&_=${ts}`;
+    const twseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(exCh as string)}&json=1&delay=0&_=${ts}`;
     const response = await fetch(twseUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
