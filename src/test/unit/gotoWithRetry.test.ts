@@ -20,24 +20,123 @@ const FATAL_ERR = () =>
   new Error('page.goto: net::ERR_NAME_NOT_RESOLVED at https://nope.local');
 
 describe('isRetryableNavigationError', () => {
-  it('classifies Playwright timeouts as retryable', () => {
-    expect(isRetryableNavigationError(TIMEOUT_ERR())).toBe(true);
-    expect(isRetryableNavigationError(new Error('Navigation timeout of 30000 ms exceeded'))).toBe(true);
+  // ── Retryable: Playwright-wrapped timeouts ───────────────────────────────
+  it.each([
+    ['lowercase Playwright goto timeout', 'page.goto: Timeout 30000ms exceeded.'],
+    ['capitalised Navigation timeout', 'Navigation timeout of 30000 ms exceeded'],
+    ['custom timeout copy', 'Timeout 5000ms exceeded while waiting for selector'],
+    ['mixed case timeout', 'TIMEOUT 1000ms EXCEEDED'],
+  ])('treats "%s" as retryable', (_label, message) => {
+    expect(isRetryableNavigationError(new Error(message))).toBe(true);
   });
 
-  it('classifies HMR-restart-style network drops as retryable', () => {
-    expect(isRetryableNavigationError(new Error('net::ERR_CONNECTION_RESET'))).toBe(true);
-    expect(
-      isRetryableNavigationError(
-        new Error('Target page, context or browser has been closed')
-      )
-    ).toBe(true);
+  // ── Retryable: dev-server / HMR transient network drops ──────────────────
+  it.each([
+    ['connection reset (HMR restart)', 'net::ERR_CONNECTION_RESET at http://localhost:5173'],
+    ['network changed mid-flight', 'page.goto: net::ERR_NETWORK_CHANGED'],
+    ['empty response from Vite', 'net::ERR_EMPTY_RESPONSE'],
+    ['target page closed during reload', 'Target page, context or browser has been closed'],
+    ['target frame closed during reload', 'Target frame, context or browser has been closed'],
+  ])('treats "%s" as retryable', (_label, message) => {
+    expect(isRetryableNavigationError(new Error(message))).toBe(true);
   });
 
-  it('does NOT retry deterministic errors (e.g. DNS)', () => {
-    expect(isRetryableNavigationError(FATAL_ERR())).toBe(false);
-    expect(isRetryableNavigationError(new Error('boom'))).toBe(false);
-    expect(isRetryableNavigationError('string error')).toBe(false);
+  // ── Fatal: deterministic failures must fail fast ─────────────────────────
+  it.each([
+    ['DNS resolution failure', 'page.goto: net::ERR_NAME_NOT_RESOLVED at https://nope.local'],
+    ['connection refused', 'net::ERR_CONNECTION_REFUSED at http://localhost:9999'],
+    ['SSL cert error', 'net::ERR_CERT_AUTHORITY_INVALID'],
+    ['HTTP 500 from server', 'page.goto: 500 Internal Server Error'],
+    ['arbitrary JS exception', 'TypeError: Cannot read properties of undefined'],
+    ['empty error message', ''],
+  ])('treats "%s" as fatal (not retryable)', (_label, message) => {
+    expect(isRetryableNavigationError(new Error(message))).toBe(false);
+  });
+
+  // ── Non-Error inputs are never retryable ─────────────────────────────────
+  it.each([
+    ['plain string', 'string error'],
+    ['null', null],
+    ['undefined', undefined],
+    ['number', 42],
+    ['plain object with message-like field', { message: 'Timeout exceeded' }],
+  ])('rejects non-Error input "%s"', (_label, input) => {
+    expect(isRetryableNavigationError(input)).toBe(false);
+  });
+});
+
+describe('gotoWithRetry — branch routing per error message', () => {
+  it('retries on net::ERR_EMPTY_RESPONSE then succeeds', async () => {
+    const goto = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('net::ERR_EMPTY_RESPONSE'))
+      .mockResolvedValueOnce(undefined);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    const attempts = await gotoWithRetry(makePage(goto), '/x', {
+      maxAttempts: 3,
+      sleep,
+    });
+
+    expect(goto).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledExactlyOnceWith(1_000);
+    expect(attempts.map((a) => a.ok)).toEqual([false, true]);
+  });
+
+  it('retries on "Target page closed" then succeeds', async () => {
+    const goto = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Target page, context or browser has been closed'))
+      .mockResolvedValueOnce(undefined);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    const attempts = await gotoWithRetry(makePage(goto), '/x', { sleep });
+
+    expect(goto).toHaveBeenCalledTimes(2);
+    expect(attempts[0].error).toMatch(/Target page/);
+    expect(attempts[1].ok).toBe(true);
+  });
+
+  it('fails fast on net::ERR_CONNECTION_REFUSED without retrying', async () => {
+    const fatal = new Error('net::ERR_CONNECTION_REFUSED at http://localhost:9999');
+    const goto = vi.fn().mockRejectedValue(fatal);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      gotoWithRetry(makePage(goto), '/x', { maxAttempts: 5, sleep })
+    ).rejects.toBe(fatal);
+
+    expect(goto).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('fails fast on net::ERR_CERT_AUTHORITY_INVALID without retrying', async () => {
+    const fatal = new Error('net::ERR_CERT_AUTHORITY_INVALID');
+    const goto = vi.fn().mockRejectedValue(fatal);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      gotoWithRetry(makePage(goto), '/x', { maxAttempts: 5, sleep })
+    ).rejects.toBe(fatal);
+
+    expect(goto).toHaveBeenCalledTimes(1);
+  });
+
+  it('switches from retryable to fatal mid-sequence and stops immediately', async () => {
+    const fatal = new Error('net::ERR_NAME_NOT_RESOLVED at https://nope.local');
+    const goto = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Timeout 30000ms exceeded'))
+      .mockRejectedValueOnce(fatal) // fatal on attempt 2 → must NOT proceed to attempt 3
+      .mockResolvedValue(undefined);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      gotoWithRetry(makePage(goto), '/x', { maxAttempts: 5, sleep })
+    ).rejects.toBe(fatal);
+
+    expect(goto).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledExactlyOnceWith(1_000);
   });
 });
 
