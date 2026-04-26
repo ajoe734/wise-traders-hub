@@ -529,7 +529,7 @@ describe('gotoWithRetry — fatal short-circuit integration', () => {
   });
 
   it('does not invoke sleep after the LAST retryable attempt', async () => {
-    const goto = vi.fn().mockRejectedValue(new Error('Timeout exceeded'));
+    const goto = vi.fn().mockRejectedValue(new Error('Timeout 30000ms exceeded'));
     const sleep = vi.fn().mockResolvedValue(undefined);
 
     await expect(
@@ -545,7 +545,7 @@ describe('gotoWithRetry — fatal short-circuit integration', () => {
     const captured: CapturedAttachment[] = [];
     const goto = vi
       .fn()
-      .mockRejectedValueOnce(new Error('Timeout exceeded'))
+      .mockRejectedValueOnce(new Error('Timeout 30000ms exceeded'))
       .mockRejectedValueOnce(new Error('net::ERR_NAME_NOT_RESOLVED'));
     const sleep = vi.fn().mockResolvedValue(undefined);
 
