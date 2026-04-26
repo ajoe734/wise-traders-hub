@@ -4006,6 +4006,92 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     )}
                   </div>
                 )}
+                {/* AI 模型嘗試明細（debug）：顯示 Gateway vs 直連 Gemini 各模型的 HTTP 狀態與錯誤節錄 */}
+                {(predictLastDebug || calendarLastDebug) && (
+                  <div style={{
+                    marginTop:6,
+                    border:`1px solid ${alpha(C.textMute,'1a')}`,
+                    borderRadius:6,
+                    background:alpha(C.textMute,'04'),
+                    fontSize:11,
+                  }}>
+                    <button
+                      onClick={() => setDebugPanelOpen(o => !o)}
+                      style={{
+                        display:"flex",alignItems:"center",justifyContent:"space-between",
+                        width:"100%",padding:"6px 10px",
+                        background:"transparent",border:"none",
+                        cursor:"pointer",color:C.textMute,fontSize:11,
+                      }}
+                    >
+                      <span style={{display:"inline-flex",alignItems:"center",gap:6}}>
+                        <span style={{opacity:0.6}}>AI 模型嘗試明細</span>
+                        <span style={{opacity:0.5}}>
+                          ({(predictLastDebug?.attempts?.length || 0) + (calendarLastDebug?.attempts?.length || 0)})
+                        </span>
+                      </span>
+                      <span style={{display:"inline-flex",alignItems:"center",gap:8}}>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setPredictLastDebug(null); setCalendarLastDebug(null); }}
+                          style={{fontSize:10,color:C.textMute,opacity:0.6,cursor:"pointer"}}
+                        >清除</span>
+                        <span style={{opacity:0.5}}>{debugPanelOpen ? '▾' : '▸'}</span>
+                      </span>
+                    </button>
+                    {debugPanelOpen && (
+                      <div style={{padding:"4px 10px 10px",borderTop:`1px solid ${alpha(C.textMute,'14')}`}}>
+                        {[
+                          { label: '事件預測', dbg: predictLastDebug },
+                          { label: '行事曆', dbg: calendarLastDebug },
+                        ].filter(x => x.dbg).map(({ label, dbg }) => (
+                          <div key={label} style={{marginTop:8}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.textMute,marginBottom:4}}>
+                              <span style={{fontWeight:500,color:C.text}}>{label}</span>
+                              <span style={{opacity:0.7}}>
+                                HTTP {dbg.httpStatus} · {new Date(dbg.at).toLocaleTimeString('zh-TW',{hour12:false})}
+                              </span>
+                            </div>
+                            {dbg.succeededWith && (
+                              <div style={{fontSize:10,color:C.up,marginBottom:4,opacity:0.85}}>
+                                ✓ 成功：{dbg.succeededWith.path} / {dbg.succeededWith.model}
+                              </div>
+                            )}
+                            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                              {(dbg.attempts || []).map((a, i) => {
+                                const ok = a.ok;
+                                const statusColor = ok ? C.up : (a.status === 402 || a.status === 429 ? C.amber : C.down);
+                                return (
+                                  <div key={i} style={{
+                                    display:"grid",
+                                    gridTemplateColumns:"auto auto 1fr",
+                                    gap:6,alignItems:"start",
+                                    padding:"4px 6px",
+                                    borderRadius:4,
+                                    background:alpha(statusColor,'08'),
+                                    fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",
+                                    fontSize:10,
+                                  }}>
+                                    <span style={{color:statusColor,fontWeight:600}}>
+                                      {ok ? '✓' : '✕'} {a.status ?? '—'}
+                                    </span>
+                                    <span style={{color:C.textMute}}>
+                                      {a.path === 'gateway' ? 'Gateway' : '直連'} · {a.model}
+                                    </span>
+                                    <span style={{color:C.textMute,opacity:0.85,wordBreak:"break-word"}}>
+                                      {a.errorBody || a.errorMessage || (ok ? '' : '—')}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {/* 更新日誌（除錯用）：可摺疊 */}
                 {updateLog.length > 0 && (
                   <div style={{
