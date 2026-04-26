@@ -4007,7 +4007,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </div>
                 )}
                 {/* AI 模型嘗試明細（debug）：顯示 Gateway vs 直連 Gemini 各模型的 HTTP 狀態與錯誤節錄 */}
-                {(() => null)()}
                 {(predictLastDebug || calendarLastDebug) && (
                   <div style={{
                     marginTop:6,
