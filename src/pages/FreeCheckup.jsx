@@ -847,32 +847,54 @@ export default function App() {
       if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
     };
   }, [holdings, ready, isDemo, _currentUserId]);
-  // tradeLog 存到 Supabase（不再只存 localStorage）
+  // tradeLog 存到 Supabase — 改用「scoped delete + insert」並加 debounce/錯誤通知
+  // 重要：原本 .delete().neq() 沒帶 user_id 篩選，僅靠 RLS 保護；改為明確 .eq('user_id', ...) 雙保險
+  const cloudTradeLogTimerRef = useRef(null);
+  const cloudTradeLogErrorShownRef = useRef(false);
   const saveTradeLogToCloud = async (logs) => {
     if (!logs || !_currentUserId) return;
+    const uid = _currentUserId;
     try {
-      // 先清空舊資料再批次插入
-      await supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      if (logs.length > 0) {
-        const rows = logs.map(l => ({
-          ...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
-          user_id: _currentUserId,
-          trade_date: l.date || null,
-          trade_time: l.time || null,
-          action: l.action || null,
-          code: l.code || null,
-          name: l.name || null,
-          qty: l.qty != null ? l.qty : null,
-          price: l.price != null ? l.price : null,
-          qa: l.qa || [],
-        }));
-        await supabase.from("checkup_trade_memos").insert(rows);
+      const rows = logs.map(l => ({
+        ...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
+        user_id: uid,
+        trade_date: l.date || null,
+        trade_time: l.time || null,
+        action: l.action || null,
+        code: l.code || null,
+        name: l.name || null,
+        qty: l.qty != null ? l.qty : null,
+        price: l.price != null ? l.price : null,
+        qa: l.qa || [],
+      }));
+      // 僅刪除自己的資料（RLS + 顯式 user_id 雙重保險）
+      const { error: delErr } = await supabase
+        .from("checkup_trade_memos")
+        .delete()
+        .eq("user_id", uid);
+      if (delErr) throw delErr;
+      if (rows.length > 0) {
+        const { error: insErr } = await supabase.from("checkup_trade_memos").insert(rows);
+        if (insErr) throw insErr;
       }
+      cloudTradeLogErrorShownRef.current = false;
     } catch (e) {
-      console.error("Save trade memos error:", e);
+      console.error("[cloud-sync] trade memos save failed:", e);
+      if (!cloudTradeLogErrorShownRef.current) {
+        cloudTradeLogErrorShownRef.current = true;
+        toast.error("交易紀錄雲端同步失敗，僅保存於本機");
+      }
     }
   };
-  useEffect(() => { if (ready && tradeLog && !isDemo) { save("pf-log-v2", tradeLog); saveTradeLogToCloud(tradeLog); } }, [tradeLog, ready, isDemo]);
+  useEffect(() => {
+    if (!(ready && tradeLog && !isDemo)) return;
+    save("pf-log-v2", tradeLog);
+    if (cloudTradeLogTimerRef.current) clearTimeout(cloudTradeLogTimerRef.current);
+    cloudTradeLogTimerRef.current = setTimeout(() => saveTradeLogToCloud(tradeLog), 800);
+    return () => {
+      if (cloudTradeLogTimerRef.current) clearTimeout(cloudTradeLogTimerRef.current);
+    };
+  }, [tradeLog, ready, isDemo]);
   useEffect(() => { if (ready && targets && !isDemo)  save("pf-targets-v1",  targets);  }, [targets, ready, isDemo]);
   useEffect(() => { if (ready && newsEvents && !isDemo) save("pf-news-events-v1", newsEvents); }, [newsEvents, ready, isDemo]);
 
