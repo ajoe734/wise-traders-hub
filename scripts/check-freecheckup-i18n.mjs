@@ -305,16 +305,38 @@ lines.forEach((line, idx) => {
   //   <option value="x">Apply now</option>
   //
   // 屬性已經由 ATTR_NAMES_TEXTUAL / ATTR_NAMES_A11Y / DATA_ATTR_NAMES_VISIBLE 覆蓋。
-  const buttonLikeRe = /<(button|option)\b[^>]*?>([\s\S]*?)<\/\1>/gi;
+  // 找「JSX 開頭標籤」的結束 `>`：必須跳過 `{...}` 內的 `>` 與字串內的 `>`，
+  // 否則 style={{padding:"3px 8px",...}} 內的 `=>` 與 `8px"` 的 `>` 會被誤判。
+  const findOpenTagEnd = (s, fromIdx) => {
+    let depth = 0; // {} 巢狀
+    let inStr = null; // ' " ` 任一
+    let esc = false;
+    for (let i = fromIdx; i < s.length; i++) {
+      const c = s[i];
+      if (esc) { esc = false; continue; }
+      if (inStr) {
+        if (c === '\\') { esc = true; continue; }
+        if (c === inStr) inStr = null;
+        continue;
+      }
+      if (c === '"' || c === "'" || c === '`') { inStr = c; continue; }
+      if (c === '{') { depth++; continue; }
+      if (c === '}') { depth = Math.max(0, depth - 1); continue; }
+      if (c === '>' && depth === 0) return i;
+    }
+    return -1;
+  };
+
+  const tagOpenRe = /<(button|option)\b/gi;
   let bm;
-  while ((bm = buttonLikeRe.exec(line)) !== null) {
-    const tag = bm[1];
-    const fullMatch = bm[0];
-    // 找開頭 `>` 的位置 → 之後到 `</tag>` 才是「內容區」
-    const openEnd = fullMatch.indexOf('>');
-    const closeStart = fullMatch.lastIndexOf(`</${tag}`);
-    if (openEnd < 0 || closeStart < 0 || closeStart <= openEnd) continue;
-    const inner = fullMatch.slice(openEnd + 1, closeStart);
+  while ((bm = tagOpenRe.exec(line)) !== null) {
+    const tag = bm[1].toLowerCase();
+    const openTagStart = bm.index;
+    const openTagEnd = findOpenTagEnd(line, openTagStart + 1);
+    if (openTagEnd < 0) continue;
+    const closeStart = line.indexOf(`</${tag}`, openTagEnd);
+    if (closeStart < 0) continue;
+    const inner = line.slice(openTagEnd + 1, closeStart);
     // 抓出三類英文字面量：
     //   "..."、'...'、`...`（template literal 但不含 ${}）
     const literalRe = /(["'`])((?:\\.|(?!\1).)*?)\1/g;
@@ -333,7 +355,7 @@ lines.forEach((line, idx) => {
         rule: 'untranslated-button-literal',
         text,
         detail:
-          `<${tag.toLowerCase()}> 內含字面量英文文案："${text}"。` +
+          `<${tag}> 內含字面量英文文案："${text}"。` +
           `按鈕 / 選項文字會直接顯示給使用者，請翻譯或加 i18n-allow 豁免。`,
         snippet: line.trim().slice(0, 160),
       });
