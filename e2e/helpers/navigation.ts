@@ -42,6 +42,8 @@ export interface GotoAttemptRecord {
   durationMs: number;
   ok: boolean;
   error?: string;
+  /** Branch the error message routed through. `undefined` on success. */
+  classification?: 'retryable' | 'fatal';
 }
 
 /** Aggregate retry statistics for a single `gotoWithRetry` invocation. */
