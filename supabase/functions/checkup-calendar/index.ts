@@ -4,29 +4,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-correlation-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-  'Access-Control-Expose-Headers': 'x-correlation-id',
 };
-
-/* ── Correlation ID & structured logging（與 checkup-predict-events 同源）── */
-const FN_NAME = 'checkup-calendar';
-function newCid() {
-  const ts = Date.now().toString(36);
-  const rand = Array.from(crypto.getRandomValues(new Uint8Array(3)),
-    (b) => b.toString(16).padStart(2, '0')).join('');
-  return `cid_${ts}_${rand}`;
-}
-function getCid(req: Request): string {
-  const incoming = req.headers.get('x-correlation-id');
-  if (incoming && /^[A-Za-z0-9_\-:.]{4,128}$/.test(incoming)) return incoming;
-  return newCid();
-}
-function slog(cid: string, event: string, fields: Record<string, unknown> = {}) {
-  try {
-    console.log(JSON.stringify({ ts: new Date().toISOString(), fn: FN_NAME, cid, event, ...fields }));
-  } catch {
-    console.log(`[slog-failed] ${FN_NAME} ${cid} ${event}`);
-  }
-}
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 // Note: 'google/gemini-2.0-flash' is deprecated on the Gateway (returns 400). Use only supported models.
@@ -385,18 +363,16 @@ ${outputFormat}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 
-  const cid = getCid(req);
-  const startedAt = Date.now();
-  const responseHeaders = { ...corsHeaders, 'Content-Type': 'application/json', 'x-correlation-id': cid };
-  const respond = (body: Record<string, unknown>, status = 200, logFields: Record<string, unknown> = {}) => {
-    slog(cid, 'request_done', { status, durationMs: Date.now() - startedAt, ...logFields });
-    return new Response(JSON.stringify({ cid, ...body }), { status, headers: responseHeaders });
-  };
-
-  if (req.method !== 'POST') return respond({ error: 'Method not allowed' }, 405, { reason: 'method_not_allowed' });
   if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
-    return respond({ error: 'AI API key 未設定' }, 500, { reason: 'no_ai_key' });
+    return new Response(JSON.stringify({ error: 'AI API key 未設定' }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -404,8 +380,11 @@ Deno.serve(async (req) => {
     const { stocks, today, endDate, debug } = body;
     const url = new URL(req.url);
     const debugMode = debug === true || url.searchParams.get('debug') === '1';
-    slog(cid, 'request_start', { stocksLen: typeof stocks === 'string' ? stocks.length : 0, debugMode });
-    if (!stocks) return respond({ error: 'Missing stocks parameter' }, 400, { reason: 'bad_request' });
+    if (!stocks) {
+      return new Response(JSON.stringify({ error: 'Missing stocks parameter' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const currentYear = new Date().getFullYear();
     const nextYear = currentYear + 1;
@@ -418,11 +397,13 @@ Deno.serve(async (req) => {
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、權證
 - 按日期由近到遠排序`;
 
-    slog(cid, 'rss_fetch_start', {});
+    // Fetch news context via RSS
+    console.log('Calendar: fetching news context via RSS...');
     const newsContext = await fetchNewsContext(stocks);
-    slog(cid, 'rss_fetch_done', { itemsLines: newsContext.split('\n').length });
+    console.log(`Calendar: got ${newsContext.split('\n').length} news items`);
 
     const prompt = buildPrompt(stocks, today, endDate, outputFormat, newsContext);
+
     const todayIso = new Date().toISOString().split('T')[0];
     const systemPrompt = `你是一位頂級 AI 財經分析師，精通台股市場。今天是 ${todayIso}（西元 ${new Date().getFullYear()} 年）。你會根據提供的即時新聞資訊和你的知識，整理出未來事件行事曆。
 重要：
@@ -431,36 +412,49 @@ Deno.serve(async (req) => {
 只輸出 JSON 陣列。`;
 
     const result = await callAI(systemPrompt, prompt, 8192);
-    const debugInfo = debugMode ? { cid, attempts: result.attempts, succeededWith: result.succeededWith } : undefined;
+    const debugInfo = debugMode ? { attempts: result.attempts, succeededWith: result.succeededWith } : undefined;
 
     if (result.ok && result.text) {
       const events = tryParseEvents(result.text);
       if (events) {
-        return respond({
-          text: JSON.stringify(events),
-          response: JSON.stringify(events),
-          ...(debugInfo ? { debug: debugInfo } : {}),
-        }, 200, { outcome: 'success', count: events.length });
+        console.log(`Calendar: succeeded, ${events.length} events`);
+        return new Response(
+          JSON.stringify({
+            text: JSON.stringify(events),
+            response: JSON.stringify(events),
+            ...(debugInfo ? { debug: debugInfo } : {}),
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
       }
-      return respond({
+      console.error('Calendar: parse failed. First 500:', result.text.slice(0, 500));
+      return new Response(JSON.stringify({
         ...buildAiFailure(result.attempts, '行事曆結果解析失敗，已略過本次搜尋'),
-        text: '[]', response: '[]',
+        text: '[]',
+        response: '[]',
         ...(debugInfo ? { debug: { ...debugInfo, parseFailed: true, rawTextSample: result.text.slice(0, 500) } } : {}),
-      }, 200, { outcome: 'parse_failed' });
+      }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    return respond({
+    return new Response(JSON.stringify({
       ...buildAiFailure(result.attempts, '行事曆事件暫時不可用，已略過本次搜尋'),
-      text: '[]', response: '[]',
+      text: '[]',
+      response: '[]',
       ...(debugInfo ? { debug: debugInfo } : {}),
-    }, 200, { outcome: 'ai_unavailable', attempts: result.attempts.length });
+    }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (err) {
-    slog(cid, 'unhandled_error', { errorMessage: String(err) });
-    return respond({
+    console.error('Calendar error:', err);
+    return new Response(JSON.stringify({
       ...buildAiFailure([], '行事曆搜尋服務暫時不可用，已略過本次搜尋'),
-      text: '[]', response: '[]',
+      text: '[]',
+      response: '[]',
       detail: (err as Error).message,
-    }, 200, { outcome: 'unhandled_error' });
+    }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
-});
 });
