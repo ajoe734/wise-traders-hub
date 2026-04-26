@@ -453,6 +453,10 @@ export default function App() {
   // 最近一次失敗錯誤明細：{ message, reason: 'network'|'data'|'server'|'unknown', at: ISOString }
   const [calendarLastError, setCalendarLastError] = useState(null);
   const [predictLastError, setPredictLastError] = useState(null);
+  // AI 模型嘗試紀錄（debug）：{ source, at, attempts: [{path, model, status, ok, errorBody, errorMessage}], succeededWith }
+  const [calendarLastDebug, setCalendarLastDebug] = useState(null);
+  const [predictLastDebug, setPredictLastDebug] = useState(null);
+  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
   // 重試計數與冷卻：每連續失敗一次累計，達上限或冷卻期內禁止重試
   const RETRY_MAX = 3;
   const RETRY_COOLDOWN_MS = 15_000;
@@ -645,14 +649,17 @@ export default function App() {
       const controller = new AbortController();
       calendarAbortRef.current = controller;
       const timer = setTimeout(() => controller.abort(), 300000); // 5 min timeout
-      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-calendar`, {
+      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-calendar?debug=1`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stocks: stockList, today, endDate }),
+        body: JSON.stringify({ stocks: stockList, today, endDate, debug: true }),
         signal: controller.signal,
       });
       clearTimeout(timer);
       const result = await res.json();
+      if (result?.debug) {
+        setCalendarLastDebug({ source: 'calendar', at: new Date().toISOString(), httpStatus: res.status, ...result.debug });
+      }
       if (guard !== undefined && guard !== resetGuardRef.current) {
         pushUpdateLog({ source:'calendar', trigger, status:'aborted', key:requestKey, msg:'guard 變更' });
         return;
@@ -1050,7 +1057,7 @@ export default function App() {
     pushUpdateLog({ source:'predict', trigger, status:'fetching', key:batchKey, msg:`${needsPrediction.length} 件` });
     (async () => {
       try {
-        const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events`, {
+        const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events?debug=1`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1062,8 +1069,15 @@ export default function App() {
               stocks: e.stocks,
             })),
             holdings: holdings || [],
+            debug: true,
           }),
         });
+        // Try to parse body even on failure (it may carry debug attempts)
+        let data = null;
+        try { data = await res.json(); } catch { /* ignore */ }
+        if (data?.debug) {
+          setPredictLastDebug({ source: 'predict', at: new Date().toISOString(), httpStatus: res.status, ...data.debug });
+        }
         if (!res.ok) {
           console.error("Predict events failed:", res.status);
           needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
@@ -1074,8 +1088,7 @@ export default function App() {
           pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:`${label} (${res.status})` });
           return;
         }
-        const data = await res.json();
-        const preds = data.predictions || [];
+        const preds = data?.predictions || [];
 
         setNewsEvents(prev => {
           const arr = [...(prev || [])];
@@ -3989,6 +4002,92 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {predictRetry.count >= RETRY_MAX && (
                       <div style={{marginTop:4,color:C.amber,fontSize:10,opacity:0.8}}>
                         已連續失敗 {predictRetry.count} 次，{preCool>0 ? `將於 ${preCoolSec}s 後解除冷卻` : '可再次重試'}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* AI 模型嘗試明細（debug）：顯示 Gateway vs 直連 Gemini 各模型的 HTTP 狀態與錯誤節錄 */}
+                {(predictLastDebug || calendarLastDebug) && (
+                  <div style={{
+                    marginTop:6,
+                    border:`1px solid ${alpha(C.textMute,'1a')}`,
+                    borderRadius:6,
+                    background:alpha(C.textMute,'04'),
+                    fontSize:11,
+                  }}>
+                    <button
+                      onClick={() => setDebugPanelOpen(o => !o)}
+                      style={{
+                        display:"flex",alignItems:"center",justifyContent:"space-between",
+                        width:"100%",padding:"6px 10px",
+                        background:"transparent",border:"none",
+                        cursor:"pointer",color:C.textMute,fontSize:11,
+                      }}
+                    >
+                      <span style={{display:"inline-flex",alignItems:"center",gap:6}}>
+                        <span style={{opacity:0.6}}>AI 模型嘗試明細</span>
+                        <span style={{opacity:0.5}}>
+                          ({(predictLastDebug?.attempts?.length || 0) + (calendarLastDebug?.attempts?.length || 0)})
+                        </span>
+                      </span>
+                      <span style={{display:"inline-flex",alignItems:"center",gap:8}}>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setPredictLastDebug(null); setCalendarLastDebug(null); }}
+                          style={{fontSize:10,color:C.textMute,opacity:0.6,cursor:"pointer"}}
+                        >清除</span>
+                        <span style={{opacity:0.5}}>{debugPanelOpen ? '▾' : '▸'}</span>
+                      </span>
+                    </button>
+                    {debugPanelOpen && (
+                      <div style={{padding:"4px 10px 10px",borderTop:`1px solid ${alpha(C.textMute,'14')}`}}>
+                        {[
+                          { label: '事件預測', dbg: predictLastDebug },
+                          { label: '行事曆', dbg: calendarLastDebug },
+                        ].filter(x => x.dbg).map(({ label, dbg }) => (
+                          <div key={label} style={{marginTop:8}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.textMute,marginBottom:4}}>
+                              <span style={{fontWeight:500,color:C.text}}>{label}</span>
+                              <span style={{opacity:0.7}}>
+                                HTTP {dbg.httpStatus} · {new Date(dbg.at).toLocaleTimeString('zh-TW',{hour12:false})}
+                              </span>
+                            </div>
+                            {dbg.succeededWith && (
+                              <div style={{fontSize:10,color:C.up,marginBottom:4,opacity:0.85}}>
+                                ✓ 成功：{dbg.succeededWith.path} / {dbg.succeededWith.model}
+                              </div>
+                            )}
+                            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                              {(dbg.attempts || []).map((a, i) => {
+                                const ok = a.ok;
+                                const statusColor = ok ? C.up : (a.status === 402 || a.status === 429 ? C.amber : C.down);
+                                return (
+                                  <div key={i} style={{
+                                    display:"grid",
+                                    gridTemplateColumns:"auto auto 1fr",
+                                    gap:6,alignItems:"start",
+                                    padding:"4px 6px",
+                                    borderRadius:4,
+                                    background:alpha(statusColor,'08'),
+                                    fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",
+                                    fontSize:10,
+                                  }}>
+                                    <span style={{color:statusColor,fontWeight:600}}>
+                                      {ok ? '✓' : '✕'} {a.status ?? '—'}
+                                    </span>
+                                    <span style={{color:C.textMute}}>
+                                      {a.path === 'gateway' ? 'Gateway' : '直連'} · {a.model}
+                                    </span>
+                                    <span style={{color:C.textMute,opacity:0.85,wordBreak:"break-word"}}>
+                                      {a.errorBody || a.errorMessage || (ok ? '' : '—')}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
