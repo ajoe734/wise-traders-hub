@@ -4202,7 +4202,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     borderRadius:8,objectFit:"contain",marginBottom:8}}/>
                   <div style={{fontSize:13,color:C.textMute}}>點擊更換截圖</div></>
                 ) : (
-                  <><div style={{fontSize:32,marginBottom:10,opacity:0.5}}>↑</div>
+                  <><div style={{fontSize:32,marginBottom:10,opacity:0.5}}>↑</div> {/* rwd-allow:純裝飾箭頭非數字 */}
                   <div style={{fontSize:15,fontWeight:500,color:C.textSec}}>上傳已成交截圖</div>
                   <div style={{fontSize:13,color:C.textMute,marginTop:4}}>截圖需要包含代碼、名稱、股數、市價、成本、成本價、手續費</div></>
                 )}

@@ -23,17 +23,19 @@ const violations = [];
 
 // ── Rule 1：fontSize ≥ 32 必須有 wb-* className ──
 // 只在 JSX inline style 物件內檢查（{ ... fontSize: N ... }），跳過 CSS 註解
+// 行尾加 `// rwd-allow:reason` 可豁免（純裝飾、非數字內容）
 const FONT_RE = /(?<![\w-])fontSize\s*:\s*(\d+)/g;
 lines.forEach((line, idx) => {
-  // 跳過 <style> 區塊內的 CSS 註解 / 純文字註解
   const trimmed = line.trim();
+  // 跳過 JS / CSS 註解行
   if (trimmed.startsWith('/*') || trimmed.startsWith('*') || trimmed.startsWith('//')) return;
-  // 跳過 <style> 區塊內的 CSS 規則（CSS 用 font-size: 而非 fontSize:）
+  // 行尾豁免標記
+  if (/\/\/\s*rwd-allow\b/.test(line)) return;
+
   let m;
   while ((m = FONT_RE.exec(line)) !== null) {
     const px = Number(m[1]);
     if (px < 32) continue;
-    // 看本行 ± 6 行內是否有 wb- className
     const start = Math.max(0, idx - 6);
     const end = Math.min(lines.length, idx + 7);
     const window = lines.slice(start, end).join('\n');
@@ -42,7 +44,8 @@ lines.forEach((line, idx) => {
         line: idx + 1,
         rule: 'inline-fontSize-without-wb-class',
         detail: `fontSize: ${px} 在第 ${idx + 1} 行，但前後 ±6 行找不到 className="wb-*"。` +
-                `這會導致手機斷點 media query 無法 override，造成 390/380px 溢位。`,
+                `這會導致手機斷點 media query 無法 override，造成 390/380px 溢位。` +
+                `若為純裝飾、非數字內容，可在行尾加 \`// rwd-allow:reason\` 豁免。`,
         snippet: line.trim().slice(0, 140),
       });
     }
