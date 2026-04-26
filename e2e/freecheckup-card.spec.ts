@@ -156,7 +156,7 @@ test.describe('FreeCheckup mobile card', () => {
   });
 
   test('first workbench card visual matches baseline', async ({ page }, testInfo) => {
-    await gotoFreeCheckup(page);
+    await gotoFreeCheckup(page, testInfo);
     const firstCard = page.locator(CARD_SELECTOR).first();
     await expect(firstCard).toBeVisible();
 
