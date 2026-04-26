@@ -345,6 +345,73 @@ export default function App() {
   const [lastUpdate, setLastUpdate] = useState(null);
   const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
   const [cooldownText, setCooldownText] = useState("");
+  // 任務日誌：{ id, ts, task, status, attempt, detail } — 用於下載排錯
+  const [syncLog, setSyncLog] = useState([]);
+  // 持倉覆蓋率彈窗
+  const [coverageOpen, setCoverageOpen] = useState(false);
+  // 立即同步排程（呼叫 stock-price-sync edge function）
+  const [serverSyncing, setServerSyncing] = useState(false);
+
+  const appendLog = (entry) => {
+    setSyncLog(prev => {
+      const next = [{ id: Date.now() + Math.random(), ts: new Date().toISOString(), ...entry }, ...prev];
+      return next.slice(0, 200); // 最多保留 200 筆
+    });
+  };
+
+  const downloadSyncLog = () => {
+    const lines = [
+      `# Free Checkup 同步任務日誌 (${new Date().toLocaleString('zh-TW')})`,
+      `# 共 ${syncLog.length} 筆事件`,
+      '',
+      ...syncLog.map(e => `[${e.ts}] ${e.task} | ${e.status}${e.attempt?` | 嘗試 ${e.attempt}`:''}${e.detail?` | ${e.detail}`:''}`),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `freecheckup-sync-log-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.txt`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  // 立即觸發後端排程：stock-price-sync
+  const triggerServerSync = async () => {
+    if (serverSyncing) return;
+    setServerSyncing(true);
+    appendLog({ task: 'server-sync', status: 'start', detail: '呼叫 stock-price-sync edge function' });
+    const MAX = 3;
+    let lastErr = '';
+    for (let attempt = 1; attempt <= MAX; attempt++) {
+      try {
+        const res = await fetch(`${SUPABASE_FN_BASE}/stock-price-sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        appendLog({
+          task: 'server-sync', status: 'ok', attempt,
+          detail: `symbols=${data.symbols ?? '?'} fetched=${data.prices_fetched ?? '?'}`
+        });
+        setSaved(`✅ 排程已執行：拉取 ${data.prices_fetched ?? 0} 檔報價`);
+        setTimeout(() => setSaved(''), 4000);
+        // 後端 sync 完，前台再拉一次最新價
+        setLastUpdate(null);
+        setTimeout(() => { refreshPrices().catch(() => {}); }, 800);
+        setServerSyncing(false);
+        return;
+      } catch (e) {
+        lastErr = e?.message || '網路錯誤';
+        appendLog({ task: 'server-sync', status: 'retry', attempt, detail: lastErr });
+        if (attempt < MAX) await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
+    }
+    appendLog({ task: 'server-sync', status: 'error', detail: `所有重試失敗：${lastErr}` });
+    setSaved(`✕ 排程失敗：${lastErr}`);
+    setTimeout(() => setSaved(''), 5000);
+    setServerSyncing(false);
+  };
 
   // Countdown timer for refresh cooldown
   useEffect(() => {
