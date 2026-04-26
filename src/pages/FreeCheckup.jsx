@@ -1901,7 +1901,7 @@ ${losers.map(h=>{
         const analyzeTimer = setTimeout(() => analyzeController.abort(), 120000); // 2 min timeout
         const aiRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-correlation-id": cid },
           signal: analyzeController.signal,
           body: JSON.stringify({
             systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
@@ -1951,13 +1951,33 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
         });
         clearTimeout(analyzeTimer);
         if (!aiRes.ok) {
-          console.error("AI 分析 HTTP 錯誤:", aiRes.status, await aiRes.text());
+          const errBody = await aiRes.text().catch(() => '');
+          const code = aiRes.status === 402 ? 'AI_BILLING_REQUIRED'
+                     : aiRes.status === 429 ? 'AI_RATE_LIMITED'
+                     : aiRes.status === 401 ? 'AI_AUTH_FAILED'
+                     : `HTTP_${aiRes.status}`;
+          const errInfo = { code, message: errBody.slice(0, 240) || `HTTP ${aiRes.status}`, cid, opStartedAt, httpStatus: aiRes.status, at: new Date().toISOString() };
+          setDailyLastError(errInfo);
+          pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code} (${aiRes.status})` });
+          console.error("[daily] AI 分析失敗", errInfo);
         } else {
           const aiData = await aiRes.json();
-          aiInsight = aiData.content?.[0]?.text || aiData.text || aiData.response || null;
+          if (aiData?.fallback) {
+            const code = aiData.code || 'AI_FALLBACK';
+            const errInfo = { code, message: String(aiData.error || '').slice(0, 240) || code, cid, opStartedAt, httpStatus: 200, at: new Date().toISOString() };
+            setDailyLastError(errInfo);
+            pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`fallback ${code}` });
+            console.error("[daily] AI fallback", errInfo);
+          } else {
+            aiInsight = aiData.content?.[0]?.text || aiData.text || aiData.response || null;
+          }
         }
       } catch (e) {
-        console.error("AI 分析失敗:", e);
+        const code = e?.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR';
+        const errInfo = { code, message: String(e?.message || e).slice(0, 240), cid, opStartedAt, httpStatus: 0, at: new Date().toISOString() };
+        setDailyLastError(errInfo);
+        pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code}` });
+        console.error("[daily] AI 分析例外", errInfo);
       }
 
       // 7. 組裝報告
