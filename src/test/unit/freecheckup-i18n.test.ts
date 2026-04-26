@@ -161,4 +161,108 @@ export default`
       copyFileSync(backup, TARGET);
     }
   });
+
+  it('能擋下 a11y 屬性（aria-describedby / aria-roledescription）內的英文文案', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'i18n-a11y-'));
+    const backup = join(dir, 'FreeCheckup.bak.jsx');
+    copyFileSync(TARGET, backup);
+    try {
+      const original = readFileSync(TARGET, 'utf8');
+      const injected = original.replace(
+        'export default',
+        `/* i18n-test-injection */
+const _i18nFakeFixture = (
+  <div>
+    <button aria-describedby="Open the holdings drawer">x</button>
+    <span aria-roledescription="Interactive widget">y</span>
+    {/* aria-describedby 為 ID 引用（kebab）→ 應放行 */}
+    <div aria-describedby="holdings-drawer-tip">z</div>
+  </div>
+);
+export default`
+      );
+      writeFileSync(TARGET, injected);
+
+      const tmpJson = join(dir, 'report.json');
+      const { code } = runScanner(tmpJson);
+      expect(code, 'a11y 內含英文文案應被擋下').toBe(1);
+
+      const report = JSON.parse(readFileSync(tmpJson, 'utf8'));
+      const texts = report.violations.map((v: any) => v.text);
+      expect(texts).toContain('Open the holdings drawer');
+      expect(texts).toContain('Interactive widget');
+      // 純 ID 字串不該被誤殺
+      expect(texts).not.toContain('holdings-drawer-tip');
+    } finally {
+      copyFileSync(backup, TARGET);
+    }
+  });
+
+  it('能擋下視覺 data-* 屬性（data-tooltip / data-hint）內的英文文案', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'i18n-data-'));
+    const backup = join(dir, 'FreeCheckup.bak.jsx');
+    copyFileSync(TARGET, backup);
+    try {
+      const original = readFileSync(TARGET, 'utf8');
+      const injected = original.replace(
+        'export default',
+        `/* i18n-test-injection */
+const _i18nFakeFixture = (
+  <div>
+    <button data-tooltip="Refresh portfolio">x</button>
+    <span data-hint="Click to expand">y</span>
+    {/* data-state 是行為旗標，不該被誤殺 */}
+    <div data-state="open">z</div>
+  </div>
+);
+export default`
+      );
+      writeFileSync(TARGET, injected);
+
+      const tmpJson = join(dir, 'report.json');
+      const { code } = runScanner(tmpJson);
+      expect(code, '視覺 data-* 內含英文文案應被擋下').toBe(1);
+
+      const report = JSON.parse(readFileSync(tmpJson, 'utf8'));
+      const texts = report.violations.map((v: any) => v.text);
+      expect(texts).toContain('Refresh portfolio');
+      expect(texts).toContain('Click to expand');
+      expect(texts).not.toContain('open');
+    } finally {
+      copyFileSync(backup, TARGET);
+    }
+  });
+
+  it('能擋下 <button>/<option> 內字面量英文（含三元運算字串）', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'i18n-btn-'));
+    const backup = join(dir, 'FreeCheckup.bak.jsx');
+    copyFileSync(TARGET, backup);
+    try {
+      const original = readFileSync(TARGET, 'utf8');
+      const injected = original.replace(
+        'export default',
+        `/* i18n-test-injection */
+const _i18nFakeFixture = (
+  <div>
+    <button>{cond ? "Save changes" : "Cancel action"}</button>
+    <option value="x">Apply filter</option>
+  </div>
+);
+export default`
+      );
+      writeFileSync(TARGET, injected);
+
+      const tmpJson = join(dir, 'report.json');
+      const { code } = runScanner(tmpJson);
+      expect(code, '<button>/<option> 內字面量英文應被擋下').toBe(1);
+
+      const report = JSON.parse(readFileSync(tmpJson, 'utf8'));
+      const texts = report.violations.map((v: any) => v.text);
+      expect(texts).toContain('Save changes');
+      expect(texts).toContain('Cancel action');
+      expect(texts).toContain('Apply filter');
+    } finally {
+      copyFileSync(backup, TARGET);
+    }
+  });
 });
