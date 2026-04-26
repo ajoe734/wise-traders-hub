@@ -2003,6 +2003,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       totalCost,
       fee,
       type: prev?.type || inferHoldingType(code, name),
+      priceSource: 'screenshot',
+      priceUpdatedAt: new Date().toISOString(),
+      priceError: null,
     };
     const { value, pnl, pct } = calcPnlWithNet(nextHolding, marketPrice);
     const finalizedHolding = { ...nextHolding, value, pnl, pct };
