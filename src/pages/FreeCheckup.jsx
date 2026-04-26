@@ -3540,7 +3540,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {relatedEvents.length > 0 && (
                       <div style={{marginBottom:18}}>
                         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                          <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',fontWeight:500}}>EVENT TIMELINE</span>
+                          <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.12em',fontWeight:500}}>事件時程</span>
                           {tomorrowEv && (
                             <span style={{
                               fontSize:9,color:WB.surface,background:WB.accent,
