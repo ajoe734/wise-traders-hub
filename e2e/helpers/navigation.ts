@@ -117,10 +117,16 @@ export async function gotoWithRetry(
     } catch (err) {
       const durationMs = Date.now() - startedAt;
       const message = err instanceof Error ? err.message : String(err);
-      attempts.push({ attempt, durationMs, ok: false, error: message });
+      const retryable = isRetryableNavigationError(err);
+      attempts.push({
+        attempt,
+        durationMs,
+        ok: false,
+        error: message,
+        classification: retryable ? 'retryable' : 'fatal',
+      });
       lastError = err;
 
-      const retryable = isRetryableNavigationError(err);
       // eslint-disable-next-line no-console
       console.warn(
         `[gotoWithRetry] attempt ${attempt}/${maxAttempts} ${retryable ? 'transient' : 'fatal'} failure for ${url} after ${durationMs}ms: ${message}`
