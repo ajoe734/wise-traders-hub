@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 interface SignalDetail {
   id: string;
@@ -86,13 +87,49 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
   );
 };
 
+const fetchJournalBundle = async (signalId: string) => {
+  const { data, error } = await supabase
+    .from('expert_signals')
+    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .eq('id', signalId)
+    .single();
+
+  if (error || !data) return { signal: null, weekSignals: [] as SignalDetail[] };
+
+  const s = data as any as SignalDetail;
+  const pubDate = new Date(s.published_at);
+  const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
+  const we = addDays(ws, 4);
+
+  const { data: weekData } = await supabase
+    .from('expert_signals')
+    .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
+    .eq('expert_id', s.expert_id)
+    .eq('status', 'published')
+    .gte('published_at', ws.toISOString())
+    .lte('published_at', new Date(we.getFullYear(), we.getMonth(), we.getDate(), 23, 59, 59).toISOString())
+    .order('published_at', { ascending: false });
+
+  return { signal: s, weekSignals: ((weekData as any) || []) as SignalDetail[] };
+};
+
 const JournalDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const { user, hasRole } = useAuth();
-  const [signal, setSignal] = useState<SignalDetail | null>(null);
-  const [weekSignals, setWeekSignals] = useState<SignalDetail[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['app-journal-detail', id],
+    queryFn: () => fetchJournalBundle(id!),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnMount: false,
+    placeholderData: (prev) => prev,
+  });
+
+  const signal = data?.signal ?? null;
+  const weekSignals = data?.weekSignals ?? [];
 
   const isPreview = searchParams.get('preview') === '1' && (
     (signal?.experts?.slug && user?.expertSlug === signal.experts.slug) || hasRole('company_admin')
@@ -101,43 +138,6 @@ const JournalDetail = () => {
   useEffect(() => {
     markAppJournalsAsRead();
   }, []);
-
-  useEffect(() => {
-    if (id) fetchSignal(id);
-  }, [id]);
-
-  const fetchSignal = async (signalId: string) => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('expert_signals')
-      .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
-      .eq('id', signalId)
-      .single();
-
-    if (error || !data) {
-      setLoading(false);
-      return;
-    }
-
-    const s = data as any as SignalDetail;
-    setSignal(s);
-
-    const pubDate = new Date(s.published_at);
-    const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
-    const we = addDays(ws, 4);
-
-    const { data: weekData } = await supabase
-      .from('expert_signals')
-      .select('id, instrument, action, price_hint, reason_summary, reason_detail, risk_notes, learning_points, published_at, expert_id, experts(name, slug, role, avatar_url)')
-      .eq('expert_id', s.expert_id)
-      .eq('status', 'published')
-      .gte('published_at', ws.toISOString())
-      .lte('published_at', new Date(we.getFullYear(), we.getMonth(), we.getDate(), 23, 59, 59).toISOString())
-      .order('published_at', { ascending: false });
-
-    setWeekSignals((weekData as any) || []);
-    setLoading(false);
-  };
 
   if (loading) {
     return (
