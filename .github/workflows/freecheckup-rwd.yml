@@ -303,15 +303,16 @@ jobs:
             }).join('\n\n');
 
             const body = [
-              `## FreeCheckup RWD 回歸檢查`,
+              `## FreeCheckup RWD + i18n 回歸檢查`,
               ``,
               `| 階段 | 狀態 |`,
               `|---|---|`,
               `| ${icon(staticRes)} 靜態檢查（fontSize / media query / flex-end） | \`${staticRes}\` |`,
+              `| ${icon(i18nRes)} i18n 檢查（無未翻譯英文進入正式繁中畫面） | \`${i18nRes}\` |`,
               `| ${icon(visualRes)} 視覺截圖 + Playwright (320/340/375/414) | \`${visualRes}\` |`,
               ``,
               all.length === 0
-                ? `三層檢查全綠，可以合併。`
+                ? `四層檢查全綠，可以合併。`
                 : [
                     `⚠️ 共 **${all.length}** 筆違規（${inDiff.length} 筆已標註於 diff、${outOfDiff.length} 筆在 diff 外）。`,
                     ``,
@@ -321,12 +322,14 @@ jobs:
                     ``,
                     `### 本機修正流程`,
                     `\`\`\`bash`,
-                    `bun run check:freecheckup-rwd     # 靜態檢查`,
+                    `bun run check:freecheckup-rwd      # 靜態檢查（RWD）`,
+                    `bun run check:freecheckup-i18n     # i18n 檢查（英文掃描）`,
+                    `bunx vitest run src/test/unit/freecheckup-i18n.test.ts   # i18n 單元測試`,
                     `bunx playwright test e2e/freecheckup-card.spec.ts   # 視覺回歸`,
-                    `bun run test:e2e:update           # 視覺改動為預期，更新基準`,
+                    `bun run test:e2e:update            # 視覺改動為預期，更新基準`,
                     `\`\`\``,
                     ``,
-                    `Artifacts：[playwright-report](../actions/runs/${context.runId}) · [static-check-report](../actions/runs/${context.runId})`,
+                    `Artifacts：[playwright-report](../actions/runs/${context.runId}) · [static-check-report](../actions/runs/${context.runId}) · [i18n-check-report](../actions/runs/${context.runId})`,
                   ].join('\n'),
               ``,
               `<sub>workflow: \`.github/workflows/freecheckup-rwd.yml\` · 規範：mem://qa/checkup/freecheckup-mobile-regression-checklist · run #${context.runId}</sub>`,
