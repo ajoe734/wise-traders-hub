@@ -4583,13 +4583,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             )}
 
           {dailyLastError && !analyzing && (
-            <div style={{
+            <div ref={dailyErrorRef} style={{
               margin:"0 0 14px",padding:"14px 16px",borderRadius:8,
               border:`1px solid ${alpha(C.down,'30')}`,
               background:alpha(C.down,'06'),
             }}>
-              <div style={{fontSize:12,color:C.down,fontWeight:500,marginBottom:6,letterSpacing:"0.04em"}}>
-                ⚠ 收盤分析失敗
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6}}>
+                <div style={{fontSize:12,color:C.down,fontWeight:500,letterSpacing:"0.04em"}}>
+                  ⚠ 收盤分析失敗
+                </div>
+                {dailyRetryHistory.length > 0 && (
+                  <div style={{fontSize:10,color:C.textMute,fontWeight:400,opacity:0.8,letterSpacing:"0.04em"}}>
+                    已重試 {dailyRetryHistory.length} 次
+                  </div>
+                )}
               </div>
               <div style={{fontSize:12,color:C.textSec,lineHeight:1.7,fontWeight:400}}>
                 錯誤代碼：<code style={{fontSize:11,color:C.text}}>{dailyLastError.code}</code><br/>
@@ -4625,6 +4632,56 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   關閉
                 </button>
               </div>
+              {dailyRetryHistory.length > 0 && (
+                <div style={{
+                  marginTop:14,paddingTop:12,
+                  borderTop:`1px dashed ${alpha(C.textMute,'20')}`,
+                }}>
+                  <div style={{fontSize:10,color:C.textMute,fontWeight:500,letterSpacing:"0.06em",marginBottom:8,opacity:0.7}}>
+                    重試時間軸
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {dailyRetryHistory.map((r) => {
+                      const inProgress = r.endedAt == null;
+                      const dotColor = inProgress ? C.amber : (r.success ? C.up : C.down);
+                      const startStr = new Date(r.startedAt).toLocaleTimeString('zh-TW',{hour12:false});
+                      const endStr = r.endedAt ? new Date(r.endedAt).toLocaleTimeString('zh-TW',{hour12:false}) : '—';
+                      const dur = r.durationMs != null ? `${(r.durationMs/1000).toFixed(1)}s` : '進行中';
+                      const statusLabel = inProgress ? '進行中' : (r.success ? '成功' : '失敗');
+                      return (
+                        <div key={r.id} style={{
+                          display:"grid",
+                          gridTemplateColumns:"10px 50px 1fr",
+                          gap:8,alignItems:"start",
+                          fontSize:10,fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",
+                          lineHeight:1.5,
+                        }}>
+                          <span style={{
+                            display:"inline-block",width:8,height:8,borderRadius:"50%",
+                            background:dotColor,marginTop:4,
+                          }} />
+                          <span style={{color:C.textMute,opacity:0.8}}>#{r.attempt}</span>
+                          <div style={{minWidth:0}}>
+                            <div style={{color:C.textSec}}>
+                              <span style={{color:dotColor,fontWeight:500}}>{statusLabel}</span>
+                              <span style={{color:C.textMute,opacity:0.7,marginLeft:6}}>
+                                {startStr} → {endStr}（{dur}）
+                              </span>
+                            </div>
+                            {!inProgress && !r.success && (
+                              <div style={{color:C.textMute,opacity:0.75,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                                {r.code || 'UNKNOWN'}
+                                {r.httpStatus ? ` · HTTP ${r.httpStatus}` : ''}
+                                {r.cid ? ` · cid:${String(r.cid).slice(0,18)}` : ''}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
