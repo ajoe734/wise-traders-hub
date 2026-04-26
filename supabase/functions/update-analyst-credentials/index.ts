@@ -112,14 +112,26 @@ Deno.serve(async (req) => {
     // ── reset_password ──────────────────────────────────────────
     if (action === 'reset_password') {
       const newPassword: string = body.new_password;
-      if (!newPassword || newPassword.length < 6) {
-        return json({ error: '密碼至少需 6 碼' }, 400);
+      if (!newPassword || newPassword.length < 8) {
+        return json({ error: '密碼至少需 8 碼' }, 400);
+      }
+      if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+        return json({ error: '密碼需包含英文字母與數字' }, 400);
       }
 
       const { error: updErr } = await adminClient.auth.admin.updateUserById(targetUserId, {
         password: newPassword,
       });
-      if (updErr) return json({ error: updErr.message }, 400);
+      if (updErr) {
+        const msg = updErr.message || '';
+        if (/weak|known/i.test(msg)) {
+          return json({ error: '此密碼過於常見容易被猜測，請改用更獨特的密碼（建議混合英文大小寫、數字與符號）' }, 400);
+        }
+        if (/should be at least/i.test(msg)) {
+          return json({ error: '密碼長度不足，請使用更長的密碼' }, 400);
+        }
+        return json({ error: msg }, 400);
+      }
 
       await adminClient.from('audit_logs').insert({
         actor_id: caller.id,

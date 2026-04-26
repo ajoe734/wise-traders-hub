@@ -280,8 +280,12 @@ const CompanyAnalysts = () => {
 
   const handleResetPassword = async () => {
     if (!acctExpert) return;
-    if (!acctNewPassword || acctNewPassword.length < 6) {
-      toast.error('密碼至少 6 碼');
+    if (!acctNewPassword || acctNewPassword.length < 8) {
+      toast.error('密碼至少 8 碼');
+      return;
+    }
+    if (!/[A-Za-z]/.test(acctNewPassword) || !/[0-9]/.test(acctNewPassword)) {
+      toast.error('密碼需包含英文字母與數字');
       return;
     }
     if (acctNewPassword !== acctConfirmPassword) {
@@ -529,7 +533,7 @@ const CompanyAnalysts = () => {
                   type="password"
                   value={acctNewPassword}
                   onChange={(e) => setAcctNewPassword(e.target.value)}
-                  placeholder="至少 6 碼"
+                  placeholder="至少 8 碼，需含英文與數字"
                 />
               </div>
               <div className="space-y-2">
