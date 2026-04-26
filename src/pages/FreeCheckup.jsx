@@ -3501,8 +3501,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
 
                     {/* URGENCY 五點 */}
-                    <div style={{marginBottom:18,display:'flex',alignItems:'center',gap:14}}>
-                      <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',fontWeight:500}}>URGENCY</span>
+                    <div style={{marginBottom:18,display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',rowGap:8}}>
+                      <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.10em',fontWeight:500,whiteSpace:'nowrap'}}>急迫程度</span>
                       <div style={{display:'flex',gap:6,flex:1}}>
                         {[1,2,3,4,5].map(i => (
                           <span key={i} style={{
