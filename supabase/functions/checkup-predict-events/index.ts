@@ -296,7 +296,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { events, holdings } = await req.json();
+    const { events, holdings, debug } = await req.json();
+    const url = new URL(req.url);
+    const debugMode = debug === true || url.searchParams.get('debug') === '1';
     if (!events || !Array.isArray(events) || events.length === 0) {
       return new Response(JSON.stringify({ error: 'Missing events array' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
