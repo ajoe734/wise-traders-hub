@@ -649,14 +649,17 @@ export default function App() {
       const controller = new AbortController();
       calendarAbortRef.current = controller;
       const timer = setTimeout(() => controller.abort(), 300000); // 5 min timeout
-      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-calendar`, {
+      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-calendar?debug=1`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stocks: stockList, today, endDate }),
+        body: JSON.stringify({ stocks: stockList, today, endDate, debug: true }),
         signal: controller.signal,
       });
       clearTimeout(timer);
       const result = await res.json();
+      if (result?.debug) {
+        setCalendarLastDebug({ source: 'calendar', at: new Date().toISOString(), httpStatus: res.status, ...result.debug });
+      }
       if (guard !== undefined && guard !== resetGuardRef.current) {
         pushUpdateLog({ source:'calendar', trigger, status:'aborted', key:requestKey, msg:'guard 變更' });
         return;
