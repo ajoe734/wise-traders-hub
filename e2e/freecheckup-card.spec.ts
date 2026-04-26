@@ -21,6 +21,39 @@ const ROUTE = '/free-checkup';
 // intentionally-truncated summary tiles.
 const CARD_SELECTOR = '.holdings-card-grid .wb-card';
 
+/**
+ * Navigate with retry. The dev server occasionally stalls during the first
+ * load (HMR boot, cold module graph), so a single transient `goto` timeout
+ * shouldn't fail the test. We retry up to `maxAttempts` times with a short
+ * backoff before bubbling the error.
+ */
+async function gotoWithRetry(
+  page: Page,
+  url: string,
+  {
+    maxAttempts = 3,
+    perAttemptTimeout = 30_000,
+    waitUntil = 'domcontentloaded' as const,
+  } = {}
+) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await page.goto(url, { waitUntil, timeout: perAttemptTimeout });
+      return;
+    } catch (err) {
+      lastError = err;
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[gotoWithRetry] attempt ${attempt}/${maxAttempts} failed for ${url}: ${(err as Error).message}`
+      );
+      if (attempt === maxAttempts) break;
+      await page.waitForTimeout(1_000 * attempt);
+    }
+  }
+  throw lastError;
+}
+
 async function gotoFreeCheckup(page: Page) {
   await page.addInitScript(() => {
     try {
@@ -31,7 +64,7 @@ async function gotoFreeCheckup(page: Page) {
   // long-lived HMR/websocket connections open which makes `networkidle`
   // flaky and prone to 60s timeouts. We rely on the explicit card selector
   // wait below to confirm the page is interactive.
-  await page.goto(ROUTE, { waitUntil: 'domcontentloaded' });
+  await gotoWithRetry(page, ROUTE);
   await page.waitForSelector(CARD_SELECTOR, { state: 'visible', timeout: 30_000 });
   // Allow one rAF cycle for clamp() font-size to settle.
   await page.waitForTimeout(250);
