@@ -115,3 +115,41 @@ describe('gotoWithRetry', () => {
     });
   });
 });
+
+describe('summarizeAttempts', () => {
+  it('reports first-try success without recovery flag', () => {
+    const stats = summarizeAttempts('/x', [
+      { attempt: 1, durationMs: 120, ok: true },
+    ]);
+    expect(stats).toMatchObject({
+      url: '/x',
+      totalAttempts: 1,
+      succeeded: true,
+      recoveredAfterRetry: false,
+      avgDurationMs: 120,
+      totalDurationMs: 120,
+      attemptDistribution: { 1: 120 },
+    });
+  });
+
+  it('flags recoveredAfterRetry when a retry rescues a failed attempt', () => {
+    const stats = summarizeAttempts('/x', [
+      { attempt: 1, durationMs: 30_000, ok: false, error: 'Timeout' },
+      { attempt: 2, durationMs: 800, ok: true },
+    ]);
+    expect(stats.succeeded).toBe(true);
+    expect(stats.recoveredAfterRetry).toBe(true);
+    expect(stats.totalAttempts).toBe(2);
+    expect(stats.avgDurationMs).toBe(15_400);
+    expect(stats.attemptDistribution).toEqual({ 1: 30_000, 2: 800 });
+  });
+
+  it('reports failure stats when every attempt fails', () => {
+    const stats = summarizeAttempts('/x', [
+      { attempt: 1, durationMs: 1000, ok: false },
+      { attempt: 2, durationMs: 1000, ok: false },
+    ]);
+    expect(stats.succeeded).toBe(false);
+    expect(stats.recoveredAfterRetry).toBe(false);
+  });
+});
