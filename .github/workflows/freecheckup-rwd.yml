@@ -133,7 +133,7 @@ jobs:
   summary:
     name: 回貼結果到 PR（含 diff 行內標註）
     runs-on: ubuntu-latest
-    needs: [static-check, visual-regression]
+    needs: [static-check, i18n-check, visual-regression]
     if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
@@ -152,6 +152,14 @@ jobs:
           name: static-check-report
           path: reports/static
 
+      - name: Download i18n-check report
+        if: needs.i18n-check.result != 'skipped'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: i18n-check-report
+          path: reports/i18n
+
       - name: Download Playwright report
         if: needs.visual-regression.result != 'skipped'
         uses: actions/download-artifact@v4
@@ -164,6 +172,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           STATIC_RESULT: ${{ needs.static-check.result }}
+          I18N_RESULT: ${{ needs.i18n-check.result }}
           VISUAL_RESULT: ${{ needs.visual-regression.result }}
         with:
           script: |
@@ -174,6 +183,7 @@ jobs:
             if (!pr) { core.info('Not a PR, skip'); return; }
 
             const staticRes = process.env.STATIC_RESULT;
+            const i18nRes = process.env.I18N_RESULT;
             const visualRes = process.env.VISUAL_RESULT;
             const ok = (s) => s === 'success';
             const icon = (s) => ok(s) ? '✅' : (s === 'skipped' ? '⏭️' : '❌');
@@ -198,10 +208,10 @@ jobs:
             }
 
             // ── 收集違規 ──
-            /** @type {{file:string,line:number,rule:string,detail:string,snippet?:string,suggestion?:string,source:'static'|'visual'}[]} */
+            /** @type {{file:string,line:number,rule:string,detail:string,snippet?:string,suggestion?:string,source:'static'|'i18n'|'visual'}[]} */
             const all = [];
 
-            // 1) 靜態檢查
+            // 1) 靜態檢查（RWD）
             const staticJson = 'reports/static/static.json';
             if (fs.existsSync(staticJson)) {
               try {
@@ -210,6 +220,17 @@ jobs:
                   all.push({ ...v, source: 'static' });
                 }
               } catch (e) { core.warning('parse static.json failed: ' + e.message); }
+            }
+
+            // 1b) i18n 檢查
+            const i18nJson = 'reports/i18n/i18n.json';
+            if (fs.existsSync(i18nJson)) {
+              try {
+                const data = JSON.parse(fs.readFileSync(i18nJson, 'utf8'));
+                for (const v of (data.violations || [])) {
+                  all.push({ ...v, source: 'i18n' });
+                }
+              } catch (e) { core.warning('parse i18n.json failed: ' + e.message); }
             }
 
             // 2) Playwright JSON
