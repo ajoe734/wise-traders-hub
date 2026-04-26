@@ -30,7 +30,7 @@ lines.forEach((line, idx) => {
   // 跳過 JS / CSS 註解行
   if (trimmed.startsWith('/*') || trimmed.startsWith('*') || trimmed.startsWith('//')) return;
   // 行尾豁免標記
-  if (/\/\/\s*rwd-allow\b/.test(line)) return;
+  if (/(\/\/\s*rwd-allow\b|\{\s*\/\*\s*rwd-allow\b)/.test(line)) return;
 
   let m;
   while ((m = FONT_RE.exec(line)) !== null) {
