@@ -4521,6 +4521,47 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
              </div>
             )}
 
+          {dailyLastError && !analyzing && (
+            <div style={{
+              margin:"0 0 14px",padding:"14px 16px",borderRadius:8,
+              border:`1px solid ${alpha(C.down,'30')}`,
+              background:alpha(C.down,'06'),
+            }}>
+              <div style={{fontSize:12,color:C.down,fontWeight:500,marginBottom:6,letterSpacing:"0.04em"}}>
+                ⚠ 收盤分析失敗
+              </div>
+              <div style={{fontSize:12,color:C.textSec,lineHeight:1.7,fontWeight:400}}>
+                錯誤代碼：<code style={{fontSize:11,color:C.text}}>{dailyLastError.code}</code><br/>
+                {dailyLastError.message}
+              </div>
+              <div style={{fontSize:10,color:C.textMute,marginTop:8,fontFamily:"ui-monospace,monospace",lineHeight:1.6,opacity:0.8}}>
+                cid: {dailyLastError.cid}<br/>
+                操作時間：{dailyLastError.opStartedAt}<br/>
+                {dailyLastError.httpStatus ? `HTTP: ${dailyLastError.httpStatus}` : ""}
+              </div>
+              <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+                <button onClick={runDailyAnalysis} disabled={analyzing || hasReachedDailyLimit} style={{
+                  padding:"6px 14px",borderRadius:6,
+                  border:`1px solid ${alpha(C.teal,'40')}`,
+                  background:alpha(C.teal,'08'),
+                  color:C.teal,fontSize:12,fontWeight:400,
+                  cursor:(analyzing||hasReachedDailyLimit)?"not-allowed":"pointer",
+                  opacity:(analyzing||hasReachedDailyLimit)?0.5:1,
+                  letterSpacing:"0.04em"}}>
+                  重試
+                </button>
+                <button onClick={() => setDailyLastError(null)} style={{
+                  padding:"6px 14px",borderRadius:6,
+                  border:`1px solid ${alpha(C.textMute,'25')}`,
+                  background:"transparent",
+                  color:C.textMute,fontSize:12,fontWeight:400,
+                  cursor:"pointer",letterSpacing:"0.04em"}}>
+                  關閉
+                </button>
+              </div>
+            </div>
+          )}
+
           {analyzing && (
             <div style={{textAlign:"center",padding:"36px 16px"}}>
               <div style={{fontSize:13,color:C.textSec,fontWeight:400,marginBottom:10,letterSpacing:"0.04em"}}>
