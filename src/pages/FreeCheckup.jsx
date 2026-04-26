@@ -2102,6 +2102,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       success: null, cid: null, code: null, message: null, httpStatus: null,
     }, ...prev].slice(0, 20));
     pushUpdateLog({ source:'daily', trigger:'retry', status:'fetching', key:`#${attempt}`, msg:`重試開始 (第 ${attempt} 次)` });
+    setUpdateLogOpen(true);
     let succeeded = false;
     try {
       await runDailyAnalysis();
