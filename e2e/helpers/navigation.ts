@@ -44,14 +44,50 @@ export interface GotoAttemptRecord {
   error?: string;
 }
 
+/** Aggregate retry statistics for a single `gotoWithRetry` invocation. */
+export interface GotoRetryStats {
+  url: string;
+  totalAttempts: number;
+  succeeded: boolean;
+  /** True when navigation succeeded but only after one or more failures. */
+  recoveredAfterRetry: boolean;
+  avgDurationMs: number;
+  totalDurationMs: number;
+  /** Map of attempt number → duration so CI can spot slow-start patterns. */
+  attemptDistribution: Record<number, number>;
+}
+
+export function summarizeAttempts(
+  url: string,
+  attempts: GotoAttemptRecord[]
+): GotoRetryStats {
+  const totalAttempts = attempts.length;
+  const succeeded = attempts.some((a) => a.ok);
+  const totalDurationMs = attempts.reduce((sum, a) => sum + a.durationMs, 0);
+  const avgDurationMs = totalAttempts ? Math.round(totalDurationMs / totalAttempts) : 0;
+  const attemptDistribution: Record<number, number> = {};
+  attempts.forEach((a) => {
+    attemptDistribution[a.attempt] = a.durationMs;
+  });
+  return {
+    url,
+    totalAttempts,
+    succeeded,
+    recoveredAfterRetry: succeeded && totalAttempts > 1,
+    avgDurationMs,
+    totalDurationMs,
+    attemptDistribution,
+  };
+}
+
 /**
  * Navigate with retry on transient timeouts only.
  *
  * - Only `isRetryableNavigationError` errors trigger a retry; others rethrow
  *   immediately so deterministic failures fail fast.
  * - Linear backoff: `1s * attempt` between retries.
- * - When `testInfo` is provided, the per-attempt log is attached to the
- *   Playwright trace as `goto-retry-log.json` for post-mortem debugging.
+ * - When `testInfo` is provided, the per-attempt log AND aggregate stats are
+ *   attached to the Playwright trace for post-mortem debugging.
  */
 export async function gotoWithRetry(
   page: Page,
@@ -102,10 +138,21 @@ async function maybeAttachLog(
   url: string,
   attempts: GotoAttemptRecord[]
 ) {
+  const stats = summarizeAttempts(url, attempts);
+
+  // Always surface stats to the console so CI logs show the retry profile
+  // even when the trace isn't downloaded.
+  // eslint-disable-next-line no-console
+  console.log(
+    `[gotoWithRetry][stats] ${url} attempts=${stats.totalAttempts} ok=${stats.succeeded} ` +
+      `recovered=${stats.recoveredAfterRetry} avg=${stats.avgDurationMs}ms ` +
+      `total=${stats.totalDurationMs}ms dist=${JSON.stringify(stats.attemptDistribution)}`
+  );
+
   if (!testInfo) return;
   try {
     await testInfo.attach('goto-retry-log.json', {
-      body: JSON.stringify({ url, attempts }, null, 2),
+      body: JSON.stringify({ url, attempts, stats }, null, 2),
       contentType: 'application/json',
     });
   } catch {
@@ -113,48 +160,207 @@ async function maybeAttachLog(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Geometry stability waiter
+// ---------------------------------------------------------------------------
+
+export interface BoundingBoxSample {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Max absolute delta vs previous sample (NaN for the first sample). */
+  maxDelta: number;
+}
+
+export interface WaitForStableBoundingBoxOptions {
+  pollIntervalMs?: number;
+  /** How many CONSECUTIVE stable samples are required before returning. */
+  stableSamples?: number;
+  timeoutMs?: number;
+  /** Per-axis tolerance in CSS pixels. */
+  tolerancePx?: number;
+  /** Optional TestInfo — when set, the trend log is attached to the trace. */
+  testInfo?: TestInfo;
+  /** Optional label for log output (defaults to the selector). */
+  label?: string;
+}
+
 /**
- * Wait until a selector's bounding box is stable across two consecutive
- * polls. Catches the case where a card is "visible" but still shifting due
- * to font-size clamp() resolution or async sparkline mounts.
+ * Wait until a selector's bounding box is stable across N consecutive polls.
+ * Catches the case where a card is "visible" but still shifting due to
+ * font-size clamp() resolution or async sparkline mounts.
+ *
+ * Per-selector callers can tune `tolerancePx` and `stableSamples` — e.g. a
+ * sparkline-heavy card may need a tighter tolerance than a static hero.
+ *
+ * The full sample trend is logged to the console (and attached to the trace
+ * when `testInfo` is provided) so flaky stabilisations can be debugged from
+ * CI output alone.
  */
 export async function waitForStableBoundingBox(
   page: Page,
   selector: string,
-  {
+  options: WaitForStableBoundingBoxOptions = {}
+): Promise<BoundingBoxSample[]> {
+  const {
     pollIntervalMs = 100,
     stableSamples = 2,
     timeoutMs = 5_000,
     tolerancePx = 0.5,
-  } = {}
-): Promise<void> {
+    testInfo,
+    label = selector,
+  } = options;
+
   const deadline = Date.now() + timeoutMs;
-  let previous: { x: number; y: number; w: number; h: number } | null = null;
+  const trend: BoundingBoxSample[] = [];
+  let previous: BoundingBoxSample | null = null;
   let stableCount = 0;
+  let stabilised = false;
 
   while (Date.now() < deadline) {
     const box = await page.locator(selector).first().boundingBox();
     if (box) {
-      const current = { x: box.x, y: box.y, w: box.width, h: box.height };
-      if (
-        previous &&
-        Math.abs(current.x - previous.x) <= tolerancePx &&
-        Math.abs(current.y - previous.y) <= tolerancePx &&
-        Math.abs(current.w - previous.w) <= tolerancePx &&
-        Math.abs(current.h - previous.h) <= tolerancePx
-      ) {
+      const sample: BoundingBoxSample = {
+        x: box.x,
+        y: box.y,
+        w: box.width,
+        h: box.height,
+        maxDelta: previous
+          ? Math.max(
+              Math.abs(box.x - previous.x),
+              Math.abs(box.y - previous.y),
+              Math.abs(box.width - previous.w),
+              Math.abs(box.height - previous.h)
+            )
+          : Number.NaN,
+      };
+      trend.push(sample);
+
+      if (previous && sample.maxDelta <= tolerancePx) {
         stableCount += 1;
-        if (stableCount >= stableSamples) return;
+        if (stableCount >= stableSamples) {
+          stabilised = true;
+          break;
+        }
       } else {
         stableCount = 0;
       }
-      previous = current;
+      previous = sample;
     }
     await page.waitForTimeout(pollIntervalMs);
   }
-  // Timing out here is non-fatal — caller can still proceed with snapshot.
+
   // eslint-disable-next-line no-console
-  console.warn(
-    `[waitForStableBoundingBox] selector "${selector}" did not stabilise within ${timeoutMs}ms`
+  console.log(
+    `[waitForStableBoundingBox] "${label}" stabilised=${stabilised} samples=${trend.length} ` +
+      `tolerance=${tolerancePx}px required=${stableSamples} ` +
+      `deltas=${JSON.stringify(trend.map((s) => Number.isNaN(s.maxDelta) ? null : Number(s.maxDelta.toFixed(2))))}`
   );
+
+  if (testInfo) {
+    try {
+      await testInfo.attach(`bbox-trend-${sanitiseLabel(label)}.json`, {
+        body: JSON.stringify({ selector, label, tolerancePx, stableSamples, stabilised, trend }, null, 2),
+        contentType: 'application/json',
+      });
+    } catch {
+      // best-effort
+    }
+  }
+
+  if (!stabilised) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[waitForStableBoundingBox] selector "${selector}" did not stabilise within ${timeoutMs}ms`
+    );
+  }
+  return trend;
+}
+
+function sanitiseLabel(label: string): string {
+  return label.replace(/[^a-z0-9_-]+/gi, '_').slice(0, 60);
+}
+
+// ---------------------------------------------------------------------------
+// Unified navigation entrypoint
+// ---------------------------------------------------------------------------
+
+export interface HealthCheckContext {
+  page: Page;
+  url: string;
+}
+
+export interface NavigateAndWaitForCardReadyOptions {
+  /** Selector that must become visible before declaring the page ready. */
+  cardSelector: string;
+  /** Max time to wait for `cardSelector` to attach to the DOM. */
+  selectorTimeoutMs?: number;
+  /** Forwarded to `gotoWithRetry`. */
+  goto?: GotoWithRetryOptions;
+  /** Forwarded to `waitForStableBoundingBox`. */
+  stability?: WaitForStableBoundingBoxOptions;
+  /**
+   * Optional health check executed AFTER goto + selector visible, BEFORE the
+   * stability waiter. Return `true` (or undefined) to proceed; return `false`
+   * or throw to fail fast. Useful to assert critical API responses or DOM
+   * states (e.g. portfolio loaded, no error banner) before snapshotting.
+   */
+  healthCheck?: (ctx: HealthCheckContext) => Promise<boolean | void>;
+  testInfo?: TestInfo;
+}
+
+export interface NavigateResult {
+  attempts: GotoAttemptRecord[];
+  stats: GotoRetryStats;
+  trend: BoundingBoxSample[];
+}
+
+/**
+ * Single entry point for all e2e navigation.
+ *
+ * Pipeline:
+ *   1. `gotoWithRetry` (transient-only retries, stats logged).
+ *   2. Wait for `cardSelector` to be visible.
+ *   3. Optional `healthCheck` — fail fast if the page rendered but the data
+ *      we care about isn't ready (API still pending, error banner shown, …).
+ *   4. `waitForStableBoundingBox` to confirm geometry has settled before any
+ *      visual assertion or screenshot.
+ *
+ * All e2e specs MUST funnel through this helper so retry/health/stability
+ * logic stays consistent across the suite.
+ */
+export async function navigateAndWaitForCardReady(
+  page: Page,
+  url: string,
+  options: NavigateAndWaitForCardReadyOptions
+): Promise<NavigateResult> {
+  const {
+    cardSelector,
+    selectorTimeoutMs = 30_000,
+    goto = {},
+    stability = {},
+    healthCheck,
+    testInfo,
+  } = options;
+
+  const gotoOpts: GotoWithRetryOptions = { ...goto, testInfo: goto.testInfo ?? testInfo };
+  const attempts = await gotoWithRetry(page, url, gotoOpts);
+  const stats = summarizeAttempts(url, attempts);
+
+  await page.waitForSelector(cardSelector, { state: 'visible', timeout: selectorTimeoutMs });
+
+  if (healthCheck) {
+    const ok = await healthCheck({ page, url });
+    if (ok === false) {
+      throw new Error(`[navigateAndWaitForCardReady] health check failed for ${url}`);
+    }
+  }
+
+  const trend = await waitForStableBoundingBox(page, cardSelector, {
+    ...stability,
+    testInfo: stability.testInfo ?? testInfo,
+  });
+
+  return { attempts, stats, trend };
 }
