@@ -146,17 +146,27 @@ lines.forEach((line, idx) => {
   if (hasAllowComment(idx)) return;
 
   // ── A) JSX text node：>...<  ──
-  // 容許跨多空白；過濾 JSX 表達式 {expr}
+  // 為避免把 JS 比較式（a > b && c < d）當成 JSX text，要求左側 `>` 是
+  // JSX 標籤的結束符。判斷依據：在 `>` 之前往回找最近的 `<`，那段必須是
+  // 合法的 JSX 標籤起始（< 或 </ 後緊接英文字母 / 大寫元件名）。
   const textRe = />([^<{}]+)</g;
   let m;
   while ((m = textRe.exec(line)) !== null) {
     const raw = m[1];
     const text = raw.replace(/\s+/g, ' ').trim();
     if (!text) continue;
-    // 必須含至少一個英文字母才考慮
     if (!/[A-Za-z]/.test(text)) continue;
     if (isAllWhitelisted(text)) continue;
     if (looksLikeStyleOrAttr(text)) continue;
+
+    // 驗證左側 `>` 是 JSX tag 收尾
+    const gtPos = m.index; // 指向 `>` 位置
+    const prefix = line.slice(0, gtPos);
+    const lastLt = prefix.lastIndexOf('<');
+    if (lastLt < 0) continue;
+    const tagBody = prefix.slice(lastLt);
+    // 必須像 <Tag ...> 或 </Tag>，標籤名為英文字母開頭
+    if (!/^<\/?[A-Za-z][\w.-]*\b/.test(tagBody)) continue;
 
     push({
       line: idx + 1,
