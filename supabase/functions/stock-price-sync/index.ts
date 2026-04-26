@@ -15,8 +15,12 @@ const USER_AGENTS = [
 async function fetchStockBatch(symbols: string[]): Promise<Map<string, { price: number; name: string; raw: MsgItem }>> {
   const results = new Map<string, { price: number; name: string; raw: MsgItem }>()
   
-  // Build ex_ch: try both tse and otc for each
-  const exChParts = symbols.flatMap(sym => [`tse_${sym}.tw`, `otc_${sym}.tw`])
+  // Build ex_ch: try tse, otc, and oa(權證/盤後) for each
+  const exChParts = symbols.flatMap(sym => {
+    const base = [`tse_${sym}.tw`, `otc_${sym}.tw`]
+    if (sym.length >= 6) base.push(`oa_${sym}.tw`)
+    return base
+  })
   
   // Split into chunks of ~200
   const chunkSize = 200
