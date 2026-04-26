@@ -2141,6 +2141,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         if (data.error) {
           lastErr = data.error;
           console.warn(`Parse attempt ${attempt}/${MAX_RETRIES} failed:`, data.error);
+          appendLog({ task: 'parse-screenshot', status: 'retry', attempt, detail: data.error });
           if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 2000)); continue; }
           break;
         }
