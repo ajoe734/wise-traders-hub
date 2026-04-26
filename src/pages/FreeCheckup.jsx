@@ -3248,8 +3248,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       columnGap:16,rowGap:2,
                       alignItems:'baseline',
                     }}>
-                      <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>TODAY</span>
-                      <span style={{gridColumn:'3',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>VALUE</span>
+                      <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.08em',opacity:0.7,lineHeight:1}}>今日</span>
+                      <span style={{gridColumn:'3',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.08em',opacity:0.7,lineHeight:1}}>市值</span>
                       <div style={{gridColumn:'2',gridRow:'1 / span 2',background:hairColor,width:1,height:'100%'}} />
                       <span className="wb-bottom-val" style={{gridColumn:'1',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                         {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
@@ -3355,9 +3355,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     fontSize:10,color:muteColor,fontWeight:400,
                     fontVariantNumeric:'tabular-nums',letterSpacing:'0.06em',
                   }}>
-                    <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>TODAY</span>
-                    <span style={{gridColumn:'3',gridRow:'1',display:'flex',alignItems:'center',gap:6,fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>
-                      <span>VALUE</span>
+                    <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.08em',opacity:0.7,lineHeight:1}}>今日</span>
+                    <span style={{gridColumn:'3',gridRow:'1',display:'flex',alignItems:'center',gap:6,fontSize:9,color:muteColor,letterSpacing:'0.08em',opacity:0.7,lineHeight:1,flexWrap:'wrap'}}>
+                      <span>市值</span>
                       {srcLabel && (
                         <span title={srcTitle} style={{
                           fontSize:8,letterSpacing:'0.06em',padding:'1px 5px',borderRadius:2,
@@ -3448,7 +3448,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{padding:'18px 22px 24px'}}>
                     {/* Header */}
                     <div style={{marginBottom:18}}>
-                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',marginBottom:6,fontWeight:500}}>HOLDING DETAIL</div>
+                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.10em',marginBottom:6,fontWeight:500}}>持倉細節</div>
                       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
                         <span style={{fontSize:11,color:WB.inkMute,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
                         <span style={{fontSize:18,fontWeight:500,color:WB.ink,letterSpacing:'-0.005em'}}>{h.name}</span>
@@ -3470,7 +3470,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         {pctVal>=0?'+':''}{pctVal.toFixed(2)}<span className="wb-card-pnl-pct" style={{fontSize:18,opacity:0.55,marginLeft:2}}>%</span>
                       </div>
                       <div style={{marginTop:8,fontSize:12,color:WB.inkMute,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
-                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()} ・ VALUE {h.value?.toLocaleString() || '—'}
+                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()} ・ 市值 {h.value?.toLocaleString() || '—'}
                       </div>
                     </div>
 
@@ -3501,8 +3501,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
 
                     {/* URGENCY 五點 */}
-                    <div style={{marginBottom:18,display:'flex',alignItems:'center',gap:14}}>
-                      <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',fontWeight:500}}>URGENCY</span>
+                    <div style={{marginBottom:18,display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',rowGap:8}}>
+                      <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.10em',fontWeight:500,whiteSpace:'nowrap'}}>急迫程度</span>
                       <div style={{display:'flex',gap:6,flex:1}}>
                         {[1,2,3,4,5].map(i => (
                           <span key={i} style={{
@@ -3520,7 +3520,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {/* Targets */}
                     {tp && (
                       <div style={{marginBottom:18}}>
-                        <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',marginBottom:8,fontWeight:500}}>TARGET</div>
+                        <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.10em',marginBottom:8,fontWeight:500}}>目標價</div>
                         <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
                           <span style={{fontSize:12,color:WB.inkSub,fontVariantNumeric:'tabular-nums'}}>{tp.toLocaleString()}</span>
                           <span style={{fontSize:12,color:WB.accent,fontVariantNumeric:'tabular-nums'}}>
@@ -3540,7 +3540,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     {relatedEvents.length > 0 && (
                       <div style={{marginBottom:18}}>
                         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                          <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.20em',fontWeight:500}}>EVENT TIMELINE</span>
+                          <span style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.10em',fontWeight:500,whiteSpace:'nowrap'}}>事件時程</span>
                           {tomorrowEv && (
                             <span style={{
                               fontSize:9,color:WB.surface,background:WB.accent,
@@ -3591,9 +3591,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                             flex:1,padding:'10px 14px',background:'transparent',
                             border:`1px solid ${WB.ink}`,borderRadius:2,
                             color:WB.ink,fontSize:11,fontWeight:500,cursor:'pointer',
-                            letterSpacing:'0.16em',fontFamily:'inherit',
+                            letterSpacing:'0.10em',fontFamily:'inherit',whiteSpace:'nowrap',
                           }}
-                        >MARK AS HOLD</button>
+                        >標記為持有</button>
                       ) : (
                         <span style={{flex:1,fontSize:10,color:WB.inkLight,letterSpacing:'0.10em'}}>
                           {userOverrides[h.code] ? '已覆寫為持有' : '無需覆寫'}
@@ -3652,7 +3652,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     onMouseLeave={(e)=>{e.currentTarget.style.borderColor=WB.hairStrong;e.currentTarget.style.color=WB.inkLight;}}
                   >
                     <span style={{fontSize:24,fontWeight:300,lineHeight:1}}>+</span>
-                    <span style={{fontSize:10,fontWeight:500}}>ADD WATCHLIST</span>
+                    <span style={{fontSize:10,fontWeight:500,letterSpacing:'0.10em'}}>加入觀察</span>
                   </button>
                   {!showAll && sorted.length > 12 && (
                     <button
