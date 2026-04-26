@@ -8,7 +8,8 @@ const corsHeaders = {
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_MODELS = ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest'];
+// 用戶要求最高級：Opus 4 為主，Sonnet 4 為次選（皆為 Anthropic 目前最強模型）
+const ANTHROPIC_MODELS = ['claude-opus-4-20250514', 'claude-sonnet-4-20250514'];
 const GATEWAY_MODELS = ['google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'google/gemini-2.0-flash'];
 
 async function callClaude(messages: any[], temperature: number, maxTokens: number, anthropicKey: string): Promise<string> {
