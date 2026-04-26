@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 import { DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS } from "@/checkup/data/demoData";
 import { INIT_HOLDINGS as SEED_HOLDINGS, STOCK_META, IND_COLOR } from "@/checkup/seedData";
@@ -816,44 +817,84 @@ export default function App() {
   }, [authReady, isDemo]);
 
   // auto-save
+  // 雲端 upsert debounce + 錯誤處理（避免快速操作時觸發過多請求）
+  const cloudHoldingsTimerRef = useRef(null);
+  const cloudHoldingsErrorShownRef = useRef(false);
   useEffect(() => {
-    if (ready && holdings && !isDemo) {
-      save("pf-holdings-v2", holdings);
-      // 同步持倉代碼到雲端供定時任務使用
-      const uid = _currentUserId;
-      if (uid) {
+    if (!(ready && holdings && !isDemo)) return;
+    save("pf-holdings-v2", holdings);
+    const uid = _currentUserId;
+    if (!uid) return;
+    if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
+    cloudHoldingsTimerRef.current = setTimeout(async () => {
+      try {
         const codes = holdings.map(h => `${h.code} ${h.name}`).join("、");
         const codesKey = holdings.map(h => h.code).sort().join(",");
-        supabase.from("checkup_storage").upsert({ user_id: uid, key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }, { onConflict: "user_id,key" }).then(() => {});
+        const { error } = await supabase
+          .from("checkup_storage")
+          .upsert({ user_id: uid, key: "pf-calendar-holdings", data: { stocks: codes, holdingCodes: codesKey } }, { onConflict: "user_id,key" });
+        if (error) throw error;
+        cloudHoldingsErrorShownRef.current = false;
+      } catch (e) {
+        console.error("[cloud-sync] pf-holdings-v2 upsert failed:", e);
+        if (!cloudHoldingsErrorShownRef.current) {
+          cloudHoldingsErrorShownRef.current = true;
+          toast.error("持倉雲端同步失敗，僅保存於本機");
+        }
       }
-    }
-  }, [holdings, ready, isDemo]);
-  // tradeLog 存到 Supabase（不再只存 localStorage）
+    }, 800);
+    return () => {
+      if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
+    };
+  }, [holdings, ready, isDemo, _currentUserId]);
+  // tradeLog 存到 Supabase — 改用「scoped delete + insert」並加 debounce/錯誤通知
+  // 重要：原本 .delete().neq() 沒帶 user_id 篩選，僅靠 RLS 保護；改為明確 .eq('user_id', ...) 雙保險
+  const cloudTradeLogTimerRef = useRef(null);
+  const cloudTradeLogErrorShownRef = useRef(false);
   const saveTradeLogToCloud = async (logs) => {
     if (!logs || !_currentUserId) return;
+    const uid = _currentUserId;
     try {
-      // 先清空舊資料再批次插入
-      await supabase.from("checkup_trade_memos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      if (logs.length > 0) {
-        const rows = logs.map(l => ({
-          ...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
-          user_id: _currentUserId,
-          trade_date: l.date || null,
-          trade_time: l.time || null,
-          action: l.action || null,
-          code: l.code || null,
-          name: l.name || null,
-          qty: l.qty != null ? l.qty : null,
-          price: l.price != null ? l.price : null,
-          qa: l.qa || [],
-        }));
-        await supabase.from("checkup_trade_memos").insert(rows);
+      const rows = logs.map(l => ({
+        ...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
+        user_id: uid,
+        trade_date: l.date || null,
+        trade_time: l.time || null,
+        action: l.action || null,
+        code: l.code || null,
+        name: l.name || null,
+        qty: l.qty != null ? l.qty : null,
+        price: l.price != null ? l.price : null,
+        qa: l.qa || [],
+      }));
+      // 僅刪除自己的資料（RLS + 顯式 user_id 雙重保險）
+      const { error: delErr } = await supabase
+        .from("checkup_trade_memos")
+        .delete()
+        .eq("user_id", uid);
+      if (delErr) throw delErr;
+      if (rows.length > 0) {
+        const { error: insErr } = await supabase.from("checkup_trade_memos").insert(rows);
+        if (insErr) throw insErr;
       }
+      cloudTradeLogErrorShownRef.current = false;
     } catch (e) {
-      console.error("Save trade memos error:", e);
+      console.error("[cloud-sync] trade memos save failed:", e);
+      if (!cloudTradeLogErrorShownRef.current) {
+        cloudTradeLogErrorShownRef.current = true;
+        toast.error("交易紀錄雲端同步失敗，僅保存於本機");
+      }
     }
   };
-  useEffect(() => { if (ready && tradeLog && !isDemo) { save("pf-log-v2", tradeLog); saveTradeLogToCloud(tradeLog); } }, [tradeLog, ready, isDemo]);
+  useEffect(() => {
+    if (!(ready && tradeLog && !isDemo)) return;
+    save("pf-log-v2", tradeLog);
+    if (cloudTradeLogTimerRef.current) clearTimeout(cloudTradeLogTimerRef.current);
+    cloudTradeLogTimerRef.current = setTimeout(() => saveTradeLogToCloud(tradeLog), 800);
+    return () => {
+      if (cloudTradeLogTimerRef.current) clearTimeout(cloudTradeLogTimerRef.current);
+    };
+  }, [tradeLog, ready, isDemo]);
   useEffect(() => { if (ready && targets && !isDemo)  save("pf-targets-v1",  targets);  }, [targets, ready, isDemo]);
   useEffect(() => { if (ready && newsEvents && !isDemo) save("pf-news-events-v1", newsEvents); }, [newsEvents, ready, isDemo]);
 
@@ -997,7 +1038,13 @@ export default function App() {
     })();
   };
 
-  useEffect(() => { runPredictEvents(false); }, [newsEvents, ready, holdings]);
+  // 持倉代碼字串作為穩定依賴，避免 holdings array reference 變動觸發過多預測
+  const holdingsCodesKey = useMemo(
+    () => (holdings || []).map(h => h.code).sort().join(","),
+    [holdings]
+  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { runPredictEvents(false); }, [newsEvents, ready, holdingsCodesKey]);
 
   // 手動刷新行事曆（繞過 30 秒節流，但保留 inflight 冪等保護）
   const manualRefreshCalendar = async () => {
@@ -1041,24 +1088,24 @@ export default function App() {
     }
   }, [calendarEvents, ready]);
 
-  // 持倉變動時自動產生行事曆（僅在使用者主動上傳截圖導致持倉變化時才重新抓取）
+  // 持倉組合（代碼集合）變動時自動重新抓取行事曆
+  // 原本以 holdingsChangedByUserRef 旗標判斷僅在「截圖上傳」觸發，導致手動編輯/刪除/清空持倉時行事曆未跟著更新
+  // 改用 codes 字串比對 prevCodes，價格刷新不會觸發（codes 不變），但任何組合變動皆會觸發
   useEffect(() => {
     if (!ready) return;
-    const codes = (holdings || []).map(h => h.code).sort().join(",");
+    const codes = holdingsCodesKey;
     if (!codes) {
       setCalendarEvents([]);
       return;
     }
-    // 只有使用者主動操作（上傳截圖）導致持倉變化時才重新抓取
-    if (holdingsChangedByUserRef.current) {
+    const prevCodes = calendarEvents?._holdingCodes || "";
+    if (codes !== prevCodes) {
+      // 重置舊有的「使用者旗標」以保持向後相容（仍允許截圖路徑顯式設置）
       holdingsChangedByUserRef.current = false;
-      const prevCodes = calendarEvents?._holdingCodes || "";
-      if (codes !== prevCodes) {
-        // 持倉組合變了，帶入現有事件做合併
-        fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
-      }
+      fetchCalendarEvents(holdings, resetGuardRef.current, calendarEvents || []);
     }
-  }, [holdings, ready]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdingsCodesKey, ready]);
   const H = holdings || [];
 
   // ── Sparkline 載入：持倉變動時，僅補抓還沒快取的代碼 ──
