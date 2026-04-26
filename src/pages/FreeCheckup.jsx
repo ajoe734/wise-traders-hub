@@ -1968,7 +1968,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
                      : aiRes.status === 429 ? 'AI_RATE_LIMITED'
                      : aiRes.status === 401 ? 'AI_AUTH_FAILED'
                      : `HTTP_${aiRes.status}`;
-          const errInfo = { code, message: errBody.slice(0, 240) || `HTTP ${aiRes.status}`, cid, opStartedAt, httpStatus: aiRes.status, at: new Date().toISOString() };
+          const errInfo = { code, message: errBody.slice(0, 240) || `HTTP ${aiRes.status}`, cid, opStartedAt, opStartedAtMs, httpStatus: aiRes.status, at: new Date().toISOString() };
           setDailyLastError(errInfo);
           pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code} (${aiRes.status})` });
           console.error("[daily] AI 分析失敗", errInfo);
@@ -1976,7 +1976,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
           const aiData = await aiRes.json();
           if (aiData?.fallback) {
             const code = aiData.code || 'AI_FALLBACK';
-            const errInfo = { code, message: String(aiData.error || '').slice(0, 240) || code, cid, opStartedAt, httpStatus: 200, at: new Date().toISOString() };
+            const errInfo = { code, message: String(aiData.error || '').slice(0, 240) || code, cid, opStartedAt, opStartedAtMs, httpStatus: 200, at: new Date().toISOString() };
             setDailyLastError(errInfo);
             pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`fallback ${code}` });
             console.error("[daily] AI fallback", errInfo);
@@ -1986,7 +1986,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
         }
       } catch (e) {
         const code = e?.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR';
-        const errInfo = { code, message: String(e?.message || e).slice(0, 240), cid, opStartedAt, httpStatus: 0, at: new Date().toISOString() };
+        const errInfo = { code, message: String(e?.message || e).slice(0, 240), cid, opStartedAt, opStartedAtMs, httpStatus: 0, at: new Date().toISOString() };
         setDailyLastError(errInfo);
         pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code}` });
         console.error("[daily] AI 分析例外", errInfo);
@@ -2066,7 +2066,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       }
     } catch (err) {
       const code = err?.name === 'AbortError' ? 'TIMEOUT' : 'PIPELINE_ERROR';
-      const errInfo = { code, message: String(err?.message || err).slice(0, 240), cid, opStartedAt, httpStatus: 0, at: new Date().toISOString() };
+      const errInfo = { code, message: String(err?.message || err).slice(0, 240), cid, opStartedAt, opStartedAtMs, httpStatus: 0, at: new Date().toISOString() };
       setDailyLastError(errInfo);
       pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code}` });
       console.error("[daily] 收盤分析失敗", errInfo);
