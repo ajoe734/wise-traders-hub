@@ -4199,10 +4199,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                                     <span style={{fontSize:10,opacity:0.7,color:C.textMute}}>可複製的請求範例</span>
                                     <button
                                       type="button"
-                                      onClick={() => {
+                                      onClick={(e) => {
+                                        const btn = e.currentTarget;
                                         try {
                                           navigator.clipboard?.writeText(suggestion.curl);
-                                          setToast?.('✅ 已複製 cURL 範例');
+                                          const orig = btn.textContent;
+                                          btn.textContent = '已複製 ✓';
+                                          setTimeout(() => { btn.textContent = orig; }, 1500);
                                         } catch { /* noop */ }
                                       }}
                                       style={{
