@@ -17,6 +17,60 @@ import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
+// ── AI 失敗分類 ─────────────────────────────────────
+// 將 attempts 歸類為：quota(402) / rateLimit(429) / serverError(5xx) / modelUnavailable(404/400 model) / network / other
+function classifyAttempt(a) {
+  if (a?.ok) return { kind: 'ok', label: '成功', tone: 'up' };
+  const s = Number(a?.status) || 0;
+  const body = String(a?.errorBody || a?.errorMessage || '').toLowerCase();
+  if (s === 402 || body.includes('payment_required') || body.includes('not enough credits') || body.includes('insufficient')) {
+    return { kind: 'quota', label: '配額用盡 (402)', tone: 'amber' };
+  }
+  if (s === 429 || body.includes('rate limit') || body.includes('quota') || body.includes('exceeded')) {
+    return { kind: 'rateLimit', label: '限流 (429)', tone: 'amber' };
+  }
+  if (s === 503 || body.includes('unavailable') || body.includes('overloaded') || body.includes('high demand')) {
+    return { kind: 'serverBusy', label: '服務忙碌 (503)', tone: 'amber' };
+  }
+  if (s >= 500) return { kind: 'serverError', label: `服務端錯誤 (${s})`, tone: 'down' };
+  if (s === 404 || body.includes('not found') || body.includes('model')) {
+    return { kind: 'modelUnavailable', label: `模型不可用 (${s || '—'})`, tone: 'down' };
+  }
+  if (s === 401 || s === 403) return { kind: 'auth', label: `認證失敗 (${s})`, tone: 'down' };
+  if (!s) return { kind: 'network', label: '網路錯誤', tone: 'down' };
+  return { kind: 'other', label: `其他 (${s})`, tone: 'down' };
+}
+
+// 根據 attempts 整體推導建議下一步
+function deriveSuggestion(attempts) {
+  if (!attempts?.length) return null;
+  const kinds = attempts.map(classifyAttempt);
+  if (kinds.some(k => k.kind === 'ok')) return null;
+  const gw = attempts.filter(a => a.path === 'gateway');
+  const direct = attempts.filter(a => a.path === 'gemini-direct');
+  const gwAllQuota = gw.length > 0 && gw.every(a => classifyAttempt(a).kind === 'quota');
+  const directAllQuota = direct.length > 0 && direct.every(a => ['quota','rateLimit'].includes(classifyAttempt(a).kind));
+  if (gwAllQuota && direct.length === 0) {
+    return { tone: 'amber', text: '🟡 Lovable Gateway 配額用盡，建議切換直連 Gemini 或為 workspace 加值。' };
+  }
+  if (gwAllQuota && directAllQuota) {
+    return { tone: 'down', text: '🔴 Gateway 與直連配額皆已用盡，建議補值 Lovable Gateway 或升級 Gemini API 方案。' };
+  }
+  if (kinds.every(k => ['rateLimit','serverBusy'].includes(k.kind))) {
+    return { tone: 'amber', text: '🟡 全為限流／服務忙碌，建議延後 30–60 秒重試。' };
+  }
+  if (kinds.some(k => k.kind === 'modelUnavailable')) {
+    return { tone: 'down', text: '🔴 模型不可用，建議檢查模型名稱或改用其他可用模型。' };
+  }
+  if (kinds.some(k => k.kind === 'auth')) {
+    return { tone: 'down', text: '🔴 認證失敗，請檢查 LOVABLE_API_KEY 或 GOOGLE_GEMINI_API_KEY 是否有效。' };
+  }
+  if (kinds.every(k => k.kind === 'serverError')) {
+    return { tone: 'down', text: '🔴 後端服務皆異常，建議稍後再試或回報。' };
+  }
+  return { tone: 'amber', text: '🟡 多種錯誤混合，建議延後重試；若持續失敗請切換直連或檢查金鑰。' };
+}
+
 // ── 目標價資料庫（分析師共識）─────────────────────────────────────
 // reports: [{firm, target, date}]  avg 自動計算
 const INIT_TARGETS = {
