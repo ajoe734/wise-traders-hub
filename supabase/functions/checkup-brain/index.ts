@@ -60,10 +60,10 @@ Deno.serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ error: '需要 action 參數 (brain/history/all)' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return validationResponse(
+        [{ key: 'action', label: 'action', reason: '值需為 brain / history / all' }],
+        corsHeaders,
+      );
     }
 
     // POST — write
