@@ -11,20 +11,19 @@ const corsHeaders = {
 };
 
 const TWSE_DAY = "https://www.twse.com.tw/exchangeReport/STOCK_DAY";
-const TPEX_DAY = "https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php";
+// TPEX 新版 API（2024 改版後）：回 JSON，欄位 tables[0].data
+// 舊路徑 st43_result.php 已停用，造成上櫃股 sparkline 全空。
+const TPEX_DAY = "https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock";
 
 function ymd(d: Date) {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-}
-function ymdSlash(d: Date) {
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 }
 function todayKey() {
   const d = new Date();
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
 }
 
-async function fetchWithTimeout(url: string, ms = 4000): Promise<Response | null> {
+async function fetchWithTimeout(url: string, ms = 7000): Promise<Response | null> {
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), ms);
@@ -39,9 +38,8 @@ async function fetchWithTimeout(url: string, ms = 4000): Promise<Response | null
   }
 }
 
-// Fetch last ~5 trading day closes for a TWSE listed stock
-async function twseRecent(code: string): Promise<number[]> {
-  const d = new Date();
+// TWSE 一個月的收盤；月初若無資料退回上一個月
+async function twseMonth(code: string, d: Date): Promise<number[]> {
   const date = ymd(d);
   const url = `${TWSE_DAY}?response=json&date=${date}&stockNo=${encodeURIComponent(code)}`;
   const res = await fetchWithTimeout(url);
@@ -50,35 +48,61 @@ async function twseRecent(code: string): Promise<number[]> {
   try { json = await res.json(); } catch { return []; }
   const rows: any[] = json?.data || [];
   if (!rows.length) return [];
-  // close column index = 6 ("收盤價")
-  const closes = rows
+  return rows
     .map((r) => Number(String(r[6]).replace(/,/g, "")))
     .filter((n) => Number.isFinite(n) && n > 0);
+}
+
+async function twseRecent(code: string): Promise<number[]> {
+  const now = new Date();
+  let closes = await twseMonth(code, now);
+  // 月初不足 2 筆 → 退回上一個月補
+  if (closes.length < 2) {
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevCloses = await twseMonth(code, prev);
+    closes = [...prevCloses, ...closes];
+  }
   return closes.slice(-5);
 }
 
-// TPEX daily history (上櫃) — falls back gracefully if format changes
-async function tpexRecent(code: string): Promise<number[]> {
-  const d = new Date();
-  const roc = `${d.getFullYear() - 1911}/${String(d.getMonth() + 1).padStart(2, "0")}`;
-  const url = `${TPEX_DAY}?l=zh-tw&d=${encodeURIComponent(roc)}&stkno=${encodeURIComponent(code)}&_=${Date.now()}`;
+// TPEX 新版：tradingStock?date=YYYY/MM&code=XXXX&response=json
+async function tpexMonth(code: string, d: Date): Promise<number[]> {
+  const ym = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const url = `${TPEX_DAY}?date=${encodeURIComponent(ym)}&code=${encodeURIComponent(code)}&response=json&_=${Date.now()}`;
   const res = await fetchWithTimeout(url);
   if (!res || !res.ok) return [];
   let json: any;
   try { json = await res.json(); } catch { return []; }
-  const rows: any[] = json?.aaData || [];
+  // 新版 schema: { tables: [{ data: [[date, qty, amt, open, high, low, close, ...]] }] }
+  const tables = json?.tables;
+  let rows: any[] = [];
+  if (Array.isArray(tables) && tables.length > 0 && Array.isArray(tables[0]?.data)) {
+    rows = tables[0].data;
+  } else if (Array.isArray(json?.data)) {
+    rows = json.data;
+  } else if (Array.isArray(json?.aaData)) {
+    rows = json.aaData; // 舊版相容
+  }
   if (!rows.length) return [];
-  // tpex st43 layout: [date, qty, amt, open, high, low, close, change, txn]
-  const closes = rows
+  return rows
     .map((r) => Number(String(r[6]).replace(/,/g, "")))
     .filter((n) => Number.isFinite(n) && n > 0);
+}
+
+async function tpexRecent(code: string): Promise<number[]> {
+  const now = new Date();
+  let closes = await tpexMonth(code, now);
+  if (closes.length < 2) {
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevCloses = await tpexMonth(code, prev);
+    closes = [...prevCloses, ...closes];
+  }
   return closes.slice(-5);
 }
 
 async function fetchSparkline(code: string): Promise<number[]> {
   const c = String(code).trim();
   if (!c) return [];
-  // try TWSE first, then TPEX
   const a = await twseRecent(c);
   if (a.length >= 2) return a;
   const b = await tpexRecent(c);
@@ -112,7 +136,6 @@ Deno.serve(async (req) => {
       .filter((v) => /^\d{4,6}[A-Z]?$/i.test(v))
       .slice(0, 30);
 
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -123,7 +146,7 @@ Deno.serve(async (req) => {
     const result: Record<string, number[]> = {};
     const toFetch: string[] = [];
 
-    // Try cache batch
+    // Cache lookup — 只把「有資料（length >= 2）」的視為有效快取
     const cacheKeys = codes.map((c) => `sparkline_${c}_${day}`);
     if (cacheKeys.length > 0) {
       const { data: cached } = await sb
@@ -134,7 +157,7 @@ Deno.serve(async (req) => {
       const map = new Map<string, number[]>();
       (cached || []).forEach((row: any) => {
         const arr = Array.isArray(row?.data?.closes) ? row.data.closes : [];
-        map.set(row.key, arr);
+        if (arr.length >= 2) map.set(row.key, arr); // 空/不足結果視同未快取，避免「壞掉一整天」
       });
       for (const c of codes) {
         const k = `sparkline_${c}_${day}`;
@@ -143,7 +166,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch missing in parallel (limited concurrency by batching)
+    // Fetch missing in parallel (batched concurrency)
     const batchSize = 6;
     for (let i = 0; i < toFetch.length; i += batchSize) {
       const batch = toFetch.slice(i, i + batchSize);
@@ -152,11 +175,14 @@ Deno.serve(async (req) => {
       batch.forEach((c, idx) => {
         const closes = results[idx] || [];
         result[c] = closes;
-        upserts.push({
-          user_id: "00000000-0000-0000-0000-000000000000",
-          key: `sparkline_${c}_${day}`,
-          data: { closes, fetched_at: new Date().toISOString() },
-        });
+        // 只有抓到實際資料才寫快取，避免空值汙染
+        if (closes.length >= 2) {
+          upserts.push({
+            user_id: "00000000-0000-0000-0000-000000000000",
+            key: `sparkline_${c}_${day}`,
+            data: { closes, fetched_at: new Date().toISOString() },
+          });
+        }
       });
       if (upserts.length > 0) {
         await sb.from("checkup_storage").upsert(upserts, { onConflict: "user_id,key" });
