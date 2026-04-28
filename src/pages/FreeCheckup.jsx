@@ -2409,6 +2409,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             return;
           }
           holdingsChangedByUserRef.current = true; // 標記為使用者主動變動持倉
+          // 計算「新增 / 更新」摘要：以解析前的持倉代碼判斷
+          const prevCodeSet = new Set((holdings || []).map(h => h.code));
+          const summaryAdded = [];
+          const summaryUpdated = [];
+          preparedTrades.forEach(t => {
+            const code = String(t?.code || "").trim();
+            if (!code) return;
+            const item = { code, name: String(t?.name || "").trim(), qty: Number(t?.qty) || 0, price: Number(t?.price) || 0, action: t.action };
+            if (prevCodeSet.has(code)) summaryUpdated.push(item);
+            else summaryAdded.push(item);
+          });
           setHoldings(prev => preparedTrades.reduce(
             (acc, trade) => isSnapshotImport ? upsertSnapshotHolding(acc, trade) : mergeTradeIntoHoldings(acc, trade),
             stripDemoSeedHoldings(prev || []),
@@ -2429,6 +2440,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           toast.success(`已寫入 ${preparedTrades.length} 筆成交`, { description: "持倉與交易紀錄已即時更新" });
           incrementUploadCount(); // 記錄今日上傳次數
           setTimeout(() => setSaved(""), 2500);
+          // 設定上傳摘要並自動切換至持倉頁
+          setUploadSummary({ added: summaryAdded, updated: summaryUpdated, at: Date.now() });
+          setTab("holdings");
+          // 12 秒後自動隱藏摘要
+          setTimeout(() => setUploadSummary(s => (s && Date.now() - s.at >= 11000) ? null : s), 12000);
           // ✨ 解析成功後自動拉一次 TWSE 即時報價，避免依賴截圖內 market_price
           setParseStep({ stage: 'refresh', label: '同步 TWSE 即時報價', progress: 90, detail: '繞過冷卻自動執行一次' });
           try {
