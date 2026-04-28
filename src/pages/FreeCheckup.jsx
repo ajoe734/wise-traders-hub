@@ -2474,6 +2474,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setTradeLog(prev=>[entry,...(prev||[])]);
 
     setSaved("✅ 已儲存備忘錄");
+    toast.success("備忘錄已儲存", { description: `${entry.action} ${entry.name} ${entry.qty}股` });
     setTimeout(()=>setSaved(""),2500);
 
     // 若截圖含目標價更新
