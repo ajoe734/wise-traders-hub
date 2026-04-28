@@ -866,4 +866,62 @@ const Pricing = () => {
   );
 };
 
+const CheckupPlansSection = () => {
+  const { data: plans = [] } = useCheckupPlans();
+  if (plans.length === 0) return null;
+  return (
+    <div className="max-w-4xl mx-auto mb-12">
+      <div className="flex items-center gap-2 mb-2">
+        <Stethoscope className="h-5 w-5 text-primary" />
+        <h2 className="text-xl font-bold">持股健檢</h2>
+        <Badge variant="secondary" className="ml-2">平台自營</Badge>
+      </div>
+      <p className="text-sm text-muted-foreground mb-6">
+        AI 幫你看手上的股票：風險、事件、調整建議。可獨立訂閱，無需綁定老師。
+      </p>
+      <div className="grid md:grid-cols-2 gap-4">
+        {plans.map((p) => {
+          const yearlySave = Math.round((1 - p.price_yearly / (p.price_monthly * 12)) * 100);
+          const isPro = p.tier === 'pro';
+          return (
+            <Card key={p.id} className={cn('border-2', isPro ? 'border-primary/40' : 'border-border')}>
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold">{p.name}</h3>
+                    <p className="text-sm text-muted-foreground mt-0.5">{p.description}</p>
+                  </div>
+                  {isPro && <Badge>推薦</Badge>}
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-sm text-muted-foreground">NT$</span>
+                  <span className="text-3xl font-bold">{p.price_monthly.toLocaleString()}</span>
+                  <span className="text-muted-foreground text-sm">／月</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  年繳 NT$ {p.price_yearly.toLocaleString()}（省 {yearlySave}%）
+                </p>
+                <ul className="space-y-1.5">
+                  {p.features.map((f, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button asChild className="w-full" variant={isPro ? 'default' : 'outline'}>
+                  <Link to={`/checkout/checkup/${p.id}`}>
+                    立即訂閱 <ArrowRight className="h-4 w-4 ml-2" />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export default Pricing;
+
