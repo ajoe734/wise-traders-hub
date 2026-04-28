@@ -172,13 +172,6 @@ export function renderMorningNotePlainText(note) {
     lines.push('')
   }
 
-  if (sections.watchlistAlerts?.length > 0) {
-    lines.push('── 觀察股提示 ──')
-    sections.watchlistAlerts.forEach((w) => {
-      lines.push(`${w.name}(${w.code}) 接近進場價 ${w.entryPrice}（目前 ${w.currentPrice}）`)
-    })
-    lines.push('')
-  }
 
   if (sections.announcements?.length > 0) {
     lines.push('── 重大訊息 ──')
