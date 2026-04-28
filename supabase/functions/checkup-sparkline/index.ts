@@ -101,36 +101,13 @@ async function tpexRecent(code: string): Promise<number[]> {
   return closes.slice(-5);
 }
 
-// Yahoo Finance chart API — 對 TWSE (.TW) 與 TPEX (.TWO) 都穩定，免 key
-async function yahooRecent(code: string): Promise<number[]> {
-  for (const suffix of [".TW", ".TWO"]) {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code + suffix)}?interval=1d&range=10d`;
-    const res = await fetchWithTimeout(url);
-    if (!res) { console.log(`[yahoo] ${code}${suffix} fetch returned null`); continue; }
-    if (!res.ok) { console.log(`[yahoo] ${code}${suffix} status=${res.status}`); continue; }
-    let json: any;
-    try { json = await res.json(); } catch (e) { console.log(`[yahoo] ${code}${suffix} json parse err:`, e); continue; }
-    const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-    if (Array.isArray(closes)) {
-      const cleaned = closes.filter((n: any) => Number.isFinite(n) && n > 0);
-      console.log(`[yahoo] ${code}${suffix} got ${cleaned.length} points`);
-      if (cleaned.length >= 2) return cleaned.slice(-5);
-    } else {
-      console.log(`[yahoo] ${code}${suffix} no closes; err=`, json?.chart?.error);
-    }
-  }
-  return [];
-}
-
 async function fetchSparkline(code: string): Promise<number[]> {
   const c = String(code).trim();
   if (!c) return [];
   const a = await twseRecent(c);
   if (a.length >= 2) return a;
   const b = await tpexRecent(c);
-  if (b.length >= 2) return b;
-  // 最後 fallback：Yahoo Finance（含上市/上櫃/權證）
-  return await yahooRecent(c);
+  return b;
 }
 
 Deno.serve(async (req) => {
