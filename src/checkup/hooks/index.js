@@ -45,7 +45,7 @@ export { useLocalBackupWorkflow } from './useLocalBackupWorkflow.js'
 export { useAppRuntime } from './useAppRuntime.js'
 export { useRoutePortfolioRuntime } from './useRoutePortfolioRuntime.js'
 export { useRouteHoldingsPage } from './useRouteHoldingsPage.js'
-export { useRouteWatchlistPage } from './useRouteWatchlistPage.js'
+
 export { useRouteEventsPage } from './useRouteEventsPage.js'
 export { useRouteNewsPage } from './useRouteNewsPage.js'
 export { useRouteDailyPage } from './useRouteDailyPage.js'

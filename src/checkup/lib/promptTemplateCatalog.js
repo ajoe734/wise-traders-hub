@@ -216,9 +216,6 @@ export function buildWeeklyReportTemplate({
 ## 持倉明細
 ${holdingLines}
 
-## 觀察股
-${watchlist.length > 0 ? watchlist.map((item) => `${item.name}(${item.code}) | 現價${item.price} | 目標${item.target || '未設定'} | 狀態：${item.status || '觀察中'}`).join('\n') : '無'}
-
 ## 事件預測紀錄
 已驗證（${pastEvents.length} 筆）：
 ${eventLines || '無'}

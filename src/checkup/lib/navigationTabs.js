@@ -5,7 +5,6 @@ export function buildPortfolioTabs({
 } = {}) {
   return [
     { k: 'holdings', label: '持倉' },
-    { k: 'watchlist', label: '觀察股' },
     { k: 'events', label: `行事曆${urgentCount > 0 ? ' ·' : ''}` },
     { k: 'news', label: '事件分析' },
     { k: 'daily', label: analyzing ? '分析中...' : '收盤分析' },

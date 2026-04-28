@@ -30,7 +30,6 @@ import NotFound from "./pages/NotFound";
 import { PortfolioLayout } from "./checkup/pages/PortfolioLayout";
 import {
   HoldingsPage,
-  WatchlistPage,
   EventsPage,
   DailyPage,
   ResearchPage,
@@ -134,7 +133,7 @@ const AppShell = () => (
             <Route path="/portfolio/:portfolioId" element={<PortfolioLayout />}>
               <Route index element={<HoldingsPage />} />
               <Route path="holdings" element={<HoldingsPage />} />
-              <Route path="watchlist" element={<WatchlistPage />} />
+              <Route path="watchlist" element={<Navigate to="../holdings" replace />} />
               <Route path="events" element={<EventsPage />} />
               <Route path="news" element={<NewsPage />} />
               <Route path="daily" element={<DailyPage />} />
