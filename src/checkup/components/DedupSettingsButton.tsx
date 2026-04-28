@@ -43,7 +43,10 @@ export function DedupSettingsButton() {
   const [open, setOpen] = useState(false)
   const [prefs, setPrefsState] = useState(getCoercePrefs())
 
-  useEffect(() => subscribeCoercePrefs(setPrefsState), [])
+  useEffect(() => {
+    const unsub = subscribeCoercePrefs(setPrefsState)
+    return () => { unsub() }
+  }, [])
 
   if (!path.startsWith('/free-checkup')) return null
 
