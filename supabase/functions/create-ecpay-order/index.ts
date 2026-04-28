@@ -98,6 +98,29 @@ Deno.serve(async (req) => {
     const checkMacValue = await generateCheckMacValueAsync(params, hashKey, hashIV);
     params.CheckMacValue = checkMacValue;
 
+    // Stage 3: persist payment intent for callback to read attribution/discount
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const sb = createClient(supabaseUrl, serviceKey);
+      await sb.from("payment_intents").insert({
+        trade_no: tradeNo,
+        user_id: userId || null,
+        product_kind: "expert_plan",
+        plan_id: planId,
+        expert_id: expertId || null,
+        billing_cycle: billingCycle,
+        original_amount: originalAmount ?? amount,
+        discount_amount: discountAmount ?? 0,
+        discount_reason: discountReason ?? null,
+        amount,
+        attribution: attribution ?? null,
+        upgrade_from_subscription_id: upgradeFromSubscriptionId ?? null,
+      });
+    } catch (e) {
+      console.error("payment_intents insert failed (non-fatal):", e);
+    }
+
     // Return form params for client to submit
     return new Response(
       JSON.stringify({
