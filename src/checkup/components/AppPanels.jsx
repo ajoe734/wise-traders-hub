@@ -1,6 +1,6 @@
 import { ErrorBoundary } from './ErrorBoundary.jsx'
 import { HoldingsPanel, HoldingsTable } from './holdings/index.js'
-import { WatchlistPanel } from './watchlist/index.js'
+
 import { EventsPanel } from './events/index.js'
 import { DailyReportPanel } from './reports/index.js'
 import { ResearchPanel } from './research/index.js'
@@ -23,7 +23,7 @@ export default function AppPanels({
   const overviewProps = { ...data.overview, ...actions.overview }
   const holdingsProps = { ...data.holdings, ...actions.holdings }
   const holdingsTableProps = { ...data.holdingsTable, ...actions.holdingsTable }
-  const watchlistProps = { ...data.watchlist, ...actions.watchlist }
+  
   const eventsProps = { ...data.events, ...actions.events }
   const dailyProps = { ...data.daily, ...actions.daily }
   const researchProps = { ...data.research, ...actions.research }
@@ -45,11 +45,6 @@ export default function AppPanels({
           <HoldingsTable {...holdingsTableProps} />
         </HoldingsPanel>
       ),
-    },
-    watchlist: {
-      scope: 'watchlist-panel',
-      title: errorBoundaryCopy.watchlist.title,
-      content: <WatchlistPanel {...watchlistProps} />,
     },
     events: {
       scope: 'events-panel',
