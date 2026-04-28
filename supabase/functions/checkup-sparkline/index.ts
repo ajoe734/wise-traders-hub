@@ -127,6 +127,32 @@ async function fetchSparkline(code: string): Promise<number[]> {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Diagnostic probe — GET /?probe=1 returns raw status from TPEX endpoints
+  const u = new URL(req.url);
+  if (u.searchParams.get("probe") === "1") {
+    const targets = [
+      "https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?monthDate=115/04&code=6274&id=&response=json",
+      "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+    ];
+    const out: any[] = [];
+    for (const url of targets) {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+            "Referer": "https://www.tpex.org.tw/",
+          },
+        });
+        const text = await res.text();
+        out.push({ url, status: res.status, len: text.length, head: text.slice(0, 250) });
+      } catch (e) {
+        out.push({ url, err: String(e) });
+      }
+    }
+    return new Response(JSON.stringify(out, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
   try {
     let body: any = {};
     try { body = await req.json(); } catch { body = {}; }
