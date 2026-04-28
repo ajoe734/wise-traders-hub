@@ -3,7 +3,6 @@
 // 2) 對所有發往「持倉看板 18 支 Edge Function」的請求做前端 schema 驗證
 // 觸發時機：main.tsx 啟動時呼叫 installEdgeFetchInterceptor() 一次。
 
-import { toast } from 'sonner'
 import { EDGE_SCHEMAS } from './edgeSchemas.js'
 import { applyCoercion } from './edgeCoerce.js'
 import { showValidationToast, showCoerceToast } from './edgeFieldUI.js'
