@@ -14,6 +14,7 @@ import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCo
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
+import { coerceStocksString } from "@/checkup/lib/edgeCoerce";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -5653,11 +5654,39 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
                   </div>
                   <div>
-                    <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>相關個股（逗號分隔）</div>
-                    <input value={newEvent.stocks} onChange={e=>setNewEvent(p=>({...p,stocks:e.target.value}))}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                      <div style={{fontSize:12,color:C.textMute}}>相關個股（頓號 / 逗號分隔）</div>
+                      {(() => {
+                        const { value: previewStr, changed } = coerceStocksString(newEvent.stocks || "");
+                        if (!previewStr || !changed) return null;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewEvent(p => ({ ...p, stocks: previewStr }));
+                              toast.success("已套用標準化", { description: previewStr, duration: 3000 });
+                            }}
+                            style={{
+                              background:"transparent",border:`1px solid ${alpha(C.blue,'66')}`,
+                              color:C.blue,fontSize:11,padding:"2px 8px",borderRadius:5,
+                              cursor:"pointer",fontFamily:"inherit",
+                            }}
+                            title={`預覽：${previewStr}`}
+                          >
+                            預覽修正 → {previewStr.length > 22 ? previewStr.slice(0,22)+"…" : previewStr}
+                          </button>
+                        );
+                      })()}
+                    </div>
+                    <input value={newEvent.stocks}
+                      onChange={e=>setNewEvent(p=>({...p,stocks:e.target.value}))}
+                      onBlur={() => {
+                        const { value: norm, changed } = coerceStocksString(newEvent.stocks || "");
+                        if (changed) setNewEvent(p => ({ ...p, stocks: norm }));
+                      }}
                       data-edge-field="stocks"
                       ref={(el)=>{ if(typeof window!=='undefined'){ window.__edgeFieldApply=window.__edgeFieldApply||{}; if(el){ window.__edgeFieldApply.stocks=(v)=>setNewEvent(p=>({...p,stocks:String(v)})) } } }}
-                      placeholder="如 台燿 6274、晶豪科 3006（範例：2330 台積電、2317 鴻海）"
+                      placeholder="如 2330 台積電、2317 鴻海（離開欄位會自動標準化）"
                       style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
                         borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
                   </div>

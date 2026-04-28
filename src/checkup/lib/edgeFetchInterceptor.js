@@ -3,9 +3,9 @@
 // 2) 對所有發往「持倉看板 18 支 Edge Function」的請求做前端 schema 驗證
 // 觸發時機：main.tsx 啟動時呼叫 installEdgeFetchInterceptor() 一次。
 
-import { toast } from 'sonner'
 import { EDGE_SCHEMAS } from './edgeSchemas.js'
 import { applyCoercion } from './edgeCoerce.js'
+import { showValidationToast, showCoerceToast } from './edgeFieldUI.js'
 
 let installed = false
 
@@ -132,69 +132,7 @@ function extractEdgeRequest(input, init) {
   return { fnName, method: method.toUpperCase(), body, query, urlStr }
 }
 
-function focusField(key) {
-  if (typeof document === 'undefined') return
-  const el = document.querySelector(`[data-edge-field="${CSS.escape(key)}"]`)
-  if (!el) return
-  try {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    if (typeof el.focus === 'function') {
-      setTimeout(() => { try { el.focus({ preventScroll: true }) } catch { /* noop */ } }, 350)
-    }
-    el.classList.add('edge-field-flash')
-    setTimeout(() => el.classList.remove('edge-field-flash'), 1400)
-  } catch { /* noop */ }
-}
-
-function showValidationToast(fnName, fields) {
-  const lines = fields.map((f) => {
-    const parts = [`• ${f.label}：${f.reason}`]
-    if (f.example) parts.push(`  範例：${f.example}`)
-    if (f.hint) parts.push(`  ${f.hint}`)
-    return parts.join('\n')
-  }).join('\n')
-  const focusable = fields.find((f) => f.key && typeof document !== 'undefined' && document.querySelector(`[data-edge-field="${CSS.escape(f.key)}"]`))
-  toast.error(`參數錯誤 — ${fnName}`, {
-    description: lines,
-    duration: 8000,
-    action: focusable ? { label: '跳到欄位', onClick: () => focusField(focusable.key) } : undefined,
-  })
-  console.error(`[edgeFetch][${fnName}] validation failed`, fields)
-}
-
-function showCoerceToast(fnName, fixes) {
-  if (!fixes || fixes.length === 0) return
-  const lines = fixes.map((f) => {
-    const preview = typeof f.after === 'string' ? f.after : JSON.stringify(f.after)
-    const shown = preview.length > 120 ? preview.slice(0, 117) + '…' : preview
-    return `• ${f.label}：${f.summary || '已標準化'}\n  修正後：${shown}`
-  }).join('\n')
-  const applicable = fixes.find((f) =>
-    typeof window !== 'undefined' &&
-    window.__edgeFieldApply &&
-    typeof window.__edgeFieldApply[f.key] === 'function'
-  )
-  toast.message(`已自動修正 — ${fnName}`, {
-    description: lines,
-    duration: 6000,
-    action: applicable ? {
-      label: '套用到輸入框',
-      onClick: () => {
-        try {
-          const valueToApply = typeof applicable.after === 'string'
-            ? applicable.after
-            : (Array.isArray(applicable.after) ? applicable.after.join('、') : String(applicable.after))
-          window.__edgeFieldApply[applicable.key](valueToApply)
-          focusField(applicable.key)
-          toast.success(`已套用到「${applicable.label}」`)
-        } catch (err) {
-          console.error('[edgeFetch] apply fix failed', err)
-        }
-      },
-    } : undefined,
-  })
-  console.info(`[edgeFetch][${fnName}] auto-coerced`, fixes)
-}
+// focusField / showValidationToast / showCoerceToast 已抽出到 edgeFieldUI.js
 
 export function installEdgeFetchInterceptor() {
   if (installed) return
