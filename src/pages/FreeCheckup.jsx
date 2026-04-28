@@ -3771,7 +3771,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       </div>
                     )}
 
-                    {/* 編輯入口 */}
+                    {/* 研究筆記入口（持倉數量/成本只能透過上傳成交修改） */}
                     <div style={{
                       paddingTop:14,marginTop:6,borderTop:`1px solid ${WB.hair}`,
                     }}>
@@ -3783,7 +3783,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                           color:WB.inkSub,fontSize:12,fontWeight:400,cursor:'pointer',
                           letterSpacing:'0.08em',fontFamily:'inherit',
                         }}
-                      >編輯持倉</button>
+                        title="開啟研究筆記與決策紀錄。持倉數量與成本請透過「上傳成交」修改。"
+                      >研究筆記</button>
                     </div>
                   </div>
                 </div>
@@ -6309,6 +6310,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 }}>
                   <div style={{fontSize:11,color:C.textMute,fontWeight:400}}>
                     {h.qty}{h.unit || "股"} · 成本 {h.cost} · 市價 {h.price?.toLocaleString()}
+                  </div>
+                  <div style={{fontSize:10,color:alpha(C.textMute,'80'),fontWeight:400,letterSpacing:'0.04em'}}>
+                    數量與成本請透過「上傳成交」修改
                   </div>
                   <div style={{display:"flex",gap:10,alignItems:"baseline"}}>
                     <span style={{fontSize:11,color:C.textMute}}>市值 {h.value?.toLocaleString()}</span>
