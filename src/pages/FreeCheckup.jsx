@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import Md from "@/checkup/components/Md";
+import { CoachMarks } from "@/checkup/components/CoachMarks";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -2423,6 +2424,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             return [...newEntries, ...existing];
           });
           setSaved("✅ 成交已更新到持倉與記錄");
+          toast.success(`已寫入 ${preparedTrades.length} 筆成交`, { description: "持倉與交易紀錄已即時更新" });
           incrementUploadCount(); // 記錄今日上傳次數
           setTimeout(() => setSaved(""), 2500);
           // ✨ 解析成功後自動拉一次 TWSE 即時報價，避免依賴截圖內 market_price
@@ -2448,6 +2450,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     // 所有重試都失敗
     const finalErr = lastErr || "解析失敗，請確認截圖清晰";
     setParseErr(finalErr);
+    toast.error("AI 解析失敗", { description: finalErr });
     setParseStep({ stage: 'error', label: 'AI 解析失敗', progress: 100, detail: finalErr });
     appendLog({ task: 'parse-screenshot', status: 'error', detail: `所有重試失敗：${finalErr}` });
     setTimeout(() => setParseStep(null), 6000);
@@ -2472,6 +2475,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setTradeLog(prev=>[entry,...(prev||[])]);
 
     setSaved("✅ 已儲存備忘錄");
+    toast.success("備忘錄已儲存", { description: `${entry.action} ${entry.name} ${entry.qty}股` });
     setTimeout(()=>setSaved(""),2500);
 
     // 若截圖含目標價更新
@@ -2742,6 +2746,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         )}
 
+        <CoachMarks onTabChange={setTab} />
         <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,marginTop:2}}>
           {TABS.map(t=>(
             <button key={t.k} onClick={()=>{setTab(t.k);window.scrollTo({top:0,behavior:"smooth"})}} style={{
@@ -5166,6 +5171,49 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ UPLOAD ══════════ */}
         {tab==="trade" && <>
+          {/* 全頁覆蓋 loading：解析中時鎖住操作但保留下方持倉資料可見於背景 */}
+          {parsing && (
+            <div
+              role="status"
+              aria-live="polite"
+              aria-label="解析中"
+              style={{
+                position:"fixed", inset:0, zIndex:9999,
+                background:"rgba(245,243,239,0.88)",
+                backdropFilter:"blur(2px)", WebkitBackdropFilter:"blur(2px)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                padding:"24px",
+              }}
+            >
+              <div style={{
+                background:C.card, border:`1px solid ${C.border}`, borderRadius:14,
+                padding:"22px 24px", maxWidth:340, width:"100%", textAlign:"center",
+              }}>
+                <div style={{
+                  width:36, height:36, margin:"0 auto 14px",
+                  border:`2px solid ${alpha(C.textMute,'30')}`,
+                  borderTopColor:C.text, borderRadius:"50%",
+                  animation:"checkup-spin 0.9s linear infinite",
+                }}/>
+                <div style={{fontSize:14,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
+                  {parseStep?.label || "AI 解析中"}
+                </div>
+                {parseStep?.detail && (
+                  <div style={{fontSize:12,color:C.textMute,lineHeight:1.6,marginBottom:10}}>{parseStep.detail}</div>
+                )}
+                {typeof parseStep?.progress === "number" && (
+                  <div style={{height:3,background:alpha(C.textMute,'22'),borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${parseStep.progress}%`,background:C.amber,transition:"width 360ms ease"}}/>
+                  </div>
+                )}
+                <div style={{fontSize:10,color:C.textMute,marginTop:12,letterSpacing:"0.06em"}}>
+                  原持倉資料保留中，新資料完成後才會更新
+                </div>
+              </div>
+              <style>{`@keyframes checkup-spin{to{transform:rotate(360deg)}}`}</style>
+            </div>
+          )}
+
           {/* Demo 模式提示 */}
           {isDemo && (
             <div style={{marginBottom:16, padding:"20px 16px", background:alpha(C.amber,'06'), borderRadius:10, textAlign:"center"}}>
@@ -5271,27 +5319,95 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {parsed?.trades?.length>0 && (
             <div>
                 <div style={{marginBottom:12}}>
-                <div style={{fontSize:11,color:C.textMute,fontWeight:400,letterSpacing:"0.1em",marginBottom:8}}>解析結果</div>
-                {parsed.trades.map((t,i)=>(
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",
-                    alignItems:"center",padding:"10px 0",
-                    borderBottom:i<parsed.trades.length-1?`1px solid ${alpha(C.textMute,'06')}`:"none"}}>
-                    <div>
-                      <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <span style={{
-                          color: t.action==="買進" ? C.up : C.down,
-                          fontSize:11, fontWeight:400}}>
-                          {t.action}
-                        </span>
-                        <span style={{fontSize:13,fontWeight:500,color:C.text}}>{t.name}</span>
-                        <span style={{fontSize:10,color:C.textMute}}>{t.code}</span>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
+                  <div style={{fontSize:11,color:C.textMute,fontWeight:400,letterSpacing:"0.1em"}}>解析結果</div>
+                  <div style={{fontSize:10,color:C.textMute}}>點擊欄位可修正</div>
+                </div>
+                {parsed.trades.map((t,i)=>{
+                  const updateTrade = (patch) => setParsed(prev => {
+                    const trades = [...(prev?.trades || [])];
+                    trades[i] = { ...trades[i], ...patch };
+                    return { ...prev, trades };
+                  });
+                  const removeTrade = () => setParsed(prev => {
+                    const trades = (prev?.trades || []).filter((_, idx) => idx !== i);
+                    return { ...prev, trades };
+                  });
+                  const isBuy = t.action === "買進";
+                  const cellStyle = {
+                    background: "transparent",
+                    border: "none",
+                    borderBottom: `1px dashed ${alpha(C.textMute, '55')}`,
+                    color: C.text,
+                    fontSize: 13,
+                    fontFamily: "inherit",
+                    padding: "2px 4px",
+                    outline: "none",
+                    minWidth: 0,
+                  };
+                  return (
+                    <div key={i} style={{padding:"12px 0",
+                      borderBottom:i<parsed.trades.length-1?`1px solid ${alpha(C.textMute,'08')}`:"none"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:6}}>
+                        <button
+                          onClick={() => updateTrade({ action: isBuy ? "賣出" : "買進" })}
+                          aria-label={`切換為${isBuy ? "賣出" : "買進"}`}
+                          style={{
+                            background: isBuy ? alpha(C.up, '12') : alpha(C.down, '12'),
+                            color: isBuy ? C.up : C.down,
+                            fontSize: 11, fontWeight: 500,
+                            padding: "3px 10px", borderRadius: 4,
+                            border: `1px dashed ${isBuy ? alpha(C.up, '55') : alpha(C.down, '55')}`,
+                            cursor: "pointer", fontFamily: "inherit",
+                          }}
+                        >{t.action || "買進"} ↔</button>
+                        <input
+                          value={t.name || ""}
+                          onChange={e => updateTrade({ name: e.target.value })}
+                          aria-label="股票名稱"
+                          style={{...cellStyle, fontWeight: 500, flex: "1 1 90px"}}
+                        />
+                        <input
+                          value={t.code || ""}
+                          onChange={e => updateTrade({ code: e.target.value })}
+                          aria-label="股票代碼"
+                          inputMode="numeric"
+                          style={{...cellStyle, color: C.textMute, fontSize: 11, width: 56}}
+                        />
+                        <button
+                          onClick={removeTrade}
+                          aria-label={`刪除第 ${i+1} 筆`}
+                          style={{
+                            background: "transparent", border: "none",
+                            color: C.textMute, fontSize: 16, cursor: "pointer",
+                            padding: "0 4px", lineHeight: 1,
+                          }}
+                        >×</button>
                       </div>
-                      <div style={{fontSize:13,color:C.textMute,marginTop:3}}>
-                        {t.qty}股 @ {t.price?.toLocaleString()}元
+                      <div style={{display:"flex",alignItems:"baseline",gap:6,fontSize:13,color:C.textMute}}>
+                        <input
+                          type="number"
+                          value={t.qty ?? ""}
+                          onChange={e => updateTrade({ qty: e.target.value === "" ? "" : Number(e.target.value) })}
+                          aria-label="股數"
+                          inputMode="numeric"
+                          style={{...cellStyle, width: 70, textAlign: "right"}}
+                        />
+                        <span>股 @</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={t.price ?? ""}
+                          onChange={e => updateTrade({ price: e.target.value === "" ? "" : Number(e.target.value) })}
+                          aria-label="成交價"
+                          inputMode="decimal"
+                          style={{...cellStyle, width: 80, textAlign: "right"}}
+                        />
+                        <span>元</span>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {parsed.targetPriceUpdates?.length>0 && (
                   <div style={{marginTop:10,background:C.tealBg,border:`1px solid ${alpha(C.teal,'44')}`,
                     borderRadius:7,padding:"8px 10px"}}>
