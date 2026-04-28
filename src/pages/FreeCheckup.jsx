@@ -5334,12 +5334,81 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </>
           )}
 
-          {parsed?.trades?.length>0 && (
+          {parsed?.trades?.length>0 && (() => {
+            // 欄位驗證：必填 + 格式檢查
+            const validateRow = (t) => {
+              const errs = {};
+              const code = String(t?.code || "").trim();
+              const name = String(t?.name || "").trim();
+              const qty = Number(t?.qty);
+              const price = Number(t?.price);
+              const action = String(t?.action || "").trim();
+              if (!name) errs.name = "請填寫股票名稱";
+              if (!code) errs.code = "請填寫代碼";
+              else if (!/^[0-9A-Za-z]{2,8}$/.test(code)) errs.code = "代碼格式不正確（2–8 位數字/字母）";
+              if (!Number.isFinite(qty) || qty <= 0) errs.qty = "股數需為正整數";
+              else if (!Number.isInteger(qty)) errs.qty = "股數需為整數";
+              if (!Number.isFinite(price) || price <= 0) errs.price = "成交價需大於 0";
+              if (action !== "買進" && action !== "賣出" && action !== SNAPSHOT_IMPORT_ACTION) errs.action = "請選擇買進或賣出";
+              return errs;
+            };
+            const rowErrors = parsed.trades.map(validateRow);
+            const totalErrCount = rowErrors.reduce((acc, e) => acc + Object.keys(e).length, 0);
+            const hasError = totalErrCount > 0;
+
+            const applyCorrections = () => {
+              if (hasError) {
+                toast.error("仍有欄位未通過驗證", { description: `共 ${totalErrCount} 個欄位需要修正` });
+                return;
+              }
+              const trades = parsed.trades.map(t => ({
+                ...t,
+                code: String(t.code).trim(),
+                name: String(t.name).trim(),
+                qty: Number(t.qty),
+                price: Number(t.price),
+                action: String(t.action || "買進").trim(),
+              }));
+              const isSnap = trades.every(t => t.action === SNAPSHOT_IMPORT_ACTION);
+              const prevCodeSet = new Set((holdings || []).map(h => h.code));
+              const summaryAdded = [];
+              const summaryUpdated = [];
+              trades.forEach(t => {
+                const item = { code: t.code, name: t.name, qty: t.qty, price: t.price, action: t.action };
+                if (prevCodeSet.has(t.code)) summaryUpdated.push(item); else summaryAdded.push(item);
+              });
+              holdingsChangedByUserRef.current = true;
+              setHoldings(prev => trades.reduce(
+                (acc, trade) => isSnap ? upsertSnapshotHolding(acc, trade) : mergeTradeIntoHoldings(acc, trade),
+                stripDemoSeedHoldings(prev || []),
+              ));
+              setTradeLog(prev => {
+                const existing = prev || [];
+                const newEntries = trades.map(t => ({
+                  id: Date.now() + Math.random(),
+                  date: t.date || new Date().toLocaleDateString("zh-TW"),
+                  time: t.time || new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}),
+                  action: t.action === SNAPSHOT_IMPORT_ACTION ? "匯入" : t.action,
+                  code: t.code, name: t.name, qty: t.qty, price: t.price,
+                  qa: [],
+                }));
+                return [...newEntries, ...existing];
+              });
+              setUploadSummary({ added: summaryAdded, updated: summaryUpdated, at: Date.now(), corrected: true });
+              toast.success(`已套用修正：${trades.length} 筆`, { description: `新增 ${summaryAdded.length}・更新 ${summaryUpdated.length}` });
+              setImg(null); setB64(null); setParsed(null); setParseErr(null);
+              setTab("holdings");
+              setTimeout(() => setUploadSummary(s => (s && Date.now() - s.at >= 11000) ? null : s), 12000);
+            };
+
+            return (
             <div>
                 <div style={{marginBottom:12}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
                   <div style={{fontSize:11,color:C.textMute,fontWeight:400,letterSpacing:"0.1em"}}>解析結果</div>
-                  <div style={{fontSize:10,color:C.textMute}}>點擊欄位可修正</div>
+                  <div style={{fontSize:10,color: hasError ? C.down : C.textMute}}>
+                    {hasError ? `尚有 ${totalErrCount} 個欄位需修正` : "點擊欄位可修正"}
+                  </div>
                 </div>
                 {parsed.trades.map((t,i)=>{
                   const updateTrade = (patch) => setParsed(prev => {
@@ -5352,10 +5421,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     return { ...prev, trades };
                   });
                   const isBuy = t.action === "買進";
-                  const cellStyle = {
+                  const errs = rowErrors[i] || {};
+                  const hasRowErr = Object.keys(errs).length > 0;
+                  const baseCell = {
                     background: "transparent",
                     border: "none",
-                    borderBottom: `1px dashed ${alpha(C.textMute, '55')}`,
                     color: C.text,
                     fontSize: 13,
                     fontFamily: "inherit",
@@ -5363,9 +5433,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     outline: "none",
                     minWidth: 0,
                   };
+                  const cellWith = (field, extra = {}) => ({
+                    ...baseCell,
+                    borderBottom: `1px ${errs[field] ? 'solid' : 'dashed'} ${errs[field] ? C.down : alpha(C.textMute, '55')}`,
+                    background: errs[field] ? alpha(C.down, '08') : 'transparent',
+                    ...extra,
+                  });
                   return (
                     <div key={i} style={{padding:"12px 0",
-                      borderBottom:i<parsed.trades.length-1?`1px solid ${alpha(C.textMute,'08')}`:"none"}}>
+                      borderBottom:i<parsed.trades.length-1?`1px solid ${alpha(C.textMute,'08')}`:"none",
+                      background: hasRowErr ? alpha(C.down, '04') : 'transparent',
+                      borderLeft: hasRowErr ? `2px solid ${alpha(C.down, '88')}` : '2px solid transparent',
+                      paddingLeft: 8,
+                    }}>
                       <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:6}}>
                         <button
                           onClick={() => updateTrade({ action: isBuy ? "賣出" : "買進" })}
@@ -5375,7 +5455,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                             color: isBuy ? C.up : C.down,
                             fontSize: 11, fontWeight: 500,
                             padding: "3px 10px", borderRadius: 4,
-                            border: `1px dashed ${isBuy ? alpha(C.up, '55') : alpha(C.down, '55')}`,
+                            border: `1px ${errs.action ? 'solid' : 'dashed'} ${errs.action ? C.down : (isBuy ? alpha(C.up, '55') : alpha(C.down, '55'))}`,
                             cursor: "pointer", fontFamily: "inherit",
                           }}
                         >{t.action || "買進"} ↔</button>
@@ -5383,14 +5463,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                           value={t.name || ""}
                           onChange={e => updateTrade({ name: e.target.value })}
                           aria-label="股票名稱"
-                          style={{...cellStyle, fontWeight: 500, flex: "1 1 90px"}}
+                          aria-invalid={!!errs.name}
+                          style={{...cellWith('name'), fontWeight: 500, flex: "1 1 90px"}}
                         />
                         <input
                           value={t.code || ""}
                           onChange={e => updateTrade({ code: e.target.value })}
                           aria-label="股票代碼"
+                          aria-invalid={!!errs.code}
                           inputMode="numeric"
-                          style={{...cellStyle, color: C.textMute, fontSize: 11, width: 56}}
+                          style={{...cellWith('code'), color: errs.code ? C.down : C.textMute, fontSize: 11, width: 64}}
                         />
                         <button
                           onClick={removeTrade}
@@ -5408,8 +5490,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                           value={t.qty ?? ""}
                           onChange={e => updateTrade({ qty: e.target.value === "" ? "" : Number(e.target.value) })}
                           aria-label="股數"
+                          aria-invalid={!!errs.qty}
                           inputMode="numeric"
-                          style={{...cellStyle, width: 70, textAlign: "right"}}
+                          style={{...cellWith('qty'), width: 70, textAlign: "right"}}
                         />
                         <span>股 @</span>
                         <input
@@ -5418,11 +5501,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                           value={t.price ?? ""}
                           onChange={e => updateTrade({ price: e.target.value === "" ? "" : Number(e.target.value) })}
                           aria-label="成交價"
+                          aria-invalid={!!errs.price}
                           inputMode="decimal"
-                          style={{...cellStyle, width: 80, textAlign: "right"}}
+                          style={{...cellWith('price'), width: 80, textAlign: "right"}}
                         />
                         <span>元</span>
                       </div>
+                      {hasRowErr && (
+                        <ul style={{margin:"6px 0 0",padding:"0 0 0 14px",fontSize:11,color:C.down,lineHeight:1.7,listStyle:"disc"}}>
+                          {Object.entries(errs).map(([field, msg]) => (
+                            <li key={field}>{msg}</li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   );
                 })}
@@ -5439,7 +5530,29 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     ))}
                   </div>
                 )}
-                
+
+                {/* 套用修正：把編輯後的結果重新寫入持倉並導向持倉頁 */}
+                <button
+                  onClick={applyCorrections}
+                  disabled={hasError || parsed.trades.length === 0}
+                  aria-label="套用修正並更新持倉"
+                  style={{
+                    marginTop: 14,
+                    width: "100%",
+                    padding: "12px",
+                    border: `1px solid ${hasError ? C.border : alpha(C.amber, '88')}`,
+                    borderRadius: 8,
+                    background: hasError ? C.subtle : alpha(C.amber, '14'),
+                    color: hasError ? C.textMute : C.text,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    cursor: hasError ? "not-allowed" : "pointer",
+                    fontFamily: "inherit",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  {hasError ? `請先修正 ${totalErrCount} 個欄位` : `套用修正並更新持倉（${parsed.trades.length} 筆）`}
+                </button>
               </div>
 
               <div style={{...card,borderLeft:`2px solid ${alpha(C.blue,'88')}`}}>
