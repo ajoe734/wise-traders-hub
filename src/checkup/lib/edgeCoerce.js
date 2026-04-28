@@ -15,27 +15,35 @@
  *   "00637L 滬深300正2、2330 台積電"
  */
 export function coerceStocksString(value) {
-  if (value == null) return { value, changed: false }
+  if (value == null) return { value, changed: false, removedDuplicates: 0, duplicates: [] }
   let arr
   if (Array.isArray(value)) {
     arr = value
   } else if (typeof value === 'string') {
     arr = value.split(/[、,;\n\r]+/)
   } else {
-    return { value, changed: false }
+    return { value, changed: false, removedDuplicates: 0, duplicates: [] }
   }
   const seen = new Set()
   const out = []
+  const dupCounts = new Map()
+  let nonEmptyCount = 0
   for (const raw of arr) {
     if (raw == null) continue
     const s = String(raw).trim().replace(/\s+/g, ' ')
     if (!s) continue
-    if (seen.has(s)) continue
+    nonEmptyCount += 1
+    if (seen.has(s)) {
+      dupCounts.set(s, (dupCounts.get(s) || 1) + 1)
+      continue
+    }
     seen.add(s)
     out.push(s)
   }
   const next = out.join('、')
-  return { value: next, changed: next !== value }
+  const removedDuplicates = nonEmptyCount - out.length
+  const duplicates = Array.from(dupCounts.entries()).map(([item, count]) => ({ item, count }))
+  return { value: next, changed: next !== value, removedDuplicates, duplicates }
 }
 
 /**
@@ -43,28 +51,36 @@ export function coerceStocksString(value) {
  * 接受 string、array、或夾雜空白與重複項。
  */
 export function coerceStocksArray(value) {
-  if (value == null) return { value, changed: false }
+  if (value == null) return { value, changed: false, removedDuplicates: 0, duplicates: [] }
   let arr
   if (Array.isArray(value)) {
     arr = value
   } else if (typeof value === 'string') {
     arr = value.split(/[、,;\n\r]+/)
   } else {
-    return { value, changed: false }
+    return { value, changed: false, removedDuplicates: 0, duplicates: [] }
   }
   const seen = new Set()
   const out = []
+  const dupCounts = new Map()
+  let nonEmptyCount = 0
   for (const raw of arr) {
     if (raw == null) continue
     const s = String(raw).trim().replace(/\s+/g, ' ')
     if (!s) continue
-    if (seen.has(s)) continue
+    nonEmptyCount += 1
+    if (seen.has(s)) {
+      dupCounts.set(s, (dupCounts.get(s) || 1) + 1)
+      continue
+    }
     seen.add(s)
     out.push(s)
   }
   const sameLen = Array.isArray(value) && value.length === out.length
   const sameAll = sameLen && out.every((v, i) => v === value[i])
-  return { value: out, changed: !sameAll }
+  const removedDuplicates = nonEmptyCount - out.length
+  const duplicates = Array.from(dupCounts.entries()).map(([item, count]) => ({ item, count }))
+  return { value: out, changed: !sameAll, removedDuplicates, duplicates }
 }
 
 export const COERCERS = {
@@ -87,7 +103,8 @@ export function applyCoercion(fields, source) {
     if (!fn) continue
     const original = source[key]
     if (original === undefined || original === null || original === '') continue
-    const { value: coerced, changed } = fn(original)
+    const result = fn(original)
+    const { value: coerced, changed, removedDuplicates = 0, duplicates = [] } = result
     if (changed) {
       if (next === source) next = { ...source }
       next[key] = coerced
@@ -96,7 +113,9 @@ export function applyCoercion(fields, source) {
         label: spec.label || key,
         before: original,
         after: coerced,
-        summary: summarizeFix(original, coerced),
+        removedDuplicates,
+        duplicates,
+        summary: summarizeFix(original, coerced, removedDuplicates, duplicates),
       })
     } else if (Array.isArray(coerced) || typeof coerced === 'string') {
       // 即使沒變動，仍寫回標準化值（例如後端規格要 string 但 caller 給陣列）
@@ -109,9 +128,21 @@ export function applyCoercion(fields, source) {
   return { source: next, fixes }
 }
 
-function summarizeFix(before, after) {
+function summarizeFix(before, after, removedDuplicates = 0, duplicates = []) {
   const beforeLen = Array.isArray(before) ? before.length : (typeof before === 'string' ? before.split(/[、,;\n\r]+/).filter(Boolean).length : 0)
   const afterLen = Array.isArray(after) ? after.length : (typeof after === 'string' ? after.split(/[、,;\n\r]+/).filter(Boolean).length : 0)
-  if (beforeLen === afterLen) return `已標準化（${afterLen} 筆）`
-  return `已自動修正：${beforeLen} → ${afterLen} 筆（去重/去空白）`
+  const parts = []
+  if (removedDuplicates > 0) {
+    const sample = duplicates.slice(0, 3).map((d) => d.count > 1 ? `${d.item}×${d.count}` : d.item).join('、')
+    const more = duplicates.length > 3 ? ` 等 ${duplicates.length} 項` : ''
+    parts.push(`已去除 ${removedDuplicates} 個重複項（${sample}${more}）`)
+  }
+  if (beforeLen !== afterLen) {
+    parts.push(`筆數：${beforeLen} → ${afterLen}`)
+  } else if (parts.length === 0) {
+    parts.push(`已標準化（${afterLen} 筆）`)
+  } else {
+    parts.push(`保留 ${afterLen} 筆`)
+  }
+  return parts.join('；')
 }
