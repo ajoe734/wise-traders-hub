@@ -12,6 +12,7 @@ import {
   PERSISTED_QUERY_PREFIXES,
 } from "@/lib/queryClient";
 import { useSignalRealtimeInvalidation } from "@/hooks/useSignalRealtimeInvalidation";
+import { useAttributionTracking } from "@/hooks/useAttributionTracking";
 
 // Portal pages
 import Index from "./pages/Index";
