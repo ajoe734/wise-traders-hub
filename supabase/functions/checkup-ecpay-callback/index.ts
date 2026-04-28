@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { ecpayGenerateCheckMacValue, ecpayExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";
+import { writeRevenueSplit } from "../_shared/paymentProcessor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,15 +98,45 @@ Deno.serve(async (req) => {
 
     // 交易紀錄（subscription_id 留空，因為 payment_transactions 預設指向 member_subscriptions；
     // 健檢交易僅記金額與 provider_tx_id 作為對帳依據）
-    await supabase.from("payment_transactions").insert({
+    // Stage 3: read intent for attribution / discount
+    const tradeNo = params.MerchantTradeNo;
+    const { data: intent } = await supabase
+      .from("payment_intents")
+      .select("original_amount, discount_amount, discount_reason, attribution")
+      .eq("trade_no", tradeNo)
+      .maybeSingle();
+
+    const { data: tx } = await supabase.from("payment_transactions").insert({
       amount: tradeAmt,
+      original_amount: intent?.original_amount ?? tradeAmt,
+      discount_amount: intent?.discount_amount ?? 0,
+      discount_reason: intent?.discount_reason ?? null,
+      attribution: intent?.attribution ?? null,
       currency: "TWD",
       status: "paid",
       paid_at: now.toISOString(),
       provider_id: provider?.id ?? null,
       provider_tx_id: txId,
       subscription_id: null,
-    });
+    }).select("id").single();
+
+    // Stage 3: revenue split for checkup (platform 100%)
+    if (tx) {
+      try {
+        await writeRevenueSplit(supabase, {
+          transactionId: tx.id,
+          planId: null,
+          expertId: null,
+          productKind: "checkup",
+          gross: intent?.original_amount ?? tradeAmt,
+          discount: intent?.discount_amount ?? 0,
+          discountReason: intent?.discount_reason ?? null,
+          attribution: intent?.attribution ?? null,
+        });
+      } catch (e) {
+        console.error("checkup writeRevenueSplit failed:", e);
+      }
+    }
 
     return new Response("1|OK", { status: 200 });
   } catch (error) {
