@@ -1,11 +1,11 @@
-// 全域 fetch 攔截器：自動為所有發往「持倉看板 18 支 Edge Function」的請求做前端 schema 驗證
-// 這樣即便呼叫點仍用 supabase.functions.invoke() 或裸 fetch，使用者也能在「請求送出前」
-// 看到 toast + console.error，與 callEdge() 行為一致。
-//
+// 全域 fetch 攔截器：
+// 1) 自動 coerce「stocks/codes/symbols」等欄位（接受字串或陣列），會改寫 init.body
+// 2) 對所有發往「持倉看板 18 支 Edge Function」的請求做前端 schema 驗證
 // 觸發時機：main.tsx 啟動時呼叫 installEdgeFetchInterceptor() 一次。
 
 import { toast } from 'sonner'
 import { EDGE_SCHEMAS } from './edgeSchemas.js'
+import { applyCoercion } from './edgeCoerce.js'
 
 let installed = false
 
@@ -20,32 +20,44 @@ function describeType(value, type) {
   return 'ok'
 }
 
+function typeMatches(value, spec) {
+  if (describeType(value, spec.type) === 'ok') return true
+  if (Array.isArray(spec.acceptTypes)) {
+    for (const t of spec.acceptTypes) if (describeType(value, t) === 'ok') return true
+  }
+  return false
+}
+
+function buildIssue(key, label, reason, spec) {
+  return { key, label, reason, example: spec?.example, hint: spec?.hint }
+}
+
 function validateField(key, spec, source) {
   const direct = source?.[key]
   const alt = spec.altKey ? source?.[spec.altKey] : undefined
   const value = direct !== undefined ? direct : alt
   const issues = []
-  const status = describeType(value, spec.type)
   const label = spec.label || key
+  const status = describeType(value, spec.type)
   if (status === 'missing') {
-    if (spec.required) issues.push({ key, label, reason: '缺少必填欄位' })
+    if (spec.required) issues.push(buildIssue(key, label, '缺少必填欄位', spec))
     return issues
   }
-  if (status === 'wrong-type') {
-    issues.push({ key, label, reason: `型別錯誤（需要 ${spec.type}）` })
+  if (status === 'wrong-type' && !typeMatches(value, spec)) {
+    issues.push(buildIssue(key, label, `型別錯誤（需要 ${spec.type}）`, spec))
     return issues
   }
-  if (spec.type === 'string' && spec.minLength != null && value.trim().length < spec.minLength) {
-    issues.push({ key, label, reason: `長度需 ≥ ${spec.minLength}` })
+  if (spec.type === 'string' && spec.minLength != null && (value?.trim?.().length || 0) < spec.minLength) {
+    issues.push(buildIssue(key, label, `長度需 ≥ ${spec.minLength}`, spec))
   }
-  if (spec.type === 'array' && spec.minItems != null && value.length < spec.minItems) {
-    issues.push({ key, label, reason: `至少 ${spec.minItems} 筆` })
+  if (spec.type === 'array' && spec.minItems != null && Array.isArray(value) && value.length < spec.minItems) {
+    issues.push(buildIssue(key, label, `至少 ${spec.minItems} 筆`, spec))
   }
-  if (spec.type === 'string' && spec.pattern && !spec.pattern.test(value)) {
-    issues.push({ key, label, reason: '格式不正確' })
+  if (spec.type === 'string' && spec.pattern && typeof value === 'string' && !spec.pattern.test(value)) {
+    issues.push(buildIssue(key, label, '格式不正確', spec))
   }
   if (spec.oneOf && !spec.oneOf.includes(value)) {
-    issues.push({ key, label, reason: `值需為 ${spec.oneOf.join(' / ')}` })
+    issues.push(buildIssue(key, label, `值需為 ${spec.oneOf.join(' / ')}`, spec))
   }
   if (spec.type === 'object' && spec.nested) {
     for (const [nKey, nSpec] of Object.entries(spec.nested)) {
@@ -55,32 +67,38 @@ function validateField(key, spec, source) {
   return issues
 }
 
+function getFieldSchema(schema, body, query) {
+  if (schema.actions) {
+    const action = (body && body.action) || (query && query.action)
+    return schema.actions?.[action] || null
+  }
+  if (schema.method === 'GET') return schema.query || null
+  if (schema.method === 'POST') return schema.body || null
+  if (schema.method === 'BOTH') return body ? (schema.body || null) : (schema.get || null)
+  return null
+}
+
 function validatePayload(fnName, schema, { body, query }) {
-  let fieldSchema = null
   if (schema.actions) {
     const action = (body && body.action) || (query && query.action)
     if (!action) return [{ key: 'action', label: 'action', reason: '缺少必填欄位' }]
-    fieldSchema = schema.actions[action]
-    if (!fieldSchema) {
+    const fs = schema.actions[action]
+    if (!fs) {
       const allowed = Object.keys(schema.actions).join(' / ')
       return [{ key: 'action', label: 'action', reason: `值需為 ${allowed}（收到 ${action}）` }]
     }
-  } else if (schema.method === 'GET') {
-    fieldSchema = schema.query || {}
-  } else if (schema.method === 'POST') {
-    fieldSchema = schema.body || {}
-  } else if (schema.method === 'BOTH') {
-    fieldSchema = body ? (schema.body || schema.actions ? {} : {}) : (schema.get || {})
+    const source = body || query || {}
+    const issues = []
+    for (const [k, s] of Object.entries(fs)) issues.push(...validateField(k, s, source))
+    return issues
   }
+  const fs = getFieldSchema(schema, body, query) || {}
   const source = body || query || {}
   const issues = []
-  for (const [key, spec] of Object.entries(fieldSchema || {})) {
-    issues.push(...validateField(key, spec, source))
-  }
+  for (const [k, s] of Object.entries(fs)) issues.push(...validateField(k, s, source))
   return issues
 }
 
-// 從 Request init / Request 物件中萃取 fnName / body / query
 function extractEdgeRequest(input, init) {
   let urlStr = ''
   let method = 'GET'
@@ -95,7 +113,6 @@ function extractEdgeRequest(input, init) {
   }
   if (init?.method) method = init.method
   if (init?.body != null) bodyRaw = init.body
-  // 過濾 host：只攔截 supabase functions
   if (!/\/functions\/v1\//.test(urlStr)) return null
   let urlObj
   try { urlObj = new URL(urlStr, typeof window !== 'undefined' ? window.location.origin : 'http://localhost') }
@@ -104,24 +121,55 @@ function extractEdgeRequest(input, init) {
   if (!m) return null
   const fnName = m[1]
   if (!EDGE_SCHEMAS[fnName]) return null
-  // query
   const query = {}
   urlObj.searchParams.forEach((v, k) => { query[k] = v })
-  // body
   let body = null
   if (typeof bodyRaw === 'string') {
     try { body = JSON.parse(bodyRaw) } catch { body = null }
   } else if (bodyRaw && typeof bodyRaw === 'object' && !(bodyRaw instanceof FormData) && !(bodyRaw instanceof Blob)) {
-    // supabase.functions.invoke 內部會 stringify，但保險起見
     try { body = JSON.parse(JSON.stringify(bodyRaw)) } catch { body = null }
   }
-  return { fnName, method: method.toUpperCase(), body, query }
+  return { fnName, method: method.toUpperCase(), body, query, urlStr }
 }
 
-function showToast(fnName, fields) {
-  const lines = fields.map((f) => `• ${f.label}：${f.reason}`).join('\n')
-  toast.error(`參數錯誤 — ${fnName}`, { description: lines })
+function focusField(key) {
+  if (typeof document === 'undefined') return
+  const el = document.querySelector(`[data-edge-field="${CSS.escape(key)}"]`)
+  if (!el) return
+  try {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (typeof el.focus === 'function') {
+      setTimeout(() => { try { el.focus({ preventScroll: true }) } catch { /* noop */ } }, 350)
+    }
+    el.classList.add('edge-field-flash')
+    setTimeout(() => el.classList.remove('edge-field-flash'), 1400)
+  } catch { /* noop */ }
+}
+
+function showValidationToast(fnName, fields) {
+  const lines = fields.map((f) => {
+    const parts = [`• ${f.label}：${f.reason}`]
+    if (f.example) parts.push(`  範例：${f.example}`)
+    if (f.hint) parts.push(`  ${f.hint}`)
+    return parts.join('\n')
+  }).join('\n')
+  const focusable = fields.find((f) => f.key && typeof document !== 'undefined' && document.querySelector(`[data-edge-field="${CSS.escape(f.key)}"]`))
+  toast.error(`參數錯誤 — ${fnName}`, {
+    description: lines,
+    duration: 8000,
+    action: focusable ? { label: '跳到欄位', onClick: () => focusField(focusable.key) } : undefined,
+  })
   console.error(`[edgeFetch][${fnName}] validation failed`, fields)
+}
+
+function showCoerceToast(fnName, fixes) {
+  if (!fixes || fixes.length === 0) return
+  const lines = fixes.map((f) => `• ${f.label}：${f.summary || '已標準化'}`).join('\n')
+  toast.message(`已自動修正 — ${fnName}`, {
+    description: lines,
+    duration: 4000,
+  })
+  console.info(`[edgeFetch][${fnName}] auto-coerced`, fixes)
 }
 
 export function installEdgeFetchInterceptor() {
@@ -135,14 +183,31 @@ export function installEdgeFetchInterceptor() {
       const meta = extractEdgeRequest(input, init)
       if (meta) {
         const schema = EDGE_SCHEMAS[meta.fnName]
-        // 對於只支援 BOTH 的，根據實際 method 判斷使用哪份 schema
-        const issues = validatePayload(meta.fnName, schema, {
-          body: meta.method !== 'GET' ? meta.body : null,
-          query: meta.method === 'GET' ? meta.query : (Object.keys(meta.query).length ? meta.query : null),
-        })
+        const isPost = meta.method !== 'GET'
+        const body = isPost ? meta.body : null
+        const query = isPost ? null : (Object.keys(meta.query).length ? meta.query : null)
+
+        // ── 1) 自動轉型 ────────────────────────────────
+        const fieldSchema = getFieldSchema(schema, body, query)
+        let mutatedBody = body
+        let mutatedQuery = query
+        if (fieldSchema) {
+          if (body) {
+            const { source: nb, fixes } = applyCoercion(fieldSchema, body)
+            mutatedBody = nb
+            if (fixes.length > 0) showCoerceToast(meta.fnName, fixes)
+          }
+          if (query) {
+            const { source: nq, fixes } = applyCoercion(fieldSchema, query)
+            mutatedQuery = nq
+            if (fixes.length > 0) showCoerceToast(meta.fnName, fixes)
+          }
+        }
+
+        // ── 2) 驗證 ────────────────────────────────────
+        const issues = validatePayload(meta.fnName, schema, { body: mutatedBody, query: mutatedQuery })
         if (issues.length > 0) {
-          showToast(meta.fnName, issues)
-          // 模擬 400 Response，避免呼叫端 throw 出未預期錯誤
+          showValidationToast(meta.fnName, issues)
           const fakeBody = JSON.stringify({
             error: 'VALIDATION_ERROR',
             message: `前端攔截：${issues.map((f) => f.label).join('、')}`,
@@ -153,6 +218,11 @@ export function installEdgeFetchInterceptor() {
             status: 400,
             headers: { 'Content-Type': 'application/json' },
           })
+        }
+
+        // ── 3) 把 coerce 後的 body 寫回 init ──────────
+        if (isPost && mutatedBody !== body && mutatedBody) {
+          init = { ...(init || {}), body: JSON.stringify(mutatedBody) }
         }
       }
     } catch (err) {
