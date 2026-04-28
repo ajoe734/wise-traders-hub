@@ -5655,7 +5655,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div>
                     <div style={{fontSize:12,color:C.textMute,marginBottom:3}}>相關個股（逗號分隔）</div>
                     <input value={newEvent.stocks} onChange={e=>setNewEvent(p=>({...p,stocks:e.target.value}))}
-                      placeholder="如 台燿 6274, 晶豪科 3006"
+                      data-edge-field="stocks"
+                      ref={(el)=>{ if(typeof window!=='undefined'){ window.__edgeFieldApply=window.__edgeFieldApply||{}; if(el){ window.__edgeFieldApply.stocks=(v)=>setNewEvent(p=>({...p,stocks:String(v)})) } } }}
+                      placeholder="如 台燿 6274、晶豪科 3006（範例：2330 台積電、2317 鴻海）"
                       style={{width:"100%",background:C.subtle,border:`1px solid ${C.border}`,
                         borderRadius:7,padding:"8px 10px",color:C.text,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
                   </div>
