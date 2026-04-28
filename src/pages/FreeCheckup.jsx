@@ -2423,6 +2423,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             return [...newEntries, ...existing];
           });
           setSaved("✅ 成交已更新到持倉與記錄");
+          toast.success(`已寫入 ${preparedTrades.length} 筆成交`, { description: "持倉與交易紀錄已即時更新" });
           incrementUploadCount(); // 記錄今日上傳次數
           setTimeout(() => setSaved(""), 2500);
           // ✨ 解析成功後自動拉一次 TWSE 即時報價，避免依賴截圖內 market_price
