@@ -65,15 +65,16 @@ async function twseRecent(code: string): Promise<number[]> {
   return closes.slice(-5);
 }
 
-// TPEX 新版：tradingStock?date=YYYY/MM&code=XXXX&response=json
+// TPEX 新版 (2024 改版後)：tradingStock?monthDate=ROC/MM&code=XXXX&response=json
+// 注意：是 monthDate（民國年/月），不是 date；date 會回「參數輸入錯誤」
 async function tpexMonth(code: string, d: Date): Promise<number[]> {
-  const ym = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}`;
-  const url = `${TPEX_DAY}?date=${encodeURIComponent(ym)}&code=${encodeURIComponent(code)}&response=json&_=${Date.now()}`;
+  const roc = `${d.getFullYear() - 1911}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const url = `${TPEX_DAY}?monthDate=${encodeURIComponent(roc)}&code=${encodeURIComponent(code)}&id=&response=json&_=${Date.now()}`;
   const res = await fetchWithTimeout(url);
   if (!res || !res.ok) return [];
   let json: any;
   try { json = await res.json(); } catch { return []; }
-  // 新版 schema: { tables: [{ data: [[date, qty, amt, open, high, low, close, ...]] }] }
+  // 新版 schema: { tables: [{ data: [[ROC日期, 量, 額, 開, 高, 低, 收, 漲跌, 筆數]] }] }
   const tables = json?.tables;
   let rows: any[] = [];
   if (Array.isArray(tables) && tables.length > 0 && Array.isArray(tables[0]?.data)) {
