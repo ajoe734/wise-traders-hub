@@ -3310,6 +3310,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div style={{display:'flex',alignItems:'baseline',gap:8,minWidth:0,flex:1}}>
                         <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
                         <span style={{fontSize:15,fontWeight:400,color:cardColor,letterSpacing:'-0.005em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
+                        {h.qty != null && (
+                          <span style={{fontSize:10,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>× {Number(h.qty).toLocaleString()}{h.unit ? ` ${h.unit}` : ' 股'}</span>
+                        )}
                       </div>
                       {sparkData.length >= 2 ? (
                         <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
@@ -3420,6 +3423,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{display:'flex',alignItems:'baseline',gap:8,minWidth:0,flex:1}}>
                       <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>{h.code}</span>
                       <span style={{fontSize:13,fontWeight:400,color:cardColor,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
+                      {h.qty != null && (
+                        <span style={{fontSize:10,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>× {Number(h.qty).toLocaleString()}{h.unit ? ` ${h.unit}` : ' 股'}</span>
+                      )}
                     </div>
                     {sparkData.length >= 2 ? (
                       <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
