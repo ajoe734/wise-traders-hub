@@ -1,4 +1,4 @@
-// 共用：欄位聚焦/閃爍 + 多欄位錯誤逐一跳轉 toast
+// 共用：欄位聚焦/閃爍 + 多欄位錯誤逐一跳轉 toast + 自動修正彙整 toast
 // 給 edgeInvoke.js 與 edgeFetchInterceptor.js 共用，避免邏輯漂移。
 
 import { toast } from 'sonner'
@@ -7,7 +7,6 @@ const ESC = (s) => (typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(s) : S
 
 export function findFieldEl(key) {
   if (!key || typeof document === 'undefined') return null
-  // 嚴格只比對 data-edge-field（避免誤命中其他屬性或 id）
   return document.querySelector(`[data-edge-field="${ESC(key)}"]`)
 }
 
@@ -20,7 +19,6 @@ export function flashField(key, variant = 'error') {
       setTimeout(() => { try { el.focus({ preventScroll: true }) } catch { /* noop */ } }, 320)
     }
     const cls = variant === 'error' ? 'edge-field-flash-error' : 'edge-field-flash'
-    // 移除舊的，重啟動畫
     el.classList.remove(cls)
     // eslint-disable-next-line no-unused-expressions
     void el.offsetWidth
@@ -39,18 +37,10 @@ function formatLine(f) {
   return parts.join('\n')
 }
 
-/**
- * 顯示「逐一跳轉」式驗證錯誤 toast。
- * - 同時列出所有 fields，但 action 只聚焦在「目前指標」的那一個。
- * - 若有多筆，提供「下一個欄位 (i/N)」按鈕。
- */
 export function showValidationToast(fnName, fields) {
   if (!Array.isArray(fields) || fields.length === 0) return
-
-  // 過濾出可在 DOM 找到的欄位作為跳轉佇列；找不到的仍顯示在描述中
   const focusable = fields.filter((f) => f.key && findFieldEl(f.key))
   const total = focusable.length
-
   const description = fields.map(formatLine).join('\n')
   const baseTitle = `參數錯誤 — ${fnName}`
 
@@ -62,7 +52,6 @@ export function showValidationToast(fnName, fields) {
 
   let cursor = 0
   const toastId = `edge-validation-${fnName}-${Date.now()}`
-
   const render = () => {
     const cur = focusable[cursor]
     const hasNext = total > 1
@@ -71,45 +60,64 @@ export function showValidationToast(fnName, fields) {
     const title = total > 1
       ? `${baseTitle}（${cursor + 1}/${total}）→ ${cur.label}`
       : `${baseTitle} → ${cur.label}`
-
     toast.error(title, {
       id: toastId,
       description,
       duration: 12000,
       action: hasNext
-        ? {
-            label: `下一個：${nextLabel}`,
-            onClick: () => {
-              cursor = nextIdx
-              flashField(focusable[cursor].key, 'error')
-              render()
-            },
-          }
-        : {
-            label: '跳到欄位',
-            onClick: () => flashField(cur.key, 'error'),
-          },
+        ? { label: `下一個：${nextLabel}`, onClick: () => { cursor = nextIdx; flashField(focusable[cursor].key, 'error'); render() } }
+        : { label: '跳到欄位', onClick: () => flashField(cur.key, 'error') },
     })
   }
-
-  // 第一次顯示時就直接聚焦到第一個錯誤欄位
   flashField(focusable[cursor].key, 'error')
   render()
   console.error(`[edge][${fnName}] validation failed`, fields)
 }
 
+// ── 自動修正 toast（彙整版）────────────────────────────────
+
+function truncate(s, n = 140) {
+  return s && s.length > n ? s.slice(0, n - 1) + '…' : s
+}
+
+function fixSummaryLine(f) {
+  const preview = typeof f.after === 'string' ? f.after : JSON.stringify(f.after)
+  return `• ${f.label}：${f.summary || '已標準化'}\n  修正後：${truncate(preview)}`
+}
+
+function duplicatesDetailLines(fixes) {
+  // 「查看重複明細」展開後顯示：每個欄位 → 每個重複項與次數
+  const blocks = []
+  for (const f of fixes) {
+    if (!f.duplicates || f.duplicates.length === 0) continue
+    const head = `▸ ${f.label}（共去除 ${f.removedDuplicates || 0} 項）`
+    const items = f.duplicates
+      .slice() // copy
+      .sort((a, b) => b.count - a.count)
+      .map((d) => `   ・${d.item} ×${d.count}`)
+      .join('\n')
+    blocks.push(`${head}\n${items}`)
+  }
+  return blocks.join('\n')
+}
+
+/**
+ * 顯示「彙整自動修正」toast。
+ * - 多個欄位的 fixes 合併到同一個 toast，標題寫總共去除幾項。
+ * - 若任一欄位有重複，提供「查看重複明細」action，按下後切換為展開模式。
+ * - 若有可套用的欄位（window.__edgeFieldApply[key]），主 action 改為「套用第一個修正」。
+ */
 export function showCoerceToast(fnName, fixes) {
   if (!fixes || fixes.length === 0) return
-  const lines = fixes.map((f) => {
-    const preview = typeof f.after === 'string' ? f.after : JSON.stringify(f.after)
-    const shown = preview.length > 140 ? preview.slice(0, 137) + '…' : preview
-    return `• ${f.label}：${f.summary || '已標準化'}\n  修正後：${shown}`
-  }).join('\n')
 
   const totalDup = fixes.reduce((sum, f) => sum + (f.removedDuplicates || 0), 0)
-  const title = totalDup > 0
-    ? `已自動修正 — ${fnName}（去除 ${totalDup} 個重複項）`
-    : `已自動修正 — ${fnName}`
+  const hasDup = totalDup > 0
+  const title = hasDup
+    ? `已自動修正 — ${fnName}（${fixes.length} 個欄位、去除 ${totalDup} 項重複）`
+    : `已自動修正 — ${fnName}（${fixes.length} 個欄位）`
+
+  const summaryDesc = fixes.map(fixSummaryLine).join('\n')
+  const detailDesc = `${summaryDesc}\n\n── 重複明細 ──\n${duplicatesDetailLines(fixes)}`
 
   const applicable = fixes.find((f) =>
     typeof window !== 'undefined' &&
@@ -117,26 +125,55 @@ export function showCoerceToast(fnName, fixes) {
     typeof window.__edgeFieldApply[f.key] === 'function'
   )
 
-  toast.message(title, {
-    description: lines,
-    duration: 6000,
-    action: applicable
-      ? {
-          label: '套用到輸入框',
-          onClick: () => {
-            try {
-              const valueToApply = typeof applicable.after === 'string'
-                ? applicable.after
-                : (Array.isArray(applicable.after) ? applicable.after.join('、') : String(applicable.after))
-              window.__edgeFieldApply[applicable.key](valueToApply)
-              flashField(applicable.key, 'info')
-              toast.success(`已套用到「${applicable.label}」`)
-            } catch (err) {
-              console.error('[edge] apply fix failed', err)
-            }
-          },
-        }
-      : undefined,
-  })
+  const toastId = `edge-coerce-${fnName}-${Date.now()}`
+  let expanded = false
+
+  const render = () => {
+    const description = expanded ? detailDesc : summaryDesc
+
+    // 主動作：若有可套用欄位，提供「套用到輸入框」；否則若有重複明細，提供「查看/收合明細」
+    let action
+    if (applicable) {
+      action = {
+        label: `套用「${applicable.label}」到輸入框`,
+        onClick: () => {
+          try {
+            const v = typeof applicable.after === 'string'
+              ? applicable.after
+              : (Array.isArray(applicable.after) ? applicable.after.join('、') : String(applicable.after))
+            window.__edgeFieldApply[applicable.key](v)
+            flashField(applicable.key, 'info')
+            toast.success(`已套用到「${applicable.label}」`)
+          } catch (err) {
+            console.error('[edge] apply fix failed', err)
+          }
+        },
+      }
+    } else if (hasDup) {
+      action = {
+        label: expanded ? '收合重複明細' : `查看重複明細（${totalDup}）`,
+        onClick: () => { expanded = !expanded; render() },
+      }
+    }
+
+    // 次要動作（cancel 在 sonner 是另一顆按鈕）：當兩種按鈕都需要時用 cancel 放第二顆
+    let cancel
+    if (applicable && hasDup) {
+      cancel = {
+        label: expanded ? '收合明細' : `查看明細（${totalDup}）`,
+        onClick: () => { expanded = !expanded; render() },
+      }
+    }
+
+    toast.message(title, {
+      id: toastId,
+      description,
+      duration: expanded ? 14000 : 7000,
+      action,
+      cancel,
+    })
+  }
+
+  render()
   console.info(`[edge][${fnName}] auto-coerced`, fixes)
 }

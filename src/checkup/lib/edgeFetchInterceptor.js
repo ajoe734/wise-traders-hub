@@ -154,16 +154,18 @@ export function installEdgeFetchInterceptor() {
         let mutatedBody = body
         let mutatedQuery = query
         if (fieldSchema) {
+          const allFixes = []
           if (body) {
             const { source: nb, fixes } = applyCoercion(fieldSchema, body)
             mutatedBody = nb
-            if (fixes.length > 0) showCoerceToast(meta.fnName, fixes)
+            allFixes.push(...fixes)
           }
           if (query) {
             const { source: nq, fixes } = applyCoercion(fieldSchema, query)
             mutatedQuery = nq
-            if (fixes.length > 0) showCoerceToast(meta.fnName, fixes)
+            allFixes.push(...fixes)
           }
+          if (allFixes.length > 0) showCoerceToast(meta.fnName, allFixes)
         }
 
         // ── 2) 驗證 ────────────────────────────────────
