@@ -71,9 +71,10 @@ async function tpexMonth(code: string, d: Date): Promise<number[]> {
   const roc = `${d.getFullYear() - 1911}/${String(d.getMonth() + 1).padStart(2, "0")}`;
   const url = `${TPEX_DAY}?monthDate=${encodeURIComponent(roc)}&code=${encodeURIComponent(code)}&id=&response=json&_=${Date.now()}`;
   const res = await fetchWithTimeout(url);
-  if (!res || !res.ok) return [];
+  if (!res) { console.log(`[tpex] ${code} ${roc} fetch null`); return []; }
+  if (!res.ok) { console.log(`[tpex] ${code} ${roc} status=${res.status}`); return []; }
   let json: any;
-  try { json = await res.json(); } catch { return []; }
+  try { json = await res.json(); } catch (e) { console.log(`[tpex] ${code} json parse err`, e); return []; }
   // 新版 schema: { tables: [{ data: [[ROC日期, 量, 額, 開, 高, 低, 收, 漲跌, 筆數]] }] }
   const tables = json?.tables;
   let rows: any[] = [];
@@ -84,10 +85,15 @@ async function tpexMonth(code: string, d: Date): Promise<number[]> {
   } else if (Array.isArray(json?.aaData)) {
     rows = json.aaData; // 舊版相容
   }
-  if (!rows.length) return [];
-  return rows
+  if (!rows.length) {
+    console.log(`[tpex] ${code} ${roc} no rows; keys=`, Object.keys(json || {}), 'stat=', json?.stat);
+    return [];
+  }
+  const closes = rows
     .map((r) => Number(String(r[6]).replace(/,/g, "")))
     .filter((n) => Number.isFinite(n) && n > 0);
+  console.log(`[tpex] ${code} ${roc} got ${closes.length} closes`);
+  return closes;
 }
 
 async function tpexRecent(code: string): Promise<number[]> {
