@@ -28,7 +28,15 @@ async function fetchWithTimeout(url: string, ms = 7000): Promise<Response | null
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), ms);
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+      headers: {
+        // 模擬真實瀏覽器；TPEX 對裸 fetch 會回 403/redirect，加 Referer + 完整 UA 即可通過
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+        "Referer": "https://www.tpex.org.tw/",
+        "X-Requested-With": "XMLHttpRequest",
+      },
       signal: ctrl.signal,
     });
     clearTimeout(t);
