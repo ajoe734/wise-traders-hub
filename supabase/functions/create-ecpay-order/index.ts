@@ -48,8 +48,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { planId, billingCycle, slug, amount, planName, expertName, origin, userId } =
-      await req.json();
+    const body = await req.json();
+    const {
+      planId, billingCycle, slug, amount, planName, expertName, origin, userId,
+      originalAmount, discountAmount, discountReason, attribution, expertId,
+      upgradeFromSubscriptionId,
+    } = body;
 
     if (!planId || !billingCycle || !slug || !amount || !origin) {
       return new Response(
