@@ -945,7 +945,27 @@ const Checkout = () => {
                     <span className="text-muted-foreground">付款方式</span>
                     <span>{providers.find(p => p.id === selectedProvider)?.display_name || '-'}</span>
                   </div>
-                  <div className="border-t pt-4">
+                  <div className="border-t pt-4 space-y-2">
+                    {(crossDiscount > 0 || upgradeCredit > 0) && (
+                      <>
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>原價</span>
+                          <span>NT$ {formatPrice(basePrice)}</span>
+                        </div>
+                        {crossDiscount > 0 && (
+                          <div className="flex justify-between text-sm text-primary">
+                            <span>跨產品折扣</span>
+                            <span>- NT$ {formatPrice(crossDiscount)}</span>
+                          </div>
+                        )}
+                        {upgradeCredit > 0 && (
+                          <div className="flex justify-between text-sm text-primary">
+                            <span>月升年抵扣</span>
+                            <span>- NT$ {formatPrice(upgradeCredit)}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
                     <div className="flex justify-between font-semibold">
                       <span>總計</span>
                       <span>NT$ {formatPrice(price)}</span>
