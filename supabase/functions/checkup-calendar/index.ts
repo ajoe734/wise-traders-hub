@@ -382,7 +382,7 @@ Deno.serve(async (req) => {
 
     const issues = validateInput({
       fields: {
-        stocks: { required: true, type: 'array', label: 'stocks 陣列' },
+        stocks: { required: true, type: 'string', minLength: 3, label: 'stocks（頓號分隔字串，如「2330 台積電、2317 鴻海」）' },
         today: { required: false, type: 'string', label: 'today YYYY/MM/DD' },
         endDate: { required: false, type: 'string', label: 'endDate YYYY/MM/DD' },
         debug: { required: false, type: 'boolean', label: 'debug' },
