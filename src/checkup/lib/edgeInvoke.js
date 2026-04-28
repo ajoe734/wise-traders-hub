@@ -174,16 +174,18 @@ export async function callEdge(fnName, opts = {}) {
   // ── 自動轉型 (coerce) ──────────────────────────────────
   const fieldSchema = getFieldSchema(fnName, schema, { body, query })
   if (fieldSchema) {
+    const allFixes = []
     if (body) {
       const { source: nextBody, fixes } = applyCoercion(fieldSchema, body)
       body = nextBody
-      if (fixes.length > 0 && !silent) showCoerceToast(fnName, fixes)
+      allFixes.push(...fixes)
     }
     if (query) {
       const { source: nextQuery, fixes } = applyCoercion(fieldSchema, query)
       query = nextQuery
-      if (fixes.length > 0 && !silent) showCoerceToast(fnName, fixes)
+      allFixes.push(...fixes)
     }
+    if (allFixes.length > 0 && !silent) showCoerceToast(fnName, allFixes)
   }
 
   // ── 前端驗證 ────────────────────────────────────────────
