@@ -4,7 +4,6 @@
  */
 
 export { HoldingsPage } from './HoldingsPage.jsx';
-export { WatchlistPage } from './WatchlistPage.jsx';
 export { EventsPage } from './EventsPage.jsx';
 export { DailyPage } from './DailyPage.jsx';
 export { ResearchPage } from './ResearchPage.jsx';
