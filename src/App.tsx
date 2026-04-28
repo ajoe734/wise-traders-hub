@@ -85,6 +85,9 @@ import CompanyPayments from "./pages/company/Payments";
 import CompanyAnnouncements from "./pages/company/Announcements";
 import CompanyAuditLogs from "./pages/company/AuditLogs";
 import CompanyPlanReview from "./pages/company/PlanReview";
+import CompanyRemittance from "./pages/company/Remittance";
+import CompanyPaymentSettings from "./pages/company/PaymentSettings";
+import CompanyReferralChannels from "./pages/company/ReferralChannels";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
@@ -194,6 +197,9 @@ const AppShell = () => (
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />
             <Route path="/company/audit-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyAuditLogs /></ProtectedRoute>} />
             <Route path="/company/plan-review" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlanReview /></ProtectedRoute>} />
+            <Route path="/company/remittance" element={<ProtectedRoute requiredRole="company_admin"><CompanyRemittance /></ProtectedRoute>} />
+            <Route path="/company/payment-settings" element={<ProtectedRoute requiredRole="company_admin"><CompanyPaymentSettings /></ProtectedRoute>} />
+            <Route path="/company/referral-channels" element={<ProtectedRoute requiredRole="company_admin"><CompanyReferralChannels /></ProtectedRoute>} />
 
             {/* Admin (expert backend) */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
