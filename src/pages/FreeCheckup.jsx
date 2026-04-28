@@ -3762,29 +3762,56 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   rowGap: 20,
                 }} className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}>
                   {orderedDisplayed.map(h => renderCard(h))}
-                  {/* + 新增持倉 虛線卡（導向上傳成交） */}
-                  <button
-                    onClick={() => setTab && setTab('trade')}
-                    className="wb-span-1"
-                    style={{
-                      minHeight: 320,
-                      background:'transparent',
-                      border:`1px dashed ${WB.hairStrong}`,
-                      borderRadius:4,
-                      color:WB.inkLight,
-                      cursor:'pointer',
-                      fontFamily:'inherit',
-                      display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                      gap:10,
-                      letterSpacing:'0.18em',
-                      transition:'border-color 160ms ease, color 160ms ease',
-                    }}
-                    onMouseEnter={(e)=>{e.currentTarget.style.borderColor=WB.ink;e.currentTarget.style.color=WB.ink;}}
-                    onMouseLeave={(e)=>{e.currentTarget.style.borderColor=WB.hairStrong;e.currentTarget.style.color=WB.inkLight;}}
-                  >
-                    <span style={{fontSize:24,fontWeight:300,lineHeight:1}}>+</span>
-                    <span style={{fontSize:10,fontWeight:500}}>上傳成交</span>
-                  </button>
+                  {/* 持倉為 0 時顯示強化空狀態（橫跨整列）；有持倉時顯示「+ 上傳成交」虛線卡 */}
+                  {orderedDisplayed.length === 0 ? (
+                    <button
+                      onClick={() => setTab && setTab('trade')}
+                      className="wb-span-full"
+                      style={{
+                        minHeight: 280,
+                        background:'transparent',
+                        border:`1px dashed ${WB.hairStrong}`,
+                        borderRadius:4,
+                        color:WB.ink,
+                        cursor:'pointer',
+                        fontFamily:'inherit',
+                        display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+                        gap:14,
+                        letterSpacing:'0.18em',
+                        padding:'40px 24px',
+                        transition:'border-color 160ms ease',
+                      }}
+                      onMouseEnter={(e)=>{e.currentTarget.style.borderColor=WB.ink;}}
+                      onMouseLeave={(e)=>{e.currentTarget.style.borderColor=WB.hairStrong;}}
+                    >
+                      <span style={{fontSize:32,fontWeight:300,lineHeight:1,color:WB.inkLight}}>+</span>
+                      <span style={{fontSize:14,fontWeight:500,letterSpacing:'0.12em',color:WB.ink}}>請上傳成交以建立持倉</span>
+                      <span style={{fontSize:10,fontWeight:500,letterSpacing:'0.24em',color:WB.inkMute}}>UPLOAD TRADES TO START</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setTab && setTab('trade')}
+                      className="wb-span-1"
+                      style={{
+                        minHeight: 320,
+                        background:'transparent',
+                        border:`1px dashed ${WB.hairStrong}`,
+                        borderRadius:4,
+                        color:WB.inkLight,
+                        cursor:'pointer',
+                        fontFamily:'inherit',
+                        display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+                        gap:10,
+                        letterSpacing:'0.18em',
+                        transition:'border-color 160ms ease, color 160ms ease',
+                      }}
+                      onMouseEnter={(e)=>{e.currentTarget.style.borderColor=WB.ink;e.currentTarget.style.color=WB.ink;}}
+                      onMouseLeave={(e)=>{e.currentTarget.style.borderColor=WB.hairStrong;e.currentTarget.style.color=WB.inkLight;}}
+                    >
+                      <span style={{fontSize:24,fontWeight:300,lineHeight:1}}>+</span>
+                      <span style={{fontSize:10,fontWeight:500}}>上傳成交</span>
+                    </button>
+                  )}
                   {!showAll && sorted.length > 12 && (
                     <button
                       onClick={() => setShowAll(true)}
