@@ -9,6 +9,9 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { supabase } from '@/integrations/supabase/client';
+import { useCrossProductDiscount } from '@/hooks/useCrossProductDiscount';
+import { readAttribution } from '@/hooks/useAttributionTracking';
+import { calcUpgradeProration } from '@/lib/revenueSplit';
 import { CheckCircle, Loader2, CreditCard, Shield, ArrowLeft, Check, XCircle } from 'lucide-react';
 import {
   AlertDialog,
@@ -400,7 +403,47 @@ const Checkout = () => {
   }
 
   const isAdvisor = plan.plan_type !== 'mentor_weekly_journal';
-  const price = billingCycle === 'monthly' ? plan.price_monthly : (plan.price_yearly || plan.price_monthly * 12);
+  const basePrice = billingCycle === 'monthly' ? plan.price_monthly : (plan.price_yearly || plan.price_monthly * 12);
+
+  // Stage 3: cross-product discount (if user has active checkup sub)
+  const { amount: crossDiscount, reason: crossReason } = useCrossProductDiscount({ productKind: 'expert_plan' });
+
+  // Stage 3: month→year upgrade proration
+  const [upgradeCredit, setUpgradeCredit] = useState(0);
+  const [upgradeFromSubId, setUpgradeFromSubId] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      if (!user?.id || billingCycle !== 'yearly' || !plan?.price_yearly) {
+        setUpgradeCredit(0); setUpgradeFromSubId(null); return;
+      }
+      const { data: existing } = await supabase
+        .from('member_subscriptions')
+        .select('id, started_at, expires_at')
+        .eq('user_id', user.id)
+        .eq('plan_id', plan.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (!existing) { setUpgradeCredit(0); setUpgradeFromSubId(null); return; }
+      // Detect monthly: span ≤ ~32 days
+      const startedAt = new Date(existing.started_at);
+      const expiresAt = new Date(existing.expires_at);
+      const spanDays = (expiresAt.getTime() - startedAt.getTime()) / (1000 * 60 * 60 * 24);
+      if (spanDays > 35) { setUpgradeCredit(0); setUpgradeFromSubId(null); return; }
+      const { creditAmount } = calcUpgradeProration({
+        monthlyPrice: plan.price_monthly,
+        yearlyPrice: plan.price_yearly,
+        startedAt, expiresAt,
+      });
+      setUpgradeCredit(creditAmount);
+      setUpgradeFromSubId(existing.id);
+    })();
+  }, [user?.id, billingCycle, plan?.id, plan?.price_monthly, plan?.price_yearly]);
+
+  const totalDiscount = crossDiscount + upgradeCredit;
+  const discountReason = upgradeCredit > 0
+    ? (crossReason ? `upgrade_proration+${crossReason}` : 'upgrade_proration')
+    : crossReason;
+  const price = Math.max(0, basePrice - totalDiscount);
 
   const formatPrice = (p: number) => new Intl.NumberFormat('zh-TW').format(p);
 
