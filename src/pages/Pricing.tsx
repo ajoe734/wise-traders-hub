@@ -10,6 +10,7 @@ import { CheckCircle, ArrowRight, Radio, BookOpen, Stethoscope, Plus, AlertCircl
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
+import { useCheckupPlans } from '@/hooks/useCheckupPlans';
 import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
 import cardKungfuBones from '@/assets/card-kungfu-bones.png';
 
@@ -818,124 +819,8 @@ const Pricing = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Add-on Module */}
-        <div className="max-w-4xl mx-auto mb-12">
-          <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <Plus className="h-5 w-5 text-primary" />
-            加購模組
-          </h2>
-          
-          <Card className="border-2 border-dashed border-advisor/40 bg-advisor-light/30">
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row md:items-center gap-6">
-                <div className={cn(
-                  "h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0",
-                  "bg-advisor-light"
-                )}>
-                  <Stethoscope className="h-7 w-7 text-advisor" />
-                </div>
-                
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold mb-2">持股健檢（單次）</h3>
-                  <p className="text-muted-foreground">
-                    把你手上的持股做一次完整體檢：風險、部位、策略方向與調整建議。
-                  </p>
-                </div>
-                
-                <div className="flex flex-col items-start md:items-end gap-2">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-sm text-muted-foreground">NT$</span>
-                    <span className="text-2xl font-bold">500</span>
-                    <span className="text-muted-foreground">／次</span>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    需先訂閱「跟單派」
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Rules Section */}
-        <div className="max-w-4xl mx-auto mb-12">
-          <Card className="bg-muted/30">
-            <CardContent className="p-6">
-              <h3 className="font-bold mb-4 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                加購規則
-              </h3>
-              <ul className="space-y-3 text-sm text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <span className="text-primary font-bold">•</span>
-                  <span>持股健檢為「單次」服務，不是月訂。</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary font-bold">•</span>
-                  <span>只有「跟單派」訂閱中，才可加購持股健檢。</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary font-bold">•</span>
-                  <span>下次想再健檢：跟單派有效期間內，可再次加購一次。</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Purchase Flow */}
-        <div className="max-w-4xl mx-auto mb-12">
-          <h2 className="text-xl font-bold mb-6">購買流程</h2>
-          <div className="flex flex-col md:flex-row gap-4 items-stretch">
-            <div className="flex-1 relative">
-              <Card className="h-full border-advisor/30">
-                <CardContent className="p-5 flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-advisor text-advisor-foreground flex items-center justify-center font-bold text-lg flex-shrink-0">
-                    1
-                  </div>
-                  <div>
-                    <p className="font-medium">訂閱跟單派</p>
-                    <p className="text-sm text-muted-foreground">NT$ 1,699／月</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <div className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 z-10">
-                <ArrowRight className="h-6 w-6 text-muted-foreground" />
-              </div>
-            </div>
-            
-            <div className="flex-1 relative">
-              <Card className="h-full border-dashed border-advisor/40">
-                <CardContent className="p-5 flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold text-lg flex-shrink-0">
-                    2
-                  </div>
-                  <div>
-                    <p className="font-medium">加購持股健檢</p>
-                    <p className="text-sm text-muted-foreground">NT$ 500／次（可選）</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <div className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 z-10">
-                <ArrowRight className="h-6 w-6 text-muted-foreground" />
-              </div>
-            </div>
-            
-            <div className="flex-1">
-              <Card className="h-full border-dashed border-muted-foreground/30">
-                <CardContent className="p-5 flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold text-lg flex-shrink-0">
-                    3
-                  </div>
-                  <div>
-                    <p className="font-medium">需要第二次健檢</p>
-                    <p className="text-sm text-muted-foreground">有效期間內可再加購</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
+        {/* 持股健檢方案 */}
+        <CheckupPlansSection />
 
         {/* FAQ */}
         <div className="max-w-3xl mx-auto">
