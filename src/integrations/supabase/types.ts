@@ -697,6 +697,8 @@ export type Database = {
           name: string
           role: Database["public"]["Enums"]["expert_role"]
           slug: string
+          split_no_ref: Json | null
+          split_with_ref: Json | null
           starting_capital: number | null
           status: string
           strategy_summary: string | null
@@ -717,6 +719,8 @@ export type Database = {
           name: string
           role: Database["public"]["Enums"]["expert_role"]
           slug: string
+          split_no_ref?: Json | null
+          split_with_ref?: Json | null
           starting_capital?: number | null
           status?: string
           strategy_summary?: string | null
@@ -737,6 +741,8 @@ export type Database = {
           name?: string
           role?: Database["public"]["Enums"]["expert_role"]
           slug?: string
+          split_no_ref?: Json | null
+          split_with_ref?: Json | null
           starting_capital?: number | null
           status?: string
           strategy_summary?: string | null
@@ -959,12 +965,40 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       payment_transactions: {
         Row: {
           amount: number
+          attribution: Json | null
           created_at: string
           currency: string
+          discount_amount: number
+          discount_reason: string | null
           id: string
+          original_amount: number | null
           paid_at: string | null
           provider_id: string | null
           provider_tx_id: string | null
@@ -973,9 +1007,13 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          attribution?: Json | null
           created_at?: string
           currency?: string
+          discount_amount?: number
+          discount_reason?: string | null
           id?: string
+          original_amount?: number | null
           paid_at?: string | null
           provider_id?: string | null
           provider_tx_id?: string | null
@@ -984,9 +1022,13 @@ export type Database = {
         }
         Update: {
           amount?: number
+          attribution?: Json | null
           created_at?: string
           currency?: string
+          discount_amount?: number
+          discount_reason?: string | null
           id?: string
+          original_amount?: number | null
           paid_at?: string | null
           provider_id?: string | null
           provider_tx_id?: string | null
@@ -1053,6 +1095,201 @@ export type Database = {
           line_user_id?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      referral_attributions: {
+        Row: {
+          created_at: string
+          id: string
+          landing_path: string | null
+          locked_until: string
+          ref_code: string | null
+          user_id: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          landing_path?: string | null
+          locked_until?: string
+          ref_code?: string | null
+          user_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          landing_path?: string | null
+          locked_until?: string
+          ref_code?: string | null
+          user_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
+      referral_channels: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          pct_channel: number | null
+          pct_expert: number | null
+          pct_platform: number | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          pct_channel?: number | null
+          pct_expert?: number | null
+          pct_platform?: number | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          pct_channel?: number | null
+          pct_expert?: number | null
+          pct_platform?: number | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      remittance_orders: {
+        Row: {
+          amount: number
+          attribution: Json | null
+          billing_cycle: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          discount_amount: number
+          discount_reason: string | null
+          id: string
+          last5: string
+          original_amount: number | null
+          payer_name: string
+          plan_id: string
+          reject_reason: string | null
+          status: string
+          subscription_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          attribution?: Json | null
+          billing_cycle: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          discount_amount?: number
+          discount_reason?: string | null
+          id?: string
+          last5: string
+          original_amount?: number | null
+          payer_name: string
+          plan_id: string
+          reject_reason?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          attribution?: Json | null
+          billing_cycle?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          discount_amount?: number
+          discount_reason?: string | null
+          id?: string
+          last5?: string
+          original_amount?: number | null
+          payer_name?: string
+          plan_id?: string
+          reject_reason?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      revenue_splits: {
+        Row: {
+          channel_reserve: number
+          created_at: string
+          discount: number
+          discount_source: string | null
+          expert_amount: number
+          expert_id: string | null
+          gross: number
+          id: string
+          net: number
+          plan_id: string | null
+          platform_amount: number
+          rule_snapshot: Json
+          rule_source: string
+          transaction_id: string
+          utm_snapshot: Json | null
+        }
+        Insert: {
+          channel_reserve?: number
+          created_at?: string
+          discount?: number
+          discount_source?: string | null
+          expert_amount?: number
+          expert_id?: string | null
+          gross: number
+          id?: string
+          net: number
+          plan_id?: string | null
+          platform_amount: number
+          rule_snapshot: Json
+          rule_source: string
+          transaction_id: string
+          utm_snapshot?: Json | null
+        }
+        Update: {
+          channel_reserve?: number
+          created_at?: string
+          discount?: number
+          discount_source?: string | null
+          expert_amount?: number
+          expert_id?: string | null
+          gross?: number
+          id?: string
+          net?: number
+          plan_id?: string | null
+          platform_amount?: number
+          rule_snapshot?: Json
+          rule_source?: string
+          transaction_id?: string
+          utm_snapshot?: Json | null
         }
         Relationships: []
       }
@@ -1509,6 +1746,8 @@ export type Database = {
         | "analyst_signal_l1"
         | "analyst_signal_diag_l2"
         | "mentor_weekly_journal"
+        | "checkup_basic"
+        | "checkup_pro"
       provider_type: "ecpay" | "newebpay" | "stripe" | "line_pay" | "acpay"
       signal_action: "buy" | "sell" | "add" | "trim" | "exit"
       signal_status: "published" | "pending"
@@ -1650,6 +1889,8 @@ export const Constants = {
         "analyst_signal_l1",
         "analyst_signal_diag_l2",
         "mentor_weekly_journal",
+        "checkup_basic",
+        "checkup_pro",
       ],
       provider_type: ["ecpay", "newebpay", "stripe", "line_pay", "acpay"],
       signal_action: ["buy", "sell", "add", "trim", "exit"],
