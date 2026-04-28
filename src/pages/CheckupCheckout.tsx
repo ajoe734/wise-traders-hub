@@ -298,9 +298,23 @@ export default function CheckupCheckout() {
         )}
 
         <Card>
-          <CardContent className="p-5 flex items-center justify-between">
-            <span className="text-muted-foreground">應付金額</span>
-            <span className="text-2xl font-bold">NT$ {price.toLocaleString()}</span>
+          <CardContent className="p-5 space-y-2">
+            {crossDiscount > 0 && (
+              <>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>原價</span>
+                  <span>NT$ {basePrice.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-primary">
+                  <span>跨產品折扣（已訂閱專家方案）</span>
+                  <span>- NT$ {crossDiscount.toLocaleString()}</span>
+                </div>
+              </>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">應付金額</span>
+              <span className="text-2xl font-bold">NT$ {price.toLocaleString()}</span>
+            </div>
           </CardContent>
         </Card>
 
