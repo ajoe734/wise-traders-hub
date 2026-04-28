@@ -111,6 +111,13 @@ const persistOptions = queryPersister
     }
   : null;
 
+import { useAttributionTracking } from "@/hooks/useAttributionTracking";
+
+const AttributionTracker = () => {
+  useAttributionTracking();
+  return null;
+};
+
 const AppShell = () => (
   <AuthProvider>
     <RealtimeBridge />
@@ -118,6 +125,7 @@ const AppShell = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+          <AttributionTracker />
           <ScrollToTop />
           <Routes>
             {/* Portal (public) */}
