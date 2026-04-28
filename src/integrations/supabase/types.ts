@@ -128,6 +128,51 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          features: Json
+          id: string
+          is_active: boolean
+          monthly_quota: number
+          name: string
+          price_monthly: number
+          price_yearly: number
+          sort_order: number
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          is_active?: boolean
+          monthly_quota: number
+          name: string
+          price_monthly: number
+          price_yearly: number
+          sort_order?: number
+          tier: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          is_active?: boolean
+          monthly_quota?: number
+          name?: string
+          price_monthly?: number
+          price_yearly?: number
+          sort_order?: number
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       checkup_prediction_accuracy: {
         Row: {
           actual: string
@@ -179,6 +224,56 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_subscriptions: {
+        Row: {
+          auto_renew: boolean
+          billing_cycle: string
+          canceled_at: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          plan_id: string
+          provider_id: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          user_id: string
+        }
+        Insert: {
+          auto_renew?: boolean
+          billing_cycle: string
+          canceled_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          plan_id: string
+          provider_id?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          user_id: string
+        }
+        Update: {
+          auto_renew?: boolean
+          billing_cycle?: string
+          canceled_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          plan_id?: string
+          provider_id?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkup_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkup_trade_memos: {
         Row: {
           action: string | null
@@ -217,6 +312,27 @@ export type Database = {
           qty?: number | null
           trade_date?: string | null
           trade_time?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      checkup_usage: {
+        Row: {
+          id: string
+          kind: string
+          used_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          kind?: string
+          used_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          kind?: string
+          used_at?: string
           user_id?: string
         }
         Relationships: []
@@ -1184,6 +1300,7 @@ export type Database = {
           amount: number
           attribution: Json | null
           billing_cycle: string
+          checkup_plan_id: string | null
           confirmed_at: string | null
           confirmed_by: string | null
           created_at: string
@@ -1193,7 +1310,8 @@ export type Database = {
           last5: string
           original_amount: number | null
           payer_name: string
-          plan_id: string
+          plan_id: string | null
+          product_kind: string
           reject_reason: string | null
           status: string
           subscription_id: string | null
@@ -1203,6 +1321,7 @@ export type Database = {
           amount: number
           attribution?: Json | null
           billing_cycle: string
+          checkup_plan_id?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
@@ -1212,7 +1331,8 @@ export type Database = {
           last5: string
           original_amount?: number | null
           payer_name: string
-          plan_id: string
+          plan_id?: string | null
+          product_kind?: string
           reject_reason?: string | null
           status?: string
           subscription_id?: string | null
@@ -1222,6 +1342,7 @@ export type Database = {
           amount?: number
           attribution?: Json | null
           billing_cycle?: string
+          checkup_plan_id?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
@@ -1231,13 +1352,22 @@ export type Database = {
           last5?: string
           original_amount?: number | null
           payer_name?: string
-          plan_id?: string
+          plan_id?: string | null
+          product_kind?: string
           reject_reason?: string | null
           status?: string
           subscription_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "remittance_orders_checkup_plan_id_fkey"
+            columns: ["checkup_plan_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       revenue_splits: {
         Row: {
