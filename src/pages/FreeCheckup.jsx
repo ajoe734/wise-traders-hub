@@ -2552,7 +2552,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
   const TABS = [
     {k:"holdings", label:"持倉"},
-    {k:"watchlist",label:"觀察股"},
     {k:"events",   label:`行事曆${urgentCount>0?" ·":""}`},
     {k:"news",     label:"事件分析"},
     {k:"daily",    label:analyzing?"分析中...":"收盤分析"},
@@ -3757,9 +3756,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   rowGap: 20,
                 }} className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}>
                   {orderedDisplayed.map(h => renderCard(h))}
-                  {/* + Add Watchlist 虛線卡 */}
+                  {/* + 新增持倉 虛線卡（導向上傳成交） */}
                   <button
-                    onClick={() => setTab && setTab('watchlist')}
+                    onClick={() => setTab && setTab('trade')}
                     className="wb-span-1"
                     style={{
                       minHeight: 320,
@@ -4022,56 +4021,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               .wb-card .wb-bottom-val { font-size: clamp(8.5px, 2.8vw, 10.5px) !important; }
             }
           `}</style>
-        </>}
-
-        {/* ══════════ WATCHLIST ══════════ */}
-        {tab==="watchlist" && <>
-          {H.length === 0 ? (
-            <div style={{textAlign:"center",padding:"36px 16px"}}>
-              <div style={{fontSize:13,color:C.textMute,fontWeight:400}}>尚無觀察股</div>
-              <div style={{fontSize:12,color:C.textMute,marginTop:6,lineHeight:1.7}}>
-                上傳成交截圖後，持倉股票會自動出現在觀察清單
-              </div>
-            </div>
-          ) : (
-            H.map((h,wi)=>{
-              const tgt = targets && targets[h.code] ? avgTarget(h.code) : null;
-              const upside = tgt ? (((tgt - h.price) / h.price) * 100).toFixed(1) : null;
-              const prog = tgt ? Math.min(h.price / tgt * 100, 100) : 0;
-              return <div key={h.code} style={{padding:"10px 0",
-                borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div>
-                    <span style={{fontSize:13,fontWeight:400,color:C.text}}>{h.name}</span>
-                    <span style={{fontSize:10,color:C.textMute,fontWeight:400,marginLeft:6}}>{h.code}</span>
-                    <span style={{fontSize:11,color:C.textMute,marginLeft:8}}>持有 {h.qty} {h.unit || "股"}</span>
-                  </div>
-                  <span style={{fontSize:12,fontWeight:400,
-                    color: h.pnl >= 0 ? C.up : C.down}}>
-                    {h.pnl >= 0 ? "獲利中" : "虧損中"}
-                  </span>
-                </div>
-                <div style={{display:"flex",gap:16,marginTop:6,flexWrap:"wrap"}}>
-                  {[["市價", h.price?.toLocaleString() || "—", C.textSec],
-                    ["成本", h.cost != null ? String(h.cost) : "—", C.textMute],
-                    ...(tgt ? [["目標價", tgt.toLocaleString(), C.textSec], ["潛在漲幅", (upside > 0 ? "+" : "") + upside + "%", C.textSec]] : []),
-                    ["損益", (h.pnl >= 0 ? "+" : "") + h.pct?.toFixed(2) + "%", h.pnl >= 0 ? C.up : C.down],
-                  ].map(([l,v,c])=>(
-                    <div key={l}>
-                      <div style={{fontSize:10,color:C.textMute,marginBottom:2,letterSpacing:"0.05em"}}>{l}</div>
-                      <div style={{fontSize:13,fontWeight:400,color:c}}>{v}</div>
-                    </div>
-                  ))}
-                </div>
-                {tgt && <div style={{marginTop:8}}>
-                  <div style={{background:alpha(C.textMute,'06'),borderRadius:1,height:2}}>
-                    <div style={{width:`${prog}%`,height:"100%",
-                      background:alpha(C.textMute,'20'),borderRadius:1}}/>
-                  </div>
-                </div>}
-              </div>;
-            })
-          )}
         </>}
 
         {/* ══════════ EVENTS ══════════ */}
@@ -5838,7 +5787,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               fontSize:12,color:C.textMute,lineHeight:2}}>
               持倉資料（所有股票部位）<br/>
               交易日誌（所有買賣紀錄）<br/>
-              觀察股清單<br/>
               行事曆事件（法說、財報等）<br/>
               事件分析（預測與復盤紀錄）<br/>
               收盤分析（歷史分析報告）<br/>
