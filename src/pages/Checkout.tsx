@@ -520,13 +520,19 @@ const Checkout = () => {
       }
 
       if (provider?.provider_type === 'ecpay') {
-        // Call create-ecpay-order edge function
+        const attribution = readAttribution();
         const { data, error } = await supabase.functions.invoke('create-ecpay-order', {
           body: {
             planId: plan.id,
             billingCycle,
             slug,
             amount: price,
+            originalAmount: basePrice,
+            discountAmount: totalDiscount,
+            discountReason,
+            attribution,
+            expertId: plan.expert_id,
+            upgradeFromSubscriptionId: upgradeCredit > 0 ? upgradeFromSubId : null,
             planName: plan.name,
             expertName: expert.name,
             origin: window.location.origin,
