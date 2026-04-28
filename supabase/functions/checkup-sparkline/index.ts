@@ -2,6 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
+import { applyCoercion } from "../_shared/inputCoerce.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -91,12 +92,18 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch { body = {}; }
 
-    const issues = validateInput({
-      fields: {
-        codes: { required: true, type: 'array', minItems: 1, label: 'codes 陣列（至少 1 筆）' },
+    const fields = {
+      codes: {
+        required: true, type: 'array' as const, minItems: 1,
+        coerce: 'stocksArray',
+        acceptTypes: ['string' as const],
+        label: 'codes',
+        example: '["2330", "2317", "3443"]',
+        hint: '股票代碼陣列，可傳字串（會以頓號/逗號自動拆分）或陣列',
       },
-      source: body,
-    });
+    };
+    body = applyCoercion(fields as any, body).source;
+    const issues = validateInput({ fields: fields as any, source: body });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
     const codesRaw: unknown = body?.codes;

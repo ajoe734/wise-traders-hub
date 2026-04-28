@@ -1,7 +1,8 @@
 // 統一的 Edge Function 呼叫入口：
-//   1. 用 EDGE_SCHEMAS 在 client-side 先把缺值/格式錯誤擋下來（直接 toast + throw）
-//   2. 包成 fetch，補上 Authorization、CORS、JSON parse
-//   3. 後端回 4xx 時把 fields/error 翻成可讀 toast
+//   1. 先做「自動轉型 (coerce)」把 stocks/codes/symbols 標準化
+//   2. 用 EDGE_SCHEMAS 在 client-side 把缺值/格式錯誤擋下來（toast + throw）
+//   3. 包成 fetch，補上 Authorization、CORS、JSON parse
+//   4. 後端回 4xx 時把 fields/error 翻成可讀 toast（含期待格式範例 + 跳到欄位按鈕）
 //
 // 使用方式：
 //   import { callEdge } from '@/checkup/lib/edgeInvoke'
@@ -11,6 +12,7 @@
 import { toast } from 'sonner'
 import { supabase } from '@/integrations/supabase/client'
 import { EDGE_SCHEMAS } from './edgeSchemas.js'
+import { applyCoercion } from './edgeCoerce.js'
 
 const SUPABASE_URL = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_URL || '' : ''
 const ANON_KEY = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || '' : ''
@@ -35,33 +37,45 @@ function describeType(value, type) {
   return 'ok'
 }
 
+function typeMatches(value, spec) {
+  // acceptTypes 用於「coerce 之前」放寬型別檢查；coerce 之後仍會走主 type
+  const main = describeType(value, spec.type)
+  if (main === 'ok') return true
+  if (spec.acceptTypes && Array.isArray(spec.acceptTypes)) {
+    for (const t of spec.acceptTypes) {
+      if (describeType(value, t) === 'ok') return true
+    }
+  }
+  return false
+}
+
 function validateField(key, spec, source) {
-  // 支援 altKey（例如 checkup-analyze 的 prompt = userPrompt 別名）
   const direct = source?.[key]
   const alt = spec.altKey ? source?.[spec.altKey] : undefined
   const value = direct !== undefined ? direct : alt
   const issues = []
+  const label = spec.label || key
 
   const status = describeType(value, spec.type)
   if (status === 'missing') {
-    if (spec.required) issues.push({ key, label: spec.label || key, reason: '缺少必填欄位' })
+    if (spec.required) issues.push(buildIssue(key, label, '缺少必填欄位', spec))
     return issues
   }
-  if (status === 'wrong-type') {
-    issues.push({ key, label: spec.label || key, reason: `型別錯誤（需要 ${spec.type}）` })
+  if (status === 'wrong-type' && !typeMatches(value, spec)) {
+    issues.push(buildIssue(key, label, `型別錯誤（需要 ${spec.type}）`, spec))
     return issues
   }
-  if (spec.type === 'string' && spec.minLength != null && value.trim().length < spec.minLength) {
-    issues.push({ key, label: spec.label || key, reason: `長度需 ≥ ${spec.minLength}` })
+  if (spec.type === 'string' && spec.minLength != null && (value?.trim?.().length || 0) < spec.minLength) {
+    issues.push(buildIssue(key, label, `長度需 ≥ ${spec.minLength}`, spec))
   }
-  if (spec.type === 'array' && spec.minItems != null && value.length < spec.minItems) {
-    issues.push({ key, label: spec.label || key, reason: `至少 ${spec.minItems} 筆` })
+  if (spec.type === 'array' && spec.minItems != null && Array.isArray(value) && value.length < spec.minItems) {
+    issues.push(buildIssue(key, label, `至少 ${spec.minItems} 筆`, spec))
   }
-  if (spec.type === 'string' && spec.pattern && !spec.pattern.test(value)) {
-    issues.push({ key, label: spec.label || key, reason: '格式不正確' })
+  if (spec.type === 'string' && spec.pattern && typeof value === 'string' && !spec.pattern.test(value)) {
+    issues.push(buildIssue(key, label, '格式不正確', spec))
   }
   if (spec.oneOf && !spec.oneOf.includes(value)) {
-    issues.push({ key, label: spec.label || key, reason: `值需為 ${spec.oneOf.join(' / ')}` })
+    issues.push(buildIssue(key, label, `值需為 ${spec.oneOf.join(' / ')}`, spec))
   }
   if (spec.type === 'object' && spec.nested) {
     for (const [nKey, nSpec] of Object.entries(spec.nested)) {
@@ -71,14 +85,22 @@ function validateField(key, spec, source) {
   return issues
 }
 
+function buildIssue(key, label, reason, spec) {
+  return {
+    key,
+    label,
+    reason,
+    example: spec?.example,
+    hint: spec?.hint,
+  }
+}
+
 function validatePayload(fnName, schema, { body, query }) {
   let fieldSchema = null
 
   if (schema.actions) {
     const action = (body && body.action) || (query && query.action)
-    if (!action) {
-      return [{ key: 'action', label: 'action', reason: '缺少必填欄位' }]
-    }
+    if (!action) return [{ key: 'action', label: 'action', reason: '缺少必填欄位' }]
     fieldSchema = schema.actions[action]
     if (!fieldSchema) {
       const allowed = Object.keys(schema.actions).join(' / ')
@@ -100,10 +122,58 @@ function validatePayload(fnName, schema, { body, query }) {
   return issues
 }
 
+function getFieldSchema(fnName, schema, { body, query }) {
+  if (schema.actions) {
+    const action = (body && body.action) || (query && query.action)
+    return schema.actions?.[action] || null
+  }
+  if (schema.method === 'GET') return schema.query || null
+  if (schema.method === 'POST') return schema.body || null
+  if (schema.method === 'BOTH') return body ? (schema.body || null) : (schema.get || null)
+  return null
+}
+
+function focusField(key) {
+  if (typeof document === 'undefined') return
+  const el = document.querySelector(`[data-edge-field="${CSS.escape(key)}"]`)
+  if (!el) return
+  try {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (typeof el.focus === 'function') {
+      setTimeout(() => { try { el.focus({ preventScroll: true }) } catch { /* noop */ } }, 350)
+    }
+    el.classList.add('edge-field-flash')
+    setTimeout(() => el.classList.remove('edge-field-flash'), 1400)
+  } catch { /* noop */ }
+}
+
 function showValidationToast(fnName, fields) {
-  const lines = fields.map((f) => `• ${f.label}：${f.reason}`).join('\n')
-  toast.error(`參數錯誤 — ${fnName}`, { description: lines })
+  const lines = fields.map((f) => {
+    const parts = [`• ${f.label}：${f.reason}`]
+    if (f.example) parts.push(`  範例：${f.example}`)
+    if (f.hint) parts.push(`  ${f.hint}`)
+    return parts.join('\n')
+  }).join('\n')
+
+  // 第一個有 key 的欄位用來提供「跳到欄位」的 action
+  const focusable = fields.find((f) => f.key && typeof document !== 'undefined' && document.querySelector(`[data-edge-field="${CSS.escape(f.key)}"]`))
+
+  toast.error(`參數錯誤 — ${fnName}`, {
+    description: lines,
+    duration: 8000,
+    action: focusable ? { label: '跳到欄位', onClick: () => focusField(focusable.key) } : undefined,
+  })
   console.error(`[edgeInvoke][${fnName}] validation failed`, fields)
+}
+
+function showCoerceToast(fnName, fixes) {
+  if (!fixes || fixes.length === 0) return
+  const lines = fixes.map((f) => `• ${f.label}：${f.summary || '已標準化'}`).join('\n')
+  toast.message(`已自動修正 — ${fnName}`, {
+    description: lines,
+    duration: 4000,
+  })
+  console.info(`[edgeInvoke][${fnName}] auto-coerced`, fixes)
 }
 
 function buildUrl(fnName, query) {
@@ -134,13 +204,27 @@ async function getAuthHeader() {
  * @param {string} fnName 例如 'checkup-analyze'
  * @param {{body?: object, query?: object, signal?: AbortSignal, silent?: boolean}} opts
  *   silent: true 時驗證失敗只 throw，不彈 toast（適合背景同步）
- * @returns {Promise<any>} 解析後的 JSON
  */
 export async function callEdge(fnName, opts = {}) {
   const schema = EDGE_SCHEMAS[fnName]
   if (!schema) throw new Error(`[edgeInvoke] 未註冊的 function: ${fnName}`)
 
-  const { body, query, signal, silent } = opts
+  let { body, query, signal, silent } = opts
+
+  // ── 自動轉型 (coerce) ──────────────────────────────────
+  const fieldSchema = getFieldSchema(fnName, schema, { body, query })
+  if (fieldSchema) {
+    if (body) {
+      const { source: nextBody, fixes } = applyCoercion(fieldSchema, body)
+      body = nextBody
+      if (fixes.length > 0 && !silent) showCoerceToast(fnName, fixes)
+    }
+    if (query) {
+      const { source: nextQuery, fixes } = applyCoercion(fieldSchema, query)
+      query = nextQuery
+      if (fixes.length > 0 && !silent) showCoerceToast(fnName, fixes)
+    }
+  }
 
   // ── 前端驗證 ────────────────────────────────────────────
   const issues = validatePayload(fnName, schema, { body, query })
@@ -171,7 +255,6 @@ export async function callEdge(fnName, opts = {}) {
     throw err
   }
 
-  // 解析 body
   let json = null
   let text = ''
   try {
@@ -181,7 +264,6 @@ export async function callEdge(fnName, opts = {}) {
     json = null
   }
 
-  // ── 4xx：把 server 的 VALIDATION_ERROR 翻譯成 toast ─────
   if (!res.ok) {
     if (res.status === 400 && json?.error === 'VALIDATION_ERROR' && Array.isArray(json.fields)) {
       if (!silent) showValidationToast(fnName, json.fields)

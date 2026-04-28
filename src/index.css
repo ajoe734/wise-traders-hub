@@ -469,3 +469,16 @@
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* edgeInvoke 「跳到欄位」視覺閃爍提示 */
+.edge-field-flash {
+  animation: edge-field-flash 1.4s ease-out;
+  outline: 2px solid hsl(var(--primary, 25 90% 55%));
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+@keyframes edge-field-flash {
+  0%   { box-shadow: 0 0 0 0 hsl(var(--primary, 25 90% 55%) / 0.55); }
+  60%  { box-shadow: 0 0 0 10px hsl(var(--primary, 25 90% 55%) / 0); }
+  100% { box-shadow: 0 0 0 0 hsl(var(--primary, 25 90% 55%) / 0); }
+}

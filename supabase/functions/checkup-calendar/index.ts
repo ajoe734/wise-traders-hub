@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
+import { applyCoercion } from "../_shared/inputCoerce.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -380,15 +381,24 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch { body = {}; }
 
-    const issues = validateInput({
-      fields: {
-        stocks: { required: true, type: 'string', minLength: 3, label: 'stocks（頓號分隔字串，如「2330 台積電、2317 鴻海」）' },
-        today: { required: false, type: 'string', label: 'today YYYY/MM/DD' },
-        endDate: { required: false, type: 'string', label: 'endDate YYYY/MM/DD' },
-        debug: { required: false, type: 'boolean', label: 'debug' },
+    // Auto-coerce: 接受 stocks 為陣列或頓號/逗號字串，標準化成單一頓號分隔字串
+    const fields = {
+      stocks: {
+        required: true, type: 'string' as const, minLength: 3,
+        coerce: 'stocksString',
+        acceptTypes: ['array' as const],
+        label: 'stocks',
+        example: '2330 台積電、2317 鴻海、3443 創意',
+        hint: '請用頓號（、）或逗號（,）分隔「代碼 名稱」，可傳字串或陣列',
       },
-      source: body,
-    });
+      today: { required: false, type: 'string' as const, label: 'today YYYY/MM/DD', example: '2026/04/27' },
+      endDate: { required: false, type: 'string' as const, label: 'endDate YYYY/MM/DD', example: '2027/04/27' },
+      debug: { required: false, type: 'boolean' as const, label: 'debug' },
+    };
+    const coerced = applyCoercion(fields as any, body);
+    body = coerced.source;
+
+    const issues = validateInput({ fields: fields as any, source: body });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
     const { stocks, today, endDate, debug } = body;

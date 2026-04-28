@@ -34,9 +34,17 @@ export const EDGE_SCHEMAS = {
   'checkup-calendar': {
     method: 'POST',
     body: {
-      stocks: REQ('string', { minLength: 3, label: 'stocks（頓號分隔字串，如「2330 台積電、2317 鴻海」）' }),
-      today: OPT('string', { label: 'today YYYY/MM/DD' }),
-      endDate: OPT('string', { label: 'endDate YYYY/MM/DD' }),
+      // 接受字串或陣列；invoker 會自動轉成「2330 台積電、2317 鴻海」格式並去重
+      stocks: REQ('string', {
+        minLength: 3,
+        coerce: 'stocksString',
+        acceptTypes: ['string', 'array'],
+        label: 'stocks',
+        example: '2330 台積電、2317 鴻海、3443 創意',
+        hint: '請以頓號（、）或逗號（,）分隔「代碼 名稱」，可傳字串或陣列',
+      }),
+      today: OPT('string', { label: 'today YYYY/MM/DD', example: '2026/04/27' }),
+      endDate: OPT('string', { label: 'endDate YYYY/MM/DD', example: '2027/04/27' }),
       debug: OPT('boolean'),
     },
   },
@@ -191,7 +199,14 @@ export const EDGE_SCHEMAS = {
   'checkup-sparkline': {
     method: 'POST',
     body: {
-      codes: REQ('array', { minItems: 1, label: 'codes 陣列' }),
+      codes: REQ('array', {
+        minItems: 1,
+        coerce: 'stocksArray',
+        acceptTypes: ['array', 'string'],
+        label: 'codes',
+        example: '["2330", "2317", "3443"]',
+        hint: '股票代碼陣列，可傳字串（會自動拆分）或陣列',
+      }),
     },
   },
 
@@ -199,7 +214,14 @@ export const EDGE_SCHEMAS = {
   'stock-name-lookup': {
     method: 'POST',
     body: {
-      symbols: REQ('array', { minItems: 1, label: 'symbols 陣列' }),
+      symbols: REQ('array', {
+        minItems: 1,
+        coerce: 'stocksArray',
+        acceptTypes: ['array', 'string'],
+        label: 'symbols',
+        example: '["2330", "2317"]',
+        hint: '股票代碼陣列，可傳字串（會自動拆分）或陣列',
+      }),
     },
   },
 }
