@@ -5586,7 +5586,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 </button>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* 手動更新目標價 */}
           {!parsed && !img && (()=>{
