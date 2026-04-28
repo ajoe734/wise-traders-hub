@@ -4106,6 +4106,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               .wb-card .wb-bottom { gap: 8px !important; }
               .wb-card .wb-bottom-val { font-size: clamp(10px, 2.6vw, 12px) !important; }
             }
+            /* 持倉空狀態引導 — 手機優化 */
+            @media (max-width: 560px) {
+              .holdings-empty-guide { padding: 32px 16px !important; gap: 20px !important; }
+              .holdings-empty-steps { grid-template-columns: 1fr !important; }
+            }
+            @media (max-width: 380px) {
+              .holdings-empty-guide { padding: 24px 12px !important; }
+            }
             @media (max-width: 380px) {
               .wb-card .wb-spark { display: none !important; }
               .wb-card .wb-bottom .wb-bottom-val { letter-spacing: 0 !important; }
