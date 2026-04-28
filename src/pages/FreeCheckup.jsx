@@ -2746,6 +2746,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         )}
 
+        <CoachMarks onTabChange={setTab} />
         <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,marginTop:2}}>
           {TABS.map(t=>(
             <button key={t.k} onClick={()=>{setTab(t.k);window.scrollTo({top:0,behavior:"smooth"})}} style={{
