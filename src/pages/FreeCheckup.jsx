@@ -385,6 +385,8 @@ export default function App() {
   const [parsing, setParsing]   = useState(false);
   const [parsed,  setParsed]    = useState(null);
   const [parseErr,setParseErr]  = useState(null);
+  // 上傳成功後的摘要：{ added: [{code,name,qty}], updated: [...], at: timestamp }
+  const [uploadSummary, setUploadSummary] = useState(null);
   // 解析/同步進度追蹤：{ stage, label, progress(0-100), detail }
   // stage: 'upload' | 'ai' | 'retry' | 'persist' | 'refresh' | 'done' | 'error'
   const [parseStep, setParseStep] = useState(null);
