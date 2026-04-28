@@ -723,7 +723,6 @@ export function MorningNoteSection({ morningNote }) {
   const hasContent =
     (sections.todayEvents?.length > 0) ||
     (sections.holdingStatus?.length > 0) ||
-    (sections.watchlistAlerts?.length > 0) ||
     (sections.announcements?.length > 0)
 
   if (!hasContent) return null
@@ -786,20 +785,6 @@ export function MorningNoteSection({ morningNote }) {
         )
       ),
 
-    // Watchlist alerts
-    sections.watchlistAlerts?.length > 0 &&
-      h(
-        'div',
-        { style: { marginBottom: 8 } },
-        h('div', { style: { fontSize: 10, color: C.textSec, fontWeight: 600, marginBottom: 4 } }, '觀察股提示'),
-        sections.watchlistAlerts.map((w) =>
-          h(
-            'div',
-            { key: w.code, style: { fontSize: 11, color: C.up, padding: '3px 0' } },
-            `${w.name}(${w.code}) 接近進場價 ${w.entryPrice}（距離 ${w.distance >= 0 ? '+' : ''}${w.distance.toFixed(1)}%）`
-          )
-        )
-      ),
 
     // Announcements
     sections.announcements?.length > 0 &&
