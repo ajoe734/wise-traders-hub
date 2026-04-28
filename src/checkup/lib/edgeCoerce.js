@@ -103,7 +103,8 @@ export function applyCoercion(fields, source) {
     if (!fn) continue
     const original = source[key]
     if (original === undefined || original === null || original === '') continue
-    const { value: coerced, changed } = fn(original)
+    const result = fn(original)
+    const { value: coerced, changed, removedDuplicates = 0, duplicates = [] } = result
     if (changed) {
       if (next === source) next = { ...source }
       next[key] = coerced
@@ -112,7 +113,9 @@ export function applyCoercion(fields, source) {
         label: spec.label || key,
         before: original,
         after: coerced,
-        summary: summarizeFix(original, coerced),
+        removedDuplicates,
+        duplicates,
+        summary: summarizeFix(original, coerced, removedDuplicates, duplicates),
       })
     } else if (Array.isArray(coerced) || typeof coerced === 'string') {
       // 即使沒變動，仍寫回標準化值（例如後端規格要 string 但 caller 給陣列）
@@ -125,9 +128,21 @@ export function applyCoercion(fields, source) {
   return { source: next, fixes }
 }
 
-function summarizeFix(before, after) {
+function summarizeFix(before, after, removedDuplicates = 0, duplicates = []) {
   const beforeLen = Array.isArray(before) ? before.length : (typeof before === 'string' ? before.split(/[、,;\n\r]+/).filter(Boolean).length : 0)
   const afterLen = Array.isArray(after) ? after.length : (typeof after === 'string' ? after.split(/[、,;\n\r]+/).filter(Boolean).length : 0)
-  if (beforeLen === afterLen) return `已標準化（${afterLen} 筆）`
-  return `已自動修正：${beforeLen} → ${afterLen} 筆（去重/去空白）`
+  const parts = []
+  if (removedDuplicates > 0) {
+    const sample = duplicates.slice(0, 3).map((d) => d.count > 1 ? `${d.item}×${d.count}` : d.item).join('、')
+    const more = duplicates.length > 3 ? ` 等 ${duplicates.length} 項` : ''
+    parts.push(`已去除 ${removedDuplicates} 個重複項（${sample}${more}）`)
+  }
+  if (beforeLen !== afterLen) {
+    parts.push(`筆數：${beforeLen} → ${afterLen}`)
+  } else if (parts.length === 0) {
+    parts.push(`已標準化（${afterLen} 筆）`)
+  } else {
+    parts.push(`保留 ${afterLen} 筆`)
+  }
+  return parts.join('；')
 }
