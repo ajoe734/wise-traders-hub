@@ -168,10 +168,35 @@ function showValidationToast(fnName, fields) {
 
 function showCoerceToast(fnName, fixes) {
   if (!fixes || fixes.length === 0) return
-  const lines = fixes.map((f) => `• ${f.label}：${f.summary || '已標準化'}`).join('\n')
+  const lines = fixes.map((f) => {
+    const preview = typeof f.after === 'string' ? f.after : JSON.stringify(f.after)
+    const shown = preview.length > 120 ? preview.slice(0, 117) + '…' : preview
+    return `• ${f.label}：${f.summary || '已標準化'}\n  修正後：${shown}`
+  }).join('\n')
+  // 第一個能套用到輸入框的欄位提供「一鍵套用」按鈕
+  const applicable = fixes.find((f) =>
+    typeof window !== 'undefined' &&
+    window.__edgeFieldApply &&
+    typeof window.__edgeFieldApply[f.key] === 'function'
+  )
   toast.message(`已自動修正 — ${fnName}`, {
     description: lines,
-    duration: 4000,
+    duration: 6000,
+    action: applicable ? {
+      label: '套用到輸入框',
+      onClick: () => {
+        try {
+          const valueToApply = typeof applicable.after === 'string'
+            ? applicable.after
+            : (Array.isArray(applicable.after) ? applicable.after.join('、') : String(applicable.after))
+          window.__edgeFieldApply[applicable.key](valueToApply)
+          focusField(applicable.key)
+          toast.success(`已套用到「${applicable.label}」`)
+        } catch (err) {
+          console.error('[edgeInvoke] apply fix failed', err)
+        }
+      },
+    } : undefined,
   })
   console.info(`[edgeInvoke][${fnName}] auto-coerced`, fixes)
 }
