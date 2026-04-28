@@ -6,6 +6,7 @@
 import { toast } from 'sonner'
 import { EDGE_SCHEMAS } from './edgeSchemas.js'
 import { applyCoercion } from './edgeCoerce.js'
+import { showValidationToast, showCoerceToast } from './edgeFieldUI.js'
 
 let installed = false
 
