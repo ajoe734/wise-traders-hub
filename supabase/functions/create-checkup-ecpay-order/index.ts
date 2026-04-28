@@ -31,7 +31,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { checkupPlanId, billingCycle, amount, planName, origin, userId } = await req.json();
+    const body = await req.json();
+    const { checkupPlanId, billingCycle, amount, planName, origin, userId,
+      originalAmount, discountAmount, discountReason, attribution } = body;
 
     if (!checkupPlanId || !billingCycle || !amount || !origin || !userId) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -51,7 +53,8 @@ Deno.serve(async (req) => {
       });
     }
     const expected = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
-    if (Number(amount) !== Number(expected)) {
+    const expectedFinal = Number(expected) - Number(discountAmount || 0);
+    if (Number(amount) !== expectedFinal) {
       return new Response(JSON.stringify({ error: "Amount mismatch" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -89,6 +92,24 @@ Deno.serve(async (req) => {
     };
 
     params.CheckMacValue = await generateCheckMacValueAsync(params, hashKey, hashIV);
+
+    // Stage 3: persist intent
+    try {
+      await supabase.from("payment_intents").insert({
+        trade_no: tradeNo,
+        user_id: userId,
+        product_kind: "checkup",
+        checkup_plan_id: checkupPlanId,
+        billing_cycle: billingCycle,
+        original_amount: originalAmount ?? expected,
+        discount_amount: discountAmount ?? 0,
+        discount_reason: discountReason ?? null,
+        amount,
+        attribution: attribution ?? null,
+      });
+    } catch (e) {
+      console.error("payment_intents insert (checkup) failed:", e);
+    }
 
     return new Response(JSON.stringify({
       actionUrl: Deno.env.get("ECPAY_API_URL") || "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5",
