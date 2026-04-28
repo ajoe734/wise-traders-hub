@@ -112,8 +112,6 @@ const persistOptions = queryPersister
     }
   : null;
 
-import { useAttributionTracking } from "@/hooks/useAttributionTracking";
-
 const AttributionTracker = () => {
   useAttributionTracking();
   return null;
