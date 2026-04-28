@@ -2449,6 +2449,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     // 所有重試都失敗
     const finalErr = lastErr || "解析失敗，請確認截圖清晰";
     setParseErr(finalErr);
+    toast.error("AI 解析失敗", { description: finalErr });
     setParseStep({ stage: 'error', label: 'AI 解析失敗', progress: 100, detail: finalErr });
     appendLog({ task: 'parse-screenshot', status: 'error', detail: `所有重試失敗：${finalErr}` });
     setTimeout(() => setParseStep(null), 6000);
