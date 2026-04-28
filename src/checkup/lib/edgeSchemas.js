@@ -34,7 +34,7 @@ export const EDGE_SCHEMAS = {
   'checkup-calendar': {
     method: 'POST',
     body: {
-      stocks: REQ('array', { label: 'stocks 陣列' }),
+      stocks: REQ('string', { minLength: 3, label: 'stocks（頓號分隔字串，如「2330 台積電、2317 鴻海」）' }),
       today: OPT('string', { label: 'today YYYY/MM/DD' }),
       endDate: OPT('string', { label: 'endDate YYYY/MM/DD' }),
       debug: OPT('boolean'),
