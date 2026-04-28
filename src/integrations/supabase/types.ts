@@ -1051,6 +1051,60 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_intents: {
+        Row: {
+          amount: number
+          attribution: Json | null
+          billing_cycle: string
+          checkup_plan_id: string | null
+          created_at: string
+          discount_amount: number
+          discount_reason: string | null
+          expert_id: string | null
+          id: string
+          original_amount: number
+          plan_id: string | null
+          product_kind: string
+          trade_no: string
+          upgrade_from_subscription_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          attribution?: Json | null
+          billing_cycle: string
+          checkup_plan_id?: string | null
+          created_at?: string
+          discount_amount?: number
+          discount_reason?: string | null
+          expert_id?: string | null
+          id?: string
+          original_amount: number
+          plan_id?: string | null
+          product_kind?: string
+          trade_no: string
+          upgrade_from_subscription_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          attribution?: Json | null
+          billing_cycle?: string
+          checkup_plan_id?: string | null
+          created_at?: string
+          discount_amount?: number
+          discount_reason?: string | null
+          expert_id?: string | null
+          id?: string
+          original_amount?: number
+          plan_id?: string | null
+          product_kind?: string
+          trade_no?: string
+          upgrade_from_subscription_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       payment_providers: {
         Row: {
           config: Json | null

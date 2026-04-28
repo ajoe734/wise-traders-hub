@@ -98,6 +98,21 @@ Deno.serve(async (req) => {
 
     const now = new Date();
 
+    // Stage 3: read intent (attribution / discount / expert_id)
+    const { data: intent } = await supabase
+      .from("payment_intents")
+      .select("expert_id, original_amount, discount_amount, discount_reason, attribution, upgrade_from_subscription_id")
+      .eq("trade_no", tradeNo)
+      .maybeSingle();
+
+    // Stage 3: handle month→year upgrade — cancel old monthly sub
+    if (intent?.upgrade_from_subscription_id && billingCycle === "yearly") {
+      await supabase
+        .from("member_subscriptions")
+        .update({ status: "canceled", canceled_at: now.toISOString(), auto_renew: false })
+        .eq("id", intent.upgrade_from_subscription_id);
+    }
+
     // Duplicate subscription protection
     let subscriptionId: string | null = null;
     if (userId && planId) {
@@ -110,7 +125,6 @@ Deno.serve(async (req) => {
 
       if (existing && existing.length > 0) {
         console.log("Active subscription already exists, skipping insert");
-        // Still create the transaction record for payment tracking
         const { error: txError } = await recordPaymentForExistingSubscription(supabase, {
           subscriptionId: existing[0].id,
           amount: tradeAmt,
@@ -118,15 +132,27 @@ Deno.serve(async (req) => {
           providerTxId: txId,
           providerId: provider?.id || null,
           now,
+          originalAmount: intent?.original_amount ?? tradeAmt,
+          discountAmount: intent?.discount_amount ?? 0,
+          discountReason: intent?.discount_reason ?? null,
+          attribution: intent?.attribution ?? null,
+          productKind: "expert_plan",
+          planId,
+          expertId: intent?.expert_id ?? null,
         });
         if (txError) console.error("Transaction insert error:", txError);
         return new Response("1|OK", { status: 200 });
       }
 
-      // 原子性建立訂閱 + 交易紀錄（若訂閱失敗不建立交易）
       const result = await createSubscriptionAndTransaction(supabase, {
         userId, planId, billingCycle, amount: tradeAmt, currency: "TWD",
         providerTxId: txId, providerId: provider?.id || null, now,
+        originalAmount: intent?.original_amount ?? tradeAmt,
+        discountAmount: intent?.discount_amount ?? 0,
+        discountReason: intent?.discount_reason ?? null,
+        attribution: intent?.attribution ?? null,
+        productKind: "expert_plan",
+        expertId: intent?.expert_id ?? null,
       });
       if (result.error) {
         console.error("Failed to create subscription and transaction:", result.error);

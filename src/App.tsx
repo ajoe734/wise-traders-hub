@@ -12,6 +12,7 @@ import {
   PERSISTED_QUERY_PREFIXES,
 } from "@/lib/queryClient";
 import { useSignalRealtimeInvalidation } from "@/hooks/useSignalRealtimeInvalidation";
+import { useAttributionTracking } from "@/hooks/useAttributionTracking";
 
 // Portal pages
 import Index from "./pages/Index";
@@ -111,6 +112,11 @@ const persistOptions = queryPersister
     }
   : null;
 
+const AttributionTracker = () => {
+  useAttributionTracking();
+  return null;
+};
+
 const AppShell = () => (
   <AuthProvider>
     <RealtimeBridge />
@@ -118,6 +124,7 @@ const AppShell = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+          <AttributionTracker />
           <ScrollToTop />
           <Routes>
             {/* Portal (public) */}

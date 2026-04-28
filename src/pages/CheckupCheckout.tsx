@@ -10,6 +10,8 @@ import { Loader2, ArrowLeft, CheckCircle2, Stethoscope, Building2, CreditCard } 
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useCheckupPlan } from "@/hooks/useCheckupPlans";
+import { useCrossProductDiscount } from "@/hooks/useCrossProductDiscount";
+import { readAttribution } from "@/hooks/useAttributionTracking";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction,
@@ -98,19 +100,29 @@ export default function CheckupCheckout() {
     );
   }
 
-  const price = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+  const basePrice = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
   const yearlyDiscount = Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100);
+  const { amount: crossDiscount, reason: crossReason } = useCrossProductDiscount({
+    productKind: "checkup",
+    checkupTier: plan.tier as "basic" | "pro",
+  });
+  const price = Math.max(0, basePrice - crossDiscount);
 
   const onSubmit = async () => {
     if (!user) { navigate("/auth/login"); return; }
     setIsProcessing(true);
     try {
+      const attribution = readAttribution();
       if (method === "ecpay") {
         const { data, error } = await supabase.functions.invoke("create-checkup-ecpay-order", {
           body: {
             checkupPlanId: plan.id,
             billingCycle,
             amount: price,
+            originalAmount: basePrice,
+            discountAmount: crossDiscount,
+            discountReason: crossReason,
+            attribution,
             planName: plan.name,
             origin: window.location.origin,
             userId: user.id,
@@ -140,7 +152,16 @@ export default function CheckupCheckout() {
         return;
       }
       const { error } = await supabase.functions.invoke("create-checkup-remittance", {
-        body: { checkupPlanId: plan.id, billingCycle, last5, payerName: payerName.trim() },
+        body: {
+          checkupPlanId: plan.id,
+          billingCycle,
+          last5,
+          payerName: payerName.trim(),
+          originalAmount: basePrice,
+          discountAmount: crossDiscount,
+          discountReason: crossReason,
+          attribution,
+        },
       });
       if (error) {
         setResultDialog({ open: true, success: false, message: "送出失敗，請稍後再試" });
@@ -277,9 +298,23 @@ export default function CheckupCheckout() {
         )}
 
         <Card>
-          <CardContent className="p-5 flex items-center justify-between">
-            <span className="text-muted-foreground">應付金額</span>
-            <span className="text-2xl font-bold">NT$ {price.toLocaleString()}</span>
+          <CardContent className="p-5 space-y-2">
+            {crossDiscount > 0 && (
+              <>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>原價</span>
+                  <span>NT$ {basePrice.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-primary">
+                  <span>跨產品折扣（已訂閱專家方案）</span>
+                  <span>- NT$ {crossDiscount.toLocaleString()}</span>
+                </div>
+              </>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">應付金額</span>
+              <span className="text-2xl font-bold">NT$ {price.toLocaleString()}</span>
+            </div>
           </CardContent>
         </Card>
 

@@ -11,6 +11,8 @@
  *   confirm-linepay → createSubscriptionAndTransaction
  */
 
+import { calcSplit, loadPaymentDefaults, type SplitInput } from './revenueSplit.ts';
+
 export interface CreateSubAndTxParams {
   userId: string;
   planId: string;
@@ -20,6 +22,13 @@ export interface CreateSubAndTxParams {
   providerTxId: string;
   providerId: string | null;
   now?: Date;
+  // Stage 3 additions (optional for backward compat)
+  originalAmount?: number;
+  discountAmount?: number;
+  discountReason?: string | null;
+  attribution?: SplitInput['attribution'] | null;
+  productKind?: 'expert_plan' | 'checkup';
+  expertId?: string | null;
 }
 
 export interface CreateSubAndTxResult {
@@ -28,14 +37,6 @@ export interface CreateSubAndTxResult {
   error: string | null;
 }
 
-/**
- * 順序建立 member_subscriptions → payment_transactions
- *
- * ⚠️ 一方向性保證（非 DB transaction）：
- *   ✓ 若 member_subscriptions INSERT 失敗 → payment_transactions 不建立（防孤立交易紀錄）
- *   ✗ 若 payment_transactions INSERT 失敗 → member_subscriptions 已寫入、不自動回滾
- *     （Supabase Edge Functions 無內建 transaction；需外層重試或人工補單）
- */
 export async function createSubscriptionAndTransaction(
   supabase: { from: (table: string) => any },
   params: CreateSubAndTxParams,
@@ -48,7 +49,6 @@ export async function createSubscriptionAndTransaction(
     expiresAt.setMonth(expiresAt.getMonth() + 1);
   }
 
-  // Step 1: 建立訂閱
   const { data: sub, error: subError } = await supabase
     .from('member_subscriptions')
     .insert({
@@ -63,15 +63,17 @@ export async function createSubscriptionAndTransaction(
     .single();
 
   if (subError) {
-    // 訂閱建立失敗 → 不建立 payment_transactions，維持資料一致性
     return { subscriptionId: null, transactionId: null, error: subError.message };
   }
 
-  // Step 2: 建立交易紀錄（只在訂閱成功後執行）
   const { data: tx, error: txError } = await supabase
     .from('payment_transactions')
     .insert({
       amount: params.amount,
+      original_amount: params.originalAmount ?? params.amount,
+      discount_amount: params.discountAmount ?? 0,
+      discount_reason: params.discountReason ?? null,
+      attribution: params.attribution ?? null,
       currency: params.currency,
       status: 'paid',
       paid_at: now.toISOString(),
@@ -86,6 +88,22 @@ export async function createSubscriptionAndTransaction(
     return { subscriptionId: sub.id, transactionId: null, error: txError.message };
   }
 
+  // Stage 3: revenue split (best-effort, never block)
+  try {
+    await writeRevenueSplit(supabase, {
+      transactionId: tx.id,
+      planId: params.planId,
+      expertId: params.expertId ?? null,
+      productKind: params.productKind ?? 'expert_plan',
+      gross: params.originalAmount ?? params.amount,
+      discount: params.discountAmount ?? 0,
+      discountReason: params.discountReason ?? null,
+      attribution: params.attribution ?? null,
+    });
+  } catch (e) {
+    console.error('writeRevenueSplit failed:', e);
+  }
+
   return { subscriptionId: sub.id, transactionId: tx.id, error: null };
 }
 
@@ -96,21 +114,28 @@ export interface RecordExistingSubPaymentParams {
   providerTxId: string;
   providerId: string | null;
   now?: Date;
+  originalAmount?: number;
+  discountAmount?: number;
+  discountReason?: string | null;
+  attribution?: SplitInput['attribution'] | null;
+  productKind?: 'expert_plan' | 'checkup';
+  planId?: string | null;
+  expertId?: string | null;
 }
 
-/**
- * 為「已有有效訂閱」的付款建立 payment_transactions 紀錄
- * 訂閱已存在，不再建立 member_subscriptions
- */
 export async function recordPaymentForExistingSubscription(
   supabase: { from: (table: string) => any },
   params: RecordExistingSubPaymentParams,
 ): Promise<{ error: string | null }> {
   const now = params.now ?? new Date();
-  const { error } = await supabase
+  const { data: tx, error } = await supabase
     .from('payment_transactions')
     .insert({
       amount: params.amount,
+      original_amount: params.originalAmount ?? params.amount,
+      discount_amount: params.discountAmount ?? 0,
+      discount_reason: params.discountReason ?? null,
+      attribution: params.attribution ?? null,
       currency: params.currency,
       status: 'paid',
       paid_at: now.toISOString(),
@@ -121,5 +146,91 @@ export async function recordPaymentForExistingSubscription(
     .select('id')
     .single();
 
+  if (!error && tx) {
+    try {
+      await writeRevenueSplit(supabase, {
+        transactionId: tx.id,
+        planId: params.planId ?? null,
+        expertId: params.expertId ?? null,
+        productKind: params.productKind ?? 'expert_plan',
+        gross: params.originalAmount ?? params.amount,
+        discount: params.discountAmount ?? 0,
+        discountReason: params.discountReason ?? null,
+        attribution: params.attribution ?? null,
+      });
+    } catch (e) {
+      console.error('writeRevenueSplit failed:', e);
+    }
+  }
+
   return { error: error?.message ?? null };
 }
+
+export interface WriteSplitParams {
+  transactionId: string;
+  planId: string | null;
+  expertId: string | null;
+  productKind: 'expert_plan' | 'checkup';
+  gross: number;
+  discount: number;
+  discountReason: string | null;
+  attribution: SplitInput['attribution'] | null;
+}
+
+export async function writeRevenueSplit(supabase: any, p: WriteSplitParams) {
+  const defaults = await loadPaymentDefaults(supabase);
+
+  // Lookup overrides
+  let expertOverride = null;
+  if (p.expertId) {
+    const { data } = await supabase
+      .from('experts')
+      .select('split_no_ref, split_with_ref')
+      .eq('id', p.expertId)
+      .maybeSingle();
+    if (data) {
+      const src = (p.attribution?.utm_source || '').toLowerCase();
+      const attributed = src && !['legendflow', 'organic', 'direct', ''].includes(src);
+      expertOverride = attributed ? (data.split_with_ref || null) : (data.split_no_ref || null);
+    }
+  }
+
+  let channelOverride = null;
+  if (p.attribution?.utm_source) {
+    const { data } = await supabase
+      .from('referral_channels')
+      .select('pct_platform, pct_expert, pct_channel')
+      .eq('source', p.attribution.utm_source.toLowerCase())
+      .eq('is_active', true)
+      .maybeSingle();
+    if (data && data.pct_platform != null) channelOverride = data;
+  }
+
+  const split = calcSplit({
+    productKind: p.productKind,
+    gross: p.gross,
+    discount: p.discount,
+    discountSource: p.discountReason,
+    attribution: p.attribution,
+    expertOverride,
+    channelOverride,
+    defaults,
+  });
+
+  await supabase.from('revenue_splits').insert({
+    transaction_id: p.transactionId,
+    plan_id: p.planId,
+    expert_id: p.expertId,
+    gross: p.gross,
+    discount: p.discount,
+    discount_source: p.discountReason,
+    net: split.net,
+    platform_amount: split.platform_amount,
+    expert_amount: split.expert_amount,
+    channel_reserve: split.channel_reserve,
+    rule_source: split.rule_source,
+    rule_snapshot: split.rule_snapshot,
+    utm_snapshot: p.attribution || null,
+  });
+}
+
