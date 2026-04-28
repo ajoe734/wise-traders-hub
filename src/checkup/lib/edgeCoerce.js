@@ -15,27 +15,35 @@
  *   "00637L 滬深300正2、2330 台積電"
  */
 export function coerceStocksString(value) {
-  if (value == null) return { value, changed: false }
+  if (value == null) return { value, changed: false, removedDuplicates: 0, duplicates: [] }
   let arr
   if (Array.isArray(value)) {
     arr = value
   } else if (typeof value === 'string') {
     arr = value.split(/[、,;\n\r]+/)
   } else {
-    return { value, changed: false }
+    return { value, changed: false, removedDuplicates: 0, duplicates: [] }
   }
   const seen = new Set()
   const out = []
+  const dupCounts = new Map()
+  let nonEmptyCount = 0
   for (const raw of arr) {
     if (raw == null) continue
     const s = String(raw).trim().replace(/\s+/g, ' ')
     if (!s) continue
-    if (seen.has(s)) continue
+    nonEmptyCount += 1
+    if (seen.has(s)) {
+      dupCounts.set(s, (dupCounts.get(s) || 1) + 1)
+      continue
+    }
     seen.add(s)
     out.push(s)
   }
   const next = out.join('、')
-  return { value: next, changed: next !== value }
+  const removedDuplicates = nonEmptyCount - out.length
+  const duplicates = Array.from(dupCounts.entries()).map(([item, count]) => ({ item, count }))
+  return { value: next, changed: next !== value, removedDuplicates, duplicates }
 }
 
 /**
@@ -43,28 +51,36 @@ export function coerceStocksString(value) {
  * 接受 string、array、或夾雜空白與重複項。
  */
 export function coerceStocksArray(value) {
-  if (value == null) return { value, changed: false }
+  if (value == null) return { value, changed: false, removedDuplicates: 0, duplicates: [] }
   let arr
   if (Array.isArray(value)) {
     arr = value
   } else if (typeof value === 'string') {
     arr = value.split(/[、,;\n\r]+/)
   } else {
-    return { value, changed: false }
+    return { value, changed: false, removedDuplicates: 0, duplicates: [] }
   }
   const seen = new Set()
   const out = []
+  const dupCounts = new Map()
+  let nonEmptyCount = 0
   for (const raw of arr) {
     if (raw == null) continue
     const s = String(raw).trim().replace(/\s+/g, ' ')
     if (!s) continue
-    if (seen.has(s)) continue
+    nonEmptyCount += 1
+    if (seen.has(s)) {
+      dupCounts.set(s, (dupCounts.get(s) || 1) + 1)
+      continue
+    }
     seen.add(s)
     out.push(s)
   }
   const sameLen = Array.isArray(value) && value.length === out.length
   const sameAll = sameLen && out.every((v, i) => v === value[i])
-  return { value: out, changed: !sameAll }
+  const removedDuplicates = nonEmptyCount - out.length
+  const duplicates = Array.from(dupCounts.entries()).map(([item, count]) => ({ item, count }))
+  return { value: out, changed: !sameAll, removedDuplicates, duplicates }
 }
 
 export const COERCERS = {
