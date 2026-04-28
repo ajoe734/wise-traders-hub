@@ -106,13 +106,18 @@ export function showCoerceToast(fnName, fixes) {
     return `• ${f.label}：${f.summary || '已標準化'}\n  修正後：${shown}`
   }).join('\n')
 
+  const totalDup = fixes.reduce((sum, f) => sum + (f.removedDuplicates || 0), 0)
+  const title = totalDup > 0
+    ? `已自動修正 — ${fnName}（去除 ${totalDup} 個重複項）`
+    : `已自動修正 — ${fnName}`
+
   const applicable = fixes.find((f) =>
     typeof window !== 'undefined' &&
     window.__edgeFieldApply &&
     typeof window.__edgeFieldApply[f.key] === 'function'
   )
 
-  toast.message(`已自動修正 — ${fnName}`, {
+  toast.message(title, {
     description: lines,
     duration: 6000,
     action: applicable
