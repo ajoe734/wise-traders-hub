@@ -3771,44 +3771,19 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       </div>
                     )}
 
-                    {/* OVERRIDE */}
+                    {/* 編輯入口 */}
                     <div style={{
                       paddingTop:14,marginTop:6,borderTop:`1px solid ${WB.hair}`,
-                      display:'flex',alignItems:'center',gap:8,
                     }}>
-                      {dec && !userOverrides[h.code] && dec.actionType !== 'hold' ? (
-                        <button
-                          onClick={() => {
-                            setUserOverrides(prev => ({...prev, [h.code]: {
-                              actionType: 'hold',
-                              actionText: '手動覆寫:維持持有',
-                              expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
-                              appliesToEventIds: normalizedEvents.filter(e => (e.relatedCodes||[]).includes(h.code) && isEventOpen(e)).map(e => e.id),
-                              basedOnDerivedAt: new Date().toISOString(),
-                              decisionFingerprint: dec.fingerprint,
-                            }}));
-                          }}
-                          style={{
-                            flex:1,padding:'10px 14px',background:'transparent',
-                            border:`1px solid ${WB.ink}`,borderRadius:2,
-                            color:WB.ink,fontSize:11,fontWeight:500,cursor:'pointer',
-                            letterSpacing:'0.08em',fontFamily:'inherit',
-                          }}
-                        >標記為持有</button>
-                      ) : (
-                        <span style={{flex:1,fontSize:10,color:WB.inkLight,letterSpacing:'0.10em'}}>
-                          {userOverrides[h.code] ? '已覆寫為持有' : '無需覆寫'}
-                        </span>
-                      )}
                       <button
                         onClick={() => openHoldingDrawer(h.code)}
-                        title="編輯 / 完整研究"
                         style={{
-                          width:36,height:36,background:'transparent',
-                          border:`1px solid ${WB.hair}`,borderRadius:2,cursor:'pointer',
-                          color:WB.inkMute,fontSize:13,fontFamily:'inherit',
+                          width:'100%',padding:'12px',background:'transparent',
+                          border:`1px solid ${WB.hair}`,borderRadius:2,
+                          color:WB.inkSub,fontSize:12,fontWeight:400,cursor:'pointer',
+                          letterSpacing:'0.08em',fontFamily:'inherit',
                         }}
-                      >✎</button>
+                      >編輯持倉</button>
                     </div>
                   </div>
                 </div>
