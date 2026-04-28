@@ -3786,6 +3786,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     >
                       <span style={{fontSize:32,fontWeight:300,lineHeight:1,color:WB.inkLight}}>+</span>
                       <span style={{fontSize:14,fontWeight:500,letterSpacing:'0.12em',color:WB.ink}}>請上傳成交以建立持倉</span>
+                      {/* i18n-allow:visual-decoration 純視覺裝飾副標 */}
                       <span style={{fontSize:10,fontWeight:500,letterSpacing:'0.24em',color:WB.inkMute}}>UPLOAD TRADES TO START</span>
                     </button>
                   ) : (
