@@ -13,7 +13,7 @@ export const APP_ERROR_BOUNDARY_COPY = {
   },
   overview: { title: '總覽面板' },
   holdings: { title: '持倉面板' },
-  watchlist: { title: '觀察名單面板' },
+  
   events: { title: '事件面板' },
   daily: { title: '每日分析面板' },
   research: { title: '深度研究面板' },
