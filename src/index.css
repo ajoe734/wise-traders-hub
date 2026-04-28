@@ -470,7 +470,7 @@
   100% { background-position: -200% 0; }
 }
 
-/* edgeInvoke 「跳到欄位」視覺閃爍提示 */
+/* edgeInvoke 「跳到欄位」視覺閃爍提示 — info 用主色 */
 .edge-field-flash {
   animation: edge-field-flash 1.4s ease-out;
   outline: 2px solid hsl(var(--primary, 25 90% 55%));
@@ -481,4 +481,20 @@
   0%   { box-shadow: 0 0 0 0 hsl(var(--primary, 25 90% 55%) / 0.55); }
   60%  { box-shadow: 0 0 0 10px hsl(var(--primary, 25 90% 55%) / 0); }
   100% { box-shadow: 0 0 0 0 hsl(var(--primary, 25 90% 55%) / 0); }
+}
+
+/* 驗證錯誤閃爍 — 紅框 + 紅色脈衝，用於 VALIDATION_ERROR */
+.edge-field-flash-error {
+  animation: edge-field-flash-error 1.6s ease-out;
+  outline: 2px solid hsl(0 84% 55%);
+  outline-offset: 3px;
+  border-radius: 6px;
+  background-color: hsl(0 84% 55% / 0.06);
+  transition: background-color 0.2s ease-out;
+}
+@keyframes edge-field-flash-error {
+  0%   { box-shadow: 0 0 0 0 hsl(0 84% 55% / 0.7); }
+  30%  { box-shadow: 0 0 0 8px hsl(0 84% 55% / 0.15); }
+  60%  { box-shadow: 0 0 0 12px hsl(0 84% 55% / 0); }
+  100% { box-shadow: 0 0 0 0 hsl(0 84% 55% / 0); }
 }
