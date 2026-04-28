@@ -16,7 +16,7 @@ Deno.serve(async () => {
         },
       });
       const text = await res.text();
-      out.push({ url, status: res.status, len: text.length, head: text.slice(0, 200) });
+      out.push({ url, status: res.status, len: text.length, head: text.slice(0, 250) });
     } catch (e) {
       out.push({ url, err: String(e) });
     }
