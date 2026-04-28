@@ -5166,6 +5166,49 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ UPLOAD ══════════ */}
         {tab==="trade" && <>
+          {/* 全頁覆蓋 loading：解析中時鎖住操作但保留下方持倉資料可見於背景 */}
+          {parsing && (
+            <div
+              role="status"
+              aria-live="polite"
+              aria-label="解析中"
+              style={{
+                position:"fixed", inset:0, zIndex:9999,
+                background:"rgba(245,243,239,0.88)",
+                backdropFilter:"blur(2px)", WebkitBackdropFilter:"blur(2px)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                padding:"24px",
+              }}
+            >
+              <div style={{
+                background:C.card, border:`1px solid ${C.border}`, borderRadius:14,
+                padding:"22px 24px", maxWidth:340, width:"100%", textAlign:"center",
+              }}>
+                <div style={{
+                  width:36, height:36, margin:"0 auto 14px",
+                  border:`2px solid ${alpha(C.textMute,'30')}`,
+                  borderTopColor:C.text, borderRadius:"50%",
+                  animation:"checkup-spin 0.9s linear infinite",
+                }}/>
+                <div style={{fontSize:14,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
+                  {parseStep?.label || "AI 解析中"}
+                </div>
+                {parseStep?.detail && (
+                  <div style={{fontSize:12,color:C.textMute,lineHeight:1.6,marginBottom:10}}>{parseStep.detail}</div>
+                )}
+                {typeof parseStep?.progress === "number" && (
+                  <div style={{height:3,background:alpha(C.textMute,'22'),borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${parseStep.progress}%`,background:C.amber,transition:"width 360ms ease"}}/>
+                  </div>
+                )}
+                <div style={{fontSize:10,color:C.textMute,marginTop:12,letterSpacing:"0.06em"}}>
+                  原持倉資料保留中，新資料完成後才會更新
+                </div>
+              </div>
+              <style>{`@keyframes checkup-spin{to{transform:rotate(360deg)}}`}</style>
+            </div>
+          )}
+
           {/* Demo 模式提示 */}
           {isDemo && (
             <div style={{marginBottom:16, padding:"20px 16px", background:alpha(C.amber,'06'), borderRadius:10, textAlign:"center"}}>
