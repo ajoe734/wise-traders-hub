@@ -28,7 +28,15 @@ async function fetchWithTimeout(url: string, ms = 7000): Promise<Response | null
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), ms);
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+      headers: {
+        // 模擬真實瀏覽器；TPEX 對裸 fetch 會回 403/redirect，加 Referer + 完整 UA 即可通過
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+        "Referer": "https://www.tpex.org.tw/",
+        "X-Requested-With": "XMLHttpRequest",
+      },
       signal: ctrl.signal,
     });
     clearTimeout(t);
@@ -65,15 +73,17 @@ async function twseRecent(code: string): Promise<number[]> {
   return closes.slice(-5);
 }
 
-// TPEX 新版：tradingStock?date=YYYY/MM&code=XXXX&response=json
+// TPEX 新版 (2024 改版後)：tradingStock?monthDate=ROC/MM&code=XXXX&response=json
+// 注意：是 monthDate（民國年/月），不是 date；date 會回「參數輸入錯誤」
 async function tpexMonth(code: string, d: Date): Promise<number[]> {
-  const ym = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}`;
-  const url = `${TPEX_DAY}?date=${encodeURIComponent(ym)}&code=${encodeURIComponent(code)}&response=json&_=${Date.now()}`;
+  const roc = `${d.getFullYear() - 1911}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const url = `${TPEX_DAY}?monthDate=${encodeURIComponent(roc)}&code=${encodeURIComponent(code)}&id=&response=json&_=${Date.now()}`;
   const res = await fetchWithTimeout(url);
-  if (!res || !res.ok) return [];
+  if (!res) { console.log(`[tpex] ${code} ${roc} fetch null`); return []; }
+  if (!res.ok) { console.log(`[tpex] ${code} ${roc} status=${res.status}`); return []; }
   let json: any;
-  try { json = await res.json(); } catch { return []; }
-  // 新版 schema: { tables: [{ data: [[date, qty, amt, open, high, low, close, ...]] }] }
+  try { json = await res.json(); } catch (e) { console.log(`[tpex] ${code} json parse err`, e); return []; }
+  // 新版 schema: { tables: [{ data: [[ROC日期, 量, 額, 開, 高, 低, 收, 漲跌, 筆數]] }] }
   const tables = json?.tables;
   let rows: any[] = [];
   if (Array.isArray(tables) && tables.length > 0 && Array.isArray(tables[0]?.data)) {
@@ -83,10 +93,15 @@ async function tpexMonth(code: string, d: Date): Promise<number[]> {
   } else if (Array.isArray(json?.aaData)) {
     rows = json.aaData; // 舊版相容
   }
-  if (!rows.length) return [];
-  return rows
+  if (!rows.length) {
+    console.log(`[tpex] ${code} ${roc} no rows; keys=`, Object.keys(json || {}), 'stat=', json?.stat);
+    return [];
+  }
+  const closes = rows
     .map((r) => Number(String(r[6]).replace(/,/g, "")))
     .filter((n) => Number.isFinite(n) && n > 0);
+  console.log(`[tpex] ${code} ${roc} got ${closes.length} closes`);
+  return closes;
 }
 
 async function tpexRecent(code: string): Promise<number[]> {
@@ -100,40 +115,43 @@ async function tpexRecent(code: string): Promise<number[]> {
   return closes.slice(-5);
 }
 
-// Yahoo Finance chart API — 對 TWSE (.TW) 與 TPEX (.TWO) 都穩定，免 key
-async function yahooRecent(code: string): Promise<number[]> {
-  for (const suffix of [".TW", ".TWO"]) {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code + suffix)}?interval=1d&range=10d`;
-    const res = await fetchWithTimeout(url);
-    if (!res) { console.log(`[yahoo] ${code}${suffix} fetch returned null`); continue; }
-    if (!res.ok) { console.log(`[yahoo] ${code}${suffix} status=${res.status}`); continue; }
-    let json: any;
-    try { json = await res.json(); } catch (e) { console.log(`[yahoo] ${code}${suffix} json parse err:`, e); continue; }
-    const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-    if (Array.isArray(closes)) {
-      const cleaned = closes.filter((n: any) => Number.isFinite(n) && n > 0);
-      console.log(`[yahoo] ${code}${suffix} got ${cleaned.length} points`);
-      if (cleaned.length >= 2) return cleaned.slice(-5);
-    } else {
-      console.log(`[yahoo] ${code}${suffix} no closes; err=`, json?.chart?.error);
-    }
-  }
-  return [];
-}
-
 async function fetchSparkline(code: string): Promise<number[]> {
   const c = String(code).trim();
   if (!c) return [];
   const a = await twseRecent(c);
   if (a.length >= 2) return a;
   const b = await tpexRecent(c);
-  if (b.length >= 2) return b;
-  // 最後 fallback：Yahoo Finance（含上市/上櫃/權證）
-  return await yahooRecent(c);
+  return b;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Diagnostic probe — GET /?probe=1 returns raw status from TPEX endpoints
+  const u = new URL(req.url);
+  if (u.searchParams.get("probe") === "1") {
+    const targets = [
+      "https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?monthDate=115/04&code=6274&id=&response=json",
+      "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+    ];
+    const out: any[] = [];
+    for (const url of targets) {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+            "Referer": "https://www.tpex.org.tw/",
+          },
+        });
+        const text = await res.text();
+        out.push({ url, status: res.status, len: text.length, head: text.slice(0, 250) });
+      } catch (e) {
+        out.push({ url, err: String(e) });
+      }
+    }
+    return new Response(JSON.stringify(out, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
 
   try {
     let body: any = {};
