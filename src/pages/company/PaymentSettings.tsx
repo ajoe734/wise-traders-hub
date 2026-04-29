@@ -73,7 +73,7 @@ export default function CompanyPaymentSettings() {
           <h1 className="text-2xl font-semibold">金流設定</h1>
           <p className="text-sm text-muted-foreground mt-1">
             個別分析師方案的分潤覆寫請至{' '}
-            <Link to="/company/plan-splits" className="underline text-primary">方案分潤</Link> 設定。
+            <Link to="/company/plans" className="underline text-primary">方案管理</Link> 設定。
           </p>
         </div>
 

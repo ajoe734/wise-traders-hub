@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard, Users, UserCheck, BarChart3, CreditCard,
-  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Wallet, Receipt, Settings, PieChart
+  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,13 +17,12 @@ interface CompanyLayoutProps {
 const navItems = [
   { path: '/company', icon: LayoutDashboard, label: '總覽', exact: true },
   { path: '/company/analysts', icon: Users, label: '分析師管理' },
-  { path: '/company/plan-review', icon: Wallet, label: '方案審核' },
+  { path: '/company/plans', icon: Layers, label: '方案管理' },
   { path: '/company/subscribers', icon: UserCheck, label: '訂閱者管理' },
   { path: '/company/revenue', icon: BarChart3, label: '營收數據' },
   { path: '/company/payments', icon: CreditCard, label: '金流管理' },
   { path: '/company/remittance', icon: Receipt, label: '匯款審核' },
   { path: '/company/payment-settings', icon: Settings, label: '金流設定' },
-  { path: '/company/plan-splits', icon: PieChart, label: '方案分潤' },
   { path: '/company/audit-logs', icon: FileClock, label: '審計日誌' },
   { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
 ];
