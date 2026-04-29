@@ -496,12 +496,20 @@ const Checkout = () => {
       
       if (provider?.provider_type === 'line_pay') {
         // Call create-linepay-order edge function
+        const attribution = readAttribution();
         const { data, error } = await supabase.functions.invoke('create-linepay-order', {
           body: {
             planId: plan.id,
             billingCycle,
             slug,
             amount: price,
+            originalAmount: basePrice,
+            discountAmount: totalDiscount,
+            discountReason,
+            attribution,
+            expertId: plan.expert_id,
+            upgradeFromSubscriptionId: upgradeCredit > 0 ? upgradeFromSubId : null,
+            userId: user.id,
             planName: plan.name,
             expertName: expert.name,
             origin: window.location.origin,
@@ -605,6 +613,7 @@ const Checkout = () => {
           prime = 'SIMULATE_PRIME';
         }
 
+        const acpayAttribution = readAttribution();
         const { data, error } = await supabase.functions.invoke('create-acpay-order', {
           body: {
             prime,
@@ -620,6 +629,13 @@ const Checkout = () => {
             slug,
             planName: plan.name,
             expertName: expert.name,
+            // Stage 3: attribution + discount snapshot
+            originalAmount: basePrice,
+            discountAmount: totalDiscount,
+            discountReason,
+            attribution: acpayAttribution,
+            expertId: plan.expert_id,
+            upgradeFromSubscriptionId: upgradeCredit > 0 ? upgradeFromSubId : null,
           },
         });
 
