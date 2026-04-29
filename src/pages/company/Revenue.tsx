@@ -297,22 +297,22 @@ const CompanyRevenue = () => {
   /* ----------------- 專家分潤對帳 ----------------- */
   const [expandedExpert, setExpandedExpert] = useState<string | null>(null);
   const expertPayouts = useMemo(() => {
-    const map: Record<string, { count: number; gross: number; discount: number; net: number; platform: number; expert: number }> = {};
+    const map: Record<string, { count: number; gross: number; discount: number; net: number; platform: number; expert_amount: number }> = {};
     splits.filter(s => s.expert_id).forEach(s => {
-      if (!map[s.expert_id]) map[s.expert_id] = { count: 0, gross: 0, discount: 0, net: 0, platform: 0, expert: 0 };
+      if (!map[s.expert_id]) map[s.expert_id] = { count: 0, gross: 0, discount: 0, net: 0, platform: 0, expert_amount: 0 };
       const m = map[s.expert_id];
       m.count += 1;
       m.gross += s.gross || 0;
       m.discount += s.discount || 0;
       m.net += s.net || 0;
       m.platform += s.platform_amount || 0;
-      m.expert += s.expert_amount || 0;
+      m.expert_amount += s.expert_amount || 0;
     });
     return Object.entries(map).map(([eid, v]) => ({
       expert_id: eid,
-      expert: expertMap[eid],
+      expertInfo: expertMap[eid] as any,
       ...v,
-    })).sort((a, b) => b.expert - a.expert);
+    })).sort((a, b) => b.expert_amount - a.expert_amount);
   }, [splits, expertMap]);
 
   const splitsByExpert = useMemo(() => {
@@ -683,9 +683,9 @@ const CompanyRevenue = () => {
                 exportCSV(`expert-payouts-${new Date().toISOString().slice(0, 10)}.csv`, [
                   ['專家', '角色', '筆數', '毛收', '折扣', '淨收', '平台', '專家應分'],
                   ...expertPayouts.map(p => [
-                    p.expert?.name || p.expert_id,
-                    p.expert?.role === 'mentor' ? '導師' : '分析師',
-                    p.count, p.gross, p.discount, p.net, p.platform, p.expert,
+                    p.expertInfo?.name || p.expert_id,
+                    p.expertInfo?.role === 'mentor' ? '導師' : '分析師',
+                    p.count, p.gross, p.discount, p.net, p.platform, p.expert_amount,
                   ]),
                 ]);
               }}>
@@ -721,8 +721,8 @@ const CompanyRevenue = () => {
                             <td className="p-3">{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</td>
                             <td className="p-3">
                               <span className="inline-flex items-center gap-2">
-                                {p.expert?.name || p.expert_id.slice(0, 8)}
-                                {p.expert?.role === 'mentor' && <Badge className="bg-mentor text-white text-xs">導師</Badge>}
+                                {p.expertInfo?.name || p.expert_id.slice(0, 8)}
+                                {p.expertInfo?.role === 'mentor' && <Badge className="bg-mentor text-white text-xs">導師</Badge>}
                               </span>
                             </td>
                             <td className="p-3 text-right">{p.count}</td>
@@ -730,7 +730,7 @@ const CompanyRevenue = () => {
                             <td className="p-3 text-right text-muted-foreground">-{fmtMoney(p.discount)}</td>
                             <td className="p-3 text-right">{fmtMoney(p.net)}</td>
                             <td className="p-3 text-right">{fmtMoney(p.platform)}</td>
-                            <td className="p-3 text-right font-medium text-primary">{fmtMoney(p.expert)}</td>
+                            <td className="p-3 text-right font-medium text-primary">{fmtMoney(p.expert_amount)}</td>
                           </tr>
                           {open && (
                             <tr key={`${p.expert_id}-detail`} className="bg-muted/20">
