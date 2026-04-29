@@ -180,30 +180,18 @@ export interface WriteSplitParams {
 export async function writeRevenueSplit(supabase: any, p: WriteSplitParams) {
   const defaults = await loadPaymentDefaults(supabase);
 
-  // Lookup overrides
-  let expertOverride = null;
-  if (p.expertId) {
+  // 方案級覆寫：plan_split_overrides[plan_id]（is_active=true）
+  let planOverride: { pct_platform: number; pct_expert: number } | null = null;
+  if (p.planId && p.productKind === 'expert_plan') {
     const { data } = await supabase
-      .from('experts')
-      .select('split_no_ref, split_with_ref')
-      .eq('id', p.expertId)
-      .maybeSingle();
-    if (data) {
-      const src = (p.attribution?.utm_source || '').toLowerCase();
-      const attributed = src && !['legendflow', 'organic', 'direct', ''].includes(src);
-      expertOverride = attributed ? (data.split_with_ref || null) : (data.split_no_ref || null);
-    }
-  }
-
-  let channelOverride = null;
-  if (p.attribution?.utm_source) {
-    const { data } = await supabase
-      .from('referral_channels')
-      .select('pct_platform, pct_expert, pct_channel')
-      .eq('source', p.attribution.utm_source.toLowerCase())
+      .from('plan_split_overrides')
+      .select('pct_platform, pct_expert')
+      .eq('plan_id', p.planId)
       .eq('is_active', true)
       .maybeSingle();
-    if (data && data.pct_platform != null) channelOverride = data;
+    if (data && data.pct_platform != null && data.pct_expert != null) {
+      planOverride = { pct_platform: data.pct_platform, pct_expert: data.pct_expert };
+    }
   }
 
   const split = calcSplit({
@@ -212,8 +200,7 @@ export async function writeRevenueSplit(supabase: any, p: WriteSplitParams) {
     discount: p.discount,
     discountSource: p.discountReason,
     attribution: p.attribution,
-    expertOverride,
-    channelOverride,
+    planOverride,
     defaults,
   });
 

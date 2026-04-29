@@ -1,33 +1,34 @@
 /**
  * 分潤與跨產品折扣計算（Single Source of Truth）
- * - 分潤規則：標準 vs 被導流（有 utm_source 且非自家流量）
- * - 跨產品折扣：被折方專家承擔；分潤基數 = 實收 - 折扣
- * - 健檢商品：平台 100%
+ *
+ * 架構（v2，已停用導流分潤）：
+ *   - 健檢商品：平台 100%
+ *   - 一般方案：plan_split_overrides[plan_id] 覆寫優先，否則用全站 split_standard
+ *   - attribution（utm_source 等）僅作行銷追蹤紀錄，不影響分潤
  */
 
 export interface SplitRule {
   pct_platform: number;
   pct_expert: number;
-  pct_channel: number;
 }
 
 export interface SplitInput {
   productKind: 'expert_plan' | 'checkup';
   gross: number;            // 原價
   discount: number;         // 折扣金額
-  discountSource?: string | null; // e.g. 'cross_checkup_basic'
+  discountSource?: string | null;
+  /** 行銷追蹤用（不影響分潤計算，但會記錄到 revenue_splits.utm_snapshot） */
   attribution?: {
     utm_source?: string | null;
     utm_medium?: string | null;
     utm_campaign?: string | null;
     ref_code?: string | null;
   } | null;
-  expertOverride?: SplitRule | null;
-  channelOverride?: SplitRule | null;
+  /** 來自 plan_split_overrides，優先於 standard default */
+  planOverride?: SplitRule | null;
   defaults: {
-    standard: SplitRule;        // 無 utm
-    attributed: SplitRule;      // 有 utm
-    checkup: SplitRule;         // 健檢
+    standard: SplitRule;
+    checkup: SplitRule;
   };
 }
 
@@ -36,23 +37,13 @@ export interface SplitOutput {
   platform_amount: number;
   expert_amount: number;
   channel_reserve: number;
-  rule_source: 'expert_override' | 'channel_override' | 'attributed_default' | 'standard_default' | 'checkup_default';
+  rule_source: 'plan_override' | 'standard_default' | 'checkup_default';
   rule_snapshot: SplitRule;
-}
-
-const OWN_SOURCES = new Set(['legendflow', 'organic', 'direct', '']);
-
-export function isAttributed(attr: SplitInput['attribution']): boolean {
-  if (!attr) return false;
-  const src = (attr.utm_source || '').toLowerCase().trim();
-  if (!src) return false;
-  return !OWN_SOURCES.has(src);
 }
 
 export function calcSplit(input: SplitInput): SplitOutput {
   const net = Math.max(0, input.gross - input.discount);
 
-  // 健檢：平台 100%
   if (input.productKind === 'checkup') {
     return {
       net,
@@ -64,44 +55,24 @@ export function calcSplit(input: SplitInput): SplitOutput {
     };
   }
 
-  // 決定規則
-  const attributed = isAttributed(input.attribution);
-  let rule: SplitRule;
-  let source: SplitOutput['rule_source'];
-
-  if (input.channelOverride && attributed) {
-    rule = input.channelOverride;
-    source = 'channel_override';
-  } else if (input.expertOverride) {
-    rule = input.expertOverride;
-    source = 'expert_override';
-  } else if (attributed) {
-    rule = input.defaults.attributed;
-    source = 'attributed_default';
-  } else {
-    rule = input.defaults.standard;
-    source = 'standard_default';
-  }
+  const rule = input.planOverride ?? input.defaults.standard;
+  const source: SplitOutput['rule_source'] = input.planOverride ? 'plan_override' : 'standard_default';
 
   const platform = Math.round((net * rule.pct_platform) / 100);
-  const channel = Math.round((net * rule.pct_channel) / 100);
-  const expert = net - platform - channel; // 殘差給專家避免湊不到 100%
+  const expert = net - platform; // 殘差給 expert
 
   return {
     net,
     platform_amount: platform,
     expert_amount: Math.max(0, expert),
-    channel_reserve: channel,
+    channel_reserve: 0,
     rule_source: source,
     rule_snapshot: rule,
   };
 }
 
 /**
- * 跨產品折扣：依使用者目前持有訂閱推算可享折扣
- * 規則由 payment_settings.cross_discounts 提供：
- *   { has_checkup_basic_discount_on_expert: 100, has_checkup_pro_discount_on_expert: 200,
- *     has_expert_discount_on_checkup_basic: 100, has_expert_discount_on_checkup_pro: 200 }
+ * 跨產品折扣（不變）
  */
 export interface CrossDiscountInput {
   productKind: 'expert_plan' | 'checkup';
@@ -134,9 +105,7 @@ export function calcCrossDiscount(input: CrossDiscountInput): { amount: number; 
 }
 
 /**
- * 月→年升級按比例補價
- * 計算：剩餘月份未使用價值 = 月費 * (剩餘秒數 / 30天秒數)
- *      應補金額 = 年費 - 剩餘未使用價值
+ * 月→年升級按比例補價（不變）
  */
 export function calcUpgradeProration(opts: {
   monthlyPrice: number;
@@ -166,10 +135,12 @@ export async function loadPaymentDefaults(supabase: any): Promise<SplitInput['de
   const map = new Map<string, any>();
   (data || []).forEach((row: any) => map.set(row.key, row.value));
 
+  const standardRaw = map.get('split_standard') || { pct_platform: 55, pct_expert: 45 };
+  const checkupRaw = map.get('split_checkup') || { pct_platform: 100, pct_expert: 0 };
+
   return {
-    standard: map.get('split_standard') || { pct_platform: 55, pct_expert: 45, pct_channel: 0 },
-    attributed: map.get('split_attributed') || { pct_platform: 35, pct_expert: 45, pct_channel: 20 },
-    checkup: map.get('split_checkup') || { pct_platform: 100, pct_expert: 0, pct_channel: 0 },
+    standard: { pct_platform: standardRaw.pct_platform ?? 55, pct_expert: standardRaw.pct_expert ?? 45 },
+    checkup: { pct_platform: checkupRaw.pct_platform ?? 100, pct_expert: checkupRaw.pct_expert ?? 0 },
     crossDiscounts: map.get('cross_discounts') || {
       has_checkup_basic_discount_on_expert: 100,
       has_checkup_pro_discount_on_expert: 200,

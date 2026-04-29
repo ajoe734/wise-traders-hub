@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard, Users, UserCheck, BarChart3, CreditCard,
-  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Wallet, Receipt, Settings, Share2
+  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Wallet, Receipt, Settings, PieChart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,7 +23,7 @@ const navItems = [
   { path: '/company/payments', icon: CreditCard, label: '金流管理' },
   { path: '/company/remittance', icon: Receipt, label: '匯款審核' },
   { path: '/company/payment-settings', icon: Settings, label: '金流設定' },
-  { path: '/company/referral-channels', icon: Share2, label: '通路分潤' },
+  { path: '/company/plan-splits', icon: PieChart, label: '方案分潤' },
   { path: '/company/audit-logs', icon: FileClock, label: '審計日誌' },
   { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
 ];
