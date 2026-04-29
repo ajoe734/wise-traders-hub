@@ -1,83 +1,78 @@
-import { describe, it, expect } from 'vitest';
-import { calcSplit, isAttributed, type SplitInput } from '../../../supabase/functions/_shared/revenueSplit.ts';
+/**
+ * Group 1.30 — 分潤計算（v2，已停用導流分潤）
+ *
+ * 架構：
+ *   - 健檢：平台 100%
+ *   - 一般方案：planOverride 優先，否則 standard_default
+ *   - attribution 僅做行銷追蹤紀錄，不影響分潤
+ */
 
-const defaults: SplitInput['defaults'] = {
-  standard:   { pct_platform: 55, pct_expert: 45, pct_channel: 0 },
-  attributed: { pct_platform: 35, pct_expert: 45, pct_channel: 20 },
-  checkup:    { pct_platform: 100, pct_expert: 0, pct_channel: 0 },
+import { describe, it, expect } from 'vitest';
+import { calcSplit, type SplitInput } from '@/lib/revenueSplit';
+
+const DEFAULTS = {
+  standard: { pct_platform: 55, pct_expert: 45 },
+  checkup: { pct_platform: 100, pct_expert: 0 },
 };
 
-describe('isAttributed', () => {
-  it('returns false when attribution missing or own source', () => {
-    expect(isAttributed(null)).toBe(false);
-    expect(isAttributed({ utm_source: '' })).toBe(false);
-    expect(isAttributed({ utm_source: 'organic' })).toBe(false);
-    expect(isAttributed({ utm_source: 'Direct' })).toBe(false);
-    expect(isAttributed({ utm_source: 'legendflow' })).toBe(false);
-  });
-  it('returns true on third-party source', () => {
-    expect(isAttributed({ utm_source: 'facebook_ads' })).toBe(true);
-  });
-});
+function base(overrides: Partial<SplitInput> = {}): SplitInput {
+  return {
+    productKind: 'expert_plan',
+    gross: 1000,
+    discount: 0,
+    defaults: DEFAULTS,
+    ...overrides,
+  };
+}
 
-describe('calcSplit', () => {
-  it('checkup → 100% platform regardless of attribution', () => {
-    const r = calcSplit({ productKind: 'checkup', gross: 1299, discount: 0, defaults, attribution: { utm_source: 'facebook_ads' } });
-    expect(r.platform_amount).toBe(1299);
+describe('1.30 calcSplit', () => {
+  it('1.30-1 健檢：平台 100%', () => {
+    const r = calcSplit(base({ productKind: 'checkup' }));
+    expect(r.platform_amount).toBe(1000);
     expect(r.expert_amount).toBe(0);
     expect(r.channel_reserve).toBe(0);
     expect(r.rule_source).toBe('checkup_default');
   });
 
-  it('expert_plan with no attribution → standard 55/45/0', () => {
-    const r = calcSplit({ productKind: 'expert_plan', gross: 1000, discount: 0, defaults, attribution: null });
+  it('1.30-2 一般方案無 override → standard_default 55/45', () => {
+    const r = calcSplit(base());
+    expect(r.rule_source).toBe('standard_default');
     expect(r.platform_amount).toBe(550);
     expect(r.expert_amount).toBe(450);
     expect(r.channel_reserve).toBe(0);
+  });
+
+  it('1.30-3 planOverride 優先於 standard', () => {
+    const r = calcSplit(base({ planOverride: { pct_platform: 70, pct_expert: 30 } }));
+    expect(r.rule_source).toBe('plan_override');
+    expect(r.platform_amount).toBe(700);
+    expect(r.expert_amount).toBe(300);
+  });
+
+  it('1.30-4 健檢忽略 planOverride', () => {
+    const r = calcSplit(base({ productKind: 'checkup', planOverride: { pct_platform: 50, pct_expert: 50 } }));
+    expect(r.rule_source).toBe('checkup_default');
+    expect(r.platform_amount).toBe(1000);
+  });
+
+  it('1.30-5 折扣後：net = gross - discount，分潤以 net 計', () => {
+    const r = calcSplit(base({ discount: 100 }));
+    expect(r.net).toBe(900);
+    expect(r.platform_amount).toBe(495); // 55% of 900
+    expect(r.expert_amount).toBe(405);
+  });
+
+  it('1.30-6 殘差給 expert（避免湊不足 100%）', () => {
+    // 33/67 of 100 → platform=33, expert=100-33=67
+    const r = calcSplit(base({ gross: 100, planOverride: { pct_platform: 33, pct_expert: 67 } }));
+    expect(r.platform_amount + r.expert_amount).toBe(100);
+    expect(r.expert_amount).toBe(67);
+  });
+
+  it('1.30-7 attribution 不影響分潤（只做追蹤）', () => {
+    const r = calcSplit(base({ attribution: { utm_source: 'facebook_ads' } }));
     expect(r.rule_source).toBe('standard_default');
-  });
-
-  it('expert_plan attributed (no override) → 35/45/20', () => {
-    const r = calcSplit({ productKind: 'expert_plan', gross: 1000, discount: 0, defaults, attribution: { utm_source: 'facebook_ads' } });
-    expect(r.platform_amount).toBe(350);
-    expect(r.channel_reserve).toBe(200);
-    expect(r.expert_amount).toBe(450);
-    expect(r.rule_source).toBe('attributed_default');
-  });
-
-  it('channelOverride applied when attributed', () => {
-    const r = calcSplit({
-      productKind: 'expert_plan', gross: 1000, discount: 0, defaults,
-      attribution: { utm_source: 'facebook_ads' },
-      channelOverride: { pct_platform: 30, pct_expert: 40, pct_channel: 30 },
-    });
-    expect(r.rule_source).toBe('channel_override');
-    expect(r.platform_amount).toBe(300);
-    expect(r.channel_reserve).toBe(300);
-    expect(r.expert_amount).toBe(400);
-  });
-
-  it('expertOverride wins over standard', () => {
-    const r = calcSplit({
-      productKind: 'expert_plan', gross: 1000, discount: 0, defaults,
-      expertOverride: { pct_platform: 40, pct_expert: 60, pct_channel: 0 },
-    });
-    expect(r.rule_source).toBe('expert_override');
-    expect(r.platform_amount).toBe(400);
-    expect(r.expert_amount).toBe(600);
-  });
-
-  it('discount reduces net; sum == net (residual to expert)', () => {
-    const r = calcSplit({ productKind: 'expert_plan', gross: 1001, discount: 100, defaults, attribution: null });
-    expect(r.net).toBe(901);
-    expect(r.platform_amount + r.expert_amount + r.channel_reserve).toBe(r.net);
-  });
-
-  it('gross < discount → net = 0 and no negatives', () => {
-    const r = calcSplit({ productKind: 'expert_plan', gross: 50, discount: 100, defaults, attribution: null });
-    expect(r.net).toBe(0);
-    expect(r.platform_amount).toBe(0);
-    expect(r.expert_amount).toBe(0);
+    expect(r.platform_amount).toBe(550);
     expect(r.channel_reserve).toBe(0);
   });
 });
