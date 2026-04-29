@@ -95,6 +95,27 @@ Deno.serve(async (req) => {
     const outTradeNo = generateOutTradeNo();
     const nonceStr = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
+    // Stage 3: persist payment intent (attribution + discount snapshot) before calling ACpay
+    try {
+      const sbIntent = createClient(supabaseUrl, serviceRoleKey);
+      await sbIntent.from("payment_intents").insert({
+        trade_no: outTradeNo,
+        user_id: userId || null,
+        product_kind: "expert_plan",
+        plan_id: planId,
+        expert_id: expertId || null,
+        billing_cycle: billingCycle,
+        original_amount: originalAmount ?? amount,
+        discount_amount: discountAmount ?? 0,
+        discount_reason: discountReason ?? null,
+        amount,
+        attribution: attribution ?? null,
+        upgrade_from_subscription_id: upgradeFromSubscriptionId ?? null,
+      });
+    } catch (e) {
+      console.error("payment_intents insert (acpay) failed (non-fatal):", e);
+    }
+
     // callback_url: 3DS OTP complete → redirect user back
     const callbackUrl = `${origin}/app/checkout/${slug}/${planId}?acpay=result&billingCycle=${billingCycle}`;
     // notify_url: ACpay async server-to-server notification
