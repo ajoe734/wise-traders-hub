@@ -22,7 +22,7 @@ const navItems = [
   { path: '/company/revenue', icon: BarChart3, label: '營收數據' },
   { path: '/company/payments', icon: CreditCard, label: '金流管理' },
   { path: '/company/remittance', icon: Receipt, label: '匯款審核' },
-  { path: '/company/payment-settings', icon: Settings, label: '金流設定' },
+  { path: '/company/payment-settings', icon: Settings, label: '收款設定' },
   { path: '/company/audit-logs', icon: FileClock, label: '審計日誌' },
   { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
 ];
