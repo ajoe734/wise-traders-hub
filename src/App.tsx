@@ -88,6 +88,7 @@ import CompanyPlanReview from "./pages/company/PlanReview";
 import CompanyRemittance from "./pages/company/Remittance";
 import CompanyPaymentSettings from "./pages/company/PaymentSettings";
 import CompanyReferralChannels from "./pages/company/ReferralChannels";
+import CompanyPlanSplits from "./pages/company/PlanSplits";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
@@ -200,6 +201,7 @@ const AppShell = () => (
             <Route path="/company/remittance" element={<ProtectedRoute requiredRole="company_admin"><CompanyRemittance /></ProtectedRoute>} />
             <Route path="/company/payment-settings" element={<ProtectedRoute requiredRole="company_admin"><CompanyPaymentSettings /></ProtectedRoute>} />
             <Route path="/company/referral-channels" element={<ProtectedRoute requiredRole="company_admin"><CompanyReferralChannels /></ProtectedRoute>} />
+            <Route path="/company/plan-splits" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlanSplits /></ProtectedRoute>} />
 
             {/* Admin (expert backend) */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />

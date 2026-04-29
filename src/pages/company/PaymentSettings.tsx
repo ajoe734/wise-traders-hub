@@ -6,25 +6,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
+import { Link } from 'react-router-dom';
 
 interface Setting { key: string; value: any; }
 
-const KEYS = [
-  { key: 'split_standard', label: '標準分潤（無導流）', fields: ['pct_platform', 'pct_expert', 'pct_channel'] },
-  { key: 'split_attributed', label: '被導流分潤（有 utm_source）', fields: ['pct_platform', 'pct_expert', 'pct_channel'] },
-  { key: 'split_checkup', label: '健檢分潤（平台獨享）', fields: ['pct_platform', 'pct_expert', 'pct_channel'] },
+const REMIT_FIELDS: { key: string; label: string }[] = [
+  { key: 'bank_name', label: '銀行名稱' },
+  { key: 'bank_code', label: '銀行代碼' },
+  { key: 'account_number', label: '帳號' },
+  { key: 'account_name', label: '戶名' },
 ];
 
-const REMIT_FIELDS = ['bank_name', 'bank_code', 'account_number', 'account_name'];
-const CROSS_FIELDS = [
-  'has_checkup_basic_discount_on_expert',
-  'has_checkup_pro_discount_on_expert',
-  'has_expert_discount_on_checkup_basic',
-  'has_expert_discount_on_checkup_pro',
+const CROSS_FIELDS: { key: string; label: string }[] = [
+  { key: 'has_checkup_basic_discount_on_expert', label: '已訂健檢 Basic → 訂閱方案折扣' },
+  { key: 'has_checkup_pro_discount_on_expert', label: '已訂健檢 Pro → 訂閱方案折扣' },
+  { key: 'has_expert_discount_on_checkup_basic', label: '已訂方案 → 健檢 Basic 折扣' },
+  { key: 'has_expert_discount_on_checkup_pro', label: '已訂方案 → 健檢 Pro 折扣' },
 ];
 
 export default function CompanyPaymentSettings() {
-  const [splits, setSplits] = useState<Record<string, any>>({});
+  const [standard, setStandard] = useState<{ pct_platform: number; pct_expert: number }>({ pct_platform: 55, pct_expert: 45 });
   const [remit, setRemit] = useState<Record<string, string>>({});
   const [cross, setCross] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -34,9 +35,8 @@ export default function CompanyPaymentSettings() {
     const { data } = await supabase.from('payment_settings').select('key, value');
     const map: Record<string, any> = {};
     (data || []).forEach((r: Setting) => { map[r.key] = r.value; });
-    const s: Record<string, any> = {};
-    KEYS.forEach(k => { s[k.key] = map[k.key] || { pct_platform: 0, pct_expert: 0, pct_channel: 0 }; });
-    setSplits(s);
+    const s = map['split_standard'] || { pct_platform: 55, pct_expert: 45 };
+    setStandard({ pct_platform: s.pct_platform ?? 55, pct_expert: s.pct_expert ?? 45 });
     setRemit(map['remittance_account'] || {});
     setCross(map['cross_discounts'] || {});
     setLoading(false);
@@ -52,14 +52,13 @@ export default function CompanyPaymentSettings() {
     return true;
   };
 
-  const saveSplit = async (key: string) => {
-    const v = splits[key];
-    const total = (v.pct_platform || 0) + (v.pct_expert || 0) + (v.pct_channel || 0);
+  const saveStandard = async () => {
+    const total = (standard.pct_platform || 0) + (standard.pct_expert || 0);
     if (total !== 100) {
-      toast({ title: '比例錯誤', description: `總和需為 100%（目前 ${total}%）`, variant: 'destructive' });
+      toast({ title: '比例錯誤', description: `平台 + 專家需為 100%（目前 ${total}%）`, variant: 'destructive' });
       return;
     }
-    if (await upsert(key, v)) toast({ title: '已儲存' });
+    if (await upsert('split_standard', standard)) toast({ title: '已儲存標準分潤' });
   };
 
   const saveRemit = async () => { if (await upsert('remittance_account', remit)) toast({ title: '已儲存匯款帳戶' }); };
@@ -70,35 +69,51 @@ export default function CompanyPaymentSettings() {
   return (
     <CompanyLayout>
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <h1 className="text-2xl font-semibold">金流設定</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">金流設定</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            個別分析師方案的分潤覆寫請至{' '}
+            <Link to="/company/plan-splits" className="underline text-primary">方案分潤</Link> 設定。
+          </p>
+        </div>
 
         <Card className="p-5 space-y-4">
-          <h2 className="font-semibold">分潤規則</h2>
-          {KEYS.map(({ key, label, fields }) => (
-            <div key={key} className="border rounded-lg p-4 space-y-3">
-              <div className="font-medium text-sm">{label}</div>
-              <div className="grid grid-cols-3 gap-3">
-                {fields.map(f => (
-                  <div key={f}>
-                    <Label className="text-xs">{f === 'pct_platform' ? '平台' : f === 'pct_expert' ? '專家' : '通路'}（%）</Label>
-                    <Input type="number" min={0} max={100} value={splits[key]?.[f] ?? 0}
-                      onChange={e => setSplits(p => ({ ...p, [key]: { ...p[key], [f]: Number(e.target.value) } }))} />
-                  </div>
-                ))}
-              </div>
-              <Button size="sm" onClick={() => saveSplit(key)}>儲存</Button>
+          <div>
+            <h2 className="font-semibold">標準分潤預設</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              所有「訂閱方案」的全站預設值；個別方案若有覆寫，以覆寫為準。
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 max-w-md">
+            <div>
+              <Label className="text-xs">平台（%）</Label>
+              <Input type="number" min={0} max={100} value={standard.pct_platform}
+                onChange={e => setStandard(p => ({ ...p, pct_platform: Number(e.target.value), pct_expert: 100 - Number(e.target.value) }))} />
             </div>
-          ))}
+            <div>
+              <Label className="text-xs">專家（%）</Label>
+              <Input type="number" min={0} max={100} value={standard.pct_expert}
+                onChange={e => setStandard(p => ({ ...p, pct_expert: Number(e.target.value), pct_platform: 100 - Number(e.target.value) }))} />
+            </div>
+          </div>
+          <Button size="sm" onClick={saveStandard}>儲存標準分潤</Button>
+        </Card>
+
+        <Card className="p-5 space-y-4">
+          <h2 className="font-semibold">健檢分潤</h2>
+          <p className="text-sm text-muted-foreground">
+            健檢商品由平台獨享 100%，不開放覆寫。
+          </p>
         </Card>
 
         <Card className="p-5 space-y-4">
           <h2 className="font-semibold">跨產品折扣（NT$）</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {CROSS_FIELDS.map(f => (
-              <div key={f}>
-                <Label className="text-xs">{f}</Label>
-                <Input type="number" min={0} value={cross[f] ?? 0}
-                  onChange={e => setCross(p => ({ ...p, [f]: Number(e.target.value) }))} />
+              <div key={f.key}>
+                <Label className="text-xs">{f.label}</Label>
+                <Input type="number" min={0} value={cross[f.key] ?? 0}
+                  onChange={e => setCross(p => ({ ...p, [f.key]: Number(e.target.value) }))} />
               </div>
             ))}
           </div>
@@ -106,12 +121,12 @@ export default function CompanyPaymentSettings() {
         </Card>
 
         <Card className="p-5 space-y-4">
-          <h2 className="font-semibold">匯款帳戶（公開）</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <h2 className="font-semibold">匯款帳戶（公開於結帳頁）</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {REMIT_FIELDS.map(f => (
-              <div key={f}>
-                <Label className="text-xs">{f}</Label>
-                <Input value={remit[f] || ''} onChange={e => setRemit(p => ({ ...p, [f]: e.target.value }))} />
+              <div key={f.key}>
+                <Label className="text-xs">{f.label}</Label>
+                <Input value={remit[f.key] || ''} onChange={e => setRemit(p => ({ ...p, [f.key]: e.target.value }))} />
               </div>
             ))}
           </div>
