@@ -69,6 +69,13 @@ Deno.serve(async (req) => {
       slug,
       planName,
       expertName,
+      // Stage 3 additions
+      originalAmount,
+      discountAmount,
+      discountReason,
+      attribution,
+      expertId,
+      upgradeFromSubscriptionId,
     } = await req.json();
 
     if (!prime || !amount || !planId) {
