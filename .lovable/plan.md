@@ -1,91 +1,94 @@
-## 結論
+# 重寫對帳中心（取代假的「營收數據」頁）
 
-你的判斷是對的。匯款帳戶就是收款設定的一環，不該獨立一頁。目前「金流設定」頁的真正問題不是「東西太多」，而是：
+## 為什麼要做
 
-1. **健檢分潤卡是空殼**（純說明文字，不能改）
-2. **命名「金流設定」容易誤解**為金流商串接設定
-3. **頁面缺乏分區層次**，四個 Card 平鋪沒有視覺分組
+目前 `/company/revenue` 是「假對帳」：
+- 只加總 `payment_transactions.amount`，**完全沒讀 `revenue_splits`**（真正的會計口徑表）
+- 看不到「每位專家每月應分多少」「健檢營收佔多少」「折扣吃掉多少」「平台應得多少」
+- `/company/payments` 的交易紀錄也只有交易編號／金額／狀態，不知道是誰買、買哪個方案、屬於哪位專家
 
-只要解決這三點，匯款帳戶留在這頁是合理的。不需要再拆頁。
+結果：你**根本沒辦法回答** — 「這個月收了多少？要分給某分析師多少？健檢賺多少？」
 
-## 改動範圍
+## 範圍（你已選：階段 A，會計口徑為主，健檢獨立頁籤）
 
-只動 `src/pages/company/PaymentSettings.tsx` 和 `src/components/layouts/CompanyLayout.tsx`，其他不動。
+把 `/company/revenue` 整頁重寫成「對帳中心」，**全部數字以 `revenue_splits` 為主**（不再加總 `payment_transactions`）。撥款流程（payouts 表）這次不做。
 
-### 1. 重新命名與分組
+## 四個頁籤
 
-頁名從「金流設定」改為「**收款設定**」（更精確：這頁就是設定平台怎麼收錢、怎麼分錢）。側邊欄項目同步改名。
+### 1. 總覽
+期間選擇器（本月／上月／自訂區間，預設本月，台北時區）。八張卡片＋兩張圖：
+- 毛收 `SUM(gross)`
+- 折扣 `SUM(discount)`
+- 淨收 `SUM(net)`
+- 平台應得 `SUM(platform_amount)`
+- 專家應分總額 `SUM(expert_amount)`
+- 訂閱營收（`expert_plan` 拆分）
+- 健檢營收（`checkup` 拆分）
+- 退款金額（從 `payment_transactions.status='refunded'` 取，獨立顯示，因為 `revenue_splits` 不會回沖）
+- 月趨勢折線圖（按月聚合 `gross / platform_amount / expert_amount`）
+- 來源拆分長條圖（信用卡 / 匯款 / LINE Pay / 健檢）
 
-頁面分成兩個明確的區塊（用大標題分隔，不是只用 Card）：
+### 2. 訂閱明細
+列出 `member_subscriptions` 全部紀錄（不限 active，含 cancelled/expired）：
+- 訂閱者（join `profiles.display_name`、email）
+- 方案（join `expert_plans.name`）
+- 專家（join `experts.name`、role badge）
+- 月費 / 年費、`billing_cycle`、`status`、`auto_renew`
+- `started_at` / `expires_at`、下次扣款日（active+auto_renew 才算）
+- 篩選：專家、方案類型（advisor/mentor）、狀態、auto_renew
+- 匯出 CSV
 
-```text
-收款設定
-├─ 一、分潤規則
-│   └─ 標準分潤預設（平台 % / 專家 %）
-│       附註：個別方案覆寫請至「方案管理」；健檢由平台 100%
-│
-└─ 二、結帳頁公開資訊
-    ├─ 匯款帳戶（銀行、代碼、帳號、戶名）
-    └─ 跨產品折扣（NT$ 金額，4 個欄位）
-```
+### 3. 金流明細
+合併 `payment_transactions` ＋ `remittance_orders` 為單一視角：
+- 訂閱者、產品（訂閱方案/健檢方案，從 join 推斷）、金額、原價、折扣、折扣原因
+- 來源金流（信用卡/匯款/LINE Pay/ACpay）
+- 狀態（含 refunded）、建立時間、付款時間
+- 退款入口（沿用現有 `Payments.tsx` 的退款 dialog 邏輯）
+- 篩選 + CSV 匯出
 
-### 2. 刪除空殼「健檢分潤」Card
+### 4. 專家分潤對帳（核心新功能）
+從 `revenue_splits` join `experts` 聚合：
+- 表 1：本期每位專家應分總額（按 `expert_amount` 從大到小，含筆數、毛收、折扣、淨收）
+- 表 2：點專家展開該期所有 split 明細（交易日、訂閱者、方案、毛收、折扣、淨收、平台、專家、`rule_source`）
+- 期間切換、CSV 匯出
 
-那張 Card 沒有任何可操作項，純佔版面。改成把「健檢由平台 100%」這句話**併入標準分潤卡的附註文字**，省一個區塊。
+### 5. 健檢營收（獨立頁籤）
+篩 `revenue_splits.expert_id IS NULL AND plan_id IS NULL`（健檢平台 100%）＋ join `checkup_subscriptions`：
+- 健檢方案毛收 / 折扣 / 淨收（全進平台口袋）
+- 訂閱明細：用戶、方案、週期、起訖、auto_renew
+- 月趨勢圖、CSV 匯出
 
-### 3. 側邊欄調整
+## 必須先解決的兩個資料盲點
 
-`CompanyLayout.tsx` 目前長這樣：
+這兩個盲點如果不處理，對帳數字會錯。Plan 裡會一併修。
 
-```text
-金流管理       /company/payments
-匯款審核       /company/remittance
-金流設定       /company/payment-settings
-```
+### 盲點 1：匯款退款不會反映在會計口徑
+`acpay-refund` 只 update `payment_transactions.status='refunded'`，但 `revenue_splits` 沒有反向沖銷紀錄。  
+**處理**：對帳中心顯示「退款」時，獨立從 `payment_transactions` 取，**不從 splits 扣**。在 UI 明確標示「淨收 ＝ revenue_splits 加總（不含退款）」，「實際淨收 ＝ 淨收 − 退款」分兩行呈現。會計師才不會被誤導。
 
-三個都叫「金流」太混。改成：
+### 盲點 2：早期遺留交易可能沒寫 splits
+`writeRevenueSplit` 是後加的（測試 1.34 才補上），歷史 `payment_transactions` 不一定都有對應 `revenue_splits`。  
+**處理**：總覽頁加一張「**對帳健康度**」小卡：`COUNT(payment_transactions WHERE status='paid') vs COUNT(revenue_splits)`，若不等顯示警示與「修補」按鈕（這次不實作修補，只先暴露問題）。
 
-```text
-金流管理       /company/payments          （金流商交易紀錄）
-匯款審核       /company/remittance        （人工匯款訂單審核）
-收款設定       /company/payment-settings  （分潤、折扣、匯款帳戶）
-```
+## 側邊欄與檔案動作
 
-「金流管理」和「匯款審核」的命名其實也可以更好，但那是另一個議題，這次不動。
+- `CompanyLayout.tsx`：「營收數據」改名「**對帳中心**」（Receipt 圖示）
+- `src/pages/company/Revenue.tsx`：整檔重寫
+- `src/pages/company/Payments.tsx`：移除「交易紀錄」tab（搬到對帳中心金流明細頁籤），只保留「金流工具」管理。頁名改為「**金流工具**」
+- `App.tsx` route `/company/payments` 保留，內容瘦身
 
-### 4. 不做的事
-
-- 不拆頁、不新增 route
-- 不動資料庫（`payment_settings` 表結構不變）
-- 不動 `Remittance.tsx`（匯款訂單審核頁，跟這次無關）
-- 不動 `Plans.tsx`（方案管理仍然管個別方案的分潤覆寫）
-- 跨產品折扣**不**獨立成優惠券系統（你沒說要擴充，先留在這頁）
+## 不做的（明確劃掉）
+- 不建 `payouts` 撥款表、不做撥款流程（你說只做 A）
+- 不改 `revenue_splits` schema、不改 `paymentProcessor.ts` 寫入邏輯
+- 不補寫歷史缺漏的 splits（先暴露、不修）
+- 不改 `Subscribers.tsx`（那是會員視角，不是對帳）
 
 ## 技術細節
 
-**檔案異動：**
-
-- `src/pages/company/PaymentSettings.tsx`
-  - 標題改「收款設定」
-  - 加兩個 section header（`<h2>` 級的「分潤規則」、「結帳頁公開資訊」）
-  - 刪掉「健檢分潤」整張 Card
-  - 把「健檢由平台 100%」的說明併到「標準分潤預設」卡的副標
-  - Card 順序調整：標準分潤 → 匯款帳戶 → 跨產品折扣
-  - 既有的 `saveStandard` / `saveRemit` / `saveCross` 邏輯完全不動
-
-- `src/components/layouts/CompanyLayout.tsx`
-  - `navItems` 中 `/company/payment-settings` 的 label 改為「收款設定」
-
-**不影響：**
-- `payment_settings` 資料表的 keys（`split_standard`、`remittance_account`、`cross_discounts`）
-- `revenueSplit.ts`、`paymentProcessor.ts` 等下游邏輯
-- 任何測試（沒有測試是針對這頁標題或健檢卡的）
-
-## 驗收
-
-1. `/company/payment-settings` 頁面打開，標題顯示「收款設定」
-2. 頁面有兩個 section：「分潤規則」（含標準分潤）、「結帳頁公開資訊」（含匯款帳戶、跨產品折扣）
-3. 不再看到空殼的「健檢分潤」Card
-4. 標準分潤卡的附註提到「健檢商品由平台獨享 100%」
-5. 側邊欄「金流設定」改名為「收款設定」
-6. 三個儲存按鈕（標準分潤、匯款帳戶、跨產品折扣）都還能正常存檔
+- 全部用 `supabase.from(...).select(... join ...)`，不寫 RPC（資料量初期不大）
+- 期間 default：當月 1 號 00:00 (UTC+8) 到現在
+- 列表分頁：每頁 50 筆，前端排序＋篩選
+- CSV 匯出沿用現有 BOM + `encodeURIComponent` 模式（Revenue.tsx 已有範本）
+- 顏色：金額正向 → primary；退款 → destructive；專家欄 mentor 用 `bg-mentor`、advisor 用 primary（依 Core memory）
+- 日期統一 `YYYY/MM/DD`（依 Core memory）
+- RLS 已就緒：`revenue_splits` / `payment_transactions` / `member_subscriptions` 都有 `company_admin full access`，不需新 policy
