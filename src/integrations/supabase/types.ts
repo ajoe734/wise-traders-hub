@@ -813,8 +813,6 @@ export type Database = {
           name: string
           role: Database["public"]["Enums"]["expert_role"]
           slug: string
-          split_no_ref: Json | null
-          split_with_ref: Json | null
           starting_capital: number | null
           status: string
           strategy_summary: string | null
@@ -835,8 +833,6 @@ export type Database = {
           name: string
           role: Database["public"]["Enums"]["expert_role"]
           slug: string
-          split_no_ref?: Json | null
-          split_with_ref?: Json | null
           starting_capital?: number | null
           status?: string
           strategy_summary?: string | null
@@ -857,8 +853,6 @@ export type Database = {
           name?: string
           role?: Database["public"]["Enums"]["expert_role"]
           slug?: string
-          split_no_ref?: Json | null
-          split_with_ref?: Json | null
           starting_capital?: number | null
           status?: string
           strategy_summary?: string | null
@@ -1225,6 +1219,47 @@ export type Database = {
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "member_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_split_overrides: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          pct_expert: number
+          pct_platform: number
+          plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          pct_expert: number
+          pct_platform: number
+          plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          pct_expert?: number
+          pct_platform?: number
+          plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_split_overrides_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: true
+            referencedRelation: "expert_plans"
             referencedColumns: ["id"]
           },
         ]
