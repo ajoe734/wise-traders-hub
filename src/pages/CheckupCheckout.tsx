@@ -31,7 +31,7 @@ export default function CheckupCheckout() {
   const [method, setMethod] = useState<Method>("ecpay");
   const [last5, setLast5] = useState("");
   const [payerName, setPayerName] = useState("");
-  const [bank, setBank] = useState<{ bank: string; name: string; account: string } | null>(null);
+  const [bank, setBank] = useState<{ bank_name: string; bank_code: string; account_number: string; account_name: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string } | null>(null);
@@ -41,7 +41,12 @@ export default function CheckupCheckout() {
     supabase.from("payment_settings").select("value").eq("key", "remittance_account").maybeSingle()
       .then(({ data }) => {
         const v = data?.value as any;
-        if (v) setBank({ bank: v.bank ?? "", name: v.name ?? "", account: v.account ?? "" });
+        if (v) setBank({
+          bank_name: v.bank_name ?? v.bank ?? "",
+          bank_code: v.bank_code ?? v.branch ?? "",
+          account_number: v.account_number ?? v.account ?? "",
+          account_name: v.account_name ?? v.name ?? "",
+        });
       });
   }, []);
 
@@ -273,11 +278,11 @@ export default function CheckupCheckout() {
             <CardContent className="p-5 space-y-4">
               <div className="text-sm space-y-1">
                 <p className="font-medium">收款帳號</p>
-                {bank && (bank.bank || bank.account) ? (
+                {bank && (bank.bank_name || bank.account_number) ? (
                   <div className="text-muted-foreground space-y-0.5">
-                    <p>銀行：{bank.bank || "—"}</p>
-                    <p>戶名：{bank.name || "—"}</p>
-                    <p>帳號：<span className="font-mono">{bank.account || "—"}</span></p>
+                    <p>銀行：{bank.bank_name || "—"}{bank.bank_code ? `（${bank.bank_code}）` : ""}</p>
+                    <p>戶名：{bank.account_name || "—"}</p>
+                    <p>帳號：<span className="font-mono">{bank.account_number || "—"}</span></p>
                   </div>
                 ) : (
                   <p className="text-muted-foreground">收款帳號尚未設定，請聯絡客服。</p>
