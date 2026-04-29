@@ -148,12 +148,12 @@ const CompanyRevenue = () => {
   };
 
   /* ----------------- 索引 map（後續多次 join 用） ----------------- */
-  const expertMap = useMemo(() => Object.fromEntries(experts.map(e => [e.id, e])), [experts]);
-  const planMap = useMemo(() => Object.fromEntries(plans.map(p => [p.id, p])), [plans]);
-  const checkupPlanMap = useMemo(() => Object.fromEntries(checkupPlans.map(p => [p.id, p])), [checkupPlans]);
-  const profileMap = useMemo(() => Object.fromEntries(profiles.map(p => [p.user_id, p])), [profiles]);
-  const providerMap = useMemo(() => Object.fromEntries(providers.map(p => [p.id, p])), [providers]);
-  const subMap = useMemo(() => Object.fromEntries(subscriptions.map(s => [s.id, s])), [subscriptions]);
+  const expertMap = useMemo<Record<string, any>>(() => Object.fromEntries(experts.map(e => [e.id, e])), [experts]);
+  const planMap = useMemo<Record<string, any>>(() => Object.fromEntries(plans.map(p => [p.id, p])), [plans]);
+  const checkupPlanMap = useMemo<Record<string, any>>(() => Object.fromEntries(checkupPlans.map(p => [p.id, p])), [checkupPlans]);
+  const profileMap = useMemo<Record<string, any>>(() => Object.fromEntries(profiles.map(p => [p.user_id, p])), [profiles]);
+  const providerMap = useMemo<Record<string, any>>(() => Object.fromEntries(providers.map(p => [p.id, p])), [providers]);
+  const subMap = useMemo<Record<string, any>>(() => Object.fromEntries(subscriptions.map(s => [s.id, s])), [subscriptions]);
 
   /* ----------------- 總覽聚合 ----------------- */
   const overview = useMemo(() => {
