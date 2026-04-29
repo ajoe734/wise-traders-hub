@@ -13,10 +13,10 @@ export default function CompanyReferralChannels() {
         <Card className="p-8 space-y-3">
           <h1 className="text-xl font-semibold">通路分潤功能已停用</h1>
           <p className="text-sm text-muted-foreground">
-            被導流分潤（依 utm_source 動態調整分潤）已關閉。請改用「方案分潤」對個別方案設定固定分潤覆寫。
+            被導流分潤（依 utm_source 動態調整分潤）已關閉。請改用「方案管理」對個別方案設定固定分潤覆寫。
           </p>
           <p className="text-sm">
-            <Link to="/company/plan-splits" className="text-primary underline">前往方案分潤 →</Link>
+            <Link to="/company/plans" className="text-primary underline">前往方案管理 →</Link>
           </p>
         </Card>
       </div>

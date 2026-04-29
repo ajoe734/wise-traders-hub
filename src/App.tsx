@@ -84,11 +84,10 @@ import CompanyPayments from "./pages/company/Payments";
 
 import CompanyAnnouncements from "./pages/company/Announcements";
 import CompanyAuditLogs from "./pages/company/AuditLogs";
-import CompanyPlanReview from "./pages/company/PlanReview";
+import CompanyPlans from "./pages/company/Plans";
 import CompanyRemittance from "./pages/company/Remittance";
 import CompanyPaymentSettings from "./pages/company/PaymentSettings";
 import CompanyReferralChannels from "./pages/company/ReferralChannels";
-import CompanyPlanSplits from "./pages/company/PlanSplits";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
@@ -197,11 +196,13 @@ const AppShell = () => (
             
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />
             <Route path="/company/audit-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyAuditLogs /></ProtectedRoute>} />
-            <Route path="/company/plan-review" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlanReview /></ProtectedRoute>} />
+            <Route path="/company/plans" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlans /></ProtectedRoute>} />
+            {/* Legacy routes — redirect to unified plan management */}
+            <Route path="/company/plan-review" element={<Navigate to="/company/plans" replace />} />
+            <Route path="/company/plan-splits" element={<Navigate to="/company/plans" replace />} />
             <Route path="/company/remittance" element={<ProtectedRoute requiredRole="company_admin"><CompanyRemittance /></ProtectedRoute>} />
             <Route path="/company/payment-settings" element={<ProtectedRoute requiredRole="company_admin"><CompanyPaymentSettings /></ProtectedRoute>} />
             <Route path="/company/referral-channels" element={<ProtectedRoute requiredRole="company_admin"><CompanyReferralChannels /></ProtectedRoute>} />
-            <Route path="/company/plan-splits" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlanSplits /></ProtectedRoute>} />
 
             {/* Admin (expert backend) */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
