@@ -74,12 +74,29 @@ const CompanyAnnouncements = () => {
     else updates.published_at = null;
 
     await supabase.from('announcements').update(updates).eq('id', a.id);
+    await logAdminAction({
+      action: newStatus === 'published' ? 'announcement.publish' : 'announcement.unpublish',
+      targetType: 'announcements',
+      targetId: a.id,
+      detail: {
+        before: { status: a.status, published_at: a.published_at },
+        after: { status: newStatus, published_at: updates.published_at },
+        context: { title: a.title },
+      },
+    });
     toast.success(newStatus === 'published' ? '已發布' : '已取消發布');
     fetchAnnouncements();
   };
 
   const handleDelete = async (id: string) => {
+    const target = announcements.find(x => x.id === id);
     await supabase.from('announcements').delete().eq('id', id);
+    await logAdminAction({
+      action: 'announcement.delete',
+      targetType: 'announcements',
+      targetId: id,
+      detail: { before: { title: target?.title, status: target?.status }, context: { title: target?.title } },
+    });
     toast.success('公告已刪除');
     fetchAnnouncements();
   };
