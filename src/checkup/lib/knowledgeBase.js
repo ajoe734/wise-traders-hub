@@ -155,7 +155,9 @@ export function getRelevantKnowledge(stockMeta = {}, { maxItems = 3, minConfiden
     return true
   })
 
-  return unique.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)).slice(0, maxItems)
+  const result = unique.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)).slice(0, maxItems)
+  rememberHits(result, 'knowledge')
+  return result
 }
 
 export function getRelevantCases(stockMeta = {}, { maxItems = 2 } = {}) {
