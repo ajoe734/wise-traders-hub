@@ -6760,10 +6760,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {showUpgrade && (
                   <a
                     href="/pricing#checkup"
+                    autoFocus
+                    ref={(el) => { if (el) { try { el.focus(); } catch {} } }}
                     style={{
                       padding:"8px 18px",borderRadius:6,
                       background:C.blue,color:"#fff",
                       fontSize:12,fontWeight:500,textDecoration:"none",letterSpacing:"0.02em",
+                      outline:`2px solid ${alpha(C.blue,'33')}`, outlineOffset:2,
                     }}
                   >{tier === 'free' ? '查看升級方案' : '升級 Pro'}</a>
                 )}
