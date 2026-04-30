@@ -453,6 +453,10 @@ export default function KnowledgeBasePage() {
               {drafting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
               Claude 起草（{CATEGORIES.find(c => c.key === activeCat)?.label}）
             </Button>
+            <Button onClick={runBackfill} disabled={backfilling} variant="outline">
+              {backfilling ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <TrendingUp className="h-4 w-4 mr-1" />}
+              回填歷史日K
+            </Button>
             <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />新增條目</Button>
           </div>
         </div>
@@ -461,6 +465,7 @@ export default function KnowledgeBasePage() {
           <TabsList>
             <TabsTrigger value="items">正式知識庫 ({items.length})</TabsTrigger>
             <TabsTrigger value="candidates">候選審核 ({pendingCandidates.length})</TabsTrigger>
+            <TabsTrigger value="backtest">淘弱加強 ({backtestReport.withSamples.length}/{backtestReport.backtestable.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="items" className="space-y-4 mt-4">
