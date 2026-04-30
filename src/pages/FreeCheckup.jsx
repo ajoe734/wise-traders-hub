@@ -6760,6 +6760,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }}
                   >{tier === 'free' ? '查看升級方案' : '升級 Pro'}</a>
                 )}
+                </div>
               </div>
             </div>
           </div>
