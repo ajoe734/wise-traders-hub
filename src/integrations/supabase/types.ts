@@ -91,6 +91,7 @@ export type Database = {
           tags: string[] | null
           title: string
           updated_at: string | null
+          version: number
         }
         Insert: {
           action?: string | null
@@ -108,6 +109,7 @@ export type Database = {
           tags?: string[] | null
           title: string
           updated_at?: string | null
+          version?: number
         }
         Update: {
           action?: string | null
@@ -125,6 +127,7 @@ export type Database = {
           tags?: string[] | null
           title?: string
           updated_at?: string | null
+          version?: number
         }
         Relationships: []
       }
@@ -1944,6 +1947,7 @@ export type Database = {
       cleanup_old_announcements: { Args: never; Returns: undefined }
       delete_expired_binding_codes: { Args: never; Returns: undefined }
       delete_old_prices: { Args: never; Returns: undefined }
+      get_knowledge_revision: { Args: never; Returns: string }
       get_weekly_limit_up_leaderboard: {
         Args: { _end_date?: string; _start_date?: string }
         Returns: {
