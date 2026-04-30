@@ -618,6 +618,117 @@ export default function KnowledgeBasePage() {
               </div>
             ))}
           </TabsContent>
+
+          <TabsContent value="backtest" className="space-y-6 mt-4">
+            {/* 統計區塊 */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[
+                { label: '優秀 ≥70%', count: backtestReport.distribution.excellent, color: 'bg-green-500' },
+                { label: '良好 55-70%', count: backtestReport.distribution.good, color: 'bg-emerald-400' },
+                { label: '普通 45-55%', count: backtestReport.distribution.fair, color: 'bg-yellow-400' },
+                { label: '弱 <45%', count: backtestReport.distribution.poor, color: 'bg-red-500' },
+                { label: '尚未驗證', count: backtestReport.distribution.untested, color: 'bg-muted-foreground' },
+              ].map(s => (
+                <div key={s.label} className="border rounded-lg p-4 bg-card">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${s.color}`} />
+                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                  </div>
+                  <p className="text-2xl font-semibold mt-1">{s.count}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* 待淘汰 */}
+            <div>
+              <h3 className="text-base font-medium mb-2 flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-red-500" />
+                待淘汰（勝率 &lt; 45%，n ≥ 30）
+              </h3>
+              {backtestReport.toArchive.length === 0 ? (
+                <p className="text-sm text-muted-foreground">沒有條目落在淘汰區，狀況良好。</p>
+              ) : (
+                <div className="space-y-2">
+                  {backtestReport.toArchive.map(it => (
+                    <div key={it.id} className="border rounded-lg p-3 bg-card flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="text-xs text-muted-foreground">{it.item_id}</code>
+                          <span className="font-medium">{it.title}</span>
+                          <Badge variant="destructive">勝率 {((it.win_rate ?? 0) * 100).toFixed(0)}% (n={it.sample_size})</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{it.fact}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" variant="outline" onClick={() => runGridSearch(it)} disabled={gridSearching === it.id}>
+                          {gridSearching === it.id ? <Loader2 className="h-4 w-4 animate-spin" /> : '網格救援'}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => toggleActive(it)}>停用</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 待優化 */}
+            <div>
+              <h3 className="text-base font-medium mb-2 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-yellow-500" />
+                待優化（勝率 45-60%，建議跑網格搜尋）
+              </h3>
+              {backtestReport.toOptimize.length === 0 ? (
+                <p className="text-sm text-muted-foreground">沒有條目落在優化區。</p>
+              ) : (
+                <div className="space-y-2">
+                  {backtestReport.toOptimize.map(it => (
+                    <div key={it.id} className="border rounded-lg p-3 bg-card flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="text-xs text-muted-foreground">{it.item_id}</code>
+                          <span className="font-medium">{it.title}</span>
+                          <Badge variant="secondary">勝率 {((it.win_rate ?? 0) * 100).toFixed(0)}% (n={it.sample_size})</Badge>
+                          <Badge variant="outline">{it.trigger_condition?.type}</Badge>
+                        </div>
+                        <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-x-auto">當前參數：{JSON.stringify(it.trigger_condition, null, 0)}</pre>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" onClick={() => runGridSearch(it)} disabled={gridSearching === it.id}>
+                          {gridSearching === it.id ? <Loader2 className="h-4 w-4 animate-spin" /> : '網格搜尋'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 最近回測 runs */}
+            <div>
+              <h3 className="text-base font-medium mb-2">最近回測紀錄（{backtestRuns.length}）</h3>
+              {backtestRuns.length === 0 ? (
+                <p className="text-sm text-muted-foreground">尚未跑過回測。可在「正式知識庫」每條 backtestable 條目按「回測」開始。</p>
+              ) : (
+                <div className="space-y-1 max-h-96 overflow-y-auto">
+                  {backtestRuns.slice(0, 50).map((r: any) => {
+                    const item = items.find(i => i.id === r.knowledge_item_id);
+                    return (
+                      <div key={r.id} className="border rounded p-2 text-sm flex items-center gap-3 flex-wrap">
+                        <Badge variant="outline">{r.run_mode}</Badge>
+                        <code className="text-xs text-muted-foreground">{item?.item_id ?? r.knowledge_item_id?.slice(0, 8)}</code>
+                        <span className="flex-1 truncate">{item?.title ?? '(已刪除)'}</span>
+                        {r.win_rate != null && <span>勝率 {(r.win_rate * 100).toFixed(1)}%</span>}
+                        <span className="text-muted-foreground">n={r.total_hits}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(r.created_at).toLocaleString('zh-TW', { hour12: false })}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
 
         <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
