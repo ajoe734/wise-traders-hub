@@ -368,11 +368,63 @@ async function save(key, data, userId) {
   } catch {}
 }
 
-// ── Main ─────────────────────────────────────────────────────────
+// ── 配額顯示工具 ──────────────────────────────────────────────────
+// 計算「距離重置」倒數文字（自然週/月，UTC+8 — RPC 已用 Asia/Taipei）
+function formatResetCountdown(resetsAt) {
+  if (!resetsAt) return "";
+  const target = new Date(resetsAt).getTime();
+  const now = Date.now();
+  const ms = target - now;
+  if (ms <= 0) return "即將重置";
+  const totalMin = Math.floor(ms / 60000);
+  const days = Math.floor(totalMin / (60 * 24));
+  const hours = Math.floor((totalMin % (60 * 24)) / 60);
+  const mins = totalMin % 60;
+  if (days >= 1) return `${days} 天 ${hours} 小時後重置`;
+  if (hours >= 1) return `${hours} 小時 ${mins} 分後重置`;
+  return `${mins} 分鐘後重置`;
+}
+// 將 resets_at 格式化為 YYYY/MM/DD HH:mm（依專案日期規範）
+function formatResetDateTime(resetsAt) {
+  if (!resetsAt) return "";
+  const d = new Date(resetsAt);
+  if (Number.isNaN(d.getTime())) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
+}
+// 解析後端回應，判斷是否為個人配額用盡（QUOTA_EXCEEDED）
+// 回傳 true 代表已是配額用盡，呼叫端應彈 modal 而非當錯誤處理
+async function isQuotaExceeded(res) {
+  if (!res || res.status !== 429) return false;
+  try {
+    const cloned = res.clone();
+    const body = await cloned.json().catch(() => null);
+    if (!body) return false;
+    const code = body.code || body.error_code || body.error?.code;
+    const msg = String(body.error || body.message || body.detail || "");
+    return code === "QUOTA_EXCEEDED" || msg.includes("QUOTA_EXCEEDED");
+  } catch {
+    return false;
+  }
+}
+
+
 export default function App() {
   const navigate = useNavigate();
   const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
+  // 配額不足彈窗（429 QUOTA_EXCEEDED 兜底）
+  const [quotaModal, setQuotaModal] = useState(null); // null | { trigger: 'parse'|'daily'|'predict'|'research' }
+  // 每分鐘 tick 一次，重新計算「距離重置」倒數
+  const [, setQuotaTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setQuotaTick(n => n + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
   const [ready, setReady] = useState(false);
 
   // persistent state
@@ -1218,6 +1270,17 @@ export default function App() {
           setPredictLastDebug({ source: 'predict', at: new Date().toISOString(), httpStatus: res.status, ...data.debug });
         }
         if (!res.ok) {
+          // 配額用盡兜底（事件預測）
+          const dataCode = data?.code || data?.error_code || data?.error?.code;
+          const dataMsg = String(data?.error || data?.message || "");
+          if (res.status === 429 && (dataCode === 'QUOTA_EXCEEDED' || dataMsg.includes('QUOTA_EXCEEDED'))) {
+            try { await refreshQuota?.(); } catch {}
+            needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
+            setQuotaModal({ trigger: 'predict' });
+            setPredictingEvents(false);
+            setPredictAutoStatus({ status: 'idle', msg: '' });
+            return;
+          }
           console.error("Predict events failed:", res.status);
           needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
           const httpErr = new Error(`HTTP ${res.status}`);
@@ -1978,6 +2041,13 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
         });
         clearTimeout(analyzeTimer);
         if (!aiRes.ok) {
+          // 配額用盡兜底：彈 modal 而不是當錯誤
+          if (await isQuotaExceeded(aiRes)) {
+            try { await refreshQuota?.(); } catch {}
+            setQuotaModal({ trigger: 'daily' });
+            setAnalyzing(false); setAnalyzeStep("");
+            return;
+          }
           const errBody = await aiRes.text().catch(() => '');
           const code = aiRes.status === 402 ? 'AI_BILLING_REQUIRED'
                      : aiRes.status === 429 ? 'AI_RATE_LIMITED'
@@ -2374,6 +2444,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             mediaType: "image/jpeg",
           })
         });
+        // 配額用盡兜底（截圖解析）
+        if (res.status === 429 && await isQuotaExceeded(res)) {
+          try { await refreshQuota?.(); } catch {}
+          setQuotaModal({ trigger: 'parse' });
+          setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請查看右上方升級提示' });
+          setParsing(false);
+          return;
+        }
         const data = await res.json();
 
         // 後端回傳 error 表示所有模型都失敗，嘗試重試
@@ -2792,6 +2870,68 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
+          {/* 配額卡：常駐顯示 used/limit 進度條 + 重置倒數 + 升級 CTA */}
+          {!isDemo && quota && (() => {
+            const used = Number(quota.used || 0);
+            const limit = Math.max(Number(quota.limit || 1), 1);
+            const remain = Math.max(limit - used, 0);
+            const pct = Math.min(100, Math.max(0, (used / limit) * 100));
+            const ratio = remain / limit;
+            const barColor = remain === 0 ? C.down : ratio <= 0.2 ? C.amber : C.teal;
+            const periodCN = quota.period === 'week' ? '本週' : '本月';
+            const showUpgrade = tier === 'free' || tier === 'basic';
+            return (
+              <div className="checkup-quota-meter" style={{
+                marginBottom: 14,
+                padding: "12px 14px",
+                border: `1px solid ${C.border}`,
+                borderRadius: 10,
+                background: C.card,
+              }}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:8,flexWrap:"wrap"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                    <span style={{
+                      fontSize:10,letterSpacing:"0.08em",color:C.textMute,fontWeight:500,
+                      padding:"2px 7px",border:`1px solid ${C.border}`,borderRadius:4,
+                    }}>{tierLabel}</span>
+                    <span style={{fontSize:12,color:C.textSec,fontWeight:400,letterSpacing:"0.02em"}}>
+                      {periodCN} AI 健檢
+                    </span>
+                  </div>
+                  <div style={{fontSize:13,color:C.text,fontWeight:500,fontVariantNumeric:"tabular-nums",letterSpacing:"0.02em"}}>
+                    <span style={{color:remain===0?C.down:C.text}}>{used}</span>
+                    <span style={{color:C.textMute,margin:"0 2px"}}>/</span>
+                    <span style={{color:C.textMute}}>{limit}</span>
+                  </div>
+                </div>
+                <div style={{height:4,background:alpha(C.textMute,'18'),borderRadius:2,overflow:"hidden",marginBottom:8}}>
+                  <div style={{
+                    height:"100%",
+                    width:`${pct}%`,
+                    background:barColor,
+                    transition:"width 360ms ease, background-color 200ms",
+                  }}/>
+                </div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+                  <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.02em",lineHeight:1.6}}>
+                    {remain === 0
+                      ? <>已用完・<span style={{color:C.textSec}}>{formatResetCountdown(quota.resets_at)}</span></>
+                      : <>還剩 <span style={{color:C.text,fontWeight:500}}>{remain}</span> 次・{formatResetCountdown(quota.resets_at)}</>
+                    }
+                  </div>
+                  {showUpgrade && (
+                    <a href="/checkup-checkout" style={{
+                      fontSize:11,color:C.blue,textDecoration:"none",letterSpacing:"0.02em",
+                      padding:"3px 8px",border:`1px solid ${alpha(C.blue,'40')}`,borderRadius:4,
+                    }}>升級 →</a>
+                  )}
+                </div>
+                <div style={{fontSize:10,color:C.textMute,marginTop:6,opacity:0.7,letterSpacing:"0.02em"}}>
+                  截圖解析・收盤分析・新聞彙整・事件預測共用此配額
+                </div>
+              </div>
+            );
+          })()}
           {/* 上傳摘要：剛從上傳成交頁回來時顯示新增/更新項目 */}
           {uploadSummary && (uploadSummary.added.length + uploadSummary.updated.length > 0) && (
             <div
@@ -4716,11 +4856,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                  cursor:hasReachedDailyLimit ? "not-allowed" : "pointer",
                  opacity:hasReachedDailyLimit ? 0.5 : 1,
                  letterSpacing:"0.04em"}}>
-                 {hasReachedDailyLimit ? "🔒 今日配額已用完" : "開始今日收盤分析"}
-               </button>
-               <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.6}}>
-                 {hasReachedDailyLimit ? "明日 00:00 重置（含截圖解析共用配額）" : "收盤後按下即可開始分析"}
-               </div>
+                 {hasReachedDailyLimit ? `🔒 ${quota?.period === 'week' ? '本週' : '本月'}配額已用完` : "開始今日收盤分析"}
+                </button>
+                <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.75,lineHeight:1.7}}>
+                  {hasReachedDailyLimit
+                    ? <>
+                        {formatResetCountdown(quota?.resets_at)}
+                        {(tier === 'free' || tier === 'basic') && (
+                          <>　・　<a href="/checkup-checkout" style={{color:C.blue,textDecoration:"none"}}>升級方案 →</a></>
+                        )}
+                      </>
+                    : "收盤後按下即可開始分析"}
+                </div>
              </div>
             )}
 
@@ -5279,16 +5426,24 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </button>
             </div>
           )}
-          {/* 每日限制提示 */}
+          {/* 配額用盡提示 — 結合具體重置時間與升級路徑 */}
           {hasReachedDailyLimit && !isDemo && (
-            <div style={{marginBottom:16, padding:"20px 16px", background:alpha(C.blue,'06'), borderRadius:10, textAlign:"center"}}>
+            <div style={{
+              marginBottom:16, padding:"20px 16px",
+              background:alpha(C.blue,'06'), border:`1px solid ${alpha(C.blue,'25')}`,
+              borderRadius:10, textAlign:"center",
+            }}>
               <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
-                {periodLabel} AI 健檢配額已用完（{tierLabel}）
+                {tier === 'free'  && '本月 1 次 AI 健檢已用完'}
+                {tier === 'basic' && '本週 1 次 AI 健檢已用完'}
+                {tier === 'pro'   && '本月 22 次 AI 健檢已用完'}
               </div>
-              <div style={{fontSize:12,color:C.textMute,lineHeight:1.6,marginBottom:tier==='free'?12:0}}>
-                {tier === 'free' && '免費版每月 1 次・Basic 每週 1 次・Pro 每月 22 次'}
-                {tier === 'basic' && '本週配額已用完，下週一 00:00 重置；或升級 Pro 獲得每月 22 次'}
-                {tier === 'pro' && '本月配額已用完，下月 1 日 00:00 重置'}
+              <div style={{fontSize:12,color:C.textMute,lineHeight:1.7,marginBottom:(tier==='free'||tier==='basic')?12:0}}>
+                重置時間：<span style={{color:C.textSec}}>{formatResetDateTime(quota?.resets_at) || '—'}</span>
+                <br/>
+                <span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
+                {tier === 'free'  && <><br/>想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）</>}
+                {tier === 'basic' && <><br/>升級 Pro 即可每月使用 22 次</>}
               </div>
               {(tier === 'free' || tier === 'basic') && (
                 <a href="/checkup-checkout" style={{
@@ -5297,7 +5452,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   borderRadius:8, padding:"9px 22px", fontSize:12, fontWeight:500,
                   textDecoration:"none", letterSpacing:"0.02em",
                 }}>
-                  升級方案
+                  {tier === 'free' ? '查看升級方案' : '升級 Pro'}
                 </a>
               )}
             </div>
@@ -6469,6 +6624,87 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ══════════ 配額不足 Modal（429 QUOTA_EXCEEDED 兜底）══════════ */}
+      {quotaModal && (() => {
+        const used = Number(quota?.used || 0);
+        const limit = Math.max(Number(quota?.limit || 1), 1);
+        const periodCN = quota?.period === 'week' ? '本週' : '本月';
+        const showUpgrade = tier === 'free' || tier === 'basic';
+        const triggerLabel = {
+          parse: '截圖解析',
+          daily: '收盤分析',
+          predict: '事件預測',
+          research: '系統審視',
+        }[quotaModal.trigger] || 'AI 健檢';
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setQuotaModal(null)}
+            style={{
+              position:"fixed", inset:0, zIndex:9999,
+              background:"rgba(20,18,15,0.45)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              padding:16,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width:"100%", maxWidth:380,
+                background:C.card,
+                border:`1px solid ${C.border}`,
+                borderRadius:12,
+                padding:"22px 20px",
+              }}
+            >
+              <div style={{fontSize:10,letterSpacing:"0.12em",color:C.textMute,marginBottom:8,fontWeight:500}}>
+                {tierLabel} · {triggerLabel}
+              </div>
+              <div style={{fontSize:16,fontWeight:500,color:C.text,marginBottom:10,letterSpacing:"0.02em"}}>
+                {periodCN} AI 健檢配額已用完
+              </div>
+              <div style={{fontSize:12,color:C.textMute,lineHeight:1.8,marginBottom:14}}>
+                已使用 <span style={{color:C.text,fontWeight:500}}>{used} / {limit}</span> 次<br/>
+                重置時間：<span style={{color:C.textSec}}>{formatResetDateTime(quota?.resets_at) || '—'}</span><br/>
+                <span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
+              </div>
+              {showUpgrade && (
+                <div style={{
+                  fontSize:11,color:C.textMute,lineHeight:1.7,
+                  padding:"10px 12px",background:alpha(C.blue,'06'),
+                  border:`1px solid ${alpha(C.blue,'22')}`,borderRadius:8,marginBottom:14,
+                }}>
+                  {tier === 'free'
+                    ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
+                    : '升級 Pro 即可每月使用 22 次'}
+                </div>
+              )}
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                <button
+                  onClick={() => setQuotaModal(null)}
+                  style={{
+                    padding:"8px 16px",borderRadius:6,
+                    border:`1px solid ${C.border}`,background:"transparent",
+                    color:C.textSec,fontSize:12,cursor:"pointer",letterSpacing:"0.02em",
+                  }}
+                >我知道了</button>
+                {showUpgrade && (
+                  <a
+                    href="/checkup-checkout"
+                    style={{
+                      padding:"8px 18px",borderRadius:6,
+                      background:C.blue,color:"#fff",
+                      fontSize:12,fontWeight:500,textDecoration:"none",letterSpacing:"0.02em",
+                    }}
+                  >{tier === 'free' ? '查看升級方案' : '升級 Pro'}</a>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
