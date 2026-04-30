@@ -6624,6 +6624,87 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ══════════ 配額不足 Modal（429 QUOTA_EXCEEDED 兜底）══════════ */}
+      {quotaModal && (() => {
+        const used = Number(quota?.used || 0);
+        const limit = Math.max(Number(quota?.limit || 1), 1);
+        const periodCN = quota?.period === 'week' ? '本週' : '本月';
+        const showUpgrade = tier === 'free' || tier === 'basic';
+        const triggerLabel = {
+          parse: '截圖解析',
+          daily: '收盤分析',
+          predict: '事件預測',
+          research: '系統審視',
+        }[quotaModal.trigger] || 'AI 健檢';
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setQuotaModal(null)}
+            style={{
+              position:"fixed", inset:0, zIndex:9999,
+              background:"rgba(20,18,15,0.45)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              padding:16,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width:"100%", maxWidth:380,
+                background:C.card,
+                border:`1px solid ${C.border}`,
+                borderRadius:12,
+                padding:"22px 20px",
+              }}
+            >
+              <div style={{fontSize:10,letterSpacing:"0.12em",color:C.textMute,marginBottom:8,fontWeight:500}}>
+                {tierLabel} · {triggerLabel}
+              </div>
+              <div style={{fontSize:16,fontWeight:500,color:C.text,marginBottom:10,letterSpacing:"0.02em"}}>
+                {periodCN} AI 健檢配額已用完
+              </div>
+              <div style={{fontSize:12,color:C.textMute,lineHeight:1.8,marginBottom:14}}>
+                已使用 <span style={{color:C.text,fontWeight:500}}>{used} / {limit}</span> 次<br/>
+                重置時間：<span style={{color:C.textSec}}>{formatResetDateTime(quota?.resets_at) || '—'}</span><br/>
+                <span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
+              </div>
+              {showUpgrade && (
+                <div style={{
+                  fontSize:11,color:C.textMute,lineHeight:1.7,
+                  padding:"10px 12px",background:alpha(C.blue,'06'),
+                  border:`1px solid ${alpha(C.blue,'22')}`,borderRadius:8,marginBottom:14,
+                }}>
+                  {tier === 'free'
+                    ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
+                    : '升級 Pro 即可每月使用 22 次'}
+                </div>
+              )}
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                <button
+                  onClick={() => setQuotaModal(null)}
+                  style={{
+                    padding:"8px 16px",borderRadius:6,
+                    border:`1px solid ${C.border}`,background:"transparent",
+                    color:C.textSec,fontSize:12,cursor:"pointer",letterSpacing:"0.02em",
+                  }}
+                >我知道了</button>
+                {showUpgrade && (
+                  <a
+                    href="/checkup-checkout"
+                    style={{
+                      padding:"8px 18px",borderRadius:6,
+                      background:C.blue,color:"#fff",
+                      fontSize:12,fontWeight:500,textDecoration:"none",letterSpacing:"0.02em",
+                    }}
+                  >{tier === 'free' ? '查看升級方案' : '升級 Pro'}</a>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
