@@ -33,6 +33,8 @@ let _loadingPromise = null
 function rowToItem(row) {
   const base = {
     id: row.item_id,
+    __dbId: row.id ?? null, // uuid for hit tracking
+    __category: row.category,
     title: row.title,
     fact: row.fact,
     interpretation: row.interpretation ?? '',
@@ -74,7 +76,7 @@ export function preloadKnowledgeBase({ force = false } = {}) {
     try {
       const { data, error } = await supabase
         .from('checkup_knowledge_items')
-        .select('category,item_id,title,fact,interpretation,action,lessons,return_pct,outcome,confidence,tags,is_active,updated_at,version')
+        .select('id,category,item_id,title,fact,interpretation,action,lessons,return_pct,outcome,confidence,tags,is_active,updated_at,version')
         .eq('is_active', true)
 
       if (error) throw error
@@ -153,7 +155,9 @@ export function getRelevantKnowledge(stockMeta = {}, { maxItems = 3, minConfiden
     return true
   })
 
-  return unique.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)).slice(0, maxItems)
+  const result = unique.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)).slice(0, maxItems)
+  rememberHits(result, 'knowledge')
+  return result
 }
 
 export function getRelevantCases(stockMeta = {}, { maxItems = 2 } = {}) {
@@ -174,7 +178,9 @@ export function getRelevantCases(stockMeta = {}, { maxItems = 2 } = {}) {
       item.tags?.some((t) => tags.includes(t))
   )
 
-  return items.slice(0, maxItems)
+  const result = items.slice(0, maxItems)
+  rememberHits(result, 'strategy_cases')
+  return result
 }
 
 export function formatKnowledgeItem(item) {
@@ -225,8 +231,80 @@ export function buildKnowledgeContext(stockMeta = {}) {
   return lines.join('\n')
 }
 
+// ============================================================
+// 知識命中追蹤 (hit tracking)
+// ============================================================
+// 設計：
+// - getRelevantKnowledge / getRelevantCases 內部會把當次選中的條目寫進 buffer
+// - caller 在呼叫 AI 前後呼叫 flushKnowledgeHits({ stockCode, context }) 寫入 DB
+// - 雲端 cache 中的 item.id 是 item_id（如 'ta-06'），DB 主鍵是 uuid，
+//   所以 flush 時用 item_id 反查 uuid（rowToItem 帶 dbId 進來）
+
+let _hitBuffer = [] // [{ itemId, dbId, confidence, category }]
+
+function rememberHits(items, category) {
+  if (!Array.isArray(items)) return
+  for (const it of items) {
+    if (!it?.id) continue
+    _hitBuffer.push({
+      itemId: it.id,
+      dbId: it.__dbId ?? null,
+      confidence: it.confidence ?? null,
+      category: category ?? null,
+    })
+  }
+}
+
+/**
+ * 將 buffer 寫入 checkup_knowledge_hits。
+ * - 由 caller（AI 分析 workflow）在分析觸發後呼叫
+ * - 失敗不阻擋主流程，只 console.warn
+ */
+export async function flushKnowledgeHits({ stockCode = null, context = null } = {}) {
+  if (_hitBuffer.length === 0) return { inserted: 0 }
+  const buffer = _hitBuffer
+  _hitBuffer = []
+
+  // 去重（同一次 flush，同一條 item 只記一次）
+  const seen = new Set()
+  const unique = buffer.filter(h => {
+    const k = h.dbId ?? h.itemId
+    if (seen.has(k)) return false
+    seen.add(k)
+    return !!h.dbId // 只寫有 dbId 的（雲端來源）；fallback 到 local JSON 時不記
+  })
+  if (unique.length === 0) return { inserted: 0 }
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id ?? null
+
+    const rows = unique.map(h => ({
+      knowledge_item_id: h.dbId,
+      user_id: userId,
+      stock_code: stockCode,
+      context: context,
+      confidence: h.confidence,
+    }))
+    const { error } = await supabase.from('checkup_knowledge_hits').insert(rows)
+    if (error) {
+      console.warn('[knowledgeBase] flush hits failed:', error.message)
+      return { inserted: 0, error: error.message }
+    }
+    return { inserted: rows.length }
+  } catch (err) {
+    console.warn('[knowledgeBase] flush hits exception:', err?.message ?? err)
+    return { inserted: 0, error: String(err) }
+  }
+}
+
+export function _peekHitBufferForTests() {
+  return _hitBuffer.slice()
+}
+
 // 測試 / Admin 用
 export function _resetKnowledgeCacheForTests() {
   _cache = null
   _loadingPromise = null
+  _hitBuffer = []
 }

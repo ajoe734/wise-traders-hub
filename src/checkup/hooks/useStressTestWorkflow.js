@@ -10,6 +10,7 @@ import {
   buildStressTestSnapshot,
   getStressTestText,
 } from '../lib/stressTestRuntime.js'
+import { flushKnowledgeHits } from '../lib/knowledgeBase.js'
 
 async function defaultRunStressTestRequest(body) {
   const response = await fetch(API_ENDPOINTS.ANALYZE, {
@@ -58,6 +59,10 @@ export function useStressTestWorkflow({
         getHoldingReturnPct,
         buildDailyHoldingDossierContext,
       })
+
+
+      // 記錄壓力測試命中的知識條目（不阻擋主流程）
+      flushKnowledgeHits({ context: 'stress_test' }).catch(() => {})
 
       const data = await runStressTestRequest(
         buildStressTestRequestBody({

@@ -17,6 +17,7 @@ import {
   stripDailyAnalysisEmbeddedBlocks,
 } from '../lib/dailyAnalysisRuntime.js'
 import { normalizeAnalysisHistoryEntries, normalizeDailyReportEntry } from '../lib/reportUtils.js'
+import { flushKnowledgeHits } from '../lib/knowledgeBase.js'
 
 export function useDailyAnalysisWorkflow({
   analyzing = false,
@@ -137,6 +138,9 @@ export function useDailyAnalysisWorkflow({
                 .join('\n\n')
             : '目前沒有持股 dossier。'
 
+        // 記錄本批 dossier 命中的知識條目（不阻擋主流程）
+        flushKnowledgeHits({ context: 'daily_analysis' }).catch(() => {})
+
         const eventSummary = pendingEvents
           .map(
             (event) =>
@@ -228,6 +232,9 @@ ${losers
                 })
                 .join('\n\n')
             : '目前沒有持股 dossier。'
+
+        // 盲測批次的命中（不阻擋主流程）
+        flushKnowledgeHits({ context: 'daily_analysis_blind' }).catch(() => {})
 
         blindPredictions = []
         try {

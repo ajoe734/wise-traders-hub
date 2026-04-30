@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Brain } from 'lucide-react';
+import { Plus, Pencil, Trash2, Brain, Activity } from 'lucide-react';
 import { logAdminAction } from '@/lib/auditLog';
 
 const CATEGORIES = [
@@ -61,8 +61,16 @@ const emptyItem = (category: Category): Partial<KnowledgeItem> => ({
   is_active: true,
 });
 
+interface UsageStat {
+  knowledge_item_id: string;
+  hit_count: number;
+  hit_count_7d: number;
+  last_hit_at: string | null;
+}
+
 export default function KnowledgeBasePage() {
   const [items, setItems] = useState<KnowledgeItem[]>([]);
+  const [usage, setUsage] = useState<Record<string, UsageStat>>({});
   const [loading, setLoading] = useState(true);
   const [activeCat, setActiveCat] = useState<Category>('chip_analysis');
   const [editing, setEditing] = useState<Partial<KnowledgeItem> | null>(null);
@@ -70,15 +78,21 @@ export default function KnowledgeBasePage() {
 
   async function load() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('checkup_knowledge_items')
-      .select('*')
-      .order('category')
-      .order('item_id');
-    if (error) {
-      toast.error('讀取失敗：' + error.message);
+    const [itemsRes, usageRes] = await Promise.all([
+      supabase.from('checkup_knowledge_items').select('*').order('category').order('item_id'),
+      supabase.from('checkup_knowledge_usage_stats' as any).select('*'),
+    ]);
+    if (itemsRes.error) {
+      toast.error('讀取失敗：' + itemsRes.error.message);
     } else {
-      setItems((data ?? []) as any);
+      setItems((itemsRes.data ?? []) as any);
+    }
+    if (!usageRes.error && Array.isArray(usageRes.data)) {
+      const map: Record<string, UsageStat> = {};
+      for (const row of usageRes.data as any[]) {
+        map[row.knowledge_item_id] = row as UsageStat;
+      }
+      setUsage(map);
     }
     setLoading(false);
   }
@@ -201,7 +215,7 @@ export default function KnowledgeBasePage() {
               <Brain className="h-6 w-6" /> 持倉看板知識庫
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              共 {items.length} 條 · 雲端為權威來源 · AI 分析會即時注入到 prompt
+              共 {items.length} 條 · 近 7 天命中 {Object.values(usage).reduce((s, u) => s + (u.hit_count_7d ?? 0), 0)} 次 · 雲端為權威來源
             </p>
           </div>
           <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />新增條目</Button>
@@ -236,6 +250,25 @@ export default function KnowledgeBasePage() {
                         <Badge variant="outline">
                           信心 {((item.confidence ?? 0) * 100).toFixed(0)}%
                         </Badge>
+                        {(() => {
+                          const u = usage[item.id];
+                          const total = u?.hit_count ?? 0;
+                          const recent = u?.hit_count_7d ?? 0;
+                          if (total === 0) {
+                            return <Badge variant="outline" className="text-muted-foreground">未被使用</Badge>;
+                          }
+                          return (
+                            <Badge variant={recent > 0 ? 'default' : 'secondary'} className="gap-1">
+                              <Activity className="h-3 w-3" />
+                              使用中 · 7天 {recent} / 累計 {total}
+                            </Badge>
+                          );
+                        })()}
+                        {usage[item.id]?.last_hit_at && (
+                          <span className="text-xs text-muted-foreground">
+                            最近：{new Date(usage[item.id].last_hit_at!).toLocaleString('zh-TW', { hour12: false })}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm mt-2 text-muted-foreground line-clamp-2">{item.fact}</p>
                       {item.tags && item.tags.length > 0 && (
