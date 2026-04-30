@@ -117,30 +117,41 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // 驗證呼叫者是 company_admin
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid token' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const admin = createClient(supabaseUrl, serviceRoleKey);
-    const { data: roleRow } = await admin
-      .from('user_roles').select('role').eq('user_id', user.id).eq('role', 'company_admin').maybeSingle();
-    if (!roleRow) {
-      return new Response(JSON.stringify({ error: 'Forbidden: company_admin only' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+
+    // 旁路：cron / scheduler 帶 x-cron-secret == DATA_UPSERT_API_KEY 即可呼叫
+    const cronSecret = req.headers.get('x-cron-secret');
+    const expectedCron = Deno.env.get('DATA_UPSERT_API_KEY');
+    let user: { id: string } | null = null;
+
+    if (cronSecret && expectedCron && cronSecret === expectedCron) {
+      // 系統呼叫，user_id 留空（candidates.created_by 可為 null）
+      user = null;
+    } else {
+      // 一般使用者 → 必須是 company_admin
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Missing Authorization' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } },
       });
+      const { data: { user: u }, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !u) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { data: roleRow } = await admin
+        .from('user_roles').select('role').eq('user_id', u.id).eq('role', 'company_admin').maybeSingle();
+      if (!roleRow) {
+        return new Response(JSON.stringify({ error: 'Forbidden: company_admin only' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      user = { id: u.id };
     }
 
     const body = await req.json().catch(() => ({}));
