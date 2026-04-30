@@ -98,7 +98,7 @@ export default function CompanyPlans() {
 
   const load = async () => {
     setLoading(true);
-    const [plansRes, overridesRes, settingsRes] = await Promise.all([
+    const [plansRes, overridesRes, settingsRes, crossRes] = await Promise.all([
       supabase
         .from('expert_plans')
         .select('*, experts:expert_id(name, slug, role)')
@@ -107,6 +107,7 @@ export default function CompanyPlans() {
         .from('plan_split_overrides')
         .select('id, plan_id, pct_platform, pct_expert, is_active, notes'),
       supabase.from('payment_settings').select('key, value').eq('key', 'split_standard').maybeSingle(),
+      supabase.from('payment_settings').select('value').eq('key', 'cross_discounts').maybeSingle(),
     ]);
 
     if (plansRes.error) toast.error('載入方案失敗：' + plansRes.error.message);
@@ -126,7 +127,27 @@ export default function CompanyPlans() {
     const s = settingsRes.data?.value as any;
     if (s) setDefaultRule({ pct_platform: s.pct_platform ?? 55, pct_expert: s.pct_expert ?? 45 });
 
+    const c = (crossRes.data?.value as Record<string, number>) || {};
+    setCross(c);
+    setCrossOriginal(c);
+
     setLoading(false);
+  };
+
+  const saveCross = async () => {
+    setSavingCross(true);
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    const { error } = await supabase.from('payment_settings')
+      .upsert({ key: 'cross_discounts', value: cross, updated_by: userId, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    setSavingCross(false);
+    if (error) { toast.error('儲存失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.cross_discount_update',
+      targetType: 'payment_settings',
+      detail: { before: crossOriginal, after: cross },
+    });
+    setCrossOriginal(cross);
+    toast.success('已儲存跨產品折扣');
   };
 
   useEffect(() => { load(); }, []);
