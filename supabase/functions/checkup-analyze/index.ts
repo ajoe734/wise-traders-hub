@@ -157,6 +157,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       content: [{ text }], text, response: text,
+      quota: quota.quota,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
