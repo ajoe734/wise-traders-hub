@@ -373,6 +373,14 @@ export default function App() {
   const navigate = useNavigate();
   const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
+  // 配額不足彈窗（429 QUOTA_EXCEEDED 兜底）
+  const [quotaModal, setQuotaModal] = useState(null); // null | { trigger: 'parse'|'daily'|'predict'|'research' }
+  // 每分鐘 tick 一次，重新計算「距離重置」倒數
+  const [, setQuotaTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setQuotaTick(n => n + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
   const [ready, setReady] = useState(false);
 
   // persistent state
