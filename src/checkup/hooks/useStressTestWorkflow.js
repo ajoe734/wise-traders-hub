@@ -10,6 +10,7 @@ import {
   buildStressTestSnapshot,
   getStressTestText,
 } from '../lib/stressTestRuntime.js'
+import { flushKnowledgeHits } from '../lib/knowledgeBase.js'
 
 async function defaultRunStressTestRequest(body) {
   const response = await fetch(API_ENDPOINTS.ANALYZE, {
