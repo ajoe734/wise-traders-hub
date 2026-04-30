@@ -1,114 +1,99 @@
-## 持倉看板 付費版本與配額制實作計畫
+# 配額顯示與升級路徑強化
 
-### 一、版本與配額定義
+讓使用者「**隨時知道還剩幾次、什麼時候重置、撞上配額時下一步該做什麼**」。
 
-| 版本 | 條件 | 配額（共用） | 重置週期 |
+---
+
+## 一、新增常駐配額卡（Quota Meter）
+
+在持倉看板分頁頂部（`tab==="holdings"` 區塊最上方，Demo 提示之後）放一張極簡卡，**所有登入使用者皆可見**，沒撞限額時也會顯示，讓人一眼知道剩幾次。
+
+```text
+┌──────────────────────────────────────────┐
+│  Pro · 本月 AI 健檢                  3 / 22 │
+│  ████████░░░░░░░░░░░░░░░░░░░ 14%        │
+│  距離重置：6 天 14 小時（5/01 00:00 重置）  │
+│  截圖解析・收盤分析・新聞彙整・事件預測共用 │
+└──────────────────────────────────────────┘
+```
+
+- **進度條**：`used / limit`，顏色用 `C.teal`；剩餘 ≤ 20% 變 `C.amber`；= 0 變 `C.down`。
+- **倒數**：以 `quota.resets_at` 算「天/小時」（自然週/月，UTC+8），每 60 秒重算。
+- **層級徽章**：Free / Basic / Pro，沿用 `tierLabel`。
+- **CTA**：Free / Basic 右上角放小字「升級 →」，連到 `/checkup-checkout`。Pro 不顯示。
+- 採守舊極簡風（off-white #F5F3EF、無陰影、字級 ≤ 22px）。
+
+---
+
+## 二、配額用盡時的清楚提示
+
+改寫現有 `hasReachedDailyLimit && !isDemo` 區塊（約 5283 行），讓三層分流訊息更明確：
+
+| Tier | 標題 | 副標 | CTA |
 |---|---|---|---|
-| **未登入** | 訪客 | 0（看 Demo 唯讀） | — |
-| **Free** | Email/LINE 登入但無訂閱 | **每月 1 次** | 自然月（UTC+8 月初 00:00） |
-| **Basic（NT$699/月）** | 已訂閱 `tier=basic` | **每週 1 次** | 自然週（UTC+8 週一 00:00） |
-| **Pro（NT$1,299/月）** | 已訂閱 `tier=pro` | **每月 22 次** | 自然月（UTC+8 月初 00:00） |
+| Free | 本月 1 次 AI 健檢已用完 | `MM/DD HH:mm` 重置・想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次） | `升級方案`（藍）/ `查看方案`（次） |
+| Basic | 本週 1 次 AI 健檢已用完 | 下週一 00:00 重置・升級 Pro 即可每月 22 次 | `升級 Pro`（藍） |
+| Pro | 本月 22 次 AI 健檢已用完 | `MM/DD 00:00` 重置 | （無 CTA，僅倒數） |
 
-**「一次」定義**：一次 AI 呼叫即扣 1 次配額。涵蓋：
-- 持倉 AI 健檢 / 系統進化（research）
-- 事件預測（event prediction）
-- 新聞彙整（news summary）
-- RAG 問答 / 教練回饋
-所有 AI 功能共用同一個配額池。
-
-**手動刷新股價**：Free 不可、Basic / Pro 可。
+副標的「重置時間」直接讀 `quota.resets_at` 並用 `YYYY/MM/DD HH:mm` 格式（依專案日期規範）。
 
 ---
 
-### 二、資料庫變更
+## 三、429 攔截：把所有 AI 入口的失敗轉譯
 
-1. **`checkup_plans`**
-   - 新增欄位 `quota_period text not null default 'month'`（值：`week` | `month`）
-   - 更新 basic plan：`quota_period='week'`, `monthly_quota=1`
-   - 更新 pro plan：`quota_period='month'`, `monthly_quota=22`
+目前收盤分析（line 1980）等 AI 呼叫只把 429 標成 `AI_RATE_LIMITED`，沒區分「平台限流」和「個人配額用完」。後端 RPC `consume_checkup_quota` 拋 `QUOTA_EXCEEDED` 會回 429 + `code: 'QUOTA_EXCEEDED'`。
 
-2. **`checkup_usage`**（已存在）
-   - 確認索引：`(user_id, used_at desc)` 用於配額查詢
+新增 helper `handleQuotaError(res, body)`：
+- 若 `body.code === 'QUOTA_EXCEEDED'` 或 `body.error?.includes('QUOTA_EXCEEDED')`：
+  1. 呼叫 `refreshQuota()` 同步最新狀態。
+  2. 直接彈出**配額不足 Modal**（不是 toast）：標題「本{週/月} AI 健檢配額已用完」、層級、`used/limit`、重置倒數、升級 CTA、「我知道了」。
+  3. 不寫進 `dailyLastError`（因為這不是錯誤，是設計）。
+- 其他 429 沿用既有平台限流邏輯（顯示 `AI_RATE_LIMITED`）。
 
-3. **新增 RPC `check_checkup_quota(_user_id uuid)`**（SECURITY DEFINER）
-   回傳：
-   ```json
-   { "tier": "free|basic|pro", "limit": 1, "used": 0, "remaining": 1,
-     "period": "week|month", "resets_at": "2026-05-01T00:00:00+08:00" }
-   ```
-   邏輯：
-   - 查 `checkup_subscriptions` 是否有 active + 未過期 → 取對應 plan tier / quota / period
-   - 無訂閱 → free（month / 1）
-   - 依 period 計算 UTC+8 週一或月初的 `period_start`
-   - `count(*) from checkup_usage where user_id=_user_id and used_at >= period_start`
+接入點（4 個 AI 入口都要包）：
+- `runDailyAnalysis`（收盤分析，line ~1980）
+- `parseShot`（截圖解析，搜 `parseShot` / `checkup-parse` 呼叫處）
+- 事件預測（搜 `checkup-predict-events`）
+- 系統審視 / 深度研究（搜 `checkup-research`）
 
-4. **新增 RPC `consume_checkup_quota(_user_id uuid, _kind text)`**（SECURITY DEFINER）
-   - 先呼叫 `check_checkup_quota`
-   - 若 `remaining <= 0` → `raise exception 'QUOTA_EXCEEDED'`
-   - 否則 `insert into checkup_usage(user_id, kind)` 並回傳新的剩餘數
+按鈕點擊前的本地預檢已有 `hasReachedDailyLimit`，這層是「本地以為有配額但伺服器拒絕」的兜底。
 
 ---
 
-### 三、Edge Functions 變更（強制窮舉）
+## 四、按鈕狀態同步
 
-所有會呼叫 AI 的 checkup 系列 function 在執行前必須呼叫 `consume_checkup_quota`，失敗回 `429 { error: 'QUOTA_EXCEEDED', resets_at }`：
-
-- `checkup-analyze`
-- `checkup-research`（如有）
-- `checkup-event-prediction`
-- `checkup-news-summary`
-- `checkup-rag` / 知識庫問答
-- 其他 `checkup-*` AI 類 function（實作前用 `rg "supabase/functions/checkup-"` 列完整清單再逐一加）
-
-未列入扣配額的：純股價刷新、純讀取雲端資料、institutional T86 等非 AI 端點。
+- 收盤分析按鈕（line 4711–4723）：
+  - `hasReachedDailyLimit` 時除了「🔒 今日配額已用完」改成 `🔒 本{週/月}配額已用完`，副標補一行「{倒數} 後重置」並加上 `升級` 連結（Pro 略過）。
+- 手動刷新按鈕：Free 點擊時除了現有訊息，加「升級 Basic 解鎖手動刷新」連結。
 
 ---
 
-### 四、前端變更
+## 技術細節
 
-1. **`src/checkup/contexts/CheckupModeContext.jsx`**
-   - 移除 `demo` mode（保留唯讀 Demo Page 給未登入訪客導頁，但主功能強制登入）
-   - 新增 mode：`free` | `basic` | `pro`
-   - 啟動時呼叫 `check_checkup_quota` RPC，存 `{tier, remaining, limit, resetsAt}`
-   - 暴露 `canRefreshManually = tier !== 'free'`
-   - 暴露 `quota: {tier, remaining, limit, resetsAt, period}`
-   - 新增 `refreshQuota()` 在每次 AI 呼叫成功後重抓
+### 檔案
+- `src/pages/FreeCheckup.jsx`
+  - 新增 `<QuotaMeter />` inline 區塊（遵守[inline rendering 限制](mem://architecture/checkup/inline-rendering-audit)，不抽 component）
+  - 新增 `<QuotaModal />` inline 區塊（撞限額 modal）
+  - 新增 helper：`formatResetCountdown(resetsAt)`、`handleQuotaError(res)` 
+  - 改寫 5283 區塊與按鈕文案
+- `src/checkup/contexts/CheckupModeContext.jsx`
+  - 既有的 `quota.resets_at`、`refreshQuota`、`applyQuotaFromResponse` 已足夠，無需改 schema
 
-2. **新增 `src/hooks/useCheckupSubscription.ts`**
-   - 包 `check_checkup_quota` RPC + React Query
-   - 30 秒 staleTime，AI 呼叫後手動 invalidate
+### RWD（強制依 [手機回歸清單](mem://qa/checkup/freecheckup-mobile-regression-checklist)）
+- QuotaMeter：560/390/380px 三斷點要驗 — 進度條與「3/22」字數不換行；CTA 不被切。
+- 任何 inline `fontSize` ≥ 32 都要附 className + `<style>` media query；本次預期最大 22px，安全。
+- 新增的 className 需加入既有的 `.wb-card` 等樣式表，不另開 stylesheet。
 
-3. **配額顯示 UI**
-   - `Header.jsx` 顯示「本{週/月}剩餘 N/M 次 · D 日後重置」
-   - 點擊展開：顯示目前方案 + 升級連結
-
-4. **配額耗盡時的 Paywall**
-   - 觸發 AI 功能但 `remaining=0` → 彈窗：
-     - 標題：「本{週/月}配額已用完」
-     - 內容：說明下次重置時間
-     - CTA：升級到 Basic / Pro（連到 `/checkup/checkout`）
-
-5. **未登入訪客**
-   - `/free-checkup` 顯示 Demo + 「登入以使用」CTA（不再給 1 次免費試用）
+### 不會動的東西
+- 不改 RPC 邏輯、不改 edge function、不改資料表。
+- 不抽 component（FreeCheckup inline 限制）。
+- 顏色不違反[損益顏色憲法](mem://style/holdings/monochrome-orange-pnl)（QuotaMeter 不是損益，可用 teal/amber/down）。
 
 ---
 
-### 五、Index.tsx 文案校正
-首頁「持股健檢」段落補上「免費版每月 1 次・Basic 每週 1 次・Pro 每月 22 次」說明。
+## 驗收
 
----
-
-### 六、技術重點
-
-- **時區**：所有 period_start 計算統一 `now() at time zone 'Asia/Taipei'`
-- **原子性**：`consume_checkup_quota` 在單一 SQL transaction 內檢查+寫入，避免並發超扣
-- **錯誤處理**：429 在前端轉成統一 toast + 升級彈窗
-- **保留現有**：`is_tester` 仍視為 pro（內部測試免限制）
-
-### 七、驗證清單
-1. 三個 tier 的配額正確扣減與重置
-2. UTC+8 週一 00:00 / 月初 00:00 確實重置
-3. 並發呼叫不會超扣
-4. 所有 `checkup-*` AI function 都有扣配額（用 `rg` 窮舉確認）
-5. 配額耗盡彈窗 → 升級路徑暢通
-6. Free 用戶手動刷新股價被擋下
+1. 持倉看板頂部任何時刻看得到「Tier · used/limit · 倒數」。
+2. 撞 429 + `QUOTA_EXCEEDED` 會跳 Modal 而不是丟錯誤碼。
+3. Free / Basic 都看得到「升級」按鈕直達 `/checkup-checkout`。
+4. 三斷點（560/390/380）截圖無 overflow。
