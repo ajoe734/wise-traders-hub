@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard, Users, UserCheck, BarChart3, CreditCard,
-  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers, Activity, Brain
+  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers, Activity, Brain, Gauge
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,6 +27,7 @@ const navItems = [
   { path: '/company/system-jobs', icon: Activity, label: '系統任務' },
   { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
   { path: '/company/knowledge-base', icon: Brain, label: '知識庫' },
+  { path: '/company/checkup-usage', icon: Gauge, label: '健檢配額' },
 ];
 
 export function CompanyLayout({ children }: CompanyLayoutProps) {
