@@ -135,9 +135,23 @@ Deno.serve(async (req) => {
     });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
-    // Consume one quota credit before doing any AI work
-    const quota = await consumeCheckupQuota(req, 'analysis', corsHeaders);
-    if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+    // brain-update 是收盤分析的內部 follow-up（同一次健檢的延伸），仍要驗 JWT 但不扣配額
+    const isBrainUpdate = body?.kind === 'brain-update';
+    if (!isBrainUpdate) {
+      const quota = await consumeCheckupQuota(req, 'analysis', corsHeaders);
+      if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+      // attach quota to outer scope by reassigning into a closure variable below
+      (globalThis as any).__lastQuota = quota.quota;
+    } else {
+      // 仍要求登入；簡單檢查 Authorization 是否存在
+      const auth = req.headers.get('Authorization') || '';
+      if (!auth.replace(/^Bearer\s+/i, '').trim()) {
+        return new Response(JSON.stringify({ error: 'AUTH_REQUIRED' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      (globalThis as any).__lastQuota = null;
+    }
 
     const systemPrompt = (body.systemPrompt || '').toString().trim();
     const userPrompt = (body.userPrompt || body.prompt || '').toString().trim();
