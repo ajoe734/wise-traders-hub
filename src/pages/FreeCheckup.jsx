@@ -368,7 +368,51 @@ async function save(key, data, userId) {
   } catch {}
 }
 
-// ── Main ─────────────────────────────────────────────────────────
+// ── 配額顯示工具 ──────────────────────────────────────────────────
+// 計算「距離重置」倒數文字（自然週/月，UTC+8 — RPC 已用 Asia/Taipei）
+function formatResetCountdown(resetsAt) {
+  if (!resetsAt) return "";
+  const target = new Date(resetsAt).getTime();
+  const now = Date.now();
+  const ms = target - now;
+  if (ms <= 0) return "即將重置";
+  const totalMin = Math.floor(ms / 60000);
+  const days = Math.floor(totalMin / (60 * 24));
+  const hours = Math.floor((totalMin % (60 * 24)) / 60);
+  const mins = totalMin % 60;
+  if (days >= 1) return `${days} 天 ${hours} 小時後重置`;
+  if (hours >= 1) return `${hours} 小時 ${mins} 分後重置`;
+  return `${mins} 分鐘後重置`;
+}
+// 將 resets_at 格式化為 YYYY/MM/DD HH:mm（依專案日期規範）
+function formatResetDateTime(resetsAt) {
+  if (!resetsAt) return "";
+  const d = new Date(resetsAt);
+  if (Number.isNaN(d.getTime())) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
+}
+// 解析後端回應，判斷是否為個人配額用盡（QUOTA_EXCEEDED）
+// 回傳 true 代表已是配額用盡，呼叫端應彈 modal 而非當錯誤處理
+async function isQuotaExceeded(res) {
+  if (!res || res.status !== 429) return false;
+  try {
+    const cloned = res.clone();
+    const body = await cloned.json().catch(() => null);
+    if (!body) return false;
+    const code = body.code || body.error_code || body.error?.code;
+    const msg = String(body.error || body.message || body.detail || "");
+    return code === "QUOTA_EXCEEDED" || msg.includes("QUOTA_EXCEEDED");
+  } catch {
+    return false;
+  }
+}
+
+
 export default function App() {
   const navigate = useNavigate();
   const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota } = useCheckupMode();
