@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { ecpayGenerateCheckMacValue as generateCheckMacValueAsync, ecpayExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";
 import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription } from "../_shared/paymentProcessor.ts";
+import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
 
 // ECPay server callback - no CORS needed (server-to-server)
 // But we add CORS for the client-side result check endpoint
@@ -29,8 +30,13 @@ Deno.serve(async (req) => {
     const receivedMac = params.CheckMacValue;
     const { CheckMacValue, ...paramsWithoutMac } = params;
 
-    const hashKey = Deno.env.get("ECPAY_HASH_KEY")!;
-    const hashIV = Deno.env.get("ECPAY_HASH_IV")!;
+    // Use service-role client to load creds (DB-first, env fallback)
+    const supabaseUrlForCreds = Deno.env.get("SUPABASE_URL")!;
+    const serviceKeyForCreds = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const credsClient = createClient(supabaseUrlForCreds, serviceKeyForCreds);
+    const creds = await loadEcpayCreds(credsClient);
+    const hashKey = creds.hashKey;
+    const hashIV = creds.hashIV;
 
     // Verify CheckMacValue
     const expectedMac = await generateCheckMacValueAsync(paramsWithoutMac, hashKey, hashIV);

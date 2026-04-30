@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { ecpayGenerateCheckMacValue, ecpayExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";
 import { writeRevenueSplit } from "../_shared/paymentProcessor.ts";
+import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,8 +21,13 @@ Deno.serve(async (req) => {
 
     const receivedMac = params.CheckMacValue;
     const { CheckMacValue, ...paramsWithoutMac } = params;
-    const hashKey = Deno.env.get("ECPAY_HASH_KEY")!;
-    const hashIV = Deno.env.get("ECPAY_HASH_IV")!;
+    const credsClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const creds = await loadEcpayCreds(credsClient);
+    const hashKey = creds.hashKey;
+    const hashIV = creds.hashIV;
     const expected = await ecpayGenerateCheckMacValue(paramsWithoutMac, hashKey, hashIV);
 
     if (receivedMac !== expected) {
