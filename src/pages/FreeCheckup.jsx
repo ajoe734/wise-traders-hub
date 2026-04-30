@@ -2931,7 +2931,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }
                   </div>
                   {showUpgrade && (
-                    <a href="/checkup-checkout" style={{
+                    <a href="/pricing#checkup" style={{
                       fontSize:11,color:C.blue,textDecoration:"none",letterSpacing:"0.02em",
                       padding:"3px 8px",border:`1px solid ${alpha(C.blue,'40')}`,borderRadius:4,
                     }}>升級 →</a>
@@ -4874,7 +4874,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     ? <>
                         {formatResetCountdown(quota?.resets_at)}
                         {(tier === 'free' || tier === 'basic') && (
-                          <>　・　<a href="/checkup-checkout" style={{color:C.blue,textDecoration:"none"}}>升級方案 →</a></>
+                          <>　・　<a href="/pricing#checkup" style={{color:C.blue,textDecoration:"none"}}>升級方案 →</a></>
                         )}
                       </>
                     : "收盤後按下即可開始分析"}
@@ -5457,7 +5457,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {tier === 'basic' && <><br/>升級 Pro 即可每月使用 22 次</>}
               </div>
               {(tier === 'free' || tier === 'basic') && (
-                <a href="/checkup-checkout" style={{
+                <a href="/pricing#checkup" style={{
                   display:"inline-block", marginTop:4,
                   background:C.blue, color:"#fff", border:"none",
                   borderRadius:8, padding:"9px 22px", fontSize:12, fontWeight:500,
@@ -6703,7 +6703,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 >我知道了</button>
                 {showUpgrade && (
                   <a
-                    href="/checkup-checkout"
+                    href="/pricing#checkup"
                     style={{
                       padding:"8px 18px",borderRadius:6,
                       background:C.blue,color:"#fff",
