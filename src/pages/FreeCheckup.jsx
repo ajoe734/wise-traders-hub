@@ -4830,11 +4830,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                  cursor:hasReachedDailyLimit ? "not-allowed" : "pointer",
                  opacity:hasReachedDailyLimit ? 0.5 : 1,
                  letterSpacing:"0.04em"}}>
-                 {hasReachedDailyLimit ? "🔒 今日配額已用完" : "開始今日收盤分析"}
-               </button>
-               <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.6}}>
-                 {hasReachedDailyLimit ? "明日 00:00 重置（含截圖解析共用配額）" : "收盤後按下即可開始分析"}
-               </div>
+                 {hasReachedDailyLimit ? `🔒 ${quota?.period === 'week' ? '本週' : '本月'}配額已用完` : "開始今日收盤分析"}
+                </button>
+                <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.75,lineHeight:1.7}}>
+                  {hasReachedDailyLimit
+                    ? <>
+                        {formatResetCountdown(quota?.resets_at)}
+                        {(tier === 'free' || tier === 'basic') && (
+                          <>　・　<a href="/checkup-checkout" style={{color:C.blue,textDecoration:"none"}}>升級方案 →</a></>
+                        )}
+                      </>
+                    : "收盤後按下即可開始分析"}
+                </div>
              </div>
             )}
 
