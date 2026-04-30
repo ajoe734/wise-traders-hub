@@ -250,6 +250,25 @@ export default function KnowledgeBasePage() {
                         <Badge variant="outline">
                           信心 {((item.confidence ?? 0) * 100).toFixed(0)}%
                         </Badge>
+                        {(() => {
+                          const u = usage[item.id];
+                          const total = u?.hit_count ?? 0;
+                          const recent = u?.hit_count_7d ?? 0;
+                          if (total === 0) {
+                            return <Badge variant="outline" className="text-muted-foreground">未被使用</Badge>;
+                          }
+                          return (
+                            <Badge variant={recent > 0 ? 'default' : 'secondary'} className="gap-1">
+                              <Activity className="h-3 w-3" />
+                              使用中 · 7天 {recent} / 累計 {total}
+                            </Badge>
+                          );
+                        })()}
+                        {usage[item.id]?.last_hit_at && (
+                          <span className="text-xs text-muted-foreground">
+                            最近：{new Date(usage[item.id].last_hit_at!).toLocaleString('zh-TW', { hour12: false })}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm mt-2 text-muted-foreground line-clamp-2">{item.fact}</p>
                       {item.tags && item.tags.length > 0 && (
