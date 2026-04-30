@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Eye, UserPlus, MessageCircle, Key, Mail, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { logAdminAction } from '@/lib/auditLog';
 
 const CompanyAnalysts = () => {
   const [experts, setExperts] = useState<any[]>([]);
