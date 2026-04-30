@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
         { onConflict: 'user_id,key' }
       );
 
-      return new Response(JSON.stringify({ text, report }), {
+      return new Response(JSON.stringify({ text, report, quota: quota.quota }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
