@@ -246,7 +246,7 @@ const PaymentGroupSection = ({
   );
 };
 
-
+const CompanyPayments = () => {
   const [providers, setProviders] = useState<ProviderRow[]>([]);
 
   // Add provider dialog
