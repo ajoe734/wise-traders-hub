@@ -16,6 +16,7 @@ import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus 
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
 import { coerceStocksString } from "@/checkup/lib/edgeCoerce";
+import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -507,6 +508,11 @@ export default function App() {
     setTimeout(() => setSaved(''), 5000);
     setServerSyncing(false);
   };
+
+  // Preload knowledge base from cloud (sync into memory once on mount)
+  useEffect(() => {
+    preloadKnowledgeBase().catch(() => {});
+  }, []);
 
   // Countdown timer for refresh cooldown
   useEffect(() => {
