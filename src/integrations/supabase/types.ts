@@ -74,6 +74,90 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_knowledge_candidates: {
+        Row: {
+          action: string | null
+          category: string
+          confidence: number | null
+          created_at: string
+          created_by: string | null
+          expected_outcome: Json | null
+          fact: string
+          id: string
+          industry_tags: string[] | null
+          interpretation: string | null
+          item_id: string | null
+          lessons: string | null
+          outcome: string | null
+          return_pct: number | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_note: string | null
+          source_meta: Json | null
+          source_type: string
+          status: string
+          tags: string[] | null
+          time_horizon: string | null
+          title: string
+          trigger_condition: Json | null
+          updated_at: string
+        }
+        Insert: {
+          action?: string | null
+          category: string
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          expected_outcome?: Json | null
+          fact: string
+          id?: string
+          industry_tags?: string[] | null
+          interpretation?: string | null
+          item_id?: string | null
+          lessons?: string | null
+          outcome?: string | null
+          return_pct?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_note?: string | null
+          source_meta?: Json | null
+          source_type?: string
+          status?: string
+          tags?: string[] | null
+          time_horizon?: string | null
+          title: string
+          trigger_condition?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          action?: string | null
+          category?: string
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          expected_outcome?: Json | null
+          fact?: string
+          id?: string
+          industry_tags?: string[] | null
+          interpretation?: string | null
+          item_id?: string | null
+          lessons?: string | null
+          outcome?: string | null
+          return_pct?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_note?: string | null
+          source_meta?: Json | null
+          source_type?: string
+          status?: string
+          tags?: string[] | null
+          time_horizon?: string | null
+          title?: string
+          trigger_condition?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       checkup_knowledge_hits: {
         Row: {
           confidence: number | null
@@ -125,56 +209,144 @@ export type Database = {
           category: string
           confidence: number | null
           created_at: string | null
+          expected_outcome: Json | null
           fact: string
           id: string
+          industry_tags: string[]
           interpretation: string | null
           is_active: boolean | null
           item_id: string
+          last_validated_at: string | null
           lessons: string | null
           outcome: string | null
           return_pct: number | null
+          sample_size: number
+          source_type: string
           tags: string[] | null
+          time_horizon: string | null
           title: string
+          trigger_condition: Json | null
           updated_at: string | null
           version: number
+          win_rate: number | null
         }
         Insert: {
           action?: string | null
           category: string
           confidence?: number | null
           created_at?: string | null
+          expected_outcome?: Json | null
           fact: string
           id?: string
+          industry_tags?: string[]
           interpretation?: string | null
           is_active?: boolean | null
           item_id: string
+          last_validated_at?: string | null
           lessons?: string | null
           outcome?: string | null
           return_pct?: number | null
+          sample_size?: number
+          source_type?: string
           tags?: string[] | null
+          time_horizon?: string | null
           title: string
+          trigger_condition?: Json | null
           updated_at?: string | null
           version?: number
+          win_rate?: number | null
         }
         Update: {
           action?: string | null
           category?: string
           confidence?: number | null
           created_at?: string | null
+          expected_outcome?: Json | null
           fact?: string
           id?: string
+          industry_tags?: string[]
           interpretation?: string | null
           is_active?: boolean | null
           item_id?: string
+          last_validated_at?: string | null
           lessons?: string | null
           outcome?: string | null
           return_pct?: number | null
+          sample_size?: number
+          source_type?: string
           tags?: string[] | null
+          time_horizon?: string | null
           title?: string
+          trigger_condition?: Json | null
           updated_at?: string | null
           version?: number
+          win_rate?: number | null
         }
         Relationships: []
+      }
+      checkup_knowledge_validations: {
+        Row: {
+          actual_change_pct: number | null
+          created_at: string
+          details: Json | null
+          evaluated_at: string
+          expected_direction: string | null
+          hit_id: string | null
+          horizon_days: number | null
+          id: string
+          is_correct: boolean | null
+          knowledge_item_id: string
+          stock_code: string | null
+        }
+        Insert: {
+          actual_change_pct?: number | null
+          created_at?: string
+          details?: Json | null
+          evaluated_at?: string
+          expected_direction?: string | null
+          hit_id?: string | null
+          horizon_days?: number | null
+          id?: string
+          is_correct?: boolean | null
+          knowledge_item_id: string
+          stock_code?: string | null
+        }
+        Update: {
+          actual_change_pct?: number | null
+          created_at?: string
+          details?: Json | null
+          evaluated_at?: string
+          expected_direction?: string | null
+          hit_id?: string | null
+          horizon_days?: number | null
+          id?: string
+          is_correct?: boolean | null
+          knowledge_item_id?: string
+          stock_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkup_knowledge_validations_hit_id_fkey"
+            columns: ["hit_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_hits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkup_knowledge_validations_knowledge_item_id_fkey"
+            columns: ["knowledge_item_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkup_knowledge_validations_knowledge_item_id_fkey"
+            columns: ["knowledge_item_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_usage_stats"
+            referencedColumns: ["knowledge_item_id"]
+          },
+        ]
       }
       checkup_plans: {
         Row: {
