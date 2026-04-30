@@ -33,6 +33,8 @@ let _loadingPromise = null
 function rowToItem(row) {
   const base = {
     id: row.item_id,
+    __dbId: row.id ?? null, // uuid for hit tracking
+    __category: row.category,
     title: row.title,
     fact: row.fact,
     interpretation: row.interpretation ?? '',
