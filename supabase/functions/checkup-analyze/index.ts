@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
+import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -134,6 +135,10 @@ Deno.serve(async (req) => {
     });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
+    // Consume one quota credit before doing any AI work
+    const quota = await consumeCheckupQuota(req, 'analysis', corsHeaders);
+    if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+
     const systemPrompt = (body.systemPrompt || '').toString().trim();
     const userPrompt = (body.userPrompt || body.prompt || '').toString().trim();
 
@@ -152,6 +157,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       content: [{ text }], text, response: text,
+      quota: quota.quota,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

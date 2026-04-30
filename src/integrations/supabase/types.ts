@@ -392,6 +392,7 @@ export type Database = {
           name: string
           price_monthly: number
           price_yearly: number
+          quota_period: string
           sort_order: number
           tier: string
           updated_at: string
@@ -406,6 +407,7 @@ export type Database = {
           name: string
           price_monthly: number
           price_yearly: number
+          quota_period?: string
           sort_order?: number
           tier: string
           updated_at?: string
@@ -420,6 +422,7 @@ export type Database = {
           name?: string
           price_monthly?: number
           price_yearly?: number
+          quota_period?: string
           sort_order?: number
           tier?: string
           updated_at?: string
@@ -2444,7 +2447,12 @@ export type Database = {
         Args: { _expert_id: string }
         Returns: Json
       }
+      check_checkup_quota: { Args: { _user_id: string }; Returns: Json }
       cleanup_old_announcements: { Args: never; Returns: undefined }
+      consume_checkup_quota: {
+        Args: { _kind?: string; _user_id: string }
+        Returns: Json
+      }
       delete_expired_binding_codes: { Args: never; Returns: undefined }
       delete_old_prices: { Args: never; Returns: undefined }
       get_knowledge_revision: { Args: never; Returns: string }

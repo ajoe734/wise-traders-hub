@@ -2,6 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
+import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -425,6 +426,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Cache miss → consume one quota credit before doing AI work
+    const quota = await consumeCheckupQuota(req, 'predict-events', corsHeaders);
+    if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+
     // Collect stock codes
     const allCodes = new Set<string>();
     for (const e of events) {
@@ -525,6 +530,7 @@ ${eventsForPrompt}
 
     return new Response(JSON.stringify({
       predictions,
+      quota: quota.quota,
       ...(debugInfo ? { debug: debugInfo } : {}),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

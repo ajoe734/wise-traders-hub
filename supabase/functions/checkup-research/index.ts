@@ -2,6 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
+import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -114,6 +115,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'deep-research') {
+      const quota = await consumeCheckupQuota(req, 'deep-research', corsHeaders);
+      if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+
       const dossierContext = dossier ? JSON.stringify(dossier, null, 2) : '無 dossier 資料';
       const brainContext = brain ? JSON.stringify(brain, null, 2) : '無策略大腦';
       
@@ -139,12 +143,15 @@ Deno.serve(async (req) => {
         { onConflict: 'user_id,key' }
       );
 
-      return new Response(JSON.stringify({ text, report }), {
+      return new Response(JSON.stringify({ text, report, quota: quota.quota }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (action === 'system-review') {
+      const quota = await consumeCheckupQuota(req, 'system-review', corsHeaders);
+      if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+
       const holdingsContext = holdings ? JSON.stringify(holdings, null, 2) : '無持倉';
       const brainContext = brain ? JSON.stringify(brain, null, 2) : '無策略大腦';
 
@@ -154,7 +161,7 @@ Deno.serve(async (req) => {
         { role: 'user', content: `請審視我的投資系統並提出改善建議。\n\n持倉概要：\n${holdingsContext}\n\n策略大腦：\n${brainContext}\n\n研究歷史：\n${JSON.stringify(researchHistory?.slice(0, 5) || [], null, 2)}\n\n請提出具體的改善建議。` },
       ], 0.3, 3000);
 
-      return new Response(JSON.stringify({ text }), {
+      return new Response(JSON.stringify({ text, quota: quota.quota }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

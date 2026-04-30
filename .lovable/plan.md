@@ -1,68 +1,114 @@
-## 金流工具頁分組重構
+## 持倉看板 付費版本與配額制實作計畫
 
-把 `/company/payments` 從「平鋪四列矩陣表」改成依工具性質分成三個視覺區塊，移除頁尾其他入口小卡。
+### 一、版本與配額定義
 
-### 分組規則
+| 版本 | 條件 | 配額（共用） | 重置週期 |
+|---|---|---|---|
+| **未登入** | 訪客 | 0（看 Demo 唯讀） | — |
+| **Free** | Email/LINE 登入但無訂閱 | **每月 1 次** | 自然月（UTC+8 月初 00:00） |
+| **Basic（NT$699/月）** | 已訂閱 `tier=basic` | **每週 1 次** | 自然週（UTC+8 週一 00:00） |
+| **Pro（NT$1,299/月）** | 已訂閱 `tier=pro` | **每月 22 次** | 自然月（UTC+8 月初 00:00） |
 
-| 分組 | 內容 | 資料來源 |
-|---|---|---|
-| **信用卡** | 綠界 ECPay、ACpay | `payment_providers` where `provider_type IN ('ecpay','acpay')` |
-| **電子支付** | 藍新 NewebPay、LINE Pay | `payment_providers` where `provider_type IN ('newebpay','line_pay')` |
-| **匯款** | ATM／臨櫃匯款帳戶 | `payment_settings` key=`remittance_account` |
+**「一次」定義**：一次 AI 呼叫即扣 1 次配額。涵蓋：
+- 持倉 AI 健檢 / 系統進化（research）
+- 事件預測（event prediction）
+- 新聞彙整（news summary）
+- RAG 問答 / 教練回饋
+所有 AI 功能共用同一個配額池。
 
-### 頁面結構
+**手動刷新股價**：Free 不可、Basic / Pro 可。
 
-```text
-┌─ 金流工具 ─────────────────────────────────────────────┐
-│  健康摘要：信用卡 ✓1 可用 ／ 電子支付 — 未啟用 ／ 匯款 ✓ │
-├────────────────────────────────────────────────────────┤
-│  ▎信用卡            [+ 新增信用卡通道]                 │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │ 綠界 ECPay   ●已啟用  ✓金鑰  正式  ★  [金鑰][⏼] │  │
-│  │ ACpay        ○停用    —待開放  —    —  [金鑰][⏼] │  │
-│  └──────────────────────────────────────────────────┘  │
-│                                                        │
-│  ▎電子支付          [+ 新增電子支付通道]                │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │ 藍新 NewebPay  ○停用  —待開放  —   —  [金鑰][⏼] │  │
-│  │ LINE Pay       ○停用  —待開放  —   —  [金鑰][⏼] │  │
-│  └──────────────────────────────────────────────────┘  │
-│                                                        │
-│  ▎匯款                                                  │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │ 玉山 (808)  ••••5678 · 王小明      已啟用 [編輯] │  │
-│  └──────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────┘
-```
+---
 
-### 設計細節
+### 二、資料庫變更
 
-1. **三組各自有標題列 + 描述 + 該組專屬「+ 新增」按鈕**
-   - 信用卡組「+ 新增」：類型 Select 只顯示 `ecpay / acpay`
-   - 電子支付組「+ 新增」：類型 Select 只顯示 `newebpay / line_pay`
-   - 匯款組沒有「+ 新增」（單一全站匯款帳戶）
+1. **`checkup_plans`**
+   - 新增欄位 `quota_period text not null default 'month'`（值：`week` | `month`）
+   - 更新 basic plan：`quota_period='week'`, `monthly_quota=1`
+   - 更新 pro plan：`quota_period='month'`, `monthly_quota=22`
 
-2. **空組顯示輕量提示**
-   例：電子支付組為空時，顯示「尚未新增任何電子支付通道」+ 新增按鈕，不顯示空表格。
+2. **`checkup_usage`**（已存在）
+   - 確認索引：`(user_id, used_at desc)` 用於配額查詢
 
-3. **健康橫幅升級為三組摘要**
-   一行三段：信用卡可用條數／電子支付可用條數／匯款狀態，缺金鑰時用 ⚠ 標記。
+3. **新增 RPC `check_checkup_quota(_user_id uuid)`**（SECURITY DEFINER）
+   回傳：
+   ```json
+   { "tier": "free|basic|pro", "limit": 1, "used": 0, "remaining": 1,
+     "period": "week|month", "resets_at": "2026-05-01T00:00:00+08:00" }
+   ```
+   邏輯：
+   - 查 `checkup_subscriptions` 是否有 active + 未過期 → 取對應 plan tier / quota / period
+   - 無訂閱 → free（month / 1）
+   - 依 period 計算 UTC+8 週一或月初的 `period_start`
+   - `count(*) from checkup_usage where user_id=_user_id and used_at >= period_start`
 
-4. **單欄佈局**
-   移除原本的右側資訊欄與頁尾其他入口小卡（對帳中心 / 匯款審核 / 分潤設定不放回頁面）。
+4. **新增 RPC `consume_checkup_quota(_user_id uuid, _kind text)`**（SECURITY DEFINER）
+   - 先呼叫 `check_checkup_quota`
+   - 若 `remaining <= 0` → `raise exception 'QUOTA_EXCEEDED'`
+   - 否則 `insert into checkup_usage(user_id, kind)` 並回傳新的剩餘數
 
-### 實作範圍（只改一個檔）
+---
 
-`src/pages/company/Payments.tsx`：
-- `channels` 依 `provider_type` 拆成 `creditChannels` / `ewalletChannels`
-- 健康橫幅改為三組摘要
-- 三個區塊共用同一個列模板渲染
-- 「+ 新增通道」變兩顆，各自限制可選類型
-- 改為單欄佈局，移除右側欄與頁尾入口
-- 保留：toggle、設預設、綠界金鑰 dialog、匯款 dialog、audit log、masked input 規則
+### 三、Edge Functions 變更（強制窮舉）
 
-### 不做的事
+所有會呼叫 AI 的 checkup 系列 function 在執行前必須呼叫 `consume_checkup_quota`，失敗回 `429 { error: 'QUOTA_EXCEEDED', resets_at }`：
 
-- 不動 DB schema、RLS、edge function、checkout 前台
-- 不改 ACpay／藍新／LINE Pay 的金鑰 UI（仍維持「待開放」提示）
-- 不放對帳中心／匯款審核／分潤設定入口（依你指示移除）
+- `checkup-analyze`
+- `checkup-research`（如有）
+- `checkup-event-prediction`
+- `checkup-news-summary`
+- `checkup-rag` / 知識庫問答
+- 其他 `checkup-*` AI 類 function（實作前用 `rg "supabase/functions/checkup-"` 列完整清單再逐一加）
+
+未列入扣配額的：純股價刷新、純讀取雲端資料、institutional T86 等非 AI 端點。
+
+---
+
+### 四、前端變更
+
+1. **`src/checkup/contexts/CheckupModeContext.jsx`**
+   - 移除 `demo` mode（保留唯讀 Demo Page 給未登入訪客導頁，但主功能強制登入）
+   - 新增 mode：`free` | `basic` | `pro`
+   - 啟動時呼叫 `check_checkup_quota` RPC，存 `{tier, remaining, limit, resetsAt}`
+   - 暴露 `canRefreshManually = tier !== 'free'`
+   - 暴露 `quota: {tier, remaining, limit, resetsAt, period}`
+   - 新增 `refreshQuota()` 在每次 AI 呼叫成功後重抓
+
+2. **新增 `src/hooks/useCheckupSubscription.ts`**
+   - 包 `check_checkup_quota` RPC + React Query
+   - 30 秒 staleTime，AI 呼叫後手動 invalidate
+
+3. **配額顯示 UI**
+   - `Header.jsx` 顯示「本{週/月}剩餘 N/M 次 · D 日後重置」
+   - 點擊展開：顯示目前方案 + 升級連結
+
+4. **配額耗盡時的 Paywall**
+   - 觸發 AI 功能但 `remaining=0` → 彈窗：
+     - 標題：「本{週/月}配額已用完」
+     - 內容：說明下次重置時間
+     - CTA：升級到 Basic / Pro（連到 `/checkup/checkout`）
+
+5. **未登入訪客**
+   - `/free-checkup` 顯示 Demo + 「登入以使用」CTA（不再給 1 次免費試用）
+
+---
+
+### 五、Index.tsx 文案校正
+首頁「持股健檢」段落補上「免費版每月 1 次・Basic 每週 1 次・Pro 每月 22 次」說明。
+
+---
+
+### 六、技術重點
+
+- **時區**：所有 period_start 計算統一 `now() at time zone 'Asia/Taipei'`
+- **原子性**：`consume_checkup_quota` 在單一 SQL transaction 內檢查+寫入，避免並發超扣
+- **錯誤處理**：429 在前端轉成統一 toast + 升級彈窗
+- **保留現有**：`is_tester` 仍視為 pro（內部測試免限制）
+
+### 七、驗證清單
+1. 三個 tier 的配額正確扣減與重置
+2. UTC+8 週一 00:00 / 月初 00:00 確實重置
+3. 並發呼叫不會超扣
+4. 所有 `checkup-*` AI function 都有扣配額（用 `rg` 窮舉確認）
+5. 配額耗盡彈窗 → 升級路徑暢通
+6. Free 用戶手動刷新股價被擋下
