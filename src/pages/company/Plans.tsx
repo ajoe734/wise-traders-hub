@@ -18,8 +18,16 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Loader2, Layers, CheckCircle2, XCircle, Pencil, Trash2, Sparkles } from 'lucide-react';
+import { Loader2, Layers, CheckCircle2, XCircle, Pencil, Trash2, Sparkles, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { logAdminAction } from '@/lib/auditLog';
+
+const CROSS_FIELDS: { key: string; label: string; hint: string }[] = [
+  { key: 'has_checkup_basic_discount_on_expert', label: '已訂健檢 Basic → 訂閱方案折扣', hint: '會員在持有健檢 Basic 期間訂閱分析師方案時自動折抵' },
+  { key: 'has_checkup_pro_discount_on_expert', label: '已訂健檢 Pro → 訂閱方案折扣', hint: '會員在持有健檢 Pro 期間訂閱分析師方案時自動折抵' },
+  { key: 'has_expert_discount_on_checkup_basic', label: '已訂方案 → 健檢 Basic 折扣', hint: '會員在持有任一訂閱方案期間購買健檢 Basic 時自動折抵' },
+  { key: 'has_expert_discount_on_checkup_pro', label: '已訂方案 → 健檢 Pro 折扣', hint: '會員在持有任一訂閱方案期間購買健檢 Pro 時自動折抵' },
+];
 
 type ReviewStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 
