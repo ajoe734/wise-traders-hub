@@ -17,7 +17,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import {
   CreditCard, Plus, ExternalLink, Landmark, Pencil, KeyRound,
-  CheckCircle2, AlertTriangle, Circle, Star, ChevronRight,
+  CheckCircle2, AlertTriangle, Circle, Star, Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
