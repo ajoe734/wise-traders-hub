@@ -1,9 +1,8 @@
-// 回填 TWSE 日 K 歷史資料到 daily_price_snapshots
-// 用法：POST { months: 36, symbols?: string[], dryRun?: boolean }
-// - 預設拉近 36 個月
-// - 不指定 symbols 時，從 current_prices 撈所有上市/上櫃代號
-// - TWSE STOCK_DAY API: https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=YYYYMM01&stockNo=XXXX
-// 限速：每 3 秒一次請求避免被擋
+// 回填 TWSE 日 K 歷史資料到 daily_price_snapshots（含進度追蹤、續跑）
+// 用法：
+//   POST { months?: 36, symbols?: string[], dryRun?: boolean, resume?: true }
+//   resume=true: 只跑 progress 表中 status != 'done' 的 (symbol, yyyymm)
+// 進度寫入 knowledge_backfill_progress
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const corsHeaders = {
@@ -15,16 +14,15 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 interface TwseDayRow {
-  date: string         // 民國年/月/日 e.g. "115/04/29"
+  date: string
   open: number
   high: number
   low: number
   close: number
-  volume: number       // 成交股數
+  volume: number
 }
 
 function rocToIso(roc: string): string | null {
-  // "115/04/29" -> "2026-04-29"
   const m = roc.match(/^(\d{2,3})\/(\d{1,2})\/(\d{1,2})$/)
   if (!m) return null
   const year = parseInt(m[1], 10) + 1911
@@ -34,39 +32,27 @@ function rocToIso(roc: string): string | null {
 }
 
 function num(s: string): number | null {
-  const n = parseFloat(s.replace(/,/g, ''))
+  const n = parseFloat(String(s).replace(/,/g, ''))
   return Number.isFinite(n) ? n : null
 }
 
 async function fetchMonth(symbol: string, yyyymm: string): Promise<TwseDayRow[]> {
   const url = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${yyyymm}01&stockNo=${symbol}`
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0' }
-  })
-  if (!res.ok) {
-    await res.text()
-    return []
-  }
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+  if (!res.ok) { await res.text(); return [] }
   const json = await res.json().catch(() => null)
   if (!json || json.stat !== 'OK' || !Array.isArray(json.data)) return []
-  // data 欄位順序: 日期, 成交股數, 成交金額, 開盤, 最高, 最低, 收盤, 漲跌價差, 成交筆數
   const rows: TwseDayRow[] = []
   for (const row of json.data) {
     const iso = rocToIso(row[0])
     if (!iso) continue
-    const open = num(row[3])
-    const high = num(row[4])
-    const low = num(row[5])
-    const close = num(row[6])
+    const open = num(row[3]); const high = num(row[4])
+    const low = num(row[5]); const close = num(row[6])
     const volume = num(row[1])
     if (close == null) continue
     rows.push({
-      date: iso,
-      open: open ?? close,
-      high: high ?? close,
-      low: low ?? close,
-      close,
-      volume: Math.round(volume ?? 0),
+      date: iso, open: open ?? close, high: high ?? close,
+      low: low ?? close, close, volume: Math.round(volume ?? 0),
     })
   }
   return rows
@@ -90,22 +76,42 @@ Deno.serve(async (req) => {
     const months: number = Math.min(Math.max(body.months ?? 36, 1), 60)
     const symbols: string[] | undefined = Array.isArray(body.symbols) && body.symbols.length > 0 ? body.symbols : undefined
     const dryRun: boolean = !!body.dryRun
+    const resume: boolean = !!body.resume
 
     const sb = createClient(SUPABASE_URL, SERVICE_KEY)
 
+    // 1. 計算目標 (symbol, yyyymm) 清單
     let targetSymbols: string[]
     if (symbols) {
       targetSymbols = symbols.map(String)
     } else {
-      const { data, error } = await sb
-        .from('current_prices')
-        .select('symbol')
-        .order('symbol')
+      const { data, error } = await sb.from('current_prices').select('symbol').order('symbol')
       if (error) throw error
       targetSymbols = (data ?? []).map((r: any) => r.symbol).filter((s: string) => /^\d{4,6}$/.test(s))
     }
+    const monthList = monthsBack(months)
+
+    // 2. 寫入或補齊 progress 表（pending 狀態）
+    if (!resume && !dryRun) {
+      const upserts: any[] = []
+      for (const symbol of targetSymbols) {
+        for (const ym of monthList) {
+          upserts.push({ symbol, yyyymm: ym, status: 'pending' })
+        }
+      }
+      // 分批 upsert（每批 1000）
+      for (let i = 0; i < upserts.length; i += 1000) {
+        const chunk = upserts.slice(i, i + 1000)
+        await sb.from('knowledge_backfill_progress')
+          .upsert(chunk, { onConflict: 'symbol,yyyymm', ignoreDuplicates: true })
+      }
+    }
 
     if (dryRun) {
+      // 統計
+      const { data: progressStats } = await sb
+        .from('knowledge_backfill_progress')
+        .select('status', { count: 'exact', head: false })
       return new Response(JSON.stringify({
         ok: true,
         dryRun: true,
@@ -113,58 +119,92 @@ Deno.serve(async (req) => {
         months,
         estimated_requests: targetSymbols.length * months,
         estimated_minutes: Math.ceil((targetSymbols.length * months * 3) / 60),
+        existing_progress_rows: progressStats?.length ?? 0,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    const monthList = monthsBack(months)
+    // 3. 取下一批要跑的 (symbol, yyyymm)
+    const { data: pendingRows, error: pErr } = await sb
+      .from('knowledge_backfill_progress')
+      .select('id,symbol,yyyymm')
+      .neq('status', 'done')
+      .order('symbol')
+      .order('yyyymm')
+      .limit(50) // 一次 edge function 最多 50 個請求（~150 秒，超過 budget 會自動收尾）
+    if (pErr) throw pErr
+
     let inserted = 0
+    let processed = 0
     let failed = 0
     const startedAt = Date.now()
-    const TIME_BUDGET_MS = 50_000  // edge function 預設超時前先收手
+    const TIME_BUDGET_MS = 50_000
 
-    for (const symbol of targetSymbols) {
+    for (const job of (pendingRows ?? [])) {
       if (Date.now() - startedAt > TIME_BUDGET_MS) break
-      for (const ym of monthList) {
-        if (Date.now() - startedAt > TIME_BUDGET_MS) break
-        try {
-          const rows = await fetchMonth(symbol, ym)
-          if (rows.length === 0) { failed++; continue }
-          const upsertRows = rows.map(r => ({
-            symbol,
-            trade_date: r.date,
-            open_price: r.open,
-            high_price: r.high,
-            low_price: r.low,
-            close_price: r.close,
-            volume: r.volume,
-            is_limit_up: false,
-          }))
-          const { error } = await sb
-            .from('daily_price_snapshots')
-            .upsert(upsertRows, { onConflict: 'symbol,trade_date', ignoreDuplicates: false })
-          if (error) {
-            console.warn(`upsert ${symbol} ${ym} failed:`, error.message)
-            failed++
-          } else {
-            inserted += upsertRows.length
-          }
-        } catch (e) {
-          console.warn(`fetch ${symbol} ${ym} error:`, e)
-          failed++
+      processed++
+      try {
+        const rows = await fetchMonth(job.symbol, job.yyyymm)
+        if (rows.length === 0) {
+          await sb.from('knowledge_backfill_progress').update({
+            status: 'empty', attempted_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+          }).eq('id', job.id)
+          continue
         }
-        // 限速：每次 3 秒
-        await new Promise(r => setTimeout(r, 3000))
+        const upsertRows = rows.map(r => ({
+          symbol: job.symbol, trade_date: r.date,
+          open_price: r.open, high_price: r.high, low_price: r.low,
+          close_price: r.close, volume: r.volume, is_limit_up: false,
+        }))
+        const { error } = await sb.from('daily_price_snapshots')
+          .upsert(upsertRows, { onConflict: 'symbol,trade_date', ignoreDuplicates: false })
+        if (error) {
+          await sb.from('knowledge_backfill_progress').update({
+            status: 'failed', attempted_at: new Date().toISOString(),
+            error_message: error.message,
+          }).eq('id', job.id)
+          failed++
+        } else {
+          inserted += upsertRows.length
+          await sb.from('knowledge_backfill_progress').update({
+            status: 'done', rows_inserted: upsertRows.length,
+            attempted_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+            error_message: null,
+          }).eq('id', job.id)
+        }
+      } catch (e) {
+        await sb.from('knowledge_backfill_progress').update({
+          status: 'failed', attempted_at: new Date().toISOString(),
+          error_message: String(e),
+        }).eq('id', job.id)
+        failed++
       }
+      await new Promise(r => setTimeout(r, 3000)) // 限速
     }
+
+    // 進度總覽
+    const { data: summary } = await sb.rpc('exec_count', {} as any).select?.() ?? { data: null }
+    const { count: doneCount } = await sb.from('knowledge_backfill_progress')
+      .select('*', { count: 'exact', head: true }).eq('status', 'done')
+    const { count: pendingCount } = await sb.from('knowledge_backfill_progress')
+      .select('*', { count: 'exact', head: true }).eq('status', 'pending')
+    const { count: failedCount } = await sb.from('knowledge_backfill_progress')
+      .select('*', { count: 'exact', head: true }).eq('status', 'failed')
+    const { count: totalCount } = await sb.from('knowledge_backfill_progress')
+      .select('*', { count: 'exact', head: true })
 
     return new Response(JSON.stringify({
       ok: true,
-      symbols_requested: targetSymbols.length,
-      months_requested: months,
-      rows_inserted: inserted,
-      failures: failed,
-      partial: Date.now() - startedAt > TIME_BUDGET_MS,
-      hint: 'Edge function 有 60s 上限。如果 partial=true，請拆批呼叫（例如每次傳 10-20 個 symbols）',
+      this_batch: { processed, rows_inserted: inserted, failures: failed },
+      progress: {
+        done: doneCount ?? 0,
+        pending: pendingCount ?? 0,
+        failed: failedCount ?? 0,
+        total: totalCount ?? 0,
+      },
+      partial: (pendingCount ?? 0) > 0,
+      hint: (pendingCount ?? 0) > 0 ? '尚有未完成批次，請再次點擊「續跑」' : '回填完成 ✅',
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (err) {

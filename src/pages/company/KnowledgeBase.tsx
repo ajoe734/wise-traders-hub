@@ -17,6 +17,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Brain, Activity, Sparkles, Check, X, Loader2, TrendingUp } from 'lucide-react';
 import { logAdminAction } from '@/lib/auditLog';
+import { BackfillProgressPanel } from './knowledge-base/BackfillProgressPanel';
+import { BacktestRunDetailDialog } from './knowledge-base/BacktestRunDetailDialog';
+import { GridSearchDetailDialog } from './knowledge-base/GridSearchDetailDialog';
+import { AutoRulesPanel } from './knowledge-base/AutoRulesPanel';
 
 const CATEGORIES = [
   { key: 'chip_analysis', label: '籌碼分析' },
@@ -114,9 +118,11 @@ export default function KnowledgeBasePage() {
   const [draftCount, setDraftCount] = useState(10);
   const [mainTab, setMainTab] = useState<'items' | 'candidates' | 'backtest'>('items');
   const [backtestRuns, setBacktestRuns] = useState<any[]>([]);
-  const [backtesting, setBacktesting] = useState<string | null>(null);  // item id being backtested
+  const [backtesting, setBacktesting] = useState<string | null>(null);
   const [gridSearching, setGridSearching] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
+  const [openRunDetail, setOpenRunDetail] = useState<string | null>(null);
+  const [openGridDetail, setOpenGridDetail] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -453,10 +459,6 @@ export default function KnowledgeBasePage() {
               {drafting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
               Claude 起草（{CATEGORIES.find(c => c.key === activeCat)?.label}）
             </Button>
-            <Button onClick={runBackfill} disabled={backfilling} variant="outline">
-              {backfilling ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <TrendingUp className="h-4 w-4 mr-1" />}
-              回填歷史日K
-            </Button>
             <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />新增條目</Button>
           </div>
         </div>
@@ -620,6 +622,9 @@ export default function KnowledgeBasePage() {
           </TabsContent>
 
           <TabsContent value="backtest" className="space-y-6 mt-4">
+            <BackfillProgressPanel />
+            <AutoRulesPanel />
+
             {/* 統計區塊 */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {[
@@ -705,24 +710,34 @@ export default function KnowledgeBasePage() {
 
             {/* 最近回測 runs */}
             <div>
-              <h3 className="text-base font-medium mb-2">最近回測紀錄（{backtestRuns.length}）</h3>
+              <h3 className="text-base font-medium mb-2">最近回測紀錄（{backtestRuns.length}）— 點選列檢視明細</h3>
               {backtestRuns.length === 0 ? (
                 <p className="text-sm text-muted-foreground">尚未跑過回測。可在「正式知識庫」每條 backtestable 條目按「回測」開始。</p>
               ) : (
                 <div className="space-y-1 max-h-96 overflow-y-auto">
-                  {backtestRuns.slice(0, 50).map((r: any) => {
+                  {backtestRuns.slice(0, 100).map((r: any) => {
                     const item = items.find(i => i.id === r.knowledge_item_id);
+                    const isGrid = r.run_mode === 'grid_search';
                     return (
-                      <div key={r.id} className="border rounded p-2 text-sm flex items-center gap-3 flex-wrap">
-                        <Badge variant="outline">{r.run_mode}</Badge>
+                      <button
+                        key={r.id}
+                        onClick={() => isGrid ? setOpenGridDetail(r.id) : setOpenRunDetail(r.id)}
+                        className="w-full border rounded p-2 text-sm flex items-center gap-3 flex-wrap text-left hover:bg-muted/50 transition-colors"
+                      >
+                        <Badge variant={isGrid ? 'default' : 'outline'}>{r.run_mode}</Badge>
                         <code className="text-xs text-muted-foreground">{item?.item_id ?? r.knowledge_item_id?.slice(0, 8)}</code>
                         <span className="flex-1 truncate">{item?.title ?? '(已刪除)'}</span>
+                        {r.auto_action && (
+                          <Badge variant={r.auto_action.includes('archived') ? 'destructive' : 'secondary'} className="text-xs">
+                            {r.auto_action}
+                          </Badge>
+                        )}
                         {r.win_rate != null && <span>勝率 {(r.win_rate * 100).toFixed(1)}%</span>}
                         <span className="text-muted-foreground">n={r.total_hits}</span>
                         <span className="text-xs text-muted-foreground">
                           {new Date(r.created_at).toLocaleString('zh-TW', { hour12: false })}
                         </span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -730,6 +745,9 @@ export default function KnowledgeBasePage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        <BacktestRunDetailDialog runId={openRunDetail} onClose={() => setOpenRunDetail(null)} />
+        <GridSearchDetailDialog runId={openGridDetail} onClose={() => setOpenGridDetail(null)} />
 
         <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
