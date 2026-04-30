@@ -84,8 +84,11 @@ export const ACTION_LABELS: Record<string, string> = {
   'analyst.suspend': '停用分析師',
   'analyst.activate': '啟用分析師',
   'analyst.update_credentials': '更新分析師登入資訊',
+  'analyst.line_channel_create': '新增分析師 LINE 頻道',
+  'analyst.line_channel_update': '更新分析師 LINE 頻道',
   // announcement.*
   'announcement.publish': '發布系統公告',
+  'announcement.unpublish': '取消發布公告',
   'announcement.delete': '刪除系統公告',
   // signal.*
   'signal.admin_takedown': '管理員下架訊號',
