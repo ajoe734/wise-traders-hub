@@ -138,6 +138,9 @@ export function useDailyAnalysisWorkflow({
                 .join('\n\n')
             : '目前沒有持股 dossier。'
 
+        // 記錄本批 dossier 命中的知識條目（不阻擋主流程）
+        flushKnowledgeHits({ context: 'daily_analysis' }).catch(() => {})
+
         const eventSummary = pendingEvents
           .map(
             (event) =>
