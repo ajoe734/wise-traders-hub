@@ -172,7 +172,7 @@ export function getRelevantKnowledge(stockMeta = {}, { maxItems = 3, minConfiden
     return true
   })
 
-  const result = unique.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)).slice(0, maxItems)
+  const result = unique.sort((a, b) => effectiveScore(b) - effectiveScore(a)).slice(0, maxItems)
   rememberHits(result, 'knowledge')
   return result
 }
