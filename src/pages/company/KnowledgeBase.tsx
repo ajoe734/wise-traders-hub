@@ -112,14 +112,19 @@ export default function KnowledgeBasePage() {
   const [industryTagsInput, setIndustryTagsInput] = useState('');
   const [drafting, setDrafting] = useState(false);
   const [draftCount, setDraftCount] = useState(10);
-  const [mainTab, setMainTab] = useState<'items' | 'candidates'>('items');
+  const [mainTab, setMainTab] = useState<'items' | 'candidates' | 'backtest'>('items');
+  const [backtestRuns, setBacktestRuns] = useState<any[]>([]);
+  const [backtesting, setBacktesting] = useState<string | null>(null);  // item id being backtested
+  const [gridSearching, setGridSearching] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
 
   async function load() {
     setLoading(true);
-    const [itemsRes, usageRes, candRes] = await Promise.all([
+    const [itemsRes, usageRes, candRes, runsRes] = await Promise.all([
       supabase.from('checkup_knowledge_items').select('*').order('category').order('item_id'),
       supabase.from('checkup_knowledge_usage_stats' as any).select('*'),
       supabase.from('checkup_knowledge_candidates' as any).select('*').order('created_at', { ascending: false }),
+      supabase.from('knowledge_backtest_runs' as any).select('*').order('created_at', { ascending: false }).limit(200),
     ]);
     if (itemsRes.error) {
       toast.error('讀取失敗：' + itemsRes.error.message);
@@ -135,6 +140,9 @@ export default function KnowledgeBasePage() {
     }
     if (!candRes.error && Array.isArray(candRes.data)) {
       setCandidates(candRes.data as any);
+    }
+    if (!runsRes.error && Array.isArray(runsRes.data)) {
+      setBacktestRuns(runsRes.data as any[]);
     }
     setLoading(false);
   }
@@ -332,6 +340,97 @@ export default function KnowledgeBasePage() {
     load();
   }
 
+  async function runBacktest(item: KnowledgeItem) {
+    if (!item.trigger_condition?.type) {
+      toast.error('此條目無 trigger_condition.type，無法回測');
+      return;
+    }
+    setBacktesting(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('knowledge-backtest', {
+        body: { mode: 'single', item_id: item.id },
+      });
+      if (error) throw error;
+      if (data?.error === 'INSUFFICIENT_DATA') {
+        toast.error(data.message || '歷史資料不足');
+      } else {
+        const stats = data?.results?.[0]?.stats;
+        toast.success(`回測完成：命中 ${stats?.total_hits ?? 0} 筆，勝率 ${stats?.win_rate != null ? (stats.win_rate * 100).toFixed(1) + '%' : 'N/A'}`);
+      }
+      load();
+    } catch (err: any) {
+      toast.error('回測失敗：' + (err?.message ?? String(err)));
+    } finally {
+      setBacktesting(null);
+    }
+  }
+
+  async function runGridSearch(item: KnowledgeItem) {
+    if (!item.trigger_condition?.type) {
+      toast.error('此條目無 trigger_condition.type，無法網格搜尋');
+      return;
+    }
+    const promote = window.confirm('找到更佳參數時是否自動歸檔舊版並升級？\n（按「確定」=自動升級；按「取消」=只跑搜尋不升級）');
+    setGridSearching(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('knowledge-backtest', {
+        body: { mode: 'grid_search', item_id: item.id, promote_if_better: promote },
+      });
+      if (error) throw error;
+      const best = data?.best;
+      if (data?.promoted) {
+        toast.success(`已升級到 v+1：勝率 ${(best?.stats?.win_rate * 100).toFixed(1)}%`);
+      } else {
+        toast.success(`網格搜尋完成（${data?.grid_size ?? 0} 組），最佳勝率 ${best?.stats?.win_rate != null ? (best.stats.win_rate * 100).toFixed(1) + '%' : 'N/A'}`);
+      }
+      load();
+    } catch (err: any) {
+      toast.error('網格搜尋失敗：' + (err?.message ?? String(err)));
+    } finally {
+      setGridSearching(null);
+    }
+  }
+
+  async function runBackfill() {
+    if (!window.confirm('將從 TWSE 拉取近 36 個月日 K 資料，需要分多次執行（每次 ~50 秒）。確定開始？')) return;
+    setBackfilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('backfill-daily-snapshots', {
+        body: { months: 36 },
+      });
+      if (error) throw error;
+      toast.success(`回填完成：寫入 ${data?.rows_inserted ?? 0} 筆${data?.partial ? '（未完成，請再次點擊繼續）' : ''}`);
+    } catch (err: any) {
+      toast.error('回填失敗：' + (err?.message ?? String(err)));
+    } finally {
+      setBackfilling(false);
+    }
+  }
+
+  // ---- 報表分頁衍生資料 ----
+  const backtestReport = useMemo(() => {
+    const backtestable = items.filter(i => (i as any).backtestable && i.is_active);
+    const withSamples = backtestable.filter(i => (i.sample_size ?? 0) >= 30);
+    const distribution = { excellent: 0, good: 0, fair: 0, poor: 0, untested: 0 };
+    const toArchive: KnowledgeItem[] = [];
+    const toOptimize: KnowledgeItem[] = [];
+    for (const it of backtestable) {
+      const wr = it.win_rate;
+      if (wr == null || (it.sample_size ?? 0) < 30) {
+        distribution.untested++;
+        continue;
+      }
+      if (wr >= 0.7) distribution.excellent++;
+      else if (wr >= 0.55) distribution.good++;
+      else if (wr >= 0.45) distribution.fair++;
+      else distribution.poor++;
+
+      if (wr < 0.45) toArchive.push(it);
+      else if (wr >= 0.45 && wr < 0.6) toOptimize.push(it);
+    }
+    return { backtestable, withSamples, distribution, toArchive, toOptimize };
+  }, [items]);
+
   return (
     <CompanyLayout>
       <div className="p-6 space-y-6">
@@ -354,6 +453,10 @@ export default function KnowledgeBasePage() {
               {drafting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
               Claude 起草（{CATEGORIES.find(c => c.key === activeCat)?.label}）
             </Button>
+            <Button onClick={runBackfill} disabled={backfilling} variant="outline">
+              {backfilling ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <TrendingUp className="h-4 w-4 mr-1" />}
+              回填歷史日K
+            </Button>
             <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />新增條目</Button>
           </div>
         </div>
@@ -362,6 +465,7 @@ export default function KnowledgeBasePage() {
           <TabsList>
             <TabsTrigger value="items">正式知識庫 ({items.length})</TabsTrigger>
             <TabsTrigger value="candidates">候選審核 ({pendingCandidates.length})</TabsTrigger>
+            <TabsTrigger value="backtest">淘弱加強 ({backtestReport.withSamples.length}/{backtestReport.backtestable.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="items" className="space-y-4 mt-4">
@@ -428,6 +532,26 @@ export default function KnowledgeBasePage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          {(item as any).backtestable && (
+                            <>
+                              <Button
+                                variant="ghost" size="sm"
+                                onClick={() => runBacktest(item)}
+                                disabled={backtesting === item.id}
+                                title="用歷史資料回測勝率"
+                              >
+                                {backtesting === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : '回測'}
+                              </Button>
+                              <Button
+                                variant="ghost" size="sm"
+                                onClick={() => runGridSearch(item)}
+                                disabled={gridSearching === item.id}
+                                title="跑參數網格搜尋最佳組合"
+                              >
+                                {gridSearching === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : '網格'}
+                              </Button>
+                            </>
+                          )}
                           <Switch
                             checked={item.is_active}
                             onCheckedChange={() => toggleActive(item)}
@@ -493,6 +617,117 @@ export default function KnowledgeBasePage() {
                 </div>
               </div>
             ))}
+          </TabsContent>
+
+          <TabsContent value="backtest" className="space-y-6 mt-4">
+            {/* 統計區塊 */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[
+                { label: '優秀 ≥70%', count: backtestReport.distribution.excellent, color: 'bg-green-500' },
+                { label: '良好 55-70%', count: backtestReport.distribution.good, color: 'bg-emerald-400' },
+                { label: '普通 45-55%', count: backtestReport.distribution.fair, color: 'bg-yellow-400' },
+                { label: '弱 <45%', count: backtestReport.distribution.poor, color: 'bg-red-500' },
+                { label: '尚未驗證', count: backtestReport.distribution.untested, color: 'bg-muted-foreground' },
+              ].map(s => (
+                <div key={s.label} className="border rounded-lg p-4 bg-card">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${s.color}`} />
+                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                  </div>
+                  <p className="text-2xl font-semibold mt-1">{s.count}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* 待淘汰 */}
+            <div>
+              <h3 className="text-base font-medium mb-2 flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-red-500" />
+                待淘汰（勝率 &lt; 45%，n ≥ 30）
+              </h3>
+              {backtestReport.toArchive.length === 0 ? (
+                <p className="text-sm text-muted-foreground">沒有條目落在淘汰區，狀況良好。</p>
+              ) : (
+                <div className="space-y-2">
+                  {backtestReport.toArchive.map(it => (
+                    <div key={it.id} className="border rounded-lg p-3 bg-card flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="text-xs text-muted-foreground">{it.item_id}</code>
+                          <span className="font-medium">{it.title}</span>
+                          <Badge variant="destructive">勝率 {((it.win_rate ?? 0) * 100).toFixed(0)}% (n={it.sample_size})</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{it.fact}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" variant="outline" onClick={() => runGridSearch(it)} disabled={gridSearching === it.id}>
+                          {gridSearching === it.id ? <Loader2 className="h-4 w-4 animate-spin" /> : '網格救援'}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => toggleActive(it)}>停用</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 待優化 */}
+            <div>
+              <h3 className="text-base font-medium mb-2 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-yellow-500" />
+                待優化（勝率 45-60%，建議跑網格搜尋）
+              </h3>
+              {backtestReport.toOptimize.length === 0 ? (
+                <p className="text-sm text-muted-foreground">沒有條目落在優化區。</p>
+              ) : (
+                <div className="space-y-2">
+                  {backtestReport.toOptimize.map(it => (
+                    <div key={it.id} className="border rounded-lg p-3 bg-card flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="text-xs text-muted-foreground">{it.item_id}</code>
+                          <span className="font-medium">{it.title}</span>
+                          <Badge variant="secondary">勝率 {((it.win_rate ?? 0) * 100).toFixed(0)}% (n={it.sample_size})</Badge>
+                          <Badge variant="outline">{it.trigger_condition?.type}</Badge>
+                        </div>
+                        <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-x-auto">當前參數：{JSON.stringify(it.trigger_condition, null, 0)}</pre>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" onClick={() => runGridSearch(it)} disabled={gridSearching === it.id}>
+                          {gridSearching === it.id ? <Loader2 className="h-4 w-4 animate-spin" /> : '網格搜尋'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 最近回測 runs */}
+            <div>
+              <h3 className="text-base font-medium mb-2">最近回測紀錄（{backtestRuns.length}）</h3>
+              {backtestRuns.length === 0 ? (
+                <p className="text-sm text-muted-foreground">尚未跑過回測。可在「正式知識庫」每條 backtestable 條目按「回測」開始。</p>
+              ) : (
+                <div className="space-y-1 max-h-96 overflow-y-auto">
+                  {backtestRuns.slice(0, 50).map((r: any) => {
+                    const item = items.find(i => i.id === r.knowledge_item_id);
+                    return (
+                      <div key={r.id} className="border rounded p-2 text-sm flex items-center gap-3 flex-wrap">
+                        <Badge variant="outline">{r.run_mode}</Badge>
+                        <code className="text-xs text-muted-foreground">{item?.item_id ?? r.knowledge_item_id?.slice(0, 8)}</code>
+                        <span className="flex-1 truncate">{item?.title ?? '(已刪除)'}</span>
+                        {r.win_rate != null && <span>勝率 {(r.win_rate * 100).toFixed(1)}%</span>}
+                        <span className="text-muted-foreground">n={r.total_hits}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(r.created_at).toLocaleString('zh-TW', { hour12: false })}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
 
