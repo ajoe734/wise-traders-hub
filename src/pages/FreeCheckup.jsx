@@ -2117,6 +2117,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
             method: "POST",
             headers: { "Content-Type": "application/json", ...(await aiAuthHeaders()) },
             body: JSON.stringify({
+              kind: 'brain-update',
               systemPrompt: `你是策略知識庫管理器。根據今日分析結果，更新策略大腦。
 回傳**純JSON**格式（不要markdown code block），結構：
 {"rules":["規則1","規則2",...],"lessons":[{"date":"日期","text":"教訓"}],"commonMistakes":["錯誤1",...],"stats":{"hitRate":"X/Y","totalAnalyses":N},"lastUpdate":"日期"}
