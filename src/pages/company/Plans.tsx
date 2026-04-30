@@ -173,6 +173,16 @@ export default function CompanyPlans() {
       .eq('id', p.id);
     setActing(false);
     if (error) { toast.error('核准失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.approve',
+      targetType: 'expert_plan',
+      targetId: p.id,
+      detail: {
+        before: { review_status: p.review_status },
+        after: { review_status: 'approved' },
+        context: { plan_name: p.name, expert_name: p.experts?.name },
+      },
+    });
     toast.success('已核准方案');
     refreshAndKeepOpen();
   };
@@ -187,6 +197,16 @@ export default function CompanyPlans() {
       .eq('id', current.id);
     setActing(false);
     if (error) { toast.error('退回失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.reject',
+      targetType: 'expert_plan',
+      targetId: current.id,
+      detail: {
+        before: { review_status: current.review_status },
+        after: { review_status: 'rejected' },
+        context: { plan_name: current.name, expert_name: current.experts?.name, reason: rejectNote.trim() },
+      },
+    });
     toast.success('已退回方案');
     setRejectOpen(false);
     setRejectNote('');
@@ -201,6 +221,16 @@ export default function CompanyPlans() {
       .eq('id', p.id);
     setActing(false);
     if (error) { toast.error('更新失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.toggle_active',
+      targetType: 'expert_plan',
+      targetId: p.id,
+      detail: {
+        before: { is_active: p.is_active },
+        after: { is_active: next },
+        context: { plan_name: p.name, expert_name: p.experts?.name },
+      },
+    });
     toast.success(next ? '已上架' : '已下架');
     refreshAndKeepOpen();
   };
@@ -245,6 +275,16 @@ export default function CompanyPlans() {
       .upsert(payload, { onConflict: 'plan_id' });
     setActing(false);
     if (error) { toast.error('儲存失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.split_override_upsert',
+      targetType: 'plan_split_overrides',
+      targetId: current.id,
+      detail: {
+        before: current.override ?? null,
+        after: { pct_platform: splitForm.pct_platform, pct_expert: splitForm.pct_expert, is_active: splitForm.is_active, notes: splitForm.notes || null },
+        context: { plan_name: current.name },
+      },
+    });
     toast.success('已儲存分潤覆寫');
     setSplitEditing(false);
     refreshAndKeepOpen();
@@ -254,9 +294,20 @@ export default function CompanyPlans() {
     if (!p.override) return;
     if (!confirm(`確定刪除「${p.name}」的分潤覆寫？刪除後將回退到全站預設 ${defaultRule.pct_platform}/${defaultRule.pct_expert}。`)) return;
     setActing(true);
+    const overrideSnapshot = p.override;
     const { error } = await supabase.from('plan_split_overrides').delete().eq('id', p.override.id);
     setActing(false);
     if (error) { toast.error('刪除失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.split_override_remove',
+      targetType: 'plan_split_overrides',
+      targetId: p.id,
+      detail: {
+        before: overrideSnapshot,
+        after: null,
+        context: { plan_name: p.name },
+      },
+    });
     toast.success('已刪除覆寫');
     refreshAndKeepOpen();
   };
