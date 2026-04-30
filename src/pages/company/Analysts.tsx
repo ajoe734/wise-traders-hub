@@ -119,15 +119,24 @@ const CompanyAnalysts = () => {
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     let newStatus: string;
+    const expert = experts.find(e => e.id === id);
     if (currentStatus === 'suspended') {
-      // Restore: real experts (created_by is set) go back to 'active', test experts to 'draft'
-      const expert = experts.find(e => e.id === id);
       newStatus = expert?.created_by ? 'active' : 'draft';
     } else {
       newStatus = 'suspended';
     }
     setExperts(prev => prev.map(e => e.id === id ? { ...e, status: newStatus } : e));
     await supabase.from('experts').update({ status: newStatus }).eq('id', id);
+    await logAdminAction({
+      action: newStatus === 'suspended' ? 'analyst.suspend' : 'analyst.activate',
+      targetType: 'experts',
+      targetId: id,
+      detail: {
+        before: { status: currentStatus },
+        after: { status: newStatus },
+        context: { name: expert?.name, slug: expert?.slug },
+      },
+    });
     toast.success(newStatus === 'suspended' ? '已停用' : '已啟用');
   };
 
