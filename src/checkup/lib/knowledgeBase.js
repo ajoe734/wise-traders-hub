@@ -76,7 +76,7 @@ export function preloadKnowledgeBase({ force = false } = {}) {
     try {
       const { data, error } = await supabase
         .from('checkup_knowledge_items')
-        .select('category,item_id,title,fact,interpretation,action,lessons,return_pct,outcome,confidence,tags,is_active,updated_at,version')
+        .select('id,category,item_id,title,fact,interpretation,action,lessons,return_pct,outcome,confidence,tags,is_active,updated_at,version')
         .eq('is_active', true)
 
       if (error) throw error
