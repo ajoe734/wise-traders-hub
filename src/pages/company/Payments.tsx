@@ -159,10 +159,19 @@ const CompanyPayments = () => {
 
   const remitConfigured = REMIT_FIELDS.every((f) => (remit[f.key] || '').trim().length > 0);
 
-  const liveChannels = useMemo(
-    () => channels.filter((c) => c.provider.is_active && c.credsStatus === 'complete'),
+  const creditChannels = useMemo(
+    () => channels.filter((c) => c.provider.provider_type === 'ecpay' || c.provider.provider_type === 'acpay'),
     [channels],
   );
+  const ewalletChannels = useMemo(
+    () => channels.filter((c) => c.provider.provider_type === 'newebpay' || c.provider.provider_type === 'line_pay'),
+    [channels],
+  );
+
+  const liveCreditCount = creditChannels.filter((c) => c.provider.is_active && c.credsStatus === 'complete').length;
+  const liveEwalletCount = ewalletChannels.filter((c) => c.provider.is_active && c.credsStatus === 'complete').length;
+  const creditWarnCount = creditChannels.filter((c) => c.provider.is_active && c.credsStatus !== 'complete').length;
+  const ewalletWarnCount = ewalletChannels.filter((c) => c.provider.is_active && c.credsStatus !== 'complete').length;
 
   // ---------- Handlers ----------
   const saveEcpay = async () => {
