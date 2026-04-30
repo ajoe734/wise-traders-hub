@@ -119,13 +119,15 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    // 旁路：cron / scheduler 帶 x-cron-secret == DATA_UPSERT_API_KEY 即可呼叫
+    // 旁路：cron / scheduler 帶 x-cron-secret 或 service_role JWT 即可呼叫
     const cronSecret = req.headers.get('x-cron-secret');
     const expectedCron = Deno.env.get('DATA_UPSERT_API_KEY');
+    const authHdr = req.headers.get('Authorization') ?? '';
+    const isServiceRole = authHdr === `Bearer ${serviceRoleKey}`;
     let user: { id: string } | null = null;
 
-    if (cronSecret && expectedCron && cronSecret === expectedCron) {
-      // 系統呼叫，user_id 留空（candidates.created_by 可為 null）
+    if ((cronSecret && expectedCron && cronSecret === expectedCron) || isServiceRole) {
+      // 系統呼叫，user_id 留空
       user = null;
     } else {
       // 一般使用者 → 必須是 company_admin
