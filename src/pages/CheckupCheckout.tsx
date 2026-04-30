@@ -254,7 +254,7 @@ export default function CheckupCheckout() {
                 <CreditCard className="h-5 w-5" />
                 <div>
                   <p className="font-semibold text-sm">綠界金流</p>
-                  <p className="text-xs text-muted-foreground">信用卡 / ATM / 超商</p>
+                  <p className="text-xs text-muted-foreground">信用卡</p>
                 </div>
               </CardContent>
             </Card>

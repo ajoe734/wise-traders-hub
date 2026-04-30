@@ -839,7 +839,7 @@ const Checkout = () => {
                             <p className="font-semibold">{provider.display_name}</p>
                             <p className="text-xs text-muted-foreground">
                               {provider.provider_type === 'acpay' && '信用卡付款'}
-                              {provider.provider_type === 'ecpay' && '信用卡 / ATM / 超商代碼'}
+                              {provider.provider_type === 'ecpay' && '信用卡'}
                               {provider.provider_type === 'line_pay' && 'LINE Pay 行動支付'}
                               {provider.provider_type === 'newebpay' && '信用卡 / WebATM'}
                             </p>
