@@ -412,10 +412,19 @@ async function isQuotaExceeded(res) {
   }
 }
 
-
+// 取得 AI edge function 呼叫所需的 Authorization header（配額辨識用）
+async function aiAuthHeaders() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
 export default function App() {
   const navigate = useNavigate();
-  const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota } = useCheckupMode();
+  const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota, applyQuotaFromResponse, supabaseUser } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
   // 配額不足彈窗（429 QUOTA_EXCEEDED 兜底）
   const [quotaModal, setQuotaModal] = useState(null); // null | { trigger: 'parse'|'daily'|'predict'|'research' }
@@ -1250,7 +1259,7 @@ export default function App() {
       try {
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events?debug=1`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(await aiAuthHeaders()) },
           body: JSON.stringify({
             events: needsPrediction.map((e, i) => ({
               index: i + 1,
@@ -1991,7 +2000,7 @@ ${losers.map(h=>{
         const analyzeTimer = setTimeout(() => analyzeController.abort(), 120000); // 2 min timeout
         const aiRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-correlation-id": cid },
+          headers: { "Content-Type": "application/json", "x-correlation-id": cid, ...(await aiAuthHeaders()) },
           signal: analyzeController.signal,
           body: JSON.stringify({
             systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
@@ -2106,8 +2115,9 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
 
           const brainRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(await aiAuthHeaders()) },
             body: JSON.stringify({
+              kind: 'brain-update',
               systemPrompt: `你是策略知識庫管理器。根據今日分析結果，更新策略大腦。
 回傳**純JSON**格式（不要markdown code block），結構：
 {"rules":["規則1","規則2",...],"lessons":[{"date":"日期","text":"教訓"}],"commonMistakes":["錯誤1",...],"stats":{"hitRate":"X/Y","totalAnalyses":N},"lastUpdate":"日期"}
@@ -2437,7 +2447,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         });
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-parse`, {
           method:"POST",
-          headers:{"Content-Type":"application/json"},
+          headers:{"Content-Type":"application/json", ...(await aiAuthHeaders())},
           body: JSON.stringify({
             systemPrompt: PARSE_PROMPT,
             base64: b64,
@@ -2453,6 +2463,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           return;
         }
         const data = await res.json();
+        if (data?.quota) { try { applyQuotaFromResponse?.(data); } catch {} }
 
         // 後端回傳 error 表示所有模型都失敗，嘗試重試
         if (data.error) {
@@ -2870,8 +2881,48 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
-          {/* 配額卡：常駐顯示 used/limit 進度條 + 重置倒數 + 升級 CTA */}
-          {!isDemo && quota && (() => {
+          {/* 配額卡：常駐顯示 used/limit 進度條 + 重置倒數 + 升級 CTA（訪客/載入中也顯示） */}
+          {(() => {
+            // 訪客 fallback
+            if (isDemo) {
+              return (
+                <div className="checkup-quota-meter" style={{
+                  marginBottom: 14, padding: "12px 14px",
+                  border: `1px solid ${C.border}`, borderRadius: 10, background: C.card,
+                }}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:500,color:C.text,letterSpacing:"0.02em",marginBottom:4}}>登入解鎖每月 1 次免費 AI 健檢</div>
+                      <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.02em",lineHeight:1.6}}>截圖解析・收盤分析・新聞彙整・事件預測共用</div>
+                    </div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      <button onClick={startLineLogin} style={{
+                        background:"#06C755",color:"#fff",border:"none",borderRadius:6,
+                        padding:"6px 14px",fontSize:12,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em",
+                      }}>立即登入</button>
+                      <a href="/pricing#checkup" style={{
+                        fontSize:12,color:C.blue,textDecoration:"none",letterSpacing:"0.02em",
+                        padding:"6px 12px",border:`1px solid ${alpha(C.blue,'40')}`,borderRadius:6,alignSelf:"center",
+                      }}>查看付費方案 →</a>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            // 載入中 fallback（已登入但配額尚未取回）
+            if (!quota) {
+              return (
+                <div className="checkup-quota-meter" style={{
+                  marginBottom: 14, padding: "12px 14px",
+                  border: `1px solid ${C.border}`, borderRadius: 10, background: C.card,
+                }}>
+                  <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.02em",marginBottom:8}}>載入配額中…</div>
+                  <div style={{height:4,background:alpha(C.textMute,'18'),borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:"30%",background:alpha(C.textMute,'40'),animation:"pulse 1.4s ease-in-out infinite"}}/>
+                  </div>
+                </div>
+              );
+            }
             const used = Number(quota.used || 0);
             const limit = Math.max(Number(quota.limit || 1), 1);
             const remain = Math.max(limit - used, 0);
@@ -2920,7 +2971,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }
                   </div>
                   {showUpgrade && (
-                    <a href="/checkup-checkout" style={{
+                    <a href="/pricing#checkup" style={{
                       fontSize:11,color:C.blue,textDecoration:"none",letterSpacing:"0.02em",
                       padding:"3px 8px",border:`1px solid ${alpha(C.blue,'40')}`,borderRadius:4,
                     }}>升級 →</a>
@@ -4863,7 +4914,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     ? <>
                         {formatResetCountdown(quota?.resets_at)}
                         {(tier === 'free' || tier === 'basic') && (
-                          <>　・　<a href="/checkup-checkout" style={{color:C.blue,textDecoration:"none"}}>升級方案 →</a></>
+                          <>　・　<a href="/pricing#checkup" style={{color:C.blue,textDecoration:"none"}}>升級方案 →</a></>
                         )}
                       </>
                     : "收盤後按下即可開始分析"}
@@ -5446,7 +5497,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {tier === 'basic' && <><br/>升級 Pro 即可每月使用 22 次</>}
               </div>
               {(tier === 'free' || tier === 'basic') && (
-                <a href="/checkup-checkout" style={{
+                <a href="/pricing#checkup" style={{
                   display:"inline-block", marginTop:4,
                   background:C.blue, color:"#fff", border:"none",
                   borderRadius:8, padding:"9px 22px", fontSize:12, fontWeight:500,
@@ -6692,7 +6743,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 >我知道了</button>
                 {showUpgrade && (
                   <a
-                    href="/checkup-checkout"
+                    href="/pricing#checkup"
                     style={{
                       padding:"8px 18px",borderRadius:6,
                       background:C.blue,color:"#fff",

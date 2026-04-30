@@ -135,9 +135,21 @@ Deno.serve(async (req) => {
     });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
-    // Consume one quota credit before doing any AI work
-    const quota = await consumeCheckupQuota(req, 'analysis', corsHeaders);
-    if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+    // brain-update 是收盤分析的內部 follow-up（同一次健檢的延伸），仍要驗 JWT 但不扣配額
+    const isBrainUpdate = body?.kind === 'brain-update';
+    let quotaSnapshot: any = null;
+    if (!isBrainUpdate) {
+      const quota = await consumeCheckupQuota(req, 'analysis', corsHeaders);
+      if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+      quotaSnapshot = quota.quota;
+    } else {
+      const auth = req.headers.get('Authorization') || '';
+      if (!auth.replace(/^Bearer\s+/i, '').trim()) {
+        return new Response(JSON.stringify({ error: 'AUTH_REQUIRED' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     const systemPrompt = (body.systemPrompt || '').toString().trim();
     const userPrompt = (body.userPrompt || body.prompt || '').toString().trim();
@@ -157,7 +169,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       content: [{ text }], text, response: text,
-      quota: quota.quota,
+      quota: quotaSnapshot,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
