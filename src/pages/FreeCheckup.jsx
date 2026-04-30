@@ -2000,7 +2000,7 @@ ${losers.map(h=>{
         const analyzeTimer = setTimeout(() => analyzeController.abort(), 120000); // 2 min timeout
         const aiRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-correlation-id": cid },
+          headers: { "Content-Type": "application/json", "x-correlation-id": cid, ...(await aiAuthHeaders()) },
           signal: analyzeController.signal,
           body: JSON.stringify({
             systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
