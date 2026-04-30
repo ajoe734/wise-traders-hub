@@ -532,6 +532,26 @@ export default function KnowledgeBasePage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          {(item as any).backtestable && (
+                            <>
+                              <Button
+                                variant="ghost" size="sm"
+                                onClick={() => runBacktest(item)}
+                                disabled={backtesting === item.id}
+                                title="用歷史資料回測勝率"
+                              >
+                                {backtesting === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : '回測'}
+                              </Button>
+                              <Button
+                                variant="ghost" size="sm"
+                                onClick={() => runGridSearch(item)}
+                                disabled={gridSearching === item.id}
+                                title="跑參數網格搜尋最佳組合"
+                              >
+                                {gridSearching === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : '網格'}
+                              </Button>
+                            </>
+                          )}
                           <Switch
                             checked={item.is_active}
                             onCheckedChange={() => toggleActive(item)}
