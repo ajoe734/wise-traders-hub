@@ -67,13 +67,19 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.checkup-analyze]
-verify_jwt = false
+verify_jwt = true
 
 [functions.checkup-parse]
-verify_jwt = false
+verify_jwt = true
 
 [functions.checkup-brain]
 verify_jwt = false
+
+[functions.checkup-research]
+verify_jwt = true
+
+[functions.checkup-predict-events]
+verify_jwt = true
 
 [functions.tpex-proxy]
 verify_jwt = false

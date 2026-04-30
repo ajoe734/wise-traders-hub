@@ -6732,7 +6732,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     : '升級 Pro 即可每月使用 22 次'}
                 </div>
               )}
-              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <div style={{display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
+                <button
+                  onClick={() => { setQuotaModal(null); setTab('holdings'); }}
+                  style={{
+                    padding:"8px 14px",borderRadius:6,
+                    border:"none",background:"transparent",
+                    color:C.textMute,fontSize:12,cursor:"pointer",letterSpacing:"0.02em",
+                  }}
+                >← 回到持倉</button>
+                <div style={{display:"flex",gap:8}}>
                 <button
                   onClick={() => setQuotaModal(null)}
                   style={{
@@ -6751,6 +6760,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }}
                   >{tier === 'free' ? '查看升級方案' : '升級 Pro'}</a>
                 )}
+                </div>
               </div>
             </div>
           </div>
