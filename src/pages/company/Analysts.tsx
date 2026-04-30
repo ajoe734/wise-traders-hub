@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Eye, UserPlus, MessageCircle, Key, Mail, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { logAdminAction } from '@/lib/auditLog';
 
 const CompanyAnalysts = () => {
   const [experts, setExperts] = useState<any[]>([]);
@@ -111,6 +112,12 @@ const CompanyAnalysts = () => {
       return;
     }
     toast.success('分析師已建立');
+    await logAdminAction({
+      action: 'analyst.create',
+      targetType: 'experts',
+      targetId: data?.expert_id ?? null,
+      detail: { after: { name, slug, role, email }, context: { email, role } },
+    });
     setIsCreateOpen(false);
     clearForm();
     fetchExperts();
@@ -118,15 +125,24 @@ const CompanyAnalysts = () => {
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     let newStatus: string;
+    const expert = experts.find(e => e.id === id);
     if (currentStatus === 'suspended') {
-      // Restore: real experts (created_by is set) go back to 'active', test experts to 'draft'
-      const expert = experts.find(e => e.id === id);
       newStatus = expert?.created_by ? 'active' : 'draft';
     } else {
       newStatus = 'suspended';
     }
     setExperts(prev => prev.map(e => e.id === id ? { ...e, status: newStatus } : e));
     await supabase.from('experts').update({ status: newStatus }).eq('id', id);
+    await logAdminAction({
+      action: newStatus === 'suspended' ? 'analyst.suspend' : 'analyst.activate',
+      targetType: 'experts',
+      targetId: id,
+      detail: {
+        before: { status: currentStatus },
+        after: { status: newStatus },
+        context: { name: expert?.name, slug: expert?.slug },
+      },
+    });
     toast.success(newStatus === 'suspended' ? '已停用' : '已啟用');
   };
 
@@ -199,9 +215,19 @@ const CompanyAnalysts = () => {
         })
         .eq('id', lineChannel.id);
       if (error) { toast.error('更新失敗'); setSavingLine(false); return; }
+      await logAdminAction({
+        action: 'analyst.line_channel_update',
+        targetType: 'expert_line_channels',
+        targetId: lineChannel.id,
+        detail: {
+          before: { channel_id: lineChannel.channel_id, is_active: lineChannel.is_active, channel_name: lineChannel.channel_name },
+          after: { channel_id: lineChannelId, is_active: lineActive, channel_name: lineChannelName || null },
+          context: { expert_id: lineExpertId, expert_name: lineExpertName },
+        },
+      });
       toast.success('LINE 設定已更新');
     } else {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('expert_line_channels')
         .insert({
           expert_id: lineExpertId,
@@ -211,8 +237,19 @@ const CompanyAnalysts = () => {
           line_oa_id: lineOaId || null,
           qr_code_url: lineQrCodeUrl || null,
           is_active: lineActive,
-        });
+        })
+        .select('id')
+        .single();
       if (error) { toast.error('建立失敗'); setSavingLine(false); return; }
+      await logAdminAction({
+        action: 'analyst.line_channel_create',
+        targetType: 'expert_line_channels',
+        targetId: inserted?.id ?? null,
+        detail: {
+          after: { channel_id: lineChannelId, is_active: lineActive, channel_name: lineChannelName || null },
+          context: { expert_id: lineExpertId, expert_name: lineExpertName },
+        },
+      });
       toast.success('LINE 設定已儲存');
     }
     setSavingLine(false);

@@ -218,9 +218,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Audit log ──
-    await supabase.from('audit_logs').insert({
-      action: 'stock_price_sync',
+    // ── System job log ──
+    await supabase.from('system_jobs_log').insert({
+      job_name: 'stock_price_sync',
+      status: 'success',
       detail: {
         symbols_total: allSymbols.length,
         prices_fetched: priceMap.size,

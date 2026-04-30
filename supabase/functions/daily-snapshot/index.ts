@@ -107,9 +107,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Audit log
-    await supabase.from('audit_logs').insert({
-      action: 'daily_snapshot',
+    // System job log
+    await supabase.from('system_jobs_log').insert({
+      job_name: 'daily_snapshot',
+      status: 'success',
       detail: {
         trade_date: tradeDate,
         snapshots: snapshotRows.length,
