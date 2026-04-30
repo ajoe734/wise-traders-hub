@@ -2115,7 +2115,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
 
           const brainRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(await aiAuthHeaders()) },
             body: JSON.stringify({
               systemPrompt: `你是策略知識庫管理器。根據今日分析結果，更新策略大腦。
 回傳**純JSON**格式（不要markdown code block），結構：
