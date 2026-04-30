@@ -143,10 +143,48 @@ Deno.serve(async (req) => {
       if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
       quotaSnapshot = quota.quota;
     } else {
+      // brain-update 防濫用：必須是同一用戶、最近 10 分鐘內有過正式 AI 健檢呼叫
       const auth = req.headers.get('Authorization') || '';
-      if (!auth.replace(/^Bearer\s+/i, '').trim()) {
+      const jwt = auth.replace(/^Bearer\s+/i, '').trim();
+      if (!jwt) {
         return new Response(JSON.stringify({ error: 'AUTH_REQUIRED' }), {
           status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+      const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      let userId = '';
+      try {
+        const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+          headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_ROLE_KEY },
+        });
+        if (userRes.ok) {
+          const u = await userRes.json();
+          userId = u?.id || '';
+        }
+      } catch {}
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'AUTH_INVALID' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // 查詢最近 10 分鐘該用戶是否有計費過的 AI 呼叫；沒有就拒絕（防止獨立呼叫 brain-update 繞過配額）
+      const sinceIso = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const checkUrl = `${SUPABASE_URL}/rest/v1/checkup_usage?user_id=eq.${userId}&used_at=gte.${encodeURIComponent(sinceIso)}&kind=neq.brain-update&select=used_at&limit=1`;
+      try {
+        const checkRes = await fetch(checkUrl, {
+          headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+        });
+        const rows = await checkRes.json().catch(() => []);
+        if (!Array.isArray(rows) || rows.length === 0) {
+          return new Response(JSON.stringify({ error: 'BRAIN_UPDATE_REQUIRES_RECENT_ANALYSIS' }), {
+            status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } catch (err) {
+        console.error('[brain-update] anti-abuse check failed', err);
+        return new Response(JSON.stringify({ error: 'BRAIN_UPDATE_CHECK_FAILED' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
     }
