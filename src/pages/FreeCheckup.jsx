@@ -2030,6 +2030,13 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
         });
         clearTimeout(analyzeTimer);
         if (!aiRes.ok) {
+          // 配額用盡兜底：彈 modal 而不是當錯誤
+          if (await isQuotaExceeded(aiRes)) {
+            try { await refreshQuota?.(); } catch {}
+            setQuotaModal({ trigger: 'daily' });
+            setAnalyzing(false); setAnalyzeStep("");
+            return;
+          }
           const errBody = await aiRes.text().catch(() => '');
           const code = aiRes.status === 402 ? 'AI_BILLING_REQUIRED'
                      : aiRes.status === 429 ? 'AI_RATE_LIMITED'
