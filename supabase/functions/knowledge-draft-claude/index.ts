@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
       source_type: 'ai_draft',
       source_meta: { model: 'claude-sonnet-4-5', focus: focus ?? null, generated_at: new Date().toISOString() },
       status: 'pending',
-      created_by: user.id,
+      created_by: user?.id ?? null,
     })).filter(r => r.title && r.fact);
 
     if (rows.length === 0) {
