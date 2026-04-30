@@ -102,13 +102,14 @@ Deno.serve(async (req) => {
     }
     const seqStart = maxSeq + 1;
 
-    // 呼叫 knowledge-draft-claude
+    // 呼叫 knowledge-draft-claude（用 service_role 旁路）
     const draftUrl = `${supabaseUrl}/functions/v1/knowledge-draft-claude`;
     const draftResp = await fetch(draftUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-cron-secret': cronSecret,
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'apikey': serviceRoleKey,
       },
       body: JSON.stringify({
         category: target,
