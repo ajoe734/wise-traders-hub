@@ -95,3 +95,10 @@ verify_jwt = false
 
 [functions.cleanup-announcements-cron]
 verify_jwt = false
+
+[functions.backfill-daily-snapshots]
+verify_jwt = false
+
+[functions.knowledge-backtest]
+verify_jwt = false
+
