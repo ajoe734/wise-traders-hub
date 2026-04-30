@@ -135,6 +135,10 @@ Deno.serve(async (req) => {
     });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
+    // Consume one quota credit before doing any AI work
+    const quota = await consumeCheckupQuota(req, 'analysis', corsHeaders);
+    if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+
     const systemPrompt = (body.systemPrompt || '').toString().trim();
     const userPrompt = (body.userPrompt || body.prompt || '').toString().trim();
 
