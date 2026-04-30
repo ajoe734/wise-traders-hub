@@ -233,6 +233,9 @@ ${losers
                 .join('\n\n')
             : '目前沒有持股 dossier。'
 
+        // 盲測批次的命中（不阻擋主流程）
+        flushKnowledgeHits({ context: 'daily_analysis_blind' }).catch(() => {})
+
         blindPredictions = []
         try {
           const blindResponse = await fetch(API_ENDPOINTS.ANALYZE, {
