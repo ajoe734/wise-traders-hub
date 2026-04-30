@@ -1126,8 +1126,82 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_auto_rules: {
+        Row: {
+          archive_below_win_rate: number
+          auto_grid_search_below: number
+          enabled: boolean
+          id: string
+          min_sample_size: number
+          promote_above_win_rate: number
+          promote_min_improvement_pct: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          archive_below_win_rate?: number
+          auto_grid_search_below?: number
+          enabled?: boolean
+          id?: string
+          min_sample_size?: number
+          promote_above_win_rate?: number
+          promote_min_improvement_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          archive_below_win_rate?: number
+          auto_grid_search_below?: number
+          enabled?: boolean
+          id?: string
+          min_sample_size?: number
+          promote_above_win_rate?: number
+          promote_min_improvement_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      knowledge_backfill_progress: {
+        Row: {
+          attempted_at: string | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          rows_inserted: number
+          status: string
+          symbol: string
+          yyyymm: string
+        }
+        Insert: {
+          attempted_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          rows_inserted?: number
+          status?: string
+          symbol: string
+          yyyymm: string
+        }
+        Update: {
+          attempted_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          rows_inserted?: number
+          status?: string
+          symbol?: string
+          yyyymm?: string
+        }
+        Relationships: []
+      }
       knowledge_backtest_runs: {
         Row: {
+          auto_action: string | null
+          auto_action_reason: string | null
           avg_return_pct: number | null
           completed_at: string | null
           created_at: string
@@ -1149,6 +1223,8 @@ export type Database = {
           win_rate: number | null
         }
         Insert: {
+          auto_action?: string | null
+          auto_action_reason?: string | null
           avg_return_pct?: number | null
           completed_at?: string | null
           created_at?: string
@@ -1170,6 +1246,8 @@ export type Database = {
           win_rate?: number | null
         }
         Update: {
+          auto_action?: string | null
+          auto_action_reason?: string | null
           avg_return_pct?: number | null
           completed_at?: string | null
           created_at?: string
