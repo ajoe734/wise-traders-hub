@@ -85,6 +85,7 @@ import CompanyPayments from "./pages/company/Payments";
 import CompanyAnnouncements from "./pages/company/Announcements";
 import CompanyAuditLogs from "./pages/company/AuditLogs";
 import CompanySystemJobs from "./pages/company/SystemJobs";
+import CompanyKnowledgeBase from "./pages/company/KnowledgeBase";
 import CompanyPlans from "./pages/company/Plans";
 import CompanyRemittance from "./pages/company/Remittance";
 import CompanyPaymentSettings from "./pages/company/PaymentSettings";
@@ -198,6 +199,7 @@ const AppShell = () => (
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />
             <Route path="/company/audit-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyAuditLogs /></ProtectedRoute>} />
             <Route path="/company/system-jobs" element={<ProtectedRoute requiredRole="company_admin"><CompanySystemJobs /></ProtectedRoute>} />
+            <Route path="/company/knowledge-base" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeBase /></ProtectedRoute>} />
             <Route path="/company/plans" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlans /></ProtectedRoute>} />
             {/* Legacy routes — redirect to unified plan management */}
             <Route path="/company/plan-review" element={<Navigate to="/company/plans" replace />} />

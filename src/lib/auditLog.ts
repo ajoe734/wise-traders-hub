@@ -16,7 +16,8 @@ export type AuditNamespace =
   | 'announcement'
   | 'signal'
   | 'setting'
-  | 'remittance';
+  | 'remittance'
+  | 'knowledge';
 
 export interface LogAdminActionParams {
   /** namespace.verb，例如 plan.approve */
@@ -92,6 +93,12 @@ export const ACTION_LABELS: Record<string, string> = {
   'announcement.delete': '刪除系統公告',
   // signal.*
   'signal.admin_takedown': '管理員下架訊號',
+  // knowledge.*
+  'knowledge.create': '新增知識庫條目',
+  'knowledge.update': '更新知識庫條目',
+  'knowledge.delete': '刪除知識庫條目',
+  'knowledge.activate': '啟用知識庫條目',
+  'knowledge.deactivate': '停用知識庫條目',
 };
 
 export function formatActionLabel(action: string): string {

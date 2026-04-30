@@ -1,37 +1,151 @@
-// 知識庫存取模組
-// 供 dossierUtils.js 等 prompt 組裝層使用
-// 只注入高信心度、與持股策略相關的條目，避免 prompt 膨脹
+// 知識庫存取模組（雲端為主、JSON 為 fallback）
+// 設計原則：
+// 1. 雲端 checkup_knowledge_items 為權威來源
+// 2. App 啟動 / Free Checkup 進入時呼叫 preloadKnowledgeBase() 預載到記憶體
+// 3. buildKnowledgeContext / getRelevantKnowledge / getRelevantCases 維持「同步」介面
+//    （prompt 組裝鏈是同步的，避免大規模重寫 dossierUtils）
+// 4. 雲端載入失敗 → 自動 fallback 到打包進來的 JSON
 
-import chipAnalysis from './knowledge-base/chip-analysis.json'
-import technicalAnalysis from './knowledge-base/technical-analysis.json'
-import industryTrends from './knowledge-base/industry-trends.json'
-import strategyCases from './knowledge-base/strategy-cases.json'
-import newsCorrelation from './knowledge-base/news-correlation.json'
+import { supabase } from '@/integrations/supabase/client'
+import chipAnalysisJson from './knowledge-base/chip-analysis.json'
+import technicalAnalysisJson from './knowledge-base/technical-analysis.json'
+import industryTrendsJson from './knowledge-base/industry-trends.json'
+import strategyCasesJson from './knowledge-base/strategy-cases.json'
+import newsCorrelationJson from './knowledge-base/news-correlation.json'
 
-// strategy 欄位 → 最相關的知識庫分類
-const STRATEGY_KNOWLEDGE_MAP = {
-  成長股: [industryTrends, technicalAnalysis],
-  景氣循環: [industryTrends, technicalAnalysis],
-  事件驅動: [newsCorrelation, chipAnalysis],
-  權證: [chipAnalysis, technicalAnalysis],
-  ETF指數: [technicalAnalysis],
+// ----- 雲端 category ↔ 本地 JSON 對照 -----
+const CATEGORY_TO_LOCAL_JSON = {
+  chip_analysis: chipAnalysisJson,
+  technical_analysis: technicalAnalysisJson,
+  industry_trends: industryTrendsJson,
+  strategy_cases: strategyCasesJson,
+  news_correlation: newsCorrelationJson,
+}
+
+// ----- 記憶體快取 -----
+// shape: { chip_analysis: [items...], technical_analysis: [...], ..., __source: 'cloud'|'local', __loadedAt: Date }
+let _cache = null
+let _loadingPromise = null
+
+/**
+ * 將雲端 row → 統一 item shape（與本地 JSON 同形）
+ */
+function rowToItem(row) {
+  const base = {
+    id: row.item_id,
+    title: row.title,
+    fact: row.fact,
+    interpretation: row.interpretation ?? '',
+    action: row.action ?? '',
+    confidence: Number(row.confidence ?? 0.75),
+    tags: Array.isArray(row.tags) ? row.tags : [],
+  }
+  // strategy_cases 額外欄位
+  if (row.category === 'strategy_cases') {
+    base.lessons = row.lessons ?? ''
+    base.return = row.return_pct != null ? Number(row.return_pct) : 0
+    base.outcome = row.outcome ?? 'success'
+  }
+  return base
 }
 
 /**
- * 依持股的 strategy 類型，回傳最相關的高信心度知識條目
- * @param {{ strategy?: string, industry?: string }} stockMeta
- * @param {{ maxItems?: number, minConfidence?: number }} options
- * @returns {{ fact: string, interpretation: string, action: string, title: string }[]}
+ * 從本地 JSON 組出與雲端相同 shape 的快取（fallback 用）
  */
-export function getRelevantKnowledge(stockMeta = {}, { maxItems = 3, minConfidence = 0.70 } = {}) {
-  const { strategy } = stockMeta
-  const sources = STRATEGY_KNOWLEDGE_MAP[strategy] ?? [technicalAnalysis]
+function buildLocalCache() {
+  const cache = { __source: 'local', __loadedAt: new Date() }
+  for (const [category, json] of Object.entries(CATEGORY_TO_LOCAL_JSON)) {
+    cache[category] = (json.items ?? []).slice()
+  }
+  return cache
+}
 
-  const candidates = sources.flatMap((source) =>
-    (source.items ?? []).filter((item) => (item.confidence ?? 0) >= minConfidence)
+/**
+ * 預載雲端知識庫到記憶體。
+ * - 應在 App 啟動或 Free Checkup 進入時呼叫一次
+ * - 重複呼叫會 dedupe
+ * - 載入失敗 → 退回本地 JSON，並 console.warn
+ */
+export function preloadKnowledgeBase({ force = false } = {}) {
+  if (_cache && !force) return Promise.resolve(_cache)
+  if (_loadingPromise && !force) return _loadingPromise
+
+  _loadingPromise = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('checkup_knowledge_items')
+        .select('category,item_id,title,fact,interpretation,action,lessons,return_pct,outcome,confidence,tags,is_active,updated_at,version')
+        .eq('is_active', true)
+
+      if (error) throw error
+      if (!data || data.length === 0) {
+        console.warn('[knowledgeBase] cloud returned 0 rows, falling back to local JSON')
+        _cache = buildLocalCache()
+        return _cache
+      }
+
+      const next = { __source: 'cloud', __loadedAt: new Date() }
+      for (const category of Object.keys(CATEGORY_TO_LOCAL_JSON)) next[category] = []
+      for (const row of data) {
+        if (!next[row.category]) next[row.category] = []
+        next[row.category].push(rowToItem(row))
+      }
+      // 任何 category 雲端為空 → 用本地 JSON 補
+      for (const [category, json] of Object.entries(CATEGORY_TO_LOCAL_JSON)) {
+        if (next[category].length === 0) next[category] = (json.items ?? []).slice()
+      }
+      _cache = next
+      return _cache
+    } catch (err) {
+      console.warn('[knowledgeBase] cloud preload failed, falling back to local JSON:', err?.message ?? err)
+      _cache = buildLocalCache()
+      return _cache
+    } finally {
+      _loadingPromise = null
+    }
+  })()
+  return _loadingPromise
+}
+
+/**
+ * 取得目前快取（同步）。若尚未預載 → 立即用本地 JSON 撐住，並背景觸發雲端預載。
+ */
+function getCacheSync() {
+  if (_cache) return _cache
+  // 還沒預載過 → 用 local 立即返回，背景補拉雲端（下次呼叫就拿到雲端版）
+  _cache = buildLocalCache()
+  preloadKnowledgeBase({ force: true }).catch(() => {})
+  return _cache
+}
+
+export function getKnowledgeSource() {
+  return getCacheSync().__source
+}
+
+export function getKnowledgeLoadedAt() {
+  return getCacheSync().__loadedAt
+}
+
+// ----- 主邏輯（保持與舊版相同的介面與行為）-----
+
+// strategy 欄位 → 最相關的知識庫分類（雲端 category key）
+const STRATEGY_KNOWLEDGE_MAP = {
+  成長股: ['industry_trends', 'technical_analysis'],
+  景氣循環: ['industry_trends', 'technical_analysis'],
+  事件驅動: ['news_correlation', 'chip_analysis'],
+  權證: ['chip_analysis', 'technical_analysis'],
+  ETF指數: ['technical_analysis'],
+}
+
+export function getRelevantKnowledge(stockMeta = {}, { maxItems = 3, minConfidence = 0.70 } = {}) {
+  const cache = getCacheSync()
+  const { strategy } = stockMeta
+  const categories = STRATEGY_KNOWLEDGE_MAP[strategy] ?? ['technical_analysis']
+
+  const candidates = categories.flatMap((cat) =>
+    (cache[cat] ?? []).filter((item) => (item.confidence ?? 0) >= minConfidence)
   )
 
-  // 去重（同 id 只留一次）
   const seen = new Set()
   const unique = candidates.filter((item) => {
     if (seen.has(item.id)) return false
@@ -39,17 +153,11 @@ export function getRelevantKnowledge(stockMeta = {}, { maxItems = 3, minConfiden
     return true
   })
 
-  // 按信心度降序，取前 N 條
   return unique.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)).slice(0, maxItems)
 }
 
-/**
- * 取得與持股 strategy 相關的歷史策略案例（只取成功案例）
- * @param {{ strategy?: string }} stockMeta
- * @param {{ maxItems?: number }} options
- * @returns {{ title: string, fact: string, lessons: string }[]}
- */
 export function getRelevantCases(stockMeta = {}, { maxItems = 2 } = {}) {
+  const cache = getCacheSync()
   const { strategy } = stockMeta
   const strategyTagMap = {
     事件驅動: ['事件驅動', '法說會', '月營收', '催化劑'],
@@ -59,7 +167,7 @@ export function getRelevantCases(stockMeta = {}, { maxItems = 2 } = {}) {
   }
 
   const tags = strategyTagMap[strategy] ?? []
-  const items = (strategyCases.items ?? []).filter(
+  const items = (cache.strategy_cases ?? []).filter(
     (item) =>
       item.outcome === 'success' &&
       tags.length > 0 &&
@@ -69,9 +177,6 @@ export function getRelevantCases(stockMeta = {}, { maxItems = 2 } = {}) {
   return items.slice(0, maxItems)
 }
 
-/**
- * 格式化知識條目為 prompt 文字（結構化格式）
- */
 export function formatKnowledgeItem(item) {
   return `【${item.title}】
   事實：${item.fact}
@@ -80,9 +185,6 @@ export function formatKnowledgeItem(item) {
   信心度：${(item.confidence * 100).toFixed(0)}%`
 }
 
-/**
- * 格式化策略案例為 prompt 文字（結構化格式）
- */
 export function formatCaseItem(item) {
   return `【${item.title}】
   背景：${item.fact}
@@ -90,9 +192,6 @@ export function formatCaseItem(item) {
   報酬：${(item.return * 100).toFixed(0)}%`
 }
 
-/**
- * 回傳 prompt 可用的知識摘要區塊（有內容才回傳，空字串代表略過）
- */
 export function buildKnowledgeContext(stockMeta = {}) {
   const knowledge = getRelevantKnowledge(stockMeta)
   const cases = getRelevantCases(stockMeta)
@@ -124,4 +223,10 @@ export function buildKnowledgeContext(stockMeta = {}) {
   lines.push('===============')
 
   return lines.join('\n')
+}
+
+// 測試 / Admin 用
+export function _resetKnowledgeCacheForTests() {
+  _cache = null
+  _loadingPromise = null
 }
