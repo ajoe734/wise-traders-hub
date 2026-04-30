@@ -530,6 +530,7 @@ ${eventsForPrompt}
 
     return new Response(JSON.stringify({
       predictions,
+      quota: quota.quota,
       ...(debugInfo ? { debug: debugInfo } : {}),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
