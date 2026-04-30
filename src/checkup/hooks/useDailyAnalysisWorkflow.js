@@ -17,6 +17,7 @@ import {
   stripDailyAnalysisEmbeddedBlocks,
 } from '../lib/dailyAnalysisRuntime.js'
 import { normalizeAnalysisHistoryEntries, normalizeDailyReportEntry } from '../lib/reportUtils.js'
+import { flushKnowledgeHits } from '../lib/knowledgeBase.js'
 
 export function useDailyAnalysisWorkflow({
   analyzing = false,
