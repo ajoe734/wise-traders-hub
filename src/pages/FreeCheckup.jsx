@@ -2918,7 +2918,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 }}>
                   <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.02em",marginBottom:8}}>載入配額中…</div>
                   <div style={{height:4,background:alpha(C.textMute,'18'),borderRadius:2,overflow:"hidden"}}>
-                    <div style={{height:"100%",width:"30%",background:alpha(C.textMute,'40'),animation:"checkupPulse 1.4s ease-in-out infinite"}}/>
+                    <div style={{height:"100%",width:"30%",background:alpha(C.textMute,'40'),animation:"pulse 1.4s ease-in-out infinite"}}/>
                   </div>
                 </div>
               );
