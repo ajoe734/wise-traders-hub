@@ -2844,6 +2844,68 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
+          {/* 配額卡：常駐顯示 used/limit 進度條 + 重置倒數 + 升級 CTA */}
+          {!isDemo && quota && (() => {
+            const used = Number(quota.used || 0);
+            const limit = Math.max(Number(quota.limit || 1), 1);
+            const remain = Math.max(limit - used, 0);
+            const pct = Math.min(100, Math.max(0, (used / limit) * 100));
+            const ratio = remain / limit;
+            const barColor = remain === 0 ? C.down : ratio <= 0.2 ? C.amber : C.teal;
+            const periodCN = quota.period === 'week' ? '本週' : '本月';
+            const showUpgrade = tier === 'free' || tier === 'basic';
+            return (
+              <div className="checkup-quota-meter" style={{
+                marginBottom: 14,
+                padding: "12px 14px",
+                border: `1px solid ${C.border}`,
+                borderRadius: 10,
+                background: C.card,
+              }}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:8,flexWrap:"wrap"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                    <span style={{
+                      fontSize:10,letterSpacing:"0.08em",color:C.textMute,fontWeight:500,
+                      padding:"2px 7px",border:`1px solid ${C.border}`,borderRadius:4,
+                    }}>{tierLabel}</span>
+                    <span style={{fontSize:12,color:C.textSec,fontWeight:400,letterSpacing:"0.02em"}}>
+                      {periodCN} AI 健檢
+                    </span>
+                  </div>
+                  <div style={{fontSize:13,color:C.text,fontWeight:500,fontVariantNumeric:"tabular-nums",letterSpacing:"0.02em"}}>
+                    <span style={{color:remain===0?C.down:C.text}}>{used}</span>
+                    <span style={{color:C.textMute,margin:"0 2px"}}>/</span>
+                    <span style={{color:C.textMute}}>{limit}</span>
+                  </div>
+                </div>
+                <div style={{height:4,background:alpha(C.textMute,'18'),borderRadius:2,overflow:"hidden",marginBottom:8}}>
+                  <div style={{
+                    height:"100%",
+                    width:`${pct}%`,
+                    background:barColor,
+                    transition:"width 360ms ease, background-color 200ms",
+                  }}/>
+                </div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+                  <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.02em",lineHeight:1.6}}>
+                    {remain === 0
+                      ? <>已用完・<span style={{color:C.textSec}}>{formatResetCountdown(quota.resets_at)}</span></>
+                      : <>還剩 <span style={{color:C.text,fontWeight:500}}>{remain}</span> 次・{formatResetCountdown(quota.resets_at)}</>
+                    }
+                  </div>
+                  {showUpgrade && (
+                    <a href="/checkup-checkout" style={{
+                      fontSize:11,color:C.blue,textDecoration:"none",letterSpacing:"0.02em",
+                      padding:"3px 8px",border:`1px solid ${alpha(C.blue,'40')}`,borderRadius:4,
+                    }}>升級 →</a>
+                  )}
+                </div>
+                <div style={{fontSize:10,color:C.textMute,marginTop:6,opacity:0.7,letterSpacing:"0.02em"}}>
+                  截圖解析・收盤分析・新聞彙整・事件預測共用此配額
+                </div>
+              </div>
+            );
+          })()}
           {/* 上傳摘要：剛從上傳成交頁回來時顯示新增/更新項目 */}
           {uploadSummary && (uploadSummary.added.length + uploadSummary.updated.length > 0) && (
             <div
