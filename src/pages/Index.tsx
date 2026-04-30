@@ -1447,28 +1447,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-section bg-card dark:bg-white/[0.03]">
-        <div className="container">
-          <div className="max-w-2xl mx-auto text-center">
-            <p className="text-muted-foreground text-sm mb-xs">立即開始你的投資學習之旅</p>
-            <h2 className="text-h2 mb-md text-foreground">
-              準備好開始了嗎？
-            </h2>
-            <div className="flex flex-col sm:flex-row gap-md justify-center">
-              <Button size="xl" asChild>
-                <Link to="/auth/register">
-                  免費註冊
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Link>
-              </Button>
-              <Button size="xl" variant="secondary" asChild>
-                <Link to="/experts">瀏覽所有專家</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
     </PortalLayout>
   );
 };
