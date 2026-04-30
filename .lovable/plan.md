@@ -1,93 +1,104 @@
-## 目標
+## 為什麼現在的金流工具頁很蠢
 
-1. 後台 `/company/payments` 可以直接編輯**綠界金流金鑰**（商店代號、HashKey、HashIV、信用卡專用 Action URL、是否為測試／正式環境），不必再到 Lovable Cloud 後台手動加 secrets。
-2. 三個結帳頁（`Checkout.tsx`、`AppCheckout.tsx`、`CheckupCheckout.tsx`）的綠界選項中，**隱藏「ATM／超商」**，只保留「信用卡」。
+打開 `/company/payments` 會看到三個並列 section：**線上金流 / 匯款帳戶 / 綠界金鑰**。每一節各自獨立，問題很明顯：
 
-## 設計原則：金鑰放哪？
+1. **看不出真實收款狀態**：綠界 toggle 開了 ≠ 真的收得到錢。金鑰沒設、URL 是 stage、未設預設 provider，這些「半成品」狀態都被隱藏在第三個 section 裡，要滾下去才看得到。
+2. **資訊重複切割**：綠界出現在 section 1（通道卡片）也出現在 section 3（金鑰卡片），看不出兩者的關聯。
+3. **沒有「健康度」概念**：管理員想知道的是「現在前台買單會走哪一條？這條通了嗎？」現在的版本一個都沒回答。
+4. **新增通道流程怪**：要先在 section 1 新增 ACpay／藍新／LINE Pay，但金鑰要去哪設？目前只有綠界有，其他通道沒有對應的金鑰 UI——介面在說謊。
 
-綠界金鑰是高敏感資料，**前端絕對不能讀到**。做法：
+## 重新設計：通道矩陣（Channel Matrix）為主
 
-- **存 DB**：放在 `payment_settings` 表，新增一個 `key='ecpay_credentials'` 的 row，`value` 為 JSON。
-- **RLS**：沿用既有政策 — 只有 `company_admin` 可讀寫；前端一般使用者**不能 SELECT** 這筆。前端送出付款請求時，只呼叫 edge function，由 edge function 用 service role 讀取金鑰。
-- **fallback**：edge function 先讀 DB；DB 沒設定時，回退讀 `Deno.env.get('ECPAY_*')`，向下相容。
-- **只有「Action URL（信用卡專用）」會在後台顯示，金鑰本身為遮罩輸入** — 已存在時顯示為 `••••••••`，留空表示不變更，輸入新值才會覆寫。
-
-```text
-payment_settings
-└─ key = 'ecpay_credentials'
-   value = {
-     merchant_id:        "3268740",
-     hash_key:           "S8QlxefxBzJDYEBO",
-     hash_iv:            "CJ0Lo2u7KJMBF9cF",
-     credit_action_url:  "https://payment.ecpay.com.tw/.../V5",  // 信用卡專用
-     api_url:            "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5", // 主 URL（保留供未來其他通道用）
-     env:                "stage" | "production",
-     updated_at:         "..."
-   }
-```
-
-## 變更範圍
+整頁改為一張**通道狀態總表**，每一列就是一個金流通道，把「啟用 / 金鑰 / 環境 / 預設 / 健康度」整合在同一列。匯款帳戶與對帳入口縮為右側資訊欄。
 
 ```text
-DB（無 schema 變更，只塞一筆設定 row 由前端 upsert）
-  └─ payment_settings  ('ecpay_credentials')  RLS = company_admin only
-
-後台頁面
-  └─ src/pages/company/Payments.tsx
-       └─ 新增 Section「綠界金流設定」
-          ├─ 商店代號（明文輸入）
-          ├─ HashKey（遮罩，留空＝不變更）
-          ├─ HashIV（遮罩，留空＝不變更）
-          ├─ 信用卡專用 Action URL（明文）
-          ├─ 環境：測試／正式（Select）
-          ├─ 顯示「最後更新：YYYY/MM/DD」
-          └─ 儲存按鈕 → upsert + logAdminAction
-
-Edge Functions（讀 DB，DB 沒值才回退環境變數）
-  ├─ supabase/functions/_shared/ecpayCredentials.ts   ← 新建 helper
-  │     export async function loadEcpayCreds(supabase): Promise<{
-  │       merchantId, hashKey, hashIV, creditActionUrl, apiUrl
-  │     }>
-  ├─ create-ecpay-order/index.ts          → 改用 helper
-  ├─ create-checkup-ecpay-order/index.ts  → 改用 helper
-  ├─ ecpay-callback/index.ts              → 用 helper 讀 hashKey/IV 驗 CheckMacValue
-  └─ checkup-ecpay-callback/index.ts      → 同上
-
-前端三個結帳頁
-  ├─ src/pages/Checkout.tsx
-  ├─ src/pages/app/AppCheckout.tsx
-  └─ src/pages/CheckupCheckout.tsx
-       └─ 隱藏「ATM／超商」選項（移除上次規劃的 RadioGroup，
-          綠界選項直接固定送 paymentChannel='credit'，
-          edge function 用信用卡 Action URL + ChoosePayment='Credit'）
-       └─ AppCheckout.tsx 的 form.target 從 "_blank" 改 "_self"
+┌─ 金流工具 ─────────────────────────────────────────────────┐
+│  前台目前可收款：✓ 信用卡（綠界・正式）  •  ✓ ATM 匯款        │
+│                                              [+ 新增通道]   │
+├──────────────────────────────────────────┬────────────────┤
+│  通道           狀態     金鑰    環境  預設  操作            │
+│  ─────────────────────────────────────────                  │
+│  綠界 ECPay    ● 已啟用  ✓完整  正式  ★    設定金鑰｜停用    │
+│  ACpay         ○ 停用   — 未設  —    —    設定金鑰｜啟用     │
+│  藍新 NewebPay ⚠ 已啟用  ✗缺金鑰 stage —    設定金鑰｜停用    │
+│  LINE Pay      ○ 停用   — 未設  —    —    設定金鑰｜啟用     │
+│                                                             │
+│                                          ┌──────────────┐  │
+│                                          │ 匯款帳戶      │  │
+│                                          │ 玉山 808       │  │
+│                                          │ 1234-5678…    │  │
+│                                          │ [編輯]        │  │
+│                                          ├──────────────┤  │
+│                                          │ 對帳中心 →    │  │
+│                                          │ 匯款審核 →    │  │
+│                                          │ 分潤設定 →    │  │
+│                                          └──────────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 實作步驟
+### 關鍵設計決策
 
-1. **新建 shared helper** `supabase/functions/_shared/ecpayCredentials.ts`：用 service role 讀 `payment_settings` → 解析 → DB 缺欄位時回退 env，回傳統一物件。
-2. **改 4 支 edge function** 全部改用 helper，`actionUrl` 從 `creditActionUrl` 取（信用卡通道唯一），CheckMacValue 用 helper 來的 hashKey/IV。
-3. **後台 `Payments.tsx` 新增「綠界金流設定」Section**：
-   - 載入時 `select value from payment_settings where key='ecpay_credentials'`。
-   - 金鑰欄位採「遮罩 + 留空＝不變更」策略；存檔時若使用者沒輸入，沿用既有值。
-   - 儲存後寫 `logAdminAction({ action: 'setting.ecpay_credentials_update', ... })`，不記錄金鑰實際值，只記 `merchant_id` 與 `env` 與「哪些欄位被更新」。
-4. **三個前端結帳頁**：移除 ATM／超商選項，只留「信用卡」；送出時固定帶 `paymentChannel: 'credit'`。`AppCheckout` 的 form target 改 `_self`。
-5. **驗證**：
-   - 後台填入綠界資料 → 儲存 → 重新整理仍顯示 `merchant_id` 與遮罩金鑰、Action URL。
-   - 走一次信用卡結帳，確認 edge function 用的是 DB 設定（log 印 merchant_id 比對）。
-   - 把 `payment_settings` 那筆刪掉，確認 edge function 自動回退到環境變數，舊流程不退化。
-   - 確認非 `company_admin` 使用者 `select * from payment_settings where key='ecpay_credentials'` 拿不到資料（RLS 已有 `company_admin only`，不需新增 policy）。
+**1. 頂端「目前可收款」健康橫幅**
+   一句話總結前台真的收得到什麼。計算規則：通道 `is_active = true` **且** 金鑰齊全 **且** （若有預設要求）為預設。任何條件不滿足，這條通道不會出現在橫幅。匯款帳戶四個欄位都填了才算。
+   *這是整頁最重要的一行——讓管理員一眼知道生意有沒有在跑。*
 
-## 不會動到的部分
+**2. 通道矩陣表（取代三個 section 的核心）**
+   一列一通道，欄位：
+   - **狀態**：● 已啟用 / ○ 停用 / ⚠ 啟用但缺金鑰（紅點）
+   - **金鑰**：✓ 完整 / ✗ 缺欄位（hover 顯示缺哪個）/ — 尚未開放此通道金鑰 UI
+   - **環境**：正式 / 測試 / —
+   - **預設**：★ 顯示哪一條是 default provider
+   - **操作**：[設定金鑰]、[啟用/停用]、[設為預設]（dropdown 或 inline）
+   
+   未實作金鑰 UI 的通道（ACpay、藍新、LINE Pay）金鑰欄顯示「— 待開放」，不再假裝可用。
 
-- `payment_providers` 表（綠界啟用／停用切換還是走原本那張表）。
-- `ECPAY_HASH_KEY` / `ECPAY_HASH_IV` / `ECPAY_MERCHANT_ID` 三個 secrets 保留作 fallback，不刪除。
-- ACpay、LINE Pay、匯款流程。
+**3. 金鑰編輯 = 點該列的「設定金鑰」開抽屜（Sheet）**
+   不再是獨立 section。每個通道有自己的 Sheet：
+   - 綠界：沿用現有欄位（MerchantID / HashKey / HashIV / 信用卡 URL / AIO URL / 環境）
+   - 其他通道：先放佔位「此通道金鑰 UI 尚未開放，請聯絡工程」，避免用戶誤以為設好了
+   
+   保留現有「HashKey/IV 留空＝不變更」的安全機制；audit log 行為不變。
 
-## 安全性備註
+**4. 匯款帳戶 + 跳轉連結 → 右側資訊欄**
+   匯款帳戶從原本佔半個畫面的 section 縮為右欄一張小卡（顯示 `銀行 + 帳號末四碼`，點編輯打開原 dialog）。下方是三個輔助連結卡：對帳中心、匯款審核、分潤設定。
 
-- 金鑰仍是**只能 server-side 讀取**，前端不會持有原始值；後台輸入框送出後立即由 RLS-protected upsert 落 DB。
-- audit log 不寫入金鑰原始值，只寫變更欄位清單與 `merchant_id`。
-- 若你日後要再多一組「ATM／超商」用的 Action URL，只要在 `value` 加欄位即可，不需 schema 變更。
+**5. 「新增通道」按鈕保留但改為次要**
+   現有的「新增金流工具」會在 `payment_providers` 表新增列。改放在表格右上的小按鈕，因為實際上 9 成時間是在管理既有 4 種通道，不是新增。
 
-按這個計畫執行可以嗎？確認後我就切到執行模式，照上面 5 個步驟一次完成。
+### 行為與資料層（不改 DB schema）
+
+- 沿用既有三張資料來源：`payment_providers`、`payment_settings/remittance_account`、`payment_settings/ecpay_credentials`
+- 只是把它們**在前端 join**成一個 `channels` 陣列：
+  ```ts
+  type ChannelRow = {
+    id: string; type: 'acpay'|'ecpay'|'newebpay'|'line_pay';
+    displayName: string; isActive: boolean; isDefault: boolean;
+    credsStatus: 'complete'|'missing'|'unsupported';
+    missingFields?: string[];
+    env?: 'stage'|'production';
+  };
+  ```
+- 健康橫幅 = `channels.filter(c => c.isActive && c.credsStatus==='complete')` + 匯款帳戶完整性
+- 不新增任何 migration、不動 RLS、不動 edge function
+
+### 實作範圍
+
+**改 1 個檔**：`src/pages/company/Payments.tsx` 整頁重寫（保留所有 supabase 呼叫與 audit log，只改 layout 與互動）。
+
+**不動**：edge functions、`ecpayCredentials.ts` 共享模組、checkout 前台、`PaymentSettings.tsx`（分潤設定）。
+
+### 可驗證的成功標準
+
+- 在 `1233px` 桌機與 `390px` 手機都能用：表格在窄螢幕收成卡片堆疊
+- 健康橫幅在以下三種狀態正確顯示：(a) 完整可收款 (b) 通道啟用但金鑰缺 (c) 完全沒設定
+- 點任一列的「設定金鑰」可開啟對應 Sheet；綠界 Sheet 行為與目前 dialog 完全一致（包含「留空＝不變更」與 audit log）
+- 切換 toggle 與設預設後立即在矩陣與橫幅反映
+- 不破壞 `1.34-confirm-remittance-flow` 等既有整合測試的資料假設
+
+### 不做的事
+
+- 不擴充其他通道（ACpay/藍新/LINE Pay）的金鑰 UI——那是另一個獨立任務
+- 不動分潤設定頁
+- 不改前台結帳流程
+
+按這個方向重做可以嗎？確認後我就直接動 `Payments.tsx`。
