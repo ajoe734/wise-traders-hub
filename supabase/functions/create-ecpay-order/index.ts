@@ -105,10 +105,7 @@ Deno.serve(async (req) => {
 
     // Stage 3: persist payment intent for callback to read attribution/discount
     try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const sb = createClient(supabaseUrl, serviceKey);
-      await sb.from("payment_intents").insert({
+      await credsClient.from("payment_intents").insert({
         trade_no: tradeNo,
         user_id: userId || null,
         product_kind: "expert_plan",
