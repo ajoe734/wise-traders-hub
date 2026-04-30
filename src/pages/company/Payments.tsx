@@ -468,62 +468,6 @@ const CompanyPayments = () => {
     setRemitOpen(false);
   };
 
-  // ---------- Render helpers ----------
-  const StatusCell = ({ row }: { row: ChannelRow }) => {
-    if (row.provider.is_active && row.credsStatus === 'complete') {
-      return (
-        <span className="inline-flex items-center gap-1.5 text-xs">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span className="text-foreground">已啟用</span>
-        </span>
-      );
-    }
-    if (row.provider.is_active && row.credsStatus !== 'complete') {
-      return (
-        <span className="inline-flex items-center gap-1.5 text-xs">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-          <span className="text-amber-600">啟用但不可用</span>
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Circle className="h-2.5 w-2.5" />
-        停用
-      </span>
-    );
-  };
-
-  const CredsCell = ({ row }: { row: ChannelRow }) => {
-    if (row.credsStatus === 'complete') {
-      return (
-        <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-          <CheckCircle2 className="h-3.5 w-3.5" />完整
-        </span>
-      );
-    }
-    if (row.credsStatus === 'missing') {
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-flex items-center gap-1 text-xs text-amber-600 cursor-help">
-              <AlertTriangle className="h-3.5 w-3.5" />缺 {row.missingFields.length} 項
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            <div className="text-xs">
-              <div className="font-medium mb-1">缺少欄位</div>
-              <ul className="space-y-0.5">
-                {row.missingFields.map((f) => <li key={f}>• {f}</li>)}
-              </ul>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-    return <span className="text-xs text-muted-foreground">— 待開放</span>;
-  };
-
   return (
     <CompanyLayout>
       <TooltipProvider delayDuration={150}>
