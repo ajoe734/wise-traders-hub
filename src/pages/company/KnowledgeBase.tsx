@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Brain } from 'lucide-react';
+import { Plus, Pencil, Trash2, Brain, Activity } from 'lucide-react';
 import { logAdminAction } from '@/lib/auditLog';
 
 const CATEGORIES = [
