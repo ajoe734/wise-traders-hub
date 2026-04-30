@@ -414,12 +414,18 @@ async function isQuotaExceeded(res) {
 
 // 取得 AI edge function 呼叫所需的 Authorization header（配額辨識用）
 async function aiAuthHeaders() {
+  // Supabase 平台層要求所有 edge function 呼叫至少帶 apikey + Authorization
+  // （即使 function 設了 verify_jwt=false），未登入時 fallback 用 anon key
+  const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    if (token) {
+      return { Authorization: `Bearer ${token}`, apikey: ANON };
+    }
+    return { Authorization: `Bearer ${ANON}`, apikey: ANON };
   } catch {
-    return {};
+    return { Authorization: `Bearer ${ANON}`, apikey: ANON };
   }
 }
 export default function App() {
