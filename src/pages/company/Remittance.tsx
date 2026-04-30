@@ -49,6 +49,16 @@ export default function CompanyRemittance() {
       toast({ title: '確認失敗', description: error?.message || (data as any)?.error, variant: 'destructive' });
       return;
     }
+    await logAdminAction({
+      action: 'remittance.confirm',
+      targetType: 'remittance_orders',
+      targetId: order.id,
+      detail: {
+        before: { status: order.status },
+        after: { status: 'confirmed' },
+        context: { payer_name: order.payer_name, amount: order.amount, last5: order.last5 },
+      },
+    });
     toast({ title: '已確認入帳', description: '訂閱已啟用' });
     load();
   };
@@ -66,7 +76,19 @@ export default function CompanyRemittance() {
       confirmed_at: new Date().toISOString(),
     }).eq('id', order.id);
     if (error) toast({ title: '拒絕失敗', description: error.message, variant: 'destructive' });
-    else { toast({ title: '已拒絕' }); load(); }
+    else {
+      await logAdminAction({
+        action: 'remittance.reject',
+        targetType: 'remittance_orders',
+        targetId: order.id,
+        detail: {
+          before: { status: order.status },
+          after: { status: 'rejected', reject_reason: reason },
+          context: { payer_name: order.payer_name, amount: order.amount, reason },
+        },
+      });
+      toast({ title: '已拒絕' }); load();
+    }
   };
 
   return (
