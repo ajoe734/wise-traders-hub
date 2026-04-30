@@ -16,7 +16,8 @@ export type AuditNamespace =
   | 'announcement'
   | 'signal'
   | 'setting'
-  | 'remittance';
+  | 'remittance'
+  | 'knowledge';
 
 export interface LogAdminActionParams {
   /** namespace.verb，例如 plan.approve */
