@@ -29,16 +29,14 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const cronSecret = Deno.env.get('DATA_UPSERT_API_KEY');
-    if (!cronSecret) {
-      return new Response(JSON.stringify({ error: 'DATA_UPSERT_API_KEY not configured' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const cronSecret = Deno.env.get('DATA_UPSERT_API_KEY') ?? '';
 
-    // 驗呼叫者：只允許帶 x-cron-secret 的 cron
-    const provided = req.headers.get('x-cron-secret');
-    if (provided !== cronSecret) {
+    // 驗呼叫者：允許 service_role JWT 或 x-cron-secret
+    const auth = req.headers.get('Authorization') ?? '';
+    const provided = req.headers.get('x-cron-secret') ?? '';
+    const isService = auth === `Bearer ${serviceRoleKey}`;
+    const isCron = cronSecret && provided === cronSecret;
+    if (!isService && !isCron) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
