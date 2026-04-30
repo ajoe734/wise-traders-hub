@@ -18,8 +18,16 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Loader2, Layers, CheckCircle2, XCircle, Pencil, Trash2, Sparkles } from 'lucide-react';
+import { Loader2, Layers, CheckCircle2, XCircle, Pencil, Trash2, Sparkles, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { logAdminAction } from '@/lib/auditLog';
+
+const CROSS_FIELDS: { key: string; label: string; hint: string }[] = [
+  { key: 'has_checkup_basic_discount_on_expert', label: '已訂健檢 Basic → 訂閱方案折扣', hint: '會員在持有健檢 Basic 期間訂閱分析師方案時自動折抵' },
+  { key: 'has_checkup_pro_discount_on_expert', label: '已訂健檢 Pro → 訂閱方案折扣', hint: '會員在持有健檢 Pro 期間訂閱分析師方案時自動折抵' },
+  { key: 'has_expert_discount_on_checkup_basic', label: '已訂方案 → 健檢 Basic 折扣', hint: '會員在持有任一訂閱方案期間購買健檢 Basic 時自動折抵' },
+  { key: 'has_expert_discount_on_checkup_pro', label: '已訂方案 → 健檢 Pro 折扣', hint: '會員在持有任一訂閱方案期間購買健檢 Pro 時自動折抵' },
+];
 
 type ReviewStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 
@@ -68,8 +76,14 @@ export default function CompanyPlans() {
   const [rows, setRows] = useState<PlanRow[]>([]);
   const [defaultRule, setDefaultRule] = useState<DefaultRule>({ pct_platform: 55, pct_expert: 45 });
   const [loading, setLoading] = useState(true);
+  const [outerTab, setOuterTab] = useState<'plans' | 'cross_discounts'>('plans');
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
   const [acting, setActing] = useState(false);
+
+  // Cross-product discounts
+  const [cross, setCross] = useState<Record<string, number>>({});
+  const [crossOriginal, setCrossOriginal] = useState<Record<string, number>>({});
+  const [savingCross, setSavingCross] = useState(false);
 
   // Detail sheet
   const [openId, setOpenId] = useState<string | null>(null);
@@ -84,7 +98,7 @@ export default function CompanyPlans() {
 
   const load = async () => {
     setLoading(true);
-    const [plansRes, overridesRes, settingsRes] = await Promise.all([
+    const [plansRes, overridesRes, settingsRes, crossRes] = await Promise.all([
       supabase
         .from('expert_plans')
         .select('*, experts:expert_id(name, slug, role)')
@@ -93,6 +107,7 @@ export default function CompanyPlans() {
         .from('plan_split_overrides')
         .select('id, plan_id, pct_platform, pct_expert, is_active, notes'),
       supabase.from('payment_settings').select('key, value').eq('key', 'split_standard').maybeSingle(),
+      supabase.from('payment_settings').select('value').eq('key', 'cross_discounts').maybeSingle(),
     ]);
 
     if (plansRes.error) toast.error('載入方案失敗：' + plansRes.error.message);
@@ -112,7 +127,27 @@ export default function CompanyPlans() {
     const s = settingsRes.data?.value as any;
     if (s) setDefaultRule({ pct_platform: s.pct_platform ?? 55, pct_expert: s.pct_expert ?? 45 });
 
+    const c = (crossRes.data?.value as Record<string, number>) || {};
+    setCross(c);
+    setCrossOriginal(c);
+
     setLoading(false);
+  };
+
+  const saveCross = async () => {
+    setSavingCross(true);
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    const { error } = await supabase.from('payment_settings')
+      .upsert({ key: 'cross_discounts', value: cross, updated_by: userId, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    setSavingCross(false);
+    if (error) { toast.error('儲存失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.cross_discount_update',
+      targetType: 'payment_settings',
+      detail: { before: crossOriginal, after: cross },
+    });
+    setCrossOriginal(cross);
+    toast.success('已儲存跨產品折扣');
   };
 
   useEffect(() => { load(); }, []);
@@ -138,6 +173,16 @@ export default function CompanyPlans() {
       .eq('id', p.id);
     setActing(false);
     if (error) { toast.error('核准失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.approve',
+      targetType: 'expert_plan',
+      targetId: p.id,
+      detail: {
+        before: { review_status: p.review_status },
+        after: { review_status: 'approved' },
+        context: { plan_name: p.name, expert_name: p.experts?.name },
+      },
+    });
     toast.success('已核准方案');
     refreshAndKeepOpen();
   };
@@ -152,6 +197,16 @@ export default function CompanyPlans() {
       .eq('id', current.id);
     setActing(false);
     if (error) { toast.error('退回失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.reject',
+      targetType: 'expert_plan',
+      targetId: current.id,
+      detail: {
+        before: { review_status: current.review_status },
+        after: { review_status: 'rejected' },
+        context: { plan_name: current.name, expert_name: current.experts?.name, reason: rejectNote.trim() },
+      },
+    });
     toast.success('已退回方案');
     setRejectOpen(false);
     setRejectNote('');
@@ -166,6 +221,16 @@ export default function CompanyPlans() {
       .eq('id', p.id);
     setActing(false);
     if (error) { toast.error('更新失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.toggle_active',
+      targetType: 'expert_plan',
+      targetId: p.id,
+      detail: {
+        before: { is_active: p.is_active },
+        after: { is_active: next },
+        context: { plan_name: p.name, expert_name: p.experts?.name },
+      },
+    });
     toast.success(next ? '已上架' : '已下架');
     refreshAndKeepOpen();
   };
@@ -210,6 +275,16 @@ export default function CompanyPlans() {
       .upsert(payload, { onConflict: 'plan_id' });
     setActing(false);
     if (error) { toast.error('儲存失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.split_override_upsert',
+      targetType: 'plan_split_overrides',
+      targetId: current.id,
+      detail: {
+        before: current.override ?? null,
+        after: { pct_platform: splitForm.pct_platform, pct_expert: splitForm.pct_expert, is_active: splitForm.is_active, notes: splitForm.notes || null },
+        context: { plan_name: current.name },
+      },
+    });
     toast.success('已儲存分潤覆寫');
     setSplitEditing(false);
     refreshAndKeepOpen();
@@ -219,9 +294,20 @@ export default function CompanyPlans() {
     if (!p.override) return;
     if (!confirm(`確定刪除「${p.name}」的分潤覆寫？刪除後將回退到全站預設 ${defaultRule.pct_platform}/${defaultRule.pct_expert}。`)) return;
     setActing(true);
+    const overrideSnapshot = p.override;
     const { error } = await supabase.from('plan_split_overrides').delete().eq('id', p.override.id);
     setActing(false);
     if (error) { toast.error('刪除失敗：' + error.message); return; }
+    await logAdminAction({
+      action: 'plan.split_override_remove',
+      targetType: 'plan_split_overrides',
+      targetId: p.id,
+      detail: {
+        before: overrideSnapshot,
+        after: null,
+        context: { plan_name: p.name },
+      },
+    });
     toast.success('已刪除覆寫');
     refreshAndKeepOpen();
   };
@@ -265,6 +351,48 @@ export default function CompanyPlans() {
           </div>
         </div>
 
+        <Tabs value={outerTab} onValueChange={(v) => setOuterTab(v as any)}>
+          <TabsList>
+            <TabsTrigger value="plans"><Layers className="h-3.5 w-3.5 mr-1" />方案審核 / 分潤</TabsTrigger>
+            <TabsTrigger value="cross_discounts"><Tag className="h-3.5 w-3.5 mr-1" />跨產品折扣</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="cross_discounts" className="mt-4 space-y-4">
+            <Card>
+              <CardContent className="p-5 space-y-4">
+                <div>
+                  <h3 className="font-semibold">跨產品折扣（NT$）</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    已持有某類商品的會員，購買另一類商品時自動套用的折抵金額。設為 0 表示不折抵。
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {CROSS_FIELDS.map(f => (
+                    <div key={f.key} className="space-y-1">
+                      <Label className="text-xs font-medium">{f.label}</Label>
+                      <p className="text-[11px] text-muted-foreground leading-snug">{f.hint}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">NT$</span>
+                        <Input
+                          type="number" min={0}
+                          value={cross[f.key] ?? 0}
+                          onChange={e => setCross(p => ({ ...p, [f.key]: Number(e.target.value) }))}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <Button size="sm" onClick={saveCross} disabled={savingCross}>
+                    {savingCross ? '儲存中…' : '儲存折扣設定'}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setCross(crossOriginal)} disabled={savingCross}>還原</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="plans" className="mt-4">
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
           <TabsList>
             <TabsTrigger value="pending">
@@ -358,6 +486,8 @@ export default function CompanyPlans() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+        </Tabs>
           </TabsContent>
         </Tabs>
       </div>
