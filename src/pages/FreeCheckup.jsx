@@ -2881,8 +2881,48 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
-          {/* 配額卡：常駐顯示 used/limit 進度條 + 重置倒數 + 升級 CTA */}
-          {!isDemo && quota && (() => {
+          {/* 配額卡：常駐顯示 used/limit 進度條 + 重置倒數 + 升級 CTA（訪客/載入中也顯示） */}
+          {(() => {
+            // 訪客 fallback
+            if (isDemo) {
+              return (
+                <div className="checkup-quota-meter" style={{
+                  marginBottom: 14, padding: "12px 14px",
+                  border: `1px solid ${C.border}`, borderRadius: 10, background: C.card,
+                }}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:500,color:C.text,letterSpacing:"0.02em",marginBottom:4}}>登入解鎖每月 1 次免費 AI 健檢</div>
+                      <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.02em",lineHeight:1.6}}>截圖解析・收盤分析・新聞彙整・事件預測共用</div>
+                    </div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      <button onClick={startLineLogin} style={{
+                        background:"#06C755",color:"#fff",border:"none",borderRadius:6,
+                        padding:"6px 14px",fontSize:12,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em",
+                      }}>立即登入</button>
+                      <a href="/pricing#checkup" style={{
+                        fontSize:12,color:C.blue,textDecoration:"none",letterSpacing:"0.02em",
+                        padding:"6px 12px",border:`1px solid ${alpha(C.blue,'40')}`,borderRadius:6,alignSelf:"center",
+                      }}>查看付費方案 →</a>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            // 載入中 fallback（已登入但配額尚未取回）
+            if (!quota) {
+              return (
+                <div className="checkup-quota-meter" style={{
+                  marginBottom: 14, padding: "12px 14px",
+                  border: `1px solid ${C.border}`, borderRadius: 10, background: C.card,
+                }}>
+                  <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.02em",marginBottom:8}}>載入配額中…</div>
+                  <div style={{height:4,background:alpha(C.textMute,'18'),borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:"30%",background:alpha(C.textMute,'40'),animation:"checkupPulse 1.4s ease-in-out infinite"}}/>
+                  </div>
+                </div>
+              );
+            }
             const used = Number(quota.used || 0);
             const limit = Math.max(Number(quota.limit || 1), 1);
             const remain = Math.max(limit - used, 0);
