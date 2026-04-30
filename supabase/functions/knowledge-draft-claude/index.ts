@@ -117,30 +117,43 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // 驗證呼叫者是 company_admin
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid token' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const admin = createClient(supabaseUrl, serviceRoleKey);
-    const { data: roleRow } = await admin
-      .from('user_roles').select('role').eq('user_id', user.id).eq('role', 'company_admin').maybeSingle();
-    if (!roleRow) {
-      return new Response(JSON.stringify({ error: 'Forbidden: company_admin only' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+
+    // 旁路：cron / scheduler 帶 x-cron-secret 或 service_role JWT 即可呼叫
+    const cronSecret = req.headers.get('x-cron-secret');
+    const expectedCron = Deno.env.get('DATA_UPSERT_API_KEY');
+    const authHdr = req.headers.get('Authorization') ?? '';
+    const isServiceRole = authHdr === `Bearer ${serviceRoleKey}`;
+    let user: { id: string } | null = null;
+
+    if ((cronSecret && expectedCron && cronSecret === expectedCron) || isServiceRole) {
+      // 系統呼叫，user_id 留空
+      user = null;
+    } else {
+      // 一般使用者 → 必須是 company_admin
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Missing Authorization' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } },
       });
+      const { data: { user: u }, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !u) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { data: roleRow } = await admin
+        .from('user_roles').select('role').eq('user_id', u.id).eq('role', 'company_admin').maybeSingle();
+      if (!roleRow) {
+        return new Response(JSON.stringify({ error: 'Forbidden: company_admin only' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      user = { id: u.id };
     }
 
     const body = await req.json().catch(() => ({}));
@@ -177,7 +190,7 @@ Deno.serve(async (req) => {
       source_type: 'ai_draft',
       source_meta: { model: 'claude-sonnet-4-5', focus: focus ?? null, generated_at: new Date().toISOString() },
       status: 'pending',
-      created_by: user.id,
+      created_by: user?.id ?? null,
     })).filter(r => r.title && r.fact);
 
     if (rows.length === 0) {
