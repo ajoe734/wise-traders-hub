@@ -73,7 +73,7 @@ const CompanyPayments = () => {
   const [providers, setProviders] = useState<ProviderRow[]>([]);
 
   // Add provider dialog
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [addGroup, setAddGroup] = useState<'credit' | 'ewallet' | null>(null);
   const [newProviderType, setNewProviderType] = useState<ProviderType | ''>('');
   const [newDisplayName, setNewDisplayName] = useState('');
 
