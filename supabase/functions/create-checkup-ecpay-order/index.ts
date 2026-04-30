@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,9 +61,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const merchantId = Deno.env.get("ECPAY_MERCHANT_ID")!;
-    const hashKey = Deno.env.get("ECPAY_HASH_KEY")!;
-    const hashIV = Deno.env.get("ECPAY_HASH_IV")!;
+    const creds = await loadEcpayCreds(supabase);
+    const merchantId = creds.merchantId;
+    const hashKey = creds.hashKey;
+    const hashIV = creds.hashIV;
 
     const tradeNo = `CK${Date.now().toString().slice(-13)}`;
     const now = new Date();
@@ -83,7 +85,7 @@ Deno.serve(async (req) => {
       ItemName: itemName,
       ReturnURL: notifyUrl,
       ClientBackURL: returnUrl,
-      ChoosePayment: "ALL",
+      ChoosePayment: "Credit",
       EncryptType: "1",
       CustomField1: `CK:${checkupPlanId}`,  // CK 前綴標記為健檢
       CustomField2: billingCycle,
@@ -112,7 +114,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
-      actionUrl: Deno.env.get("ECPAY_API_URL") || "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5",
+      actionUrl: creds.creditActionUrl,
       params,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {

@@ -1,112 +1,93 @@
-## 知識庫擴充計劃 — 220 條 / Claude 草稿 / 全自學 / 8 欄位升級
+## 目標
 
-確認的方向：規模 220 條（c）、Claude API 起草（b 改 Claude）、自我學習全做（a）、結構升級 8 欄位全做（a）。
+1. 後台 `/company/payments` 可以直接編輯**綠界金流金鑰**（商店代號、HashKey、HashIV、信用卡專用 Action URL、是否為測試／正式環境），不必再到 Lovable Cloud 後台手動加 secrets。
+2. 三個結帳頁（`Checkout.tsx`、`AppCheckout.tsx`、`CheckupCheckout.tsx`）的綠界選項中，**隱藏「ATM／超商」**，只保留「信用卡」。
 
----
+## 設計原則：金鑰放哪？
 
-### 一、Schema 升級（migration）
+綠界金鑰是高敏感資料，**前端絕對不能讀到**。做法：
 
-在 `checkup_knowledge_items` 加 8 個新欄位，讓條目可被機器驗證：
-
-| 欄位 | 型別 | 用途 |
-|---|---|---|
-| `trigger_condition` | jsonb | 觸發條件，例：`{"type":"foreign_buy_streak","days":">=5","amount_pct":">=2"}` |
-| `expected_outcome` | jsonb | 預期結果，例：`{"direction":"up","horizon_days":10,"min_pct":3}` |
-| `win_rate` | numeric | 統計勝率（0–1），由盲測回填 |
-| `sample_size` | integer | 統計樣本數，由盲測回填 |
-| `last_validated_at` | timestamptz | 最近一次盲測時間 |
-| `source_type` | text | `editorial` / `ai_draft` / `community` / `auto_promoted` |
-| `industry_tags` | text[] | 產業標籤（半導體 / 金融 / 航運 / 生技…） |
-| `time_horizon` | text | `intraday` / `swing_3_10d` / `position_1_3m` / `long_6m+` |
-
-新增「候選池」表 `checkup_knowledge_candidates`：AI 起草 / 自動晉升的條目先進這裡，管理員審核後才進主表。
-
-新增「驗證紀錄」表 `checkup_knowledge_validations`：每次盲測在某條知識上的命中與報酬，做為 win_rate 的依據。
-
----
-
-### 二、220 條目錄結構（每類 44 條）
+- **存 DB**：放在 `payment_settings` 表，新增一個 `key='ecpay_credentials'` 的 row，`value` 為 JSON。
+- **RLS**：沿用既有政策 — 只有 `company_admin` 可讀寫；前端一般使用者**不能 SELECT** 這筆。前端送出付款請求時，只呼叫 edge function，由 edge function 用 service role 讀取金鑰。
+- **fallback**：edge function 先讀 DB；DB 沒設定時，回退讀 `Deno.env.get('ECPAY_*')`，向下相容。
+- **只有「Action URL（信用卡專用）」會在後台顯示，金鑰本身為遮罩輸入** — 已存在時顯示為 `••••••••`，留空表示不變更，輸入新值才會覆寫。
 
 ```text
-chip_analysis (44)         — 外資/投信/自營/大戶/散戶 + 期現貨對作 + 季底作帳
-technical_analysis (44)    — KD/MACD/RSI + 量價 + 形態 + 均線 + 跳空 + 布林通道
-industry_trends (44)       — 半導體/金融/航運/生技/AI/電動車/觀光/被動元件...
-strategy_cases (44)        — 含「失敗案例」（誘多/假突破/出貨量），不只 success
-news_correlation (44)      — 法說/月營收/解盲/併購/調研/外資調評/總經事件
+payment_settings
+└─ key = 'ecpay_credentials'
+   value = {
+     merchant_id:        "3268740",
+     hash_key:           "S8QlxefxBzJDYEBO",
+     hash_iv:            "CJ0Lo2u7KJMBF9cF",
+     credit_action_url:  "https://payment.ecpay.com.tw/.../V5",  // 信用卡專用
+     api_url:            "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5", // 主 URL（保留供未來其他通道用）
+     env:                "stage" | "production",
+     updated_at:         "..."
+   }
 ```
 
-每類補 39 條（5 → 44）。每條都要填上面 8 個結構化欄位。
+## 變更範圍
 
----
+```text
+DB（無 schema 變更，只塞一筆設定 row 由前端 upsert）
+  └─ payment_settings  ('ecpay_credentials')  RLS = company_admin only
 
-### 三、Claude 草稿引擎
+後台頁面
+  └─ src/pages/company/Payments.tsx
+       └─ 新增 Section「綠界金流設定」
+          ├─ 商店代號（明文輸入）
+          ├─ HashKey（遮罩，留空＝不變更）
+          ├─ HashIV（遮罩，留空＝不變更）
+          ├─ 信用卡專用 Action URL（明文）
+          ├─ 環境：測試／正式（Select）
+          ├─ 顯示「最後更新：YYYY/MM/DD」
+          └─ 儲存按鈕 → upsert + logAdminAction
 
-**新 edge function**：`supabase/functions/knowledge-draft-claude/index.ts`
-- 輸入：`{ category, count, focus_tags?, time_horizon? }`
-- 流程：
-  1. 用 `ANTHROPIC_API_KEY` 呼叫 `claude-sonnet-4-5`（最強模型）
-  2. 給結構化 prompt（含台股市場特性、知識條目骨架、JSON Schema）
-  3. 要求回傳純 JSON 陣列，每條都要有 `trigger_condition` / `expected_outcome` / `tags` / `time_horizon` 等
-  4. 寫進 `checkup_knowledge_candidates`（status=`pending`），不直接污染主表
+Edge Functions（讀 DB，DB 沒值才回退環境變數）
+  ├─ supabase/functions/_shared/ecpayCredentials.ts   ← 新建 helper
+  │     export async function loadEcpayCreds(supabase): Promise<{
+  │       merchantId, hashKey, hashIV, creditActionUrl, apiUrl
+  │     }>
+  ├─ create-ecpay-order/index.ts          → 改用 helper
+  ├─ create-checkup-ecpay-order/index.ts  → 改用 helper
+  ├─ ecpay-callback/index.ts              → 用 helper 讀 hashKey/IV 驗 CheckMacValue
+  └─ checkup-ecpay-callback/index.ts      → 同上
 
-**對應前端**：在 `KnowledgeBase.tsx` 加「AI 起草」按鈕 → 選類別 + 數量 → 跳出候選預覽（每條可勾選採用/丟棄/編輯）→ 採用後 upsert 到主表。
+前端三個結帳頁
+  ├─ src/pages/Checkout.tsx
+  ├─ src/pages/app/AppCheckout.tsx
+  └─ src/pages/CheckupCheckout.tsx
+       └─ 隱藏「ATM／超商」選項（移除上次規劃的 RadioGroup，
+          綠界選項直接固定送 paymentChannel='credit'，
+          edge function 用信用卡 Action URL + ChoosePayment='Credit'）
+       └─ AppCheckout.tsx 的 form.target 從 "_blank" 改 "_self"
+```
 
----
+## 實作步驟
 
-### 四、自我學習（全做）
+1. **新建 shared helper** `supabase/functions/_shared/ecpayCredentials.ts`：用 service role 讀 `payment_settings` → 解析 → DB 缺欄位時回退 env，回傳統一物件。
+2. **改 4 支 edge function** 全部改用 helper，`actionUrl` 從 `creditActionUrl` 取（信用卡通道唯一），CheckMacValue 用 helper 來的 hashKey/IV。
+3. **後台 `Payments.tsx` 新增「綠界金流設定」Section**：
+   - 載入時 `select value from payment_settings where key='ecpay_credentials'`。
+   - 金鑰欄位採「遮罩 + 留空＝不變更」策略；存檔時若使用者沒輸入，沿用既有值。
+   - 儲存後寫 `logAdminAction({ action: 'setting.ecpay_credentials_update', ... })`，不記錄金鑰實際值，只記 `merchant_id` 與 `env` 與「哪些欄位被更新」。
+4. **三個前端結帳頁**：移除 ATM／超商選項，只留「信用卡」；送出時固定帶 `paymentChannel: 'credit'`。`AppCheckout` 的 form target 改 `_self`。
+5. **驗證**：
+   - 後台填入綠界資料 → 儲存 → 重新整理仍顯示 `merchant_id` 與遮罩金鑰、Action URL。
+   - 走一次信用卡結帳，確認 edge function 用的是 DB 設定（log 印 merchant_id 比對）。
+   - 把 `payment_settings` 那筆刪掉，確認 edge function 自動回退到環境變數，舊流程不退化。
+   - 確認非 `company_admin` 使用者 `select * from payment_settings where key='ecpay_credentials'` 拿不到資料（RLS 已有 `company_admin only`，不需新增 policy）。
 
-#### A. 盲測回填（Validation Loop）
+## 不會動到的部分
 
-**新 edge function**：`knowledge-validate`（pg_cron 每週日 03:00 UTC+8 執行）
-- 取最近 N 天每次 `checkup_knowledge_hits` 命中
-- 對應該股票的實際後續走勢（用 `current_prices` 歷史 + `expected_outcome.horizon_days`）
-- 判定該次命中是「應驗 / 未應驗」，寫進 `checkup_knowledge_validations`
-- 重算每條的 `win_rate` = 應驗數 / 樣本數，寫回主表 `win_rate` / `sample_size` / `last_validated_at`
+- `payment_providers` 表（綠界啟用／停用切換還是走原本那張表）。
+- `ECPAY_HASH_KEY` / `ECPAY_HASH_IV` / `ECPAY_MERCHANT_ID` 三個 secrets 保留作 fallback，不刪除。
+- ACpay、LINE Pay、匯款流程。
 
-#### B. 自動降權
+## 安全性備註
 
-同一個 cron job 後段：
-- 若 `sample_size >= 20` 且 `win_rate < 0.4` → `confidence` 自動 `-0.05`（floor 0.3）
-- 若 `win_rate >= 0.7` → `confidence` 自動 `+0.03`（ceiling 0.95）
-- 任何自動調整都寫 audit log（`knowledge.auto_adjust`）
+- 金鑰仍是**只能 server-side 讀取**，前端不會持有原始值；後台輸入框送出後立即由 RLS-protected upsert 落 DB。
+- audit log 不寫入金鑰原始值，只寫變更欄位清單與 `merchant_id`。
+- 若你日後要再多一組「ATM／超商」用的 Action URL，只要在 `value` 加欄位即可，不需 schema 變更。
 
-#### C. 候選晉升（從盲測案例學新規則）
-
-新 edge function：`knowledge-promote-candidates`（每週日 04:00 跑）
-- 掃描 `checkup_knowledge_validations` 找「同樣的 trigger pattern 在多檔股票連續應驗」的群組
-- 把這個 pattern 丟給 Claude，要求總結成新知識條目骨架
-- 寫進 `checkup_knowledge_candidates`，等管理員審核
-
----
-
-### 五、Sync 腳本升級
-
-`scripts/sync-knowledge-base.mjs` 加 `--full-restore` 模式：
-- 從 `scripts/seeds/knowledge-220.json`（一次性產生並 commit）批次 upsert 到雲端
-- 保留現有 dry-run / --apply
-- 加 `--from-claude category=technical_analysis count=39` 模式，現場呼叫 Claude 草稿並寫入候選池
-
----
-
-### 六、執行順序
-
-1. Migration：加 8 欄位 + 候選池表 + 驗證紀錄表
-2. 寫 `knowledge-draft-claude` edge function（Claude 起草）
-3. 用 Claude 一次產出 195 條候選 → 我親自審一輪結構是否符合 schema → 寫進 `scripts/seeds/knowledge-220.json`
-4. 跑 sync 腳本把 220 條灌入主表
-5. 寫 `knowledge-validate` edge function + pg_cron（每週日 03:00 跑回填）
-6. 寫 `knowledge-promote-candidates` + pg_cron（每週日 04:00 跑晉升）
-7. 升級 `KnowledgeBase.tsx`：加 AI 起草、候選池審核、win_rate / sample_size / 觸發條件 / 預期結果欄位
-8. 更新 `knowledgeBase.js`：`getRelevantKnowledge` 改用 `confidence × win_rate`（有樣本時）排序
-9. 更新 memory `mem://features/checkup/knowledge-base-cloud-first`
-
----
-
-### 七、給你的預期
-
-- 主表從 25 → **220 條**，每條都有 trigger / expected_outcome 可被機器驗證
-- 每週日凌晨自動跑回填，**confidence 會根據實戰表現自動調整**，越用越準
-- AI 起草 + 候選池：未來想擴到 500 條，按按鈕就能補
-- 你在後台會看到每條的「實戰勝率」「樣本數」「最近驗證時間」，廢條目會被標紅
-
-核准後我直接動工。
+按這個計畫執行可以嗎？確認後我就切到執行模式，照上面 5 個步驟一次完成。

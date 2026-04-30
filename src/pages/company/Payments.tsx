@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
-import { CreditCard, Plus, ExternalLink, Landmark, Pencil } from 'lucide-react';
+import { CreditCard, Plus, ExternalLink, Landmark, Pencil, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { logAdminAction } from '@/lib/auditLog';
@@ -39,9 +39,29 @@ const CompanyPayments = () => {
   const [remitOriginal, setRemitOriginal] = useState<Record<string, string>>({});
   const [remitOpen, setRemitOpen] = useState(false);
 
+  // ECPay credentials (高敏感金鑰，前端只顯示遮罩)
+  type EcpayCredsRow = {
+    merchant_id?: string;
+    hash_key?: string;
+    hash_iv?: string;
+    credit_action_url?: string;
+    api_url?: string;
+    env?: 'stage' | 'production';
+    updated_at?: string;
+  };
+  const [ecpay, setEcpay] = useState<EcpayCredsRow>({});
+  const [ecpayOriginal, setEcpayOriginal] = useState<EcpayCredsRow>({});
+  const [ecpayHasKey, setEcpayHasKey] = useState(false);
+  const [ecpayHasIV, setEcpayHasIV] = useState(false);
+  const [ecpayOpen, setEcpayOpen] = useState(false);
+  // 暫存使用者輸入的明碼新值；空字串代表「不變更」
+  const [ecpayHashKeyInput, setEcpayHashKeyInput] = useState('');
+  const [ecpayHashIVInput, setEcpayHashIVInput] = useState('');
+
   useEffect(() => {
     fetchProviders();
     fetchRemit();
+    fetchEcpay();
   }, []);
 
   const fetchProviders = async () => {
@@ -57,6 +77,83 @@ const CompanyPayments = () => {
     const v = (data?.value as Record<string, string>) || {};
     setRemit(v);
     setRemitOriginal(v);
+  };
+
+  const fetchEcpay = async () => {
+    const { data } = await supabase
+      .from('payment_settings')
+      .select('value, updated_at')
+      .eq('key', 'ecpay_credentials')
+      .maybeSingle();
+    const v = (data?.value as EcpayCredsRow) || {};
+    const withTs: EcpayCredsRow = { ...v, updated_at: data?.updated_at };
+    setEcpay(withTs);
+    setEcpayOriginal(withTs);
+    setEcpayHasKey(!!(v.hash_key && v.hash_key.length > 0));
+    setEcpayHasIV(!!(v.hash_iv && v.hash_iv.length > 0));
+    setEcpayHashKeyInput('');
+    setEcpayHashIVInput('');
+  };
+
+  const saveEcpay = async () => {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    // Compose final value: 留空＝不變更，沿用 original
+    const next: EcpayCredsRow = {
+      merchant_id: (ecpay.merchant_id ?? '').trim(),
+      hash_key: ecpayHashKeyInput.trim()
+        ? ecpayHashKeyInput.trim()
+        : (ecpayOriginal.hash_key ?? ''),
+      hash_iv: ecpayHashIVInput.trim()
+        ? ecpayHashIVInput.trim()
+        : (ecpayOriginal.hash_iv ?? ''),
+      credit_action_url: (ecpay.credit_action_url ?? '').trim(),
+      api_url: (ecpay.api_url ?? '').trim(),
+      env: ecpay.env === 'production' ? 'production' : 'stage',
+    };
+
+    if (!next.merchant_id) {
+      toast.error('請輸入商店代號');
+      return;
+    }
+    if (!next.credit_action_url) {
+      toast.error('請輸入信用卡專用 Action URL');
+      return;
+    }
+    if (!next.hash_key || !next.hash_iv) {
+      toast.error('HashKey 與 HashIV 不可為空');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('payment_settings')
+      .upsert(
+        { key: 'ecpay_credentials', value: next, updated_by: userId, updated_at: new Date().toISOString() },
+        { onConflict: 'key' },
+      );
+    if (error) { toast.error(error.message); return; }
+
+    // Audit log：絕不寫入金鑰原始值
+    const changedFields: string[] = [];
+    if ((ecpayOriginal.merchant_id ?? '') !== next.merchant_id) changedFields.push('merchant_id');
+    if (ecpayHashKeyInput.trim()) changedFields.push('hash_key');
+    if (ecpayHashIVInput.trim()) changedFields.push('hash_iv');
+    if ((ecpayOriginal.credit_action_url ?? '') !== next.credit_action_url) changedFields.push('credit_action_url');
+    if ((ecpayOriginal.api_url ?? '') !== next.api_url) changedFields.push('api_url');
+    if ((ecpayOriginal.env ?? 'stage') !== next.env) changedFields.push('env');
+
+    await logAdminAction({
+      action: 'setting.ecpay_credentials_update',
+      targetType: 'payment_settings',
+      detail: {
+        merchant_id: next.merchant_id,
+        env: next.env,
+        changed_fields: changedFields,
+      },
+    });
+
+    toast.success('綠界金流設定已更新');
+    setEcpayOpen(false);
+    fetchEcpay();
   };
 
   const handleAddProvider = async () => {
@@ -253,6 +350,131 @@ const CompanyPayments = () => {
               </div>
               <Badge variant="outline" className="text-xs">
                 {remitConfigured ? '已啟用' : '未設定'}
+              </Badge>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* === Section 3: 綠界金流金鑰設定 === */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h2 className="text-lg font-semibold">綠界金流設定</h2>
+            <Dialog open={ecpayOpen} onOpenChange={(open) => {
+              setEcpayOpen(open);
+              if (open) {
+                // 重新從 original 開機，避免上次未存的編輯殘留
+                setEcpay(ecpayOriginal);
+                setEcpayHashKeyInput('');
+                setEcpayHashIVInput('');
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <Pencil className="h-4 w-4 mr-2" />{ecpayOriginal.merchant_id ? '編輯' : '設定'}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader><DialogTitle>綠界金流金鑰</DialogTitle></DialogHeader>
+                <p className="text-xs text-muted-foreground">
+                  金鑰只儲存於後台資料庫，前端不會讀取；HashKey 與 HashIV 留空表示「不變更」既有值。
+                </p>
+                <div className="grid grid-cols-1 gap-3 mt-2">
+                  <div>
+                    <Label className="text-xs">商店代號 MerchantID</Label>
+                    <Input
+                      value={ecpay.merchant_id || ''}
+                      placeholder="例：3268740"
+                      onChange={e => setEcpay(p => ({ ...p, merchant_id: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">
+                      HashKey {ecpayHasKey && <span className="text-muted-foreground">（目前已設定 ••••••••，留空＝不變更）</span>}
+                    </Label>
+                    <Input
+                      type="password"
+                      value={ecpayHashKeyInput}
+                      placeholder={ecpayHasKey ? '••••••••（留空表示不變更）' : '請輸入 HashKey'}
+                      onChange={e => setEcpayHashKeyInput(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">
+                      HashIV {ecpayHasIV && <span className="text-muted-foreground">（目前已設定 ••••••••，留空＝不變更）</span>}
+                    </Label>
+                    <Input
+                      type="password"
+                      value={ecpayHashIVInput}
+                      placeholder={ecpayHasIV ? '••••••••（留空表示不變更）' : '請輸入 HashIV'}
+                      onChange={e => setEcpayHashIVInput(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">信用卡專用 Action URL</Label>
+                    <Input
+                      value={ecpay.credit_action_url || ''}
+                      placeholder="例：https://payment.ecpay.com.tw/SP/CreditCheckOut"
+                      onChange={e => setEcpay(p => ({ ...p, credit_action_url: e.target.value }))}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      綠界提供給你的信用卡專用收單網址；此網址會用於所有信用卡訂單的提交。
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">主 AIO Action URL（選填）</Label>
+                    <Input
+                      value={ecpay.api_url || ''}
+                      placeholder="例：https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5"
+                      onChange={e => setEcpay(p => ({ ...p, api_url: e.target.value }))}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      若日後要再開放 ATM／超商再填；目前前台僅啟用信用卡通道。
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">環境</Label>
+                    <Select
+                      value={ecpay.env || 'stage'}
+                      onValueChange={(v) => setEcpay(p => ({ ...p, env: v as 'stage' | 'production' }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="stage">測試環境（Stage）</SelectItem>
+                        <SelectItem value="production">正式環境（Production）</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => { setEcpay(ecpayOriginal); setEcpayHashKeyInput(''); setEcpayHashIVInput(''); setEcpayOpen(false); }}>取消</Button>
+                  <Button onClick={saveEcpay}>儲存</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <KeyRound className="h-5 w-5 text-muted-foreground" />
+                {ecpayOriginal.merchant_id ? (
+                  <div className="text-sm">
+                    <div className="font-medium">商店代號：{ecpayOriginal.merchant_id}</div>
+                    <div className="text-xs text-muted-foreground">
+                      HashKey：{ecpayHasKey ? '••••••••' : '未設定'} · HashIV：{ecpayHasIV ? '••••••••' : '未設定'}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate max-w-[480px]">
+                      信用卡 URL：{ecpayOriginal.credit_action_url || '未設定'}
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">尚未設定綠界金鑰（將以環境變數作為備援）</span>
+                )}
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {ecpayOriginal.env === 'production' ? '正式' : '測試'}
               </Badge>
             </CardContent>
           </Card>

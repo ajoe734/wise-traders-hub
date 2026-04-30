@@ -291,7 +291,7 @@ const AppCheckout = () => {
     });
     if (error || !data?.actionUrl || !data?.params) { setResultDialog({ open: true, success: false }); return; }
     const form = document.createElement("form");
-    form.method = "POST"; form.action = data.actionUrl; form.target = "_blank"; form.style.display = "none";
+    form.method = "POST"; form.action = data.actionUrl; form.target = "_self"; form.style.display = "none";
     for (const [key, value] of Object.entries(data.params)) {
       const input = document.createElement("input"); input.type = "hidden"; input.name = key; input.value = String(value); form.appendChild(input);
     }
@@ -436,7 +436,7 @@ const AppCheckout = () => {
               <CardContent className="p-4 text-center"><p className="font-semibold text-sm">LINE Pay</p></CardContent>
             </Card>
             <Card className={`cursor-pointer transition-all ${paymentMethod === "ecpay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("ecpay")}>
-              <CardContent className="p-4 text-center"><p className="font-semibold text-sm">綠界 ECPay</p><p className="text-xs text-muted-foreground">信用卡/ATM</p></CardContent>
+              <CardContent className="p-4 text-center"><p className="font-semibold text-sm">綠界 ECPay</p><p className="text-xs text-muted-foreground">信用卡</p></CardContent>
             </Card>
             <Card className={`cursor-pointer transition-all ${paymentMethod === "acpay" ? "border-primary ring-2 ring-primary/20" : "hover:border-muted-foreground/30"}`} onClick={() => setPaymentMethod("acpay")}>
               <CardContent className="p-4 text-center"><p className="font-semibold text-sm">ACpay</p><p className="text-xs text-muted-foreground">信用卡</p></CardContent>
