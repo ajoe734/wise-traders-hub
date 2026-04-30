@@ -61,8 +61,16 @@ const emptyItem = (category: Category): Partial<KnowledgeItem> => ({
   is_active: true,
 });
 
+interface UsageStat {
+  knowledge_item_id: string;
+  hit_count: number;
+  hit_count_7d: number;
+  last_hit_at: string | null;
+}
+
 export default function KnowledgeBasePage() {
   const [items, setItems] = useState<KnowledgeItem[]>([]);
+  const [usage, setUsage] = useState<Record<string, UsageStat>>({});
   const [loading, setLoading] = useState(true);
   const [activeCat, setActiveCat] = useState<Category>('chip_analysis');
   const [editing, setEditing] = useState<Partial<KnowledgeItem> | null>(null);
@@ -70,15 +78,21 @@ export default function KnowledgeBasePage() {
 
   async function load() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('checkup_knowledge_items')
-      .select('*')
-      .order('category')
-      .order('item_id');
-    if (error) {
-      toast.error('讀取失敗：' + error.message);
+    const [itemsRes, usageRes] = await Promise.all([
+      supabase.from('checkup_knowledge_items').select('*').order('category').order('item_id'),
+      supabase.from('checkup_knowledge_usage_stats' as any).select('*'),
+    ]);
+    if (itemsRes.error) {
+      toast.error('讀取失敗：' + itemsRes.error.message);
     } else {
-      setItems((data ?? []) as any);
+      setItems((itemsRes.data ?? []) as any);
+    }
+    if (!usageRes.error && Array.isArray(usageRes.data)) {
+      const map: Record<string, UsageStat> = {};
+      for (const row of usageRes.data as any[]) {
+        map[row.knowledge_item_id] = row as UsageStat;
+      }
+      setUsage(map);
     }
     setLoading(false);
   }
