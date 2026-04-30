@@ -2447,7 +2447,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         });
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-parse`, {
           method:"POST",
-          headers:{"Content-Type":"application/json"},
+          headers:{"Content-Type":"application/json", ...(await aiAuthHeaders())},
           body: JSON.stringify({
             systemPrompt: PARSE_PROMPT,
             base64: b64,
