@@ -488,6 +488,8 @@ export default function CompanyPlans() {
             </Card>
           </TabsContent>
         </Tabs>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Detail Sheet */}
