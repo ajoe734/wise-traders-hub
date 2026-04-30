@@ -5283,11 +5283,23 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {hasReachedDailyLimit && !isDemo && (
             <div style={{marginBottom:16, padding:"20px 16px", background:alpha(C.blue,'06'), borderRadius:10, textAlign:"center"}}>
               <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
-                今日免費健檢次數已用完
+                {periodLabel} AI 健檢配額已用完（{tierLabel}）
               </div>
-              <div style={{fontSize:12,color:C.textMute,lineHeight:1.6}}>
-                每日可免費上傳一次成交截圖進行 AI 分析，明天再來
+              <div style={{fontSize:12,color:C.textMute,lineHeight:1.6,marginBottom:tier==='free'?12:0}}>
+                {tier === 'free' && '免費版每月 1 次・Basic 每週 1 次・Pro 每月 22 次'}
+                {tier === 'basic' && '本週配額已用完，下週一 00:00 重置；或升級 Pro 獲得每月 22 次'}
+                {tier === 'pro' && '本月配額已用完，下月 1 日 00:00 重置'}
               </div>
+              {(tier === 'free' || tier === 'basic') && (
+                <a href="/checkup-checkout" style={{
+                  display:"inline-block", marginTop:4,
+                  background:C.blue, color:"#fff", border:"none",
+                  borderRadius:8, padding:"9px 22px", fontSize:12, fontWeight:500,
+                  textDecoration:"none", letterSpacing:"0.02em",
+                }}>
+                  升級方案
+                </a>
+              )}
             </div>
           )}
           {!parsed && !isDemo && !hasReachedDailyLimit && (
