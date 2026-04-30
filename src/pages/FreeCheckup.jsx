@@ -1270,6 +1270,17 @@ export default function App() {
           setPredictLastDebug({ source: 'predict', at: new Date().toISOString(), httpStatus: res.status, ...data.debug });
         }
         if (!res.ok) {
+          // 配額用盡兜底（事件預測）
+          const dataCode = data?.code || data?.error_code || data?.error?.code;
+          const dataMsg = String(data?.error || data?.message || "");
+          if (res.status === 429 && (dataCode === 'QUOTA_EXCEEDED' || dataMsg.includes('QUOTA_EXCEEDED'))) {
+            try { await refreshQuota?.(); } catch {}
+            needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
+            setQuotaModal({ trigger: 'predict' });
+            setPredictingEvents(false);
+            setPredictAutoStatus({ status: 'idle', msg: '' });
+            return;
+          }
           console.error("Predict events failed:", res.status);
           needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
           const httpErr = new Error(`HTTP ${res.status}`);
