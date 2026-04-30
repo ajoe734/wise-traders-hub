@@ -1,94 +1,112 @@
-# 重寫對帳中心（取代假的「營收數據」頁）
+# 全部執行：設定重組 + 審計日記改造
 
-## 為什麼要做
+兩件事一次到位。先做設定頁重組（小、快、馬上看得到），再做審計日記全面改版（重點工程）。
 
-目前 `/company/revenue` 是「假對帳」：
-- 只加總 `payment_transactions.amount`，**完全沒讀 `revenue_splits`**（真正的會計口徑表）
-- 看不到「每位專家每月應分多少」「健檢營收佔多少」「折扣吃掉多少」「平台應得多少」
-- `/company/payments` 的交易紀錄也只有交易編號／金額／狀態，不知道是誰買、買哪個方案、屬於哪位專家
+---
 
-結果：你**根本沒辦法回答** — 「這個月收了多少？要分給某分析師多少？健檢賺多少？」
+## A. 設定頁面重組
 
-## 範圍（你已選：階段 A，會計口徑為主，健檢獨立頁籤）
+### A1. 跨產品折扣 → 移到方案管理
 
-把 `/company/revenue` 整頁重寫成「對帳中心」，**全部數字以 `revenue_splits` 為主**（不再加總 `payment_transactions`）。撥款流程（payouts 表）這次不做。
+- 在 `src/pages/company/Plans.tsx` 新增分頁/區塊「跨產品折扣」
+- 搬移 4 個欄位：`has_checkup_basic_discount_on_expert`、`has_checkup_pro_discount_on_expert`、`has_expert_discount_on_checkup_basic`、`has_expert_discount_on_checkup_pro`（金額 NT$）
+- 寫入 `payment_settings.cross_discounts`（沿用既有 key，不動結構）
+- `PaymentSettings.tsx` 移除此區塊
 
-## 四個頁籤
+### A2. 匯款帳戶 → 移到金流工具
 
-### 1. 總覽
-期間選擇器（本月／上月／自訂區間，預設本月，台北時區）。八張卡片＋兩張圖：
-- 毛收 `SUM(gross)`
-- 折扣 `SUM(discount)`
-- 淨收 `SUM(net)`
-- 平台應得 `SUM(platform_amount)`
-- 專家應分總額 `SUM(expert_amount)`
-- 訂閱營收（`expert_plan` 拆分）
-- 健檢營收（`checkup` 拆分）
-- 退款金額（從 `payment_transactions.status='refunded'` 取，獨立顯示，因為 `revenue_splits` 不會回沖）
-- 月趨勢折線圖（按月聚合 `gross / platform_amount / expert_amount`）
-- 來源拆分長條圖（信用卡 / 匯款 / LINE Pay / 健檢）
+- 在 `src/pages/company/Payments.tsx` 新增第三張卡片：「匯款（ATM/臨櫃）」
+- 設定 dialog 欄位：銀行名稱、銀行代碼、帳號、戶名、備註
+- 寫入 `payment_settings.remittance_account`
+- `PaymentSettings.tsx` 移除此區塊
+- 這只是「收款帳戶展示資料」設定，匯款訂單審核仍在 `/company/remittance`（不混淆）
 
-### 2. 訂閱明細
-列出 `member_subscriptions` 全部紀錄（不限 active，含 cancelled/expired）：
-- 訂閱者（join `profiles.display_name`、email）
-- 方案（join `expert_plans.name`）
-- 專家（join `experts.name`、role badge）
-- 月費 / 年費、`billing_cycle`、`status`、`auto_renew`
-- `started_at` / `expires_at`、下次扣款日（active+auto_renew 才算）
-- 篩選：專家、方案類型（advisor/mentor）、狀態、auto_renew
-- 匯出 CSV
+### A3. 收款設定 → 改名「分潤設定」
 
-### 3. 金流明細
-合併 `payment_transactions` ＋ `remittance_orders` 為單一視角：
-- 訂閱者、產品（訂閱方案/健檢方案，從 join 推斷）、金額、原價、折扣、折扣原因
-- 來源金流（信用卡/匯款/LINE Pay/ACpay）
-- 狀態（含 refunded）、建立時間、付款時間
-- 退款入口（沿用現有 `Payments.tsx` 的退款 dialog 邏輯）
-- 篩選 + CSV 匯出
+- `PaymentSettings.tsx` 只保留：平台/分析師分潤比例（預設 + 方案級覆寫表 `plan_split_overrides`）
+- 側邊欄 `CompanyLayout.tsx` label：「收款設定」→「分潤設定」
+- 路由 `/company/payment-settings` 不動（避免破壞舊連結）
 
-### 4. 專家分潤對帳（核心新功能）
-從 `revenue_splits` join `experts` 聚合：
-- 表 1：本期每位專家應分總額（按 `expert_amount` 從大到小，含筆數、毛收、折扣、淨收）
-- 表 2：點專家展開該期所有 split 明細（交易日、訂閱者、方案、毛收、折扣、淨收、平台、專家、`rule_source`）
-- 期間切換、CSV 匯出
+---
 
-### 5. 健檢營收（獨立頁籤）
-篩 `revenue_splits.expert_id IS NULL AND plan_id IS NULL`（健檢平台 100%）＋ join `checkup_subscriptions`：
-- 健檢方案毛收 / 折扣 / 淨收（全進平台口袋）
-- 訂閱明細：用戶、方案、週期、起訖、auto_renew
-- 月趨勢圖、CSV 匯出
+## B. 審計日記全面改版
 
-## 必須先解決的兩個資料盲點
+現況確認：DB 內 99% 是 `stock_price_sync`(203) / `daily_performance_update`(33) / `daily_snapshot`(14) 等 cron 噪音；人工操作只有 3 筆（refund / create_analyst / update_credentials）。**問題就是「該記的沒記、不該記的塞滿」**。
 
-這兩個盲點如果不處理，對帳數字會錯。Plan 裡會一併修。
+### B1. 噪音分離（migration）
 
-### 盲點 1：匯款退款不會反映在會計口徑
-`acpay-refund` 只 update `payment_transactions.status='refunded'`，但 `revenue_splits` 沒有反向沖銷紀錄。  
-**處理**：對帳中心顯示「退款」時，獨立從 `payment_transactions` 取，**不從 splits 扣**。在 UI 明確標示「淨收 ＝ revenue_splits 加總（不含退款）」，「實際淨收 ＝ 淨收 − 退款」分兩行呈現。會計師才不會被誤導。
+- 新增 `system_jobs_log` 表（同結構：`job_name / status / detail / ran_at`），給 cron 用
+- 改寫 cron edge functions（`stock-price-sync`、`update-daily-performance`、`daily-snapshot-cron`、`mentor-journal-publisher` 等）改寫入 `system_jobs_log`
+- `audit_logs` 從此只給「人」用
+- 一次性 SQL：把舊的 system action 從 `audit_logs` 搬到 `system_jobs_log`（保留歷史）
 
-### 盲點 2：早期遺留交易可能沒寫 splits
-`writeRevenueSplit` 是後加的（測試 1.34 才補上），歷史 `payment_transactions` 不一定都有對應 `revenue_splits`。  
-**處理**：總覽頁加一張「**對帳健康度**」小卡：`COUNT(payment_transactions WHERE status='paid') vs COUNT(revenue_splits)`，若不等顯示警示與「修補」按鈕（這次不實作修補，只先暴露問題）。
+### B2. 標準化記錄工具
 
-## 側邊欄與檔案動作
+新增 `src/lib/auditLog.ts`：
 
-- `CompanyLayout.tsx`：「營收數據」改名「**對帳中心**」（Receipt 圖示）
-- `src/pages/company/Revenue.tsx`：整檔重寫
-- `src/pages/company/Payments.tsx`：移除「交易紀錄」tab（搬到對帳中心金流明細頁籤），只保留「金流工具」管理。頁名改為「**金流工具**」
-- `App.tsx` route `/company/payments` 保留，內容瘦身
+```ts
+logAdminAction({
+  action: 'plan.approve',           // namespace.verb
+  targetType: 'expert_plan',
+  targetId: planId,
+  detail: {
+    before: {...}, after: {...},
+    context: { reason: '...' }
+  }
+})
+```
 
-## 不做的（明確劃掉）
-- 不建 `payouts` 撥款表、不做撥款流程（你說只做 A）
-- 不改 `revenue_splits` schema、不改 `paymentProcessor.ts` 寫入邏輯
-- 不補寫歷史缺漏的 splits（先暴露、不修）
-- 不改 `Subscribers.tsx`（那是會員視角，不是對帳）
+規範 namespace：`plan.* / payment.* / subscription.* / analyst.* / announcement.* / signal.* / setting.* / remittance.*`
 
-## 技術細節
+### B3. 補齊人工操作記錄點
 
-- 全部用 `supabase.from(...).select(... join ...)`，不寫 RPC（資料量初期不大）
-- 期間 default：當月 1 號 00:00 (UTC+8) 到現在
-- 列表分頁：每頁 50 筆，前端排序＋篩選
-- CSV 匯出沿用現有 BOM + `encodeURIComponent` 模式（Revenue.tsx 已有範本）
-- 顏色：金額正向 → primary；退款 → destructive；專家欄 mentor 用 `bg-mentor`、advisor 用 primary（依 Core memory）
-- 日期統一 `YYYY/MM/DD`（依 Core memory）
-- RLS 已就緒：`revenue_splits` / `payment_transactions` / `member_subscriptions` 都有 `company_admin full access`，不需新 policy
+在這些頁面/動作呼叫 `logAdminAction`：
+
+| 頁面 | 動作 |
+|---|---|
+| Plans.tsx | `plan.approve / plan.reject / plan.toggle_active / plan.cross_discount_update` |
+| PaymentSettings.tsx | `setting.split_default_update / setting.split_override_upsert` |
+| Payments.tsx | `setting.payment_provider_toggle / setting.remittance_account_update` |
+| Remittance.tsx | `remittance.confirm / remittance.reject` |
+| Subscribers.tsx | `subscription.admin_adjust / subscription.refund / subscription.cancel` |
+| Announcements.tsx | `announcement.publish / announcement.delete` |
+| Analysts.tsx | `analyst.create / analyst.suspend / analyst.activate / analyst.update_credentials` |
+| Signals (admin 介入) | `signal.admin_takedown` |
+
+### B4. UI 全面重做（`AuditLogs.tsx`）
+
+替換現在的版本：
+
+- **動態篩選器**：從 DB `SELECT DISTINCT action, target_type` 動態組出，不再 hardcode
+- **時間範圍**：今天 / 7 天 / 30 天 / 自訂
+- **操作者篩選**：下拉選 admin
+- **人話描述**：`formatAuditAction(log)` 把 `plan.approve` + detail 翻成「核准方案《XXX》（分析師：王小明）」
+- **Before / After diff**：左右兩欄 key-by-key 對照，差異紅綠標示（用台股慣例：紅=新值、綠=舊值會混淆，這裡改用中性藍/灰）→ 改用 **灰=before、橘=after**（避開漲跌色衝突）
+- **資源連結**：每筆 log 右側「→ 前往」按鈕直達該 plan / subscription / announcement
+- **匯出 CSV**：篩選後的結果可下載
+
+### B5. 系統工作監控（次要）
+
+新增 `/company/system-jobs` 頁（純檢視）顯示 `system_jobs_log`，給 dev 看 cron 是否正常。側邊欄放在「審計日記」下面，較不顯眼。
+
+---
+
+## 執行順序
+
+1. **A1+A2+A3 設定重組**（1 次 commit，純前端 + payment_settings key 沿用）
+2. **B1 migration**（新表 + 資料搬移）
+3. **B2 helper + B3 instrumentation**（一次串完所有人工操作點）
+4. **B4 UI 重做**（AuditLogs.tsx 整個換）
+5. **改寫 cron edge functions** 寫入 system_jobs_log
+6. **B5 system-jobs 監控頁**
+
+---
+
+## 不做的事（明確排除）
+
+- 不改 audit_logs schema 既有欄位（`action / target_type / target_id / detail / actor_id` 已夠用）
+- 不加 RLS 改動（既有 company_admin only 已正確）
+- 不為了 diff 而強制所有舊 detail 補 before/after（舊資料保持原樣，formatter 容錯）
+- 不動 `/company/remittance` 訂單審核頁（匯款帳戶設定 ≠ 匯款訂單審核，分清楚）
+
+確認 → 我直接全部做完。

@@ -1530,6 +1530,33 @@ export type Database = {
         }
         Relationships: []
       }
+      system_jobs_log: {
+        Row: {
+          detail: Json | null
+          duration_ms: number | null
+          id: string
+          job_name: string
+          ran_at: string
+          status: string
+        }
+        Insert: {
+          detail?: Json | null
+          duration_ms?: number | null
+          id?: string
+          job_name: string
+          ran_at?: string
+          status?: string
+        }
+        Update: {
+          detail?: Json | null
+          duration_ms?: number | null
+          id?: string
+          job_name?: string
+          ran_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       trade_records: {
         Row: {
           created_at: string
