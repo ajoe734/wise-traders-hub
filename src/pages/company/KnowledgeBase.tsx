@@ -215,7 +215,7 @@ export default function KnowledgeBasePage() {
               <Brain className="h-6 w-6" /> 持倉看板知識庫
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              共 {items.length} 條 · 雲端為權威來源 · AI 分析會即時注入到 prompt
+              共 {items.length} 條 · 近 7 天命中 {Object.values(usage).reduce((s, u) => s + (u.hit_count_7d ?? 0), 0)} 次 · 雲端為權威來源
             </p>
           </div>
           <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />新增條目</Button>
