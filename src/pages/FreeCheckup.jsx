@@ -434,6 +434,13 @@ export default function App() {
     const t = setInterval(() => setQuotaTick(n => n + 1), 60000);
     return () => clearInterval(t);
   }, []);
+  // ESC 關閉配額 Modal
+  useEffect(() => {
+    if (!quotaModal) return;
+    const onKey = (e) => { if (e.key === 'Escape') setQuotaModal(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [quotaModal]);
   const [ready, setReady] = useState(false);
 
   // persistent state
