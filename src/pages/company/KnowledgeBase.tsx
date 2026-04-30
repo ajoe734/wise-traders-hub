@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Brain, Activity } from 'lucide-react';
+import { Plus, Pencil, Trash2, Brain, Activity, Sparkles, Check, X, Loader2, TrendingUp } from 'lucide-react';
 import { logAdminAction } from '@/lib/auditLog';
 
 const CATEGORIES = [
@@ -44,6 +44,37 @@ interface KnowledgeItem {
   is_active: boolean;
   version: number;
   updated_at: string;
+  trigger_condition: any;
+  expected_outcome: any;
+  win_rate: number | null;
+  sample_size: number;
+  source_type: string;
+  industry_tags: string[];
+  time_horizon: string | null;
+}
+
+interface Candidate {
+  id: string;
+  category: Category;
+  item_id: string | null;
+  title: string;
+  fact: string;
+  interpretation: string | null;
+  action: string | null;
+  lessons: string | null;
+  return_pct: number | null;
+  outcome: string | null;
+  confidence: number;
+  tags: string[];
+  trigger_condition: any;
+  expected_outcome: any;
+  industry_tags: string[];
+  time_horizon: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  source_type: string;
+  source_meta: any;
+  reviewer_note: string | null;
+  created_at: string;
 }
 
 const emptyItem = (category: Category): Partial<KnowledgeItem> => ({
@@ -59,6 +90,8 @@ const emptyItem = (category: Category): Partial<KnowledgeItem> => ({
   confidence: 0.75,
   tags: [],
   is_active: true,
+  industry_tags: [],
+  time_horizon: '',
 });
 
 interface UsageStat {
@@ -70,17 +103,23 @@ interface UsageStat {
 
 export default function KnowledgeBasePage() {
   const [items, setItems] = useState<KnowledgeItem[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [usage, setUsage] = useState<Record<string, UsageStat>>({});
   const [loading, setLoading] = useState(true);
   const [activeCat, setActiveCat] = useState<Category>('chip_analysis');
   const [editing, setEditing] = useState<Partial<KnowledgeItem> | null>(null);
   const [tagsInput, setTagsInput] = useState('');
+  const [industryTagsInput, setIndustryTagsInput] = useState('');
+  const [drafting, setDrafting] = useState(false);
+  const [draftCount, setDraftCount] = useState(10);
+  const [mainTab, setMainTab] = useState<'items' | 'candidates'>('items');
 
   async function load() {
     setLoading(true);
-    const [itemsRes, usageRes] = await Promise.all([
+    const [itemsRes, usageRes, candRes] = await Promise.all([
       supabase.from('checkup_knowledge_items').select('*').order('category').order('item_id'),
       supabase.from('checkup_knowledge_usage_stats' as any).select('*'),
+      supabase.from('checkup_knowledge_candidates' as any).select('*').order('created_at', { ascending: false }),
     ]);
     if (itemsRes.error) {
       toast.error('讀取失敗：' + itemsRes.error.message);
@@ -93,6 +132,9 @@ export default function KnowledgeBasePage() {
         map[row.knowledge_item_id] = row as UsageStat;
       }
       setUsage(map);
+    }
+    if (!candRes.error && Array.isArray(candRes.data)) {
+      setCandidates(candRes.data as any);
     }
     setLoading(false);
   }
@@ -108,13 +150,20 @@ export default function KnowledgeBasePage() {
     return m;
   }, [items]);
 
+  const pendingCandidates = useMemo(
+    () => candidates.filter(c => c.status === 'pending'),
+    [candidates],
+  );
+
   function openNew() {
     setEditing(emptyItem(activeCat));
     setTagsInput('');
+    setIndustryTagsInput('');
   }
   function openEdit(item: KnowledgeItem) {
     setEditing({ ...item });
     setTagsInput((item.tags ?? []).join(', '));
+    setIndustryTagsInput((item.industry_tags ?? []).join(', '));
   }
 
   async function save() {
@@ -125,6 +174,7 @@ export default function KnowledgeBasePage() {
       return;
     }
     const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+    const industryTags = industryTagsInput.split(',').map(t => t.trim()).filter(Boolean);
     const payload: any = {
       category: e.category,
       item_id: e.item_id,
@@ -137,6 +187,10 @@ export default function KnowledgeBasePage() {
       outcome: e.outcome ?? null,
       confidence: e.confidence ?? 0.75,
       tags,
+      industry_tags: industryTags,
+      time_horizon: e.time_horizon || null,
+      trigger_condition: (e as any).trigger_condition ?? null,
+      expected_outcome: (e as any).expected_outcome ?? null,
       is_active: e.is_active ?? true,
     };
 
@@ -206,96 +260,240 @@ export default function KnowledgeBasePage() {
     load();
   }
 
+  async function draftWithClaude() {
+    setDrafting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('knowledge-draft-claude', {
+        body: { category: activeCat, count: draftCount },
+      });
+      if (error) throw error;
+      toast.success(`Claude 草擬完成：新增 ${data?.inserted ?? 0} 條候選`);
+      setMainTab('candidates');
+      load();
+    } catch (err: any) {
+      toast.error('草擬失敗：' + (err?.message ?? String(err)));
+    } finally {
+      setDrafting(false);
+    }
+  }
+
+  async function approveCandidate(c: Candidate) {
+    // 推進到正式 items；item_id 若無則自動命名
+    const itemId = c.item_id || `${c.category.split('_')[0]}-${Date.now().toString(36)}`;
+    const payload: any = {
+      category: c.category,
+      item_id: itemId,
+      title: c.title,
+      fact: c.fact,
+      interpretation: c.interpretation,
+      action: c.action,
+      lessons: c.lessons,
+      return_pct: c.return_pct,
+      outcome: c.outcome,
+      confidence: c.confidence,
+      tags: c.tags ?? [],
+      industry_tags: c.industry_tags ?? [],
+      time_horizon: c.time_horizon,
+      trigger_condition: c.trigger_condition,
+      expected_outcome: c.expected_outcome,
+      source_type: c.source_type ?? 'ai_draft',
+      is_active: true,
+    };
+    const ins = await supabase.from('checkup_knowledge_items').insert(payload).select().single();
+    if (ins.error) {
+      toast.error('核可失敗：' + ins.error.message);
+      return;
+    }
+    await supabase.from('checkup_knowledge_candidates' as any)
+      .update({ status: 'approved', reviewed_at: new Date().toISOString() })
+      .eq('id', c.id);
+    await logAdminAction({
+      action: 'knowledge.candidate.approve',
+      targetType: 'checkup_knowledge_candidates',
+      targetId: c.id,
+      detail: { promoted_to: ins.data?.id },
+    });
+    toast.success('已核可並寫入正式知識庫');
+    load();
+  }
+
+  async function rejectCandidate(c: Candidate) {
+    const note = prompt('退回原因（選填）：') ?? '';
+    await supabase.from('checkup_knowledge_candidates' as any)
+      .update({ status: 'rejected', reviewer_note: note, reviewed_at: new Date().toISOString() })
+      .eq('id', c.id);
+    await logAdminAction({
+      action: 'knowledge.candidate.reject',
+      targetType: 'checkup_knowledge_candidates',
+      targetId: c.id,
+      detail: { reason: note },
+    });
+    toast.success('已退回');
+    load();
+  }
+
   return (
     <CompanyLayout>
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Brain className="h-6 w-6" /> 持倉看板知識庫
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              共 {items.length} 條 · 近 7 天命中 {Object.values(usage).reduce((s, u) => s + (u.hit_count_7d ?? 0), 0)} 次 · 雲端為權威來源
+              正式 {items.length} 條 · 候選待審 {pendingCandidates.length} 條 · 近 7 天命中 {Object.values(usage).reduce((s, u) => s + (u.hit_count_7d ?? 0), 0)} 次
             </p>
           </div>
-          <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />新增條目</Button>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number" min={1} max={20} value={draftCount}
+              onChange={(e) => setDraftCount(Math.max(1, Math.min(20, Number(e.target.value) || 10)))}
+              className="w-20"
+            />
+            <Button onClick={draftWithClaude} disabled={drafting} variant="outline">
+              {drafting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
+              Claude 起草（{CATEGORIES.find(c => c.key === activeCat)?.label}）
+            </Button>
+            <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />新增條目</Button>
+          </div>
         </div>
 
-        <Tabs value={activeCat} onValueChange={(v) => setActiveCat(v as Category)}>
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as any)}>
           <TabsList>
-            {CATEGORIES.map(c => (
-              <TabsTrigger key={c.key} value={c.key}>
-                {c.label} ({grouped[c.key]?.length ?? 0})
-              </TabsTrigger>
-            ))}
+            <TabsTrigger value="items">正式知識庫 ({items.length})</TabsTrigger>
+            <TabsTrigger value="candidates">候選審核 ({pendingCandidates.length})</TabsTrigger>
           </TabsList>
 
-          {CATEGORIES.map(c => (
-            <TabsContent key={c.key} value={c.key} className="space-y-2 mt-4">
-              {loading && <p className="text-sm text-muted-foreground">載入中…</p>}
-              {!loading && grouped[c.key].length === 0 && (
-                <p className="text-sm text-muted-foreground">尚無條目</p>
-              )}
-              {grouped[c.key].map(item => (
-                <div key={item.id} className="border rounded-lg p-4 bg-card">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <code className="text-xs text-muted-foreground">{item.item_id}</code>
-                        <span className="font-medium">{item.title}</span>
-                        <Badge variant="outline">v{item.version}</Badge>
-                        <Badge variant={item.is_active ? 'default' : 'secondary'}>
-                          {item.is_active ? '啟用' : '停用'}
-                        </Badge>
-                        <Badge variant="outline">
-                          信心 {((item.confidence ?? 0) * 100).toFixed(0)}%
-                        </Badge>
-                        {(() => {
-                          const u = usage[item.id];
-                          const total = u?.hit_count ?? 0;
-                          const recent = u?.hit_count_7d ?? 0;
-                          if (total === 0) {
-                            return <Badge variant="outline" className="text-muted-foreground">未被使用</Badge>;
-                          }
-                          return (
-                            <Badge variant={recent > 0 ? 'default' : 'secondary'} className="gap-1">
-                              <Activity className="h-3 w-3" />
-                              使用中 · 7天 {recent} / 累計 {total}
+          <TabsContent value="items" className="space-y-4 mt-4">
+            <Tabs value={activeCat} onValueChange={(v) => setActiveCat(v as Category)}>
+              <TabsList>
+                {CATEGORIES.map(c => (
+                  <TabsTrigger key={c.key} value={c.key}>
+                    {c.label} ({grouped[c.key]?.length ?? 0})
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              {CATEGORIES.map(c => (
+                <TabsContent key={c.key} value={c.key} className="space-y-2 mt-4">
+                  {loading && <p className="text-sm text-muted-foreground">載入中…</p>}
+                  {!loading && grouped[c.key].length === 0 && (
+                    <p className="text-sm text-muted-foreground">尚無條目，可用上方「Claude 起草」批次產生候選。</p>
+                  )}
+                  {grouped[c.key].map(item => (
+                    <div key={item.id} className="border rounded-lg p-4 bg-card">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <code className="text-xs text-muted-foreground">{item.item_id}</code>
+                            <span className="font-medium">{item.title}</span>
+                            <Badge variant="outline">v{item.version}</Badge>
+                            <Badge variant={item.is_active ? 'default' : 'secondary'}>
+                              {item.is_active ? '啟用' : '停用'}
                             </Badge>
-                          );
-                        })()}
-                        {usage[item.id]?.last_hit_at && (
-                          <span className="text-xs text-muted-foreground">
-                            最近：{new Date(usage[item.id].last_hit_at!).toLocaleString('zh-TW', { hour12: false })}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm mt-2 text-muted-foreground line-clamp-2">{item.fact}</p>
-                      {item.tags && item.tags.length > 0 && (
-                        <div className="flex gap-1 mt-2 flex-wrap">
-                          {item.tags.map(t => (
-                            <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
-                          ))}
+                            <Badge variant="outline">
+                              信心 {((item.confidence ?? 0) * 100).toFixed(0)}%
+                            </Badge>
+                            {typeof item.win_rate === 'number' && item.sample_size >= 1 && (
+                              <Badge variant="outline" className="gap-1">
+                                <TrendingUp className="h-3 w-3" />
+                                勝率 {(item.win_rate * 100).toFixed(0)}% (n={item.sample_size})
+                              </Badge>
+                            )}
+                            {item.source_type && item.source_type !== 'editorial' && (
+                              <Badge variant="secondary">{item.source_type}</Badge>
+                            )}
+                            {(() => {
+                              const u = usage[item.id];
+                              const total = u?.hit_count ?? 0;
+                              const recent = u?.hit_count_7d ?? 0;
+                              if (total === 0) {
+                                return <Badge variant="outline" className="text-muted-foreground">未被使用</Badge>;
+                              }
+                              return (
+                                <Badge variant={recent > 0 ? 'default' : 'secondary'} className="gap-1">
+                                  <Activity className="h-3 w-3" />
+                                  使用中 · 7天 {recent} / 累計 {total}
+                                </Badge>
+                              );
+                            })()}
+                          </div>
+                          <p className="text-sm mt-2 text-muted-foreground line-clamp-2">{item.fact}</p>
+                          {item.tags && item.tags.length > 0 && (
+                            <div className="flex gap-1 mt-2 flex-wrap">
+                              {item.tags.map(t => (
+                                <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Switch
+                            checked={item.is_active}
+                            onCheckedChange={() => toggleActive(item)}
+                          />
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => remove(item)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Switch
-                        checked={item.is_active}
-                        onCheckedChange={() => toggleActive(item)}
-                      />
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => remove(item)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                  ))}
+                </TabsContent>
+              ))}
+            </Tabs>
+          </TabsContent>
+
+          <TabsContent value="candidates" className="space-y-2 mt-4">
+            {pendingCandidates.length === 0 && (
+              <p className="text-sm text-muted-foreground">目前沒有待審候選。可用上方「Claude 起草」批次產生。</p>
+            )}
+            {pendingCandidates.map(c => (
+              <div key={c.id} className="border rounded-lg p-4 bg-card">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline">{CATEGORIES.find(x => x.key === c.category)?.label ?? c.category}</Badge>
+                      <span className="font-medium">{c.title}</span>
+                      <Badge variant="secondary">{c.source_type}</Badge>
+                      <Badge variant="outline">信心 {(c.confidence * 100).toFixed(0)}%</Badge>
+                      {c.time_horizon && <Badge variant="outline">{c.time_horizon}</Badge>}
                     </div>
+                    <p className="text-sm mt-2"><span className="text-muted-foreground">事實：</span>{c.fact}</p>
+                    {c.interpretation && <p className="text-sm mt-1"><span className="text-muted-foreground">解讀：</span>{c.interpretation}</p>}
+                    {c.action && <p className="text-sm mt-1"><span className="text-muted-foreground">行動：</span>{c.action}</p>}
+                    {c.trigger_condition && (
+                      <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-x-auto">
+                        觸發條件：{JSON.stringify(c.trigger_condition, null, 2)}
+                      </pre>
+                    )}
+                    {c.expected_outcome && (
+                      <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-x-auto">
+                        預期結果：{JSON.stringify(c.expected_outcome, null, 2)}
+                      </pre>
+                    )}
+                    {(c.tags?.length > 0 || c.industry_tags?.length > 0) && (
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {c.tags?.map(t => (<Badge key={'t-' + t} variant="secondary" className="text-xs">{t}</Badge>))}
+                        {c.industry_tags?.map(t => (<Badge key={'i-' + t} variant="outline" className="text-xs">#{t}</Badge>))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button size="sm" onClick={() => approveCandidate(c)}>
+                      <Check className="h-4 w-4 mr-1" />核可
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => rejectCandidate(c)}>
+                      <X className="h-4 w-4 mr-1" />退回
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </TabsContent>
-          ))}
+              </div>
+            ))}
+          </TabsContent>
         </Tabs>
 
         <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
@@ -389,7 +587,7 @@ export default function KnowledgeBasePage() {
                     </div>
                   </>
                 )}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Label>信心度（0–1）</Label>
                     <Input type="number" min={0} max={1} step="0.01"
@@ -397,12 +595,28 @@ export default function KnowledgeBasePage() {
                       onChange={(e) => setEditing({ ...editing, confidence: Number(e.target.value) })}
                     />
                   </div>
+                  <div>
+                    <Label>時間視野</Label>
+                    <Select
+                      value={editing.time_horizon ?? ''}
+                      onValueChange={(v) => setEditing({ ...editing, time_horizon: v })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="未設定" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="intraday">當沖</SelectItem>
+                        <SelectItem value="short">短線 (1-5d)</SelectItem>
+                        <SelectItem value="swing">波段 (1-4w)</SelectItem>
+                        <SelectItem value="medium">中線 (1-3m)</SelectItem>
+                        <SelectItem value="long">{'長線 (>3m)'}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex items-end gap-2 pb-1">
                     <Switch
                       checked={editing.is_active ?? true}
                       onCheckedChange={(v) => setEditing({ ...editing, is_active: v })}
                     />
-                    <Label>啟用（停用則不會注入 prompt）</Label>
+                    <Label>啟用</Label>
                   </div>
                 </div>
                 <div>
@@ -411,6 +625,40 @@ export default function KnowledgeBasePage() {
                     value={tagsInput}
                     onChange={(e) => setTagsInput(e.target.value)}
                     placeholder="半導體, 庫存, 週期"
+                  />
+                </div>
+                <div>
+                  <Label>產業標籤（以逗號分隔）</Label>
+                  <Input
+                    value={industryTagsInput}
+                    onChange={(e) => setIndustryTagsInput(e.target.value)}
+                    placeholder="semiconductor, biotech, shipping"
+                  />
+                </div>
+                <div>
+                  <Label>觸發條件 (trigger_condition, JSON)</Label>
+                  <Textarea rows={3}
+                    value={(editing as any).trigger_condition ? JSON.stringify((editing as any).trigger_condition, null, 2) : ''}
+                    onChange={(e) => {
+                      try {
+                        const v = e.target.value.trim() ? JSON.parse(e.target.value) : null;
+                        setEditing({ ...editing, trigger_condition: v } as any);
+                      } catch { /* 暫存原文 */ }
+                    }}
+                    placeholder='{"foreign_buy_days": ">=3", "volume_ratio": ">1.5"}'
+                  />
+                </div>
+                <div>
+                  <Label>預期結果 (expected_outcome, JSON)</Label>
+                  <Textarea rows={3}
+                    value={(editing as any).expected_outcome ? JSON.stringify((editing as any).expected_outcome, null, 2) : ''}
+                    onChange={(e) => {
+                      try {
+                        const v = e.target.value.trim() ? JSON.parse(e.target.value) : null;
+                        setEditing({ ...editing, expected_outcome: v } as any);
+                      } catch { /* 暫存原文 */ }
+                    }}
+                    placeholder='{"direction": "up", "magnitude_pct": 5, "horizon_days": 10}'
                   />
                 </div>
               </div>
