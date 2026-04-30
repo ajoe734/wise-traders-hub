@@ -2984,6 +2984,42 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }}>升級 →</a>
                   )}
                 </div>
+                {remain === 1 && showUpgrade && (
+                  <div style={{
+                    marginTop:8,
+                    padding:"6px 10px",
+                    background:alpha(C.amber,'10'),
+                    border:`1px solid ${alpha(C.amber,'40')}`,
+                    borderRadius:6,
+                    fontSize:11,color:C.text,letterSpacing:"0.02em",lineHeight:1.6,
+                    display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",
+                  }}>
+                    <span>⚡</span>
+                    <span style={{fontWeight:500}}>最後一次</span>
+                    <span style={{color:C.textSec}}>用完前先升級，下期不間斷</span>
+                  </div>
+                )}
+                {remain === 0 && showUpgrade && (
+                  <div style={{
+                    marginTop:8,
+                    padding:"8px 10px",
+                    background:alpha(C.blue,'08'),
+                    border:`1px solid ${alpha(C.blue,'40')}`,
+                    borderRadius:6,
+                    fontSize:11,color:C.text,letterSpacing:"0.02em",lineHeight:1.6,
+                    display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",
+                  }}>
+                    <span style={{color:C.textSec}}>
+                      {tier === 'free'
+                        ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
+                        : '升級 Pro 即可每月使用 22 次'}
+                    </span>
+                    <a href="/pricing#checkup" style={{
+                      fontSize:11,fontWeight:500,color:"#fff",background:C.blue,
+                      padding:"4px 10px",borderRadius:4,textDecoration:"none",letterSpacing:"0.02em",whiteSpace:"nowrap",
+                    }}>{tier === 'free' ? '查看升級方案' : '升級 Pro'}</a>
+                  </div>
+                )}
                 <div style={{fontSize:10,color:C.textMute,marginTop:6,opacity:0.7,letterSpacing:"0.02em"}}>
                   截圖解析・收盤分析・新聞彙整・事件預測共用此配額
                 </div>
