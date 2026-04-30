@@ -371,7 +371,7 @@ async function save(key, data, userId) {
 // ── Main ─────────────────────────────────────────────────────────
 export default function App() {
   const navigate = useNavigate();
-  const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData } = useCheckupMode();
+  const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
   const [ready, setReady] = useState(false);
 
