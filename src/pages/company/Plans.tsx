@@ -76,8 +76,14 @@ export default function CompanyPlans() {
   const [rows, setRows] = useState<PlanRow[]>([]);
   const [defaultRule, setDefaultRule] = useState<DefaultRule>({ pct_platform: 55, pct_expert: 45 });
   const [loading, setLoading] = useState(true);
+  const [outerTab, setOuterTab] = useState<'plans' | 'cross_discounts'>('plans');
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
   const [acting, setActing] = useState(false);
+
+  // Cross-product discounts
+  const [cross, setCross] = useState<Record<string, number>>({});
+  const [crossOriginal, setCrossOriginal] = useState<Record<string, number>>({});
+  const [savingCross, setSavingCross] = useState(false);
 
   // Detail sheet
   const [openId, setOpenId] = useState<string | null>(null);
