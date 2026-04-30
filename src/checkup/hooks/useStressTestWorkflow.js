@@ -60,6 +60,10 @@ export function useStressTestWorkflow({
         buildDailyHoldingDossierContext,
       })
 
+
+      // 記錄壓力測試命中的知識條目（不阻擋主流程）
+      flushKnowledgeHits({ context: 'stress_test' }).catch(() => {})
+
       const data = await runStressTestRequest(
         buildStressTestRequestBody({
           holdingSummary,
