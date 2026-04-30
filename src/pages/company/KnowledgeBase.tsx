@@ -340,6 +340,97 @@ export default function KnowledgeBasePage() {
     load();
   }
 
+  async function runBacktest(item: KnowledgeItem) {
+    if (!item.trigger_condition?.type) {
+      toast.error('此條目無 trigger_condition.type，無法回測');
+      return;
+    }
+    setBacktesting(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('knowledge-backtest', {
+        body: { mode: 'single', item_id: item.id },
+      });
+      if (error) throw error;
+      if (data?.error === 'INSUFFICIENT_DATA') {
+        toast.error(data.message || '歷史資料不足');
+      } else {
+        const stats = data?.results?.[0]?.stats;
+        toast.success(`回測完成：命中 ${stats?.total_hits ?? 0} 筆，勝率 ${stats?.win_rate != null ? (stats.win_rate * 100).toFixed(1) + '%' : 'N/A'}`);
+      }
+      load();
+    } catch (err: any) {
+      toast.error('回測失敗：' + (err?.message ?? String(err)));
+    } finally {
+      setBacktesting(null);
+    }
+  }
+
+  async function runGridSearch(item: KnowledgeItem) {
+    if (!item.trigger_condition?.type) {
+      toast.error('此條目無 trigger_condition.type，無法網格搜尋');
+      return;
+    }
+    const promote = window.confirm('找到更佳參數時是否自動歸檔舊版並升級？\n（按「確定」=自動升級；按「取消」=只跑搜尋不升級）');
+    setGridSearching(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('knowledge-backtest', {
+        body: { mode: 'grid_search', item_id: item.id, promote_if_better: promote },
+      });
+      if (error) throw error;
+      const best = data?.best;
+      if (data?.promoted) {
+        toast.success(`已升級到 v+1：勝率 ${(best?.stats?.win_rate * 100).toFixed(1)}%`);
+      } else {
+        toast.success(`網格搜尋完成（${data?.grid_size ?? 0} 組），最佳勝率 ${best?.stats?.win_rate != null ? (best.stats.win_rate * 100).toFixed(1) + '%' : 'N/A'}`);
+      }
+      load();
+    } catch (err: any) {
+      toast.error('網格搜尋失敗：' + (err?.message ?? String(err)));
+    } finally {
+      setGridSearching(null);
+    }
+  }
+
+  async function runBackfill() {
+    if (!window.confirm('將從 TWSE 拉取近 36 個月日 K 資料，需要分多次執行（每次 ~50 秒）。確定開始？')) return;
+    setBackfilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('backfill-daily-snapshots', {
+        body: { months: 36 },
+      });
+      if (error) throw error;
+      toast.success(`回填完成：寫入 ${data?.rows_inserted ?? 0} 筆${data?.partial ? '（未完成，請再次點擊繼續）' : ''}`);
+    } catch (err: any) {
+      toast.error('回填失敗：' + (err?.message ?? String(err)));
+    } finally {
+      setBackfilling(false);
+    }
+  }
+
+  // ---- 報表分頁衍生資料 ----
+  const backtestReport = useMemo(() => {
+    const backtestable = items.filter(i => (i as any).backtestable && i.is_active);
+    const withSamples = backtestable.filter(i => (i.sample_size ?? 0) >= 30);
+    const distribution = { excellent: 0, good: 0, fair: 0, poor: 0, untested: 0 };
+    const toArchive: KnowledgeItem[] = [];
+    const toOptimize: KnowledgeItem[] = [];
+    for (const it of backtestable) {
+      const wr = it.win_rate;
+      if (wr == null || (it.sample_size ?? 0) < 30) {
+        distribution.untested++;
+        continue;
+      }
+      if (wr >= 0.7) distribution.excellent++;
+      else if (wr >= 0.55) distribution.good++;
+      else if (wr >= 0.45) distribution.fair++;
+      else distribution.poor++;
+
+      if (wr < 0.45) toArchive.push(it);
+      else if (wr >= 0.45 && wr < 0.6) toOptimize.push(it);
+    }
+    return { backtestable, withSamples, distribution, toArchive, toOptimize };
+  }, [items]);
+
   return (
     <CompanyLayout>
       <div className="p-6 space-y-6">
