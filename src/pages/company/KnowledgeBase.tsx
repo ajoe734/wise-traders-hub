@@ -112,7 +112,11 @@ export default function KnowledgeBasePage() {
   const [industryTagsInput, setIndustryTagsInput] = useState('');
   const [drafting, setDrafting] = useState(false);
   const [draftCount, setDraftCount] = useState(10);
-  const [mainTab, setMainTab] = useState<'items' | 'candidates'>('items');
+  const [mainTab, setMainTab] = useState<'items' | 'candidates' | 'backtest'>('items');
+  const [backtestRuns, setBacktestRuns] = useState<any[]>([]);
+  const [backtesting, setBacktesting] = useState<string | null>(null);  // item id being backtested
+  const [gridSearching, setGridSearching] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
 
   async function load() {
     setLoading(true);
