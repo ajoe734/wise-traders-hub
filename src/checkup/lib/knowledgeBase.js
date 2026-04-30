@@ -178,7 +178,9 @@ export function getRelevantCases(stockMeta = {}, { maxItems = 2 } = {}) {
       item.tags?.some((t) => tags.includes(t))
   )
 
-  return items.slice(0, maxItems)
+  const result = items.slice(0, maxItems)
+  rememberHits(result, 'strategy_cases')
+  return result
 }
 
 export function formatKnowledgeItem(item) {
