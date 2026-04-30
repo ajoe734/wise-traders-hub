@@ -5393,16 +5393,24 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </button>
             </div>
           )}
-          {/* 每日限制提示 */}
+          {/* 配額用盡提示 — 結合具體重置時間與升級路徑 */}
           {hasReachedDailyLimit && !isDemo && (
-            <div style={{marginBottom:16, padding:"20px 16px", background:alpha(C.blue,'06'), borderRadius:10, textAlign:"center"}}>
+            <div style={{
+              marginBottom:16, padding:"20px 16px",
+              background:alpha(C.blue,'06'), border:`1px solid ${alpha(C.blue,'25')}`,
+              borderRadius:10, textAlign:"center",
+            }}>
               <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
-                {periodLabel} AI 健檢配額已用完（{tierLabel}）
+                {tier === 'free'  && '本月 1 次 AI 健檢已用完'}
+                {tier === 'basic' && '本週 1 次 AI 健檢已用完'}
+                {tier === 'pro'   && '本月 22 次 AI 健檢已用完'}
               </div>
-              <div style={{fontSize:12,color:C.textMute,lineHeight:1.6,marginBottom:tier==='free'?12:0}}>
-                {tier === 'free' && '免費版每月 1 次・Basic 每週 1 次・Pro 每月 22 次'}
-                {tier === 'basic' && '本週配額已用完，下週一 00:00 重置；或升級 Pro 獲得每月 22 次'}
-                {tier === 'pro' && '本月配額已用完，下月 1 日 00:00 重置'}
+              <div style={{fontSize:12,color:C.textMute,lineHeight:1.7,marginBottom:(tier==='free'||tier==='basic')?12:0}}>
+                重置時間：<span style={{color:C.textSec}}>{formatResetDateTime(quota?.resets_at) || '—'}</span>
+                <br/>
+                <span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
+                {tier === 'free'  && <><br/>想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）</>}
+                {tier === 'basic' && <><br/>升級 Pro 即可每月使用 22 次</>}
               </div>
               {(tier === 'free' || tier === 'basic') && (
                 <a href="/checkup-checkout" style={{
@@ -5411,7 +5419,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   borderRadius:8, padding:"9px 22px", fontSize:12, fontWeight:500,
                   textDecoration:"none", letterSpacing:"0.02em",
                 }}>
-                  升級方案
+                  {tier === 'free' ? '查看升級方案' : '升級 Pro'}
                 </a>
               )}
             </div>
