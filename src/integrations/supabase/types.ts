@@ -206,6 +206,10 @@ export type Database = {
       checkup_knowledge_items: {
         Row: {
           action: string | null
+          archived_at: string | null
+          backtest_run_at: string | null
+          backtest_stats: Json | null
+          backtestable: boolean
           category: string
           confidence: number | null
           created_at: string | null
@@ -219,6 +223,7 @@ export type Database = {
           last_validated_at: string | null
           lessons: string | null
           outcome: string | null
+          parent_item_id: string | null
           return_pct: number | null
           sample_size: number
           source_type: string
@@ -226,12 +231,17 @@ export type Database = {
           time_horizon: string | null
           title: string
           trigger_condition: Json | null
+          universe_size: number | null
           updated_at: string | null
           version: number
           win_rate: number | null
         }
         Insert: {
           action?: string | null
+          archived_at?: string | null
+          backtest_run_at?: string | null
+          backtest_stats?: Json | null
+          backtestable?: boolean
           category: string
           confidence?: number | null
           created_at?: string | null
@@ -245,6 +255,7 @@ export type Database = {
           last_validated_at?: string | null
           lessons?: string | null
           outcome?: string | null
+          parent_item_id?: string | null
           return_pct?: number | null
           sample_size?: number
           source_type?: string
@@ -252,12 +263,17 @@ export type Database = {
           time_horizon?: string | null
           title: string
           trigger_condition?: Json | null
+          universe_size?: number | null
           updated_at?: string | null
           version?: number
           win_rate?: number | null
         }
         Update: {
           action?: string | null
+          archived_at?: string | null
+          backtest_run_at?: string | null
+          backtest_stats?: Json | null
+          backtestable?: boolean
           category?: string
           confidence?: number | null
           created_at?: string | null
@@ -271,6 +287,7 @@ export type Database = {
           last_validated_at?: string | null
           lessons?: string | null
           outcome?: string | null
+          parent_item_id?: string | null
           return_pct?: number | null
           sample_size?: number
           source_type?: string
@@ -278,11 +295,27 @@ export type Database = {
           time_horizon?: string | null
           title?: string
           trigger_condition?: Json | null
+          universe_size?: number | null
           updated_at?: string | null
           version?: number
           win_rate?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "checkup_knowledge_items_parent_item_id_fkey"
+            columns: ["parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkup_knowledge_items_parent_item_id_fkey"
+            columns: ["parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_usage_stats"
+            referencedColumns: ["knowledge_item_id"]
+          },
+        ]
       }
       checkup_knowledge_validations: {
         Row: {
@@ -622,36 +655,48 @@ export type Database = {
           change_percent: number | null
           close_price: number | null
           created_at: string
+          high_price: number | null
           id: string
           is_limit_up: boolean
           limit_up_price: number | null
+          low_price: number | null
+          open_price: number | null
           symbol: string
           trade_date: string
           volume: number | null
+          volume_ma5: number | null
           yesterday_close: number | null
         }
         Insert: {
           change_percent?: number | null
           close_price?: number | null
           created_at?: string
+          high_price?: number | null
           id?: string
           is_limit_up?: boolean
           limit_up_price?: number | null
+          low_price?: number | null
+          open_price?: number | null
           symbol: string
           trade_date: string
           volume?: number | null
+          volume_ma5?: number | null
           yesterday_close?: number | null
         }
         Update: {
           change_percent?: number | null
           close_price?: number | null
           created_at?: string
+          high_price?: number | null
           id?: string
           is_limit_up?: boolean
           limit_up_price?: number | null
+          low_price?: number | null
+          open_price?: number | null
           symbol?: string
           trade_date?: string
           volume?: number | null
+          volume_ma5?: number | null
           yesterday_close?: number | null
         }
         Relationships: []
@@ -1080,6 +1125,148 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      knowledge_backtest_runs: {
+        Row: {
+          avg_return_pct: number | null
+          completed_at: string | null
+          created_at: string
+          date_range_end: string | null
+          date_range_start: string | null
+          details: Json | null
+          error_message: string | null
+          id: string
+          knowledge_item_id: string | null
+          loss_count: number
+          max_drawdown: number | null
+          median_return_pct: number | null
+          parameters: Json | null
+          run_mode: string
+          status: string
+          total_hits: number
+          universe_size: number | null
+          win_count: number
+          win_rate: number | null
+        }
+        Insert: {
+          avg_return_pct?: number | null
+          completed_at?: string | null
+          created_at?: string
+          date_range_end?: string | null
+          date_range_start?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          knowledge_item_id?: string | null
+          loss_count?: number
+          max_drawdown?: number | null
+          median_return_pct?: number | null
+          parameters?: Json | null
+          run_mode?: string
+          status?: string
+          total_hits?: number
+          universe_size?: number | null
+          win_count?: number
+          win_rate?: number | null
+        }
+        Update: {
+          avg_return_pct?: number | null
+          completed_at?: string | null
+          created_at?: string
+          date_range_end?: string | null
+          date_range_start?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          knowledge_item_id?: string | null
+          loss_count?: number
+          max_drawdown?: number | null
+          median_return_pct?: number | null
+          parameters?: Json | null
+          run_mode?: string
+          status?: string
+          total_hits?: number
+          universe_size?: number | null
+          win_count?: number
+          win_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_backtest_runs_knowledge_item_id_fkey"
+            columns: ["knowledge_item_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_backtest_runs_knowledge_item_id_fkey"
+            columns: ["knowledge_item_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_usage_stats"
+            referencedColumns: ["knowledge_item_id"]
+          },
+        ]
+      }
+      knowledge_grid_search_results: {
+        Row: {
+          avg_return_pct: number | null
+          created_at: string
+          id: string
+          is_best: boolean
+          knowledge_item_id: string
+          parameters: Json
+          run_id: string
+          score: number | null
+          total_hits: number
+          win_rate: number | null
+        }
+        Insert: {
+          avg_return_pct?: number | null
+          created_at?: string
+          id?: string
+          is_best?: boolean
+          knowledge_item_id: string
+          parameters: Json
+          run_id: string
+          score?: number | null
+          total_hits?: number
+          win_rate?: number | null
+        }
+        Update: {
+          avg_return_pct?: number | null
+          created_at?: string
+          id?: string
+          is_best?: boolean
+          knowledge_item_id?: string
+          parameters?: Json
+          run_id?: string
+          score?: number | null
+          total_hits?: number
+          win_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_grid_search_results_knowledge_item_id_fkey"
+            columns: ["knowledge_item_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_grid_search_results_knowledge_item_id_fkey"
+            columns: ["knowledge_item_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_usage_stats"
+            referencedColumns: ["knowledge_item_id"]
+          },
+          {
+            foreignKeyName: "knowledge_grid_search_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_backtest_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       line_binding_codes: {
         Row: {
@@ -2166,6 +2353,15 @@ export type Database = {
       }
     }
     Functions: {
+      archive_and_promote_knowledge: {
+        Args: {
+          _new_confidence?: number
+          _new_trigger: Json
+          _note?: string
+          _old_id: string
+        }
+        Returns: string
+      }
       calculate_expert_performance: {
         Args: { _expert_id: string }
         Returns: Json
@@ -2206,6 +2402,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_backtestable_trigger: { Args: { _cond: Json }; Returns: boolean }
       is_subscribed_to_plan: {
         Args: { _plan_id: string; _user_id: string }
         Returns: boolean
