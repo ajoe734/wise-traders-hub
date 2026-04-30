@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
-import { CreditCard, Plus, ExternalLink, Landmark, Pencil } from 'lucide-react';
+import { CreditCard, Plus, ExternalLink, Landmark, Pencil, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { logAdminAction } from '@/lib/auditLog';
@@ -39,9 +39,29 @@ const CompanyPayments = () => {
   const [remitOriginal, setRemitOriginal] = useState<Record<string, string>>({});
   const [remitOpen, setRemitOpen] = useState(false);
 
+  // ECPay credentials (高敏感金鑰，前端只顯示遮罩)
+  type EcpayCredsRow = {
+    merchant_id?: string;
+    hash_key?: string;
+    hash_iv?: string;
+    credit_action_url?: string;
+    api_url?: string;
+    env?: 'stage' | 'production';
+    updated_at?: string;
+  };
+  const [ecpay, setEcpay] = useState<EcpayCredsRow>({});
+  const [ecpayOriginal, setEcpayOriginal] = useState<EcpayCredsRow>({});
+  const [ecpayHasKey, setEcpayHasKey] = useState(false);
+  const [ecpayHasIV, setEcpayHasIV] = useState(false);
+  const [ecpayOpen, setEcpayOpen] = useState(false);
+  // 暫存使用者輸入的明碼新值；空字串代表「不變更」
+  const [ecpayHashKeyInput, setEcpayHashKeyInput] = useState('');
+  const [ecpayHashIVInput, setEcpayHashIVInput] = useState('');
+
   useEffect(() => {
     fetchProviders();
     fetchRemit();
+    fetchEcpay();
   }, []);
 
   const fetchProviders = async () => {
