@@ -2463,6 +2463,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           return;
         }
         const data = await res.json();
+        if (data?.quota) { try { applyQuotaFromResponse?.(data); } catch {} }
 
         // 後端回傳 error 表示所有模型都失敗，嘗試重試
         if (data.error) {
