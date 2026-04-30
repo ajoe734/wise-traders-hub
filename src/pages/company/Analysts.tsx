@@ -215,9 +215,19 @@ const CompanyAnalysts = () => {
         })
         .eq('id', lineChannel.id);
       if (error) { toast.error('更新失敗'); setSavingLine(false); return; }
+      await logAdminAction({
+        action: 'analyst.line_channel_update',
+        targetType: 'expert_line_channels',
+        targetId: lineChannel.id,
+        detail: {
+          before: { channel_id: lineChannel.channel_id, is_active: lineChannel.is_active, channel_name: lineChannel.channel_name },
+          after: { channel_id: lineChannelId, is_active: lineActive, channel_name: lineChannelName || null },
+          context: { expert_id: lineExpertId, expert_name: lineExpertName },
+        },
+      });
       toast.success('LINE 設定已更新');
     } else {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('expert_line_channels')
         .insert({
           expert_id: lineExpertId,
@@ -227,8 +237,19 @@ const CompanyAnalysts = () => {
           line_oa_id: lineOaId || null,
           qr_code_url: lineQrCodeUrl || null,
           is_active: lineActive,
-        });
+        })
+        .select('id')
+        .single();
       if (error) { toast.error('建立失敗'); setSavingLine(false); return; }
+      await logAdminAction({
+        action: 'analyst.line_channel_create',
+        targetType: 'expert_line_channels',
+        targetId: inserted?.id ?? null,
+        detail: {
+          after: { channel_id: lineChannelId, is_active: lineActive, channel_name: lineChannelName || null },
+          context: { expert_id: lineExpertId, expert_name: lineExpertName },
+        },
+      });
       toast.success('LINE 設定已儲存');
     }
     setSavingLine(false);
