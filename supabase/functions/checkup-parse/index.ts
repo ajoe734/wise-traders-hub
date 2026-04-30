@@ -95,6 +95,12 @@ Deno.serve(async (req) => {
     const { systemPrompt, base64, mediaType } = body;
     const mType = mediaType || 'image/jpeg';
 
+    // 配額消耗：截圖解析每次 +1（與其他 AI 入口共用 monthly/weekly quota）
+    const quotaResult = await consumeCheckupQuota(req, 'parse', corsHeaders);
+    if (!quotaResult.ok) {
+      return quotaErrorResponse(quotaResult, corsHeaders);
+    }
+
     for (let i = 0; i < MODELS.length; i++) {
       const model = MODELS[i];
       console.log(`Trying ${model} (${i + 1}/${MODELS.length})`);
@@ -103,7 +109,7 @@ Deno.serve(async (req) => {
 
       if (result.ok) {
         console.log(`${model} succeeded`);
-        return new Response(JSON.stringify({ content: [{ text: result.text }] }), {
+        return new Response(JSON.stringify({ content: [{ text: result.text }], quota: quotaResult.quota }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
