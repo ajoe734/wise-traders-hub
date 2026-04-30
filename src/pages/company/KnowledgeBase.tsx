@@ -137,8 +137,7 @@ export default function KnowledgeBasePage() {
           action: 'knowledge.update',
           targetType: 'checkup_knowledge_items',
           targetId: (e as any).id,
-          before,
-          after: result.data,
+          detail: { before, after: result.data },
         });
       }
     } else {
@@ -149,7 +148,7 @@ export default function KnowledgeBasePage() {
           action: 'knowledge.create',
           targetType: 'checkup_knowledge_items',
           targetId: result.data?.id,
-          after: result.data,
+          detail: { after: result.data },
         });
       }
     }
@@ -171,7 +170,7 @@ export default function KnowledgeBasePage() {
       action: 'knowledge.delete',
       targetType: 'checkup_knowledge_items',
       targetId: item.id,
-      before: item,
+      detail: { before: item },
     });
     toast.success('已刪除');
     load();
@@ -188,7 +187,7 @@ export default function KnowledgeBasePage() {
       action: item.is_active ? 'knowledge.deactivate' : 'knowledge.activate',
       targetType: 'checkup_knowledge_items',
       targetId: item.id,
-      before: item, after: data,
+      detail: { before: item, after: data },
     });
     load();
   }
