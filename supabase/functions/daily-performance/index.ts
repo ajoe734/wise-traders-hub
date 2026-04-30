@@ -90,8 +90,9 @@ Deno.serve(async (req) => {
     }
 
     // 4. Log the run
-    await adminClient.from('audit_logs').insert({
-      action: 'daily_performance_update',
+    await adminClient.from('system_jobs_log').insert({
+      job_name: 'daily_performance_update',
+      status: 'success',
       detail: { updated, total_open: openTrades.length, prices_fetched: priceMap.size },
     })
 
