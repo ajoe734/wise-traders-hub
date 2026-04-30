@@ -79,6 +79,83 @@ const CompanyPayments = () => {
     setRemitOriginal(v);
   };
 
+  const fetchEcpay = async () => {
+    const { data } = await supabase
+      .from('payment_settings')
+      .select('value, updated_at')
+      .eq('key', 'ecpay_credentials')
+      .maybeSingle();
+    const v = (data?.value as EcpayCredsRow) || {};
+    const withTs: EcpayCredsRow = { ...v, updated_at: data?.updated_at };
+    setEcpay(withTs);
+    setEcpayOriginal(withTs);
+    setEcpayHasKey(!!(v.hash_key && v.hash_key.length > 0));
+    setEcpayHasIV(!!(v.hash_iv && v.hash_iv.length > 0));
+    setEcpayHashKeyInput('');
+    setEcpayHashIVInput('');
+  };
+
+  const saveEcpay = async () => {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    // Compose final value: 留空＝不變更，沿用 original
+    const next: EcpayCredsRow = {
+      merchant_id: (ecpay.merchant_id ?? '').trim(),
+      hash_key: ecpayHashKeyInput.trim()
+        ? ecpayHashKeyInput.trim()
+        : (ecpayOriginal.hash_key ?? ''),
+      hash_iv: ecpayHashIVInput.trim()
+        ? ecpayHashIVInput.trim()
+        : (ecpayOriginal.hash_iv ?? ''),
+      credit_action_url: (ecpay.credit_action_url ?? '').trim(),
+      api_url: (ecpay.api_url ?? '').trim(),
+      env: ecpay.env === 'production' ? 'production' : 'stage',
+    };
+
+    if (!next.merchant_id) {
+      toast.error('請輸入商店代號');
+      return;
+    }
+    if (!next.credit_action_url) {
+      toast.error('請輸入信用卡專用 Action URL');
+      return;
+    }
+    if (!next.hash_key || !next.hash_iv) {
+      toast.error('HashKey 與 HashIV 不可為空');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('payment_settings')
+      .upsert(
+        { key: 'ecpay_credentials', value: next, updated_by: userId, updated_at: new Date().toISOString() },
+        { onConflict: 'key' },
+      );
+    if (error) { toast.error(error.message); return; }
+
+    // Audit log：絕不寫入金鑰原始值
+    const changedFields: string[] = [];
+    if ((ecpayOriginal.merchant_id ?? '') !== next.merchant_id) changedFields.push('merchant_id');
+    if (ecpayHashKeyInput.trim()) changedFields.push('hash_key');
+    if (ecpayHashIVInput.trim()) changedFields.push('hash_iv');
+    if ((ecpayOriginal.credit_action_url ?? '') !== next.credit_action_url) changedFields.push('credit_action_url');
+    if ((ecpayOriginal.api_url ?? '') !== next.api_url) changedFields.push('api_url');
+    if ((ecpayOriginal.env ?? 'stage') !== next.env) changedFields.push('env');
+
+    await logAdminAction({
+      action: 'setting.ecpay_credentials_update',
+      targetType: 'payment_settings',
+      detail: {
+        merchant_id: next.merchant_id,
+        env: next.env,
+        changed_fields: changedFields,
+      },
+    });
+
+    toast.success('綠界金流設定已更新');
+    setEcpayOpen(false);
+    fetchEcpay();
+  };
+
   const handleAddProvider = async () => {
     if (!newProviderType || !newDisplayName) return;
     const { data: inserted, error } = await supabase.from('payment_providers').insert({
