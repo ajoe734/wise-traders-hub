@@ -115,6 +115,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'deep-research') {
+      const quota = await consumeCheckupQuota(req, 'deep-research', corsHeaders);
+      if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+
       const dossierContext = dossier ? JSON.stringify(dossier, null, 2) : '無 dossier 資料';
       const brainContext = brain ? JSON.stringify(brain, null, 2) : '無策略大腦';
       
