@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       content: [{ text }], text, response: text,
-      quota: quota.quota,
+      quota: (globalThis as any).__lastQuota || null,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
