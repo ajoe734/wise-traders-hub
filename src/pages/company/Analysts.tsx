@@ -112,6 +112,12 @@ const CompanyAnalysts = () => {
       return;
     }
     toast.success('分析師已建立');
+    await logAdminAction({
+      action: 'analyst.create',
+      targetType: 'experts',
+      targetId: data?.expert_id ?? null,
+      detail: { after: { name, slug, role, email }, context: { email, role } },
+    });
     setIsCreateOpen(false);
     clearForm();
     fetchExperts();
