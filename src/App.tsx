@@ -84,6 +84,7 @@ import CompanyPayments from "./pages/company/Payments";
 
 import CompanyAnnouncements from "./pages/company/Announcements";
 import CompanyAuditLogs from "./pages/company/AuditLogs";
+import CompanySystemJobs from "./pages/company/SystemJobs";
 import CompanyPlans from "./pages/company/Plans";
 import CompanyRemittance from "./pages/company/Remittance";
 import CompanyPaymentSettings from "./pages/company/PaymentSettings";
