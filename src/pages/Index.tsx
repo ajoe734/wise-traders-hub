@@ -520,33 +520,32 @@ const Index = () => {
               21世紀用更愜意的方式賺錢
             </p>
             
-            {/* CTA Buttons */}
+            {/* Dual-Product CTA: Subscription (red) + Stock Dashboard (purple) */}
             <div className="flex flex-col sm:flex-row gap-sm">
               <Button size="xl" asChild>
                 <Link to="/experts">
-                  開始探索
+                  探索專家
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
-              <Button 
-                size="xl" 
-                variant="outline" 
-                className="bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
-                asChild
-              >
-                <Link to="/pricing">查看方案比較</Link>
-              </Button>
-            </div>
-            <div className="mt-sm">
               <Button
                 size="xl"
                 className="bg-purple-600 hover:bg-purple-700 text-white border-0"
                 asChild
               >
                 <Link to="/free-checkup">
-                  免費健檢
+                  持股健檢
+                  <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
+            </div>
+            <div className="mt-sm">
+              <Link
+                to="/pricing"
+                className="text-sm text-primary-foreground/70 hover:text-primary-foreground underline underline-offset-4"
+              >
+                查看方案比較 →
+              </Link>
             </div>
           </div>
         </div>
@@ -1249,8 +1248,91 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Weekly Limit Up Leaderboard */}
+      {/* Stock Dashboard Section - 持股看板（紫色主視覺） */}
       <section className="py-section bg-background">
+        <div className="container">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-xl">
+              <Badge className="bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/30 mb-sm">
+                持股看板 · STOCK DASHBOARD
+              </Badge>
+              <h2 className="text-h2 text-foreground mb-xs">不想跟單？讓 AI 顧好你的持股</h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                輸入持股，AI 幫你盯盤、預測事件、彙整新聞——免費，無需註冊。
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-[1fr_1.1fr] gap-xl items-center">
+              <div className="space-y-md">
+                {[
+                  { icon: BarChart3, title: 'AI 持倉健檢', desc: '一鍵分析你的持股結構，找出風險與機會。' },
+                  { icon: Calendar, title: '事件預測', desc: '法說會、除權息、財報日，提前掌握關鍵節點。' },
+                  { icon: LineChart, title: '新聞與績效彙整', desc: '個股新聞、損益走勢、獲利排行，一頁看懂。' },
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-md items-start">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300 shrink-0">
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-h5 mb-xs text-foreground">{item.title}</h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-sm">
+                  <Button size="xl" className="bg-purple-600 hover:bg-purple-700 text-white border-0" asChild>
+                    <Link to="/free-checkup">
+                      免費試用持股看板
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-card dark:bg-white/[0.03] rounded-xl border border-border dark:border-purple-500/20 border-t-4 border-t-purple-500 p-md md:p-lg">
+                <div className="flex items-center justify-between mb-md pb-sm border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    <span className="text-sm font-medium">我的持股</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-600 dark:text-purple-300">
+                    AI 分析中
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { code: '2330', name: '台積電', qty: '2,000', pct: '+12.4%', tone: 'up', note: '法說 12/16' },
+                    { code: '2454', name: '聯發科', qty: '1,000', pct: '+5.8%', tone: 'up', note: 'AI 出貨成長' },
+                    { code: '2603', name: '長榮', qty: '5,000', pct: '-3.2%', tone: 'down', note: '建議檢視' },
+                  ].map((h) => (
+                    <div key={h.code} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/40">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">{h.code}</span>
+                          <span className="text-sm text-foreground">{h.name}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">持有 {h.qty} 股 · {h.note}</p>
+                      </div>
+                      <span className={`text-sm font-semibold tabular-nums ${h.tone === 'up' ? 'text-destructive' : 'text-success'}`}>
+                        {h.pct}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-md pt-sm border-t border-border">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Lightbulb className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                    <span>AI 建議：長榮跌破支撐，可考慮減碼</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Weekly Limit Up Leaderboard */}
+      <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
             <p className="text-muted-foreground text-sm mb-xs">即時更新，展現真實戰績</p>
@@ -1262,80 +1344,109 @@ const Index = () => {
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* How It Works - Dual Path */}
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
-            <p className="text-muted-foreground text-sm mb-xs">簡單四步驟，開始學習</p>
+            <p className="text-muted-foreground text-sm mb-xs">兩條動線，依需求選擇</p>
             <h2 className="text-h2 text-foreground">如何開始？</h2>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-lg max-w-5xl mx-auto">
-            {[
-              {
-                step: 1,
-                icon: Users,
-                title: '選擇專家',
-                description: '瀏覽投顧分析師或實戰導師'
-              },
-              {
-                step: 2,
-                icon: BarChart3,
-                title: '選擇方案',
-                description: '根據需求選擇適合的服務'
-              },
-              {
-                step: 3,
-                icon: Radio,
-                title: 'LINE 登入',
-                description: '接收最即時的訊號通知'
-              },
-              {
-                step: 4,
-                icon: GraduationCap,
-                title: '持續學習',
-                description: '建立自己的投資系統'
-              }
-            ].map((item) => (
-              <Card key={item.step} variant="ghost" className="text-center">
-                <CardContent className="p-card">
-                  <Badge variant="secondary" className="mb-md">
-                    {item.step}
-                  </Badge>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted dark:bg-white/10 text-muted-foreground dark:text-white/70 mx-auto mb-md">
-                    <item.icon className="h-6 w-6" />
+          <div className="grid lg:grid-cols-2 gap-lg max-w-6xl mx-auto">
+            {/* Path A - 跟單訂閱 */}
+            <div className="rounded-xl border border-border bg-background dark:bg-white/[0.02] border-t-4 border-t-primary p-md md:p-lg">
+              <div className="mb-md">
+                <Badge className="bg-primary/10 text-primary border border-primary/20 mb-xs">想跟單高手？</Badge>
+                <h3 className="text-h4 text-foreground">訂閱專家動線</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-sm mb-md">
+                {[
+                  { step: 1, icon: Users, title: '選擇專家', desc: '投顧或實戰導師' },
+                  { step: 2, icon: BarChart3, title: '選擇方案', desc: '依需求挑選' },
+                  { step: 3, icon: Radio, title: 'LINE 接收', desc: '即時訊號推播' },
+                  { step: 4, icon: GraduationCap, title: '持續學習', desc: '建立投資系統' },
+                ].map((item) => (
+                  <div key={item.step} className="flex gap-sm items-start p-sm rounded-lg bg-muted/40">
+                    <Badge variant="secondary" className="shrink-0">{item.step}</Badge>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                    </div>
                   </div>
-                  <h4 className="text-h5 mb-xs text-foreground">{item.title}</h4>
-                  <p className="text-sm text-muted-foreground">{item.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-section bg-card dark:bg-white/[0.03]">
-        <div className="container">
-          <div className="max-w-2xl mx-auto text-center">
-            <p className="text-muted-foreground text-sm mb-xs">立即開始你的投資學習之旅</p>
-            <h2 className="text-h2 mb-md text-foreground">
-              準備好開始了嗎？
-            </h2>
-            <div className="flex flex-col sm:flex-row gap-md justify-center">
-              <Button size="xl" asChild>
-                <Link to="/auth/register">
-                  免費註冊
+                ))}
+              </div>
+              <Button size="lg" className="w-full" asChild>
+                <Link to="/experts">
+                  探索專家
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
-              <Button size="xl" variant="secondary" asChild>
-                <Link to="/experts">瀏覽所有專家</Link>
+            </div>
+
+            {/* Path B - 持股看板 */}
+            <div className="rounded-xl border border-border bg-background dark:bg-white/[0.02] border-t-4 border-t-purple-500 p-md md:p-lg">
+              <div className="mb-md">
+                <Badge className="bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/30 mb-xs">想管自己的持股？</Badge>
+                <h3 className="text-h4 text-foreground">持股看板動線</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-sm mb-md">
+                {[
+                  { step: 1, icon: Target, title: '免費健檢', desc: '無需註冊' },
+                  { step: 2, icon: BarChart3, title: '輸入持股', desc: '股票代號與張數' },
+                  { step: 3, icon: Zap, title: 'AI 分析', desc: '結構與風險洞察' },
+                  { step: 4, icon: LineChart, title: '雲端同步', desc: '事件、新聞、績效' },
+                ].map((item) => (
+                  <div key={item.step} className="flex gap-sm items-start p-sm rounded-lg bg-muted/40">
+                    <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300 border-0 shrink-0">{item.step}</Badge>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button size="lg" className="w-full bg-purple-600 hover:bg-purple-700 text-white border-0" asChild>
+                <Link to="/free-checkup">
+                  開始持股健檢
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Link>
               </Button>
             </div>
           </div>
         </div>
       </section>
+
+      {/* Final CTA - Dual Product */}
+      <section className="py-section bg-card dark:bg-white/[0.03]">
+        <div className="container">
+          <div className="max-w-2xl mx-auto text-center">
+            <p className="text-muted-foreground text-sm mb-xs">兩種服務，依你需要的方式開始</p>
+            <h2 className="text-h2 mb-md text-foreground">
+              準備好開始了嗎？
+            </h2>
+            <div className="flex flex-col sm:flex-row gap-md justify-center">
+              <Button size="xl" asChild>
+                <Link to="/experts">
+                  探索專家
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Link>
+              </Button>
+              <Button size="xl" className="bg-purple-600 hover:bg-purple-700 text-white border-0" asChild>
+                <Link to="/free-checkup">
+                  免費健檢
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Link>
+              </Button>
+            </div>
+            <div className="mt-md">
+              <Link to="/auth/register" className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4">
+                或先免費註冊帳號 →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </PortalLayout>
   );
 };
