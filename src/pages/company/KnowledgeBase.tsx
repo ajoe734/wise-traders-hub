@@ -17,6 +17,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Brain, Activity, Sparkles, Check, X, Loader2, TrendingUp } from 'lucide-react';
 import { logAdminAction } from '@/lib/auditLog';
+import { BackfillProgressPanel } from './knowledge-base/BackfillProgressPanel';
+import { BacktestRunDetailDialog } from './knowledge-base/BacktestRunDetailDialog';
+import { GridSearchDetailDialog } from './knowledge-base/GridSearchDetailDialog';
+import { AutoRulesPanel } from './knowledge-base/AutoRulesPanel';
 
 const CATEGORIES = [
   { key: 'chip_analysis', label: '籌碼分析' },
@@ -114,9 +118,11 @@ export default function KnowledgeBasePage() {
   const [draftCount, setDraftCount] = useState(10);
   const [mainTab, setMainTab] = useState<'items' | 'candidates' | 'backtest'>('items');
   const [backtestRuns, setBacktestRuns] = useState<any[]>([]);
-  const [backtesting, setBacktesting] = useState<string | null>(null);  // item id being backtested
+  const [backtesting, setBacktesting] = useState<string | null>(null);
   const [gridSearching, setGridSearching] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
+  const [openRunDetail, setOpenRunDetail] = useState<string | null>(null);
+  const [openGridDetail, setOpenGridDetail] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
