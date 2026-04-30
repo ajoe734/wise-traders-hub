@@ -424,7 +424,7 @@ async function aiAuthHeaders() {
 }
 export default function App() {
   const navigate = useNavigate();
-  const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota } = useCheckupMode();
+  const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota, applyQuotaFromResponse, supabaseUser } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
   // 配額不足彈窗（429 QUOTA_EXCEEDED 兜底）
   const [quotaModal, setQuotaModal] = useState(null); // null | { trigger: 'parse'|'daily'|'predict'|'research' }
