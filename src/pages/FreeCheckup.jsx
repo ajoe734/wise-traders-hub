@@ -434,6 +434,13 @@ export default function App() {
     const t = setInterval(() => setQuotaTick(n => n + 1), 60000);
     return () => clearInterval(t);
   }, []);
+  // ESC 關閉配額 Modal
+  useEffect(() => {
+    if (!quotaModal) return;
+    const onKey = (e) => { if (e.key === 'Escape') setQuotaModal(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [quotaModal]);
   const [ready, setReady] = useState(false);
 
   // persistent state
@@ -6753,10 +6760,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {showUpgrade && (
                   <a
                     href="/pricing#checkup"
+                    autoFocus
+                    ref={(el) => { if (el) { try { el.focus(); } catch {} } }}
                     style={{
                       padding:"8px 18px",borderRadius:6,
                       background:C.blue,color:"#fff",
                       fontSize:12,fontWeight:500,textDecoration:"none",letterSpacing:"0.02em",
+                      outline:`2px solid ${alpha(C.blue,'33')}`, outlineOffset:2,
                     }}
                   >{tier === 'free' ? '查看升級方案' : '升級 Pro'}</a>
                 )}
