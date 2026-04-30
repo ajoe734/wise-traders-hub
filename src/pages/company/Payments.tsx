@@ -230,7 +230,7 @@ const CompanyPayments = () => {
       detail: { after: { provider_type: newProviderType, display_name: newDisplayName } },
     });
     toast.success('金流工具已新增');
-    setIsAddOpen(false);
+    setAddGroup(null);
     setNewProviderType(''); setNewDisplayName('');
     fetchProviders();
   };
