@@ -2433,6 +2433,14 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             mediaType: "image/jpeg",
           })
         });
+        // 配額用盡兜底（截圖解析）
+        if (res.status === 429 && await isQuotaExceeded(res)) {
+          try { await refreshQuota?.(); } catch {}
+          setQuotaModal({ trigger: 'parse' });
+          setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請查看右上方升級提示' });
+          setParsing(false);
+          return;
+        }
         const data = await res.json();
 
         // 後端回傳 error 表示所有模型都失敗，嘗試重試
