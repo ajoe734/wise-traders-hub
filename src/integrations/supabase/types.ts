@@ -74,6 +74,51 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_knowledge_hits: {
+        Row: {
+          confidence: number | null
+          context: string | null
+          created_at: string
+          id: string
+          knowledge_item_id: string
+          stock_code: string | null
+          user_id: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          context?: string | null
+          created_at?: string
+          id?: string
+          knowledge_item_id: string
+          stock_code?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          context?: string | null
+          created_at?: string
+          id?: string
+          knowledge_item_id?: string
+          stock_code?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkup_knowledge_hits_knowledge_item_id_fkey"
+            columns: ["knowledge_item_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkup_knowledge_hits_knowledge_item_id_fkey"
+            columns: ["knowledge_item_id"]
+            isOneToOne: false
+            referencedRelation: "checkup_knowledge_usage_stats"
+            referencedColumns: ["knowledge_item_id"]
+          },
+        ]
+      }
       checkup_knowledge_items: {
         Row: {
           action: string | null
@@ -1755,6 +1800,15 @@ export type Database = {
       }
     }
     Views: {
+      checkup_knowledge_usage_stats: {
+        Row: {
+          hit_count: number | null
+          hit_count_7d: number | null
+          knowledge_item_id: string | null
+          last_hit_at: string | null
+        }
+        Relationships: []
+      }
       expert_line_channels_public: {
         Row: {
           channel_id: string | null
