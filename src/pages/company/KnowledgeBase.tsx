@@ -120,10 +120,11 @@ export default function KnowledgeBasePage() {
 
   async function load() {
     setLoading(true);
-    const [itemsRes, usageRes, candRes] = await Promise.all([
+    const [itemsRes, usageRes, candRes, runsRes] = await Promise.all([
       supabase.from('checkup_knowledge_items').select('*').order('category').order('item_id'),
       supabase.from('checkup_knowledge_usage_stats' as any).select('*'),
       supabase.from('checkup_knowledge_candidates' as any).select('*').order('created_at', { ascending: false }),
+      supabase.from('knowledge_backtest_runs' as any).select('*').order('created_at', { ascending: false }).limit(200),
     ]);
     if (itemsRes.error) {
       toast.error('讀取失敗：' + itemsRes.error.message);
@@ -139,6 +140,9 @@ export default function KnowledgeBasePage() {
     }
     if (!candRes.error && Array.isArray(candRes.data)) {
       setCandidates(candRes.data as any);
+    }
+    if (!runsRes.error && Array.isArray(runsRes.data)) {
+      setBacktestRuns(runsRes.data as any[]);
     }
     setLoading(false);
   }
