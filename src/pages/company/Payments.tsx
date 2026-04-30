@@ -354,6 +354,131 @@ const CompanyPayments = () => {
             </CardContent>
           </Card>
         </section>
+
+        {/* === Section 3: 綠界金流金鑰設定 === */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h2 className="text-lg font-semibold">綠界金流設定</h2>
+            <Dialog open={ecpayOpen} onOpenChange={(open) => {
+              setEcpayOpen(open);
+              if (open) {
+                // 重新從 original 開機，避免上次未存的編輯殘留
+                setEcpay(ecpayOriginal);
+                setEcpayHashKeyInput('');
+                setEcpayHashIVInput('');
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <Pencil className="h-4 w-4 mr-2" />{ecpayOriginal.merchant_id ? '編輯' : '設定'}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader><DialogTitle>綠界金流金鑰</DialogTitle></DialogHeader>
+                <p className="text-xs text-muted-foreground">
+                  金鑰只儲存於後台資料庫，前端不會讀取；HashKey 與 HashIV 留空表示「不變更」既有值。
+                </p>
+                <div className="grid grid-cols-1 gap-3 mt-2">
+                  <div>
+                    <Label className="text-xs">商店代號 MerchantID</Label>
+                    <Input
+                      value={ecpay.merchant_id || ''}
+                      placeholder="例：3268740"
+                      onChange={e => setEcpay(p => ({ ...p, merchant_id: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">
+                      HashKey {ecpayHasKey && <span className="text-muted-foreground">（目前已設定 ••••••••，留空＝不變更）</span>}
+                    </Label>
+                    <Input
+                      type="password"
+                      value={ecpayHashKeyInput}
+                      placeholder={ecpayHasKey ? '••••••••（留空表示不變更）' : '請輸入 HashKey'}
+                      onChange={e => setEcpayHashKeyInput(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">
+                      HashIV {ecpayHasIV && <span className="text-muted-foreground">（目前已設定 ••••••••，留空＝不變更）</span>}
+                    </Label>
+                    <Input
+                      type="password"
+                      value={ecpayHashIVInput}
+                      placeholder={ecpayHasIV ? '••••••••（留空表示不變更）' : '請輸入 HashIV'}
+                      onChange={e => setEcpayHashIVInput(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">信用卡專用 Action URL</Label>
+                    <Input
+                      value={ecpay.credit_action_url || ''}
+                      placeholder="例：https://payment.ecpay.com.tw/SP/CreditCheckOut"
+                      onChange={e => setEcpay(p => ({ ...p, credit_action_url: e.target.value }))}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      綠界提供給你的信用卡專用收單網址；此網址會用於所有信用卡訂單的提交。
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">主 AIO Action URL（選填）</Label>
+                    <Input
+                      value={ecpay.api_url || ''}
+                      placeholder="例：https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5"
+                      onChange={e => setEcpay(p => ({ ...p, api_url: e.target.value }))}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      若日後要再開放 ATM／超商再填；目前前台僅啟用信用卡通道。
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">環境</Label>
+                    <Select
+                      value={ecpay.env || 'stage'}
+                      onValueChange={(v) => setEcpay(p => ({ ...p, env: v as 'stage' | 'production' }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="stage">測試環境（Stage）</SelectItem>
+                        <SelectItem value="production">正式環境（Production）</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => { setEcpay(ecpayOriginal); setEcpayHashKeyInput(''); setEcpayHashIVInput(''); setEcpayOpen(false); }}>取消</Button>
+                  <Button onClick={saveEcpay}>儲存</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <KeyRound className="h-5 w-5 text-muted-foreground" />
+                {ecpayOriginal.merchant_id ? (
+                  <div className="text-sm">
+                    <div className="font-medium">商店代號：{ecpayOriginal.merchant_id}</div>
+                    <div className="text-xs text-muted-foreground">
+                      HashKey：{ecpayHasKey ? '••••••••' : '未設定'} · HashIV：{ecpayHasIV ? '••••••••' : '未設定'}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate max-w-[480px]">
+                      信用卡 URL：{ecpayOriginal.credit_action_url || '未設定'}
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">尚未設定綠界金鑰（將以環境變數作為備援）</span>
+                )}
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {ecpayOriginal.env === 'production' ? '正式' : '測試'}
+              </Badge>
+            </CardContent>
+          </Card>
+        </section>
       </div>
     </CompanyLayout>
   );
