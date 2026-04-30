@@ -366,272 +366,221 @@ const CompanyPayments = () => {
             </Button>
           </div>
 
-          {/* Health banner */}
-          <Card className="border-l-4" style={{ borderLeftColor: liveChannels.length > 0 || remitConfigured ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}>
+          {/* Health banner — 三組摘要 */}
+          <Card>
             <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  {liveChannels.length > 0 || remitConfigured ? (
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                  ) : (
-                    <AlertTriangle className="h-5 w-5 text-amber-500" />
-                  )}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* 信用卡 */}
+                <div className="flex items-start gap-2">
+                  <CreditCard className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xs text-muted-foreground">信用卡</div>
+                    <div className="text-sm font-medium mt-0.5">
+                      {liveCreditCount > 0 ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          {liveCreditCount} 條可用
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">未啟用</span>
+                      )}
+                      {creditWarnCount > 0 && (
+                        <span className="ml-2 text-amber-600 text-xs inline-flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />{creditWarnCount} 條缺金鑰
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium">前台目前可收款</div>
-                  <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                    {liveChannels.length === 0 && !remitConfigured && (
-                      <span>尚未設定任何可用的收款方式 — 前台無法完成付款</span>
-                    )}
-                    {liveChannels.map((c) => (
-                      <span key={c.provider.id} className="inline-flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        {providerLabels[c.provider.provider_type]}
-                        {c.env && <span className="text-[10px] uppercase opacity-60">· {c.env === 'production' ? '正式' : '測試'}</span>}
-                      </span>
-                    ))}
-                    {remitConfigured && (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        ATM／臨櫃匯款
-                      </span>
-                    )}
+
+                {/* 電子支付 */}
+                <div className="flex items-start gap-2">
+                  <Wallet className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xs text-muted-foreground">電子支付</div>
+                    <div className="text-sm font-medium mt-0.5">
+                      {liveEwalletCount > 0 ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          {liveEwalletCount} 條可用
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">未啟用</span>
+                      )}
+                      {ewalletWarnCount > 0 && (
+                        <span className="ml-2 text-amber-600 text-xs inline-flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />{ewalletWarnCount} 條缺金鑰
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 匯款 */}
+                <div className="flex items-start gap-2">
+                  <Landmark className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xs text-muted-foreground">匯款</div>
+                    <div className="text-sm font-medium mt-0.5">
+                      {remitConfigured ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          已設定
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">未設定</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Main grid: matrix + side panel */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left: Channel matrix */}
-            <div className="lg:col-span-2 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold">線上金流通道</h2>
-                <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="outline">
-                      <Plus className="h-4 w-4 mr-1.5" />新增通道
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>新增金流通道</DialogTitle></DialogHeader>
-                    <div className="space-y-4 mt-2">
-                      <div className="space-y-2">
-                        <Label>金流類型</Label>
-                        <Select value={newProviderType} onValueChange={(v) => setNewProviderType(v as ProviderType)}>
-                          <SelectTrigger><SelectValue placeholder="選擇金流" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="acpay">ACpay</SelectItem>
-                            <SelectItem value="ecpay">綠界 ECPay</SelectItem>
-                            <SelectItem value="newebpay">藍新 NewebPay</SelectItem>
-                            <SelectItem value="line_pay">LINE Pay</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>顯示名稱</Label>
-                        <Input value={newDisplayName} onChange={(e) => setNewDisplayName(e.target.value)} placeholder="例：主要金流" />
-                      </div>
-                      <div className="flex justify-end gap-3">
-                        <Button variant="outline" onClick={() => setIsAddOpen(false)}>取消</Button>
-                        <Button onClick={handleAddProvider}>新增</Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
+          {/* 信用卡 區塊 */}
+          <PaymentGroupSection
+            icon={<CreditCard className="h-4 w-4 text-muted-foreground" />}
+            title="信用卡"
+            description="一次性付款與定期定額信用卡通道"
+            rows={creditChannels}
+            providerLabels={providerLabels}
+            emptyText="尚未新增任何信用卡通道"
+            onAdd={() => setAddGroup('credit')}
+            addLabel="新增信用卡通道"
+            onEcpayKeys={() => {
+              setEcpay(ecpayOriginal);
+              setEcpayHashKeyInput('');
+              setEcpayHashIVInput('');
+              setEcpayOpen(true);
+            }}
+            onUnsupportedKeys={(t) => setInfoOpen(t)}
+            onToggle={toggleProvider}
+            onSetDefault={setAsDefault}
+          />
 
-              <Card>
-                <CardContent className="p-0">
-                  {channels.length === 0 ? (
-                    <div className="py-12 text-center text-muted-foreground">
-                      <CreditCard className="h-8 w-8 mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">尚未設定任何金流通道</p>
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[180px]">通道</TableHead>
-                          <TableHead className="w-[120px]">狀態</TableHead>
-                          <TableHead className="w-[110px]">金鑰</TableHead>
-                          <TableHead className="w-[80px]">環境</TableHead>
-                          <TableHead className="w-[60px] text-center">預設</TableHead>
-                          <TableHead className="text-right">操作</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {channels.map((row) => {
-                          const p = row.provider;
-                          const isEcpay = p.provider_type === 'ecpay';
-                          return (
-                            <TableRow key={p.id}>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <CreditCard className="h-4 w-4 text-muted-foreground" />
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-medium leading-tight">{p.display_name}</span>
-                                    <span className="text-[11px] text-muted-foreground leading-tight">
-                                      {providerLabels[p.provider_type]}
-                                    </span>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell><StatusCell row={row} /></TableCell>
-                              <TableCell><CredsCell row={row} /></TableCell>
-                              <TableCell>
-                                {row.env ? (
-                                  <Badge variant="outline" className="text-[10px] uppercase">
-                                    {row.env === 'production' ? '正式' : '測試'}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">—</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {p.is_default ? (
-                                  <Star className="h-4 w-4 text-amber-500 fill-amber-500 inline" />
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => setAsDefault(p.id)}
-                                    className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-                                    disabled={!p.is_active || row.credsStatus !== 'complete'}
-                                    title={!p.is_active || row.credsStatus !== 'complete' ? '需先啟用且金鑰完整' : ''}
-                                  >
-                                    設為預設
-                                  </button>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center justify-end gap-2">
-                                  {isEcpay ? (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-8 px-2 text-xs"
-                                      onClick={() => {
-                                        setEcpay(ecpayOriginal);
-                                        setEcpayHashKeyInput('');
-                                        setEcpayHashIVInput('');
-                                        setEcpayOpen(true);
-                                      }}
-                                    >
-                                      <KeyRound className="h-3.5 w-3.5 mr-1" />金鑰
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-8 px-2 text-xs"
-                                      onClick={() => setInfoOpen(p.provider_type)}
-                                    >
-                                      <KeyRound className="h-3.5 w-3.5 mr-1" />金鑰
-                                    </Button>
-                                  )}
-                                  <Switch
-                                    checked={p.is_active}
-                                    onCheckedChange={() => toggleProvider(p.id, p.is_active)}
-                                    className="data-[state=checked]:bg-company"
-                                  />
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+          {/* 電子支付 區塊 */}
+          <PaymentGroupSection
+            icon={<Wallet className="h-4 w-4 text-muted-foreground" />}
+            title="電子支付"
+            description="第三方電子支付服務商通道"
+            rows={ewalletChannels}
+            providerLabels={providerLabels}
+            emptyText="尚未新增任何電子支付通道"
+            onAdd={() => setAddGroup('ewallet')}
+            addLabel="新增電子支付通道"
+            onEcpayKeys={() => {}}
+            onUnsupportedKeys={(t) => setInfoOpen(t)}
+            onToggle={toggleProvider}
+            onSetDefault={setAsDefault}
+          />
 
-              <p className="text-[11px] text-muted-foreground px-1">
-                提示：通道顯示「啟用但不可用」表示已開啟但金鑰未設好，前台仍會略過此通道。
-              </p>
+          {/* 匯款 區塊 */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Landmark className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold">匯款</h2>
             </div>
-
-            {/* Right: side panel */}
-            <div className="space-y-4">
-              {/* Remittance card */}
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Landmark className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="text-sm font-semibold">匯款帳戶</h3>
-                    </div>
+            <p className="text-xs text-muted-foreground -mt-1">買方手動匯款使用的全站帳戶資訊</p>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="min-w-0">
+                    {remitConfigured ? (
+                      <div className="text-sm space-y-0.5">
+                        <div className="text-foreground font-medium">
+                          {remit.bank_name} <span className="text-muted-foreground font-normal">({remit.bank_code})</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          ••••{(remit.account_number || '').slice(-4)} · {remit.account_name}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">尚未設定匯款帳戶資訊</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px]">
                       {remitConfigured ? '已啟用' : '未設定'}
                     </Badge>
+                    <Dialog open={remitOpen} onOpenChange={setRemitOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-8 text-xs">
+                          <Pencil className="h-3.5 w-3.5 mr-1.5" />{remitConfigured ? '編輯' : '設定'}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader><DialogTitle>匯款帳戶資訊</DialogTitle></DialogHeader>
+                        <p className="text-xs text-muted-foreground">
+                          此資訊會顯示於結帳頁，供買方手動匯款使用。匯款訂單的審核請至「匯款審核」。
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                          {REMIT_FIELDS.map((f) => (
+                            <div key={f.key}>
+                              <Label className="text-xs">{f.label}</Label>
+                              <Input
+                                value={remit[f.key] || ''}
+                                placeholder={f.placeholder}
+                                onChange={(e) => setRemit((p) => ({ ...p, [f.key]: e.target.value }))}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => { setRemit(remitOriginal); setRemitOpen(false); }}>取消</Button>
+                          <Button onClick={saveRemit}>儲存</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                  {remitConfigured ? (
-                    <div className="text-xs space-y-0.5">
-                      <div className="text-foreground">{remit.bank_name} <span className="text-muted-foreground">({remit.bank_code})</span></div>
-                      <div className="text-muted-foreground">
-                        ••••{(remit.account_number || '').slice(-4)} · {remit.account_name}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">尚未設定匯款帳戶資訊</p>
-                  )}
-                  <Dialog open={remitOpen} onOpenChange={setRemitOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="w-full h-8 text-xs">
-                        <Pencil className="h-3.5 w-3.5 mr-1.5" />{remitConfigured ? '編輯' : '設定'}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>匯款帳戶資訊</DialogTitle></DialogHeader>
-                      <p className="text-xs text-muted-foreground">
-                        此資訊會顯示於結帳頁，供買方手動匯款使用。匯款訂單的審核請至「匯款審核」。
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                        {REMIT_FIELDS.map((f) => (
-                          <div key={f.key}>
-                            <Label className="text-xs">{f.label}</Label>
-                            <Input
-                              value={remit[f.key] || ''}
-                              placeholder={f.placeholder}
-                              onChange={(e) => setRemit((p) => ({ ...p, [f.key]: e.target.value }))}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => { setRemit(remitOriginal); setRemitOpen(false); }}>取消</Button>
-                        <Button onClick={saveRemit}>儲存</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </CardContent>
-              </Card>
-
-              {/* Quick links */}
-              <Card>
-                <CardContent className="p-2">
-                  {[
-                    { to: '/company/revenue', label: '對帳中心', desc: '營收、退款、分潤' },
-                    { to: '/company/remittance', label: '匯款審核', desc: '逐筆比對匯款訂單' },
-                    { to: '/company/payment-settings', label: '分潤設定', desc: '平台／分析師預設比例' },
-                  ].map((l) => (
-                    <Link
-                      key={l.to}
-                      to={l.to}
-                      className="flex items-center justify-between px-2 py-2.5 rounded-md hover:bg-muted/60 transition-colors group"
-                    >
-                      <div>
-                        <div className="text-sm font-medium">{l.label}</div>
-                        <div className="text-[11px] text-muted-foreground">{l.desc}</div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          <p className="text-[11px] text-muted-foreground px-1">
+            提示：通道顯示「啟用但不可用」表示已開啟但金鑰未設好，前台仍會略過此通道。
+          </p>
         </div>
+
+        {/* 新增通道 dialog（依分組限制可選類型） */}
+        <Dialog open={!!addGroup} onOpenChange={(o) => { if (!o) { setAddGroup(null); setNewProviderType(''); setNewDisplayName(''); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                新增{addGroup === 'credit' ? '信用卡' : '電子支付'}通道
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div className="space-y-2">
+                <Label>金流類型</Label>
+                <Select value={newProviderType} onValueChange={(v) => setNewProviderType(v as ProviderType)}>
+                  <SelectTrigger><SelectValue placeholder="選擇金流" /></SelectTrigger>
+                  <SelectContent>
+                    {addGroup === 'credit' ? (
+                      <>
+                        <SelectItem value="ecpay">綠界 ECPay</SelectItem>
+                        <SelectItem value="acpay">ACpay</SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="newebpay">藍新 NewebPay</SelectItem>
+                        <SelectItem value="line_pay">LINE Pay</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>顯示名稱</Label>
+                <Input value={newDisplayName} onChange={(e) => setNewDisplayName(e.target.value)} placeholder="例：主要金流" />
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setAddGroup(null)}>取消</Button>
+                <Button onClick={handleAddProvider}>新增</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* ECPay credentials dialog */}
         <Dialog open={ecpayOpen} onOpenChange={(open) => {
