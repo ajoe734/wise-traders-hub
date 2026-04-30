@@ -607,7 +607,7 @@ export default function KnowledgeBasePage() {
                         <SelectItem value="short">短線 (1-5d)</SelectItem>
                         <SelectItem value="swing">波段 (1-4w)</SelectItem>
                         <SelectItem value="medium">中線 (1-3m)</SelectItem>
-                        <SelectItem value="long">長線 (>3m)</SelectItem>
+                        <SelectItem value="long">{'長線 (>3m)'}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
