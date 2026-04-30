@@ -135,8 +135,8 @@ export default function KnowledgeBasePage() {
       if (!result.error) {
         await logAdminAction({
           action: 'knowledge.update',
-          target_type: 'checkup_knowledge_items',
-          target_id: (e as any).id,
+          targetType: 'checkup_knowledge_items',
+          targetId: (e as any).id,
           before,
           after: result.data,
         });
@@ -147,8 +147,8 @@ export default function KnowledgeBasePage() {
       if (!result.error) {
         await logAdminAction({
           action: 'knowledge.create',
-          target_type: 'checkup_knowledge_items',
-          target_id: result.data?.id,
+          targetType: 'checkup_knowledge_items',
+          targetId: result.data?.id,
           after: result.data,
         });
       }
@@ -169,8 +169,8 @@ export default function KnowledgeBasePage() {
     if (error) { toast.error(error.message); return; }
     await logAdminAction({
       action: 'knowledge.delete',
-      target_type: 'checkup_knowledge_items',
-      target_id: item.id,
+      targetType: 'checkup_knowledge_items',
+      targetId: item.id,
       before: item,
     });
     toast.success('已刪除');
@@ -186,8 +186,8 @@ export default function KnowledgeBasePage() {
     if (error) { toast.error(error.message); return; }
     await logAdminAction({
       action: item.is_active ? 'knowledge.deactivate' : 'knowledge.activate',
-      target_type: 'checkup_knowledge_items',
-      target_id: item.id,
+      targetType: 'checkup_knowledge_items',
+      targetId: item.id,
       before: item, after: data,
     });
     load();
