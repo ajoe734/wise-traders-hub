@@ -426,6 +426,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Cache miss → consume one quota credit before doing AI work
+    const quota = await consumeCheckupQuota(req, 'predict-events', corsHeaders);
+    if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+
     // Collect stock codes
     const allCodes = new Set<string>();
     for (const e of events) {
