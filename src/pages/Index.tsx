@@ -520,33 +520,32 @@ const Index = () => {
               21世紀用更愜意的方式賺錢
             </p>
             
-            {/* CTA Buttons */}
+            {/* Dual-Product CTA: Subscription (red) + Stock Dashboard (purple) */}
             <div className="flex flex-col sm:flex-row gap-sm">
               <Button size="xl" asChild>
                 <Link to="/experts">
-                  開始探索
+                  探索專家
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
-              <Button 
-                size="xl" 
-                variant="outline" 
-                className="bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
-                asChild
-              >
-                <Link to="/pricing">查看方案比較</Link>
-              </Button>
-            </div>
-            <div className="mt-sm">
               <Button
                 size="xl"
                 className="bg-purple-600 hover:bg-purple-700 text-white border-0"
                 asChild
               >
                 <Link to="/free-checkup">
-                  免費健檢
+                  持股健檢
+                  <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
+            </div>
+            <div className="mt-sm">
+              <Link
+                to="/pricing"
+                className="text-sm text-primary-foreground/70 hover:text-primary-foreground underline underline-offset-4"
+              >
+                查看方案比較 →
+              </Link>
             </div>
           </div>
         </div>
