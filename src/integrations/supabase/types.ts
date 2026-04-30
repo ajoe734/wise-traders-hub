@@ -2434,6 +2434,24 @@ export type Database = {
       }
     }
     Functions: {
+      admin_checkup_usage_overview: {
+        Args: never
+        Returns: {
+          display_name: string
+          email: string
+          is_exhausted: boolean
+          is_near_limit: boolean
+          last_used_at: string
+          period: string
+          quota_limit: number
+          remaining: number
+          resets_at: string
+          tier: string
+          usage_pct: number
+          used: number
+          user_id: string
+        }[]
+      }
       archive_and_promote_knowledge: {
         Args: {
           _new_confidence?: number
