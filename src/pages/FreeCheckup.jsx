@@ -1259,7 +1259,7 @@ export default function App() {
       try {
         const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events?debug=1`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(await aiAuthHeaders()) },
           body: JSON.stringify({
             events: needsPrediction.map((e, i) => ({
               index: i + 1,
