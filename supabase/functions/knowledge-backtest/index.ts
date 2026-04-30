@@ -548,11 +548,96 @@ Deno.serve(async (req) => {
     // single / full
     const out: any[] = []
     const startedAt = Date.now()
+
+    // 載入自動規則（僅 full 模式套用）
+    let autoRules: any = null
+    if (mode === 'full') {
+      const { data: rulesRow } = await sb.from('knowledge_auto_rules')
+        .select('*').limit(1).maybeSingle()
+      autoRules = rulesRow?.enabled ? rulesRow : null
+    }
+
+    const autoActions: any[] = []
+
     for (const item of items) {
-      if (Date.now() - startedAt > 50_000) break  // 預留 10s 收尾
+      if (Date.now() - startedAt > 45_000) break
       try {
         const { runId, stats } = await backtestOne(sb, item, bySym, mode === 'full' ? 'cron_weekly' : 'full')
         out.push({ item_id: item.id, run_id: runId, stats })
+
+        // 套用自動規則
+        if (autoRules && stats.total_hits >= autoRules.min_sample_size && stats.win_rate != null) {
+          const wr = Number(stats.win_rate)
+          let action: string | null = null
+          let reason: string | null = null
+
+          if (wr < Number(autoRules.archive_below_win_rate)) {
+            // 歸檔停用
+            await sb.from('checkup_knowledge_items').update({
+              is_active: false, archived_at: new Date().toISOString(),
+            }).eq('id', item.id)
+            action = 'archived'
+            reason = `勝率 ${(wr * 100).toFixed(1)}% < 門檻 ${(autoRules.archive_below_win_rate * 100).toFixed(0)}%（n=${stats.total_hits}）`
+          } else if (wr > Number(autoRules.promote_above_win_rate)) {
+            // 提升信心度（不換 trigger，只調 confidence）
+            const newConf = Math.min(0.95, 0.5 + wr * 0.5)
+            await sb.from('checkup_knowledge_items').update({
+              confidence: newConf,
+            }).eq('id', item.id)
+            action = 'promoted_confidence'
+            reason = `勝率 ${(wr * 100).toFixed(1)}% > 門檻 ${(autoRules.promote_above_win_rate * 100).toFixed(0)}%，信心度提升至 ${(newConf * 100).toFixed(0)}%`
+          } else if (wr < Number(autoRules.auto_grid_search_below)) {
+            // 自動跑網格搜尋並可能升版
+            try {
+              const triggerType = item.trigger_condition?.type
+              const grid = buildGrid(triggerType, {})
+              if (grid.length > 0) {
+                const gridResults: any[] = []
+                for (const params of grid) {
+                  const hits = detect(item, bySym, params)
+                  const { stats: gs } = evaluateHits(item, hits, bySym)
+                  const score = gs.total_hits >= 30 ? (gs.win_rate ?? 0) : 0
+                  gridResults.push({ params, stats: gs, score })
+                }
+                gridResults.sort((a, b) => b.score - a.score)
+                const best = gridResults[0]
+                const minImpr = Number(autoRules.promote_min_improvement_pct ?? 5) / 100
+                if (best && best.stats.total_hits >= autoRules.min_sample_size &&
+                    Number(best.stats.win_rate ?? 0) > wr + minImpr) {
+                  await sb.rpc('archive_and_promote_knowledge', {
+                    _old_id: item.id,
+                    _new_trigger: best.params,
+                    _new_confidence: Math.min(0.95, 0.5 + Number(best.stats.win_rate ?? 0) * 0.5),
+                    _note: `auto_rule grid winner: wr ${(Number(best.stats.win_rate ?? 0) * 100).toFixed(1)}% > old ${(wr * 100).toFixed(1)}%`,
+                  })
+                  action = 'auto_grid_promoted'
+                  reason = `自動網格找到更佳組合：勝率 ${(Number(best.stats.win_rate ?? 0) * 100).toFixed(1)}% > 原 ${(wr * 100).toFixed(1)}%`
+                } else {
+                  action = 'auto_grid_no_winner'
+                  reason = `自動網格未找到顯著改善（最佳 ${best?.stats?.win_rate != null ? (Number(best.stats.win_rate) * 100).toFixed(1) + '%' : 'N/A'}）`
+                }
+              }
+            } catch (gridErr) {
+              action = 'auto_grid_failed'
+              reason = String(gridErr)
+            }
+          }
+
+          if (action) {
+            await sb.from('knowledge_backtest_runs').update({
+              auto_action: action, auto_action_reason: reason,
+            }).eq('id', runId)
+            // 寫 audit_logs
+            await sb.from('audit_logs').insert({
+              actor_id: null,
+              action: 'knowledge.auto_rule.' + action,
+              target_type: 'checkup_knowledge_items',
+              target_id: item.id,
+              detail: { reason, win_rate: wr, sample_size: stats.total_hits, run_id: runId },
+            })
+            autoActions.push({ item_id: item.id, action, reason })
+          }
+        }
       } catch (e) {
         out.push({ item_id: item.id, error: String(e) })
       }
@@ -564,6 +649,8 @@ Deno.serve(async (req) => {
       universe_size: bySym.size,
       processed: out.length,
       partial: out.length < items.length,
+      auto_rules_enabled: !!autoRules,
+      auto_actions: autoActions,
       results: out,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
