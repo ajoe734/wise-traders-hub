@@ -41,6 +41,14 @@ function rowToItem(row) {
     action: row.action ?? '',
     confidence: Number(row.confidence ?? 0.75),
     tags: Array.isArray(row.tags) ? row.tags : [],
+    // 結構化欄位（v2）
+    triggerCondition: row.trigger_condition ?? null,
+    expectedOutcome: row.expected_outcome ?? null,
+    winRate: row.win_rate != null ? Number(row.win_rate) : null,
+    sampleSize: row.sample_size ?? 0,
+    sourceType: row.source_type ?? 'editorial',
+    industryTags: Array.isArray(row.industry_tags) ? row.industry_tags : [],
+    timeHorizon: row.time_horizon ?? null,
   }
   // strategy_cases 額外欄位
   if (row.category === 'strategy_cases') {
@@ -49,6 +57,15 @@ function rowToItem(row) {
     base.outcome = row.outcome ?? 'success'
   }
   return base
+}
+
+// 有實戰驗證 → 用 confidence × winRate；沒驗證 → 純 confidence
+function effectiveScore(item) {
+  const c = Number(item.confidence ?? 0.7)
+  if (item.sampleSize >= 10 && typeof item.winRate === 'number') {
+    return c * (0.5 + 0.5 * item.winRate) // winRate=0 → 0.5c；winRate=1 → c
+  }
+  return c
 }
 
 /**
