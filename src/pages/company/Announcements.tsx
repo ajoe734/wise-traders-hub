@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Megaphone, Pencil, Trash2, Send, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
+import { logAdminAction } from '@/lib/auditLog';
 
 const CompanyAnnouncements = () => {
   const { user } = useAuth();
