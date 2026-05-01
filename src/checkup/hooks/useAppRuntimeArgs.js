@@ -155,9 +155,10 @@ export function useAppRuntimeWorkflowArgs({
         switchPortfolio: actions.switchPortfolio,
         exitOverview: actions.exitOverview,
       },
-      setters: {
-        // Phase 3A.4 Step 2: store-backed setters 已從 hook 內部直接走 store，
-        // 不需從 args 傳入。保留 UI state、portfolio orchestration、cloud sync 等非 store setter。
+      setters: assertNoStoreSetters({
+        // Phase 3A.4 Step 2/3: store-backed setters 已從 hook 內部直接走 store。
+        // assertNoStoreSetters 會在 TS 層阻擋已遷移到 store 的 setter 被傳入。
+        // 保留 UI state、portfolio orchestration、cloud sync 等非 store setter。
         setResearchTarget: setters.setResearchTarget,
         setResearchResults: setters.setResearchResults,
         setReviewForm: setters.setReviewForm,
@@ -178,7 +179,7 @@ export function useAppRuntimeWorkflowArgs({
         setDailyExpanded: setters.setDailyExpanded,
         setTab: setters.setTab,
         setExpandedNews: setters.setExpandedNews,
-      },
+      }),
       resources: {
         defaultNewsEvents: resources.defaultNewsEvents,
         researchResults: resources.researchResults,
