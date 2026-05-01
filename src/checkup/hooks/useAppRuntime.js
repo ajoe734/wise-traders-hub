@@ -206,25 +206,13 @@ export function useAppRuntime() {
     portfolioNotes,
   }
 
+  // Phase 3A.4 Step 3: store-backed setters 已從各 hook 內部直接走 store
+  // (useHoldingsStore / useEventStore / useReportsStore / useBrainStore)，
+  // 不再透過 runtimeSetters 物件 prop drill。此處只保留 UI / cloud state setter。
   const runtimeSetters = {
     setReady,
     setCloudSync,
-    setHoldings,
-    setTradeLog,
-    setTargets,
-    setFundamentals,
-    setWatchlist,
-    setAnalystReports,
-    setReportRefreshMeta,
-    setHoldingDossiers,
-    setNewsEvents,
-    setAnalysisHistory,
-    setReversalConditions,
-    setStrategyBrain,
-    setBrainValidation,
-    setResearchHistory,
     setPortfolioNotes,
-    setDailyReport,
   }
 
   const coreLifecycleArgs = useAppRuntimeCoreArgs({
