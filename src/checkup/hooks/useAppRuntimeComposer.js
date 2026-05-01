@@ -1,4 +1,6 @@
+// @ts-check
 import { OWNER_PORTFOLIO_ID, PORTFOLIO_VIEW_MODE } from '../constants.js'
+import { assertNoStoreSetters } from './runtimeArgs.types.js'
 
 // Phase 3A.4 Step 4: store-backed setters (setHoldings/setTradeLog/setTargets/
 // setFundamentals/setWatchlist/setAnalystReports/setReportRefreshMeta/
