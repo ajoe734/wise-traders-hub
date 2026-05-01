@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
-import { DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS } from "@/checkup/data/demoData";
+import { DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS, DEMO_CALENDAR, DEMO_BRAIN_UPDATED } from "@/checkup/data/demoData";
+import { simulateSteps, demoDelay } from "@/checkup/utils/demoSimulate";
+import DemoBanner from "@/checkup/components/DemoBanner";
 import { INIT_HOLDINGS as SEED_HOLDINGS, STOCK_META, IND_COLOR } from "@/checkup/seedData";
 import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
@@ -474,6 +476,13 @@ export default function App() {
   const [memoIn,  setMemoIn]    = useState("");
   const [saved,   setSaved]     = useState("");
 
+  // ── Demo 鎖定動作的統一提示（toast + 4 秒後消失） ──
+  // 用於：手動編輯持倉、上傳截圖、手動更新股價、刪除/新增、編輯交易日誌
+  const showDemoLockToast = useCallback((featureName = '此功能') => {
+    setSaved(`這是 DEMO 範例。登入後即可${featureName}`);
+    setTimeout(() => setSaved(''), 4000);
+  }, []);
+
   // dashboard UI
   const [sortBy,      setSortBy]      = useState("decision");
   const [viewMode,    setViewMode]    = useState("grid"); // 'grid' | 'list'
@@ -845,6 +854,28 @@ export default function App() {
     setCalendarLoading(true);
     setCalendarAutoStatus({ status: 'fetching', msg: '' });
     pushUpdateLog({ source:'calendar', trigger, status:'fetching', key:requestKey, msg:`${holdingsList.length} 檔` });
+    // ── DEMO 模式：模擬載入 + 套用 DEMO_CALENDAR，不打 edge function ──
+    if (isDemo) {
+      try {
+        await simulateSteps([
+          { label: '掃描未來重大事件...', min: 800, max: 1400 },
+          { label: '比對持股相關性...', min: 700, max: 1200 },
+        ], () => {});
+        const merged = [...DEMO_CALENDAR];
+        merged._holdingCodes = holdingsList.map(h => h.code).sort().join(',');
+        setCalendarEvents(merged);
+        syncCalendarToNews(merged);
+        calendarLastFetchRef.current = { key: requestKey, at: Date.now() };
+        setCalendarRetry({ count: 0, cooldownUntil: 0 });
+        setCalendarLastError(null);
+        setCalendarAutoStatus({ status: 'idle', msg: '' });
+        pushUpdateLog({ source:'calendar', trigger, status:'success', key:requestKey, msg:'demo 範例資料' });
+      } finally {
+        if (calendarInflightKeyRef.current === requestKey) calendarInflightKeyRef.current = null;
+        setCalendarLoading(false);
+      }
+      return;
+    }
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
@@ -1288,6 +1319,33 @@ export default function App() {
     setPredictAutoStatus({ status: 'fetching', msg: '' });
     pushUpdateLog({ source:'predict', trigger, status:'fetching', key:batchKey, msg:`${needsPrediction.length} 件` });
     (async () => {
+      // ── DEMO 模式：模擬延遲 + 用既有 demo 事件的 pred/predReason 自填 ──
+      if (isDemo) {
+        try {
+          setPredictAutoStatus({ status: 'fetching', msg: 'AI 預測事件影響中...' });
+          await demoDelay(1800, 2800);
+          setNewsEvents(prev => {
+            const arr = [...(prev || [])];
+            needsPrediction.forEach((e) => {
+              const idx = arr.findIndex(x => x.id === e.id);
+              if (idx < 0) return;
+              arr[idx] = {
+                ...arr[idx],
+                status: 'verifying',
+                pred: arr[idx].pred || 'neutral',
+                predReason: arr[idx].predReason || 'AI 範例預測（DEMO）',
+              };
+            });
+            return arr;
+          });
+          flashPredictStatus('success', `已預測 ${needsPrediction.length} 件（DEMO）`);
+          pushUpdateLog({ source:'predict', trigger, status:'success', key:batchKey, msg:`demo ${needsPrediction.length} 件` });
+        } finally {
+          setPredictingEvents(false);
+          if (predictBatchInflightRef.current === batchKey) predictBatchInflightRef.current = null;
+        }
+        return;
+      }
       try {
         let data = null;
         try {
@@ -1876,12 +1934,47 @@ export default function App() {
   // ── 每日收盤分析 ─────────────────────────────────────────────────
   const runDailyAnalysis = async () => {
     if (analyzing) return;
-    // 收盤分析需要登入（後端 consumeCheckupQuota 強制 user JWT）
-    // 訪客（demo / 未登入）按下時，引導去登入而不是發出 401 請求
-    if (isDemo || !supabaseUser?.id) {
-      setSaved("請先登入後再使用收盤分析");
-      setTimeout(() => setSaved(""), 4000);
-      navigate("/auth/login?redirect=/checkup");
+    // ── DEMO 模式：模擬完整收盤分析流程，最後套用 DEMO_ANALYSIS ──
+    if (isDemo) {
+      setAnalyzing(true);
+      setDailyLastError(null);
+      try {
+        await simulateSteps([
+          { label: '取得即時股價...', min: 1000, max: 1600 },
+          { label: '分析持倉表現...', min: 1200, max: 1800 },
+          { label: '比對事件邏輯...', min: 1000, max: 1600 },
+          { label: '策略大腦進化中...', min: 1000, max: 1600 },
+        ], setAnalyzeStep);
+        const demoToday = new Date().toLocaleDateString('zh-TW').replace(/-/g, '/');
+        const demoReport = {
+          id: Date.now(),
+          date: demoToday,
+          time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+          totalTodayPnl: 0,
+          changes: [],
+          anomalies: [],
+          eventCorrelations: [],
+          needsReview: [],
+          autoVerified: [],
+          aiInsight: DEMO_ANALYSIS.aiInsight,
+          isDemo: true,
+        };
+        setDailyReport(demoReport);
+        setAnalysisHistory(prev => [demoReport, ...(prev || []).filter(r => r.date !== demoToday)].slice(0, 30));
+        setStrategyBrain(DEMO_BRAIN_UPDATED);
+        setSaved('DEMO 分析完成，登入後可儲存你的真實報告');
+        setTimeout(() => setSaved(''), 4000);
+      } finally {
+        setAnalyzing(false);
+        setAnalyzeStep('');
+      }
+      return;
+    }
+    // 非 demo 但未登入 → 引導登入
+    if (!supabaseUser?.id) {
+      setSaved('請先登入後再使用收盤分析');
+      setTimeout(() => setSaved(''), 4000);
+      navigate('/auth/login?redirect=/checkup');
       return;
     }
     if (hasReachedDailyLimit) {
@@ -2789,6 +2882,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           .wb-card-pnl-num{ font-size: 30px !important; }
         }
       `}</style>
+
+      {/* ── DEMO BANNER（僅 demo 模式顯示） ── */}
+      {isDemo && (
+        <DemoBanner
+          C={C}
+          alpha={alpha}
+          onLineLogin={() => {
+            try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); }
+          }}
+          onEmailLogin={() => navigate('/auth/login?redirect=/checkup')}
+        />
+      )}
 
       {/* ── BACK BUTTON + 戰情室入口 ── */}
       <div style={{background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"8px 16px",position:"sticky",top:0,zIndex:11,display:"flex",alignItems:"center",justifyContent:"space-between"}}>

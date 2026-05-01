@@ -5,10 +5,38 @@
 
 import { INIT_HOLDINGS } from '../seedData.js'
 
+/**
+ * Demo 資料版本（YYYY-MM）。每次手動更新本檔內容時請同步調整。
+ * 若版本與當前月份相差 > 60 天，DemoBanner 會顯示「示範資料更新中」提醒。
+ * 維護方式：scripts/refresh-demo-data.mjs（詳見 docs/demo-data-maintenance.md）
+ */
+export const DEMO_DATA_VERSION = '2026-05'
+
 export const DEMO_HOLDINGS = INIT_HOLDINGS
 
+const _demoToday = new Date().toLocaleDateString('zh-TW').replace(/-/g, '/')
+
 export const DEMO_ANALYSIS = {
-  date: new Date().toLocaleDateString('zh-TW'),
+  date: _demoToday,
+  // aiInsight：對應 dailyReport.aiInsight，會被 <Md /> 渲染成主分析內容
+  aiInsight: `## 今日總結
+AI/散熱族群延續強勢，整體持倉今日漲跌互見，成長股走勢明顯優於景氣循環標的。
+
+## 事件連動分析
+- **奇鋐液冷大單** 對應 GB200 出貨進度，今日 +2.1% 與消息面相符
+- **創意 CoWoS 良率** 雜音影響，股價弱勢但量縮，尚未跌破關鍵均線
+
+## 個股操作建議
+- **3017 奇鋐**：液冷利多落地後等待回測 5 日線再加碼
+- **3443 創意**：良率消息持續觀察 3 個交易日，跌破前波低點再考慮減碼
+- **2308 台達電**：除息前後波動加大，核心倉位續抱
+- **晟銘電**：仍處弱勢，已持有部位需設明確停損
+
+## 風險警示
+持倉集中於 AI/半導體（>60%），建議下次加碼考慮金融或傳產分散風險。
+
+---
+*此為 DEMO 範例分析，登入後系統會根據你的真實持倉與當日盤後資料生成個人化報告。*`,
   summary: `## 📊 今日收盤分析（Demo 模式）
 
 ### 大盤概況
@@ -242,3 +270,36 @@ export const DEMO_EVENTS = [
     reviewAt: fiveDaysLater,
   },
 ]
+
+// ── DEMO_CALENDAR：行事曆顯示用（對應 checkup-calendar 回傳結構） ──
+export const DEMO_CALENDAR = [
+  { label: '3443 創意法說會', date: threeDaysLater.replace(/-/g, '/'), sub: 'Q1 財報暨法說會', pred: 'up', predReason: 'ASIC 設計案能見度高' },
+  { label: '6274 台燿法說會', date: fiveDaysLater.replace(/-/g, '/'), sub: '法說＋Q4 財報', pred: 'up', predReason: 'CCL 報價上調' },
+  { label: '3017 奇鋐營收公布', date: sevenDaysLater.replace(/-/g, '/'), sub: '3 月營收公告', pred: 'up', predReason: '散熱模組需求成長' },
+  { label: '2308 台達電除息', date: tenDaysLater.replace(/-/g, '/'), sub: '現金股利 $12.5', pred: 'neutral', predReason: '預期填息' },
+  { label: '美國 CPI 數據公布', date: fourteenDaysLater.replace(/-/g, '/'), sub: '消費者物價指數', pred: 'neutral', predReason: '科技股對利率敏感' },
+]
+
+// ── DEMO_BRAIN_UPDATED：模擬 brain-update 後的策略大腦結構 ──
+// 對應 setStrategyBrain(newBrain) 的 JSON 結構
+export const DEMO_BRAIN_UPDATED = {
+  rules: [
+    '事件驅動：法說會前 3-5 日佈局，避開公布當日波動',
+    '權證部位佔比不超過總資產 15%，避免時間價值耗損',
+    '虧損 -10% 啟動反轉條件檢視，-15% 強制檢討',
+    '集中度警示：單一族群超過 60% 需主動分散',
+    'AI 散熱族群為核心，CoWoS / 液冷為關鍵題材',
+  ],
+  lessons: [
+    { date: _demoToday, text: '奇鋐液冷大單利多落地後反而高檔震盪，下次提前減碼一半鎖利' },
+    { date: _demoToday, text: '創意 CoWoS 良率雜音時量縮，量未放大前不必急著減碼' },
+    { date: '2026/04/20', text: '晟銘電虧損擴大未即時停損，下次嚴守 -15% 出場紀律' },
+  ],
+  commonMistakes: [
+    '虧損部位拗單未停損（晟銘電、士電案例）',
+    '權證接近到期時未檢視展期決策',
+    '同族群過度集中，未做產業分散',
+  ],
+  stats: { hitRate: '7/10', totalAnalyses: 42 },
+  lastUpdate: _demoToday,
+}
