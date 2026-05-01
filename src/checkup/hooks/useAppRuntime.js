@@ -1,5 +1,8 @@
 import { useState, useRef } from 'react'
 import { useHoldingsStore } from '../stores/holdingsStore.js'
+import { useEventStore } from '../stores/eventStore.js'
+import { useBrainStore } from '../stores/brainStore.js'
+import { useReportsStore } from '../stores/reportsStore.js'
 import { C } from '../theme.js'
 import { IND_COLOR, NEWS_EVENTS, RELAY_PLAN_CODES, STOCK_META } from '../seedData.js'
 import { useAppConfirmationDialog } from './useAppConfirmationDialog.js'
@@ -121,19 +124,37 @@ export function useAppRuntime() {
 
   const { saved, flashSaved } = useSavedToast()
 
-  const [analyzing, setAnalyzing] = useState(false)
-  const [analyzeStep, setAnalyzeStep] = useState('')
-  const [dailyReport, setDailyReport] = useState(null)
-  const [analysisHistory, setAnalysisHistory] = useState(null)
-  const [newsEvents, setNewsEvents] = useState(null)
+  // Reports / research / async flags — backed by useReportsStore (3A.3 migration).
+  const analyzing = useReportsStore((s) => s.analyzing)
+  const setAnalyzing = useReportsStore((s) => s.setAnalyzing)
+  const analyzeStep = useReportsStore((s) => s.analyzeStep)
+  const setAnalyzeStep = useReportsStore((s) => s.setAnalyzeStep)
+  const dailyReport = useReportsStore((s) => s.dailyReport)
+  const setDailyReport = useReportsStore((s) => s.setDailyReport)
+  const analysisHistory = useReportsStore((s) => s.analysisHistory)
+  const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
+  const researching = useReportsStore((s) => s.researching)
+  const setResearching = useReportsStore((s) => s.setResearching)
+  const researchHistory = useReportsStore((s) => s.researchHistory)
+  const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
+
+  // Events — backed by useEventStore.
+  const newsEvents = useEventStore((s) => s.newsEvents)
+  const setNewsEvents = useEventStore((s) => s.setNewsEvents)
+
+  // Reversal conditions still live in holdingsStore (3A.2).
   const reversalConditions = useHoldingsStore((s) => s.reversalConditions)
   const setReversalConditions = useHoldingsStore((s) => s.setReversalConditions)
-  const [strategyBrain, setStrategyBrain] = useState(null)
-  const [brainValidation, setBrainValidation] = useState(() => createEmptyBrainValidationStore())
+
+  // Strategy brain — backed by useBrainStore.
+  const strategyBrain = useBrainStore((s) => s.strategyBrain)
+  const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
+  const brainValidation = useBrainStore((s) => s.brainValidation)
+  const setBrainValidation = useBrainStore((s) => s.setBrainValidation)
+
+  // Runtime-only UI state (deferred to 3A.4).
   const [portfolioNotes, setPortfolioNotes] = useState(() => clonePortfolioNotes())
   const [cloudSync, setCloudSync] = useState(false)
-  const [researching, setResearching] = useState(false)
-  const [researchHistory, setResearchHistory] = useState(null)
 
   const cloudSaveTimersRef = useRef({})
   const cloudSyncStateRef = useRef({ enabled: false, syncedAt: 0 })
