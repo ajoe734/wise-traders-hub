@@ -57,6 +57,20 @@ import {
   loadPortfolioSnapshot,
   writeSyncAt,
 } from '../lib/portfolioUtils.js'
+import {
+  buildDecision,
+  buildDecisionFingerprint,
+  isEventOpen,
+  getEffectiveStatus,
+  toLegacyDisplayStatus,
+  sortByDecisionPriority,
+  isDuplicateEvent,
+  mergeEvents,
+  validateEventMutation,
+  validateAiEvent,
+  detectConflict,
+  deriveConfidence,
+} from '../lib/holdingEventUtils.js'
 
 const createDefaultFundamentalDraft = (overrides = {}) => ({
   ...DEFAULT_FUNDAMENTAL_DRAFT,
