@@ -1505,6 +1505,7 @@ export default function App() {
   // ── Sparkline 載入：持倉變動時，僅補抓還沒快取的代碼 ──
   useEffect(() => {
     if (!H || H.length === 0) return;
+    if (isDemo) return; // DEMO 模式不打 sparkline edge（裝飾用，不影響資料完整性）
     const codes = H.map((h) => String(h.code).trim()).filter(Boolean);
     const missing = codes.filter((c) => !sparklines[c]);
     if (missing.length === 0) return;
