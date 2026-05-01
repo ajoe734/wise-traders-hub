@@ -16,6 +16,7 @@ import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus 
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
 import { coerceStocksString } from "@/checkup/lib/edgeCoerce";
+import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -1199,6 +1200,14 @@ export default function App() {
   // 共用：執行一次預測（force=true 會繞過節流並重置已嘗試清單）
   const runPredictEvents = (force = false) => {
     const trigger = force ? 'manual' : 'auto';
+    if (isDemo || !supabaseUser?.id) {
+      if (force) {
+        flashPredictStatus('error', '請先登入後使用事件預測');
+        pushUpdateLog({ source:'predict', trigger, status:'blocked-auth', key:'(auth)', msg:'未登入，改走登入引導' });
+        startLineLogin?.();
+      }
+      return;
+    }
     // 重試上限與冷卻檢查（僅作用於 force 觸發；自動觸發不受限）
     if (force) {
       const now = Date.now();
@@ -1270,32 +1279,29 @@ export default function App() {
     pushUpdateLog({ source:'predict', trigger, status:'fetching', key:batchKey, msg:`${needsPrediction.length} 件` });
     (async () => {
       try {
-        const res = await fetch(`${SUPABASE_FN_BASE}/checkup-predict-events?debug=1`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...(await aiAuthHeaders()) },
-          body: JSON.stringify({
-            events: needsPrediction.map((e, i) => ({
-              index: i + 1,
-              date: e.date,
-              title: e.title,
-              detail: e.detail,
-              stocks: e.stocks,
-            })),
-            holdings: holdings || [],
-            debug: true,
-          }),
-        });
-        // Try to parse body even on failure (it may carry debug attempts)
         let data = null;
-        try { data = await res.json(); } catch { /* ignore */ }
-        if (data?.debug) {
-          setPredictLastDebug({ source: 'predict', at: new Date().toISOString(), httpStatus: res.status, ...data.debug });
-        }
-        if (!res.ok) {
-          // 配額用盡兜底（事件預測）
-          const dataCode = data?.code || data?.error_code || data?.error?.code;
-          const dataMsg = String(data?.error || data?.message || "");
-          if (res.status === 429 && (dataCode === 'QUOTA_EXCEEDED' || dataMsg.includes('QUOTA_EXCEEDED'))) {
+        try {
+          data = await callEdge('checkup-predict-events', {
+            body: {
+              events: needsPrediction.map((e, i) => ({
+                index: i + 1,
+                date: e.date,
+                title: e.title,
+                detail: e.detail,
+                stocks: e.stocks,
+              })),
+              holdings: holdings || [],
+              debug: true,
+            },
+            query: { debug: 1 },
+            silent: true,
+          });
+        } catch (err) {
+          const status = err?.status || 0;
+          const body = err?.body || null;
+          const dataCode = body?.code || body?.error_code || body?.error?.code;
+          const dataMsg = String(body?.error || body?.message || "");
+          if (status === 429 && (dataCode === 'QUOTA_EXCEEDED' || dataMsg.includes('QUOTA_EXCEEDED'))) {
             try { await refreshQuota?.(); } catch {}
             needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
             setQuotaModal({ trigger: 'predict' });
@@ -1303,14 +1309,16 @@ export default function App() {
             setPredictAutoStatus({ status: 'idle', msg: '' });
             return;
           }
-          console.error("Predict events failed:", res.status);
+          console.error("Predict events failed:", status, body || err);
           needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
-          const httpErr = new Error(`HTTP ${res.status}`);
-          recordPredictError(httpErr, res.status);
-          const { label } = classifyError(httpErr, res.status);
-          flashPredictStatus('error', `${label}（${res.status}）`);
-          pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:`${label} (${res.status})` });
+          recordPredictError(err, status);
+          const { label } = classifyError(err, status);
+          flashPredictStatus('error', `${label}${status ? `（${status}）` : ''}`);
+          pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg: `${label}${status ? ` (${status})` : ''}` });
           return;
+        }
+        if (data?.debug) {
+          setPredictLastDebug({ source: 'predict', at: new Date().toISOString(), httpStatus: 200, ...data.debug });
         }
         if (data?.fallback) {
           needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
