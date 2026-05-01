@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { usePortfolioStore } from '../stores/portfolioStore.js'
 import {
   OWNER_PORTFOLIO_ID,
   OVERVIEW_VIEW_MODE,
@@ -94,11 +95,33 @@ export const usePortfolioManagement = ({
   setSaved = () => {},
   notifySaved = null,
 } = {}) => {
-  const [portfolios, setPortfolios] = useState(initialPortfolios)
-  const [activePortfolioId, setActivePortfolioId] = useState(initialActivePortfolioId)
-  const [viewMode, setViewMode] = useState(initialViewMode)
-  const [portfolioSwitching, setPortfolioSwitching] = useState(false)
-  const [showPortfolioManager, setShowPortfolioManager] = useState(false)
+  // ── 3A.1：portfolios / activePortfolioId / viewMode / portfolioSwitching /
+  //          showPortfolioManager 從 useState 改為 zustand selector。
+  //          setter 走 store action，會自動同步 syncEngine.setContext，
+  //          確保 demo / 非 owner portfolio 不會誤觸雲端寫入。
+  const portfolios = usePortfolioStore((s) => s.portfolios)
+  const setPortfolios = usePortfolioStore((s) => s.setPortfolios)
+  const activePortfolioId = usePortfolioStore((s) => s.activePortfolioId)
+  const setActivePortfolioId = usePortfolioStore((s) => s.setActivePortfolioId)
+  const viewMode = usePortfolioStore((s) => s.viewMode)
+  const setViewMode = usePortfolioStore((s) => s.setViewMode)
+  const portfolioSwitching = usePortfolioStore((s) => s.portfolioSwitching)
+  const setPortfolioSwitching = usePortfolioStore((s) => s.setPortfolioSwitching)
+  const showPortfolioManager = usePortfolioStore((s) => s.showPortfolioManager)
+  const setShowPortfolioManager = usePortfolioStore((s) => s.setShowPortfolioManager)
+  const hydrateInitial = usePortfolioStore((s) => s.hydrateInitial)
+
+  // 只在第一次掛載時把 bootstrap 取得的初值灌入 store（store 預設值才會被覆蓋）
+  const hydratedRef = useRef(false)
+  if (!hydratedRef.current) {
+    hydratedRef.current = true
+    hydrateInitial({
+      portfolios: initialPortfolios,
+      activePortfolioId: initialActivePortfolioId,
+      viewMode: initialViewMode,
+    })
+  }
+
   const [portfolioEditorState, setPortfolioEditorState] = useState(() =>
     createPortfolioEditorState()
   )
