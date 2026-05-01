@@ -1900,9 +1900,10 @@ export default function App() {
         return base;
       });
       const exCh = queries.join('|');
-      const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await callEdge('checkup-twse', {
+        query: { ex_ch: exCh },
+        silent: true,
+      }).catch(() => ({}));
 
       const priceMap = {};
       if (data.msgArray) {
