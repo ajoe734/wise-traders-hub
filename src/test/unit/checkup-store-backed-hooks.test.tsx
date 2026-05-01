@@ -414,6 +414,17 @@ const RouterWrapper = ({ children }: { children: React.ReactNode }) => (
   <MemoryRouter>{children}</MemoryRouter>
 )
 
+const AppWrapper = ({ children }: { children: React.ReactNode }) => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return (
+    <QueryClientProvider client={client}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>
+  )
+}
+
 describe('useRouteDailyPage', () => {
   it('writes expandedStock to useBrainStore', () => {
     renderHook(() => useRouteDailyPage(), { wrapper: RouterWrapper })
