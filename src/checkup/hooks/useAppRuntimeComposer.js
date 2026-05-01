@@ -933,8 +933,6 @@ export function composeResearchWorkflowArgs({
     getHoldingUnrealizedPnl,
     getHoldingReturnPct,
     setResearchResults,
-    setResearchHistory,
-    setStrategyBrain,
     notifySaved: flashSaved,
     enrichResearchToDossier,
     mergeBrainPreservingCoachLessons,
