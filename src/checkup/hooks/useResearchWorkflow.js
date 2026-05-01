@@ -8,6 +8,9 @@ import {
   getResearchTargetKey,
   mergeResearchHistoryEntries,
 } from '../lib/researchRuntime.js'
+// Phase 3A.4 Step 1: store 直取 setter
+import { useReportsStore } from '../stores/reportsStore.js'
+import { useBrainStore } from '../stores/brainStore.js'
 
 async function defaultRunResearchRequest(body) {
   const res = await fetch(API_ENDPOINTS.RESEARCH, {
@@ -36,14 +39,18 @@ export function useResearchWorkflow({
   getHoldingUnrealizedPnl = () => 0,
   getHoldingReturnPct = () => 0,
   setResearchResults = () => {},
-  setResearchHistory = () => {},
-  setStrategyBrain = () => {},
+  setResearchHistory: _setResearchHistoryProp = () => {},
+  setStrategyBrain: _setStrategyBrainProp = () => {},
   setSaved = () => {},
   notifySaved = null,
   enrichResearchToDossier = async () => false,
   mergeBrainPreservingCoachLessons = (nextBrain) => nextBrain,
   runResearchRequest = defaultRunResearchRequest,
 }) {
+  const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
+  const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
+  void _setResearchHistoryProp
+  void _setStrategyBrainProp
   const emitSaved = useCallback(
     (message, timeout = STATUS_MESSAGE_TIMEOUT_MS.DEFAULT) => {
       if (typeof notifySaved === 'function') {
