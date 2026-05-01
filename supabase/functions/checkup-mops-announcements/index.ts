@@ -2,10 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { corsHeaders } from '../_shared/checkupCors.ts';
 
 const ANNOUNCEMENT_TYPES: Record<string, string> = {
   '營收': 'revenue', '股利': 'dividend', '配息': 'dividend', '除權': 'dividend',
