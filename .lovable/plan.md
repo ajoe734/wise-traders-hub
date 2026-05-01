@@ -1,96 +1,52 @@
-# 階段 3A.3：Brain / NewsEvents / Reports / Research → Zustand
+## Step 5：Vitest 設定收斂 + Helper Catalog smoke test
 
-把 `useAppRuntime.js` 中剩下的 8 個 `useState` 替換成 `eventStore` / `brainStore` / `reportsStore` 的 selectors，與 3A.1（portfolio）、3A.2（holdings）保持同樣風格：**只動 setter 來源、不動 runtimeState/runtimeSetters 物件形狀**，下游 composer / lifecycle / workflow hooks 完全無感。
+Phase 3A.4 收尾的兩項 CP 值最高的補強，純測試/設定層，不動 production runtime。
 
-## 目標 slice 對應
+---
 
-| 現有 useState | 改用 store | store 內現況 |
-|---|---|---|
-| `newsEvents` | `useEventStore` | 已有 `setNewsEvents`，需把預設從 `[]` 改成 `null`（保留「未 hydrate」哨兵） |
-| `strategyBrain` | `useBrainStore` | 已有 `setStrategyBrain`，預設已是 `null` ✅ |
-| `brainValidation` | `useBrainStore` | 預設 `{version:1,cases:[]}` 需改用 `createEmptyBrainValidationStore()` |
-| `analysisHistory` | `useReportsStore` | 預設從 `[]` 改 `null` |
-| `dailyReport` | `useReportsStore` | 已 `null` ✅ |
-| `researchHistory` | `useReportsStore` | 預設從 `[]` 改 `null` |
-| `analyzing` / `analyzeStep` / `researching` | `useReportsStore` | 已存在對應 setter ✅ |
+### 1. Vitest exclude e2e（5 分鐘）
 
-> 不遷移 `ready` / `cloudSync` / `portfolioNotes`：屬於 runtime/UI 暫態，留在 useAppRuntime 即可（與 3A.2 對齊）。
+**問題**：`vitest run` 目前會掃到 `e2e/*.spec.ts`（Playwright 語法），產生 1 個 fail 的噪音檔，未來 unit fail 容易被淹沒。
 
-## 變更步驟
+**修改**：`vitest.config.ts`
+- `test.exclude` 加入 `'e2e/**'`（保留現有 `'node_modules'`、`'dist'`）
 
-### 1. `src/checkup/stores/eventStore.js`
-- `newsEvents` 初值 `[]` → `null`
-- `addEvent / updateEvent / deleteEvent / getEventsByStatus / getUrgentCount / getTodayAlertSummary` 全部加 `asArr` 保護（`(state.newsEvents ?? [])`），避免 hydrate 前崩潰
-- `setNewsEvents` 走 `makeSetter` 模式以支援 `setX(prev => next)`（與 3A.2 對齊）
-- 加 `hydrateInitial(partial)`：僅在仍為初值時 patch（與 portfolio/holdings store 同 pattern）
+驗證：`bunx vitest run` 不再出現 e2e 相關的 collect error / fail。
 
-### 2. `src/checkup/stores/brainStore.js`
-- `import { createEmptyBrainValidationStore } from '../lib/brainRuntime.js'`
-- `brainValidation` 初值改成 `createEmptyBrainValidationStore()`
-- `setStrategyBrain / setBrainValidation` 改 `makeSetter` 以支援 updater function
-- 加 `hydrateInitial`
+---
 
-### 3. `src/checkup/stores/reportsStore.js`
-- `analysisHistory` / `researchHistory` 初值 `[]` → `null`
-- `addAnalysis / deleteAnalysis / getLatestAnalysis / getAnalysisCount` 用 `asArr` 包覆
-- 所有重點 setter（`setAnalysisHistory`, `setDailyReport`, `setResearchHistory`, `setAnalyzing`, `setAnalyzeStep`, `setResearching`, `setReportRefreshMeta`）改 `makeSetter`
-- 加 `hydrateInitial`
+### 2. `useAppRuntimeHelperCatalog` smoke test（15 分鐘）
 
-### 4. `src/checkup/hooks/useAppRuntime.js`
-把這些 `useState` 換成 store selectors：
+**問題**：Step 4 才剛抓到「import 漏掉 `holdingEventUtils`」這種 bug，這支 catalog 是所有 workflow / lifecycle hooks 的共用入口，沒有任何測試防線；下次再漏 import 又會雪崩。
 
-```js
-// events
-const newsEvents = useEventStore((s) => s.newsEvents)
-const setNewsEvents = useEventStore((s) => s.setNewsEvents)
+**新增**：`src/test/unit/checkup-helper-catalog.test.ts`
 
-// brain
-const strategyBrain = useBrainStore((s) => s.strategyBrain)
-const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
-const brainValidation = useBrainStore((s) => s.brainValidation)
-const setBrainValidation = useBrainStore((s) => s.setBrainValidation)
+涵蓋兩個 export 物件：
+- `APP_RUNTIME_CORE_LIFECYCLE_HELPERS`（33 個 helpers）
+- `APP_RUNTIME_WORKFLOW_HELPERS`（27 個 helpers）
 
-// reports / research / async flags
-const analysisHistory  = useReportsStore((s) => s.analysisHistory)
-const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
-const dailyReport      = useReportsStore((s) => s.dailyReport)
-const setDailyReport   = useReportsStore((s) => s.setDailyReport)
-const researchHistory  = useReportsStore((s) => s.researchHistory)
-const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
-const analyzing        = useReportsStore((s) => s.analyzing)
-const setAnalyzing     = useReportsStore((s) => s.setAnalyzing)
-const analyzeStep      = useReportsStore((s) => s.analyzeStep)
-const setAnalyzeStep   = useReportsStore((s) => s.setAnalyzeStep)
-const researching      = useReportsStore((s) => s.researching)
-const setResearching   = useReportsStore((s) => s.setResearching)
-```
+每個物件斷言：
+1. import 不丟 error（catch import-time 失敗，例如缺漏的 named import）
+2. 物件本身是 plain object 且非空
+3. 每一個 key 對應的 value 都是 `function` 且非 `undefined`（防止「export 名字打錯 → 變 undefined」）
+4. 抽樣 1–2 個 helper 做最薄的行為呼叫（例如 `toSlashDate(new Date('2026/01/02'))` 回傳 `'2026/01/02'`、`createDefaultReviewForm()` 回傳 object）—— 確認真的可被呼叫，而不只是「是 function」。
 
-`runtimeState` / `runtimeSetters` 物件鍵維持不變，所以 `useAppRuntimeCoreLifecycle` / `useAppRuntimeWorkflows` / `useAppRuntimeComposer` / `usePortfolioBootstrap` / `usePortfolioPersistence` 全部 0 修改。
+**不做**的事：
+- 不重測各 helper 的內部邏輯（那是各自 utils 的單元測試責任）
+- 不 mock 任何 Zustand / Supabase（純函式 catalog，沒這些依賴）
 
-### 5. 驗證
-- `bunx vitest run src/test/unit/freecheckup-i18n.test.ts src/test/unit/freecheckup-mobile-card-overflow.test.ts src/test/unit/1.3-holding-math.test.ts`
-- `bun run scripts/check-freecheckup-i18n.mjs`
-- `bunx playwright test e2e/freecheckup-card.spec.ts`（依 mem://qa/checkup/freecheckup-mobile-regression-checklist 規則）
-- 手動心智檢查：
-  - 切換 portfolio → `setNewsEvents(null)` 重 hydrate 不爆
-  - Demo mode（非 OWNER_PORTFOLIO_ID）下 syncEngine.setContext 仍正確 gating 雲端寫入（3A.1 已驗證，本階段不改）
-  - 分析中 `analyzing=true` 切到其他頁仍維持（store 是全域單例，反而更穩）
+驗證：
+- `bunx vitest run src/test/unit/checkup-helper-catalog.test.ts` 全綠
+- 故意把 catalog 中某個 import 註解掉 → 測試紅（驗證 guard 真的有效）→ 還原
 
-## 風險與緩解
+---
 
-- **全域 store 副作用**：`analyzing/researching` 變成跨 hook 共享 → 若未來開多個 portfolio 視圖會互相影響。目前架構單實例使用，無風險；3A.4 重構 composer 時再評估是否要加 portfolio scope。
-- **預設值改成 null**：所有讀取點目前已用 `?? []` 或 `Array.isArray()` 守，已搜過 `usePortfolioPersistence` / `useAppRuntimePortfolioDerivedData` 沒有裸取。store 內 selector 也補 `asArr`，雙重保險。
-- **brainValidation 形狀**：必須走 `createEmptyBrainValidationStore()`，不要硬寫 `{cases:[]}`，避免 schema 漂移。
+### 風險
 
-## 不在本階段範圍
+- **零 production code 改動**，只動 `vitest.config.ts` 與新增一支測試檔。
+- 不影響 dev server、build、e2e、Playwright。
 
-- `ready` / `cloudSync` / `portfolioNotes`：屬 runtime 暫態，3A.4 統一處理
-- `useAppRuntimeComposer` 拆掉 setter prop drilling：留待 **3A.4**
-- `reviewingEvent / reviewForm / showAddEvent / calendarMonth` 等 UI 暫態已在 `useAppShellUiState` / `eventStore` 內各自管理，本階段不動
+### 完成後狀態
 
-## 完成定義
-
-- `useAppRuntime.js` 不再 import `createEmptyBrainValidationStore`、不再有上表 8 個 `useState`
-- 三個 store 的初值與 setter 行為對齊 holdingsStore 規範（null 哨兵 + functional setter + hydrateInitial）
-- 上述測試與 RWD 截圖全綠
-- mem://core 中「不准偷懶」清單中的 RWD 三斷點截圖（560/390/380）保留並附在回報
+- `bunx vitest run` 輸出乾淨，703 → 約 705+ 全綠（catalog smoke 增加 2–4 個 case）。
+- Phase 3A.4 四項候選優化中，**1（Vitest config）+ 2（Catalog smoke）已完成**；3（portfolio scoping）等 roadmap 確認後再啟動；4（UI flag 進 store）依契約保留現狀。
