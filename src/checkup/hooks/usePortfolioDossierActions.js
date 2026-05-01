@@ -4,15 +4,24 @@ import { APP_LABELS, APP_TOAST_MESSAGES } from '../lib/appMessages.js'
 import { normalizeHoldings } from '../lib/holdings.js'
 import { normalizeFundamentalsEntry } from '../lib/dossierUtils.js'
 import { mergeTargetReports } from '../lib/reportUtils.js'
+// Phase 3A.4 Step 1: store 直取 setter
+import { useHoldingsStore } from '../stores/holdingsStore.js'
 
 export function usePortfolioDossierActions({
   marketQuotes = null,
-  setHoldings = () => {},
-  setTargets = () => {},
-  setFundamentals = () => {},
+  setHoldings: _setHoldingsProp = () => {},
+  setTargets: _setTargetsProp = () => {},
+  setFundamentals: _setFundamentalsProp = () => {},
   flashSaved = () => {},
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
 }) {
+  const setHoldings = useHoldingsStore((s) => s.setHoldings)
+  const setTargets = useHoldingsStore((s) => s.setTargets)
+  const setFundamentals = useHoldingsStore((s) => s.setFundamentals)
+  void _setHoldingsProp
+  void _setTargetsProp
+  void _setFundamentalsProp
+
   const updateTargetPrice = useCallback(
     (code, targetPrice) => {
       if (!code) return
