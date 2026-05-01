@@ -102,24 +102,17 @@ export function useAppRuntime() {
   const [ready, setReady] = useState(false)
 
   // Holdings slice — backed by useHoldingsStore (3A.2 migration).
-  // Setters returned from the store are stable references and accept either
-  // a plain value or an updater function, matching React's useState contract.
+  // Phase 3A.4 Step 3: store-backed setters no longer prop-drilled from this
+  // composer. Hooks downstream import the store directly. Only state values
+  // are subscribed here so React re-renders propagate as before.
   const holdings = useHoldingsStore((s) => s.holdings)
-  const setHoldings = useHoldingsStore((s) => s.setHoldings)
   const tradeLog = useHoldingsStore((s) => s.tradeLog)
-  const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
   const targets = useHoldingsStore((s) => s.targets)
-  const setTargets = useHoldingsStore((s) => s.setTargets)
   const fundamentals = useHoldingsStore((s) => s.fundamentals)
-  const setFundamentals = useHoldingsStore((s) => s.setFundamentals)
   const watchlist = useHoldingsStore((s) => s.watchlist)
-  const setWatchlist = useHoldingsStore((s) => s.setWatchlist)
   const analystReports = useHoldingsStore((s) => s.analystReports)
-  const setAnalystReports = useHoldingsStore((s) => s.setAnalystReports)
   const reportRefreshMeta = useHoldingsStore((s) => s.reportRefreshMeta)
-  const setReportRefreshMeta = useHoldingsStore((s) => s.setReportRefreshMeta)
   const holdingDossiers = useHoldingsStore((s) => s.holdingDossiers)
-  const setHoldingDossiers = useHoldingsStore((s) => s.setHoldingDossiers)
 
   const { saved, flashSaved } = useSavedToast()
 
@@ -129,27 +122,20 @@ export function useAppRuntime() {
   const analyzeStep = useReportsStore((s) => s.analyzeStep)
   const setAnalyzeStep = useReportsStore((s) => s.setAnalyzeStep)
   const dailyReport = useReportsStore((s) => s.dailyReport)
-  const setDailyReport = useReportsStore((s) => s.setDailyReport)
   const analysisHistory = useReportsStore((s) => s.analysisHistory)
-  const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
   const researching = useReportsStore((s) => s.researching)
   const setResearching = useReportsStore((s) => s.setResearching)
   const researchHistory = useReportsStore((s) => s.researchHistory)
-  const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
 
   // Events — backed by useEventStore.
   const newsEvents = useEventStore((s) => s.newsEvents)
-  const setNewsEvents = useEventStore((s) => s.setNewsEvents)
 
   // Reversal conditions still live in holdingsStore (3A.2).
   const reversalConditions = useHoldingsStore((s) => s.reversalConditions)
-  const setReversalConditions = useHoldingsStore((s) => s.setReversalConditions)
 
   // Strategy brain — backed by useBrainStore.
   const strategyBrain = useBrainStore((s) => s.strategyBrain)
-  const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
   const brainValidation = useBrainStore((s) => s.brainValidation)
-  const setBrainValidation = useBrainStore((s) => s.setBrainValidation)
 
   // Runtime-only UI state (deferred to 3A.4).
   const [portfolioNotes, setPortfolioNotes] = useState(() => clonePortfolioNotes())
@@ -206,25 +192,13 @@ export function useAppRuntime() {
     portfolioNotes,
   }
 
+  // Phase 3A.4 Step 3: store-backed setters 已從各 hook 內部直接走 store
+  // (useHoldingsStore / useEventStore / useReportsStore / useBrainStore)，
+  // 不再透過 runtimeSetters 物件 prop drill。此處只保留 UI / cloud state setter。
   const runtimeSetters = {
     setReady,
     setCloudSync,
-    setHoldings,
-    setTradeLog,
-    setTargets,
-    setFundamentals,
-    setWatchlist,
-    setAnalystReports,
-    setReportRefreshMeta,
-    setHoldingDossiers,
-    setNewsEvents,
-    setAnalysisHistory,
-    setReversalConditions,
-    setStrategyBrain,
-    setBrainValidation,
-    setResearchHistory,
     setPortfolioNotes,
-    setDailyReport,
   }
 
   const coreLifecycleArgs = useAppRuntimeCoreArgs({
