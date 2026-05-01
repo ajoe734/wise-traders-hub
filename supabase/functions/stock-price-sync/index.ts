@@ -135,8 +135,8 @@ Deno.serve(async (req) => {
     const dow = tw.getUTCDay() // 0=Sun, 6=Sat
     const minutes = tw.getUTCHours() * 60 + tw.getUTCMinutes()
     const isWeekday = dow >= 1 && dow <= 5
-    // 早盤試撮 08:30 起、盤中 09:00–13:30、盤後零股 14:00–14:30 全部納入
-    const inWindow = minutes >= 8 * 60 + 30 && minutes <= 14 * 60 + 30
+    // 盤中 09:00–13:33（含尾盤撮合緩衝）
+    const inWindow = minutes >= 9 * 60 && minutes <= 13 * 60 + 33
     if (!force && !(isWeekday && inWindow)) {
       return new Response(JSON.stringify({ skipped: true, reason: 'outside_trading_hours' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
