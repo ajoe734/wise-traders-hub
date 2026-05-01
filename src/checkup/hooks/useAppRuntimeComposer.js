@@ -315,7 +315,7 @@ export function useAppLifecycleRuntimeComposer({
 
 export function composeAppRuntimeCoreLifecycleArgs({
   data,
-  refs,
+  refs = {},
   setters,
   ui,
   runtime,
@@ -338,7 +338,7 @@ export function composeAppRuntimeWorkflowsArgs({
   actions,
   setters,
   resources,
-  refs,
+  refs = {},
   runtime,
   helpers,
 }) {
