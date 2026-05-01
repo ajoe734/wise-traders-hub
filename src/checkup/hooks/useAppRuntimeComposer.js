@@ -765,11 +765,6 @@ export function composeDailyAnalysisWorkflowArgs({
     normalizeHoldings,
     isClosedEvent,
     toSlashDate,
-    setDailyReport,
-    setAnalysisHistory,
-    setStrategyBrain,
-    setBrainValidation,
-    setHoldings,
     setLastUpdate,
     notifySaved: flashSaved,
   }
