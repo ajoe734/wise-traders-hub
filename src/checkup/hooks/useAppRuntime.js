@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useHoldingsStore } from '../stores/holdingsStore.js'
 import { C } from '../theme.js'
 import { IND_COLOR, NEWS_EVENTS, RELAY_PLAN_CODES, STOCK_META } from '../seedData.js'
 import { useAppConfirmationDialog } from './useAppConfirmationDialog.js'
@@ -98,14 +99,25 @@ const pickHeaderPnlTone = (value) => pickPnlTone(value, C)
 export function useAppRuntime() {
   const [ready, setReady] = useState(false)
 
-  const [holdings, setHoldings] = useState(null)
-  const [tradeLog, setTradeLog] = useState(null)
-  const [targets, setTargets] = useState(null)
-  const [fundamentals, setFundamentals] = useState(null)
-  const [watchlist, setWatchlist] = useState(null)
-  const [analystReports, setAnalystReports] = useState(null)
-  const [reportRefreshMeta, setReportRefreshMeta] = useState(null)
-  const [holdingDossiers, setHoldingDossiers] = useState(null)
+  // Holdings slice — backed by useHoldingsStore (3A.2 migration).
+  // Setters returned from the store are stable references and accept either
+  // a plain value or an updater function, matching React's useState contract.
+  const holdings = useHoldingsStore((s) => s.holdings)
+  const setHoldings = useHoldingsStore((s) => s.setHoldings)
+  const tradeLog = useHoldingsStore((s) => s.tradeLog)
+  const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
+  const targets = useHoldingsStore((s) => s.targets)
+  const setTargets = useHoldingsStore((s) => s.setTargets)
+  const fundamentals = useHoldingsStore((s) => s.fundamentals)
+  const setFundamentals = useHoldingsStore((s) => s.setFundamentals)
+  const watchlist = useHoldingsStore((s) => s.watchlist)
+  const setWatchlist = useHoldingsStore((s) => s.setWatchlist)
+  const analystReports = useHoldingsStore((s) => s.analystReports)
+  const setAnalystReports = useHoldingsStore((s) => s.setAnalystReports)
+  const reportRefreshMeta = useHoldingsStore((s) => s.reportRefreshMeta)
+  const setReportRefreshMeta = useHoldingsStore((s) => s.setReportRefreshMeta)
+  const holdingDossiers = useHoldingsStore((s) => s.holdingDossiers)
+  const setHoldingDossiers = useHoldingsStore((s) => s.setHoldingDossiers)
 
   const { saved, flashSaved } = useSavedToast()
 
@@ -114,7 +126,8 @@ export function useAppRuntime() {
   const [dailyReport, setDailyReport] = useState(null)
   const [analysisHistory, setAnalysisHistory] = useState(null)
   const [newsEvents, setNewsEvents] = useState(null)
-  const [reversalConditions, setReversalConditions] = useState(null)
+  const reversalConditions = useHoldingsStore((s) => s.reversalConditions)
+  const setReversalConditions = useHoldingsStore((s) => s.setReversalConditions)
   const [strategyBrain, setStrategyBrain] = useState(null)
   const [brainValidation, setBrainValidation] = useState(() => createEmptyBrainValidationStore())
   const [portfolioNotes, setPortfolioNotes] = useState(() => clonePortfolioNotes())
