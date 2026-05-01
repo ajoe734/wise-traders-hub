@@ -677,8 +677,6 @@ export function composeReportRefreshWorkflowArgs({
   todayRefreshKey,
   upsertTargetReport,
   upsertFundamentalsEntry,
-  setAnalystReports,
-  setReportRefreshMeta,
   flashSaved,
   toSlashDate,
 }) {
@@ -691,8 +689,6 @@ export function composeReportRefreshWorkflowArgs({
     todayRefreshKey,
     upsertTargetReport,
     upsertFundamentalsEntry,
-    setAnalystReports,
-    setReportRefreshMeta,
     flashSaved,
     toSlashDate,
   }
