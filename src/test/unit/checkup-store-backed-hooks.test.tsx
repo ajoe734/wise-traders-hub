@@ -427,7 +427,7 @@ const AppWrapper = ({ children }: { children: React.ReactNode }) => {
 
 describe('useRouteDailyPage', () => {
   it('writes expandedStock to useBrainStore', () => {
-    renderHook(() => useRouteDailyPage(), { wrapper: RouterWrapper })
+    renderHook(() => useRouteDailyPage(), { wrapper: AppWrapper })
     // The hook subscribes setExpandedStock from the store; assert by writing
     // through the store directly (which is what the hook does internally).
     act(() => {
