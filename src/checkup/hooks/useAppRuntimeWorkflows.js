@@ -319,8 +319,6 @@ export function useAppRuntimeWorkflows({
       holdings,
       tradeLog,
       marketQuotes: marketPriceCache?.prices,
-      setHoldings,
-      setTradeLog,
       upsertTargetReport,
       upsertFundamentalsEntry,
       applyTradeEntryToHoldings,
