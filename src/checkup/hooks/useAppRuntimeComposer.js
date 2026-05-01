@@ -1,4 +1,6 @@
+// @ts-check
 import { OWNER_PORTFOLIO_ID, PORTFOLIO_VIEW_MODE } from '../constants.js'
+import { assertNoStoreSetters } from './runtimeArgs.types.js'
 
 // Phase 3A.4 Step 4: store-backed setters (setHoldings/setTradeLog/setTargets/
 // setFundamentals/setWatchlist/setAnalystReports/setReportRefreshMeta/
@@ -315,7 +317,7 @@ export function useAppLifecycleRuntimeComposer({
 
 export function composeAppRuntimeCoreLifecycleArgs({
   data,
-  refs,
+  refs = {},
   setters,
   ui,
   runtime,
@@ -338,7 +340,7 @@ export function composeAppRuntimeWorkflowsArgs({
   actions,
   setters,
   resources,
-  refs,
+  refs = {},
   runtime,
   helpers,
 }) {
@@ -408,7 +410,9 @@ export function composeAppRuntimeWorkflowInput({
       switchPortfolio: coreLifecycle.switchPortfolio,
       exitOverview: coreLifecycle.exitOverview,
     },
-    setters: {
+    setters: assertNoStoreSetters({
+      // Phase 3A.4 Step 3: TS 層守住 spread 覆蓋風險 — 任何已遷移到 store 的
+      // setter (setHoldings/setTradeLog/...) 出現在這裡都會被 TS 標記為錯誤。
       ...runtimeSetters,
       setLastUpdate: coreLifecycle.setLastUpdate,
       setPortfolios: coreLifecycle.setPortfolios,
@@ -429,7 +433,7 @@ export function composeAppRuntimeWorkflowInput({
       setResearchResults: uiState.setResearchResults,
       setReviewForm: uiState.setReviewForm,
       setReviewingEvent: uiState.setReviewingEvent,
-    },
+    }),
     resources: {
       defaultNewsEvents: resources.defaultNewsEvents,
       researchResults: uiState.researchResults,

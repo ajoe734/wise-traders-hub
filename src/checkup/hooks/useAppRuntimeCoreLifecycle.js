@@ -1,3 +1,4 @@
+// @ts-check
 import { OWNER_PORTFOLIO_ID, PORTFOLIO_VIEW_MODE } from '../constants.js'
 import { usePortfolioManagement } from './usePortfolioManagement.js'
 import { usePortfolioBootstrap } from './usePortfolioBootstrap.js'
@@ -274,7 +275,8 @@ export function useAppRuntimeCoreLifecycle({
   const { updateTargetPrice, updateAlert, upsertTargetReport, upsertFundamentalsEntry } =
     usePortfolioDossierActions(dossierActionArgs)
   const { upsertWatchlist: handleWatchlistUpsert, removeWatchlist: handleWatchlistDelete } =
-    useWatchlistActions(watchlistActionsArgs)
+    useWatchlistActions()
+  void watchlistActionsArgs
   const { updateReversal, cancelReview } = useTransientUiActions(transientUiArgs)
   useEventLifecycleSync(eventLifecycleArgs)
 
