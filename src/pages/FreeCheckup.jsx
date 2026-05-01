@@ -1926,12 +1926,47 @@ export default function App() {
   // ── 每日收盤分析 ─────────────────────────────────────────────────
   const runDailyAnalysis = async () => {
     if (analyzing) return;
-    // 收盤分析需要登入（後端 consumeCheckupQuota 強制 user JWT）
-    // 訪客（demo / 未登入）按下時，引導去登入而不是發出 401 請求
-    if (isDemo || !supabaseUser?.id) {
-      setSaved("請先登入後再使用收盤分析");
-      setTimeout(() => setSaved(""), 4000);
-      navigate("/auth/login?redirect=/checkup");
+    // ── DEMO 模式：模擬完整收盤分析流程，最後套用 DEMO_ANALYSIS ──
+    if (isDemo) {
+      setAnalyzing(true);
+      setDailyLastError(null);
+      try {
+        await simulateSteps([
+          { label: '取得即時股價...', min: 1000, max: 1600 },
+          { label: '分析持倉表現...', min: 1200, max: 1800 },
+          { label: '比對事件邏輯...', min: 1000, max: 1600 },
+          { label: '策略大腦進化中...', min: 1000, max: 1600 },
+        ], setAnalyzeStep);
+        const demoToday = new Date().toLocaleDateString('zh-TW').replace(/-/g, '/');
+        const demoReport = {
+          id: Date.now(),
+          date: demoToday,
+          time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+          totalTodayPnl: 0,
+          changes: [],
+          anomalies: [],
+          eventCorrelations: [],
+          needsReview: [],
+          autoVerified: [],
+          aiInsight: DEMO_ANALYSIS.aiInsight,
+          isDemo: true,
+        };
+        setDailyReport(demoReport);
+        setAnalysisHistory(prev => [demoReport, ...(prev || []).filter(r => r.date !== demoToday)].slice(0, 30));
+        setStrategyBrain(DEMO_BRAIN_UPDATED);
+        setSaved('DEMO 分析完成，登入後可儲存你的真實報告');
+        setTimeout(() => setSaved(''), 4000);
+      } finally {
+        setAnalyzing(false);
+        setAnalyzeStep('');
+      }
+      return;
+    }
+    // 非 demo 但未登入 → 引導登入
+    if (!supabaseUser?.id) {
+      setSaved('請先登入後再使用收盤分析');
+      setTimeout(() => setSaved(''), 4000);
+      navigate('/auth/login?redirect=/checkup');
       return;
     }
     if (hasReachedDailyLimit) {
