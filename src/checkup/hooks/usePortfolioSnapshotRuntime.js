@@ -34,22 +34,7 @@ export function usePortfolioSnapshotRuntime({
   strategyBrain,
   researchHistory,
   portfolioNotes,
-  setHoldings: _setHoldingsProp,
-  setTradeLog: _setTradeLogProp,
-  setTargets: _setTargetsProp,
-  setFundamentals: _setFundamentalsProp,
-  setWatchlist: _setWatchlistProp,
-  setAnalystReports: _setAnalystReportsProp,
-  setReportRefreshMeta: _setReportRefreshMetaProp,
-  setHoldingDossiers: _setHoldingDossiersProp,
-  setNewsEvents: _setNewsEventsProp,
-  setAnalysisHistory: _setAnalysisHistoryProp,
-  setReversalConditions: _setReversalConditionsProp,
-  setStrategyBrain: _setStrategyBrainProp,
-  setBrainValidation: _setBrainValidationProp,
-  setResearchHistory: _setResearchHistoryProp,
   setPortfolioNotes,
-  setDailyReport: _setDailyReportProp,
   normalizeAnalysisHistoryEntries,
   applyMarketQuotesToHoldings,
   normalizeFundamentalsStore,
@@ -83,21 +68,6 @@ export function usePortfolioSnapshotRuntime({
   const setDailyReport = useReportsStore((s) => s.setDailyReport)
   const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
   const setBrainValidation = useBrainStore((s) => s.setBrainValidation)
-  void _setHoldingsProp
-  void _setTradeLogProp
-  void _setTargetsProp
-  void _setFundamentalsProp
-  void _setWatchlistProp
-  void _setAnalystReportsProp
-  void _setReportRefreshMetaProp
-  void _setHoldingDossiersProp
-  void _setNewsEventsProp
-  void _setAnalysisHistoryProp
-  void _setReversalConditionsProp
-  void _setStrategyBrainProp
-  void _setBrainValidationProp
-  void _setResearchHistoryProp
-  void _setDailyReportProp
   const applyPortfolioSnapshot = useCallback(
     (snapshot) => {
       const normalizedAnalysisHistory = normalizeAnalysisHistoryEntries(snapshot.analysisHistory)

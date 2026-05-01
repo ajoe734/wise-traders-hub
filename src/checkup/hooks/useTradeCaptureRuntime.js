@@ -40,8 +40,6 @@ export function useTradeCaptureRuntime({
   holdings = [],
   tradeLog = [],
   marketQuotes = null,
-  setHoldings: _setHoldingsProp = () => {},
-  setTradeLog: _setTradeLogProp = () => {},
   upsertTargetReport = () => false,
   upsertFundamentalsEntry = () => false,
   applyTradeEntryToHoldings = (rows) => rows,
@@ -52,8 +50,6 @@ export function useTradeCaptureRuntime({
 }) {
   const setHoldings = useHoldingsStore((s) => s.setHoldings)
   const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
-  void _setHoldingsProp
-  void _setTradeLogProp
   const [dragOver, setDragOver] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [tradeEditorState, setTradeEditorState] = useState(() =>

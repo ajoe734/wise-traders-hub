@@ -5,7 +5,6 @@ import { useHoldingsStore } from '../stores/holdingsStore.js'
 
 export function useWatchlistActions({ setWatchlist: _setWatchlistProp = () => {} } = {}) {
   const setWatchlist = useHoldingsStore((s) => s.setWatchlist)
-  void _setWatchlistProp
 
   const upsertWatchlist = useCallback(
     (draft, editingCode = null) => {

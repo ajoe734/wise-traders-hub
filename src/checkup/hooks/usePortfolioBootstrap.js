@@ -17,12 +17,6 @@ export function usePortfolioBootstrap({
   setReady,
   setCloudSync,
   cloudSyncStateRef,
-  setHoldings: _setHoldingsProp,
-  setStrategyBrain: _setStrategyBrainProp,
-  setNewsEvents: _setNewsEventsProp,
-  setAnalysisHistory: _setAnalysisHistoryProp,
-  setDailyReport: _setDailyReportProp,
-  setResearchHistory: _setResearchHistoryProp,
   migrateLegacyPortfolioStorageIfNeeded,
   seedJinlianchengIfNeeded,
   ensurePortfolioRegistry,
@@ -48,12 +42,6 @@ export function usePortfolioBootstrap({
   const setDailyReport = useReportsStore((s) => s.setDailyReport)
   const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
   // 標記 props 已被 store 取代（為了不報未使用 lint）
-  void _setHoldingsProp
-  void _setStrategyBrainProp
-  void _setNewsEventsProp
-  void _setAnalysisHistoryProp
-  void _setDailyReportProp
-  void _setResearchHistoryProp
 
   useEffect(() => {
     let cancelled = false

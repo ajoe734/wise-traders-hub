@@ -26,15 +26,11 @@ export function useReportRefreshWorkflow({
   todayRefreshKey = '',
   upsertTargetReport = () => false,
   upsertFundamentalsEntry = () => false,
-  setAnalystReports: _setAnalystReportsProp = () => {},
-  setReportRefreshMeta: _setReportRefreshMetaProp = () => {},
   flashSaved = () => {},
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
 }) {
   const setAnalystReports = useHoldingsStore((s) => s.setAnalystReports)
   const setReportRefreshMeta = useHoldingsStore((s) => s.setReportRefreshMeta)
-  void _setAnalystReportsProp
-  void _setReportRefreshMetaProp
   const [enrichingResearchCode, setEnrichingResearchCode] = useState(null)
   const [reportRefreshing, setReportRefreshing] = useState(false)
   const [reportRefreshStatus, setReportRefreshStatus] = useState('')

@@ -49,9 +49,6 @@ export function usePortfolioPersistence({
   portfolioNotes,
   marketPriceCache,
   marketPriceSync,
-  setHoldingDossiers: _setHoldingDossiersProp,
-  setAnalysisHistory: _setAnalysisHistoryProp,
-  setResearchHistory: _setResearchHistoryProp,
   setSaved,
   flashSaved = null,
   cloudSyncStateRef,
@@ -70,9 +67,6 @@ export function usePortfolioPersistence({
   const setHoldingDossiers = useHoldingsStore((s) => s.setHoldingDossiers)
   const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
   const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
-  void _setHoldingDossiersProp
-  void _setAnalysisHistoryProp
-  void _setResearchHistoryProp
 
   const emitSaved = useCallback(
     (message, timeout = STATUS_MESSAGE_TIMEOUT_MS.DEFAULT) => {
