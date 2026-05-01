@@ -27,6 +27,8 @@ import {
   extractQuotesFromTwsePayload,
 } from '../lib/marketSyncRuntime.js'
 import { pfKey, readStorageValue, save } from '../lib/portfolioUtils.js'
+// Phase 3A.4 Step 1: store 直取 setter
+import { useHoldingsStore } from '../stores/holdingsStore.js'
 
 export function useMarketData({
   holdings = [],
@@ -35,10 +37,12 @@ export function useMarketData({
   portfoliosRef = { current: [] },
   activePortfolioIdRef = { current: '' },
   viewModeRef = { current: PORTFOLIO_VIEW_MODE },
-  setHoldings = () => {},
+  setHoldings: _setHoldingsProp = () => {},
   notifySaved = () => {},
   requestConfirmation = async () => true,
 } = {}) {
+  const setHoldings = useHoldingsStore((s) => s.setHoldings)
+  void _setHoldingsProp
   const [marketPriceCache, setMarketPriceCache] = useState(() =>
     normalizeMarketPriceCache(readStorageValue(MARKET_PRICE_CACHE_KEY))
   )
