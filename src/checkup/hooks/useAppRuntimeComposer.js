@@ -806,7 +806,6 @@ export function composeEventReviewWorkflowArgs({
   newsEvents,
   defaultNewsEvents,
   reviewForm,
-  setNewsEvents,
   setReviewingEvent,
   setReviewForm,
   flashSaved,
@@ -815,15 +814,12 @@ export function composeEventReviewWorkflowArgs({
   strategyBrain,
   portfolioNotes,
   dossierByCode,
-  setStrategyBrain,
-  setBrainValidation,
   toSlashDate,
 }) {
   return {
     newsEvents,
     defaultNewsEvents,
     reviewForm,
-    setNewsEvents,
     setReviewingEvent,
     setReviewForm,
     flashSaved,
@@ -832,8 +828,6 @@ export function composeEventReviewWorkflowArgs({
     strategyBrain,
     portfolioNotes,
     dossierByCode,
-    setStrategyBrain,
-    setBrainValidation,
     toSlashDate,
   }
 }
