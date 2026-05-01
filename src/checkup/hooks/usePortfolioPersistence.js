@@ -66,6 +66,14 @@ export function usePortfolioPersistence({
   readSyncAt: _readSyncAt,
   writeSyncAt: _writeSyncAt,
 }) {
+  // Phase 3A.4 Step 1: store 直取 setter
+  const setHoldingDossiers = useHoldingsStore((s) => s.setHoldingDossiers)
+  const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
+  const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
+  void _setHoldingDossiersProp
+  void _setAnalysisHistoryProp
+  void _setResearchHistoryProp
+
   const emitSaved = useCallback(
     (message, timeout = STATUS_MESSAGE_TIMEOUT_MS.DEFAULT) => {
       if (typeof notifySaved === 'function') {
