@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useHoldingsStore } from '../stores/holdingsStore.js'
 import { C } from '../theme.js'
 import { IND_COLOR, NEWS_EVENTS, RELAY_PLAN_CODES, STOCK_META } from '../seedData.js'
 import { useAppConfirmationDialog } from './useAppConfirmationDialog.js'
