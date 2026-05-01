@@ -27,24 +27,11 @@ export function useAppRuntimeCoreArgs({ state, setters, ui, runtime, refs, helpe
         tab: ui.tab,
       },
       setters: {
+        // Phase 3A.4 Step 2: store-backed setters 已從 hook 內部直接走 store，
+        // 不需從 args 傳入。此處只保留 UI / 仍在 useState 的 setter。
         setReady: setters.setReady,
         setCloudSync: setters.setCloudSync,
-        setHoldings: setters.setHoldings,
-        setTradeLog: setters.setTradeLog,
-        setTargets: setters.setTargets,
-        setFundamentals: setters.setFundamentals,
-        setWatchlist: setters.setWatchlist,
-        setAnalystReports: setters.setAnalystReports,
-        setReportRefreshMeta: setters.setReportRefreshMeta,
-        setHoldingDossiers: setters.setHoldingDossiers,
-        setNewsEvents: setters.setNewsEvents,
-        setAnalysisHistory: setters.setAnalysisHistory,
-        setReversalConditions: setters.setReversalConditions,
-        setStrategyBrain: setters.setStrategyBrain,
-        setBrainValidation: setters.setBrainValidation,
-        setResearchHistory: setters.setResearchHistory,
         setPortfolioNotes: setters.setPortfolioNotes,
-        setDailyReport: setters.setDailyReport,
       },
       ui: {
         resetTransientUiState: ui.resetTransientUiState,
