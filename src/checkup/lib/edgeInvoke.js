@@ -204,6 +204,7 @@ export async function callEdge(fnName, opts = {}) {
       Authorization: auth,
       apikey: ANON_KEY,
       'Content-Type': 'application/json',
+      ...(extraHeaders || {}),
     },
     signal,
   }
