@@ -20,6 +20,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import React from 'react'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, act } from '@testing-library/react'
 
 import { useHoldingsStore } from '@/checkup/stores/holdingsStore.js'
