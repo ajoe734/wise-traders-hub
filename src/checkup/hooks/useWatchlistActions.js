@@ -1,7 +1,12 @@
 import { useCallback } from 'react'
 import { normalizeWatchlist } from '../lib/watchlistUtils.js'
+// Phase 3A.4 Step 1: store 直取 setter
+import { useHoldingsStore } from '../stores/holdingsStore.js'
 
-export function useWatchlistActions({ setWatchlist = () => {} }) {
+export function useWatchlistActions({ setWatchlist: _setWatchlistProp = () => {} } = {}) {
+  const setWatchlist = useHoldingsStore((s) => s.setWatchlist)
+  void _setWatchlistProp
+
   const upsertWatchlist = useCallback(
     (draft, editingCode = null) => {
       const code = String(draft?.code || '').trim()
