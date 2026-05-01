@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 import { DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS, DEMO_CALENDAR, DEMO_BRAIN_UPDATED, DEMO_DATA_VERSION } from "@/checkup/data/demoData";
 import { simulateSteps, demoDelay } from "@/checkup/utils/demoSimulate";
+import DemoBanner from "@/checkup/components/DemoBanner";
 import { INIT_HOLDINGS as SEED_HOLDINGS, STOCK_META, IND_COLOR } from "@/checkup/seedData";
 import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
