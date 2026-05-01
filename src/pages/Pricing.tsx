@@ -871,13 +871,22 @@ const CheckupPlansSection = () => {
   const [quota, setQuota] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // 滾動到 #checkup 錨點
+  // 滾動到 #checkup 錨點 — 等 plans 載入完成（避免 #checkup 容器存在但內部 return null
+  // 時 scrollIntoView 把空容器推到視窗頂端造成大片空白）。改用 rAF + behavior:'auto' +
+  // block:'center'，避免長距離 smooth scroll 期間出現「滾動中一片空白」的錯覺。
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash === '#checkup') {
-      setTimeout(() => {
-        document.getElementById('checkup')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 200);
-    }
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== '#checkup') return;
+    if (plans.length === 0) return; // 等真的有節點再滾
+    let cancelled = false;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        const el = document.getElementById('checkup');
+        if (el) el.scrollIntoView({ block: 'center', behavior: 'auto' });
+      });
+    });
+    return () => { cancelled = true; };
   }, [plans.length]);
 
   // 抓登入用戶的目前 tier 與剩餘配額
