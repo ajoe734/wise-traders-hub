@@ -9,18 +9,12 @@ import { useHoldingsStore } from '../stores/holdingsStore.js'
 
 export function usePortfolioDossierActions({
   marketQuotes = null,
-  setHoldings: _setHoldingsProp = () => {},
-  setTargets: _setTargetsProp = () => {},
-  setFundamentals: _setFundamentalsProp = () => {},
   flashSaved = () => {},
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
 }) {
   const setHoldings = useHoldingsStore((s) => s.setHoldings)
   const setTargets = useHoldingsStore((s) => s.setTargets)
   const setFundamentals = useHoldingsStore((s) => s.setFundamentals)
-  void _setHoldingsProp
-  void _setTargetsProp
-  void _setFundamentalsProp
 
   const updateTargetPrice = useCallback(
     (code, targetPrice) => {

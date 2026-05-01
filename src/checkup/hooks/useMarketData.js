@@ -37,12 +37,10 @@ export function useMarketData({
   portfoliosRef = { current: [] },
   activePortfolioIdRef = { current: '' },
   viewModeRef = { current: PORTFOLIO_VIEW_MODE },
-  setHoldings: _setHoldingsProp = () => {},
   flashSaved = () => {},
   requestConfirmation = async () => true,
 } = {}) {
   const setHoldings = useHoldingsStore((s) => s.setHoldings)
-  void _setHoldingsProp
   const [marketPriceCache, setMarketPriceCache] = useState(() =>
     normalizeMarketPriceCache(readStorageValue(MARKET_PRICE_CACHE_KEY))
   )

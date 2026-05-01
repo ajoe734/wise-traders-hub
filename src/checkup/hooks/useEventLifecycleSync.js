@@ -10,7 +10,6 @@ export function useEventLifecycleSync({
   viewMode = PORTFOLIO_VIEW_MODE,
   tab = 'holdings',
   newsEvents = [],
-  setNewsEvents: _setNewsEventsProp = () => {},
   portfolioTransitionRef = { current: { isHydrating: false } },
   getMarketQuotesForCodes = async () => ({}),
   normalizeNewsEvents = (items) => items,
@@ -20,7 +19,6 @@ export function useEventLifecycleSync({
   appendPriceHistory = (history) => history,
 }) {
   const setNewsEvents = useEventStore((s) => s.setNewsEvents)
-  void _setNewsEventsProp
   const eventLifecycleSyncRef = useRef(false)
 
   useEffect(() => {

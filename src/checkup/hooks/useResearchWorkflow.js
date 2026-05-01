@@ -39,8 +39,6 @@ export function useResearchWorkflow({
   getHoldingUnrealizedPnl = () => 0,
   getHoldingReturnPct = () => 0,
   setResearchResults = () => {},
-  setResearchHistory: _setResearchHistoryProp = () => {},
-  setStrategyBrain: _setStrategyBrainProp = () => {},
   setSaved = () => {},
   flashSaved = null,
   enrichResearchToDossier = async () => false,
@@ -49,8 +47,6 @@ export function useResearchWorkflow({
 }) {
   const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
   const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
-  void _setResearchHistoryProp
-  void _setStrategyBrainProp
   const emitSaved = useCallback(
     (message, timeout = STATUS_MESSAGE_TIMEOUT_MS.DEFAULT) => {
       if (typeof flashSaved === 'function') {

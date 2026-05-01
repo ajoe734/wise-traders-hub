@@ -57,11 +57,6 @@ export function useDailyAnalysisWorkflow({
   normalizeHoldings = (rows) => rows,
   isClosedEvent = () => false,
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
-  setDailyReport: _setDailyReportProp = () => {},
-  setAnalysisHistory: _setAnalysisHistoryProp = () => {},
-  setStrategyBrain: _setStrategyBrainProp = () => {},
-  setBrainValidation: _setBrainValidationProp = () => {},
-  setHoldings: _setHoldingsProp = () => {},
   setLastUpdate = () => {},
   setSaved = () => {},
   flashSaved = null,
@@ -72,11 +67,6 @@ export function useDailyAnalysisWorkflow({
   const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
   const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
   const setBrainValidation = useBrainStore((s) => s.setBrainValidation)
-  void _setHoldingsProp
-  void _setDailyReportProp
-  void _setAnalysisHistoryProp
-  void _setStrategyBrainProp
-  void _setBrainValidationProp
   const emitSaved = useCallback(
     (message, timeout) => {
       if (typeof flashSaved === 'function') {

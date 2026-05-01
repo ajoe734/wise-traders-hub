@@ -6,7 +6,6 @@ import { createDefaultReviewForm as createDefaultReviewFormFallback } from '../l
 import { useHoldingsStore } from '../stores/holdingsStore.js'
 
 export function useTransientUiActions({
-  setReversalConditions: _setReversalConditionsProp = () => {},
   flashSaved = () => {},
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
   setReviewingEvent = () => {},
@@ -14,7 +13,6 @@ export function useTransientUiActions({
   createDefaultReviewForm = createDefaultReviewFormFallback,
 }) {
   const setReversalConditions = useHoldingsStore((s) => s.setReversalConditions)
-  void _setReversalConditionsProp
   const updateReversal = useCallback(
     (code, conditions) => {
       setReversalConditions((prev) => ({

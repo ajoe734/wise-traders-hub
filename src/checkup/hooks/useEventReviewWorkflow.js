@@ -60,7 +60,6 @@ export function useEventReviewWorkflow({
   newsEvents = [],
   defaultNewsEvents = [],
   reviewForm = {},
-  setNewsEvents: _setNewsEventsProp = () => {},
   setReviewingEvent = () => {},
   setReviewForm = () => {},
   flashSaved = () => {},
@@ -69,17 +68,12 @@ export function useEventReviewWorkflow({
   strategyBrain = null,
   portfolioNotes = {},
   dossierByCode = new Map(),
-  setStrategyBrain: _setStrategyBrainProp = () => {},
-  setBrainValidation: _setBrainValidationProp = () => {},
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
   runReviewBrainRequest = defaultRunReviewBrainRequest,
 }) {
   const setNewsEvents = useEventStore((s) => s.setNewsEvents)
   const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
   const setBrainValidation = useBrainStore((s) => s.setBrainValidation)
-  void _setNewsEventsProp
-  void _setStrategyBrainProp
-  void _setBrainValidationProp
   const appendCoachLessonToOwnerBrain = useCallback(
     async ({ event, note, lesson }) => {
       if (!event || activePortfolioId === OWNER_PORTFOLIO_ID) return
