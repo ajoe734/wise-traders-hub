@@ -12,13 +12,46 @@ const USER_AGENTS = [
 ]
 
 
+// 權證代號常見前綴：0/3/5/6/7 + 5 碼數字（牛熊證/認購/認售）
+const isWarrantLike = (sym: string) => /^[03567]\d{5}$/.test(sym)
+
+async function fetchTpexFallback(symbols: string[]): Promise<Map<string, { price: number; name: string; raw: MsgItem }>> {
+  const out = new Map<string, { price: number; name: string; raw: MsgItem }>()
+  if (symbols.length === 0) return out
+  try {
+    const url = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tpex-proxy?endpoint=SQUOTE_EW_QUOTAS_ALL&codes=${symbols.join(',')}`
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const r = await fetch(url, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+    if (!r.ok) return out
+    const arr = await r.json()
+    if (!Array.isArray(arr)) return out
+    for (const item of arr) {
+      const code = item.SecuritiesCompanyCode || item.Code
+      const priceStr = item.Close ?? item.ClosingPrice ?? item.LatestTradePrice
+      const price = parseFloat(priceStr)
+      if (code && Number.isFinite(price) && price > 0) {
+        out.set(code, {
+          price,
+          name: item.CompanyName || item.Name || '',
+          raw: { c: code, z: String(price), n: item.CompanyName || '' } as any,
+        })
+      }
+    }
+  } catch (e) {
+    console.error('TPEx fallback fetch error:', e)
+  }
+  return out
+}
+
 async function fetchStockBatch(symbols: string[]): Promise<Map<string, { price: number; name: string; raw: MsgItem }>> {
   const results = new Map<string, { price: number; name: string; raw: MsgItem }>()
   
-  // Build ex_ch: try tse, otc, and oa(權證/盤後) for each
+  // Build ex_ch: try tse, otc, and oa(權證/盤後零股) for each
   const exChParts = symbols.flatMap(sym => {
     const base = [`tse_${sym}.tw`, `otc_${sym}.tw`]
-    if (sym.length >= 6) base.push(`oa_${sym}.tw`)
+    if (isWarrantLike(sym) || sym.length >= 6) base.push(`oa_${sym}.tw`)
     return base
   })
   
@@ -72,6 +105,15 @@ async function fetchStockBatch(symbols: string[]): Promise<Map<string, { price: 
     }
   }
   
+  // TPEx fallback：MIS 抓不到的 symbol（多為上櫃冷門股 / 權證），補打 TPEx OpenAPI（每日收盤資料）
+  const missing = symbols.filter(s => !results.has(s))
+  if (missing.length > 0) {
+    const tpexMap = await fetchTpexFallback(missing)
+    for (const [code, v] of tpexMap) {
+      if (!results.has(code)) results.set(code, v)
+    }
+  }
+  
   return results
 }
 
@@ -81,6 +123,26 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // ── Trading-hours guard（可被 ?force=1 或 body.force=true 繞過）──
+    let force = new URL(req.url).searchParams.get('force') === '1'
+    if (!force && req.method === 'POST') {
+      try {
+        const body = await req.clone().json()
+        if (body?.force === true || body?.force === '1') force = true
+      } catch { /* body 不是 JSON 就忽略 */ }
+    }
+    const tw = new Date(Date.now() + 8 * 3600 * 1000)
+    const dow = tw.getUTCDay() // 0=Sun, 6=Sat
+    const minutes = tw.getUTCHours() * 60 + tw.getUTCMinutes()
+    const isWeekday = dow >= 1 && dow <= 5
+    // 早盤試撮 08:30 起、盤中 09:00–13:30、盤後零股 14:00–14:30 全部納入
+    const inWindow = minutes >= 8 * 60 + 30 && minutes <= 14 * 60 + 30
+    if (!force && !(isWeekday && inWindow)) {
+      return new Response(JSON.stringify({ skipped: true, reason: 'outside_trading_hours' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!

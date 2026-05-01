@@ -1207,6 +1207,45 @@ export default function App() {
       if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
     };
   }, [holdings, ready, isDemo, _currentUserId]);
+
+  // ── Realtime：訂閱 current_prices 變化，後端 cron 寫入新價格時自動更新畫面 ──
+  // 用 holdings code 字串作 deps，避免每次 reference 變動就重訂閱
+  const _holdingsCodesKey = useMemo(
+    () => (holdings || []).map(h => h.code).filter(Boolean).sort().join(','),
+    [holdings]
+  );
+  useEffect(() => {
+    if (isDemo) return; // demo 模式不訂閱
+    if (!_holdingsCodesKey) return;
+    const codes = _holdingsCodesKey.split(',');
+    const channel = supabase
+      .channel('current-prices-fc')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'current_prices',
+        filter: `symbol=in.(${codes.join(',')})`,
+      }, (payload) => {
+        const row = payload.new;
+        if (!row || !row.symbol || !(Number(row.price) > 0)) return;
+        setHoldings(prev => (prev || []).map(h => {
+          if (h.code !== row.symbol) return h;
+          const price = Number(row.price);
+          const { value, pnl, pct } = calcPnlWithNet(h, price);
+          return {
+            ...h,
+            price,
+            value, pnl, pct,
+            priceSource: 'realtime',
+            priceUpdatedAt: row.pushed_at || new Date().toISOString(),
+            priceError: null,
+          };
+        }));
+        setLastUpdate(new Date());
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [_holdingsCodesKey, isDemo]);
   // tradeLog 存到 Supabase — 改用「scoped delete + insert」並加 debounce/錯誤通知
   // 重要：原本 .delete().neq() 沒帶 user_id 篩選，僅靠 RLS 保護；改為明確 .eq('user_id', ...) 雙保險
   const cloudTradeLogTimerRef = useRef(null);
@@ -1888,109 +1927,90 @@ export default function App() {
       }
       return;
     }
-    // 30分鐘冷卻
-    if (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN) {
-      const remaining = Math.ceil((REFRESH_COOLDOWN - (Date.now() - lastUpdate.getTime())) / 60000);
-      setSaved(`⏳ 請等待 ${remaining} 分鐘後再刷新`);
-      setTimeout(() => setSaved(""), 3000);
+    // 30 秒冷卻（避免按鈕連點打 cron / DB）
+    if (lastUpdate && (Date.now() - lastUpdate.getTime()) < 30 * 1000) {
+      const remaining = Math.ceil((30 * 1000 - (Date.now() - lastUpdate.getTime())) / 1000);
+      setSaved(`⏳ 請等待 ${remaining} 秒後再刷新`);
+      setTimeout(() => setSaved(""), 2500);
       return;
     }
     setRefreshing(true);
     const codes = H.map(h => h.code);
     if (codes.length === 0) { setRefreshing(false); return; }
     setRefreshStatus({ phase: 'fetching', total: codes.length, ok: 0, fail: codes.length, missingNames: [] });
-    appendLog({ task: 'refresh-prices', status: 'start', detail: `${codes.length} 檔` });
+    appendLog({ task: 'refresh-prices', status: 'start', detail: `${codes.length} 檔（讀 DB + 觸發 sync）` });
 
-    const MAX_RETRIES = 3;
-    let lastErr = '';
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      // Step 1: 觸發後端 stock-price-sync（force=1 繞過交易時段守門，給用戶手動觸發機會）
+      // 不等回應，背景執行；DB Realtime 訂閱會自動把新價格推到畫面
       try {
-        // 同時嘗試上市(tse)、上櫃/興櫃(otc)、權證/盤後(oa/ob)
-        const queries = codes.flatMap(c => {
-          const base = [`tse_${c}.tw`, `otc_${c}.tw`];
-          if (c.length >= 6) base.push(`oa_${c}.tw`);
-          return base;
-        });
-        const exCh = queries.join('|');
-        const data = await callEdge('checkup-twse', {
-          query: { ex_ch: exCh },
-          silent: true,
-        });
+        await supabase.functions.invoke('stock-price-sync', {
+          body: { force: true },
+          // @ts-ignore - 走 query string 傳 force
+        }).catch(() => {});
+      } catch {}
 
-        if (data.msgArray && data.msgArray.length > 0) {
-          // 每筆 symbol 回報來源：live(成交)/high(最高)/ask(賣一)/yclose(昨收)
-          const priceMap = {};
-          data.msgArray.forEach(item => {
-            if (!item.c || priceMap[item.c]) return;
-            const z = parseFloat(item.z);
-            const hp = parseFloat(item.h);
-            const vol = parseInt(item.v, 10) || 0;
-            const bestAsk = item.a ? parseFloat(item.a.split('_')[0]) : NaN;
-            const yClose = parseFloat(item.y);
-            let price = null, source = null;
-            if (!isNaN(z) && z > 0) { price = z; source = 'live'; }
-            else if (vol > 0 && !isNaN(hp) && hp > 0) { price = hp; source = 'high'; }
-            else if (!isNaN(bestAsk) && bestAsk > 0) { price = bestAsk; source = 'ask'; }
-            else if (!isNaN(yClose) && yClose > 0) { price = yClose; source = 'yclose'; }
-            if (price) priceMap[item.c] = { price, source };
-          });
+      // Step 2: 立即讀 current_prices（確保畫面馬上有資料；之後 Realtime 還會再刷一次）
+      const { data: rows, error } = await supabase
+        .from('current_prices')
+        .select('symbol, price, name, pushed_at')
+        .in('symbol', codes);
 
-          const nowIso = new Date().toISOString();
-          setHoldings(prev => (prev || []).map(h => {
-            const hit = priceMap[h.code];
-            if (!hit) {
-              return { ...h, priceError: '無即時報價（可能停牌、興櫃或非交易時段）' };
-            }
-            const { value, pnl, pct } = calcPnlWithNet(h, hit.price);
-            return {
-              ...h,
-              price: hit.price,
-              value, pnl, pct,
-              priceSource: hit.source,
-              priceUpdatedAt: nowIso,
-              priceError: null,
-            };
-          }));
+      if (error) throw error;
 
-          const updated = Object.keys(priceMap).length;
-          const total = codes.length;
-          const stillMissed = codes.filter(c => !priceMap[c]);
-          const missedNames = stillMissed.map(c => { const hh = H.find(x=>x.code===c); return hh ? hh.name : c; });
-          setLastUpdate(new Date());
-          setRefreshStatus({ phase: 'done', total, ok: updated, fail: stillMissed.length, missingNames: missedNames });
-          appendLog({
-            task: 'refresh-prices', status: 'ok', attempt,
-            detail: `${updated}/${total} 成功${stillMissed.length?`，缺：${missedNames.slice(0,10).join(',')}`:''}`,
-          });
-          if (stillMissed.length > 0 && stillMissed.length < total) {
-            setSaved(`✅ ${updated}/${total} 檔已更新（${missedNames.join('、')} 無即時報價）`);
-          } else {
-            setSaved(`✅ ${updated} 檔股價已更新`);
-          }
-          setTimeout(() => setSaved(""), 4000);
-          setTimeout(() => setRefreshStatus(null), 6000);
-          setRefreshing(false);
-          return;
-        } else {
-          lastErr = '報價來源無回應（可能非交易時段）';
-          appendLog({ task: 'refresh-prices', status: 'retry', attempt, detail: lastErr });
-          if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 1500 * attempt)); continue; }
+      const priceMap = {};
+      (rows || []).forEach(r => {
+        if (r.symbol && Number(r.price) > 0) {
+          priceMap[r.symbol] = { price: Number(r.price), source: 'db', updatedAt: r.pushed_at };
         }
-      } catch (err) {
-        lastErr = err?.message || '網路錯誤';
-        console.warn(`refreshPrices attempt ${attempt}/${MAX_RETRIES} failed:`, err);
-        appendLog({ task: 'refresh-prices', status: 'retry', attempt, detail: lastErr });
-        if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 1500 * attempt)); continue; }
-      }
-    }
+      });
 
-    // 全部重試失敗
-    appendLog({ task: 'refresh-prices', status: 'error', detail: `所有重試失敗：${lastErr}` });
-    setRefreshStatus({ phase: 'error', total: codes.length, ok: 0, fail: codes.length, missingNames: [], error: lastErr });
-    setSaved(`✕ 刷新失敗：${lastErr}`);
-    setTimeout(() => setSaved(""), 4000);
-    setTimeout(() => setRefreshStatus(null), 8000);
-    setRefreshing(false);
+      const nowIso = new Date().toISOString();
+      setHoldings(prev => (prev || []).map(h => {
+        const hit = priceMap[h.code];
+        if (!hit) {
+          return { ...h, priceError: '尚無報價（可能停牌、興櫃，或 sync 尚未完成）' };
+        }
+        const { value, pnl, pct } = calcPnlWithNet(h, hit.price);
+        return {
+          ...h,
+          price: hit.price,
+          value, pnl, pct,
+          priceSource: hit.source,
+          priceUpdatedAt: hit.updatedAt || nowIso,
+          priceError: null,
+        };
+      }));
+
+      const updated = Object.keys(priceMap).length;
+      const total = codes.length;
+      const stillMissed = codes.filter(c => !priceMap[c]);
+      const missedNames = stillMissed.map(c => { const hh = H.find(x=>x.code===c); return hh ? hh.name : c; });
+      setLastUpdate(new Date());
+      setRefreshStatus({ phase: 'done', total, ok: updated, fail: stillMissed.length, missingNames: missedNames });
+      appendLog({
+        task: 'refresh-prices', status: 'ok',
+        detail: `${updated}/${total} 從 DB 取得${stillMissed.length?`，缺：${missedNames.slice(0,10).join(',')}`:''}`,
+      });
+      if (stillMissed.length > 0 && stillMissed.length < total) {
+        setSaved(`✅ ${updated}/${total} 檔已更新（${missedNames.slice(0,3).join('、')}${missedNames.length>3?'…':''} 暫無報價）`);
+      } else if (updated === 0) {
+        setSaved(`⏳ 後端報價尚未抵達，請稍候 5–10 秒（Realtime 會自動推送）`);
+      } else {
+        setSaved(`✅ ${updated} 檔股價已更新`);
+      }
+      setTimeout(() => setSaved(""), 4000);
+      setTimeout(() => setRefreshStatus(null), 6000);
+    } catch (err) {
+      const msg = err?.message || '網路錯誤';
+      appendLog({ task: 'refresh-prices', status: 'error', detail: msg });
+      setRefreshStatus({ phase: 'error', total: codes.length, ok: 0, fail: codes.length, missingNames: [], error: msg });
+      setSaved(`✕ 刷新失敗：${msg}`);
+      setTimeout(() => setSaved(""), 4000);
+      setTimeout(() => setRefreshStatus(null), 8000);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // ── 每日收盤分析 ─────────────────────────────────────────────────
