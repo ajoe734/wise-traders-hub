@@ -568,6 +568,22 @@ export default function App() {
   // 立即觸發後端排程：stock-price-sync
   const triggerServerSync = async () => {
     if (serverSyncing) return;
+    // DEMO 守門：訪客模式不打 edge function，改用模擬延遲 + 隨機微幅報價波動
+    if (isDemo) {
+      setServerSyncing(true);
+      await demoDelay(1500, 2800);
+      setHoldings(prev => (prev || []).map(h => {
+        const base = Number(h.price ?? h.cost) || 0;
+        if (!base) return h;
+        const delta = (Math.random() * 0.03 - 0.015); // ±1.5%
+        const newPrice = Math.max(0.01, +(base * (1 + delta)).toFixed(2));
+        return { ...h, price: newPrice, priceSource: 'demo' };
+      }));
+      setSaved('✅ DEMO 模擬報價已更新');
+      setTimeout(() => setSaved(''), 3000);
+      setServerSyncing(false);
+      return;
+    }
     setServerSyncing(true);
     appendLog({ task: 'server-sync', status: 'start', detail: '呼叫 stock-price-sync edge function' });
     const MAX = 3;
