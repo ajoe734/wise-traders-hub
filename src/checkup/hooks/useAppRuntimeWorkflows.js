@@ -282,7 +282,6 @@ export function useAppRuntimeWorkflows({
       newsEvents,
       defaultNewsEvents,
       reviewForm,
-      setNewsEvents,
       setReviewingEvent,
       setReviewForm,
       flashSaved,
