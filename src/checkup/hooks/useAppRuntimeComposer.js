@@ -2,14 +2,72 @@
 import { OWNER_PORTFOLIO_ID, PORTFOLIO_VIEW_MODE } from '../constants.js'
 import { assertNoStoreSetters } from './runtimeArgs.types.js'
 
-// Phase 3A.4 Step 4: store-backed setters (setHoldings/setTradeLog/setTargets/
-// setFundamentals/setWatchlist/setAnalystReports/setReportRefreshMeta/
-// setHoldingDossiers/setNewsEvents/setAnalysisHistory/setReversalConditions/
-// setStrategyBrain/setBrainValidation/setResearchHistory/setDailyReport) 已從
-// composer 完全拿掉。下游 hook 自行從 useHoldingsStore / useEventStore /
-// useReportsStore / useBrainStore 取得 setter。此處只保留 UI / cloud / portfolio
-// orchestration 等真正非 store 的 setter (setReady / setCloudSync /
-// setPortfolioNotes)。
+/**
+ * ============================================================================
+ *  useAppRuntimeComposer — 接線契約 (Phase 3A.4 Step 4 文件規範)
+ * ============================================================================
+ *
+ *  這個檔案是 useAppRuntime → 下游 hook 的「組裝層 (composer)」。
+ *  它只負責把上游已經備好的資料 / refs / 真正屬於 UI / cloud / portfolio
+ *  orchestration 的 setter 整理成各 workflow hook 期待的 args 物件。
+ *
+ *  Phase 3A 完成後，state 來源已經一分為二，請依此維護：
+ *
+ *  ┌──────────────────────────────────────────────────────────────────────┐
+ *  │  ❌ 不准再經 composer 傳入的 setter（已搬到 Zustand store）         │
+ *  ├──────────────────────────────────────────────────────────────────────┤
+ *  │  setHoldings, setTradeLog, setTargets, setFundamentals,             │
+ *  │  setWatchlist, setAnalystReports, setReportRefreshMeta,             │
+ *  │  setHoldingDossiers, setReversalConditions  → useHoldingsStore       │
+ *  │                                                                      │
+ *  │  setNewsEvents                              → useEventStore          │
+ *  │                                                                      │
+ *  │  setAnalysisHistory, setDailyReport,                                 │
+ *  │  setResearchHistory                          → useReportsStore       │
+ *  │                                                                      │
+ *  │  setStrategyBrain, setBrainValidation        → useBrainStore         │
+ *  │                                                                      │
+ *  │  setExpandedStock, setRelayPlanExpanded      → useBrainStore (UI)    │
+ *  │                                                                      │
+ *  │  setPortfolios, setActivePortfolioId,                                │
+ *  │  setViewMode, setShowPortfolioManager,                               │
+ *  │  setPortfolioSwitching                       → usePortfolioStore     │
+ *  └──────────────────────────────────────────────────────────────────────┘
+ *
+ *  ┌──────────────────────────────────────────────────────────────────────┐
+ *  │  ✅ 仍由 composer 傳入的 setter（純 UI / cloud / 暫存 state）        │
+ *  ├──────────────────────────────────────────────────────────────────────┤
+ *  │  setReady           — App-level 啟動 flag（仍住在 useAppRuntime）    │
+ *  │  setCloudSync       — Cloud sync 狀態列                              │
+ *  │  setPortfolioNotes  — 投組筆記快取（暫未進 store）                    │
+ *  │  setReviewingEvent / setReviewForm — Event Review 暫存 UI state      │
+ *  │  setLastUpdate      — Market data 最後更新時間（純 useState）        │
+ *  │  setResearchTarget / setResearchResults / setAnalyzing /             │
+ *  │  setAnalyzeStep / setResearching / setStressTesting /                │
+ *  │  setStressResult    — workflow 內部 transient flag                   │
+ *  │  flashSaved / requestAppConfirmation — 通用 toast / confirm 工具      │
+ *  └──────────────────────────────────────────────────────────────────────┘
+ *
+ *  維護準則
+ *  --------
+ *  1. 新增「會被多個 hook 共享」的 state 時，優先評估搬入對應 store。
+ *  2. 若 setter 屬於上表「禁傳清單」，由下游 hook 從 store 直接取，不要
+ *     往 composer args 加欄位（型別檔 `runtimeArgs.types.js` 也會擋）。
+ *  3. UI / cloud / portfolio orchestration setter 才走 composer prop drill。
+ *  4. 對應的型別保護見 `assertNoStoreSetters` 與 `WithoutStoreSetters<T>`，
+ *     新檔啟用 `// @ts-check` 即可享有 IDE 紅線提示。
+ *
+ *  歷史脈絡
+ *  --------
+ *  - Phase 3A.1 → portfolioStore（5 個 portfolio 維度 state）
+ *  - Phase 3A.2 → holdingsStore（9 個 holdings 維度 state）
+ *  - Phase 3A.3 → reportsStore + brainStore + eventStore
+ *  - Phase 3A.4 Step 1: notifySaved → flashSaved 統一命名
+ *  - Phase 3A.4 Step 2: 移除殘留 _setXxxProp shadow 與孤兒 hooks
+ *  - Phase 3A.4 Step 3: JSDoc 型別約束 (assertNoStoreSetters)
+ *  - Phase 3A.4 Step 4: 全 18 個 store-backed hook 單元測試 + 本文件
+ */
+
 export function useAppBootRuntimeComposer({
   holdings,
   watchlist,
