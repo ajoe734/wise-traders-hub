@@ -169,7 +169,7 @@ export async function callEdge(fnName, opts = {}) {
   const schema = EDGE_SCHEMAS[fnName]
   if (!schema) throw new Error(`[edgeInvoke] 未註冊的 function: ${fnName}`)
 
-  let { body, query, signal, silent } = opts
+  let { body, query, signal, silent, headers: extraHeaders } = opts
 
   // ── 自動轉型 (coerce) ──────────────────────────────────
   const fieldSchema = getFieldSchema(fnName, schema, { body, query })
