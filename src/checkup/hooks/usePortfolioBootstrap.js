@@ -40,6 +40,21 @@ export function usePortfolioBootstrap({
   normalizeAnalysisHistoryEntries,
   normalizeDailyReportEntry,
 }) {
+  // Phase 3A.4 Step 1: store 直取 setter，覆寫上游 prop drilling
+  const setHoldings = useHoldingsStore((s) => s.setHoldings)
+  const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
+  const setNewsEvents = useEventStore((s) => s.setNewsEvents)
+  const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
+  const setDailyReport = useReportsStore((s) => s.setDailyReport)
+  const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
+  // 標記 props 已被 store 取代（為了不報未使用 lint）
+  void _setHoldingsProp
+  void _setStrategyBrainProp
+  void _setNewsEventsProp
+  void _setAnalysisHistoryProp
+  void _setDailyReportProp
+  void _setResearchHistoryProp
+
   useEffect(() => {
     let cancelled = false
 
