@@ -1,5 +1,13 @@
 import { OWNER_PORTFOLIO_ID, PORTFOLIO_VIEW_MODE } from '../constants.js'
 
+// Phase 3A.4 Step 4: store-backed setters (setHoldings/setTradeLog/setTargets/
+// setFundamentals/setWatchlist/setAnalystReports/setReportRefreshMeta/
+// setHoldingDossiers/setNewsEvents/setAnalysisHistory/setReversalConditions/
+// setStrategyBrain/setBrainValidation/setResearchHistory/setDailyReport) 已從
+// composer 完全拿掉。下游 hook 自行從 useHoldingsStore / useEventStore /
+// useReportsStore / useBrainStore 取得 setter。此處只保留 UI / cloud / portfolio
+// orchestration 等真正非 store 的 setter (setReady / setCloudSync /
+// setPortfolioNotes)。
 export function useAppBootRuntimeComposer({
   holdings,
   watchlist,
@@ -7,7 +15,6 @@ export function useAppBootRuntimeComposer({
   portfoliosRef,
   activePortfolioIdRef,
   viewModeRef,
-  setHoldings,
   flashSaved,
   requestAppConfirmation,
   ready,
@@ -27,21 +34,7 @@ export function useAppBootRuntimeComposer({
   strategyBrain,
   researchHistory,
   portfolioNotes,
-  setTradeLog,
-  setTargets,
-  setFundamentals,
-  setWatchlist,
-  setAnalystReports,
-  setReportRefreshMeta,
-  setHoldingDossiers,
-  setNewsEvents,
-  setAnalysisHistory,
-  setReversalConditions,
-  setStrategyBrain,
-  setBrainValidation,
-  setResearchHistory,
   setPortfolioNotes,
-  setDailyReport,
   normalizeAnalysisHistoryEntries,
   applyMarketQuotesToHoldings,
   normalizeFundamentalsStore,
@@ -67,7 +60,6 @@ export function useAppBootRuntimeComposer({
       portfoliosRef,
       activePortfolioIdRef,
       viewModeRef,
-      setHoldings,
       notifySaved: flashSaved,
       requestConfirmation: requestAppConfirmation,
     },
@@ -92,22 +84,7 @@ export function useAppBootRuntimeComposer({
       strategyBrain,
       researchHistory,
       portfolioNotes,
-      setHoldings,
-      setTradeLog,
-      setTargets,
-      setFundamentals,
-      setWatchlist,
-      setAnalystReports,
-      setReportRefreshMeta,
-      setHoldingDossiers,
-      setNewsEvents,
-      setAnalysisHistory,
-      setReversalConditions,
-      setStrategyBrain,
-      setBrainValidation,
-      setResearchHistory,
       setPortfolioNotes,
-      setDailyReport,
       normalizeAnalysisHistoryEntries,
       applyMarketQuotesToHoldings,
       normalizeFundamentalsStore,
