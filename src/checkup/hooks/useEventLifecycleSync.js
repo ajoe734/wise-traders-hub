@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { PORTFOLIO_VIEW_MODE } from '../constants.js'
 import { APP_LABELS } from '../lib/appMessages.js'
+// Phase 3A.4 Step 1: setNewsEvents 從 store 直取
+import { useEventStore } from '../stores/eventStore.js'
 
 export function useEventLifecycleSync({
   activePortfolioId = '',
@@ -8,7 +10,7 @@ export function useEventLifecycleSync({
   viewMode = PORTFOLIO_VIEW_MODE,
   tab = 'holdings',
   newsEvents = [],
-  setNewsEvents = () => {},
+  setNewsEvents: _setNewsEventsProp = () => {},
   portfolioTransitionRef = { current: { isHydrating: false } },
   getMarketQuotesForCodes = async () => ({}),
   normalizeNewsEvents = (items) => items,
@@ -17,6 +19,8 @@ export function useEventLifecycleSync({
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
   appendPriceHistory = (history) => history,
 }) {
+  const setNewsEvents = useEventStore((s) => s.setNewsEvents)
+  void _setNewsEventsProp
   const eventLifecycleSyncRef = useRef(false)
 
   useEffect(() => {
