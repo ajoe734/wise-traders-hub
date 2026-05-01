@@ -42,7 +42,7 @@ export function useResearchWorkflow({
   setResearchHistory: _setResearchHistoryProp = () => {},
   setStrategyBrain: _setStrategyBrainProp = () => {},
   setSaved = () => {},
-  notifySaved = null,
+  flashSaved = null,
   enrichResearchToDossier = async () => false,
   mergeBrainPreservingCoachLessons = (nextBrain) => nextBrain,
   runResearchRequest = defaultRunResearchRequest,
@@ -53,8 +53,8 @@ export function useResearchWorkflow({
   void _setStrategyBrainProp
   const emitSaved = useCallback(
     (message, timeout = STATUS_MESSAGE_TIMEOUT_MS.DEFAULT) => {
-      if (typeof notifySaved === 'function') {
-        notifySaved(message, timeout)
+      if (typeof flashSaved === 'function') {
+        flashSaved(message, timeout)
         return
       }
       setSaved(message)
@@ -62,7 +62,7 @@ export function useResearchWorkflow({
         setTimeout(() => setSaved(''), timeout)
       }
     },
-    [notifySaved, setSaved]
+    [flashSaved, setSaved]
   )
 
   const runResearch = useCallback(

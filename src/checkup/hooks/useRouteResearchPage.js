@@ -95,7 +95,7 @@ export function useRouteResearchPage() {
     setResearchResults,
     setResearchHistory,
     setStrategyBrain,
-    notifySaved: flashSaved,
+    flashSaved,
     enrichResearchToDossier,
     mergeBrainPreservingCoachLessons,
   })

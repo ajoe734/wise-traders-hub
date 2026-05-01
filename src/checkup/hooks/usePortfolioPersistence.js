@@ -53,7 +53,7 @@ export function usePortfolioPersistence({
   setAnalysisHistory: _setAnalysisHistoryProp,
   setResearchHistory: _setResearchHistoryProp,
   setSaved,
-  notifySaved = null,
+  flashSaved = null,
   cloudSyncStateRef,
   cloudSaveTimersRef,
   normalizeHoldings,
@@ -76,8 +76,8 @@ export function usePortfolioPersistence({
 
   const emitSaved = useCallback(
     (message, timeout = STATUS_MESSAGE_TIMEOUT_MS.DEFAULT) => {
-      if (typeof notifySaved === 'function') {
-        notifySaved(message, timeout)
+      if (typeof flashSaved === 'function') {
+        flashSaved(message, timeout)
         return
       }
       setSaved(message)
@@ -85,7 +85,7 @@ export function usePortfolioPersistence({
         setTimeout(() => setSaved(''), timeout)
       }
     },
-    [notifySaved, setSaved]
+    [flashSaved, setSaved]
   )
 
   // 把 syncEngine 的 cloud-enabled state 寫回 cloudSyncStateRef，維持下游相容
@@ -102,44 +102,44 @@ export function usePortfolioPersistence({
   useEffect(() => {
     if (!canPersistPortfolioData || !holdings) return
     const normalized = normalizeHoldings(holdings, marketPriceCache?.prices)
-    syncEngine.persistSlice('holdings', normalized, { notifySaved })
-  }, [canPersistPortfolioData, holdings, marketPriceCache, normalizeHoldings, notifySaved])
+    syncEngine.persistSlice('holdings', normalized, { flashSaved })
+  }, [canPersistPortfolioData, holdings, marketPriceCache, normalizeHoldings, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && tradeLog) {
-      syncEngine.persistSlice('tradeLog', tradeLog, { notifySaved })
+      syncEngine.persistSlice('tradeLog', tradeLog, { flashSaved })
     }
-  }, [canPersistPortfolioData, tradeLog, notifySaved])
+  }, [canPersistPortfolioData, tradeLog, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && targets) {
-      syncEngine.persistSlice('targets', targets, { notifySaved })
+      syncEngine.persistSlice('targets', targets, { flashSaved })
     }
-  }, [canPersistPortfolioData, targets, notifySaved])
+  }, [canPersistPortfolioData, targets, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && fundamentals) {
-      syncEngine.persistSlice('fundamentals', fundamentals, { notifySaved })
+      syncEngine.persistSlice('fundamentals', fundamentals, { flashSaved })
     }
-  }, [canPersistPortfolioData, fundamentals, notifySaved])
+  }, [canPersistPortfolioData, fundamentals, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && watchlist) {
-      syncEngine.persistSlice('watchlist', watchlist, { notifySaved })
+      syncEngine.persistSlice('watchlist', watchlist, { flashSaved })
     }
-  }, [canPersistPortfolioData, watchlist, notifySaved])
+  }, [canPersistPortfolioData, watchlist, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && analystReports) {
-      syncEngine.persistSlice('analystReports', analystReports, { notifySaved })
+      syncEngine.persistSlice('analystReports', analystReports, { flashSaved })
     }
-  }, [canPersistPortfolioData, analystReports, notifySaved])
+  }, [canPersistPortfolioData, analystReports, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && reportRefreshMeta) {
-      syncEngine.persistSlice('reportRefreshMeta', reportRefreshMeta, { notifySaved })
+      syncEngine.persistSlice('reportRefreshMeta', reportRefreshMeta, { flashSaved })
     }
-  }, [canPersistPortfolioData, reportRefreshMeta, notifySaved])
+  }, [canPersistPortfolioData, reportRefreshMeta, flashSaved])
 
   useEffect(() => {
     if (!canPersistPortfolioData || !holdings) return
@@ -182,43 +182,43 @@ export function usePortfolioPersistence({
 
   useEffect(() => {
     if (canPersistPortfolioData && holdingDossiers) {
-      syncEngine.persistSlice('holdingDossiers', holdingDossiers, { notifySaved })
+      syncEngine.persistSlice('holdingDossiers', holdingDossiers, { flashSaved })
     }
-  }, [canPersistPortfolioData, holdingDossiers, notifySaved])
+  }, [canPersistPortfolioData, holdingDossiers, flashSaved])
 
   useEffect(() => {
     if (!canPersistPortfolioData || !newsEvents) return
-    syncEngine.persistSlice('newsEvents', newsEvents, { notifySaved })
-  }, [canPersistPortfolioData, newsEvents, notifySaved])
+    syncEngine.persistSlice('newsEvents', newsEvents, { flashSaved })
+  }, [canPersistPortfolioData, newsEvents, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && analysisHistory) {
-      syncEngine.persistSlice('analysisHistory', analysisHistory, { notifySaved })
+      syncEngine.persistSlice('analysisHistory', analysisHistory, { flashSaved })
     }
-  }, [canPersistPortfolioData, analysisHistory, notifySaved])
+  }, [canPersistPortfolioData, analysisHistory, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && dailyReport) {
-      syncEngine.persistSlice('dailyReport', dailyReport, { notifySaved })
+      syncEngine.persistSlice('dailyReport', dailyReport, { flashSaved })
     }
-  }, [canPersistPortfolioData, dailyReport, notifySaved])
+  }, [canPersistPortfolioData, dailyReport, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && reversalConditions) {
-      syncEngine.persistSlice('reversalConditions', reversalConditions, { notifySaved })
+      syncEngine.persistSlice('reversalConditions', reversalConditions, { flashSaved })
     }
-  }, [canPersistPortfolioData, reversalConditions, notifySaved])
+  }, [canPersistPortfolioData, reversalConditions, flashSaved])
 
   useEffect(() => {
     if (!canPersistPortfolioData || !strategyBrain) return
-    syncEngine.persistSlice('strategyBrain', strategyBrain, { notifySaved })
-  }, [canPersistPortfolioData, strategyBrain, notifySaved])
+    syncEngine.persistSlice('strategyBrain', strategyBrain, { flashSaved })
+  }, [canPersistPortfolioData, strategyBrain, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && brainValidation) {
-      syncEngine.persistSlice('brainValidation', brainValidation, { notifySaved })
+      syncEngine.persistSlice('brainValidation', brainValidation, { flashSaved })
     }
-  }, [canPersistPortfolioData, brainValidation, notifySaved])
+  }, [canPersistPortfolioData, brainValidation, flashSaved])
 
   // === cloud → local 拉取（含 TTL）===
 
@@ -262,15 +262,15 @@ export function usePortfolioPersistence({
 
   useEffect(() => {
     if (canPersistPortfolioData && researchHistory) {
-      syncEngine.persistSlice('researchHistory', researchHistory, { notifySaved })
+      syncEngine.persistSlice('researchHistory', researchHistory, { flashSaved })
     }
-  }, [canPersistPortfolioData, researchHistory, notifySaved])
+  }, [canPersistPortfolioData, researchHistory, flashSaved])
 
   useEffect(() => {
     if (canPersistPortfolioData && portfolioNotes) {
-      syncEngine.persistSlice('portfolioNotes', portfolioNotes, { notifySaved })
+      syncEngine.persistSlice('portfolioNotes', portfolioNotes, { flashSaved })
     }
-  }, [canPersistPortfolioData, portfolioNotes, notifySaved])
+  }, [canPersistPortfolioData, portfolioNotes, flashSaved])
 
   useEffect(
     () => () => {

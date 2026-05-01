@@ -60,7 +60,7 @@ export function useAppBootRuntimeComposer({
       portfoliosRef,
       activePortfolioIdRef,
       viewModeRef,
-      notifySaved: flashSaved,
+      flashSaved,
       requestConfirmation: requestAppConfirmation,
     },
     portfolioSnapshotArgs: {
@@ -130,7 +130,7 @@ export function usePortfolioManagementComposer({
     flushCurrentPortfolio,
     resetTransientUiState,
     loadPortfolio,
-    notifySaved: flashSaved,
+    flashSaved,
   }
 }
 
@@ -271,7 +271,7 @@ export function useAppLifecycleRuntimeComposer({
       portfolioNotes,
       marketPriceCache,
       marketPriceSync,
-      notifySaved: flashSaved,
+      flashSaved,
       cloudSyncStateRef,
       cloudSaveTimersRef,
       normalizeHoldings,
@@ -766,7 +766,7 @@ export function composeDailyAnalysisWorkflowArgs({
     isClosedEvent,
     toSlashDate,
     setLastUpdate,
-    notifySaved: flashSaved,
+    flashSaved,
   }
 }
 
@@ -933,7 +933,7 @@ export function composeResearchWorkflowArgs({
     getHoldingUnrealizedPnl,
     getHoldingReturnPct,
     setResearchResults,
-    notifySaved: flashSaved,
+    flashSaved,
     enrichResearchToDossier,
     mergeBrainPreservingCoachLessons,
   }
