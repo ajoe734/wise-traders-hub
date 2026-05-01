@@ -874,7 +874,7 @@ export default function App() {
       clearTimeout(timer);
       if (!result) result = {};
       if (result?.debug) {
-        setCalendarLastDebug({ source: 'calendar', at: new Date().toISOString(), httpStatus: res.status, ...result.debug });
+        setCalendarLastDebug({ source: 'calendar', at: new Date().toISOString(), httpStatus, ...result.debug });
       }
       if (guard !== undefined && guard !== resetGuardRef.current) {
         pushUpdateLog({ source:'calendar', trigger, status:'aborted', key:requestKey, msg:'guard 變更' });
