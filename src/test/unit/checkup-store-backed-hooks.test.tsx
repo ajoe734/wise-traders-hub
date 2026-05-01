@@ -224,7 +224,7 @@ describe('useEventReviewWorkflow', () => {
         reviewForm: {},
       })
     )
-    expect(typeof result.current.confirmReview).toBe('function')
+    expect(typeof result.current.submitReview).toBe('function')
   })
 })
 
