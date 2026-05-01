@@ -3097,38 +3097,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="holdings" && <>
           {/* DEMO 持倉提示卡（與 events/news/daily/log 同款，僅訪客顯示） */}
           {isDemo && (
-            <div style={{marginBottom:12,padding:"12px 14px",border:`1px solid ${C.border}`,borderRadius:10,background:alpha(C.text,'04')}}>
+            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
               <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.holdings.title}</div>
-              <div style={{fontSize:11,color:C.textMute,lineHeight:1.7}}>{DEMO_TAB_NOTICE_COPY.holdings.body}</div>
+              <div style={{fontSize:11,color:C.textMute,lineHeight:1.7,marginBottom:8}}>{DEMO_TAB_NOTICE_COPY.holdings.body}</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
+                <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
+              </div>
             </div>
           )}
           {/* 配額卡：常駐顯示 used/limit 進度條 + 重置倒數 + 升級 CTA（訪客/載入中也顯示） */}
           {(() => {
-            // 訪客 fallback
+            // 訪客 fallback：已由上方 amber 提示卡承擔登入 CTA，這裡不再渲染配額卡
             if (isDemo) {
-              return (
-                <div className="checkup-quota-meter" style={{
-                  marginBottom: 14, padding: "12px 14px",
-                  border: `1px solid ${C.border}`, borderRadius: 10, background: C.card,
-                }}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
-                    <div style={{minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:500,color:C.text,letterSpacing:"0.02em",marginBottom:4}}>登入解鎖每月 1 次免費 AI 健檢</div>
-                      <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.02em",lineHeight:1.6}}>截圖解析・收盤分析・新聞彙整・事件預測共用</div>
-                    </div>
-                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      <button onClick={startLineLogin} style={{
-                        background:"#06C755",color:"#fff",border:"none",borderRadius:6,
-                        padding:"6px 14px",fontSize:12,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em",
-                      }}>立即登入</button>
-                      <a href="/pricing#checkup" style={{
-                        fontSize:12,color:C.blue,textDecoration:"none",letterSpacing:"0.02em",
-                        padding:"6px 12px",border:`1px solid ${alpha(C.blue,'40')}`,borderRadius:6,alignSelf:"center",
-                      }}>查看付費方案 →</a>
-                    </div>
-                  </div>
-                </div>
-              );
+              return null;
             }
             // 載入中 fallback（已登入但配額尚未取回）
             if (!quota) {
