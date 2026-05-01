@@ -1792,10 +1792,10 @@ export default function App() {
           return base;
         });
         const exCh = queries.join('|');
-        const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`報價伺服器回應 ${res.status}`);
-        const data = await res.json();
+        const data = await callEdge('checkup-twse', {
+          query: { ex_ch: exCh },
+          silent: true,
+        });
 
         if (data.msgArray && data.msgArray.length > 0) {
           // 每筆 symbol 回報來源：live(成交)/high(最高)/ask(賣一)/yclose(昨收)
