@@ -8,6 +8,9 @@ import {
 import { syncEngine } from '../lib/syncEngine.js'
 import { readSyncAt, writeSyncAt } from '../lib/portfolioUtils.js'
 import { API_ENDPOINTS } from '../constants.js'
+// Phase 3A.4 Step 1: store-backed setters 從 store 直取
+import { useHoldingsStore } from '../stores/holdingsStore.js'
+import { useReportsStore } from '../stores/reportsStore.js'
 
 function mergeResearchHistory(existingReports, incomingReports) {
   return [...(existingReports || []), ...(incomingReports || [])]
@@ -46,9 +49,9 @@ export function usePortfolioPersistence({
   portfolioNotes,
   marketPriceCache,
   marketPriceSync,
-  setHoldingDossiers,
-  setAnalysisHistory,
-  setResearchHistory,
+  setHoldingDossiers: _setHoldingDossiersProp,
+  setAnalysisHistory: _setAnalysisHistoryProp,
+  setResearchHistory: _setResearchHistoryProp,
   setSaved,
   notifySaved = null,
   cloudSyncStateRef,
@@ -63,6 +66,14 @@ export function usePortfolioPersistence({
   readSyncAt: _readSyncAt,
   writeSyncAt: _writeSyncAt,
 }) {
+  // Phase 3A.4 Step 1: store 直取 setter
+  const setHoldingDossiers = useHoldingsStore((s) => s.setHoldingDossiers)
+  const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
+  const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
+  void _setHoldingDossiersProp
+  void _setAnalysisHistoryProp
+  void _setResearchHistoryProp
+
   const emitSaved = useCallback(
     (message, timeout = STATUS_MESSAGE_TIMEOUT_MS.DEFAULT) => {
       if (typeof notifySaved === 'function') {
