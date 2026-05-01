@@ -153,13 +153,13 @@ export function useMarketData({
         if (!gate.allowed && !allowForcedRetry) {
           if (!silent) {
             if (gate.reason === 'before-close') {
-              notifySaved(APP_TOAST_MESSAGES.priceSyncBeforeClose)
+              flashSaved(APP_TOAST_MESSAGES.priceSyncBeforeClose)
             } else if (gate.reason === 'market-closed') {
-              notifySaved(APP_TOAST_MESSAGES.priceSyncMarketClosed)
+              flashSaved(APP_TOAST_MESSAGES.priceSyncMarketClosed)
             } else if (cachedSync?.status === 'failed') {
-              notifySaved(APP_TOAST_MESSAGES.priceSyncAlreadyAttempted)
+              flashSaved(APP_TOAST_MESSAGES.priceSyncAlreadyAttempted)
             } else {
-              notifySaved(APP_TOAST_MESSAGES.priceSyncAlreadyDone)
+              flashSaved(APP_TOAST_MESSAGES.priceSyncAlreadyDone)
             }
           }
           if (cachedPrice?.prices && currentViewMode === PORTFOLIO_VIEW_MODE) {
@@ -169,7 +169,7 @@ export function useMarketData({
         }
 
         if (trackedCodes.length === 0) {
-          if (!silent) notifySaved(APP_TOAST_MESSAGES.priceSyncNoTrackedCodes)
+          if (!silent) flashSaved(APP_TOAST_MESSAGES.priceSyncNoTrackedCodes)
           return cachedPrice
         }
 
@@ -190,7 +190,7 @@ export function useMarketData({
             failedCodes,
           }
           await persistMarketPriceState(cachedPrice || createEmptyMarketPriceCache(), failedMeta)
-          if (!silent) notifySaved(APP_TOAST_MESSAGES.priceSyncFailedKeepCache)
+          if (!silent) flashSaved(APP_TOAST_MESSAGES.priceSyncFailedKeepCache)
           return cachedPrice
         }
 
@@ -220,7 +220,7 @@ export function useMarketData({
 
         if (!silent) {
           if (failedCodes.length > 0) {
-            notifySaved(
+            flashSaved(
               APP_TOAST_MESSAGES.priceSyncSyncedPartial(
                 trackedCodes.length - failedCodes.length,
                 trackedCodes.length
@@ -228,7 +228,7 @@ export function useMarketData({
               STATUS_MESSAGE_TIMEOUT_MS.LONG
             )
           } else {
-            notifySaved(
+            flashSaved(
               APP_TOAST_MESSAGES.priceSyncSyncedAll(trackedCodes.length),
               STATUS_MESSAGE_TIMEOUT_MS.LONG
             )
@@ -248,7 +248,7 @@ export function useMarketData({
       fetchPostCloseQuotes,
       marketPriceCache,
       marketPriceSync,
-      notifySaved,
+      flashSaved,
       persistMarketPriceState,
       setHoldings,
       viewModeRef,
@@ -291,7 +291,7 @@ export function useMarketData({
           )
         )
         if (!confirmed) {
-          notifySaved(APP_TOAST_MESSAGES.priceSyncUseCache, STATUS_MESSAGE_TIMEOUT_MS.BRIEF)
+          flashSaved(APP_TOAST_MESSAGES.priceSyncUseCache, STATUS_MESSAGE_TIMEOUT_MS.BRIEF)
           return
         }
       }
@@ -318,7 +318,7 @@ export function useMarketData({
       }
     } catch (error) {
       console.error('收盤價同步失敗:', error)
-      notifySaved(APP_TOAST_MESSAGES.priceSyncFailedRetry)
+      flashSaved(APP_TOAST_MESSAGES.priceSyncFailedRetry)
     } finally {
       setRefreshing(false)
     }
@@ -326,7 +326,7 @@ export function useMarketData({
     holdings,
     marketPriceCache,
     marketPriceSync,
-    notifySaved,
+    flashSaved,
     refreshing,
     requestConfirmation,
     setHoldings,

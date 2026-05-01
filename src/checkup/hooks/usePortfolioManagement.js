@@ -93,7 +93,7 @@ export const usePortfolioManagement = ({
   resetTransientUiState = () => {},
   loadPortfolio = async () => {},
   setSaved = () => {},
-  notifySaved = null,
+  flashSaved = null,
 } = {}) => {
   // ── 3A.1：portfolios / activePortfolioId / viewMode / portfolioSwitching /
   //          showPortfolioManager 從 useState 改為 zustand selector。
@@ -137,8 +137,8 @@ export const usePortfolioManagement = ({
 
   const emitSaved = useCallback(
     (message, timeout = STATUS_MESSAGE_TIMEOUT_MS.DEFAULT) => {
-      if (typeof notifySaved === 'function') {
-        notifySaved(message, timeout)
+      if (typeof flashSaved === 'function') {
+        flashSaved(message, timeout)
         return
       }
       setSaved(message)
@@ -146,7 +146,7 @@ export const usePortfolioManagement = ({
         setTimeout(() => setSaved(''), timeout)
       }
     },
-    [notifySaved, setSaved]
+    [flashSaved, setSaved]
   )
 
   /**

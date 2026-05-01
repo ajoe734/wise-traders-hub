@@ -64,7 +64,7 @@ export function useDailyAnalysisWorkflow({
   setHoldings: _setHoldingsProp = () => {},
   setLastUpdate = () => {},
   setSaved = () => {},
-  notifySaved = null,
+  flashSaved = null,
   refreshAnalystReportsRef = { current: async () => false },
 }) {
   const setHoldings = useHoldingsStore((s) => s.setHoldings)
@@ -79,8 +79,8 @@ export function useDailyAnalysisWorkflow({
   void _setBrainValidationProp
   const emitSaved = useCallback(
     (message, timeout) => {
-      if (typeof notifySaved === 'function') {
-        notifySaved(message, timeout)
+      if (typeof flashSaved === 'function') {
+        flashSaved(message, timeout)
         return
       }
       setSaved(message)
@@ -88,7 +88,7 @@ export function useDailyAnalysisWorkflow({
         setTimeout(() => setSaved(''), timeout)
       }
     },
-    [notifySaved, setSaved]
+    [flashSaved, setSaved]
   )
 
   const runDailyAnalysis = useCallback(async () => {
