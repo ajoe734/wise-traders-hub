@@ -257,7 +257,17 @@ describe('usePortfolioBootstrap', () => {
     expect(() =>
       renderHook(() =>
         usePortfolioBootstrap({
-          bootRuntimeRef: { current: {} },
+          bootRuntimeRef: {
+            current: {
+              activePortfolioId: 'owner',
+              marketPriceQuotes: {},
+              applyPortfolioSnapshot: () => {},
+              setPortfolios: () => {},
+              setActivePortfolioId: () => {},
+              setViewMode: () => {},
+              portfolioTransitionRef: { current: { isHydrating: false } },
+            },
+          },
           setReady: () => {},
           setCloudSync: () => {},
           cloudSyncStateRef: { current: {} },
