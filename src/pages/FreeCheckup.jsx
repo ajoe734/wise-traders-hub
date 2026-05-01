@@ -486,6 +486,7 @@ export default function App() {
   // ── Demo Tab 說明卡（行事曆 / 事件分析 / 收盤分析 / 交易日誌）──
   // 直接 inline 在 FreeCheckup.jsx 內，符合既有 inline 渲染慣例
   const DEMO_TAB_NOTICE_COPY = {
+    holdings: { title: '這是 DEMO 持倉', body: '示範資料：虛構持倉與模擬報價，便於你體驗介面。登入後可上傳成交截圖、自動建立你的真實持倉，並啟用 AI 健檢。' },
     events: { title: '這是 DEMO 行事曆', body: '顯示的法說、營收、除息日為示範資料。登入後會根據你的真實持倉自動抓取財報行事曆與 AI 事件預測。' },
     news:   { title: '這是 DEMO 事件分析', body: '範例事件已套用策略大腦邏輯。登入後 AI 會即時抓取個股新聞、進行事件影響評估與命中率追蹤。' },
     daily:  { title: '這是 DEMO 收盤分析', body: '點「開始今日收盤分析」會以模擬延遲呈現範例報告。登入後系統會根據你的實際持倉與盤後資料生成個人化分析。' },
@@ -3094,6 +3095,13 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ HOLDINGS ══════════ */}
         {tab==="holdings" && <>
+          {/* DEMO 持倉提示卡（與 events/news/daily/log 同款，僅訪客顯示） */}
+          {isDemo && (
+            <div style={{marginBottom:12,padding:"12px 14px",border:`1px solid ${C.border}`,borderRadius:10,background:alpha(C.text,'04')}}>
+              <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.holdings.title}</div>
+              <div style={{fontSize:11,color:C.textMute,lineHeight:1.7}}>{DEMO_TAB_NOTICE_COPY.holdings.body}</div>
+            </div>
+          )}
           {/* 配額卡：常駐顯示 used/limit 進度條 + 重置倒數 + 升級 CTA（訪客/載入中也顯示） */}
           {(() => {
             // 訪客 fallback
