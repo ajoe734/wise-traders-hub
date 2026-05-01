@@ -1,57 +1,96 @@
-# Free Checkup 架構重構計畫
+# 階段 3A.3：Brain / NewsEvents / Reports / Research → Zustand
 
-## 進度
+把 `useAppRuntime.js` 中剩下的 8 個 `useState` 替換成 `eventStore` / `brainStore` / `reportsStore` 的 selectors，與 3A.1（portfolio）、3A.2（holdings）保持同樣風格：**只動 setter 來源、不動 runtimeState/runtimeSetters 物件形狀**，下游 composer / lifecycle / workflow hooks 完全無感。
 
-- ✅ 階段 1A：前端所有 edge 呼叫收斂到 `callEdge`
-- ✅ 階段 1B：建立 `_shared/withCheckup.ts` middleware + 16 函式 CORS 統一
-- ✅ 階段 2：FreeCheckup tab 拆分（pages/HoldingsPage/DailyPage/EventsPage/...）
-- ✅ 階段 3B：建立 `src/checkup/lib/syncEngine.js`，統一 localStorage↔checkup-brain 雙寫；`usePortfolioPersistence` 與 `useCloudSync` 改為委派 syncEngine
-- ⏳ 階段 3A：FreeCheckup useState → zustand stores（**待拆分執行**）
+## 目標 slice 對應
 
----
-
-## 階段 3A 拆分計畫（下一輪）
-
-3A 範圍涵蓋 13 個 portfolio useState + 6+ 個 hook 的 ref-sync + dependency 改寫，>1500 行 diff，**不能一次推完**。建議子階段順序：
-
-### 3A.1 portfolioStore 接通（最低風險）
-- 將 `activePortfolioId / viewMode / portfolios / portfolioSwitching` 從 `usePortfolioManagement` 內的 useState 換成 `usePortfolioStore`
-- 移除 `activePortfolioIdRef / viewModeRef / portfoliosRef / portfolioSetterRef` —— 改用 `usePortfolioStore.getState()` 在非 React 環境取值
-- 影響檔：`usePortfolioManagement.js`, `useAppRuntimeSyncRefs.js`, `useAppRuntimeComposer.js`
-- QA：切 portfolio < 200ms、demo/實名隔離不破
-
-### 3A.2 holdingsStore 接通
-- `holdings / tradeLog / targets / fundamentals / watchlist / analystReports / reportRefreshMeta / holdingDossiers / reversalConditions`
-- 影響檔：`FreeCheckup.jsx`（13 個 useState 中的 9 個）+ `usePortfolioPersistence.js`（依賴改 selector）
-- QA：T+0 即時 PnL 計算未變、`bunx playwright test e2e/freecheckup-card.spec.ts` 全綠
-
-### 3A.3 brainStore / eventStore / reportsStore 接通
-- `strategyBrain / brainValidation / newsEvents / analysisHistory / dailyReport / researchHistory`
-- 影響檔：`FreeCheckup.jsx` + `useEventLifecycleSync.js` + `useEventReviewWorkflow.js`
-- QA：事件預測、收盤分析、研究歷史均能正確顯示
-
-### 3A.4 移除 useAppRuntimeCoreLifecycle 中所有 setter prop
-- composer 從「協調 30 個 setState」變成「協調 6 個 store action」
-- 影響檔：`useAppRuntimeCoreLifecycle.js`, `useAppRuntimeComposer.js`（1142 行重構）
-- QA：完整 regression（mobile RWD checklist + i18n scanner + e2e）
-
----
-
-## 風險與回滾
-
-| 階段 | 風險 | 回滾 |
+| 現有 useState | 改用 store | store 內現況 |
 |---|---|---|
-| 3B | syncEngine action mapping 漏掉某個 slice → 該 slice 不雙寫 | git revert syncEngine.js + usePortfolioPersistence.js + useCloudSync.js |
-| 3A.1 | portfolioStore 訂閱觸發整頁重渲 | 把 usePortfolioStore selector 拆到最細粒度，靠 React DevTools profiler 驗證 |
-| 3A.2 | dependency 漏抓 store update → useEffect 不重跑 | 每個 useEffect 改完都跑 e2e + i18n 掃描 |
-| 3A.3 | brain validation cases 計算邏輯誤動 → 統計面板亂 | 保留 `useBrainStore.addValidationCase` 的 dedupe 邏輯，不改業務算式 |
-| 3A.4 | composer 重構是高風險最後一步，建議單獨 PR + 全 QA | 完整 revert 三檔 |
+| `newsEvents` | `useEventStore` | 已有 `setNewsEvents`，需把預設從 `[]` 改成 `null`（保留「未 hydrate」哨兵） |
+| `strategyBrain` | `useBrainStore` | 已有 `setStrategyBrain`，預設已是 `null` ✅ |
+| `brainValidation` | `useBrainStore` | 預設 `{version:1,cases:[]}` 需改用 `createEmptyBrainValidationStore()` |
+| `analysisHistory` | `useReportsStore` | 預設從 `[]` 改 `null` |
+| `dailyReport` | `useReportsStore` | 已 `null` ✅ |
+| `researchHistory` | `useReportsStore` | 預設從 `[]` 改 `null` |
+| `analyzing` / `analyzeStep` / `researching` | `useReportsStore` | 已存在對應 setter ✅ |
 
----
+> 不遷移 `ready` / `cloudSync` / `portfolioNotes`：屬於 runtime/UI 暫態，留在 useAppRuntime 即可（與 3A.2 對齊）。
 
-## 交付節奏建議
+## 變更步驟
 
-- 階段 1：✅ 已交付
-- 階段 2：✅ 已交付
-- 階段 3B：✅ 已交付（本輪）
-- 階段 3A.1～3A.4：建議一輪一子階段，每子階段獨立 commit + 完整 QA
+### 1. `src/checkup/stores/eventStore.js`
+- `newsEvents` 初值 `[]` → `null`
+- `addEvent / updateEvent / deleteEvent / getEventsByStatus / getUrgentCount / getTodayAlertSummary` 全部加 `asArr` 保護（`(state.newsEvents ?? [])`），避免 hydrate 前崩潰
+- `setNewsEvents` 走 `makeSetter` 模式以支援 `setX(prev => next)`（與 3A.2 對齊）
+- 加 `hydrateInitial(partial)`：僅在仍為初值時 patch（與 portfolio/holdings store 同 pattern）
+
+### 2. `src/checkup/stores/brainStore.js`
+- `import { createEmptyBrainValidationStore } from '../lib/brainRuntime.js'`
+- `brainValidation` 初值改成 `createEmptyBrainValidationStore()`
+- `setStrategyBrain / setBrainValidation` 改 `makeSetter` 以支援 updater function
+- 加 `hydrateInitial`
+
+### 3. `src/checkup/stores/reportsStore.js`
+- `analysisHistory` / `researchHistory` 初值 `[]` → `null`
+- `addAnalysis / deleteAnalysis / getLatestAnalysis / getAnalysisCount` 用 `asArr` 包覆
+- 所有重點 setter（`setAnalysisHistory`, `setDailyReport`, `setResearchHistory`, `setAnalyzing`, `setAnalyzeStep`, `setResearching`, `setReportRefreshMeta`）改 `makeSetter`
+- 加 `hydrateInitial`
+
+### 4. `src/checkup/hooks/useAppRuntime.js`
+把這些 `useState` 換成 store selectors：
+
+```js
+// events
+const newsEvents = useEventStore((s) => s.newsEvents)
+const setNewsEvents = useEventStore((s) => s.setNewsEvents)
+
+// brain
+const strategyBrain = useBrainStore((s) => s.strategyBrain)
+const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
+const brainValidation = useBrainStore((s) => s.brainValidation)
+const setBrainValidation = useBrainStore((s) => s.setBrainValidation)
+
+// reports / research / async flags
+const analysisHistory  = useReportsStore((s) => s.analysisHistory)
+const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
+const dailyReport      = useReportsStore((s) => s.dailyReport)
+const setDailyReport   = useReportsStore((s) => s.setDailyReport)
+const researchHistory  = useReportsStore((s) => s.researchHistory)
+const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
+const analyzing        = useReportsStore((s) => s.analyzing)
+const setAnalyzing     = useReportsStore((s) => s.setAnalyzing)
+const analyzeStep      = useReportsStore((s) => s.analyzeStep)
+const setAnalyzeStep   = useReportsStore((s) => s.setAnalyzeStep)
+const researching      = useReportsStore((s) => s.researching)
+const setResearching   = useReportsStore((s) => s.setResearching)
+```
+
+`runtimeState` / `runtimeSetters` 物件鍵維持不變，所以 `useAppRuntimeCoreLifecycle` / `useAppRuntimeWorkflows` / `useAppRuntimeComposer` / `usePortfolioBootstrap` / `usePortfolioPersistence` 全部 0 修改。
+
+### 5. 驗證
+- `bunx vitest run src/test/unit/freecheckup-i18n.test.ts src/test/unit/freecheckup-mobile-card-overflow.test.ts src/test/unit/1.3-holding-math.test.ts`
+- `bun run scripts/check-freecheckup-i18n.mjs`
+- `bunx playwright test e2e/freecheckup-card.spec.ts`（依 mem://qa/checkup/freecheckup-mobile-regression-checklist 規則）
+- 手動心智檢查：
+  - 切換 portfolio → `setNewsEvents(null)` 重 hydrate 不爆
+  - Demo mode（非 OWNER_PORTFOLIO_ID）下 syncEngine.setContext 仍正確 gating 雲端寫入（3A.1 已驗證，本階段不改）
+  - 分析中 `analyzing=true` 切到其他頁仍維持（store 是全域單例，反而更穩）
+
+## 風險與緩解
+
+- **全域 store 副作用**：`analyzing/researching` 變成跨 hook 共享 → 若未來開多個 portfolio 視圖會互相影響。目前架構單實例使用，無風險；3A.4 重構 composer 時再評估是否要加 portfolio scope。
+- **預設值改成 null**：所有讀取點目前已用 `?? []` 或 `Array.isArray()` 守，已搜過 `usePortfolioPersistence` / `useAppRuntimePortfolioDerivedData` 沒有裸取。store 內 selector 也補 `asArr`，雙重保險。
+- **brainValidation 形狀**：必須走 `createEmptyBrainValidationStore()`，不要硬寫 `{cases:[]}`，避免 schema 漂移。
+
+## 不在本階段範圍
+
+- `ready` / `cloudSync` / `portfolioNotes`：屬 runtime 暫態，3A.4 統一處理
+- `useAppRuntimeComposer` 拆掉 setter prop drilling：留待 **3A.4**
+- `reviewingEvent / reviewForm / showAddEvent / calendarMonth` 等 UI 暫態已在 `useAppShellUiState` / `eventStore` 內各自管理，本階段不動
+
+## 完成定義
+
+- `useAppRuntime.js` 不再 import `createEmptyBrainValidationStore`、不再有上表 8 個 `useState`
+- 三個 store 的初值與 setter 行為對齊 holdingsStore 規範（null 哨兵 + functional setter + hydrateInitial）
+- 上述測試與 RWD 截圖全綠
+- mem://core 中「不准偷懶」清單中的 RWD 三斷點截圖（560/390/380）保留並附在回報
