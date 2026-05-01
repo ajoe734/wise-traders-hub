@@ -27,7 +27,12 @@ export default function DemoBanner({ onLineLogin, onEmailLogin, C, alpha }) {
     return (
       <div
         style={{
-          background: alpha(C.text, '06'),
+          position: 'sticky',
+          top: 0,
+          zIndex: 12,
+          background: C.bg,
+          backgroundImage: `linear-gradient(${alpha(C.text, '06')}, ${alpha(C.text, '06')})`,
+          borderBottom: `1px solid ${C.border}`,
           padding: '6px 16px',
           display: 'flex',
           alignItems: 'center',
@@ -60,7 +65,11 @@ export default function DemoBanner({ onLineLogin, onEmailLogin, C, alpha }) {
       role="region"
       aria-label="DEMO 模式說明"
       style={{
-        background: alpha(C.text, '06'),
+        position: 'sticky',
+        top: 0,
+        zIndex: 12,
+        background: C.bg,
+        backgroundImage: `linear-gradient(${alpha(C.text, '06')}, ${alpha(C.text, '06')})`,
         borderBottom: `1px solid ${C.border}`,
         padding: '12px 16px',
         display: 'flex',
