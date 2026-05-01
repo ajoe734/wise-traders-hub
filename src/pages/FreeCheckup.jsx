@@ -2163,10 +2163,9 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
           const hits = pastEvents.filter(e => e.correct === true).length;
           const total = pastEvents.filter(e => e.correct !== null).length;
 
-          const brainRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...(await aiAuthHeaders()) },
-            body: JSON.stringify({
+          const brainData = await callEdge('checkup-analyze', {
+            silent: true,
+            body: {
               kind: 'brain-update',
               systemPrompt: `你是策略知識庫管理器。根據今日分析結果，更新策略大腦。
 回傳**純JSON**格式（不要markdown code block），結構：
@@ -2185,10 +2184,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 今日損益：${totalTodayPnl >= 0 ? "+" : ""}${totalTodayPnl.toLocaleString()} 元
 
 請更新策略大腦，保留有效的舊規則，加入今日新教訓。`
-            })
+            }
           });
-          const brainData = await brainRes.json();
-          const brainText = brainData.content?.[0]?.text || "";
+          const brainText = brainData?.content?.[0]?.text || "";
           const cleanBrain = brainText.replace(/```json|```/g, "").trim();
           const newBrain = JSON.parse(cleanBrain);
           setStrategyBrain(newBrain);
