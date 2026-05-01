@@ -913,7 +913,6 @@ export function composeResearchWorkflowArgs({
   getHoldingReturnPct,
   setResearchResults,
   flashSaved,
-  flashSaved,
   enrichResearchToDossier,
   mergeBrainPreservingCoachLessons,
 }) {
