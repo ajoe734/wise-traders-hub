@@ -28,13 +28,14 @@ export function useAppRuntimeCoreArgs({ state, setters, ui, runtime, refs, helpe
         portfolioNotes: state.portfolioNotes,
         tab: ui.tab,
       },
-      setters: {
-        // Phase 3A.4 Step 2: store-backed setters 已從 hook 內部直接走 store，
-        // 不需從 args 傳入。此處只保留 UI / 仍在 useState 的 setter。
+      setters: assertNoStoreSetters({
+        // Phase 3A.4 Step 2/3: store-backed setters 已從 hook 內部直接走 store，
+        // 不需從 args 傳入。assertNoStoreSetters 會在 TS 層阻擋任何
+        // setHoldings/setTradeLog/... 等已遷移到 store 的 setter 被傳入。
         setReady: setters.setReady,
         setCloudSync: setters.setCloudSync,
         setPortfolioNotes: setters.setPortfolioNotes,
-      },
+      }),
       ui: {
         resetTransientUiState: ui.resetTransientUiState,
         setReviewingEvent: ui.setReviewingEvent,
