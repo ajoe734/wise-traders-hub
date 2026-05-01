@@ -123,8 +123,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // ── Trading-hours guard（可被 ?force=1 繞過，給「立即更新」按鈕用）──
-    const force = new URL(req.url).searchParams.get('force') === '1'
+    // ── Trading-hours guard（可被 ?force=1 或 body.force=true 繞過）──
+    let force = new URL(req.url).searchParams.get('force') === '1'
+    if (!force && req.method === 'POST') {
+      try {
+        const body = await req.clone().json()
+        if (body?.force === true || body?.force === '1') force = true
+      } catch { /* body 不是 JSON 就忽略 */ }
+    }
     const tw = new Date(Date.now() + 8 * 3600 * 1000)
     const dow = tw.getUTCDay() // 0=Sun, 6=Sat
     const minutes = tw.getUTCHours() * 60 + tw.getUTCMinutes()
