@@ -2031,12 +2031,16 @@ ${losers.map(h=>{
 
         const analyzeController = new AbortController();
         const analyzeTimer = setTimeout(() => analyzeController.abort(), 120000); // 2 min timeout
-        const aiRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-correlation-id": cid, ...(await aiAuthHeaders()) },
-          signal: analyzeController.signal,
-          body: JSON.stringify({
-            systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
+        let aiData = null;
+        let aiHttpStatus = 200;
+        let aiErrBody = '';
+        try {
+          aiData = await callEdge('checkup-analyze', {
+            headers: { 'x-correlation-id': cid },
+            signal: analyzeController.signal,
+            silent: true,
+            body: {
+              systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
 你擁有用戶過去所有分析的記憶（策略大腦），必須基於累積的教訓和規則來給出建議。
 用戶是積極型事件驅動交易者，持有股票+權證，專注電子科技族群。
 
@@ -2062,7 +2066,7 @@ ${losers.map(h=>{
 
 ## 策略進化建議
 （基於今日表現，策略大腦應該新增或修改什麼規則？）`,
-            userPrompt: `今日日期：${today}
+              userPrompt: `今日日期：${today}
 今日持倉損益：${totalTodayPnl >= 0 ? "+" : ""}${totalTodayPnl.toLocaleString()} 元
 ${brainContext}
 ${revContext}
@@ -2079,28 +2083,41 @@ ${autoVerified.length > 0 ? `今日自動驗證事件（${autoVerified.length}�
 ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"} → 實際${v.actual==="up"?"漲":"跌"} → ${v.correct?"✓正確":"✗有誤"}`).join("\n")}` : ""}
 
 請分析今日收盤表現，事件連動，並給出策略建議。特別注意策略大腦中的歷史教訓。${autoVerified.length > 0 ? "同時針對今日自動驗證的事件進行覆盤分析。" : ""}`
-          })
-        });
-        clearTimeout(analyzeTimer);
-        if (!aiRes.ok) {
+            }
+          });
+        } catch (e) {
+          clearTimeout(analyzeTimer);
+          aiHttpStatus = e?.status || 0;
+          aiErrBody = typeof e?.body === 'object' ? JSON.stringify(e.body) : (e?.message || '');
           // 配額用盡兜底：彈 modal 而不是當錯誤
-          if (await isQuotaExceeded(aiRes)) {
+          if (aiHttpStatus === 429 && (e?.body?.error === 'QUOTA_EXCEEDED' || /QUOTA_EXCEEDED/.test(aiErrBody))) {
             try { await refreshQuota?.(); } catch {}
             setQuotaModal({ trigger: 'daily' });
             setAnalyzing(false); setAnalyzeStep("");
             return;
           }
-          const errBody = await aiRes.text().catch(() => '');
-          const code = aiRes.status === 402 ? 'AI_BILLING_REQUIRED'
-                     : aiRes.status === 429 ? 'AI_RATE_LIMITED'
-                     : aiRes.status === 401 ? 'AI_AUTH_FAILED'
-                     : `HTTP_${aiRes.status}`;
-          const errInfo = { code, message: errBody.slice(0, 240) || `HTTP ${aiRes.status}`, cid, opStartedAt, opStartedAtMs, httpStatus: aiRes.status, at: new Date().toISOString() };
-          setDailyLastError(errInfo);
-          pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code} (${aiRes.status})` });
-          console.error("[daily] AI 分析失敗", errInfo);
-        } else {
-          const aiData = await aiRes.json();
+          if (e?.name === 'AbortError') {
+            const errInfo = { code: 'TIMEOUT', message: 'AbortError', cid, opStartedAt, opStartedAtMs, httpStatus: 0, at: new Date().toISOString() };
+            setDailyLastError(errInfo);
+            pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`TIMEOUT` });
+          } else if (aiHttpStatus > 0) {
+            const code = aiHttpStatus === 402 ? 'AI_BILLING_REQUIRED'
+                       : aiHttpStatus === 429 ? 'AI_RATE_LIMITED'
+                       : aiHttpStatus === 401 ? 'AI_AUTH_FAILED'
+                       : `HTTP_${aiHttpStatus}`;
+            const errInfo = { code, message: aiErrBody.slice(0, 240) || `HTTP ${aiHttpStatus}`, cid, opStartedAt, opStartedAtMs, httpStatus: aiHttpStatus, at: new Date().toISOString() };
+            setDailyLastError(errInfo);
+            pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code} (${aiHttpStatus})` });
+            console.error("[daily] AI 分析失敗", errInfo);
+          } else {
+            const errInfo = { code: 'NETWORK_ERROR', message: String(e?.message || e).slice(0, 240), cid, opStartedAt, opStartedAtMs, httpStatus: 0, at: new Date().toISOString() };
+            setDailyLastError(errInfo);
+            pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`NETWORK_ERROR` });
+            console.error("[daily] AI 分析例外", errInfo);
+          }
+        }
+        clearTimeout(analyzeTimer);
+        if (aiData) {
           if (aiData?.fallback) {
             const code = aiData.code || 'AI_FALLBACK';
             const errInfo = { code, message: String(aiData.error || '').slice(0, 240) || code, cid, opStartedAt, opStartedAtMs, httpStatus: 200, at: new Date().toISOString() };
