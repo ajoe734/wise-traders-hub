@@ -1311,6 +1311,33 @@ export default function App() {
     setPredictAutoStatus({ status: 'fetching', msg: '' });
     pushUpdateLog({ source:'predict', trigger, status:'fetching', key:batchKey, msg:`${needsPrediction.length} 件` });
     (async () => {
+      // ── DEMO 模式：模擬延遲 + 用既有 demo 事件的 pred/predReason 自填 ──
+      if (isDemo) {
+        try {
+          setPredictAutoStatus({ status: 'fetching', msg: 'AI 預測事件影響中...' });
+          await demoDelay(1800, 2800);
+          setNewsEvents(prev => {
+            const arr = [...(prev || [])];
+            needsPrediction.forEach((e) => {
+              const idx = arr.findIndex(x => x.id === e.id);
+              if (idx < 0) return;
+              arr[idx] = {
+                ...arr[idx],
+                status: 'verifying',
+                pred: arr[idx].pred || 'neutral',
+                predReason: arr[idx].predReason || 'AI 範例預測（DEMO）',
+              };
+            });
+            return arr;
+          });
+          flashPredictStatus('success', `已預測 ${needsPrediction.length} 件（DEMO）`);
+          pushUpdateLog({ source:'predict', trigger, status:'success', key:batchKey, msg:`demo ${needsPrediction.length} 件` });
+        } finally {
+          setPredictingEvents(false);
+          if (predictBatchInflightRef.current === batchKey) predictBatchInflightRef.current = null;
+        }
+        return;
+      }
       try {
         let data = null;
         try {
