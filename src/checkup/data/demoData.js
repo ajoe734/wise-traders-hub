@@ -5,10 +5,38 @@
 
 import { INIT_HOLDINGS } from '../seedData.js'
 
+/**
+ * Demo 資料版本（YYYY-MM）。每次手動更新本檔內容時請同步調整。
+ * 若版本與當前月份相差 > 60 天，DemoBanner 會顯示「示範資料更新中」提醒。
+ * 維護方式：scripts/refresh-demo-data.mjs（詳見 docs/demo-data-maintenance.md）
+ */
+export const DEMO_DATA_VERSION = '2026-05'
+
 export const DEMO_HOLDINGS = INIT_HOLDINGS
 
+const _demoToday = new Date().toLocaleDateString('zh-TW').replace(/-/g, '/')
+
 export const DEMO_ANALYSIS = {
-  date: new Date().toLocaleDateString('zh-TW'),
+  date: _demoToday,
+  // aiInsight：對應 dailyReport.aiInsight，會被 <Md /> 渲染成主分析內容
+  aiInsight: `## 今日總結
+AI/散熱族群延續強勢，整體持倉今日漲跌互見，成長股走勢明顯優於景氣循環標的。
+
+## 事件連動分析
+- **奇鋐液冷大單** 對應 GB200 出貨進度，今日 +2.1% 與消息面相符
+- **創意 CoWoS 良率** 雜音影響，股價弱勢但量縮，尚未跌破關鍵均線
+
+## 個股操作建議
+- **3017 奇鋐**：液冷利多落地後等待回測 5 日線再加碼
+- **3443 創意**：良率消息持續觀察 3 個交易日，跌破前波低點再考慮減碼
+- **2308 台達電**：除息前後波動加大，核心倉位續抱
+- **晟銘電**：仍處弱勢，已持有部位需設明確停損
+
+## 風險警示
+持倉集中於 AI/半導體（>60%），建議下次加碼考慮金融或傳產分散風險。
+
+---
+*此為 DEMO 範例分析，登入後系統會根據你的真實持倉與當日盤後資料生成個人化報告。*`,
   summary: `## 📊 今日收盤分析（Demo 模式）
 
 ### 大盤概況
