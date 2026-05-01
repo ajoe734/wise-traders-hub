@@ -1876,7 +1876,14 @@ export default function App() {
   // ── 每日收盤分析 ─────────────────────────────────────────────────
   const runDailyAnalysis = async () => {
     if (analyzing) return;
-    // Demo 模式也開放收盤分析（不再強制 LINE 登入），但仍受每日 1 次限制保護 Anthropic 額度
+    // 收盤分析需要登入（後端 consumeCheckupQuota 強制 user JWT）
+    // 訪客（demo / 未登入）按下時，引導去登入而不是發出 401 請求
+    if (isDemo || !supabaseUser?.id) {
+      setSaved("請先登入後再使用收盤分析");
+      setTimeout(() => setSaved(""), 4000);
+      navigate("/auth/login?redirect=/checkup");
+      return;
+    }
     if (hasReachedDailyLimit) {
       setSaved("今日免費 AI 分析次數已用完，明天再來");
       setTimeout(() => setSaved(""), 4000);
