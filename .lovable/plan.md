@@ -1,82 +1,169 @@
-# 配額系統四步修復計畫
+# Free Checkup 架構重構計畫
 
-針對前一輪盤點出來的四個破口，一次補齊。目標：使用者打開 `/free-checkup` 持倉看板就看得到配額卡、撞到限額會跳清楚 Modal、升級按鈕真的連得到付費頁、截圖解析也會扣配額。
-
----
-
-## Step 1：`checkup-parse` 補上配額消耗
-
-**檔案**：`supabase/functions/checkup-parse/index.ts`
-
-目前截圖解析完全沒接 `consumeCheckupQuota`，使用者狂傳截圖也不扣次數。
-
-- 在 `Deno.serve` 進入 POST 流程後、呼叫 Vision 之前，先 `await consumeCheckupQuota(req, 'parse', corsHeaders)`。
-- 若回傳 `ok:false` → 直接 `quotaErrorResponse(...)` 回 401/429。
-- 成功時把 `result.quota` 一併回傳給前端：`{ content: [...], quota }`，讓前端可呼叫 `applyQuotaFromResponse`。
-- 部署：`supabase--deploy_edge_functions(["checkup-parse"])`。
+按你選的優先順序，分三階段執行。每階段都可獨立交付、不阻塞下一階段。
 
 ---
 
-## Step 2：升級連結改指向真實路由
+## 階段 1：Edge 層統一（呼叫 + middleware）
 
-**檔案**：`src/pages/FreeCheckup.jsx`
+**目標**：根除 401 反覆出現、消除 18 個 checkup-* 函式各自實作認證／配額／CORS 的重複碼。
 
-目前 4 處升級 CTA 寫的是 `/checkup-checkout`（不存在）。專案實際路由：
-- 方案總覽：`/pricing`
-- 結帳頁：`/checkout/checkup/{planId}`（需要 planId）
+### 1A. 前端：所有 edge 呼叫收斂到 `callEdge`
 
-統一處理：
-- QuotaMeter 右上「升級 →」 → `/pricing#checkup`
-- QuotaModal 主 CTA「升級 Basic」/「升級 Pro」 → `/pricing#checkup`
-- 「限額用完」區塊次 CTA「查看方案」 → `/pricing#checkup`
-- 手動刷新被擋的提示「升級 Basic 解鎖手動刷新」 → `/pricing#checkup`
+掃描到的散落點（共 7 處 raw fetch + 1 處 supabase.functions.invoke）：
 
-全部用 `<Link to="/pricing#checkup">` 或 `navigate('/pricing#checkup')`，不再寫 `/checkup-checkout`。
+| 檔案 | 行 | 函式 | 處理 |
+|---|---|---|---|
+| `FreeCheckup.jsx` | 858 | checkup-calendar | 改 callEdge |
+| `FreeCheckup.jsx` | 1446 | checkup-sparkline | 改 callEdge |
+| `FreeCheckup.jsx` | 1784, 1892 | checkup-twse | 改 callEdge |
+| `FreeCheckup.jsx` | 2022, 2137 | checkup-analyze | 改 callEdge |
+| `FreeCheckup.jsx` | 2469 | checkup-parse | 改 callEdge |
+| `FreeCheckup.jsx` | 1284 | checkup-predict-events | 已是 callEdge ✓ |
+
+附帶動作：
+- 補齊 `EDGE_SCHEMAS` 中缺漏的 schema（calendar / sparkline / twse / analyze / parse）
+- 移除 `aiAuthHeaders()` 函式與 `SUPABASE_FN_BASE` 常數（callEdge 已內建）
+- 對配額相關呼叫，統一在 `callEdge` 攔截 429 → 觸發 `QuotaModal`（目前散在各 try/catch）
+
+### 1B. 後端：建立 `_shared/withCheckup.ts` middleware
+
+封裝所有 checkup-* 函式共用的 boilerplate：
+
+```ts
+// _shared/withCheckup.ts
+export function withCheckup(handler, opts: {
+  cors?: boolean,           // 預設 true
+  auth?: 'required' | 'optional' | 'none',  // 預設 required
+  quota?: false | string,   // false 不扣配額；字串為 kind ('analysis' / 'parse' / ...)
+  schema?: ZodSchema,       // 入參驗證
+}) {
+  return async (req: Request) => {
+    // 1. CORS preflight
+    // 2. JWT 驗證 → 注入 ctx.userId
+    // 3. quota 扣除 → 失敗回 429 + snapshot
+    // 4. schema validate → 失敗回 400 VALIDATION_ERROR
+    // 5. 呼叫 handler(req, ctx)
+    // 6. 統一錯誤格式 + CORS headers
+  };
+}
+```
+
+每個 checkup 函式從 ~50 行 boilerplate 縮成：
+```ts
+Deno.serve(withCheckup(async (req, ctx) => {
+  // 純業務邏輯
+  return { result: ... };
+}, { quota: 'analysis', schema: AnalyzeSchema }));
+```
+
+涵蓋的 18 個函式分類：
+- 需 auth + quota：analyze / parse / research / predict-events / brain（部分 action）/ research-extract
+- 需 auth 不扣 quota：calendar / institutional / mops-* / analyst-reports / report / telemetry / knowledge / sparkline / twse
+- 公開：ecpay-callback（webhook）/ create-checkup-* （另有付款驗證）
+
+**驗收**：
+- 用 `supabase--curl_edge_functions` 測 `checkup-predict-events` 三種情境：無 token → 401、配額用盡 → 429 + quota body、正常 → 200
+- `bunx playwright test e2e/freecheckup-card.spec.ts` 全綠
+- `rg "fetch\(.*functions/v1|aiAuthHeaders|supabase.functions.invoke" src/pages/FreeCheckup.jsx` 應 0 命中
 
 ---
 
-## Step 3：QuotaMeter 無條件渲染 + 訪客 fallback
+## 階段 2：FreeCheckup.jsx 拆分
 
-**檔案**：`src/pages/FreeCheckup.jsx`
+**目標**：6800+ 行單檔拆成 5 個 ~1000-1300 行的子檔，按 tab 邊界切。
 
-目前 QuotaMeter 在 `isDemo` 或 `quota` 還沒 fetch 完時整塊不 render，導致使用者「看不到任何東西」誤以為沒做。
+**前置動作**：解除記憶 `mem://architecture/checkup/inline-rendering-audit` 的禁拆規則，改寫成「inline JSX 風格保留，但檔案邊界按 tab 切」。
 
-改為：
-- 在 `tab === 'holdings'` 區塊頂端**無條件**插入 `<div className="checkup-quota-meter wb-card">`。
-- 三種狀態：
-  1. **訪客（mode==='demo'）**：顯示「登入後解鎖每月 1 次免費 AI 健檢」+ 主 CTA「立即登入」（呼叫 `startLineLogin` 或導向 `/auth/login`）+ 次 CTA「查看付費方案 →」(`/pricing#checkup`)。
-  2. **載入中（isReady=false 或 quota==null 但有 user）**：顯示 skeleton bar + 文字「載入配額中…」。
-  3. **已登入**：原本設計的 Tier 徽章 + `used/limit` 進度條 + `formatResetCountdown(quota.resets_at)` + 升級 CTA（Pro 不顯示）。
-- 樣式進 `<style>` block，確保 560/390/380px 三斷點不溢出（依 [手機回歸清單](mem://qa/checkup/freecheckup-mobile-regression-checklist)）。
+### 拆分結構
+
+```text
+src/pages/FreeCheckup/
+  index.jsx                  # 主殼：路由、tab 切換、shell layout（~600行）
+  hooks/
+    useCheckupRuntime.js     # 收口 useAppRuntimeCoreLifecycle 對外 API
+    useQuotaGate.js          # 配額檢查 + Modal 觸發
+  tabs/
+    HoldingsTab.jsx          # 持倉看板 + Hero（~1200行，含 wb-card 巨集）
+    DailyTab.jsx             # 每日分析（~1100行）
+    EventsTab.jsx            # 事件日曆 + 預測（~1000行）
+    ResearchTab.jsx          # 個股研究（~900行）
+    LogTab.jsx               # 交易日誌（~800行）
+  shared/
+    QuotaModal.jsx
+    QuotaMeter.jsx
+    styles.js                # 共用 alpha / typography token
+```
+
+### 拆分原則
+- inline JSX 區塊整段平移，**不抽元件、不改邏輯**
+- 共用的 `<style>` 媒體查詢區塊（≤560/≤390/≤380）跟著對應 tab 走
+- 跨 tab 共用的 state 留在 `index.jsx`，透過 props 下傳（不引入 Context，避免 re-render 黑洞）
+
+### 強制 QA（不打折）
+1. 拆分前：截圖 baseline（560/390/380 三斷點 × 5 個 tab = 15 張）
+2. 拆分後：截圖比對，pixel diff 容忍 < 1%
+3. `bun run scripts/check-freecheckup-rwd.mjs` 通過
+4. `bunx vitest run src/test/unit/freecheckup-mobile-card-overflow.test.ts` 通過
+5. `bunx vitest run src/test/unit/freecheckup-i18n.test.ts` 通過
+6. `bunx playwright test e2e/freecheckup-card.spec.ts` 通過
+
+### 記憶更新
+- 改寫 `mem://architecture/checkup/inline-rendering-audit` → 拆檔後新規則
+- 更新 `mem://qa/checkup/freecheckup-mobile-regression-checklist` 路徑指向新檔結構
 
 ---
 
-## Step 4：截圖解析成功後同步配額
+## 階段 3：前端狀態 + 雲端同步重構
 
-**檔案**：`src/pages/FreeCheckup.jsx`（搜 `parseShot` / `checkup-parse` 呼叫處）
+**目標**：FreeCheckup useState 改用既有 Zustand stores、雙寫雲端同步邏輯集中到 syncEngine。
 
-- 解析成功收到回應後，若 `data.quota` 存在 → `applyQuotaFromResponse(data)`；否則 `await refreshQuota()`。
-- 解析失敗且 `isQuotaExceeded(res)` → 跳 QuotaModal、不寫 `dailyLastError`。
-- 同樣處理 `runDailyAnalysis`、事件預測、深度研究三個 AI 入口（前一輪已部分接上，這輪統一補完並驗證）。
+### 3A. Zustand stores 接上
+
+目前 stores 已建好但未使用：`holdingsStore / eventStore / brainStore / marketStore / portfolioStore / reportsStore`
+
+執行：
+1. 把 `FreeCheckup.jsx` 的 `useState` (holdings/events/brain/...) 換成 store selectors
+2. 移除 `useAppRuntimeCoreLifecycle` 中 10+ 個 ref 同步（`activePortfolioIdRef` / `viewModeRef` / `portfoliosRef` / `portfolioSetterRef` / `bootRuntimeRef` / `cloudSyncStateRef` / ...）— 這些都是 useState→ref 的補丁，stores 訂閱後不再需要
+3. `useAppRuntimeCoreLifecycle` 從「協調 30 個 setState」變成「協調 6 個 store action」
+
+### 3B. 雲端同步集中到 `syncEngine`
+
+新建 `src/checkup/lib/syncEngine.js`：
+
+```js
+// 單一入口處理：localStorage ↔ checkup_storage 雙寫
+export const syncEngine = {
+  load(portfolioId, userId) { ... },     // 啟動時：cloud > local 衝突解
+  save(portfolioId, slice, data) { ... },// debounce 300ms，雙寫
+  isolateDemoMode(userId) { ... },       // sentinel UUID 隔離邏輯
+  getStatus() { ... },                   // pending/synced/error
+};
+```
+
+把目前散在 `usePortfolioPersistence` / `useAppLifecycleRuntimeComposer` / `loadPortfolioSnapshot` / `savePortfolioData` / `readSyncAt` / `writeSyncAt` / `shouldAdoptCloudHoldings` 的邏輯統整。
+
+**驗收**：
+- 切換 Demo / 實名模式不串資料（既有測試）
+- 多 portfolio 切換 < 200ms（目前因 ref sync 約 500ms）
+- 無痕模式 → 登入 → 資料正確 adopt cloud
 
 ---
 
-## 驗收清單（強制）
+## 風險與回滾
 
-依 [FreeCheckup 手機回歸清單](mem://qa/checkup/freecheckup-mobile-regression-checklist)：
-
-1. 訪客打開 `/free-checkup` 持倉看板 → 頂部看得到「登入解鎖」配額卡。
-2. 免費登入用戶 → 看到「免費版 · 本月 0/1 · 距離重置 X 天」。
-3. 用完 1 次後再點任一 AI 按鈕 → 跳 QuotaModal（非 toast），顯示重置時間 + 升級 CTA。
-4. 點「升級」→ 真的進到 `/pricing#checkup`（不是 404）。
-5. 截圖解析會讓 `used` +1（後端 RPC 真的有寫 `checkup_usage`）。
-6. 560/390/380px 截圖無 overflow，跑 `bunx playwright test e2e/freecheckup-card.spec.ts`。
+| 階段 | 風險 | 回滾 |
+|---|---|---|
+| 1 | callEdge 缺 schema 導致誤擋 → silent flag 已可繞 | git revert 單檔 |
+| 2 | 拆檔後 import 循環 | 嚴格遵守 index→tabs→shared 單向 |
+| 3 | store 訂閱不當引發 re-render 風暴 | React DevTools profiler 把關，逐 store 切 |
 
 ---
 
-## 不會動的東西
+## 交付節奏建議
 
-- 不改 RPC（`consume_checkup_quota` / `check_checkup_quota` 已 OK）。
-- 不改 `checkup_plans` schema、不改 `CheckupModeContext.jsx` 的 API 形狀。
-- 不抽 component（遵守 [FreeCheckup inline 限制](mem://architecture/checkup/inline-rendering-audit)）。
-- 不違反 [損益顏色憲法](mem://style/holdings/monochrome-orange-pnl)（QuotaMeter 用 teal/amber/down，非損益場景，OK）。
+- 階段 1：1 個 PR（前後端各一 commit），1 天
+- 階段 2：3-5 個 PR（每 tab 一個），分 3-5 天，每 PR 跑完 QA 才合
+- 階段 3：2 個 PR（stores 接上 / syncEngine），分 2-3 天
+
+如同意，開工順序：**階段 1A → 1B → 2 → 3A → 3B**。

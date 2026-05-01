@@ -855,16 +855,26 @@ export default function App() {
       const controller = new AbortController();
       calendarAbortRef.current = controller;
       const timer = setTimeout(() => controller.abort(), 300000); // 5 min timeout
-      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-calendar?debug=1`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stocks: stockList, today, endDate, debug: true }),
-        signal: controller.signal,
-      });
+      let result;
+      let httpStatus = 200;
+      try {
+        result = await callEdge('checkup-calendar', {
+          body: { stocks: stockList, today, endDate, debug: true },
+          query: { debug: 1 },
+          signal: controller.signal,
+          silent: true,
+        });
+      } catch (err) {
+        clearTimeout(timer);
+        httpStatus = err?.status || 0;
+        // 422/4xx fallback body 也走原本 fallback 流程
+        if (err?.body) result = err.body;
+        else throw err;
+      }
       clearTimeout(timer);
-      const result = await res.json();
+      if (!result) result = {};
       if (result?.debug) {
-        setCalendarLastDebug({ source: 'calendar', at: new Date().toISOString(), httpStatus: res.status, ...result.debug });
+        setCalendarLastDebug({ source: 'calendar', at: new Date().toISOString(), httpStatus, ...result.debug });
       }
       if (guard !== undefined && guard !== resetGuardRef.current) {
         pushUpdateLog({ source:'calendar', trigger, status:'aborted', key:requestKey, msg:'guard 變更' });
@@ -1443,10 +1453,11 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('checkup-sparkline', {
+        const data = await callEdge('checkup-sparkline', {
           body: { codes: missing.slice(0, 30) },
-        });
-        if (cancelled || error || !data?.result) return;
+          silent: true,
+        }).catch(() => null);
+        if (cancelled || !data?.result) return;
         setSparklines((prev) => ({ ...prev, ...data.result }));
       } catch {
         /* silent — sparkline 為非關鍵裝飾 */
@@ -1781,10 +1792,10 @@ export default function App() {
           return base;
         });
         const exCh = queries.join('|');
-        const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`報價伺服器回應 ${res.status}`);
-        const data = await res.json();
+        const data = await callEdge('checkup-twse', {
+          query: { ex_ch: exCh },
+          silent: true,
+        });
 
         if (data.msgArray && data.msgArray.length > 0) {
           // 每筆 symbol 回報來源：live(成交)/high(最高)/ask(賣一)/yclose(昨收)
@@ -1889,9 +1900,10 @@ export default function App() {
         return base;
       });
       const exCh = queries.join('|');
-      const url = `${SUPABASE_FN_BASE}/checkup-twse?ex_ch=${encodeURIComponent(exCh)}`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await callEdge('checkup-twse', {
+        query: { ex_ch: exCh },
+        silent: true,
+      }).catch(() => ({}));
 
       const priceMap = {};
       if (data.msgArray) {
@@ -2019,12 +2031,16 @@ ${losers.map(h=>{
 
         const analyzeController = new AbortController();
         const analyzeTimer = setTimeout(() => analyzeController.abort(), 120000); // 2 min timeout
-        const aiRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-correlation-id": cid, ...(await aiAuthHeaders()) },
-          signal: analyzeController.signal,
-          body: JSON.stringify({
-            systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
+        let aiData = null;
+        let aiHttpStatus = 200;
+        let aiErrBody = '';
+        try {
+          aiData = await callEdge('checkup-analyze', {
+            headers: { 'x-correlation-id': cid },
+            signal: analyzeController.signal,
+            silent: true,
+            body: {
+              systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
 你擁有用戶過去所有分析的記憶（策略大腦），必須基於累積的教訓和規則來給出建議。
 用戶是積極型事件驅動交易者，持有股票+權證，專注電子科技族群。
 
@@ -2050,7 +2066,7 @@ ${losers.map(h=>{
 
 ## 策略進化建議
 （基於今日表現，策略大腦應該新增或修改什麼規則？）`,
-            userPrompt: `今日日期：${today}
+              userPrompt: `今日日期：${today}
 今日持倉損益：${totalTodayPnl >= 0 ? "+" : ""}${totalTodayPnl.toLocaleString()} 元
 ${brainContext}
 ${revContext}
@@ -2067,28 +2083,41 @@ ${autoVerified.length > 0 ? `今日自動驗證事件（${autoVerified.length}�
 ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"} → 實際${v.actual==="up"?"漲":"跌"} → ${v.correct?"✓正確":"✗有誤"}`).join("\n")}` : ""}
 
 請分析今日收盤表現，事件連動，並給出策略建議。特別注意策略大腦中的歷史教訓。${autoVerified.length > 0 ? "同時針對今日自動驗證的事件進行覆盤分析。" : ""}`
-          })
-        });
-        clearTimeout(analyzeTimer);
-        if (!aiRes.ok) {
+            }
+          });
+        } catch (e) {
+          clearTimeout(analyzeTimer);
+          aiHttpStatus = e?.status || 0;
+          aiErrBody = typeof e?.body === 'object' ? JSON.stringify(e.body) : (e?.message || '');
           // 配額用盡兜底：彈 modal 而不是當錯誤
-          if (await isQuotaExceeded(aiRes)) {
+          if (aiHttpStatus === 429 && (e?.body?.error === 'QUOTA_EXCEEDED' || /QUOTA_EXCEEDED/.test(aiErrBody))) {
             try { await refreshQuota?.(); } catch {}
             setQuotaModal({ trigger: 'daily' });
             setAnalyzing(false); setAnalyzeStep("");
             return;
           }
-          const errBody = await aiRes.text().catch(() => '');
-          const code = aiRes.status === 402 ? 'AI_BILLING_REQUIRED'
-                     : aiRes.status === 429 ? 'AI_RATE_LIMITED'
-                     : aiRes.status === 401 ? 'AI_AUTH_FAILED'
-                     : `HTTP_${aiRes.status}`;
-          const errInfo = { code, message: errBody.slice(0, 240) || `HTTP ${aiRes.status}`, cid, opStartedAt, opStartedAtMs, httpStatus: aiRes.status, at: new Date().toISOString() };
-          setDailyLastError(errInfo);
-          pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code} (${aiRes.status})` });
-          console.error("[daily] AI 分析失敗", errInfo);
-        } else {
-          const aiData = await aiRes.json();
+          if (e?.name === 'AbortError') {
+            const errInfo = { code: 'TIMEOUT', message: 'AbortError', cid, opStartedAt, opStartedAtMs, httpStatus: 0, at: new Date().toISOString() };
+            setDailyLastError(errInfo);
+            pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`TIMEOUT` });
+          } else if (aiHttpStatus > 0) {
+            const code = aiHttpStatus === 402 ? 'AI_BILLING_REQUIRED'
+                       : aiHttpStatus === 429 ? 'AI_RATE_LIMITED'
+                       : aiHttpStatus === 401 ? 'AI_AUTH_FAILED'
+                       : `HTTP_${aiHttpStatus}`;
+            const errInfo = { code, message: aiErrBody.slice(0, 240) || `HTTP ${aiHttpStatus}`, cid, opStartedAt, opStartedAtMs, httpStatus: aiHttpStatus, at: new Date().toISOString() };
+            setDailyLastError(errInfo);
+            pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`${code} (${aiHttpStatus})` });
+            console.error("[daily] AI 分析失敗", errInfo);
+          } else {
+            const errInfo = { code: 'NETWORK_ERROR', message: String(e?.message || e).slice(0, 240), cid, opStartedAt, opStartedAtMs, httpStatus: 0, at: new Date().toISOString() };
+            setDailyLastError(errInfo);
+            pushUpdateLog({ source:'daily', trigger:'manual', status:'error', key:cid, msg:`NETWORK_ERROR` });
+            console.error("[daily] AI 分析例外", errInfo);
+          }
+        }
+        clearTimeout(analyzeTimer);
+        if (aiData) {
           if (aiData?.fallback) {
             const code = aiData.code || 'AI_FALLBACK';
             const errInfo = { code, message: String(aiData.error || '').slice(0, 240) || code, cid, opStartedAt, opStartedAtMs, httpStatus: 200, at: new Date().toISOString() };
@@ -2134,10 +2163,9 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
           const hits = pastEvents.filter(e => e.correct === true).length;
           const total = pastEvents.filter(e => e.correct !== null).length;
 
-          const brainRes = await fetch(`${SUPABASE_FN_BASE}/checkup-analyze`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...(await aiAuthHeaders()) },
-            body: JSON.stringify({
+          const brainData = await callEdge('checkup-analyze', {
+            silent: true,
+            body: {
               kind: 'brain-update',
               systemPrompt: `你是策略知識庫管理器。根據今日分析結果，更新策略大腦。
 回傳**純JSON**格式（不要markdown code block），結構：
@@ -2156,10 +2184,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 今日損益：${totalTodayPnl >= 0 ? "+" : ""}${totalTodayPnl.toLocaleString()} 元
 
 請更新策略大腦，保留有效的舊規則，加入今日新教訓。`
-            })
+            }
           });
-          const brainData = await brainRes.json();
-          const brainText = brainData.content?.[0]?.text || "";
+          const brainText = brainData?.content?.[0]?.text || "";
           const cleanBrain = brainText.replace(/```json|```/g, "").trim();
           const newBrain = JSON.parse(cleanBrain);
           setStrategyBrain(newBrain);
@@ -2466,24 +2493,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           progress: attempt === 1 ? 30 : 30 + (attempt - 1) * 10,
           detail: attempt === 1 ? '使用 Gemini 2.5 Pro Vision' : `上次失敗：${lastErr || '未知錯誤'}`,
         });
-        const res = await fetch(`${SUPABASE_FN_BASE}/checkup-parse`, {
-          method:"POST",
-          headers:{"Content-Type":"application/json", ...(await aiAuthHeaders())},
-          body: JSON.stringify({
-            systemPrompt: PARSE_PROMPT,
-            base64: b64,
-            mediaType: "image/jpeg",
-          })
-        });
-        // 配額用盡兜底（截圖解析）
-        if (res.status === 429 && await isQuotaExceeded(res)) {
-          try { await refreshQuota?.(); } catch {}
-          setQuotaModal({ trigger: 'parse' });
-          setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請查看右上方升級提示' });
-          setParsing(false);
-          return;
+        let data;
+        try {
+          data = await callEdge('checkup-parse', {
+            silent: true,
+            body: {
+              systemPrompt: PARSE_PROMPT,
+              base64: b64,
+              mediaType: "image/jpeg",
+            }
+          });
+        } catch (e) {
+          // 配額用盡兜底（截圖解析）
+          if (e?.status === 429 && (e?.body?.error === 'QUOTA_EXCEEDED' || /QUOTA_EXCEEDED/.test(JSON.stringify(e?.body || {})))) {
+            try { await refreshQuota?.(); } catch {}
+            setQuotaModal({ trigger: 'parse' });
+            setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請查看右上方升級提示' });
+            setParsing(false);
+            return;
+          }
+          // 其他錯誤丟給下方 retry 邏輯處理
+          lastErr = String(e?.body?.error || e?.message || `HTTP ${e?.status || 0}`);
+          console.warn(`Parse attempt ${attempt}/${MAX_RETRIES} failed:`, lastErr);
+          appendLog({ task: 'parse-screenshot', status: 'retry', attempt, detail: lastErr });
+          if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 2000)); continue; }
+          break;
         }
-        const data = await res.json();
         if (data?.quota) { try { applyQuotaFromResponse?.(data); } catch {} }
 
         // 後端回傳 error 表示所有模型都失敗，嘗試重試
