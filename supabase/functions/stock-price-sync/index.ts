@@ -105,6 +105,15 @@ async function fetchStockBatch(symbols: string[]): Promise<Map<string, { price: 
     }
   }
   
+  // TPEx fallback：MIS 抓不到的 symbol（多為上櫃冷門股 / 權證），補打 TPEx OpenAPI（每日收盤資料）
+  const missing = symbols.filter(s => !results.has(s))
+  if (missing.length > 0) {
+    const tpexMap = await fetchTpexFallback(missing)
+    for (const [code, v] of tpexMap) {
+      if (!results.has(code)) results.set(code, v)
+    }
+  }
+  
   return results
 }
 
@@ -114,6 +123,20 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // ── Trading-hours guard（可被 ?force=1 繞過，給「立即更新」按鈕用）──
+    const force = new URL(req.url).searchParams.get('force') === '1'
+    const tw = new Date(Date.now() + 8 * 3600 * 1000)
+    const dow = tw.getUTCDay() // 0=Sun, 6=Sat
+    const minutes = tw.getUTCHours() * 60 + tw.getUTCMinutes()
+    const isWeekday = dow >= 1 && dow <= 5
+    // 早盤試撮 08:30 起、盤中 09:00–13:30、盤後零股 14:00–14:30 全部納入
+    const inWindow = minutes >= 8 * 60 + 30 && minutes <= 14 * 60 + 30
+    if (!force && !(isWeekday && inWindow)) {
+      return new Response(JSON.stringify({ skipped: true, reason: 'outside_trading_hours' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
