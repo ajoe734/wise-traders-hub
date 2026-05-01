@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { usePortfolioStore } from '../stores/portfolioStore.js'
 import {
   OWNER_PORTFOLIO_ID,
   OVERVIEW_VIEW_MODE,
