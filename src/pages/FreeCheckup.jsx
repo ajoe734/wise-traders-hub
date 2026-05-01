@@ -2493,24 +2493,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           progress: attempt === 1 ? 30 : 30 + (attempt - 1) * 10,
           detail: attempt === 1 ? '使用 Gemini 2.5 Pro Vision' : `上次失敗：${lastErr || '未知錯誤'}`,
         });
-        const res = await fetch(`${SUPABASE_FN_BASE}/checkup-parse`, {
-          method:"POST",
-          headers:{"Content-Type":"application/json", ...(await aiAuthHeaders())},
-          body: JSON.stringify({
-            systemPrompt: PARSE_PROMPT,
-            base64: b64,
-            mediaType: "image/jpeg",
-          })
-        });
-        // 配額用盡兜底（截圖解析）
-        if (res.status === 429 && await isQuotaExceeded(res)) {
-          try { await refreshQuota?.(); } catch {}
-          setQuotaModal({ trigger: 'parse' });
-          setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請查看右上方升級提示' });
-          setParsing(false);
-          return;
+        let data;
+        try {
+          data = await callEdge('checkup-parse', {
+            silent: true,
+            body: {
+              systemPrompt: PARSE_PROMPT,
+              base64: b64,
+              mediaType: "image/jpeg",
+            }
+          });
+        } catch (e) {
+          // 配額用盡兜底（截圖解析）
+          if (e?.status === 429 && (e?.body?.error === 'QUOTA_EXCEEDED' || /QUOTA_EXCEEDED/.test(JSON.stringify(e?.body || {})))) {
+            try { await refreshQuota?.(); } catch {}
+            setQuotaModal({ trigger: 'parse' });
+            setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請查看右上方升級提示' });
+            setParsing(false);
+            return;
+          }
+          // 其他錯誤丟給下方 retry 邏輯處理
+          lastErr = String(e?.body?.error || e?.message || `HTTP ${e?.status || 0}`);
+          console.warn(`Parse attempt ${attempt}/${MAX_RETRIES} failed:`, lastErr);
+          appendLog({ task: 'parse-screenshot', status: 'retry', attempt, detail: lastErr });
+          if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 2000)); continue; }
+          break;
         }
-        const data = await res.json();
         if (data?.quota) { try { applyQuotaFromResponse?.(data); } catch {} }
 
         // 後端回傳 error 表示所有模型都失敗，嘗試重試
