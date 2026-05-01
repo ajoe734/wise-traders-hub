@@ -14,6 +14,8 @@ import {
   mergeReportRefreshMetaStore,
 } from '../lib/reportRefreshRuntime.js'
 import { fetchJsonWithTimeout } from '../lib/utils.js'
+// Phase 3A.4 Step 1: store 直取 setter
+import { useHoldingsStore } from '../stores/holdingsStore.js'
 
 export function useReportRefreshWorkflow({
   holdings = [],
@@ -24,11 +26,15 @@ export function useReportRefreshWorkflow({
   todayRefreshKey = '',
   upsertTargetReport = () => false,
   upsertFundamentalsEntry = () => false,
-  setAnalystReports = () => {},
-  setReportRefreshMeta = () => {},
+  setAnalystReports: _setAnalystReportsProp = () => {},
+  setReportRefreshMeta: _setReportRefreshMetaProp = () => {},
   flashSaved = () => {},
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
 }) {
+  const setAnalystReports = useHoldingsStore((s) => s.setAnalystReports)
+  const setReportRefreshMeta = useHoldingsStore((s) => s.setReportRefreshMeta)
+  void _setAnalystReportsProp
+  void _setReportRefreshMetaProp
   const [enrichingResearchCode, setEnrichingResearchCode] = useState(null)
   const [reportRefreshing, setReportRefreshing] = useState(false)
   const [reportRefreshStatus, setReportRefreshStatus] = useState('')
