@@ -483,6 +483,15 @@ export default function App() {
     setTimeout(() => setSaved(''), 4000);
   }, []);
 
+  // ── Demo Tab 說明卡（行事曆 / 事件分析 / 收盤分析 / 交易日誌）──
+  // 直接 inline 在 FreeCheckup.jsx 內，符合既有 inline 渲染慣例
+  const DEMO_TAB_NOTICE_COPY = {
+    events: { title: '這是 DEMO 行事曆', body: '顯示的法說、營收、除息日為示範資料。登入後會根據你的真實持倉自動抓取財報行事曆與 AI 事件預測。' },
+    news:   { title: '這是 DEMO 事件分析', body: '範例事件已套用策略大腦邏輯。登入後 AI 會即時抓取個股新聞、進行事件影響評估與命中率追蹤。' },
+    daily:  { title: '這是 DEMO 收盤分析', body: '點「開始今日收盤分析」會以模擬延遲呈現範例報告。登入後系統會根據你的實際持倉與盤後資料生成個人化分析。' },
+    log:    { title: '這是 DEMO 交易日誌', body: '訪客看到的是空白範本。登入後上傳成交截圖即可自動寫入交易日誌與 Q&A 反思。' },
+  };
+
   // dashboard UI
   const [sortBy,      setSortBy]      = useState("decision");
   const [viewMode,    setViewMode]    = useState("grid"); // 'grid' | 'list'
@@ -1505,6 +1514,7 @@ export default function App() {
   // ── Sparkline 載入：持倉變動時，僅補抓還沒快取的代碼 ──
   useEffect(() => {
     if (!H || H.length === 0) return;
+    if (isDemo) return; // DEMO 模式不打 sparkline edge（裝飾用，不影響資料完整性）
     const codes = H.map((h) => String(h.code).trim()).filter(Boolean);
     const missing = codes.filter((c) => !sparklines[c]);
     if (missing.length === 0) return;
@@ -1826,6 +1836,41 @@ export default function App() {
   // REFRESH_COOLDOWN moved above (near state declarations)
   const refreshPrices = async () => {
     if (refreshing) return;
+    // ── DEMO 模式：模擬擷取股價，隨機 ±0.5%~±2% 浮動，不打 edge ──
+    if (isDemo) {
+      setRefreshing(true);
+      setRefreshStatus({ phase: 'fetching', total: H.length, ok: 0, fail: H.length, missingNames: [] });
+      try {
+        await demoDelay(1500, 2800);
+        const nowIso = new Date().toISOString();
+        setHoldings(prev => (prev || []).map(h => {
+          const base = h.price || h.cost || 0;
+          if (!base) return h;
+          const delta = (Math.random() * 0.03 - 0.015); // ±1.5%
+          const newPrice = Math.max(0.01, +(base * (1 + delta)).toFixed(2));
+          const value = newPrice * h.qty;
+          const totalCost = h.totalCost != null ? h.totalCost : h.cost * h.qty;
+          const pnl = value - totalCost;
+          const pct = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+          return {
+            ...h,
+            price: newPrice,
+            value, pnl, pct,
+            priceSource: 'demo',
+            priceUpdatedAt: nowIso,
+            priceError: null,
+          };
+        }));
+        setLastUpdate(new Date());
+        setRefreshStatus({ phase: 'done', total: H.length, ok: H.length, fail: 0, missingNames: [] });
+        setSaved('DEMO 模擬報價已更新（登入後使用真實 TWSE 即時行情）');
+        setTimeout(() => setSaved(''), 3500);
+        setTimeout(() => setRefreshStatus(null), 4000);
+      } finally {
+        setRefreshing(false);
+      }
+      return;
+    }
     // 30分鐘冷卻
     if (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN) {
       const remaining = Math.ceil((REFRESH_COOLDOWN - (Date.now() - lastUpdate.getTime())) / 60000);
@@ -4606,6 +4651,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ EVENTS ══════════ */}
         {tab==="events" && <>
+          {isDemo && (
+            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
+              <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.events.title}</div>
+              <div style={{fontSize:11,color:C.textMute,lineHeight:1.7,marginBottom:8}}>{DEMO_TAB_NOTICE_COPY.events.body}</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
+                <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
+              </div>
+            </div>
+          )}
           {/* 手動更新 + 自動更新狀態徽章（行事曆 + 預測） */}
           {(() => {
             const STATUS_LABEL = {
@@ -4642,7 +4697,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {/* 手動按鈕列 */}
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
                   <button
-                    onClick={manualRefreshCalendar}
+                    onClick={() => {
+                      if (isDemo) { showDemoLockToast('即時更新行事曆'); return; }
+                      manualRefreshCalendar();
+                    }}
                     disabled={calBusy || !holdings || holdings.length === 0 || calCool > 0}
                     style={{
                       padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
@@ -4653,7 +4711,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }}
                   >{calBusy ? '⟳ 更新中…' : (calCool>0 ? `↻ 冷卻中 ${calCoolSec}s` : '↻ 立刻更新行事曆')}</button>
                   <button
-                    onClick={() => runPredictEvents(true)}
+                    onClick={() => {
+                      if (isDemo) { showDemoLockToast('即時預測事件'); return; }
+                      runPredictEvents(true);
+                    }}
                     disabled={preBusy || !newsEvents || newsEvents.length === 0 || preCool > 0}
                     style={{
                       padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
@@ -4663,6 +4724,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       opacity:preBusy||!newsEvents?.length||preCool>0?0.5:1,
                     }}
                   >{preBusy ? '⟳ 預測中…' : (preCool>0 ? `↻ 冷卻中 ${preCoolSec}s` : '↻ 立刻預測事件')}</button>
+
                 </div>
                 {/* 狀態徽章 */}
                 {(cal || pre) && (
@@ -5096,6 +5158,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ DAILY ANALYSIS ══════════ */}
         {tab==="daily" && <>
+          {isDemo && (
+            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
+              <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.daily.title}</div>
+              <div style={{fontSize:11,color:C.textMute,lineHeight:1.7,marginBottom:8}}>{DEMO_TAB_NOTICE_COPY.daily.body}</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
+                <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
+              </div>
+            </div>
+          )}
           {/* 手動觸發按鈕 */}
            {!dailyReport && !analyzing && (
              <div style={{textAlign:"center",padding:"36px 16px",marginBottom:14}}>
@@ -6114,6 +6186,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
         {/* ══════════ LOG ══════════ */}
         {tab==="log" && <>
+          {isDemo && (
+            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
+              <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.log.title}</div>
+              <div style={{fontSize:11,color:C.textMute,lineHeight:1.7,marginBottom:8}}>{DEMO_TAB_NOTICE_COPY.log.body}</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
+                <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
+              </div>
+            </div>
+          )}
           {(!tradeLog||tradeLog.length===0) ? (
             <div style={{...card,textAlign:"center",padding:"36px 16px"}}>
               <div style={{fontSize:20,marginBottom:10,opacity:0.2}}>◌</div>
@@ -6200,7 +6282,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         </>}
 
         {/* ══════════ NEWS ANALYSIS ══════════ */}
-        {tab==="news" && (()=>{
+        {tab==="news" && (<>
+          {isDemo && (
+            <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
+              <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:4,letterSpacing:"0.02em"}}>{DEMO_TAB_NOTICE_COPY.news.title}</div>
+              <div style={{fontSize:11,color:C.textMute,lineHeight:1.7,marginBottom:8}}>{DEMO_TAB_NOTICE_COPY.news.body}</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
+                <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
+              </div>
+            </div>
+          )}
+          {(()=>{
           const NE = newsEvents || [];
           const past      = NE.filter(e=>e.status==="past").sort((a,b)=>(b.date||"").localeCompare(a.date||""));
           const verifying = NE.filter(e=>e.status==="verifying").sort((a,b)=>(a.date||"").localeCompare(b.date||""));
@@ -6590,6 +6683,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             })()}
           </>;
         })()}
+        </>)}
 
       </div>
       {/* Decision Debug toggle */}
