@@ -1,3 +1,4 @@
+// @ts-check
 import { useState } from 'react'
 import { APP_LABELS } from '../lib/appMessages.js'
 import { filterEventsByType, resolveRuntimeNewsEvents } from '../lib/appShellRuntime.js'
