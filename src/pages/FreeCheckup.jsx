@@ -846,6 +846,28 @@ export default function App() {
     setCalendarLoading(true);
     setCalendarAutoStatus({ status: 'fetching', msg: '' });
     pushUpdateLog({ source:'calendar', trigger, status:'fetching', key:requestKey, msg:`${holdingsList.length} 檔` });
+    // ── DEMO 模式：模擬載入 + 套用 DEMO_CALENDAR，不打 edge function ──
+    if (isDemo) {
+      try {
+        await simulateSteps([
+          { label: '掃描未來重大事件...', min: 800, max: 1400 },
+          { label: '比對持股相關性...', min: 700, max: 1200 },
+        ], () => {});
+        const merged = [...DEMO_CALENDAR];
+        merged._holdingCodes = holdingsList.map(h => h.code).sort().join(',');
+        setCalendarEvents(merged);
+        syncCalendarToNews(merged);
+        calendarLastFetchRef.current = { key: requestKey, at: Date.now() };
+        setCalendarRetry({ count: 0, cooldownUntil: 0 });
+        setCalendarLastError(null);
+        setCalendarAutoStatus({ status: 'idle', msg: '' });
+        pushUpdateLog({ source:'calendar', trigger, status:'success', key:requestKey, msg:'demo 範例資料' });
+      } finally {
+        if (calendarInflightKeyRef.current === requestKey) calendarInflightKeyRef.current = null;
+        setCalendarLoading(false);
+      }
+      return;
+    }
     try {
       const stockList = holdingsList.map(h => `${h.code} ${h.name}`).join("、");
       const today = new Date().toLocaleDateString("zh-TW", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g, "/");
