@@ -179,8 +179,6 @@ export function useAppRuntimeWorkflows({
       todayRefreshKey,
       upsertTargetReport,
       upsertFundamentalsEntry,
-      setAnalystReports,
-      setReportRefreshMeta,
       flashSaved,
       toSlashDate,
     })
