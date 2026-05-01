@@ -1,7 +1,9 @@
+// @ts-check
 import {
   composeAppRuntimeCoreLifecycleArgs,
   composeAppRuntimeWorkflowsArgs,
 } from './useAppRuntimeComposer.js'
+import { assertNoStoreSetters } from './runtimeArgs.types.js'
 
 export function useAppRuntimeCoreArgs({ state, setters, ui, runtime, refs, helpers }) {
   return {
