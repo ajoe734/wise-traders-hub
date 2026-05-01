@@ -2875,6 +2875,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         }
       `}</style>
 
+      {/* ── DEMO BANNER（僅 demo 模式顯示） ── */}
+      {isDemo && (
+        <DemoBanner
+          C={C}
+          alpha={alpha}
+          onLineLogin={() => {
+            try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); }
+          }}
+          onEmailLogin={() => navigate('/auth/login?redirect=/checkup')}
+        />
+      )}
+
       {/* ── BACK BUTTON + 戰情室入口 ── */}
       <div style={{background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"8px 16px",position:"sticky",top:0,zIndex:11,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <button onClick={()=>navigate("/")} style={{
