@@ -270,3 +270,36 @@ export const DEMO_EVENTS = [
     reviewAt: fiveDaysLater,
   },
 ]
+
+// ── DEMO_CALENDAR：行事曆顯示用（對應 checkup-calendar 回傳結構） ──
+export const DEMO_CALENDAR = [
+  { label: '3443 創意法說會', date: threeDaysLater.replace(/-/g, '/'), sub: 'Q1 財報暨法說會', pred: 'up', predReason: 'ASIC 設計案能見度高' },
+  { label: '6274 台燿法說會', date: fiveDaysLater.replace(/-/g, '/'), sub: '法說＋Q4 財報', pred: 'up', predReason: 'CCL 報價上調' },
+  { label: '3017 奇鋐營收公布', date: sevenDaysLater.replace(/-/g, '/'), sub: '3 月營收公告', pred: 'up', predReason: '散熱模組需求成長' },
+  { label: '2308 台達電除息', date: tenDaysLater.replace(/-/g, '/'), sub: '現金股利 $12.5', pred: 'neutral', predReason: '預期填息' },
+  { label: '美國 CPI 數據公布', date: fourteenDaysLater.replace(/-/g, '/'), sub: '消費者物價指數', pred: 'neutral', predReason: '科技股對利率敏感' },
+]
+
+// ── DEMO_BRAIN_UPDATED：模擬 brain-update 後的策略大腦結構 ──
+// 對應 setStrategyBrain(newBrain) 的 JSON 結構
+export const DEMO_BRAIN_UPDATED = {
+  rules: [
+    '事件驅動：法說會前 3-5 日佈局，避開公布當日波動',
+    '權證部位佔比不超過總資產 15%，避免時間價值耗損',
+    '虧損 -10% 啟動反轉條件檢視，-15% 強制檢討',
+    '集中度警示：單一族群超過 60% 需主動分散',
+    'AI 散熱族群為核心，CoWoS / 液冷為關鍵題材',
+  ],
+  lessons: [
+    { date: _demoToday, text: '奇鋐液冷大單利多落地後反而高檔震盪，下次提前減碼一半鎖利' },
+    { date: _demoToday, text: '創意 CoWoS 良率雜音時量縮，量未放大前不必急著減碼' },
+    { date: '2026/04/20', text: '晟銘電虧損擴大未即時停損，下次嚴守 -15% 出場紀律' },
+  ],
+  commonMistakes: [
+    '虧損部位拗單未停損（晟銘電、士電案例）',
+    '權證接近到期時未檢視展期決策',
+    '同族群過度集中，未做產業分散',
+  ],
+  stats: { hitRate: '7/10', totalAnalyses: 42 },
+  lastUpdate: _demoToday,
+}
