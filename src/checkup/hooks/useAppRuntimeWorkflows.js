@@ -290,8 +290,6 @@ export function useAppRuntimeWorkflows({
       strategyBrain,
       portfolioNotes,
       dossierByCode,
-      setStrategyBrain,
-      setBrainValidation,
       toSlashDate,
     })
   )
