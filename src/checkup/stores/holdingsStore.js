@@ -7,14 +7,21 @@
 import { create } from 'zustand';
 
 // Initial state
+// IMPORTANT: holdings/tradeLog/targets/... default to `null` (not [] / {}).
+// `null` is the "not yet hydrated" sentinel used by usePortfolioPersistence
+// and useAppRuntimeCoreLifecycle to distinguish "no data loaded" from
+// "loaded empty". Do NOT change without auditing those hooks.
 const createInitialState = () => ({
-  holdings: [],
-  watchlist: [],
-  targets: {},
-  fundamentals: {},
-  analystReports: {},
-  holdingDossiers: [],
-  reversalConditions: {},
+  holdings: null,
+  tradeLog: null,
+  watchlist: null,
+  targets: null,
+  fundamentals: null,
+  analystReports: null,
+  reportRefreshMeta: null,
+  holdingDossiers: null,
+  reversalConditions: null,
+  // UI scan state (kept with non-null defaults — these are pure UI)
   scanQuery: '',
   scanFilter: '全部',
   sortBy: 'code',
