@@ -153,21 +153,13 @@ export function useAppRuntimeWorkflowArgs({
         exitOverview: actions.exitOverview,
       },
       setters: {
+        // Phase 3A.4 Step 2: store-backed setters 已從 hook 內部直接走 store，
+        // 不需從 args 傳入。保留 UI state、portfolio orchestration、cloud sync 等非 store setter。
         setResearchTarget: setters.setResearchTarget,
         setResearchResults: setters.setResearchResults,
         setReviewForm: setters.setReviewForm,
         setReviewingEvent: setters.setReviewingEvent,
-        setAnalystReports: setters.setAnalystReports,
-        setReportRefreshMeta: setters.setReportRefreshMeta,
-        setNewsEvents: setters.setNewsEvents,
-        setStrategyBrain: setters.setStrategyBrain,
-        setBrainValidation: setters.setBrainValidation,
-        setDailyReport: setters.setDailyReport,
-        setAnalysisHistory: setters.setAnalysisHistory,
-        setHoldings: setters.setHoldings,
         setLastUpdate: setters.setLastUpdate,
-        setTradeLog: setters.setTradeLog,
-        setResearchHistory: setters.setResearchHistory,
         setPortfolios: setters.setPortfolios,
         setActivePortfolioId: setters.setActivePortfolioId,
         setViewMode: setters.setViewMode,
