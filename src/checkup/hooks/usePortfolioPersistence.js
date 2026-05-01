@@ -8,6 +8,9 @@ import {
 import { syncEngine } from '../lib/syncEngine.js'
 import { readSyncAt, writeSyncAt } from '../lib/portfolioUtils.js'
 import { API_ENDPOINTS } from '../constants.js'
+// Phase 3A.4 Step 1: store-backed setters 從 store 直取
+import { useHoldingsStore } from '../stores/holdingsStore.js'
+import { useReportsStore } from '../stores/reportsStore.js'
 
 function mergeResearchHistory(existingReports, incomingReports) {
   return [...(existingReports || []), ...(incomingReports || [])]
