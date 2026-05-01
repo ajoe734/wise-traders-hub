@@ -1453,10 +1453,11 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('checkup-sparkline', {
+        const data = await callEdge('checkup-sparkline', {
           body: { codes: missing.slice(0, 30) },
-        });
-        if (cancelled || error || !data?.result) return;
+          silent: true,
+        }).catch(() => null);
+        if (cancelled || !data?.result) return;
         setSparklines((prev) => ({ ...prev, ...data.result }));
       } catch {
         /* silent — sparkline 為非關鍵裝飾 */
