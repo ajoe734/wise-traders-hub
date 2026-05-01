@@ -6683,6 +6683,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             })()}
           </>;
         })()}
+        </>)}
 
       </div>
       {/* Decision Debug toggle */}
