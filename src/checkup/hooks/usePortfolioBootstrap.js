@@ -1,6 +1,12 @@
 import { API_ENDPOINTS } from '../constants.js'
 import { useEffect } from 'react'
 import { CLOUD_SYNC_TTL, OWNER_PORTFOLIO_ID } from '../constants.js'
+// Phase 3A.4 Step 1: store-backed setters 由 hook 內部直接從 store 取，
+// 上游 props 仍接收（向後相容），但會被 store 版本覆寫。
+import { useHoldingsStore } from '../stores/holdingsStore.js'
+import { useEventStore } from '../stores/eventStore.js'
+import { useBrainStore } from '../stores/brainStore.js'
+import { useReportsStore } from '../stores/reportsStore.js'
 
 function ensureArray(value) {
   return Array.isArray(value) ? value : []
@@ -11,12 +17,12 @@ export function usePortfolioBootstrap({
   setReady,
   setCloudSync,
   cloudSyncStateRef,
-  setHoldings,
-  setStrategyBrain,
-  setNewsEvents,
-  setAnalysisHistory,
-  setDailyReport,
-  setResearchHistory,
+  setHoldings: _setHoldingsProp,
+  setStrategyBrain: _setStrategyBrainProp,
+  setNewsEvents: _setNewsEventsProp,
+  setAnalysisHistory: _setAnalysisHistoryProp,
+  setDailyReport: _setDailyReportProp,
+  setResearchHistory: _setResearchHistoryProp,
   migrateLegacyPortfolioStorageIfNeeded,
   seedJinlianchengIfNeeded,
   ensurePortfolioRegistry,
