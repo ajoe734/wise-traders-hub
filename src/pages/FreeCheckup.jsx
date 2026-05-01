@@ -4678,7 +4678,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {/* 手動按鈕列 */}
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
                   <button
-                    onClick={manualRefreshCalendar}
+                    onClick={() => {
+                      if (isDemo) { showDemoLockToast('即時更新行事曆'); return; }
+                      manualRefreshCalendar();
+                    }}
                     disabled={calBusy || !holdings || holdings.length === 0 || calCool > 0}
                     style={{
                       padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
@@ -4689,7 +4692,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     }}
                   >{calBusy ? '⟳ 更新中…' : (calCool>0 ? `↻ 冷卻中 ${calCoolSec}s` : '↻ 立刻更新行事曆')}</button>
                   <button
-                    onClick={() => runPredictEvents(true)}
+                    onClick={() => {
+                      if (isDemo) { showDemoLockToast('即時預測事件'); return; }
+                      runPredictEvents(true);
+                    }}
                     disabled={preBusy || !newsEvents || newsEvents.length === 0 || preCool > 0}
                     style={{
                       padding:"5px 10px",fontSize:11,fontWeight:500,letterSpacing:"0.02em",
@@ -4699,6 +4705,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       opacity:preBusy||!newsEvents?.length||preCool>0?0.5:1,
                     }}
                   >{preBusy ? '⟳ 預測中…' : (preCool>0 ? `↻ 冷卻中 ${preCoolSec}s` : '↻ 立刻預測事件')}</button>
+
                 </div>
                 {/* 狀態徽章 */}
                 {(cal || pre) && (
