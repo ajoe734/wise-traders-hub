@@ -353,8 +353,6 @@ export function useAppRuntimeWorkflows({
       getHoldingUnrealizedPnl,
       getHoldingReturnPct,
       setResearchResults,
-      setResearchHistory,
-      setStrategyBrain,
       flashSaved,
       enrichResearchToDossier,
       mergeBrainPreservingCoachLessons,
