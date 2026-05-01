@@ -855,14 +855,24 @@ export default function App() {
       const controller = new AbortController();
       calendarAbortRef.current = controller;
       const timer = setTimeout(() => controller.abort(), 300000); // 5 min timeout
-      const res = await fetch(`${SUPABASE_FN_BASE}/checkup-calendar?debug=1`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stocks: stockList, today, endDate, debug: true }),
-        signal: controller.signal,
-      });
+      let result;
+      let httpStatus = 200;
+      try {
+        result = await callEdge('checkup-calendar', {
+          body: { stocks: stockList, today, endDate, debug: true },
+          query: { debug: 1 },
+          signal: controller.signal,
+          silent: true,
+        });
+      } catch (err) {
+        clearTimeout(timer);
+        httpStatus = err?.status || 0;
+        // 422/4xx fallback body 也走原本 fallback 流程
+        if (err?.body) result = err.body;
+        else throw err;
+      }
       clearTimeout(timer);
-      const result = await res.json();
+      if (!result) result = {};
       if (result?.debug) {
         setCalendarLastDebug({ source: 'calendar', at: new Date().toISOString(), httpStatus: res.status, ...result.debug });
       }
