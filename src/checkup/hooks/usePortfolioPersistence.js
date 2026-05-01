@@ -49,7 +49,7 @@ export function usePortfolioPersistence({
   portfolioNotes,
   marketPriceCache,
   marketPriceSync,
-  setSaved,
+  setSaved = () => {},
   flashSaved = null,
   cloudSyncStateRef,
   cloudSaveTimersRef,
