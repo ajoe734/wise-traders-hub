@@ -1,3 +1,4 @@
+// @ts-check
 import { OWNER_PORTFOLIO_ID, PORTFOLIO_VIEW_MODE } from '../constants.js'
 import { usePortfolioManagement } from './usePortfolioManagement.js'
 import { usePortfolioBootstrap } from './usePortfolioBootstrap.js'
