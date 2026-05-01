@@ -38,7 +38,7 @@ export function useMarketData({
   activePortfolioIdRef = { current: '' },
   viewModeRef = { current: PORTFOLIO_VIEW_MODE },
   setHoldings: _setHoldingsProp = () => {},
-  notifySaved = () => {},
+  flashSaved = () => {},
   requestConfirmation = async () => true,
 } = {}) {
   const setHoldings = useHoldingsStore((s) => s.setHoldings)
