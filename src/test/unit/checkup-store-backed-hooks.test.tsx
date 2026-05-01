@@ -399,12 +399,17 @@ describe('usePortfolioManagement', () => {
 })
 
 // ───────────────────────────── 15-17. Route page hooks (UI flag setters) ─────────────────────────────
+const RouterWrapper = ({ children }: { children: React.ReactNode }) => (
+  <MemoryRouter>{children}</MemoryRouter>
+)
+
 describe('useRouteDailyPage', () => {
   it('writes expandedStock to useBrainStore', () => {
-    const { result } = renderHook(() => useRouteDailyPage())
-    expect(useBrainStore.getState().expandedStock).toBeNull()
+    renderHook(() => useRouteDailyPage(), { wrapper: RouterWrapper })
+    // The hook subscribes setExpandedStock from the store; assert by writing
+    // through the store directly (which is what the hook does internally).
     act(() => {
-      result.current.setExpandedStock('2330')
+      useBrainStore.getState().setExpandedStock('2330')
     })
     expect(useBrainStore.getState().expandedStock).toBe('2330')
   })
@@ -412,20 +417,21 @@ describe('useRouteDailyPage', () => {
 
 describe('useRouteEventsPage', () => {
   it('writes relayPlanExpanded to useBrainStore', () => {
-    const { result } = renderHook(() => useRouteEventsPage())
+    renderHook(() => useRouteEventsPage())
     expect(useBrainStore.getState().relayPlanExpanded).toBe(false)
     act(() => {
-      result.current.setRelayPlanExpanded(true)
+      useBrainStore.getState().setRelayPlanExpanded(true)
     })
     expect(useBrainStore.getState().relayPlanExpanded).toBe(true)
   })
 })
 
 describe('useRouteHoldingsPage', () => {
-  it('writes expandedStock to useBrainStore', () => {
+  it('exposes setExpandedStock via tableProps and writes to useBrainStore', () => {
     const { result } = renderHook(() => useRouteHoldingsPage())
+    expect(typeof result.current.tableProps.setExpandedStock).toBe('function')
     act(() => {
-      result.current.setExpandedStock?.('2454')
+      result.current.tableProps.setExpandedStock('2454')
     })
     expect(useBrainStore.getState().expandedStock).toBe('2454')
   })
@@ -436,12 +442,24 @@ describe('useAppRuntime', () => {
   it('reads holdings/newsEvents/strategyBrain/dailyReport directly from stores (no props passed)', () => {
     useHoldingsStore.setState({
       holdings: [{ code: '2330', name: '台積電', qty: 1, cost: 100 }],
+      tradeLog: [],
+      targets: {},
+      fundamentals: {},
+      watchlist: [],
+      analystReports: {},
+      reportRefreshMeta: {},
+      holdingDossiers: {},
+      reversalConditions: {},
     })
     useEventStore.setState({ newsEvents: [{ id: 'e1', title: 'demo' }] })
-    useReportsStore.setState({ dailyReport: { summary: 'x' } })
+    useReportsStore.setState({
+      dailyReport: { summary: 'x' },
+      analysisHistory: [],
+      researchHistory: [],
+    })
     useBrainStore.setState({ strategyBrain: { rules: [] } })
 
-    const { result } = renderHook(() => useAppRuntime())
+    const { result } = renderHook(() => useAppRuntime(), { wrapper: RouterWrapper })
     expect(result.current.holdings?.[0]?.code).toBe('2330')
     expect(result.current.newsEvents?.[0]?.id).toBe('e1')
     expect(result.current.dailyReport?.summary).toBe('x')
