@@ -476,6 +476,13 @@ export default function App() {
   const [memoIn,  setMemoIn]    = useState("");
   const [saved,   setSaved]     = useState("");
 
+  // ── Demo 鎖定動作的統一提示（toast + 4 秒後消失） ──
+  // 用於：手動編輯持倉、上傳截圖、手動更新股價、刪除/新增、編輯交易日誌
+  const showDemoLockToast = useCallback((featureName = '此功能') => {
+    setSaved(`這是 DEMO 範例。登入後即可${featureName}`);
+    setTimeout(() => setSaved(''), 4000);
+  }, []);
+
   // dashboard UI
   const [sortBy,      setSortBy]      = useState("decision");
   const [viewMode,    setViewMode]    = useState("grid"); // 'grid' | 'list'
