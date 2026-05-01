@@ -7,6 +7,11 @@ import {
   VIEW_MODE_KEY,
 } from '../constants.js'
 import { buildLivePortfolioSnapshot } from '../lib/appShellRuntime.js'
+// Phase 3A.4 Step 1: store 直取 setter
+import { useHoldingsStore } from '../stores/holdingsStore.js'
+import { useEventStore } from '../stores/eventStore.js'
+import { useReportsStore } from '../stores/reportsStore.js'
+import { useBrainStore } from '../stores/brainStore.js'
 
 export function usePortfolioSnapshotRuntime({
   ready,
@@ -29,22 +34,22 @@ export function usePortfolioSnapshotRuntime({
   strategyBrain,
   researchHistory,
   portfolioNotes,
-  setHoldings,
-  setTradeLog,
-  setTargets,
-  setFundamentals,
-  setWatchlist,
-  setAnalystReports,
-  setReportRefreshMeta,
-  setHoldingDossiers,
-  setNewsEvents,
-  setAnalysisHistory,
-  setReversalConditions,
-  setStrategyBrain,
-  setBrainValidation,
-  setResearchHistory,
+  setHoldings: _setHoldingsProp,
+  setTradeLog: _setTradeLogProp,
+  setTargets: _setTargetsProp,
+  setFundamentals: _setFundamentalsProp,
+  setWatchlist: _setWatchlistProp,
+  setAnalystReports: _setAnalystReportsProp,
+  setReportRefreshMeta: _setReportRefreshMetaProp,
+  setHoldingDossiers: _setHoldingDossiersProp,
+  setNewsEvents: _setNewsEventsProp,
+  setAnalysisHistory: _setAnalysisHistoryProp,
+  setReversalConditions: _setReversalConditionsProp,
+  setStrategyBrain: _setStrategyBrainProp,
+  setBrainValidation: _setBrainValidationProp,
+  setResearchHistory: _setResearchHistoryProp,
   setPortfolioNotes,
-  setDailyReport,
+  setDailyReport: _setDailyReportProp,
   normalizeAnalysisHistoryEntries,
   applyMarketQuotesToHoldings,
   normalizeFundamentalsStore,
@@ -62,6 +67,37 @@ export function usePortfolioSnapshotRuntime({
   save,
   savePortfolioData,
 }) {
+  // Override prop setters with store-backed setters (Phase 3A.4 Step 1)
+  const setHoldings = useHoldingsStore((s) => s.setHoldings)
+  const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
+  const setTargets = useHoldingsStore((s) => s.setTargets)
+  const setFundamentals = useHoldingsStore((s) => s.setFundamentals)
+  const setWatchlist = useHoldingsStore((s) => s.setWatchlist)
+  const setAnalystReports = useHoldingsStore((s) => s.setAnalystReports)
+  const setReportRefreshMeta = useHoldingsStore((s) => s.setReportRefreshMeta)
+  const setHoldingDossiers = useHoldingsStore((s) => s.setHoldingDossiers)
+  const setReversalConditions = useHoldingsStore((s) => s.setReversalConditions)
+  const setNewsEvents = useEventStore((s) => s.setNewsEvents)
+  const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
+  const setResearchHistory = useReportsStore((s) => s.setResearchHistory)
+  const setDailyReport = useReportsStore((s) => s.setDailyReport)
+  const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
+  const setBrainValidation = useBrainStore((s) => s.setBrainValidation)
+  void _setHoldingsProp
+  void _setTradeLogProp
+  void _setTargetsProp
+  void _setFundamentalsProp
+  void _setWatchlistProp
+  void _setAnalystReportsProp
+  void _setReportRefreshMetaProp
+  void _setHoldingDossiersProp
+  void _setNewsEventsProp
+  void _setAnalysisHistoryProp
+  void _setReversalConditionsProp
+  void _setStrategyBrainProp
+  void _setBrainValidationProp
+  void _setResearchHistoryProp
+  void _setDailyReportProp
   const applyPortfolioSnapshot = useCallback(
     (snapshot) => {
       const normalizedAnalysisHistory = normalizeAnalysisHistoryEntries(snapshot.analysisHistory)

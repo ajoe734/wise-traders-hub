@@ -39,6 +39,9 @@ import {
   loadPortfolioData,
   savePortfolioData,
 } from '../lib/portfolioUtils.js'
+// Phase 3A.4 Step 1: store 直取 setter
+import { useEventStore } from '../stores/eventStore.js'
+import { useBrainStore } from '../stores/brainStore.js'
 
 async function defaultRunReviewBrainRequest(body) {
   const response = await fetch(API_ENDPOINTS.ANALYZE, {
@@ -57,7 +60,7 @@ export function useEventReviewWorkflow({
   newsEvents = [],
   defaultNewsEvents = [],
   reviewForm = {},
-  setNewsEvents = () => {},
+  setNewsEvents: _setNewsEventsProp = () => {},
   setReviewingEvent = () => {},
   setReviewForm = () => {},
   flashSaved = () => {},
@@ -66,11 +69,17 @@ export function useEventReviewWorkflow({
   strategyBrain = null,
   portfolioNotes = {},
   dossierByCode = new Map(),
-  setStrategyBrain = () => {},
-  setBrainValidation = () => {},
+  setStrategyBrain: _setStrategyBrainProp = () => {},
+  setBrainValidation: _setBrainValidationProp = () => {},
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
   runReviewBrainRequest = defaultRunReviewBrainRequest,
 }) {
+  const setNewsEvents = useEventStore((s) => s.setNewsEvents)
+  const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
+  const setBrainValidation = useBrainStore((s) => s.setBrainValidation)
+  void _setNewsEventsProp
+  void _setStrategyBrainProp
+  void _setBrainValidationProp
   const appendCoachLessonToOwnerBrain = useCallback(
     async ({ event, note, lesson }) => {
       if (!event || activePortfolioId === OWNER_PORTFOLIO_ID) return

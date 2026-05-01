@@ -18,6 +18,10 @@ import {
 } from '../lib/dailyAnalysisRuntime.js'
 import { normalizeAnalysisHistoryEntries, normalizeDailyReportEntry } from '../lib/reportUtils.js'
 import { flushKnowledgeHits } from '../lib/knowledgeBase.js'
+// Phase 3A.4 Step 1: store 直取 setter
+import { useHoldingsStore } from '../stores/holdingsStore.js'
+import { useReportsStore } from '../stores/reportsStore.js'
+import { useBrainStore } from '../stores/brainStore.js'
 
 export function useDailyAnalysisWorkflow({
   analyzing = false,
@@ -53,16 +57,26 @@ export function useDailyAnalysisWorkflow({
   normalizeHoldings = (rows) => rows,
   isClosedEvent = () => false,
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
-  setDailyReport = () => {},
-  setAnalysisHistory = () => {},
-  setStrategyBrain = () => {},
-  setBrainValidation = () => {},
-  setHoldings = () => {},
+  setDailyReport: _setDailyReportProp = () => {},
+  setAnalysisHistory: _setAnalysisHistoryProp = () => {},
+  setStrategyBrain: _setStrategyBrainProp = () => {},
+  setBrainValidation: _setBrainValidationProp = () => {},
+  setHoldings: _setHoldingsProp = () => {},
   setLastUpdate = () => {},
   setSaved = () => {},
   notifySaved = null,
   refreshAnalystReportsRef = { current: async () => false },
 }) {
+  const setHoldings = useHoldingsStore((s) => s.setHoldings)
+  const setDailyReport = useReportsStore((s) => s.setDailyReport)
+  const setAnalysisHistory = useReportsStore((s) => s.setAnalysisHistory)
+  const setStrategyBrain = useBrainStore((s) => s.setStrategyBrain)
+  const setBrainValidation = useBrainStore((s) => s.setBrainValidation)
+  void _setHoldingsProp
+  void _setDailyReportProp
+  void _setAnalysisHistoryProp
+  void _setStrategyBrainProp
+  void _setBrainValidationProp
   const emitSaved = useCallback(
     (message, timeout) => {
       if (typeof notifySaved === 'function') {

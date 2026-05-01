@@ -7,6 +7,8 @@ import {
   getTradeBatchMode,
   normalizeTradeParseResult,
 } from '../lib/tradeParseUtils.js'
+// Phase 3A.4 Step 1: store 直取 setter
+import { useHoldingsStore } from '../stores/holdingsStore.js'
 
 function createEmptyTradeEditorState(createDefaultFundamentalDraft) {
   return {
@@ -38,8 +40,8 @@ export function useTradeCaptureRuntime({
   holdings = [],
   tradeLog = [],
   marketQuotes = null,
-  setHoldings = () => {},
-  setTradeLog = () => {},
+  setHoldings: _setHoldingsProp = () => {},
+  setTradeLog: _setTradeLogProp = () => {},
   upsertTargetReport = () => false,
   upsertFundamentalsEntry = () => false,
   applyTradeEntryToHoldings = (rows) => rows,
@@ -48,6 +50,10 @@ export function useTradeCaptureRuntime({
   flashSaved = () => {},
   afterSubmit = () => {},
 }) {
+  const setHoldings = useHoldingsStore((s) => s.setHoldings)
+  const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
+  void _setHoldingsProp
+  void _setTradeLogProp
   const [dragOver, setDragOver] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [tradeEditorState, setTradeEditorState] = useState(() =>
