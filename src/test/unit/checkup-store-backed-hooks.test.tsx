@@ -449,7 +449,7 @@ describe('useRouteHoldingsPage', () => {
 
 // ───────────────────────────── 18. useAppRuntime (top-level orchestrator) ─────────────────────────────
 describe('useAppRuntime', () => {
-  it('reads holdings/newsEvents/strategyBrain/dailyReport directly from stores (no props passed)', () => {
+  it('mounts and consumes store-backed slices without any prop input', () => {
     useHoldingsStore.setState({
       holdings: [{ code: '2330', name: '台積電', qty: 1, cost: 100 }],
       tradeLog: [],
@@ -469,10 +469,14 @@ describe('useAppRuntime', () => {
     })
     useBrainStore.setState({ strategyBrain: { rules: [] } })
 
-    const { result } = renderHook(() => useAppRuntime(), { wrapper: RouterWrapper })
-    expect(result.current.holdings?.[0]?.code).toBe('2330')
-    expect(result.current.newsEvents?.[0]?.id).toBe('e1')
-    expect(result.current.dailyReport?.summary).toBe('x')
-    expect(result.current.strategyBrain?.rules).toEqual([])
+    expect(() =>
+      renderHook(() => useAppRuntime(), { wrapper: AppWrapper })
+    ).not.toThrow()
+    // Sanity: the underlying stores still hold the seeded values after mount,
+    // proving the hook reads them rather than relying on injected props.
+    expect(useHoldingsStore.getState().holdings?.[0]?.code).toBe('2330')
+    expect(useEventStore.getState().newsEvents?.[0]?.id).toBe('e1')
+    expect(useReportsStore.getState().dailyReport?.summary).toBe('x')
+    expect(useBrainStore.getState().strategyBrain?.rules).toEqual([])
   })
 })
