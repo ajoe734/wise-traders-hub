@@ -1207,6 +1207,45 @@ export default function App() {
       if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
     };
   }, [holdings, ready, isDemo, _currentUserId]);
+
+  // ── Realtime：訂閱 current_prices 變化，後端 cron 寫入新價格時自動更新畫面 ──
+  // 用 holdings code 字串作 deps，避免每次 reference 變動就重訂閱
+  const _holdingsCodesKey = useMemo(
+    () => (holdings || []).map(h => h.code).filter(Boolean).sort().join(','),
+    [holdings]
+  );
+  useEffect(() => {
+    if (isDemo) return; // demo 模式不訂閱
+    if (!_holdingsCodesKey) return;
+    const codes = _holdingsCodesKey.split(',');
+    const channel = supabase
+      .channel('current-prices-fc')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'current_prices',
+        filter: `symbol=in.(${codes.join(',')})`,
+      }, (payload) => {
+        const row = payload.new;
+        if (!row || !row.symbol || !(Number(row.price) > 0)) return;
+        setHoldings(prev => (prev || []).map(h => {
+          if (h.code !== row.symbol) return h;
+          const price = Number(row.price);
+          const { value, pnl, pct } = calcPnlWithNet(h, price);
+          return {
+            ...h,
+            price,
+            value, pnl, pct,
+            priceSource: 'realtime',
+            priceUpdatedAt: row.pushed_at || new Date().toISOString(),
+            priceError: null,
+          };
+        }));
+        setLastUpdate(new Date());
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [_holdingsCodesKey, isDemo]);
   // tradeLog 存到 Supabase — 改用「scoped delete + insert」並加 debounce/錯誤通知
   // 重要：原本 .delete().neq() 沒帶 user_id 篩選，僅靠 RLS 保護；改為明確 .eq('user_id', ...) 雙保險
   const cloudTradeLogTimerRef = useRef(null);
