@@ -1827,6 +1827,41 @@ export default function App() {
   // REFRESH_COOLDOWN moved above (near state declarations)
   const refreshPrices = async () => {
     if (refreshing) return;
+    // ── DEMO 模式：模擬擷取股價，隨機 ±0.5%~±2% 浮動，不打 edge ──
+    if (isDemo) {
+      setRefreshing(true);
+      setRefreshStatus({ phase: 'fetching', total: H.length, ok: 0, fail: H.length, missingNames: [] });
+      try {
+        await demoDelay(1500, 2800);
+        const nowIso = new Date().toISOString();
+        setHoldings(prev => (prev || []).map(h => {
+          const base = h.price || h.cost || 0;
+          if (!base) return h;
+          const delta = (Math.random() * 0.03 - 0.015); // ±1.5%
+          const newPrice = Math.max(0.01, +(base * (1 + delta)).toFixed(2));
+          const value = newPrice * h.qty;
+          const totalCost = h.totalCost != null ? h.totalCost : h.cost * h.qty;
+          const pnl = value - totalCost;
+          const pct = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+          return {
+            ...h,
+            price: newPrice,
+            value, pnl, pct,
+            priceSource: 'demo',
+            priceUpdatedAt: nowIso,
+            priceError: null,
+          };
+        }));
+        setLastUpdate(new Date());
+        setRefreshStatus({ phase: 'done', total: H.length, ok: H.length, fail: 0, missingNames: [] });
+        setSaved('DEMO 模擬報價已更新（登入後使用真實 TWSE 即時行情）');
+        setTimeout(() => setSaved(''), 3500);
+        setTimeout(() => setRefreshStatus(null), 4000);
+      } finally {
+        setRefreshing(false);
+      }
+      return;
+    }
     // 30分鐘冷卻
     if (lastUpdate && (Date.now() - lastUpdate.getTime()) < REFRESH_COOLDOWN) {
       const remaining = Math.ceil((REFRESH_COOLDOWN - (Date.now() - lastUpdate.getTime())) / 60000);
