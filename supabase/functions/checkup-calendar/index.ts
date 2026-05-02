@@ -5,6 +5,8 @@ import { applyCoercion } from "../_shared/inputCoerce.ts";
 
 import { corsHeaders } from '../_shared/checkupCors.ts';
 import { fetchNewsForCode } from '../_shared/newsCache.ts';
+import { parseJsonArray } from '../_shared/jsonRepair.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 // Note: 'google/gemini-2.0-flash' is deprecated on the Gateway (returns 400). Use only supported models.
@@ -186,73 +188,73 @@ function buildAiFailure(attempts: AiAttempt[], fallbackError: string): AiFailure
   };
 }
 
-/* ── JSON parsing helpers ── */
-
-function extractJsonArray(text: string): string | null {
-  const start = text.indexOf('[');
-  if (start === -1) return null;
-  let depth = 0, inString = false, escape = false;
-  for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-    if (escape) { escape = false; continue; }
-    if (ch === '\\' && inString) { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === '[') depth++;
-    else if (ch === ']') { depth--; if (depth === 0) return text.substring(start, i + 1); }
-  }
-  return null;
-}
-
-function tryRepairTruncatedArray(text: string): any[] | null {
-  const start = text.indexOf('[');
-  if (start === -1) return null;
-  const sub = text.substring(start);
-  const lastCompleteObj = sub.lastIndexOf('}');
-  if (lastCompleteObj === -1) return null;
-  const candidate = sub.substring(0, lastCompleteObj + 1) + ']';
-  try {
-    const parsed = JSON.parse(candidate);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-  } catch {}
-  const trimmed = candidate.replace(/,\s*\]$/, ']');
-  try {
-    const parsed = JSON.parse(trimmed);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-  } catch {}
-  return null;
-}
+/* ── JSON parsing (delegated to shared module) ── */
 
 function tryParseEvents(text: string): any[] | null {
-  try {
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    return null;
-  } catch {}
-  const cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
-  const jsonStr = extractJsonArray(cleaned);
-  if (jsonStr) {
-    try {
-      const parsed = JSON.parse(jsonStr);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch {}
-  }
-  const jsonStr2 = extractJsonArray(text);
-  if (jsonStr2 && jsonStr2 !== jsonStr) {
-    try {
-      const parsed = JSON.parse(jsonStr2);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch {}
-  }
-  const repaired = tryRepairTruncatedArray(cleaned);
-  if (repaired) {
-    console.log(`Calendar: repaired truncated JSON, recovered ${repaired.length} events`);
-    return repaired;
-  }
-  return null;
+  const arr = parseJsonArray(text);
+  return arr && arr.length > 0 ? arr : null;
 }
 
-function classifyHoldings(stocks: string): { stockList: string; warrantList: string; parentStocks: string[] } {
+/* ── Stable ID generation ── */
+
+function makeStableId(label: string, date: string, type: string): string {
+  const code = String(label || '').match(/\d{4,6}/)?.[0] || 'na';
+  const t = String(type || 'event').replace(/[^\w\u4e00-\u9fa5]/g, '');
+  const d = String(date || '').trim();
+  let dn = 'tba';
+  const ymd = d.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  const ym = d.match(/(\d{4})\/(\d{1,2})月/);
+  const yq = d.match(/(\d{4})\s*Q([1-4])/i);
+  if (ymd) dn = `${ymd[1]}${ymd[2].padStart(2, '0')}${ymd[3].padStart(2, '0')}`;
+  else if (ym) dn = `${ym[1]}${ym[2].padStart(2, '0')}MM`;
+  else if (yq) dn = `${yq[1]}Q${yq[2]}`;
+  return `cal-${code}-${t}-${dn}`;
+}
+
+/* ── Warrant DB lookup ── */
+
+async function fetchWarrantExpiryEvents(warrantCodes: string[]): Promise<any[]> {
+  if (warrantCodes.length === 0) return [];
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    const { data, error } = await supabase
+      .from('warrant_expiry')
+      .select('symbol, name, expire_date')
+      .in('symbol', warrantCodes);
+    if (error) {
+      console.warn('[checkup-calendar] warrant_expiry query failed:', error.message);
+      return [];
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return (data || [])
+      .filter((row: any) => row.expire_date)
+      .map((row: any) => {
+        const d = new Date(row.expire_date);
+        if (Number.isNaN(d.getTime()) || d < today) return null;
+        const dateStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+        const daysAhead = Math.round((d.getTime() - today.getTime()) / 86400000);
+        const label = `${row.symbol} ${row.name || ''}`.trim();
+        return {
+          date: dateStr,
+          label,
+          sub: '權證到期日（系統資料）',
+          urgent: daysAhead <= 7,
+          type: '權證',
+          sources: ['warrant_expiry'],
+        };
+      })
+      .filter(Boolean);
+  } catch (err) {
+    console.warn('[checkup-calendar] warrant DB fetch error:', err);
+    return [];
+  }
+}
+
+function classifyHoldings(stocks: string): { stockList: string; warrantList: string; warrantCodes: string[]; parentStocks: string[] } {
   const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
   const stockItems: string[] = [];
   const warrantItems: string[] = [];
