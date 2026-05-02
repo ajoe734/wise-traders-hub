@@ -3766,7 +3766,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const firstFeatureCode = (orderedDisplayed[0] && (variantsMap.get(orderedDisplayed[0].code) === 'ink'))
               ? orderedDisplayed[0].code : null;
 
-            const renderCard = (h) => {
+            const renderCard = (h, idx) => {
+              const isFeatureSlot = h.code === firstFeatureCode;
               const variant = variantsMap.get(h.code) || 'plain';
               const T      = targets?.[h.code];
               const tp     = T ? avgTarget(h.code) : null;
