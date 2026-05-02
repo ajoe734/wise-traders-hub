@@ -535,6 +535,8 @@ export function useTradeCaptureRuntime({
       setParsed,
       setTradeDate,
       submitMemo,
+      undoLastSubmit,
+      hasUndoableSubmit,
       toSlashDate,
       tradeEditorState,
       upsertFundamentalsEntry,
