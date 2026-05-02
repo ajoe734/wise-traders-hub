@@ -281,12 +281,26 @@ function classifyHoldings(stocks: string): { stockList: string; warrantList: str
   };
 }
 
-function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string, newsContext: string): string {
-  const { stockList, warrantList, parentStocks } = classifyHoldings(stocks);
-  
+function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string, newsContext: string, dbCoveredWarrants: Set<string>): string {
+  const { stockList, warrantList, parentStocks, warrantCodes } = classifyHoldings(stocks);
+
+  // Filter out warrants already covered by warrant_expiry table
+  const remainingWarrants = warrantCodes.filter(c => !dbCoveredWarrants.has(c));
+  const warrantListFiltered = remainingWarrants.length === 0
+    ? ''
+    : warrantList.split('、')
+        .filter(item => {
+          const code = item.match(/^(\d+)/)?.[1] || '';
+          return !dbCoveredWarrants.has(code);
+        })
+        .join('、');
+
   let holdingsSection = '';
   if (stockList) holdingsSection += `## 股票持倉\n${stockList}\n\n`;
-  if (warrantList) holdingsSection += `## 權證持倉（僅需列出「到期日」事件，不需要列出營收/財報/法說/除息/股東會）\n${warrantList}\n\n`;
+  if (dbCoveredWarrants.size > 0) {
+    holdingsSection += `## 已由系統補齊到期日的權證（請勿重複列出，共 ${dbCoveredWarrants.size} 檔）\n${[...dbCoveredWarrants].join('、')}\n\n`;
+  }
+  if (warrantListFiltered) holdingsSection += `## 權證持倉（僅需列出「到期日」事件，不需要列出營收/財報/法說/除息/股東會）\n${warrantListFiltered}\n\n`;
   if (parentStocks.length > 0) {
     const parentInfo = parentStocks.filter(p => !stockList.includes(p));
     if (parentInfo.length > 0) {
