@@ -4052,7 +4052,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{flex:1,display:'flex',alignItems:'flex-end',gap:14,minHeight:40,paddingTop:4}}>
                     <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.65}}>
                       {dec?.actionText
-                        ? (dec.actionText.length > 60 ? dec.actionText.slice(0,58) + '…' : dec.actionText)
+                        ? truncateAction(dec.actionText, 60)
                         : (meta?.strategy ? meta.strategy.slice(0,40) : '')}
                     </div>
                   </div>
