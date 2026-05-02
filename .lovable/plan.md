@@ -1,64 +1,65 @@
+# Phase 5: 上傳成交 + 交易日誌優化
 
-# Phase 4：收盤分析韌性強化
+## 現況審查
 
-延續 Phase 3 的「不為了拆而拆」原則。`useDailyAnalysisWorkflow.js`（512 行）內 12+ 個 component-scope 變數彼此糾纏，**強行抽 hook 反而更難維護**——這部分跳過。本階段只做「會直接降低使用者損失機率」的三項實質優化。
+`useTradeCaptureRuntime.js` 與 `TradePanel.jsx`、`LogPanel.jsx` 已能跑通主流程（多檔批次、活躍上傳切換、memo 步驟、目標價同步），但有 **6 個明確坑**：
 
-## 三項變更
+| # | 問題 | 影響 | 位置 |
+|---|------|------|------|
+| 1 | `parseShot` 直接 `JSON.parse(clean)`；AI 回 markdown wrapper 或截斷時整張作廢 | 重試浪費配額，使用者要重拍 | useTradeCaptureRuntime.js:267-271 |
+| 2 | 沒有檔案大小／格式檢核；20MB+ HEIC 直接送 base64 給 edge function | 送出後才超時，體驗差 | useTradeCaptureRuntime.js:82-109 |
+| 3 | 沒有 demo 守門：訪客也能打 `checkup-analyze` | 違反 [Demo 模式 memory](mem://qa/checkup/demo-mode-behavior) | useTradeCaptureRuntime.js:249 |
+| 4 | `submitMemo` 寫入 holdings 後立即 `removeUpload`，無 undo | 誤觸即遺失 memo 答覆 | useTradeCaptureRuntime.js:339-354 |
+| 5 | `LogPanel` 用 `log.id`（時間戳）排序、買賣顏色寫死 `C.up/C.down` 紅綠 | 與 [Holdings 單色橘 PnL 憲法](mem://style/holdings/monochrome-orange-pnl) 不直接衝突，但買賣 badge 仍是紅綠對撞，未統一視覺 | LogPanel.jsx:33-38 |
+| 6 | `tradeLog` 雲端同步靠 FreeCheckup 整檔 save，沒有失敗緩衝（與 Phase 4 analysis 失敗 retry 不一致） | 寫入後若 cloud 失敗，下次刷新可能掉資料 | FreeCheckup.jsx:1247 |
 
-### 1. JSON 解析韌性（主分析 + 盲測）
-**問題**：目前 line 263 / 317 / 327 用裸 `JSON.parse` 解析 AI 輸出。AI 在 maxTokens=8192 偶爾截斷，會導致整個 BRAIN_UPDATE 解析失敗、fallback 觸發第三次計費呼叫。
+## 變更計畫
 
-**改法**：建立 `src/checkup/lib/aiJsonRepair.js`（前端版，邏輯對齊 `supabase/functions/_shared/jsonRepair.ts`），提供 `parseJsonArray(text)` 與 `parseJsonObject(text)`：
-- `parseJsonArray`：移除 ```` ```json ```` 圍欄 → 找平衡 `[...]` → 截斷修補（蒐集完整的 `{...}`）
-- `parseJsonObject`：移除圍欄 → 找平衡 `{...}` → 嘗試直接 parse
+### 1. parseShot JSON 容錯（沿用 Phase 4 aiJsonRepair）
+- `useTradeCaptureRuntime.js`：用 `extractFirstJsonObject`（已存在 `src/checkup/lib/aiJsonRepair.js`）取代 `JSON.parse(clean)`，失敗時保留原始 raw text 給 `parseErr` debug。
 
-`useDailyAnalysisWorkflow.js` 三處替換：
-- line 260-265 盲測 `blindPredictions` 解析 → `parseJsonArray`
-- line 315-322 `EVENT_ASSESSMENTS` 解析 → `parseJsonArray`
-- line 324-342 `BRAIN_UPDATE` 解析 → `parseJsonObject`
+### 2. 檔案前置檢核
+- 在 `enqueueFiles` 前濾掉：
+  - 非 `image/*`（已有）
+  - `file.size > 8 * 1024 * 1024`（8MB 上限，與 base64 後 ~11MB 對齊 edge function payload）
+  - HEIC（`image/heic`, `image/heif`）→ 提示「請轉成 JPG/PNG」
+- 並上限同時排隊 **10 張**，超出顯示 toast。
 
-**收益**：BRAIN_UPDATE 截斷時還能取回部分 rules，不必觸發 fallback（省一次 AI 呼叫 ≈ 8-15 秒 + 不浪費配額）。
+### 3. Demo 守門
+- `parseShot` 前讀 `useCheckupMode().isDemo`：訪客直接 `flashSaved('🔒 訪客模式不能上傳成交，請先用 Line 登入')`，不打 edge function。
+- `processFiles` 入口同步擋下，避免上傳後再失敗。
 
-### 2. blindStatus 遙測欄位
-**問題**：盲測失敗會被 `catch` 吞掉只 console.warn，`blindPredictions = []`，使「準確率 0%」無法分辨是「真的全錯」還是「盲測根本沒跑」。
+### 4. 撤銷誤刪（最近一次 submitMemo undo）
+- 新增 `lastSubmitSnapshotRef`：保留最近一次 `submitMemo` 寫入前的 `holdings/tradeLog` snapshot 與 `processedUploadId`。
+- TradePanel 在 `flashSaved` toast 旁顯示「↺ 撤銷」按鈕（5 秒視窗），點擊還原 store 與重建上傳。
 
-**改法**：在 `useDailyAnalysisWorkflow.js` 加 `blindStatus` 區域變數：
-```js
-let blindStatus = 'ok'  // 'ok' | 'failed' | 'empty' | 'parse_error'
-```
-在三個分支設值：HTTP 失敗 → `failed`；解析後陣列空 → `empty`；JSON 解析失敗 → `parse_error`。
+### 5. LogPanel 視覺對齊
+- 買賣 badge 改為 **單色橘**（`C.accent`）+ 文字「買 / 賣」，去掉紅綠對撞；保留方向箭頭區分（與 Holdings 憲法一致）。
+- 排序用 `${date} ${time}` lexical（YYYY/MM/DD），避免依賴 `id` 數字精度。
+- 空狀態保留現行 Kore-eda 風格。
 
-寫入 `report.meta.blindStatus`（透過 `buildDailyReport` 的 meta 欄位，已存在）。後續 UI 可顯示「盲測未執行」徽章，目前不動 UI（避免溢出風險）。
+### 6. tradeLog 雲端 retry buffer
+- 沿用 `dailyAnalysisRuntime.js` 的 ring buffer 模式，新增 `src/checkup/lib/tradeLogPersist.js`：
+  - `persistTradeLogToCloud(payload)` 失敗時寫 `localStorage.checkup:pendingTradeLog`（max 5）。
+  - `flushPendingTradeLogs()` 在 `useTradeCaptureRuntime` mount 時自動觸發。
+- FreeCheckup.jsx:1247 的 save effect 改走此函式。
 
-### 3. save-analysis 韌性
-**問題**：line 370-376 `fetch(...).catch(() => {})` 雲端寫入失敗就靜默丟棄。當天分析結果只存在記憶體 + zustand persist，重新整理可能還在但 cross-device 看不到。
+## 不做的事
+- 不重構 `useTradeCaptureRuntime.js` 整體結構（420 行但職責清楚，硬切會增加 props drilling）。
+- 不改 PARSE_PROMPT（屬於 AI 行為調整，獨立議題）。
+- 不引入新的 OCR fallback（成本過高）。
 
-**改法**：抽小函式 `persistAnalysisToCloud(report)` 進 `src/checkup/lib/dailyAnalysisRuntime.js`（已存在的 runtime 模組）：
-- 嘗試 POST，失敗暫存到 `localStorage['checkup:pendingAnalysis']`（最多 5 筆 ring buffer）
-- 在工作流啟動時呼叫一次 `flushPendingAnalyses()` 重送
-
-不加重試輪詢（避免拖累流程），單純「啟動時補送」即可。
-
-## 檔案異動
-
-```text
-src/checkup/lib/aiJsonRepair.js                          [NEW]  ~80 lines
-src/checkup/lib/__tests__/aiJsonRepair.test.js           [NEW]  ~60 lines, 8 tests
-src/checkup/lib/dailyAnalysisRuntime.js                  [EDIT] 加 persistAnalysisToCloud / flushPendingAnalyses
-src/checkup/hooks/useDailyAnalysisWorkflow.js            [EDIT] 三處 parse 替換 + blindStatus + 改用 persistAnalysisToCloud
-```
-
-## 不做的事（明確聲明）
-
-- **不抽 useDailyAnalysisWorkflow → useCallback 拆分**：12+ 變數依賴會讓函式簽名爆炸，與 Phase 3 跳過 `useCalendarFetch` 同理。
-- **不動 UI / JSX**：遵守 FreeCheckup 與 inline rendering 規約。
-- **不調 maxTokens**：那是 edge function 的事，且 8192 對 Claude/Gemini 已合理。
-- **不動 `fetchCalendarEvents` 5 分鐘 timeout**：使用者明確指示不要改。
+## 受影響檔案
+- 新增：`src/checkup/lib/tradeLogPersist.js`
+- 新增：`src/checkup/lib/__tests__/tradeLogPersist.test.js`（5 個 buffer / flush 測試）
+- 編輯：`src/checkup/hooks/useTradeCaptureRuntime.js`（jsonRepair、demo 守門、檔案檢核、undo snapshot）
+- 編輯：`src/checkup/components/trade/TradePanel.jsx`（檔案上限提示、undo 按鈕）
+- 編輯：`src/checkup/components/log/LogPanel.jsx`（單色橘、lexical sort）
+- 編輯：`src/pages/FreeCheckup.jsx`（tradeLog save effect 改 persistTradeLogToCloud）
 
 ## 驗證
+- 跑 `bunx vitest run`（739 + 5 新測試）。
+- 手測：訪客上傳被擋、超大圖被擋、AI 回截斷 JSON 仍能解析、submitMemo 後 5 秒內可 undo。
+- 不需跑 Playwright（不影響 Hero / 持倉看板 RWD）。
 
-- 新增 8 條 unit test 涵蓋：圍欄包裹、平衡括號、截斷陣列、截斷物件、prose 干擾、空字串、純 JSON、巢狀。
-- 跑 `bunx vitest run` 確認 725+ 既有測試全綠。
-- 不需 e2e，邏輯純函式 + 副作用（localStorage）已被測試覆蓋。
-
-請確認後，切回 default mode 執行。
+需要我執行這份計畫嗎？或是只挑其中幾項（例如只做 1 + 2 + 3 這組「上傳前置防呆」）？
