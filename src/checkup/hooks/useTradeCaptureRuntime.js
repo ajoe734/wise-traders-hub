@@ -319,6 +319,17 @@ export function useTradeCaptureRuntime({
   const memoBatchMode = useMemo(() => getTradeBatchMode(parsed?.trades || []), [parsed])
   const memoQuestions = useMemo(() => MEMO_Q[memoBatchMode] || MEMO_Q['買進'], [memoBatchMode])
 
+  // Snapshot of the last successfully written submitMemo, used by undoLastSubmit.
+  // Cleared automatically after UNDO_WINDOW_MS or when a new submit happens.
+  const lastSubmitRef = useRef(null)
+  const UNDO_WINDOW_MS = 8000
+  const [hasUndoableSubmit, setHasUndoableSubmit] = useState(false)
+  const undoTimerRef = useRef(null)
+
+  useEffect(() => () => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+  }, [])
+
   const submitMemo = useCallback(() => {
     if (!activeUpload?.parsed?.trades?.length) return
 
@@ -342,10 +353,20 @@ export function useTradeCaptureRuntime({
       now: new Date(),
     })
 
+    // Snapshot BEFORE mutation — enables undoLastSubmit within UNDO_WINDOW_MS.
+    const snapshot = {
+      uploadDraft: { ...activeUpload, memoAns: nextAnswers, memoIn: '' },
+      entryIds: entries.map((e) => e.id),
+      parsed: activeUpload.parsed,
+      timestamp: Date.now(),
+    }
+
     setHoldings((prev) => {
       try {
+        const prevArr = Array.isArray(prev) ? prev : holdings
+        snapshot.prevHoldings = prevArr
         return applyParsedTradesToHoldings({
-          holdings: Array.isArray(prev) ? prev : holdings,
+          holdings: prevArr,
           parsed: activeUpload.parsed,
           applyTradeEntryToHoldings,
           marketQuotes,
@@ -366,11 +387,20 @@ export function useTradeCaptureRuntime({
     flashSaved(
       remainingUploads > 0
         ? `✅ 已寫入 ${entries.length} 筆成交，還有 ${remainingUploads} 張待處理`
-        : `✅ 已寫入 ${entries.length} 筆成交`,
+        : `✅ 已寫入 ${entries.length} 筆成交（${Math.round(UNDO_WINDOW_MS / 1000)} 秒內可撤銷）`,
       3000
     )
 
     const processedUploadId = activeUpload.id
+    snapshot.processedUploadId = processedUploadId
+    lastSubmitRef.current = snapshot
+    setHasUndoableSubmit(true)
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    undoTimerRef.current = setTimeout(() => {
+      lastSubmitRef.current = null
+      setHasUndoableSubmit(false)
+    }, UNDO_WINDOW_MS)
+
     removeUpload(processedUploadId)
     afterSubmit({
       processedTrades: entries.length,
@@ -394,6 +424,37 @@ export function useTradeCaptureRuntime({
     updateActiveUpload,
     upsertTargetReport,
   ])
+
+  const undoLastSubmit = useCallback(() => {
+    const snap = lastSubmitRef.current
+    if (!snap) return false
+
+    // Roll back tradeLog by removing the entry ids that were just inserted.
+    const entryIdSet = new Set(snap.entryIds)
+    setTradeLog((prev) => {
+      const arr = Array.isArray(prev) ? prev : []
+      return arr.filter((row) => !entryIdSet.has(row.id))
+    })
+    // Roll back holdings to the captured snapshot.
+    if (Array.isArray(snap.prevHoldings)) {
+      setHoldings(snap.prevHoldings)
+    }
+    // Restore the upload draft so user can re-edit answers.
+    setTradeEditorState((prev) => ({
+      ...prev,
+      uploads: [snap.uploadDraft, ...prev.uploads],
+      activeUploadId: snap.uploadDraft.id,
+    }))
+
+    lastSubmitRef.current = null
+    setHasUndoableSubmit(false)
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current)
+      undoTimerRef.current = null
+    }
+    flashSaved('↺ 已撤銷上一筆成交寫入', 2500)
+    return true
+  }, [flashSaved, setHoldings, setTradeLog])
 
   return useMemo(
     () => ({
