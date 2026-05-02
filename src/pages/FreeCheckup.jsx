@@ -727,6 +727,7 @@ export default function App() {
   const [expandedDecision, setExpandedDecision] = useState(null);
   const [debugMode, setDebugMode] = useState(false);
   const [sparklines, setSparklines] = useState({}); // { [code]: number[] }
+  const [sparklineErrors, setSparklineErrors] = useState({}); // P3: { [code]: true } 同步失敗的代碼
 
   // ── 持倉資料庫（Notion 模式）：搜尋 / 篩選 / 排序方向 / Drawer ──
   const [searchQ, setSearchQ] = useState("");
@@ -1530,7 +1531,7 @@ export default function App() {
     if (!H || H.length === 0) return;
     if (isDemo) return; // DEMO 模式不打 sparkline edge（裝飾用，不影響資料完整性）
     const codes = H.map((h) => String(h.code).trim()).filter(Boolean);
-    const missing = codes.filter((c) => !sparklines[c]);
+    const missing = codes.filter((c) => !sparklines[c] && !sparklineErrors[c]);
     if (missing.length === 0) return;
     let cancelled = false;
     (async () => {
@@ -1539,8 +1540,23 @@ export default function App() {
           body: { codes: missing.slice(0, 30) },
           silent: true,
         }).catch(() => null);
-        if (cancelled || !data?.result) return;
+        if (cancelled) return;
+        if (!data?.result) {
+          // P3: 整批失敗，標記這些 code，避免下次又重試導致 UI 抖動
+          setSparklineErrors((prev) => {
+            const next = { ...prev };
+            missing.forEach((c) => { next[c] = true; });
+            return next;
+          });
+          return;
+        }
         setSparklines((prev) => ({ ...prev, ...data.result }));
+        // 部分成功時，沒拿到資料的 code 標記為失敗（顯示 "~"）
+        setSparklineErrors((prev) => {
+          const next = { ...prev };
+          missing.forEach((c) => { if (!data.result[c]) next[c] = true; });
+          return next;
+        });
       } catch {
         /* silent — sparkline 為非關鍵裝飾 */
       }
@@ -1565,14 +1581,17 @@ export default function App() {
     (Array.isArray(newsEvents) ? newsEvents : []).map(e => normalizeEventRecord(e)).filter(Boolean),
     [newsEvents]
   );
+  // P1+P12: decisionsMap 只依賴 code 列表（穩定字串）
+  // buildDecision(code, events, overrides, now) 不看報價，所以 H 變動但 codes 不變時不重算決策
   const decisionsMap = useMemo(() => {
     const map = {};
     const now = new Date();
-    H.forEach(h => {
-      map[h.code] = buildDecision(h.code, normalizedEvents, userOverrides, now);
+    const codes = holdingsCodesKey ? holdingsCodesKey.split(',').filter(Boolean) : [];
+    codes.forEach(code => {
+      map[code] = buildDecision(code, normalizedEvents, userOverrides, now);
     });
     return map;
-  }, [H, normalizedEvents, userOverrides]);
+  }, [holdingsCodesKey, normalizedEvents, userOverrides]);
 
 
   // ── 持倉資料庫：篩選 + 排序 ──
@@ -1618,7 +1637,10 @@ export default function App() {
     if (ua !== ub) return ub - ua;
     const ca = CONF_RANK[da?.confidence] || 0, cb = CONF_RANK[db?.confidence] || 0;
     if (ca !== cb) return cb - ca;
-    return (b.value || 0) - (a.value || 0);
+    const v = (b.value || 0) - (a.value || 0);
+    if (v !== 0) return v;
+    // P6: code 字典序 tiebreaker，確保並列時順序穩定
+    return String(a.code || '').localeCompare(String(b.code || ''));
   }, [priorityOf, decisionsMap]);
 
   // 全局優先排序（不受 filter 影響）
@@ -3748,15 +3770,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             // 固定節奏：ink → accent → plain（保留原排序）
             // 第一格永遠是 feature（ink 若存在則 span 2；否則保持 grid 整齊）
+            // P2: 不再 spread 注入 __featureSlot，改由 renderCard(h, idx) 判斷，保留 referential equality
             const variantOrder = { ink: 0, accent: 1, plain: 2 };
             const orderedDisplayed = [...displayed].sort((a, b) => {
               const va = variantOrder[variantsMap.get(a.code) || 'plain'];
               const vb = variantOrder[variantsMap.get(b.code) || 'plain'];
               if (va !== vb) return va - vb;
               return 0;
-            }).map((h, idx) => ({ ...h, __featureSlot: idx === 0 }));
+            });
+            // P7: featureSlot 條件 — 第一張且該卡 variant 為 ink 時才當 feature
+            const firstFeatureCode = (orderedDisplayed[0] && (variantsMap.get(orderedDisplayed[0].code) === 'ink'))
+              ? orderedDisplayed[0].code : null;
 
-            const renderCard = (h) => {
+            const renderCard = (h, idx) => {
+              const isFeatureSlot = h.code === firstFeatureCode;
               const variant = variantsMap.get(h.code) || 'plain';
               const T      = targets?.[h.code];
               const tp     = T ? avgTarget(h.code) : null;
@@ -3767,6 +3794,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const isActive = selectedCode === h.code;
               const pctVal = h.pct ?? 0;
               const sparkData = sparklines[h.code] || [];
+              const sparkFailed = !!sparklineErrors[h.code]; // P3: 同步失敗（區分「無資料」與「失敗」）
 
               // ── Workbench 配色：feature card 採 ink 黑底；其餘白底 ──
               const isInk = variant === 'ink';
@@ -3776,7 +3804,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ? 'none'
                 : `1px solid ${isActive ? WB.hairStrong : WB.hair}`;
               // span 由 CSS class 控制 (.wb-span-feature 在 ≥641px 時 span 2)
-              const isFeatureCard = isInk && h.__featureSlot;
+              const isFeatureCard = isInk && isFeatureSlot;
               const MIN_H = 320;
 
               // ROI / 損益顏色憲法：正→accent 橘 + ↑、負→暖灰 + ↓、零→inkLight
@@ -3797,14 +3825,36 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   ? `來源：${srcLabel || '—'}　更新於 ${new Date(h.priceUpdatedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`
                   : '尚未同步即時報價';
 
+              // P4 a11y：卡片可讀標籤（決策/ROI/PnL）
+              const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal>=0?'+':''}${pctVal.toFixed(2)}%，損益 ${h.pnl>=0?'+':''}${Math.round(h.pnl||0).toLocaleString()}`;
+              const handleCardKeyDown = (e) => {
+                // Shift+Enter 直接開 drawer（取代 onDoubleClick 的鍵盤替代）
+                if (e.shiftKey && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  openHoldingDrawer(h.code);
+                }
+              };
+
+              // P8 actionText 智慧斷句：在限制長度內找最後一個標點
+              const truncateAction = (txt, limit) => {
+                if (!txt || txt.length <= limit) return txt;
+                const head = txt.slice(0, limit);
+                const m = head.match(/^(.*[。、，；！？,.;!?])[^。、，；！？,.;!?]*$/);
+                const cut = m ? m[1] : head.slice(0, limit - 2);
+                return cut + '…';
+              };
+
               // ─── Feature card (ink + span 2)：黑底，橘紅 ROI，五層雜誌排版 ───
-              if (isInk && h.__featureSlot) {
+              if (isInk && isFeatureSlot) {
                 return (
                   <button
                     key={h.code}
                     className="wb-card wb-card-feature wb-span-feature"
                     onClick={() => setExpandedDecision(prev => prev === h.code ? null : h.code)}
                     onDoubleClick={() => openHoldingDrawer(h.code)}
+                    onKeyDown={handleCardKeyDown}
+                    aria-label={ariaLabel}
+                    aria-pressed={isActive}
                     style={{
                       position: 'relative',
                       minHeight: MIN_H,
@@ -3835,7 +3885,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                           <Sparkline data={sparkData} width={60} height={20} color={isInk ? '#F4F1EC' : (pctVal >= 0 ? WB.accent : '#9B968D')} opacity={pctVal >= 0 ? 0.85 : 0.6} />
                         </span>
                       ) : (
-                        <span className="wb-spark" aria-hidden style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:20,fontSize:11,color:muteColor,opacity:0.4,flexShrink:0,letterSpacing:'0.3em'}}>———</span>
+                        <span className="wb-spark" aria-hidden title={sparkFailed ? '歷史價尚未同步，稍後重試' : undefined} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:20,fontSize:11,color:muteColor,opacity:0.4,flexShrink:0,letterSpacing:'0.3em'}}>{sparkFailed ? '~' : '———'}</span>
                       )}
                       <span style={{
                         fontSize:9,fontWeight:500,letterSpacing:'0.20em',
@@ -3877,7 +3927,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{flex:1,display:'flex',alignItems:'center',gap:18,minHeight:48}}>
                       <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.7,letterSpacing:'0.01em'}}>
                         {dec?.actionText
-                          ? (dec.actionText.length > 90 ? dec.actionText.slice(0,88) + '…' : dec.actionText)
+                          ? truncateAction(dec.actionText, 90)
                           : (meta?.strategy || '持續監控基本面與籌碼變動。')}
                       </div>
                     </div>
@@ -3893,7 +3943,21 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       alignItems:'baseline',
                     }}>
                       <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>TODAY</span>
-                      <span style={{gridColumn:'3',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>VALUE</span>
+                      <span style={{gridColumn:'3',gridRow:'1',display:'flex',alignItems:'center',gap:6,fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>
+                        <span>VALUE</span>
+                        {/* P10: feature 卡補 srcLabel 報價來源徽章（黑底配色） */}
+                        {srcLabel && (
+                          <span title={srcTitle} style={{
+                            fontSize:8,letterSpacing:'0.06em',padding:'1px 5px',borderRadius:2,
+                            background: h.priceSource==='live' ? alpha(WB.accent,'30') : 'rgba(244,241,236,0.10)',
+                            color: h.priceSource==='live' ? WB.accent : 'rgba(244,241,236,0.85)',
+                            opacity:0.9,fontWeight:500,
+                          }}>{srcLabel}</span>
+                        )}
+                        {h.priceError && !srcLabel && (
+                          <span title={h.priceError} style={{fontSize:8,padding:'1px 5px',borderRadius:2,background:'rgba(244,241,236,0.12)',color:'rgba(244,241,236,0.65)'}}>失敗</span>
+                        )}
+                      </span>
                       <div style={{gridColumn:'2',gridRow:'1 / span 2',background:hairColor,width:1,height:'100%'}} />
                       <span className="wb-bottom-val" style={{gridColumn:'1',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
                         {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
@@ -3917,6 +3981,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   className="wb-card wb-span-1"
                   onClick={() => setExpandedDecision(prev => prev === h.code ? null : h.code)}
                   onDoubleClick={() => openHoldingDrawer(h.code)}
+                  onKeyDown={handleCardKeyDown}
+                  aria-label={ariaLabel}
+                  aria-pressed={isActive}
                   style={{
                     position: 'relative',
                     minHeight: MIN_H,
@@ -3948,7 +4015,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         <Sparkline data={sparkData} width={60} height={20} color={pctVal >= 0 ? WB.accent : '#9B968D'} opacity={pctVal >= 0 ? 0.85 : 0.55} />
                       </span>
                     ) : (
-                      <span className="wb-spark" aria-hidden style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:20,fontSize:11,color:muteColor,opacity:0.4,flexShrink:0,letterSpacing:'0.3em'}}>———</span>
+                      <span className="wb-spark" aria-hidden title={sparkFailed ? '歷史價尚未同步，稍後重試' : undefined} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:20,fontSize:11,color:muteColor,opacity:0.4,flexShrink:0,letterSpacing:'0.3em'}}>{sparkFailed ? '~' : '———'}</span>
                     )}
                     <span style={{
                       fontSize:9,fontWeight:500,letterSpacing:'0.20em',
@@ -3985,7 +4052,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{flex:1,display:'flex',alignItems:'flex-end',gap:14,minHeight:40,paddingTop:4}}>
                     <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.65}}>
                       {dec?.actionText
-                        ? (dec.actionText.length > 60 ? dec.actionText.slice(0,58) + '…' : dec.actionText)
+                        ? truncateAction(dec.actionText, 60)
                         : (meta?.strategy ? meta.strategy.slice(0,40) : '')}
                     </div>
                   </div>
@@ -4064,6 +4131,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <button
                         onClick={() => prev && setExpandedDecision(prev.code)}
                         disabled={!prev}
+                        aria-label={prev ? `上一檔：${prev.name || ''} ${prev.code}` : '已經是第一檔'}
                         style={{
                           width:26,height:26,border:`1px solid ${WB.hair}`,background:'transparent',
                           cursor: prev?'pointer':'not-allowed',color: prev?WB.ink:WB.inkLight,
@@ -4073,6 +4141,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <button
                         onClick={() => next && setExpandedDecision(next.code)}
                         disabled={!next}
+                        aria-label={next ? `下一檔：${next.name || ''} ${next.code}` : '已經是最後一檔'}
                         style={{
                           width:26,height:26,border:`1px solid ${WB.hair}`,background:'transparent',
                           cursor: next?'pointer':'not-allowed',color: next?WB.ink:WB.inkLight,
@@ -4085,6 +4154,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </span>
                     <button
                       onClick={() => setExpandedDecision(null)}
+                      aria-label="關閉持倉細節"
                       style={{
                         width:26,height:26,border:`1px solid ${WB.hair}`,background:'transparent',
                         cursor:'pointer',color:WB.ink,fontSize:14,borderRadius:2,fontFamily:'inherit',
@@ -4261,9 +4331,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   columnGap: 16,
                   rowGap: 20,
                 }} className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}>
-                  {orderedDisplayed.map(h => renderCard(h))}
+                  {orderedDisplayed.map((h, idx) => renderCard(h, idx))}
                   {/* 持倉為 0 時顯示強化空狀態（橫跨整列）；有持倉時顯示「+ 上傳成交」虛線卡 */}
-                  {orderedDisplayed.length === 0 ? (
+                  {orderedDisplayed.length === 0 && H.length === 0 ? (
                     <div
                       className="wb-span-full holdings-empty-guide"
                       style={{
@@ -4380,6 +4450,55 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <span style={{fontSize:11,fontWeight:400,letterSpacing:'0.12em',color:WB.inkMute}}>
                         支援 JPG / PNG 截圖，無需手動輸入
                       </span>
+                    </div>
+                  ) : orderedDisplayed.length === 0 ? (
+                    /* P9: 有持倉但被篩選/搜尋過濾掉 — 「沒有符合條件的持倉」+ 清除全部篩選 CTA */
+                    <div
+                      className="wb-span-full"
+                      style={{
+                        background:'transparent',
+                        border:`1px dashed ${WB.hair}`,
+                        borderRadius:4,
+                        color:WB.ink,
+                        fontFamily:'inherit',
+                        display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+                        gap:14,
+                        padding:'48px 24px',
+                        minHeight:200,
+                      }}
+                    >
+                      <span style={{fontSize:14,fontWeight:500,letterSpacing:'0.06em',color:WB.ink}}>沒有符合條件的持倉</span>
+                      <span style={{fontSize:12,fontWeight:400,lineHeight:1.7,color:WB.inkMute,textAlign:'center',maxWidth:360}}>
+                        目前 {H.length} 檔持倉中沒有符合搜尋與篩選條件的標的，試著放寬條件。
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSearchQ('');
+                          setFilterDecision(new Set());
+                          setFilterThesis(new Set());
+                          setFilterUrgency(new Set());
+                          setFilterConflict(new Set());
+                          setFilterPnl(new Set());
+                          setFilterStrategy(new Set());
+                        }}
+                        style={{
+                          background:'transparent',
+                          color:WB.ink,
+                          border:`1px solid ${WB.hairStrong}`,
+                          borderRadius:2,
+                          padding:'10px 22px',
+                          fontFamily:'inherit',
+                          fontSize:12,
+                          fontWeight:500,
+                          letterSpacing:'0.16em',
+                          cursor:'pointer',
+                          transition:'background 160ms ease, color 160ms ease',
+                        }}
+                        onMouseEnter={(e)=>{e.currentTarget.style.background=WB.ink;e.currentTarget.style.color='#fff';}}
+                        onMouseLeave={(e)=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color=WB.ink;}}
+                      >
+                        清除所有篩選
+                      </button>
                     </div>
                   ) : (
                     <button
