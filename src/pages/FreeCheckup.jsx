@@ -3852,6 +3852,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     className="wb-card wb-card-feature wb-span-feature"
                     onClick={() => setExpandedDecision(prev => prev === h.code ? null : h.code)}
                     onDoubleClick={() => openHoldingDrawer(h.code)}
+                    onKeyDown={handleCardKeyDown}
+                    aria-label={ariaLabel}
+                    aria-pressed={isActive}
                     style={{
                       position: 'relative',
                       minHeight: MIN_H,
