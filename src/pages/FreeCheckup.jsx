@@ -3754,13 +3754,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
             // 固定節奏：ink → accent → plain（保留原排序）
             // 第一格永遠是 feature（ink 若存在則 span 2；否則保持 grid 整齊）
+            // P2: 不再 spread 注入 __featureSlot，改由 renderCard(h, idx) 判斷，保留 referential equality
             const variantOrder = { ink: 0, accent: 1, plain: 2 };
             const orderedDisplayed = [...displayed].sort((a, b) => {
               const va = variantOrder[variantsMap.get(a.code) || 'plain'];
               const vb = variantOrder[variantsMap.get(b.code) || 'plain'];
               if (va !== vb) return va - vb;
               return 0;
-            }).map((h, idx) => ({ ...h, __featureSlot: idx === 0 }));
+            });
+            // P7: featureSlot 條件 — 第一張且該卡 variant 為 ink 時才當 feature
+            const firstFeatureCode = (orderedDisplayed[0] && (variantsMap.get(orderedDisplayed[0].code) === 'ink'))
+              ? orderedDisplayed[0].code : null;
 
             const renderCard = (h) => {
               const variant = variantsMap.get(h.code) || 'plain';
