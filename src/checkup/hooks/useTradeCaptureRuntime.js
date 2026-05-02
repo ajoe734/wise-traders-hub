@@ -258,6 +258,10 @@ export function useTradeCaptureRuntime({
 
   const parseShot = useCallback(async () => {
     if (!activeUpload?.b64) return
+    if (isDemo) {
+      flashSaved('🔒 訪客模式不能解析成交，請先用 Line 登入', 4000)
+      return
+    }
     setParsing(true)
     updateActiveUpload((upload) => ({ ...upload, parseErr: '' }))
 
@@ -274,11 +278,17 @@ export function useTradeCaptureRuntime({
       const data = await response.json()
       if (!response.ok) throw new Error(data.detail || data.error || 'API 錯誤')
 
-      const clean = (data.content?.[0]?.text || '').replace(/```json|```/g, '').trim()
-      if (!clean) throw new Error('AI 未回傳可解析的內容')
+      const raw = String(data.content?.[0]?.text || '').trim()
+      if (!raw) throw new Error('AI 未回傳可解析的內容')
+
+      // jsonRepair: 容忍 markdown wrapper / 截斷 / 前後綴雜訊
+      const repaired = parseJsonObject(raw)
+      if (!repaired) {
+        throw new Error('AI 回傳格式無法解析，請重新上傳更清晰的截圖')
+      }
 
       const normalized = normalizeTradeParseResult(
-        JSON.parse(clean),
+        repaired,
         activeUpload.tradeDate || toSlashDate()
       )
       if (!normalized.trades.length && !normalized.targetPriceUpdates.length) {
@@ -303,7 +313,7 @@ export function useTradeCaptureRuntime({
     } finally {
       setParsing(false)
     }
-  }, [activeUpload, toSlashDate, updateActiveUpload])
+  }, [activeUpload, toSlashDate, updateActiveUpload, isDemo, flashSaved])
 
   const parsed = activeUpload?.parsed || null
   const memoBatchMode = useMemo(() => getTradeBatchMode(parsed?.trades || []), [parsed])
