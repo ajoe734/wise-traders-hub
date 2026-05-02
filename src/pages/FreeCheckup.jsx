@@ -4291,7 +4291,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 }} className={`holdings-card-grid${viewMode === 'list' ? ' holdings-card-grid--list' : ''}`}>
                   {orderedDisplayed.map((h, idx) => renderCard(h, idx))}
                   {/* 持倉為 0 時顯示強化空狀態（橫跨整列）；有持倉時顯示「+ 上傳成交」虛線卡 */}
-                  {orderedDisplayed.length === 0 ? (
+                  {orderedDisplayed.length === 0 && H.length === 0 ? (
                     <div
                       className="wb-span-full holdings-empty-guide"
                       style={{
