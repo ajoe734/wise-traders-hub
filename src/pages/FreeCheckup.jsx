@@ -3809,7 +3809,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   : '尚未同步即時報價';
 
               // ─── Feature card (ink + span 2)：黑底，橘紅 ROI，五層雜誌排版 ───
-              if (isInk && h.__featureSlot) {
+              if (isInk && isFeatureSlot) {
                 return (
                   <button
                     key={h.code}
