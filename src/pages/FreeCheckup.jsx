@@ -1565,14 +1565,17 @@ export default function App() {
     (Array.isArray(newsEvents) ? newsEvents : []).map(e => normalizeEventRecord(e)).filter(Boolean),
     [newsEvents]
   );
+  // P1+P12: decisionsMap 只依賴 code 列表（穩定字串）
+  // buildDecision(code, events, overrides, now) 不看報價，所以 H 變動但 codes 不變時不重算決策
   const decisionsMap = useMemo(() => {
     const map = {};
     const now = new Date();
-    H.forEach(h => {
-      map[h.code] = buildDecision(h.code, normalizedEvents, userOverrides, now);
+    const codes = holdingsCodesKey ? holdingsCodesKey.split(',').filter(Boolean) : [];
+    codes.forEach(code => {
+      map[code] = buildDecision(code, normalizedEvents, userOverrides, now);
     });
     return map;
-  }, [H, normalizedEvents, userOverrides]);
+  }, [holdingsCodesKey, normalizedEvents, userOverrides]);
 
 
   // ── 持倉資料庫：篩選 + 排序 ──
