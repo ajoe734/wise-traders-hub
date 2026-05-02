@@ -468,6 +468,7 @@ export function buildDailyReport({
   blindPredictions = [],
   predictionScores = null,
   brainAudit = null,
+  meta = null,
 }) {
   return {
     id: Date.now(),
@@ -484,6 +485,7 @@ export function buildDailyReport({
     blindPredictions,
     predictionScores,
     brainAudit,
+    meta: meta || {},
   }
 }
 
@@ -492,4 +494,83 @@ export function stripDailyAnalysisEmbeddedBlocks(displayText = '') {
     .replace(/## 📋 EVENT_ASSESSMENTS[\s\S]*?```[\s\S]*?```/g, '')
     .replace(/## 🧬 BRAIN_UPDATE[\s\S]*?```[\s\S]*?```/g, '')
     .trim()
+}
+
+// ============= Cloud sync resilience =============
+
+const PENDING_KEY = 'checkup:pendingAnalysis'
+const PENDING_MAX = 5
+
+function readPending() {
+  if (typeof window === 'undefined' || !window.localStorage) return []
+  try {
+    const raw = window.localStorage.getItem(PENDING_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function writePending(list) {
+  if (typeof window === 'undefined' || !window.localStorage) return
+  try {
+    const trimmed = list.slice(-PENDING_MAX)
+    window.localStorage.setItem(PENDING_KEY, JSON.stringify(trimmed))
+  } catch { /* quota / disabled — ignore */ }
+}
+
+/**
+ * Persist daily analysis report to cloud.
+ * On failure, buffers to localStorage (ring buffer of {PENDING_MAX}).
+ */
+export async function persistAnalysisToCloud(brainEndpoint, report) {
+  if (!brainEndpoint || !report) return { ok: false, buffered: false }
+  try {
+    const res = await fetch(brainEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save-analysis', data: report }),
+    })
+    if (!res.ok) throw new Error(`save-analysis ${res.status}`)
+    return { ok: true, buffered: false }
+  } catch (err) {
+    const list = readPending()
+    list.push({ report, queuedAt: Date.now() })
+    writePending(list)
+    console.warn('[persistAnalysisToCloud] buffered for retry:', err?.message || err)
+    return { ok: false, buffered: true }
+  }
+}
+
+/**
+ * Flush previously buffered analyses to cloud.
+ * Called once on workflow startup.
+ */
+export async function flushPendingAnalyses(brainEndpoint) {
+  if (!brainEndpoint) return { sent: 0, remaining: 0 }
+  const list = readPending()
+  if (list.length === 0) return { sent: 0, remaining: 0 }
+
+  const stillPending = []
+  let sent = 0
+  for (const entry of list) {
+    try {
+      const res = await fetch(brainEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save-analysis', data: entry.report }),
+      })
+      if (res.ok) {
+        sent++
+      } else {
+        stillPending.push(entry)
+      }
+    } catch {
+      stillPending.push(entry)
+    }
+  }
+  writePending(stillPending)
+  return { sent, remaining: stillPending.length }
 }
