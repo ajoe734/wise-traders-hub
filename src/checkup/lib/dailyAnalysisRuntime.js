@@ -468,6 +468,7 @@ export function buildDailyReport({
   blindPredictions = [],
   predictionScores = null,
   brainAudit = null,
+  meta = null,
 }) {
   return {
     id: Date.now(),
@@ -484,6 +485,7 @@ export function buildDailyReport({
     blindPredictions,
     predictionScores,
     brainAudit,
+    meta: meta || {},
   }
 }
 
