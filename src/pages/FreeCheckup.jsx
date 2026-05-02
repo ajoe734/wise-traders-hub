@@ -3787,7 +3787,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 ? 'none'
                 : `1px solid ${isActive ? WB.hairStrong : WB.hair}`;
               // span 由 CSS class 控制 (.wb-span-feature 在 ≥641px 時 span 2)
-              const isFeatureCard = isInk && h.__featureSlot;
+              const isFeatureCard = isInk && isFeatureSlot;
               const MIN_H = 320;
 
               // ROI / 損益顏色憲法：正→accent 橘 + ↑、負→暖灰 + ↓、零→inkLight
