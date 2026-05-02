@@ -486,6 +486,8 @@ export function useTradeCaptureRuntime({
       memoStep: activeUpload?.memoStep || 0,
       setMemoStep,
       submitMemo,
+      undoLastSubmit,
+      hasUndoableSubmit,
       selectUpload,
       removeUpload,
       clearUploads,
