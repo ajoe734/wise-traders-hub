@@ -84,14 +84,21 @@ export function useTradeCaptureRuntime({
 
   const enqueueFiles = useCallback(
     async (incomingFiles) => {
-      const files = Array.from(incomingFiles || []).filter((file) =>
-        file?.type?.startsWith('image/')
-      )
-      if (!files.length) return
+      if (isDemo) {
+        flashSaved('🔒 訪客模式不能上傳成交，請先用 Line 登入', 4000)
+        return
+      }
+
+      const { accepted, rejected, overflow } = partitionUploadFiles(incomingFiles, {
+        existingCount: uploadsRef.current.length,
+      })
+      const rejectionMsg = summarizeRejections({ rejected, overflow })
+      if (rejectionMsg) flashSaved(rejectionMsg, 4500)
+      if (!accepted.length) return
 
       try {
         const nextUploads = await Promise.all(
-          files.map(async (file) => {
+          accepted.map(async (file) => {
             const dataUrl = await readFileAsDataUrl(file)
             const objectUrl = URL.createObjectURL(file)
             uploadIdRef.current += 1
@@ -120,7 +127,7 @@ export function useTradeCaptureRuntime({
         flashSaved(`❌ 讀取截圖失敗：${error.message || '請重新選擇圖片'}`, 4000)
       }
     },
-    [flashSaved, toSlashDate]
+    [flashSaved, toSlashDate, isDemo]
   )
 
   const processFile = useCallback(
