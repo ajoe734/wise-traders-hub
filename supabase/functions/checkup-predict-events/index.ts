@@ -452,7 +452,7 @@ Deno.serve(async (req) => {
     // Parallel: quotes + knowledge + accuracy + news
     const eventTags = extractEventTags(events);
     const [quotes, knowledgeContext, accuracyContext, newsContext] = await Promise.all([
-      fetchRealtimeQuotes([...allCodes]),
+      fetchRealtimeQuotes(supabase, [...allCodes]),
       fetchRelevantKnowledge(supabase, eventTags),
       fetchAccuracyStats(supabase),
       fetchNewsForStocks([...allCodes]),
