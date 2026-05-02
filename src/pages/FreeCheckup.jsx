@@ -1621,7 +1621,10 @@ export default function App() {
     if (ua !== ub) return ub - ua;
     const ca = CONF_RANK[da?.confidence] || 0, cb = CONF_RANK[db?.confidence] || 0;
     if (ca !== cb) return cb - ca;
-    return (b.value || 0) - (a.value || 0);
+    const v = (b.value || 0) - (a.value || 0);
+    if (v !== 0) return v;
+    // P6: code 字典序 tiebreaker，確保並列時順序穩定
+    return String(a.code || '').localeCompare(String(b.code || ''));
   }, [priorityOf, decisionsMap]);
 
   // 全局優先排序（不受 filter 影響）
