@@ -4131,6 +4131,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <button
                         onClick={() => prev && setExpandedDecision(prev.code)}
                         disabled={!prev}
+                        aria-label={prev ? `上一檔：${prev.name || ''} ${prev.code}` : '已經是第一檔'}
                         style={{
                           width:26,height:26,border:`1px solid ${WB.hair}`,background:'transparent',
                           cursor: prev?'pointer':'not-allowed',color: prev?WB.ink:WB.inkLight,
@@ -4140,6 +4141,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <button
                         onClick={() => next && setExpandedDecision(next.code)}
                         disabled={!next}
+                        aria-label={next ? `下一檔：${next.name || ''} ${next.code}` : '已經是最後一檔'}
                         style={{
                           width:26,height:26,border:`1px solid ${WB.hair}`,background:'transparent',
                           cursor: next?'pointer':'not-allowed',color: next?WB.ink:WB.inkLight,
@@ -4152,6 +4154,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </span>
                     <button
                       onClick={() => setExpandedDecision(null)}
+                      aria-label="關閉持倉細節"
                       style={{
                         width:26,height:26,border:`1px solid ${WB.hair}`,background:'transparent',
                         cursor:'pointer',color:WB.ink,fontSize:14,borderRadius:2,fontFamily:'inherit',
