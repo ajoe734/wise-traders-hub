@@ -3927,7 +3927,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{flex:1,display:'flex',alignItems:'center',gap:18,minHeight:48}}>
                       <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.7,letterSpacing:'0.01em'}}>
                         {dec?.actionText
-                          ? (dec.actionText.length > 90 ? dec.actionText.slice(0,88) + '…' : dec.actionText)
+                          ? truncateAction(dec.actionText, 90)
                           : (meta?.strategy || '持續監控基本面與籌碼變動。')}
                       </div>
                     </div>
