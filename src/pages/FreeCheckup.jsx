@@ -727,6 +727,7 @@ export default function App() {
   const [expandedDecision, setExpandedDecision] = useState(null);
   const [debugMode, setDebugMode] = useState(false);
   const [sparklines, setSparklines] = useState({}); // { [code]: number[] }
+  const [sparklineErrors, setSparklineErrors] = useState({}); // P3: { [code]: true } 同步失敗的代碼
 
   // ── 持倉資料庫（Notion 模式）：搜尋 / 篩選 / 排序方向 / Drawer ──
   const [searchQ, setSearchQ] = useState("");
