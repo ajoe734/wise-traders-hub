@@ -396,12 +396,21 @@ Deno.serve(async (req) => {
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、權證
 - 按日期由近到遠排序`;
 
-    // Fetch news context via RSS
-    console.log('Calendar: fetching news context via RSS...');
-    const newsContext = await fetchNewsContext(stocks);
-    console.log(`Calendar: got ${newsContext.split('\n').length} news items`);
+    // Fetch news context via RSS + warrant expiry from DB (parallel)
+    console.log('Calendar: fetching news context + warrant DB...');
+    const { warrantCodes } = classifyHoldings(stocks);
+    const [newsContext, dbWarrantEvents] = await Promise.all([
+      fetchNewsContext(stocks),
+      fetchWarrantExpiryEvents(warrantCodes),
+    ]);
+    console.log(`Calendar: news=${newsContext.split('\n').length}, dbWarrants=${dbWarrantEvents.length}`);
+    const dbCoveredWarrants = new Set<string>(
+      dbWarrantEvents
+        .map((e: any) => String(e.label || '').match(/^(\d{4,6})/)?.[1] || '')
+        .filter(Boolean),
+    );
 
-    const prompt = buildPrompt(stocks, today, endDate, outputFormat, newsContext);
+    const prompt = buildPrompt(stocks, today, endDate, outputFormat, newsContext, dbCoveredWarrants);
 
     const todayIso = new Date().toISOString().split('T')[0];
     const systemPrompt = `你是一位頂級 AI 財經分析師，精通台股市場。今天是 ${todayIso}（西元 ${new Date().getFullYear()} 年）。你會根據提供的即時新聞資訊和你的知識，整理出未來事件行事曆。
@@ -413,25 +422,42 @@ Deno.serve(async (req) => {
     const result = await callAI(systemPrompt, prompt, 8192);
     const debugInfo = debugMode ? { attempts: result.attempts, succeededWith: result.succeededWith } : undefined;
 
+    function attachStableIds(events: any[]): any[] {
+      return events.map((e: any) => ({
+        ...e,
+        stableId: e?.stableId || makeStableId(e?.label || '', e?.date || '', e?.type || ''),
+      }));
+    }
+
     if (result.ok && result.text) {
-      const events = tryParseEvents(result.text);
-      if (events) {
-        console.log(`Calendar: succeeded, ${events.length} events`);
-        return new Response(
-          JSON.stringify({
-            text: JSON.stringify(events),
-            response: JSON.stringify(events),
-            ...(debugInfo ? { debug: debugInfo } : {}),
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
-      }
-      console.error('Calendar: parse failed. First 500:', result.text.slice(0, 500));
+      const aiEvents = tryParseEvents(result.text) || [];
+      const merged = attachStableIds([...dbWarrantEvents, ...aiEvents]);
+      // De-duplicate by stableId (DB events first → AI duplicates dropped)
+      const seen = new Set<string>();
+      const deduped = merged.filter((e: any) => {
+        if (seen.has(e.stableId)) return false;
+        seen.add(e.stableId);
+        return true;
+      });
+      console.log(`Calendar: ${deduped.length} events (${dbWarrantEvents.length} from DB, ${aiEvents.length} from AI, ${merged.length - deduped.length} dups dropped)`);
+      return new Response(
+        JSON.stringify({
+          text: JSON.stringify(deduped),
+          response: JSON.stringify(deduped),
+          ...(debugInfo ? { debug: debugInfo } : {}),
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // AI failed but we may still have DB warrants
+    if (dbWarrantEvents.length > 0) {
+      const dbOnly = attachStableIds(dbWarrantEvents);
+      console.log(`Calendar: AI failed, returning ${dbOnly.length} DB-only warrant events`);
       return new Response(JSON.stringify({
-        ...buildAiFailure(result.attempts, '行事曆結果解析失敗，已略過本次搜尋'),
-        text: '[]',
-        response: '[]',
-        ...(debugInfo ? { debug: { ...debugInfo, parseFailed: true, rawTextSample: result.text.slice(0, 500) } } : {}),
+        text: JSON.stringify(dbOnly),
+        response: JSON.stringify(dbOnly),
+        ...(debugInfo ? { debug: { ...debugInfo, aiFailed: true } } : {}),
       }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
