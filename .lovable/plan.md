@@ -1,178 +1,105 @@
-## 範圍
+## Phase 3：架構清潔（行事曆 + 事件分析）
 
-優化「行事曆 + 事件分析」整條鏈路，**不修改** `fetchCalendarEvents` 的 5 分鐘 timeout（依用戶指示）。共 6 項變更。
-
----
-
-## 1. `_shared/jsonRepair.ts` 共用 JSON 修復
-
-新檔 `supabase/functions/_shared/jsonRepair.ts`，導出 `parseJsonArray(text): any[] | null`：
-- 合併 `extractJsonArray / tryRepairTruncatedArray / tryParseEvents / extractJsonArrayStr` 四套重複實作
-- 邏輯：直接 parse → 去 markdown fence + 平衡 `[]` 擷取 → 修復截斷陣列（最後完整 `}` 重組 + 物件級 walk）
-
-`checkup-calendar/index.ts` 移除 `extractJsonArray / tryRepairTruncatedArray / tryParseEvents`，改用 `parseJsonArray`。
-`checkup-predict-events/index.ts` 移除 `extractJsonArrayStr`，改用 `parseJsonArray`，並把錯誤分支從 try/catch 改成 null 檢查。
+延續 Phase 1+2，目標把 `FreeCheckup.jsx`（7166 行）中與 calendar/event 相關的「**邏輯函式**」拉出去，只留 state、ref、UI render。**不動 inline JSX**，遵守既有 inline-rendering memory。
 
 ---
 
-## 2. 行事曆 stableId + upsert sync（最高優先 — 真 bug）
+### 範圍（僅邏輯抽離，零 UI 改動）
 
-**問題**：
-- `syncCalendarToNews` 每次砍掉所有 `source: "calendar"` 重建 → tracking/closed 事件被誤殺
-- `id = Date.now() + Math.random()` 每次不同 → `prediction-cache-{eventId}` 永遠 miss
+#### A. 新檔：`src/checkup/lib/calendarSync.js`
+從 FreeCheckup.jsx 搬出純函式：
 
-**修法**：
+- `computeCalendarStableId(label, date, type)` — 目前在 `syncCalendarToNews` 內 inline，也在 server `checkup-calendar/index.ts` 有一份。**這份在 client 端共用** + server 那份保留（runtime 隔離），但加註解互相 reference。
+- `mergeCalendarEvents(existingEvents, newEvents, holdingCodes)` — 行 950-964 的 dedupe + sort + 標 _holdingCodes。
+- `mergeCalendarToNewsEvents(prevNewsEvents, calEvents)` — 行 1019-末段 `setNewsEvents` 的純合併邏輯（input：prev + calEvents，output：merged array）。
 
-`checkup-calendar/index.ts` 在 `Deno.serve` 回傳前對每筆 event 補 `stableId`：
-```ts
-function makeStableId(label: string, date: string, type: string): string {
-  const code = (label || '').match(/\d{4,6}/)?.[0] || 'na';
-  const t = (type || 'event').replace(/[^\w\u4e00-\u9fa5]/g, '');
-  const d = String(date || '').trim();
-  let dn = 'tba';
-  const ymd = d.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  const ym  = d.match(/(\d{4})\/(\d{1,2})月/);
-  const yq  = d.match(/(\d{4})\s*Q([1-4])/i);
-  if (ymd) dn = `${ymd[1]}${ymd[2].padStart(2,'0')}${ymd[3].padStart(2,'0')}`;
-  else if (ym) dn = `${ym[1]}${ym[2].padStart(2,'0')}MM`;
-  else if (yq) dn = `${yq[1]}Q${yq[2]}`;
-  return `cal-${code}-${t}-${dn}`;
-}
-```
-寫入每個 event 物件的 `stableId` 欄位後再回傳。
+→ FreeCheckup.jsx 改成：
+```js
+import { mergeCalendarToNewsEvents, mergeCalendarEvents, computeCalendarStableId } from '@/checkup/lib/calendarSync';
 
-`FreeCheckup.jsx` `syncCalendarToNews` 改寫（line 1001-1052）：
-- 用 `stableId`（fallback 到本地計算）當合併 key
-- 既存事件保留：`id`、`status`、`pred`、`predReason`、`actual`、`actualNote`、`correct`、`lessons`、`trackingStart`、`priceAtEvent`、`priceAtExit`、`priceHistory`、`exitDate`、`reviewDate`
-- AI 只覆蓋：`title`、`detail`、`date`、`stocks`
-- 用戶已 review（`actual` 非 null 或 `lessons` 非空）→ AI 的 `pred / predReason` 也不覆蓋
-- 已 `tracking / verifying / closed / past` 狀態不被降級回 `pending`
-- AI 已不再列出但 status 仍是 `pending` 的 calendar 事件 → 移除；其他狀態保留
-- `id` 改用 `stableId`（穩定字串 PK），predict-cache 自然命中
-
-同步調整 `addEvent`（手動加入）也產生 `stableId`，並避免與 calendar 撞 key（前綴 `manual-`）。
-
----
-
-## 3. 權證到期日改走 DB（不再丟給 LLM）
-
-**Schema migration**（要建 SQL 給用戶執行）：
-```sql
-CREATE TABLE IF NOT EXISTS public.warrant_expiry (
-  symbol      text PRIMARY KEY,
-  name        text,
-  parent_code text,
-  expire_date date,
-  fetched_at  timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_warrant_expiry_parent ON public.warrant_expiry(parent_code);
-ALTER TABLE public.warrant_expiry ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public read warrant expiry"
-  ON public.warrant_expiry FOR SELECT TO public USING (true);
-CREATE POLICY "Admins manage warrant expiry"
-  ON public.warrant_expiry FOR ALL TO authenticated
-  USING (has_role(auth.uid(),'company_admin'::app_role))
-  WITH CHECK (has_role(auth.uid(),'company_admin'::app_role));
+const syncCalendarToNews = (calEvents) => {
+  setNewsEvents(prev => mergeCalendarToNewsEvents(prev, calEvents));
+};
 ```
 
-**新 edge function `checkup-warrant-sync`**（`supabase/functions/checkup-warrant-sync/index.ts`）：
-- 抓 TWSE 上市權證每日成交資訊 CSV（`https://www.twse.com.tw/rwd/zh/warrant/dailyResult?response=csv`）
-- 解析 symbol / name / 標的證券代號（parent_code）/ 到期日
-- `upsert` 到 `warrant_expiry`
-- 失敗就 log 不丟
+#### B. 新檔：`src/checkup/hooks/useCalendarFetch.js`
+封裝整個 `fetchCalendarEvents`（行 853-998，約 145 行）。
 
-**Cron**（用戶於 Cloud 設定，或下發 SQL）：每週日 03:00 (UTC+8) = 19:00 UTC Sat：
-```sql
-select cron.schedule(
-  'warrant-sync-weekly',
-  '0 19 * * 6',
-  $$ select net.http_post(
-       url:='https://yqacmrgdjlenbijclngi.supabase.co/functions/v1/checkup-warrant-sync',
-       headers:='{"Content-Type":"application/json","apikey":"<ANON_KEY>"}'::jsonb,
-       body:='{}'::jsonb
-     ); $$
-);
+簽章：
+```js
+const { fetchCalendarEvents, calendarLoading, calendarLastError, calendarAutoStatus, calendarLastDebug } 
+  = useCalendarFetch({ 
+      isDemo, callEdge, save, simulateSteps,
+      onEventsUpdate, onSyncToNews,
+      pushUpdateLog, flashCalendarStatus, recordCalendarError, classifyError, mapFallbackCodeToStatus,
+      resetGuardRef, setCalendarRetry, DEMO_CALENDAR, CALENDAR_DEDUP_MS,
+    });
 ```
 
-**`checkup-calendar/index.ts` 改造**：
-- `classifyHoldings` 偵測權證 (6 碼或名稱含「購售牛熊」) → 抓代號清單
-- 主流程 query `warrant_expiry where symbol in (...)`，把命中的權證直接組事件物件（type=`權證`，date=`expire_date`），不送進 prompt
-- prompt 的「權證持倉」section 改成只列母股（parent_code），且明確寫「到期日已由系統補齊，無需你列出權證類事件」
-- DB miss 的權證才 fallback 給 LLM 列（保底）
+把這些 ref/state 也搬進 hook：
+- `calendarInflightKeyRef`、`calendarAbortRef`、`calendarLastFetchRef`
+- `calendarLoading`、`calendarAutoStatus`、`calendarLastDebug`
+- 保留在 FreeCheckup 的：`calendarEvents`、`calendarRetry`、`calendarLastError`（因為 UI 直接讀）
+
+FreeCheckup.jsx 用 hook 取代 inline 的 1 個函式 + 3 個 ref + 3 個 state。
+
+#### C. 預測快取 helper：`src/checkup/lib/eventPredictionCache.js`
+從 FreeCheckup.jsx 行 1461 附近抽 `predictEvent` 的 cache lookup / save：
+- `getPredictionCache(stableId)` — 讀 `prediction-cache-${stableId}`
+- `setPredictionCache(stableId, payload)` — 寫入帶 timestamp
+- `isPredictionCacheValid(entry, ttlMs = 24*60*60*1000)` — TTL 檢查
+
+不改呼叫 LLM 的部分，只把 cache I/O 收斂。
+
+#### D. 單元測試
+新增 `src/checkup/lib/__tests__/calendarSync.test.js`：
+- `computeCalendarStableId` 各種日期格式（YYYY/MM/DD、YYYY/MM月、YYYY Q1）
+- `mergeCalendarToNewsEvents`：
+  - 新事件全新 → 建立 with stableId
+  - 既有 calendar 事件被新 AI 結果覆蓋 → status/pred 不被降級
+  - userReviewed（有 actual 或 lessons）→ pred/predReason 不被覆寫
+  - manual source 事件不受影響
 
 ---
 
-## 4. Accuracy stats 索引 + 15 分鐘 cache
+### 不在這次範圍
 
-**Schema migration**：
-```sql
-CREATE INDEX IF NOT EXISTS idx_pred_accuracy_reviewed_at
-  ON public.checkup_prediction_accuracy(reviewed_at DESC);
-CREATE INDEX IF NOT EXISTS idx_pred_accuracy_event_type
-  ON public.checkup_prediction_accuracy(event_type);
-```
-
-`checkup-predict-events/index.ts` `fetchAccuracyStats`：
-- 讀 `checkup_storage` system UID, key `accuracy-stats-cache-v1`
-- TTL 15 分鐘，命中直接回 `data.text`
-- miss 才查表，計算後寫回 cache（`data: { text }`）
-- cache 寫入 fire-and-forget
+- ❌ FreeCheckup.jsx 的 JSX render 區塊（受 inline-rendering memory 保護）
+- ❌ `predictEvent` 主函式抽離（行 1461 周邊跟 UI loading state 緊耦合，動到 risk 高）
+- ❌ Phase 1+2 follow-up（warrant-sync parser、cron）→ 另外處理
 
 ---
 
-## 5. Realtime quotes DB 優先
+### 變更檔案清單
 
-`checkup-predict-events/index.ts` `fetchRealtimeQuotes(codes)` 重寫：
-1. 先 `select symbol, price, yesterday_close, change_percent, volume, high_price, low_price, open_price, pushed_at from current_prices where symbol = ANY(codes)`
-2. `pushed_at` 在 5 分鐘內者直接組 quote 物件，加入 result map
-3. 收集仍未命中的 codes，才打 TWSE MIS
-4. TWSE 失敗也不丟 — 已有 DB 結果（雖舊）總比沒有好
+| 檔案 | 動作 | 行數 |
+|---|---|---|
+| `src/checkup/lib/calendarSync.js` | 新增 | ~120 |
+| `src/checkup/hooks/useCalendarFetch.js` | 新增 | ~160 |
+| `src/checkup/lib/eventPredictionCache.js` | 新增 | ~40 |
+| `src/checkup/lib/__tests__/calendarSync.test.js` | 新增 | ~100 |
+| `src/pages/FreeCheckup.jsx` | 邏輯刪除 + import 替換 | -~250 / +~10 |
 
-shape 與既有相同（code/name/price/yesterdayClose/changePercent/volume/high/low/open）。
-
----
-
-## 6. 今日警示日期格式對齊
-
-問題：`urgentCount / todayAlertSummary` 用 ISO `2026-05-02` 比 `e.eventDate`，但 calendar 同步進來的事件存的是 `e.date = '2026/05/02'`，永遠 0。
-
-`src/checkup/hooks/useEvents.js` 修兩個 useMemo：
-- `today` 用 `new Date().toLocaleDateString('zh-TW').replace(/-/g,'/')`（保證 `YYYY/MM/DD`）
-- 比對欄位優先 `e.date`，fallback `e.eventDate`，並把 ISO `-` 轉成 `/` 一視同仁
-
-`src/checkup/stores/eventStore.js` `getUrgentCount / getTodayAlertSummary` 同樣修法。
-
-新增 vitest：`src/test/unit/event-today-alert.test.ts`：
-- 給 `[{ date:'2026/05/02', status:'pending' }]` 在 mock today=2026/05/02 → urgentCount=1
-- 給 `eventDate:'2026-05-02'` 也要算到（向後相容）
+預期 FreeCheckup.jsx：7166 → ~6920 行。
 
 ---
 
-## 不動的部分
+### 風險
 
-- `fetchCalendarEvents` 5 分鐘 timeout（line 915）
-- 行事曆 1 年抓取範圍 / 8 大類 prompt 結構
-- `pred` 預設值 `'up'`
-- FreeCheckup.jsx 不抽元件（所有改動 inline）
-- demo mode 流程（DEMO_CALENDAR 仍走原路徑，stableId 在 demo 資料也需補上）
+- **唯一風險**：把 ref/state 搬進 hook 後，外部讀取時機要對齊。對策：
+  - `calendarLoading` / `calendarAutoStatus` 從 hook 回傳 → UI 直接綁
+  - `fetchCalendarEvents` 由 hook 回傳，FreeCheckup 只 call，guard 仍透過 `resetGuardRef` 傳入
+  - 三個 ref 內部化後，外部的 `calendarAbortRef.current?.abort()` call site（搜整個檔）若有外部使用→ 改透過 hook 暴露 `abortCalendarFetch()` 方法
+
+實作時會 `rg "calendarAbortRef|calendarInflightKeyRef|calendarLastFetchRef" src/` 確認只在 fetchCalendarEvents 內被引用，再決定是否需要暴露 abort 方法。
 
 ---
 
-## 部署順序
+### 驗收
 
-1. Schema migration（warrant_expiry 表 + 兩個 accuracy index）
-2. 新增 `_shared/jsonRepair.ts`
-3. 新增 `checkup-warrant-sync` 並手動觸發一次灌資料
-4. 改 `checkup-calendar`、`checkup-predict-events`，deploy
-5. 改 FreeCheckup.jsx `syncCalendarToNews` + `addEvent`
-6. 改 `useEvents.js`、`eventStore.js` 日期對齊 + 加 vitest
-7. Cron SQL（warrant-sync 每週日）
+1. `bunx vitest run src/checkup/lib/__tests__/calendarSync.test.js` 全綠
+2. 行事曆刷新（手動 + 自動）行為不變：dedup、abort、30s 節流、demo 模式都正常
+3. 事件分析 stableId 合併行為與 Phase 1 一致（status 不降級、userReviewed 保護）
+4. FreeCheckup.jsx 行數下降 ≥ 200
 
-## 風險
-
-- **行為變更**：第一次部署後，舊 calendar 事件因 stableId 不同會被視為新事件重建一次（一次性）。之後穩定。
-- **TWSE 權證 CSV 格式**：需先 curl 一次確認欄位順序，若格式變動 sync 失敗仍 fallback 到 LLM 模式不影響使用者。
-- **FreeCheckup RWD QA**：本次改動不碰 Hero 與 `.wb-card`，不需跑 560/390/380 三斷點視覺回歸。
-- **i18n**：本次無新增可見英文文案，不需跑 i18n scanner。
-
-按 Approve 後我會依序 1→7 落地，過程中跑 vitest + curl 驗 edge function。
+確認後即執行。
