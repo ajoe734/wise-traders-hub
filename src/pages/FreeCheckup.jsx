@@ -20,6 +20,7 @@ import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
 import { coerceStocksString } from "@/checkup/lib/edgeCoerce";
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
+import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -998,97 +999,10 @@ export default function App() {
   };
 
   // ── 將行事曆事件自動同步至事件分析 ──────────────────────────────
+  // 邏輯抽至 src/checkup/lib/calendarSync.js（含單元測試）
   const syncCalendarToNews = (calEvents) => {
     if (!calEvents || !Array.isArray(calEvents)) return;
-
-    // Stable ID — must match server-side makeStableId in checkup-calendar
-    const computeStableId = (label, date, type) => {
-      const code = String(label || "").match(/\d{4,6}/)?.[0] || "na";
-      const t = String(type || "event").replace(/[^\w\u4e00-\u9fa5]/g, "");
-      const d = String(date || "").trim();
-      let dn = "tba";
-      const ymd = d.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-      const ym = d.match(/(\d{4})\/(\d{1,2})月/);
-      const yq = d.match(/(\d{4})\s*Q([1-4])/i);
-      if (ymd) dn = `${ymd[1]}${ymd[2].padStart(2, "0")}${ymd[3].padStart(2, "0")}`;
-      else if (ym) dn = `${ym[1]}${ym[2].padStart(2, "0")}MM`;
-      else if (yq) dn = `${yq[1]}Q${yq[2]}`;
-      return `cal-${code}-${t}-${dn}`;
-    };
-
-    setNewsEvents(prev => {
-      const existing = prev || [];
-
-      // Index existing calendar events by stableId (compute one if missing — handles legacy data)
-      const calendarMap = new Map();
-      const manual = [];
-      for (const e of existing) {
-        if (e.source === "calendar") {
-          const key = e.stableId || computeStableId(e.title, e.date, e.type);
-          calendarMap.set(key, { ...e, stableId: key });
-        } else {
-          manual.push(e);
-        }
-      }
-
-      const incomingKeys = new Set();
-      const merged = [];
-
-      for (const ce of calEvents) {
-        if (!ce.label) continue;
-        const key = ce.stableId || computeStableId(ce.label, ce.date, ce.type);
-        if (incomingKeys.has(key)) continue; // de-dup within incoming
-        incomingKeys.add(key);
-
-        const codeMatch = String(ce.label).match(/\d{4,6}/);
-        const aiPart = {
-          date: ce.date || "",
-          title: ce.label,
-          detail: ce.sub || "",
-          stocks: codeMatch
-            ? [{ code: codeMatch[0], name: String(ce.label).replace(/\d{4,6}/, "").replace(/[—\-\s]+/g, " ").trim() }]
-            : [],
-          type: ce.type || "",
-        };
-
-        const prior = calendarMap.get(key);
-        if (prior) {
-          // User has reviewed — preserve their pred/predReason too
-          const userReviewed = prior.actual != null || (prior.lessons && String(prior.lessons).trim() !== "");
-          merged.push({
-            ...prior,
-            ...aiPart,
-            // Never downgrade status (tracking/verifying/closed/past stay)
-            status: prior.status || "pending",
-            pred: userReviewed ? prior.pred : (ce.pred || prior.pred || "neutral"),
-            predReason: userReviewed ? prior.predReason : (ce.predReason || prior.predReason || ""),
-            stableId: key,
-            source: "calendar",
-          });
-        } else {
-          merged.push({
-            id: key,
-            stableId: key,
-            ...aiPart,
-            pred: ce.pred || "neutral",
-            predReason: ce.predReason || "",
-            status: "pending",
-            actual: null, actualNote: "", correct: null,
-            source: "calendar",
-          });
-        }
-      }
-
-      // Keep prior calendar events that AI no longer lists, EXCEPT pure pending ones
-      // (pending = AI changed its mind / event resolved; non-pending = user has activity, keep)
-      for (const [key, prior] of calendarMap) {
-        if (incomingKeys.has(key)) continue;
-        if (prior.status === "pending") continue; // drop stale pending
-        merged.push(prior);
-      }
-
-      return [...manual, ...merged];
-    });
+    setNewsEvents(prev => mergeCalendarToNewsEvents(prev, calEvents));
   };
 
   // boot
