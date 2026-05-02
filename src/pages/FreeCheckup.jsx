@@ -2521,8 +2521,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   // ── 新增事件 ─────────────────────────────────────────────────────
   const addEvent = () => {
     if (!newEvent.title.trim() || !newEvent.date.trim()) return;
+    const id = `manual-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const evt = {
-      id: Date.now(),
+      id,
+      stableId: id,
       date: newEvent.date,
       status: "pending",
       title: newEvent.title,
@@ -2531,6 +2533,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       pred: newEvent.pred,
       predReason: newEvent.predReason,
       actual: null, actualNote: "", correct: null,
+      source: "manual",
     };
     setNewsEvents(prev => [...(prev || []), evt]);
     setNewEvent({ date: "", title: "", detail: "", stocks: "", pred: "up", predReason: "" });
