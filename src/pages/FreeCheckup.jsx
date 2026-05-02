@@ -3825,6 +3825,25 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   ? `來源：${srcLabel || '—'}　更新於 ${new Date(h.priceUpdatedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`
                   : '尚未同步即時報價';
 
+              // P4 a11y：卡片可讀標籤（決策/ROI/PnL）
+              const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal>=0?'+':''}${pctVal.toFixed(2)}%，損益 ${h.pnl>=0?'+':''}${Math.round(h.pnl||0).toLocaleString()}`;
+              const handleCardKeyDown = (e) => {
+                // Shift+Enter 直接開 drawer（取代 onDoubleClick 的鍵盤替代）
+                if (e.shiftKey && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  openHoldingDrawer(h.code);
+                }
+              };
+
+              // P8 actionText 智慧斷句：在限制長度內找最後一個標點
+              const truncateAction = (txt, limit) => {
+                if (!txt || txt.length <= limit) return txt;
+                const head = txt.slice(0, limit);
+                const m = head.match(/^(.*[。、，；！？,.;!?])[^。、，；！？,.;!?]*$/);
+                const cut = m ? m[1] : head.slice(0, limit - 2);
+                return cut + '…';
+              };
+
               // ─── Feature card (ink + span 2)：黑底，橘紅 ROI，五層雜誌排版 ───
               if (isInk && isFeatureSlot) {
                 return (
