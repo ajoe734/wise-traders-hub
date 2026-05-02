@@ -4139,7 +4139,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{padding:'18px 22px 24px'}}>
                     {/* Header */}
                     <div style={{marginBottom:18}}>
-                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.12em',marginBottom:6,fontWeight:500}}>持倉細節</div>
+                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.12em',marginBottom:6,fontWeight:500,display:'flex',alignItems:'center',gap:8}}>
+                        <span>持倉細節</span>
+                        {/^[03567]\d{5}$/.test(String(h.code || '')) && (
+                          <span style={{
+                            fontSize:9,letterSpacing:'0.08em',padding:'1px 6px',borderRadius:2,
+                            background:`${WB.accent}1A`,color:WB.accent,fontWeight:500,
+                          }}>權證 · 現價差估算</span>
+                        )}
+                      </div>
                       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
                         <span style={{fontSize:11,color:WB.inkMute,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
                         <span style={{fontSize:18,fontWeight:500,color:WB.ink,letterSpacing:'-0.005em'}}>{h.name}</span>
