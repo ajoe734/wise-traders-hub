@@ -533,6 +533,7 @@ export default function App() {
   // refresh prices
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [rtConnected, setRtConnected] = useState(false); // current_prices Realtime 連線狀態
   const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
   const [cooldownText, setCooldownText] = useState("");
   // 任務日誌：{ id, ts, task, status, attempt, detail } — 用於下載排錯
