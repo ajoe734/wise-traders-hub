@@ -15,7 +15,10 @@ import {
   buildPreviousPredictionReviewBlock,
   calculatePredictionScores,
   stripDailyAnalysisEmbeddedBlocks,
+  persistAnalysisToCloud,
+  flushPendingAnalyses,
 } from '../lib/dailyAnalysisRuntime.js'
+import { parseJsonArray, parseJsonObject } from '../lib/aiJsonRepair.js'
 import { normalizeAnalysisHistoryEntries, normalizeDailyReportEntry } from '../lib/reportUtils.js'
 import { flushKnowledgeHits } from '../lib/knowledgeBase.js'
 // Phase 3A.4 Step 1: store 直取 setter
