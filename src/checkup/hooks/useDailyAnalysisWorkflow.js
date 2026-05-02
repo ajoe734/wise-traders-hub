@@ -259,15 +259,23 @@ ${losers
               })
             ),
           })
-          const blindData = await blindResponse.json()
-          const blindText = blindData.content?.[0]?.text || ''
-          const jsonMatch =
-            blindText.match(/```json\s*([\s\S]*?)```/) || blindText.match(/\[[\s\S]*\]/)
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0])
-            if (Array.isArray(parsed)) blindPredictions = parsed
+          if (!blindResponse.ok) {
+            blindStatus = 'failed'
+          } else {
+            const blindData = await blindResponse.json()
+            const blindText = blindData.content?.[0]?.text || ''
+            const parsed = parseJsonArray(blindText)
+            if (parsed === null) {
+              blindStatus = 'parse_error'
+              console.warn('盲測 JSON 解析失敗（不影響主分析）')
+            } else if (parsed.length === 0) {
+              blindStatus = 'empty'
+            } else {
+              blindPredictions = parsed
+            }
           }
         } catch (blindError) {
+          blindStatus = 'failed'
           console.warn('盲測預測失敗（不影響主分析）:', blindError)
         }
 
