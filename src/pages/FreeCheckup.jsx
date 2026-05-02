@@ -1531,7 +1531,7 @@ export default function App() {
     if (!H || H.length === 0) return;
     if (isDemo) return; // DEMO 模式不打 sparkline edge（裝飾用，不影響資料完整性）
     const codes = H.map((h) => String(h.code).trim()).filter(Boolean);
-    const missing = codes.filter((c) => !sparklines[c]);
+    const missing = codes.filter((c) => !sparklines[c] && !sparklineErrors[c]);
     if (missing.length === 0) return;
     let cancelled = false;
     (async () => {
@@ -1540,8 +1540,23 @@ export default function App() {
           body: { codes: missing.slice(0, 30) },
           silent: true,
         }).catch(() => null);
-        if (cancelled || !data?.result) return;
+        if (cancelled) return;
+        if (!data?.result) {
+          // P3: 整批失敗，標記這些 code，避免下次又重試導致 UI 抖動
+          setSparklineErrors((prev) => {
+            const next = { ...prev };
+            missing.forEach((c) => { next[c] = true; });
+            return next;
+          });
+          return;
+        }
         setSparklines((prev) => ({ ...prev, ...data.result }));
+        // 部分成功時，沒拿到資料的 code 標記為失敗（顯示 "~"）
+        setSparklineErrors((prev) => {
+          const next = { ...prev };
+          missing.forEach((c) => { if (!data.result[c]) next[c] = true; });
+          return next;
+        });
       } catch {
         /* silent — sparkline 為非關鍵裝飾 */
       }
