@@ -7,6 +7,8 @@ import {
   getTradeBatchMode,
   normalizeTradeParseResult,
 } from '../lib/tradeParseUtils.js'
+import { parseJsonObject } from '../lib/aiJsonRepair.js'
+import { partitionUploadFiles, summarizeRejections } from '../lib/tradeUploadGuards.js'
 // Phase 3A.4 Step 1: store 直取 setter
 import { useHoldingsStore } from '../stores/holdingsStore.js'
 
