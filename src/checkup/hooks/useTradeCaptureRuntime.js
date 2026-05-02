@@ -49,6 +49,7 @@ export function useTradeCaptureRuntime({
   toSlashDate = () => new Date().toLocaleDateString('zh-TW'),
   flashSaved = () => {},
   afterSubmit = () => {},
+  isDemo = false,
 }) {
   const setHoldings = useHoldingsStore((s) => s.setHoldings)
   const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
