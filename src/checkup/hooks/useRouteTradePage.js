@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useTradeCaptureRuntime } from './useTradeCaptureRuntime.js'
 import { usePortfolioRouteContext } from '../pages/usePortfolioRouteContext.js'
+import { useCheckupMode } from '../contexts/CheckupModeContext.jsx'
 
 export function useRouteTradePage() {
   const {
@@ -16,6 +17,8 @@ export function useRouteTradePage() {
     flashSaved = () => {},
   } = usePortfolioRouteContext()
 
+  const { isDemo } = useCheckupMode()
+
   const tradeRuntime = useTradeCaptureRuntime({
     holdings,
     tradeLog,
@@ -27,6 +30,7 @@ export function useRouteTradePage() {
     createDefaultFundamentalDraft,
     toSlashDate,
     flashSaved,
+    isDemo,
   })
 
   return useMemo(() => tradeRuntime, [tradeRuntime])

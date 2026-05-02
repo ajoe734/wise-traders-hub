@@ -1046,6 +1046,8 @@ export function TradePanel({
   setMemoIn,
   memoStep,
   submitMemo,
+  undoLastSubmit,
+  hasUndoableSubmit,
   selectUpload,
   removeUpload,
   clearUploads,
@@ -1065,6 +1067,42 @@ export function TradePanel({
   return h(
     'div',
     null,
+    hasUndoableSubmit &&
+      h(
+        Card,
+        {
+          style: {
+            marginBottom: 10,
+            padding: '10px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderLeft: `2px solid ${alpha(C.accent || C.text, '60')}`,
+          },
+        },
+        h(
+          'div',
+          { style: { fontSize: 12, color: C.textSec } },
+          '剛寫入的成交可以撤銷'
+        ),
+        h(
+          Button,
+          {
+            onClick: undoLastSubmit,
+            style: {
+              padding: '6px 14px',
+              fontSize: 11,
+              border: `1px solid ${alpha(C.accent || C.text, '60')}`,
+              background: 'transparent',
+              color: C.accent || C.text,
+              borderRadius: 6,
+              cursor: 'pointer',
+              letterSpacing: '0.04em',
+            },
+          },
+          '↺ 撤銷'
+        )
+      ),
     h(UploadDropzone, {
       img,
       parsed,
