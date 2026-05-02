@@ -1216,8 +1216,8 @@ export default function App() {
     [holdings]
   );
   useEffect(() => {
-    if (isDemo) return; // demo 模式不訂閱
-    if (!_holdingsCodesKey) return;
+    if (isDemo) { setRtConnected(false); return; } // demo 模式不訂閱
+    if (!_holdingsCodesKey) { setRtConnected(false); return; }
     const codes = _holdingsCodesKey.split(',');
     const channel = supabase
       .channel('current-prices-fc')
@@ -1244,8 +1244,11 @@ export default function App() {
         }));
         setLastUpdate(new Date());
       })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      .subscribe((status) => {
+        // status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'
+        setRtConnected(status === 'SUBSCRIBED');
+      });
+    return () => { setRtConnected(false); supabase.removeChannel(channel); };
   }, [_holdingsCodesKey, isDemo]);
   // tradeLog 存到 Supabase — 改用「scoped delete + insert」並加 debounce/錯誤通知
   // 重要：原本 .delete().neq() 沒帶 user_id 篩選，僅靠 RLS 保護；改為明確 .eq('user_id', ...) 雙保險
