@@ -122,14 +122,22 @@ export const useEventStore = create((set, get) => ({
 
   getUrgentCount: () => {
     const events = asArr(get().newsEvents);
-    const today = new Date().toISOString().slice(0, 10);
-    return events.filter(e => e.status === 'pending' && e.eventDate === today).length;
+    const d = new Date();
+    const today = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    const isToday = (e) => [e?.date, e?.eventDate]
+      .filter(Boolean)
+      .some((v) => String(v).replace(/-/g, '/').slice(0, 10) === today);
+    return events.filter(e => e.status === 'pending' && isToday(e)).length;
   },
 
   getTodayAlertSummary: () => {
     const events = asArr(get().newsEvents);
-    const today = new Date().toISOString().slice(0, 10);
-    const todayEvents = events.filter(e => e.eventDate === today);
+    const d = new Date();
+    const today = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    const isToday = (e) => [e?.date, e?.eventDate]
+      .filter(Boolean)
+      .some((v) => String(v).replace(/-/g, '/').slice(0, 10) === today);
+    const todayEvents = events.filter(isToday);
     const pending = todayEvents.filter(e => e.status === 'pending').length;
     const tracking = todayEvents.filter(e => e.status === 'tracking').length;
 

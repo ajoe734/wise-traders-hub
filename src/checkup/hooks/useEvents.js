@@ -186,19 +186,35 @@ export const useEvents = ({
   }, [newsEvents])
 
   /**
+   * Today's date in YYYY/MM/DD (Taiwan format used by calendar events).
+   */
+  const todayYmd = useMemo(() => {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}/${m}/${day}`
+  }, [])
+
+  /** Match either e.date ('2026/05/02') or legacy e.eventDate (ISO '2026-05-02'). */
+  const isToday = (e) => {
+    const candidates = [e?.date, e?.eventDate].filter(Boolean)
+    return candidates.some((v) => String(v).replace(/-/g, '/').slice(0, 10) === todayYmd)
+  }
+
+  /**
    * Get urgent events (pending events today)
    */
   const urgentCount = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    return newsEvents.filter((e) => e.status === 'pending' && e.eventDate === today).length
-  }, [newsEvents])
+    return newsEvents.filter((e) => e.status === 'pending' && isToday(e)).length
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newsEvents, todayYmd])
 
   /**
    * Get today's alert summary
    */
   const todayAlertSummary = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    const todayEvents = newsEvents.filter((e) => e.eventDate === today)
+    const todayEvents = newsEvents.filter((e) => isToday(e))
     const pending = todayEvents.filter((e) => e.status === 'pending').length
     const tracking = todayEvents.filter((e) => e.status === 'tracking').length
 
@@ -206,7 +222,8 @@ export const useEvents = ({
     if (pending > 0) parts.push(`${pending} 待追蹤`)
     if (tracking > 0) parts.push(`${tracking} 進行中`)
     return parts.join(' · ') || '無事件'
-  }, [newsEvents])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newsEvents, todayYmd])
 
   // ── Decision System v6 ──
   const [userOverrides, setUserOverrides] = useState({})

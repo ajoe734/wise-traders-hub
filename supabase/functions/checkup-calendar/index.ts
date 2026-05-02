@@ -5,6 +5,8 @@ import { applyCoercion } from "../_shared/inputCoerce.ts";
 
 import { corsHeaders } from '../_shared/checkupCors.ts';
 import { fetchNewsForCode } from '../_shared/newsCache.ts';
+import { parseJsonArray } from '../_shared/jsonRepair.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 // Note: 'google/gemini-2.0-flash' is deprecated on the Gateway (returns 400). Use only supported models.
@@ -186,76 +188,77 @@ function buildAiFailure(attempts: AiAttempt[], fallbackError: string): AiFailure
   };
 }
 
-/* ── JSON parsing helpers ── */
-
-function extractJsonArray(text: string): string | null {
-  const start = text.indexOf('[');
-  if (start === -1) return null;
-  let depth = 0, inString = false, escape = false;
-  for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-    if (escape) { escape = false; continue; }
-    if (ch === '\\' && inString) { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === '[') depth++;
-    else if (ch === ']') { depth--; if (depth === 0) return text.substring(start, i + 1); }
-  }
-  return null;
-}
-
-function tryRepairTruncatedArray(text: string): any[] | null {
-  const start = text.indexOf('[');
-  if (start === -1) return null;
-  const sub = text.substring(start);
-  const lastCompleteObj = sub.lastIndexOf('}');
-  if (lastCompleteObj === -1) return null;
-  const candidate = sub.substring(0, lastCompleteObj + 1) + ']';
-  try {
-    const parsed = JSON.parse(candidate);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-  } catch {}
-  const trimmed = candidate.replace(/,\s*\]$/, ']');
-  try {
-    const parsed = JSON.parse(trimmed);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-  } catch {}
-  return null;
-}
+/* ── JSON parsing (delegated to shared module) ── */
 
 function tryParseEvents(text: string): any[] | null {
-  try {
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    return null;
-  } catch {}
-  const cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
-  const jsonStr = extractJsonArray(cleaned);
-  if (jsonStr) {
-    try {
-      const parsed = JSON.parse(jsonStr);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch {}
-  }
-  const jsonStr2 = extractJsonArray(text);
-  if (jsonStr2 && jsonStr2 !== jsonStr) {
-    try {
-      const parsed = JSON.parse(jsonStr2);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch {}
-  }
-  const repaired = tryRepairTruncatedArray(cleaned);
-  if (repaired) {
-    console.log(`Calendar: repaired truncated JSON, recovered ${repaired.length} events`);
-    return repaired;
-  }
-  return null;
+  const arr = parseJsonArray(text);
+  return arr && arr.length > 0 ? arr : null;
 }
 
-function classifyHoldings(stocks: string): { stockList: string; warrantList: string; parentStocks: string[] } {
+/* ── Stable ID generation ── */
+
+function makeStableId(label: string, date: string, type: string): string {
+  const code = String(label || '').match(/\d{4,6}/)?.[0] || 'na';
+  const t = String(type || 'event').replace(/[^\w\u4e00-\u9fa5]/g, '');
+  const d = String(date || '').trim();
+  let dn = 'tba';
+  const ymd = d.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  const ym = d.match(/(\d{4})\/(\d{1,2})月/);
+  const yq = d.match(/(\d{4})\s*Q([1-4])/i);
+  if (ymd) dn = `${ymd[1]}${ymd[2].padStart(2, '0')}${ymd[3].padStart(2, '0')}`;
+  else if (ym) dn = `${ym[1]}${ym[2].padStart(2, '0')}MM`;
+  else if (yq) dn = `${yq[1]}Q${yq[2]}`;
+  return `cal-${code}-${t}-${dn}`;
+}
+
+/* ── Warrant DB lookup ── */
+
+async function fetchWarrantExpiryEvents(warrantCodes: string[]): Promise<any[]> {
+  if (warrantCodes.length === 0) return [];
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    const { data, error } = await supabase
+      .from('warrant_expiry')
+      .select('symbol, name, expire_date')
+      .in('symbol', warrantCodes);
+    if (error) {
+      console.warn('[checkup-calendar] warrant_expiry query failed:', error.message);
+      return [];
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return (data || [])
+      .filter((row: any) => row.expire_date)
+      .map((row: any) => {
+        const d = new Date(row.expire_date);
+        if (Number.isNaN(d.getTime()) || d < today) return null;
+        const dateStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+        const daysAhead = Math.round((d.getTime() - today.getTime()) / 86400000);
+        const label = `${row.symbol} ${row.name || ''}`.trim();
+        return {
+          date: dateStr,
+          label,
+          sub: '權證到期日（系統資料）',
+          urgent: daysAhead <= 7,
+          type: '權證',
+          sources: ['warrant_expiry'],
+        };
+      })
+      .filter(Boolean);
+  } catch (err) {
+    console.warn('[checkup-calendar] warrant DB fetch error:', err);
+    return [];
+  }
+}
+
+function classifyHoldings(stocks: string): { stockList: string; warrantList: string; warrantCodes: string[]; parentStocks: string[] } {
   const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
   const stockItems: string[] = [];
   const warrantItems: string[] = [];
+  const warrantCodes: string[] = [];
   const parentStocks: string[] = [];
   for (const item of items) {
     const code = item.match(/^(\d+)/)?.[1] || '';
@@ -263,21 +266,41 @@ function classifyHoldings(stocks: string): { stockList: string; warrantList: str
     const isWarrant = code.length === 6 || /[購售牛熊]/.test(name);
     if (isWarrant) {
       warrantItems.push(item);
+      if (code.length === 6) warrantCodes.push(code);
       const brokerMatch = name.match(/^(.+?)(凱基|元大|富邦|群益|統一|國票|永豐|中信|日盛|兆豐|台新|玉山|永昌)/);
       if (brokerMatch?.[1]) parentStocks.push(brokerMatch[1]);
     } else {
       stockItems.push(item);
     }
   }
-  return { stockList: stockItems.join('、'), warrantList: warrantItems.join('、'), parentStocks: [...new Set(parentStocks)] };
+  return {
+    stockList: stockItems.join('、'),
+    warrantList: warrantItems.join('、'),
+    warrantCodes: [...new Set(warrantCodes)],
+    parentStocks: [...new Set(parentStocks)],
+  };
 }
 
-function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string, newsContext: string): string {
-  const { stockList, warrantList, parentStocks } = classifyHoldings(stocks);
-  
+function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string, newsContext: string, dbCoveredWarrants: Set<string>): string {
+  const { stockList, warrantList, parentStocks, warrantCodes } = classifyHoldings(stocks);
+
+  // Filter out warrants already covered by warrant_expiry table
+  const remainingWarrants = warrantCodes.filter(c => !dbCoveredWarrants.has(c));
+  const warrantListFiltered = remainingWarrants.length === 0
+    ? ''
+    : warrantList.split('、')
+        .filter(item => {
+          const code = item.match(/^(\d+)/)?.[1] || '';
+          return !dbCoveredWarrants.has(code);
+        })
+        .join('、');
+
   let holdingsSection = '';
   if (stockList) holdingsSection += `## 股票持倉\n${stockList}\n\n`;
-  if (warrantList) holdingsSection += `## 權證持倉（僅需列出「到期日」事件，不需要列出營收/財報/法說/除息/股東會）\n${warrantList}\n\n`;
+  if (dbCoveredWarrants.size > 0) {
+    holdingsSection += `## 已由系統補齊到期日的權證（請勿重複列出，共 ${dbCoveredWarrants.size} 檔）\n${[...dbCoveredWarrants].join('、')}\n\n`;
+  }
+  if (warrantListFiltered) holdingsSection += `## 權證持倉（僅需列出「到期日」事件，不需要列出營收/財報/法說/除息/股東會）\n${warrantListFiltered}\n\n`;
   if (parentStocks.length > 0) {
     const parentInfo = parentStocks.filter(p => !stockList.includes(p));
     if (parentInfo.length > 0) {
@@ -373,12 +396,21 @@ Deno.serve(async (req) => {
 - type 只能用：法說、財報、營收、催化、操作、總經、除息、權證
 - 按日期由近到遠排序`;
 
-    // Fetch news context via RSS
-    console.log('Calendar: fetching news context via RSS...');
-    const newsContext = await fetchNewsContext(stocks);
-    console.log(`Calendar: got ${newsContext.split('\n').length} news items`);
+    // Fetch news context via RSS + warrant expiry from DB (parallel)
+    console.log('Calendar: fetching news context + warrant DB...');
+    const { warrantCodes } = classifyHoldings(stocks);
+    const [newsContext, dbWarrantEvents] = await Promise.all([
+      fetchNewsContext(stocks),
+      fetchWarrantExpiryEvents(warrantCodes),
+    ]);
+    console.log(`Calendar: news=${newsContext.split('\n').length}, dbWarrants=${dbWarrantEvents.length}`);
+    const dbCoveredWarrants = new Set<string>(
+      dbWarrantEvents
+        .map((e: any) => String(e.label || '').match(/^(\d{4,6})/)?.[1] || '')
+        .filter(Boolean),
+    );
 
-    const prompt = buildPrompt(stocks, today, endDate, outputFormat, newsContext);
+    const prompt = buildPrompt(stocks, today, endDate, outputFormat, newsContext, dbCoveredWarrants);
 
     const todayIso = new Date().toISOString().split('T')[0];
     const systemPrompt = `你是一位頂級 AI 財經分析師，精通台股市場。今天是 ${todayIso}（西元 ${new Date().getFullYear()} 年）。你會根據提供的即時新聞資訊和你的知識，整理出未來事件行事曆。
@@ -390,25 +422,42 @@ Deno.serve(async (req) => {
     const result = await callAI(systemPrompt, prompt, 8192);
     const debugInfo = debugMode ? { attempts: result.attempts, succeededWith: result.succeededWith } : undefined;
 
+    function attachStableIds(events: any[]): any[] {
+      return events.map((e: any) => ({
+        ...e,
+        stableId: e?.stableId || makeStableId(e?.label || '', e?.date || '', e?.type || ''),
+      }));
+    }
+
     if (result.ok && result.text) {
-      const events = tryParseEvents(result.text);
-      if (events) {
-        console.log(`Calendar: succeeded, ${events.length} events`);
-        return new Response(
-          JSON.stringify({
-            text: JSON.stringify(events),
-            response: JSON.stringify(events),
-            ...(debugInfo ? { debug: debugInfo } : {}),
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
-      }
-      console.error('Calendar: parse failed. First 500:', result.text.slice(0, 500));
+      const aiEvents = tryParseEvents(result.text) || [];
+      const merged = attachStableIds([...dbWarrantEvents, ...aiEvents]);
+      // De-duplicate by stableId (DB events first → AI duplicates dropped)
+      const seen = new Set<string>();
+      const deduped = merged.filter((e: any) => {
+        if (seen.has(e.stableId)) return false;
+        seen.add(e.stableId);
+        return true;
+      });
+      console.log(`Calendar: ${deduped.length} events (${dbWarrantEvents.length} from DB, ${aiEvents.length} from AI, ${merged.length - deduped.length} dups dropped)`);
+      return new Response(
+        JSON.stringify({
+          text: JSON.stringify(deduped),
+          response: JSON.stringify(deduped),
+          ...(debugInfo ? { debug: debugInfo } : {}),
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // AI failed but we may still have DB warrants
+    if (dbWarrantEvents.length > 0) {
+      const dbOnly = attachStableIds(dbWarrantEvents);
+      console.log(`Calendar: AI failed, returning ${dbOnly.length} DB-only warrant events`);
       return new Response(JSON.stringify({
-        ...buildAiFailure(result.attempts, '行事曆結果解析失敗，已略過本次搜尋'),
-        text: '[]',
-        response: '[]',
-        ...(debugInfo ? { debug: { ...debugInfo, parseFailed: true, rawTextSample: result.text.slice(0, 500) } } : {}),
+        text: JSON.stringify(dbOnly),
+        response: JSON.stringify(dbOnly),
+        ...(debugInfo ? { debug: { ...debugInfo, aiFailed: true } } : {}),
       }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

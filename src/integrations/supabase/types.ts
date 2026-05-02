@@ -2238,6 +2238,30 @@ export type Database = {
         }
         Relationships: []
       }
+      warrant_expiry: {
+        Row: {
+          expire_date: string | null
+          fetched_at: string
+          name: string | null
+          parent_code: string | null
+          symbol: string
+        }
+        Insert: {
+          expire_date?: string | null
+          fetched_at?: string
+          name?: string | null
+          parent_code?: string | null
+          symbol: string
+        }
+        Update: {
+          expire_date?: string | null
+          fetched_at?: string
+          name?: string | null
+          parent_code?: string | null
+          symbol?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       checkup_knowledge_usage_stats: {

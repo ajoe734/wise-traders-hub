@@ -1000,54 +1000,94 @@ export default function App() {
   // ── 將行事曆事件自動同步至事件分析 ──────────────────────────────
   const syncCalendarToNews = (calEvents) => {
     if (!calEvents || !Array.isArray(calEvents)) return;
+
+    // Stable ID — must match server-side makeStableId in checkup-calendar
+    const computeStableId = (label, date, type) => {
+      const code = String(label || "").match(/\d{4,6}/)?.[0] || "na";
+      const t = String(type || "event").replace(/[^\w\u4e00-\u9fa5]/g, "");
+      const d = String(date || "").trim();
+      let dn = "tba";
+      const ymd = d.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+      const ym = d.match(/(\d{4})\/(\d{1,2})月/);
+      const yq = d.match(/(\d{4})\s*Q([1-4])/i);
+      if (ymd) dn = `${ymd[1]}${ymd[2].padStart(2, "0")}${ymd[3].padStart(2, "0")}`;
+      else if (ym) dn = `${ym[1]}${ym[2].padStart(2, "0")}MM`;
+      else if (yq) dn = `${yq[1]}Q${yq[2]}`;
+      return `cal-${code}-${t}-${dn}`;
+    };
+
     setNewsEvents(prev => {
       const existing = prev || [];
 
-      const makeKey = (label, date) => {
-        const code = (label || "").match(/\d{4}/)?.[0] || "";
-        const d = (date || "").replace(/[^\d]/g, "").slice(0, 8);
-        const keywords = ["法說","財報","營收","除息","催化","配息","股利","展望","獲利"];
-        const kw = keywords.find(k => (label || "").includes(k)) || "event";
-        return `${code}-${kw}-${d}`;
-      };
+      // Index existing calendar events by stableId (compute one if missing — handles legacy data)
+      const calendarMap = new Map();
+      const manual = [];
+      for (const e of existing) {
+        if (e.source === "calendar") {
+          const key = e.stableId || computeStableId(e.title, e.date, e.type);
+          calendarMap.set(key, { ...e, stableId: key });
+        } else {
+          manual.push(e);
+        }
+      }
 
-      // 1) 移除舊的行事曆同步項目（source === "calendar"），只保留手動或其他來源
-      const manual = existing.filter(e => e.source !== "calendar");
+      const incomingKeys = new Set();
+      const merged = [];
 
-      // 2) 對手動項目建立去重 set
-      const seenKeys = new Map();
-      manual.forEach(e => {
-        const key = makeKey(e.title, e.date);
-        if (key && key !== "--event-") seenKeys.set(key, true);
-      });
+      for (const ce of calEvents) {
+        if (!ce.label) continue;
+        const key = ce.stableId || computeStableId(ce.label, ce.date, ce.type);
+        if (incomingKeys.has(key)) continue; // de-dup within incoming
+        incomingKeys.add(key);
 
-      // 3) 新增不重複的行事曆事件，標記 source
-      const newEntries = calEvents
-        .filter(ce => {
-          if (!ce.label) return false;
-          const key = makeKey(ce.label, ce.date);
-          if (seenKeys.has(key)) return false;
-          seenKeys.set(key, true);
-          return true;
-        })
-        .map(ce => {
-          const codeMatch = ce.label.match(/\d{4}/);
-          return {
-            id: Date.now() + Math.random(),
-            date: ce.date || "",
-            title: ce.label,
-            detail: ce.sub || "",
-            stocks: codeMatch
-              ? [{ code: codeMatch[0], name: ce.label.replace(/\d{4}/, "").replace(/[—\-\s]+/g, " ").trim() }]
-              : [],
+        const codeMatch = String(ce.label).match(/\d{4,6}/);
+        const aiPart = {
+          date: ce.date || "",
+          title: ce.label,
+          detail: ce.sub || "",
+          stocks: codeMatch
+            ? [{ code: codeMatch[0], name: String(ce.label).replace(/\d{4,6}/, "").replace(/[—\-\s]+/g, " ").trim() }]
+            : [],
+          type: ce.type || "",
+        };
+
+        const prior = calendarMap.get(key);
+        if (prior) {
+          // User has reviewed — preserve their pred/predReason too
+          const userReviewed = prior.actual != null || (prior.lessons && String(prior.lessons).trim() !== "");
+          merged.push({
+            ...prior,
+            ...aiPart,
+            // Never downgrade status (tracking/verifying/closed/past stay)
+            status: prior.status || "pending",
+            pred: userReviewed ? prior.pred : (ce.pred || prior.pred || "neutral"),
+            predReason: userReviewed ? prior.predReason : (ce.predReason || prior.predReason || ""),
+            stableId: key,
+            source: "calendar",
+          });
+        } else {
+          merged.push({
+            id: key,
+            stableId: key,
+            ...aiPart,
             pred: ce.pred || "neutral",
             predReason: ce.predReason || "",
             status: "pending",
             actual: null, actualNote: "", correct: null,
             source: "calendar",
-          };
-        });
-      return [...manual, ...newEntries];
+          });
+        }
+      }
+
+      // Keep prior calendar events that AI no longer lists, EXCEPT pure pending ones
+      // (pending = AI changed its mind / event resolved; non-pending = user has activity, keep)
+      for (const [key, prior] of calendarMap) {
+        if (incomingKeys.has(key)) continue;
+        if (prior.status === "pending") continue; // drop stale pending
+        merged.push(prior);
+      }
+
+      return [...manual, ...merged];
     });
   };
 
@@ -2481,8 +2521,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
   // ── 新增事件 ─────────────────────────────────────────────────────
   const addEvent = () => {
     if (!newEvent.title.trim() || !newEvent.date.trim()) return;
+    const id = `manual-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const evt = {
-      id: Date.now(),
+      id,
+      stableId: id,
       date: newEvent.date,
       status: "pending",
       title: newEvent.title,
@@ -2491,6 +2533,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       pred: newEvent.pred,
       predReason: newEvent.predReason,
       actual: null, actualNote: "", correct: null,
+      source: "manual",
     };
     setNewsEvents(prev => [...(prev || []), evt]);
     setNewEvent({ date: "", title: "", detail: "", stocks: "", pred: "up", predReason: "" });
