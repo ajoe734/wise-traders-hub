@@ -1950,7 +1950,6 @@ export default function App() {
       try {
         await supabase.functions.invoke('stock-price-sync', {
           body: { force: true },
-          }).catch(() => {});
         }).catch(() => {});
       } catch {}
 
