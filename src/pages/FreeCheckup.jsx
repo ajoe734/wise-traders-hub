@@ -3383,8 +3383,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{
                       fontSize: 11, color: WB.inkMute, letterSpacing: '0.04em',
                       fontVariantNumeric: 'tabular-nums',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
                     }}>
-                      Updated {dateStr} {timeStr}
+                      <span style={{
+                        display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+                        background: rtConnected ? WB.accent : WB.inkLight,
+                        opacity: rtConnected ? 1 : 0.5,
+                        boxShadow: rtConnected ? `0 0 0 2px ${WB.accent}22` : 'none',
+                        transition: 'all 0.3s ease',
+                      }} />
+                      <span>{rtConnected ? '即時' : (isDemo ? 'DEMO' : '離線')}</span>
+                      <span style={{ color: WB.inkLight }}>·</span>
+                      <span>
+                        {lastUpdate
+                          ? lastUpdate.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+                          : `${dateStr} ${timeStr}`}
+                      </span>
                     </div>
                     {pendingCount > 0 && (
                       <div style={{
