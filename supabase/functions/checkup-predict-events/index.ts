@@ -230,27 +230,59 @@ async function fetchRelevantKnowledge(supabase: any, eventTags: string[]): Promi
   } catch (err) { console.error('Knowledge fetch error:', err); return ''; }
 }
 
-/* ── Accuracy stats ── */
+/* ── Accuracy stats (15-min cache) ── */
+
+const ACCURACY_CACHE_KEY = 'accuracy-stats-cache-v1';
+const ACCURACY_CACHE_TTL_MS = 15 * 60 * 1000;
+const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
 
 async function fetchAccuracyStats(supabase: any): Promise<string> {
+  // 1) Try cache
+  try {
+    const { data } = await supabase
+      .from('checkup_storage')
+      .select('data, updated_at')
+      .eq('user_id', SYSTEM_UID)
+      .eq('key', ACCURACY_CACHE_KEY)
+      .maybeSingle();
+    if (data?.updated_at) {
+      const age = Date.now() - new Date(data.updated_at as string).getTime();
+      if (age < ACCURACY_CACHE_TTL_MS && typeof (data as any).data?.text === 'string') {
+        console.log(`[accuracy] cache hit (age=${Math.round(age / 1000)}s)`);
+        return (data as any).data.text;
+      }
+    }
+  } catch { /* ignore */ }
+
+  // 2) Compute
+  let text = '';
   try {
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase.from('checkup_prediction_accuracy')
       .select('event_type, was_correct').gte('reviewed_at', ninetyDaysAgo);
-    if (!data || data.length < 3) return '';
-    const stats: Record<string, { total: number; correct: number }> = {};
-    let totalAll = 0, correctAll = 0;
-    for (const row of data) {
-      totalAll++; if (row.was_correct) correctAll++;
-      const type = row.event_type || '其他';
-      if (!stats[type]) stats[type] = { total: 0, correct: 0 };
-      stats[type].total++; if (row.was_correct) stats[type].correct++;
+    if (data && data.length >= 3) {
+      const stats: Record<string, { total: number; correct: number }> = {};
+      let totalAll = 0, correctAll = 0;
+      for (const row of data) {
+        totalAll++; if (row.was_correct) correctAll++;
+        const type = row.event_type || '其他';
+        if (!stats[type]) stats[type] = { total: 0, correct: 0 };
+        stats[type].total++; if (row.was_correct) stats[type].correct++;
+      }
+      const overallRate = Math.round((correctAll / totalAll) * 100);
+      const typeLines = Object.entries(stats).filter(([, s]) => s.total >= 2)
+        .map(([type, s]) => `${type}: ${Math.round((s.correct / s.total) * 100)}% (${s.correct}/${s.total})`).join('、');
+      text = `\n# 歷史預測表現（近90天）\n命中率: ${overallRate}% (${correctAll}/${totalAll})\n${typeLines || '樣本不足'}\n`;
     }
-    const overallRate = Math.round((correctAll / totalAll) * 100);
-    const typeLines = Object.entries(stats).filter(([, s]) => s.total >= 2)
-      .map(([type, s]) => `${type}: ${Math.round((s.correct / s.total) * 100)}% (${s.correct}/${s.total})`).join('、');
-    return `\n# 歷史預測表現（近90天）\n命中率: ${overallRate}% (${correctAll}/${totalAll})\n${typeLines || '樣本不足'}\n`;
-  } catch { return ''; }
+  } catch { /* ignore */ }
+
+  // 3) Fire-and-forget cache write
+  supabase.from('checkup_storage').upsert(
+    { user_id: SYSTEM_UID, key: ACCURACY_CACHE_KEY, data: { text }, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id,key' },
+  ).then(() => {}, (err: any) => console.warn('[accuracy] cache write failed:', err));
+
+  return text;
 }
 
 function extractEventTags(events: any[]): string[] {
