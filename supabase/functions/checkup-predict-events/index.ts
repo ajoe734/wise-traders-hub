@@ -5,6 +5,7 @@ import { validateInput, validationResponse } from "../_shared/inputValidator.ts"
 import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 
 import { corsHeaders } from '../_shared/checkupCors.ts';
+import { fetchNewsForCodes } from '../_shared/newsCache.ts';
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 // Note: 'google/gemini-2.0-flash' is deprecated on the Gateway. Use only supported models.
@@ -320,37 +321,19 @@ function extractEventTags(events: any[]): string[] {
   return [...tags];
 }
 
-/* ── RSS news fetcher ── */
-
-function decodeHtml(value: string) {
-  return String(value || '').replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-function pickTag(block: string, tag: string) {
-  const match = block.match(new RegExp(`<${tag}(?:[^>]*)>([\\s\\S]*?)<\\/${tag}>`, 'i'));
-  return decodeHtml(match?.[1] || '');
-}
+/* ── News fetcher (uses shared cache) ── */
 
 async function fetchNewsForStocks(codes: string[]): Promise<string> {
-  // Limit to 5 codes and run in parallel with a hard 3s timeout each to avoid edge runtime CPU/time exhaustion
+  // Limit to 5 codes; each call goes through the shared 5-min news cache.
   const targets = codes.slice(0, 5);
-  const tasks = targets.map(async (code) => {
-    try {
-      const url = `https://news.google.com/rss/search?q=${encodeURIComponent(code + ' 台股')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3000);
-      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'portfolio-dashboard/1.0' } });
-      clearTimeout(timer);
-      const xml = await res.text();
-      const items = Array.from(xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)).map(m => m[0]).slice(0, 2);
-      return items.map(item => `- ${pickTag(item, 'title')} (${pickTag(item, 'source')})`);
-    } catch {
-      return [];
+  const map = await fetchNewsForCodes(targets);
+  const allNews: string[] = [];
+  for (const code of targets) {
+    const items = (map.get(code) || []).slice(0, 2); // predict-events only needs 2 per code
+    for (const item of items) {
+      allNews.push(`- ${item.title} (${item.source})`);
     }
-  });
-  const results = await Promise.all(tasks);
-  const allNews = results.flat();
+  }
   return allNews.length > 0 ? allNews.join('\n') : '（無即時新聞）';
 }
 

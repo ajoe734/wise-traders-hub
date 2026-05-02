@@ -4,75 +4,34 @@ import { validateInput, validationResponse } from "../_shared/inputValidator.ts"
 import { applyCoercion } from "../_shared/inputCoerce.ts";
 
 import { corsHeaders } from '../_shared/checkupCors.ts';
+import { fetchNewsForCode } from '../_shared/newsCache.ts';
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 // Note: 'google/gemini-2.0-flash' is deprecated on the Gateway (returns 400). Use only supported models.
 const GATEWAY_MODELS = ['google/gemini-3-flash-preview', 'google/gemini-2.5-flash', 'google/gemini-2.5-flash-lite'];
 
-/* ── RSS helpers ── */
-
-function decodeHtml(value: string) {
-  return String(value || '')
-    .replace(/<!\[CDATA\[|\]\]>/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function pickTag(block: string, tag: string) {
-  const match = block.match(new RegExp(`<${tag}(?:[^>]*)>([\\s\\S]*?)<\\/${tag}>`, 'i'));
-  return decodeHtml(match?.[1] || '');
-}
-
-function parseRssItems(xml: string) {
-  return Array.from(String(xml || '').matchAll(/<item\b[\s\S]*?<\/item>/gi))
-    .map(m => m[0])
-    .map(item => ({
-      title: pickTag(item, 'title'),
-      link: pickTag(item, 'link'),
-      pubDate: pickTag(item, 'pubDate'),
-      description: pickTag(item, 'description'),
-      source: pickTag(item, 'source'),
-    }));
-}
-
-async function fetchNewsRSS(query: string, timeoutMs = 8000): Promise<string> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'portfolio-dashboard/1.0', 'Accept': 'application/rss+xml, text/xml;q=0.9' },
-    });
-    if (!res.ok) throw new Error(`RSS failed (${res.status})`);
-    return await res.text();
-  } finally {
-    clearTimeout(timer);
-  }
-}
+/* ── News context (uses shared cache) ── */
 
 async function fetchNewsContext(stocks: string): Promise<string> {
-  const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
-  const queries = items.slice(0, 10).map(item => {
-    const code = item.match(/^(\d{4,6})/)?.[1] || '';
-    const name = item.replace(/^\d+\s*/, '').trim();
-    return `${code} ${name} 台股 法說 財報 除息 營收 股東會`;
-  });
+  const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean).slice(0, 10);
+  const codes = items
+    .map(item => item.match(/^(\d{4,6})/)?.[1] || '')
+    .filter(Boolean);
 
   const allNews: string[] = [];
-  for (const q of queries) {
+  // Parallel via shared cache (5min TTL); cache hits are essentially free.
+  await Promise.all(codes.map(async (code) => {
     try {
-      const xml = await fetchNewsRSS(q);
-      const rssItems = parseRssItems(xml).slice(0, 5);
-      for (const item of rssItems) {
+      const newsItems = await fetchNewsForCode(code, {
+        queryHint: '台股 法說 財報 除息 營收 股東會',
+      });
+      for (const item of newsItems.slice(0, 5)) {
         allNews.push(`- [${item.pubDate || ''}] ${item.title} (${item.source})`);
       }
     } catch (err) {
-      console.error(`RSS fetch error for "${q}":`, err);
+      console.error(`[checkup-calendar] news fetch error for ${code}:`, err);
     }
-    await new Promise(r => setTimeout(r, 300));
-  }
+  }));
 
   if (allNews.length === 0) return '（無法取得即時新聞資訊）';
   return allNews.join('\n');
