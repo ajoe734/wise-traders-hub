@@ -3794,6 +3794,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const isActive = selectedCode === h.code;
               const pctVal = h.pct ?? 0;
               const sparkData = sparklines[h.code] || [];
+              const sparkFailed = !!sparklineErrors[h.code]; // P3: 同步失敗（區分「無資料」與「失敗」）
 
               // ── Workbench 配色：feature card 採 ink 黑底；其餘白底 ──
               const isInk = variant === 'ink';
