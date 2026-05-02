@@ -322,34 +322,32 @@ ${losers
         } else {
           const displayText = rawInsight
           const eventMatch = displayText.match(
-            /## 📋 EVENT_ASSESSMENTS[\s\S]*?```json\s*([\s\S]*?)```/
+            /## 📋 EVENT_ASSESSMENTS([\s\S]*?)(?=## 🧬 BRAIN_UPDATE|$)/
           )
           if (eventMatch) {
-            try {
-              const assessments = JSON.parse(eventMatch[1].trim())
-              if (Array.isArray(assessments)) eventAssessments = assessments
-            } catch (parseError) {
-              console.warn('事件評估 JSON 解析失敗:', parseError)
+            const assessments = parseJsonArray(eventMatch[1])
+            if (assessments) {
+              eventAssessments = assessments
+            } else {
+              console.warn('事件評估 JSON 解析失敗（已嘗試修復）')
             }
           }
 
-          const brainMatch = displayText.match(/## 🧬 BRAIN_UPDATE[\s\S]*?```json\s*([\s\S]*?)```/)
+          const brainMatch = displayText.match(/## 🧬 BRAIN_UPDATE([\s\S]*?)$/)
           if (brainMatch) {
-            try {
-              const brainJson = JSON.parse(brainMatch[1].trim())
-              if (brainJson && typeof brainJson === 'object' && brainJson.rules) {
-                brainAudit = ensureBrainAuditCoverage(brainJson, strategyBrain)
-                brainAudit = enforceTaiwanHardGatesOnBrainAudit(brainAudit, strategyBrain, {
-                  dossiers: analysisDossiers,
-                  defaultLastValidatedAt: today,
-                })
-                const newBrain = mergeBrainWithAuditLifecycle(brainJson, strategyBrain, brainAudit)
-                finalBrainForValidation = newBrain
-                setStrategyBrain(newBrain)
-                brainUpdatedInline = true
-              }
-            } catch (parseError) {
-              console.warn('大腦更新 JSON 解析失敗:', parseError)
+            const brainJson = parseJsonObject(brainMatch[1])
+            if (brainJson && brainJson.rules) {
+              brainAudit = ensureBrainAuditCoverage(brainJson, strategyBrain)
+              brainAudit = enforceTaiwanHardGatesOnBrainAudit(brainAudit, strategyBrain, {
+                dossiers: analysisDossiers,
+                defaultLastValidatedAt: today,
+              })
+              const newBrain = mergeBrainWithAuditLifecycle(brainJson, strategyBrain, brainAudit)
+              finalBrainForValidation = newBrain
+              setStrategyBrain(newBrain)
+              brainUpdatedInline = true
+            } else {
+              console.warn('大腦更新 JSON 解析失敗或缺少 rules（已嘗試修復）')
             }
           }
 
@@ -374,17 +372,14 @@ ${losers
         blindPredictions,
         predictionScores,
         brainAudit,
+        meta: { blindStatus },
       })
 
       setDailyReport(normalizeDailyReportEntry(report))
       setAnalysisHistory((prev) => normalizeAnalysisHistoryEntries([report, ...(prev || [])]))
 
       if (canUseCloud) {
-        fetch(API_ENDPOINTS.BRAIN, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'save-analysis', data: report }),
-        }).catch(() => {})
+        persistAnalysisToCloud(API_ENDPOINTS.BRAIN, report).catch(() => {})
       }
 
       if (aiInsight && !brainUpdatedInline) {
