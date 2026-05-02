@@ -318,12 +318,50 @@ async function fetchNewsForStocks(codes: string[]): Promise<string> {
   return allNews.length > 0 ? allNews.join('\n') : '（無即時新聞）';
 }
 
-/** Fetch real-time quotes from TWSE MIS API */
-async function fetchRealtimeQuotes(codes: string[]): Promise<Map<string, any>> {
+/** Fetch real-time quotes — DB (current_prices) first, then TWSE MIS for misses. */
+async function fetchRealtimeQuotes(supabase: any, codes: string[]): Promise<Map<string, any>> {
   const result = new Map<string, any>();
   if (!codes.length) return result;
   const unique = [...new Set(codes)];
-  const exCh = unique.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]).join('|');
+
+  // 1) DB first
+  const FRESH_MS = 5 * 60 * 1000;
+  try {
+    const { data } = await supabase
+      .from('current_prices')
+      .select('symbol, name, price, yesterday_close, change_percent, volume, high_price, low_price, open_price, pushed_at')
+      .in('symbol', unique);
+    const now = Date.now();
+    for (const row of (data || [])) {
+      const ts = row.pushed_at ? new Date(row.pushed_at as string).getTime() : 0;
+      if (!ts || now - ts > FRESH_MS) continue;
+      const price = row.price != null ? Number(row.price) : null;
+      const y = row.yesterday_close != null ? Number(row.yesterday_close) : null;
+      const cp = row.change_percent != null
+        ? Number(row.change_percent)
+        : (price != null && y != null && y > 0 ? Math.round((price - y) / y * 10000) / 100 : 0);
+      result.set(row.symbol, {
+        code: row.symbol,
+        name: row.name || '',
+        price,
+        yesterdayClose: y,
+        changePercent: cp,
+        volume: Number(row.volume) || 0,
+        high: row.high_price != null ? Number(row.high_price) : null,
+        low: row.low_price != null ? Number(row.low_price) : null,
+        open: row.open_price != null ? Number(row.open_price) : null,
+      });
+    }
+    if (result.size > 0) console.log(`[quotes] DB hit ${result.size}/${unique.length}`);
+  } catch (err) {
+    console.warn('[quotes] DB read failed:', err);
+  }
+
+  // 2) TWSE MIS for misses
+  const missing = unique.filter(c => !result.has(c));
+  if (missing.length === 0) return result;
+
+  const exCh = missing.flatMap(c => [`tse_${c}.tw`, `otc_${c}.tw`]).join('|');
   try {
     const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(exCh)}&json=1&delay=0&_=${Date.now()}`;
     const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
@@ -334,11 +372,16 @@ async function fetchRealtimeQuotes(codes: string[]): Promise<Map<string, any>> {
       const h = parseFloat(item.h), l = parseFloat(item.l), o = parseFloat(item.o);
       const price = !isNaN(z) && z > 0 ? z : (!isNaN(h) && h > 0 && v > 0 ? h : y);
       const changePercent = !isNaN(y) && y > 0 && !isNaN(price) ? ((price - y) / y * 100) : 0;
-      result.set(item.c, { code: item.c, name: item.n || '', price: isNaN(price) ? null : price,
+      result.set(item.c, {
+        code: item.c, name: item.n || '', price: isNaN(price) ? null : price,
         yesterdayClose: isNaN(y) ? null : y, changePercent: Math.round(changePercent * 100) / 100,
-        volume: v, high: isNaN(h) ? null : h, low: isNaN(l) ? null : l, open: isNaN(o) ? null : o });
+        volume: v, high: isNaN(h) ? null : h, low: isNaN(l) ? null : l, open: isNaN(o) ? null : o,
+      });
     }
-  } catch (err) { console.error('Fetch quotes error:', err); }
+    console.log(`[quotes] TWSE filled ${unique.length - missing.length + (result.size - (unique.length - missing.length))}/${unique.length} (after fallback)`);
+  } catch (err) {
+    console.error('[quotes] TWSE MIS error:', err);
+  }
   return result;
 }
 
