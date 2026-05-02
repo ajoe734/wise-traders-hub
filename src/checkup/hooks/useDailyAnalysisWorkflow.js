@@ -130,6 +130,7 @@ export function useDailyAnalysisWorkflow({
       let finalBrainForValidation = normalizeStrategyBrain(strategyBrain, { allowEmpty: true })
       let analysisDossiers = []
       let blindPredictions = []
+      let blindStatus = 'ok' // 'ok' | 'failed' | 'empty' | 'parse_error'
 
       try {
         const dailyDossiers = buildAnalysisDossiers({ changes, dossierByCode })
