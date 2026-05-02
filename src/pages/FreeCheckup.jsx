@@ -533,6 +533,7 @@ export default function App() {
   // refresh prices
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [rtConnected, setRtConnected] = useState(false); // current_prices Realtime 連線狀態
   const REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
   const [cooldownText, setCooldownText] = useState("");
   // 任務日誌：{ id, ts, task, status, attempt, detail } — 用於下載排錯
@@ -1215,8 +1216,8 @@ export default function App() {
     [holdings]
   );
   useEffect(() => {
-    if (isDemo) return; // demo 模式不訂閱
-    if (!_holdingsCodesKey) return;
+    if (isDemo) { setRtConnected(false); return; } // demo 模式不訂閱
+    if (!_holdingsCodesKey) { setRtConnected(false); return; }
     const codes = _holdingsCodesKey.split(',');
     const channel = supabase
       .channel('current-prices-fc')
@@ -1243,8 +1244,11 @@ export default function App() {
         }));
         setLastUpdate(new Date());
       })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      .subscribe((status) => {
+        // status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'
+        setRtConnected(status === 'SUBSCRIBED');
+      });
+    return () => { setRtConnected(false); supabase.removeChannel(channel); };
   }, [_holdingsCodesKey, isDemo]);
   // tradeLog 存到 Supabase — 改用「scoped delete + insert」並加 debounce/錯誤通知
   // 重要：原本 .delete().neq() 沒帶 user_id 篩選，僅靠 RLS 保護；改為明確 .eq('user_id', ...) 雙保險
@@ -1946,7 +1950,6 @@ export default function App() {
       try {
         await supabase.functions.invoke('stock-price-sync', {
           body: { force: true },
-          // @ts-ignore - 走 query string 傳 force
         }).catch(() => {});
       } catch {}
 
@@ -3379,8 +3382,22 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <div style={{
                       fontSize: 11, color: WB.inkMute, letterSpacing: '0.04em',
                       fontVariantNumeric: 'tabular-nums',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
                     }}>
-                      Updated {dateStr} {timeStr}
+                      <span style={{
+                        display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+                        background: rtConnected ? WB.accent : WB.inkLight,
+                        opacity: rtConnected ? 1 : 0.5,
+                        boxShadow: rtConnected ? `0 0 0 2px ${WB.accent}22` : 'none',
+                        transition: 'all 0.3s ease',
+                      }} />
+                      <span>{rtConnected ? '即時' : (isDemo ? 'DEMO' : '離線')}</span>
+                      <span style={{ color: WB.inkLight }}>·</span>
+                      <span>
+                        {lastUpdate
+                          ? lastUpdate.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+                          : `${dateStr} ${timeStr}`}
+                      </span>
                     </div>
                     {pendingCount > 0 && (
                       <div style={{
@@ -4121,7 +4138,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   <div style={{padding:'18px 22px 24px'}}>
                     {/* Header */}
                     <div style={{marginBottom:18}}>
-                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.12em',marginBottom:6,fontWeight:500}}>持倉細節</div>
+                      <div style={{fontSize:9,color:WB.inkLight,letterSpacing:'0.12em',marginBottom:6,fontWeight:500,display:'flex',alignItems:'center',gap:8}}>
+                        <span>持倉細節</span>
+                        {/^[03567]\d{5}$/.test(String(h.code || '')) && (
+                          <span style={{
+                            fontSize:9,letterSpacing:'0.08em',padding:'1px 6px',borderRadius:2,
+                            background:`${WB.accent}1A`,color:WB.accent,fontWeight:500,
+                          }}>權證 · 現價差估算</span>
+                        )}
+                      </div>
                       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
                         <span style={{fontSize:11,color:WB.inkMute,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
                         <span style={{fontSize:18,fontWeight:500,color:WB.ink,letterSpacing:'-0.005em'}}>{h.name}</span>
@@ -5559,7 +5584,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
 
               <div style={{padding:'10px 22px',borderTop:`1px solid ${C.border}`,fontSize:11,color:C.textMute,lineHeight:1.6}}>
-                提示：覆蓋率反映目前前端 holdings 中已成功取得最新報價的比例。後端排程「stock-price-sync」每 30 分鐘執行一次，亦會同步寫入 current_prices 資料表。
+                提示：盤中（週一至週五 09:00–13:33）後端排程「stock-price-sync」每 5 分鐘自動同步 TWSE/TPEx 報價並寫入 current_prices；新價格寫入時，畫面會透過 Realtime 即時更新，不需重整。
               </div>
             </div>
           </div>
