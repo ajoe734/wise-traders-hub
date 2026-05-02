@@ -5584,7 +5584,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
 
               <div style={{padding:'10px 22px',borderTop:`1px solid ${C.border}`,fontSize:11,color:C.textMute,lineHeight:1.6}}>
-                提示：覆蓋率反映目前前端 holdings 中已成功取得最新報價的比例。後端排程「stock-price-sync」每 30 分鐘執行一次，亦會同步寫入 current_prices 資料表。
+                提示：盤中（週一至週五 09:00–13:33）後端排程「stock-price-sync」每 5 分鐘自動同步 TWSE/TPEx 報價並寫入 current_prices；新價格寫入時，畫面會透過 Realtime 即時更新，不需重整。
               </div>
             </div>
           </div>
