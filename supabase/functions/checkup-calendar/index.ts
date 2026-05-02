@@ -258,6 +258,7 @@ function classifyHoldings(stocks: string): { stockList: string; warrantList: str
   const items = stocks.split(/[、,]/).map(s => s.trim()).filter(Boolean);
   const stockItems: string[] = [];
   const warrantItems: string[] = [];
+  const warrantCodes: string[] = [];
   const parentStocks: string[] = [];
   for (const item of items) {
     const code = item.match(/^(\d+)/)?.[1] || '';
@@ -265,13 +266,19 @@ function classifyHoldings(stocks: string): { stockList: string; warrantList: str
     const isWarrant = code.length === 6 || /[購售牛熊]/.test(name);
     if (isWarrant) {
       warrantItems.push(item);
+      if (code.length === 6) warrantCodes.push(code);
       const brokerMatch = name.match(/^(.+?)(凱基|元大|富邦|群益|統一|國票|永豐|中信|日盛|兆豐|台新|玉山|永昌)/);
       if (brokerMatch?.[1]) parentStocks.push(brokerMatch[1]);
     } else {
       stockItems.push(item);
     }
   }
-  return { stockList: stockItems.join('、'), warrantList: warrantItems.join('、'), parentStocks: [...new Set(parentStocks)] };
+  return {
+    stockList: stockItems.join('、'),
+    warrantList: warrantItems.join('、'),
+    warrantCodes: [...new Set(warrantCodes)],
+    parentStocks: [...new Set(parentStocks)],
+  };
 }
 
 function buildPrompt(stocks: string, today: string, endDate: string, outputFormat: string, newsContext: string): string {
