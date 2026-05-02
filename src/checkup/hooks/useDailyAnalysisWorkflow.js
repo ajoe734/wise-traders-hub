@@ -89,6 +89,11 @@ export function useDailyAnalysisWorkflow({
     setAnalyzing(true)
     setAnalyzeStep(APP_STATUS_MESSAGES.dailyLoadingMarketCache)
 
+    // Flush previously buffered analyses (fire-and-forget, doesn't block flow)
+    if (canUseCloud) {
+      flushPendingAnalyses(API_ENDPOINTS.BRAIN).catch(() => {})
+    }
+
     try {
       const codes = holdings.map((holding) => holding.code)
       const priceMap = await getMarketQuotesForCodes(codes)
