@@ -3,6 +3,59 @@ import { C, alpha } from '../../theme.js'
 import { Card, Button, TextFieldDialog } from '../common'
 import { assessTradeParseQuality, summarizeTradeBatch } from '../../lib/tradeParseUtils.js'
 
+/**
+ * ImageLightbox — fullscreen zoom for OCR verification.
+ */
+function ImageLightbox({ src, onClose }) {
+  if (!src) return null
+  return h(
+    'div',
+    {
+      onClick: onClose,
+      role: 'dialog',
+      'aria-label': '截圖預覽',
+      style: {
+        position: 'fixed',
+        inset: 0,
+        background: alpha('#000', '88'),
+        zIndex: 80,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        cursor: 'zoom-out',
+      },
+    },
+    h('img', {
+      src,
+      alt: '上傳截圖預覽',
+      style: { maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8 },
+    }),
+    h(
+      'button',
+      {
+        className: 'ui-btn',
+        onClick: (e) => { e.stopPropagation(); onClose() },
+        style: {
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          background: alpha('#fff', '20'),
+          color: '#fff',
+          border: 'none',
+          borderRadius: 999,
+          width: 36,
+          height: 36,
+          fontSize: 18,
+          cursor: 'pointer',
+        },
+        'aria-label': '關閉預覽',
+      },
+      '×'
+    )
+  )
+}
+
 const lbl = {
   fontSize: 10,
   color: C.textMute,
@@ -22,7 +75,10 @@ export function UploadDropzone({
   processFile,
   processFiles,
   parseShot,
+  parseAllShots,
+  retryParseUpload,
   parsing,
+  parseProgress,
   parseErr,
   uploads = [],
   activeUploadId = null,
@@ -30,8 +86,10 @@ export function UploadDropzone({
   selectUpload,
   removeUpload,
   clearUploads,
+  onPreviewImage,
 }) {
   const uploadCount = Array.isArray(uploads) ? uploads.length : 0
+  const pendingCount = uploads.filter((u) => !u.parsed?.trades?.length && !u.parseErr).length
 
   const handleFiles = (fileList) => {
     if (processFiles) {
@@ -85,18 +143,25 @@ export function UploadDropzone({
             h('img', {
               src: img,
               alt: '',
+              onClick: (e) => {
+                if (onPreviewImage) {
+                  e.stopPropagation()
+                  onPreviewImage(img)
+                }
+              },
               style: {
                 maxHeight: 200,
                 maxWidth: '100%',
                 borderRadius: 8,
                 objectFit: 'contain',
                 marginBottom: 8,
+                cursor: onPreviewImage ? 'zoom-in' : 'default',
               },
             }),
             h(
               'div',
               { style: { fontSize: 11, color: C.textMute } },
-              '點擊新增更多截圖或切換待處理圖片'
+              onPreviewImage ? '點圖放大檢視 OCR · 點空白處再加截圖' : '點擊新增更多截圖或切換待處理圖片'
             )
           )
         : h(
@@ -150,14 +215,52 @@ export function UploadDropzone({
           ),
           uploadCount > 1 &&
             h(
-              Button,
-              {
-                onClick: clearUploads,
-                size: 'xs',
-              },
-              '清空全部'
+              'div',
+              { style: { display: 'flex', gap: 6 } },
+              pendingCount > 0 &&
+                h(
+                  Button,
+                  {
+                    onClick: parseAllShots,
+                    size: 'xs',
+                    disabled: parsing,
+                  },
+                  parsing && parseProgress?.total
+                    ? `解析中 ${parseProgress.current}/${parseProgress.total}`
+                    : `一鍵解析 ${pendingCount} 張`
+                ),
+              h(
+                Button,
+                {
+                  onClick: clearUploads,
+                  size: 'xs',
+                },
+                '清空全部'
+              )
             )
         ),
+        // Progress bar (only during batch parse)
+        parsing && parseProgress?.total > 1 &&
+          h(
+            'div',
+            {
+              style: {
+                height: 3,
+                background: C.subtle,
+                borderRadius: 2,
+                overflow: 'hidden',
+                marginBottom: 8,
+              },
+            },
+            h('div', {
+              style: {
+                width: `${Math.round((parseProgress.current / parseProgress.total) * 100)}%`,
+                height: '100%',
+                background: alpha(C.amber || C.text, '70'),
+                transition: 'width 0.3s',
+              },
+            })
+          ),
         h(
           'div',
           { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
@@ -204,6 +307,26 @@ export function UploadDropzone({
                 { style: { fontSize: 9, color: upload.parseErr ? C.up : C.textMute } },
                 statusLabel
               ),
+              upload.parseErr && retryParseUpload &&
+                h(
+                  'button',
+                  {
+                    className: 'ui-btn',
+                    onClick: () => retryParseUpload(upload.id),
+                    disabled: parsing,
+                    style: {
+                      border: `1px solid ${alpha(C.amber || C.text, '40')}`,
+                      background: 'transparent',
+                      color: C.amber || C.text,
+                      cursor: parsing ? 'not-allowed' : 'pointer',
+                      fontSize: 9,
+                      borderRadius: 4,
+                      padding: '1px 6px',
+                    },
+                    title: '重新解析這張',
+                  },
+                  '↻ 重試'
+                ),
               h(
                 'button',
                 {
@@ -1033,7 +1156,10 @@ export function TradePanel({
   processFile,
   processFiles,
   parseShot,
+  parseAllShots,
+  retryParseUpload,
   parsing,
+  parseProgress,
   parseErr,
   parsed,
   setParsed,
@@ -1064,9 +1190,11 @@ export function TradePanel({
   createDefaultFundamentalDraft,
   toSlashDate,
 }) {
+  const [previewSrc, setPreviewSrc] = useState(null)
   return h(
     'div',
     null,
+    h(ImageLightbox, { src: previewSrc, onClose: () => setPreviewSrc(null) }),
     hasUndoableSubmit &&
       h(
         Card,
@@ -1111,7 +1239,10 @@ export function TradePanel({
       processFile,
       processFiles,
       parseShot,
+      parseAllShots,
+      retryParseUpload,
       parsing,
+      parseProgress,
       parseErr,
       uploads,
       activeUploadId,
@@ -1119,6 +1250,7 @@ export function TradePanel({
       selectUpload,
       removeUpload,
       clearUploads,
+      onPreviewImage: setPreviewSrc,
     }),
     h(ParseResults, {
       parsed,

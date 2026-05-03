@@ -60,6 +60,7 @@ export function useTradeCaptureRuntime({
   const { hasQuota, applyQuotaFromResponse } = modeCtx || {}
   const [dragOver, setDragOver] = useState(false)
   const [parsing, setParsing] = useState(false)
+  const [parseProgress, setParseProgress] = useState({ current: 0, total: 0 })
   const [tradeEditorState, setTradeEditorState] = useState(() =>
     createEmptyTradeEditorState(createDefaultFundamentalDraft)
   )
@@ -370,16 +371,34 @@ export function useTradeCaptureRuntime({
     const targets = uploadsRef.current.filter((u) => !u.parsed?.trades?.length)
     if (!targets.length) return
     setParsing(true)
+    setParseProgress({ current: 0, total: targets.length })
     try {
+      let done = 0
       for (const u of targets) {
         // 序列跑避免 burst 429
         // eslint-disable-next-line no-await-in-loop
         await parseUploadById(u.id)
+        done += 1
+        setParseProgress({ current: done, total: targets.length })
       }
     } finally {
       setParsing(false)
+      setParseProgress({ current: 0, total: 0 })
     }
   }, [parseUploadById])
+
+  const retryParseUpload = useCallback(
+    async (uploadId) => {
+      if (!uploadId) return false
+      setParsing(true)
+      try {
+        return await parseUploadById(uploadId)
+      } finally {
+        setParsing(false)
+      }
+    },
+    [parseUploadById]
+  )
 
 
   const parsed = activeUpload?.parsed || null
@@ -553,7 +572,9 @@ export function useTradeCaptureRuntime({
       processFiles,
       parseShot,
       parseAllShots,
+      retryParseUpload,
       parsing,
+      parseProgress,
       parseErr: activeUpload?.parseErr || null,
       parsed,
       setParsed,
@@ -603,8 +624,10 @@ export function useTradeCaptureRuntime({
       memoQuestions,
       parseShot,
       parseAllShots,
+      retryParseUpload,
       parsed,
       parsing,
+      parseProgress,
       processFile,
       processFiles,
       removeUpload,

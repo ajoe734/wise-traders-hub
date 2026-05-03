@@ -279,6 +279,8 @@ export function usePortfolioPanelsContextComposer({
         processFile: tradeCapture.processFile,
         processFiles: tradeCapture.processFiles,
         parseShot: tradeCapture.parseShot,
+        parseAllShots: tradeCapture.parseAllShots,
+        retryParseUpload: tradeCapture.retryParseUpload,
         setParsed: tradeCapture.setParsed,
         setTradeDate: tradeCapture.setTradeDate,
         setMemoIn: tradeCapture.setMemoIn,
