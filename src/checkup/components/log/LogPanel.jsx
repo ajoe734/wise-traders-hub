@@ -20,7 +20,8 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
   const [actionFilter, setActionFilter] = useState('all') // all | buy | sell
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [editing, setEditing] = useState(null) // { id, qIndex, value }
+  const [editing, setEditing] = useState(null) // memo: { id, qIndex, value }
+  const [editingRow, setEditingRow] = useState(null) // row: { id, action, qty, price, date }
   const [confirmDelete, setConfirmDelete] = useState(null) // log
 
   const canMutate = typeof setTradeLog === 'function'
