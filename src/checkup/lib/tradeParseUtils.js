@@ -109,11 +109,13 @@ export function buildTradeLogEntries({
 }) {
   const fallbackTime = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
   const trades = Array.isArray(parsed?.trades) ? parsed.trades : []
+  const ts = now.getTime()
+  const rand = Math.random().toString(36).slice(2, 8)
 
   return trades.map((trade, index) => ({
-    id: Number(`${now.getTime()}${index}`),
+    id: `t-${ts}-${index}-${rand}`,
     date: normalizeTradeDate(trade.date || tradeDate, tradeDate),
-    time: normalizeTradeTime(trade.time, fallbackTime),
+    time: normalizeTradeTime(trade.time, fallbackTime) || '00:00',
     action: normalizeTradeAction(trade.action),
     code: String(trade.code || '').trim(),
     name: String(trade.name || '').trim(),
