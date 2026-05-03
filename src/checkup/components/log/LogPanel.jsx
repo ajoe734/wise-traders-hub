@@ -360,7 +360,7 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
             { style: { fontSize: 12, color: C.textMute, marginBottom: 14, lineHeight: 1.6 } },
             `${confirmDelete.date} ${confirmDelete.action} ${confirmDelete.name || confirmDelete.code} ${confirmDelete.qty} 股 @ ${confirmDelete.price}`,
             h('br'),
-            '系統會反向套用至持倉看板（買→扣回 / 賣→補回）。'
+            '系統會用所有剩餘交易紀錄重新計算持倉（均價也會更正）。'
           ),
           h(
             'div',
