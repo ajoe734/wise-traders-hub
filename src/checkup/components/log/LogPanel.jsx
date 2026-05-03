@@ -53,11 +53,13 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
 
   const handleDelete = (log) => {
     if (!canMutate) return
-    setTradeLog((prev) => (Array.isArray(prev) ? prev : []).filter((r) => r.id !== log.id))
+    const nextLog = (Array.isArray(tradeLog) ? tradeLog : []).filter((r) => r.id !== log.id)
+    setTradeLog(nextLog)
     if (typeof setHoldings === 'function') {
-      setHoldings((prev) => reverseTradeOnHoldings(prev, log))
+      // Replay from empty 起點重算，比反向回滾更穩（均價、全賣後再買、跨筆都對）
+      setHoldings(recomputeHoldingsAfterDelete(tradeLog, log.id))
     }
-    flashSaved?.(`↺ 已刪除 ${log.name || log.code} 並回滾持倉`, 2800)
+    flashSaved?.(`↺ 已刪除並用所有交易紀錄重新計算持倉`, 2800)
     setConfirmDelete(null)
   }
 
