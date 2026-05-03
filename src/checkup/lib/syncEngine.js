@@ -111,9 +111,18 @@ function createSyncEngine() {
 
   recomputeCloudGating()
 
+  // 上線時自動 flush 失敗佇列
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+      flushPendingSyncs().catch(() => {})
+    })
+  }
+
   function setContext(next) {
     context = { ...context, ...next }
     recomputeCloudGating()
+    // 切 portfolio / login 後嘗試 flush
+    flushPendingSyncs().catch(() => {})
   }
 
   function setFetch(fn) {
