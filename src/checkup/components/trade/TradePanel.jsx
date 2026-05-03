@@ -22,7 +22,10 @@ export function UploadDropzone({
   processFile,
   processFiles,
   parseShot,
+  parseAllShots,
+  retryParseUpload,
   parsing,
+  parseProgress,
   parseErr,
   uploads = [],
   activeUploadId = null,
@@ -30,8 +33,11 @@ export function UploadDropzone({
   selectUpload,
   removeUpload,
   clearUploads,
+  onPreviewImage,
 }) {
   const uploadCount = Array.isArray(uploads) ? uploads.length : 0
+  const pendingCount = uploads.filter((u) => !u.parsed?.trades?.length && !u.parseErr).length
+  const failedCount = uploads.filter((u) => u.parseErr).length
 
   const handleFiles = (fileList) => {
     if (processFiles) {
