@@ -1,91 +1,113 @@
-# Phase 6: 持倉看板全面優化 (P1–P12)
+## 目標
+1. 持倉看板「覆蓋率」按鈕改名為「補齊報價」，按下去**直接觸發補抓**所有缺價持倉，完成後**只在仍有失敗時**彈窗，列出抓不到的代碼與原因（特別是非台股標的）。
+2. 後台新增「缺價總覽」頁，集中查看所有用戶的補抓失敗紀錄，方便客服協助。
 
-## 範圍
+---
 
-`/free-checkup` 內 `FreeCheckup.jsx` 第 ~1525–4660 行的 inline 持倉看板（header / 篩選 / `wb-card` 卡片牆 / Detail Panel / 空狀態 / RWD CSS），以及背後 `decisionsMap`、`orderedDisplayed`、`renderCard`、`renderDetailPanel`、sparkline 載入。
+## A. 前端：按鈕與行為改寫
+**檔案**：`src/pages/FreeCheckup.jsx`
 
-**遵守不變**：
-- inline 渲染共識（`mem://architecture/checkup/inline-rendering-audit`）— 不抽元件
-- 單色橘 + 灰 PnL 憲法（`mem://style/holdings/monochrome-orange-pnl`）
-- Kore-eda 極簡風 / YYYY/MM/DD 日期 / 字級≥32 三斷點規則
+1. 按鈕文案
+   - 原：`覆蓋率 · 缺 N`
+   - 新：缺 N>0 → `補齊報價 · {N}`；N=0 → `報價已齊`（仍可按以重檢）
+   - title 改為「點擊後系統會幫你重抓所有缺價持倉，完成後若仍有失敗才會彈窗顯示」
 
-## 變更清單
+2. 點擊行為（取代原本的 `setCoverageOpen(true)`）
+   - DEMO 模式：直接 toast「DEMO 模式不執行補抓」
+   - 收集 `missingCodes = H.filter 缺 priceSource 或有 priceError`
+   - 若為空 → toast「報價已齊，無需補抓」並結束
+   - `setBackfilling(true)`，按鈕顯示 `補抓中…`
+   - 呼叫 `supabase.functions.invoke('stock-price-sync', { body: { symbols: missingCodes, force: true } })`
+   - 等待完成後 `await refreshPrices()` 重算 H
+   - 取回應 `{ fetched, missing, reasons }`：
+     - `missing.length === 0` → toast「✓ 全部補齊（{N} 檔）」，**不開彈窗**
+     - 仍有失敗 → 開彈窗顯示報告
 
-### 必修（P1–P5）
+3. 彈窗（沿用 `coverageOpen` state，改為「補抓報告」模式）
+   - 頂部摘要：`補抓 N 檔 · 成功 X · 仍失敗 Y`
+   - 表格只列「仍失敗」項目，欄位：代碼 / 名稱 / 你輸入的類型 / 原因
+   - 原因前端歸類（依 `reasons[code]` + 規則判斷）：
+     - `invalid_format` → 「非台股代號格式，系統僅支援台股上市櫃 / ETF / 權證」
+     - `not_found` → 「TWSE/TPEx 都查無此代碼，可能已下市或代號錯誤」
+     - `no_price` → 「查到代碼但無有效報價（停牌或當日無成交）」
+     - 其他/未知 → 顯示原始 reason
+   - 底部說明：「若您持有美股、港股、加密貨幣等海外標的，目前不支援自動報價，請於該檔持倉手動填入價格。」
 
-**P1+P12 — `decisionsMap` 與 memo 依賴重構**  
-`decisionsMap` 目前依賴 `H`（陣列），每次 TWSE 報價刷新 `H` 是新陣列 → 整表重算 → 帶動 `globalSortedList` / `displayed` / `orderedDisplayed` 全部重算。但 `buildDecision(code, events, overrides, now)` 不看報價，所以改成依賴已存在的 `holdingsCodesKey`（穩定字串），報價變動不再重算決策。預計 30+ 持倉 re-render 量 -50%。
+---
 
-**P2 — 移除 `__featureSlot` 注入**  
-`orderedDisplayed.map(h => ({ ...h, __featureSlot }))` 每次 spread 出新物件破壞引用相等。改成 `renderCard(h, idx)`，由 `idx === 0 && firstVariant === 'ink'` 在函式內判斷。
+## B. Edge Function：新增 symbols 模式
+**檔案**：`supabase/functions/stock-price-sync/index.ts`
 
-**P3 — Sparkline 失敗回饋**  
-新增 `sparklineErrors` state，`callEdge('checkup-sparkline')` 失敗時記錄。`sparkData < 2` 時：有 error 顯示 `~`（title="歷史價尚未同步，稍後重試"），無 error 維持 `———`（無資料）。
+- 接受 POST body `{ symbols?: string[], force?: boolean }`
+- 若 `symbols` 有值（symbols 模式）：
+  - 自動 `force = true`（繞過交易時段守門，否則晚上沒反應）
+  - 跳過原本的 `trade_signals` + `checkup_storage` 收集
+  - 對每個 symbol 先檢驗格式 `/^\d{4,6}$/`，不合法 → 加進 `reasons[sym] = 'invalid_format'`
+  - 合法的進 `fetchStockBatch`（已含 TPEx fallback）
+  - 抓不到 → `reasons[sym] = 'not_found'`
+  - 抓到但 price ≤ 0 / null → `reasons[sym] = 'no_price'`
+  - 仍照常 upsert `current_prices`（成功的）
+  - 不寫 `user_performances` / `user_summaries`（symbols 模式專責補價，不重算 PnL）
+- 回傳：
+  ```
+  { success: true,
+    requested: string[],
+    fetched: number,
+    missing: string[],
+    reasons: { [symbol]: 'invalid_format' | 'not_found' | 'no_price' } }
+  ```
+- **同時**：每筆失敗寫進新表 `checkup_price_misses`（見 C），供後台總覽
 
-**P4 — `wb-card` a11y**  
-- 卡片 `<button>` 加 `aria-label="${name} ${code}, 報酬率 ${pct}%, 損益 ${pnl}"`
-- 加 `aria-pressed={isActive}` 表達展開狀態
-- `onDoubleClick → openHoldingDrawer` 加鍵盤替代：Shift+Enter 開 drawer
-- Detail Panel 上下/關閉鍵的 button 補 `aria-label`
+---
 
-**P5 — `cardSpec` 抽參（不抽元件）**  
-feature/normal 兩段 90% 重複的 L1–L5 五層渲染合併。維持單一 `renderCard`，但用：
-```js
-const SPEC = isFeatureCard ? FEATURE_SPEC : NORMAL_SPEC;
-// FEATURE_SPEC = { padding:'24px 28px 20px', sparkW:60, roiClamp:'clamp(40px, 6vw + 12px, 64px)', textLimit:90, ... }
+## C. 資料庫：缺價紀錄表
+新增 migration：
+
+```sql
+create table public.checkup_price_misses (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid,                 -- 觸發者（symbols 模式由 caller JWT 取，沒有就 null）
+  symbol text not null,
+  reason text not null,         -- invalid_format / not_found / no_price / other
+  attempts int not null default 1,
+  last_error text,
+  first_seen_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  resolved_at timestamptz,
+  unique (user_id, symbol)
+);
+
+alter table public.checkup_price_misses enable row level security;
+
+-- 用戶只能看自己的
+create policy "own misses" on public.checkup_price_misses
+  for select to authenticated using (user_id = auth.uid());
+
+-- 後台 (company_admin) 看全部
+create policy "admin view all misses" on public.checkup_price_misses
+  for select to authenticated
+  using (public.has_role(auth.uid(), 'company_admin'));
 ```
-仍 inline 渲染，但欄位調整只改一處。
 
-### 建議（P6–P10）
+Edge function 寫入邏輯：
+- 失敗 → upsert：`attempts = attempts + 1, last_seen_at = now(), reason = ?, last_error = ?`
+- 該 symbol 後續補抓成功 → `update set resolved_at = now()`
 
-**P6 — 排序穩定 tiebreaker**  
-`compareByPriority` 末段加 `a.code.localeCompare(b.code)` 確保並列時順序穩定。
+---
 
-**P7 — `featureSlot` 條件**  
-只在 `idx === 0 && variantsMap.get(h.code) === 'ink'` 時當 feature；否則不掛此標記（搭配 P2 一起處理）。
+## D. 後台頁：缺價總覽
+**新檔**：`src/pages/company/MissingPrices.tsx`
+**路由**：`/company/missing-prices`，加進 `CompanyLayout` 側欄（角色 `company_admin` 可見）
 
-**P8 — `actionText` 智慧斷句**  
-取代硬切 `slice(0, 88) + '…'`：先在限制長度範圍內找最後一個標點（。、，；！？），找到就斷在該處；找不到才退回硬切。中文體驗顯著提升。
+頁面內容：
+- 上方篩選：狀態（未解決 / 已解決 / 全部）、原因、用戶 email 模糊搜尋
+- 表格：用戶 email / 代碼 / 原因 / 嘗試次數 / 首次發生 / 最近發生 / 解決時間 / 操作
+- 操作欄：「重試補抓」按鈕（呼叫同一個 edge function 帶該 symbol）
+- 右上「匯出 CSV」
 
-**P9 — 篩選空集獨立空狀態**  
-4266 行 `orderedDisplayed.length === 0` 拆兩種：
-- `H.length === 0` → 維持現有「上傳成交」3 步教學卡
-- 否則（篩選/搜尋無結果）→ 顯示「沒有符合條件的持倉」+「清除所有篩選」CTA
+---
 
-**P10 — feature 卡補 `srcLabel` 報價來源徽章**  
-normal 卡（4012 行）有 `screenshot/live/yclose` 徽章，feature 卡缺。在 feature L5 區塊 VALUE 旁同樣加上，配色改用 `rgba(244,241,236,0.x)` 適配黑底。
-
-### 可選（P11）
-
-**P11 — CSS 變數化**  
-`.wb-card .wb-roi`、`.wb-card-feature .wb-roi`、`.wb-bottom-val` 在 `≤640 / ≤560 / ≤390 / ≤380` 四層斷點重複宣告 font-size。改用 `--roi-size` / `--roi-size-feature` / `--bottom-val-size` 三個變數，斷點只改變數值。需同步更新 `freecheckup-mobile-card-overflow.test.ts`（grep 字串改成讀變數定義 + 變數使用）。
-
-## 不做
-
-- 不抽元件到 `src/checkup/components/holdings/*`
-- 不改 `buildDecision` 邏輯
-- 不改紅綠/橘灰配色憲法
-- 不動 `HoldingsPanel/Table` 樣板
-
-## 驗證（每階段必跑）
-
-1. `bunx vitest run src/test/unit/freecheckup-mobile-card-overflow.test.ts`
-2. `bunx vitest run src/test/unit/freecheckup-i18n.test.ts`
-3. `bunx vitest run`（全 740+ 測試回歸）
-4. `node scripts/check-freecheckup-rwd.mjs`（560/390/380 三斷點靜態檢查）
-5. `bunx playwright test e2e/freecheckup-card.spec.ts`
-6. 手機視覺截圖（依 `mem://qa/checkup/freecheckup-mobile-regression-checklist`）
-
-## 執行順序（10 步，預期單一 loop 內完成）
-
-1. P1 + P12 — decisionsMap 依賴改 `holdingsCodesKey`
-2. P2 + P7 — 移除 `__featureSlot`，改 `renderCard(h, idx)` + 條件判斷
-3. P3 — sparklineErrors state + UI 區分
-4. P9 — 篩選空集獨立 UI
-5. P4 — aria-label / aria-pressed / 鍵盤替代
-6. P10 — feature 卡 srcLabel
-7. P6 — 排序 tiebreaker
-8. P8 — actionText 智慧斷句
-9. P5 — cardSpec 抽參
-10. P11 — CSS 變數化（最後做，因會動測試）
-11. RWD + i18n + 全測試回歸
+## 白話總結
+- 「覆蓋率」改名「補齊報價」，按一下就直接幫你補抓，全成功就不彈窗打擾。
+- 抓不到的（例如美股代號）才會彈窗逐筆告訴你原因。
+- 後台多一頁「缺價總覽」，客服可以看到所有用戶哪些代碼一直抓不到，主動協助處理。
