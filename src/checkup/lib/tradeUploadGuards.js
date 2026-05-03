@@ -36,10 +36,7 @@ export function partitionUploadFiles(input, opts = {}) {
       rejected.push({ file, reason: 'not-image' })
       continue
     }
-    if (HEIC_MIME_TYPES.has(type)) {
-      rejected.push({ file, reason: 'heic' })
-      continue
-    }
+    // HEIC/HEIF: 接受 — 由 imageProcess.convertHeicIfNeeded 在前端轉成 JPEG
     if (Number(file.size) > MAX_UPLOAD_BYTES) {
       rejected.push({ file, reason: 'too-large' })
       continue
