@@ -539,8 +539,10 @@ export default function App() {
   const [cooldownText, setCooldownText] = useState("");
   // 任務日誌：{ id, ts, task, status, attempt, detail } — 用於下載排錯
   const [syncLog, setSyncLog] = useState([]);
-  // 持倉覆蓋率彈窗
+  // 持倉覆蓋率彈窗（補抓報告）
   const [coverageOpen, setCoverageOpen] = useState(false);
+  const [coverageReport, setCoverageReport] = useState(null); // { requested, fetched, missingRows }
+  const [backfilling, setBackfilling] = useState(false);
   // 立即同步排程（呼叫 stock-price-sync edge function）
   const [serverSyncing, setServerSyncing] = useState(false);
 
