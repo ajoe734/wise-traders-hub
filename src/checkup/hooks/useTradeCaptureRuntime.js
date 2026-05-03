@@ -10,6 +10,7 @@ import { parseJsonObject } from '../lib/aiJsonRepair.js'
 import { partitionUploadFiles, summarizeRejections } from '../lib/tradeUploadGuards.js'
 import { preprocessForUpload } from '../lib/imageProcess.js'
 import { callEdge } from '../lib/edgeInvoke.js'
+import { describeEdgeError } from '../lib/edgeErrors.js'
 import { useCheckupMode } from '../contexts/CheckupModeContext.jsx'
 // Phase 3A.4 Step 1: store 直取 setter
 import { useHoldingsStore } from '../stores/holdingsStore.js'
