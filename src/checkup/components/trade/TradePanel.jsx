@@ -37,7 +37,6 @@ export function UploadDropzone({
 }) {
   const uploadCount = Array.isArray(uploads) ? uploads.length : 0
   const pendingCount = uploads.filter((u) => !u.parsed?.trades?.length && !u.parseErr).length
-  const failedCount = uploads.filter((u) => u.parseErr).length
 
   const handleFiles = (fileList) => {
     if (processFiles) {
