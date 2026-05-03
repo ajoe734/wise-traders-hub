@@ -163,14 +163,52 @@ export function UploadDropzone({
           ),
           uploadCount > 1 &&
             h(
-              Button,
-              {
-                onClick: clearUploads,
-                size: 'xs',
-              },
-              '清空全部'
+              'div',
+              { style: { display: 'flex', gap: 6 } },
+              pendingCount > 0 &&
+                h(
+                  Button,
+                  {
+                    onClick: parseAllShots,
+                    size: 'xs',
+                    disabled: parsing,
+                  },
+                  parsing && parseProgress?.total
+                    ? `解析中 ${parseProgress.current}/${parseProgress.total}`
+                    : `一鍵解析 ${pendingCount} 張`
+                ),
+              h(
+                Button,
+                {
+                  onClick: clearUploads,
+                  size: 'xs',
+                },
+                '清空全部'
+              )
             )
         ),
+        // Progress bar (only during batch parse)
+        parsing && parseProgress?.total > 1 &&
+          h(
+            'div',
+            {
+              style: {
+                height: 3,
+                background: C.subtle,
+                borderRadius: 2,
+                overflow: 'hidden',
+                marginBottom: 8,
+              },
+            },
+            h('div', {
+              style: {
+                width: `${Math.round((parseProgress.current / parseProgress.total) * 100)}%`,
+                height: '100%',
+                background: alpha(C.amber || C.text, '70'),
+                transition: 'width 0.3s',
+              },
+            })
+          ),
         h(
           'div',
           { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
@@ -217,6 +255,26 @@ export function UploadDropzone({
                 { style: { fontSize: 9, color: upload.parseErr ? C.up : C.textMute } },
                 statusLabel
               ),
+              upload.parseErr && retryParseUpload &&
+                h(
+                  'button',
+                  {
+                    className: 'ui-btn',
+                    onClick: () => retryParseUpload(upload.id),
+                    disabled: parsing,
+                    style: {
+                      border: `1px solid ${alpha(C.amber || C.text, '40')}`,
+                      background: 'transparent',
+                      color: C.amber || C.text,
+                      cursor: parsing ? 'not-allowed' : 'pointer',
+                      fontSize: 9,
+                      borderRadius: 4,
+                      padding: '1px 6px',
+                    },
+                    title: '重新解析這張',
+                  },
+                  '↻ 重試'
+                ),
               h(
                 'button',
                 {
