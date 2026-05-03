@@ -55,6 +55,7 @@ export function useTradeCaptureRuntime({
 }) {
   const setHoldings = useHoldingsStore((s) => s.setHoldings)
   const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
+  const { hasQuota, applyQuotaFromResponse } = useCheckupMode() || {}
   const [dragOver, setDragOver] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [tradeEditorState, setTradeEditorState] = useState(() =>
