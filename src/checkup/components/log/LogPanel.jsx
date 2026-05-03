@@ -267,6 +267,32 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
                     'button',
                     {
                       className: 'ui-btn',
+                      onClick: () =>
+                        setEditingRow({
+                          id: log.id,
+                          action: log.action,
+                          qty: log.qty,
+                          price: log.price,
+                          date: log.date,
+                        }),
+                      style: {
+                        border: 'none',
+                        background: 'transparent',
+                        color: C.textMute,
+                        cursor: 'pointer',
+                        fontSize: 10,
+                        padding: '0 4px',
+                      },
+                      'aria-label': '編輯這筆',
+                      title: '修正股數 / 價格 / 日期 / 動作',
+                    },
+                    '編'
+                  ),
+                canMutate &&
+                  h(
+                    'button',
+                    {
+                      className: 'ui-btn',
                       onClick: () => setConfirmDelete(log),
                       style: {
                         border: 'none',
