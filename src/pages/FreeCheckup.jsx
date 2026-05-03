@@ -2961,7 +2961,52 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     <div style={{background:C.bg,minHeight:"100vh",color:C.text,
       fontFamily:"'Inter','Noto Sans TC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingBottom:40,
       WebkitFontSmoothing:"antialiased",MozOsxFontSmoothing:"grayscale"}}>
-      <style>{buildFreeCheckupGlobalCss(C)}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+        *{box-sizing:border-box}
+        html{-webkit-text-size-adjust:100%}
+        body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+        textarea::placeholder,input::placeholder{color:${C.textMute}}
+        input,textarea,button{font-family:inherit;-webkit-appearance:none}
+        @keyframes progress{0%{width:5%}50%{width:70%}100%{width:95%}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        @media(max-width:480px){
+          body{font-size:14px}
+        }
+        /* Hero RWD：inline fontSize:88 在窄螢幕會壓爆右側，必須用 className 覆寫 */
+        @media(max-width:560px){
+          .wb-hero-grid{
+            grid-template-columns: 1fr !important;
+            align-items: flex-start !important;
+            gap: 14px !important;
+          }
+          .wb-hero-market{
+            align-items: flex-start !important;
+          }
+          .wb-hero-pnl-num{
+            font-size: 56px !important;
+            letter-spacing: -0.03em !important;
+          }
+          .wb-hero-pnl-pct{
+            font-size: 18px !important;
+          }
+          .wb-hero-kpi{
+            grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+            gap: 14px 18px !important;
+          }
+          .wb-card-pnl-num{
+            font-size: 36px !important;
+            letter-spacing: -0.03em !important;
+          }
+          .wb-card-pnl-pct{
+            font-size: 14px !important;
+          }
+        }
+        @media(max-width:380px){
+          .wb-hero-pnl-num{ font-size: 44px !important; }
+          .wb-card-pnl-num{ font-size: 30px !important; }
+        }
+      `}</style>
 
       {/* ── DEMO BANNER（僅 demo 模式顯示） ── */}
       {isDemo && (
