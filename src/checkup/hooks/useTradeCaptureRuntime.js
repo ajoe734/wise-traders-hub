@@ -537,6 +537,7 @@ export function useTradeCaptureRuntime({
       processFile,
       processFiles,
       parseShot,
+      parseAllShots,
       parsing,
       parseErr: activeUpload?.parseErr || null,
       parsed,
