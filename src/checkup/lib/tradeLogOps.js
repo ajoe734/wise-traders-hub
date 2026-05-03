@@ -6,11 +6,38 @@
  *   賣出 → 補回 qty（cost 維持當前值，因為賣出本來就不會動 cost）
  */
 
-import { normalizeHoldings } from './holdings.js'
+import { normalizeHoldings, applyTradeEntryToHoldings } from './holdings.js'
 
 function num(v) {
   const n = Number(v)
   return Number.isFinite(n) ? n : 0
+}
+
+/**
+ * Replay tradeLog from empty holdings to recompute deterministic state.
+ * tradeLog 預期由近到遠（畫面排序）；replay 內部會自行依時間正序套用。
+ */
+export function replayTradeLog(tradeLog = [], quotes = null) {
+  const sorted = [...(Array.isArray(tradeLog) ? tradeLog : [])].sort((a, b) => {
+    const da = `${a.date || ''} ${a.time || ''}`
+    const db = `${b.date || ''} ${b.time || ''}`
+    if (da !== db) return da < db ? -1 : 1
+    return String(a.id || '').localeCompare(String(b.id || ''))
+  })
+  let rows = []
+  for (const t of sorted) {
+    rows = applyTradeEntryToHoldings(rows, t, quotes)
+  }
+  return normalizeHoldings(rows, quotes)
+}
+
+/**
+ * Recompute holdings after deleting a single trade by id, by replaying remaining log.
+ * 比起反向回滾更安全：均價與全賣後再買等情境都正確。
+ */
+export function recomputeHoldingsAfterDelete(tradeLog, deletedId, quotes = null) {
+  const next = (Array.isArray(tradeLog) ? tradeLog : []).filter((r) => r.id !== deletedId)
+  return replayTradeLog(next, quotes)
 }
 
 export function reverseTradeOnHoldings(rows, trade, quotes = null) {
