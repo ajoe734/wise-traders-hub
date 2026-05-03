@@ -21,10 +21,10 @@ describe('partitionUploadFiles', () => {
     expect(out.overflow).toBe(0)
   })
 
-  it('rejects HEIC with reason=heic', () => {
+  it('accepts HEIC at partition stage (conversion handled later)', () => {
     const out = partitionUploadFiles([mkFile({ type: 'image/heic' })])
-    expect(out.accepted).toHaveLength(0)
-    expect(out.rejected[0].reason).toBe('heic')
+    // HEIC 現在會進到 preprocessForUpload 才嘗試轉檔；partition 不再直接拒
+    expect(out.accepted).toHaveLength(1)
   })
 
   it('rejects oversize files with reason=too-large', () => {
@@ -58,17 +58,16 @@ describe('summarizeRejections', () => {
     expect(summarizeRejections({ rejected: [], overflow: 0 })).toBeNull()
   })
 
-  it('summarizes mixed reasons in Chinese', () => {
+  it('summarizes mixed reasons in Chinese (heic via heicFailed)', () => {
     const msg = summarizeRejections({
       rejected: [
-        { reason: 'heic' },
         { reason: 'too-large' },
         { reason: 'too-large' },
         { reason: 'not-image' },
       ],
       overflow: 2,
+      heicFailed: 1,
     })
-    expect(msg).toContain('1 張 HEIC')
     expect(msg).toContain('2 張超過')
     expect(msg).toContain('1 張非圖片')
     expect(msg).toContain(`2 張超過 ${MAX_QUEUED_UPLOADS} 張上限`)

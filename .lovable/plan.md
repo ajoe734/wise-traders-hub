@@ -1,74 +1,78 @@
-# 上傳 + 交易日誌 P0–P3 全套優化
+# 持股健檢 — Step 1：資料正確性與穩定性（P0）
 
-審讀後我會分四層落地，**單一 commit** 完成。改動聚焦在這幾個檔案：
+按上一輪盤點，先把「會壞資料／會耗額度／會掉雲端」的 5 項一次補完。Step 2–4 之後再做。
 
-```
-新檔  src/checkup/lib/imageProcess.js          HEIC + 壓縮
-新檔  src/checkup/lib/tradeLogOps.js           日誌 CRUD / 持倉回滾 / CSV
-改   src/checkup/hooks/useTradeCaptureRuntime.js
-改   src/checkup/components/trade/TradePanel.jsx
-改   src/checkup/components/log/LogPanel.jsx
-改   src/checkup/lib/tradeParseUtils.js         id 改字串、time fallback
-改   src/checkup/hooks/useRouteLogPage.js       多帶 setHoldings/setTradeLog
-+ 安裝 heic2any (已預先安裝)
-```
+---
 
-—
+## 1. Quota 預檢守門
+**檔案**：`src/checkup/hooks/useTradeCaptureRuntime.js`
 
-## P0：資料正確 / 雙寫風險
+- `parseShot` / `parseAllShots` 進入點：先讀 `hasQuota`，無額度直接 `flashSaved('🔒 本期 AI 解析額度已用完，請升級方案後再試', 4000)` 並中止，不進 HEIC 轉檔/壓縮/送 edge。
+- `parseUploadById` 內保留 `applyQuotaFromResponse(data)` 寫回最新 quota（已有，保留）。
 
-1. **`parseShot` 改打 `checkup-parse`（vision 端點）+ 走 `callEdge`**  
-   目前 `useTradeCaptureRuntime.parseShot` 用 `fetch(API_ENDPOINTS.ANALYZE)` 直打文字端點 `checkup-analyze`，沒有圖、不符合 schema。改成 `callEdge('checkup-parse', { body: { systemPrompt: PARSE_PROMPT, base64, mediaType } })`：
-   - 自動帶 user JWT → server 端 `consumeCheckupQuota` 才能正確扣免費版額度。
-   - 收到 `data.quota` 後呼叫 `applyQuotaFromResponse(data)` 同步前端配額。
-2. **前置 quota gate**：`parseShot` / `runBatchParse` 開頭看 `hasQuota`，沒額度直接彈 toast＋升級 CTA，不浪費頻寬。
-3. **id 改字串、避免碰撞**：`buildTradeLogEntries` 的 `Number(\`${ts}${index}\`)` 改成 `\`t-${ts}-${index}-${randomBase36}\``，並把 `LogPanel` 的 sort tiebreaker 換成 `b.id.localeCompare(a.id)`。
-4. **submit 防雙擊**：`useTradeCaptureRuntime` 加 `isSubmittingRef`，`submitMemo` 先檢查、寫入後 release；`undoLastSubmit` 同樣加 lock。
+## 2. 全 AI Edge 的 quota 一致性審查
+**檔案**：`supabase/functions/checkup-{analyze,brain,research,predict-events,report,research-extract,parse}/index.ts` 共 7 隻 + `_shared/checkupQuota.ts`（已存在）
 
-## P1：HEIC + 壓縮 + 批次解析
+逐一確認：
+1. 每隻在主邏輯前呼叫 `consumeCheckupQuota(req, 'xxx')`，失敗 → `quotaErrorResponse(...)`。
+2. 成功 response 必須帶 `quota: quotaResult.quota`（前端 `applyQuotaFromResponse` 才能同步）。
 
-5. **新增 `lib/imageProcess.js`**：
-   - `convertHeicIfNeeded`：HEIC/HEIF 動態 import `heic2any` 轉 JPEG。
-   - `compressImage`：canvas 重繪到長邊 1600px、JPEG 0.85，比原圖大就放棄壓縮。
-   - `preprocessForUpload = convert → compress`。
-6. **`enqueueFiles` 整合**：`partitionUploadFiles` 接受 HEIC（不再直接 reject）→ 對 accepted 跑 `preprocessForUpload` → 失敗的歸入 rejected 列表。`tradeUploadGuards` 移除 HEIC 黑名單，改保留 `too-large / not-image / overflow`。
-7. **批次解析按鈕**：`TradePanel` 增加「全部解析（{N}）」按鈕，呼叫 `runBatchParse`，內部 `for…of` 序列跑（避免 burst 429），逐張更新 status；單張的「解析目前這張」保留。
+如有遺漏（特別是 `checkup-research-extract`、`checkup-mops-revenue` 這幾隻可能會 LLM 但沒接），補上。對純資料抓取（無 LLM）的 `checkup-twse / sparkline / institutional / mops-announcements` **不**接 quota。
 
-## P2：交易日誌大改版
+## 3. tradeLog 刪除回滾的兩個 bug
+**檔案**：`src/checkup/lib/tradeLogOps.js`、`src/checkup/components/log/LogPanel.jsx`
 
-8. **新檔 `lib/tradeLogOps.js`**：
-   - `reverseTradeOnHoldings(holdings, trade)`：反向套用一筆已寫入的交易（買→減 qty 並用反向加權平均回推 cost；賣→補回 qty，cost 走當下還原舊值或保留現 cost）。把現有 `applyTradeEntryToHoldings` 的反操作集中於此。
-   - `tradeLogToCSV(rows)`：UTF-8 BOM + 欄位 `日期, 時間, 動作, 代碼, 名稱, 股數, 價格, 金額, 備忘1, 備忘2, 備忘3`。
-   - `groupByDate(rows)`：依 `date` 分桶，同日內新到舊。
-9. **`LogPanel` 重做**：
-   - 新增頂部工具列：搜尋（code/name）、買賣 filter、日期區間、CSV 匯出、「展開／收合全部」。
-   - 內容改用日期 group + sticky header；同日小計（買 N 筆／賣 N 筆／淨流入 ±NTD）。
-   - 每張交易卡右上加 ⋮ menu：**編輯備忘**（彈窗改 `qa[].a`，重新 `setTradeLog`）；**刪除這筆**（confirm dialog → 從 tradeLog 拔除 + `setHoldings(prev => reverseTradeOnHoldings(prev, log))`，並 toast 「已刪除並回滾持倉」）。
-10. **`useRouteLogPage` 改 hook 傳遞**：除了 `tradeLog` 還要從 `usePortfolioRouteContext` 取出 `setTradeLog`、`setHoldings`、`flashSaved` 給 LogPanel。
+### 3a. 賣出回滾的 cost
+- 目前刪「賣出」如果該 code 已被全賣（`splice` 過），補回時會用 `trade.price` 當 cost——錯。
+- 改為：把 `tradeLog`（同 code、`action='買進'`、`date<=trade.date`）依時間倒序找，**重算加權均價**作為新 cost；找不到才 fallback `price`。
+- `reverseTradeOnHoldings` 簽名改為 `(rows, trade, { quotes, tradeLog })`，向後相容（不傳 tradeLog 走舊路徑 + console.warn）。
 
-## P3：小修
+### 3b. 「中間刪除」用 replay 重算
+- 在 LogPanel 刪除路徑改為：
+  1. 先把該筆從 tradeLog 移除得 `nextLog`
+  2. 從**乾淨 holdings 起點**重放 `nextLog` 重算 holdings
+- 新 helper：`replayTradeLog(emptyHoldings, sortedTradeLog, quotes)` → 內部依時間正序套用 buy/sell。
+- 確認 confirm modal 文案更新為「系統會用所有交易紀錄重新計算持倉」（不再說近似回滾）。
 
-11. `tradeParseUtils.normalizeTradeRow`：`time` 為空時填 `00:00`（避免排序塌底）。
-12. `TradePanel` 的 dropzone：`document.getElementById('fi')` 改 `useRef + useId`，避免兩處共用 dropzone 撞 id。
-13. `tradeDate` input：onBlur 跑 `normalizeTradeDate`，無效顯示紅框 + 錯誤訊息（沿用 `C.amber`）。
-14. 解析錯誤訊息卡片：背景與文字色從 `C.up`（紅／漲色）改成 `C.amber` 系列，避免與「漲」的語義對撞（符合單色橘憲法）。
-15. 預覽圖加「點擊放大」（簡單 `position: fixed` lightbox，無需新元件庫）。
+### 3c. 單元測試
+新增 `src/checkup/lib/__tests__/tradeLogOps.test.js`：
+- 全賣後刪賣出 → cost 來自買進均價
+- 中間插入加碼後刪首筆 → 重放結果與直接套用剩下兩筆一致
 
-—
+## 4. submitMemo 的原子性 + undo 完整快照
+**檔案**：`src/checkup/hooks/useTradeCaptureRuntime.js`
 
-## 風險與守則
+- `setHoldings` 包 try/catch；若 throw，**不執行** `setTradeLog`，並 toast `❌ 寫入失敗，未變動`。
+- `lastSubmitRef` 同時存 `prevTradeLog`（不只 `prevHoldings`）；`undoLastSubmit` 還原**兩者**完整快照。
+- `setTimeout` 釋放 lock 從 800ms → 1500ms（大張 OCR 解析後送出較慢，避免使用者手快重點）。
 
-- **單色橘憲法 + 持倉看板 RWD**：本次改動不影響 Hero/`.wb-card`，不需跑 mobile playwright 套件，但 LogPanel 新工具列需手動 pre-check 380/390/560px（用既有 `scripts/check-freecheckup-rwd.mjs` 流程）。
-- **Demo 守門**：`isDemo` 路徑保持「上傳被擋、AI 不打」現狀；P0-1 的 callEdge 不會破壞 demo（demo 模式根本不會走到 parseShot）。
-- **檔名不更動**：`useTradeCaptureRuntime` 維持 export 介面，避免影響 `useRouteTradePage`。
+## 5. syncEngine 失敗重試佇列
+**檔案**：`src/checkup/lib/syncEngine.js`
 
-—
+新增「pending queue」：
+- localStorage key：`checkup-pending-syncs-v1`，存 `[{ action, data, ts }]`，cap 50 筆。
+- `scheduleCloudSave` 失敗時 push 到 queue。
+- 新增 `flushPendingSyncs()`：
+  - 在 `setContext`（切 portfolio / login）時呼叫
+  - 在 `window.addEventListener('online')` 時呼叫
+  - 序列重送、成功後從 queue 移除；失敗保留並停止本輪
+- `getStatus()` 額外回傳 `pendingQueueSize`，供 UI 之後選擇顯示「N 筆待同步」。
 
-## 驗收清單
+---
 
-- [ ] iPhone 上傳 HEIC → 自動轉 JPG → 解析成功，無「請改 JPG」彈窗。
-- [ ] 8MB 截圖上傳實際 payload < 1.5MB（DevTools Network）。
-- [ ] 免費版用完額度，按解析→直接彈升級 CTA，沒打 edge。
-- [ ] 連點兩下「完成備忘」只寫入一份成交。
-- [ ] LogPanel 搜尋 / 篩選 / 匯出 CSV 正常；刪除某筆會同步回滾 holdings 數量與成本。
-- [ ] 同毫秒提交的多筆成交 id 不衝突（看開發者工具 React keys 無 warning）。
+## QA（Step 1 收尾）
+
+1. `bunx vitest run src/checkup/lib/__tests__/tradeLogOps.test.js`（新增）
+2. `bunx vitest run`（既有測試不可退化）
+3. `bunx playwright test e2e/freecheckup-card.spec.ts`（持倉看板視覺）
+4. 手動：上傳→刪除→撤回；模擬離線送出後上線觀察 pending queue flush（Console: `syncEngine.getStatus()`）。
+
+---
+
+## 不在 Step 1 範圍
+
+- UI 體感（解析進度、重試按鈕、edit qty/price）→ Step 2
+- Demo CTA、log 增強、錯誤碼字典、缺價影子表 → Step 3
+- Hook 抽離、RWD 回歸補強、a11y、lightbox、文案 → Step 4
+
+確認後我就進入實作。

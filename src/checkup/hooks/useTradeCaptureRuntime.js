@@ -55,7 +55,9 @@ export function useTradeCaptureRuntime({
 }) {
   const setHoldings = useHoldingsStore((s) => s.setHoldings)
   const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
-  const { hasQuota, applyQuotaFromResponse } = useCheckupMode() || {}
+  let modeCtx = null
+  try { modeCtx = useCheckupMode() } catch { /* test env / no provider */ }
+  const { hasQuota, applyQuotaFromResponse } = modeCtx || {}
   const [dragOver, setDragOver] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [tradeEditorState, setTradeEditorState] = useState(() =>
@@ -89,6 +91,10 @@ export function useTradeCaptureRuntime({
     async (incomingFiles) => {
       if (isDemo) {
         flashSaved('🔒 訪客模式不能上傳成交，請先用 Line 登入', 4000)
+        return
+      }
+      if (hasQuota === false) {
+        flashSaved('🔒 本期 AI 解析額度已用完，請升級方案後再試', 4500)
         return
       }
 
@@ -143,7 +149,7 @@ export function useTradeCaptureRuntime({
         flashSaved(`❌ 讀取截圖失敗：${error.message || '請重新選擇圖片'}`, 4000)
       }
     },
-    [flashSaved, toSlashDate, isDemo]
+    [flashSaved, toSlashDate, isDemo, hasQuota]
   )
 
   const processFile = useCallback(
@@ -396,8 +402,8 @@ export function useTradeCaptureRuntime({
     if (isSubmittingRef.current) return
     if (!activeUpload?.parsed?.trades?.length) return
     isSubmittingRef.current = true
-    // 釋放 lock：下一個 tick（足夠擋住雙擊）
-    setTimeout(() => { isSubmittingRef.current = false }, 800)
+    // 釋放 lock：1500ms（OCR 後送出較慢，避免雙擊）
+    setTimeout(() => { isSubmittingRef.current = false }, 1500)
 
     const nextAnswers = [...(activeUpload.memoAns || []), activeUpload.memoIn || '']
     if ((activeUpload.memoStep || 0) < memoQuestions.length - 1) {
@@ -419,31 +425,37 @@ export function useTradeCaptureRuntime({
       now: new Date(),
     })
 
-    // Snapshot BEFORE mutation — enables undoLastSubmit within UNDO_WINDOW_MS.
+    // 先計算下一個 holdings；任一步丟錯就整批 abort，不變動 tradeLog
+    const prevHoldings = Array.isArray(holdings) ? holdings : []
+    const prevTradeLog = Array.isArray(tradeLog) ? tradeLog : []
+    let nextHoldings
+    try {
+      nextHoldings = applyParsedTradesToHoldings({
+        holdings: prevHoldings,
+        parsed: activeUpload.parsed,
+        applyTradeEntryToHoldings,
+        marketQuotes,
+      })
+    } catch (error) {
+      console.error('Holdings update failed:', error)
+      flashSaved('❌ 寫入失敗，未變動任何資料', 3500)
+      return
+    }
+
+    const nextTradeLog = [...entries, ...prevTradeLog]
+
+    // Snapshot before mutation — undo 還原 holdings + tradeLog 兩者
     const snapshot = {
       uploadDraft: { ...activeUpload, memoAns: nextAnswers, memoIn: '' },
       entryIds: entries.map((e) => e.id),
       parsed: activeUpload.parsed,
       timestamp: Date.now(),
+      prevHoldings,
+      prevTradeLog,
     }
 
-    setHoldings((prev) => {
-      try {
-        const prevArr = Array.isArray(prev) ? prev : holdings
-        snapshot.prevHoldings = prevArr
-        return applyParsedTradesToHoldings({
-          holdings: prevArr,
-          parsed: activeUpload.parsed,
-          applyTradeEntryToHoldings,
-          marketQuotes,
-        })
-      } catch (error) {
-        console.error('Holdings update failed:', error)
-        return Array.isArray(prev) ? prev : holdings
-      }
-    })
-
-    setTradeLog((prev) => [...entries, ...(Array.isArray(prev) ? prev : tradeLog)])
+    setHoldings(nextHoldings)
+    setTradeLog(nextTradeLog)
 
     ;(activeUpload.parsed.targetPriceUpdates || []).forEach((update) => {
       upsertTargetReport(update)
@@ -495,13 +507,16 @@ export function useTradeCaptureRuntime({
     const snap = lastSubmitRef.current
     if (!snap) return false
 
-    // Roll back tradeLog by removing the entry ids that were just inserted.
-    const entryIdSet = new Set(snap.entryIds)
-    setTradeLog((prev) => {
-      const arr = Array.isArray(prev) ? prev : []
-      return arr.filter((row) => !entryIdSet.has(row.id))
-    })
-    // Roll back holdings to the captured snapshot.
+    // Restore full snapshots (holdings + tradeLog) — 比 entryId filter 更穩
+    if (Array.isArray(snap.prevTradeLog)) {
+      setTradeLog(snap.prevTradeLog)
+    } else {
+      const entryIdSet = new Set(snap.entryIds || [])
+      setTradeLog((prev) => {
+        const arr = Array.isArray(prev) ? prev : []
+        return arr.filter((row) => !entryIdSet.has(row.id))
+      })
+    }
     if (Array.isArray(snap.prevHoldings)) {
       setHoldings(snap.prevHoldings)
     }

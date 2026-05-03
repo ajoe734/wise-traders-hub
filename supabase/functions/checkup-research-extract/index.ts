@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
+import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 
 import { corsHeaders } from '../_shared/checkupCors.ts';
 
@@ -89,6 +90,9 @@ Deno.serve(async (req) => {
     });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
+    const quotaResult = await consumeCheckupQuota(req, 'research-extract', corsHeaders);
+    if (!quotaResult.ok) return quotaErrorResponse(quotaResult, corsHeaders);
+
     const { report, stock, dossier } = body;
 
 
@@ -146,6 +150,7 @@ ${report.text}
     return new Response(JSON.stringify({
       fundamentals: parsed?.fundamentals || null,
       targets: parsed?.targets || { reports: [] },
+      quota: quotaResult.quota,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

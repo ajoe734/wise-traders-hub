@@ -72,6 +72,27 @@ const SLICE_REGISTRY = {
 }
 
 const CLOUD_TIMESTAMP_KEY = 'pf-cloud-sync-at'
+const PENDING_QUEUE_KEY = 'checkup-pending-syncs-v1'
+const PENDING_QUEUE_CAP = 50
+
+function readPendingQueue() {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(PENDING_QUEUE_KEY)
+    const arr = raw ? JSON.parse(raw) : []
+    return Array.isArray(arr) ? arr : []
+  } catch {
+    return []
+  }
+}
+function writePendingQueue(arr) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(arr.slice(-PENDING_QUEUE_CAP)))
+  } catch {
+    /* ignore quota */
+  }
+}
 
 function createSyncEngine() {
   let context = { activePortfolioId: OWNER_PORTFOLIO_ID, viewMode: PORTFOLIO_VIEW_MODE }
@@ -90,9 +111,18 @@ function createSyncEngine() {
 
   recomputeCloudGating()
 
+  // 上線時自動 flush 失敗佇列
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+      flushPendingSyncs().catch(() => {})
+    })
+  }
+
   function setContext(next) {
     context = { ...context, ...next }
     recomputeCloudGating()
+    // 切 portfolio / login 後嘗試 flush
+    flushPendingSyncs().catch(() => {})
   }
 
   function setFetch(fn) {
@@ -154,12 +184,49 @@ function createSyncEngine() {
           notifySaved(successMsg)
         }
       } catch (err) {
-        // 雲端失敗不影響 local；下次寫入會再嘗試
+        // 雲端失敗不影響 local；推進失敗佇列等下次 flush
         if (typeof console !== 'undefined') {
           console.warn(`[syncEngine] cloud save "${action}" failed:`, err)
         }
+        const queue = readPendingQueue()
+        // 同 action 只保留最後一筆（避免堆積過時資料）
+        const filtered = queue.filter((q) => q.action !== action)
+        filtered.push({ action, data, ts: Date.now() })
+        writePendingQueue(filtered)
       }
     }, CLOUD_SAVE_DEBOUNCE)
+  }
+
+  async function flushPendingSyncs() {
+    if (!cloudEnabled) return { flushed: 0, remaining: readPendingQueue().length }
+    let queue = readPendingQueue()
+    if (!queue.length) return { flushed: 0, remaining: 0 }
+    let flushed = 0
+    for (const item of [...queue]) {
+      try {
+        const res = await fetchImpl(API_ENDPOINTS.BRAIN, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: item.action, data: item.data }),
+        })
+        if (!res.ok) throw new Error(`flush ${item.action} ${res.status}`)
+        // 成功 → 從 queue 移除
+        queue = queue.filter((q) => q !== item)
+        writePendingQueue(queue)
+        flushed += 1
+      } catch (err) {
+        if (typeof console !== 'undefined') {
+          console.warn(`[syncEngine] flush "${item.action}" failed; will retry later:`, err)
+        }
+        break // 保留剩餘，等下次
+      }
+    }
+    if (flushed > 0) {
+      const now = Date.now()
+      lastCloudSyncAt = now
+      writeSyncAt(CLOUD_TIMESTAMP_KEY, now)
+    }
+    return { flushed, remaining: queue.length }
   }
 
   /**
@@ -233,6 +300,7 @@ function createSyncEngine() {
       enabled: cloudEnabled,
       syncedAt: lastCloudSyncAt,
       pendingActions: Object.keys(debounceTimers),
+      pendingQueueSize: readPendingQueue().length,
       activePortfolioId: context.activePortfolioId,
       viewMode: context.viewMode,
     }
@@ -246,6 +314,7 @@ function createSyncEngine() {
     setContext,
     setFetch,
     getStatus,
+    flushPendingSyncs,
     // 暴露給測試 / 偵錯
     _registry: SLICE_REGISTRY,
   }
