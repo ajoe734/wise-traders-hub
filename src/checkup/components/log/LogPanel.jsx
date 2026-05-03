@@ -1,16 +1,82 @@
-import { createElement as h } from 'react'
+import { createElement as h, useMemo, useState } from 'react'
 import { C, alpha } from '../../theme.js'
-import { Card } from '../common'
+import { Card, Button, TextFieldDialog } from '../common'
+import {
+  reverseTradeOnHoldings,
+  tradeLogToCSV,
+  downloadCSV,
+  groupByDate,
+  summarizeDay,
+} from '../../lib/tradeLogOps.js'
 
 /**
- * Log Panel - Trade history
+ * Log Panel — 含搜尋／買賣篩選／日期區間／CSV 匯出／逐筆編輯備忘／刪除（並回滾持倉）
  *
- * 單色橘憲法（mem://style/holdings/monochrome-orange-pnl）：
- * 買賣不再用紅綠對撞，統一橘色＋字重區分；買=填色 chip，賣=描邊 chip。
- * 排序使用 `${date} ${time}` 字典序（YYYY/MM/DD），不依賴 id 數字精度。
+ * 單色橘憲法：買賣以箭頭+字重區分，禁紅綠對撞。
  */
-export function LogPanel({ tradeLog }) {
-  if (!tradeLog || tradeLog.length === 0) {
+export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }) {
+  const [q, setQ] = useState('')
+  const [actionFilter, setActionFilter] = useState('all') // all | buy | sell
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [editing, setEditing] = useState(null) // { id, qIndex, value }
+  const [confirmDelete, setConfirmDelete] = useState(null) // log
+
+  const canMutate = typeof setTradeLog === 'function'
+
+  const filtered = useMemo(() => {
+    const kw = q.trim().toLowerCase()
+    return (Array.isArray(tradeLog) ? tradeLog : []).filter((r) => {
+      if (actionFilter === 'buy' && r.action !== '買進') return false
+      if (actionFilter === 'sell' && r.action !== '賣出') return false
+      if (kw) {
+        const hay = `${r.code || ''} ${r.name || ''}`.toLowerCase()
+        if (!hay.includes(kw)) return false
+      }
+      if (dateFrom && (r.date || '') < dateFrom) return false
+      if (dateTo && (r.date || '') > dateTo) return false
+      return true
+    })
+  }, [tradeLog, q, actionFilter, dateFrom, dateTo])
+
+  const grouped = useMemo(() => groupByDate(filtered), [filtered])
+
+  const handleExport = () => {
+    if (!filtered.length) {
+      flashSaved?.('沒有可匯出的紀錄', 2500)
+      return
+    }
+    const today = new Date().toISOString().slice(0, 10)
+    downloadCSV(`trade-log-${today}.csv`, tradeLogToCSV(filtered))
+    flashSaved?.(`✅ 已匯出 ${filtered.length} 筆 CSV`, 2500)
+  }
+
+  const handleDelete = (log) => {
+    if (!canMutate) return
+    setTradeLog((prev) => (Array.isArray(prev) ? prev : []).filter((r) => r.id !== log.id))
+    if (typeof setHoldings === 'function') {
+      setHoldings((prev) => reverseTradeOnHoldings(prev, log))
+    }
+    flashSaved?.(`↺ 已刪除 ${log.name || log.code} 並回滾持倉`, 2800)
+    setConfirmDelete(null)
+  }
+
+  const submitEdit = () => {
+    if (!editing || !canMutate) return
+    const { id, qIndex, value } = editing
+    setTradeLog((prev) =>
+      (Array.isArray(prev) ? prev : []).map((r) => {
+        if (r.id !== id) return r
+        const qa = Array.isArray(r.qa) ? [...r.qa] : []
+        if (qa[qIndex]) qa[qIndex] = { ...qa[qIndex], a: value }
+        return { ...r, qa }
+      })
+    )
+    flashSaved?.('✅ 備忘已更新', 2000)
+    setEditing(null)
+  }
+
+  if (!tradeLog.length) {
     return h(
       Card,
       { style: { textAlign: 'center', padding: '24px 14px' } },
@@ -25,82 +91,293 @@ export function LogPanel({ tradeLog }) {
     )
   }
 
-  const sorted = [...tradeLog].sort((a, b) => {
-    const ka = `${a.date || ''} ${a.time || ''}`
-    const kb = `${b.date || ''} ${b.time || ''}`
-    if (ka === kb) return (b.id || 0) - (a.id || 0)
-    return ka < kb ? 1 : -1
-  })
+  const inputStyle = {
+    fontSize: 11,
+    padding: '6px 8px',
+    borderRadius: 6,
+    border: `1px solid ${C.border}`,
+    background: C.card,
+    color: C.text,
+    minWidth: 0,
+  }
 
   return h(
     'div',
     null,
-    sorted.map((log) => {
-      const isBuy = log.action === '買進'
-      const arrow = isBuy ? '↑' : '↓'
-      return h(
-        Card,
-        {
-          key: log.id,
-          style: {
-            marginBottom: 8,
-            borderLeft: `2px solid ${alpha(C.accent || C.text, '40')}`,
-          },
-        },
-        h(
-          'div',
-          { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 4 } },
+    // ── Toolbar ──
+    h(
+      Card,
+      { style: { marginBottom: 10, padding: '10px 12px' } },
+      h(
+        'div',
+        { style: { display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' } },
+        h('input', {
+          type: 'search',
+          placeholder: '搜尋代碼／名稱',
+          value: q,
+          onChange: (e) => setQ(e.target.value),
+          style: { ...inputStyle, flex: '1 1 140px' },
+        }),
+        ['all', 'buy', 'sell'].map((v) =>
           h(
-            'div',
-            { style: { display: 'flex', alignItems: 'center', gap: 7 } },
-            h(
-              'span',
-              {
-                style: {
-                  background: isBuy ? alpha(C.accent || C.text, '12') : 'transparent',
-                  color: C.accent || C.text,
-                  border: `1px solid ${alpha(C.accent || C.text, '40')}`,
-                  fontSize: 9,
-                  fontWeight: isBuy ? 700 : 500,
-                  padding: '2px 8px',
-                  borderRadius: 4,
-                  letterSpacing: '0.06em',
-                },
+            'button',
+            {
+              key: v,
+              onClick: () => setActionFilter(v),
+              className: 'ui-btn',
+              style: {
+                ...inputStyle,
+                cursor: 'pointer',
+                background: actionFilter === v ? alpha(C.accent || C.text, '12') : C.card,
+                fontWeight: actionFilter === v ? 600 : 400,
               },
-              `${arrow} ${isBuy ? '買' : '賣'}`
-            ),
-            h('span', { style: { fontSize: 14, fontWeight: 600, color: C.text } }, log.name),
-            h('span', { style: { fontSize: 10, color: C.textMute } }, log.code)
-          ),
-          h('div', { style: { fontSize: 10, color: C.textMute } }, `${log.date} ${log.time}`)
+            },
+            v === 'all' ? '全部' : v === 'buy' ? '買進' : '賣出'
+          )
         ),
+        h('input', {
+          type: 'date',
+          value: dateFrom,
+          onChange: (e) => setDateFrom(e.target.value),
+          style: { ...inputStyle, flex: '0 0 auto' },
+          'aria-label': '起始日',
+        }),
+        h('span', { style: { color: C.textMute, fontSize: 10 } }, '→'),
+        h('input', {
+          type: 'date',
+          value: dateTo,
+          onChange: (e) => setDateTo(e.target.value),
+          style: { ...inputStyle, flex: '0 0 auto' },
+          'aria-label': '結束日',
+        }),
+        h(Button, { onClick: handleExport, size: 'xs' }, '匯出 CSV')
+      ),
+      h(
+        'div',
+        { style: { fontSize: 10, color: C.textMute, marginTop: 6 } },
+        `顯示 ${filtered.length} / ${tradeLog.length} 筆`
+      )
+    ),
+
+    grouped.map(([date, rows]) => {
+      const sum = summarizeDay(rows)
+      return h(
+        'div',
+        { key: date, style: { marginBottom: 14 } },
         h(
           'div',
-          { style: { fontSize: 11, color: C.textMute, marginBottom: 10 } },
-          `${log.qty}股 @ ${log.price?.toLocaleString()}元`
-        ),
-        (log.qa || []).map((item, i) =>
+          {
+            style: {
+              position: 'sticky',
+              top: 0,
+              background: C.bg,
+              padding: '6px 4px',
+              zIndex: 1,
+              fontSize: 11,
+              color: C.textMute,
+              borderBottom: `1px solid ${C.border}`,
+              marginBottom: 8,
+              display: 'flex',
+              justifyContent: 'space-between',
+            },
+          },
+          h('span', { style: { fontWeight: 600, color: C.textSec } }, date),
           h(
-            'div',
-            { key: i, style: { marginBottom: 8 } },
-            h('div', { style: { fontSize: 10, color: C.textMute, marginBottom: 3 } }, item.q),
+            'span',
+            null,
+            `買 ${sum.buy} · 賣 ${sum.sell} · 淨 ${sum.net >= 0 ? '+' : ''}${Math.round(sum.net).toLocaleString()}`
+          )
+        ),
+        rows.map((log) => {
+          const isBuy = log.action === '買進'
+          const arrow = isBuy ? '↑' : '↓'
+          return h(
+            Card,
+            {
+              key: log.id,
+              style: {
+                marginBottom: 8,
+                borderLeft: `2px solid ${alpha(C.accent || C.text, '40')}`,
+              },
+            },
             h(
               'div',
+              { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 4 } },
+              h(
+                'div',
+                { style: { display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' } },
+                h(
+                  'span',
+                  {
+                    style: {
+                      background: isBuy ? alpha(C.accent || C.text, '12') : 'transparent',
+                      color: C.accent || C.text,
+                      border: `1px solid ${alpha(C.accent || C.text, '40')}`,
+                      fontSize: 9,
+                      fontWeight: isBuy ? 700 : 500,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      letterSpacing: '0.06em',
+                    },
+                  },
+                  `${arrow} ${isBuy ? '買' : '賣'}`
+                ),
+                h('span', { style: { fontSize: 14, fontWeight: 600, color: C.text } }, log.name),
+                h('span', { style: { fontSize: 10, color: C.textMute } }, log.code)
+              ),
+              h(
+                'div',
+                { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('span', { style: { fontSize: 10, color: C.textMute } }, `${log.date} ${log.time}`),
+                canMutate &&
+                  h(
+                    'button',
+                    {
+                      className: 'ui-btn',
+                      onClick: () => setConfirmDelete(log),
+                      style: {
+                        border: 'none',
+                        background: 'transparent',
+                        color: C.textMute,
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        lineHeight: 1,
+                        padding: '0 4px',
+                      },
+                      'aria-label': '刪除這筆',
+                      title: '刪除這筆並回滾持倉',
+                    },
+                    '×'
+                  )
+              )
+            ),
+            h(
+              'div',
+              { style: { fontSize: 11, color: C.textMute, marginBottom: 10 } },
+              `${log.qty}股 @ ${log.price?.toLocaleString()}元`
+            ),
+            (log.qa || []).map((item, i) =>
+              h(
+                'div',
+                { key: i, style: { marginBottom: 8 } },
+                h(
+                  'div',
+                  {
+                    style: {
+                      fontSize: 10,
+                      color: C.textMute,
+                      marginBottom: 3,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                    },
+                  },
+                  h('span', null, item.q),
+                  canMutate &&
+                    h(
+                      'button',
+                      {
+                        className: 'ui-btn',
+                        onClick: () =>
+                          setEditing({ id: log.id, qIndex: i, value: item.a || '' }),
+                        style: {
+                          border: 'none',
+                          background: 'transparent',
+                          color: C.textMute,
+                          cursor: 'pointer',
+                          fontSize: 10,
+                          padding: 0,
+                        },
+                      },
+                      '編輯'
+                    )
+                ),
+                h(
+                  'div',
+                  {
+                    style: {
+                      fontSize: 11,
+                      color: C.textSec,
+                      background: C.subtle,
+                      borderRadius: 6,
+                      padding: '7px 10px',
+                      lineHeight: 1.7,
+                    },
+                  },
+                  item.a || '（未填）'
+                )
+              )
+            )
+          )
+        })
+      )
+    }),
+
+    // Edit memo dialog
+    h(TextFieldDialog, {
+      open: Boolean(editing),
+      title: '編輯備忘',
+      subtitle: '修正後會立即覆蓋並重新同步雲端。',
+      label: '備忘內容',
+      value: editing?.value || '',
+      onChange: (v) => setEditing((prev) => (prev ? { ...prev, value: v } : prev)),
+      onCancel: () => setEditing(null),
+      onSubmit: submitEdit,
+      multiline: true,
+    }),
+
+    // Delete confirm dialog（使用簡單原生 confirm 風格 inline 卡片）
+    confirmDelete &&
+      h(
+        'div',
+        {
+          style: {
+            position: 'fixed',
+            inset: 0,
+            background: alpha('#000', '40'),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+            padding: 16,
+          },
+          onClick: () => setConfirmDelete(null),
+        },
+        h(
+          Card,
+          {
+            style: { maxWidth: 360, padding: 16 },
+            onClick: (e) => e.stopPropagation(),
+          },
+          h(
+            'div',
+            { style: { fontSize: 14, fontWeight: 600, marginBottom: 6 } },
+            '確認刪除這筆交易？'
+          ),
+          h(
+            'div',
+            { style: { fontSize: 12, color: C.textMute, marginBottom: 14, lineHeight: 1.6 } },
+            `${confirmDelete.date} ${confirmDelete.action} ${confirmDelete.name || confirmDelete.code} ${confirmDelete.qty} 股 @ ${confirmDelete.price}`,
+            h('br'),
+            '系統會反向套用至持倉看板（買→扣回 / 賣→補回）。'
+          ),
+          h(
+            'div',
+            { style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } },
+            h(Button, { size: 'xs', onClick: () => setConfirmDelete(null) }, '取消'),
+            h(
+              Button,
               {
+                size: 'xs',
+                onClick: () => handleDelete(confirmDelete),
                 style: {
-                  fontSize: 11,
-                  color: C.textSec,
-                  background: C.subtle,
-                  borderRadius: 6,
-                  padding: '7px 10px',
-                  lineHeight: 1.7,
+                  background: alpha(C.amber || C.accent || C.text, '20'),
+                  border: `1px solid ${alpha(C.amber || C.accent || C.text, '60')}`,
                 },
               },
-              item.a || '（未填）'
+              '刪除並回滾'
             )
           )
         )
       )
-    })
   )
 }
