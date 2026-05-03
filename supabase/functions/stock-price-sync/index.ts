@@ -123,19 +123,24 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // ── Trading-hours guard（可被 ?force=1 或 body.force=true 繞過）──
+    // ── Parse body（symbols mode for manual backfill）──
     let force = new URL(req.url).searchParams.get('force') === '1'
-    if (!force && req.method === 'POST') {
+    let requestedSymbols: string[] | null = null
+    if (req.method === 'POST') {
       try {
         const body = await req.clone().json()
         if (body?.force === true || body?.force === '1') force = true
+        if (Array.isArray(body?.symbols) && body.symbols.length > 0) {
+          requestedSymbols = body.symbols.map((s: unknown) => String(s || '').trim()).filter(Boolean)
+          force = true // symbols mode 一律繞過交易時段
+        }
       } catch { /* body 不是 JSON 就忽略 */ }
     }
+
     const tw = new Date(Date.now() + 8 * 3600 * 1000)
-    const dow = tw.getUTCDay() // 0=Sun, 6=Sat
+    const dow = tw.getUTCDay()
     const minutes = tw.getUTCHours() * 60 + tw.getUTCMinutes()
     const isWeekday = dow >= 1 && dow <= 5
-    // 盤中 09:00–13:33（含尾盤撮合緩衝）
     const inWindow = minutes >= 9 * 60 && minutes <= 13 * 60 + 33
     if (!force && !(isWeekday && inWindow)) {
       return new Response(JSON.stringify({ skipped: true, reason: 'outside_trading_hours' }), {
@@ -147,6 +152,120 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
+
+    // ── Resolve caller user_id (for miss logging in symbols mode) ──
+    let callerUserId: string | null = null
+    if (requestedSymbols) {
+      const authHeader = req.headers.get('Authorization') || ''
+      const token = authHeader.replace(/^Bearer\s+/i, '')
+      if (token) {
+        try {
+          const { data } = await supabase.auth.getUser(token)
+          callerUserId = data?.user?.id || null
+        } catch { /* ignore */ }
+      }
+    }
+
+    // ── Helper: log miss / resolve ──
+    const SENTINEL = '00000000-0000-0000-0000-000000000000'
+    async function logMiss(symbol: string, reason: string, lastError: string | null) {
+      const uid = callerUserId
+      const now = new Date().toISOString()
+      // Try update first
+      const { data: existing } = await supabase
+        .from('checkup_price_misses')
+        .select('id, attempts')
+        .eq('symbol', symbol)
+        .is('user_id', uid as any)
+        .maybeSingle()
+      if (existing?.id) {
+        await supabase.from('checkup_price_misses').update({
+          attempts: (existing.attempts || 0) + 1,
+          last_seen_at: now,
+          reason,
+          last_error: lastError,
+          resolved_at: null,
+        }).eq('id', existing.id)
+      } else {
+        await supabase.from('checkup_price_misses').insert({
+          user_id: uid,
+          symbol,
+          reason,
+          attempts: 1,
+          last_error: lastError,
+          first_seen_at: now,
+          last_seen_at: now,
+        })
+      }
+    }
+    async function resolveMiss(symbol: string) {
+      await supabase.from('checkup_price_misses')
+        .update({ resolved_at: new Date().toISOString() })
+        .eq('symbol', symbol)
+        .is('user_id', callerUserId as any)
+        .is('resolved_at', null)
+    }
+
+    // ──────────── SYMBOLS MODE: 手動補抓特定代碼 ────────────
+    if (requestedSymbols) {
+      const reasons: Record<string, string> = {}
+      const validSyms: string[] = []
+      for (const sym of requestedSymbols) {
+        if (!/^\d{4,6}$/.test(sym)) {
+          reasons[sym] = 'invalid_format'
+        } else {
+          validSyms.push(sym)
+        }
+      }
+
+      const priceMap = validSyms.length > 0
+        ? await fetchStockBatch(validSyms)
+        : new Map<string, { price: number; name: string; raw: MsgItem }>()
+
+      const now = new Date().toISOString()
+      const priceRows = Array.from(priceMap.entries()).map(([symbol, { price, name, raw }]) => {
+        const yClose = parsePrice(raw.y)
+        const changeValue = yClose ? Math.round((price - yClose) * 100) / 100 : null
+        const changePct = yClose && yClose > 0 ? Math.round(((price - yClose) / yClose) * 10000) / 100 : null
+        return {
+          symbol, name: name || null, price,
+          open_price: parsePrice(raw.o), high_price: parsePrice(raw.h), low_price: parsePrice(raw.l),
+          yesterday_close: yClose, change_value: changeValue, change_percent: changePct,
+          volume: parseInt(raw.v || '0', 10) || null,
+          best_ask: parsePrice(raw.a?.split('_')?.[0]),
+          best_bid: parsePrice(raw.b?.split('_')?.[0]),
+          limit_up: parsePrice(raw.u), limit_down: parsePrice(raw.w),
+          pushed_at: now,
+        }
+      })
+      if (priceRows.length > 0) {
+        await supabase.from('current_prices').upsert(priceRows, { onConflict: 'symbol' })
+      }
+
+      for (const sym of validSyms) {
+        if (!priceMap.has(sym)) reasons[sym] = 'not_found'
+      }
+
+      const missing = Object.keys(reasons)
+      // Log / resolve misses
+      for (const sym of requestedSymbols) {
+        if (reasons[sym]) {
+          await logMiss(sym, reasons[sym], null)
+        } else if (priceMap.has(sym)) {
+          await resolveMiss(sym)
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        mode: 'symbols',
+        requested: requestedSymbols,
+        fetched: priceMap.size,
+        missing,
+        reasons,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+    // ──────────── 以下為原本的全量同步邏輯 ────────────
 
     // ── Step A: Collect symbols from trade_signals AND checkup_storage (Free Checkup holdings) ──
     const { data: openSignals, error: sigError } = await supabase
