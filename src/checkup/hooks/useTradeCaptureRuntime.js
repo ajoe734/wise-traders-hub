@@ -505,13 +505,16 @@ export function useTradeCaptureRuntime({
     const snap = lastSubmitRef.current
     if (!snap) return false
 
-    // Roll back tradeLog by removing the entry ids that were just inserted.
-    const entryIdSet = new Set(snap.entryIds)
-    setTradeLog((prev) => {
-      const arr = Array.isArray(prev) ? prev : []
-      return arr.filter((row) => !entryIdSet.has(row.id))
-    })
-    // Roll back holdings to the captured snapshot.
+    // Restore full snapshots (holdings + tradeLog) — 比 entryId filter 更穩
+    if (Array.isArray(snap.prevTradeLog)) {
+      setTradeLog(snap.prevTradeLog)
+    } else {
+      const entryIdSet = new Set(snap.entryIds || [])
+      setTradeLog((prev) => {
+        const arr = Array.isArray(prev) ? prev : []
+        return arr.filter((row) => !entryIdSet.has(row.id))
+      })
+    }
     if (Array.isArray(snap.prevHoldings)) {
       setHoldings(snap.prevHoldings)
     }
