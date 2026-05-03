@@ -91,18 +91,25 @@ export function UploadDropzone({
             h('img', {
               src: img,
               alt: '',
+              onClick: (e) => {
+                if (onPreviewImage) {
+                  e.stopPropagation()
+                  onPreviewImage(img)
+                }
+              },
               style: {
                 maxHeight: 200,
                 maxWidth: '100%',
                 borderRadius: 8,
                 objectFit: 'contain',
                 marginBottom: 8,
+                cursor: onPreviewImage ? 'zoom-in' : 'default',
               },
             }),
             h(
               'div',
               { style: { fontSize: 11, color: C.textMute } },
-              '點擊新增更多截圖或切換待處理圖片'
+              onPreviewImage ? '點圖放大檢視 OCR · 點空白處再加截圖' : '點擊新增更多截圖或切換待處理圖片'
             )
           )
         : h(
