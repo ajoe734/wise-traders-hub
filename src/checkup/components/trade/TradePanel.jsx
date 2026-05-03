@@ -3,6 +3,59 @@ import { C, alpha } from '../../theme.js'
 import { Card, Button, TextFieldDialog } from '../common'
 import { assessTradeParseQuality, summarizeTradeBatch } from '../../lib/tradeParseUtils.js'
 
+/**
+ * ImageLightbox — fullscreen zoom for OCR verification.
+ */
+function ImageLightbox({ src, onClose }) {
+  if (!src) return null
+  return h(
+    'div',
+    {
+      onClick: onClose,
+      role: 'dialog',
+      'aria-label': '截圖預覽',
+      style: {
+        position: 'fixed',
+        inset: 0,
+        background: alpha('#000', '88'),
+        zIndex: 80,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        cursor: 'zoom-out',
+      },
+    },
+    h('img', {
+      src,
+      alt: '上傳截圖預覽',
+      style: { maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8 },
+    }),
+    h(
+      'button',
+      {
+        className: 'ui-btn',
+        onClick: (e) => { e.stopPropagation(); onClose() },
+        style: {
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          background: alpha('#fff', '20'),
+          color: '#fff',
+          border: 'none',
+          borderRadius: 999,
+          width: 36,
+          height: 36,
+          fontSize: 18,
+          cursor: 'pointer',
+        },
+        'aria-label': '關閉預覽',
+      },
+      '×'
+    )
+  )
+}
+
 const lbl = {
   fontSize: 10,
   color: C.textMute,
