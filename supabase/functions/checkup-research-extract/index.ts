@@ -1,6 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
+import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 
 import { corsHeaders } from '../_shared/checkupCors.ts';
 
