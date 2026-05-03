@@ -111,15 +111,20 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
 
   if (!tradeLog.length) {
     return h(
-      Card,
-      { style: { textAlign: 'center', padding: '24px 14px' } },
-      h('div', { style: { fontSize: 20, marginBottom: 6, opacity: 0.3 } }, '◌'),
+      'div',
+      null,
+      h(DemoCTA, { feature: 'log' }),
       h(
-        'div',
-        { style: { fontSize: 12, color: C.textMute, fontWeight: 400 } },
-        '還沒有交易記錄',
-        h('br'),
-        h('span', { style: { fontSize: 10 } }, '上傳成交截圖後自動記錄在這裡')
+        Card,
+        { style: { textAlign: 'center', padding: '24px 14px' } },
+        h('div', { style: { fontSize: 20, marginBottom: 6, opacity: 0.3 } }, '◌'),
+        h(
+          'div',
+          { style: { fontSize: 12, color: C.textMute, fontWeight: 400 } },
+          '還沒有交易記錄',
+          h('br'),
+          h('span', { style: { fontSize: 10 } }, '上傳成交截圖後自動記錄在這裡')
+        )
       )
     )
   }
