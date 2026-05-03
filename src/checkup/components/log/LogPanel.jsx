@@ -3,6 +3,7 @@ import { C, alpha } from '../../theme.js'
 import { Card, Button, TextFieldDialog } from '../common'
 import {
   recomputeHoldingsAfterDelete,
+  replayTradeLog,
   tradeLogToCSV,
   downloadCSV,
   groupByDate,
