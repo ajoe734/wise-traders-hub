@@ -319,10 +319,10 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
       subtitle: '修正後會立即覆蓋並重新同步雲端。',
       label: '備忘內容',
       value: editing?.value || '',
-      onChange: (v) => setEditing((prev) => (prev ? { ...prev, value: v } : prev)),
+      onChange: (e) =>
+        setEditing((prev) => (prev ? { ...prev, value: e?.target?.value ?? '' } : prev)),
       onCancel: () => setEditing(null),
       onSubmit: submitEdit,
-      multiline: true,
     }),
 
     // Delete confirm dialog（使用簡單原生 confirm 風格 inline 卡片）
