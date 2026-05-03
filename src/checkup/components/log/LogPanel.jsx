@@ -80,6 +80,35 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
     setEditing(null)
   }
 
+  const submitRowEdit = () => {
+    if (!editingRow || !canMutate) return
+    const qty = Number(editingRow.qty)
+    const price = Number(editingRow.price)
+    if (!Number.isFinite(qty) || qty <= 0) {
+      flashSaved?.('❌ 股數需為正數', 2500)
+      return
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      flashSaved?.('❌ 價格需為正數', 2500)
+      return
+    }
+    const date = String(editingRow.date || '').trim()
+    if (!/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(date)) {
+      flashSaved?.('❌ 日期格式需為 YYYY/MM/DD', 2800)
+      return
+    }
+    const action = editingRow.action === '賣出' ? '賣出' : '買進'
+    const nextLog = (Array.isArray(tradeLog) ? tradeLog : []).map((r) =>
+      r.id === editingRow.id ? { ...r, action, qty, price, date } : r
+    )
+    setTradeLog(nextLog)
+    if (typeof setHoldings === 'function') {
+      setHoldings(replayTradeLog(nextLog))
+    }
+    flashSaved?.('✅ 已更新並重新計算持倉', 2800)
+    setEditingRow(null)
+  }
+
   if (!tradeLog.length) {
     return h(
       Card,
