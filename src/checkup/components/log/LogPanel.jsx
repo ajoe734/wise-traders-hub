@@ -384,6 +384,155 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
       onSubmit: submitEdit,
     }),
 
+    // Edit row dialog (qty/price/date/action)
+    editingRow &&
+      h(
+        'div',
+        {
+          style: {
+            position: 'fixed',
+            inset: 0,
+            background: alpha('#000', '40'),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 55,
+            padding: 16,
+          },
+          onClick: () => setEditingRow(null),
+        },
+        h(
+          Card,
+          {
+            style: { maxWidth: 380, width: '100%', padding: 16 },
+            onClick: (e) => e.stopPropagation(),
+          },
+          h(
+            'div',
+            { style: { fontSize: 14, fontWeight: 600, marginBottom: 4 } },
+            '修正交易紀錄'
+          ),
+          h(
+            'div',
+            { style: { fontSize: 11, color: C.textMute, marginBottom: 12, lineHeight: 1.6 } },
+            '修正後系統會用所有交易紀錄重新計算持倉（含均價）。'
+          ),
+          h(
+            'div',
+            { style: { display: 'grid', gap: 10 } },
+            h(
+              'div',
+              { style: { display: 'grid', gap: 4 } },
+              h('span', { style: { fontSize: 10, color: C.textMute } }, '動作'),
+              h(
+                'div',
+                { style: { display: 'flex', gap: 6 } },
+                ['買進', '賣出'].map((a) =>
+                  h(
+                    'button',
+                    {
+                      key: a,
+                      className: 'ui-btn',
+                      onClick: () => setEditingRow((p) => ({ ...p, action: a })),
+                      style: {
+                        flex: 1,
+                        padding: '7px 10px',
+                        fontSize: 12,
+                        borderRadius: 6,
+                        border: `1px solid ${editingRow.action === a ? C.borderStrong : C.border}`,
+                        background: editingRow.action === a ? alpha(C.accent || C.text, '12') : C.card,
+                        color: C.text,
+                        cursor: 'pointer',
+                        fontWeight: editingRow.action === a ? 600 : 400,
+                      },
+                    },
+                    a
+                  )
+                )
+              )
+            ),
+            h(
+              'label',
+              { style: { display: 'grid', gap: 4 } },
+              h('span', { style: { fontSize: 10, color: C.textMute } }, '股數'),
+              h('input', {
+                type: 'number',
+                value: editingRow.qty,
+                onChange: (e) => setEditingRow((p) => ({ ...p, qty: e.target.value })),
+                style: {
+                  fontSize: 12,
+                  padding: '8px 10px',
+                  borderRadius: 6,
+                  border: `1px solid ${C.border}`,
+                  background: C.subtle,
+                  color: C.text,
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                },
+              })
+            ),
+            h(
+              'label',
+              { style: { display: 'grid', gap: 4 } },
+              h('span', { style: { fontSize: 10, color: C.textMute } }, '成交價（元）'),
+              h('input', {
+                type: 'number',
+                step: '0.01',
+                value: editingRow.price,
+                onChange: (e) => setEditingRow((p) => ({ ...p, price: e.target.value })),
+                style: {
+                  fontSize: 12,
+                  padding: '8px 10px',
+                  borderRadius: 6,
+                  border: `1px solid ${C.border}`,
+                  background: C.subtle,
+                  color: C.text,
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                },
+              })
+            ),
+            h(
+              'label',
+              { style: { display: 'grid', gap: 4 } },
+              h('span', { style: { fontSize: 10, color: C.textMute } }, '成交日期（YYYY/MM/DD）'),
+              h('input', {
+                value: editingRow.date,
+                onChange: (e) => setEditingRow((p) => ({ ...p, date: e.target.value })),
+                placeholder: '2026/05/03',
+                style: {
+                  fontSize: 12,
+                  padding: '8px 10px',
+                  borderRadius: 6,
+                  border: `1px solid ${C.border}`,
+                  background: C.subtle,
+                  color: C.text,
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                },
+              })
+            )
+          ),
+          h(
+            'div',
+            { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+            h(Button, { size: 'xs', onClick: () => setEditingRow(null) }, '取消'),
+            h(
+              Button,
+              {
+                size: 'xs',
+                onClick: submitRowEdit,
+                style: {
+                  background: alpha(C.accent || C.text, '15'),
+                  border: `1px solid ${alpha(C.accent || C.text, '60')}`,
+                },
+              },
+              '儲存並重算'
+            )
+          )
+        )
+      ),
+
     // Delete confirm dialog（使用簡單原生 confirm 風格 inline 卡片）
     confirmDelete &&
       h(
