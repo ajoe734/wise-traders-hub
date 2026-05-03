@@ -184,12 +184,49 @@ function createSyncEngine() {
           notifySaved(successMsg)
         }
       } catch (err) {
-        // 雲端失敗不影響 local；下次寫入會再嘗試
+        // 雲端失敗不影響 local；推進失敗佇列等下次 flush
         if (typeof console !== 'undefined') {
           console.warn(`[syncEngine] cloud save "${action}" failed:`, err)
         }
+        const queue = readPendingQueue()
+        // 同 action 只保留最後一筆（避免堆積過時資料）
+        const filtered = queue.filter((q) => q.action !== action)
+        filtered.push({ action, data, ts: Date.now() })
+        writePendingQueue(filtered)
       }
     }, CLOUD_SAVE_DEBOUNCE)
+  }
+
+  async function flushPendingSyncs() {
+    if (!cloudEnabled) return { flushed: 0, remaining: readPendingQueue().length }
+    let queue = readPendingQueue()
+    if (!queue.length) return { flushed: 0, remaining: 0 }
+    let flushed = 0
+    for (const item of [...queue]) {
+      try {
+        const res = await fetchImpl(API_ENDPOINTS.BRAIN, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: item.action, data: item.data }),
+        })
+        if (!res.ok) throw new Error(`flush ${item.action} ${res.status}`)
+        // 成功 → 從 queue 移除
+        queue = queue.filter((q) => q !== item)
+        writePendingQueue(queue)
+        flushed += 1
+      } catch (err) {
+        if (typeof console !== 'undefined') {
+          console.warn(`[syncEngine] flush "${item.action}" failed; will retry later:`, err)
+        }
+        break // 保留剩餘，等下次
+      }
+    }
+    if (flushed > 0) {
+      const now = Date.now()
+      lastCloudSyncAt = now
+      writeSyncAt(CLOUD_TIMESTAMP_KEY, now)
+    }
+    return { flushed, remaining: queue.length }
   }
 
   /**
