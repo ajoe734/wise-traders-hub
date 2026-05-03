@@ -623,6 +623,65 @@ export default function App() {
     setServerSyncing(false);
   };
 
+  // 補齊報價：對缺價持倉一次性補抓，完成後僅在仍有失敗時開報告彈窗
+  const runBackfillReport = async () => {
+    if (backfilling) return;
+    const missingHoldings = (H || []).filter(h => !h.priceSource || h.priceError);
+    if (missingHoldings.length === 0) {
+      setSaved('✓ 報價已齊，無需補抓');
+      setTimeout(() => setSaved(''), 2500);
+      return;
+    }
+    if (isDemo) {
+      setSaved('DEMO 模式不執行補抓，登入後可使用');
+      setTimeout(() => setSaved(''), 3000);
+      return;
+    }
+    setBackfilling(true);
+    const codes = missingHoldings.map(h => String(h.code || '').trim()).filter(Boolean);
+    appendLog({ task: 'backfill', status: 'start', detail: `symbols=${codes.length}` });
+    try {
+      const { data, error } = await supabase.functions.invoke('stock-price-sync', {
+        body: { symbols: codes, force: true },
+      });
+      if (error) throw error;
+      const reasons = data?.reasons || {};
+      const missing = Array.isArray(data?.missing) ? data.missing : [];
+      // 重抓本地 H
+      try { await refreshPrices(); } catch {}
+
+      if (missing.length === 0) {
+        setSaved(`✓ 全部補齊（${codes.length} 檔）`);
+        setTimeout(() => setSaved(''), 3500);
+        appendLog({ task: 'backfill', status: 'ok', detail: `fetched=${data?.fetched ?? 0}/${codes.length}` });
+      } else {
+        const missingRows = missing.map(code => {
+          const h = missingHoldings.find(x => x.code === code) || {};
+          return {
+            code,
+            name: h.name || '—',
+            type: h.type || '—',
+            reason: reasons[code] || 'unknown',
+          };
+        });
+        setCoverageReport({
+          requested: codes.length,
+          fetched: (data?.fetched ?? 0),
+          missingRows,
+        });
+        setCoverageOpen(true);
+        appendLog({ task: 'backfill', status: 'partial', detail: `missing=${missing.length}/${codes.length}` });
+      }
+    } catch (e) {
+      const msg = e?.message || '網路錯誤';
+      setSaved(`✕ 補抓失敗：${msg}`);
+      setTimeout(() => setSaved(''), 4500);
+      appendLog({ task: 'backfill', status: 'error', detail: msg });
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   // Preload knowledge base from cloud (sync into memory once on mount)
   useEffect(() => {
     preloadKnowledgeBase().catch(() => {});
