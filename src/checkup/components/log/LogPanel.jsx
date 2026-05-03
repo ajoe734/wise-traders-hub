@@ -402,6 +402,9 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
       h(
         'div',
         {
+          role: 'dialog',
+          'aria-modal': 'true',
+          'aria-label': '修正交易紀錄',
           style: {
             position: 'fixed',
             inset: 0,
@@ -551,6 +554,9 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
       h(
         'div',
         {
+          role: 'alertdialog',
+          'aria-modal': 'true',
+          'aria-label': '確認刪除交易',
           style: {
             position: 'fixed',
             inset: 0,
