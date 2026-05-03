@@ -1239,7 +1239,10 @@ export function TradePanel({
       processFile,
       processFiles,
       parseShot,
+      parseAllShots,
+      retryParseUpload,
       parsing,
+      parseProgress,
       parseErr,
       uploads,
       activeUploadId,
@@ -1247,6 +1250,7 @@ export function TradePanel({
       selectUpload,
       removeUpload,
       clearUploads,
+      onPreviewImage: setPreviewSrc,
     }),
     h(ParseResults, {
       parsed,
