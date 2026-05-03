@@ -459,6 +459,42 @@ export type Database = {
         }
         Relationships: []
       }
+      checkup_price_misses: {
+        Row: {
+          attempts: number
+          first_seen_at: string
+          id: string
+          last_error: string | null
+          last_seen_at: string
+          reason: string
+          resolved_at: string | null
+          symbol: string
+          user_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          first_seen_at?: string
+          id?: string
+          last_error?: string | null
+          last_seen_at?: string
+          reason: string
+          resolved_at?: string | null
+          symbol: string
+          user_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          first_seen_at?: string
+          id?: string
+          last_error?: string | null
+          last_seen_at?: string
+          reason?: string
+          resolved_at?: string | null
+          symbol?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       checkup_storage: {
         Row: {
           data: Json
