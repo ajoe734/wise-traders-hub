@@ -1,4 +1,3 @@
-import { API_ENDPOINTS } from '../constants.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MEMO_Q, PARSE_PROMPT } from '../constants.js'
 import {
@@ -9,6 +8,9 @@ import {
 } from '../lib/tradeParseUtils.js'
 import { parseJsonObject } from '../lib/aiJsonRepair.js'
 import { partitionUploadFiles, summarizeRejections } from '../lib/tradeUploadGuards.js'
+import { preprocessForUpload } from '../lib/imageProcess.js'
+import { callEdge } from '../lib/edgeInvoke.js'
+import { useCheckupMode } from '../contexts/CheckupModeContext.jsx'
 // Phase 3A.4 Step 1: store 直取 setter
 import { useHoldingsStore } from '../stores/holdingsStore.js'
 
@@ -53,6 +55,7 @@ export function useTradeCaptureRuntime({
 }) {
   const setHoldings = useHoldingsStore((s) => s.setHoldings)
   const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
+  const { hasQuota, applyQuotaFromResponse } = useCheckupMode() || {}
   const [dragOver, setDragOver] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [tradeEditorState, setTradeEditorState] = useState(() =>
@@ -92,13 +95,26 @@ export function useTradeCaptureRuntime({
       const { accepted, rejected, overflow } = partitionUploadFiles(incomingFiles, {
         existingCount: uploadsRef.current.length,
       })
-      const rejectionMsg = summarizeRejections({ rejected, overflow })
+
+      // HEIC 轉 JPEG + 壓縮（長邊 1600 / JPEG 0.85），失敗的退回 rejected
+      let heicFailed = 0
+      const processed = []
+      for (const file of accepted) {
+        try {
+          processed.push(await preprocessForUpload(file))
+        } catch (err) {
+          if (err?.code === 'HEIC_CONVERT_FAILED') heicFailed += 1
+          else rejected.push({ file, reason: 'not-image' })
+        }
+      }
+
+      const rejectionMsg = summarizeRejections({ rejected, overflow, heicFailed })
       if (rejectionMsg) flashSaved(rejectionMsg, 4500)
-      if (!accepted.length) return
+      if (!processed.length) return
 
       try {
         const nextUploads = await Promise.all(
-          accepted.map(async (file) => {
+          processed.map(async (file) => {
             const dataUrl = await readFileAsDataUrl(file)
             const objectUrl = URL.createObjectURL(file)
             uploadIdRef.current += 1
@@ -256,64 +272,109 @@ export function useTradeCaptureRuntime({
     }))
   }, [updateActiveUpload])
 
+  const updateUploadById = useCallback((uploadId, updater) => {
+    setTradeEditorState((prev) => ({
+      ...prev,
+      uploads: prev.uploads.map((upload) =>
+        upload.id === uploadId
+          ? typeof updater === 'function'
+            ? updater(upload)
+            : { ...upload, ...updater }
+          : upload
+      ),
+    }))
+  }, [])
+
+  const parseUploadById = useCallback(
+    async (uploadId) => {
+      const upload = uploadsRef.current.find((u) => u.id === uploadId)
+      if (!upload?.b64) return false
+      if (isDemo) {
+        flashSaved('🔒 訪客模式不能解析成交，請先用 Line 登入', 4000)
+        return false
+      }
+      if (hasQuota === false) {
+        flashSaved('📉 本期 AI 解析額度已用完，請升級方案後再試', 4500)
+        return false
+      }
+
+      updateUploadById(uploadId, (u) => ({ ...u, parseErr: '' }))
+
+      try {
+        const data = await callEdge('checkup-parse', {
+          body: {
+            systemPrompt: PARSE_PROMPT,
+            base64: upload.b64,
+            mediaType: upload.mediaType || 'image/jpeg',
+          },
+          silent: true,
+        })
+
+        if (typeof applyQuotaFromResponse === 'function') applyQuotaFromResponse(data)
+
+        const raw = String(data?.content?.[0]?.text || data?.text || '').trim()
+        if (!raw) throw new Error('AI 未回傳可解析的內容')
+
+        const repaired = parseJsonObject(raw)
+        if (!repaired) {
+          throw new Error('AI 回傳格式無法解析，請重新上傳更清晰的截圖')
+        }
+
+        const fallbackDate = upload.tradeDate || toSlashDate()
+        const normalized = normalizeTradeParseResult(repaired, fallbackDate)
+        if (!normalized.trades.length && !normalized.targetPriceUpdates.length) {
+          throw new Error('沒有辨識到有效成交，請改用更清晰的截圖或手動修正')
+        }
+
+        updateUploadById(uploadId, (u) => ({
+          ...u,
+          parsed: normalized,
+          parseErr: '',
+          tradeDate: normalized.tradeDate || u.tradeDate || toSlashDate(),
+          memoStep: 0,
+          memoAns: [],
+          memoIn: '',
+        }))
+        return true
+      } catch (error) {
+        console.error('parseShot error:', error)
+        const msg =
+          error?.body?.error === 'QUOTA_EXCEEDED'
+            ? '本期 AI 解析額度已用完，請升級方案後再試'
+            : error.message || '解析失敗，請確認截圖清晰'
+        updateUploadById(uploadId, (u) => ({ ...u, parseErr: msg }))
+        return false
+      }
+    },
+    [applyQuotaFromResponse, flashSaved, hasQuota, isDemo, toSlashDate, updateUploadById]
+  )
+
   const parseShot = useCallback(async () => {
-    if (!activeUpload?.b64) return
-    if (isDemo) {
-      flashSaved('🔒 訪客模式不能解析成交，請先用 Line 登入', 4000)
-      return
-    }
+    const id = uploadsRef.current.find((u) => u.id === tradeEditorState.activeUploadId)?.id
+    if (!id) return
     setParsing(true)
-    updateActiveUpload((upload) => ({ ...upload, parseErr: '' }))
-
     try {
-      const response = await fetch(API_ENDPOINTS.ANALYZE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemPrompt: PARSE_PROMPT,
-          base64: activeUpload.b64,
-          mediaType: activeUpload.mediaType,
-        }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.detail || data.error || 'API 錯誤')
-
-      const raw = String(data.content?.[0]?.text || '').trim()
-      if (!raw) throw new Error('AI 未回傳可解析的內容')
-
-      // jsonRepair: 容忍 markdown wrapper / 截斷 / 前後綴雜訊
-      const repaired = parseJsonObject(raw)
-      if (!repaired) {
-        throw new Error('AI 回傳格式無法解析，請重新上傳更清晰的截圖')
-      }
-
-      const normalized = normalizeTradeParseResult(
-        repaired,
-        activeUpload.tradeDate || toSlashDate()
-      )
-      if (!normalized.trades.length && !normalized.targetPriceUpdates.length) {
-        throw new Error('沒有辨識到有效成交，請改用更清晰的截圖或手動修正')
-      }
-
-      updateActiveUpload((upload) => ({
-        ...upload,
-        parsed: normalized,
-        parseErr: '',
-        tradeDate: normalized.tradeDate || upload.tradeDate || toSlashDate(),
-        memoStep: 0,
-        memoAns: [],
-        memoIn: '',
-      }))
-    } catch (error) {
-      console.error('parseShot error:', error)
-      updateActiveUpload((upload) => ({
-        ...upload,
-        parseErr: error.message || '解析失敗，請確認截圖清晰',
-      }))
+      await parseUploadById(id)
     } finally {
       setParsing(false)
     }
-  }, [activeUpload, toSlashDate, updateActiveUpload, isDemo, flashSaved])
+  }, [parseUploadById, tradeEditorState.activeUploadId])
+
+  const parseAllShots = useCallback(async () => {
+    const targets = uploadsRef.current.filter((u) => !u.parsed?.trades?.length)
+    if (!targets.length) return
+    setParsing(true)
+    try {
+      for (const u of targets) {
+        // 序列跑避免 burst 429
+        // eslint-disable-next-line no-await-in-loop
+        await parseUploadById(u.id)
+      }
+    } finally {
+      setParsing(false)
+    }
+  }, [parseUploadById])
+
 
   const parsed = activeUpload?.parsed || null
   const memoBatchMode = useMemo(() => getTradeBatchMode(parsed?.trades || []), [parsed])
@@ -325,13 +386,18 @@ export function useTradeCaptureRuntime({
   const UNDO_WINDOW_MS = 8000
   const [hasUndoableSubmit, setHasUndoableSubmit] = useState(false)
   const undoTimerRef = useRef(null)
+  const isSubmittingRef = useRef(false)
 
   useEffect(() => () => {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
   }, [])
 
   const submitMemo = useCallback(() => {
+    if (isSubmittingRef.current) return
     if (!activeUpload?.parsed?.trades?.length) return
+    isSubmittingRef.current = true
+    // 釋放 lock：下一個 tick（足夠擋住雙擊）
+    setTimeout(() => { isSubmittingRef.current = false }, 800)
 
     const nextAnswers = [...(activeUpload.memoAns || []), activeUpload.memoIn || '']
     if ((activeUpload.memoStep || 0) < memoQuestions.length - 1) {
@@ -471,6 +537,7 @@ export function useTradeCaptureRuntime({
       processFile,
       processFiles,
       parseShot,
+      parseAllShots,
       parsing,
       parseErr: activeUpload?.parseErr || null,
       parsed,
@@ -520,6 +587,7 @@ export function useTradeCaptureRuntime({
       memoBatchMode,
       memoQuestions,
       parseShot,
+      parseAllShots,
       parsed,
       parsing,
       processFile,
