@@ -95,13 +95,26 @@ export function useTradeCaptureRuntime({
       const { accepted, rejected, overflow } = partitionUploadFiles(incomingFiles, {
         existingCount: uploadsRef.current.length,
       })
-      const rejectionMsg = summarizeRejections({ rejected, overflow })
+
+      // HEIC 轉 JPEG + 壓縮（長邊 1600 / JPEG 0.85），失敗的退回 rejected
+      let heicFailed = 0
+      const processed = []
+      for (const file of accepted) {
+        try {
+          processed.push(await preprocessForUpload(file))
+        } catch (err) {
+          if (err?.code === 'HEIC_CONVERT_FAILED') heicFailed += 1
+          else rejected.push({ file, reason: 'not-image' })
+        }
+      }
+
+      const rejectionMsg = summarizeRejections({ rejected, overflow, heicFailed })
       if (rejectionMsg) flashSaved(rejectionMsg, 4500)
-      if (!accepted.length) return
+      if (!processed.length) return
 
       try {
         const nextUploads = await Promise.all(
-          accepted.map(async (file) => {
+          processed.map(async (file) => {
             const dataUrl = await readFileAsDataUrl(file)
             const objectUrl = URL.createObjectURL(file)
             uploadIdRef.current += 1
