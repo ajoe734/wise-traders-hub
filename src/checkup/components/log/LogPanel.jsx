@@ -1,4 +1,4 @@
-import { createElement as h, useMemo, useState } from 'react'
+import { createElement as h, useState } from 'react'
 import { C, alpha } from '../../theme.js'
 import { Card, Button, TextFieldDialog, DemoCTA } from '../common'
 import {
@@ -6,9 +6,10 @@ import {
   replayTradeLog,
   tradeLogToCSV,
   downloadCSV,
-  groupByDate,
   summarizeDay,
 } from '../../lib/tradeLogOps.js'
+import { useLogPanelFilters } from '../../hooks/useLogPanelFilters.js'
+import { useDialogEscape } from '../../hooks/useDialogEscape.js'
 
 /**
  * Log Panel — 含搜尋／買賣篩選／日期區間／CSV 匯出／逐筆編輯備忘／刪除（並回滾持倉）
