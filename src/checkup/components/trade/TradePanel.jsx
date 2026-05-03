@@ -1,4 +1,4 @@
-import { createElement as h, useState } from 'react'
+import { createElement as h, useEffect, useState } from 'react'
 import { C, alpha } from '../../theme.js'
 import { Card, Button, TextFieldDialog, DemoCTA } from '../common'
 import { assessTradeParseQuality, summarizeTradeBatch } from '../../lib/tradeParseUtils.js'
@@ -7,13 +7,20 @@ import { assessTradeParseQuality, summarizeTradeBatch } from '../../lib/tradePar
  * ImageLightbox — fullscreen zoom for OCR verification.
  */
 function ImageLightbox({ src, onClose }) {
+  useEffect(() => {
+    if (!src) return
+    const handler = (e) => { if (e.key === 'Escape') onClose?.() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [src, onClose])
   if (!src) return null
   return h(
     'div',
     {
       onClick: onClose,
       role: 'dialog',
-      'aria-label': '截圖預覽',
+      'aria-modal': 'true',
+      'aria-label': '截圖預覽（按 Esc 或點擊外部關閉）',
       style: {
         position: 'fixed',
         inset: 0,

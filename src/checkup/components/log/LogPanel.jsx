@@ -1,4 +1,4 @@
-import { createElement as h, useMemo, useState } from 'react'
+import { createElement as h, useState } from 'react'
 import { C, alpha } from '../../theme.js'
 import { Card, Button, TextFieldDialog, DemoCTA } from '../common'
 import {
@@ -6,9 +6,10 @@ import {
   replayTradeLog,
   tradeLogToCSV,
   downloadCSV,
-  groupByDate,
   summarizeDay,
 } from '../../lib/tradeLogOps.js'
+import { useLogPanelFilters } from '../../hooks/useLogPanelFilters.js'
+import { useDialogEscape } from '../../hooks/useDialogEscape.js'
 
 /**
  * Log Panel — 含搜尋／買賣篩選／日期區間／CSV 匯出／逐筆編輯備忘／刪除（並回滾持倉）
@@ -16,32 +17,21 @@ import {
  * 單色橘憲法：買賣以箭頭+字重區分，禁紅綠對撞。
  */
 export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }) {
-  const [q, setQ] = useState('')
-  const [actionFilter, setActionFilter] = useState('all') // all | buy | sell
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const {
+    q, setQ,
+    actionFilter, setActionFilter,
+    dateFrom, setDateFrom,
+    dateTo, setDateTo,
+    filtered, grouped, totals,
+  } = useLogPanelFilters(tradeLog)
   const [editing, setEditing] = useState(null) // memo: { id, qIndex, value }
   const [editingRow, setEditingRow] = useState(null) // row: { id, action, qty, price, date }
   const [confirmDelete, setConfirmDelete] = useState(null) // log
 
   const canMutate = typeof setTradeLog === 'function'
 
-  const filtered = useMemo(() => {
-    const kw = q.trim().toLowerCase()
-    return (Array.isArray(tradeLog) ? tradeLog : []).filter((r) => {
-      if (actionFilter === 'buy' && r.action !== '買進') return false
-      if (actionFilter === 'sell' && r.action !== '賣出') return false
-      if (kw) {
-        const hay = `${r.code || ''} ${r.name || ''}`.toLowerCase()
-        if (!hay.includes(kw)) return false
-      }
-      if (dateFrom && (r.date || '') < dateFrom) return false
-      if (dateTo && (r.date || '') > dateTo) return false
-      return true
-    })
-  }, [tradeLog, q, actionFilter, dateFrom, dateTo])
-
-  const grouped = useMemo(() => groupByDate(filtered), [filtered])
+  useDialogEscape(Boolean(editingRow), () => setEditingRow(null))
+  useDialogEscape(Boolean(confirmDelete), () => setConfirmDelete(null))
 
   const handleExport = () => {
     if (!filtered.length) {
@@ -139,15 +129,6 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
     minWidth: 0,
   }
 
-  // 全期摘要：總筆數 + 買賣分布 + 淨流（負=淨買入，正=淨賣出）
-  const totals = useMemo(() => {
-    let buy = 0, sell = 0, net = 0
-    for (const r of filtered) {
-      const amt = Number(r.qty || 0) * Number(r.price || 0)
-      if (r.action === '買進') { buy += 1; net -= amt } else { sell += 1; net += amt }
-    }
-    return { buy, sell, net }
-  }, [filtered])
 
   return h(
     'div',
@@ -421,6 +402,9 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
       h(
         'div',
         {
+          role: 'dialog',
+          'aria-modal': 'true',
+          'aria-label': '修正交易紀錄',
           style: {
             position: 'fixed',
             inset: 0,
@@ -570,6 +554,9 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
       h(
         'div',
         {
+          role: 'alertdialog',
+          'aria-modal': 'true',
+          'aria-label': '確認刪除交易',
           style: {
             position: 'fixed',
             inset: 0,
