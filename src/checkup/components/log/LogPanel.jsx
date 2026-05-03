@@ -2,7 +2,7 @@ import { createElement as h, useMemo, useState } from 'react'
 import { C, alpha } from '../../theme.js'
 import { Card, Button, TextFieldDialog } from '../common'
 import {
-  reverseTradeOnHoldings,
+  recomputeHoldingsAfterDelete,
   tradeLogToCSV,
   downloadCSV,
   groupByDate,
