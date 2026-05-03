@@ -587,6 +587,7 @@ export function useTradeCaptureRuntime({
       memoBatchMode,
       memoQuestions,
       parseShot,
+      parseAllShots,
       parsed,
       parsing,
       processFile,
