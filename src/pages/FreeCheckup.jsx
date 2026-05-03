@@ -5605,94 +5605,35 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               </div>
       )}
 
-      {/* ══════════ 持倉覆蓋率報表 ══════════ */}
-      {coverageOpen && (() => {
-        const rows = (H || []).map(h => {
-          const ok = !!h.priceSource && !h.priceError;
-          let sourceLabel = '—';
-          if (h.priceSource === 'live') sourceLabel = '即時成交';
-          else if (h.priceSource === 'high') sourceLabel = '當日最高';
-          else if (h.priceSource === 'ask') sourceLabel = '委賣價';
-          else if (h.priceSource === 'yclose') sourceLabel = '昨收價';
-          else if (h.priceSource === 'screenshot') sourceLabel = '截圖市場價';
-          return {
-            code: h.code,
-            name: h.name,
-            type: h.type,
-            ok,
-            source: sourceLabel,
-            updatedAt: h.priceUpdatedAt ? new Date(h.priceUpdatedAt).toLocaleString('zh-TW') : '—',
-            error: h.priceError || (ok ? '' : '尚未同步報價'),
-          };
-        });
-        const okCount = rows.filter(r => r.ok).length;
-        const total = rows.length;
-        const coverage = total ? Math.round((okCount / total) * 1000) / 10 : 0;
-        const missing = rows.filter(r => !r.ok);
-
-        const exportCsv = () => {
-          const header = '代碼,名稱,類型,狀態,價格來源,更新時間,失敗原因';
-          const lines = rows.map(r => [
-            r.code, r.name, r.type, r.ok?'OK':'MISS', r.source, r.updatedAt, r.error
-          ].map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(','));
-          const csv = '\uFEFF' + [header, ...lines].join('\n');
-          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `freecheckup-coverage-${new Date().toISOString().slice(0,10)}.csv`;
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
+      {/* ══════════ 補抓報告 ══════════ */}
+      {coverageOpen && coverageReport && (() => {
+        const { requested, fetched, missingRows } = coverageReport;
+        const successCount = requested - missingRows.length;
+        const reasonText = (r) => {
+          if (r === 'invalid_format') return '非台股代號格式（系統僅支援台股上市櫃 / ETF / 權證）';
+          if (r === 'not_found') return 'TWSE / TPEx 都查無此代碼，可能已下市或代號錯誤';
+          if (r === 'no_price') return '查到代碼但無有效報價（停牌或當日無成交）';
+          return r || '未知原因';
         };
-
+        const close = () => { setCoverageOpen(false); setCoverageReport(null); };
         return (
           <div
             style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:120,
               display:'flex',alignItems:'center',justifyContent:'center',padding:16}}
-            onClick={() => setCoverageOpen(false)}
+            onClick={close}
           >
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{
-                background:C.card, borderRadius:10, width:'min(720px, 100%)',
-                maxHeight:'min(86vh, 760px)', display:'flex', flexDirection:'column',
-                border:`1px solid ${C.border}`,
-              }}
-            >
+            <div onClick={e => e.stopPropagation()}
+              style={{background:C.card, borderRadius:10, width:'min(640px, 100%)',
+                maxHeight:'min(86vh, 720px)', display:'flex', flexDirection:'column',
+                border:`1px solid ${C.border}`}}>
               <div style={{padding:'18px 22px 12px',borderBottom:`1px solid ${C.border}`}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-                  <div style={{fontSize:15,fontWeight:500,color:C.text,letterSpacing:'0.02em'}}>持倉覆蓋率報表</div>
-                  <button onClick={() => setCoverageOpen(false)} style={{
+                  <div style={{fontSize:15,fontWeight:500,color:C.text,letterSpacing:'0.02em'}}>補抓報告</div>
+                  <button onClick={close} style={{
                     background:'transparent',border:'none',color:C.textMute,cursor:'pointer',fontSize:18,padding:0,lineHeight:1}}>✕</button>
                 </div>
-                <div style={{display:'flex',gap:18,alignItems:'baseline',flexWrap:'wrap'}}>
-                  <div>
-                    <div style={{fontSize:10,color:C.textMute,letterSpacing:'0.08em'}}>覆蓋率</div>
-                    <div style={{fontSize:22,fontWeight:500,color:coverage>=80?C.olive:coverage>=50?C.amber:C.down,letterSpacing:'-0.02em'}}>
-                      {coverage.toFixed(1)}%
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{fontSize:10,color:C.textMute,letterSpacing:'0.08em'}}>已同步</div>
-                    <div style={{fontSize:16,fontWeight:500,color:C.text}}>{okCount} / {total}</div>
-                  </div>
-                  <div>
-                    <div style={{fontSize:10,color:C.textMute,letterSpacing:'0.08em'}}>缺失</div>
-                    <div style={{fontSize:16,fontWeight:500,color:missing.length?C.down:C.textMute}}>{missing.length}</div>
-                  </div>
-                  <div style={{marginLeft:'auto',display:'flex',gap:8}}>
-                    <button onClick={triggerServerSync} disabled={serverSyncing} style={{
-                      background:serverSyncing?alpha(C.subtle,'aa'):C.text,color:serverSyncing?C.textMute:C.bg,
-                      border:'none',borderRadius:6,padding:'5px 12px',fontSize:11,fontWeight:500,
-                      cursor:serverSyncing?'wait':'pointer',letterSpacing:'0.04em'}}>
-                      {serverSyncing?'同步中…':'立即重跑同步'}
-                    </button>
-                    <button onClick={exportCsv} style={{
-                      background:'transparent',color:C.textSec,border:`1px solid ${C.border}`,
-                      borderRadius:6,padding:'5px 10px',fontSize:11,fontWeight:400,cursor:'pointer'}}>
-                      ↓ 匯出 CSV
-                    </button>
-                  </div>
+                <div style={{fontSize:12,color:C.textSec,lineHeight:1.6}}>
+                  補抓 <b style={{color:C.text}}>{requested}</b> 檔　·　成功 <b style={{color:C.olive}}>{successCount}</b>　·　仍失敗 <b style={{color:C.down}}>{missingRows.length}</b>
                 </div>
               </div>
 
@@ -5703,37 +5644,24 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <th style={{textAlign:'left',padding:'8px 14px',fontWeight:400,fontSize:11}}>代碼</th>
                       <th style={{textAlign:'left',padding:'8px 8px',fontWeight:400,fontSize:11}}>名稱</th>
                       <th style={{textAlign:'left',padding:'8px 8px',fontWeight:400,fontSize:11}}>類型</th>
-                      <th style={{textAlign:'left',padding:'8px 8px',fontWeight:400,fontSize:11}}>狀態</th>
-                      <th style={{textAlign:'left',padding:'8px 8px',fontWeight:400,fontSize:11}}>來源</th>
-                      <th style={{textAlign:'left',padding:'8px 14px',fontWeight:400,fontSize:11}}>失敗原因</th>
+                      <th style={{textAlign:'left',padding:'8px 14px',fontWeight:400,fontSize:11}}>無法補抓的原因</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map(r => (
+                    {missingRows.map(r => (
                       <tr key={r.code} style={{borderBottom:`1px solid ${alpha(C.border,'88')}`}}>
                         <td style={{padding:'8px 14px',fontFamily:'ui-monospace,monospace',color:C.text}}>{r.code}</td>
                         <td style={{padding:'8px 8px',color:C.text}}>{r.name}</td>
                         <td style={{padding:'8px 8px',color:C.textMute}}>{r.type || '—'}</td>
-                        <td style={{padding:'8px 8px'}}>
-                          <span style={{
-                            display:'inline-block',padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:500,letterSpacing:'0.05em',
-                            background: r.ok ? alpha(C.olive,'22') : alpha(C.down,'22'),
-                            color: r.ok ? C.olive : C.down,
-                          }}>{r.ok?'OK':'缺失'}</span>
-                        </td>
-                        <td style={{padding:'8px 8px',color:C.textSec}}>{r.source}</td>
-                        <td style={{padding:'8px 14px',color:r.ok?C.textMute:C.down,fontSize:11}}>{r.error || '—'}</td>
+                        <td style={{padding:'8px 14px',color:C.down,fontSize:11,lineHeight:1.5}}>{reasonText(r.reason)}</td>
                       </tr>
                     ))}
-                    {rows.length === 0 && (
-                      <tr><td colSpan={6} style={{padding:'24px',textAlign:'center',color:C.textMute}}>尚無持倉資料</td></tr>
-                    )}
                   </tbody>
                 </table>
               </div>
 
               <div style={{padding:'10px 22px',borderTop:`1px solid ${C.border}`,fontSize:11,color:C.textMute,lineHeight:1.6}}>
-                提示：盤中（週一至週五 09:00–13:33）後端排程「stock-price-sync」每 5 分鐘自動同步 TWSE/TPEx 報價並寫入 current_prices；新價格寫入時，畫面會透過 Realtime 即時更新，不需重整。
+                若您持有美股、港股、加密貨幣等海外標的，目前不支援自動報價，請於該檔持倉手動填入價格。
               </div>
             </div>
           </div>
