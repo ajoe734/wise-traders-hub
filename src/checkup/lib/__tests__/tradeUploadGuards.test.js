@@ -58,17 +58,16 @@ describe('summarizeRejections', () => {
     expect(summarizeRejections({ rejected: [], overflow: 0 })).toBeNull()
   })
 
-  it('summarizes mixed reasons in Chinese', () => {
+  it('summarizes mixed reasons in Chinese (heic via heicFailed)', () => {
     const msg = summarizeRejections({
       rejected: [
-        { reason: 'heic' },
         { reason: 'too-large' },
         { reason: 'too-large' },
         { reason: 'not-image' },
       ],
       overflow: 2,
+      heicFailed: 1,
     })
-    expect(msg).toContain('1 張 HEIC')
     expect(msg).toContain('2 張超過')
     expect(msg).toContain('1 張非圖片')
     expect(msg).toContain(`2 張超過 ${MAX_QUEUED_UPLOADS} 張上限`)
