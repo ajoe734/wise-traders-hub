@@ -90,6 +90,9 @@ Deno.serve(async (req) => {
     });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
+    const quotaResult = await consumeCheckupQuota(req, 'research-extract', corsHeaders);
+    if (!quotaResult.ok) return quotaErrorResponse(quotaResult, corsHeaders);
+
     const { report, stock, dossier } = body;
 
 
