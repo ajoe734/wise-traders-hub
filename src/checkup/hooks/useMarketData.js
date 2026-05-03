@@ -27,6 +27,7 @@ import {
   extractQuotesFromTwsePayload,
 } from '../lib/marketSyncRuntime.js'
 import { pfKey, readStorageValue, save } from '../lib/portfolioUtils.js'
+import { reportMissingSymbols } from '../lib/missingPriceClient.js'
 // Phase 3A.4 Step 1: store 直取 setter
 import { useHoldingsStore } from '../stores/holdingsStore.js'
 
@@ -214,6 +215,17 @@ export function useMarketData({
         await persistMarketPriceState(nextCache, nextSync)
         if (currentViewMode === PORTFOLIO_VIEW_MODE) {
           setHoldings((prev) => applyMarketQuotesToHoldings(prev, nextCache.prices))
+        }
+
+        // Step 3 — Missing-price shadow report:
+        // ask backend to retry (TPEx fallback) and log unresolved codes.
+        if (failedCodes.length > 0) {
+          reportMissingSymbols(failedCodes).then((res) => {
+            if (res?.fetched > 0) {
+              // backend rescued some — silent refresh from cache via next tick
+              priceSelfHealRef.current = { ...priceSelfHealRef.current, _lastRescue: Date.now() }
+            }
+          }).catch(() => {})
         }
 
         if (!silent) {

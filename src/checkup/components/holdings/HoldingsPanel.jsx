@@ -1,8 +1,9 @@
-import { createElement as h } from 'react'
+import { createElement as h, useState } from 'react'
 import { C, alpha } from '../../theme.js'
 import { IND_COLOR, STOCK_META } from '../../seedData.js'
 import { Card } from '../common'
 import { getHoldingMarketValue, getHoldingReturnPct, getHoldingUnrealizedPnl } from '../../lib/holdings.js'
+import { reportMissingSymbols } from '../../lib/missingPriceClient.js'
 
 /* ── 是枝裕和《小偷家族》×《海街日記》融合美學 ──
  * 1. 極微色底取代漸層，邊框完全移除
@@ -124,8 +125,30 @@ export function HoldingsSummary({ holdings, totalVal, totalCost }) {
 /**
  * Holdings Integrity Warning — 保持功能，簡化視覺
  */
-export function HoldingsIntegrityWarning({ issues }) {
+export function HoldingsIntegrityWarning({ issues, onRetry }) {
+  const [retrying, setRetrying] = useState(false)
+  const [hint, setHint] = useState(null)
   if (!issues || issues.length === 0) return null
+
+  const handleRetry = async () => {
+    if (retrying) return
+    setRetrying(true)
+    setHint(null)
+    try {
+      const codes = issues.map((it) => String(it?.code || '').trim()).filter(Boolean)
+      const res = await reportMissingSymbols(codes)
+      if (res?.fetched > 0) {
+        setHint(`已補回 ${res.fetched} / ${codes.length} 檔，可重新整理`)
+        if (typeof onRetry === 'function') onRetry()
+      } else {
+        setHint('仍無法補抓，請稍後再試或聯繫客服')
+      }
+    } catch (e) {
+      setHint('補抓失敗，請稍後再試')
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   return h(
     'div',
@@ -139,15 +162,41 @@ export function HoldingsIntegrityWarning({ issues }) {
         borderLeft: `1px solid ${alpha(C.amber, '20')}`,
         background: alpha(C.amber, '04'),
         borderRadius: 4,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: 12,
       },
     },
-    `${issues.length} 檔持股缺少可用價格，市值可能暫時不完整 — `,
-    issues
-      .slice(0, 5)
-      .map((item) => `${item.name || item.code}`)
-      .join('、'),
-    issues.length > 5 ? ' …' : '',
-    '。請同步收盤價。'
+    h(
+      'div',
+      { style: { flex: 1 } },
+      `${issues.length} 檔持股缺少可用價格，市值可能暫時不完整 — `,
+      issues.slice(0, 5).map((item) => `${item.name || item.code}`).join('、'),
+      issues.length > 5 ? ' …' : '',
+      '。',
+      hint ? h('div', { style: { marginTop: 4, color: C.textMute } }, hint) : null
+    ),
+    h(
+      'button',
+      {
+        onClick: handleRetry,
+        disabled: retrying,
+        style: {
+          flexShrink: 0,
+          fontSize: 10,
+          padding: '4px 10px',
+          color: C.amber,
+          background: 'transparent',
+          border: `1px solid ${alpha(C.amber, '30')}`,
+          borderRadius: 4,
+          cursor: retrying ? 'default' : 'pointer',
+          letterSpacing: '0.05em',
+          opacity: retrying ? 0.5 : 1,
+        },
+      },
+      retrying ? '補抓中…' : '重試補抓'
+    )
   )
 }
 
