@@ -10,6 +10,7 @@ import { parseJsonObject } from '../lib/aiJsonRepair.js'
 import { partitionUploadFiles, summarizeRejections } from '../lib/tradeUploadGuards.js'
 import { preprocessForUpload } from '../lib/imageProcess.js'
 import { callEdge } from '../lib/edgeInvoke.js'
+import { describeEdgeError } from '../lib/edgeErrors.js'
 import { useCheckupMode } from '../contexts/CheckupModeContext.jsx'
 // Phase 3A.4 Step 1: store 直取 setter
 import { useHoldingsStore } from '../stores/holdingsStore.js'
@@ -345,10 +346,7 @@ export function useTradeCaptureRuntime({
         return true
       } catch (error) {
         console.error('parseShot error:', error)
-        const msg =
-          error?.body?.error === 'QUOTA_EXCEEDED'
-            ? '本期 AI 解析額度已用完，請升級方案後再試'
-            : error.message || '解析失敗，請確認截圖清晰'
+        const msg = describeEdgeError(error, '解析失敗，請確認截圖清晰')
         updateUploadById(uploadId, (u) => ({ ...u, parseErr: msg }))
         return false
       }

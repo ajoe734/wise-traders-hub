@@ -1,6 +1,6 @@
 import { createElement as h, useMemo, useState } from 'react'
 import { C, alpha } from '../../theme.js'
-import { Card, Button, TextFieldDialog } from '../common'
+import { Card, Button, TextFieldDialog, DemoCTA } from '../common'
 import {
   recomputeHoldingsAfterDelete,
   replayTradeLog,
@@ -111,15 +111,20 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
 
   if (!tradeLog.length) {
     return h(
-      Card,
-      { style: { textAlign: 'center', padding: '24px 14px' } },
-      h('div', { style: { fontSize: 20, marginBottom: 6, opacity: 0.3 } }, '◌'),
+      'div',
+      null,
+      h(DemoCTA, { feature: 'log' }),
       h(
-        'div',
-        { style: { fontSize: 12, color: C.textMute, fontWeight: 400 } },
-        '還沒有交易記錄',
-        h('br'),
-        h('span', { style: { fontSize: 10 } }, '上傳成交截圖後自動記錄在這裡')
+        Card,
+        { style: { textAlign: 'center', padding: '24px 14px' } },
+        h('div', { style: { fontSize: 20, marginBottom: 6, opacity: 0.3 } }, '◌'),
+        h(
+          'div',
+          { style: { fontSize: 12, color: C.textMute, fontWeight: 400 } },
+          '還沒有交易記錄',
+          h('br'),
+          h('span', { style: { fontSize: 10 } }, '上傳成交截圖後自動記錄在這裡')
+        )
       )
     )
   }
@@ -134,9 +139,36 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
     minWidth: 0,
   }
 
+  // 全期摘要：總筆數 + 買賣分布 + 淨流（負=淨買入，正=淨賣出）
+  const totals = useMemo(() => {
+    let buy = 0, sell = 0, net = 0
+    for (const r of filtered) {
+      const amt = Number(r.qty || 0) * Number(r.price || 0)
+      if (r.action === '買進') { buy += 1; net -= amt } else { sell += 1; net += amt }
+    }
+    return { buy, sell, net }
+  }, [filtered])
+
   return h(
     'div',
     null,
+    h(DemoCTA, { feature: 'log' }),
+    // ── Summary card ──
+    h(
+      Card,
+      { style: { marginBottom: 10, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } },
+      h('div', null,
+        h('div', { style: { fontSize: 10, color: C.textMute, marginBottom: 2 } }, '紀錄總覽'),
+        h('div', { style: { fontSize: 13, color: C.text, fontWeight: 600 } },
+          `${filtered.length} 筆 · ${totals.buy} 買 / ${totals.sell} 賣`)
+      ),
+      h('div', { style: { textAlign: 'right' } },
+        h('div', { style: { fontSize: 10, color: C.textMute, marginBottom: 2 } },
+          totals.net >= 0 ? '淨流出（賣出多）' : '淨流入（買入多）'),
+        h('div', { style: { fontSize: 13, color: C.text, fontWeight: 600 } },
+          `${totals.net >= 0 ? '+' : ''}${Math.round(totals.net).toLocaleString()} 元`)
+      )
+    ),
     // ── Toolbar ──
     h(
       Card,
