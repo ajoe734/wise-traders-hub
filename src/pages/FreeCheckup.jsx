@@ -3073,13 +3073,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </button>
                     {missingCount > 0 && (
                       <button
-                        onClick={() => setCoverageOpen(true)}
-                        title={`有 ${missingCount} 檔尚未取得報價，點擊查看覆蓋率`}
+                        onClick={runBackfillReport}
+                        disabled={backfilling}
+                        title="點擊後系統會幫你重抓所有缺價持倉，完成後若仍有失敗才會彈窗顯示"
                         style={{
-                          background:'transparent', color:C.down, border:`1px solid ${alpha(C.down,'55')}`,
+                          background: backfilling ? alpha(C.subtle,'aa') : 'transparent',
+                          color: backfilling ? C.textMute : C.down,
+                          border:`1px solid ${alpha(C.down,'55')}`,
                           borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
-                          cursor:"pointer", whiteSpace:"nowrap",
-                        }}>覆蓋率 · 缺 {missingCount}</button>
+                          cursor: backfilling ? 'wait' : "pointer", whiteSpace:"nowrap",
+                        }}>{backfilling ? '補抓中…' : `補齊報價 · ${missingCount}`}</button>
                     )}
                   </>
                 );
