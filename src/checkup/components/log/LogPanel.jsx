@@ -129,15 +129,6 @@ export function LogPanel({ tradeLog = [], setTradeLog, setHoldings, flashSaved }
     minWidth: 0,
   }
 
-  // 全期摘要：總筆數 + 買賣分布 + 淨流（負=淨買入，正=淨賣出）
-  const totals = useMemo(() => {
-    let buy = 0, sell = 0, net = 0
-    for (const r of filtered) {
-      const amt = Number(r.qty || 0) * Number(r.price || 0)
-      if (r.action === '買進') { buy += 1; net -= amt } else { sell += 1; net += amt }
-    }
-    return { buy, sell, net }
-  }, [filtered])
 
   return h(
     'div',
