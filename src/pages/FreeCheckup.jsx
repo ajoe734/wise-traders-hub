@@ -6823,6 +6823,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </>;
         })()}
         </>)}
+        {/* #endregion Tab: News */}
 
       </div>
       {/* Decision Debug toggle */}
