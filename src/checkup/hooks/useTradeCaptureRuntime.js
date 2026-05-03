@@ -60,6 +60,7 @@ export function useTradeCaptureRuntime({
   const { hasQuota, applyQuotaFromResponse } = modeCtx || {}
   const [dragOver, setDragOver] = useState(false)
   const [parsing, setParsing] = useState(false)
+  const [parseProgress, setParseProgress] = useState({ current: 0, total: 0 })
   const [tradeEditorState, setTradeEditorState] = useState(() =>
     createEmptyTradeEditorState(createDefaultFundamentalDraft)
   )
