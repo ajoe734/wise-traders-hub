@@ -300,6 +300,7 @@ function createSyncEngine() {
       enabled: cloudEnabled,
       syncedAt: lastCloudSyncAt,
       pendingActions: Object.keys(debounceTimers),
+      pendingQueueSize: readPendingQueue().length,
       activePortfolioId: context.activePortfolioId,
       viewMode: context.viewMode,
     }
@@ -313,6 +314,7 @@ function createSyncEngine() {
     setContext,
     setFetch,
     getStatus,
+    flushPendingSyncs,
     // 暴露給測試 / 偵錯
     _registry: SLICE_REGISTRY,
   }
