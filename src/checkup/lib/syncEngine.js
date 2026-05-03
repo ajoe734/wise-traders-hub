@@ -72,6 +72,27 @@ const SLICE_REGISTRY = {
 }
 
 const CLOUD_TIMESTAMP_KEY = 'pf-cloud-sync-at'
+const PENDING_QUEUE_KEY = 'checkup-pending-syncs-v1'
+const PENDING_QUEUE_CAP = 50
+
+function readPendingQueue() {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(PENDING_QUEUE_KEY)
+    const arr = raw ? JSON.parse(raw) : []
+    return Array.isArray(arr) ? arr : []
+  } catch {
+    return []
+  }
+}
+function writePendingQueue(arr) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(arr.slice(-PENDING_QUEUE_CAP)))
+  } catch {
+    /* ignore quota */
+  }
+}
 
 function createSyncEngine() {
   let context = { activePortfolioId: OWNER_PORTFOLIO_ID, viewMode: PORTFOLIO_VIEW_MODE }
