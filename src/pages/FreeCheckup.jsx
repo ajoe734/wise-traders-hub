@@ -3185,6 +3185,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       <div style={{padding:"14px 14px"}}>
 
         {/* ══════════ HOLDINGS ══════════ */}
+        {/* #region Tab: Holdings — 持倉看板（Hero + .wb-card 牆 + Detail Panel） */}
         {tab==="holdings" && <>
           {/* DEMO 持倉提示卡（與 events/news/daily/log 同款，僅訪客顯示） */}
           {isDemo && (
@@ -4848,8 +4849,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             }
           `}</style>
         </>}
+        {/* #endregion Tab: Holdings */}
 
         {/* ══════════ EVENTS ══════════ */}
+        {/* #region Tab: Events — 事件追蹤 */}
         {tab==="events" && <>
           {isDemo && (
             <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
@@ -5355,8 +5358,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             })()}
           </>}
         </>}
+        {/* #endregion Tab: Events */}
 
         {/* ══════════ DAILY ANALYSIS ══════════ */}
+        {/* #region Tab: Daily — 盤後分析 */}
         {tab==="daily" && <>
           {isDemo && (
             <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
@@ -5817,8 +5822,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             );
           })()}
         </>}
+        {/* #endregion Tab: Daily */}
 
         {/* ══════════ UPLOAD ══════════ */}
+        {/* #region Tab: Trade — 上傳成交回報 / 解析 / 影像 lightbox */}
         {tab==="trade" && <>
           {/* 全頁覆蓋 loading：解析中時鎖住操作但保留下方持倉資料可見於背景 */}
           {parsing && (
@@ -6311,8 +6318,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             );
           })()}
         </>}
+        {/* #endregion Tab: Trade */}
 
         {/* ══════════ LOG ══════════ */}
+        {/* #region Tab: Log — 交易日誌 */}
         {tab==="log" && <>
           {isDemo && (
             <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
@@ -6408,8 +6417,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             })()
           )}
         </>}
+        {/* #endregion Tab: Log */}
 
         {/* ══════════ NEWS ANALYSIS ══════════ */}
+        {/* #region Tab: News — 新聞分析 */}
         {tab==="news" && (<>
           {isDemo && (
             <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
