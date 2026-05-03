@@ -1,6 +1,6 @@
 import { createElement as h, useState } from 'react'
 import { C, alpha } from '../../theme.js'
-import { Card, Button, TextFieldDialog } from '../common'
+import { Card, Button, TextFieldDialog, DemoCTA } from '../common'
 import { assessTradeParseQuality, summarizeTradeBatch } from '../../lib/tradeParseUtils.js'
 
 /**
