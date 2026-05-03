@@ -21,7 +21,6 @@ import { coerceStocksString } from "@/checkup/lib/edgeCoerce";
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
-import { buildFreeCheckupGlobalCss, FREE_CHECKUP_HOLDINGS_CSS } from "./FreeCheckup.styles";
 
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
