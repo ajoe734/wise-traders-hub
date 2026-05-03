@@ -27,6 +27,7 @@ import {
   extractQuotesFromTwsePayload,
 } from '../lib/marketSyncRuntime.js'
 import { pfKey, readStorageValue, save } from '../lib/portfolioUtils.js'
+import { reportMissingSymbols } from '../lib/missingPriceClient.js'
 // Phase 3A.4 Step 1: store 直取 setter
 import { useHoldingsStore } from '../stores/holdingsStore.js'
 
