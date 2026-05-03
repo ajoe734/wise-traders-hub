@@ -59,13 +59,12 @@ export function partitionUploadFiles(input, opts = {}) {
  * Build a single human-readable rejection toast from partitionUploadFiles.
  * Returns null when nothing was rejected.
  */
-export function summarizeRejections({ rejected = [], overflow = 0 } = {}) {
+export function summarizeRejections({ rejected = [], overflow = 0, heicFailed = 0 } = {}) {
   const parts = []
-  const heic = rejected.filter((r) => r.reason === 'heic').length
   const big = rejected.filter((r) => r.reason === 'too-large').length
   const notImg = rejected.filter((r) => r.reason === 'not-image').length
 
-  if (heic > 0) parts.push(`${heic} 張 HEIC（請轉成 JPG/PNG）`)
+  if (heicFailed > 0) parts.push(`${heicFailed} 張 HEIC 轉檔失敗`)
   if (big > 0) parts.push(`${big} 張超過 ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB`)
   if (notImg > 0) parts.push(`${notImg} 張非圖片`)
   if (overflow > 0) parts.push(`${overflow} 張超過 ${MAX_QUEUED_UPLOADS} 張上限`)
