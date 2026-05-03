@@ -217,6 +217,17 @@ export function useMarketData({
           setHoldings((prev) => applyMarketQuotesToHoldings(prev, nextCache.prices))
         }
 
+        // Step 3 — Missing-price shadow report:
+        // ask backend to retry (TPEx fallback) and log unresolved codes.
+        if (failedCodes.length > 0) {
+          reportMissingSymbols(failedCodes).then((res) => {
+            if (res?.fetched > 0) {
+              // backend rescued some — silent refresh from cache via next tick
+              priceSelfHealRef.current = { ...priceSelfHealRef.current, _lastRescue: Date.now() }
+            }
+          }).catch(() => {})
+        }
+
         if (!silent) {
           if (failedCodes.length > 0) {
             flashSaved(
