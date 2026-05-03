@@ -1194,6 +1194,7 @@ export function TradePanel({
   return h(
     'div',
     null,
+    h(DemoCTA, { feature: 'trade' }),
     h(ImageLightbox, { src: previewSrc, onClose: () => setPreviewSrc(null) }),
     hasUndoableSubmit &&
       h(
