@@ -21,10 +21,10 @@ describe('partitionUploadFiles', () => {
     expect(out.overflow).toBe(0)
   })
 
-  it('rejects HEIC with reason=heic', () => {
+  it('accepts HEIC at partition stage (conversion handled later)', () => {
     const out = partitionUploadFiles([mkFile({ type: 'image/heic' })])
-    expect(out.accepted).toHaveLength(0)
-    expect(out.rejected[0].reason).toBe('heic')
+    // HEIC 現在會進到 preprocessForUpload 才嘗試轉檔；partition 不再直接拒
+    expect(out.accepted).toHaveLength(1)
   })
 
   it('rejects oversize files with reason=too-large', () => {
