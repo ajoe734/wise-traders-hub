@@ -1,8 +1,9 @@
-import { createElement as h } from 'react'
+import { createElement as h, useState } from 'react'
 import { C, alpha } from '../../theme.js'
 import { IND_COLOR, STOCK_META } from '../../seedData.js'
 import { Card } from '../common'
 import { getHoldingMarketValue, getHoldingReturnPct, getHoldingUnrealizedPnl } from '../../lib/holdings.js'
+import { reportMissingSymbols } from '../../lib/missingPriceClient.js'
 
 /* ── 是枝裕和《小偷家族》×《海街日記》融合美學 ──
  * 1. 極微色底取代漸層，邊框完全移除
