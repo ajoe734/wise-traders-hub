@@ -150,6 +150,7 @@ ${report.text}
     return new Response(JSON.stringify({
       fundamentals: parsed?.fundamentals || null,
       targets: parsed?.targets || { reports: [] },
+      quota: quotaResult.quota,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
