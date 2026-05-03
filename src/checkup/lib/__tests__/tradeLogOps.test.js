@@ -9,9 +9,11 @@ const trades = [
 ]
 
 describe('replayTradeLog', () => {
-  it('全買後全賣 → 持倉清空', () => {
+  it('買 1000+1000 後賣 1000 → 殘 1000 股，均價 550', () => {
     const out = replayTradeLog(trades)
-    expect(out.find((h) => h.code === '2330')).toBeUndefined()
+    const h = out.find((r) => r.code === '2330')
+    expect(h.qty).toBe(1000)
+    expect(Math.round(h.cost)).toBe(550)
   })
 
   it('刪掉中間賣出 → 應該得回兩筆買的加權均價', () => {
