@@ -2992,37 +2992,46 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:18,fontWeight:400,color:C.text,letterSpacing:"-0.01em"}}>持倉看板</span>
-              <button onClick={() => setShowResetConfirm(true)} style={{
-                background: "transparent", color: C.textMute, border:`1px solid ${C.border}`,
-                borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
-                cursor:"pointer", whiteSpace:"nowrap",
-              }}>清除</button>
-              {H.length > 0 && (
-                <>
-                  <button
-                    onClick={triggerServerSync}
-                    disabled={serverSyncing}
-                    title="繞過 30 分冷卻，立即向後端排程要求最新報價"
-                    style={{
-                      background: serverSyncing ? alpha(C.subtle,'aa') : C.text,
-                      color: serverSyncing ? C.textMute : C.bg,
-                      border:`1px solid ${serverSyncing ? C.border : C.text}`,
-                      borderRadius:6, padding:"3px 10px", fontSize:11, fontWeight:500,
-                      cursor: serverSyncing ? 'wait' : 'pointer', whiteSpace:"nowrap",
-                      letterSpacing:'0.04em',
-                    }}>
-                    {serverSyncing ? '同步中…' : '⟳ 立即更新'}
-                  </button>
-                  <button
-                    onClick={() => setCoverageOpen(true)}
-                    title="檢視持倉同步覆蓋率與缺失代碼"
-                    style={{
-                      background:'transparent', color:C.textSec, border:`1px solid ${C.border}`,
-                      borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
-                      cursor:"pointer", whiteSpace:"nowrap",
-                    }}>覆蓋率</button>
-                </>
-              )}
+              {H.length > 0 && (() => {
+                const missingCount = (H || []).filter(h => !h.priceSource || h.priceError).length;
+                return (
+                  <>
+                    <button
+                      onClick={triggerServerSync}
+                      disabled={serverSyncing}
+                      title="繞過 30 分冷卻，立即向後端排程要求最新報價"
+                      style={{
+                        background: serverSyncing ? alpha(C.subtle,'aa') : C.text,
+                        color: serverSyncing ? C.textMute : C.bg,
+                        border:`1px solid ${serverSyncing ? C.border : C.text}`,
+                        borderRadius:6, padding:"3px 10px", fontSize:11, fontWeight:500,
+                        cursor: serverSyncing ? 'wait' : 'pointer', whiteSpace:"nowrap",
+                        letterSpacing:'0.04em',
+                      }}>
+                      {serverSyncing ? '同步中…' : '⟳ 立即更新'}
+                    </button>
+                    {missingCount > 0 && (
+                      <button
+                        onClick={() => setCoverageOpen(true)}
+                        title={`有 ${missingCount} 檔尚未取得報價，點擊查看覆蓋率`}
+                        style={{
+                          background:'transparent', color:C.down, border:`1px solid ${alpha(C.down,'55')}`,
+                          borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
+                          cursor:"pointer", whiteSpace:"nowrap",
+                        }}>覆蓋率 · 缺 {missingCount}</button>
+                    )}
+                  </>
+                );
+              })()}
+              <button
+                onClick={() => setShowResetConfirm(true)}
+                title="清除全部資料（不可逆）"
+                aria-label="更多選項：清除全部資料"
+                style={{
+                  background: "transparent", color: C.textMute, border:`1px solid ${C.border}`,
+                  borderRadius:6, padding:"3px 8px", fontSize:11, fontWeight:400,
+                  cursor:"pointer", whiteSpace:"nowrap", lineHeight:1,
+                }}>⋯</button>
               {syncLog.length > 0 && (
                 <button
                   onClick={downloadSyncLog}
