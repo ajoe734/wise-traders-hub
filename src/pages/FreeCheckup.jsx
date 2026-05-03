@@ -22,6 +22,7 @@ import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 
+// #region Constants & Helpers — 政策、顏色、種子、純函式（不依賴 React state）
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
 // ── AI 失敗分類 ─────────────────────────────────────
@@ -432,6 +433,9 @@ async function aiAuthHeaders() {
     return { Authorization: `Bearer ${ANON}`, apikey: ANON };
   }
 }
+// #endregion Constants & Helpers
+
+// #region App() — 主元件（state、effects、JSX 全部 inline；遵守 inline 憲法）
 export default function App() {
   const navigate = useNavigate();
   const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota, applyQuotaFromResponse, supabaseUser } = useCheckupMode();
@@ -3185,6 +3189,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       <div style={{padding:"14px 14px"}}>
 
         {/* ══════════ HOLDINGS ══════════ */}
+        {/* #region Tab: Holdings — 持倉看板（Hero + .wb-card 牆 + Detail Panel） */}
         {tab==="holdings" && <>
           {/* DEMO 持倉提示卡（與 events/news/daily/log 同款，僅訪客顯示） */}
           {isDemo && (
@@ -4848,8 +4853,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             }
           `}</style>
         </>}
+        {/* #endregion Tab: Holdings */}
 
         {/* ══════════ EVENTS ══════════ */}
+        {/* #region Tab: Events — 事件追蹤 */}
         {tab==="events" && <>
           {isDemo && (
             <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
@@ -5355,8 +5362,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             })()}
           </>}
         </>}
+        {/* #endregion Tab: Events */}
 
         {/* ══════════ DAILY ANALYSIS ══════════ */}
+        {/* #region Tab: Daily — 盤後分析 */}
         {tab==="daily" && <>
           {isDemo && (
             <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
@@ -5817,8 +5826,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             );
           })()}
         </>}
+        {/* #endregion Tab: Daily */}
 
         {/* ══════════ UPLOAD ══════════ */}
+        {/* #region Tab: Trade — 上傳成交回報 / 解析 / 影像 lightbox */}
         {tab==="trade" && <>
           {/* 全頁覆蓋 loading：解析中時鎖住操作但保留下方持倉資料可見於背景 */}
           {parsing && (
@@ -6311,8 +6322,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             );
           })()}
         </>}
+        {/* #endregion Tab: Trade */}
 
         {/* ══════════ LOG ══════════ */}
+        {/* #region Tab: Log — 交易日誌 */}
         {tab==="log" && <>
           {isDemo && (
             <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
@@ -6408,8 +6421,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             })()
           )}
         </>}
+        {/* #endregion Tab: Log */}
 
         {/* ══════════ NEWS ANALYSIS ══════════ */}
+        {/* #region Tab: News — 新聞分析 */}
         {tab==="news" && (<>
           {isDemo && (
             <div style={{marginBottom:12,padding:"12px 14px",background:alpha(C.amber,'06'),border:`1px solid ${alpha(C.amber,'25')}`,borderRadius:8}}>
@@ -6812,6 +6827,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </>;
         })()}
         </>)}
+        {/* #endregion Tab: News */}
 
       </div>
       {/* Decision Debug toggle */}
@@ -7198,3 +7214,4 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     </div>
   );
 }
+// #endregion App()
