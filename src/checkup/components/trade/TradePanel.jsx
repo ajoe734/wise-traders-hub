@@ -1190,9 +1190,11 @@ export function TradePanel({
   createDefaultFundamentalDraft,
   toSlashDate,
 }) {
+  const [previewSrc, setPreviewSrc] = useState(null)
   return h(
     'div',
     null,
+    h(ImageLightbox, { src: previewSrc, onClose: () => setPreviewSrc(null) }),
     hasUndoableSubmit &&
       h(
         Card,
