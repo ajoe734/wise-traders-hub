@@ -386,13 +386,18 @@ export function useTradeCaptureRuntime({
   const UNDO_WINDOW_MS = 8000
   const [hasUndoableSubmit, setHasUndoableSubmit] = useState(false)
   const undoTimerRef = useRef(null)
+  const isSubmittingRef = useRef(false)
 
   useEffect(() => () => {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
   }, [])
 
   const submitMemo = useCallback(() => {
+    if (isSubmittingRef.current) return
     if (!activeUpload?.parsed?.trades?.length) return
+    isSubmittingRef.current = true
+    // 釋放 lock：下一個 tick（足夠擋住雙擊）
+    setTimeout(() => { isSubmittingRef.current = false }, 800)
 
     const nextAnswers = [...(activeUpload.memoAns || []), activeUpload.memoIn || '']
     if ((activeUpload.memoStep || 0) < memoQuestions.length - 1) {
