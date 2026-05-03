@@ -1,113 +1,74 @@
-## 目標
-1. 持倉看板「覆蓋率」按鈕改名為「補齊報價」，按下去**直接觸發補抓**所有缺價持倉，完成後**只在仍有失敗時**彈窗，列出抓不到的代碼與原因（特別是非台股標的）。
-2. 後台新增「缺價總覽」頁，集中查看所有用戶的補抓失敗紀錄，方便客服協助。
+# 上傳 + 交易日誌 P0–P3 全套優化
 
----
+審讀後我會分四層落地，**單一 commit** 完成。改動聚焦在這幾個檔案：
 
-## A. 前端：按鈕與行為改寫
-**檔案**：`src/pages/FreeCheckup.jsx`
-
-1. 按鈕文案
-   - 原：`覆蓋率 · 缺 N`
-   - 新：缺 N>0 → `補齊報價 · {N}`；N=0 → `報價已齊`（仍可按以重檢）
-   - title 改為「點擊後系統會幫你重抓所有缺價持倉，完成後若仍有失敗才會彈窗顯示」
-
-2. 點擊行為（取代原本的 `setCoverageOpen(true)`）
-   - DEMO 模式：直接 toast「DEMO 模式不執行補抓」
-   - 收集 `missingCodes = H.filter 缺 priceSource 或有 priceError`
-   - 若為空 → toast「報價已齊，無需補抓」並結束
-   - `setBackfilling(true)`，按鈕顯示 `補抓中…`
-   - 呼叫 `supabase.functions.invoke('stock-price-sync', { body: { symbols: missingCodes, force: true } })`
-   - 等待完成後 `await refreshPrices()` 重算 H
-   - 取回應 `{ fetched, missing, reasons }`：
-     - `missing.length === 0` → toast「✓ 全部補齊（{N} 檔）」，**不開彈窗**
-     - 仍有失敗 → 開彈窗顯示報告
-
-3. 彈窗（沿用 `coverageOpen` state，改為「補抓報告」模式）
-   - 頂部摘要：`補抓 N 檔 · 成功 X · 仍失敗 Y`
-   - 表格只列「仍失敗」項目，欄位：代碼 / 名稱 / 你輸入的類型 / 原因
-   - 原因前端歸類（依 `reasons[code]` + 規則判斷）：
-     - `invalid_format` → 「非台股代號格式，系統僅支援台股上市櫃 / ETF / 權證」
-     - `not_found` → 「TWSE/TPEx 都查無此代碼，可能已下市或代號錯誤」
-     - `no_price` → 「查到代碼但無有效報價（停牌或當日無成交）」
-     - 其他/未知 → 顯示原始 reason
-   - 底部說明：「若您持有美股、港股、加密貨幣等海外標的，目前不支援自動報價，請於該檔持倉手動填入價格。」
-
----
-
-## B. Edge Function：新增 symbols 模式
-**檔案**：`supabase/functions/stock-price-sync/index.ts`
-
-- 接受 POST body `{ symbols?: string[], force?: boolean }`
-- 若 `symbols` 有值（symbols 模式）：
-  - 自動 `force = true`（繞過交易時段守門，否則晚上沒反應）
-  - 跳過原本的 `trade_signals` + `checkup_storage` 收集
-  - 對每個 symbol 先檢驗格式 `/^\d{4,6}$/`，不合法 → 加進 `reasons[sym] = 'invalid_format'`
-  - 合法的進 `fetchStockBatch`（已含 TPEx fallback）
-  - 抓不到 → `reasons[sym] = 'not_found'`
-  - 抓到但 price ≤ 0 / null → `reasons[sym] = 'no_price'`
-  - 仍照常 upsert `current_prices`（成功的）
-  - 不寫 `user_performances` / `user_summaries`（symbols 模式專責補價，不重算 PnL）
-- 回傳：
-  ```
-  { success: true,
-    requested: string[],
-    fetched: number,
-    missing: string[],
-    reasons: { [symbol]: 'invalid_format' | 'not_found' | 'no_price' } }
-  ```
-- **同時**：每筆失敗寫進新表 `checkup_price_misses`（見 C），供後台總覽
-
----
-
-## C. 資料庫：缺價紀錄表
-新增 migration：
-
-```sql
-create table public.checkup_price_misses (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid,                 -- 觸發者（symbols 模式由 caller JWT 取，沒有就 null）
-  symbol text not null,
-  reason text not null,         -- invalid_format / not_found / no_price / other
-  attempts int not null default 1,
-  last_error text,
-  first_seen_at timestamptz not null default now(),
-  last_seen_at timestamptz not null default now(),
-  resolved_at timestamptz,
-  unique (user_id, symbol)
-);
-
-alter table public.checkup_price_misses enable row level security;
-
--- 用戶只能看自己的
-create policy "own misses" on public.checkup_price_misses
-  for select to authenticated using (user_id = auth.uid());
-
--- 後台 (company_admin) 看全部
-create policy "admin view all misses" on public.checkup_price_misses
-  for select to authenticated
-  using (public.has_role(auth.uid(), 'company_admin'));
+```
+新檔  src/checkup/lib/imageProcess.js          HEIC + 壓縮
+新檔  src/checkup/lib/tradeLogOps.js           日誌 CRUD / 持倉回滾 / CSV
+改   src/checkup/hooks/useTradeCaptureRuntime.js
+改   src/checkup/components/trade/TradePanel.jsx
+改   src/checkup/components/log/LogPanel.jsx
+改   src/checkup/lib/tradeParseUtils.js         id 改字串、time fallback
+改   src/checkup/hooks/useRouteLogPage.js       多帶 setHoldings/setTradeLog
++ 安裝 heic2any (已預先安裝)
 ```
 
-Edge function 寫入邏輯：
-- 失敗 → upsert：`attempts = attempts + 1, last_seen_at = now(), reason = ?, last_error = ?`
-- 該 symbol 後續補抓成功 → `update set resolved_at = now()`
+—
 
----
+## P0：資料正確 / 雙寫風險
 
-## D. 後台頁：缺價總覽
-**新檔**：`src/pages/company/MissingPrices.tsx`
-**路由**：`/company/missing-prices`，加進 `CompanyLayout` 側欄（角色 `company_admin` 可見）
+1. **`parseShot` 改打 `checkup-parse`（vision 端點）+ 走 `callEdge`**  
+   目前 `useTradeCaptureRuntime.parseShot` 用 `fetch(API_ENDPOINTS.ANALYZE)` 直打文字端點 `checkup-analyze`，沒有圖、不符合 schema。改成 `callEdge('checkup-parse', { body: { systemPrompt: PARSE_PROMPT, base64, mediaType } })`：
+   - 自動帶 user JWT → server 端 `consumeCheckupQuota` 才能正確扣免費版額度。
+   - 收到 `data.quota` 後呼叫 `applyQuotaFromResponse(data)` 同步前端配額。
+2. **前置 quota gate**：`parseShot` / `runBatchParse` 開頭看 `hasQuota`，沒額度直接彈 toast＋升級 CTA，不浪費頻寬。
+3. **id 改字串、避免碰撞**：`buildTradeLogEntries` 的 `Number(\`${ts}${index}\`)` 改成 `\`t-${ts}-${index}-${randomBase36}\``，並把 `LogPanel` 的 sort tiebreaker 換成 `b.id.localeCompare(a.id)`。
+4. **submit 防雙擊**：`useTradeCaptureRuntime` 加 `isSubmittingRef`，`submitMemo` 先檢查、寫入後 release；`undoLastSubmit` 同樣加 lock。
 
-頁面內容：
-- 上方篩選：狀態（未解決 / 已解決 / 全部）、原因、用戶 email 模糊搜尋
-- 表格：用戶 email / 代碼 / 原因 / 嘗試次數 / 首次發生 / 最近發生 / 解決時間 / 操作
-- 操作欄：「重試補抓」按鈕（呼叫同一個 edge function 帶該 symbol）
-- 右上「匯出 CSV」
+## P1：HEIC + 壓縮 + 批次解析
 
----
+5. **新增 `lib/imageProcess.js`**：
+   - `convertHeicIfNeeded`：HEIC/HEIF 動態 import `heic2any` 轉 JPEG。
+   - `compressImage`：canvas 重繪到長邊 1600px、JPEG 0.85，比原圖大就放棄壓縮。
+   - `preprocessForUpload = convert → compress`。
+6. **`enqueueFiles` 整合**：`partitionUploadFiles` 接受 HEIC（不再直接 reject）→ 對 accepted 跑 `preprocessForUpload` → 失敗的歸入 rejected 列表。`tradeUploadGuards` 移除 HEIC 黑名單，改保留 `too-large / not-image / overflow`。
+7. **批次解析按鈕**：`TradePanel` 增加「全部解析（{N}）」按鈕，呼叫 `runBatchParse`，內部 `for…of` 序列跑（避免 burst 429），逐張更新 status；單張的「解析目前這張」保留。
 
-## 白話總結
-- 「覆蓋率」改名「補齊報價」，按一下就直接幫你補抓，全成功就不彈窗打擾。
-- 抓不到的（例如美股代號）才會彈窗逐筆告訴你原因。
-- 後台多一頁「缺價總覽」，客服可以看到所有用戶哪些代碼一直抓不到，主動協助處理。
+## P2：交易日誌大改版
+
+8. **新檔 `lib/tradeLogOps.js`**：
+   - `reverseTradeOnHoldings(holdings, trade)`：反向套用一筆已寫入的交易（買→減 qty 並用反向加權平均回推 cost；賣→補回 qty，cost 走當下還原舊值或保留現 cost）。把現有 `applyTradeEntryToHoldings` 的反操作集中於此。
+   - `tradeLogToCSV(rows)`：UTF-8 BOM + 欄位 `日期, 時間, 動作, 代碼, 名稱, 股數, 價格, 金額, 備忘1, 備忘2, 備忘3`。
+   - `groupByDate(rows)`：依 `date` 分桶，同日內新到舊。
+9. **`LogPanel` 重做**：
+   - 新增頂部工具列：搜尋（code/name）、買賣 filter、日期區間、CSV 匯出、「展開／收合全部」。
+   - 內容改用日期 group + sticky header；同日小計（買 N 筆／賣 N 筆／淨流入 ±NTD）。
+   - 每張交易卡右上加 ⋮ menu：**編輯備忘**（彈窗改 `qa[].a`，重新 `setTradeLog`）；**刪除這筆**（confirm dialog → 從 tradeLog 拔除 + `setHoldings(prev => reverseTradeOnHoldings(prev, log))`，並 toast 「已刪除並回滾持倉」）。
+10. **`useRouteLogPage` 改 hook 傳遞**：除了 `tradeLog` 還要從 `usePortfolioRouteContext` 取出 `setTradeLog`、`setHoldings`、`flashSaved` 給 LogPanel。
+
+## P3：小修
+
+11. `tradeParseUtils.normalizeTradeRow`：`time` 為空時填 `00:00`（避免排序塌底）。
+12. `TradePanel` 的 dropzone：`document.getElementById('fi')` 改 `useRef + useId`，避免兩處共用 dropzone 撞 id。
+13. `tradeDate` input：onBlur 跑 `normalizeTradeDate`，無效顯示紅框 + 錯誤訊息（沿用 `C.amber`）。
+14. 解析錯誤訊息卡片：背景與文字色從 `C.up`（紅／漲色）改成 `C.amber` 系列，避免與「漲」的語義對撞（符合單色橘憲法）。
+15. 預覽圖加「點擊放大」（簡單 `position: fixed` lightbox，無需新元件庫）。
+
+—
+
+## 風險與守則
+
+- **單色橘憲法 + 持倉看板 RWD**：本次改動不影響 Hero/`.wb-card`，不需跑 mobile playwright 套件，但 LogPanel 新工具列需手動 pre-check 380/390/560px（用既有 `scripts/check-freecheckup-rwd.mjs` 流程）。
+- **Demo 守門**：`isDemo` 路徑保持「上傳被擋、AI 不打」現狀；P0-1 的 callEdge 不會破壞 demo（demo 模式根本不會走到 parseShot）。
+- **檔名不更動**：`useTradeCaptureRuntime` 維持 export 介面，避免影響 `useRouteTradePage`。
+
+—
+
+## 驗收清單
+
+- [ ] iPhone 上傳 HEIC → 自動轉 JPG → 解析成功，無「請改 JPG」彈窗。
+- [ ] 8MB 截圖上傳實際 payload < 1.5MB（DevTools Network）。
+- [ ] 免費版用完額度，按解析→直接彈升級 CTA，沒打 edge。
+- [ ] 連點兩下「完成備忘」只寫入一份成交。
+- [ ] LogPanel 搜尋 / 篩選 / 匯出 CSV 正常；刪除某筆會同步回滾 holdings 數量與成本。
+- [ ] 同毫秒提交的多筆成交 id 不衝突（看開發者工具 React keys 無 warning）。
