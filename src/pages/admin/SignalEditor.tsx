@@ -86,7 +86,7 @@ const SignalEditor = () => {
   const publishWindow = isPublishingWindowOpen();
   const stockCacheRef = useRef<Map<string, string>>(new Map());
 
-  // 草稿
+  // 草稿（編輯模式不啟用，避免覆蓋線上資料）
   const DRAFT_KEY = `signal-editor-${expertSlug}`;
   const draftValue = useMemo(
     () => ({ teachingTopic, overallSummary, learningPoints, trades }),
@@ -96,6 +96,7 @@ const SignalEditor = () => {
     DRAFT_KEY,
     draftValue,
     (saved) => {
+      if (isEditing) return;
       if (typeof saved.teachingTopic === 'string') setTeachingTopic(saved.teachingTopic);
       if (typeof saved.overallSummary === 'string') setOverallSummary(saved.overallSummary);
       if (typeof saved.learningPoints === 'string') setLearningPoints(saved.learningPoints);
@@ -103,7 +104,7 @@ const SignalEditor = () => {
         setTrades(saved.trades.map((t: any) => ({ ...emptyTrade(), ...t, uid: t.uid || newUid() })));
       }
     },
-    { enabled: true },
+    { enabled: !isEditing },
   );
 
   // 載入 expert / 模板 / 持倉
