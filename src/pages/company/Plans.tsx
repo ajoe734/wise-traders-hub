@@ -356,7 +356,12 @@ export default function CompanyPlans() {
           <TabsList>
             <TabsTrigger value="plans"><Layers className="h-3.5 w-3.5 mr-1" />方案審核 / 分潤</TabsTrigger>
             <TabsTrigger value="cross_discounts"><Tag className="h-3.5 w-3.5 mr-1" />跨產品折扣</TabsTrigger>
+            <TabsTrigger value="checkup"><HeartPulse className="h-3.5 w-3.5 mr-1" />健檢方案</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="checkup" className="mt-4">
+            <CheckupPlansAdmin />
+          </TabsContent>
 
           <TabsContent value="cross_discounts" className="mt-4 space-y-4">
             <Card>
