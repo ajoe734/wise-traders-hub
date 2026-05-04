@@ -86,6 +86,7 @@ export const ACTION_LABELS: Record<string, string> = {
   // remittance.*
   'remittance.confirm': '確認匯款入帳',
   'remittance.reject': '退回匯款訂單',
+  'remittance.expired': '匯款訂單自動過期',
   // analyst.*
   'analyst.create': '建立分析師',
   'analyst.suspend': '停用分析師',
