@@ -12,7 +12,7 @@ describe("CoachMarks", () => {
   });
 
   it("does not render the full-screen blocking overlay (must not cover the page)", () => {
-    const { container } = render(<CoachMarks />);
+    const { container } = render(<CoachMarks onTabChange={() => {}} />);
     act(() => { vi.advanceTimersByTime(800); });
     const dialog = container.querySelector('[role="dialog"]');
     expect(dialog).toBeTruthy();
@@ -24,13 +24,13 @@ describe("CoachMarks", () => {
 
   it("does not mount when localStorage flag is set", () => {
     localStorage.setItem("checkup-coach-seen-v1", "1");
-    const { container } = render(<CoachMarks />);
+    const { container } = render(<CoachMarks onTabChange={() => {}} />);
     act(() => { vi.advanceTimersByTime(1000); });
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it("clicking 略過 stores the flag and unmounts the dialog", () => {
-    const { container } = render(<CoachMarks />);
+    const { container } = render(<CoachMarks onTabChange={() => {}} />);
     act(() => { vi.advanceTimersByTime(800); });
     const skipBtn = screen.getByRole("button", { name: "略過導覽" });
     act(() => { skipBtn.click(); });
