@@ -31,8 +31,9 @@ const CompanyDashboard = () => {
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).gte('created_at', monthStart),
       supabase.from('checkup_subscriptions').select('*', { count: 'exact', head: true }).gte('created_at', monthStart),
       supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published'),
-      supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active').eq('auto_renew', true),
-      supabase.from('checkup_subscriptions').select('*, checkup_plans(price_monthly, price_yearly)').eq('status', 'active').eq('auto_renew', true),
+      // 手動續訂模型：MRR = 仍在效期內的 active 訂閱（不依賴 auto_renew）
+      supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active').gt('expires_at', now.toISOString()),
+      supabase.from('checkup_subscriptions').select('*, checkup_plans(price_monthly, price_yearly), billing_cycle').eq('status', 'active').gt('expires_at', now.toISOString()),
       supabase.from('payment_transactions').select('amount').eq('status', 'paid').gte('paid_at', monthStart),
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).in('status', ['canceled', 'expired']).gte('canceled_at', monthStart),
       supabase.from('checkup_subscriptions').select('*', { count: 'exact', head: true }).in('status', ['canceled', 'expired']).gte('canceled_at', monthStart),
