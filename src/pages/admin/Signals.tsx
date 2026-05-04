@@ -1277,8 +1277,8 @@ const AdminSignals = () => {
                             )}
                          </React.Fragment>
                        );
-                     })
-                  )}
+                     });
+                  })()}
                 </tbody>
                 {holdingSummary && holdingSummary.length > 0 && (
                   <tfoot>
