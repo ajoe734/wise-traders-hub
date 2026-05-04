@@ -2378,7 +2378,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
 
       setDailyReport(report);
       setAnalysisHistory(prev => [report, ...(prev || []).filter(r => r.date !== today)].slice(0, 30));
-      incrementUploadCount(); // 計入今日 AI 配額（與截圖解析共用）
+      if (aiData?.quota) { try { applyQuotaFromResponse?.(aiData); } catch {} }
 
       // 8. 策略大腦進化 — 讓 AI 更新策略知識庫
       setAnalyzeStep("策略大腦進化中...");
@@ -2818,7 +2818,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           });
           setSaved("✅ 成交已更新到持倉與記錄");
           toast.success(`已寫入 ${preparedTrades.length} 筆成交`, { description: "持倉與交易紀錄已即時更新" });
-          incrementUploadCount(); // 記錄今日上傳次數
           setTimeout(() => setSaved(""), 2500);
           // 設定上傳摘要並自動切換至持倉頁
           setUploadSummary({ added: summaryAdded, updated: summaryUpdated, at: Date.now() });
