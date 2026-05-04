@@ -61,9 +61,9 @@ Deno.serve(async (req) => {
       amount,
       original_amount: amount,
       discount_amount: 0,
-      last5: String(last5),
-      payer_name: String(payerName),
-      status: "pending",
+      last5: null,
+      payer_name: null,
+      status: "awaiting_info",
     }).select("id").single();
 
     if (error) {
