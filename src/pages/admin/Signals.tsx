@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,6 +83,7 @@ const PreviewTradeItem = ({ action, instrument, priceHint, reasonSummary, reason
 
 const AdminSignals = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
+  const navigate = useNavigate();
   const { user, hasRole } = useAuth();
   // company_admin 與分析師本人皆有完整寫入權；其他人為唯讀
   const isCompanyAdmin = hasRole('company_admin');
@@ -717,17 +718,15 @@ const AdminSignals = () => {
               <p className="text-xs text-destructive">{publishWindow.reason}</p>
             )}
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <PermissionTooltip disabled={isReadOnly}>
-                <Button
-                  disabled={!publishWindow.open || isReadOnly}
-                  className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
-                  onClick={() => { clearForm(); setIsCreateOpen(true); }}
-                >
-                  <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
-                </Button>
-              </PermissionTooltip>
-            </DialogTrigger>
+            <PermissionTooltip disabled={isReadOnly}>
+              <Button
+                disabled={!publishWindow.open || isReadOnly}
+                className={cn(isAdvisor ? "bg-advisor hover:bg-advisor/90" : "bg-mentor hover:bg-mentor/90")}
+                onClick={() => navigate(`/admin/${expertSlug}/signals/new`)}
+              >
+                <Plus className="h-4 w-4 mr-2" />發布新{contentLabel}
+              </Button>
+            </PermissionTooltip>
             <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
               <DialogHeader><DialogTitle>發布新{contentLabel}</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4 overflow-y-auto flex-1 px-1 -mx-1">

@@ -67,6 +67,7 @@ import AppCheckout from "./pages/app/AppCheckout";
 // Admin pages (expert backend)
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminSignals from "./pages/admin/Signals";
+import AdminSignalEditor from "./pages/admin/SignalEditor";
 import AdminSubscribers from "./pages/admin/Subscribers";
 import AdminProfile from "./pages/admin/Profile";
 import AdminPerformance from "./pages/admin/Performance";
@@ -219,6 +220,7 @@ const AppShell = () => (
             {/* Admin (expert backend) */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signals" element={<ProtectedRoute><AdminSignals /></ProtectedRoute>} />
+            <Route path="/admin/:expertSlug/signals/new" element={<ProtectedRoute><AdminSignalEditor /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/plans" element={<ProtectedRoute><AdminPlans /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/subscribers" element={<ProtectedRoute><AdminSubscribers /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>} />
