@@ -283,15 +283,11 @@ export default function CheckupCheckout() {
                   <p className="text-muted-foreground">收款帳號尚未設定，請聯絡客服。</p>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="payer">匯款人姓名</Label>
-                <Input id="payer" value={payerName} onChange={(e) => setPayerName(e.target.value)} placeholder="您的姓名" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="last5">轉出帳號末五碼</Label>
-                <Input id="last5" inputMode="numeric" maxLength={5} value={last5}
-                  onChange={(e) => setLast5(e.target.value.replace(/\D/g, ""))} placeholder="例如 12345" />
-                <p className="text-xs text-muted-foreground">後台會比對末五碼後幫您開通。</p>
+              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                <p className="font-medium text-foreground">流程說明</p>
+                <p>1. 按下下方「建立匯款訂單」後，我們會為您建立一筆訂單。</p>
+                <p>2. 請於 3 日內到上方銀行帳號完成轉帳。</p>
+                <p>3. 轉帳完成後，回到「我的匯款訂單」補填<b>匯款人姓名</b>與<b>轉出帳號末五碼</b>，後台對帳後即為您開通。</p>
               </div>
             </CardContent>
           </Card>
