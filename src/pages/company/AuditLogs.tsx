@@ -40,6 +40,8 @@ const TARGET_LINK: Record<string, (id: string) => string> = {
   experts: () => '/company/analysts',
   announcements: () => '/company/announcements',
   expert_signals: () => '/company/subscribers',
+  checkup_plans: () => '/company/plans',
+  checkup_subscriptions: () => '/company/subscribers',
 };
 
 // 描述生成器：把 action + detail.context 拼成一句人話
