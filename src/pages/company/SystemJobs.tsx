@@ -18,6 +18,19 @@ interface JobLog {
 
 const PAGE_SIZE = 50;
 
+const JOB_LABELS: Record<string, string> = {
+  'stock-price-sync': '股價同步（每30分）',
+  'expire-stale-remittance': '匯款訂單過期清理',
+  'checkup-price-refresh': '持倉看板股價刷新（13:30）',
+  'mentor-journal-publish': '導師交易日誌自動發布（週五20:00）',
+  'announcement-cleanup': '系統公告 7 天清理',
+  'cleanup_old_announcements': '系統公告 7 天清理',
+  'delete_expired_binding_codes': 'Line 綁定碼過期清理',
+  'delete_old_prices': '股價快取清理',
+  'mentor-journal-cron': '導師交易日誌自動發布（週五20:00）',
+};
+const fmtJobName = (n: string) => JOB_LABELS[n] || n;
+
 const fmtDateTime = (s: string) => {
   const d = new Date(s);
   const pad = (n: number) => String(n).padStart(2, '0');
