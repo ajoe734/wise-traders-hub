@@ -2471,6 +2471,30 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_settings_safe: {
+        Row: {
+          id: string | null
+          key: string | null
+          updated_at: string | null
+          updated_by: string | null
+          value: Json | null
+        }
+        Insert: {
+          id?: string | null
+          key?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          value?: never
+        }
+        Update: {
+          id?: string | null
+          key?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          value?: never
+        }
+        Relationships: []
+      }
       profiles_analyst: {
         Row: {
           avatar_url: string | null
