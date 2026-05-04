@@ -20,18 +20,20 @@ export interface RichTextEditorProps {
   onAIAssist?: (mode: AIAssistMode, currentHtml: string, instruction?: string) => Promise<string>;
   /** 哪個欄位（給 AI prompt 判斷語氣用） */
   aiField?: 'reason_summary' | 'reason_detail' | 'risk_notes' | 'learning_points' | 'overall_summary';
+  /** 上傳圖片的資料夾（通常傳 expert.id），未傳則停用上傳 */
+  uploadFolder?: string;
   className?: string;
 }
 
-export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, onAIAssist, aiField, className }: RichTextEditorProps) => {
+export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, onAIAssist, aiField, uploadFolder, className }: RichTextEditorProps) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        heading: { levels: [3] },
-        // 不要 image，避免老師亂貼大圖
-      }),
+      StarterKit.configure({ heading: { levels: [3] } }),
       Placeholder.configure({ placeholder: placeholder || '' }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
+      Image.configure({ inline: false, HTMLAttributes: { class: 'rounded max-w-full h-auto my-2' } }),
     ],
     content: value || '',
     editorProps: {
