@@ -304,7 +304,7 @@ const SignalEditor = () => {
 
     setSubmitting(true);
     try {
-      const batchId = crypto.randomUUID();
+      const batchId = isEditing ? (editBatchId as string) : crypto.randomUUID();
       const status = isMentor ? 'pending' : 'published';
 
       const rows = trades.map((t, idx) => {
@@ -332,6 +332,18 @@ const SignalEditor = () => {
         } as any;
       });
 
+      if (isEditing) {
+        // 整批替換：先刪舊批次（trade_records 由 FK 連動 / 或我們自行清理），再 insert
+        await supabase.from('trade_records').delete().eq('expert_id', expert.id).in(
+          'signal_id',
+          // 取得舊 signal id 一併刪除其關聯交易紀錄
+          (
+            await supabase.from('expert_signals').select('id').eq('batch_id', batchId)
+          ).data?.map((r: any) => r.id) || [],
+        );
+        await supabase.from('expert_signals').delete().eq('batch_id', batchId);
+      }
+
       const { error } = await supabase.from('expert_signals').insert(rows as any);
       if (error) { toast.error(error.message); return; }
 
@@ -339,7 +351,7 @@ const SignalEditor = () => {
       if (!isMentor) {
         try {
           const { data: pushData, error: pushErr } = await supabase.functions.invoke('line-push-signal', {
-            body: { expert_id: expert.id, batch_id: batchId, type: 'publish' },
+            body: { expert_id: expert.id, batch_id: batchId, type: 'publish', is_update: isEditing },
           });
           if (pushErr) {
             console.warn('LINE push (batch) failed:', pushErr);
@@ -351,7 +363,11 @@ const SignalEditor = () => {
         }
       }
 
-      toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : `已發布 ${rows.length} 檔訊號`);
+      toast.success(
+        isEditing
+          ? `已更新 ${rows.length} 檔${isMentor ? '週記' : '訊號'}`
+          : isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : `已發布 ${rows.length} 檔訊號`,
+      );
       discardDraft();
       navigate(`/admin/${expertSlug}/signals`);
     } finally {
