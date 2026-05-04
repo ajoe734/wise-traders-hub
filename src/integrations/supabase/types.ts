@@ -2593,7 +2593,13 @@ export type Database = {
         | "mentor_weekly_journal"
         | "checkup_basic"
         | "checkup_pro"
-      provider_type: "ecpay" | "newebpay" | "stripe" | "line_pay" | "acpay"
+      provider_type:
+        | "ecpay"
+        | "newebpay"
+        | "stripe"
+        | "line_pay"
+        | "acpay"
+        | "remittance"
       signal_action: "buy" | "sell" | "add" | "trim" | "exit"
       signal_status: "published" | "pending"
       subscription_status: "active" | "canceled" | "expired"
@@ -2737,7 +2743,14 @@ export const Constants = {
         "checkup_basic",
         "checkup_pro",
       ],
-      provider_type: ["ecpay", "newebpay", "stripe", "line_pay", "acpay"],
+      provider_type: [
+        "ecpay",
+        "newebpay",
+        "stripe",
+        "line_pay",
+        "acpay",
+        "remittance",
+      ],
       signal_action: ["buy", "sell", "add", "trim", "exit"],
       signal_status: ["published", "pending"],
       subscription_status: ["active", "canceled", "expired"],
