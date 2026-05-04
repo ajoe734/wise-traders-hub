@@ -356,14 +356,26 @@ const CompanyPayments = () => {
   // ---------- Handlers ----------
   const saveEcpay = async () => {
     const userId = (await supabase.auth.getUser()).data.user?.id;
+
+    // 讀取顯示走 safe view → ecpayOriginal 沒有 hash_key/iv 原值。
+    // 若使用者未輸入新值，需從原表（僅 admin 有權限）拉 raw 值合併，避免覆寫成空字串。
+    let rawHashKey = '';
+    let rawHashIV = '';
+    if (!ecpayHashKeyInput.trim() || !ecpayHashIVInput.trim()) {
+      const { data: rawRow } = await supabase
+        .from('payment_settings')
+        .select('value')
+        .eq('key', 'ecpay_credentials')
+        .maybeSingle();
+      const rv = (rawRow?.value as { hash_key?: string; hash_iv?: string }) || {};
+      rawHashKey = rv.hash_key ?? '';
+      rawHashIV = rv.hash_iv ?? '';
+    }
+
     const next: EcpayCredsRow = {
       merchant_id: (ecpay.merchant_id ?? '').trim(),
-      hash_key: ecpayHashKeyInput.trim()
-        ? ecpayHashKeyInput.trim()
-        : (ecpayOriginal.hash_key ?? ''),
-      hash_iv: ecpayHashIVInput.trim()
-        ? ecpayHashIVInput.trim()
-        : (ecpayOriginal.hash_iv ?? ''),
+      hash_key: ecpayHashKeyInput.trim() ? ecpayHashKeyInput.trim() : rawHashKey,
+      hash_iv: ecpayHashIVInput.trim() ? ecpayHashIVInput.trim() : rawHashIV,
       credit_action_url: (ecpay.credit_action_url ?? '').trim(),
       api_url: (ecpay.api_url ?? '').trim(),
       env: ecpay.env === 'production' ? 'production' : 'stage',
