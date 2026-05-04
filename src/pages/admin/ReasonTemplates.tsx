@@ -97,6 +97,7 @@ const ReasonTemplates = () => {
       if (error) { toast.error(error.message); return; }
       toast.success('模板已新增');
     }
+    discardDraft();
     setDialogOpen(false);
     fetchData();
   };
@@ -197,7 +198,7 @@ const ReasonTemplates = () => {
               <Textarea value={content} onChange={e => setContent(e.target.value)} placeholder="例：突破壓力位，順勢做多" rows={3} />
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
+              <Button variant="outline" onClick={() => { discardDraft(); setDialogOpen(false); }}>取消</Button>
               <Button onClick={handleSave} disabled={!title.trim() || !content.trim()}>
                 {editingId ? '儲存' : '新增'}
               </Button>
