@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useFormDraft } from '@/hooks/useFormDraft';
 
 interface Template {
   id: string;
@@ -30,6 +31,18 @@ const ReasonTemplates = () => {
   const [content, setContent] = useState('');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
+  // 草稿自動暫存
+  const draftKey = `reason-template-draft-${expertSlug}-${editingId ?? 'new'}`;
+  const { discard: discardDraft } = useFormDraft(
+    draftKey,
+    { title, content },
+    (saved) => {
+      if (typeof saved.title === 'string') setTitle(saved.title);
+      if (typeof saved.content === 'string') setContent(saved.content);
+    },
+    { enabled: dialogOpen }
+  );
+
   const fetchData = useCallback(async () => {
     if (!expertSlug) return;
     setLoading(true);
@@ -49,6 +62,8 @@ const ReasonTemplates = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const openCreate = () => {
+    // 規範第 2 條：開新表單前清除舊草稿
+    try { sessionStorage.removeItem(`reason-template-draft-${expertSlug}-new`); } catch { /* noop */ }
     setEditingId(null);
     setTitle('');
     setContent('');
@@ -82,6 +97,7 @@ const ReasonTemplates = () => {
       if (error) { toast.error(error.message); return; }
       toast.success('模板已新增');
     }
+    discardDraft();
     setDialogOpen(false);
     fetchData();
   };
@@ -182,7 +198,7 @@ const ReasonTemplates = () => {
               <Textarea value={content} onChange={e => setContent(e.target.value)} placeholder="例：突破壓力位，順勢做多" rows={3} />
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
+              <Button variant="outline" onClick={() => { discardDraft(); setDialogOpen(false); }}>取消</Button>
               <Button onClick={handleSave} disabled={!title.trim() || !content.trim()}>
                 {editingId ? '儲存' : '新增'}
               </Button>
