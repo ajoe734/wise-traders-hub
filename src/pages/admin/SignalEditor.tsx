@@ -144,6 +144,52 @@ const SignalEditor = () => {
     return () => { cancelled = true; };
   }, [expertSlug]);
 
+  // 編輯模式：載入既有 batch 的所有訊號
+  useEffect(() => {
+    if (!isEditing || !expert) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('expert_signals')
+        .select('*')
+        .eq('expert_id', expert.id)
+        .eq('batch_id', editBatchId as any)
+        .order('executed_at', { ascending: true });
+      if (cancelled) return;
+      if (error || !data || data.length === 0) {
+        toast.error('找不到要編輯的批次');
+        navigate(`/admin/${expertSlug}/signals`, { replace: true });
+        return;
+      }
+      const first: any = data[0];
+      setTeachingTopic(first.teaching_topic || '');
+      setOverallSummary(first.overall_summary || '');
+      setLearningPoints(first.learning_points || '');
+      setTrades(
+        data.map((row: any) => {
+          const inst = String(row.instrument || '');
+          const [code, ...rest] = inst.split(' ');
+          const dt = row.executed_at ? new Date(row.executed_at) : new Date(row.published_at || Date.now());
+          const pad = (n: number) => String(n).padStart(2, '0');
+          return {
+            uid: row.id,
+            executedAt: `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`,
+            stockCode: code || '',
+            stockName: rest.join(' '),
+            action: (row.action || '') as TradeAction,
+            priceHint: row.price_hint != null ? String(row.price_hint) : '',
+            quantity: row.quantity != null ? String(row.quantity) : '',
+            quantityUnit: (row.quantity_unit || '張') as '張' | '股',
+            reasonSummary: row.reason_summary || '',
+            reasonDetail: row.reason_detail || '',
+            riskNotes: row.risk_notes || '',
+          };
+        }),
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [isEditing, editBatchId, expert, expertSlug, navigate]);
+
   // 沒權限就回列表
   useEffect(() => {
     if (!loading && expert && !canEdit) {
