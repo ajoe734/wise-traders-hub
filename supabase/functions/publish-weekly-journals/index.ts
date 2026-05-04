@@ -314,11 +314,7 @@ Deno.serve(async (req) => {
       const subscribedTargets = bindings.filter((b: any) => subscribedUserIds.has(b.user_id)).map((b: any) => b.line_user_id)
       const canceledTargets = bindings.filter((b: any) => canceledUserIds.has(b.user_id)).map((b: any) => b.line_user_id)
 
-      // Build normal content message for subscribed users
-      const expertName = expert?.name || '導師'
-      const actionLabel: Record<string, string> = {
-        buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
-      }
+      // batch grouping below
 
       // 依 batch_id 分組（同一篇週記 = 一個 bubble）；無 batch_id 的視為自身一組
       const byBatch = new Map<string, typeof signals>()
