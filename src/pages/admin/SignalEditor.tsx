@@ -59,7 +59,8 @@ const actionLabels: Record<string, string> = {
 };
 
 const SignalEditor = () => {
-  const { expertSlug } = useParams<{ expertSlug: string }>();
+  const { expertSlug, batchId: editBatchId } = useParams<{ expertSlug: string; batchId?: string }>();
+  const isEditing = !!editBatchId;
   const navigate = useNavigate();
   const { user, hasRole } = useAuth();
 
