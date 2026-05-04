@@ -135,6 +135,38 @@ const AdminSignals = () => {
     }
   }, [isCreateOpen, FORM_KEY]);
 
+  // 草稿自動暫存（含 mentor 周記三欄：teachingTopic / overallSummary / learningPoints）
+  // 規範：mem://management/form-persistence-rules
+  const DRAFT_KEY = `signal-draft-${expertSlug}`;
+  const draftValue = useMemo(() => ({
+    stockCode, stockName, action, priceHint, quantity, quantityUnit,
+    reasonSummary, reasonDetail, riskNotes, learningPoints,
+    teachingTopic, overallSummary,
+  }), [
+    stockCode, stockName, action, priceHint, quantity, quantityUnit,
+    reasonSummary, reasonDetail, riskNotes, learningPoints,
+    teachingTopic, overallSummary,
+  ]);
+  const { discard: discardDraft } = useFormDraft(
+    DRAFT_KEY,
+    draftValue,
+    (saved) => {
+      if (typeof saved.stockCode === 'string') setStockCode(saved.stockCode);
+      if (typeof saved.stockName === 'string') setStockName(saved.stockName);
+      if (typeof saved.action === 'string') setAction(saved.action);
+      if (typeof saved.priceHint === 'string') setPriceHint(saved.priceHint);
+      if (typeof saved.quantity === 'string') setQuantity(saved.quantity);
+      if (typeof saved.quantityUnit === 'string') setQuantityUnit(saved.quantityUnit);
+      if (typeof saved.reasonSummary === 'string') setReasonSummary(saved.reasonSummary);
+      if (typeof saved.reasonDetail === 'string') setReasonDetail(saved.reasonDetail);
+      if (typeof saved.riskNotes === 'string') setRiskNotes(saved.riskNotes);
+      if (typeof saved.learningPoints === 'string') setLearningPoints(saved.learningPoints);
+      if (typeof saved.teachingTopic === 'string') setTeachingTopic(saved.teachingTopic);
+      if (typeof saved.overallSummary === 'string') setOverallSummary(saved.overallSummary);
+    },
+    { enabled: isCreateOpen }
+  );
+
   const clearForm = useCallback(() => {
     setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張');
     setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
@@ -142,7 +174,8 @@ const AdminSignals = () => {
     setLinePushed(false); setLinePushing(false); setLastPublishedId(null);
     setShowPreview(false);
     sessionStorage.removeItem(FORM_KEY);
-  }, [FORM_KEY]);
+    discardDraft();
+  }, [FORM_KEY, discardDraft]);
 
   // 判斷是否為休市時段（週五 13:30 ~ 週一 09:00，台灣時間 UTC+8）
   const isMarketClosed = useCallback(() => {
