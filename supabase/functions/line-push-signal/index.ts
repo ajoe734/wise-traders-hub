@@ -7,7 +7,39 @@ const corsHeaders = {
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
-function buildFlexMessage(signal: any, type: 'publish' | 'takedown' | 'update' = 'publish') {
+// 把 TipTap HTML 轉純文字（LINE Flex text 節點不接受 HTML 標籤）
+function htmlToText(s: any): string {
+  if (s == null) return ''
+  const str = String(s)
+  if (!/<[^>]+>/.test(str)) return str
+  return str
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\s*\/(p|div|li|h[1-6]|blockquote)\s*>/gi, '\n')
+    .replace(/<\s*li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+// 對 signal 物件中的富文字欄位做 HTML→純文字
+function plainifySignal(signal: any) {
+  if (!signal) return signal
+  const fields = ['reason_summary', 'reason_detail', 'risk_notes', 'learning_points', 'overall_summary', 'teaching_topic']
+  const out: any = { ...signal }
+  for (const f of fields) {
+    if (out[f]) out[f] = htmlToText(out[f])
+  }
+  return out
+}
+
+function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update' = 'publish') {
+  const signal = plainifySignal(rawSignal)
   const actionLabel: Record<string, string> = {
     buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
   }
@@ -364,7 +396,7 @@ Deno.serve(async (req) => {
     console.log('Caller:', userId)
 
     const body = await req.json()
-    const { signal_id, expert_id, type, mode, signal_data, is_update } = body
+    const { signal_id, expert_id, type, mode, signal_data, is_update, batch_id } = body
     const pushType: 'publish' | 'takedown' | 'update' = type === 'takedown' ? 'takedown' : (is_update ? 'update' : 'publish')
     console.log('Push request:', { signal_id, expert_id, pushType, mode, is_update })
 
@@ -442,6 +474,60 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ pushed: true, count: totalPushed, subscribed: subscribedTargets.length, canceled: canceledTargets.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    // Batch mode: push all signals in one batch as a Flex carousel
+    if (batch_id) {
+      console.log('Batch mode for batch_id:', batch_id)
+      const { data: batchSignals } = await supabaseAdmin
+        .from('expert_signals')
+        .select('*')
+        .eq('expert_id', expert_id)
+        .eq('batch_id', batch_id)
+        .order('executed_at', { ascending: true, nullsFirst: false })
+
+      if (!batchSignals || batchSignals.length === 0) {
+        return new Response(JSON.stringify({ error: 'Batch not found or empty' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // 一隻 carousel 最多 10 個 bubble
+      const bubbles = batchSignals.slice(0, 10).map((s: any) => {
+        const flex = buildFlexMessage(s, pushType)
+        return flex.contents // bubble 物件
+      })
+      const firstLabel = batchSignals[0]?.instrument || ''
+      const carouselMsg = {
+        type: 'flex',
+        altText: `📒 週記發布：${firstLabel}${batchSignals.length > 1 ? ` 等 ${batchSignals.length} 檔` : ''}`,
+        contents: { type: 'carousel', contents: bubbles },
+      }
+
+      let totalPushed = 0
+      if (subscribedTargets.length > 0) {
+        totalPushed += await sendToLine(channel.channel_access_token, subscribedTargets, carouselMsg)
+      }
+      if (canceledTargets.length > 0) {
+        const promoMsg = buildPromoMessage(expertRow.name, performance)
+        totalPushed += await sendToLine(channel.channel_access_token, canceledTargets, promoMsg)
+      }
+
+      // mark line_pushed_at on all signals in this batch
+      if (totalPushed > 0) {
+        await supabaseAdmin.from('expert_signals')
+          .update({ line_pushed_at: new Date().toISOString() })
+          .eq('batch_id', batch_id)
+      }
+
+      return new Response(JSON.stringify({
+        pushed: totalPushed > 0,
+        count: totalPushed,
+        bubbles: bubbles.length,
+        batch_size: batchSignals.length,
+        subscribed: subscribedTargets.length,
+        canceled: canceledTargets.length,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // Standard mode: fetch signal from DB

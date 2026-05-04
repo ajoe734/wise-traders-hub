@@ -287,6 +287,22 @@ const SignalEditor = () => {
       const { error } = await supabase.from('expert_signals').insert(rows as any);
       if (error) { toast.error(error.message); return; }
 
+      // analyst 立即發布 → 一次以 carousel 推送整批給 LINE 訂閱者
+      if (!isMentor) {
+        try {
+          const { data: pushData, error: pushErr } = await supabase.functions.invoke('line-push-signal', {
+            body: { expert_id: expert.id, batch_id: batchId, type: 'publish' },
+          });
+          if (pushErr) {
+            console.warn('LINE push (batch) failed:', pushErr);
+          } else if (pushData?.pushed) {
+            console.log('LINE batch pushed:', pushData);
+          }
+        } catch (e) {
+          console.warn('LINE push exception:', e);
+        }
+      }
+
       toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : `已發布 ${rows.length} 檔訊號`);
       discardDraft();
       navigate(`/admin/${expertSlug}/signals`);

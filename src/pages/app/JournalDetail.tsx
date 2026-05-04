@@ -11,6 +11,7 @@ import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { SafeRichHtml, richHtmlPreview } from '@/components/SafeRichHtml';
 
 interface SignalDetail {
   id: string;
@@ -62,7 +63,7 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
               <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1">
                 <Lightbulb className="h-3.5 w-3.5 text-primary" /> 為什麼這樣操作？
               </h3>
-              <p className="text-xs text-muted-foreground whitespace-pre-line">{signal.reason_summary}</p>
+              <SafeRichHtml html={signal.reason_summary} className="text-xs" />
             </div>
           )}
           {signal.reason_detail && (
@@ -70,7 +71,7 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
               <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1">
                 <Target className="h-3.5 w-3.5 text-primary" /> 部位控管想法
               </h3>
-              <p className="text-xs text-muted-foreground whitespace-pre-line">{signal.reason_detail}</p>
+              <SafeRichHtml html={signal.reason_detail} className="text-xs" />
             </div>
           )}
           {signal.risk_notes && (
@@ -78,7 +79,7 @@ const TradeItem = ({ signal }: { signal: SignalDetail }) => {
               <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-warning">
                 <AlertTriangle className="h-3.5 w-3.5" /> 風險提醒
               </h3>
-              <p className="text-xs text-muted-foreground whitespace-pre-line">{signal.risk_notes}</p>
+              <SafeRichHtml html={signal.risk_notes} className="text-xs" />
             </div>
           )}
         </div>
@@ -157,10 +158,10 @@ const JournalDetail = () => {
   const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
   const we = addDays(ws, 4);
 
-  const weekTitle = signal.reason_summary || '本週操作回顧';
+  const weekTitle = richHtmlPreview(signal.reason_summary, 80) || '本週操作回顧';
 
   const allLearningPoints = weekSignals
-    .map(s => s.learning_points)
+    .map(s => richHtmlPreview(s.learning_points, 500))
     .filter(Boolean)
     .flatMap(lp => lp!.split(/\\n|\n/).filter(l => l.trim()));
 
@@ -202,7 +203,7 @@ const JournalDetail = () => {
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2">本週整體摘要</h2>
-              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.reason_detail}</p>
+              <SafeRichHtml html={signal.reason_detail} />
             </CardContent>
           </Card>
         )}
