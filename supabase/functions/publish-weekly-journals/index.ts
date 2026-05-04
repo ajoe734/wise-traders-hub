@@ -7,6 +7,26 @@ const corsHeaders = {
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
+// 將 TipTap HTML 拍平成 LINE 純文字（保留段落/列表的換行）
+function htmlToText(s: any): string {
+  if (s == null) return ''
+  const str = String(s)
+  if (!/<[a-z][^>]*>/i.test(str)) return str
+  return str
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)\s*>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 // Build promo message for canceled subscribers
 function buildPromoMessage(expertName: string, performance: any, signalCount: number) {
   const bodyContents: any[] = [
