@@ -124,6 +124,8 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   announcements: '公告',
   expert_signals: '訊號',
   plan_split_overrides: '分潤覆寫',
+  checkup_plans: '健檢方案',
+  checkup_subscriptions: '健檢訂閱',
 };
 
 export function formatTargetType(t?: string | null): string {
