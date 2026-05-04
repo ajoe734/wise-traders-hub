@@ -147,21 +147,11 @@ export default function CheckupCheckout() {
         document.body.appendChild(form); form.submit();
         return;
       }
-      // 匯款
-      if (!/^\d{5}$/.test(last5)) {
-        setResultDialog({ open: true, success: false, message: "請輸入末五碼（5 位數字）" });
-        return;
-      }
-      if (!payerName.trim()) {
-        setResultDialog({ open: true, success: false, message: "請輸入匯款人姓名" });
-        return;
-      }
+      // 匯款：先建立 awaiting_info 訂單，使用者轉帳後再到「我的匯款訂單」補填末五碼/姓名
       const { error } = await supabase.functions.invoke("create-checkup-remittance", {
         body: {
           checkupPlanId: plan.id,
           billingCycle,
-          last5,
-          payerName: payerName.trim(),
           originalAmount: basePrice,
           discountAmount: crossDiscount,
           discountReason: crossReason,
@@ -169,10 +159,15 @@ export default function CheckupCheckout() {
         },
       });
       if (error) {
-        setResultDialog({ open: true, success: false, message: "送出失敗，請稍後再試" });
+        setResultDialog({ open: true, success: false, message: "建立匯款訂單失敗，請稍後再試" });
         return;
       }
-      setResultDialog({ open: true, success: true, message: "已送出匯款資料，後台確認後將為您開通。" });
+      setResultDialog({
+        open: true,
+        success: true,
+        goRemittance: true,
+        message: "已建立匯款訂單。請於 3 日內完成銀行轉帳，再到「我的匯款訂單」補填末五碼與匯款人姓名，後台對帳後即開通。",
+      });
     } finally {
       setIsProcessing(false);
     }
