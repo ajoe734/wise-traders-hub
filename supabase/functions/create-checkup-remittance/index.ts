@@ -30,14 +30,9 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { checkupPlanId, billingCycle, last5, payerName } = await req.json();
-    if (!checkupPlanId || !billingCycle || !last5 || !payerName) {
+    const { checkupPlanId, billingCycle } = await req.json();
+    if (!checkupPlanId || !billingCycle) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!/^\d{5}$/.test(String(last5))) {
-      return new Response(JSON.stringify({ error: "末五碼格式錯誤" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
