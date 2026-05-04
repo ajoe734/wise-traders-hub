@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { isPublishingWindowOpen } from '@/lib/publishingWindow';
 import { fetchAnalystSignals } from '@/lib/analystDataAccess';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
+import { useFormDraft } from '@/hooks/useFormDraft';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
