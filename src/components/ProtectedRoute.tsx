@@ -36,15 +36,9 @@ export function ProtectedRoute({ children, requiredRole, subscriberOnly }: Prote
     );
   }
 
-  // subscriberOnly: redirect analysts/admins to their own dashboards
-  if (subscriberOnly && user) {
-    if (hasRole('company_admin')) {
-      return <Navigate to="/company" replace />;
-    }
-    if (hasRole('analyst') && user.expertSlug) {
-      return <Navigate to={`/admin/${user.expertSlug}`} replace />;
-    }
-  }
+  // subscriberOnly: kept as a flag (means "requires login") but no longer
+  // redirects admins/analysts away — they may legitimately want to view
+  // subscriber pages. Default landing redirects still happen via SmartHomeRedirect.
 
   return <>{children}</>;
 }
