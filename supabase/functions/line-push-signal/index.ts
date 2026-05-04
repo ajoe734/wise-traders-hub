@@ -7,6 +7,37 @@ const corsHeaders = {
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
+// 把 TipTap HTML 轉純文字（LINE Flex text 節點不接受 HTML 標籤）
+function htmlToText(s: any): string {
+  if (s == null) return ''
+  const str = String(s)
+  if (!/<[^>]+>/.test(str)) return str
+  return str
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\s*\/(p|div|li|h[1-6]|blockquote)\s*>/gi, '\n')
+    .replace(/<\s*li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+// 對 signal 物件中的富文字欄位做 HTML→純文字
+function plainifySignal(signal: any) {
+  if (!signal) return signal
+  const fields = ['reason_summary', 'reason_detail', 'risk_notes', 'learning_points', 'overall_summary', 'teaching_topic']
+  const out: any = { ...signal }
+  for (const f of fields) {
+    if (out[f]) out[f] = htmlToText(out[f])
+  }
+  return out
+}
+
 function buildFlexMessage(signal: any, type: 'publish' | 'takedown' | 'update' = 'publish') {
   const actionLabel: Record<string, string> = {
     buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
