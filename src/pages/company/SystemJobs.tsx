@@ -98,7 +98,7 @@ export default function SystemJobsPage() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部任務</SelectItem>
-                  {jobNames.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
+                  {jobNames.map(j => <SelectItem key={j} value={j}>{fmtJobName(j)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
