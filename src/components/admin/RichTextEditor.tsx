@@ -62,6 +62,34 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
     if (html) editor.commands.setContent(html);
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!uploadFolder) {
+      toast.error('尚未指定上傳資料夾');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast.error('只能上傳圖片');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('圖片不能超過 5MB');
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `${uploadFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('signal-media').upload(path, file, { upsert: false, contentType: file.type });
+      if (error) { toast.error(`上傳失敗：${error.message}`); return; }
+      const { data: pub } = supabase.storage.from('signal-media').getPublicUrl(path);
+      if (pub?.publicUrl) {
+        editor.chain().focus().setImage({ src: pub.publicUrl, alt: file.name }).run();
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const ToolbarBtn = ({ active, onClick, children, title }: any) => (
     <button
       type="button"
