@@ -26,7 +26,7 @@ interface Order {
 export default function CompanyRemittance() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'pending' | 'confirmed' | 'rejected' | 'all'>('pending');
+  const [filter, setFilter] = useState<'awaiting_info' | 'pending' | 'confirmed' | 'rejected' | 'expired' | 'all'>('pending');
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
 
   const load = async () => {
