@@ -474,74 +474,84 @@ const AdminSignals = () => {
 
   const handleRecall = async (signalId: string) => {
     if (!expert || recalling) return;
+
+    // 若屬於批次（同篇週記），預設整批一起收回
+    const target = signals.find((s: any) => s.id === signalId) as any;
+    const batchId = target?.batch_id || null;
+    const batchSiblings = batchId ? signals.filter((s: any) => s.batch_id === batchId) : [];
+    const isBatch = batchSiblings.length > 1;
+
+    if (isBatch) {
+      const ok = window.confirm(
+        `這是同一篇週記的批次發布，共 ${batchSiblings.length} 檔（${batchSiblings.map((s: any) => s.instrument).join('、')}）。要一起收回嗎？`,
+      );
+      if (!ok) return;
+    }
+
     setRecalling(true);
     try {
-      // Fetch signal data before deleting for LINE push
-      const { data: signal } = await supabase
+      const idsToRecall = isBatch ? batchSiblings.map((s: any) => s.id) : [signalId];
+
+      const { data: signalsToRecall } = await supabase
         .from('expert_signals')
         .select('*')
-        .eq('id', signalId)
-        .single();
+        .in('id', idsToRecall);
 
-      if (!signal) {
+      if (!signalsToRecall || signalsToRecall.length === 0) {
         toast.error('找不到該訊號');
         setRecalling(false);
         return;
       }
 
-      // Only push LINE recall notification if NOT a pending mentor signal
-      const isPendingMentor = isMentor && signal.status === 'pending';
-      if (!isPendingMentor) {
-        supabase.functions.invoke('line-push-signal', {
-          body: {
-            expert_id: expert.id,
-            mode: 'preview',
-            signal_data: {
-              action: signal.action,
-              instrument: signal.instrument,
-              price_hint: signal.price_hint,
-            },
-            type: 'recall',
-          },
-        }).then(({ data: pushData }) => {
-          if (pushData?.pushed) {
-            toast.success(`已推播收回通知給 ${pushData.count} 位訂閱者`);
-          }
-        }).catch(() => {});
+      // LINE 收回通知（pending 的 mentor 訊號不推）
+      const pushable = signalsToRecall.filter((s: any) => !(isMentor && s.status === 'pending'));
+      if (pushable.length > 0) {
+        // 每筆推一則（既有 line-push-signal 對 recall 是單筆）
+        await Promise.all(
+          pushable.map((s: any) =>
+            supabase.functions
+              .invoke('line-push-signal', {
+                body: {
+                  expert_id: expert.id,
+                  mode: 'preview',
+                  signal_data: { action: s.action, instrument: s.instrument, price_hint: s.price_hint },
+                  type: 'recall',
+                },
+              })
+              .catch(() => {}),
+          ),
+        );
       }
 
-      // Clean up related trade data BEFORE deleting the signal (FK constraint)
-      const symbol = signal.instrument.split(' ')[0];
+      // 清交易紀錄並刪訊號
+      for (const sig of signalsToRecall) {
+        const symbol = sig.instrument.split(' ')[0];
+        if (expert.user_id && symbol) {
+          const { data: otherSignals } = await supabase
+            .from('expert_signals')
+            .select('id')
+            .eq('expert_id', expert.id)
+            .eq('status', 'published' as any)
+            .ilike('instrument', `${symbol}%`)
+            .not('id', 'in', `(${idsToRecall.map((x) => `"${x}"`).join(',')})`)
+            .limit(1);
 
-      if (expert.user_id && symbol) {
-        // Check if there are other published signals for same instrument (excluding this one)
-        const { data: otherSignals } = await supabase
-          .from('expert_signals')
-          .select('id')
-          .eq('expert_id', expert.id)
-          .eq('status', 'published' as any)
-          .ilike('instrument', `${symbol}%`)
-          .neq('id', signalId)
-          .limit(1);
-
-        // If no other signals remain, clean up all related trade data
-        if (!otherSignals || otherSignals.length === 0) {
-          await Promise.all([
-            supabase.from('trade_records').delete().eq('expert_id', expert.id).ilike('instrument', `${symbol}%`),
-            supabase.from('trade_signals').delete().eq('user_id', expert.user_id).eq('symbol', symbol),
-            supabase.from('user_performances').delete().eq('user_id', expert.user_id).eq('symbol', symbol),
-          ]);
-        } else {
-          // Still has other signals — only delete trade_records linked to THIS signal
-          await supabase.from('trade_records').delete().eq('signal_id', signalId);
+          if (!otherSignals || otherSignals.length === 0) {
+            await Promise.all([
+              supabase.from('trade_records').delete().eq('expert_id', expert.id).ilike('instrument', `${symbol}%`),
+              supabase.from('trade_signals').delete().eq('user_id', expert.user_id).eq('symbol', symbol),
+              supabase.from('user_performances').delete().eq('user_id', expert.user_id).eq('symbol', symbol),
+            ]);
+          } else {
+            await supabase.from('trade_records').delete().eq('signal_id', sig.id);
+          }
         }
       }
 
-      // Now safe to delete the signal itself
-      await supabase.from('expert_signals').delete().eq('id', signalId);
+      await supabase.from('expert_signals').delete().in('id', idsToRecall);
 
-      toast.success('訊號已收回');
-      setSignals(prev => prev.filter(s => s.id !== signalId));
+      toast.success(isBatch ? `已收回批次 ${idsToRecall.length} 筆訊號` : '訊號已收回');
+      setSignals((prev) => prev.filter((s) => !idsToRecall.includes(s.id)));
       setLastPublishedId(null);
       fetchData(true);
     } catch (err) {
