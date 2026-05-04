@@ -615,7 +615,7 @@ const SignalEditor = () => {
             className={cn(isMentor ? 'bg-mentor hover:bg-mentor/90' : 'bg-primary hover:bg-primary/90')}
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {isMentor ? '儲存週記' : '立即發布'}
+            {isEditing ? '更新' : (isMentor ? '儲存週記' : '立即發布')}
           </Button>
         </div>
       </div>
