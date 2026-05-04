@@ -18,6 +18,7 @@ import { isPublishingWindowOpen } from '@/lib/publishingWindow';
 import { fetchAnalystSignals } from '@/lib/analystDataAccess';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { useFormDraft } from '@/hooks/useFormDraft';
+import { SafeRichHtml, richHtmlPreview } from '@/components/SafeRichHtml';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
@@ -1099,7 +1100,7 @@ const AdminSignals = () => {
                                ) : '-'}
                              </td>
                              <td className="p-3 text-sm" style={{ maxWidth: '200px' }}>
-                                  <p className="text-muted-foreground truncate overflow-hidden text-ellipsis whitespace-nowrap">{stripDotPrefix(signal.reason_summary || '-')}</p>
+                                  <p className="text-muted-foreground truncate overflow-hidden text-ellipsis whitespace-nowrap">{richHtmlPreview(signal.reason_summary, 80) || '-'}</p>
                               </td>
                                 {isMentor && (
                                   <td className="p-3">
@@ -1184,25 +1185,25 @@ const AdminSignals = () => {
                                     {signal.reason_summary && (
                                       <div>
                                         <span className="font-medium text-foreground">為什麼這樣操作？</span>
-                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.reason_summary)}</p>
+                                        <SafeRichHtml html={signal.reason_summary} className="mt-0.5 text-xs" />
                                       </div>
                                     )}
                                     {signal.reason_detail && (
                                       <div>
                                         <span className="font-medium text-foreground">部位控管想法</span>
-                                        <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.reason_detail)}</p>
+                                        <SafeRichHtml html={signal.reason_detail} className="mt-0.5 text-xs" />
                                       </div>
                                     )}
                                      {signal.risk_notes && (
                                        <div>
                                          <span className="font-medium text-foreground">風險提醒</span>
-                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.risk_notes)}</p>
+                                         <SafeRichHtml html={signal.risk_notes} className="mt-0.5 text-xs" />
                                        </div>
                                      )}
                                      {signal.learning_points && (
                                        <div>
                                          <span className="font-medium text-foreground">教學重點</span>
-                                         <p className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{stripDotPrefix(signal.learning_points)}</p>
+                                         <SafeRichHtml html={signal.learning_points} className="mt-0.5 text-xs" />
                                        </div>
                                      )}
                                   </div>
