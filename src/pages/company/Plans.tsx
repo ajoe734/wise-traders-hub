@@ -18,9 +18,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Loader2, Layers, CheckCircle2, XCircle, Pencil, Trash2, Sparkles, Tag } from 'lucide-react';
+import { Loader2, Layers, CheckCircle2, XCircle, Pencil, Trash2, Sparkles, Tag, HeartPulse } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { logAdminAction } from '@/lib/auditLog';
+import CheckupPlansAdmin from '@/components/company/CheckupPlansAdmin';
 
 const CROSS_FIELDS: { key: string; label: string; hint: string }[] = [
   { key: 'has_checkup_basic_discount_on_expert', label: '已訂健檢 Basic → 訂閱方案折扣', hint: '會員在持有健檢 Basic 期間訂閱分析師方案時自動折抵' },
