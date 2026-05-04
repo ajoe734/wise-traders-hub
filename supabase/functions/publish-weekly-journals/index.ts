@@ -111,11 +111,39 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  const runId = crypto.randomUUID().slice(0, 8)
+  const t0 = Date.now()
+  const log = (msg: string, extra?: unknown) =>
+    extra !== undefined
+      ? console.log(`[publish-weekly-journals][${runId}] ${msg}`, extra)
+      : console.log(`[publish-weekly-journals][${runId}] ${msg}`)
+  const logErr = (stage: string, err: unknown, extra?: Record<string, unknown>) => {
+    const e = err as any
+    console.error(`[publish-weekly-journals][${runId}][stage=${stage}] FAILED`, {
+      name: e?.name,
+      message: e?.message ?? String(err),
+      code: e?.code,
+      details: e?.details,
+      hint: e?.hint,
+      status: e?.status,
+      stack: e?.stack,
+      ...extra,
+    })
+  }
+
+  let stage = 'init'
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    if (!supabaseUrl || !serviceRoleKey) {
+      const missing = [!supabaseUrl && 'SUPABASE_URL', !serviceRoleKey && 'SUPABASE_SERVICE_ROLE_KEY'].filter(Boolean)
+      console.error(`[publish-weekly-journals][${runId}] Missing env: ${missing.join(', ')}`)
+      return new Response(JSON.stringify({ error: 'Missing required env', missing, runId }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+    log('Function start')
 
     // Find all pending mentor signals
     const { data: pendingSignals, error: fetchErr } = await supabaseAdmin
