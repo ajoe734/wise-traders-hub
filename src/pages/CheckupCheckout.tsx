@@ -87,6 +87,12 @@ export default function CheckupCheckout() {
     return () => { clearTimeout(timer); supabase.removeChannel(channel); };
   }, [searchParams, user, planId]);
 
+  // Hooks must be called unconditionally — keep this above any early returns
+  const { amount: crossDiscount, reason: crossReason } = useCrossProductDiscount({
+    productKind: "checkup",
+    checkupTier: (plan?.tier ?? "basic") as "basic" | "pro",
+  });
+
   if (isLoading) {
     return (
       <PortalLayout hideAppEntry hideHeader>
@@ -107,10 +113,6 @@ export default function CheckupCheckout() {
 
   const basePrice = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
   const yearlyDiscount = Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100);
-  const { amount: crossDiscount, reason: crossReason } = useCrossProductDiscount({
-    productKind: "checkup",
-    checkupTier: plan.tier as "basic" | "pro",
-  });
   const price = Math.max(0, basePrice - crossDiscount);
 
   const onSubmit = async () => {
