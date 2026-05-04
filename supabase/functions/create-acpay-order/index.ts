@@ -146,10 +146,7 @@ Deno.serve(async (req) => {
       // 3DS
       three_domain_secure: "Y",
       trade_mode: "0", // Normal (non-installment)
-      // Recurring (ACPG定期定額)
-      remember: "Y",
-      period_type: "m",
-      period_frequency: "1",
+      // 平台改採手動續訂模型：單次扣款，不註冊定期定額
       // Attach metadata via attach field (will be returned in notify)
       attach: JSON.stringify({
         plan_id: planId,
@@ -158,12 +155,6 @@ Deno.serve(async (req) => {
         slug: slug || "",
       }),
     };
-
-    // If yearly, set recurring_total_fee to the same amount
-    if (billingCycle === "yearly") {
-      params.period_type = "y";
-      params.period_frequency = "1";
-    }
 
     // Generate SHA-256 signature
     params.sign = await generateSign(params, merchantKey);
