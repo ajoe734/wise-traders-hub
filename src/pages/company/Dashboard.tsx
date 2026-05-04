@@ -3,9 +3,9 @@ import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { 
+import {
   Users, DollarSign, Radio, TrendingDown, UserPlus,
-  Repeat, Megaphone, CreditCard
+  Repeat, Megaphone, CreditCard, Stethoscope
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -15,6 +15,9 @@ const CompanyDashboard = () => {
   const [signalCount, setSignalCount] = useState(0);
   const [cancelCount, setCancelCount] = useState(0);
   const [mrr, setMrr] = useState(0);
+  const [expertMrr, setExpertMrr] = useState(0);
+  const [checkupMrr, setCheckupMrr] = useState(0);
+  const [checkupActiveCount, setCheckupActiveCount] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
 
   useEffect(() => { fetchStats(); }, []);
@@ -23,29 +26,47 @@ const CompanyDashboard = () => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [ecRes, newSubRes, sigRes, subsRes, txRes, churnRes] = await Promise.all([
+    const [ecRes, newSubRes, newCheckupSubRes, sigRes, subsRes, cSubsRes, txRes, churnRes, cChurnRes] = await Promise.all([
       supabase.from('experts').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).gte('created_at', monthStart),
+      supabase.from('checkup_subscriptions').select('*', { count: 'exact', head: true }).gte('created_at', monthStart),
       supabase.from('expert_signals').select('*', { count: 'exact', head: true }).eq('status', 'published'),
       supabase.from('member_subscriptions').select('*, expert_plans(price_monthly)').eq('status', 'active').eq('auto_renew', true),
+      supabase.from('checkup_subscriptions').select('*, checkup_plans(price_monthly, price_yearly)').eq('status', 'active').eq('auto_renew', true),
       supabase.from('payment_transactions').select('amount').eq('status', 'paid').gte('paid_at', monthStart),
       supabase.from('member_subscriptions').select('*', { count: 'exact', head: true }).in('status', ['canceled', 'expired']).gte('canceled_at', monthStart),
+      supabase.from('checkup_subscriptions').select('*', { count: 'exact', head: true }).in('status', ['canceled', 'expired']).gte('canceled_at', monthStart),
     ]);
 
     setExpertCount(ecRes.count || 0);
-    setNewSubCount(newSubRes.count || 0);
+    setNewSubCount((newSubRes.count || 0) + (newCheckupSubRes.count || 0));
     setSignalCount(sigRes.count || 0);
-    setMrr((subsRes.data || []).reduce((s, sub) => s + (sub.expert_plans?.price_monthly || 0), 0));
+
+    const eMrr = (subsRes.data || []).reduce((s, sub: any) => s + (sub.expert_plans?.price_monthly || 0), 0);
+    const cMrr = (cSubsRes.data || []).reduce((s, sub: any) => {
+      const p = sub.checkup_plans;
+      if (!p) return s;
+      // 年訂閱換算月費
+      if (sub.billing_cycle === 'yearly') return s + Math.round((p.price_yearly || 0) / 12);
+      return s + (p.price_monthly || 0);
+    }, 0);
+    setExpertMrr(eMrr);
+    setCheckupMrr(cMrr);
+    setMrr(eMrr + cMrr);
+    setCheckupActiveCount((cSubsRes.data || []).length);
     setMonthlyRevenue((txRes.data || []).reduce((s, tx) => s + (tx.amount || 0), 0));
-    setCancelCount(churnRes.count || 0);
+    setCancelCount((churnRes.count || 0) + (cChurnRes.count || 0));
   };
 
   const stats = [
     { label: '總分析師數', value: expertCount, icon: Users },
-    { label: '本月新增訂閱人數', value: newSubCount, icon: UserPlus },
-    { label: '本月取消訂閱人數', value: cancelCount, icon: TrendingDown },
+    { label: '本月新增訂閱（含健檢）', value: newSubCount, icon: UserPlus },
+    { label: '本月取消訂閱（含健檢）', value: cancelCount, icon: TrendingDown },
     { label: '已發布訊號', value: signalCount, icon: Radio },
-    { label: 'MRR', value: `NT$${mrr.toLocaleString()}`, icon: Repeat },
+    { label: 'MRR（合計）', value: `NT$${mrr.toLocaleString()}`, icon: Repeat },
+    { label: '└ 訂閱方案 MRR', value: `NT$${expertMrr.toLocaleString()}`, icon: Repeat },
+    { label: '└ 健檢方案 MRR', value: `NT$${checkupMrr.toLocaleString()}`, icon: Stethoscope },
+    { label: '健檢活躍訂閱', value: checkupActiveCount, icon: Stethoscope },
     { label: '本月營收', value: `NT$${monthlyRevenue.toLocaleString()}`, icon: DollarSign },
   ];
 
