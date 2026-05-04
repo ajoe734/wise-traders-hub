@@ -1486,6 +1486,7 @@ export default function App() {
           pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:data.error || `fallback (${data.code || 'unknown'})` });
           return;
         }
+        if (data?.quota) { try { applyQuotaFromResponse?.(data); } catch {} }
         const preds = data?.predictions || [];
 
         setNewsEvents(prev => {
