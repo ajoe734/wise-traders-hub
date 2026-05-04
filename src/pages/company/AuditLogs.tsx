@@ -50,8 +50,11 @@ function describe(log: AuditLog): string {
   const ctx = log.detail?.context || {};
   const bits: string[] = [];
   if (ctx.plan_name) bits.push(`方案《${ctx.plan_name}》`);
+  if (ctx.name && !ctx.plan_name) bits.push(`《${ctx.name}》`);
   if (ctx.expert_name) bits.push(`分析師：${ctx.expert_name}`);
-  if (ctx.display_name && !ctx.plan_name) bits.push(ctx.display_name);
+  if (ctx.display_name && !ctx.plan_name && !ctx.name) bits.push(ctx.display_name);
+  if (ctx.payer_name) bits.push(`付款人：${ctx.payer_name}`);
+  if (ctx.amount) bits.push(`金額：NT$${Number(ctx.amount).toLocaleString()}`);
   if (ctx.reason) bits.push(`原因：${ctx.reason}`);
   return bits.length > 0 ? `${base}　${bits.join('・')}` : base;
 }
