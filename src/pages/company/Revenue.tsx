@@ -474,7 +474,7 @@ const CompanyRevenue = () => {
               <CardContent className="p-4 text-xs text-muted-foreground space-y-1">
                 <p>• 「淨收」= revenue_splits 加總，不會因退款回沖。</p>
                 <p>• 「實際淨收」≈ 淨收 − 退款 = <span className="font-medium text-foreground">{fmtMoney(overview.net - overview.refundAmount)}</span></p>
-                <p>• 退款獨立顯示，因為 acpay-refund 只更新 payment_transactions.status，不會反沖 revenue_splits。</p>
+                <p>• 退款獨立顯示，金流商退款 API 只更新 payment_transactions.status，不反沖 revenue_splits。</p>
               </CardContent>
             </Card>
 
