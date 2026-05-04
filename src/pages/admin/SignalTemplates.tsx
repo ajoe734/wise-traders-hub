@@ -155,11 +155,9 @@ const AdminSignalTemplates = () => {
             <h1 className="text-2xl font-bold">訊號模板管理</h1>
             <p className="text-muted-foreground text-sm mt-1">建立常用訊號模板，發布時一鍵填入完整內容</p>
           </div>
-          {!isCompanyAdmin && (
-            <Button onClick={openCreate} className={cn(expert?.role === 'mentor' ? "bg-mentor hover:bg-mentor/90" : "bg-advisor hover:bg-advisor/90")}>
-              <Plus className="h-4 w-4 mr-2" />新增模板
-            </Button>
-          )}
+          <Button onClick={openCreate} className={cn(expert?.role === 'mentor' ? "bg-mentor hover:bg-mentor/90" : "bg-advisor hover:bg-advisor/90")}>
+            <Plus className="h-4 w-4 mr-2" />新增模板
+          </Button>
         </div>
 
         <Card>
