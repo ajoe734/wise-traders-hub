@@ -29,12 +29,10 @@ export default function CheckupCheckout() {
   const { data: plan, isLoading } = useCheckupPlan(planId);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [method, setMethod] = useState<Method>("ecpay");
-  const [last5, setLast5] = useState("");
-  const [payerName, setPayerName] = useState("");
   const [bank, setBank] = useState<{ bank_name: string; bank_code: string; account_number: string; account_name: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
-  const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string } | null>(null);
+  const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string; goRemittance?: boolean } | null>(null);
 
   // 收款帳號
   useEffect(() => {
