@@ -126,6 +126,7 @@ const AdminSignals = () => {
   const [recalling, setRecalling] = useState(false);
   const [repushingId, setRepushingId] = useState<string | null>(null);
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
+  const [collapsedBatches, setCollapsedBatches] = useState<Set<string>>(new Set());
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Persist only dialog open state
@@ -1099,27 +1100,45 @@ const AdminSignals = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length === 0 ? (
-                     <tr><td colSpan={isMentor ? 8 : 7} className="p-8 text-center text-muted-foreground text-sm">尚無{contentLabel}</td></tr>
-                  ) : (
-                     filtered.map((signal) => {
+                  {(() => {
+                    // 折疊：每個 collapsed batch 只保留排序最早的那一筆作為「代表列」
+                    const seenBatchHead = new Set<string>();
+                    const visibleSignals = filtered.filter((s: any) => {
+                      if (!s.batch_id || !collapsedBatches.has(s.batch_id)) return true;
+                      if (seenBatchHead.has(s.batch_id)) return false;
+                      seenBatchHead.add(s.batch_id);
+                      return true;
+                    });
+                    if (visibleSignals.length === 0) {
+                      return (<tr><td colSpan={isMentor ? 8 : 7} className="p-8 text-center text-muted-foreground text-sm">尚無{contentLabel}</td></tr>);
+                    }
+                    return visibleSignals.map((signal) => {
                        const ai = actionLabels[signal.action] || actionLabels.buy;
                        const isExpanded = expandedId === signal.id;
                        const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points;
+                       const isBatchCollapsed = signal.batch_id && collapsedBatches.has(signal.batch_id) && (batchInfo.get(signal.batch_id)?.count || 0) > 1;
                        return (
                          <React.Fragment key={signal.id}>
                             <tr className="border-b last:border-0 hover:bg-muted/30">
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                               <td className="p-3 text-sm font-medium">
                                 <div className="flex items-center gap-1.5">
-                                  <span>{signal.instrument}</span>
+                                  <span>{signal.instrument}{isBatchCollapsed ? ` 等 ${batchInfo.get(signal.batch_id)!.count} 檔` : ''}</span>
                                   {signal.batch_id && batchInfo.get(signal.batch_id) && batchInfo.get(signal.batch_id)!.count > 1 && (
                                     <Badge
                                       variant="secondary"
-                                      className="text-[10px] px-1.5 py-0 h-4 cursor-help"
-                                      title={`同篇週記共 ${batchInfo.get(signal.batch_id)!.count} 檔：${batchInfo.get(signal.batch_id)!.instruments.join('、')}`}
+                                      className="text-[10px] px-1.5 py-0 h-4 cursor-pointer select-none"
+                                      title={`同篇週記共 ${batchInfo.get(signal.batch_id)!.count} 檔，點擊${isBatchCollapsed ? '展開' : '折疊'}`}
+                                      onClick={() => {
+                                        setCollapsedBatches((prev) => {
+                                          const next = new Set(prev);
+                                          if (next.has(signal.batch_id)) next.delete(signal.batch_id);
+                                          else next.add(signal.batch_id);
+                                          return next;
+                                        });
+                                      }}
                                     >
-                                      📦 批次 {batchInfo.get(signal.batch_id)!.count}
+                                      📦 {isBatchCollapsed ? '展開' : '折疊'} {batchInfo.get(signal.batch_id)!.count}
                                     </Badge>
                                   )}
                                 </div>
@@ -1262,8 +1281,8 @@ const AdminSignals = () => {
                             )}
                          </React.Fragment>
                        );
-                     })
-                  )}
+                     });
+                  })()}
                 </tbody>
                 {holdingSummary && holdingSummary.length > 0 && (
                   <tfoot>

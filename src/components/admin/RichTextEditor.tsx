@@ -2,11 +2,14 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
+import Image from '@tiptap/extension-image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Bold, Italic, List, ListOrdered, Quote, Heading3, Link as LinkIcon, Undo2, Redo2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { Bold, Italic, List, ListOrdered, Quote, Heading3, Link as LinkIcon, Undo2, Redo2, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { AIAssistMenu, AIAssistMode } from './AIAssistMenu';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface RichTextEditorProps {
   value: string;
@@ -17,18 +20,20 @@ export interface RichTextEditorProps {
   onAIAssist?: (mode: AIAssistMode, currentHtml: string, instruction?: string) => Promise<string>;
   /** 哪個欄位（給 AI prompt 判斷語氣用） */
   aiField?: 'reason_summary' | 'reason_detail' | 'risk_notes' | 'learning_points' | 'overall_summary';
+  /** 上傳圖片的資料夾（通常傳 expert.id），未傳則停用上傳 */
+  uploadFolder?: string;
   className?: string;
 }
 
-export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, onAIAssist, aiField, className }: RichTextEditorProps) => {
+export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, onAIAssist, aiField, uploadFolder, className }: RichTextEditorProps) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        heading: { levels: [3] },
-        // 不要 image，避免老師亂貼大圖
-      }),
+      StarterKit.configure({ heading: { levels: [3] } }),
       Placeholder.configure({ placeholder: placeholder || '' }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
+      Image.configure({ inline: false, HTMLAttributes: { class: 'rounded max-w-full h-auto my-2' } }),
     ],
     content: value || '',
     editorProps: {
@@ -55,6 +60,34 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
     if (!onAIAssist) return;
     const html = await onAIAssist(mode, editor.getHTML(), instruction);
     if (html) editor.commands.setContent(html);
+  };
+
+  const handleImageUpload = async (file: File) => {
+    if (!uploadFolder) {
+      toast.error('尚未指定上傳資料夾');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast.error('只能上傳圖片');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('圖片不能超過 5MB');
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `${uploadFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('signal-media').upload(path, file, { upsert: false, contentType: file.type });
+      if (error) { toast.error(`上傳失敗：${error.message}`); return; }
+      const { data: pub } = supabase.storage.from('signal-media').getPublicUrl(path);
+      if (pub?.publicUrl) {
+        editor.chain().focus().setImage({ src: pub.publicUrl, alt: file.name }).run();
+      }
+    } finally {
+      setUploading(false);
+    }
   };
 
   const ToolbarBtn = ({ active, onClick, children, title }: any) => (
@@ -111,6 +144,24 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
         <ToolbarBtn title="重做" onClick={() => editor.chain().focus().redo().run()}>
           <Redo2 className="h-3.5 w-3.5" />
         </ToolbarBtn>
+        {uploadFolder && (
+          <>
+            <ToolbarBtn title="插入圖片" onClick={() => fileInputRef.current?.click()}>
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+            </ToolbarBtn>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleImageUpload(f);
+                e.target.value = '';
+              }}
+            />
+          </>
+        )}
         {onAIAssist && (
           <div className="ml-auto">
             <AIAssistMenu onPick={handleAI} field={aiField} />

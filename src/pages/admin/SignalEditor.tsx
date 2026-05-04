@@ -421,6 +421,7 @@ const SignalEditor = () => {
               <div className="space-y-2">
                 <Label>整體摘要</Label>
                 <RichTextEditor
+                  uploadFolder={expert?.id}
                   value={overallSummary}
                   onChange={setOverallSummary}
                   placeholder="這週的市場觀察與整體想法⋯"
@@ -547,6 +548,7 @@ const SignalEditor = () => {
               <div className="space-y-1.5">
                 <Label className="text-xs">為什麼這樣操作？</Label>
                 <RichTextEditor
+                  uploadFolder={expert?.id}
                   value={t.reasonSummary}
                   onChange={(html) => updateTrade(idx, { reasonSummary: html })}
                   placeholder="決策摘要、訊號背後的理由…"
@@ -564,6 +566,7 @@ const SignalEditor = () => {
               <div className="space-y-1.5">
                 <Label className="text-xs">部位控管想法</Label>
                 <RichTextEditor
+                  uploadFolder={expert?.id}
                   value={t.reasonDetail}
                   onChange={(html) => updateTrade(idx, { reasonDetail: html })}
                   placeholder="進出場條件、停損停利、加碼計畫…"
@@ -575,6 +578,7 @@ const SignalEditor = () => {
               <div className="space-y-1.5">
                 <Label className="text-xs">風險提醒</Label>
                 <RichTextEditor
+                  uploadFolder={expert?.id}
                   value={t.riskNotes}
                   onChange={(html) => updateTrade(idx, { riskNotes: html })}
                   placeholder="可能出錯的情境、停損點、總曝險…"
@@ -596,6 +600,7 @@ const SignalEditor = () => {
             <CardContent className="p-4 space-y-2">
               <Label>本週教學重點</Label>
               <RichTextEditor
+                  uploadFolder={expert?.id}
                 value={learningPoints}
                 onChange={setLearningPoints}
                 placeholder="老師對學生的歸納，可條列⋯"

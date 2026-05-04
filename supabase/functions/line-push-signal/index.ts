@@ -16,6 +16,7 @@ function htmlToText(s: any): string {
     .replace(/<\s*br\s*\/?>/gi, '\n')
     .replace(/<\s*\/(p|div|li|h[1-6]|blockquote)\s*>/gi, '\n')
     .replace(/<\s*li[^>]*>/gi, '• ')
+    .replace(/<img[^>]*>/gi, '[圖片] ')
     .replace(/<[^>]+>/g, '')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
