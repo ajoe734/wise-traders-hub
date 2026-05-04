@@ -56,9 +56,11 @@ Deno.serve(async (req) => {
     const envHashIV = Deno.env.get("ECPAY_HASH_IV") ?? "";
 
     const merchantId = String(dbValue?.merchant_id ?? "").trim() || envMerchantId;
-    const apiUrl = String(dbValue?.api_url ?? "").trim() || envApiUrl ||
-      "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5";
     const env = (dbValue?.env as string) === "production" ? "production" : "stage";
+    const officialAio = env === "production"
+      ? "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5"
+      : "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5";
+    const apiUrl = String(dbValue?.api_url ?? "").trim() || envApiUrl || officialAio;
 
     const isOfficialTestStore = merchantId === "2000132";
     const isStageUrl = apiUrl.includes("payment-stage.ecpay.com.tw");
