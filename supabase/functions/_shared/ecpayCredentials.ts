@@ -15,7 +15,10 @@ export type EcpayCreds = {
   source: "db" | "env" | "mixed";
 };
 
-const DEFAULT_STAGE = "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5";
+// Official AIO endpoints — shared across all merchants.
+// ECPay does NOT issue a per-merchant URL; merchants get only MerchantID + HashKey + HashIV.
+const ECPAY_PROD_AIO = "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5";
+const ECPAY_STAGE_AIO = "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5";
 
 // deno-lint-ignore no-explicit-any
 export async function loadEcpayCreds(supabase: any): Promise<EcpayCreds> {
@@ -36,16 +39,27 @@ export async function loadEcpayCreds(supabase: any): Promise<EcpayCreds> {
   const envMerchantId = Deno.env.get("ECPAY_MERCHANT_ID") ?? "";
   const envHashKey = Deno.env.get("ECPAY_HASH_KEY") ?? "";
   const envHashIV = Deno.env.get("ECPAY_HASH_IV") ?? "";
-  const envApiUrl = Deno.env.get("ECPAY_API_URL") ?? DEFAULT_STAGE;
+  const envApiUrl = Deno.env.get("ECPAY_API_URL") ?? "";
 
   const merchantId = String(dbValue?.merchant_id ?? "").trim() || envMerchantId;
   const hashKey = String(dbValue?.hash_key ?? "").trim() || envHashKey;
   const hashIV = String(dbValue?.hash_iv ?? "").trim() || envHashIV;
-  const apiUrl = String(dbValue?.api_url ?? "").trim() || envApiUrl;
-  const creditActionUrl =
-    String(dbValue?.credit_action_url ?? "").trim() || apiUrl;
   const env: "stage" | "production" =
     (dbValue?.env as string) === "production" ? "production" : "stage";
+
+  // Resolve API URL:
+  //   1. legacy db override (api_url)
+  //   2. env var ECPAY_API_URL
+  //   3. official endpoint based on `env`
+  const officialAio = env === "production" ? ECPAY_PROD_AIO : ECPAY_STAGE_AIO;
+  const apiUrl =
+    String(dbValue?.api_url ?? "").trim() || envApiUrl || officialAio;
+
+  // Credit-card action URL:
+  //   1. legacy db override (credit_action_url)
+  //   2. fall back to apiUrl (which is the env-resolved official endpoint)
+  const creditActionUrl =
+    String(dbValue?.credit_action_url ?? "").trim() || apiUrl;
 
   let source: EcpayCreds["source"] = "env";
   if (dbValue) {
