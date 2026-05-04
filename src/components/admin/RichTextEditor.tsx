@@ -144,6 +144,24 @@ export const RichTextEditor = ({ value, onChange, placeholder, minHeight = 100, 
         <ToolbarBtn title="重做" onClick={() => editor.chain().focus().redo().run()}>
           <Redo2 className="h-3.5 w-3.5" />
         </ToolbarBtn>
+        {uploadFolder && (
+          <>
+            <ToolbarBtn title="插入圖片" onClick={() => fileInputRef.current?.click()}>
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+            </ToolbarBtn>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleImageUpload(f);
+                e.target.value = '';
+              }}
+            />
+          </>
+        )}
         {onAIAssist && (
           <div className="ml-auto">
             <AIAssistMenu onPick={handleAI} field={aiField} />
