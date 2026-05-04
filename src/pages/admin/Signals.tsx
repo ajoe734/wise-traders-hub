@@ -1123,14 +1123,22 @@ const AdminSignals = () => {
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                               <td className="p-3 text-sm font-medium">
                                 <div className="flex items-center gap-1.5">
-                                  <span>{signal.instrument}</span>
+                                  <span>{signal.instrument}{isBatchCollapsed ? ` 等 ${batchInfo.get(signal.batch_id)!.count} 檔` : ''}</span>
                                   {signal.batch_id && batchInfo.get(signal.batch_id) && batchInfo.get(signal.batch_id)!.count > 1 && (
                                     <Badge
                                       variant="secondary"
-                                      className="text-[10px] px-1.5 py-0 h-4 cursor-help"
-                                      title={`同篇週記共 ${batchInfo.get(signal.batch_id)!.count} 檔：${batchInfo.get(signal.batch_id)!.instruments.join('、')}`}
+                                      className="text-[10px] px-1.5 py-0 h-4 cursor-pointer select-none"
+                                      title={`同篇週記共 ${batchInfo.get(signal.batch_id)!.count} 檔，點擊${isBatchCollapsed ? '展開' : '折疊'}`}
+                                      onClick={() => {
+                                        setCollapsedBatches((prev) => {
+                                          const next = new Set(prev);
+                                          if (next.has(signal.batch_id)) next.delete(signal.batch_id);
+                                          else next.add(signal.batch_id);
+                                          return next;
+                                        });
+                                      }}
                                     >
-                                      📦 批次 {batchInfo.get(signal.batch_id)!.count}
+                                      📦 {isBatchCollapsed ? '展開' : '折疊'} {batchInfo.get(signal.batch_id)!.count}
                                     </Badge>
                                   )}
                                 </div>
