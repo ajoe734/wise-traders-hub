@@ -73,17 +73,21 @@ export function useAttributionTracking() {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
-      // Persist to DB (anon allowed via RLS user_id IS NULL)
-      supabase.from('referral_attributions').insert({
-        user_id: user?.id || null,
-        visitor_id: payload.visitor_id || null,
-        utm_source: payload.utm_source || null,
-        utm_medium: payload.utm_medium || null,
-        utm_campaign: payload.utm_campaign || null,
-        utm_content: payload.utm_content || null,
-        ref_code: payload.ref_code || null,
-        landing_path: payload.landing_path || null,
-      }).then(() => {});
+      // Persist to DB only when authenticated (RLS now requires user_id = auth.uid()).
+      // Anonymous first-touch attribution stays in localStorage and is written to
+      // the DB after login via the backfill block below.
+      if (user?.id) {
+        supabase.from('referral_attributions').insert({
+          user_id: user.id,
+          visitor_id: payload.visitor_id || null,
+          utm_source: payload.utm_source || null,
+          utm_medium: payload.utm_medium || null,
+          utm_campaign: payload.utm_campaign || null,
+          utm_content: payload.utm_content || null,
+          ref_code: payload.ref_code || null,
+          landing_path: payload.landing_path || null,
+        }).then(() => {});
+      }
     }
 
     // Once user logs in, backfill user_id on most recent attribution row
