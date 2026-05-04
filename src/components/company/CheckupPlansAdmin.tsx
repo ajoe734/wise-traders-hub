@@ -120,7 +120,7 @@ export default function CheckupPlansAdmin() {
       toast.error('更新失敗：' + error.message);
       return;
     }
-    await logAdminAction(next ? 'checkup_plan.activate' : 'checkup_plan.deactivate', r.id, { name: r.name });
+    await logAdminAction({ action: next ? 'plan.checkup_activate' : 'plan.checkup_deactivate', targetType: 'checkup_plans', targetId: r.id, detail: { context: { name: r.name } } });
     toast.success(next ? '已上架' : '已下架');
     load();
   };
@@ -156,7 +156,7 @@ export default function CheckupPlansAdmin() {
       toast.error('儲存失敗：' + error.message);
       return;
     }
-    await logAdminAction(form.id ? 'checkup_plan.update' : 'checkup_plan.create', form.id ?? null, { name: payload.name, tier: payload.tier });
+    await logAdminAction({ action: form.id ? 'plan.checkup_update' : 'plan.checkup_create', targetType: 'checkup_plans', targetId: form.id ?? null, detail: { after: payload } });
     toast.success(form.id ? '已更新' : '已新增');
     setEditOpen(false);
     load();
@@ -188,7 +188,7 @@ export default function CheckupPlansAdmin() {
       toast.error('刪除失敗：' + error.message);
       return;
     }
-    await logAdminAction('checkup_plan.delete', deleteId, { name: target?.name });
+    await logAdminAction({ action: 'plan.checkup_delete', targetType: 'checkup_plans', targetId: deleteId, detail: { context: { name: target?.name } } });
     toast.success('已刪除');
     setDeleteId(null);
     load();
