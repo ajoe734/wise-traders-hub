@@ -2492,24 +2492,6 @@ export type Database = {
         }
         Relationships: []
       }
-      profiles_analyst_subscribers: {
-        Row: {
-          avatar_url: string | null
-          display_name: string | null
-          user_id: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          display_name?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          display_name?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
     }
     Functions: {
       admin_checkup_usage_overview: {
@@ -2551,6 +2533,14 @@ export type Database = {
       }
       delete_expired_binding_codes: { Args: never; Returns: undefined }
       delete_old_prices: { Args: never; Returns: undefined }
+      get_analyst_subscriber_profiles: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          display_name: string
+          user_id: string
+        }[]
+      }
       get_knowledge_revision: { Args: never; Returns: string }
       get_weekly_limit_up_leaderboard: {
         Args: { _end_date?: string; _start_date?: string }
