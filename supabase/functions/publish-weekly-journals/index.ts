@@ -174,14 +174,43 @@ Deno.serve(async (req) => {
       .update({ status: 'published' })
       .in('id', signalIds)
 
-    if (updateErr) {
-      console.error('Error updating signals to published:', updateErr)
-      return new Response(JSON.stringify({ error: updateErr.message }), {
+    stage = 'fetch_pending_signals'
+    const { data: pendingSignals, error: fetchErr } = await supabaseAdmin
+      .from('expert_signals')
+      .select('id, expert_id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, teaching_topic, overall_summary, published_at, batch_id, executed_at')
+      .eq('status', 'pending')
+
+    if (fetchErr) {
+      logErr(stage, fetchErr)
+      return new Response(JSON.stringify({ error: fetchErr.message, stage, runId }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    console.log(`Updated ${signalIds.length} signals to published`)
+    if (!pendingSignals || pendingSignals.length === 0) {
+      log('No pending signals to publish')
+      return new Response(JSON.stringify({ published: 0, pushed: 0, runId }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    log(`Found ${pendingSignals.length} pending signals`)
+
+    stage = 'mark_published'
+    const signalIds = pendingSignals.map(s => s.id)
+    const { error: updateErr } = await supabaseAdmin
+      .from('expert_signals')
+      .update({ status: 'published' })
+      .in('id', signalIds)
+
+    if (updateErr) {
+      logErr(stage, updateErr, { signalIds })
+      return new Response(JSON.stringify({ error: updateErr.message, stage, runId }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    log(`Updated ${signalIds.length} signals to published`)
 
     // Sync trade_signals + user_performances for each published signal
     // This ensures the Python price fetcher picks up mentor positions
