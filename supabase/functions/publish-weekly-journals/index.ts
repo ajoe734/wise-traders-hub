@@ -499,15 +499,29 @@ Deno.serve(async (req) => {
           }
         }
       }
+     } catch (expertErr) {
+       pushFail++
+       logErr('line_push_iteration', expertErr, { expertId })
+     }
     }
 
-    console.log(`Total published: ${signalIds.length}, Total pushed: ${totalPushed}`)
-    return new Response(JSON.stringify({ published: signalIds.length, pushed: totalPushed }), {
+    const elapsedMs = Date.now() - t0
+    log(`Done. published=${signalIds.length} pushed=${totalPushed} pushFail=${pushFail} elapsedMs=${elapsedMs}`)
+    return new Response(JSON.stringify({
+      runId, published: signalIds.length, pushed: totalPushed, pushFail, syncOk, syncFail, elapsedMs,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    console.error('publish-weekly-journals error:', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    logErr(stage, err)
+    const e = err as any
+    return new Response(JSON.stringify({
+      error: e?.message ?? 'Internal server error',
+      stage,
+      runId,
+      name: e?.name,
+      code: e?.code,
+    }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
