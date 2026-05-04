@@ -107,6 +107,44 @@ export async function createSubscriptionAndTransaction(
   return { subscriptionId: sub.id, transactionId: tx.id, error: null };
 }
 
+/**
+ * 手動續訂模型：對既有 active 訂閱延長 expires_at
+ *  - 若 expires_at 已過期 → 從 now 起算
+ *  - 若仍在期內 → 從 expires_at 起算（疊加到原有效期）
+ *  - 月繳 +1 月，年繳 +1 年
+ */
+export function calcRenewedExpiry(currentExpiresAt: string | null, billingCycle: string, now: Date): Date {
+  const base = currentExpiresAt ? new Date(currentExpiresAt) : now;
+  const start = base.getTime() > now.getTime() ? base : now;
+  const next = new Date(start);
+  if (billingCycle === 'yearly') {
+    next.setFullYear(next.getFullYear() + 1);
+  } else {
+    next.setMonth(next.getMonth() + 1);
+  }
+  return next;
+}
+
+export async function renewExistingSubscription(
+  supabase: { from: (table: string) => any },
+  params: { subscriptionId: string; billingCycle: string; now?: Date },
+): Promise<{ newExpiresAt: string | null; error: string | null }> {
+  const now = params.now ?? new Date();
+  const { data: sub, error: findErr } = await supabase
+    .from('member_subscriptions')
+    .select('expires_at')
+    .eq('id', params.subscriptionId)
+    .maybeSingle();
+  if (findErr) return { newExpiresAt: null, error: findErr.message };
+  const newExpiry = calcRenewedExpiry(sub?.expires_at ?? null, params.billingCycle, now);
+  const { error: updErr } = await supabase
+    .from('member_subscriptions')
+    .update({ expires_at: newExpiry.toISOString(), status: 'active', canceled_at: null })
+    .eq('id', params.subscriptionId);
+  if (updErr) return { newExpiresAt: null, error: updErr.message };
+  return { newExpiresAt: newExpiry.toISOString(), error: null };
+}
+
 export interface RecordExistingSubPaymentParams {
   subscriptionId: string;
   amount: number;

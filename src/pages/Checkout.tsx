@@ -1246,6 +1246,11 @@ const Checkout = () => {
             </div>
           </ScrollArea>
           <div className="border-t pt-4 space-y-4">
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <strong>單次扣款說明</strong>：本平台採單次手動扣款，不會自動續訂。
+              效期 {billingCycle === 'monthly' ? '1 個月' : '1 年'} 到期後立即停權，
+              無寬限期。如需延續服務，請於到期前自行重新付款。
+            </div>
             <label className="flex items-start gap-3 cursor-pointer">
               <Checkbox
                 checked={consentChecked}
@@ -1254,8 +1259,8 @@ const Checkout = () => {
               />
               <span className="text-sm leading-relaxed">
                 {isAdvisor
-                  ? '我已閱讀並同意以上條款，並願意自行承擔所有投資風險後使用「跟單派」服務'
-                  : '我已閱讀並同意以上條款，並理解「學習不等於保證成果」後使用「修煉派」服務'}
+                  ? '我已閱讀並同意以上條款，理解「單次扣款、到期停權、不會自動續訂」，並願意自行承擔所有投資風險後使用「跟單派」服務'
+                  : '我已閱讀並同意以上條款，理解「單次扣款、到期停權、不會自動續訂」，並理解「學習不等於保證成果」後使用「修煉派」服務'}
               </span>
             </label>
             <DialogFooter>

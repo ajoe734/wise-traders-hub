@@ -555,15 +555,14 @@ const CompanyRevenue = () => {
               <Select value={subFilter.autorenew} onValueChange={(v) => setSubFilter(s => ({ ...s, autorenew: v }))}>
                 <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">全部續訂</SelectItem>
-                  <SelectItem value="on">自動續訂</SelectItem>
-                  <SelectItem value="off">已關閉</SelectItem>
+                  <SelectItem value="all">全部</SelectItem>
+                  <SelectItem value="off">手動續訂</SelectItem>
                 </SelectContent>
               </Select>
               <div className="ml-auto">
                 <Button variant="outline" size="sm" onClick={() => {
                   exportCSV(`subscriptions-${new Date().toISOString().slice(0, 10)}.csv`, [
-                    ['訂閱者', '方案', '專家', '角色', '週期', '狀態', '自動續訂', '起始日', '到期日'],
+                    ['訂閱者', '方案', '專家', '角色', '週期', '狀態', '續訂模式', '起始日', '到期日'],
                     ...filteredSubs.map(s => {
                       const plan = planMap[s.plan_id];
                       const exp = plan ? expertMap[plan.expert_id] : null;
@@ -575,7 +574,7 @@ const CompanyRevenue = () => {
                         exp?.role === 'mentor' ? '導師' : '分析師',
                         s.billing_cycle === 'yearly' ? '年' : '月',
                         s.status,
-                        s.auto_renew ? '是' : '否',
+                        s.auto_renew ? '自動' : '手動',
                         fmtDate(s.started_at),
                         fmtDate(s.expires_at),
                       ];
@@ -597,7 +596,7 @@ const CompanyRevenue = () => {
                       <th className="p-3">專家</th>
                       <th className="p-3">週期</th>
                       <th className="p-3">狀態</th>
-                      <th className="p-3">自動續訂</th>
+                      <th className="p-3">續訂模式</th>
                       <th className="p-3">起始日</th>
                       <th className="p-3">到期日</th>
                     </tr>
@@ -625,7 +624,7 @@ const CompanyRevenue = () => {
                           <td className="p-3">
                             <Badge variant={s.status === 'active' ? 'default' : 'outline'} className="text-xs">{s.status}</Badge>
                           </td>
-                          <td className="p-3">{s.auto_renew ? '是' : '否'}</td>
+                          <td className="p-3">{s.auto_renew ? '自動' : '手動'}</td>
                           <td className="p-3">{fmtDate(s.started_at)}</td>
                           <td className="p-3">{fmtDate(s.expires_at)}</td>
                         </tr>
@@ -864,7 +863,7 @@ const CompanyRevenue = () => {
             <div className="flex justify-end">
               <Button variant="outline" size="sm" onClick={() => {
                 exportCSV(`checkup-subs-${new Date().toISOString().slice(0, 10)}.csv`, [
-                  ['用戶', '方案', '週期', '狀態', '自動續訂', '起始日', '到期日'],
+                  ['用戶', '方案', '週期', '狀態', '續訂模式', '起始日', '到期日'],
                   ...checkupSubs.map(c => {
                     const buyer = profileMap[c.user_id];
                     const plan = checkupPlanMap[c.plan_id];
@@ -873,7 +872,7 @@ const CompanyRevenue = () => {
                       plan?.name || '-',
                       c.billing_cycle === 'yearly' ? '年' : '月',
                       c.status,
-                      c.auto_renew ? '是' : '否',
+                      c.auto_renew ? '自動' : '手動',
                       fmtDate(c.started_at),
                       fmtDate(c.expires_at),
                     ];
@@ -893,7 +892,7 @@ const CompanyRevenue = () => {
                       <th className="p-3">方案</th>
                       <th className="p-3">週期</th>
                       <th className="p-3">狀態</th>
-                      <th className="p-3">自動續訂</th>
+                      <th className="p-3">續訂模式</th>
                       <th className="p-3">起始日</th>
                       <th className="p-3">到期日</th>
                     </tr>
@@ -910,7 +909,7 @@ const CompanyRevenue = () => {
                           <td className="p-3">{plan?.name || '-'}</td>
                           <td className="p-3">{c.billing_cycle === 'yearly' ? '年' : '月'}</td>
                           <td className="p-3"><Badge variant={c.status === 'active' ? 'default' : 'outline'} className="text-xs">{c.status}</Badge></td>
-                          <td className="p-3">{c.auto_renew ? '是' : '否'}</td>
+                          <td className="p-3">{c.auto_renew ? '自動' : '手動'}</td>
                           <td className="p-3">{fmtDate(c.started_at)}</td>
                           <td className="p-3">{fmtDate(c.expires_at)}</td>
                         </tr>

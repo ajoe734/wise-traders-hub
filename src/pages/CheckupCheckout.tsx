@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { PortalLayout } from "@/components/layouts/PortalLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, CheckCircle2, Stethoscope, Building2, CreditCard } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +30,7 @@ export default function CheckupCheckout() {
   const [method, setMethod] = useState<Method>("ecpay");
   const [bank, setBank] = useState<{ bank_name: string; bank_code: string; account_number: string; account_name: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string; goRemittance?: boolean } | null>(null);
 
@@ -312,7 +314,22 @@ export default function CheckupCheckout() {
           </CardContent>
         </Card>
 
-        <Button className="w-full" size="lg" onClick={onSubmit} disabled={isProcessing}>
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <strong>單次扣款說明</strong>：本平台採單次手動扣款，不會自動續訂。
+          效期 {billingCycle === "monthly" ? "1 個月" : "1 年"} 到期後立即停用，無寬限期，需自行重新付款。
+        </div>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <Checkbox
+            checked={consentChecked}
+            onCheckedChange={(c) => setConsentChecked(c === true)}
+            className="mt-0.5"
+          />
+          <span className="text-sm leading-relaxed text-muted-foreground">
+            我已閱讀並同意「單次扣款、到期停權、不會自動續訂」之條款。
+          </span>
+        </label>
+
+        <Button className="w-full" size="lg" onClick={onSubmit} disabled={isProcessing || !consentChecked}>
           {isProcessing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />處理中…</> :
             method === "ecpay" ? "前往付款" : "建立匯款訂單"}
         </Button>
