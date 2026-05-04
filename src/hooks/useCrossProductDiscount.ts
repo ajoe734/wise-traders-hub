@@ -34,7 +34,7 @@ export function useCrossProductDiscount(args: {
         return;
       }
       const [{ data: settings }, { data: expertSubs }, { data: ckSubs }] = await Promise.all([
-        supabase.from('payment_settings').select('value').eq('key', 'cross_discounts').maybeSingle(),
+        (supabase.from as any)('payment_settings_safe').select('value').eq('key', 'cross_discounts').maybeSingle(),
         supabase.from('member_subscriptions').select('id').eq('user_id', user.id).eq('status', 'active'),
         supabase
           .from('checkup_subscriptions')
