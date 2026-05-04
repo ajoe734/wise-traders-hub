@@ -97,9 +97,14 @@ export default function CompanyRemittance() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">匯款審核</h1>
           <div className="flex gap-2">
-            {(['pending', 'confirmed', 'rejected', 'all'] as const).map(s => (
+            {(['awaiting_info', 'pending', 'confirmed', 'rejected', 'expired', 'all'] as const).map(s => (
               <Button key={s} variant={filter === s ? 'default' : 'outline'} size="sm" onClick={() => setFilter(s)}>
-                {s === 'pending' ? '待確認' : s === 'confirmed' ? '已入帳' : s === 'rejected' ? '已拒絕' : '全部'}
+                {s === 'awaiting_info' ? '待補資料'
+                  : s === 'pending' ? '待對帳'
+                  : s === 'confirmed' ? '已開通'
+                  : s === 'rejected' ? '已拒絕'
+                  : s === 'expired' ? '已過期'
+                  : '全部'}
               </Button>
             ))}
           </div>
@@ -112,8 +117,18 @@ export default function CompanyRemittance() {
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1 text-sm">
                 <div className="flex items-center gap-2">
-                  <Badge variant={o.status === 'pending' ? 'secondary' : o.status === 'confirmed' ? 'default' : 'destructive'}>
-                    {o.status === 'pending' ? '待確認' : o.status === 'confirmed' ? '已入帳' : '已拒絕'}
+                  <Badge variant={
+                    o.status === 'pending' ? 'secondary'
+                      : o.status === 'confirmed' ? 'default'
+                      : o.status === 'rejected' ? 'destructive'
+                      : 'outline'
+                  }>
+                    {o.status === 'awaiting_info' ? '待補資料'
+                      : o.status === 'pending' ? '待對帳'
+                      : o.status === 'confirmed' ? '已開通'
+                      : o.status === 'rejected' ? '已拒絕'
+                      : o.status === 'expired' ? '已過期'
+                      : o.status}
                   </Badge>
                   <Badge variant="outline">{o.product_kind === 'checkup_plan' ? '健檢' : '專家方案'}</Badge>
                   <Badge variant="outline">{o.billing_cycle === 'yearly' ? '年費' : '月費'}</Badge>
