@@ -321,10 +321,26 @@ const Account = () => {
                               </span>
                             ) : (
                               <span className={cn(advisor ? "text-advisor/70" : "text-mentor/70")}>
-                                {sub.auto_renew ? '自動續訂' : '手動續訂'}
+                                手動續訂
                               </span>
                             )}
                           </div>
+                          {(() => {
+                            if (!sub.expires_at || isCanceling) return null;
+                            const msLeft = new Date(sub.expires_at).getTime() - Date.now();
+                            const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+                            if (daysLeft > 14 || daysLeft < 0) return null;
+                            return (
+                              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-3 py-2 flex items-center justify-between gap-2">
+                                <span className="text-xs text-amber-800 dark:text-amber-300">
+                                  將於 {format(new Date(sub.expires_at), 'yyyy/MM/dd')} 到期，{daysLeft <= 0 ? '今日內請完成續訂' : `剩 ${daysLeft} 天`}
+                                </span>
+                                <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                                  <Link to={`/${sub.expert.slug}/checkout?plan=${sub.plan_id}`}>立即續訂</Link>
+                                </Button>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
 

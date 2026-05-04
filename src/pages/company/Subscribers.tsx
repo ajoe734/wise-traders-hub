@@ -217,7 +217,7 @@ const CompanySubscribers = () => {
                           ) : '-'}
                         </td>
                         <td className="p-4">
-                          <Badge variant={sub.auto_renew ? 'default' : 'outline'} className="text-xs">{sub.auto_renew ? '自動' : '手動'}</Badge>
+                          <Badge variant="outline" className="text-xs">手動續訂</Badge>
                         </td>
                         <td className="p-4">
                           <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'expired' ? 'outline' : 'destructive'} className="text-xs">

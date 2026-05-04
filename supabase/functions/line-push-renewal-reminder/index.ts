@@ -1,20 +1,37 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
+// 手動續訂模型：每日 09:00 (UTC+8) 推播到期前 7 / 3 / 1 天的訂閱者，
+// 帶一鍵續訂連結（/{slug}/checkout?plan={plan_id}）。
+// 平台不會自動扣款，過期即斷權，無寬限期。
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
+const REMINDER_DAYS = [7, 3, 1] as const
 
-function buildRenewalFlexMessage(expertName: string, planName: string, daysLeft: number, expiresAt: string, amount: number) {
+function buildRenewalFlexMessage(
+  expertName: string,
+  planName: string,
+  daysLeft: number,
+  expiresAt: string,
+  amount: number,
+  renewUrl: string,
+) {
   const expiryDate = new Date(expiresAt).toLocaleDateString('zh-TW', {
     year: 'numeric', month: 'long', day: 'numeric',
   })
 
+  const headerText = daysLeft <= 1
+    ? '⚠️ 訂閱明日到期'
+    : daysLeft <= 3
+      ? '⏳ 訂閱即將到期'
+      : '⏰ 訂閱到期提醒'
+
   return {
     type: 'flex',
-    altText: `⏰ 訂閱即將到期：${expertName}・${planName}`,
+    altText: `${headerText}：${expertName}・${planName}（剩 ${daysLeft} 天）`,
     contents: {
       type: 'bubble',
       header: {
@@ -22,137 +39,60 @@ function buildRenewalFlexMessage(expertName: string, planName: string, daysLeft:
         layout: 'vertical',
         backgroundColor: '#FFF3CD',
         paddingAll: 'lg',
-        contents: [
-          {
-            type: 'text',
-            text: '⏰ 訂閱即將到期',
-            weight: 'bold',
-            size: 'lg',
-            color: '#856404',
-          },
-        ],
+        contents: [{
+          type: 'text', text: headerText,
+          weight: 'bold', size: 'lg', color: '#856404',
+        }],
       },
       body: {
         type: 'box',
         layout: 'vertical',
         contents: [
+          { type: 'text', text: expertName, weight: 'bold', size: 'xl', color: '#333333' },
+          { type: 'text', text: planName, size: 'sm', color: '#666666', margin: 'sm' },
+          { type: 'separator', margin: 'lg' },
           {
-            type: 'text',
-            text: expertName,
-            weight: 'bold',
-            size: 'xl',
-            color: '#333333',
-          },
-          {
-            type: 'text',
-            text: planName,
-            size: 'sm',
-            color: '#666666',
-            margin: 'sm',
-          },
-          {
-            type: 'separator',
-            margin: 'lg',
-          },
-          {
-            type: 'box',
-            layout: 'horizontal',
-            margin: 'lg',
+            type: 'box', layout: 'horizontal', margin: 'lg',
             contents: [
-              {
-                type: 'text',
-                text: '到期日',
-                size: 'sm',
-                color: '#999999',
-                flex: 1,
-              },
-              {
-                type: 'text',
-                text: expiryDate,
-                size: 'sm',
-                color: '#333333',
-                align: 'end',
-                flex: 2,
-              },
+              { type: 'text', text: '到期日', size: 'sm', color: '#999999', flex: 1 },
+              { type: 'text', text: expiryDate, size: 'sm', color: '#333333', align: 'end', flex: 2 },
             ],
           },
           {
-            type: 'box',
-            layout: 'horizontal',
-            margin: 'sm',
+            type: 'box', layout: 'horizontal', margin: 'sm',
             contents: [
-              {
-                type: 'text',
-                text: '剩餘天數',
-                size: 'sm',
-                color: '#999999',
-                flex: 1,
-              },
-              {
-                type: 'text',
-                text: `${daysLeft} 天`,
-                size: 'sm',
-                color: '#DC3545',
-                weight: 'bold',
-                align: 'end',
-                flex: 2,
-              },
+              { type: 'text', text: '剩餘天數', size: 'sm', color: '#999999', flex: 1 },
+              { type: 'text', text: `${daysLeft} 天`, size: 'sm', color: '#DC3545', weight: 'bold', align: 'end', flex: 2 },
             ],
           },
           {
-            type: 'box',
-            layout: 'horizontal',
-            margin: 'sm',
+            type: 'box', layout: 'horizontal', margin: 'sm',
             contents: [
-              {
-                type: 'text',
-                text: '續訂金額',
-                size: 'sm',
-                color: '#999999',
-                flex: 1,
-              },
-              {
-                type: 'text',
-                text: `NT$${amount.toLocaleString()}`,
-                size: 'sm',
-                color: '#333333',
-                weight: 'bold',
-                align: 'end',
-                flex: 2,
-              },
+              { type: 'text', text: '續訂金額', size: 'sm', color: '#999999', flex: 1 },
+              { type: 'text', text: `NT$${amount.toLocaleString()}`, size: 'sm', color: '#333333', weight: 'bold', align: 'end', flex: 2 },
             ],
           },
-          {
-            type: 'separator',
-            margin: 'lg',
-          },
+          { type: 'separator', margin: 'lg' },
           {
             type: 'text',
-            text: `📌 系統將於到期日自動續訂扣款 NT$${amount.toLocaleString()}。`,
-            size: 'sm',
-            color: '#333333',
-            margin: 'lg',
-            wrap: true,
-            weight: 'bold',
-          },
-          {
-            type: 'text',
-            text: '若您希望取消訂閱，請於到期日前至網頁版「帳號頁面」進行取消。',
-            size: 'xs',
-            color: '#999999',
-            margin: 'sm',
-            wrap: true,
+            text: '本平台採單次扣款，到期後不會自動扣款。如需延續服務，請於到期前完成續訂，否則將無法繼續存取訊號與內容。',
+            size: 'xs', color: '#666666', margin: 'lg', wrap: true,
           },
         ],
+      },
+      footer: {
+        type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'lg',
+        contents: [{
+          type: 'button', style: 'primary', height: 'sm', color: '#856404',
+          action: { type: 'uri', label: '立即續訂', uri: renewUrl },
+        }],
       },
     },
   }
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {
     const supabaseAdmin = createClient(
@@ -160,130 +100,116 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Find subscriptions expiring in exactly 7 days (within a 24-hour window)
+    const siteUrl = (Deno.env.get('SITE_URL') || 'https://legendflow.tw').replace(/\/$/, '')
     const now = new Date()
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-    const eightDaysFromNow = new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000)
 
-    const { data: expiringSubs, error: subErr } = await supabaseAdmin
-      .from('member_subscriptions')
-      .select('id, user_id, plan_id, expires_at, expert_plans!inner(id, expert_id, name, price_monthly, experts!inner(id, name))')
-      .eq('status', 'active')
-      .gte('expires_at', sevenDaysFromNow.toISOString())
-      .lt('expires_at', eightDaysFromNow.toISOString())
+    // 一次掃 7 / 3 / 1 三個窗口
+    const allTargets: Array<{
+      sub: any; daysLeft: number; expertId: string; expertName: string; expertSlug: string;
+      planId: string; planName: string; amount: number;
+    }> = []
 
-    if (subErr) {
-      console.error('Query error:', subErr.message)
-      return new Response(JSON.stringify({ error: subErr.message }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    for (const d of REMINDER_DAYS) {
+      const lower = new Date(now.getTime() + d * 24 * 60 * 60 * 1000)
+      const upper = new Date(now.getTime() + (d + 1) * 24 * 60 * 60 * 1000)
+
+      const { data: subs, error } = await supabaseAdmin
+        .from('member_subscriptions')
+        .select('id, user_id, plan_id, expires_at, canceled_at, expert_plans!inner(id, expert_id, name, price_monthly, experts!inner(id, name, slug))')
+        .eq('status', 'active')
+        .is('canceled_at', null)
+        .gte('expires_at', lower.toISOString())
+        .lt('expires_at', upper.toISOString())
+
+      if (error) {
+        console.error(`Query error for ${d}d window:`, error.message)
+        continue
+      }
+      for (const sub of subs || []) {
+        const plan: any = sub.expert_plans
+        const expert: any = plan.experts
+        allTargets.push({
+          sub,
+          daysLeft: d,
+          expertId: expert.id,
+          expertName: expert.name,
+          expertSlug: expert.slug,
+          planId: plan.id,
+          planName: plan.name,
+          amount: plan.price_monthly || 0,
+        })
+      }
     }
 
-    console.log(`Found ${expiringSubs?.length || 0} subscriptions expiring in ~7 days`)
+    console.log(`Found ${allTargets.length} reminder targets across 7/3/1 day windows`)
 
-    if (!expiringSubs || expiringSubs.length === 0) {
+    if (allTargets.length === 0) {
       return new Response(JSON.stringify({ reminded: 0, details: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Group by expert for batch sending
-    const byExpert = new Map<string, {
-      expertId: string
-      expertName: string
-      targets: { lineUserId: string; planName: string; expiresAt: string; daysLeft: number; amount: number }[]
-    }>()
+    // 抓 LINE 綁定 + 通道
+    const channelCache = new Map<string, string | null>()
+    let totalPushed = 0
+    const results: any[] = []
 
-    for (const sub of expiringSubs) {
-      const plan = sub.expert_plans as any
-      const expert = plan.experts
-      const expertId = expert.id as string
-      const daysLeft = Math.ceil((new Date(sub.expires_at!).getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
-      const amount = plan.price_monthly || 0
-
-      // Get LINE binding for this user+expert
+    for (const t of allTargets) {
       const { data: binding } = await supabaseAdmin
         .from('member_line_bindings')
         .select('line_user_id')
-        .eq('user_id', sub.user_id)
-        .eq('expert_id', expertId)
+        .eq('user_id', t.sub.user_id)
+        .eq('expert_id', t.expertId)
         .eq('is_active', true)
         .maybeSingle()
-
       if (!binding) continue
 
-      if (!byExpert.has(expertId)) {
-        byExpert.set(expertId, {
-          expertId,
-          expertName: expert.name,
-          targets: [],
-        })
+      let token = channelCache.get(t.expertId)
+      if (token === undefined) {
+        const { data: ch } = await supabaseAdmin
+          .from('expert_line_channels')
+          .select('channel_access_token, is_active')
+          .eq('expert_id', t.expertId)
+          .single()
+        token = ch?.is_active && ch?.channel_access_token ? ch.channel_access_token : null
+        channelCache.set(t.expertId, token)
       }
+      if (!token) continue
 
-      byExpert.get(expertId)!.targets.push({
-        lineUserId: binding.line_user_id,
-        planName: plan.name,
-        expiresAt: sub.expires_at!,
-        daysLeft,
-        amount,
+      const renewUrl = `${siteUrl}/${t.expertSlug}/checkout?plan=${t.planId}&utm_source=line&utm_medium=renewal&utm_campaign=d${t.daysLeft}`
+
+      const message = buildRenewalFlexMessage(
+        t.expertName, t.planName, t.daysLeft,
+        t.sub.expires_at!, t.amount, renewUrl,
+      )
+
+      const res = await fetch('https://api.line.me/v2/bot/message/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ to: binding.line_user_id, messages: [message] }),
       })
-    }
 
-    const results: any[] = []
-
-    for (const [expertId, group] of byExpert) {
-      // Get LINE channel
-      const { data: channel } = await supabaseAdmin
-        .from('expert_line_channels')
-        .select('channel_access_token, is_active')
-        .eq('expert_id', expertId)
-        .single()
-
-      if (!channel?.is_active || !channel?.channel_access_token) {
-        console.log(`No active LINE channel for expert ${expertId}`)
-        results.push({ expert_id: expertId, status: 'skipped', reason: 'no_channel' })
-        continue
-      }
-
-      // Send individual messages (each user may have different plan/expiry)
-      let pushed = 0
-      for (const target of group.targets) {
-        const message = buildRenewalFlexMessage(
-          group.expertName,
-          target.planName,
-          target.daysLeft,
-          target.expiresAt,
-          target.amount,
-        )
-
-        const res = await fetch('https://api.line.me/v2/bot/message/push', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${channel.channel_access_token}`,
-          },
-          body: JSON.stringify({
-            to: target.lineUserId,
-            messages: [message],
-          }),
+      if (res.ok) {
+        totalPushed++
+        // 記入 audit log
+        await supabaseAdmin.from('audit_logs').insert({
+          actor_id: t.sub.user_id,
+          action: 'subscription.renewal_reminder_sent',
+          target_type: 'member_subscription',
+          target_id: t.sub.id,
+          detail: { days_left: t.daysLeft, expert_id: t.expertId, plan_id: t.planId },
         })
-
-        if (res.ok) {
-          pushed++
-        } else {
-          const errBody = await res.text()
-          console.error(`LINE push failed for ${target.lineUserId}:`, res.status, errBody)
-        }
+        results.push({ sub_id: t.sub.id, days_left: t.daysLeft, status: 'pushed' })
+      } else {
+        const errBody = await res.text()
+        console.error(`LINE push failed for sub ${t.sub.id}:`, res.status, errBody)
+        results.push({ sub_id: t.sub.id, days_left: t.daysLeft, status: 'failed', error: errBody })
       }
-
-      console.log(`Expert ${group.expertName}: reminded ${pushed}/${group.targets.length} users`)
-      results.push({ expert_id: expertId, expert_name: group.expertName, status: 'pushed', count: pushed })
     }
 
-    const totalReminded = results.filter(r => r.status === 'pushed').reduce((sum, r) => sum + r.count, 0)
-    console.log(`Total reminded: ${totalReminded}`)
+    console.log(`Total reminded: ${totalPushed} / ${allTargets.length}`)
 
-    return new Response(JSON.stringify({ reminded: totalReminded, details: results }), {
+    return new Response(JSON.stringify({ reminded: totalPushed, total_targets: allTargets.length, details: results }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {

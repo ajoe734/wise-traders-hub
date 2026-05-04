@@ -987,7 +987,7 @@ const Checkout = () => {
                       <span>NT$ {formatPrice(price)}</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {billingCycle === 'monthly' ? '每月自動續訂' : '每年自動續訂'}
+                      單次扣款，效期 {billingCycle === 'monthly' ? '1 個月' : '1 年'}，到期需手動續訂
                     </p>
                   </div>
 

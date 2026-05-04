@@ -153,8 +153,8 @@ const AdminSubscribers = () => {
                             ) : '-'}
                           </td>
                           <td className="p-3">
-                            <Badge variant={sub.auto_renew ? 'default' : 'outline'} className="text-xs">
-                              {sub.auto_renew ? '自動' : '手動'}
+                            <Badge variant="outline" className="text-xs">
+                              手動
                             </Badge>
                           </td>
                           <td className="p-3">
