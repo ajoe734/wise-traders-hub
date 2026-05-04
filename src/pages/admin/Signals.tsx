@@ -1187,6 +1187,20 @@ const AdminSignals = () => {
                                        </Button>
                                      </PermissionTooltip>
                                    )}
+                                   {signal.batch_id && (
+                                     <PermissionTooltip disabled={isReadOnly}>
+                                       <Button
+                                         size="sm"
+                                         variant="ghost"
+                                         className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                                         onClick={() => navigate(`/admin/${expertSlug}/signals/edit/${signal.batch_id}`)}
+                                         disabled={isReadOnly}
+                                         title="編輯整批"
+                                       >
+                                         編輯
+                                       </Button>
+                                     </PermissionTooltip>
+                                   )}
                                    <PermissionTooltip disabled={isReadOnly}>
                                      <Button
                                        size="sm"
