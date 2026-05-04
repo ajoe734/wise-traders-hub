@@ -1,76 +1,46 @@
-完整審計後，匯款對帳鏈路（建立 → 補填 → 後台確認 → 入帳/分潤）有 5 個問題，第 1 點會讓使用者完全無法選擇「匯款」付款。
+## 目標
+在 `/company/plans`（方案管理）新增「健檢方案」分頁，讓 admin 直接管理 `checkup_plans`（持股健檢的 Basic / Pro），目前只能在資料庫手動改。
 
-## 一、CRITICAL：`remittance_orders.status` CHECK 沒有 `awaiting_info`
+## 現況
+- 方案管理頁僅有兩個 Tab：**方案審核 / 分潤**（分析師方案 `expert_plans`）、**跨產品折扣**（`payment_settings`）。
+- `checkup_plans` 表（Basic 699 / Pro 1299）已有 RLS：`Admins full access checkup plans`，可直接以 supabase client 操作。
+- 前端 `useCheckupPlans` 已在使用（健檢購買頁）。
 
-資料庫實際 constraint：
+## 規劃內容
 
-```
-CHECK (status IN ('pending','confirmed','rejected','expired'))
-```
+### 1. 新增 Tab：健檢方案
+位置：`src/pages/company/Plans.tsx` 外層 `Tabs` 內，新增第三個 TabsTrigger「健檢方案」（icon: `HeartPulse` 或 `Stethoscope`）。
 
-但程式碼已經改成新流程：
-- `create-checkup-remittance` insert `status: 'awaiting_info'`
-- `submit-remittance-info` 從 `awaiting_info` → `pending`
-- `MyRemittanceOrders` / `PendingRemittanceGuard` 都假設此狀態存在
+### 2. 健檢方案管理 UI（Card 列表）
+每個 plan 卡片顯示並可編輯：
+- `name`（名稱）、`description`（描述）
+- `tier`（basic / pro，下拉）
+- `price_monthly` / `price_yearly`（NTD）
+- `monthly_quota` + `quota_period`（month / week，下拉）
+- `features`（字串陣列，逐行輸入 Textarea）
+- `sort_order`（排序）
+- `is_active`（Switch）
 
-→ **目前選「匯款」會直接 500（constraint violation），整條流程是斷的。** 必須補一支 migration 把 `awaiting_info` 加入 CHECK。
+操作：
+- **編輯**：點擊 Pencil 開 Sheet 編輯，存檔 `update`
+- **新增**：右上「新增健檢方案」按鈕（保留彈性，雖然目前只用 Basic/Pro）
+- **刪除**：Trash 圖示 + Confirm Dialog（保險起見禁止刪除有 active 訂閱者的 plan，先 count `checkup_subscriptions` 再 delete）
+- **狀態切換**：Switch 直接 toggle `is_active`
 
-## 二、CRITICAL：`payment_providers.provider_type` enum 沒有 `remittance`
+所有寫入後：
+- `queryClient.invalidateQueries(['checkup-plans'])`
+- 呼叫 `logAdminAction('checkup_plan.update' / 'create' / 'delete', ...)` 寫入 audit_logs
 
-`confirm-remittance` 跑：
-```ts
-.from("payment_providers").eq("provider_type", "remittance")
-```
-但 enum 只有 `ecpay / newebpay / stripe / line_pay / acpay`。所以 `provider_id` 永遠是 `null`，分潤雖然還是寫得進 `revenue_splits`（因為 fallback 走 attribution/checkup default），但 `payment_transactions.provider_id` 留空 → Revenue 報表「來源拆分」要靠特判才認得出匯款（目前 Revenue.tsx 是另外掃 `remittance_orders` 才補上「匯款」桶，勉強可用，但不乾淨）。
+### 3. 不動的部分
+- 不改 schema，沿用現有欄位
+- 不改 RLS（admin 已有 full access）
+- 不影響購買流程與 `useCheckupPlans` hook
 
-→ migration 把 `'remittance'` 加進 `provider_type` enum，並補一筆 `payment_providers` 啟用列。
+## 受影響檔案
+- `src/pages/company/Plans.tsx`（新增 Tab + 整段健檢方案管理區塊；同檔內處理 list/edit/save/delete）
 
-## 三、`create-checkup-remittance` 把客戶端傳的折扣/歸因吞了
-
-`CheckupCheckout` 已經算好 `originalAmount / discountAmount / discountReason / attribution` 並送到 edge function，但 function 完全沒讀，硬寫 `original_amount = amount, discount_amount = 0, attribution = null`。
-
-→ 結果：跨產品優惠（健檢↔專家方案）走匯款時收費正確、但帳上看不到折抵金額，分潤也少一塊歸因。需要修 function 真正接收這幾欄。
-
-## 四、後台「匯款審核」缺 `awaiting_info` / `expired` 篩選
-
-`src/pages/company/Remittance.tsx` 的 filter 只給 `pending / confirmed / rejected / all`。
-新流程下，使用者在「補填中」階段就建單了，admin 看不到「有多少訂單在 awaiting_info 卡住」。
-
-→ Filter 加 `awaiting_info`（待補資料）與 `expired`（已過期）兩種；卡片狀態 Badge 顯示文案也對齊 `MyRemittanceOrders` 的 STATUS_META（待補/待對帳/已開通/已拒絕/已過期）。
-
-## 五、無自動過期機制
-
-DB 有 `expired` 狀態，CheckupCheckout 文案說「請於 3 日內完成銀行轉帳」，但沒有 cron 把超過 N 天還沒進到 `pending` 的訂單轉成 `expired`。久了「我的匯款訂單」會堆很多殭屍 awaiting_info，`PendingRemittanceGuard` 也會一直把使用者抓回去煩。
-
-→ 加一支簡單 edge function `expire-stale-remittance`：把 `awaiting_info` 超過 3 天 / `pending` 超過 14 天的 orders 標 `expired`，並用 `pg_cron` 每天台灣時間 09:00 執行（在交易時段內）。
-
----
-
-## 改動清單
-
-```text
-DB migration（必要）
-  └─ 1. ALTER CHECK remittance_orders.status: 加 'awaiting_info'
-  └─ 2. ALTER TYPE provider_type ADD VALUE 'remittance'
-  └─ 3. INSERT payment_providers (provider_type='remittance', is_active=true)
-  └─ 4. cron: 每日 01:00 UTC 執行 expire-stale-remittance
-
-Edge functions
-  └─ supabase/functions/create-checkup-remittance/index.ts
-       讀取並寫入 originalAmount / discountAmount / discountReason / attribution
-  └─ supabase/functions/expire-stale-remittance/index.ts （新增）
-       awaiting_info > 3d → expired；pending > 14d → expired
-
-UI
-  └─ src/pages/company/Remittance.tsx
-       Filter 加 awaiting_info / expired；Badge 文案對齊 STATUS_META
-```
-
-## QA
-
-1. 健檢結帳選「匯款」→ 回到 `/account/remittance` 看到 awaiting_info 卡片。
-2. 補填末五碼+姓名 → 變成 pending；admin 後台看到。
-3. Admin 確認 → `checkup_subscriptions` 啟用、`payment_transactions`+`revenue_splits` 寫入、`remittance_orders.status='confirmed'`。
-4. Admin 拒絕 → 使用者端看到拒絕原因。
-5. 跨產品折扣訂單走匯款 → `remittance_orders.discount_amount`/`discount_reason` 正確；`revenue_splits.discount` 正確。
-6. 手動把一筆 awaiting_info 的 created_at 設為 4 天前 → 跑一次 cron → 變 expired。
+## 驗收
+1. `/company/plans` 出現第三個分頁「健檢方案」
+2. 看得到目前 Basic / Pro 兩筆，可改價、改額度、切換上下架
+3. 改完後健檢購買頁立即反映新價格
+4. 操作會記到 audit_logs

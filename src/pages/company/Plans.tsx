@@ -18,9 +18,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Loader2, Layers, CheckCircle2, XCircle, Pencil, Trash2, Sparkles, Tag } from 'lucide-react';
+import { Loader2, Layers, CheckCircle2, XCircle, Pencil, Trash2, Sparkles, Tag, HeartPulse } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { logAdminAction } from '@/lib/auditLog';
+import CheckupPlansAdmin from '@/components/company/CheckupPlansAdmin';
 
 const CROSS_FIELDS: { key: string; label: string; hint: string }[] = [
   { key: 'has_checkup_basic_discount_on_expert', label: '已訂健檢 Basic → 訂閱方案折扣', hint: '會員在持有健檢 Basic 期間訂閱分析師方案時自動折抵' },
@@ -76,7 +77,7 @@ export default function CompanyPlans() {
   const [rows, setRows] = useState<PlanRow[]>([]);
   const [defaultRule, setDefaultRule] = useState<DefaultRule>({ pct_platform: 55, pct_expert: 45 });
   const [loading, setLoading] = useState(true);
-  const [outerTab, setOuterTab] = useState<'plans' | 'cross_discounts'>('plans');
+  const [outerTab, setOuterTab] = useState<'plans' | 'cross_discounts' | 'checkup'>('plans');
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
   const [acting, setActing] = useState(false);
 
@@ -355,7 +356,12 @@ export default function CompanyPlans() {
           <TabsList>
             <TabsTrigger value="plans"><Layers className="h-3.5 w-3.5 mr-1" />方案審核 / 分潤</TabsTrigger>
             <TabsTrigger value="cross_discounts"><Tag className="h-3.5 w-3.5 mr-1" />跨產品折扣</TabsTrigger>
+            <TabsTrigger value="checkup"><HeartPulse className="h-3.5 w-3.5 mr-1" />健檢方案</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="checkup" className="mt-4">
+            <CheckupPlansAdmin />
+          </TabsContent>
 
           <TabsContent value="cross_discounts" className="mt-4 space-y-4">
             <Card>
