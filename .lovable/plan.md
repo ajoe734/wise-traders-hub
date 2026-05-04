@@ -1,14 +1,28 @@
-## 問題
-點「綠界金流」付款後，預覽出現空白＋破圖。Edge Function 正常 200，問題出在前端 form 用 `target="_self"` 提交，預覽是 iframe，綠界回 `X-Frame-Options: DENY` 直接被瀏覽器擋下。
+## 目的
+讓你（company_admin）按一個按鈕就能看到目前綠界（ECPay）是接到**測試店**還是**正式店**，以及 API URL 是 stage 還是 production，**不洩漏 HashKey/HashIV**。
 
-## 修正
-`src/pages/CheckupCheckout.tsx` 第 139 行：將 ECPay 提交 form 的 target 從 `_self` 改為 `_top`，強制跳出 iframe 到頂層視窗導向綠界付款頁。
+## 改動
 
-正式網域 (legendflow.tw) 不在 iframe 內，行為不變。
+### 1. 新增 Edge Function `admin-ecpay-status`
+- 驗證呼叫者是 `company_admin`
+- 讀 `payment_settings.ecpay_credentials` 與環境變數 `ECPAY_MERCHANT_ID` / `ECPAY_API_URL` / `ECPAY_HASH_KEY` / `ECPAY_HASH_IV`
+- 回傳：
+  - `merchantId_masked`：商店編號只露末四碼（例：`****0132`）
+  - `apiUrl`：完整網址（這個本來就是公開的，可以露）
+  - `env`、`isStageUrl`、`isOfficialTestStore`（merchantId === `2000132`）
+  - `hasHashKey` / `hasHashIV`：只回 true/false
+  - `verdict`：`TEST — 測試環境` 或 `PRODUCTION — 正式環境`
 
-## 同步檢查
-搜尋專案內所有 `form.target` 使用點（ECPay 相關 checkout 也可能有同問題）：
-- `CheckupCheckout.tsx`（健檢）
-- `Checkout.tsx` / 專家方案 checkout（若同樣 pattern 也一併改）
+### 2. 在 `/company/payment-settings` 加一個「綠界環境檢查」區塊
+- 一顆按鈕「檢查目前綠界設定」
+- 點下去呼叫 `admin-ecpay-status`，把結果（masked merchantId、apiUrl、verdict）顯示在卡片上
 
-只動 `target` 字串，無其他邏輯變更。
+## 不會做
+- 不會印出完整 MerchantID、HashKey、HashIV
+- 不會修改任何金流邏輯
+
+## 預期結果
+你按下按鈕後立刻知道：
+- 商店編號末四碼是不是 `0132`（=綠界官方測試店）
+- API URL 是 `payment-stage.ecpay.com.tw`（測試）還是 `payment.ecpay.com.tw`（正式）
+- 一句話結論：測試 or 正式
