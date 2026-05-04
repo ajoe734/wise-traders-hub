@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { format, isToday, differenceInMinutes } from 'date-fns';
 import { useMyHoldings } from '@/hooks/useHoldings';
+import { richHtmlPreview } from '@/components/SafeRichHtml';
 
 interface SignalsDashboardProps {
   subscriptions: any[];
@@ -118,7 +119,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
                         )}
                       </div>
                       <p className="font-semibold truncate">{signal.instrument}</p>
-                      <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{signal.reason_summary}</p>
+                      <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{richHtmlPreview(signal.reason_summary, 100)}</p>
                       {signal.experts && (
                         <div className="flex items-center gap-1.5 mt-2">
                           <img src={signal.experts.avatar_url || '/placeholder.svg'} alt={signal.experts.name} className="h-5 w-5 rounded-full border border-signals-accent/30" />
