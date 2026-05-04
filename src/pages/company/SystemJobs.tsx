@@ -138,7 +138,10 @@ export default function SystemJobsPage() {
                     logs.map(l => (
                       <tr key={l.id} className="border-b last:border-0 hover:bg-muted/30">
                         <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{fmtDateTime(l.ran_at)}</td>
-                        <td className="p-3 text-sm font-mono text-xs">{l.job_name}</td>
+                        <td className="p-3 text-sm">
+                          <div>{fmtJobName(l.job_name)}</div>
+                          <div className="font-mono text-[10px] text-muted-foreground">{l.job_name}</div>
+                        </td>
                         <td className="p-3">
                           <Badge variant={l.status === 'success' ? 'outline' : 'destructive'} className="text-[10px]">
                             {l.status}
