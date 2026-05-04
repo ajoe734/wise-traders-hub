@@ -642,10 +642,23 @@ const AdminSignals = () => {
       return (
         s.instrument?.toLowerCase().includes(lower) ||
         sigDateFull.includes(cond) ||
-        s.reason_summary?.toLowerCase().includes(lower)
+        (typeof s.reason_summary === 'string' && s.reason_summary.toLowerCase().includes(lower))
       );
     });
   });
+
+  // 同批次（同一篇週記/同次發送）統計
+  const batchInfo = useMemo(() => {
+    const m = new Map<string, { count: number; instruments: string[] }>();
+    signals.forEach((s: any) => {
+      if (!s.batch_id) return;
+      const cur = m.get(s.batch_id) || { count: 0, instruments: [] };
+      cur.count += 1;
+      if (!cur.instruments.includes(s.instrument)) cur.instruments.push(s.instrument);
+      m.set(s.batch_id, cur);
+    });
+    return m;
+  }, [signals]);
 
   // Calculate current holding quantity and cost for the searched instrument
   const holdingSummary = useMemo(() => {
@@ -1087,7 +1100,20 @@ const AdminSignals = () => {
                          <React.Fragment key={signal.id}>
                             <tr className="border-b last:border-0 hover:bg-muted/30">
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
-                             <td className="p-3 text-sm font-medium">{signal.instrument}</td>
+                              <td className="p-3 text-sm font-medium">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{signal.instrument}</span>
+                                  {signal.batch_id && batchInfo.get(signal.batch_id) && batchInfo.get(signal.batch_id)!.count > 1 && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-[10px] px-1.5 py-0 h-4 cursor-help"
+                                      title={`同篇週記共 ${batchInfo.get(signal.batch_id)!.count} 檔：${batchInfo.get(signal.batch_id)!.instruments.join('、')}`}
+                                    >
+                                      📦 批次 {batchInfo.get(signal.batch_id)!.count}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
                              <td className="p-3"><Badge className={`${ai.className} text-xs`}>{ai.label}</Badge></td>
                              <td className="p-3 text-sm">
                                {signal.price_hint ? (
