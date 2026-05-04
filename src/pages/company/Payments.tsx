@@ -423,23 +423,46 @@ const CompanyPayments = () => {
 
   const toggleProvider = async (id: string, isActive: boolean) => {
     const provider = providers.find((p) => p.id === id);
-    setProviders((prev) => prev.map((p) => (p.id === id ? { ...p, is_active: !isActive } : p)));
-    await supabase.from('payment_providers').update({ is_active: !isActive }).eq('id', id);
+    const willBeActive = !isActive;
+    // 若停用的是目前預設通道，必須同時清掉 is_default，避免 default 指向無效通道
+    const clearDefault = !willBeActive && provider?.is_default;
+    setProviders((prev) => prev.map((p) =>
+      p.id === id
+        ? { ...p, is_active: willBeActive, is_default: clearDefault ? false : p.is_default }
+        : p,
+    ));
+    await supabase
+      .from('payment_providers')
+      .update(clearDefault ? { is_active: willBeActive, is_default: false } : { is_active: willBeActive })
+      .eq('id', id);
     await logAdminAction({
       action: 'setting.payment_provider_toggle',
       targetType: 'payment_providers',
       targetId: id,
       detail: {
-        before: { is_active: isActive },
-        after: { is_active: !isActive },
+        before: { is_active: isActive, is_default: provider?.is_default },
+        after: { is_active: willBeActive, is_default: clearDefault ? false : provider?.is_default },
         context: { provider_type: provider?.provider_type, display_name: provider?.display_name },
       },
     });
+    if (clearDefault) {
+      toast.warning(`已停用 ${provider?.display_name}，並自動取消其預設通道狀態`);
+    }
   };
 
   const setAsDefault = async (id: string) => {
     const target = providers.find((p) => p.id === id);
     if (!target) return;
+    // 防呆：未啟用 / 金鑰不完整的通道不可設為預設
+    if (!target.is_active) {
+      toast.error('此通道尚未啟用，請先啟用後再設為預設');
+      return;
+    }
+    const ch = channels.find((c) => c.provider.id === id);
+    if (ch && ch.credsStatus !== 'complete') {
+      toast.error('此通道金鑰尚未完整，無法設為預設');
+      return;
+    }
     // Unset others, set this one
     setProviders((prev) => prev.map((p) => ({ ...p, is_default: p.id === id })));
     await supabase.from('payment_providers').update({ is_default: false }).neq('id', id);
