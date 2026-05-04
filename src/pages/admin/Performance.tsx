@@ -42,12 +42,14 @@ type RealizedPeriod = 'week' | 'month' | 'year';
 
 const AdminPerformance = () => {
   const { user } = useAuth();
+  const { expertSlug } = useParams<{ expertSlug: string }>();
   const [rows, setRows] = useState<PerfRow[]>([]);
   const [realizedRows, setRealizedRows] = useState<RealizedRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [realizedLoading, setRealizedLoading] = useState(true);
   const [realizedPeriod, setRealizedPeriod] = useState<RealizedPeriod>('month');
   const [expertId, setExpertId] = useState<string | null>(null);
+  const [expertOwnerUserId, setExpertOwnerUserId] = useState<string | null>(null);
   const [expertRole, setExpertRole] = useState<string | null>(null);
   const [totalPnlPercent, setTotalPnlPercent] = useState<number | null>(null);
   const [avgPnlPercent, setAvgPnlPercent] = useState<number | null>(null);
@@ -59,21 +61,29 @@ const AdminPerformance = () => {
         ? 'text-green-600 dark:text-green-400'
         : 'text-foreground';
 
-  // 取得 expert_id
+  // 從 URL slug 取得 expert（支援 company_admin 代管，不能依賴登入者 user.id）
   useEffect(() => {
-    if (!user) return;
+    if (!expertSlug) {
+      setLoading(false);
+      setRealizedLoading(false);
+      return;
+    }
     supabase
       .from('experts')
-      .select('id, role')
-      .eq('user_id', user.id)
-      .single()
+      .select('id, role, user_id')
+      .eq('slug', expertSlug)
+      .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setExpertId(data.id);
           setExpertRole(data.role);
+          setExpertOwnerUserId(data.user_id);
+        } else {
+          setLoading(false);
+          setRealizedLoading(false);
         }
       });
-  }, [user]);
+  }, [expertSlug]);
 
   // ─── 累計/平均報酬：calculate_expert_performance RPC ───
   const fetchPerfStats = async (eid: string) => {
