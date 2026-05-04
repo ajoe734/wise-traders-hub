@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -41,12 +42,14 @@ type RealizedPeriod = 'week' | 'month' | 'year';
 
 const AdminPerformance = () => {
   const { user } = useAuth();
+  const { expertSlug } = useParams<{ expertSlug: string }>();
   const [rows, setRows] = useState<PerfRow[]>([]);
   const [realizedRows, setRealizedRows] = useState<RealizedRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [realizedLoading, setRealizedLoading] = useState(true);
   const [realizedPeriod, setRealizedPeriod] = useState<RealizedPeriod>('month');
   const [expertId, setExpertId] = useState<string | null>(null);
+  const [expertOwnerUserId, setExpertOwnerUserId] = useState<string | null>(null);
   const [expertRole, setExpertRole] = useState<string | null>(null);
   const [totalPnlPercent, setTotalPnlPercent] = useState<number | null>(null);
   const [avgPnlPercent, setAvgPnlPercent] = useState<number | null>(null);
@@ -58,21 +61,29 @@ const AdminPerformance = () => {
         ? 'text-green-600 dark:text-green-400'
         : 'text-foreground';
 
-  // 取得 expert_id
+  // 從 URL slug 取得 expert（支援 company_admin 代管，不能依賴登入者 user.id）
   useEffect(() => {
-    if (!user) return;
+    if (!expertSlug) {
+      setLoading(false);
+      setRealizedLoading(false);
+      return;
+    }
     supabase
       .from('experts')
-      .select('id, role')
-      .eq('user_id', user.id)
-      .single()
+      .select('id, role, user_id')
+      .eq('slug', expertSlug)
+      .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setExpertId(data.id);
           setExpertRole(data.role);
+          setExpertOwnerUserId(data.user_id);
+        } else {
+          setLoading(false);
+          setRealizedLoading(false);
         }
       });
-  }, [user]);
+  }, [expertSlug]);
 
   // ─── 累計/平均報酬：calculate_expert_performance RPC ───
   const fetchPerfStats = async (eid: string) => {
@@ -103,7 +114,7 @@ const AdminPerformance = () => {
 
   // ─── 未實現損益：trade_records (open) + user_performances (realtime) ───
   useEffect(() => {
-    if (!expertId || !user) return;
+    if (!expertId || !expertOwnerUserId) return;
 
     const fetchInitial = async () => {
       // 1. 取得 open 持倉 from trade_records
@@ -117,14 +128,14 @@ const AdminPerformance = () => {
       const { data: tsData } = await supabase
         .from('trade_signals')
         .select('id, symbol, name, entry_price, status')
-        .eq('user_id', user.id)
+        .eq('user_id', expertOwnerUserId)
         .eq('status', 'open');
 
       // 2. 取得 user_performances 的即時數據
       const { data: perfData } = await supabase
         .from('user_performances')
         .select('symbol, current_price, pnl, pnl_percent, entry_price')
-        .eq('user_id', user.id);
+        .eq('user_id', expertOwnerUserId);
 
       // Build a lookup map from user_performances by symbol
       const perfMap = new Map<string, { current_price: number | null; pnl: number | null; pnl_percent: number | null; entry_price: number | null }>();
@@ -234,7 +245,7 @@ const AdminPerformance = () => {
           event: '*',
           schema: 'public',
           table: 'user_performances',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${expertOwnerUserId}`,
         },
         (payload) => {
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
@@ -320,11 +331,14 @@ const AdminPerformance = () => {
       supabase.removeChannel(perfChannel);
       supabase.removeChannel(tradeChannel);
     };
-  }, [expertId, user]);
+  }, [expertId, expertOwnerUserId]);
 
   // ─── 已實現損益：trade_records (closed = sell/trim) ───
   const fetchRealized = useCallback(async () => {
-    if (!expertId) return;
+    if (!expertId) {
+      setRealizedLoading(false);
+      return;
+    }
     setRealizedLoading(true);
 
     const now = new Date();
