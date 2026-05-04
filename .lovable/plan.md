@@ -1,50 +1,49 @@
-# 讓管理者能瀏覽一般使用者頁面
+## 根因
 
-## 問題定位
+`src/checkup/components/CoachMarks.jsx` 用 `position:fixed; inset:0; rgba(0,0,0,0.55); zIndex:10000` 全螢幕遮罩。第一次進 `/free-checkup` 必彈，蓋住配額卡的「升級 →」、用盡時的「查看升級方案」與整張持倉看板。`localStorage[checkup-coach-seen-v1]` 一被清就再彈。
 
-目前 `/app`、`/app/signals`、`/app/journals`…等路由都包了 `<ProtectedRoute subscriberOnly>`。
+## 我之前漏掉的測試（將一次補齊）
 
-`src/components/ProtectedRoute.tsx` 裡 `subscriberOnly` 的邏輯會把：
-- `company_admin` 強制導向 `/company`
-- `analyst` 強制導向 `/admin/{slug}`
+| # | 場景 | 預期 |
+|---|------|------|
+| 1 | free（無 checkup_subscriptions） | 配額卡顯示「升級 →」可點，導向 /pricing#checkup |
+| 2 | basic（active） | tier badge=Basic、升級→ 文案改「升級 Pro」 |
+| 3 | pro | 完全隱藏所有升級 CTA |
+| 4 | 強制 remaining=0（free） | 用盡卡顯示「查看升級方案」大按鈕可點 |
+| 5 | 429 QUOTA_EXCEEDED | quotaModal 跳出，CTA 可點 |
+| 6 | /pricing#checkup（basic 登入） | 「目前方案」標 Basic、Basic 卡 disabled、Pro 卡可訂閱 |
+| 7 | /checkout/checkup/:planId（已是該 plan） | 應 redirect 或顯示提示（驗證有無破口） |
+| 8 | 第一次進 vs 關過 CoachMarks | 升級 CTA 在兩種狀態都應可點 |
 
-所以你用 admin 帳號點 `/app`，元件一掛載就 `<Navigate to="/company" replace />`，看起來就是「跳回 /company」。
+## 修改
 
-`/free-checkup` 本身沒有 `subscriberOnly`，但首頁 `<SmartHomeRedirect>` 裡 admin 會被導去 `/company`；如果你是從 `/` 點過去的就沒問題，從導覽列直接點 `/free-checkup` 應該可進。若也有跳轉，多半是頁面內另有檢查（待調整時再看 FreeCheckup.jsx）。
+### 1. CoachMarks 改為「不遮頁面的底部 toast」
+`src/checkup/components/CoachMarks.jsx`
+- 移除全螢幕黑色遮罩（不用 `inset:0` + `rgba(0,0,0,.55)`）
+- 改成定位在底部中央的卡片（`position:fixed; bottom:16px; left:50%; transform:translateX(-50%); zIndex:50`），不擋頁面其他互動
+- 卡片寬度 360 / 不滿版；保留 STEP 1/3、略過、下一步、進度條
+- 維持點「略過 / 開始使用」寫 `localStorage[checkup-coach-seen-v1]='1'`
+- 移除 `onClick={close}` 在背景的關閉行為（沒背景了）
 
-## 設計決策
+### 2. 補測試
+新增 `src/test/components/CoachMarks.test.tsx`
+- assert 元件不渲染 `inset:0` 全螢幕遮罩
+- assert 已存 `checkup-coach-seen-v1` 時不渲染
+- assert 點「略過」會寫入 localStorage 並 unmount
 
-`subscriberOnly` 當初是為了避免 admin 在自己的後台閒晃時誤入訂戶頁（首頁時導向 dashboard）。但「admin 主動點 /app 想看訂戶視角」是合理需求，不該硬擋。
+### 3. 手動驗證 SOP（我會跑）
+- 用 `supabase--read_query` 找測試帳號，臨時 insert 一筆 `checkup_subscriptions`（basic active）→ 重整頁面截圖
+- 直接改 `checkup_usage` 灌一筆讓 free remaining=0 → 截圖
+- pro 場景：`profiles.is_tester=true` 即 tier=pro → 截圖
+- 截 `/pricing#checkup` 三 tier 樣貌
+- `/checkout/checkup/:planId` 進入時若已是該 plan，檢查當前行為（若無攔截則回報，視回饋再修）
 
-採用最小破壞性的調整：
-- **保留**首頁 `SmartHomeRedirect` 對 admin/analyst 的自動導向（維持登入後直接進後台的既有體驗）。
-- **移除** `ProtectedRoute` 內 `subscriberOnly` 對 admin/analyst 的強制跳轉。`subscriberOnly` 只剩「需要登入」這層意義（其實等同沒帶 requiredRole 的 ProtectedRoute），但保留旗標避免大改 App.tsx。
+### 4. 不改的部分
+- `useCheckupMode` / `check_checkup_quota` RPC 邏輯維持原樣（驗證後若有 bug 再單獨提）
+- ProtectedRoute 已修，admin 可進 `/free-checkup`，不再動
 
-這樣 admin 想看訂戶視角時，直接打網址或從後台連結進 `/app` 就能看，登入後預設仍然落在 `/company`。
+## 交付
+- 修一支 `CoachMarks.jsx`
+- 新增 `CoachMarks.test.tsx`
+- 在回應中附上 free / basic / pro / remaining=0 / 429 modal 共 5 張驗證截圖
 
-## 需要動的檔案
-
-### `src/components/ProtectedRoute.tsx`
-拿掉 `subscriberOnly` 區塊裡的兩個 `<Navigate>`，函式直接 fall-through 到 `return <>{children}</>`。
-
-```tsx
-// 刪除這段：
-if (subscriberOnly && user) {
-  if (hasRole('company_admin')) return <Navigate to="/company" replace />;
-  if (hasRole('analyst') && user.expertSlug) return <Navigate to={`/admin/${user.expertSlug}`} replace />;
-}
-```
-
-`subscriberOnly` 介面保留（不動 App.tsx 與既有測試呼叫點）。
-
-### `src/test/components/ProtectedRoute.test.tsx`
-兩個既有測試斷言「admin/analyst 在 subscriberOnly 時被導向後台」。改為斷言：admin/analyst 在 subscriberOnly 時 **能看到 children**，與一般使用者一致。
-
-## 驗證方式
-1. admin 帳號從 `/company` 手動輸入 `/app`、`/app/signals`、`/app/journals/...` → 應正常顯示頁面，不再彈回 `/company`。
-2. admin 從 `/` 進入時仍自動到 `/company`（`SmartHomeRedirect` 行為不變）。
-3. analyst 同上：可手動瀏覽 `/app/*`，登入後預設仍進 `/admin/{slug}`。
-4. 跑 `bunx vitest run src/test/components/ProtectedRoute.test.tsx` 應全綠。
-
-## 不在本次範圍
-- `/free-checkup` 若仍有跳轉，請回報實際路徑與時機，再單獨追 FreeCheckup.jsx 內部 effect（目前路由本身無 guard）。

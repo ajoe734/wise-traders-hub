@@ -51,29 +51,33 @@ export function CoachMarks({ onTabChange }) {
     onTabChange?.(STEPS[nextStep].targetTab);
   };
 
+  // 改為「不遮頁面」的底部 toast：原本的全螢幕黑色遮罩會擋住升級 CTA 等互動，
+  // 這裡改用浮動卡片，使用者可同時看到並點擊頁面上其他元素。
   return (
     <div
       role="dialog"
-      aria-modal="true"
+      aria-modal="false"
       aria-label="新手導覽"
       style={{
-        position: "fixed", inset: 0, zIndex: 10000,
-        background: "rgba(0,0,0,0.55)",
-        display: "flex", alignItems: "flex-end", justifyContent: "center",
-        padding: "20px",
+        position: "fixed",
+        left: "50%",
+        bottom: 16,
+        transform: "translateX(-50%)",
+        zIndex: 50,
+        width: "calc(100% - 32px)",
+        maxWidth: 360,
+        pointerEvents: "auto",
       }}
-      onClick={close}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
-          background: C.card, border: `1px solid ${C.border}`,
-          borderRadius: 14, padding: "20px 22px",
-          maxWidth: 360, width: "100%",
-          boxShadow: "0 -2px 24px rgba(0,0,0,0.18)",
+          background: C.card,
+          border: `1px solid ${C.border}`,
+          borderRadius: 14,
+          padding: "16px 18px",
         }}
       >
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
           <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.1em",fontWeight:500}}>
             STEP {step + 1} / {STEPS.length}
           </span>
@@ -83,13 +87,13 @@ export function CoachMarks({ onTabChange }) {
             style={{background:"transparent",border:"none",color:C.textMute,fontSize:12,cursor:"pointer",padding:4}}
           >略過</button>
         </div>
-        <div style={{fontSize:18,fontWeight:500,color:C.text,marginBottom:8,letterSpacing:"0.02em"}}>
+        <div style={{fontSize:16,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
           {current.title}
         </div>
-        <div style={{fontSize:13,color:C.textSec,lineHeight:1.7,marginBottom:16}}>
+        <div style={{fontSize:12,color:C.textSec,lineHeight:1.7,marginBottom:12}}>
           {current.body}
         </div>
-        <div style={{display:"flex",gap:6,marginBottom:16}}>
+        <div style={{display:"flex",gap:6,marginBottom:12}}>
           {STEPS.map((_, i) => (
             <div key={i} style={{
               flex:1, height:2, borderRadius:1,
@@ -101,10 +105,10 @@ export function CoachMarks({ onTabChange }) {
         <button
           onClick={next}
           style={{
-            width:"100%", padding:"12px",
+            width:"100%", padding:"10px",
             background:C.text, color:C.card,
             border:"none", borderRadius:8,
-            fontSize:14, fontWeight:500, cursor:"pointer",
+            fontSize:13, fontWeight:500, cursor:"pointer",
             letterSpacing:"0.04em", fontFamily:"inherit",
           }}
         >
