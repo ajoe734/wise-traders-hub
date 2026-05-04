@@ -331,7 +331,7 @@ const AdminPerformance = () => {
       supabase.removeChannel(perfChannel);
       supabase.removeChannel(tradeChannel);
     };
-  }, [expertId, user]);
+  }, [expertId, expertOwnerUserId]);
 
   // ─── 已實現損益：trade_records (closed = sell/trim) ───
   const fetchRealized = useCallback(async () => {
