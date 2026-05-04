@@ -1118,10 +1118,6 @@ const AdminSignals = () => {
                        const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points;
                        const isBatchCollapsed = signal.batch_id && collapsedBatches.has(signal.batch_id) && (batchInfo.get(signal.batch_id)?.count || 0) > 1;
                        return (
-                       const ai = actionLabels[signal.action] || actionLabels.buy;
-                       const isExpanded = expandedId === signal.id;
-                       const hasDetail = signal.reason_detail || signal.risk_notes || signal.reason_summary || signal.learning_points;
-                       return (
                          <React.Fragment key={signal.id}>
                             <tr className="border-b last:border-0 hover:bg-muted/30">
                              <td className="p-3 text-sm text-muted-foreground whitespace-nowrap">{signal.published_at ? new Date(signal.published_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
