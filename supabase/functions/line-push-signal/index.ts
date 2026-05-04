@@ -38,7 +38,8 @@ function plainifySignal(signal: any) {
   return out
 }
 
-function buildFlexMessage(signal: any, type: 'publish' | 'takedown' | 'update' = 'publish') {
+function buildFlexMessage(rawSignal: any, type: 'publish' | 'takedown' | 'update' = 'publish') {
+  const signal = plainifySignal(rawSignal)
   const actionLabel: Record<string, string> = {
     buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
   }
