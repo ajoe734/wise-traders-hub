@@ -320,7 +320,6 @@ const CompanyPayments = () => {
         if (!ecpayOriginal.merchant_id) missing.push('MerchantID');
         if (!ecpayHasKey) missing.push('HashKey');
         if (!ecpayHasIV) missing.push('HashIV');
-        if (!ecpayOriginal.credit_action_url) missing.push('信用卡 Action URL');
         return {
           provider: p,
           credsStatus: missing.length === 0 ? 'complete' : 'missing',
@@ -376,13 +375,13 @@ const CompanyPayments = () => {
       merchant_id: (ecpay.merchant_id ?? '').trim(),
       hash_key: ecpayHashKeyInput.trim() ? ecpayHashKeyInput.trim() : rawHashKey,
       hash_iv: ecpayHashIVInput.trim() ? ecpayHashIVInput.trim() : rawHashIV,
-      credit_action_url: (ecpay.credit_action_url ?? '').trim(),
-      api_url: (ecpay.api_url ?? '').trim(),
+      // 保留舊欄位向下相容（不再從 UI 寫入新值，但若 DB 已有舊值就尊重它）
+      credit_action_url: (ecpayOriginal.credit_action_url ?? '').trim() || undefined,
+      api_url: (ecpayOriginal.api_url ?? '').trim() || undefined,
       env: ecpay.env === 'production' ? 'production' : 'stage',
     };
 
     if (!next.merchant_id) { toast.error('請輸入商店代號'); return; }
-    if (!next.credit_action_url) { toast.error('請輸入信用卡專用 Action URL'); return; }
     if (!next.hash_key || !next.hash_iv) { toast.error('HashKey 與 HashIV 不可為空'); return; }
 
     const { error } = await supabase
@@ -397,8 +396,6 @@ const CompanyPayments = () => {
     if ((ecpayOriginal.merchant_id ?? '') !== next.merchant_id) changedFields.push('merchant_id');
     if (ecpayHashKeyInput.trim()) changedFields.push('hash_key');
     if (ecpayHashIVInput.trim()) changedFields.push('hash_iv');
-    if ((ecpayOriginal.credit_action_url ?? '') !== next.credit_action_url) changedFields.push('credit_action_url');
-    if ((ecpayOriginal.api_url ?? '') !== next.api_url) changedFields.push('api_url');
     if ((ecpayOriginal.env ?? 'stage') !== next.env) changedFields.push('env');
 
     await logAdminAction({
@@ -753,6 +750,8 @@ const CompanyPayments = () => {
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>綠界 ECPay 金鑰</DialogTitle></DialogHeader>
             <p className="text-xs text-muted-foreground">
+              綠界後台只會給你三組值：<b>MerchantID</b>、<b>HashKey</b>、<b>HashIV</b>。
+              收單網址（Action URL）由系統依「環境」自動套用，<b>不需要手動填</b>。
               金鑰只儲存於後台資料庫，前端不會讀取；HashKey 與 HashIV 留空表示「不變更」既有值。
             </p>
             <div className="grid grid-cols-1 gap-3 mt-2">
@@ -789,28 +788,6 @@ const CompanyPayments = () => {
                 />
               </div>
               <div>
-                <Label className="text-xs">信用卡專用 Action URL</Label>
-                <Input
-                  value={ecpay.credit_action_url || ''}
-                  placeholder="例：https://payment.ecpay.com.tw/SP/CreditCheckOut"
-                  onChange={(e) => setEcpay((p) => ({ ...p, credit_action_url: e.target.value }))}
-                />
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  綠界提供給你的信用卡專用收單網址；此網址會用於所有信用卡訂單的提交。
-                </p>
-              </div>
-              <div>
-                <Label className="text-xs">主 AIO Action URL（選填）</Label>
-                <Input
-                  value={ecpay.api_url || ''}
-                  placeholder="例：https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5"
-                  onChange={(e) => setEcpay((p) => ({ ...p, api_url: e.target.value }))}
-                />
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  若日後要再開放 ATM／超商再填；目前前台僅啟用信用卡通道。
-                </p>
-              </div>
-              <div>
                 <Label className="text-xs">環境</Label>
                 <Select
                   value={ecpay.env || 'stage'}
@@ -822,6 +799,14 @@ const CompanyPayments = () => {
                     <SelectItem value="production">正式環境（Production）</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  系統將自動使用：
+                  <code className="ml-1 text-[10px]">
+                    {(ecpay.env === 'production')
+                      ? 'https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5'
+                      : 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5'}
+                  </code>
+                </p>
               </div>
             </div>
             <DialogFooter>
