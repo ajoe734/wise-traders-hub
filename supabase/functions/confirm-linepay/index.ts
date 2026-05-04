@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { linepayHmacSha256Base64 as hmacSha256Base64 } from "../_shared/paymentVerify.ts";
-import { createSubscriptionAndTransaction } from "../_shared/paymentProcessor.ts";
+import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription, renewExistingSubscription } from "../_shared/paymentProcessor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,7 +107,23 @@ Deno.serve(async (req) => {
         .eq("status", "active");
 
       if (existing && existing.length > 0) {
-        return new Response(JSON.stringify({ success: true, subscriptionId: existing[0].id, duplicate: true }), {
+        // 手動續訂：延長 expires_at + 紀錄交易
+        const renewResult = await renewExistingSubscription(supabase, {
+          subscriptionId: existing[0].id,
+          billingCycle,
+          now,
+        });
+        if (renewResult.error) console.error("Renewal extend error:", renewResult.error);
+        const { error: txError } = await recordPaymentForExistingSubscription(supabase, {
+          subscriptionId: existing[0].id,
+          amount,
+          currency: "TWD",
+          providerTxId: String(transactionId),
+          providerId: provider?.id || null,
+          now,
+        });
+        if (txError) console.error("Transaction insert error:", txError);
+        return new Response(JSON.stringify({ success: true, subscriptionId: existing[0].id, renewed: true, newExpiresAt: renewResult.newExpiresAt }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { acpayGenerateSign as generateSign, acpayParseXml as parseXml, acpayExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";
-import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription } from "../_shared/paymentProcessor.ts";
+import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription, renewExistingSubscription } from "../_shared/paymentProcessor.ts";
 
 // ACpay 3DS notify_url handler (PDF section 4.6)
 // Receives XML POST from ACpay after 3DS OTP verification
@@ -106,8 +106,16 @@ Deno.serve(async (req) => {
         .eq("status", "active");
 
       if (existing && existing.length > 0) {
-        console.log("Active subscription already exists, skipping insert");
+        // 手動續訂：延長 expires_at（疊加到原有效期）
         subscriptionId = existing[0].id;
+        const renewResult = await renewExistingSubscription(supabase, {
+          subscriptionId: subscriptionId!,
+          billingCycle,
+          now,
+        });
+        if (renewResult.error) console.error("Renewal extend error:", renewResult.error);
+        else console.log("Subscription renewed, new expires_at:", renewResult.newExpiresAt);
+
         const { error: txError } = await recordPaymentForExistingSubscription(supabase, {
           subscriptionId: subscriptionId!,
           amount: totalFee,
