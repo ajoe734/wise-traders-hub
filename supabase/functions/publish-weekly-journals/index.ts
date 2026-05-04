@@ -111,35 +111,65 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
-  try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
+  const runId = crypto.randomUUID().slice(0, 8)
+  const t0 = Date.now()
+  const log = (msg: string, extra?: unknown) =>
+    extra !== undefined
+      ? console.log(`[publish-weekly-journals][${runId}] ${msg}`, extra)
+      : console.log(`[publish-weekly-journals][${runId}] ${msg}`)
+  const logErr = (stage: string, err: unknown, extra?: Record<string, unknown>) => {
+    const e = err as any
+    console.error(`[publish-weekly-journals][${runId}][stage=${stage}] FAILED`, {
+      name: e?.name,
+      message: e?.message ?? String(err),
+      code: e?.code,
+      details: e?.details,
+      hint: e?.hint,
+      status: e?.status,
+      stack: e?.stack,
+      ...extra,
+    })
+  }
 
-    // Find all pending mentor signals
+  let stage = 'init'
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    if (!supabaseUrl || !serviceRoleKey) {
+      const missing = [!supabaseUrl && 'SUPABASE_URL', !serviceRoleKey && 'SUPABASE_SERVICE_ROLE_KEY'].filter(Boolean)
+      console.error(`[publish-weekly-journals][${runId}] Missing env: ${missing.join(', ')}`)
+      return new Response(JSON.stringify({ error: 'Missing required env', missing, runId }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+    log('Function start')
+
+    // (replaced by stage-tracked block below)
+
+    stage = 'fetch_pending_signals'
     const { data: pendingSignals, error: fetchErr } = await supabaseAdmin
       .from('expert_signals')
       .select('id, expert_id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, teaching_topic, overall_summary, published_at, batch_id, executed_at')
       .eq('status', 'pending')
 
     if (fetchErr) {
-      console.error('Error fetching pending signals:', fetchErr)
-      return new Response(JSON.stringify({ error: fetchErr.message }), {
+      logErr(stage, fetchErr)
+      return new Response(JSON.stringify({ error: fetchErr.message, stage, runId }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     if (!pendingSignals || pendingSignals.length === 0) {
-      console.log('No pending signals to publish')
-      return new Response(JSON.stringify({ published: 0, pushed: 0 }), {
+      log('No pending signals to publish')
+      return new Response(JSON.stringify({ published: 0, pushed: 0, runId }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    console.log(`Found ${pendingSignals.length} pending signals`)
+    log(`Found ${pendingSignals.length} pending signals`)
 
-    // Update all pending signals to published
+    stage = 'mark_published'
     const signalIds = pendingSignals.map(s => s.id)
     const { error: updateErr } = await supabaseAdmin
       .from('expert_signals')
@@ -147,17 +177,19 @@ Deno.serve(async (req) => {
       .in('id', signalIds)
 
     if (updateErr) {
-      console.error('Error updating signals to published:', updateErr)
-      return new Response(JSON.stringify({ error: updateErr.message }), {
+      logErr(stage, updateErr, { signalIds })
+      return new Response(JSON.stringify({ error: updateErr.message, stage, runId }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    console.log(`Updated ${signalIds.length} signals to published`)
+    log(`Updated ${signalIds.length} signals to published`)
 
     // Sync trade_signals + user_performances for each published signal
-    // This ensures the Python price fetcher picks up mentor positions
+    stage = 'sync_trade_signals'
+    let syncOk = 0, syncFail = 0
     for (const signal of pendingSignals) {
+      try {
       const { data: expertRow } = await supabaseAdmin
         .from('experts')
         .select('user_id')
@@ -248,11 +280,17 @@ Deno.serve(async (req) => {
           }
         }
       }
+        syncOk++
+      } catch (innerErr) {
+        syncFail++
+        logErr('sync_trade_signals_iteration', innerErr, { signalId: signal.id, instrument: signal.instrument, action: signal.action })
+      }
     }
 
-    console.log('Trade signals synced for all published mentor signals')
+    log(`Trade signals synced (ok=${syncOk}, fail=${syncFail})`)
 
     // Group by expert_id for LINE push
+    stage = 'group_by_expert'
     const byExpert = new Map<string, typeof pendingSignals>()
     for (const signal of pendingSignals) {
       const list = byExpert.get(signal.expert_id) || []
@@ -261,8 +299,11 @@ Deno.serve(async (req) => {
     }
 
     let totalPushed = 0
+    let pushFail = 0
 
+    stage = 'line_push'
     for (const [expertId, signals] of byExpert) {
+     try {
       // Get LINE channel
       const { data: channel } = await supabaseAdmin
         .from('expert_line_channels')
@@ -458,15 +499,29 @@ Deno.serve(async (req) => {
           }
         }
       }
+     } catch (expertErr) {
+       pushFail++
+       logErr('line_push_iteration', expertErr, { expertId })
+     }
     }
 
-    console.log(`Total published: ${signalIds.length}, Total pushed: ${totalPushed}`)
-    return new Response(JSON.stringify({ published: signalIds.length, pushed: totalPushed }), {
+    const elapsedMs = Date.now() - t0
+    log(`Done. published=${signalIds.length} pushed=${totalPushed} pushFail=${pushFail} elapsedMs=${elapsedMs}`)
+    return new Response(JSON.stringify({
+      runId, published: signalIds.length, pushed: totalPushed, pushFail, syncOk, syncFail, elapsedMs,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    console.error('publish-weekly-journals error:', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    logErr(stage, err)
+    const e = err as any
+    return new Response(JSON.stringify({
+      error: e?.message ?? 'Internal server error',
+      stage,
+      runId,
+      name: e?.name,
+      code: e?.code,
+    }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
