@@ -176,6 +176,7 @@ const AppShell = () => (
             {/* Account (aggregated view) */}
             <Route path="/account/subscriptions" element={<Navigate to="/app/account" replace />} />
             <Route path="/account/profile" element={<ProtectedRoute><AccountProfile /></ProtectedRoute>} />
+            <Route path="/account/remittance" element={<ProtectedRoute><MyRemittanceOrders /></ProtectedRoute>} />
 
             {/* App pages (aggregated member view) */}
             <Route path="/app" element={<ProtectedRoute subscriberOnly><AppHome /></ProtectedRoute>} />
