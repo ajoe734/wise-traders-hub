@@ -1,80 +1,50 @@
-# 配額計算重新設計
+# 讓管理者能瀏覽一般使用者頁面
 
-## 目標規則（單一真相）
+## 問題定位
 
-| 使用者動作 | Edge Function | kind | 扣點 |
-|---|---|---|---|
-| 上傳成交截圖（每張） | `checkup-parse` | `parse` | **+1** |
-| 收盤分析（按一次按鈕） | `checkup-analyze` | `daily-analysis` | **+1** |
-| 事件分析（按一次按鈕） | `checkup-predict-events` | `predict-events` | **+1** |
-| 策略大腦進化（內部 follow-up） | `checkup-analyze` (`kind:'brain-update'`) | — | **0** |
-| 研究室深度研究 | `checkup-research` | `deep-research` | **+1**（維持現狀）|
-| 研究室系統審查 | `checkup-research` | `system-review` | **+1**（維持現狀）|
-| 研究室資料抽取 | `checkup-research-extract` | `research-extract` | **+1**（維持現狀）|
+目前 `/app`、`/app/signals`、`/app/journals`…等路由都包了 `<ProtectedRoute subscriberOnly>`。
 
-> 同一個按鈕點兩次就扣兩次；批次解析多張截圖視為「多次動作」。
+`src/components/ProtectedRoute.tsx` 裡 `subscriberOnly` 的邏輯會把：
+- `company_admin` 強制導向 `/company`
+- `analyst` 強制導向 `/admin/{slug}`
 
----
+所以你用 admin 帳號點 `/app`，元件一掛載就 `<Navigate to="/company" replace />`，看起來就是「跳回 /company」。
 
-## 後端調整
+`/free-checkup` 本身沒有 `subscriberOnly`，但首頁 `<SmartHomeRedirect>` 裡 admin 會被導去 `/company`；如果你是從 `/` 點過去的就沒問題，從導覽列直接點 `/free-checkup` 應該可進。若也有跳轉，多半是頁面內另有檢查（待調整時再看 FreeCheckup.jsx）。
 
-### 1. `supabase/functions/checkup-analyze/index.ts`
-- 已有 `isBrainUpdate` 分支但 kind 仍叫 `'analysis'`。改為：
-  - 主分析使用 `consumeCheckupQuota(req, 'daily-analysis')`，取代現行的 `'analysis'`，使資料庫 `checkup_usage.kind` 與前端規格對齊。
-  - `brain-update` 維持現有「驗 JWT、不扣配額、防濫用 10 分鐘窗」邏輯（已正確，無需動）。
-- 確保 response payload 一律包含 `quota: quotaSnapshot`（已 OK）。
+## 設計決策
 
-### 2. `supabase/functions/checkup-predict-events/index.ts`
-- 維持 `consumeCheckupQuota(req, 'predict-events')`，response 已含 `quota`（line 537）。**無變更**。
+`subscriberOnly` 當初是為了避免 admin 在自己的後台閒晃時誤入訂戶頁（首頁時導向 dashboard）。但「admin 主動點 /app 想看訂戶視角」是合理需求，不該硬擋。
 
-### 3. `supabase/functions/checkup-parse/index.ts`
-- 維持 `consumeCheckupQuota(req, 'parse')`，response 已含 `quota`。**無變更**。
+採用最小破壞性的調整：
+- **保留**首頁 `SmartHomeRedirect` 對 admin/analyst 的自動導向（維持登入後直接進後台的既有體驗）。
+- **移除** `ProtectedRoute` 內 `subscriberOnly` 對 admin/analyst 的強制跳轉。`subscriberOnly` 只剩「需要登入」這層意義（其實等同沒帶 requiredRole 的 ProtectedRoute），但保留旗標避免大改 App.tsx。
 
-### 4. 研究室三支 (`checkup-research`, `checkup-research-extract`)
-- 維持現狀：`deep-research` / `system-review` / `research-extract` 各扣 1（依使用者上輪未明確選 A/B/C 之前）。
-- 若稍後決定改 B（免費），只需把 3 個 `consumeCheckupQuota` 呼叫拿掉。
+這樣 admin 想看訂戶視角時，直接打網址或從後台連結進 `/app` 就能看，登入後預設仍然落在 `/company`。
 
-### 5. `_shared/checkupQuota.ts`
-- 不變；保留 `kind` 為純標籤用途（之後可在 admin overview 依 kind 分群）。
+## 需要動的檔案
 
----
+### `src/components/ProtectedRoute.tsx`
+拿掉 `subscriberOnly` 區塊裡的兩個 `<Navigate>`，函式直接 fall-through 到 `return <>{children}</>`。
 
-## 前端調整 — `src/pages/FreeCheckup.jsx`
-
-### A. 移除誤導的本地 increment
-- **Line 2381**：刪除 `incrementUploadCount(); // 計入今日 AI 配額`  
-  → 收盤分析已由 `checkup-analyze` 後端原子扣點，前端再 increment 是雙重計算的錯覺（雖然 `incrementUploadCount` 現在實作其實是 `refreshQuota()`，但語意混淆）。
-- **Line 2821**：刪除 `incrementUploadCount(); // 記錄今日上傳次數`  
-  → 上傳成交的扣點已由 `checkup-parse` 完成，前端不再呼叫。
-
-### B. 統一改用 response-driven 同步
-所有 3 個入口的 `callEdge` 結果回來後立即呼叫：
-```js
-if (data?.quota) applyQuotaFromResponse(data);
+```tsx
+// 刪除這段：
+if (subscriberOnly && user) {
+  if (hasRole('company_admin')) return <Navigate to="/company" replace />;
+  if (hasRole('analyst') && user.expertSlug) return <Navigate to={`/admin/${user.expertSlug}`} replace />;
+}
 ```
-- Line 2751 已正確（parse 入口）。
-- 在 line ~1455 (`predict-events` 成功回來後) 補一行同步。
-- 在 line ~2378 (`checkup-analyze` 成功回來後) 補一行同步，取代被刪除的 `incrementUploadCount()`。
 
-### C. `CheckupModeContext.jsx`
-- `incrementUploadCount` 標記為 deprecated（保留為 no-op 包裝 `refreshQuota`，避免外部呼叫者炸掉），並在 JSDoc 註明「請改用 `applyQuotaFromResponse(data)`」。
-- 移除 hook destructure 中對 `incrementUploadCount` 的依賴（line 441）。
+`subscriberOnly` 介面保留（不動 App.tsx 與既有測試呼叫點）。
 
----
+### `src/test/components/ProtectedRoute.test.tsx`
+兩個既有測試斷言「admin/analyst 在 subscriberOnly 時被導向後台」。改為斷言：admin/analyst 在 subscriberOnly 時 **能看到 children**，與一般使用者一致。
 
-## 驗證
+## 驗證方式
+1. admin 帳號從 `/company` 手動輸入 `/app`、`/app/signals`、`/app/journals/...` → 應正常顯示頁面，不再彈回 `/company`。
+2. admin 從 `/` 進入時仍自動到 `/company`（`SmartHomeRedirect` 行為不變）。
+3. analyst 同上：可手動瀏覽 `/app/*`，登入後預設仍進 `/admin/{slug}`。
+4. 跑 `bunx vitest run src/test/components/ProtectedRoute.test.tsx` 應全綠。
 
-1. **Edge function 測試**：
-   - 對 `checkup-analyze` 連續呼叫 2 次（一次主分析、一次 brain-update），確認 `checkup_usage` 只新增 1 列且 `kind='daily-analysis'`。
-   - 對 `checkup-predict-events` 點 2 次 → `checkup_usage` 新增 2 列 `kind='predict-events'`。
-   - 對 `checkup-parse` 上傳 3 張 → 新增 3 列 `kind='parse'`。
-2. **前端**：
-   - `bunx vitest run src/test/unit/freecheckup-i18n.test.ts src/test/unit/freecheckup-mobile-card-overflow.test.ts`（必跑回歸）。
-   - 手動 QA：免費版（quota=1）依序試 3 個入口，每按一次右上角配額即時 -1。
-3. **配額耗盡**：第 2 次點同一動作要拿 429 + `QUOTA_EXCEEDED` 並彈出升級窗。
-
----
-
-## 待你決定
-
-研究室 3 支 (`deep-research` / `system-review` / `research-extract`) 在這次重構保持「各扣 1」(預設 A)。如果你要改 B（全部免費）或 C（先不動，獨立議題）請回我，我會在實作時一併處理。
+## 不在本次範圍
+- `/free-checkup` 若仍有跳轉，請回報實際路徑與時機，再單獨追 FreeCheckup.jsx 內部 effect（目前路由本身無 guard）。
