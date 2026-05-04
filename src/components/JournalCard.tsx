@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronRight, Calendar, BookOpen } from 'lucide-react';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
+import { richHtmlPreview } from '@/components/SafeRichHtml';
 
 interface JournalSignal {
   id: string;
@@ -35,13 +36,13 @@ export function JournalCard({ weekStart, weekEnd, signals, expert, to }: Journal
   const formatDate = (date: Date) => format(date, 'MM/dd', { locale: zhTW });
 
   // Use first signal's reason_summary as the weekly title
-  const weekTitle = signals[0]?.reason_summary || null;
+  const weekTitle = richHtmlPreview(signals[0]?.reason_summary, 80) || null;
   // Use first signal's reason_detail as the summary paragraph
-  const weekSummary = signals[0]?.reason_detail || null;
+  const weekSummary = richHtmlPreview(signals[0]?.reason_detail, 220) || null;
 
   // Collect unique learning points from all signals
   const allPoints = signals
-    .map(s => s.learning_points)
+    .map(s => richHtmlPreview(s.learning_points, 500))
     .filter(Boolean)
     .flatMap(lp => lp!.split('\n').filter(l => l.trim()));
 
