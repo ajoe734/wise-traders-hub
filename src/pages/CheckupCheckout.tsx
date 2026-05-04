@@ -3,8 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { PortalLayout } from "@/components/layouts/PortalLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, CheckCircle2, Stethoscope, Building2, CreditCard } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
