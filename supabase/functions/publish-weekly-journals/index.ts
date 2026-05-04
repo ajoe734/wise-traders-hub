@@ -431,7 +431,6 @@ Deno.serve(async (req) => {
           }
         }
       }
-      }
 
       // Send promo message to canceled users
       if (canceledTargets.length > 0) {
