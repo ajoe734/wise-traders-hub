@@ -393,7 +393,7 @@ const SignalEditor = () => {
             <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>
               <ArrowLeft className="h-4 w-4 mr-1" /> 返回列表
             </Button>
-            <h1 className="text-2xl font-bold">發布新{contentLabel}</h1>
+            <h1 className="text-2xl font-bold">{isEditing ? '編輯' : '發布新'}{contentLabel}</h1>
           </div>
           <div className="flex items-center gap-2">
             {!publishWindow.open && (
