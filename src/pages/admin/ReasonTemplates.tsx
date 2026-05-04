@@ -31,6 +31,18 @@ const ReasonTemplates = () => {
   const [content, setContent] = useState('');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
+  // 草稿自動暫存
+  const draftKey = `reason-template-draft-${expertSlug}-${editingId ?? 'new'}`;
+  const { discard: discardDraft } = useFormDraft(
+    draftKey,
+    { title, content },
+    (saved) => {
+      if (typeof saved.title === 'string') setTitle(saved.title);
+      if (typeof saved.content === 'string') setContent(saved.content);
+    },
+    { enabled: dialogOpen }
+  );
+
   const fetchData = useCallback(async () => {
     if (!expertSlug) return;
     setLoading(true);
@@ -50,6 +62,8 @@ const ReasonTemplates = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const openCreate = () => {
+    // 規範第 2 條：開新表單前清除舊草稿
+    try { sessionStorage.removeItem(`reason-template-draft-${expertSlug}-new`); } catch { /* noop */ }
     setEditingId(null);
     setTitle('');
     setContent('');
