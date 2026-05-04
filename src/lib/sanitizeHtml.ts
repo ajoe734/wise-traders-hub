@@ -1,7 +1,7 @@
 import DOMPurify from 'dompurify';
 
-const ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 'u', 's', 'h3', 'ul', 'ol', 'li', 'blockquote', 'a', 'code'];
-const ALLOWED_ATTR = ['href', 'target', 'rel'];
+const ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 'u', 's', 'h3', 'ul', 'ol', 'li', 'blockquote', 'a', 'code', 'img', 'figure', 'figcaption'];
+const ALLOWED_ATTR = ['href', 'target', 'rel', 'src', 'alt', 'title', 'width', 'height'];
 
 /**
  * 清理 TipTap 編輯器產出的 HTML，
