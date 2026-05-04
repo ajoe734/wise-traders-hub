@@ -114,7 +114,7 @@ const AdminPerformance = () => {
 
   // ─── 未實現損益：trade_records (open) + user_performances (realtime) ───
   useEffect(() => {
-    if (!expertId || !user) return;
+    if (!expertId || !expertOwnerUserId) return;
 
     const fetchInitial = async () => {
       // 1. 取得 open 持倉 from trade_records
