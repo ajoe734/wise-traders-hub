@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { checkupPlanId, billingCycle } = await req.json();
+    const { checkupPlanId, billingCycle, originalAmount, discountAmount, discountReason, attribution } = await req.json();
     if (!checkupPlanId || !billingCycle) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -50,7 +50,16 @@ Deno.serve(async (req) => {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const amount = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+    const basePrice = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+
+    // Honor client-provided cross-product discount, but server-side guard against negative
+    const original = Number.isFinite(Number(originalAmount)) && Number(originalAmount) > 0
+      ? Math.round(Number(originalAmount))
+      : basePrice;
+    const discount = Number.isFinite(Number(discountAmount)) && Number(discountAmount) > 0
+      ? Math.min(Math.round(Number(discountAmount)), original)
+      : 0;
+    const amount = Math.max(0, original - discount);
 
     const { data, error } = await admin.from("remittance_orders").insert({
       user_id: userId,
@@ -59,8 +68,10 @@ Deno.serve(async (req) => {
       plan_id: null,
       billing_cycle: billingCycle,
       amount,
-      original_amount: amount,
-      discount_amount: 0,
+      original_amount: original,
+      discount_amount: discount,
+      discount_reason: discount > 0 ? (discountReason ?? null) : null,
+      attribution: attribution ?? null,
       last5: null,
       payer_name: null,
       status: "awaiting_info",
