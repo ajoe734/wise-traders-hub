@@ -280,11 +280,17 @@ Deno.serve(async (req) => {
           }
         }
       }
+        syncOk++
+      } catch (innerErr) {
+        syncFail++
+        logErr('sync_trade_signals_iteration', innerErr, { signalId: signal.id, instrument: signal.instrument, action: signal.action })
+      }
     }
 
-    console.log('Trade signals synced for all published mentor signals')
+    log(`Trade signals synced (ok=${syncOk}, fail=${syncFail})`)
 
     // Group by expert_id for LINE push
+    stage = 'group_by_expert'
     const byExpert = new Map<string, typeof pendingSignals>()
     for (const signal of pendingSignals) {
       const list = byExpert.get(signal.expert_id) || []
@@ -293,8 +299,11 @@ Deno.serve(async (req) => {
     }
 
     let totalPushed = 0
+    let pushFail = 0
 
+    stage = 'line_push'
     for (const [expertId, signals] of byExpert) {
+     try {
       // Get LINE channel
       const { data: channel } = await supabaseAdmin
         .from('expert_line_channels')
