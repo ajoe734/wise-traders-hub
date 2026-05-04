@@ -126,6 +126,7 @@ const AdminSignals = () => {
   const [recalling, setRecalling] = useState(false);
   const [repushingId, setRepushingId] = useState<string | null>(null);
   const [lastPublishedId, setLastPublishedId] = useState<string | null>(null);
+  const [collapsedBatches, setCollapsedBatches] = useState<Set<string>>(new Set());
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Persist only dialog open state
