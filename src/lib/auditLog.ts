@@ -67,6 +67,11 @@ export const ACTION_LABELS: Record<string, string> = {
   'plan.split_override_upsert': '更新方案分潤覆寫',
   'plan.split_override_remove': '刪除方案分潤覆寫',
   'plan.cross_discount_update': '更新跨產品折扣',
+  'plan.checkup_create': '新增健檢方案',
+  'plan.checkup_update': '更新健檢方案',
+  'plan.checkup_delete': '刪除健檢方案',
+  'plan.checkup_activate': '啟用健檢方案',
+  'plan.checkup_deactivate': '停用健檢方案',
   // setting.*
   'setting.split_default_update': '更新預設分潤比例',
   'setting.payment_provider_toggle': '切換金流工具啟用',
