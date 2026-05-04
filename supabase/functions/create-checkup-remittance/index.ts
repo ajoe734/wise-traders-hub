@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { checkupPlanId, billingCycle } = await req.json();
+    const { checkupPlanId, billingCycle, originalAmount, discountAmount, discountReason, attribution } = await req.json();
     if (!checkupPlanId || !billingCycle) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
