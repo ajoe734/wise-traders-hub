@@ -128,14 +128,14 @@ const AdminPerformance = () => {
       const { data: tsData } = await supabase
         .from('trade_signals')
         .select('id, symbol, name, entry_price, status')
-        .eq('user_id', user.id)
+        .eq('user_id', expertOwnerUserId)
         .eq('status', 'open');
 
       // 2. 取得 user_performances 的即時數據
       const { data: perfData } = await supabase
         .from('user_performances')
         .select('symbol, current_price, pnl, pnl_percent, entry_price')
-        .eq('user_id', user.id);
+        .eq('user_id', expertOwnerUserId);
 
       // Build a lookup map from user_performances by symbol
       const perfMap = new Map<string, { current_price: number | null; pnl: number | null; pnl_percent: number | null; entry_price: number | null }>();
