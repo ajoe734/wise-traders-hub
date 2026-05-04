@@ -9,10 +9,37 @@ import { toast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { logAdminAction } from '@/lib/auditLog';
 
+type EcpayStatus = {
+  source: string;
+  env: string;
+  apiUrl: string;
+  isStageUrl: boolean;
+  merchantId_masked: string;
+  merchantId_length: number;
+  isOfficialTestStore: boolean;
+  hasHashKey: boolean;
+  hasHashIV: boolean;
+  verdict: string;
+};
+
 export default function CompanyPaymentSettings() {
   const [standard, setStandard] = useState<{ pct_platform: number; pct_expert: number }>({ pct_platform: 55, pct_expert: 45 });
   const [original, setOriginal] = useState<{ pct_platform: number; pct_expert: number }>({ pct_platform: 55, pct_expert: 45 });
   const [loading, setLoading] = useState(true);
+  const [ecpayStatus, setEcpayStatus] = useState<EcpayStatus | null>(null);
+  const [ecpayChecking, setEcpayChecking] = useState(false);
+
+  const checkEcpay = async () => {
+    setEcpayChecking(true);
+    const { data, error } = await supabase.functions.invoke('admin-ecpay-status');
+    setEcpayChecking(false);
+    if (error) {
+      toast({ title: '檢查失敗', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setEcpayStatus(data as EcpayStatus);
+  };
+
 
   const load = async () => {
     setLoading(true);
