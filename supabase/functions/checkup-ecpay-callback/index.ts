@@ -72,17 +72,30 @@ Deno.serve(async (req) => {
     if (billingCycle === "yearly") expiresAt.setFullYear(expiresAt.getFullYear() + 1);
     else expiresAt.setMonth(expiresAt.getMonth() + 1);
 
-    // 防重：已 active 不重建
+    // 防重 + 手動續訂：已 active → 延長 expires_at（疊加到原有效期）
     const { data: existing } = await supabase
       .from("checkup_subscriptions")
-      .select("id")
+      .select("id, expires_at")
       .eq("user_id", userId)
       .eq("plan_id", checkupPlanId)
       .eq("status", "active")
       .maybeSingle();
 
     let subscriptionId: string | null = existing?.id ?? null;
-    if (!existing) {
+    if (existing) {
+      // 從原 expires_at 起算（若已過期則從 now 起算）
+      const baseExpiry = existing.expires_at ? new Date(existing.expires_at) : now;
+      const start = baseExpiry.getTime() > now.getTime() ? baseExpiry : now;
+      const newExpiry = new Date(start);
+      if (billingCycle === "yearly") newExpiry.setFullYear(newExpiry.getFullYear() + 1);
+      else newExpiry.setMonth(newExpiry.getMonth() + 1);
+      const { error: renewErr } = await supabase
+        .from("checkup_subscriptions")
+        .update({ expires_at: newExpiry.toISOString(), status: "active" })
+        .eq("id", existing.id);
+      if (renewErr) console.error("checkup renewal extend error:", renewErr);
+      else console.log("checkup renewed, new expires_at:", newExpiry.toISOString());
+    } else {
       const { data: sub, error } = await supabase
         .from("checkup_subscriptions")
         .insert({
