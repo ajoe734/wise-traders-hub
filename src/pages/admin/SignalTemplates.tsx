@@ -14,6 +14,7 @@ import { Plus, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFormDraft } from '@/hooks/useFormDraft';
 import step1AdvImg from '@/assets/template-step1.png';
 import step2AdvImg from '@/assets/template-step2-new.png';
 import step1MenImg from '@/assets/template-step1-mentor.png';
@@ -55,6 +56,16 @@ const AdminSignalTemplates = () => {
   const [form, setForm] = useState(emptyForm);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
+  // 草稿自動暫存（規範：mem://management/form-persistence-rules）
+  // 編輯既有模板用 id 為 key，新增用 'new'
+  const draftKey = `signal-template-draft-${expertSlug}-${editingId ?? 'new'}`;
+  const { discard: discardDraft } = useFormDraft(
+    draftKey,
+    form,
+    (saved) => setForm({ ...emptyForm, ...saved }),
+    { enabled: dialogOpen }
+  );
+
   const fetchData = useCallback(async () => {
     if (!expertSlug) return;
     setLoading(true);
@@ -73,7 +84,13 @@ const AdminSignalTemplates = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const openCreate = () => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); };
+  const openCreate = () => {
+    // 規範第 2 條：點擊「新增」必須清空 + 清除舊草稿
+    try { sessionStorage.removeItem(`signal-template-draft-${expertSlug}-new`); } catch { /* noop */ }
+    setEditingId(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  };
   const openEdit = (t: SignalTemplate) => {
     setEditingId(t.id);
     setForm({ title: t.title, action: t.action, reason: t.reason, risk_note: t.risk_note, strategy_note: t.strategy_note });
