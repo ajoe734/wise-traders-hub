@@ -117,6 +117,46 @@ export default function CompanyPaymentSettings() {
           <Button size="sm" onClick={saveStandard}>儲存標準分潤</Button>
         </Card>
 
+        <Card className="p-5 space-y-3">
+          <div>
+            <h3 className="font-semibold">綠界金流環境檢查</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              不會顯示完整 MerchantID / HashKey / HashIV。只回傳末四碼與環境判斷。
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={checkEcpay} disabled={ecpayChecking}>
+            {ecpayChecking ? '檢查中…' : '檢查目前綠界設定'}
+          </Button>
+          {ecpayStatus && (
+            <div className="text-xs space-y-1 border rounded-md p-3 bg-muted/30 font-mono">
+              <div>
+                <span className="text-muted-foreground">結論：</span>
+                <span className={ecpayStatus.isOfficialTestStore || ecpayStatus.isStageUrl ? 'text-orange-600' : 'text-green-700'}>
+                  {ecpayStatus.verdict}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">商店編號：</span>
+                {ecpayStatus.merchantId_masked}{' '}
+                <span className="text-muted-foreground">（共 {ecpayStatus.merchantId_length} 碼）</span>
+              </div>
+              <div><span className="text-muted-foreground">API URL：</span>{ecpayStatus.apiUrl}</div>
+              <div>
+                <span className="text-muted-foreground">設定來源：</span>
+                {ecpayStatus.source === 'db' ? '資料庫 payment_settings' : '環境變數 Secrets'}
+              </div>
+              <div>
+                <span className="text-muted-foreground">HashKey：</span>{ecpayStatus.hasHashKey ? '✓ 已設定' : '✗ 未設定'}
+                {' ・ '}
+                <span className="text-muted-foreground">HashIV：</span>{ecpayStatus.hasHashIV ? '✓ 已設定' : '✗ 未設定'}
+              </div>
+              {ecpayStatus.isOfficialTestStore && (
+                <div className="text-orange-600 mt-2">⚠ MerchantID 為 2000132，是綠界官方測試店，金流不會真的進帳。</div>
+              )}
+            </div>
+          )}
+        </Card>
+
         <Card className="p-5 space-y-2 bg-muted/30">
           <h3 className="text-sm font-semibold">相關設定</h3>
           <ul className="text-xs text-muted-foreground space-y-1">
