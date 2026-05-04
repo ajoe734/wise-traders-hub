@@ -245,7 +245,7 @@ const AdminPerformance = () => {
           event: '*',
           schema: 'public',
           table: 'user_performances',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${expertOwnerUserId}`,
         },
         (payload) => {
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
