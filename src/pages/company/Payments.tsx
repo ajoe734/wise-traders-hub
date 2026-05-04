@@ -287,24 +287,27 @@ const CompanyPayments = () => {
   };
 
   const fetchRemit = async () => {
-    const { data } = await supabase.from('payment_settings').select('value').eq('key', 'remittance_account').maybeSingle();
+    const { data } = await (supabase.from as any)('payment_settings_safe').select('value').eq('key', 'remittance_account').maybeSingle();
     const v = (data?.value as Record<string, string>) || {};
     setRemit(v);
     setRemitOriginal(v);
   };
 
   const fetchEcpay = async () => {
-    const { data } = await supabase
-      .from('payment_settings')
+    // 讀取走 safe view：HashKey / HashIV 不會回傳原值，只回 has_* 旗標 + 末四碼
+    const { data } = await (supabase.from as any)('payment_settings_safe')
       .select('value, updated_at')
       .eq('key', 'ecpay_credentials')
       .maybeSingle();
-    const v = (data?.value as EcpayCredsRow) || {};
+    const v = (data?.value as EcpayCredsRow & { has_hash_key?: boolean; has_hash_iv?: boolean }) || {};
     const withTs: EcpayCredsRow = { ...v, updated_at: data?.updated_at };
+    // 不可把 mask 後的字串塞回 hash_key / hash_iv state，避免後續 saveEcpay 誤把 *** 字串覆寫回 DB
+    delete (withTs as any).hash_key;
+    delete (withTs as any).hash_iv;
     setEcpay(withTs);
     setEcpayOriginal(withTs);
-    setEcpayHasKey(!!(v.hash_key && v.hash_key.length > 0));
-    setEcpayHasIV(!!(v.hash_iv && v.hash_iv.length > 0));
+    setEcpayHasKey(!!v.has_hash_key);
+    setEcpayHasIV(!!v.has_hash_iv);
     setEcpayHashKeyInput('');
     setEcpayHashIVInput('');
   };
@@ -353,14 +356,26 @@ const CompanyPayments = () => {
   // ---------- Handlers ----------
   const saveEcpay = async () => {
     const userId = (await supabase.auth.getUser()).data.user?.id;
+
+    // 讀取顯示走 safe view → ecpayOriginal 沒有 hash_key/iv 原值。
+    // 若使用者未輸入新值，需從原表（僅 admin 有權限）拉 raw 值合併，避免覆寫成空字串。
+    let rawHashKey = '';
+    let rawHashIV = '';
+    if (!ecpayHashKeyInput.trim() || !ecpayHashIVInput.trim()) {
+      const { data: rawRow } = await supabase
+        .from('payment_settings')
+        .select('value')
+        .eq('key', 'ecpay_credentials')
+        .maybeSingle();
+      const rv = (rawRow?.value as { hash_key?: string; hash_iv?: string }) || {};
+      rawHashKey = rv.hash_key ?? '';
+      rawHashIV = rv.hash_iv ?? '';
+    }
+
     const next: EcpayCredsRow = {
       merchant_id: (ecpay.merchant_id ?? '').trim(),
-      hash_key: ecpayHashKeyInput.trim()
-        ? ecpayHashKeyInput.trim()
-        : (ecpayOriginal.hash_key ?? ''),
-      hash_iv: ecpayHashIVInput.trim()
-        ? ecpayHashIVInput.trim()
-        : (ecpayOriginal.hash_iv ?? ''),
+      hash_key: ecpayHashKeyInput.trim() ? ecpayHashKeyInput.trim() : rawHashKey,
+      hash_iv: ecpayHashIVInput.trim() ? ecpayHashIVInput.trim() : rawHashIV,
       credit_action_url: (ecpay.credit_action_url ?? '').trim(),
       api_url: (ecpay.api_url ?? '').trim(),
       env: ecpay.env === 'production' ? 'production' : 'stage',

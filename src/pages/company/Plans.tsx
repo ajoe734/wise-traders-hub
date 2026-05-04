@@ -107,8 +107,8 @@ export default function CompanyPlans() {
       supabase
         .from('plan_split_overrides')
         .select('id, plan_id, pct_platform, pct_expert, is_active, notes'),
-      supabase.from('payment_settings').select('key, value').eq('key', 'split_standard').maybeSingle(),
-      supabase.from('payment_settings').select('value').eq('key', 'cross_discounts').maybeSingle(),
+      (supabase.from as any)('payment_settings_safe').select('key, value').eq('key', 'split_standard').maybeSingle(),
+      (supabase.from as any)('payment_settings_safe').select('value').eq('key', 'cross_discounts').maybeSingle(),
     ]);
 
     if (plansRes.error) toast.error('載入方案失敗：' + plansRes.error.message);

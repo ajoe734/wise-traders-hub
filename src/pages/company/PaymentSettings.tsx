@@ -43,7 +43,7 @@ export default function CompanyPaymentSettings() {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from('payment_settings').select('key, value').eq('key', 'split_standard').maybeSingle();
+    const { data } = await (supabase.from as any)('payment_settings_safe').select('key, value').eq('key', 'split_standard').maybeSingle();
     const s = (data?.value as any) || { pct_platform: 55, pct_expert: 45 };
     const v = { pct_platform: s.pct_platform ?? 55, pct_expert: s.pct_expert ?? 45 };
     setStandard(v);

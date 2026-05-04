@@ -34,7 +34,7 @@ export default function CheckupCheckout() {
 
   // 收款帳號
   useEffect(() => {
-    supabase.from("payment_settings").select("value").eq("key", "remittance_account").maybeSingle()
+    (supabase.from as any)("payment_settings_safe").select("value").eq("key", "remittance_account").maybeSingle()
       .then(({ data }) => {
         const v = data?.value as any;
         if (v) setBank({
