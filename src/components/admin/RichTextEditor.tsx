@@ -2,11 +2,14 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
+import Image from '@tiptap/extension-image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Bold, Italic, List, ListOrdered, Quote, Heading3, Link as LinkIcon, Undo2, Redo2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { Bold, Italic, List, ListOrdered, Quote, Heading3, Link as LinkIcon, Undo2, Redo2, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { AIAssistMenu, AIAssistMode } from './AIAssistMenu';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface RichTextEditorProps {
   value: string;
