@@ -316,7 +316,7 @@ export default function CheckupCheckout() {
 
         <Button className="w-full" size="lg" onClick={onSubmit} disabled={isProcessing}>
           {isProcessing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />處理中…</> :
-            method === "ecpay" ? "前往付款" : "送出匯款資料"}
+            method === "ecpay" ? "前往付款" : "建立匯款訂單"}
         </Button>
 
         <AlertDialog open={!!resultDialog?.open} onOpenChange={(open) => { if (!open) setResultDialog(null); }}>
@@ -333,9 +333,12 @@ export default function CheckupCheckout() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => {
+                const goRemit = resultDialog?.goRemittance;
+                const ok = resultDialog?.success;
                 setResultDialog(null);
-                if (resultDialog?.success) navigate("/free-checkup");
-              }}>確定</AlertDialogAction>
+                if (goRemit) navigate("/account/remittance");
+                else if (ok) navigate("/free-checkup");
+              }}>{resultDialog?.goRemittance ? "前往補填匯款資料" : "確定"}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
