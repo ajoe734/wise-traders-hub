@@ -18,6 +18,19 @@ interface JobLog {
 
 const PAGE_SIZE = 50;
 
+const JOB_LABELS: Record<string, string> = {
+  'stock-price-sync': '股價同步（每30分）',
+  'expire-stale-remittance': '匯款訂單過期清理',
+  'checkup-price-refresh': '持倉看板股價刷新（13:30）',
+  'mentor-journal-publish': '導師交易日誌自動發布（週五20:00）',
+  'announcement-cleanup': '系統公告 7 天清理',
+  'cleanup_old_announcements': '系統公告 7 天清理',
+  'delete_expired_binding_codes': 'Line 綁定碼過期清理',
+  'delete_old_prices': '股價快取清理',
+  'mentor-journal-cron': '導師交易日誌自動發布（週五20:00）',
+};
+const fmtJobName = (n: string) => JOB_LABELS[n] || n;
+
 const fmtDateTime = (s: string) => {
   const d = new Date(s);
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -85,7 +98,7 @@ export default function SystemJobsPage() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部任務</SelectItem>
-                  {jobNames.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
+                  {jobNames.map(j => <SelectItem key={j} value={j}>{fmtJobName(j)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -125,7 +138,10 @@ export default function SystemJobsPage() {
                     logs.map(l => (
                       <tr key={l.id} className="border-b last:border-0 hover:bg-muted/30">
                         <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{fmtDateTime(l.ran_at)}</td>
-                        <td className="p-3 text-sm font-mono text-xs">{l.job_name}</td>
+                        <td className="p-3 text-sm">
+                          <div>{fmtJobName(l.job_name)}</div>
+                          <div className="font-mono text-[10px] text-muted-foreground">{l.job_name}</div>
+                        </td>
                         <td className="p-3">
                           <Badge variant={l.status === 'success' ? 'outline' : 'destructive'} className="text-[10px]">
                             {l.status}

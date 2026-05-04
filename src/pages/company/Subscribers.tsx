@@ -5,28 +5,66 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserCheck, UserX, RefreshCw, Download } from 'lucide-react';
+import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope } from 'lucide-react';
+
+type Row = {
+  id: string;
+  user_id: string;
+  kind: 'expert' | 'checkup';
+  plan_name: string;
+  status: string;
+  auto_renew: boolean;
+  started_at: string;
+  expires_at: string | null;
+};
 
 const CompanySubscribers = () => {
-  const [subs, setSubs] = useState<any[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
   const [profileMap, setProfileMap] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [kindFilter, setKindFilter] = useState<'all' | 'expert' | 'checkup'>('all');
   const [loading, setLoading] = useState(true);
-  
 
   useEffect(() => { fetchSubs(); }, []);
 
   const fetchSubs = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('member_subscriptions')
-      .select('*, expert_plans(name, experts(name))')
-      .order('created_at', { ascending: false });
-    const subData = data || [];
-    setSubs(subData);
+    const [eRes, cRes] = await Promise.all([
+      supabase.from('member_subscriptions')
+        .select('*, expert_plans(name, experts(name))')
+        .order('created_at', { ascending: false }),
+      supabase.from('checkup_subscriptions')
+        .select('*, checkup_plans(name)')
+        .order('created_at', { ascending: false }),
+    ]);
 
-    const userIds = [...new Set(subData.map(s => s.user_id).filter(Boolean))];
+    const expertRows: Row[] = (eRes.data || []).map((s: any) => ({
+      id: s.id,
+      user_id: s.user_id,
+      kind: 'expert',
+      plan_name: s.expert_plans?.name || '-',
+      status: s.status,
+      auto_renew: !!s.auto_renew,
+      started_at: s.started_at,
+      expires_at: s.expires_at,
+    }));
+    const checkupRows: Row[] = (cRes.data || []).map((s: any) => ({
+      id: s.id,
+      user_id: s.user_id,
+      kind: 'checkup',
+      plan_name: s.checkup_plans?.name || '健檢方案',
+      status: s.status,
+      auto_renew: !!s.auto_renew,
+      started_at: s.started_at,
+      expires_at: s.expires_at,
+    }));
+    const merged = [...expertRows, ...checkupRows].sort(
+      (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+    );
+    setRows(merged);
+
+    const userIds = [...new Set(merged.map(s => s.user_id).filter(Boolean))];
     if (userIds.length > 0) {
       const { data: profiles } = await supabase
         .from('profiles')
@@ -39,47 +77,52 @@ const CompanySubscribers = () => {
     setLoading(false);
   };
 
-  const activeCount = subs.filter(s => s.status === 'active').length;
-  const totalCount = subs.filter(s => s.status !== 'canceled').length;
-  const expiredCount = subs.filter(s => s.status === 'expired').length;
-  const canceledCount = subs.filter(s => s.status === 'canceled').length;
+  const activeCount = rows.filter(s => s.status === 'active').length;
+  const totalCount = rows.filter(s => s.status !== 'canceled').length;
+  const expiredCount = rows.filter(s => s.status === 'expired').length;
+  const canceledCount = rows.filter(s => s.status === 'canceled').length;
 
   const getRemainingDays = (expiresAt: string | null) => {
     if (!expiresAt) return null;
     return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
-  const filtered = subs.filter(s => {
-    const matchStatus = statusFilter === 'all' 
-      || (statusFilter === 'active' && s.status === 'active')
-      || (statusFilter === 'expired' && s.status === 'expired')
-      || (statusFilter === 'canceled' && s.status === 'canceled');
+  const filtered = rows.filter(s => {
+    if (kindFilter !== 'all' && s.kind !== kindFilter) return false;
+    const matchStatus = statusFilter === 'all' || s.status === statusFilter;
     if (!search) return matchStatus;
     const q = search.toLowerCase();
     const displayName = (profileMap[s.user_id] || '').toLowerCase();
-    const planName = (s.expert_plans?.name || '').toLowerCase();
+    const planName = s.plan_name.toLowerCase();
     const startDate = s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '';
     const endDate = s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '';
     const remaining = getRemainingDays(s.expires_at);
     const remainingStr = remaining != null ? (remaining > 0 ? `${remaining} 天` : '已到期') : '';
     const renewStr = s.auto_renew ? '自動' : '手動';
-    const matchSearch = displayName.includes(q) || planName.includes(q) || startDate.includes(q) || endDate.includes(q) || remainingStr.includes(q) || renewStr.includes(q);
+    const kindStr = s.kind === 'checkup' ? '健檢' : '訂閱';
+    const matchSearch = displayName.includes(q) || planName.includes(q) || startDate.includes(q)
+      || endDate.includes(q) || remainingStr.includes(q) || renewStr.includes(q) || kindStr.includes(q);
     return matchStatus && matchSearch;
   });
 
-  const renewalRate = totalCount > 0 ? Math.round((subs.filter(s => s.auto_renew && s.status !== 'canceled').length / totalCount) * 100) : 0;
+  const renewalRate = totalCount > 0
+    ? Math.round((rows.filter(s => s.auto_renew && s.status !== 'canceled').length / totalCount) * 100)
+    : 0;
+
+  const checkupCount = rows.filter(s => s.kind === 'checkup' && s.status === 'active').length;
 
   const handleExport = () => {
-    const headers = ['訂閱者', '方案', '開始日', '到期日', '狀態', '續訂'];
-    const rows = filtered.map(s => [
+    const headers = ['類型', '訂閱者', '方案', '開始日', '到期日', '狀態', '續訂'];
+    const rowsCsv = filtered.map(s => [
+      s.kind === 'checkup' ? '健檢' : '訂閱方案',
       profileMap[s.user_id] || s.user_id?.slice(0, 8),
-      s.expert_plans?.name || '-',
+      s.plan_name,
       s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '-',
       s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '-',
       s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
       s.auto_renew ? '自動' : '手動',
     ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const csv = [headers, ...rowsCsv].map(r => r.join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -89,32 +132,39 @@ const CompanySubscribers = () => {
     URL.revokeObjectURL(url);
   };
 
-
   return (
     <CompanyLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">訂閱者管理</h1>
-            <p className="text-muted-foreground text-sm mt-1">查看與管理所有平台訂閱者</p>
+            <p className="text-muted-foreground text-sm mt-1">查看與管理所有平台訂閱者（含分析師訂閱與健檢方案）</p>
           </div>
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />匯出對帳報表
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <Card><CardContent className="p-4 flex items-center gap-3"><Users className="h-5 w-5 text-muted-foreground" /><div><div className="text-2xl font-bold">{totalCount}</div><div className="text-xs text-muted-foreground">總訂閱</div></div></CardContent></Card>
           <Card><CardContent className="p-4 flex items-center gap-3"><UserCheck className="h-5 w-5 text-green-500" /><div><div className="text-2xl font-bold">{activeCount}</div><div className="text-xs text-muted-foreground">活躍中</div></div></CardContent></Card>
+          <Card><CardContent className="p-4 flex items-center gap-3"><Stethoscope className="h-5 w-5 text-primary" /><div><div className="text-2xl font-bold">{checkupCount}</div><div className="text-xs text-muted-foreground">健檢活躍</div></div></CardContent></Card>
           <Card><CardContent className="p-4 flex items-center gap-3"><UserX className="h-5 w-5 text-muted-foreground" /><div><div className="text-2xl font-bold">{expiredCount}</div><div className="text-xs text-muted-foreground">已到期</div></div></CardContent></Card>
           <Card><CardContent className="p-4 flex items-center gap-3"><UserX className="h-5 w-5 text-destructive" /><div><div className="text-2xl font-bold">{canceledCount}</div><div className="text-xs text-muted-foreground">已取消</div></div></CardContent></Card>
           <Card><CardContent className="p-4 flex items-center gap-3"><RefreshCw className="h-5 w-5 text-primary" /><div><div className="text-2xl font-bold">{renewalRate}%</div><div className="text-xs text-muted-foreground">續訂率</div></div></CardContent></Card>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="搜尋名稱、方案、日期、天數、續訂方式..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="搜尋名稱、方案、日期、類型..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          </div>
+          <div className="flex items-center bg-muted rounded-lg p-1">
+            {[{ key: 'all', label: '全部類型' }, { key: 'expert', label: '訂閱方案' }, { key: 'checkup', label: '健檢方案' }].map(f => (
+              <button key={f.key} onClick={() => setKindFilter(f.key as any)} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${kindFilter === f.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                {f.label}
+              </button>
+            ))}
           </div>
           <div className="flex items-center bg-muted rounded-lg p-1">
             {[{ key: 'all', label: '全部' }, { key: 'active', label: '活躍' }, { key: 'expired', label: '到期' }, { key: 'canceled', label: '取消' }].map(f => (
@@ -126,10 +176,11 @@ const CompanySubscribers = () => {
         </div>
 
         <Card>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b text-left text-sm text-muted-foreground">
+                  <th className="p-4">類型</th>
                   <th className="p-4">訂閱者</th>
                   <th className="p-4">方案</th>
                   <th className="p-4">開始日</th>
@@ -137,7 +188,6 @@ const CompanySubscribers = () => {
                   <th className="p-4">剩餘天數</th>
                   <th className="p-4">續訂</th>
                   <th className="p-4">狀態</th>
-                  
                 </tr>
               </thead>
               <tbody>
@@ -149,9 +199,14 @@ const CompanySubscribers = () => {
                   filtered.map(sub => {
                     const remaining = getRemainingDays(sub.expires_at);
                     return (
-                      <tr key={sub.id} className="border-b last:border-0">
+                      <tr key={`${sub.kind}-${sub.id}`} className="border-b last:border-0">
+                        <td className="p-4">
+                          <Badge variant={sub.kind === 'checkup' ? 'default' : 'outline'} className="text-xs">
+                            {sub.kind === 'checkup' ? '健檢' : '訂閱方案'}
+                          </Badge>
+                        </td>
                         <td className="p-4 text-sm">{profileMap[sub.user_id] || sub.user_id?.slice(0, 8)}</td>
-                        <td className="p-4 text-sm">{sub.expert_plans?.name || '-'}</td>
+                        <td className="p-4 text-sm">{sub.plan_name}</td>
                         <td className="p-4 text-sm text-muted-foreground">{sub.started_at ? new Date(sub.started_at).toLocaleDateString('zh-TW') : '-'}</td>
                         <td className="p-4 text-sm text-muted-foreground">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('zh-TW') : '-'}</td>
                         <td className="p-4">
@@ -178,7 +233,6 @@ const CompanySubscribers = () => {
           </CardContent>
         </Card>
       </div>
-
     </CompanyLayout>
   );
 };

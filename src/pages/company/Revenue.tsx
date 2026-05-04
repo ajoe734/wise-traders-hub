@@ -348,16 +348,66 @@ const CompanyRevenue = () => {
   /* ----------------- 退款 ----------------- */
   const handleRefund = async () => {
     if (!refundingTx) return;
-    const { error } = await supabase.from('payment_transactions').update({ status: 'refunded' as any }).eq('id', refundingTx.raw.id);
-    if (error) { toast.error(error.message); return; }
-    await supabase.from('audit_logs').insert({
-      action: 'refund',
-      actor_id: user?.id,
-      target_type: 'payment_transaction',
-      target_id: refundingTx.raw.id,
-      detail: { reason: refundReason, amount: refundingTx.raw.amount, tx_id: refundingTx.raw.provider_tx_id },
+    const tx = refundingTx.raw;
+    const prov = providerMap[tx.provider_id];
+    const providerType = prov?.provider_type;
+
+    // LINE Pay 暫不支援後台自動退款
+    if (providerType === 'line_pay') {
+      toast.error('LINE Pay 退款請至 LINE Pay 商家後台處理，本系統不支援自動退款');
+      return;
+    }
+
+    // 沒有 subscription_id 的交易（早期一次性付款）→ 仍允許僅更新狀態並警示
+    if (!tx.subscription_id) {
+      const ok = window.confirm('此筆交易未綁定訂閱（無法觸發金流商退款 API），是否僅更新本系統的退款狀態？');
+      if (!ok) return;
+      const { error } = await supabase.from('payment_transactions').update({ status: 'refunded' as any }).eq('id', tx.id);
+      if (error) { toast.error(error.message); return; }
+      await supabase.from('audit_logs').insert({
+        action: 'payment.refund',
+        actor_id: user?.id,
+        target_type: 'payment_transactions',
+        target_id: tx.id,
+        detail: { reason: refundReason, amount: tx.amount, tx_id: tx.provider_tx_id, mode: 'db_only', context: { reason: refundReason, amount: tx.amount } },
+      });
+      toast.success('退款狀態已更新（未呼叫金流商）');
+      setRefundingTx(null); setRefundReason(''); fetchAll();
+      return;
+    }
+
+    // 呼叫對應 edge function 真退款
+    const fnName = providerType === 'acpay' ? 'acpay-refund' : 'process-refund';
+    const { data, error: fnErr } = await supabase.functions.invoke(fnName, {
+      body: {
+        subscription_id: tx.subscription_id,
+        refund_amount: Math.abs(tx.amount || 0),
+        original_amount: tx.original_amount || tx.amount,
+        reason: refundReason || '管理員後台退款',
+      },
     });
-    toast.success('退款完成');
+
+    if (fnErr || (data as any)?.error) {
+      const msg = fnErr?.message || (data as any)?.error || '退款失敗';
+      toast.error(`金流商退款失敗：${msg}`);
+      await supabase.from('audit_logs').insert({
+        action: 'payment.refund_failed',
+        actor_id: user?.id,
+        target_type: 'payment_transactions',
+        target_id: tx.id,
+        detail: { reason: refundReason, error: msg, provider: providerType, context: { reason: msg } },
+      });
+      return;
+    }
+
+    await supabase.from('audit_logs').insert({
+      action: 'payment.refund',
+      actor_id: user?.id,
+      target_type: 'payment_transactions',
+      target_id: tx.id,
+      detail: { reason: refundReason, amount: tx.amount, tx_id: tx.provider_tx_id, provider: providerType, context: { reason: refundReason, amount: tx.amount } },
+    });
+    toast.success('退款完成（已呼叫金流商）');
     setRefundingTx(null);
     setRefundReason('');
     fetchAll();
@@ -424,7 +474,7 @@ const CompanyRevenue = () => {
               <CardContent className="p-4 text-xs text-muted-foreground space-y-1">
                 <p>• 「淨收」= revenue_splits 加總，不會因退款回沖。</p>
                 <p>• 「實際淨收」≈ 淨收 − 退款 = <span className="font-medium text-foreground">{fmtMoney(overview.net - overview.refundAmount)}</span></p>
-                <p>• 退款獨立顯示，因為 acpay-refund 只更新 payment_transactions.status，不會反沖 revenue_splits。</p>
+                <p>• 退款獨立顯示，金流商退款 API 只更新 payment_transactions.status，不反沖 revenue_splits。</p>
               </CardContent>
             </Card>
 

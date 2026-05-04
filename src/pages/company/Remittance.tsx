@@ -16,15 +16,23 @@ interface Order {
   checkup_plan_id: string | null;
   billing_cycle: string;
   amount: number;
+  original_amount: number | null;
+  discount_amount: number | null;
+  discount_reason: string | null;
   last5: string;
   payer_name: string;
   status: string;
   created_at: string;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
   reject_reason: string | null;
 }
 
 export default function CompanyRemittance() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [planMap, setPlanMap] = useState<Record<string, string>>({});
+  const [checkupPlanMap, setCheckupPlanMap] = useState<Record<string, string>>({});
+  const [adminMap, setAdminMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'awaiting_info' | 'pending' | 'confirmed' | 'rejected' | 'expired' | 'all'>('pending');
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
@@ -34,17 +42,32 @@ export default function CompanyRemittance() {
     let q = supabase.from('remittance_orders').select('*').order('created_at', { ascending: false });
     if (filter !== 'all') q = q.eq('status', filter);
     const { data, error } = await q;
-    if (error) toast({ title: '載入失敗', description: error.message, variant: 'destructive' });
-    else setOrders((data || []) as Order[]);
+    if (error) {
+      toast({ title: '載入失敗', description: error.message, variant: 'destructive' });
+      setLoading(false);
+      return;
+    }
+    const list = (data || []) as Order[];
+    setOrders(list);
+
+    const planIds = [...new Set(list.map(o => o.plan_id).filter(Boolean))] as string[];
+    const checkupIds = [...new Set(list.map(o => o.checkup_plan_id).filter(Boolean))] as string[];
+    const adminIds = [...new Set(list.map(o => o.confirmed_by).filter(Boolean))] as string[];
+    const [pRes, cpRes, profRes] = await Promise.all([
+      planIds.length ? supabase.from('expert_plans').select('id, name').in('id', planIds) : Promise.resolve({ data: [] as any }),
+      checkupIds.length ? supabase.from('checkup_plans').select('id, name').in('id', checkupIds) : Promise.resolve({ data: [] as any }),
+      adminIds.length ? supabase.from('profiles').select('user_id, display_name').in('user_id', adminIds) : Promise.resolve({ data: [] as any }),
+    ]);
+    setPlanMap(Object.fromEntries(((pRes.data as any[]) || []).map(p => [p.id, p.name])));
+    setCheckupPlanMap(Object.fromEntries(((cpRes.data as any[]) || []).map(p => [p.id, p.name])));
+    setAdminMap(Object.fromEntries(((profRes.data as any[]) || []).map(p => [p.user_id, p.display_name || p.user_id.slice(0, 8)])));
     setLoading(false);
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
 
   const confirm = async (order: Order) => {
-    const { data, error } = await supabase.functions.invoke('confirm-remittance', {
-      body: { orderId: order.id },
-    });
+    const { data, error } = await supabase.functions.invoke('confirm-remittance', { body: { orderId: order.id } });
     if (error || (data as any)?.error) {
       toast({ title: '確認失敗', description: error?.message || (data as any)?.error, variant: 'destructive' });
       return;
@@ -91,12 +114,19 @@ export default function CompanyRemittance() {
     }
   };
 
+  const fmtDateTime = (s: string | null) => {
+    if (!s) return '—';
+    const d = new Date(s);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+
   return (
     <CompanyLayout>
       <div className="p-6 max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">匯款審核</h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {(['awaiting_info', 'pending', 'confirmed', 'rejected', 'expired', 'all'] as const).map(s => (
               <Button key={s} variant={filter === s ? 'default' : 'outline'} size="sm" onClick={() => setFilter(s)}>
                 {s === 'awaiting_info' ? '待補資料'
@@ -112,47 +142,74 @@ export default function CompanyRemittance() {
 
         {loading ? <div className="text-muted-foreground">載入中…</div> : orders.length === 0 ? (
           <Card className="p-8 text-center text-muted-foreground">無資料</Card>
-        ) : orders.map(o => (
-          <Card key={o.id} className="p-4 space-y-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center gap-2">
-                  <Badge variant={
-                    o.status === 'pending' ? 'secondary'
-                      : o.status === 'confirmed' ? 'default'
-                      : o.status === 'rejected' ? 'destructive'
-                      : 'outline'
-                  }>
-                    {o.status === 'awaiting_info' ? '待補資料'
-                      : o.status === 'pending' ? '待對帳'
-                      : o.status === 'confirmed' ? '已開通'
-                      : o.status === 'rejected' ? '已拒絕'
-                      : o.status === 'expired' ? '已過期'
-                      : o.status}
-                  </Badge>
-                  <Badge variant="outline">{o.product_kind === 'checkup_plan' ? '健檢' : '專家方案'}</Badge>
-                  <Badge variant="outline">{o.billing_cycle === 'yearly' ? '年費' : '月費'}</Badge>
+        ) : orders.map(o => {
+          const planName = o.product_kind === 'checkup_plan'
+            ? (o.checkup_plan_id ? checkupPlanMap[o.checkup_plan_id] : null)
+            : (o.plan_id ? planMap[o.plan_id] : null);
+          const hasDiscount = o.original_amount && o.discount_amount && o.discount_amount > 0;
+          return (
+            <Card key={o.id} className="p-4 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1 text-sm">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant={
+                      o.status === 'pending' ? 'secondary'
+                        : o.status === 'confirmed' ? 'default'
+                        : o.status === 'rejected' ? 'destructive'
+                        : o.status === 'expired' ? 'outline'
+                        : 'outline'
+                    } className={o.status === 'expired' ? 'text-muted-foreground' : ''}>
+                      {o.status === 'awaiting_info' ? '待補資料'
+                        : o.status === 'pending' ? '待對帳'
+                        : o.status === 'confirmed' ? '已開通'
+                        : o.status === 'rejected' ? '已拒絕'
+                        : o.status === 'expired' ? '已過期'
+                        : o.status}
+                    </Badge>
+                    <Badge variant="outline">{o.product_kind === 'checkup_plan' ? '健檢' : '專家方案'}</Badge>
+                    <Badge variant="outline">{o.billing_cycle === 'yearly' ? '年費' : '月費'}</Badge>
+                    {planName && <Badge variant="secondary">{planName}</Badge>}
+                  </div>
+                  <div className="font-mono text-xs text-muted-foreground">訂單 ID：{o.id}</div>
+                  <div>付款人：<b>{o.payer_name ?? '—'}</b> ・ 末五碼：<b className="font-mono">{o.last5 ?? '—'}</b></div>
+                  <div>
+                    {hasDiscount ? (
+                      <>
+                        原價：<span className="line-through text-muted-foreground">NT$ {Number(o.original_amount).toLocaleString()}</span>
+                        {' → '}
+                        <b>NT$ {o.amount.toLocaleString()}</b>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          (折抵 NT$ {Number(o.discount_amount).toLocaleString()}{o.discount_reason ? `・${o.discount_reason}` : ''})
+                        </span>
+                      </>
+                    ) : (
+                      <>金額：<b>NT$ {o.amount.toLocaleString()}</b></>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">建立：{fmtDateTime(o.created_at)}</div>
+                  {o.status === 'confirmed' && o.confirmed_at && (
+                    <div className="text-xs text-muted-foreground">
+                      確認：{fmtDateTime(o.confirmed_at)}
+                      {o.confirmed_by && adminMap[o.confirmed_by] ? ` ・由 ${adminMap[o.confirmed_by]}` : ''}
+                    </div>
+                  )}
+                  {o.reject_reason && <div className="text-xs text-destructive">拒絕原因：{o.reject_reason}</div>}
                 </div>
-                <div className="font-mono text-xs text-muted-foreground">訂單 ID：{o.id}</div>
-                <div>付款人：<b>{o.payer_name ?? '—'}</b> ・ 末五碼：<b className="font-mono">{o.last5 ?? '—'}</b></div>
-                <div>金額：<b>NT$ {o.amount.toLocaleString()}</b></div>
-                <div className="text-xs text-muted-foreground">建立：{new Date(o.created_at).toLocaleString('zh-TW')}</div>
-                {o.reject_reason && <div className="text-xs text-destructive">拒絕原因：{o.reject_reason}</div>}
+                {o.status === 'pending' && (
+                  <div className="flex flex-col gap-2 w-64 shrink-0">
+                    <Button size="sm" onClick={() => confirm(o)}>確認入帳並啟用訂閱</Button>
+                    <Input
+                      placeholder="拒絕原因…"
+                      value={rejectReason[o.id] || ''}
+                      onChange={e => setRejectReason(p => ({ ...p, [o.id]: e.target.value }))}
+                    />
+                    <Button size="sm" variant="destructive" onClick={() => reject(o)}>拒絕</Button>
+                  </div>
+                )}
               </div>
-              {o.status === 'pending' && (
-                <div className="flex flex-col gap-2 w-64 shrink-0">
-                  <Button size="sm" onClick={() => confirm(o)}>確認入帳並啟用訂閱</Button>
-                  <Input
-                    placeholder="拒絕原因…"
-                    value={rejectReason[o.id] || ''}
-                    onChange={e => setRejectReason(p => ({ ...p, [o.id]: e.target.value }))}
-                  />
-                  <Button size="sm" variant="destructive" onClick={() => reject(o)}>拒絕</Button>
-                </div>
-              )}
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     </CompanyLayout>
   );

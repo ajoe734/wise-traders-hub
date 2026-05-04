@@ -67,6 +67,11 @@ export const ACTION_LABELS: Record<string, string> = {
   'plan.split_override_upsert': '更新方案分潤覆寫',
   'plan.split_override_remove': '刪除方案分潤覆寫',
   'plan.cross_discount_update': '更新跨產品折扣',
+  'plan.checkup_create': '新增健檢方案',
+  'plan.checkup_update': '更新健檢方案',
+  'plan.checkup_delete': '刪除健檢方案',
+  'plan.checkup_activate': '啟用健檢方案',
+  'plan.checkup_deactivate': '停用健檢方案',
   // setting.*
   'setting.split_default_update': '更新預設分潤比例',
   'setting.payment_provider_toggle': '切換金流工具啟用',
@@ -74,12 +79,14 @@ export const ACTION_LABELS: Record<string, string> = {
   'setting.remittance_account_update': '更新匯款帳戶資訊',
   // payment.*
   'payment.refund': '執行退款',
+  'payment.refund_failed': '退款失敗',
   // subscription.*
   'subscription.admin_adjust': '管理員調整訂閱',
   'subscription.cancel': '取消訂閱',
   // remittance.*
   'remittance.confirm': '確認匯款入帳',
   'remittance.reject': '退回匯款訂單',
+  'remittance.expired': '匯款訂單自動過期',
   // analyst.*
   'analyst.create': '建立分析師',
   'analyst.suspend': '停用分析師',
@@ -117,6 +124,8 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   announcements: '公告',
   expert_signals: '訊號',
   plan_split_overrides: '分潤覆寫',
+  checkup_plans: '健檢方案',
+  checkup_subscriptions: '健檢訂閱',
 };
 
 export function formatTargetType(t?: string | null): string {

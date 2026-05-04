@@ -1,46 +1,82 @@
 ## 目標
-在 `/company/plans`（方案管理）新增「健檢方案」分頁，讓 admin 直接管理 `checkup_plans`（持股健檢的 Basic / Pro），目前只能在資料庫手動改。
 
-## 現況
-- 方案管理頁僅有兩個 Tab：**方案審核 / 分潤**（分析師方案 `expert_plans`）、**跨產品折扣**（`payment_settings`）。
-- `checkup_plans` 表（Basic 699 / Pro 1299）已有 RLS：`Admins full access checkup plans`，可直接以 supabase client 操作。
-- 前端 `useCheckupPlans` 已在使用（健檢購買頁）。
+把「持股看板（健檢）」加入後，後台 14 個頁面散落的缺口一次補齊。三大類：
+1. **數據缺漏**：Dashboard / Subscribers 不認 `checkup_subscriptions`
+2. **流程斷鏈**：退款只改狀態沒呼叫真退款 edge function
+3. **UX/可讀性**：匯款、稽核、系統任務缺 label / 健檢欄位顯示
 
-## 規劃內容
+---
 
-### 1. 新增 Tab：健檢方案
-位置：`src/pages/company/Plans.tsx` 外層 `Tabs` 內，新增第三個 TabsTrigger「健檢方案」（icon: `HeartPulse` 或 `Stethoscope`）。
+## 改動範圍
 
-### 2. 健檢方案管理 UI（Card 列表）
-每個 plan 卡片顯示並可編輯：
-- `name`（名稱）、`description`（描述）
-- `tier`（basic / pro，下拉）
-- `price_monthly` / `price_yearly`（NTD）
-- `monthly_quota` + `quota_period`（month / week，下拉）
-- `features`（字串陣列，逐行輸入 Textarea）
-- `sort_order`（排序）
-- `is_active`（Switch）
+### 🔴 P0 — 數據完整性
 
-操作：
-- **編輯**：點擊 Pencil 開 Sheet 編輯，存檔 `update`
-- **新增**：右上「新增健檢方案」按鈕（保留彈性，雖然目前只用 Basic/Pro）
-- **刪除**：Trash 圖示 + Confirm Dialog（保險起見禁止刪除有 active 訂閱者的 plan，先 count `checkup_subscriptions` 再 delete）
-- **狀態切換**：Switch 直接 toggle `is_active`
+**1. `src/pages/company/Dashboard.tsx`**
+- `fetchStats` 加查 `checkup_subscriptions` (active+auto_renew) 與 `checkup_plans`
+- MRR：原本只算 expert 訂閱 → 加上健檢月/年訂閱換算月費
+- 本月新增訂閱 / 取消訂閱 / 續訂率：UNION 兩個 subscriptions 表
+- 新增一張卡：「本月健檢訂閱數」與「健檢 MRR」獨立顯示，避免混在一起看不到趨勢
 
-所有寫入後：
-- `queryClient.invalidateQueries(['checkup-plans'])`
-- 呼叫 `logAdminAction('checkup_plan.update' / 'create' / 'delete', ...)` 寫入 audit_logs
+**2. `src/pages/company/Subscribers.tsx`**
+- 改成同時抓 `member_subscriptions` 與 `checkup_subscriptions`，合併渲染
+- 表格新增「類型」欄：訂閱方案 / 健檢方案
+- 篩選器加「類型」filter（全部 / 訂閱 / 健檢）
+- CSV 匯出包含類型欄位
+- profile 一次查兩邊的 user_id 聯集
 
-### 3. 不動的部分
-- 不改 schema，沿用現有欄位
-- 不改 RLS（admin 已有 full access）
-- 不影響購買流程與 `useCheckupPlans` hook
+**3. `src/pages/company/Revenue.tsx` `handleRefund`**
+- 在 `update payment_transactions.status='refunded'` 之前，先呼叫對應 edge function 真退款：
+  - 看 `provider_id` → providers map → `provider_type`
+  - `acpay` → `supabase.functions.invoke('acpay-refund', { body: { tx_id, reason } })`
+  - `ecpay` → 呼叫 `process-refund`（此 function 已存在）
+  - `linepay` → 暫不支援，UI 禁用 + tooltip 說明
+- edge 失敗 → toast 報錯並中止，不寫 DB 狀態
+- 成功 → 反沖 `revenue_splits`：將該交易對應的 split 標 `refunded_at` 或寫入沖銷 row（看現有 schema，由實作時決定）
+- 移除 Revenue.tsx L427「退款獨立顯示，因為 acpay-refund 只更新…」這條註解（修好就不必再講）
 
-## 受影響檔案
-- `src/pages/company/Plans.tsx`（新增 Tab + 整段健檢方案管理區塊；同檔內處理 list/edit/save/delete）
+### 🟠 P1 — 防呆 / UX
+
+**4. `src/pages/company/Remittance.tsx`**
+- 卡片補欄位：方案名稱（join `expert_plans` 或 `checkup_plans`）、`original_amount` + `discount_amount` + `discount_reason`（若有折扣以「原價 → 折後」呈現）
+- `expired` 狀態獨立 badge 顏色（與 rejected 區分）
+- `confirmed` 顯示 `confirmed_at` 與 `confirmed_by`（admin 名稱）
+
+**5. `src/lib/auditLog.ts` ACTION_LABELS**
+- 補 `plan.checkup_create / checkup_update / checkup_delete / checkup_activate / checkup_deactivate` 中文 label
+- 補 `payment.refund_failed`、`remittance.expired`（自動過期）
+- `TARGET_TYPE_LABELS` 加 `checkup_plans` → 健檢方案、`checkup_subscriptions` → 健檢訂閱
+
+**6. `src/pages/company/AuditLogs.tsx` TARGET_LINK**
+- 加 `checkup_plans: () => '/company/plans'`
+- 加 `checkup_subscriptions: () => '/company/subscribers'`
+- `describe()` 補 `ctx.name`（健檢方案沒有 plan_name 只有 name）
+
+**7. `src/pages/company/SystemJobs.tsx`**
+- 加 `JOB_LABELS` map 把 `stock-price-sync`、`expire-stale-remittance`、`checkup-price-refresh`、`mentor-journal-publish`、`announcement-cleanup` 翻成中文＋簡述
+- 表格「任務」欄顯示中文，hover/小字保留原 job_name
+
+### 🟡 P2 — 安全（小）
+
+**8. `payment_settings` masked view**（migration）
+- 建 `payment_settings_safe` view（SECURITY INVOKER），把 `value` 中的 HashKey/HashIV/MerchantID 等敏感欄位以 `***last4` 呈現
+- `PaymentSettings.tsx` 與其他唯讀地方改讀 safe view；寫入仍走 `payment_settings`（admin RLS）
+- 即使 admin 誤把 service key 灌進前端 console，也只會看到 mask 後的字串
+
+---
+
+## 不在本輪做（避免無限延伸）
+
+- `revenue_splits` 反沖的具體 schema 設計如果現有沒有 `refunded_at` 欄位，會在實作時補一個 migration（只加欄位＋index）
+- `linepay-refund` edge function（目前 LINE Pay 沒有退款流程，UI 先禁用）
+- 通知中心、KPI 圖表的健檢拆色塊（Revenue.tsx 已有 `checkupGross`，可直接 surface 到 Dashboard，列入 P0 #1）
+
+---
 
 ## 驗收
-1. `/company/plans` 出現第三個分頁「健檢方案」
-2. 看得到目前 Basic / Pro 兩筆，可改價、改額度、切換上下架
-3. 改完後健檢購買頁立即反映新價格
-4. 操作會記到 audit_logs
+
+- Dashboard MRR ≧ Expert MRR + Checkup MRR（手算對得起來）
+- Subscribers 頁可看到只有健檢方案的會員，篩選器可切換
+- 點 Revenue「退款」按鈕能在 edge function logs 看到 `acpay-refund` / `process-refund` 真的被打
+- AuditLogs 的健檢相關 row 顯示中文 + 可點連結到 /company/plans
+- 匯款卡片可看到「健檢/專家」+ 方案名稱 + 折扣資訊
+- SystemJobs 任務名稱顯示中文
