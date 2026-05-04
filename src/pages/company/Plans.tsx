@@ -77,7 +77,7 @@ export default function CompanyPlans() {
   const [rows, setRows] = useState<PlanRow[]>([]);
   const [defaultRule, setDefaultRule] = useState<DefaultRule>({ pct_platform: 55, pct_expert: 45 });
   const [loading, setLoading] = useState(true);
-  const [outerTab, setOuterTab] = useState<'plans' | 'cross_discounts'>('plans');
+  const [outerTab, setOuterTab] = useState<'plans' | 'cross_discounts' | 'checkup'>('plans');
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
   const [acting, setActing] = useState(false);
 
