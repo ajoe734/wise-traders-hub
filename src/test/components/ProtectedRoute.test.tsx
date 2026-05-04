@@ -83,19 +83,19 @@ describe('ProtectedRoute', () => {
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 
-  it('redirects company_admin to /company when subscriberOnly is true', () => {
+  it('allows company_admin to view subscriber pages when subscriberOnly is true', () => {
     authMock.isAuthenticated = true;
     authMock.user = { id: 'u1' };
     authMock.hasRole = (role: string) => role === 'company_admin';
     renderWithRoutes('/protected', undefined, true);
-    expect(screen.getByText('Company Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 
-  it('redirects analyst to /admin/:slug when subscriberOnly is true', () => {
+  it('allows analyst to view subscriber pages when subscriberOnly is true', () => {
     authMock.isAuthenticated = true;
     authMock.user = { id: 'u1', expertSlug: 'alice' };
     authMock.hasRole = (role: string) => role === 'analyst';
     renderWithRoutes('/protected', undefined, true);
-    expect(screen.getByText('Admin Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 });
