@@ -476,6 +476,60 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Batch mode: push all signals in one batch as a Flex carousel
+    if (batch_id) {
+      console.log('Batch mode for batch_id:', batch_id)
+      const { data: batchSignals } = await supabaseAdmin
+        .from('expert_signals')
+        .select('*')
+        .eq('expert_id', expert_id)
+        .eq('batch_id', batch_id)
+        .order('executed_at', { ascending: true, nullsFirst: false })
+
+      if (!batchSignals || batchSignals.length === 0) {
+        return new Response(JSON.stringify({ error: 'Batch not found or empty' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // 一隻 carousel 最多 10 個 bubble
+      const bubbles = batchSignals.slice(0, 10).map((s: any) => {
+        const flex = buildFlexMessage(s, pushType)
+        return flex.contents // bubble 物件
+      })
+      const firstLabel = batchSignals[0]?.instrument || ''
+      const carouselMsg = {
+        type: 'flex',
+        altText: `📒 週記發布：${firstLabel}${batchSignals.length > 1 ? ` 等 ${batchSignals.length} 檔` : ''}`,
+        contents: { type: 'carousel', contents: bubbles },
+      }
+
+      let totalPushed = 0
+      if (subscribedTargets.length > 0) {
+        totalPushed += await sendToLine(channel.channel_access_token, subscribedTargets, carouselMsg)
+      }
+      if (canceledTargets.length > 0) {
+        const promoMsg = buildPromoMessage(expertRow.name, performance)
+        totalPushed += await sendToLine(channel.channel_access_token, canceledTargets, promoMsg)
+      }
+
+      // mark line_pushed_at on all signals in this batch
+      if (totalPushed > 0) {
+        await supabaseAdmin.from('expert_signals')
+          .update({ line_pushed_at: new Date().toISOString() })
+          .eq('batch_id', batch_id)
+      }
+
+      return new Response(JSON.stringify({
+        pushed: totalPushed > 0,
+        count: totalPushed,
+        bubbles: bubbles.length,
+        batch_size: batchSignals.length,
+        subscribed: subscribedTargets.length,
+        canceled: canceledTargets.length,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
     // Standard mode: fetch signal from DB
     if (!signal_id) {
       console.error('Missing signal_id')
