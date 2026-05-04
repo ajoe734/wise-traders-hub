@@ -11,7 +11,7 @@ interface SafeRichHtmlProps {
   preserveLineBreaks?: boolean;
 }
 
-const looksLikeHtml = (s: string) => /<\/?(p|br|strong|em|ul|ol|li|h[1-6]|blockquote|a)\b/i.test(s);
+const looksLikeHtml = (s: string) => /<\/?(p|br|strong|em|ul|ol|li|h[1-6]|blockquote|a|img|figure)\b/i.test(s);
 
 /**
  * 安全渲染 TipTap 產出的富文字。
