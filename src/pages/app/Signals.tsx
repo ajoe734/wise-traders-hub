@@ -11,6 +11,7 @@ import { format, isToday, differenceInHours } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
+import { richHtmlPreview } from '@/components/SafeRichHtml';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -119,14 +120,17 @@ const Signals = () => {
                       )}
 
                       {signal.reason_summary && (
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{signal.reason_summary.replace(/^[•·]\s*/gm, '')}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{richHtmlPreview(signal.reason_summary, 140)}</p>
                       )}
 
-                      {signal.risk_notes && (
-                        <div className="bg-warning-light/50 rounded-lg p-2.5 text-xs text-warning mb-3">
-                          💡 {signal.risk_notes.replace(/^[•·]\s*/gm, '').slice(0, 50)}{signal.risk_notes.length > 50 ? '...' : ''}
-                        </div>
-                      )}
+                      {signal.risk_notes && (() => {
+                        const riskTxt = richHtmlPreview(signal.risk_notes, 60);
+                        return riskTxt ? (
+                          <div className="bg-warning-light/50 rounded-lg p-2.5 text-xs text-warning mb-3">
+                            💡 {riskTxt}
+                          </div>
+                        ) : null;
+                      })()}
 
                       <div className="flex items-center justify-end text-sm text-muted-foreground font-medium">
                         查看詳解與教學
