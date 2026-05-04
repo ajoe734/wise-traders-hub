@@ -135,6 +135,7 @@ const AppShell = () => (
       <BrowserRouter>
           <AttributionTracker />
           <ScrollToTop />
+          <PendingRemittanceGuard />
           <Routes>
             {/* Portal (public) */}
             <Route path="/" element={<SmartHomeRedirect><Index /></SmartHomeRedirect>} />
