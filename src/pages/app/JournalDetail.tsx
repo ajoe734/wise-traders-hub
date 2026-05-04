@@ -158,10 +158,10 @@ const JournalDetail = () => {
   const ws = startOfWeek(pubDate, { weekStartsOn: 1 });
   const we = addDays(ws, 4);
 
-  const weekTitle = signal.reason_summary || '本週操作回顧';
+  const weekTitle = richHtmlPreview(signal.reason_summary, 80) || '本週操作回顧';
 
   const allLearningPoints = weekSignals
-    .map(s => s.learning_points)
+    .map(s => richHtmlPreview(s.learning_points, 500))
     .filter(Boolean)
     .flatMap(lp => lp!.split(/\\n|\n/).filter(l => l.trim()));
 
@@ -203,7 +203,7 @@ const JournalDetail = () => {
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold mb-2">本週整體摘要</h2>
-              <p className="text-sm text-muted-foreground whitespace-pre-line">{signal.reason_detail}</p>
+              <SafeRichHtml html={signal.reason_detail} />
             </CardContent>
           </Card>
         )}
