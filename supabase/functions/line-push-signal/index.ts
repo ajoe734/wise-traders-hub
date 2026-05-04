@@ -396,7 +396,7 @@ Deno.serve(async (req) => {
     console.log('Caller:', userId)
 
     const body = await req.json()
-    const { signal_id, expert_id, type, mode, signal_data, is_update } = body
+    const { signal_id, expert_id, type, mode, signal_data, is_update, batch_id } = body
     const pushType: 'publish' | 'takedown' | 'update' = type === 'takedown' ? 'takedown' : (is_update ? 'update' : 'publish')
     console.log('Push request:', { signal_id, expert_id, pushType, mode, is_update })
 
