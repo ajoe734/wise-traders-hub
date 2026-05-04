@@ -3,8 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { PortalLayout } from "@/components/layouts/PortalLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, CheckCircle2, Stethoscope, Building2, CreditCard } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,12 +27,10 @@ export default function CheckupCheckout() {
   const { data: plan, isLoading } = useCheckupPlan(planId);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [method, setMethod] = useState<Method>("ecpay");
-  const [last5, setLast5] = useState("");
-  const [payerName, setPayerName] = useState("");
   const [bank, setBank] = useState<{ bank_name: string; bank_code: string; account_number: string; account_name: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
-  const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string } | null>(null);
+  const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string; goRemittance?: boolean } | null>(null);
 
   // 收款帳號
   useEffect(() => {
@@ -149,21 +145,11 @@ export default function CheckupCheckout() {
         document.body.appendChild(form); form.submit();
         return;
       }
-      // 匯款
-      if (!/^\d{5}$/.test(last5)) {
-        setResultDialog({ open: true, success: false, message: "請輸入末五碼（5 位數字）" });
-        return;
-      }
-      if (!payerName.trim()) {
-        setResultDialog({ open: true, success: false, message: "請輸入匯款人姓名" });
-        return;
-      }
+      // 匯款：先建立 awaiting_info 訂單，使用者轉帳後再到「我的匯款訂單」補填末五碼/姓名
       const { error } = await supabase.functions.invoke("create-checkup-remittance", {
         body: {
           checkupPlanId: plan.id,
           billingCycle,
-          last5,
-          payerName: payerName.trim(),
           originalAmount: basePrice,
           discountAmount: crossDiscount,
           discountReason: crossReason,
@@ -171,10 +157,15 @@ export default function CheckupCheckout() {
         },
       });
       if (error) {
-        setResultDialog({ open: true, success: false, message: "送出失敗，請稍後再試" });
+        setResultDialog({ open: true, success: false, message: "建立匯款訂單失敗，請稍後再試" });
         return;
       }
-      setResultDialog({ open: true, success: true, message: "已送出匯款資料，後台確認後將為您開通。" });
+      setResultDialog({
+        open: true,
+        success: true,
+        goRemittance: true,
+        message: "已建立匯款訂單。請於 3 日內完成銀行轉帳，再到「我的匯款訂單」補填末五碼與匯款人姓名，後台對帳後即開通。",
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -290,15 +281,11 @@ export default function CheckupCheckout() {
                   <p className="text-muted-foreground">收款帳號尚未設定，請聯絡客服。</p>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="payer">匯款人姓名</Label>
-                <Input id="payer" value={payerName} onChange={(e) => setPayerName(e.target.value)} placeholder="您的姓名" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="last5">轉出帳號末五碼</Label>
-                <Input id="last5" inputMode="numeric" maxLength={5} value={last5}
-                  onChange={(e) => setLast5(e.target.value.replace(/\D/g, ""))} placeholder="例如 12345" />
-                <p className="text-xs text-muted-foreground">後台會比對末五碼後幫您開通。</p>
+              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                <p className="font-medium text-foreground">流程說明</p>
+                <p>1. 按下下方「建立匯款訂單」後，我們會為您建立一筆訂單。</p>
+                <p>2. 請於 3 日內到上方銀行帳號完成轉帳。</p>
+                <p>3. 轉帳完成後，回到「我的匯款訂單」補填<b>匯款人姓名</b>與<b>轉出帳號末五碼</b>，後台對帳後即為您開通。</p>
               </div>
             </CardContent>
           </Card>
@@ -327,7 +314,7 @@ export default function CheckupCheckout() {
 
         <Button className="w-full" size="lg" onClick={onSubmit} disabled={isProcessing}>
           {isProcessing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />處理中…</> :
-            method === "ecpay" ? "前往付款" : "送出匯款資料"}
+            method === "ecpay" ? "前往付款" : "建立匯款訂單"}
         </Button>
 
         <AlertDialog open={!!resultDialog?.open} onOpenChange={(open) => { if (!open) setResultDialog(null); }}>
@@ -344,9 +331,12 @@ export default function CheckupCheckout() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => {
+                const goRemit = resultDialog?.goRemittance;
+                const ok = resultDialog?.success;
                 setResultDialog(null);
-                if (resultDialog?.success) navigate("/free-checkup");
-              }}>確定</AlertDialogAction>
+                if (goRemit) navigate("/account/remittance");
+                else if (ok) navigate("/free-checkup");
+              }}>{resultDialog?.goRemittance ? "前往補填匯款資料" : "確定"}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

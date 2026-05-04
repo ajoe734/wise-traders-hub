@@ -1920,9 +1920,9 @@ export type Database = {
           discount_amount: number
           discount_reason: string | null
           id: string
-          last5: string
+          last5: string | null
           original_amount: number | null
-          payer_name: string
+          payer_name: string | null
           plan_id: string | null
           product_kind: string
           reject_reason: string | null
@@ -1941,9 +1941,9 @@ export type Database = {
           discount_amount?: number
           discount_reason?: string | null
           id?: string
-          last5: string
+          last5?: string | null
           original_amount?: number | null
-          payer_name: string
+          payer_name?: string | null
           plan_id?: string | null
           product_kind?: string
           reject_reason?: string | null
@@ -1962,9 +1962,9 @@ export type Database = {
           discount_amount?: number
           discount_reason?: string | null
           id?: string
-          last5?: string
+          last5?: string | null
           original_amount?: number | null
-          payer_name?: string
+          payer_name?: string | null
           plan_id?: string | null
           product_kind?: string
           reject_reason?: string | null

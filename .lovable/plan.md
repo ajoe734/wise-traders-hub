@@ -1,49 +1,54 @@
-## 根因
+## 問題
 
-`src/checkup/components/CoachMarks.jsx` 用 `position:fixed; inset:0; rgba(0,0,0,0.55); zIndex:10000` 全螢幕遮罩。第一次進 `/free-checkup` 必彈，蓋住配額卡的「升級 →」、用盡時的「查看升級方案」與整張持倉看板。`localStorage[checkup-coach-seen-v1]` 一被清就再彈。
+目前 `/checkout/checkup/...` 選「銀行匯款」時，**還沒按確認就要使用者立刻填匯款人姓名 + 轉出帳號末五碼**。可是這兩個資訊只有「實際走進銀行/開 App 轉完帳之後」才會有，順序錯了。
 
-## 我之前漏掉的測試（將一次補齊）
+## 正確流程
 
-| # | 場景 | 預期 |
-|---|------|------|
-| 1 | free（無 checkup_subscriptions） | 配額卡顯示「升級 →」可點，導向 /pricing#checkup |
-| 2 | basic（active） | tier badge=Basic、升級→ 文案改「升級 Pro」 |
-| 3 | pro | 完全隱藏所有升級 CTA |
-| 4 | 強制 remaining=0（free） | 用盡卡顯示「查看升級方案」大按鈕可點 |
-| 5 | 429 QUOTA_EXCEEDED | quotaModal 跳出，CTA 可點 |
-| 6 | /pricing#checkup（basic 登入） | 「目前方案」標 Basic、Basic 卡 disabled、Pro 卡可訂閱 |
-| 7 | /checkout/checkup/:planId（已是該 plan） | 應 redirect 或顯示提示（驗證有無破口） |
-| 8 | 第一次進 vs 關過 CoachMarks | 升級 CTA 在兩種狀態都應可點 |
+1. 使用者在結帳頁選「銀行匯款」→ 只看到收款帳號（銀行/戶名/帳號）和應付金額，按下「建立匯款訂單」。
+2. 系統建立一筆 `remittance_orders`（狀態 `awaiting_info`），回傳訂單編號 + 收款資訊。
+3. 使用者去銀行/網銀完成轉帳。
+4. 使用者**之後**回到「我的匯款訂單」頁，找到該筆訂單，補填**匯款人姓名 + 末五碼**送出 → 訂單狀態變 `pending`。
+5. 後台 (`confirm-remittance`) 維持只接受 `pending` 狀態的訂單做開通，行為不變。
 
-## 修改
+## 變更內容
 
-### 1. CoachMarks 改為「不遮頁面的底部 toast」
-`src/checkup/components/CoachMarks.jsx`
-- 移除全螢幕黑色遮罩（不用 `inset:0` + `rgba(0,0,0,.55)`）
-- 改成定位在底部中央的卡片（`position:fixed; bottom:16px; left:50%; transform:translateX(-50%); zIndex:50`），不擋頁面其他互動
-- 卡片寬度 360 / 不滿版；保留 STEP 1/3、略過、下一步、進度條
-- 維持點「略過 / 開始使用」寫 `localStorage[checkup-coach-seen-v1]='1'`
-- 移除 `onClick={close}` 在背景的關閉行為（沒背景了）
+### 1. 資料庫 migration
+- `remittance_orders.last5`、`payer_name` 改為 nullable。
+- 既有資料保留；新訂單 status 預設值不變，但流程改用 `awaiting_info` → `pending` → `confirmed` 三段。
 
-### 2. 補測試
-新增 `src/test/components/CoachMarks.test.tsx`
-- assert 元件不渲染 `inset:0` 全螢幕遮罩
-- assert 已存 `checkup-coach-seen-v1` 時不渲染
-- assert 點「略過」會寫入 localStorage 並 unmount
+### 2. Edge Function
+- `create-checkup-remittance`：移除 `last5` / `payerName` 必填；建立 row 時 status 寫 `awaiting_info`，`last5 = null`、`payer_name = null`；回傳 `orderId` + 收款帳號資訊。
+- 新增 `submit-remittance-info`：
+  - 驗證 JWT，僅允許訂單擁有者本人。
+  - body: `{ orderId, last5, payerName }`，驗證 5 位數字、姓名非空。
+  - 訂單須屬於該 user 且 status = `awaiting_info`，更新 `last5` / `payer_name` 並改 status = `pending`。
+- `confirm-remittance` 不變（只接受 `pending`）。
+- （可選一致性）`create-remittance`（專家方案）若同樣症狀就一起改；本次先以 checkup 為主，不動專家方案以縮小變更範圍。
 
-### 3. 手動驗證 SOP（我會跑）
-- 用 `supabase--read_query` 找測試帳號，臨時 insert 一筆 `checkup_subscriptions`（basic active）→ 重整頁面截圖
-- 直接改 `checkup_usage` 灌一筆讓 free remaining=0 → 截圖
-- pro 場景：`profiles.is_tester=true` 即 tier=pro → 截圖
-- 截 `/pricing#checkup` 三 tier 樣貌
-- `/checkout/checkup/:planId` 進入時若已是該 plan，檢查當前行為（若無攔截則回報，視回饋再修）
+### 3. 前端 `src/pages/CheckupCheckout.tsx`
+- 選擇「銀行匯款」時：
+  - 移除「匯款人姓名」與「末五碼」欄位。
+  - 改顯示說明：「按下『建立匯款訂單』後，您會取得訂單編號，請於 3 日內完成轉帳，並回到『我的訂單 → 補填匯款資料』提交末五碼，後台對帳後即開通。」
+  - 主要按鈕文字改成「建立匯款訂單」。
+- 送出時呼叫 `create-checkup-remittance`（已不帶 last5/payerName），成功後顯示成功對話框：訂單編號、收款帳號、CTA「前往補填匯款資料」連到 `/account/remittance`。
+- 「綠界金流」分支邏輯維持不變。
 
-### 4. 不改的部分
-- `useCheckupMode` / `check_checkup_quota` RPC 邏輯維持原樣（驗證後若有 bug 再單獨提）
-- ProtectedRoute 已修，admin 可進 `/free-checkup`，不再動
+### 4. 新增會員端頁面 `/account/remittance`
+- 列出當前登入者所有 `remittance_orders`（按 `created_at desc`）。
+- 顯示訂單編號（短碼）、商品（健檢/專家方案）、金額、狀態徽章（`awaiting_info` 待補資料 / `pending` 待對帳 / `confirmed` 已開通 / `rejected`）。
+- 對 `awaiting_info` 訂單提供 inline 表單：匯款人姓名 + 末五碼 → 呼叫 `submit-remittance-info`，成功後刷新清單。
+- 路由註冊在 `src/App.tsx`，並在 `src/pages/account/Profile.tsx` 或主導覽加入入口連結。
 
-## 交付
-- 修一支 `CoachMarks.jsx`
-- 新增 `CoachMarks.test.tsx`
-- 在回應中附上 free / basic / pro / remaining=0 / 429 modal 共 5 張驗證截圖
+### 5. RLS
+- `remittance_orders` 應已有「user 可讀自己訂單」的 select policy；確認後增補「user 可 update 自己尚未確認的訂單之 `last5` / `payer_name`」的 policy（若不打算開放 client 直接 update，可改成 SECURITY DEFINER edge function 即可，這也是預設方案，因此不用動 RLS）。
 
+### 6. 文案
+- 結帳頁的匯款說明、成功 dialog、`/account/remittance` 頁面文字皆使用繁中且符合既有 Kore-eda 簡約風格。
+- 日期格式維持 `YYYY/MM/DD`。
+
+## 不需要做的事
+- 不動 `confirm-remittance` 的後台對帳邏輯。
+- 不動綠界金流流程。
+- 不重做 schema，只加欄位 nullable。
+
+確認後我會切到 build 模式依序執行：migration → edge function → 前端結帳頁 → 新增 `/account/remittance` 頁 → 補測試。
