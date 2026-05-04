@@ -291,7 +291,7 @@ const AppCheckout = () => {
     });
     if (error || !data?.actionUrl || !data?.params) { setResultDialog({ open: true, success: false }); return; }
     const form = document.createElement("form");
-    form.method = "POST"; form.action = data.actionUrl; form.target = "_self"; form.style.display = "none";
+    form.method = "POST"; form.action = data.actionUrl; form.target = "_top"; form.style.display = "none";
     for (const [key, value] of Object.entries(data.params)) {
       const input = document.createElement("input"); input.type = "hidden"; input.name = key; input.value = String(value); form.appendChild(input);
     }
