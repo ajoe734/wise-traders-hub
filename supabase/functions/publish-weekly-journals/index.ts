@@ -145,34 +145,7 @@ Deno.serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
     log('Function start')
 
-    // Find all pending mentor signals
-    const { data: pendingSignals, error: fetchErr } = await supabaseAdmin
-      .from('expert_signals')
-      .select('id, expert_id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, teaching_topic, overall_summary, published_at, batch_id, executed_at')
-      .eq('status', 'pending')
-
-    if (fetchErr) {
-      console.error('Error fetching pending signals:', fetchErr)
-      return new Response(JSON.stringify({ error: fetchErr.message }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    if (!pendingSignals || pendingSignals.length === 0) {
-      console.log('No pending signals to publish')
-      return new Response(JSON.stringify({ published: 0, pushed: 0 }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    console.log(`Found ${pendingSignals.length} pending signals`)
-
-    // Update all pending signals to published
-    const signalIds = pendingSignals.map(s => s.id)
-    const { error: updateErr } = await supabaseAdmin
-      .from('expert_signals')
-      .update({ status: 'published' })
-      .in('id', signalIds)
+    // (replaced by stage-tracked block below)
 
     stage = 'fetch_pending_signals'
     const { data: pendingSignals, error: fetchErr } = await supabaseAdmin
