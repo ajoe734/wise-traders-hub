@@ -168,6 +168,10 @@ export function CheckupModeProvider({ children }) {
     refreshQuota,
     applyQuotaFromResponse,
     // Legacy no-op for callers still using this name
+    /**
+     * @deprecated 配額由 edge function 原子扣點。請改用 applyQuotaFromResponse(data) 同步 UI。
+     * 保留為 no-op（refreshQuota）避免舊 caller 炸掉。
+     */
     incrementUploadCount: async () => {
       await refreshQuota()
     },
