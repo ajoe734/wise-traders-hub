@@ -265,7 +265,7 @@ const AdminSignalTemplates = () => {
               <Textarea value={form.strategy_note} onChange={e => setForm(f => ({ ...f, strategy_note: e.target.value }))} placeholder="短線波段" rows={2} />
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
+              <Button variant="outline" onClick={() => { discardDraft(); setDialogOpen(false); }}>取消</Button>
               <Button onClick={handleSave} disabled={!form.title.trim()} className={cn(expert?.role === 'mentor' ? "bg-mentor hover:bg-mentor/90" : "bg-advisor hover:bg-advisor/90")}>儲存</Button>
             </div>
           </div>
