@@ -1,115 +1,71 @@
 ## 背景
 
-目前所有金流（ECPay / LINE Pay / 匯款）都是**單次扣款**——沒有任何自動續訂能力。但資料庫和 UI 卻把訂閱當「自動續訂」在賣（`auto_renew=true` 預設、Account 顯示「自動續訂」、checkout 文案寫「每月自動續訂」），造成「設了但不會生效」的鬼故事：
+綠界 AIO 不會發給特店任何 Action URL — 官方端點是**所有特店共用的固定網址**：
 
-- ECPay/LINE Pay 訂戶到期後 `expire-subscriptions` 直接標 `expired`，沒有人去扣下一期
-- `auto_renew` 欄位對非 ACpay 用戶是個謊言旗標
-- `line-push-renewal-reminder`、`auto-cancel-failed-renewals` 都是針對「應該自動扣但失敗」的場景設計，跟現實對不上
-- ACpay 入口已經移除，所以 ACREC 那條路線也用不到了
+- 正式：`https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5`
+- 測試：`https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5`
 
-你的決策：**承認現實 → 不自動扣，過期即斷，無寬限期，但提早提醒讓用戶主動回來重刷一次。**
-
----
+特店真正拿到的只有：MerchantID、HashKey、HashIV。目前 PaymentSettings 頁要求填「信用卡專用 Action URL」（必填）和「主 AIO Action URL（選填）」是錯誤設計，會讓你以為要去綠界後台找這兩個值。
 
 ## 目標
 
-1. 全站文案、UI、資料模型都誠實標示「**手動續訂**」，不再誤導用戶以為會自動扣款
-2. 到期前 7 / 3 / 1 天主動提醒（LINE + Email + App 內紅點），帶**一鍵續訂連結**回原方案 checkout
-3. 過期當下立即斷權（沒寬限期），但保留 30 天「快速續訂」入口，續訂走全新一筆 checkout、續期從新付款日重新起算（或接續前到期日，二選一—見技術細節）
-4. 移除 / 停用所有跟「自動扣款失敗重試」相關的死碼，避免後台噪音
+把 `/company/payments` 的 ECPay 區塊改成「**環境切換 + 三個必填憑證**」，跟綠界實際發給特店的東西一致。Action URL 由系統依環境自動帶。
 
----
+## 變更內容
 
-## 範圍盤點（不准偷懶 — 完整列表）
+### 1. UI 簡化 — `src/pages/company/Payments.tsx`
 
-### 前端（4 個檔）
-- `src/pages/Checkout.tsx` — 移除「每月/每年自動續訂」文案，改「需手動續訂」
-- `src/pages/CheckupCheckout.tsx` — 同上
-- `src/pages/app/AppCheckout.tsx` — 同上
-- `src/pages/app/Account.tsx` — 「自動續訂 / 手動續訂」文案改為「到期日：YYYY/MM/DD（手動續訂）」+ 一鍵續訂按鈕；目前到期前 7 天顯示提醒 banner
-- `src/pages/company/Subscribers.tsx` / `Dashboard.tsx` / `Revenue.tsx` — `auto_renew` 欄位顯示改為「續訂方式：手動」；MRR 計算邏輯需重新審視（見技術細節）
+移除以下兩個欄位：
+- 「信用卡專用 Action URL」（`credit_action_url` input）
+- 「主 AIO Action URL（選填）」（`api_url` input）
 
-### Edge Functions
-| Function | 動作 |
-|---|---|
-| `expire-subscriptions` | **保留**——這就是新模型的核心，到期即標 expired |
-| `line-push-renewal-reminder` | **改寫**——文案從「即將自動扣款」改為「即將到期，請重新訂閱」，CTA 改為一鍵續訂連結（帶 plan_id + slug 直達 checkout） |
-| `auto-cancel-failed-renewals` | **停用 cron + 從程式碼下架**——沒有自動扣，就不會有「扣款失敗」 |
-| `notify-payment-failure` | 保留，但只在「使用者主動付款失敗」時觸發，移除 isRenewal 分支 |
-| `acpay-recurring-manage` / `acpay-recurring-notify` | 你已移除 ACpay 入口，這兩個功能仍保留，但加 audit log 標記「不再使用」；不刪檔避免歷史訂閱 webhook 進來時 500 |
-| `create-acpay-order` | 移除 `remember=Y / period_type / period_frequency` 三行，改為純單筆扣款（避免後台仍把它當 recurring 處理） |
-| `create-ecpay-order` / `create-linepay-order` | 不動（本來就是單筆） |
-| 新增 `subscribe-renew-link` | 接 `?plan_id=&user_id=&token=` 驗證後 302 到正確 checkout 路徑，給 LINE/Email CTA 用 |
+新增一個欄位：
+- 「環境」單選（Radio / Select）：`測試 (stage)` / `正式 (production)` — 對應 `value.env`
 
-### Cron（pg_cron）
-- 停掉 `auto-cancel-failed-renewals` 排程
-- 確認 `expire-subscriptions` 仍在跑（現況確認後保留）
-- `line-push-renewal-reminder` 排程改為每天 09:00 UTC+8 掃 7/3/1 天到期者
+ECPay 區塊最終欄位：
+1. MerchantID
+2. HashKey
+3. HashIV
+4. 環境（stage / production）
 
-### 資料庫
-- `member_subscriptions.auto_renew` / `checkup_subscriptions.auto_renew`：**保留欄位**但語意改為「使用者偏好（未來若上自動扣再用）」，新訂閱預設改 `false`
-- 新增 migration：把所有現有 active 訂閱的 `auto_renew` 一次設為 `false`（資料誠實化）
-- `audit_logs` 新增 action 標籤：`subscription.expired_no_renewal`、`subscription.renewal_reminder_sent`
+連動行為：
+- 切換環境時，畫面下方顯示對應的固定 Action URL（唯讀文字，給管理員看），告知這個 URL 已自動套用、不需手動填。
+- 移除 `credit_action_url` / `api_url` 的必填驗證、儲存、diff 比對與 audit field list。
+- `ecpayOriginal.credit_action_url` 缺漏判斷拿掉，改成檢查 `merchant_id / hash_key / hash_iv / env` 四項。
 
-### Memory 更新
-- `mem://billing/renewal-policy-and-notifications` — 改寫為「手動續訂模型」
-- `mem://logic/billing/mrr-calculation-logic` — MRR 改用 active+expires_at>now 計算，不再依賴 auto_renew
-- 新增 `mem://billing/manual-renewal-model` — 記錄此次決策原因與規格
+### 2. 後端：根據 env 自動決定 URL — `supabase/functions/_shared/ecpayCredentials.ts`
 
----
+調整 `loadEcpayCreds`：
+- 仍然向下相容讀 `credit_action_url` / `api_url`（已存在的舊資料不破壞）。
+- 但**優先邏輯改為**：若這兩個欄位空 → 依 `env` 字段決定：
+  - `production` → `https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5`
+  - `stage`（預設）→ `https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5`
+- 新增常數 `ECPAY_PROD_AIO`、`ECPAY_STAGE_AIO`。
+- `creditActionUrl` 與 `apiUrl` 在新邏輯下會等於 env 對應的官方 URL（除非舊資料還留著自訂值，那就尊重它）。
 
-## 技術細節
+### 3. 狀態檢查也跟著改 — `supabase/functions/admin-ecpay-status/index.ts`
 
-### 一鍵續訂 token
-為了 LINE/Email 連結點下去能直接帶用戶到 checkout 並預選方案，新增 edge function `subscribe-renew-link`：
-- 收 `?sub_id=&t=<HMAC>`，HMAC = `sha256(sub_id + user_id + secret)`
-- 驗證後查 `member_subscriptions` / `checkup_subscriptions`，根據 `plan_id` 找到 `expert.slug` → 302 到 `/{slug}/checkout?plan={plan_id}&billing={cycle}` 或 `/checkup/checkout?plan=...`
-- LINE Flex / Email 模板中的「立即續訂」按鈕改用此短連結
+`apiUrl` 顯示邏輯加上「依 env 自動」分支，避免顯示 stage URL 但 env 標 production 的混淆。
 
-### 續訂日期接續規則（決策點）
-兩種選擇任一即可，建議走 **B**：
-- A. 新付款日為新週期起點（純粹乾淨，但會「吃掉」幾天剩餘權益）
-- B. 若使用者在到期前完成續訂 → 新週期從原 `expires_at` 接續；若已過期才回來 → 從付款當下起算
-  - 實作位置：`ecpay-callback` / `confirm-linepay` / `confirm-remittance` 在建立新 subscription 時判斷舊 sub 是否還沒過期
+### 4. 資料保留策略
 
-### MRR / Dashboard
-舊邏輯：`auto_renew=true AND status=active` 才算 MRR。改為：
-- MRR = 所有 `status='active' AND expires_at > now()` 的當期月化金額
-- 新增「即將到期未續訂」KPI（7 天內 expires 且 30 天內無新訂閱者）取代舊的「續訂失敗」
+不刪 `payment_settings.value.credit_action_url` / `api_url` — 老資料仍保留作為 override（給未來如果綠界真的發特殊網址的極端情況）。只是 UI 不再暴露、不再要求填。
 
-### 過期斷權（無寬限）
-`expire-subscriptions` 現行已會在 `expires_at <= now()` 時把狀態改 `expired` + 解除 LINE 綁定，符合需求；只需確認 cron 頻率夠高（建議每 15 分鐘），避免使用者過期還能多用幾小時。
+### 5. 文案調整
 
-### 一鍵續訂 UI 入口
-- `Account.tsx`：到期前 14 天起顯示橘色 banner「訂閱將於 X/X 到期，立即續訂 →」
-- 已過期但 ≤30 天：顯示灰色 banner「已於 X/X 到期，重新訂閱 →」
-- ≤30 天提供原方案直連，>30 天回方案頁讓使用者重新挑
+PaymentSettings 頁 ECPay 區塊頂部加一段說明：
 
-### Checkout 文案修正
-- 「每月自動續訂 NT$ X / 月」→ 「**單次扣款 NT$ X，效期 1 個月，到期需手動續訂**」
-- 增加同意條款項：「我了解此為**單次扣款**，到期後不會自動扣款，如需延續需主動重新付款」
+> ECPay 收單網址由系統依環境自動套用（綠界不會另外發給你 Action URL）。你只需要從綠界後台複製：MerchantID、HashKey、HashIV，並選擇對應環境。
 
----
+## 不會動到的部分
 
-## 實作步驟（建議順序）
+- `create-ecpay-order` / `create-checkup-ecpay-order` / `ecpay-callback` / `checkup-ecpay-callback`：它們繼續用 `creds.creditActionUrl`，新邏輯下這個值會是正確的官方 URL，無需改 callsite。
+- ECPay 三組憑證 secret（env fallback）保留不動。
+- 其他金流通道（LinePay / 匯款）不變。
 
-```text
-1. DB migration: auto_renew 全部設 false + 預設改 false
-2. expire-subscriptions: 確認 cron 為 15 分鐘一次（讀現況決定）
-3. 新增 subscribe-renew-link edge function + HMAC 機制
-4. 改寫 line-push-renewal-reminder（文案 + CTA + 排程）
-5. 停用 auto-cancel-failed-renewals (cron + 函式 stub 改回 410 Gone)
-6. create-acpay-order 拿掉 recurring 三行
-7. 前端 4 個 checkout / Account 頁文案 + banner
-8. 後台 Subscribers / Dashboard / Revenue 欄位語意重整
-9. 更新 3 份 memory
-```
+## 驗收
 
----
-
-## 不在範圍內（此次不做）
-- 真正的自動扣款（ECPay 定期定額、ACpay ACREC）——你日後若要上，再補
-- 退款流程不動
-- 跨產品折扣 / 升級邏輯不動
-
-確認後我就照這份開工。
+1. `/company/payments` 的 ECPay 區塊只剩 4 個欄位（3 憑證 + 環境）。
+2. 切換 stage / production，下方提示文字顯示對應官方 URL。
+3. 不填 Action URL 也能存檔、能成功送出 ECPay 訂單（前後台 + 健檢都能下單）。
+4. `admin-ecpay-status` 回傳的 `apiUrl` 與選擇的環境一致。
