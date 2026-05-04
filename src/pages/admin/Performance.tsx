@@ -324,7 +324,10 @@ const AdminPerformance = () => {
 
   // ─── 已實現損益：trade_records (closed = sell/trim) ───
   const fetchRealized = useCallback(async () => {
-    if (!expertId) return;
+    if (!expertId) {
+      setRealizedLoading(false);
+      return;
+    }
     setRealizedLoading(true);
 
     const now = new Date();
