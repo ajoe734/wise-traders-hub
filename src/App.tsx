@@ -50,6 +50,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 
 // Account pages
 import AccountProfile from "./pages/account/Profile";
+import MyRemittanceOrders from "./pages/account/MyRemittanceOrders";
 
 // App pages (aggregated member view)
 import AppHome from "./pages/app/AppHome";
