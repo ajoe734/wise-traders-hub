@@ -186,8 +186,10 @@ Deno.serve(async (req) => {
     log(`Updated ${signalIds.length} signals to published`)
 
     // Sync trade_signals + user_performances for each published signal
-    // This ensures the Python price fetcher picks up mentor positions
+    stage = 'sync_trade_signals'
+    let syncOk = 0, syncFail = 0
     for (const signal of pendingSignals) {
+      try {
       const { data: expertRow } = await supabaseAdmin
         .from('experts')
         .select('user_id')
