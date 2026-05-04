@@ -1,106 +1,80 @@
-## 目標
+# 配額計算重新設計
 
-只動 `src/pages/FreeCheckup.jsx`（7,200 行）的**可讀性**，不破憲法、不抽 UI、不換樣式、不改行為。完成後檔案會少 ~500 行，IDE 可一鍵折疊出 10 餘個區段。
+## 目標規則（單一真相）
 
----
+| 使用者動作 | Edge Function | kind | 扣點 |
+|---|---|---|---|
+| 上傳成交截圖（每張） | `checkup-parse` | `parse` | **+1** |
+| 收盤分析（按一次按鈕） | `checkup-analyze` | `daily-analysis` | **+1** |
+| 事件分析（按一次按鈕） | `checkup-predict-events` | `predict-events` | **+1** |
+| 策略大腦進化（內部 follow-up） | `checkup-analyze` (`kind:'brain-update'`) | — | **0** |
+| 研究室深度研究 | `checkup-research` | `deep-research` | **+1**（維持現狀）|
+| 研究室系統審查 | `checkup-research` | `system-review` | **+1**（維持現狀）|
+| 研究室資料抽取 | `checkup-research-extract` | `research-extract` | **+1**（維持現狀）|
 
-## 動作（三步，依序）
-
-### Step 1：把全域 `<style>` 字串外移成純常數
-
-`FreeCheckup.jsx` 內目前有 3 個 inline `<style>{`...`}</style>` 區塊：
-- L2964：全站樣式（fonts、reset、`.wb-card` RWD、Hero `@media` 斷點等，估 ~400 行）
-- L4745：子分頁樣式（估 ~80 行）
-- L5862：`@keyframes checkup-spin`（單行，留著）
-
-做法：
-1. 新增 `src/pages/FreeCheckup.styles.ts`，export 兩支純字串常數：
-   ```ts
-   export const FREE_CHECKUP_GLOBAL_CSS = `...原 L2964 內容...`;
-   export const FREE_CHECKUP_SUBPAGE_CSS = `...原 L4745 內容...`;
-   ```
-2. `FreeCheckup.jsx` 改為：
-   ```jsx
-   import { FREE_CHECKUP_GLOBAL_CSS, FREE_CHECKUP_SUBPAGE_CSS } from './FreeCheckup.styles';
-   ...
-   <style>{FREE_CHECKUP_GLOBAL_CSS}</style>
-   ...
-   <style>{FREE_CHECKUP_SUBPAGE_CSS}</style>
-   ```
-3. **CSS 內容一字不改**，只是搬家。Hero `≤560/≤380` 的 media-query 全部跟著搬走但保留原文。
-
-成果：FreeCheckup.jsx 從 7,200 → ~6,700 行。
-
-### Step 2：加 `// #region` 折疊標記（不動程式碼）
-
-掃 `App()`（L435 起）的 JSX return，依語意切 region，每個 region 開頭與結尾加註解：
-```jsx
-// #region Hero — 總損益 / 報酬率 / 標題列
-... 既有 JSX ...
-// #endregion
-
-// #region Holdings — .wb-card 持倉看板
-...
-// #endregion
-
-// #region Watchlist — 觀察清單
-// #region Tab: Events
-// #region Tab: Trade
-// #region Tab: Log
-// #region Tab: Brain
-// #region Tab: Daily Report
-// #region Modals — Edit / Delete / Lightbox
-```
-
-檔頭常數區同樣切：
-```jsx
-// #region Constants — 政策 / 顏色 / 種子資料
-// #region Helpers — 純函式
-```
-
-VSCode / Cursor 會自動折疊；不影響執行、不影響測試。
-
-### Step 3：抽純邏輯到 hook（沿用 Step 4 已建立的模式）
-
-延續上一輪 `useLogPanelFilters` / `useDialogEscape` 的做法，再抽 2 個明確無 UI 副作用的 hook（不抽 UI 元件，遵守 inline 憲法）：
-
-- `src/checkup/hooks/useFreeCheckupClock.js`：把目前散在 `App()` 內的 `now / isTradingHours / formatResetCountdown` 相關 `useState + useEffect` 收進來。
-- `src/checkup/hooks/useFreeCheckupRetry.js`：把 `RETRY_POLICY` / `classifyAttempt` / `deriveSuggestion`（L29–L120）的 ref 與 setter 收成單一 hook。
-
-只搬 hook 內部用得到的 state/effect/helper。所有 JSX 留在原檔。
-
-成果：FreeCheckup.jsx 再少 ~150 行，總計約從 7,200 → ~6,500。
+> 同一個按鈕點兩次就扣兩次；批次解析多張截圖視為「多次動作」。
 
 ---
 
-## 不會動到的東西（明確列出）
+## 後端調整
 
-- 任何 JSX 結構、className、`fontSize`、`<style>` 內 CSS 文字
-- `holdingsTokens.js`、`DESIGN_SPEC.md`、配色憲法
-- `holdings/` 目錄樣板元件的 import 規則（仍禁止 import 進 FreeCheckup）
-- Hero `≤560/≤380px` media-query 內容
-- 任何資料 / API / 同步 / quota 邏輯
+### 1. `supabase/functions/checkup-analyze/index.ts`
+- 已有 `isBrainUpdate` 分支但 kind 仍叫 `'analysis'`。改為：
+  - 主分析使用 `consumeCheckupQuota(req, 'daily-analysis')`，取代現行的 `'analysis'`，使資料庫 `checkup_usage.kind` 與前端規格對齊。
+  - `brain-update` 維持現有「驗 JWT、不扣配額、防濫用 10 分鐘窗」邏輯（已正確，無需動）。
+- 確保 response payload 一律包含 `quota: quotaSnapshot`（已 OK）。
 
-## 驗證（強制全跑，依 Core「不准偷懶」條款）
+### 2. `supabase/functions/checkup-predict-events/index.ts`
+- 維持 `consumeCheckupQuota(req, 'predict-events')`，response 已含 `quota`（line 537）。**無變更**。
 
-1. `bunx vitest run`（全測試套件）
-2. `bunx vitest run src/test/unit/freecheckup-i18n.test.ts`
-3. `bunx vitest run src/test/unit/freecheckup-mobile-card-overflow.test.ts`
-4. `node scripts/check-freecheckup-rwd.mjs`（560/390/380 三斷點靜態檢查）
-5. `bunx playwright test e2e/freecheckup-card.spec.ts`
-6. 視覺：preview 在 560 / 390 / 380 / 979 四個斷點各截圖一張，確認 Hero、`.wb-card`、各 Tab 與 Step 1 對齊。
+### 3. `supabase/functions/checkup-parse/index.ts`
+- 維持 `consumeCheckupQuota(req, 'parse')`，response 已含 `quota`。**無變更**。
 
-任何一項失敗 → 回滾搬家後檢查 CSS template literal 是否被 `${}` 反引號逸出問題影響（這是搬家最容易踩的雷）。
+### 4. 研究室三支 (`checkup-research`, `checkup-research-extract`)
+- 維持現狀：`deep-research` / `system-review` / `research-extract` 各扣 1（依使用者上輪未明確選 A/B/C 之前）。
+- 若稍後決定改 B（免費），只需把 3 個 `consumeCheckupQuota` 呼叫拿掉。
 
-## 風險
+### 5. `_shared/checkupQuota.ts`
+- 不變；保留 `kind` 為純標籤用途（之後可在 admin overview 依 kind 分群）。
 
-- **唯一真實風險**：`<style>{`...`}</style>` 內若有 `${C.textMute}` 之類的模板字串內插，搬到 `.ts` 後會失效（因為 C 不在那個檔的 scope）。處理方式：搬之前 grep `\${` 在 style 區塊內出現次數，若有，改成把整段 CSS 改回 function `buildGlobalCss(C)` 形式 export，FreeCheckup.jsx 端 `<style>{buildGlobalCss(C)}</style>`。我會在實作第一步先驗這點。
+---
 
-## 預期產出
+## 前端調整 — `src/pages/FreeCheckup.jsx`
 
-- `src/pages/FreeCheckup.styles.ts`（新檔，純字串或單一 builder function）
-- `src/checkup/hooks/useFreeCheckupClock.js`（新檔）
-- `src/checkup/hooks/useFreeCheckupRetry.js`（新檔）
-- `src/pages/FreeCheckup.jsx`（少 ~700 行、加 region 註解、import 上述三個新檔）
+### A. 移除誤導的本地 increment
+- **Line 2381**：刪除 `incrementUploadCount(); // 計入今日 AI 配額`  
+  → 收盤分析已由 `checkup-analyze` 後端原子扣點，前端再 increment 是雙重計算的錯覺（雖然 `incrementUploadCount` 現在實作其實是 `refreshQuota()`，但語意混淆）。
+- **Line 2821**：刪除 `incrementUploadCount(); // 記錄今日上傳次數`  
+  → 上傳成交的扣點已由 `checkup-parse` 完成，前端不再呼叫。
 
-不更新記憶（憲法不變）。
+### B. 統一改用 response-driven 同步
+所有 3 個入口的 `callEdge` 結果回來後立即呼叫：
+```js
+if (data?.quota) applyQuotaFromResponse(data);
+```
+- Line 2751 已正確（parse 入口）。
+- 在 line ~1455 (`predict-events` 成功回來後) 補一行同步。
+- 在 line ~2378 (`checkup-analyze` 成功回來後) 補一行同步，取代被刪除的 `incrementUploadCount()`。
+
+### C. `CheckupModeContext.jsx`
+- `incrementUploadCount` 標記為 deprecated（保留為 no-op 包裝 `refreshQuota`，避免外部呼叫者炸掉），並在 JSDoc 註明「請改用 `applyQuotaFromResponse(data)`」。
+- 移除 hook destructure 中對 `incrementUploadCount` 的依賴（line 441）。
+
+---
+
+## 驗證
+
+1. **Edge function 測試**：
+   - 對 `checkup-analyze` 連續呼叫 2 次（一次主分析、一次 brain-update），確認 `checkup_usage` 只新增 1 列且 `kind='daily-analysis'`。
+   - 對 `checkup-predict-events` 點 2 次 → `checkup_usage` 新增 2 列 `kind='predict-events'`。
+   - 對 `checkup-parse` 上傳 3 張 → 新增 3 列 `kind='parse'`。
+2. **前端**：
+   - `bunx vitest run src/test/unit/freecheckup-i18n.test.ts src/test/unit/freecheckup-mobile-card-overflow.test.ts`（必跑回歸）。
+   - 手動 QA：免費版（quota=1）依序試 3 個入口，每按一次右上角配額即時 -1。
+3. **配額耗盡**：第 2 次點同一動作要拿 429 + `QUOTA_EXCEEDED` 並彈出升級窗。
+
+---
+
+## 待你決定
+
+研究室 3 支 (`deep-research` / `system-review` / `research-extract`) 在這次重構保持「各扣 1」(預設 A)。如果你要改 B（全部免費）或 C（先不動，獨立議題）請回我，我會在實作時一併處理。

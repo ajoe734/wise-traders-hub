@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
     const isBrainUpdate = body?.kind === 'brain-update';
     let quotaSnapshot: any = null;
     if (!isBrainUpdate) {
-      const quota = await consumeCheckupQuota(req, 'analysis', corsHeaders);
+      const quota = await consumeCheckupQuota(req, 'daily-analysis', corsHeaders);
       if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
       quotaSnapshot = quota.quota;
     } else {
