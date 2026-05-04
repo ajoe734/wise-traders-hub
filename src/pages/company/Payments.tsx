@@ -287,24 +287,27 @@ const CompanyPayments = () => {
   };
 
   const fetchRemit = async () => {
-    const { data } = await supabase.from('payment_settings').select('value').eq('key', 'remittance_account').maybeSingle();
+    const { data } = await (supabase.from as any)('payment_settings_safe').select('value').eq('key', 'remittance_account').maybeSingle();
     const v = (data?.value as Record<string, string>) || {};
     setRemit(v);
     setRemitOriginal(v);
   };
 
   const fetchEcpay = async () => {
-    const { data } = await supabase
-      .from('payment_settings')
+    // 讀取走 safe view：HashKey / HashIV 不會回傳原值，只回 has_* 旗標 + 末四碼
+    const { data } = await (supabase.from as any)('payment_settings_safe')
       .select('value, updated_at')
       .eq('key', 'ecpay_credentials')
       .maybeSingle();
-    const v = (data?.value as EcpayCredsRow) || {};
+    const v = (data?.value as EcpayCredsRow & { has_hash_key?: boolean; has_hash_iv?: boolean }) || {};
     const withTs: EcpayCredsRow = { ...v, updated_at: data?.updated_at };
+    // 不可把 mask 後的字串塞回 hash_key / hash_iv state，避免後續 saveEcpay 誤把 *** 字串覆寫回 DB
+    delete (withTs as any).hash_key;
+    delete (withTs as any).hash_iv;
     setEcpay(withTs);
     setEcpayOriginal(withTs);
-    setEcpayHasKey(!!(v.hash_key && v.hash_key.length > 0));
-    setEcpayHasIV(!!(v.hash_iv && v.hash_iv.length > 0));
+    setEcpayHasKey(!!v.has_hash_key);
+    setEcpayHasIV(!!v.has_hash_iv);
     setEcpayHashKeyInput('');
     setEcpayHashIVInput('');
   };
