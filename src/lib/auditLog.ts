@@ -79,6 +79,7 @@ export const ACTION_LABELS: Record<string, string> = {
   'setting.remittance_account_update': '更新匯款帳戶資訊',
   // payment.*
   'payment.refund': '執行退款',
+  'payment.refund_failed': '退款失敗',
   // subscription.*
   'subscription.admin_adjust': '管理員調整訂閱',
   'subscription.cancel': '取消訂閱',
