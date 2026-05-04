@@ -134,7 +134,7 @@ export default function CompanyRemittance() {
                   <Badge variant="outline">{o.billing_cycle === 'yearly' ? '年費' : '月費'}</Badge>
                 </div>
                 <div className="font-mono text-xs text-muted-foreground">訂單 ID：{o.id}</div>
-                <div>付款人：<b>{o.payer_name}</b> ・ 末五碼：<b className="font-mono">{o.last5}</b></div>
+                <div>付款人：<b>{o.payer_name ?? '—'}</b> ・ 末五碼：<b className="font-mono">{o.last5 ?? '—'}</b></div>
                 <div>金額：<b>NT$ {o.amount.toLocaleString()}</b></div>
                 <div className="text-xs text-muted-foreground">建立：{new Date(o.created_at).toLocaleString('zh-TW')}</div>
                 {o.reject_reason && <div className="text-xs text-destructive">拒絕原因：{o.reject_reason}</div>}
