@@ -1014,7 +1014,9 @@ export type Database = {
       expert_signals: {
         Row: {
           action: Database["public"]["Enums"]["signal_action"]
+          batch_id: string | null
           created_at: string
+          executed_at: string | null
           expert_id: string
           id: string
           instrument: string
@@ -1036,7 +1038,9 @@ export type Database = {
         }
         Insert: {
           action: Database["public"]["Enums"]["signal_action"]
+          batch_id?: string | null
           created_at?: string
+          executed_at?: string | null
           expert_id: string
           id?: string
           instrument: string
@@ -1058,7 +1062,9 @@ export type Database = {
         }
         Update: {
           action?: Database["public"]["Enums"]["signal_action"]
+          batch_id?: string | null
           created_at?: string
+          executed_at?: string | null
           expert_id?: string
           id?: string
           instrument?: string
