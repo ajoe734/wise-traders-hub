@@ -169,7 +169,7 @@ const AdminSignalTemplates = () => {
                 {templates.map((t, idx) => (
                   <div
                     key={t.id}
-                    draggable={!isCompanyAdmin}
+                    draggable
                     onDragStart={() => handleDragStart(idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDragEnd={handleDragEnd}
@@ -178,22 +178,20 @@ const AdminSignalTemplates = () => {
                       dragIdx === idx && "opacity-50"
                     )}
                   >
-                    {!isCompanyAdmin && <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />}
+                    <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />
                     <span className="font-medium text-sm min-w-[80px]">{t.title}</span>
                     <Badge className={cn('text-[10px] px-1.5 py-0 shrink-0', getActionClass(t.action))}>
                       {getActionLabel(t.action)}
                     </Badge>
                     <span className="text-sm text-muted-foreground truncate flex-1">{t.reason || '-'}</span>
-                    {!isCompanyAdmin && (
-                      <div className="flex gap-1 shrink-0">
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(t)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex gap-1 shrink-0">
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(t)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
