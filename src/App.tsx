@@ -97,6 +97,7 @@ import CompanyMissingPrices from "./pages/company/MissingPrices";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { PendingRemittanceGuard } from "./components/PendingRemittanceGuard";
 
 const RealtimeBridge = () => {
   useSignalRealtimeInvalidation();
@@ -134,6 +135,7 @@ const AppShell = () => (
       <BrowserRouter>
           <AttributionTracker />
           <ScrollToTop />
+          <PendingRemittanceGuard />
           <Routes>
             {/* Portal (public) */}
             <Route path="/" element={<SmartHomeRedirect><Index /></SmartHomeRedirect>} />
