@@ -111,6 +111,7 @@ const AdminSignalTemplates = () => {
       if (error) { toast.error(error.message); return; }
       toast.success('模板已新增');
     }
+    discardDraft();
     setDialogOpen(false);
     fetchData();
   };
