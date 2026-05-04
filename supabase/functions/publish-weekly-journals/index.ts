@@ -7,6 +7,26 @@ const corsHeaders = {
 
 const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/multicast'
 
+// 將 TipTap HTML 拍平成 LINE 純文字（保留段落/列表的換行）
+function htmlToText(s: any): string {
+  if (s == null) return ''
+  const str = String(s)
+  if (!/<[a-z][^>]*>/i.test(str)) return str
+  return str
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)\s*>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 // Build promo message for canceled subscribers
 function buildPromoMessage(expertName: string, performance: any, signalCount: number) {
   const bodyContents: any[] = [
@@ -99,7 +119,7 @@ Deno.serve(async (req) => {
     // Find all pending mentor signals
     const { data: pendingSignals, error: fetchErr } = await supabaseAdmin
       .from('expert_signals')
-      .select('id, expert_id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, teaching_topic, overall_summary, published_at')
+      .select('id, expert_id, instrument, action, price_hint, quantity, quantity_unit, reason_summary, reason_detail, risk_notes, learning_points, teaching_topic, overall_summary, published_at, batch_id, executed_at')
       .eq('status', 'pending')
 
     if (fetchErr) {
@@ -294,133 +314,113 @@ Deno.serve(async (req) => {
       const subscribedTargets = bindings.filter((b: any) => subscribedUserIds.has(b.user_id)).map((b: any) => b.line_user_id)
       const canceledTargets = bindings.filter((b: any) => canceledUserIds.has(b.user_id)).map((b: any) => b.line_user_id)
 
-      // Build normal content message for subscribed users
+      // batch grouping below
+
+      // 依 batch_id 分組（同一篇週記 = 一個 bubble）；無 batch_id 的視為自身一組
+      const byBatch = new Map<string, typeof signals>()
+      for (const s of signals) {
+        const k = (s as any).batch_id || `__solo_${s.id}`
+        const arr = byBatch.get(k) || []
+        arr.push(s)
+        byBatch.set(k, arr)
+      }
+
       const expertName = expert?.name || '導師'
       const actionLabel: Record<string, string> = {
         buy: '買進', sell: '賣出', add: '加碼', trim: '減碼', exit: '平損',
       }
 
-      // Use teaching_topic + overall_summary from first signal (they share the same weekly context)
-      const firstSignal = signals[0]
-      const teachingTopic = (firstSignal as any).teaching_topic || ''
-      const overallSummary = (firstSignal as any).overall_summary || ''
+      const buildBubble = (group: typeof signals) => {
+        const first = group[0] as any
+        const teachingTopic = htmlToText(first.teaching_topic || '')
+        const overallSummary = htmlToText(first.overall_summary || '')
+        const learningPoints = htmlToText(first.learning_points || '')
 
-      const copyLines: string[] = [`${expertName} 本週週記`, '']
-      if (teachingTopic) copyLines.push(`📚 教學主題：${teachingTopic}`)
-      if (overallSummary) copyLines.push(`📝 整體摘要：${overallSummary}`)
-      copyLines.push(`本週共 ${signals.length} 筆操作紀錄`, '')
-
-      const bodyContents: any[] = []
-
-      if (teachingTopic) {
+        const bodyContents: any[] = []
+        if (teachingTopic) {
+          bodyContents.push({ type: 'text', text: `📚 ${teachingTopic}`, weight: 'bold', size: 'lg', color: '#333333', wrap: true })
+        }
         bodyContents.push({
           type: 'text',
-          text: `📚 ${teachingTopic}`,
-          weight: 'bold',
-          size: 'lg',
+          text: `本週共 ${group.length} 筆 操作紀錄`,
+          weight: teachingTopic ? 'regular' : 'bold',
+          size: teachingTopic ? 'sm' : 'lg',
           color: '#333333',
+          margin: teachingTopic ? 'md' : undefined,
         })
-      }
-
-      bodyContents.push({
-        type: 'text',
-        text: `本週共 ${signals.length} 筆 操作紀錄`,
-        weight: teachingTopic ? 'regular' : 'bold',
-        size: teachingTopic ? 'sm' : 'lg',
-        color: '#333333',
-        margin: teachingTopic ? 'md' : undefined,
-      })
-
-      if (overallSummary) {
-        bodyContents.push({
-          type: 'text',
-          text: overallSummary,
-          size: 'sm',
-          color: '#666666',
-          margin: 'md',
-          wrap: true,
-        })
-      }
-
-      bodyContents.push({ type: 'separator', margin: 'lg' })
-
-      for (const s of signals) {
-        const label = actionLabel[s.action] || s.action
-        const isBullish = ['buy', 'add'].includes(s.action)
-        const color = isBullish ? '#00B900' : '#DC3545'
-
-        bodyContents.push({
-          type: 'text', text: `${label} ${s.instrument}`, size: 'md', color, margin: 'lg', weight: 'bold',
-        })
-
-        if (s.reason_summary) {
-          bodyContents.push({ type: 'text', text: `❓ 為什麼這樣操作？${s.reason_summary}`, size: 'sm', color: '#444444', margin: 'sm', wrap: true })
+        if (overallSummary) {
+          bodyContents.push({ type: 'text', text: overallSummary, size: 'sm', color: '#666666', margin: 'md', wrap: true })
         }
-        if (s.reason_detail) {
-          bodyContents.push({ type: 'text', text: `◉ 部位控管想法：${s.reason_detail}`, size: 'xs', color: '#666666', margin: 'sm', wrap: true })
+        bodyContents.push({ type: 'separator', margin: 'lg' })
+
+        for (const s of group) {
+          const label = actionLabel[s.action] || s.action
+          const isBullish = ['buy', 'add'].includes(s.action)
+          const color = isBullish ? '#DC3545' : '#00B900' // 台股慣例：紅漲綠跌
+          bodyContents.push({ type: 'text', text: `${label} ${s.instrument}`, size: 'md', color, margin: 'lg', weight: 'bold' })
+          const rs = htmlToText((s as any).reason_summary)
+          const rd = htmlToText((s as any).reason_detail)
+          const rn = htmlToText((s as any).risk_notes)
+          if (rs) bodyContents.push({ type: 'text', text: `❓ 為什麼這樣操作？${rs}`, size: 'sm', color: '#444444', margin: 'sm', wrap: true })
+          if (rd) bodyContents.push({ type: 'text', text: `◉ 部位控管想法：${rd}`, size: 'xs', color: '#666666', margin: 'sm', wrap: true })
+          if (rn) bodyContents.push({ type: 'text', text: `⚠️ 風險提醒：${rn}`, size: 'sm', color: '#444444', margin: 'sm', wrap: true })
+          bodyContents.push({ type: 'separator', margin: 'md' })
         }
-        if (s.risk_notes) {
-          bodyContents.push({ type: 'text', text: `⚠️ 風險提醒：${s.risk_notes}`, size: 'sm', color: '#444444', margin: 'sm', wrap: true })
-        }
-        if (s.learning_points) {
-          bodyContents.push({ type: 'text', text: `🎯 教學重點：${s.learning_points}`, size: 'xs', color: '#333333', margin: 'sm', wrap: true })
+        if (learningPoints) {
+          bodyContents.push({ type: 'text', text: `🎯 教學重點：${learningPoints}`, size: 'sm', color: '#333333', margin: 'md', wrap: true })
         }
 
-        bodyContents.push({ type: 'separator', margin: 'md' })
-      }
+        // copy text
+        const copyLines: string[] = [`${expertName} 本週週記`, '']
+        if (teachingTopic) copyLines.push(`📚 教學主題：${teachingTopic}`)
+        if (overallSummary) copyLines.push(`📝 整體摘要：${overallSummary}`)
+        copyLines.push(`本週共 ${group.length} 筆操作紀錄`, '')
+        for (const s of group) {
+          const label = actionLabel[s.action] || s.action
+          copyLines.push(`【${label} ${s.instrument}】`)
+          const rs = htmlToText((s as any).reason_summary)
+          const rd = htmlToText((s as any).reason_detail)
+          const rn = htmlToText((s as any).risk_notes)
+          if (rs) copyLines.push(`❓ ${rs}`)
+          if (rd) copyLines.push(`◉ ${rd}`)
+          if (rn) copyLines.push(`⚠️ ${rn}`)
+          copyLines.push('')
+        }
+        if (learningPoints) copyLines.push(`🎯 教學重點：${learningPoints}`)
+        const copyText = copyLines.join('\n')
 
-      // Build copy text
-      for (const s of signals) {
-        const label = actionLabel[s.action] || s.action
-        copyLines.push(`【${label} ${s.instrument}】`)
-        if (s.reason_summary) copyLines.push(`❓ 為什麼這樣操作？${s.reason_summary}`)
-        if (s.reason_detail) copyLines.push(`◉ 部位控管想法：${s.reason_detail}`)
-        if (s.risk_notes) copyLines.push(`⚠️ 風險提醒：${s.risk_notes}`)
-        if (s.learning_points) copyLines.push(`🎯 教學重點：${s.learning_points}`)
-        copyLines.push('')
-      }
-      const copyText = copyLines.join('\n')
-
-      const footer = {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'button',
-            action: { type: 'clipboard', label: '📋 一鍵複製', clipboardText: copyText },
-            style: 'secondary',
-            height: 'sm',
-            color: '#F0F0F0',
-          },
-        ],
-        spacing: 'sm',
-        paddingAll: 'lg',
-      }
-
-      const altTextTopic = teachingTopic ? `${teachingTopic} — ` : ''
-      const message = {
-        type: 'flex',
-        altText: `📖 ${expertName} 本週週記已發布${altTextTopic}（${signals.length} 筆操作）`,
-        contents: {
+        return {
           type: 'bubble',
           body: { type: 'box', layout: 'vertical', contents: bodyContents },
-          footer,
-        },
+          footer: {
+            type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'lg',
+            contents: [{ type: 'button', action: { type: 'clipboard', label: '📋 一鍵複製', clipboardText: copyText }, style: 'secondary', height: 'sm', color: '#F0F0F0' }],
+          },
+        }
+      }
+
+      const bubbles = Array.from(byBatch.values()).map(buildBubble)
+
+      // LINE 限制：一個 carousel 最多 10 bubbles → 多了拆成多則訊息
+      const messages: any[] = []
+      for (let i = 0; i < bubbles.length; i += 10) {
+        const slice = bubbles.slice(i, i + 10)
+        if (slice.length === 1) {
+          messages.push({ type: 'flex', altText: `📖 ${expertName} 本週週記已發布（${signals.length} 筆操作）`, contents: slice[0] })
+        } else {
+          messages.push({ type: 'flex', altText: `📖 ${expertName} 本週週記已發布（${signals.length} 筆操作）`, contents: { type: 'carousel', contents: slice } })
+        }
       }
 
       // Send normal content to subscribed users
-      if (subscribedTargets.length > 0) {
+      if (subscribedTargets.length > 0 && messages.length > 0) {
         for (let i = 0; i < subscribedTargets.length; i += 500) {
           const batch = subscribedTargets.slice(i, i + 500)
           const res = await fetch(LINE_MULTICAST_URL, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${channel.channel_access_token}`,
-            },
-            body: JSON.stringify({ to: batch, messages: [message] }),
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${channel.channel_access_token}` },
+            body: JSON.stringify({ to: batch, messages: messages.slice(0, 5) }), // LINE 一次最多 5 則
           })
-
           if (res.ok) {
             totalPushed += batch.length
             console.log(`Pushed to ${batch.length} subscribed users for expert ${expertId}`)
@@ -429,6 +429,7 @@ Deno.serve(async (req) => {
             console.error(`LINE push failed for expert ${expertId}:`, res.status, errBody)
           }
         }
+      }
       }
 
       // Send promo message to canceled users

@@ -59,7 +59,8 @@ const actionLabels: Record<string, string> = {
 };
 
 const SignalEditor = () => {
-  const { expertSlug } = useParams<{ expertSlug: string }>();
+  const { expertSlug, batchId: editBatchId } = useParams<{ expertSlug: string; batchId?: string }>();
+  const isEditing = !!editBatchId;
   const navigate = useNavigate();
   const { user, hasRole } = useAuth();
 
@@ -85,7 +86,7 @@ const SignalEditor = () => {
   const publishWindow = isPublishingWindowOpen();
   const stockCacheRef = useRef<Map<string, string>>(new Map());
 
-  // 草稿
+  // 草稿（編輯模式不啟用，避免覆蓋線上資料）
   const DRAFT_KEY = `signal-editor-${expertSlug}`;
   const draftValue = useMemo(
     () => ({ teachingTopic, overallSummary, learningPoints, trades }),
@@ -95,6 +96,7 @@ const SignalEditor = () => {
     DRAFT_KEY,
     draftValue,
     (saved) => {
+      if (isEditing) return;
       if (typeof saved.teachingTopic === 'string') setTeachingTopic(saved.teachingTopic);
       if (typeof saved.overallSummary === 'string') setOverallSummary(saved.overallSummary);
       if (typeof saved.learningPoints === 'string') setLearningPoints(saved.learningPoints);
@@ -102,7 +104,7 @@ const SignalEditor = () => {
         setTrades(saved.trades.map((t: any) => ({ ...emptyTrade(), ...t, uid: t.uid || newUid() })));
       }
     },
-    { enabled: true },
+    { enabled: !isEditing },
   );
 
   // 載入 expert / 模板 / 持倉
@@ -141,6 +143,52 @@ const SignalEditor = () => {
     })();
     return () => { cancelled = true; };
   }, [expertSlug]);
+
+  // 編輯模式：載入既有 batch 的所有訊號
+  useEffect(() => {
+    if (!isEditing || !expert) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('expert_signals')
+        .select('*')
+        .eq('expert_id', expert.id)
+        .eq('batch_id', editBatchId as any)
+        .order('executed_at', { ascending: true });
+      if (cancelled) return;
+      if (error || !data || data.length === 0) {
+        toast.error('找不到要編輯的批次');
+        navigate(`/admin/${expertSlug}/signals`, { replace: true });
+        return;
+      }
+      const first: any = data[0];
+      setTeachingTopic(first.teaching_topic || '');
+      setOverallSummary(first.overall_summary || '');
+      setLearningPoints(first.learning_points || '');
+      setTrades(
+        data.map((row: any) => {
+          const inst = String(row.instrument || '');
+          const [code, ...rest] = inst.split(' ');
+          const dt = row.executed_at ? new Date(row.executed_at) : new Date(row.published_at || Date.now());
+          const pad = (n: number) => String(n).padStart(2, '0');
+          return {
+            uid: row.id,
+            executedAt: `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`,
+            stockCode: code || '',
+            stockName: rest.join(' '),
+            action: (row.action || '') as TradeAction,
+            priceHint: row.price_hint != null ? String(row.price_hint) : '',
+            quantity: row.quantity != null ? String(row.quantity) : '',
+            quantityUnit: (row.quantity_unit || '張') as '張' | '股',
+            reasonSummary: row.reason_summary || '',
+            reasonDetail: row.reason_detail || '',
+            riskNotes: row.risk_notes || '',
+          };
+        }),
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [isEditing, editBatchId, expert, expertSlug, navigate]);
 
   // 沒權限就回列表
   useEffect(() => {
@@ -256,7 +304,7 @@ const SignalEditor = () => {
 
     setSubmitting(true);
     try {
-      const batchId = crypto.randomUUID();
+      const batchId = isEditing ? (editBatchId as string) : crypto.randomUUID();
       const status = isMentor ? 'pending' : 'published';
 
       const rows = trades.map((t, idx) => {
@@ -284,6 +332,18 @@ const SignalEditor = () => {
         } as any;
       });
 
+      if (isEditing) {
+        // 整批替換：先刪舊批次（trade_records 由 FK 連動 / 或我們自行清理），再 insert
+        await supabase.from('trade_records').delete().eq('expert_id', expert.id).in(
+          'signal_id',
+          // 取得舊 signal id 一併刪除其關聯交易紀錄
+          (
+            await supabase.from('expert_signals').select('id').eq('batch_id', batchId)
+          ).data?.map((r: any) => r.id) || [],
+        );
+        await supabase.from('expert_signals').delete().eq('batch_id', batchId);
+      }
+
       const { error } = await supabase.from('expert_signals').insert(rows as any);
       if (error) { toast.error(error.message); return; }
 
@@ -291,7 +351,7 @@ const SignalEditor = () => {
       if (!isMentor) {
         try {
           const { data: pushData, error: pushErr } = await supabase.functions.invoke('line-push-signal', {
-            body: { expert_id: expert.id, batch_id: batchId, type: 'publish' },
+            body: { expert_id: expert.id, batch_id: batchId, type: 'publish', is_update: isEditing },
           });
           if (pushErr) {
             console.warn('LINE push (batch) failed:', pushErr);
@@ -303,7 +363,11 @@ const SignalEditor = () => {
         }
       }
 
-      toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : `已發布 ${rows.length} 檔訊號`);
+      toast.success(
+        isEditing
+          ? `已更新 ${rows.length} 檔${isMentor ? '週記' : '訊號'}`
+          : isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : `已發布 ${rows.length} 檔訊號`,
+      );
       discardDraft();
       navigate(`/admin/${expertSlug}/signals`);
     } finally {
@@ -329,7 +393,7 @@ const SignalEditor = () => {
             <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/${expertSlug}/signals`)}>
               <ArrowLeft className="h-4 w-4 mr-1" /> 返回列表
             </Button>
-            <h1 className="text-2xl font-bold">發布新{contentLabel}</h1>
+            <h1 className="text-2xl font-bold">{isEditing ? '編輯' : '發布新'}{contentLabel}</h1>
           </div>
           <div className="flex items-center gap-2">
             {!publishWindow.open && (
@@ -342,7 +406,7 @@ const SignalEditor = () => {
               className={cn(isMentor ? 'bg-mentor hover:bg-mentor/90' : 'bg-primary hover:bg-primary/90')}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {isMentor ? '儲存週記' : '立即發布'}
+              {isEditing ? '更新' : (isMentor ? '儲存週記' : '立即發布')}
             </Button>
           </div>
         </div>
@@ -551,7 +615,7 @@ const SignalEditor = () => {
             className={cn(isMentor ? 'bg-mentor hover:bg-mentor/90' : 'bg-primary hover:bg-primary/90')}
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {isMentor ? '儲存週記' : '立即發布'}
+            {isEditing ? '更新' : (isMentor ? '儲存週記' : '立即發布')}
           </Button>
         </div>
       </div>
