@@ -1,34 +1,43 @@
-# 修後台對比 + 加手機版抽屜
+# 修正分析師頭像上傳失敗
 
-確實之前那版顏色搞砸了：用 `text-muted-foreground` 在 `#F5F3EF` 上太淡，active 用 `bg-card` 跟背景幾乎同色看不出選中。同時 sidebar 是 `sticky w-64`，手機完全爆版。
+## 根因
 
-## 改動
+`avatars` bucket 的 storage RLS policy（INSERT/UPDATE/DELETE）要求：
 
-### 1. `src/components/layouts/CompanyLayout.tsx`（重寫）
-- **抽出 `SidebarBody` 元件**，桌面與手機共用。
-- **桌面（md+）**：保留原 `w-64` 固定側欄。
-- **手機（<md）**：
-  - 隱藏側欄
-  - 加 sticky top bar（h-12）：左邊 `Menu` icon 觸發 Shadcn `Sheet` 從左滑出，內含 `SidebarBody`；右邊顯示「海洋福星後台」品牌
-  - 點 nav item 後 `setOpen(false)` 自動收起抽屜
-- **對比修正**：
-  - nav 文字由 `text-muted-foreground` → `text-foreground/70`，hover → `text-foreground`
-  - active 樣式由「`bg-card` 同色」→ `bg-foreground text-background`（黑底白字 pill），辨識度直接拉滿
-  - 品牌文字、Email、icon 都用 `text-foreground/55~70`，不再依賴 muted-foreground
-  - 暗色模式用 `hsl(var(--background))`，淺色保留 `#F5F3EF`
-- 主內容包一層 `min-w-0` + `p-4 md:p-8`，避免子表格撐爆。
+```
+(storage.foldername(name))[1] = auth.uid()::text
+```
 
-### 2. `src/index.css` `.company-shell` 微調
-原本 `.company-shell .bg-card { background: #FFFFFF }` 在淺色 OK，但配上幾乎透明的 border (`hsl(0 0% 90% / 0.7)`) 卡片邊界看不見。改：
-- border 透明度 `0.7 → 1`，並用 `hsl(0 0% 88%)` 略加深
-- 加 `.company-shell, .company-shell * { color-scheme: light; }` 之類過度規則 → 不需要，改為直接補：`.company-shell .text-muted-foreground { color: hsl(0 0% 38%); }` 統一覆寫所有後台頁面的 muted 文字（一次解決 Analysts、Subscribers、KnowledgeBase…全部頁面 muted-foreground 太淡的問題）
-- `.company-shell h1 { color: hsl(var(--foreground)); }` 顯式指定，避免被 oklch fallback 沖淡
+也就是檔案路徑**第一層資料夾必須是登入者的 user_id**。
 
-### 3. 不動的部分
-- 不重做各個 `/company/*` 頁面內部 layout（Tables 本身已 `overflow-auto`，桌面 sidebar 縮掉就有空間了）
-- 不引入 shadcn sidebar component（成本高，現有結構夠用）
-- 不改 `AdminLayout`（那是 expert 後台，不在本次範圍）
+但 `src/pages/admin/Profile.tsx` 第 93 行硬寫：
 
-## 檔案
-- 編輯：`src/components/layouts/CompanyLayout.tsx`
-- 編輯：`src/index.css`（`.company-shell` 區塊）
+```ts
+const path = `avatars/${expert.id}.${ext}`;
+```
+
+第一層變成字串 `"avatars"`，而且就算改成 `expert.id`，那是 expert 的 id 不是 user id —— 兩者都不等於 `auth.uid()`，所以 Supabase 直接擋下並回 `new row violates row-level security policy`。
+
+對照可用的範例 `src/pages/account/Profile.tsx:37`：`${user.id}/avatar.${ext}` —— 一般使用者頭像之所以正常，就是因為符合這個規則。
+
+## 修法
+
+**只改一支檔案**：`src/pages/admin/Profile.tsx` 的 `handleAvatarUpload`
+
+1. 從 `useAuth()`（或現有的 user 來源）取出 `user.id`
+2. 上傳路徑改為：`${user.id}/expert-${expert.id}.${ext}`
+   - 第一層 = `user.id` → 通過 RLS
+   - 第二層保留 expert.id 以避免一個 user 擁有多個 expert 時互相覆蓋（雖目前 1:1，先預留）
+3. `getPublicUrl` 用同一條 path
+4. 加 cache-busting：`?t=${Date.now()}`（與 account/Profile.tsx 一致），避免 CDN 舊圖
+5. `experts.avatar_url` 一樣 update 進去
+
+## 影響範圍
+
+- 既有 `avatars/<expert_id>.xxx` 舊檔案（如果有）會孤立在 bucket 裡，不影響顯示（RLS 只擋 write，public read 仍可）。不主動清理。
+- 不需要動 storage policy、不需要 migration、不影響一般使用者頭貼上傳。
+
+## 驗證
+
+1. 用分析師帳號到 `/admin/profile` 上傳一張頭像 → 不再出現 RLS 錯誤、頭像即時更新。
+2. 一般使用者 `/account/profile` 上傳照舊正常（未改動）。
