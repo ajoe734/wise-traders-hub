@@ -587,15 +587,16 @@ const SignalEditor = () => {
                                         const last = trades[trades.length - 1];
                                         const targetIdx = last && !last.stockCode ? trades.length - 1 : trades.length;
                                         if (targetIdx === trades.length) addTrade();
-                                        setTimeout(() => updateTrade(targetIdx, {
+                                        const patch: Partial<TradeDraft> = {
                                           stockCode: p.symbol,
                                           stockName: p.instrument.replace(p.symbol, '').trim(),
                                           action: opt.key as TradeAction,
                                           priceHint: p.current_price ? String(p.current_price) : '',
                                           quantityUnit: '股',
                                           quantity: opt.full ? String(p.quantity_shares) : '',
-                                          reasonSummary: opt.reason || undefined as any,
-                                        } as any), 0);
+                                        };
+                                        if (opt.reason) patch.reasonSummary = opt.reason;
+                                        setTimeout(() => updateTrade(targetIdx, patch), 0);
                                       }}
                                     >{opt.label}</DropdownMenuItem>
                                   ))}
