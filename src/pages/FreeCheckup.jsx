@@ -7121,13 +7121,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 )}
                 {/* 目標價版本歷史 */}
                 <TargetPriceHistorySection code={h.code} C={C} alpha={alpha} enabled={!isDemo} />
-                </div>
-            );
-          })() : (
-            <div style={{padding:32,textAlign:"center",color:C.textMute,fontSize:13}}>無資料</div>
-          )}
-        </SheetContent>
-      </Sheet>FAKE_OVERWRITE_REMOVE_ME
+              </div>
             );
           })() : (
             <div style={{padding:32,textAlign:"center",color:C.textMute,fontSize:13}}>無資料</div>
