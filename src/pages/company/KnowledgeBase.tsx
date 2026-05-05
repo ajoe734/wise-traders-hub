@@ -291,7 +291,37 @@ export default function KnowledgeBasePage() {
     }
   }
 
-  async function approveCandidate(c: Candidate) {
+  const [bulkApproving, setBulkApproving] = useState(false);
+
+  async function bulkApprove(minConfidence = 0) {
+    const targets = pendingCandidates.filter(c => (c.confidence ?? 0) >= minConfidence);
+    if (targets.length === 0) { toast.info('沒有符合條件的候選'); return; }
+    if (!confirm(`確定一鍵核可 ${targets.length} 條候選${minConfidence > 0 ? `（信心 ≥ ${(minConfidence*100).toFixed(0)}%）` : ''}？`)) return;
+    setBulkApproving(true);
+    let ok = 0, fail = 0;
+    for (const c of targets) {
+      try { await approveCandidate(c, { silent: true }); ok++; }
+      catch { fail++; }
+    }
+    setBulkApproving(false);
+    toast.success(`已核可 ${ok} 條${fail ? `（失敗 ${fail}）` : ''}`);
+    load();
+  }
+
+  async function bulkReject() {
+    if (pendingCandidates.length === 0) return;
+    if (!confirm(`確定一鍵退回所有 ${pendingCandidates.length} 條候選？`)) return;
+    setBulkApproving(true);
+    const ids = pendingCandidates.map(c => c.id);
+    await supabase.from('checkup_knowledge_candidates' as any)
+      .update({ status: 'rejected', reviewer_note: 'bulk reject', reviewed_at: new Date().toISOString() })
+      .in('id', ids);
+    setBulkApproving(false);
+    toast.success(`已退回 ${ids.length} 條`);
+    load();
+  }
+
+  async function approveCandidate(c: Candidate, opts: { silent?: boolean } = {}) {
     // 推進到正式 items；item_id 若無則自動命名
     const itemId = c.item_id || `${c.category.split('_')[0]}-${Date.now().toString(36)}`;
     const payload: any = {
