@@ -62,7 +62,7 @@ const fetchHomeData = async (userId: string | undefined) => {
 
 function ExpertPerfRow({ sub }: { sub: DbSubscription }) {
   const { data: perf } = useExpertPerformance(sub.expert.id || undefined);
-  const cumulative = perf?.cumulative_return ?? 0;
+  const cumulative = (perf as any)?.total_return_pct ?? perf?.cumulative_return ?? 0;
 
   return (
     <Link 
@@ -79,7 +79,7 @@ function ExpertPerfRow({ sub }: { sub: DbSubscription }) {
       </div>
       <div className="flex items-center gap-3 text-xs">
         <span className={cn("font-medium", cumulative > 0 ? "text-success" : cumulative < 0 ? "text-destructive" : sub.expert.role === 'mentor' ? "text-learning-accent" : "text-signals-accent")}>
-          累積 {cumulative >= 0 ? '+' : ''}{cumulative}%
+          總報酬 {cumulative >= 0 ? '+' : ''}{Number(cumulative).toFixed(2)}%
         </span>
         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
