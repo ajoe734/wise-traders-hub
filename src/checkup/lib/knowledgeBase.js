@@ -49,7 +49,7 @@ function rowToItem(row) {
     sourceType: row.source_type ?? 'editorial',
     industryTags: Array.isArray(row.industry_tags) ? row.industry_tags : [],
     timeHorizon: row.time_horizon ?? null,
-  }
+    lifecycleStatus: row.lifecycle_status ?? 'active',
   // strategy_cases 額外欄位
   if (row.category === 'strategy_cases') {
     base.lessons = row.lessons ?? ''
