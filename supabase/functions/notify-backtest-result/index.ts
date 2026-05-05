@@ -1,7 +1,6 @@
-// 回測完成通知：彙整最近 N 小時的 knowledge_backtest_runs，
-// 推 LINE Flex 給所有「有 LINE 綁定」的 company_admin。
-// 觸發來源：knowledge-backtest（full 模式跑完）/ 手動 invoke。
-// Body: { hours?: number = 2, trigger?: 'cron' | 'manual' | 'auto' }
+// 回測完成通知（Email 版）：彙整最近 N 小時的 knowledge_backtest_runs，
+// 透過 Resend 寄信給所有 company_admin。
+// Body: { hours?: number = 2, trigger?: 'cron' | 'manual' | 'auto_after_backfill' | 'auto' }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
@@ -12,14 +11,15 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const LINE_MULTICAST_URL = 'https://api.line.me/v2/bot/message/push'
+const RESEND_API_URL = 'https://api.resend.com/emails'
+const FROM_ADDR = 'WiseTraders <noreply@wisetraders.tw>'
 
 function fmtPct(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(Number(v))) return '—'
   return `${(Number(v) * 100).toFixed(1)}%`
 }
 
-function buildFlex(summary: {
+function buildEmail(s: {
   total: number
   success: number
   failed: number
@@ -28,83 +28,65 @@ function buildFlex(summary: {
   topLosers: Array<{ title: string; prevWr: number | null; newWr: number | null; n: number }>
   failures: Array<{ title: string; reason: string }>
   monitorUrl: string
-}) {
-  const ok = summary.failed === 0
+}): { subject: string; html: string } {
+  const ok = s.failed === 0
+  const triggerLabel =
+    s.trigger === 'cron' ? '每晚自動' :
+    s.trigger === 'auto_after_backfill' ? '回填完成自動' :
+    s.trigger === 'manual' ? '手動觸發' : s.trigger
+
+  const subject = ok
+    ? `✅ 回測完成（${triggerLabel}）— 成功 ${s.success} 筆`
+    : `⚠️ 回測完成・有 ${s.failed} 筆失敗（${triggerLabel}）`
+
   const headerColor = ok ? '#198754' : '#DC3545'
-  const headerText = ok
-    ? `✅ 回測完成（${summary.trigger === 'cron' ? '每晚自動' : '手動'}）`
-    : `⚠️ 回測完成・有 ${summary.failed} 筆失敗`
 
-  const body: any[] = [
-    {
-      type: 'box', layout: 'horizontal', contents: [
-        { type: 'text', text: '總計', size: 'sm', color: '#999', flex: 2 },
-        { type: 'text', text: `${summary.total}`, size: 'sm', color: '#333', weight: 'bold', align: 'end', flex: 1 },
-      ],
-    },
-    {
-      type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-        { type: 'text', text: '成功', size: 'sm', color: '#999', flex: 2 },
-        { type: 'text', text: `${summary.success}`, size: 'sm', color: '#198754', weight: 'bold', align: 'end', flex: 1 },
-      ],
-    },
-    {
-      type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-        { type: 'text', text: '失敗', size: 'sm', color: '#999', flex: 2 },
-        { type: 'text', text: `${summary.failed}`, size: 'sm', color: summary.failed ? '#DC3545' : '#999', weight: 'bold', align: 'end', flex: 1 },
-      ],
-    },
-  ]
+  const row = (label: string, val: string, color = '#333') =>
+    `<tr><td style="padding:6px 0;color:#999;font-size:13px">${label}</td>
+     <td style="padding:6px 0;text-align:right;font-weight:bold;color:${color};font-size:13px">${val}</td></tr>`
 
-  if (summary.topGainers.length) {
-    body.push({ type: 'separator', margin: 'lg' })
-    body.push({ type: 'text', text: '📈 勝率提升 Top', size: 'sm', weight: 'bold', color: '#333', margin: 'lg' })
-    for (const g of summary.topGainers) {
-      body.push({
-        type: 'text', size: 'xs', wrap: true, margin: 'sm', color: '#444',
-        text: `${g.title}：${fmtPct(g.prevWr)} → ${fmtPct(g.newWr)}（n=${g.n}）`,
-      })
+  let body = ''
+  body += `<table width="100%" style="border-collapse:collapse;margin:12px 0">`
+  body += row('總計', String(s.total))
+  body += row('成功', String(s.success), '#198754')
+  body += row('失敗', String(s.failed), s.failed ? '#DC3545' : '#999')
+  body += `</table>`
+
+  if (s.topGainers.length) {
+    body += `<h3 style="font-size:14px;color:#333;margin:18px 0 8px">📈 勝率提升 Top</h3><ul style="margin:0;padding-left:18px;color:#444;font-size:13px;line-height:1.7">`
+    for (const g of s.topGainers) {
+      body += `<li>${g.title}：${fmtPct(g.prevWr)} → <b>${fmtPct(g.newWr)}</b>（n=${g.n}）</li>`
     }
+    body += `</ul>`
   }
-  if (summary.topLosers.length) {
-    body.push({ type: 'separator', margin: 'lg' })
-    body.push({ type: 'text', text: '📉 勝率下降 Top', size: 'sm', weight: 'bold', color: '#333', margin: 'lg' })
-    for (const g of summary.topLosers) {
-      body.push({
-        type: 'text', size: 'xs', wrap: true, margin: 'sm', color: '#444',
-        text: `${g.title}：${fmtPct(g.prevWr)} → ${fmtPct(g.newWr)}（n=${g.n}）`,
-      })
+  if (s.topLosers.length) {
+    body += `<h3 style="font-size:14px;color:#333;margin:18px 0 8px">📉 勝率下降 Top</h3><ul style="margin:0;padding-left:18px;color:#444;font-size:13px;line-height:1.7">`
+    for (const g of s.topLosers) {
+      body += `<li>${g.title}：${fmtPct(g.prevWr)} → <b>${fmtPct(g.newWr)}</b>（n=${g.n}）</li>`
     }
+    body += `</ul>`
   }
-  if (summary.failures.length) {
-    body.push({ type: 'separator', margin: 'lg' })
-    body.push({ type: 'text', text: '❌ 失敗原因', size: 'sm', weight: 'bold', color: '#DC3545', margin: 'lg' })
-    for (const f of summary.failures.slice(0, 5)) {
-      body.push({
-        type: 'text', size: 'xs', wrap: true, margin: 'sm', color: '#666',
-        text: `${f.title}：${f.reason}`,
-      })
+  if (s.failures.length) {
+    body += `<h3 style="font-size:14px;color:#DC3545;margin:18px 0 8px">❌ 失敗原因</h3><ul style="margin:0;padding-left:18px;color:#666;font-size:12px;line-height:1.6">`
+    for (const f of s.failures.slice(0, 10)) {
+      body += `<li><b>${f.title}</b>：${f.reason}</li>`
     }
+    body += `</ul>`
   }
 
-  return {
-    type: 'flex',
-    altText: headerText,
-    contents: {
-      type: 'bubble',
-      header: {
-        type: 'box', layout: 'vertical', backgroundColor: headerColor + '15', paddingAll: 'lg',
-        contents: [{ type: 'text', text: headerText, weight: 'bold', size: 'md', color: headerColor }],
-      },
-      body: { type: 'box', layout: 'vertical', spacing: 'none', contents: body },
-      footer: {
-        type: 'box', layout: 'vertical', spacing: 'sm', contents: [{
-          type: 'button', style: 'primary', height: 'sm', color: '#333333',
-          action: { type: 'uri', label: '開啟監控頁', uri: summary.monitorUrl },
-        }],
-      },
-    },
-  }
+  const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f5f3ef;font-family:-apple-system,'Helvetica Neue',sans-serif">
+<div style="max-width:560px;margin:0 auto;background:#fff;padding:0">
+  <div style="background:${headerColor}15;padding:18px 24px;border-bottom:1px solid #eee">
+    <div style="font-size:16px;font-weight:bold;color:${headerColor}">${subject}</div>
+  </div>
+  <div style="padding:18px 24px;color:#333">
+    ${body}
+    <div style="margin:24px 0 8px"><a href="${s.monitorUrl}" style="display:inline-block;padding:10px 18px;background:#333;color:#fff;text-decoration:none;border-radius:4px;font-size:13px">開啟監控頁</a></div>
+  </div>
+  <div style="padding:14px 24px;color:#aaa;font-size:11px;border-top:1px solid #eee">WiseTraders · 知識庫回測通知</div>
+</div></body></html>`
+
+  return { subject, html }
 }
 
 Deno.serve(async (req) => {
@@ -117,7 +99,6 @@ Deno.serve(async (req) => {
     const sb = createClient(SUPABASE_URL, SERVICE_KEY)
     const since = new Date(Date.now() - hours * 3600 * 1000).toISOString()
 
-    // 抓最近 runs（排除 grid_search 子格子）
     const { data: runs } = await sb
       .from('knowledge_backtest_runs')
       .select('id, knowledge_item_id, status, win_rate, total_hits, error_message, run_mode, completed_at')
@@ -136,7 +117,6 @@ Deno.serve(async (req) => {
     const success = allRuns.filter(r => r.status === 'completed').length
     const failed = allRuns.filter(r => r.status === 'failed').length
 
-    // 抓 item title 做顯示
     const itemIds = Array.from(new Set(allRuns.map(r => r.knowledge_item_id).filter(Boolean)))
     const { data: items } = await sb
       .from('checkup_knowledge_items')
@@ -145,9 +125,6 @@ Deno.serve(async (req) => {
     const itemMap = new Map<string, any>()
     for (const it of items ?? []) itemMap.set(it.id, it)
 
-    // 計算 delta（同一 item 取最近一筆 vs item 當前 win_rate 不準，
-    // 改：每個 item 在這個視窗內 prev = 該 item 倒數第二筆 completed）
-    // 簡化：以 item 當前 win_rate 當 new；prev 從同 item 上一筆 completed 取
     const itemRuns = new Map<string, any[]>()
     for (const r of allRuns) {
       if (!r.knowledge_item_id) continue
@@ -160,7 +137,6 @@ Deno.serve(async (req) => {
       const completed = list.filter(r => r.status === 'completed')
       if (completed.length === 0) continue
       const latest = completed[0]
-      // 抓上一筆 completed（視窗外都行）
       const { data: prev } = await sb
         .from('knowledge_backtest_runs')
         .select('win_rate')
@@ -182,67 +158,67 @@ Deno.serve(async (req) => {
       }
     }
     deltas.sort((a, b) => b.delta - a.delta)
-    const topGainers = deltas.filter(d => d.delta > 0.005).slice(0, 3)
-    const topLosers = deltas.filter(d => d.delta < -0.005).slice(-3).reverse()
+    const topGainers = deltas.filter(d => d.delta > 0.005).slice(0, 5)
+    const topLosers = deltas.filter(d => d.delta < -0.005).slice(-5).reverse()
 
     const failures = allRuns
       .filter(r => r.status === 'failed')
-      .slice(0, 5)
+      .slice(0, 10)
       .map(r => ({
         title: itemMap.get(r.knowledge_item_id)?.title ?? r.knowledge_item_id?.slice(0, 8) ?? '(unknown)',
-        reason: (r.error_message ?? 'unknown').slice(0, 120),
+        reason: (r.error_message ?? 'unknown').slice(0, 160),
       }))
 
-    // 找出 admin 的 LINE 綁定
+    // 收件人：所有 company_admin 的 email
     const { data: adminRoles } = await sb
       .from('user_roles').select('user_id').eq('role', 'company_admin')
     const adminIds = (adminRoles ?? []).map((r: any) => r.user_id)
 
-    const { data: bindings } = await sb
-      .from('member_line_bindings')
-      .select('user_id, line_user_id, expert_id')
-      .in('user_id', adminIds)
-      .eq('is_active', true)
+    const recipients: string[] = []
+    for (const uid of adminIds) {
+      const { data: u } = await sb.auth.admin.getUserById(uid)
+      const email = u?.user?.email
+      if (email && !email.endsWith('@line.local')) recipients.push(email)
+    }
 
-    if (!bindings || bindings.length === 0) {
+    if (recipients.length === 0) {
       return new Response(JSON.stringify({
-        ok: true, skipped: 'no_admin_bindings', total: allRuns.length, success, failed,
+        ok: true, skipped: 'no_admin_email', total: allRuns.length, success, failed,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    const channelIds = Array.from(new Set(bindings.map((b: any) => b.expert_id)))
-    const { data: channels } = await sb
-      .from('expert_line_channels')
-      .select('expert_id, channel_access_token, is_active')
-      .in('expert_id', channelIds)
-      .eq('is_active', true)
-    const tokenMap = new Map<string, string>()
-    for (const c of channels ?? []) tokenMap.set(c.expert_id, c.channel_access_token)
-
     const monitorUrl = `${Deno.env.get('SITE_URL') || 'https://legendflow.tw'}/company/backtest-monitor`
-    const message = buildFlex({
+    const { subject, html } = buildEmail({
       total: allRuns.length, success, failed, trigger,
       topGainers, topLosers, failures, monitorUrl,
     })
 
-    let pushed = 0
-    let failedPush = 0
-    for (const b of bindings) {
-      const token = tokenMap.get((b as any).expert_id)
-      if (!token) continue
+    const resendKey = Deno.env.get('RESEND_API_KEY')
+    if (!resendKey) {
+      return new Response(JSON.stringify({ ok: false, error: 'RESEND_API_KEY not configured' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    let sent = 0
+    let failedSend = 0
+    for (const to of recipients) {
       try {
-        const res = await fetch(LINE_MULTICAST_URL, {
+        const res = await fetch(RESEND_API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ to: (b as any).line_user_id, messages: [message] }),
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
+          body: JSON.stringify({ from: FROM_ADDR, to: [to], subject, html }),
         })
-        if (res.ok) pushed++; else { failedPush++; console.error('LINE push failed', await res.text()) }
-      } catch (e) { failedPush++; console.error('LINE push error', e) }
+        if (res.ok) sent++
+        else { failedSend++; console.error('Resend failed', to, await res.text()) }
+      } catch (e) { failedSend++; console.error('Resend error', to, e) }
     }
 
     return new Response(JSON.stringify({
       ok: true, total: allRuns.length, success, failed,
-      pushed, failed_push: failedPush, gainers: topGainers.length, losers: topLosers.length,
+      email_sent: sent, email_failed: failedSend,
+      recipients: recipients.length,
+      gainers: topGainers.length, losers: topLosers.length,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (err) {
     console.error('notify-backtest-result error:', err)
