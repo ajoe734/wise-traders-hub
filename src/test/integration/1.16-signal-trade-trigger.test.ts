@@ -258,3 +258,34 @@ describe('drift-detection: handle_signal_takedown trigger 收回與 LINE 推播'
     expect(pushSrc).toContain("type === 'takedown'");
   });
 });
+
+// ── enforce_signal_capital_limit 資金硬擋 trigger（drift detection）─────────
+
+describe('enforce_signal_capital_limit（資金硬擋 trigger）', () => {
+  let capSrc: string;
+  beforeAll(() => {
+    capSrc = readFileSync(
+      resolve(process.cwd(), 'supabase/migrations/20260505130656_164cb09c-78f6-4fc5-94ac-0312cf91d8f3.sql'),
+      'utf-8',
+    );
+  });
+
+  it('包含 RPC get_expert_capital_status 與資金公式 starting + realized − open_cost', () => {
+    expect(capSrc).toContain('get_expert_capital_status');
+    expect(capSrc).toContain('v_starting + v_realized - v_open_cost');
+  });
+
+  it('trigger 對 buy / add 計算 required = price × shares 並硬擋超額', () => {
+    expect(capSrc).toContain('enforce_signal_capital_limit');
+    expect(capSrc).toContain('CAPITAL_EXCEEDED');
+    expect(capSrc).toMatch(/action.*IN.*buy.*add/i);
+  });
+
+  it('company_admin 角色豁免硬擋', () => {
+    expect(capSrc).toContain("has_role(auth.uid(), 'company_admin')");
+  });
+
+  it('trigger 綁定於 expert_signals 表 BEFORE INSERT', () => {
+    expect(capSrc).toMatch(/CREATE TRIGGER enforce_signal_capital_limit_trg[\s\S]*BEFORE INSERT[\s\S]*ON public\.expert_signals/);
+  });
+});

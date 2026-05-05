@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, Radio, TrendingUp, DollarSign, BookOpen, ArrowRight } from 'lucide-react';
+import { Users, Radio, TrendingUp, DollarSign, BookOpen, ArrowRight, Wallet } from 'lucide-react';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 
 const actionLabels: Record<string, { label: string; className: string }> = {
@@ -30,6 +30,7 @@ const AdminDashboard = () => {
   const [recentSignals, setRecentSignals] = useState<any[]>([]);
   const [revenueMode, setRevenueMode] = useState<'month' | 'year'>('month');
   const [yearlyRevenue, setYearlyRevenue] = useState(0);
+  const [capital, setCapital] = useState<{ starting_capital: number; available_cash: number; open_cost_value: number; realized_pnl_amount: number } | null>(null);
 
   useEffect(() => { fetchData(); }, [expertSlug]);
 
@@ -47,7 +48,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (!expert?.id) return;
     fetchPerfStats(expert.id);
-
+    supabase.rpc('get_expert_capital_status' as any, { _expert_id: expert.id }).then(({ data }) => {
+      if (data) setCapital(data as any);
+    });
     // Realtime: recalculate when trade_records change
     const channel = supabase
       .channel('admin-dashboard-trade-records')
@@ -182,6 +185,41 @@ const AdminDashboard = () => {
             歡迎回來，{expert.name}
           </p>
         </div>
+
+        {capital && (
+          <Card className="border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">資金狀況</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">起始資金</div>
+                  <div className="text-base font-semibold tabular-nums">${(capital.starting_capital || 0).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">可用現金</div>
+                  <div className={cn('text-lg font-bold tabular-nums', capital.available_cash < 0 ? 'text-destructive' : 'text-foreground')}>
+                    ${(capital.available_cash || 0).toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">未平倉成本</div>
+                  <div className="text-base font-semibold tabular-nums">${(capital.open_cost_value || 0).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">已實現損益</div>
+                  <div className={cn('text-base font-semibold tabular-nums',
+                    capital.realized_pnl_amount > 0 ? 'text-red-600 dark:text-red-400' :
+                    capital.realized_pnl_amount < 0 ? 'text-green-600 dark:text-green-400' : '')}>
+                    {capital.realized_pnl_amount > 0 ? '+' : ''}${(capital.realized_pnl_amount || 0).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (

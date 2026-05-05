@@ -4,6 +4,7 @@ import {
   calcPnlPercent,
   reverseWeightedAvgPrice,
   calcSellQty,
+  simulateCashAfterTrades,
 } from '@/lib/signalTradeLogic';
 
 describe('1.27 signalTradeLogic', () => {
@@ -68,6 +69,45 @@ describe('1.27 signalTradeLogic', () => {
 
     it('uses existingQty when signalQty is null', () => {
       expect(calcSellQty(null, 100)).toBe(100);
+    });
+  });
+
+  describe('simulateCashAfterTrades', () => {
+    it('subtracts cash for buy and add', () => {
+      const r = simulateCashAfterTrades(1_000_000, [
+        { action: 'buy', price: 100, shares: 1000 },
+        { action: 'add', price: 50, shares: 2000 },
+      ]);
+      expect(r.remaining).toBe(1_000_000 - 100_000 - 100_000);
+      expect(r.perTrade).toEqual([900_000, 800_000]);
+    });
+
+    it('releases cash for sell/trim using exit price', () => {
+      const r = simulateCashAfterTrades(0, [
+        { action: 'sell', price: 120, shares: 1000 },
+      ]);
+      expect(r.remaining).toBe(120_000);
+    });
+
+    it('exit uses exitAvgPrice * exitShares when provided', () => {
+      const r = simulateCashAfterTrades(0, [
+        { action: 'exit', price: 50, shares: 0, exitAvgPrice: 100, exitShares: 500 },
+      ]);
+      expect(r.remaining).toBe(50_000);
+    });
+
+    it('exit falls back to price * shares when exit info missing', () => {
+      const r = simulateCashAfterTrades(0, [
+        { action: 'exit', price: 80, shares: 100 },
+      ]);
+      expect(r.remaining).toBe(8_000);
+    });
+
+    it('returns negative remaining when buys exceed cash (caller blocks submit)', () => {
+      const r = simulateCashAfterTrades(50_000, [
+        { action: 'buy', price: 100, shares: 1000 },
+      ]);
+      expect(r.remaining).toBe(-50_000);
     });
   });
 });

@@ -42,8 +42,16 @@ const AdminProfile = () => {
   const [startingCapitalLocked, setStartingCapitalLocked] = useState(false);
   const [showCapitalConfirm, setShowCapitalConfirm] = useState(false);
   const [pendingCapital, setPendingCapital] = useState<number>(0);
+  const [capitalStatus, setCapitalStatus] = useState<{ available_cash: number; open_cost_value: number; realized_pnl_amount: number } | null>(null);
 
   const { data: perf } = useExpertPerformance(expert?.id);
+
+  useEffect(() => {
+    if (!expert?.id) return;
+    supabase.rpc('get_expert_capital_status' as any, { _expert_id: expert.id }).then(({ data }) => {
+      if (data) setCapitalStatus(data as any);
+    });
+  }, [expert?.id]);
 
   useEffect(() => { fetchExpert(); }, [expertSlug]);
 
@@ -402,6 +410,28 @@ const AdminProfile = () => {
               />
               {startingCapitalLocked && (
                 <p className="text-xs text-muted-foreground">起始資金已設定，無法修改。</p>
+              )}
+              {capitalStatus && startingCapitalLocked && (
+                <div className="grid grid-cols-3 gap-2 pt-2">
+                  <div className="rounded-md border bg-muted/30 p-2">
+                    <div className="text-[10px] text-muted-foreground">目前可用現金</div>
+                    <div className={cn('text-sm font-semibold tabular-nums', capitalStatus.available_cash < 0 ? 'text-destructive' : '')}>
+                      ${(capitalStatus.available_cash || 0).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 p-2">
+                    <div className="text-[10px] text-muted-foreground">未平倉成本</div>
+                    <div className="text-sm font-semibold tabular-nums">${(capitalStatus.open_cost_value || 0).toLocaleString()}</div>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 p-2">
+                    <div className="text-[10px] text-muted-foreground">已實現損益</div>
+                    <div className={cn('text-sm font-semibold tabular-nums',
+                      capitalStatus.realized_pnl_amount > 0 ? 'text-red-600 dark:text-red-400' :
+                      capitalStatus.realized_pnl_amount < 0 ? 'text-green-600 dark:text-green-400' : '')}>
+                      {capitalStatus.realized_pnl_amount > 0 ? '+' : ''}${(capitalStatus.realized_pnl_amount || 0).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
             {!startingCapitalLocked && (
