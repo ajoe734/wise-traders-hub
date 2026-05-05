@@ -115,26 +115,60 @@ Deno.serve(async (req) => {
   const t0 = Date.now()
   const fn = 'publish-weekly-journals'
 
-  // 統一結構化 JSON 日誌 + 人類可讀單行訊息
+  // 提早初始化 admin client，讓 emit 能持久化日誌
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const supabaseAdmin = supabaseUrl && serviceRoleKey
+    ? createClient(supabaseUrl, serviceRoleKey)
+    : null
+
+  const logBuffer: any[] = []
+  const flushLogs = async () => {
+    if (!supabaseAdmin || logBuffer.length === 0) return
+    const rows = logBuffer.splice(0, logBuffer.length)
+    try {
+      await supabaseAdmin.from('function_run_logs').insert(rows)
+    } catch (e) {
+      console.error('[function_run_logs flush failed]', (e as any)?.message)
+    }
+  }
+
+  // 統一結構化 JSON 日誌 + 人類可讀單行訊息 + DB 持久化
   const emit = (
     level: 'info' | 'warn' | 'error',
     msg: string,
     ctx: Record<string, unknown> = {},
   ) => {
+    const stageVal = (ctx.stage ?? stage) as string | undefined
+    const expertId = (ctx.expertId ?? null) as string | null
+    const signalId = (ctx.signalId ?? null) as string | null
     const payload = {
       ts: new Date().toISOString(),
       level,
       fn,
       runId,
+      stage: stageVal,
+      expertId,
+      signalId,
       msg,
       ...ctx,
     }
-    const human = `[${fn}][${runId}]${ctx.stage ? `[stage=${ctx.stage}]` : ''}${
-      ctx.expertId ? `[expert=${ctx.expertId}]` : ''
-    }${ctx.signalId ? `[signal=${ctx.signalId}]` : ''} ${msg}`
+    const human = `[${fn}][${runId}]${stageVal ? `[stage=${stageVal}]` : ''}${
+      expertId ? `[expert=${expertId}]` : ''
+    }${signalId ? `[signal=${signalId}]` : ''} ${msg}`
     const out = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log
     out(human)
     out(JSON.stringify(payload))
+    logBuffer.push({
+      fn,
+      run_id: runId,
+      level,
+      stage: stageVal ?? null,
+      msg,
+      expert_id: expertId,
+      signal_id: signalId,
+      payload,
+    })
   }
   const log = (msg: string, ctx: Record<string, unknown> = {}) => emit('info', msg, { stage, ...ctx })
   const logErr = (stageName: string, err: unknown, extra: Record<string, unknown> = {}) => {
@@ -156,16 +190,14 @@ Deno.serve(async (req) => {
 
   let stage = 'init'
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey || !supabaseAdmin) {
       const missing = [!supabaseUrl && 'SUPABASE_URL', !serviceRoleKey && 'SUPABASE_SERVICE_ROLE_KEY'].filter(Boolean)
       emit('error', 'Missing required env', { stage: 'init', missing })
+      await flushLogs()
       return new Response(JSON.stringify({ error: 'Missing required env', missing, runId }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
     log('Function start')
 
     // (replaced by stage-tracked block below)
