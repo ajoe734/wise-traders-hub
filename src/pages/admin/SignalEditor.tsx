@@ -159,7 +159,7 @@ const SignalEditor = () => {
       if (cancelled) return;
       setExpert(exp);
       if (exp) {
-        const [{ data: tpl }, { data: openTrades }] = await Promise.all([
+        const [{ data: tpl }, { data: openTrades }, { data: cap }] = await Promise.all([
           supabase
             .from('expert_signal_templates' as any)
             .select('id, title, action, reason, risk_note, strategy_note')
@@ -170,6 +170,7 @@ const SignalEditor = () => {
             .select('instrument, quantity')
             .eq('expert_id', exp.id)
             .eq('status', 'open'),
+          supabase.rpc('get_expert_capital_status' as any, { _expert_id: exp.id }),
         ]);
         if (cancelled) return;
         setSignalTemplates((tpl as any) || []);
@@ -180,6 +181,7 @@ const SignalEditor = () => {
             quantity: t.quantity || 0,
           })),
         );
+        if (cap) setCapital(cap as unknown as CapitalStatus);
       }
       setLoading(false);
     })();
