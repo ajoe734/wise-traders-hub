@@ -28,6 +28,29 @@ const fmtDateTime = (s: string | null) => {
 };
 const fmtPct = (v: number | null) => v == null ? '—' : `${(Number(v) * 100).toFixed(1)}%`;
 
+type StepState = 'done' | 'running' | 'pending' | 'failed' | 'idle';
+interface StepInfo {
+  key: string;
+  label: string;
+  state: StepState;
+  detail: string;
+  hint?: string;
+}
+
+interface FailedBackfillRow {
+  symbol: string;
+  yyyymm: string;
+  error_message: string | null;
+  attempted_at: string | null;
+}
+
+interface NotifyLog {
+  created_at: string;
+  email_sent: number;
+  email_failed: number;
+  errors: string[];
+}
+
 export default function BacktestMonitor() {
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [items, setItems] = useState<Record<string, { title: string }>>({});
@@ -35,11 +58,15 @@ export default function BacktestMonitor() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyAll, setBusyAll] = useState<'cron' | 'notify' | null>(null);
   const [lastCron, setLastCron] = useState<string | null>(null);
+  const [failedBackfills, setFailedBackfills] = useState<FailedBackfillRow[]>([]);
+  const [failedBackfillReasons, setFailedBackfillReasons] = useState<Array<{ reason: string; count: number }>>([]);
+  const [notifyLog, setNotifyLog] = useState<NotifyLog | null>(null);
   const [backfill, setBackfill] = useState<{
     pending: number; done: number; empty: number; failed: number; total: number;
     latest_month: string | null; latest_date: string | null;
     current_symbol: string | null; current_yyyymm: string | null;
     recent_done_5min: number; eta_minutes: number | null;
+    last_attempted_at: string | null;
   } | null>(null);
 
   const load = async () => {
