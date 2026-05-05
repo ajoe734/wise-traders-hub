@@ -134,7 +134,7 @@ export default function BacktestMonitor() {
         body: { hours: 24, trigger: 'manual' },
       });
       if (error) throw error;
-      toast({ title: 'LINE 通知已送出', description: JSON.stringify(data) });
+      toast({ title: 'Email 通知已送出', description: JSON.stringify(data) });
     } catch (e: any) {
       toast({ title: '通知失敗', description: String(e?.message ?? e), variant: 'destructive' });
     } finally { setBusyAll(null); }
