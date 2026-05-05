@@ -372,9 +372,9 @@ const AdminProfile = () => {
                   </div>
                 </div>
                 <div className="rounded-lg border bg-muted/30 p-3">
-                  <div className="text-xs text-muted-foreground">累積總報酬</div>
+                  <div className="text-xs text-muted-foreground">總報酬率（含未實現）</div>
                   <div className="text-lg font-semibold tabular-nums mt-1">
-                    {perf?.cumulative_return != null ? `${perf.cumulative_return.toFixed(2)}%` : '—'}
+                    {(perf as any)?.total_return_pct != null ? `${Number((perf as any).total_return_pct).toFixed(2)}%` : '—'}
                   </div>
                 </div>
               </div>
