@@ -27,8 +27,8 @@ async function logAudit(supa: any, action: string, payload: any) {
     await supa.from('audit_logs').insert({
       action,
       target_type: 'knowledge_item',
-      target_id: payload?.item_id ?? null,
-      metadata: payload,
+      target_id: payload?.target_id ?? null,
+      detail: { context: payload, source: 'knowledge-daily-scheduler' },
     })
   } catch (_) { /* noop */ }
 }
@@ -120,13 +120,13 @@ Deno.serve(async (req) => {
           lifecycle_status: 'active', rescue_started_at: null, rescue_attempts: 0,
         }).eq('id', it.id)
         summary.promoted++
-        await logAudit(supa, 'knowledge.auto_promote_active', { item_id: it.item_id, win_rate: wr })
+        await logAudit(supa, 'knowledge.auto_promote_active', { target_id: it.id, item_id: it.item_id, win_rate: wr, sample_size: it.sample_size })
       } else if (wr < rules.auto_grid_search_below && it.lifecycle_status === 'active') {
         await supa.from('checkup_knowledge_items').update({
           lifecycle_status: 'rescue', rescue_started_at: new Date().toISOString(),
         }).eq('id', it.id)
         summary.demoted_rescue++
-        await logAudit(supa, 'knowledge.auto_demote_rescue', { item_id: it.item_id, win_rate: wr })
+        await logAudit(supa, 'knowledge.auto_demote_rescue', { target_id: it.id, item_id: it.item_id, win_rate: wr, sample_size: it.sample_size, threshold: rules.auto_grid_search_below })
       }
     }
 
@@ -146,13 +146,21 @@ Deno.serve(async (req) => {
           .update({ rescue_attempts: (it.rescue_attempts ?? 0) + 1 })
           .eq('id', it.id)
         summary.rescue_grid_run++
-        // grid_search edge function 應已自動建立 candidate（archive_and_promote_knowledge）
-        // 若改善 ≥ promote_min_improvement_pct 則新版本被建立為 candidate
+        await logAudit(supa, 'knowledge.auto_grid_search', {
+          target_id: it.id, item_id: it.item_id,
+          attempts: (it.rescue_attempts ?? 0) + 1,
+          best_win_rate: res?.best_win_rate ?? null,
+          improvement_pct: res?.improvement_pct ?? null,
+          created_candidate_id: res?.created_candidate_id ?? null,
+        })
         if (res?.created_candidate_id) {
           await supa.from('checkup_knowledge_items').update({
             lifecycle_status: 'candidate',
             candidate_observed_since: new Date().toISOString(),
           }).eq('id', res.created_candidate_id)
+          await logAudit(supa, 'knowledge.candidate_created', {
+            target_id: res.created_candidate_id, parent_id: it.id, parent_item_id: it.item_id,
+          })
         }
       } catch (e: any) {
         summary.errors.push({ step: 'grid', item_id: it.item_id, msg: String(e?.message ?? e) })
@@ -175,7 +183,7 @@ Deno.serve(async (req) => {
         archived_reason: `rescue_failed_${rules.rescue_max_weeks}w`,
       }).eq('id', it.id)
       summary.rescue_archived++
-      await logAudit(supa, 'knowledge.auto_archive_rescue', { item_id: it.item_id })
+      await logAudit(supa, 'knowledge.auto_archive_rescue', { target_id: it.id, item_id: it.item_id, reason: 'rescue_failed_max_weeks', max_weeks: rules.rescue_max_weeks })
     }
 
     // ========== Step 4: candidate observation period ==========
@@ -212,7 +220,7 @@ Deno.serve(async (req) => {
           }).eq('id', cand.parent_item_id)
         }
         summary.candidate_promoted++
-        await logAudit(supa, 'knowledge.auto_promote_candidate', { item_id: cand.item_id })
+        await logAudit(supa, 'knowledge.auto_promote_candidate', { target_id: cand.id, item_id: cand.item_id, win_rate: wr, parent_win_rate: parentWr, sample_size: cand.sample_size })
       } else {
         await supa.from('checkup_knowledge_items').update({
           lifecycle_status: 'archived',
@@ -221,7 +229,7 @@ Deno.serve(async (req) => {
           archived_reason: 'candidate_underperformed',
         }).eq('id', cand.id)
         summary.candidate_archived++
-        await logAudit(supa, 'knowledge.auto_archive_candidate', { item_id: cand.item_id })
+        await logAudit(supa, 'knowledge.auto_archive_candidate', { target_id: cand.id, item_id: cand.item_id, win_rate: wr, parent_win_rate: parentWr, reason: 'underperformed' })
       }
     }
 

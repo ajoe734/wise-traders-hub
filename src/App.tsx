@@ -89,6 +89,8 @@ import CompanyAuditLogs from "./pages/company/AuditLogs";
 import CompanySystemJobs from "./pages/company/SystemJobs";
 import CompanyFunctionLogs from "./pages/company/FunctionLogs";
 import CompanyKnowledgeBase from "./pages/company/KnowledgeBase";
+import CompanyKnowledgeAudit from "./pages/company/knowledge-base/KnowledgeAudit";
+import CompanyKnowledgeScheduler from "./pages/company/knowledge-base/KnowledgeScheduler";
 import CompanyBacktestMonitor from "./pages/company/BacktestMonitor";
 import CompanyPlans from "./pages/company/Plans";
 import CompanyRemittance from "./pages/company/Remittance";
@@ -215,6 +217,9 @@ const AppShell = () => (
             <Route path="/company/system-jobs" element={<ProtectedRoute requiredRole="company_admin"><CompanySystemJobs /></ProtectedRoute>} />
             <Route path="/company/function-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyFunctionLogs /></ProtectedRoute>} />
             <Route path="/company/knowledge-base" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeBase /></ProtectedRoute>} />
+            <Route path="/company/knowledge-base" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeBase /></ProtectedRoute>} />
+            <Route path="/company/knowledge-audit" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeAudit /></ProtectedRoute>} />
+            <Route path="/company/knowledge-scheduler" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeScheduler /></ProtectedRoute>} />
             <Route path="/company/backtest-monitor" element={<ProtectedRoute requiredRole="company_admin"><CompanyBacktestMonitor /></ProtectedRoute>} />
             <Route path="/company/plans" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlans /></ProtectedRoute>} />
             {/* Legacy routes — redirect to unified plan management */}
