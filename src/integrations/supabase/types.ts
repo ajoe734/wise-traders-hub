@@ -1171,6 +1171,45 @@ export type Database = {
         }
         Relationships: []
       }
+      function_run_logs: {
+        Row: {
+          created_at: string
+          expert_id: string | null
+          fn: string
+          id: string
+          level: string
+          msg: string | null
+          payload: Json
+          run_id: string
+          signal_id: string | null
+          stage: string | null
+        }
+        Insert: {
+          created_at?: string
+          expert_id?: string | null
+          fn: string
+          id?: string
+          level?: string
+          msg?: string | null
+          payload?: Json
+          run_id: string
+          signal_id?: string | null
+          stage?: string | null
+        }
+        Update: {
+          created_at?: string
+          expert_id?: string | null
+          fn?: string
+          id?: string
+          level?: string
+          msg?: string | null
+          payload?: Json
+          run_id?: string
+          signal_id?: string | null
+          stage?: string | null
+        }
+        Relationships: []
+      }
       knowledge_auto_rules: {
         Row: {
           archive_below_win_rate: number
