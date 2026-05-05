@@ -16,7 +16,8 @@ import { sanitizeRichHtml, isHtmlEmpty, htmlToPlainText } from '@/lib/sanitizeHt
 import { simulatePositions, TradeAction } from '@/lib/simulatePositions';
 import { normalizeSignalQuantityToShares, simulateCashAfterTrades } from '@/lib/signalTradeLogic';
 import { cn } from '@/lib/utils';
-import { Plus, Trash2, ArrowUp, ArrowDown, Loader2, ArrowLeft, Wallet, History } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Plus, Trash2, ArrowUp, ArrowDown, Loader2, ArrowLeft, Wallet, History, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface OpenPosition {
