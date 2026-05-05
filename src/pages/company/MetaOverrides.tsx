@@ -100,6 +100,7 @@ export default function MetaOverrides() {
   });
 
   return (
+    <CompanyLayout>
     <div className="container mx-auto py-6 px-4 max-w-6xl">
       <div className="mb-6">
         <h1 className="text-2xl font-medium mb-1">持倉覆蓋管理</h1>
@@ -214,5 +215,6 @@ export default function MetaOverrides() {
         </CardContent>
       </Card>
     </div>
+    </CompanyLayout>
   );
 }
