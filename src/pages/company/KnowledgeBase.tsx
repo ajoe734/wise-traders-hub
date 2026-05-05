@@ -582,9 +582,6 @@ export default function KnowledgeBasePage() {
                             <Badge variant={item.is_active ? 'default' : 'secondary'}>
                               {item.is_active ? '啟用' : '停用'}
                             </Badge>
-                            <Badge variant={item.is_active ? 'default' : 'secondary'}>
-                              {item.is_active ? '啟用' : '停用'}
-                            </Badge>
                             {(() => {
                               const ls = item.lifecycle_status ?? 'active';
                               const map: Record<string, { label: string; cls: string }> = {
