@@ -477,6 +477,46 @@ export default function KnowledgeBasePage() {
     return { backtestable, withSamples, distribution, toArchive, toOptimize };
   }, [items]);
 
+  // 近 24 小時回測摘要：成功/失敗/最大勝率變化/失敗清單
+  const recentSummary = useMemo(() => {
+    const since = Date.now() - 24 * 60 * 60 * 1000;
+    const recent = backtestRuns.filter((r: any) => new Date(r.created_at).getTime() >= since);
+    const success = recent.filter((r: any) => r.status === 'completed');
+    const failed = recent.filter((r: any) => r.status === 'failed');
+    const autoActions = success.filter((r: any) => !!r.auto_action);
+    // 找最大勝率提升 / 下滑：用同一 item 最近兩筆 completed 比對
+    const byItem = new Map<string, any[]>();
+    for (const r of backtestRuns) {
+      if (r.status !== 'completed' || r.win_rate == null || !r.knowledge_item_id) continue;
+      if (!byItem.has(r.knowledge_item_id)) byItem.set(r.knowledge_item_id, []);
+      byItem.get(r.knowledge_item_id)!.push(r);
+    }
+    const deltas: { item_id: string; title: string; prev: number; cur: number; delta: number }[] = [];
+    for (const r of success) {
+      if (r.win_rate == null) continue;
+      const list = byItem.get(r.knowledge_item_id) ?? [];
+      const prev = list.find((x: any) => new Date(x.created_at).getTime() < new Date(r.created_at).getTime());
+      if (!prev || prev.win_rate == null) continue;
+      const item = items.find(i => i.id === r.knowledge_item_id);
+      deltas.push({
+        item_id: r.knowledge_item_id,
+        title: item?.title ?? r.knowledge_item_id?.slice(0, 8),
+        prev: Number(prev.win_rate),
+        cur: Number(r.win_rate),
+        delta: Number(r.win_rate) - Number(prev.win_rate),
+      });
+    }
+    deltas.sort((a, b) => b.delta - a.delta);
+    return {
+      total: recent.length,
+      success: success.length,
+      failed,
+      autoActions,
+      topGain: deltas[0],
+      topLoss: deltas[deltas.length - 1],
+    };
+  }, [backtestRuns, items]);
+
   return (
     <CompanyLayout>
       <div className="p-6 space-y-6">
