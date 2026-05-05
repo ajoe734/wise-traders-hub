@@ -113,20 +113,43 @@ Deno.serve(async (req) => {
 
   const runId = crypto.randomUUID().slice(0, 8)
   const t0 = Date.now()
-  const log = (msg: string, extra?: unknown) =>
-    extra !== undefined
-      ? console.log(`[publish-weekly-journals][${runId}] ${msg}`, extra)
-      : console.log(`[publish-weekly-journals][${runId}] ${msg}`)
-  const logErr = (stage: string, err: unknown, extra?: Record<string, unknown>) => {
+  const fn = 'publish-weekly-journals'
+
+  // 統一結構化 JSON 日誌 + 人類可讀單行訊息
+  const emit = (
+    level: 'info' | 'warn' | 'error',
+    msg: string,
+    ctx: Record<string, unknown> = {},
+  ) => {
+    const payload = {
+      ts: new Date().toISOString(),
+      level,
+      fn,
+      runId,
+      msg,
+      ...ctx,
+    }
+    const human = `[${fn}][${runId}]${ctx.stage ? `[stage=${ctx.stage}]` : ''}${
+      ctx.expertId ? `[expert=${ctx.expertId}]` : ''
+    }${ctx.signalId ? `[signal=${ctx.signalId}]` : ''} ${msg}`
+    const out = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log
+    out(human)
+    out(JSON.stringify(payload))
+  }
+  const log = (msg: string, ctx: Record<string, unknown> = {}) => emit('info', msg, { stage, ...ctx })
+  const logErr = (stageName: string, err: unknown, extra: Record<string, unknown> = {}) => {
     const e = err as any
-    console.error(`[publish-weekly-journals][${runId}][stage=${stage}] FAILED`, {
-      name: e?.name,
-      message: e?.message ?? String(err),
-      code: e?.code,
-      details: e?.details,
-      hint: e?.hint,
-      status: e?.status,
-      stack: e?.stack,
+    emit('error', `FAILED: ${e?.message ?? String(err)}`, {
+      stage: stageName,
+      err: {
+        name: e?.name,
+        message: e?.message ?? String(err),
+        code: e?.code,
+        details: e?.details,
+        hint: e?.hint,
+        status: e?.status,
+        stack: e?.stack,
+      },
       ...extra,
     })
   }
@@ -137,7 +160,7 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     if (!supabaseUrl || !serviceRoleKey) {
       const missing = [!supabaseUrl && 'SUPABASE_URL', !serviceRoleKey && 'SUPABASE_SERVICE_ROLE_KEY'].filter(Boolean)
-      console.error(`[publish-weekly-journals][${runId}] Missing env: ${missing.join(', ')}`)
+      emit('error', 'Missing required env', { stage: 'init', missing })
       return new Response(JSON.stringify({ error: 'Missing required env', missing, runId }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -312,7 +335,7 @@ Deno.serve(async (req) => {
         .single()
 
       if (!channel?.is_active || !channel?.channel_access_token) {
-        console.log(`No active LINE channel for expert ${expertId}`)
+        emit('warn', 'No active LINE channel', { stage, expertId })
         continue
       }
 
@@ -331,7 +354,7 @@ Deno.serve(async (req) => {
         .eq('is_active', true)
 
       if (!bindings || bindings.length === 0) {
-        console.log(`No LINE bindings for expert ${expertId}`)
+        emit('warn', 'No LINE bindings', { stage, expertId })
         continue
       }
 
@@ -465,10 +488,10 @@ Deno.serve(async (req) => {
           })
           if (res.ok) {
             totalPushed += batch.length
-            console.log(`Pushed to ${batch.length} subscribed users for expert ${expertId}`)
+            emit('info', 'LINE push ok (subscribed)', { stage, expertId, count: batch.length })
           } else {
             const errBody = await res.text()
-            console.error(`LINE push failed for expert ${expertId}:`, res.status, errBody)
+            emit('error', 'LINE push failed (subscribed)', { stage, expertId, status: res.status, body: errBody })
           }
         }
       }
@@ -492,10 +515,10 @@ Deno.serve(async (req) => {
 
           if (res.ok) {
             totalPushed += batch.length
-            console.log(`Promo pushed to ${batch.length} canceled users for expert ${expertId}`)
+            emit('info', 'LINE promo push ok (canceled)', { stage, expertId, count: batch.length })
           } else {
             const errBody = await res.text()
-            console.error(`LINE promo push failed for expert ${expertId}:`, res.status, errBody)
+            emit('error', 'LINE promo push failed (canceled)', { stage, expertId, status: res.status, body: errBody })
           }
         }
       }
