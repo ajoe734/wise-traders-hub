@@ -27,8 +27,8 @@ async function logAudit(supa: any, action: string, payload: any) {
     await supa.from('audit_logs').insert({
       action,
       target_type: 'knowledge_item',
-      target_id: payload?.item_id ?? null,
-      metadata: payload,
+      target_id: payload?.target_id ?? null,
+      detail: { context: payload, source: 'knowledge-daily-scheduler' },
     })
   } catch (_) { /* noop */ }
 }
