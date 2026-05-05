@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
       .neq('status', 'done')
       .order('symbol')
       .order('yyyymm')
-      .limit(50) // 一次 edge function 最多 50 個請求（~150 秒，超過 budget 會自動收尾）
+      .limit(200) // 一次 edge function 最多 200 個請求（搭配 1.2s 限速 + 55s budget）
     if (pErr) throw pErr
 
     let inserted = 0
