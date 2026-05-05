@@ -14,9 +14,44 @@ import { useFormDraft } from '@/hooks/useFormDraft';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { sanitizeRichHtml, isHtmlEmpty, htmlToPlainText } from '@/lib/sanitizeHtml';
 import { simulatePositions, TradeAction } from '@/lib/simulatePositions';
+import { normalizeSignalQuantityToShares, simulateCashAfterTrades } from '@/lib/signalTradeLogic';
 import { cn } from '@/lib/utils';
-import { Plus, Trash2, ArrowUp, ArrowDown, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, Loader2, ArrowLeft, Wallet, History } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface OpenPosition {
+  symbol: string;
+  instrument: string;
+  quantity_shares: number;
+  entry_price: number;
+  current_price: number | null;
+  market_value: number;
+  unrealized_pnl: number;
+  unrealized_pct: number;
+}
+interface RecentTrade {
+  id: string;
+  instrument: string;
+  symbol: string;
+  status: string;
+  quantity_shares: number;
+  entry_price: number | null;
+  exit_price: number | null;
+  pnl_percent: number | null;
+  created_at: string;
+}
+interface CapitalStatus {
+  starting_capital: number;
+  realized_pnl_amount: number;
+  open_cost_value: number;
+  open_market_value: number;
+  unrealized_pnl_amount: number;
+  available_cash: number;
+  open_positions: OpenPosition[];
+  recent_trades: RecentTrade[];
+}
+
+const fmtMoney = (n: number) => `$${(Math.round(n) || 0).toLocaleString()}`;
 
 interface TradeDraft {
   uid: string;             // 前端 key
