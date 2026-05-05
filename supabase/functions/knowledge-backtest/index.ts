@@ -652,7 +652,20 @@ Deno.serve(async (req) => {
           }
         }
       } catch (e) {
-        out.push({ item_id: item.id, error: String(e) })
+        // 把失敗也寫進歷史，方便後台追蹤
+        const errMsg = String(e?.message ?? e)
+        try {
+          await sb.from('knowledge_backtest_runs').insert({
+            knowledge_item_id: item.id,
+            run_mode: mode === 'full' ? 'cron_weekly' : 'full',
+            parameters: item.trigger_condition ?? {},
+            status: 'failed',
+            error_message: errMsg,
+            universe_size: bySym.size,
+            completed_at: new Date().toISOString(),
+          })
+        } catch (_) { /* ignore log failure */ }
+        out.push({ item_id: item.id, error: errMsg })
       }
     }
 
