@@ -175,9 +175,9 @@ export default function KnowledgeScheduler() {
       setOrigRules(res.data as any);
       await logAdminAction({
         action: 'knowledge.update_auto_rules',
-        target_type: 'knowledge_auto_rules',
-        target_id: res.data?.id,
-        context: { from: origRules, to: payload },
+        targetType: 'knowledge_auto_rules',
+        targetId: res.data?.id,
+        detail: { before: origRules, after: payload },
       });
       toast.success('已儲存自動規則');
     } catch (e: any) {
