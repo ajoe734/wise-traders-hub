@@ -384,20 +384,28 @@ export default function KnowledgeBasePage() {
       return;
     }
     setBacktesting(item.id);
+    const prevWr = item.win_rate;
+    const prevN = item.sample_size ?? 0;
     try {
       const { data, error } = await supabase.functions.invoke('knowledge-backtest', {
         body: { mode: 'single', item_id: item.id },
       });
       if (error) throw error;
       if (data?.error === 'INSUFFICIENT_DATA') {
-        toast.error(data.message || '歷史資料不足');
+        toast.error(data.message || '歷史資料不足，請先完成「初始化（36 個月）」回填');
       } else {
         const stats = data?.results?.[0]?.stats;
-        toast.success(`回測完成：命中 ${stats?.total_hits ?? 0} 筆，勝率 ${stats?.win_rate != null ? (stats.win_rate * 100).toFixed(1) + '%' : 'N/A'}`);
+        const newWr = stats?.win_rate;
+        const newN = stats?.total_hits ?? 0;
+        const wrTxt = newWr != null ? `${(newWr * 100).toFixed(1)}%` : 'N/A';
+        const wrDelta = (prevWr != null && newWr != null)
+          ? `（${(prevWr * 100).toFixed(1)}% → ${(newWr * 100).toFixed(1)}%，${newWr >= prevWr ? '↑' : '↓'}${Math.abs((newWr - prevWr) * 100).toFixed(1)}pp）`
+          : '（首次回測）';
+        toast.success(`✅ 回測完成 · ${item.title}\n勝率 ${wrTxt} ${wrDelta}\n樣本 n=${prevN} → ${newN}`);
       }
       load();
     } catch (err: any) {
-      toast.error('回測失敗：' + (err?.message ?? String(err)));
+      toast.error(`❌ 回測失敗 · ${item.title}\n${err?.message ?? String(err)}`);
     } finally {
       setBacktesting(null);
     }
