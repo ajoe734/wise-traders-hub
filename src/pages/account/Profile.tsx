@@ -32,34 +32,42 @@ const AccountProfile = () => {
     }
 
     setIsUploading(true);
+    const oldUrl = user.avatarUrl;
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const filePath = `${user.id}/avatar.${ext}`;
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const rand = Math.random().toString(36).slice(2, 8);
+      const filePath = `${user.id}/avatar-${Date.now()}-${rand}.${ext}`;
 
-      // Upload to storage
+      // 唯一檔名 → 不使用 upsert，避免觸發 update 路徑的 Storage RLS
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { upsert: false, contentType: file.type });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) throw new Error('上傳檔案失敗：' + uploadError.message);
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
+      const avatarUrl = urlData.publicUrl;
 
-      const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-
-      // Update profile
       const { error: updateError } = await updateProfileFields(supabase, user.id, { avatar_url: avatarUrl });
+      if (updateError) throw new Error('更新資料失敗：' + updateError);
 
-      if (updateError) throw new Error(updateError);
+      // best-effort：刪除舊檔
+      if (oldUrl && oldUrl.includes('/avatars/')) {
+        try {
+          const oldPath = oldUrl.split('/avatars/')[1]?.split('?')[0];
+          if (oldPath && oldPath !== filePath) {
+            await supabase.storage.from('avatars').remove([oldPath]);
+          }
+        } catch { /* ignore */ }
+      }
 
       await refreshProfile();
       toast.success('頭貼已更新');
     } catch (err: any) {
       console.error('Avatar upload error:', err);
-      toast.error('上傳失敗：' + err.message);
+      toast.error(err.message || '上傳失敗');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
