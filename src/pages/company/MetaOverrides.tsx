@@ -1,5 +1,6 @@
 import { useEffect, useState, Fragment } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
