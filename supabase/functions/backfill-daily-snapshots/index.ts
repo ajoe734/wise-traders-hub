@@ -194,6 +194,24 @@ Deno.serve(async (req) => {
     const { count: totalCount } = await sb.from('knowledge_backfill_progress')
       .select('*', { count: 'exact', head: true })
 
+    // 自動觸發 knowledge-backtest：本批有處理 && 已無 pending（剛清空）
+    let auto_backtest_triggered = false
+    if (processed > 0 && (pendingCount ?? 0) === 0) {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/knowledge-backtest`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SERVICE_KEY}`,
+          },
+          body: JSON.stringify({ mode: 'full', trigger: 'auto_after_backfill' }),
+        })
+        auto_backtest_triggered = true
+      } catch (e) {
+        console.error('auto-trigger knowledge-backtest failed:', e)
+      }
+    }
+
     return new Response(JSON.stringify({
       ok: true,
       this_batch: { processed, rows_inserted: inserted, failures: failed },
@@ -204,7 +222,8 @@ Deno.serve(async (req) => {
         total: totalCount ?? 0,
       },
       partial: (pendingCount ?? 0) > 0,
-      hint: (pendingCount ?? 0) > 0 ? '尚有未完成批次，請再次點擊「續跑」' : '回填完成 ✅',
+      auto_backtest_triggered,
+      hint: (pendingCount ?? 0) > 0 ? '尚有未完成批次，自動續跑中…' : '回填完成 ✅',
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   } catch (err) {
