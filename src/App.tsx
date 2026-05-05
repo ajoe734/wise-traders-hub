@@ -89,6 +89,7 @@ import CompanyAuditLogs from "./pages/company/AuditLogs";
 import CompanySystemJobs from "./pages/company/SystemJobs";
 import CompanyFunctionLogs from "./pages/company/FunctionLogs";
 import CompanyKnowledgeBase from "./pages/company/KnowledgeBase";
+import CompanyBacktestMonitor from "./pages/company/BacktestMonitor";
 import CompanyPlans from "./pages/company/Plans";
 import CompanyRemittance from "./pages/company/Remittance";
 import CompanyPaymentSettings from "./pages/company/PaymentSettings";
