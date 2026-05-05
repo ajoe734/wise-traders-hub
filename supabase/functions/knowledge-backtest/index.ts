@@ -561,9 +561,22 @@ Deno.serve(async (req) => {
 
     for (const item of items) {
       if (Date.now() - startedAt > 45_000) break
+      // 抓更新前的勝率/樣本數，回應裡帶 delta 方便前端顯示「舊→新」
+      let prev: { win_rate: number | null; sample_size: number | null } = { win_rate: null, sample_size: null }
+      try {
+        const { data: prevRow } = await sb
+          .from('checkup_knowledge_items')
+          .select('win_rate,sample_size')
+          .eq('id', item.id).single()
+        if (prevRow) prev = { win_rate: prevRow.win_rate, sample_size: prevRow.sample_size }
+      } catch (_) { /* ignore */ }
+
       try {
         const { runId, stats } = await backtestOne(sb, item, bySym, mode === 'full' ? 'cron_weekly' : 'full')
-        out.push({ item_id: item.id, run_id: runId, stats })
+        out.push({
+          item_id: item.id, run_id: runId, stats,
+          prev_win_rate: prev.win_rate, prev_sample_size: prev.sample_size,
+        })
 
         // 套用自動規則
         if (autoRules && stats.total_hits >= autoRules.min_sample_size && stats.win_rate != null) {
@@ -639,7 +652,20 @@ Deno.serve(async (req) => {
           }
         }
       } catch (e) {
-        out.push({ item_id: item.id, error: String(e) })
+        // 把失敗也寫進歷史，方便後台追蹤
+        const errMsg = String(e?.message ?? e)
+        try {
+          await sb.from('knowledge_backtest_runs').insert({
+            knowledge_item_id: item.id,
+            run_mode: mode === 'full' ? 'cron_weekly' : 'full',
+            parameters: item.trigger_condition ?? {},
+            status: 'failed',
+            error_message: errMsg,
+            universe_size: bySym.size,
+            completed_at: new Date().toISOString(),
+          })
+        } catch (_) { /* ignore log failure */ }
+        out.push({ item_id: item.id, error: errMsg })
       }
     }
 

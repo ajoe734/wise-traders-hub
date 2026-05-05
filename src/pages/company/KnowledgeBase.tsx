@@ -384,20 +384,28 @@ export default function KnowledgeBasePage() {
       return;
     }
     setBacktesting(item.id);
+    const prevWr = item.win_rate;
+    const prevN = item.sample_size ?? 0;
     try {
       const { data, error } = await supabase.functions.invoke('knowledge-backtest', {
         body: { mode: 'single', item_id: item.id },
       });
       if (error) throw error;
       if (data?.error === 'INSUFFICIENT_DATA') {
-        toast.error(data.message || '歷史資料不足');
+        toast.error(data.message || '歷史資料不足，請先完成「初始化（36 個月）」回填');
       } else {
         const stats = data?.results?.[0]?.stats;
-        toast.success(`回測完成：命中 ${stats?.total_hits ?? 0} 筆，勝率 ${stats?.win_rate != null ? (stats.win_rate * 100).toFixed(1) + '%' : 'N/A'}`);
+        const newWr = stats?.win_rate;
+        const newN = stats?.total_hits ?? 0;
+        const wrTxt = newWr != null ? `${(newWr * 100).toFixed(1)}%` : 'N/A';
+        const wrDelta = (prevWr != null && newWr != null)
+          ? `（${(prevWr * 100).toFixed(1)}% → ${(newWr * 100).toFixed(1)}%，${newWr >= prevWr ? '↑' : '↓'}${Math.abs((newWr - prevWr) * 100).toFixed(1)}pp）`
+          : '（首次回測）';
+        toast.success(`✅ 回測完成 · ${item.title}\n勝率 ${wrTxt} ${wrDelta}\n樣本 n=${prevN} → ${newN}`);
       }
       load();
     } catch (err: any) {
-      toast.error('回測失敗：' + (err?.message ?? String(err)));
+      toast.error(`❌ 回測失敗 · ${item.title}\n${err?.message ?? String(err)}`);
     } finally {
       setBacktesting(null);
     }
@@ -468,6 +476,46 @@ export default function KnowledgeBasePage() {
     }
     return { backtestable, withSamples, distribution, toArchive, toOptimize };
   }, [items]);
+
+  // 近 24 小時回測摘要：成功/失敗/最大勝率變化/失敗清單
+  const recentSummary = useMemo(() => {
+    const since = Date.now() - 24 * 60 * 60 * 1000;
+    const recent = backtestRuns.filter((r: any) => new Date(r.created_at).getTime() >= since);
+    const success = recent.filter((r: any) => r.status === 'completed');
+    const failed = recent.filter((r: any) => r.status === 'failed');
+    const autoActions = success.filter((r: any) => !!r.auto_action);
+    // 找最大勝率提升 / 下滑：用同一 item 最近兩筆 completed 比對
+    const byItem = new Map<string, any[]>();
+    for (const r of backtestRuns) {
+      if (r.status !== 'completed' || r.win_rate == null || !r.knowledge_item_id) continue;
+      if (!byItem.has(r.knowledge_item_id)) byItem.set(r.knowledge_item_id, []);
+      byItem.get(r.knowledge_item_id)!.push(r);
+    }
+    const deltas: { item_id: string; title: string; prev: number; cur: number; delta: number }[] = [];
+    for (const r of success) {
+      if (r.win_rate == null) continue;
+      const list = byItem.get(r.knowledge_item_id) ?? [];
+      const prev = list.find((x: any) => new Date(x.created_at).getTime() < new Date(r.created_at).getTime());
+      if (!prev || prev.win_rate == null) continue;
+      const item = items.find(i => i.id === r.knowledge_item_id);
+      deltas.push({
+        item_id: r.knowledge_item_id,
+        title: item?.title ?? r.knowledge_item_id?.slice(0, 8),
+        prev: Number(prev.win_rate),
+        cur: Number(r.win_rate),
+        delta: Number(r.win_rate) - Number(prev.win_rate),
+      });
+    }
+    deltas.sort((a, b) => b.delta - a.delta);
+    return {
+      total: recent.length,
+      success: success.length,
+      failed,
+      autoActions,
+      topGain: deltas[0],
+      topLoss: deltas[deltas.length - 1],
+    };
+  }, [backtestRuns, items]);
 
   return (
     <CompanyLayout>
@@ -675,6 +723,67 @@ export default function KnowledgeBasePage() {
           </TabsContent>
 
           <TabsContent value="backtest" className="space-y-6 mt-4">
+            {/* 近 24 小時回測摘要 */}
+            <div className="border rounded-lg p-4 bg-card">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <h3 className="text-base font-medium flex items-center gap-2">
+                  <Activity className="h-4 w-4" /> 近 24 小時回測摘要
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  共 {recentSummary.total} 次 · 成功 {recentSummary.success} · 失敗 {recentSummary.failed.length} · 自動處置 {recentSummary.autoActions.length}
+                </span>
+              </div>
+              {recentSummary.total === 0 ? (
+                <p className="text-sm text-muted-foreground">過去 24 小時尚無回測。可在「正式知識庫」針對單條按「回測」，或讓 cron 自動跑。</p>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    {recentSummary.topGain && recentSummary.topGain.delta > 0 && (
+                      <div className="border rounded p-2 bg-emerald-500/5">
+                        <p className="text-xs text-muted-foreground mb-1">勝率提升 Top 1（更新成功 ✅）</p>
+                        <p className="text-sm font-medium truncate">{recentSummary.topGain.title}</p>
+                        <p className="text-sm">
+                          {(recentSummary.topGain.prev * 100).toFixed(1)}% → <span className="text-emerald-600 font-medium">{(recentSummary.topGain.cur * 100).toFixed(1)}%</span>
+                          <span className="text-emerald-600 ml-2">↑{(recentSummary.topGain.delta * 100).toFixed(1)}pp</span>
+                        </p>
+                      </div>
+                    )}
+                    {recentSummary.topLoss && recentSummary.topLoss.delta < 0 && (
+                      <div className="border rounded p-2 bg-red-500/5">
+                        <p className="text-xs text-muted-foreground mb-1">勝率下滑 Top 1（需關注 ⚠️）</p>
+                        <p className="text-sm font-medium truncate">{recentSummary.topLoss.title}</p>
+                        <p className="text-sm">
+                          {(recentSummary.topLoss.prev * 100).toFixed(1)}% → <span className="text-red-600 font-medium">{(recentSummary.topLoss.cur * 100).toFixed(1)}%</span>
+                          <span className="text-red-600 ml-2">↓{Math.abs(recentSummary.topLoss.delta * 100).toFixed(1)}pp</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">失敗清單（{recentSummary.failed.length}）</p>
+                    {recentSummary.failed.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">沒有失敗 ✅</p>
+                    ) : (
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {recentSummary.failed.slice(0, 10).map((r: any) => {
+                          const item = items.find(i => i.id === r.knowledge_item_id);
+                          return (
+                            <div key={r.id} className="text-xs border rounded p-1.5 bg-red-500/5">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="destructive" className="text-[10px]">failed</Badge>
+                                <span className="truncate flex-1">{item?.title ?? r.knowledge_item_id?.slice(0, 8)}</span>
+                              </div>
+                              <p className="text-muted-foreground mt-0.5 line-clamp-2">{r.error_message ?? '(無錯誤訊息)'}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <BackfillProgressPanel />
             <AutoRulesPanel />
 
@@ -771,25 +880,33 @@ export default function KnowledgeBasePage() {
                   {backtestRuns.slice(0, 100).map((r: any) => {
                     const item = items.find(i => i.id === r.knowledge_item_id);
                     const isGrid = r.run_mode === 'grid_search';
+                    const isFailed = r.status === 'failed';
                     return (
                       <button
                         key={r.id}
                         onClick={() => isGrid ? setOpenGridDetail(r.id) : setOpenRunDetail(r.id)}
-                        className="w-full border rounded p-2 text-sm flex items-center gap-3 flex-wrap text-left hover:bg-muted/50 transition-colors"
+                        className={`w-full border rounded p-2 text-sm text-left hover:bg-muted/50 transition-colors ${isFailed ? 'border-red-500/40 bg-red-500/5' : ''}`}
                       >
-                        <Badge variant={isGrid ? 'default' : 'outline'}>{r.run_mode}</Badge>
-                        <code className="text-xs text-muted-foreground">{item?.item_id ?? r.knowledge_item_id?.slice(0, 8)}</code>
-                        <span className="flex-1 truncate">{item?.title ?? '(已刪除)'}</span>
-                        {r.auto_action && (
-                          <Badge variant={r.auto_action.includes('archived') ? 'destructive' : 'secondary'} className="text-xs">
-                            {r.auto_action}
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <Badge variant={isFailed ? 'destructive' : isGrid ? 'default' : 'outline'}>
+                            {isFailed ? 'failed' : r.run_mode}
                           </Badge>
+                          <code className="text-xs text-muted-foreground">{item?.item_id ?? r.knowledge_item_id?.slice(0, 8)}</code>
+                          <span className="flex-1 truncate">{item?.title ?? '(已刪除)'}</span>
+                          {r.auto_action && (
+                            <Badge variant={r.auto_action.includes('archived') ? 'destructive' : 'secondary'} className="text-xs">
+                              {r.auto_action}
+                            </Badge>
+                          )}
+                          {!isFailed && r.win_rate != null && <span>勝率 {(r.win_rate * 100).toFixed(1)}%</span>}
+                          {!isFailed && <span className="text-muted-foreground">n={r.total_hits}</span>}
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(r.created_at).toLocaleString('zh-TW', { hour12: false })}
+                          </span>
+                        </div>
+                        {isFailed && r.error_message && (
+                          <p className="text-xs text-red-600 mt-1 line-clamp-2">⚠️ {r.error_message}</p>
                         )}
-                        {r.win_rate != null && <span>勝率 {(r.win_rate * 100).toFixed(1)}%</span>}
-                        <span className="text-muted-foreground">n={r.total_hits}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(r.created_at).toLocaleString('zh-TW', { hour12: false })}
-                        </span>
                       </button>
                     );
                   })}
