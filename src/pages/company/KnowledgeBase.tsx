@@ -55,6 +55,11 @@ interface KnowledgeItem {
   source_type: string;
   industry_tags: string[];
   time_horizon: string | null;
+  lifecycle_status?: 'active' | 'candidate' | 'rescue' | 'archived';
+  rescue_started_at?: string | null;
+  rescue_attempts?: number;
+  candidate_observed_since?: string | null;
+  archived_reason?: string | null;
 }
 
 interface Candidate {
