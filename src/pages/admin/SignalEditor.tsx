@@ -569,21 +569,38 @@ const SignalEditor = () => {
                               <span className="ml-1 opacity-70">({p.unrealized_pct >= 0 ? '+' : ''}{p.unrealized_pct.toFixed(2)}%)</span>
                             </td>
                             <td className="text-right">
-                              <Button
-                                type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs"
-                                onClick={() => {
-                                  const last = trades[trades.length - 1];
-                                  const targetIdx = last && !last.stockCode ? trades.length - 1 : trades.length;
-                                  if (targetIdx === trades.length) addTrade();
-                                  setTimeout(() => updateTrade(targetIdx, {
-                                    stockCode: p.symbol,
-                                    stockName: p.instrument.replace(p.symbol, '').trim(),
-                                    action: 'trim' as TradeAction,
-                                    priceHint: p.current_price ? String(p.current_price) : '',
-                                    quantityUnit: '股',
-                                  }), 0);
-                                }}
-                              >帶入</Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1">
+                                    帶入 <ChevronDown className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-32">
+                                  {([
+                                    { key: 'trim',  label: '減碼', full: false, reason: '' },
+                                    { key: 'sell',  label: '出場', full: true,  reason: '' },
+                                    { key: 'exit',  label: '停損', full: true,  reason: '<p>停損出場</p>' },
+                                  ] as const).map((opt) => (
+                                    <DropdownMenuItem
+                                      key={opt.key}
+                                      onSelect={() => {
+                                        const last = trades[trades.length - 1];
+                                        const targetIdx = last && !last.stockCode ? trades.length - 1 : trades.length;
+                                        if (targetIdx === trades.length) addTrade();
+                                        setTimeout(() => updateTrade(targetIdx, {
+                                          stockCode: p.symbol,
+                                          stockName: p.instrument.replace(p.symbol, '').trim(),
+                                          action: opt.key as TradeAction,
+                                          priceHint: p.current_price ? String(p.current_price) : '',
+                                          quantityUnit: '股',
+                                          quantity: opt.full ? String(p.quantity_shares) : '',
+                                          reasonSummary: opt.reason || undefined as any,
+                                        } as any), 0);
+                                      }}
+                                    >{opt.label}</DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </td>
                           </tr>
                         ))}
