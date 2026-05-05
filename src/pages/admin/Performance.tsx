@@ -85,12 +85,13 @@ const AdminPerformance = () => {
       });
   }, [expertSlug]);
 
-  // ─── 累計/平均報酬：calculate_expert_performance RPC ───
+  // ─── 總報酬率 / 平均報酬：calculate_expert_performance RPC ───
   const fetchPerfStats = async (eid: string) => {
     const { data } = await supabase.rpc('calculate_expert_performance', { _expert_id: eid });
     if (data) {
       const d = data as any;
-      setTotalPnlPercent(d.cumulative_return != null ? Number(d.cumulative_return) : 0);
+      const totalRet = d.total_return_pct ?? d.cumulative_return ?? 0;
+      setTotalPnlPercent(Number(totalRet));
       setAvgPnlPercent(d.avg_pnl != null ? Number(d.avg_pnl) : 0);
     }
   };
