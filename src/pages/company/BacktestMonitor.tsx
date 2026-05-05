@@ -80,6 +80,9 @@ export default function BacktestMonitor() {
       { data: bfNext },
       { count: recentCount },
       { data: bfLatestDate },
+      { data: bfFailed },
+      { data: bfLastAttempt },
+      { data: notifyLogs },
     ] = await Promise.all([
       (supabase as any)
         .from('knowledge_backtest_runs')
@@ -100,11 +103,45 @@ export default function BacktestMonitor() {
         .eq('status', 'done').gte('completed_at', fiveMinAgo),
       (supabase as any).from('daily_price_snapshots')
         .select('trade_date').order('trade_date', { ascending: false }).limit(1).maybeSingle(),
+      (supabase as any).from('knowledge_backfill_progress')
+        .select('symbol, yyyymm, error_message, attempted_at')
+        .eq('status', 'failed')
+        .order('attempted_at', { ascending: false }).limit(20),
+      (supabase as any).from('knowledge_backfill_progress')
+        .select('attempted_at').not('attempted_at', 'is', null)
+        .order('attempted_at', { ascending: false }).limit(1).maybeSingle(),
+      (supabase as any).from('function_run_logs')
+        .select('created_at, payload, msg, level')
+        .eq('fn', 'notify-backtest-result')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle().then((r: any) => r).catch(() => ({ data: null })),
     ]);
     setRuns((runsData as RunRow[]) || []);
     const map: Record<string, { title: string }> = {};
     for (const it of itemsData || []) map[it.id] = { title: it.title };
     setItems(map);
+
+    setFailedBackfills((bfFailed as FailedBackfillRow[]) || []);
+    // 聚合失敗原因
+    const reasonMap = new Map<string, number>();
+    for (const r of (bfFailed as any[]) || []) {
+      const reason = (r.error_message || '未知錯誤').slice(0, 200);
+      reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1);
+    }
+    setFailedBackfillReasons(
+      Array.from(reasonMap.entries())
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count).slice(0, 5)
+    );
+
+    if (notifyLogs) {
+      const p = (notifyLogs as any).payload || {};
+      setNotifyLog({
+        created_at: (notifyLogs as any).created_at,
+        email_sent: p.email_sent ?? 0,
+        email_failed: p.email_failed ?? 0,
+        errors: Array.isArray(p.errors) ? p.errors : [],
+      });
+    }
 
     if (bfAll) {
       const counts = { pending: 0, done: 0, empty: 0, failed: 0 };
@@ -126,6 +163,7 @@ export default function BacktestMonitor() {
         current_yyyymm: (bfNext as any)?.yyyymm ?? null,
         recent_done_5min: recent5,
         eta_minutes: eta,
+        last_attempted_at: (bfLastAttempt as any)?.attempted_at ?? null,
       });
     }
 
