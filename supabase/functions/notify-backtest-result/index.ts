@@ -202,6 +202,7 @@ Deno.serve(async (req) => {
 
     let sent = 0
     let failedSend = 0
+    const errors: string[] = []
     for (const to of recipients) {
       try {
         const res = await fetch(RESEND_API_URL, {
@@ -210,14 +211,41 @@ Deno.serve(async (req) => {
           body: JSON.stringify({ from: FROM_ADDR, to: [to], subject, html }),
         })
         if (res.ok) sent++
-        else { failedSend++; console.error('Resend failed', to, await res.text()) }
-      } catch (e) { failedSend++; console.error('Resend error', to, e) }
+        else {
+          failedSend++
+          const t = await res.text()
+          const msg = `${to}: HTTP ${res.status} ${t.slice(0, 180)}`
+          errors.push(msg)
+          console.error('Resend failed', msg)
+        }
+      } catch (e) {
+        failedSend++
+        const msg = `${to}: ${String(e).slice(0, 180)}`
+        errors.push(msg)
+        console.error('Resend error', msg)
+      }
     }
+
+    // 寫入 function_run_logs 供監控頁顯示
+    try {
+      await sb.from('function_run_logs').insert({
+        fn: 'notify-backtest-result',
+        run_id: crypto.randomUUID(),
+        level: failedSend > 0 ? 'error' : 'info',
+        msg: `sent=${sent} failed=${failedSend} recipients=${recipients.length}`,
+        payload: {
+          email_sent: sent, email_failed: failedSend,
+          recipients: recipients.length,
+          total: allRuns.length, success, failed,
+          trigger, errors: errors.slice(0, 10),
+        },
+      })
+    } catch (e) { console.error('log insert failed:', e) }
 
     return new Response(JSON.stringify({
       ok: true, total: allRuns.length, success, failed,
       email_sent: sent, email_failed: failedSend,
-      recipients: recipients.length,
+      recipients: recipients.length, errors,
       gainers: topGainers.length, losers: topLosers.length,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (err) {

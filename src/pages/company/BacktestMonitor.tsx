@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Activity, RefreshCw, PlayCircle, Bell, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Activity, RefreshCw, PlayCircle, Bell, AlertTriangle, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface RunRow {
@@ -28,6 +28,29 @@ const fmtDateTime = (s: string | null) => {
 };
 const fmtPct = (v: number | null) => v == null ? '—' : `${(Number(v) * 100).toFixed(1)}%`;
 
+type StepState = 'done' | 'running' | 'pending' | 'failed' | 'idle';
+interface StepInfo {
+  key: string;
+  label: string;
+  state: StepState;
+  detail: string;
+  hint?: string;
+}
+
+interface FailedBackfillRow {
+  symbol: string;
+  yyyymm: string;
+  error_message: string | null;
+  attempted_at: string | null;
+}
+
+interface NotifyLog {
+  created_at: string;
+  email_sent: number;
+  email_failed: number;
+  errors: string[];
+}
+
 export default function BacktestMonitor() {
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [items, setItems] = useState<Record<string, { title: string }>>({});
@@ -35,11 +58,15 @@ export default function BacktestMonitor() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyAll, setBusyAll] = useState<'cron' | 'notify' | null>(null);
   const [lastCron, setLastCron] = useState<string | null>(null);
+  const [failedBackfills, setFailedBackfills] = useState<FailedBackfillRow[]>([]);
+  const [failedBackfillReasons, setFailedBackfillReasons] = useState<Array<{ reason: string; count: number }>>([]);
+  const [notifyLog, setNotifyLog] = useState<NotifyLog | null>(null);
   const [backfill, setBackfill] = useState<{
     pending: number; done: number; empty: number; failed: number; total: number;
     latest_month: string | null; latest_date: string | null;
     current_symbol: string | null; current_yyyymm: string | null;
     recent_done_5min: number; eta_minutes: number | null;
+    last_attempted_at: string | null;
   } | null>(null);
 
   const load = async () => {
@@ -53,6 +80,9 @@ export default function BacktestMonitor() {
       { data: bfNext },
       { count: recentCount },
       { data: bfLatestDate },
+      { data: bfFailed },
+      { data: bfLastAttempt },
+      { data: notifyLogs },
     ] = await Promise.all([
       (supabase as any)
         .from('knowledge_backtest_runs')
@@ -73,11 +103,45 @@ export default function BacktestMonitor() {
         .eq('status', 'done').gte('completed_at', fiveMinAgo),
       (supabase as any).from('daily_price_snapshots')
         .select('trade_date').order('trade_date', { ascending: false }).limit(1).maybeSingle(),
+      (supabase as any).from('knowledge_backfill_progress')
+        .select('symbol, yyyymm, error_message, attempted_at')
+        .eq('status', 'failed')
+        .order('attempted_at', { ascending: false }).limit(20),
+      (supabase as any).from('knowledge_backfill_progress')
+        .select('attempted_at').not('attempted_at', 'is', null)
+        .order('attempted_at', { ascending: false }).limit(1).maybeSingle(),
+      (supabase as any).from('function_run_logs')
+        .select('created_at, payload, msg, level')
+        .eq('fn', 'notify-backtest-result')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle().then((r: any) => r).catch(() => ({ data: null })),
     ]);
     setRuns((runsData as RunRow[]) || []);
     const map: Record<string, { title: string }> = {};
     for (const it of itemsData || []) map[it.id] = { title: it.title };
     setItems(map);
+
+    setFailedBackfills((bfFailed as FailedBackfillRow[]) || []);
+    // 聚合失敗原因
+    const reasonMap = new Map<string, number>();
+    for (const r of (bfFailed as any[]) || []) {
+      const reason = (r.error_message || '未知錯誤').slice(0, 200);
+      reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1);
+    }
+    setFailedBackfillReasons(
+      Array.from(reasonMap.entries())
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count).slice(0, 5)
+    );
+
+    if (notifyLogs) {
+      const p = (notifyLogs as any).payload || {};
+      setNotifyLog({
+        created_at: (notifyLogs as any).created_at,
+        email_sent: p.email_sent ?? 0,
+        email_failed: p.email_failed ?? 0,
+        errors: Array.isArray(p.errors) ? p.errors : [],
+      });
+    }
 
     if (bfAll) {
       const counts = { pending: 0, done: 0, empty: 0, failed: 0 };
@@ -99,6 +163,7 @@ export default function BacktestMonitor() {
         current_yyyymm: (bfNext as any)?.yyyymm ?? null,
         recent_done_5min: recent5,
         eta_minutes: eta,
+        last_attempted_at: (bfLastAttempt as any)?.attempted_at ?? null,
       });
     }
 
@@ -159,6 +224,109 @@ export default function BacktestMonitor() {
   const success24 = last24.filter(r => r.status === 'completed').length;
   const failed24 = last24.filter(r => r.status === 'failed').length;
 
+  // ===== 計算管線三步狀態 =====
+  const steps: StepInfo[] = [];
+  // Step 1: 回填
+  if (!backfill) {
+    steps.push({ key: 'backfill', label: '① TWSE 日 K 回填', state: 'idle', detail: '載入中…' });
+  } else if (backfill.failed > 0 && backfill.pending === 0) {
+    steps.push({
+      key: 'backfill', label: '① TWSE 日 K 回填', state: 'failed',
+      detail: `${backfill.failed} 個批次失敗`,
+      hint: failedBackfillReasons[0]?.reason ?? '請查看下方失敗清單',
+    });
+  } else if (backfill.pending === 0) {
+    steps.push({
+      key: 'backfill', label: '① TWSE 日 K 回填', state: 'done',
+      detail: `${backfill.done} 完成 / ${backfill.empty} 無資料`,
+    });
+  } else if (backfill.recent_done_5min > 0) {
+    steps.push({
+      key: 'backfill', label: '① TWSE 日 K 回填', state: 'running',
+      detail: `處理中 ${backfill.current_symbol ?? '?'} / ${backfill.current_yyyymm ?? '?'}`,
+      hint: backfill.eta_minutes != null ? `預估剩 ${backfill.eta_minutes < 60 ? `${backfill.eta_minutes} 分` : `${(backfill.eta_minutes/60).toFixed(1)} 小時`}` : undefined,
+    });
+  } else {
+    const stuckMin = backfill.last_attempted_at
+      ? Math.floor((Date.now() - new Date(backfill.last_attempted_at).getTime()) / 60_000)
+      : null;
+    steps.push({
+      key: 'backfill', label: '① TWSE 日 K 回填', state: 'pending',
+      detail: `${backfill.pending} 個批次待跑（近 5 分鐘無進度）`,
+      hint: stuckMin != null
+        ? `cron 每 5 分鐘自動續跑，上次嘗試 ${stuckMin} 分鐘前${stuckMin > 10 ? '（可能卡住，請查 edge function logs）' : ''}`
+        : 'cron 每 5 分鐘自動續跑',
+    });
+  }
+
+  // Step 2: 回測
+  const lastFullRun = runs.find(r => r.run_mode === 'full');
+  const recentBacktestFailed = last24.find(r => r.status === 'failed' && r.run_mode === 'full');
+  if (!lastFullRun) {
+    steps.push({
+      key: 'backtest', label: '② knowledge-backtest 執行', state: 'idle',
+      detail: '尚未執行過 full 回測',
+      hint: backfill && backfill.pending === 0 ? '回填已完成，可手動觸發或等下次 cron' : '等回填完成自動觸發',
+    });
+  } else if (recentBacktestFailed) {
+    steps.push({
+      key: 'backtest', label: '② knowledge-backtest 執行', state: 'failed',
+      detail: `最近失敗 ${fmtDateTime(recentBacktestFailed.created_at)}`,
+      hint: recentBacktestFailed.error_message ?? '請查表格錯誤訊息',
+    });
+  } else if (lastFullRun.status === 'completed') {
+    steps.push({
+      key: 'backtest', label: '② knowledge-backtest 執行', state: 'done',
+      detail: `${fmtDateTime(lastFullRun.completed_at ?? lastFullRun.created_at)}・${success24} 成功 / ${failed24} 失敗（24h）`,
+    });
+  } else {
+    steps.push({
+      key: 'backtest', label: '② knowledge-backtest 執行', state: 'running',
+      detail: `狀態：${lastFullRun.status}`,
+    });
+  }
+
+  // Step 3: Email 通知
+  if (!notifyLog) {
+    steps.push({
+      key: 'notify', label: '③ Email 通知 admin', state: 'idle',
+      detail: '尚無通知紀錄',
+      hint: '回測完成後自動觸發',
+    });
+  } else if (notifyLog.email_failed > 0 && notifyLog.email_sent === 0) {
+    steps.push({
+      key: 'notify', label: '③ Email 通知 admin', state: 'failed',
+      detail: `${fmtDateTime(notifyLog.created_at)}・全部失敗 ${notifyLog.email_failed}`,
+      hint: notifyLog.errors[0] ?? '請檢查 RESEND_API_KEY',
+    });
+  } else if (notifyLog.email_failed > 0) {
+    steps.push({
+      key: 'notify', label: '③ Email 通知 admin', state: 'failed',
+      detail: `${fmtDateTime(notifyLog.created_at)}・部分失敗 ${notifyLog.email_failed}/${notifyLog.email_sent + notifyLog.email_failed}`,
+      hint: notifyLog.errors[0] ?? '查看 edge function logs',
+    });
+  } else {
+    steps.push({
+      key: 'notify', label: '③ Email 通知 admin', state: 'done',
+      detail: `${fmtDateTime(notifyLog.created_at)}・寄出 ${notifyLog.email_sent} 封`,
+    });
+  }
+
+  const stepIcon = (s: StepState) => {
+    if (s === 'done') return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
+    if (s === 'running') return <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />;
+    if (s === 'pending') return <Clock className="h-4 w-4 text-amber-600" />;
+    if (s === 'failed') return <XCircle className="h-4 w-4 text-red-600" />;
+    return <Clock className="h-4 w-4 text-muted-foreground" />;
+  };
+  const stepBorder = (s: StepState) => {
+    if (s === 'done') return 'border-emerald-300 bg-emerald-50/40';
+    if (s === 'running') return 'border-blue-300 bg-blue-50/40';
+    if (s === 'pending') return 'border-amber-300 bg-amber-50/40';
+    if (s === 'failed') return 'border-red-300 bg-red-50/40';
+    return 'border-border';
+  };
+
   return (
     <CompanyLayout>
       <div className="space-y-6">
@@ -189,6 +357,100 @@ export default function BacktestMonitor() {
             ⚠️ 目前 daily_price_snapshots 只有少量股票，回測樣本不足（多數知識條目會 sample_size &lt; 30，無法通過驗證門檻）。
             待回填批次完成（pending=0）後會自動觸發 full 回測；勝率/樣本數摘要會以 Email 寄達。
           </div>
+        )}
+
+        {/* ===== 管線三步狀態 ===== */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-sm font-medium mb-3">管線狀態（Backfill → Backtest → Notify）</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {steps.map((s) => (
+                <div key={s.key} className={`rounded-md border p-3 ${stepBorder(s.state)}`}>
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    {stepIcon(s.state)}
+                    <span>{s.label}</span>
+                    <Badge variant="outline" className="ml-auto text-[10px] uppercase">{s.state}</Badge>
+                  </div>
+                  <div className="text-xs text-foreground/80 mt-2">{s.detail}</div>
+                  {s.hint && (
+                    <div className="text-[11px] text-muted-foreground mt-1 leading-relaxed">💡 {s.hint}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {failedBackfillReasons.length > 0 && (
+          <Card className="border-red-200">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                <XCircle className="h-4 w-4 text-red-600" />
+                回填失敗原因（Top 5）
+              </div>
+              <div className="space-y-1.5">
+                {failedBackfillReasons.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <Badge variant="destructive" className="shrink-0">{r.count}</Badge>
+                    <code className="text-red-700 bg-red-50 px-1.5 py-0.5 rounded break-all">{r.reason}</code>
+                  </div>
+                ))}
+              </div>
+              {failedBackfills.length > 0 && (
+                <details className="mt-3">
+                  <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground">
+                    展開最近 20 筆失敗批次
+                  </summary>
+                  <div className="mt-2 max-h-64 overflow-y-auto border rounded">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left p-2">時間</th>
+                          <th className="text-left p-2">Symbol / 月份</th>
+                          <th className="text-left p-2">錯誤</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {failedBackfills.map((f, i) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-2 text-muted-foreground whitespace-nowrap">{fmtDateTime(f.attempted_at)}</td>
+                            <td className="p-2 font-mono">{f.symbol} / {f.yyyymm}</td>
+                            <td className="p-2 text-red-600 break-all">{f.error_message ?? '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {notifyLog && (notifyLog.email_failed > 0 || notifyLog.errors.length > 0) && (
+          <Card className="border-amber-200">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                <Bell className="h-4 w-4 text-amber-600" />
+                最近一次 Email 通知問題
+              </div>
+              <div className="text-xs text-muted-foreground mb-2">
+                {fmtDateTime(notifyLog.created_at)}・成功 {notifyLog.email_sent}・失敗 {notifyLog.email_failed}
+              </div>
+              {notifyLog.errors.length > 0 && (
+                <div className="space-y-1">
+                  {notifyLog.errors.slice(0, 5).map((e, i) => (
+                    <code key={i} className="block text-xs text-red-700 bg-red-50 px-2 py-1 rounded break-all">{e}</code>
+                  ))}
+                </div>
+              )}
+              {notifyLog.email_failed > 0 && (
+                <div className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+                  💡 401 / API key invalid → 請至 Connectors 更新 <code>RESEND_API_KEY</code>。
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
