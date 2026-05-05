@@ -22,6 +22,7 @@ import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
+import TargetPriceHistorySection from "@/checkup/components/TargetPriceHistorySection";
 
 // #region Constants & Helpers — 政策、顏色、種子、純函式（不依賴 React state）
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
