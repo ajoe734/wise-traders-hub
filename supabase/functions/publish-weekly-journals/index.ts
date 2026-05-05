@@ -565,6 +565,7 @@ Deno.serve(async (req) => {
 
     const elapsedMs = Date.now() - t0
     log(`Done. published=${signalIds.length} pushed=${totalPushed} pushFail=${pushFail} elapsedMs=${elapsedMs}`)
+    await flushLogs()
     return new Response(JSON.stringify({
       runId, published: signalIds.length, pushed: totalPushed, pushFail, syncOk, syncFail, elapsedMs,
     }), {
@@ -572,6 +573,7 @@ Deno.serve(async (req) => {
     })
   } catch (err) {
     logErr(stage, err)
+    await flushLogs()
     const e = err as any
     return new Response(JSON.stringify({
       error: e?.message ?? 'Internal server error',
