@@ -33,12 +33,13 @@ const AdminDashboard = () => {
 
   useEffect(() => { fetchData(); }, [expertSlug]);
 
-  // Fetch cumulative return from calculate_expert_performance RPC
+  // Fetch total return from calculate_expert_performance RPC
   const fetchPerfStats = async (eid: string) => {
     const { data } = await supabase.rpc('calculate_expert_performance', { _expert_id: eid });
     if (data) {
       const d = data as any;
-      setCumulativeReturn(d.cumulative_return != null ? Number(d.cumulative_return) : 0);
+      const totalRet = d.total_return_pct ?? d.cumulative_return ?? 0;
+      setCumulativeReturn(Number(totalRet));
       setAvgPnlPercent(d.avg_pnl != null ? Number(d.avg_pnl) : 0);
     }
   };
