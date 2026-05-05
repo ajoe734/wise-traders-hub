@@ -359,6 +359,100 @@ export default function BacktestMonitor() {
           </div>
         )}
 
+        {/* ===== 管線三步狀態 ===== */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-sm font-medium mb-3">管線狀態（Backfill → Backtest → Notify）</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {steps.map((s) => (
+                <div key={s.key} className={`rounded-md border p-3 ${stepBorder(s.state)}`}>
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    {stepIcon(s.state)}
+                    <span>{s.label}</span>
+                    <Badge variant="outline" className="ml-auto text-[10px] uppercase">{s.state}</Badge>
+                  </div>
+                  <div className="text-xs text-foreground/80 mt-2">{s.detail}</div>
+                  {s.hint && (
+                    <div className="text-[11px] text-muted-foreground mt-1 leading-relaxed">💡 {s.hint}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {failedBackfillReasons.length > 0 && (
+          <Card className="border-red-200">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                <XCircle className="h-4 w-4 text-red-600" />
+                回填失敗原因（Top 5）
+              </div>
+              <div className="space-y-1.5">
+                {failedBackfillReasons.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <Badge variant="destructive" className="shrink-0">{r.count}</Badge>
+                    <code className="text-red-700 bg-red-50 px-1.5 py-0.5 rounded break-all">{r.reason}</code>
+                  </div>
+                ))}
+              </div>
+              {failedBackfills.length > 0 && (
+                <details className="mt-3">
+                  <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground">
+                    展開最近 20 筆失敗批次
+                  </summary>
+                  <div className="mt-2 max-h-64 overflow-y-auto border rounded">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left p-2">時間</th>
+                          <th className="text-left p-2">Symbol / 月份</th>
+                          <th className="text-left p-2">錯誤</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {failedBackfills.map((f, i) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-2 text-muted-foreground whitespace-nowrap">{fmtDateTime(f.attempted_at)}</td>
+                            <td className="p-2 font-mono">{f.symbol} / {f.yyyymm}</td>
+                            <td className="p-2 text-red-600 break-all">{f.error_message ?? '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {notifyLog && (notifyLog.email_failed > 0 || notifyLog.errors.length > 0) && (
+          <Card className="border-amber-200">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                <Bell className="h-4 w-4 text-amber-600" />
+                最近一次 Email 通知問題
+              </div>
+              <div className="text-xs text-muted-foreground mb-2">
+                {fmtDateTime(notifyLog.created_at)}・成功 {notifyLog.email_sent}・失敗 {notifyLog.email_failed}
+              </div>
+              {notifyLog.errors.length > 0 && (
+                <div className="space-y-1">
+                  {notifyLog.errors.slice(0, 5).map((e, i) => (
+                    <code key={i} className="block text-xs text-red-700 bg-red-50 px-2 py-1 rounded break-all">{e}</code>
+                  ))}
+                </div>
+              )}
+              {notifyLog.email_failed > 0 && (
+                <div className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+                  💡 401 / API key invalid → 請至 Connectors 更新 <code>RESEND_API_KEY</code>。
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card><CardContent className="p-4">
             <div className="text-xs text-muted-foreground">最近 cron 執行</div>
