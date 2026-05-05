@@ -341,7 +341,7 @@ Deno.serve(async (req) => {
         syncOk++
       } catch (innerErr) {
         syncFail++
-        logErr('sync_trade_signals_iteration', innerErr, { signalId: signal.id, instrument: signal.instrument, action: signal.action })
+        logErr('sync_trade_signals_iteration', innerErr, { signalId: signal.id, expertId: signal.expert_id, instrument: signal.instrument, action: signal.action })
       }
     }
 
