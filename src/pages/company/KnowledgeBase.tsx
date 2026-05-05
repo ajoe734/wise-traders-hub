@@ -606,6 +606,27 @@ export default function KnowledgeBasePage() {
           </TabsContent>
 
           <TabsContent value="candidates" className="space-y-2 mt-4">
+            {pendingCandidates.length > 0 && (
+              <div className="flex items-center justify-between gap-3 flex-wrap rounded-2xl border bg-card px-4 py-3">
+                <div className="text-sm">
+                  待審 <span className="font-semibold">{pendingCandidates.length}</span> 條 ·
+                  高信心（≥80%） <span className="font-semibold">{pendingCandidates.filter(c => (c.confidence ?? 0) >= 0.8).length}</span> 條
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" disabled={bulkApproving} onClick={() => bulkApprove(0.8)}>
+                    {bulkApproving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                    一鍵核可（高信心 ≥80%）
+                  </Button>
+                  <Button size="sm" disabled={bulkApproving} onClick={() => bulkApprove(0)}>
+                    {bulkApproving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                    一鍵核可全部
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={bulkApproving} onClick={bulkReject}>
+                    <X className="h-4 w-4 mr-1" />全部退回
+                  </Button>
+                </div>
+              </div>
+            )}
             {pendingCandidates.length === 0 && (
               <p className="text-sm text-muted-foreground">目前沒有待審候選。可用上方「Claude 起草」批次產生。</p>
             )}
