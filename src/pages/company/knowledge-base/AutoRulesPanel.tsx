@@ -15,6 +15,9 @@ interface Rules {
   min_sample_size: number;
   auto_grid_search_below: number;
   promote_min_improvement_pct: number;
+  daily_grid_search_quota: number;
+  rescue_max_weeks: number;
+  candidate_observe_days: number;
 }
 
 const DEFAULT_RULES: Rules = {
@@ -24,6 +27,9 @@ const DEFAULT_RULES: Rules = {
   min_sample_size: 30,
   auto_grid_search_below: 0.55,
   promote_min_improvement_pct: 5,
+  daily_grid_search_quota: 5,
+  rescue_max_weeks: 3,
+  candidate_observe_days: 14,
 };
 
 export function AutoRulesPanel() {
