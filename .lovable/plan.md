@@ -1,106 +1,111 @@
-目前錯誤我已經定位出來了，不是你看錯，是系統現在真的把兩種不同口徑混在一起顯示。
+## 目標
 
-問題在哪裡
+分析師後台的「發訊號」頁面要把資金當真錢管：超過剩餘現金不准送出，並讓分析師清楚看到目前持倉與最近交易。
 
-1. 後端計算公式本身就錯口徑
-- 檔案：`supabase/migrations/20260410062402_46a61b2e-c8c1-49a7-b28e-971f72960382.sql`
-- 函式：`public.calculate_expert_performance(_expert_id uuid)`
-- 現況：
-  - `cumulative_return` = 所有 `closed/stopped` 交易的 `pnl_percent` 直接加總
-  - `current_asset` = 所有 `open` 部位的市值總和
-  - 完全沒有引用 `experts.starting_capital`
-- 結果：
-  - 「總報酬率」其實是“已平倉報酬率加總”
-  - 「目前資產」卻是“未平倉市值”
-  - 兩者不是同一個基準，所以一定會出現你看到的矛盾
+---
 
-2. 前端把錯口徑直接拿來當總報酬率顯示
-- 檔案：`src/components/strategy/PerformanceOverviewPanel.tsx`
-- 現況：
-  - `sinceInceptionReturn = perfData?.cumulative_return ?? 0`
-  - UI 標成「總報酬率」
-  - 同時把 `current_asset` 顯示成「目前資產」
-- 這會造成最明顯的錯誤：
-  - 若還沒平倉，`cumulative_return` 可能是 `0.00%`
-  - 但 `current_asset` 已經很大
-  - 畫面就變成「資產暴增，但總報酬 0%」這種明顯錯誤
-
-3. 管理後台也同樣吃錯資料
-- 檔案：
-  - `src/pages/admin/Dashboard.tsx`
-  - `src/pages/admin/Performance.tsx`
-  - `src/pages/admin/Profile.tsx`
-- 現況：都直接把 `calculate_expert_performance().cumulative_return` 當成「累計報酬率 / 累積總報酬 / 總報酬率」
-- 所以錯誤不是單一頁面，是整條績效顯示鏈都錯
-
-4. 這個缺口其實連測試都已經寫出來了
-- 檔案：`src/test/integration/1.21-expert-performance-rpc.test.ts`
-- 內容直接註明：
-  - `⚠️ [生產缺口 5.3-7] starting_capital 為基準計算報酬率目前未實作`
-  - `calculate_expert_performance 不引用 experts 表`
-- 也就是說，程式裡早就知道這是缺口，但還沒補
-
-我會怎麼修
-
-1. 先把績效口徑統一成真正的投組報酬
-- 新公式改成同一基準：`starting_capital`
-- 定義：
-  - `realized_pnl_amount` = 已平倉交易損益金額合計
-  - `unrealized_pnl_amount` = 未平倉部位依現價計算的浮動損益合計
-  - `current_asset` = `starting_capital + realized_pnl_amount + unrealized_pnl_amount`
-  - `total_return_pct` = `((current_asset - starting_capital) / starting_capital) * 100`
-- 這樣「目前資產」和「總報酬率」才會互相對得上
-
-2. 不再用 `pnl_percent` 直接加總當總報酬
-- `pnl_percent` 可以保留做：
-  - 勝率
-  - 平均單筆報酬
-  - 已平倉交易統計
-- 但不能再拿來當整體資產報酬率
-
-3. 後端 RPC 補齊欄位，前端改用正確欄位
-- 更新 `calculate_expert_performance`
-- 讓它至少回傳：
-  - `starting_capital`
-  - `realized_pnl_amount`
-  - `unrealized_pnl_amount`
-  - `current_asset`
-  - `total_return_pct`
-  - 既有 `win_rate / avg_pnl / max_drawdown / profit_factor / return_1y`
-- 前端所有「總報酬率 / 累計報酬率」改讀 `total_return_pct`
-- 若還要保留原本口徑，就另標成「已實現累積報酬」
-
-4. 一次把所有顯示點改完，避免同類錯誤殘留
-- 必改檔案：
-  - `src/components/strategy/PerformanceOverviewPanel.tsx`
-  - `src/pages/admin/Dashboard.tsx`
-  - `src/pages/admin/Performance.tsx`
-  - `src/pages/admin/Profile.tsx`
-  - `src/pages/app/AppHome.tsx`
-  - 其他搜尋到 `cumulative_return` 當總績效顯示的地方
-
-5. 補測試，鎖死正確口徑
-- 更新 `src/test/integration/1.21-expert-performance-rpc.test.ts`
-- 新增以下情境：
-  - 有起始資金、無平倉、只有持倉浮盈時，總報酬率不可為 0
-  - `current_asset` 與 `total_return_pct` 必須能互相反推
-  - `starting_capital` 缺值時要有安全 fallback，不可產生假數字
-
-技術細節
+## 一、剩餘資金（可用現金）定義
 
 ```text
-現在錯誤公式
-總報酬率 = sum(closed trades.pnl_percent)
-目前資產   = sum(open positions market value)
-
-修正後公式
-目前資產 = 起始資金 + 已實現損益金額 + 未實現損益金額
-總報酬率 = (目前資產 - 起始資金) / 起始資金
+available_cash =
+    starting_capital
+  + Σ realized_pnl_amount        (status IN closed/stopped 的已實現損益)
+  − Σ open_cost_value             (status = open 的 entry_price × quantity)
 ```
 
-我判斷的根因
-- 根因不是單純 UI 標錯字。
-- 根因是後端 RPC 把「交易報酬百分比統計」誤當成「資產報酬率」，前端再把它包裝成總報酬顯示。
-- 所以要修就要從 RPC + 所有消費端一起修，不能只改文案。
+買進／加碼會佔用現金；賣出／減碼／平損會釋放現金 + 結算損益。
+單位一律以「股」為基準（沿用上一輪修正後的 trade_records.quantity = 股數）。
 
-你一核准，我就直接把這整條修掉，連同所有顯示頁面一起統一。
+---
+
+## 二、新增 RPC：`get_expert_capital_status(_expert_id)`
+
+回傳：
+- `starting_capital`
+- `realized_pnl_amount`
+- `open_cost_value`
+- `available_cash`
+- `open_positions`：JSON array `[{ symbol, instrument, quantity_shares, entry_price, current_price, market_value, unrealized_pnl, unrealized_pct }]`
+- `recent_trades`：最近 20 筆 trade_records（含 buy/sell、entry/exit、pnl）
+
+SECURITY DEFINER；前端 admin 頁面用一次呼叫拿齊所有資料。
+
+---
+
+## 三、SignalEditor 改造（`src/pages/admin/SignalEditor.tsx`）
+
+### 1. 頂部新增「資金看板」區塊
+
+```text
+起始資金  $X,XXX,XXX
+可用現金  $X,XXX,XXX   ← 大字、紅字若 <0
+未平倉成本 $X,XXX,XXX
+已實現損益 +/− $X,XXX
+```
+
+### 2. 「目前持倉」表格（折疊面板，預設展開）
+
+欄位：股票｜股數｜均價｜現價｜市值｜未實現損益（紅漲綠跌）。
+點任一列 → 自動帶入新交易草稿（股票代碼 + 對應的 add/trim/sell 動作）。
+
+### 3. 「最近交易紀錄」表格（折疊，預設收合）
+
+最近 20 筆：日期｜股票｜動作｜股數｜進價／出價｜損益%。
+
+### 4. 即時資金模擬與硬擋
+
+在原本 `simulatePositions` 之外新增 `simulateCash`：
+
+```text
+remaining = available_cash
+for each trade in trades:
+  shares = qty * (unit==='張' ? 1000 : 1)
+  if action in (buy, add):  remaining -= price * shares
+  if action in (sell, trim, exit):
+     remaining += price * shares           (粗估現金釋放)
+```
+
+驗證規則（`validate()` 內）：
+- 任一筆 `buy/add` 導致 `remaining < 0` → 回傳「第 N 檔：本筆需 $Y，剩餘僅 $X，已超過操作金額上限」並 **block 送出**。
+- `sell/trim` 數量不得超過模擬持倉股數（沿用既有檢查）。
+- `exit` 一律平掉該檔全部持倉。
+
+UI 上即時顯示「本批送出後可用現金 $X,XXX」，紅字代表超額。
+
+### 5. 快捷鍵
+
+每筆交易卡片旁加「最大可買股數」按鈕：依 `floor(remaining_cash / price)` 自動帶數量；單位預設「股」以避開單位混淆。
+
+---
+
+## 四、其他後台頁面同步顯示資金狀況
+
+- **`src/pages/admin/Dashboard.tsx`**：頂部 KPI 加「可用現金」卡。
+- **`src/pages/admin/Performance.tsx`**：右側面板顯示 `starting_capital / available_cash / open_cost / realized`。
+- **`src/pages/admin/Profile.tsx`**：`starting_capital` 欄位旁標註「目前可用現金 $X」當參考，但起始資金仍由 company_admin 鎖定編輯。
+
+---
+
+## 五、後端保險（防止前端被繞過）
+
+新增 trigger `enforce_signal_capital_limit` on `expert_signals` BEFORE INSERT/UPDATE：
+- 只對 `action IN ('buy','add')` 檢查。
+- 計算當下 `available_cash`，若 `price_hint × normalized_shares > available_cash` → `RAISE EXCEPTION 'CAPITAL_EXCEEDED'`。
+- `company_admin` 角色不檢查（豁免）。
+
+> 注意：同一批多筆訊號需依序檢查，trigger 自然按 row 依序執行，因為買進後會立刻寫入 trade_records，下一 row 重新查 available_cash 就會反映前一筆。
+
+---
+
+## 六、檔案異動清單
+
+- `supabase/migrations/<new>.sql`
+  - 新 RPC `get_expert_capital_status`
+  - 新 trigger `enforce_signal_capital_limit` + function
+- `src/pages/admin/SignalEditor.tsx`：資金看板、持倉/交易表、`simulateCash`、硬擋、最大可買按鈕
+- `src/pages/admin/Dashboard.tsx`：可用現金 KPI
+- `src/pages/admin/Performance.tsx`：資金摘要
+- `src/pages/admin/Profile.tsx`：起始資金旁顯示可用現金
+- `src/lib/signalTradeLogic.ts`：新增 `calcAvailableCash`、`simulateCashAfterTrades` 純函式
+- `src/test/unit/1.27-signal-trade-logic.test.ts`：補資金模擬單元測試
+- `src/test/integration/1.16-signal-trade-trigger.test.ts`：補 `CAPITAL_EXCEEDED` 行為測試

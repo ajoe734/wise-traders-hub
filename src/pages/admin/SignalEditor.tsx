@@ -14,9 +14,44 @@ import { useFormDraft } from '@/hooks/useFormDraft';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { sanitizeRichHtml, isHtmlEmpty, htmlToPlainText } from '@/lib/sanitizeHtml';
 import { simulatePositions, TradeAction } from '@/lib/simulatePositions';
+import { normalizeSignalQuantityToShares, simulateCashAfterTrades } from '@/lib/signalTradeLogic';
 import { cn } from '@/lib/utils';
-import { Plus, Trash2, ArrowUp, ArrowDown, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, Loader2, ArrowLeft, Wallet, History } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface OpenPosition {
+  symbol: string;
+  instrument: string;
+  quantity_shares: number;
+  entry_price: number;
+  current_price: number | null;
+  market_value: number;
+  unrealized_pnl: number;
+  unrealized_pct: number;
+}
+interface RecentTrade {
+  id: string;
+  instrument: string;
+  symbol: string;
+  status: string;
+  quantity_shares: number;
+  entry_price: number | null;
+  exit_price: number | null;
+  pnl_percent: number | null;
+  created_at: string;
+}
+interface CapitalStatus {
+  starting_capital: number;
+  realized_pnl_amount: number;
+  open_cost_value: number;
+  open_market_value: number;
+  unrealized_pnl_amount: number;
+  available_cash: number;
+  open_positions: OpenPosition[];
+  recent_trades: RecentTrade[];
+}
+
+const fmtMoney = (n: number) => `$${(Math.round(n) || 0).toLocaleString()}`;
 
 interface TradeDraft {
   uid: string;             // 前端 key
@@ -71,8 +106,15 @@ const SignalEditor = () => {
   const [expert, setExpert] = useState<any>(null);
   const [signalTemplates, setSignalTemplates] = useState<any[]>([]);
   const [openPositions, setOpenPositions] = useState<{ symbol: string; quantity: number; instrument: string }[]>([]);
+  const [capital, setCapital] = useState<CapitalStatus | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const reloadCapital = useCallback(async (eid: string) => {
+    const { data } = await supabase.rpc('get_expert_capital_status' as any, { _expert_id: eid });
+    if (data) setCapital(data as unknown as CapitalStatus);
+  }, []);
 
   // mentor 共用欄位（整篇週記）
   const [teachingTopic, setTeachingTopic] = useState('');
@@ -117,7 +159,7 @@ const SignalEditor = () => {
       if (cancelled) return;
       setExpert(exp);
       if (exp) {
-        const [{ data: tpl }, { data: openTrades }] = await Promise.all([
+        const [{ data: tpl }, { data: openTrades }, { data: cap }] = await Promise.all([
           supabase
             .from('expert_signal_templates' as any)
             .select('id, title, action, reason, risk_note, strategy_note')
@@ -128,6 +170,7 @@ const SignalEditor = () => {
             .select('instrument, quantity')
             .eq('expert_id', exp.id)
             .eq('status', 'open'),
+          supabase.rpc('get_expert_capital_status' as any, { _expert_id: exp.id }),
         ]);
         if (cancelled) return;
         setSignalTemplates((tpl as any) || []);
@@ -138,6 +181,7 @@ const SignalEditor = () => {
             quantity: t.quantity || 0,
           })),
         );
+        if (cap) setCapital(cap as unknown as CapitalStatus);
       }
       setLoading(false);
     })();
@@ -260,6 +304,29 @@ const SignalEditor = () => {
     }
   }, []);
 
+  // 把交易草稿轉成 cash 模擬輸入
+  const buildCashSimTrades = useCallback(() => {
+    const posMap = new Map<string, OpenPosition>();
+    (capital?.open_positions || []).forEach((p) => posMap.set(p.symbol, p));
+    return trades.map((t) => {
+      const shares = normalizeSignalQuantityToShares(parseInt(t.quantity || '0', 10) || 0, t.quantityUnit);
+      const code = t.stockCode.trim();
+      const pos = posMap.get(code);
+      return {
+        action: (t.action || '') as any,
+        price: parseFloat(t.priceHint || '0') || 0,
+        shares,
+        exitShares: pos?.quantity_shares,
+        exitAvgPrice: pos?.entry_price,
+      };
+    });
+  }, [trades, capital]);
+
+  const cashSim = useMemo(() => {
+    const start = capital?.available_cash || 0;
+    return simulateCashAfterTrades(start, buildCashSimTrades());
+  }, [capital, buildCashSimTrades]);
+
   // 驗證
   const validate = (): string | null => {
     if (!expert) return '找不到分析師資料';
@@ -267,6 +334,10 @@ const SignalEditor = () => {
 
     const initial = openPositions.map((p) => ({ symbol: p.symbol, quantity: p.quantity }));
     const simulated: { symbol: string; action: TradeAction; quantity: number }[] = [];
+
+    let remaining = capital?.available_cash || 0;
+    const posMap = new Map<string, OpenPosition>();
+    (capital?.open_positions || []).forEach((p) => posMap.set(p.symbol, p));
 
     for (let i = 0; i < trades.length; i++) {
       const t = trades[i];
@@ -279,16 +350,33 @@ const SignalEditor = () => {
       const price = parseFloat(t.priceHint || '0');
       if (!price || price <= 0) return `${tag}：請填參考價格`;
 
-      // 對 add/trim/sell/exit 做模擬庫存檢查
+      const code = t.stockCode.trim();
+      const shares = normalizeSignalQuantityToShares(qty, t.quantityUnit);
+
       if (['add', 'trim', 'sell', 'exit'].includes(t.action)) {
         const sim = simulatePositions(initial, simulated);
-        const cur = sim.get(t.stockCode.trim()) || 0;
-        if (cur <= 0) return `${tag}：尚無 ${t.stockCode.trim()} 的未平倉部位，無法執行${actionLabels[t.action]}`;
+        const cur = sim.get(code) || 0;
+        if (cur <= 0) return `${tag}：尚無 ${code} 的未平倉部位，無法執行${actionLabels[t.action]}`;
         if ((t.action === 'trim' || t.action === 'sell') && qty > cur) {
           return `${tag}：減碼數量 (${qty}) 超過模擬持倉 (${cur})`;
         }
       }
-      simulated.push({ symbol: t.stockCode.trim(), action: t.action as TradeAction, quantity: qty });
+
+      // 資金硬擋：buy / add 不可超過剩餘可用現金
+      if (t.action === 'buy' || t.action === 'add') {
+        const required = price * shares;
+        if (required > remaining) {
+          return `${tag}：本筆需 ${fmtMoney(required)}，剩餘可用現金僅 ${fmtMoney(remaining)}，已超過操作金額上限`;
+        }
+        remaining -= required;
+      } else if (t.action === 'sell' || t.action === 'trim') {
+        remaining += price * shares;
+      } else if (t.action === 'exit') {
+        const pos = posMap.get(code);
+        remaining += (pos?.entry_price || price) * (pos?.quantity_shares || shares);
+      }
+
+      simulated.push({ symbol: code, action: t.action as TradeAction, quantity: qty });
     }
     return null;
   };
@@ -369,6 +457,7 @@ const SignalEditor = () => {
           : isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : `已發布 ${rows.length} 檔訊號`,
       );
       discardDraft();
+      if (expert?.id) reloadCapital(expert.id);
       navigate(`/admin/${expertSlug}/signals`);
     } finally {
       setSubmitting(false);
@@ -410,6 +499,145 @@ const SignalEditor = () => {
             </Button>
           </div>
         </div>
+
+        {/* 資金看板 */}
+        {capital && (
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+                資金狀況
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">起始資金</div>
+                  <div className="text-base font-medium">{fmtMoney(capital.starting_capital)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">已實現損益</div>
+                  <div className={cn('text-base font-medium', capital.realized_pnl_amount >= 0 ? 'text-success' : 'text-destructive')}>
+                    {capital.realized_pnl_amount >= 0 ? '+' : ''}{fmtMoney(capital.realized_pnl_amount)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">未平倉成本</div>
+                  <div className="text-base font-medium">{fmtMoney(capital.open_cost_value)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">可用現金</div>
+                  <div className={cn('text-lg font-bold', capital.available_cash < 0 ? 'text-destructive' : 'text-foreground')}>
+                    {fmtMoney(capital.available_cash)}
+                  </div>
+                </div>
+              </div>
+              <div className={cn(
+                'rounded-md border px-3 py-2 text-sm',
+                cashSim.remaining < 0 ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-muted bg-muted/30 text-muted-foreground',
+              )}>
+                送出後預估可用現金：<span className="font-medium">{fmtMoney(cashSim.remaining)}</span>
+                {cashSim.remaining < 0 && <span className="ml-2">⚠ 已超過上限，將被擋下</span>}
+              </div>
+
+              {/* 目前持倉 */}
+              {capital.open_positions.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-muted-foreground">目前持倉（{capital.open_positions.length} 檔）</div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b text-muted-foreground">
+                          <th className="text-left py-1.5 font-normal">股票</th>
+                          <th className="text-right font-normal">股數</th>
+                          <th className="text-right font-normal">均價</th>
+                          <th className="text-right font-normal">現價</th>
+                          <th className="text-right font-normal">市值</th>
+                          <th className="text-right font-normal">未實現</th>
+                          <th />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {capital.open_positions.map((p) => (
+                          <tr key={p.symbol} className="border-b last:border-0">
+                            <td className="py-1.5">{p.instrument}</td>
+                            <td className="text-right">{p.quantity_shares.toLocaleString()}</td>
+                            <td className="text-right">{Number(p.entry_price || 0).toFixed(2)}</td>
+                            <td className="text-right">{p.current_price != null ? Number(p.current_price).toFixed(2) : '—'}</td>
+                            <td className="text-right">{fmtMoney(p.market_value)}</td>
+                            <td className={cn('text-right', p.unrealized_pnl >= 0 ? 'text-success' : 'text-destructive')}>
+                              {p.unrealized_pnl >= 0 ? '+' : ''}{fmtMoney(p.unrealized_pnl)}
+                              <span className="ml-1 opacity-70">({p.unrealized_pct >= 0 ? '+' : ''}{p.unrealized_pct.toFixed(2)}%)</span>
+                            </td>
+                            <td className="text-right">
+                              <Button
+                                type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs"
+                                onClick={() => {
+                                  const last = trades[trades.length - 1];
+                                  const targetIdx = last && !last.stockCode ? trades.length - 1 : trades.length;
+                                  if (targetIdx === trades.length) addTrade();
+                                  setTimeout(() => updateTrade(targetIdx, {
+                                    stockCode: p.symbol,
+                                    stockName: p.instrument.replace(p.symbol, '').trim(),
+                                    action: 'trim' as TradeAction,
+                                    priceHint: p.current_price ? String(p.current_price) : '',
+                                    quantityUnit: '股',
+                                  }), 0);
+                                }}
+                              >帶入</Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 最近交易 */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowHistory((v) => !v)}
+                >
+                  <History className="h-3.5 w-3.5" />
+                  最近交易紀錄（{capital.recent_trades.length}）{showHistory ? '收合' : '展開'}
+                </button>
+                {showHistory && capital.recent_trades.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b text-muted-foreground">
+                          <th className="text-left py-1.5 font-normal">日期</th>
+                          <th className="text-left font-normal">股票</th>
+                          <th className="text-left font-normal">狀態</th>
+                          <th className="text-right font-normal">股數</th>
+                          <th className="text-right font-normal">進價</th>
+                          <th className="text-right font-normal">出價</th>
+                          <th className="text-right font-normal">損益%</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {capital.recent_trades.map((r) => (
+                          <tr key={r.id} className="border-b last:border-0">
+                            <td className="py-1.5">{new Date(r.created_at).toLocaleDateString('en-CA').replace(/-/g, '/')}</td>
+                            <td>{r.instrument}</td>
+                            <td>{r.status}</td>
+                            <td className="text-right">{(r.quantity_shares || 0).toLocaleString()}</td>
+                            <td className="text-right">{r.entry_price != null ? Number(r.entry_price).toFixed(2) : '—'}</td>
+                            <td className="text-right">{r.exit_price != null ? Number(r.exit_price).toFixed(2) : '—'}</td>
+                            <td className={cn('text-right', (r.pnl_percent || 0) >= 0 ? 'text-success' : 'text-destructive')}>
+                              {r.pnl_percent != null ? `${r.pnl_percent >= 0 ? '+' : ''}${r.pnl_percent.toFixed(2)}%` : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {isMentor && (
           <Card>
