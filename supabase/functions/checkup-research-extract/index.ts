@@ -177,6 +177,22 @@ ${report.text}
             source: 'ai_enrich',
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id,code' });
+
+          // 依使用者偏好寫站內通知
+          const { data: prefs } = await supabase
+            .from('notification_preferences')
+            .select('meta_override_changed')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (prefs?.meta_override_changed !== false) {
+            await supabase.from('notifications').insert({
+              user_id: userId,
+              title: `${code} 研究覆蓋已更新`,
+              body: `AI 已更新產業/策略/領頭欄位（${[meta.industry, meta.strategy, meta.leader, meta.position].filter(Boolean).join(' · ')}）`,
+              type: 'info',
+              link: '/account/notifications',
+            });
+          }
         }
 
         const reports = Array.isArray(parsed?.targets?.reports) ? parsed.targets.reports : [];

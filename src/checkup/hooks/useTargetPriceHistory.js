@@ -1,53 +1,84 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 
 /**
- * Loads target_price_history for a single stock code (most recent first).
- * Returns { rows, loading, reload }.
+ * Per-(userId, code) cache for target_price_history.
+ * - TTL 90s, SWR background refresh on focus
  */
+const CACHE = new Map() // key=`${userId}:${code}` -> { rows, fetchedAt, inflight }
+const TTL_MS = 90_000
+
+function makeKey(userId, code) { return `${userId}:${code}` }
+
+async function fetchHistory(userId, code, limit, force = false) {
+  const key = makeKey(userId, code)
+  const cached = CACHE.get(key)
+  const fresh = cached && Date.now() - cached.fetchedAt < TTL_MS
+  if (cached?.inflight) return cached.inflight
+  if (fresh && !force) return cached.rows
+
+  const inflight = (async () => {
+    const { data, error } = await supabase
+      .from('target_price_history')
+      .select('id, firm, target, prev_target, report_date, change_type, source, batch_id, created_at, detail')
+      .eq('user_id', userId)
+      .eq('code', code)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    const rows = data || []
+    CACHE.set(key, { rows, fetchedAt: Date.now(), inflight: null })
+    return rows
+  })()
+  CACHE.set(key, { ...(cached || { rows: [], fetchedAt: 0 }), inflight })
+  return inflight
+}
+
+export function invalidateTargetPriceHistoryCache(code) {
+  if (!code) { CACHE.clear(); return }
+  for (const k of [...CACHE.keys()]) if (k.endsWith(':' + code)) CACHE.delete(k)
+}
+
 export function useTargetPriceHistory(code, { limit = 30, enabled = true } = {}) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
+  const mounted = useRef(true)
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (force = false) => {
     if (!code || !enabled) { setRows([]); return }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setRows([]); return }
+    // Show cached immediately if present
+    const key = makeKey(user.id, code)
+    const cached = CACHE.get(key)
+    if (cached?.rows) setRows(cached.rows)
+    if (!force && cached && Date.now() - cached.fetchedAt < TTL_MS) return
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setRows([]); return }
-      const { data, error } = await supabase
-        .from('target_price_history')
-        .select('id, firm, target, prev_target, report_date, change_type, source, batch_id, created_at, detail')
-        .eq('user_id', user.id)
-        .eq('code', code)
-        .order('created_at', { ascending: false })
-        .limit(limit)
-      if (error) throw error
-      setRows(data || [])
+      const data = await fetchHistory(user.id, code, limit, force)
+      if (mounted.current) setRows(data)
     } catch (e) {
       console.error('useTargetPriceHistory load failed:', e)
-      setRows([])
+      if (mounted.current) setRows([])
     } finally {
-      setLoading(false)
+      if (mounted.current) setLoading(false)
     }
   }, [code, limit, enabled])
 
-  useEffect(() => { reload() }, [reload])
+  useEffect(() => {
+    mounted.current = true
+    reload()
+    return () => { mounted.current = false }
+  }, [reload])
 
-  return { rows, loading, reload }
+  return { rows, loading, reload: () => reload(true) }
 }
 
-/**
- * Inserts a batch of target price observations and computes change_type vs prior.
- * `entries`: [{ firm, target, date }]
- * `source`: 'refresh-reports' | 'weekly-cron' | 'manual' | ...
- */
 export async function recordTargetPriceBatch(code, entries, source = 'refresh-reports') {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || !code || !Array.isArray(entries) || entries.length === 0) return { inserted: 0, batchId: null }
 
-    // Get latest target per (code, firm) to compute prev_target
     const { data: latest } = await supabase
       .from('target_price_history')
       .select('firm, target, created_at')
@@ -70,7 +101,7 @@ export async function recordTargetPriceBatch(code, entries, source = 'refresh-re
       const prev = latestByFirm.get(firm)
       let changeType = 'new'
       if (Number.isFinite(prev)) {
-        if (prev === target) continue // skip duplicates
+        if (prev === target) continue
         changeType = 'updated'
       }
       rows.push({
@@ -88,6 +119,34 @@ export async function recordTargetPriceBatch(code, entries, source = 'refresh-re
     if (rows.length === 0) return { inserted: 0, batchId }
     const { error } = await supabase.from('target_price_history').insert(rows)
     if (error) throw error
+    invalidateTargetPriceHistoryCache(code)
+
+    // 依使用者偏好寫入 in-app 通知
+    try {
+      const { data: prefs } = await supabase
+        .from('notification_preferences')
+        .select('target_price_new, target_price_updated')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      const wantNew = prefs?.target_price_new !== false
+      const wantUpd = prefs?.target_price_updated !== false
+      const newCount = rows.filter(r => r.change_type === 'new').length
+      const updCount = rows.filter(r => r.change_type === 'updated').length
+      const shouldNotify = (wantNew && newCount > 0) || (wantUpd && updCount > 0)
+      if (shouldNotify) {
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          title: `${code} 目標價更新`,
+          body: `新增 ${newCount} 筆 / 修改 ${updCount} 筆（來源：${source}）`,
+          type: 'info',
+          link: '/free-checkup',
+        })
+      }
+    } catch (notifyErr) {
+      // Best-effort, 不阻斷主流程
+      console.warn('notify target price change failed', notifyErr)
+    }
+
     return { inserted: rows.length, batchId }
   } catch (e) {
     console.error('recordTargetPriceBatch failed:', e)

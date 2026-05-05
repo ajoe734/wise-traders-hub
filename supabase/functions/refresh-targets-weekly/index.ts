@@ -149,17 +149,25 @@ Deno.serve(async (req) => {
           stats.inserted += insertRows.length;
           stats.changedHoldings += new Set(userChanges.map(c => c.code)).size;
 
-          // 4) 發送通知
+          // 4) 發送通知（依使用者偏好）
           const codesChanged = Array.from(new Set(userChanges.map(c => c.code)));
           const sample = userChanges.slice(0, 5).map(c => `${c.code} ${c.firm}: ${c.from ?? '—'} → ${c.to}`).join('\n');
-          await supabase.from('notifications').insert({
-            user_id: userId,
-            title: `每週目標價更新：${codesChanged.length} 檔有異動`,
-            body: `共 ${insertRows.length} 筆變動。\n${sample}${userChanges.length > 5 ? `\n…另 ${userChanges.length - 5} 筆` : ''}`,
-            type: 'info',
-            link: '/free-checkup',
-          });
-          stats.notifiedUsers += 1;
+          const { data: prefs } = await supabase
+            .from('notification_preferences')
+            .select('target_price_weekly')
+            .eq('user_id', userId)
+            .maybeSingle();
+          const wantNotify = prefs?.target_price_weekly !== false;
+          if (wantNotify) {
+            await supabase.from('notifications').insert({
+              user_id: userId,
+              title: `每週目標價更新：${codesChanged.length} 檔有異動`,
+              body: `共 ${insertRows.length} 筆變動。\n${sample}${userChanges.length > 5 ? `\n…另 ${userChanges.length - 5} 筆` : ''}`,
+              type: 'info',
+              link: '/account/notifications',
+            });
+            stats.notifiedUsers += 1;
+          }
 
           await logRun(supabase, runId, 'user_done', `${userId} 異動 ${insertRows.length} 筆`, {
             inserted: insertRows.length, codes: codesChanged,

@@ -1210,6 +1210,48 @@ export type Database = {
         }
         Relationships: []
       }
+      holding_meta_override_history: {
+        Row: {
+          action: string
+          code: string
+          id: string
+          industry: string | null
+          leader: string | null
+          position: string | null
+          recorded_at: string
+          recorded_by: string | null
+          source: string | null
+          strategy: string | null
+          user_id: string
+        }
+        Insert: {
+          action?: string
+          code: string
+          id?: string
+          industry?: string | null
+          leader?: string | null
+          position?: string | null
+          recorded_at?: string
+          recorded_by?: string | null
+          source?: string | null
+          strategy?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          code?: string
+          id?: string
+          industry?: string | null
+          leader?: string | null
+          position?: string | null
+          recorded_at?: string
+          recorded_by?: string | null
+          source?: string | null
+          strategy?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       holding_meta_overrides: {
         Row: {
           code: string
@@ -1619,6 +1661,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_preferences: {
+        Row: {
+          meta_override_changed: boolean
+          target_price_new: boolean
+          target_price_updated: boolean
+          target_price_weekly: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          meta_override_changed?: boolean
+          target_price_new?: boolean
+          target_price_updated?: boolean
+          target_price_weekly?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          meta_override_changed?: boolean
+          target_price_new?: boolean
+          target_price_updated?: boolean
+          target_price_weekly?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       notifications: {
         Row: {

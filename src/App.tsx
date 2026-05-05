@@ -95,6 +95,8 @@ import CompanyPaymentSettings from "./pages/company/PaymentSettings";
 import CompanyReferralChannels from "./pages/company/ReferralChannels";
 import CompanyCheckupUsage from "./pages/company/CheckupUsage";
 import CompanyMissingPrices from "./pages/company/MissingPrices";
+import CompanyMetaOverrides from "./pages/company/MetaOverrides";
+import AccountNotifications from "./pages/account/Notifications";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
@@ -181,6 +183,7 @@ const AppShell = () => (
             <Route path="/account/subscriptions" element={<Navigate to="/app/account" replace />} />
             <Route path="/account/profile" element={<ProtectedRoute><AccountProfile /></ProtectedRoute>} />
             <Route path="/account/remittance" element={<ProtectedRoute><MyRemittanceOrders /></ProtectedRoute>} />
+            <Route path="/account/notifications" element={<ProtectedRoute><AccountNotifications /></ProtectedRoute>} />
 
             {/* App pages (aggregated member view) */}
             <Route path="/app" element={<ProtectedRoute subscriberOnly><AppHome /></ProtectedRoute>} />
@@ -218,6 +221,7 @@ const AppShell = () => (
             <Route path="/company/referral-channels" element={<ProtectedRoute requiredRole="company_admin"><CompanyReferralChannels /></ProtectedRoute>} />
             <Route path="/company/checkup-usage" element={<ProtectedRoute requiredRole="company_admin"><CompanyCheckupUsage /></ProtectedRoute>} />
             <Route path="/company/missing-prices" element={<ProtectedRoute requiredRole="company_admin"><CompanyMissingPrices /></ProtectedRoute>} />
+            <Route path="/company/meta-overrides" element={<ProtectedRoute requiredRole="company_admin"><CompanyMetaOverrides /></ProtectedRoute>} />
 
             {/* Admin (expert backend) */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
