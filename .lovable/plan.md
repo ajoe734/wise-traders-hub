@@ -1,111 +1,69 @@
-## 目標
 
-分析師後台的「發訊號」頁面要把資金當真錢管：超過剩餘現金不准送出，並讓分析師清楚看到目前持倉與最近交易。
+# 績效圖三個都跑不出曲線的原因 + 修正計畫
 
----
+## 一、根因（已驗證）
 
-## 一、剩餘資金（可用現金）定義
+查 DB：`sharkgu` 共 3 筆 `trade_records`，**全部 `status='open'`**（達發 6526 / 智原 3035 / 晶豪科 3006，皆 2026/05/04 進場、尚未出場）。
 
-```text
-available_cash =
-    starting_capital
-  + Σ realized_pnl_amount        (status IN closed/stopped 的已實現損益)
-  − Σ open_cost_value             (status = open 的 entry_price × quantity)
+而 `src/hooks/usePeriodPerformance.ts`（圖表唯一資料源）的查詢條件：
+
+```ts
+.in('status', ['closed', 'stopped'])
+.not('pnl_percent', 'is', null)
 ```
 
-買進／加碼會佔用現金；賣出／減碼／平損會釋放現金 + 結算損益。
-單位一律以「股」為基準（沿用上一輪修正後的 trade_records.quantity = 股數）。
+→ 回傳 0 筆 → 三個圖（年/月/週）的所有 bucket `returnPct` 都是 0 → 累積線一路平 0%。
 
----
+但上方 KPI「目前資產 $1,042,500 / 總報酬率 +4.25%」是用 `useExpertPerformance` 的 RPC 結果，**有納入未實現損益**，所以 KPI 看起來正常 → 兩邊資料源不一致，視覺上才會「圖空、數字飆」這種違和。
 
-## 二、新增 RPC：`get_expert_capital_status(_expert_id)`
+> 補充：「個股排名 / FloatingStatCard 表現最佳/最差」也吃同一支 hook，所以同樣抓不到。
 
-回傳：
-- `starting_capital`
-- `realized_pnl_amount`
-- `open_cost_value`
-- `available_cash`
-- `open_positions`：JSON array `[{ symbol, instrument, quantity_shares, entry_price, current_price, market_value, unrealized_pnl, unrealized_pct }]`
-- `recent_trades`：最近 20 筆 trade_records（含 buy/sell、entry/exit、pnl）
+## 二、修正方向（含未實現損益的每日/每月曲線）
 
-SECURITY DEFINER；前端 admin 頁面用一次呼叫拿齊所有資料。
+把 `usePeriodPerformance` 從「只看 closed 的 pnl_percent 加總」改成「每個 bucket 結束時的『累積報酬率』snapshot」，未平倉的部位也要算進去。
 
----
+### 2.1 改寫 `src/hooks/usePeriodPerformance.ts`
 
-## 三、SignalEditor 改造（`src/pages/admin/SignalEditor.tsx`）
+抓兩塊資料：
+1. `trade_records` 全部（不再過濾 status），含 `entry_date / exit_date / entry_price / exit_price / quantity / current_price / instrument`。
+2. `experts.starting_capital`（分母）。
 
-### 1. 頂部新增「資金看板」區塊
+對每個 bucket（週=日、月=日、年=月）的「結束日 D」算：
 
 ```text
-起始資金  $X,XXX,XXX
-可用現金  $X,XXX,XXX   ← 大字、紅字若 <0
-未平倉成本 $X,XXX,XXX
-已實現損益 +/− $X,XXX
+已實現 PnL(D) = Σ ( (exit_price - entry_price) * quantity )  for trades with exit_date ≤ D
+未實現 PnL(D) = Σ ( (markPrice(D) - entry_price) * quantity ) for trades with entry_date ≤ D < (exit_date or ∞)
+累積報酬率(D) = (已實現 + 未實現) / starting_capital * 100
+本期報酬率   = 累積(D) - 累積(前一個 bucket)
 ```
 
-### 2. 「目前持倉」表格（折疊面板，預設展開）
+`markPrice(D)`：
+- D 為今天 → 用 `current_price`（最後收盤）
+- D 為過去 → 用 `entry_price`（保守 fallback；無歷史日線時不假裝有資料）
 
-欄位：股票｜股數｜均價｜現價｜市值｜未實現損益（紅漲綠跌）。
-點任一列 → 自動帶入新交易草稿（股票代碼 + 對應的 add/trim/sell 動作）。
+→ 這樣未平倉部位的「目前浮盈」會在最新一個 bucket 點顯示出來，曲線就會跳上來與 KPI 的 +4.25% 對齊。
 
-### 3. 「最近交易紀錄」表格（折疊，預設收合）
+### 2.2 個股排名 (top/bottom) 也要相容
 
-最近 20 筆：日期｜股票｜動作｜股數｜進價／出價｜損益%。
+`stocks[]` 裡每檔個股的 `returnPct` 用「該檔在此 bucket 區間內的累積報酬」（已平倉用實現；未平倉用浮動）。
 
-### 4. 即時資金模擬與硬擋
+### 2.3 跨頁一致性檢查
 
-在原本 `simulatePositions` 之外新增 `simulateCash`：
+- `Dashboard.tsx / Performance.tsx / Profile.tsx / ExpertProfile.tsx / ExpertDetail.tsx` 皆使用 `PerformanceOverviewPanel` → 改 hook 即一次修好五處。
+- KPI 條（起始資金 / 目前資產 / 總報酬率）與圖最終點誤差 ≤ 0.01%（同一公式）。
 
-```text
-remaining = available_cash
-for each trade in trades:
-  shares = qty * (unit==='張' ? 1000 : 1)
-  if action in (buy, add):  remaining -= price * shares
-  if action in (sell, trim, exit):
-     remaining += price * shares           (粗估現金釋放)
-```
+## 三、技術細節（給你 reference）
 
-驗證規則（`validate()` 內）：
-- 任一筆 `buy/add` 導致 `remaining < 0` → 回傳「第 N 檔：本筆需 $Y，剩餘僅 $X，已超過操作金額上限」並 **block 送出**。
-- `sell/trim` 數量不得超過模擬持倉股數（沿用既有檢查）。
-- `exit` 一律平掉該檔全部持倉。
+- 不動 `useExpertPerformance` RPC，避免再撞 SQL migration。
+- `usePeriodPerformance` 內部全部用 `trade_records` 直查 + 純 TS 計算。
+- 保留現有 bucket 標籤函式 (`getWeeklyTradingDays / getMonthlyTradingDays`)；年績效改用「最近 12 個月」label `YYYY/MM` 比較有意義（目前只有 1 筆月份，圖會只剩 1 點，符合「沒資料就一個點」）。
+- 移除原本 `.in('status', ['closed','stopped'])` 與 `.not('pnl_percent', 'is', null)` 的過濾。
 
-UI 上即時顯示「本批送出後可用現金 $X,XXX」，紅字代表超額。
+## 四、檔案清單
 
-### 5. 快捷鍵
+修改：
+- `src/hooks/usePeriodPerformance.ts`（核心改寫）
 
-每筆交易卡片旁加「最大可買股數」按鈕：依 `floor(remaining_cash / price)` 自動帶數量；單位預設「股」以避開單位混淆。
-
----
-
-## 四、其他後台頁面同步顯示資金狀況
-
-- **`src/pages/admin/Dashboard.tsx`**：頂部 KPI 加「可用現金」卡。
-- **`src/pages/admin/Performance.tsx`**：右側面板顯示 `starting_capital / available_cash / open_cost / realized`。
-- **`src/pages/admin/Profile.tsx`**：`starting_capital` 欄位旁標註「目前可用現金 $X」當參考，但起始資金仍由 company_admin 鎖定編輯。
-
----
-
-## 五、後端保險（防止前端被繞過）
-
-新增 trigger `enforce_signal_capital_limit` on `expert_signals` BEFORE INSERT/UPDATE：
-- 只對 `action IN ('buy','add')` 檢查。
-- 計算當下 `available_cash`，若 `price_hint × normalized_shares > available_cash` → `RAISE EXCEPTION 'CAPITAL_EXCEEDED'`。
-- `company_admin` 角色不檢查（豁免）。
-
-> 注意：同一批多筆訊號需依序檢查，trigger 自然按 row 依序執行，因為買進後會立刻寫入 trade_records，下一 row 重新查 available_cash 就會反映前一筆。
-
----
-
-## 六、檔案異動清單
-
-- `supabase/migrations/<new>.sql`
-  - 新 RPC `get_expert_capital_status`
-  - 新 trigger `enforce_signal_capital_limit` + function
-- `src/pages/admin/SignalEditor.tsx`：資金看板、持倉/交易表、`simulateCash`、硬擋、最大可買按鈕
-- `src/pages/admin/Dashboard.tsx`：可用現金 KPI
-- `src/pages/admin/Performance.tsx`：資金摘要
-- `src/pages/admin/Profile.tsx`：起始資金旁顯示可用現金
-- `src/lib/signalTradeLogic.ts`：新增 `calcAvailableCash`、`simulateCashAfterTrades` 純函式
-- `src/test/unit/1.27-signal-trade-logic.test.ts`：補資金模擬單元測試
-- `src/test/integration/1.16-signal-trade-trigger.test.ts`：補 `CAPITAL_EXCEEDED` 行為測試
+驗證：
+- 不需 DB migration。
+- 重新整理 `/expert/sharkgu`：三個 tab 都應出現一條從 0% 上升到 +4.25% 的紅線，最新點 tooltip 與 KPI 一致。
