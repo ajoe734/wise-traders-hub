@@ -176,7 +176,7 @@ describe('drift-detection: handle_signal_trade trigger 建倉行為', () => {
   it('quantity_unit 依訊號單位正規化：張乘 1000、股維持原值（4.1 quantity normalization）', () => {
     expect(src).toContain("COALESCE(NEW.quantity_unit, '張') = '張'");
     expect(src).toContain('COALESCE(NEW.quantity, 1) * 1000');
-    expect(src).toContain("quantity_unit,\n        '股'");
+    expect(src).toContain("quantity_unit = '股'");
   });
 
   it('sell remaining_qty <= 0 → UPDATE trade_records 整筆平倉（closed）並計算 pnl_percent（4.1-5）', () => {
