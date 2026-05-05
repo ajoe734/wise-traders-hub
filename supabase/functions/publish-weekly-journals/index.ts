@@ -210,6 +210,7 @@ Deno.serve(async (req) => {
 
     if (fetchErr) {
       logErr(stage, fetchErr)
+      await flushLogs()
       return new Response(JSON.stringify({ error: fetchErr.message, stage, runId }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -217,6 +218,7 @@ Deno.serve(async (req) => {
 
     if (!pendingSignals || pendingSignals.length === 0) {
       log('No pending signals to publish')
+      await flushLogs()
       return new Response(JSON.stringify({ published: 0, pushed: 0, runId }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -233,6 +235,7 @@ Deno.serve(async (req) => {
 
     if (updateErr) {
       logErr(stage, updateErr, { signalIds })
+      await flushLogs()
       return new Response(JSON.stringify({ error: updateErr.message, stage, runId }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
