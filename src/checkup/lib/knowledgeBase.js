@@ -91,6 +91,14 @@ function buildLocalCache() {
  * - 重複呼叫會 dedupe
  * - 載入失敗 → 退回本地 JSON，並 console.warn
  */
+/**
+ * 強制清空記憶體快取。下一次 getCacheSync / preload 會重新拉雲端。
+ */
+export function resetKnowledgeBaseCache() {
+  _cache = null
+  _loadingPromise = null
+}
+
 export function preloadKnowledgeBase({ force = false } = {}) {
   if (_cache && !force) return Promise.resolve(_cache)
   if (_loadingPromise && !force) return _loadingPromise
