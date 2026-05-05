@@ -545,7 +545,7 @@ export default function KnowledgeBasePage() {
               {drafting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
               Claude 起草（{CATEGORIES.find(c => c.key === activeCat)?.label}）
             </Button>
-            <SyncKnowledgeBaseDialog onApplied={loadAll} />
+            <SyncKnowledgeBaseDialog onApplied={load} />
             <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />新增條目</Button>
           </div>
         </div>
