@@ -74,11 +74,16 @@ export function NotificationBell() {
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between p-3 border-b">
           <span className="font-medium text-sm">通知</span>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={markAllRead}>
-              全部已讀
+          <div className="flex items-center gap-1">
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={markAllRead}>
+                全部已讀
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setOpen(false); navigate('/account/notifications'); }}>
+              提醒中心
             </Button>
-          )}
+          </div>
         </div>
         <ScrollArea className="max-h-80">
           {notifications.length === 0 ? (

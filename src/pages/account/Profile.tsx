@@ -186,9 +186,12 @@ const AccountProfile = () => {
           </Card>
 
           {/* Actions */}
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <Button variant="outline" asChild>
               <Link to="/account/subscriptions">查看訂閱</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/account/notifications">提醒中心</Link>
             </Button>
             <Button variant="destructive" onClick={logout}>
               登出
