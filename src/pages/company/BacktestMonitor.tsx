@@ -35,11 +35,25 @@ export default function BacktestMonitor() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyAll, setBusyAll] = useState<'cron' | 'notify' | null>(null);
   const [lastCron, setLastCron] = useState<string | null>(null);
-  const [backfill, setBackfill] = useState<{ pending: number; done: number; empty: number } | null>(null);
+  const [backfill, setBackfill] = useState<{
+    pending: number; done: number; empty: number; failed: number; total: number;
+    latest_month: string | null; latest_date: string | null;
+    current_symbol: string | null; current_yyyymm: string | null;
+    recent_done_5min: number; eta_minutes: number | null;
+  } | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const [{ data: runsData }, { data: itemsData }, { data: bfData }] = await Promise.all([
+    const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+    const [
+      { data: runsData },
+      { data: itemsData },
+      { data: bfAll },
+      { data: bfLatest },
+      { data: bfNext },
+      { count: recentCount },
+      { data: bfLatestDate },
+    ] = await Promise.all([
       (supabase as any)
         .from('knowledge_backtest_runs')
         .select('id, knowledge_item_id, status, win_rate, total_hits, error_message, run_mode, created_at, completed_at, parameters')
@@ -48,24 +62,51 @@ export default function BacktestMonitor() {
         .limit(80),
       (supabase as any).from('checkup_knowledge_items').select('id, title'),
       (supabase as any).from('knowledge_backfill_progress').select('status'),
+      (supabase as any).from('knowledge_backfill_progress')
+        .select('yyyymm').eq('status', 'done')
+        .order('yyyymm', { ascending: false }).limit(1).maybeSingle(),
+      (supabase as any).from('knowledge_backfill_progress')
+        .select('symbol, yyyymm').eq('status', 'pending')
+        .order('symbol').order('yyyymm').limit(1).maybeSingle(),
+      (supabase as any).from('knowledge_backfill_progress')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'done').gte('completed_at', fiveMinAgo),
+      (supabase as any).from('daily_price_snapshots')
+        .select('trade_date').order('trade_date', { ascending: false }).limit(1).maybeSingle(),
     ]);
     setRuns((runsData as RunRow[]) || []);
     const map: Record<string, { title: string }> = {};
     for (const it of itemsData || []) map[it.id] = { title: it.title };
     setItems(map);
 
-    if (bfData) {
-      const counts = { pending: 0, done: 0, empty: 0 };
-      for (const r of bfData as any[]) {
+    if (bfAll) {
+      const counts = { pending: 0, done: 0, empty: 0, failed: 0 };
+      for (const r of bfAll as any[]) {
         if (r.status === 'done') counts.done++;
         else if (r.status === 'empty') counts.empty++;
+        else if (r.status === 'failed') counts.failed++;
         else counts.pending++;
       }
-      setBackfill(counts);
+      const total = counts.done + counts.pending + counts.empty + counts.failed;
+      const recent5 = recentCount ?? 0;
+      const ratePerMin = recent5 / 5;
+      const eta = ratePerMin > 0 ? Math.ceil(counts.pending / ratePerMin) : null;
+      setBackfill({
+        ...counts, total,
+        latest_month: (bfLatest as any)?.yyyymm ?? null,
+        latest_date: (bfLatestDate as any)?.trade_date ?? null,
+        current_symbol: (bfNext as any)?.symbol ?? null,
+        current_yyyymm: (bfNext as any)?.yyyymm ?? null,
+        recent_done_5min: recent5,
+        eta_minutes: eta,
+      });
     }
 
-    // 最近一次 cron 執行
-    const cron = (runsData || []).find((r: any) => r.run_mode === 'cron_weekly');
+    const cron = (runsData || []).find((r: any) =>
+      r.run_mode === 'cron_weekly' ||
+      r?.parameters?.trigger === 'auto_after_backfill' ||
+      r?.parameters?.trigger === 'cron_nightly'
+    );
     setLastCron(cron?.created_at ?? null);
     setLoading(false);
   };
