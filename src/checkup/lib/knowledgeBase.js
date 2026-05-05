@@ -49,6 +49,7 @@ function rowToItem(row) {
     sourceType: row.source_type ?? 'editorial',
     industryTags: Array.isArray(row.industry_tags) ? row.industry_tags : [],
     timeHorizon: row.time_horizon ?? null,
+    lifecycleStatus: row.lifecycle_status ?? 'active',
   }
   // strategy_cases 額外欄位
   if (row.category === 'strategy_cases') {
@@ -62,10 +63,15 @@ function rowToItem(row) {
 // 有實戰驗證 → 用 confidence × winRate；沒驗證 → 純 confidence
 function effectiveScore(item) {
   const c = Number(item.confidence ?? 0.7)
+  let base
   if (item.sampleSize >= 10 && typeof item.winRate === 'number') {
-    return c * (0.5 + 0.5 * item.winRate) // winRate=0 → 0.5c；winRate=1 → c
+    base = c * (0.5 + 0.5 * item.winRate)
+  } else {
+    base = c
   }
-  return c
+  // rescue 池條目降權 ×0.5（仍餵 prompt 但排序靠後）
+  if (item.lifecycleStatus === 'rescue') base *= 0.5
+  return base
 }
 
 /**
@@ -93,8 +99,9 @@ export function preloadKnowledgeBase({ force = false } = {}) {
     try {
       const { data, error } = await supabase
         .from('checkup_knowledge_items')
-        .select('id,category,item_id,title,fact,interpretation,action,lessons,return_pct,outcome,confidence,tags,is_active,updated_at,version,trigger_condition,expected_outcome,win_rate,sample_size,source_type,industry_tags,time_horizon')
+        .select('id,category,item_id,title,fact,interpretation,action,lessons,return_pct,outcome,confidence,tags,is_active,updated_at,version,trigger_condition,expected_outcome,win_rate,sample_size,source_type,industry_tags,time_horizon,lifecycle_status')
         .eq('is_active', true)
+        .in('lifecycle_status', ['active', 'rescue'])
 
       if (error) throw error
       if (!data || data.length === 0) {

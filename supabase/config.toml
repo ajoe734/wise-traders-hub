@@ -108,3 +108,6 @@ verify_jwt = false
 [functions.knowledge-backtest]
 verify_jwt = false
 
+
+[functions.knowledge-daily-scheduler]
+verify_jwt = false

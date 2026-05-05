@@ -15,6 +15,9 @@ interface Rules {
   min_sample_size: number;
   auto_grid_search_below: number;
   promote_min_improvement_pct: number;
+  daily_grid_search_quota: number;
+  rescue_max_weeks: number;
+  candidate_observe_days: number;
 }
 
 const DEFAULT_RULES: Rules = {
@@ -24,6 +27,9 @@ const DEFAULT_RULES: Rules = {
   min_sample_size: 30,
   auto_grid_search_below: 0.55,
   promote_min_improvement_pct: 5,
+  daily_grid_search_quota: 5,
+  rescue_max_weeks: 3,
+  candidate_observe_days: 14,
 };
 
 export function AutoRulesPanel() {
@@ -49,6 +55,9 @@ export function AutoRulesPanel() {
         min_sample_size: Number(rules.min_sample_size),
         auto_grid_search_below: Number(rules.auto_grid_search_below),
         promote_min_improvement_pct: Number(rules.promote_min_improvement_pct),
+        daily_grid_search_quota: Number(rules.daily_grid_search_quota),
+        rescue_max_weeks: Number(rules.rescue_max_weeks),
+        candidate_observe_days: Number(rules.candidate_observe_days),
         updated_at: new Date().toISOString(),
       };
       let res;
@@ -73,7 +82,7 @@ export function AutoRulesPanel() {
     <div className="border rounded-lg p-4 bg-card space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-medium flex items-center gap-2">
-          <Settings className="h-4 w-4" />每週自動回測規則
+          <Settings className="h-4 w-4" />每日自動排程規則
         </h3>
         <div className="flex items-center gap-2">
           <Label className="text-xs text-muted-foreground">{rules.enabled ? '已啟用' : '停用'}</Label>
@@ -81,7 +90,7 @@ export function AutoRulesPanel() {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        每週日 03:00 自動跑全量回測後，根據以下門檻自動處理。所有動作會記錄到 audit_logs。
+        每日 03:00 (Asia/Taipei) 自動跑回測 → 套門檻分流 → 救援池網格搜尋 → 備選池觀察期升降。所有動作會記錄到 audit_logs。
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -119,6 +128,27 @@ export function AutoRulesPanel() {
             value={rules.promote_min_improvement_pct}
             onChange={(e) => setRules({ ...rules, promote_min_improvement_pct: Number(e.target.value) })} />
           <p className="text-[10px] text-muted-foreground mt-1">新勝率 &gt; 舊勝率 + 此值 才會升版</p>
+        </div>
+        <div>
+          <Label className="text-xs">每日網格搜尋配額（條）</Label>
+          <Input type="number" min={1} max={50} step={1}
+            value={rules.daily_grid_search_quota}
+            onChange={(e) => setRules({ ...rules, daily_grid_search_quota: Number(e.target.value) })} />
+          <p className="text-[10px] text-muted-foreground mt-1">每天最多對幾條救援池條目跑網格</p>
+        </div>
+        <div>
+          <Label className="text-xs">救援池最長停留週數</Label>
+          <Input type="number" min={1} max={12} step={1}
+            value={rules.rescue_max_weeks}
+            onChange={(e) => setRules({ ...rules, rescue_max_weeks: Number(e.target.value) })} />
+          <p className="text-[10px] text-muted-foreground mt-1">超過此週數仍未恢復 → 自動歸檔</p>
+        </div>
+        <div>
+          <Label className="text-xs">備選池觀察天數</Label>
+          <Input type="number" min={1} max={90} step={1}
+            value={rules.candidate_observe_days}
+            onChange={(e) => setRules({ ...rules, candidate_observe_days: Number(e.target.value) })} />
+          <p className="text-[10px] text-muted-foreground mt-1">新版本累積實戰樣本的觀察期</p>
         </div>
       </div>
 

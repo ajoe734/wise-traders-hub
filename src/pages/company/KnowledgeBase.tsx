@@ -55,6 +55,11 @@ interface KnowledgeItem {
   source_type: string;
   industry_tags: string[];
   time_horizon: string | null;
+  lifecycle_status?: 'active' | 'candidate' | 'rescue' | 'archived';
+  rescue_started_at?: string | null;
+  rescue_attempts?: number;
+  candidate_observed_since?: string | null;
+  archived_reason?: string | null;
 }
 
 interface Candidate {
@@ -577,6 +582,17 @@ export default function KnowledgeBasePage() {
                             <Badge variant={item.is_active ? 'default' : 'secondary'}>
                               {item.is_active ? '啟用' : '停用'}
                             </Badge>
+                            {(() => {
+                              const ls = item.lifecycle_status ?? 'active';
+                              const map: Record<string, { label: string; cls: string }> = {
+                                active: { label: '使用中', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+                                candidate: { label: '備選', cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+                                rescue: { label: '救援中', cls: 'bg-orange-100 text-orange-800 border-orange-200' },
+                                archived: { label: '已歸檔', cls: 'bg-muted text-muted-foreground' },
+                              };
+                              const m = map[ls] ?? map.active;
+                              return <Badge variant="outline" className={m.cls}>{m.label}</Badge>;
+                            })()}
                             <Badge variant="outline">
                               信心 {((item.confidence ?? 0) * 100).toFixed(0)}%
                             </Badge>
