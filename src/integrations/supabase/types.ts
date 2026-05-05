@@ -1535,6 +1535,42 @@ export type Database = {
           },
         ]
       }
+      knowledge_sync_settings: {
+        Row: {
+          id: string
+          max_retries: number
+          notify_on_failure: boolean
+          notify_on_success: boolean
+          notify_user_ids: string[]
+          retry_delay_ms: number
+          retry_on_failure: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          max_retries?: number
+          notify_on_failure?: boolean
+          notify_on_success?: boolean
+          notify_user_ids?: string[]
+          retry_delay_ms?: number
+          retry_on_failure?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          max_retries?: number
+          notify_on_failure?: boolean
+          notify_on_success?: boolean
+          notify_user_ids?: string[]
+          retry_delay_ms?: number
+          retry_on_failure?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       line_binding_codes: {
         Row: {
           code: string
