@@ -207,9 +207,11 @@ export type Database = {
         Row: {
           action: string | null
           archived_at: string | null
+          archived_reason: string | null
           backtest_run_at: string | null
           backtest_stats: Json | null
           backtestable: boolean
+          candidate_observed_since: string | null
           category: string
           confidence: number | null
           created_at: string | null
@@ -222,8 +224,11 @@ export type Database = {
           item_id: string
           last_validated_at: string | null
           lessons: string | null
+          lifecycle_status: string
           outcome: string | null
           parent_item_id: string | null
+          rescue_attempts: number
+          rescue_started_at: string | null
           return_pct: number | null
           sample_size: number
           source_type: string
@@ -239,9 +244,11 @@ export type Database = {
         Insert: {
           action?: string | null
           archived_at?: string | null
+          archived_reason?: string | null
           backtest_run_at?: string | null
           backtest_stats?: Json | null
           backtestable?: boolean
+          candidate_observed_since?: string | null
           category: string
           confidence?: number | null
           created_at?: string | null
@@ -254,8 +261,11 @@ export type Database = {
           item_id: string
           last_validated_at?: string | null
           lessons?: string | null
+          lifecycle_status?: string
           outcome?: string | null
           parent_item_id?: string | null
+          rescue_attempts?: number
+          rescue_started_at?: string | null
           return_pct?: number | null
           sample_size?: number
           source_type?: string
@@ -271,9 +281,11 @@ export type Database = {
         Update: {
           action?: string | null
           archived_at?: string | null
+          archived_reason?: string | null
           backtest_run_at?: string | null
           backtest_stats?: Json | null
           backtestable?: boolean
+          candidate_observed_since?: string | null
           category?: string
           confidence?: number | null
           created_at?: string | null
@@ -286,8 +298,11 @@ export type Database = {
           item_id?: string
           last_validated_at?: string | null
           lessons?: string | null
+          lifecycle_status?: string
           outcome?: string | null
           parent_item_id?: string | null
+          rescue_attempts?: number
+          rescue_started_at?: string | null
           return_pct?: number | null
           sample_size?: number
           source_type?: string
@@ -1295,33 +1310,42 @@ export type Database = {
         Row: {
           archive_below_win_rate: number
           auto_grid_search_below: number
+          candidate_observe_days: number
+          daily_grid_search_quota: number
           enabled: boolean
           id: string
           min_sample_size: number
           promote_above_win_rate: number
           promote_min_improvement_pct: number
+          rescue_max_weeks: number
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           archive_below_win_rate?: number
           auto_grid_search_below?: number
+          candidate_observe_days?: number
+          daily_grid_search_quota?: number
           enabled?: boolean
           id?: string
           min_sample_size?: number
           promote_above_win_rate?: number
           promote_min_improvement_pct?: number
+          rescue_max_weeks?: number
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           archive_below_win_rate?: number
           auto_grid_search_below?: number
+          candidate_observe_days?: number
+          daily_grid_search_quota?: number
           enabled?: boolean
           id?: string
           min_sample_size?: number
           promote_above_win_rate?: number
           promote_min_improvement_pct?: number
+          rescue_max_weeks?: number
           updated_at?: string
           updated_by?: string | null
         }
