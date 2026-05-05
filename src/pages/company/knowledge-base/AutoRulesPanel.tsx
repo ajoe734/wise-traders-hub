@@ -82,7 +82,7 @@ export function AutoRulesPanel() {
     <div className="border rounded-lg p-4 bg-card space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-medium flex items-center gap-2">
-          <Settings className="h-4 w-4" />每週自動回測規則
+          <Settings className="h-4 w-4" />每日自動排程規則
         </h3>
         <div className="flex items-center gap-2">
           <Label className="text-xs text-muted-foreground">{rules.enabled ? '已啟用' : '停用'}</Label>
@@ -90,7 +90,7 @@ export function AutoRulesPanel() {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        每週日 03:00 自動跑全量回測後，根據以下門檻自動處理。所有動作會記錄到 audit_logs。
+        每日 03:00 (Asia/Taipei) 自動跑回測 → 套門檻分流 → 救援池網格搜尋 → 備選池觀察期升降。所有動作會記錄到 audit_logs。
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
