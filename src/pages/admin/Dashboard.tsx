@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, Radio, TrendingUp, DollarSign, BookOpen, ArrowRight } from 'lucide-react';
+import { Users, Radio, TrendingUp, DollarSign, BookOpen, ArrowRight, Wallet } from 'lucide-react';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 
 const actionLabels: Record<string, { label: string; className: string }> = {
