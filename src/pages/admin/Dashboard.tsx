@@ -48,7 +48,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (!expert?.id) return;
     fetchPerfStats(expert.id);
-
+    supabase.rpc('get_expert_capital_status' as any, { _expert_id: expert.id }).then(({ data }) => {
+      if (data) setCapital(data as any);
+    });
     // Realtime: recalculate when trade_records change
     const channel = supabase
       .channel('admin-dashboard-trade-records')
