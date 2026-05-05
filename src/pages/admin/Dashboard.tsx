@@ -186,6 +186,41 @@ const AdminDashboard = () => {
           </p>
         </div>
 
+        {capital && (
+          <Card className="border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">資金狀況</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">起始資金</div>
+                  <div className="text-base font-semibold tabular-nums">${(capital.starting_capital || 0).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">可用現金</div>
+                  <div className={cn('text-lg font-bold tabular-nums', capital.available_cash < 0 ? 'text-destructive' : 'text-foreground')}>
+                    ${(capital.available_cash || 0).toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">未平倉成本</div>
+                  <div className="text-base font-semibold tabular-nums">${(capital.open_cost_value || 0).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">已實現損益</div>
+                  <div className={cn('text-base font-semibold tabular-nums',
+                    capital.realized_pnl_amount > 0 ? 'text-red-600 dark:text-red-400' :
+                    capital.realized_pnl_amount < 0 ? 'text-green-600 dark:text-green-400' : '')}>
+                    {capital.realized_pnl_amount > 0 ? '+' : ''}${(capital.realized_pnl_amount || 0).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (
             <Card key={stat.label}>
