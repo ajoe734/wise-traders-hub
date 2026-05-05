@@ -93,8 +93,9 @@ export function preloadKnowledgeBase({ force = false } = {}) {
     try {
       const { data, error } = await supabase
         .from('checkup_knowledge_items')
-        .select('id,category,item_id,title,fact,interpretation,action,lessons,return_pct,outcome,confidence,tags,is_active,updated_at,version,trigger_condition,expected_outcome,win_rate,sample_size,source_type,industry_tags,time_horizon')
+        .select('id,category,item_id,title,fact,interpretation,action,lessons,return_pct,outcome,confidence,tags,is_active,updated_at,version,trigger_condition,expected_outcome,win_rate,sample_size,source_type,industry_tags,time_horizon,lifecycle_status')
         .eq('is_active', true)
+        .in('lifecycle_status', ['active', 'rescue'])
 
       if (error) throw error
       if (!data || data.length === 0) {
