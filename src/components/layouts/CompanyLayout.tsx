@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard, Users, UserCheck, BarChart3, CreditCard,
-  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers, Activity, Brain, Gauge, AlertTriangle, ScrollText, History
+  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers, Activity, Brain, Gauge, AlertTriangle, ScrollText, History, Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +15,7 @@ interface CompanyLayoutProps {
 }
 
 const navItems = [
+  { path: '/company/users', icon: Shield, label: '帳號權限' },
   { path: '/company', icon: LayoutDashboard, label: '總覽', exact: true },
   { path: '/company/analysts', icon: Users, label: '分析師管理' },
   { path: '/company/plans', icon: Layers, label: '方案管理' },

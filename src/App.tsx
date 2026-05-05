@@ -96,6 +96,7 @@ import CompanyReferralChannels from "./pages/company/ReferralChannels";
 import CompanyCheckupUsage from "./pages/company/CheckupUsage";
 import CompanyMissingPrices from "./pages/company/MissingPrices";
 import CompanyMetaOverrides from "./pages/company/MetaOverrides";
+import CompanyUsers from "./pages/company/Users";
 import AccountNotifications from "./pages/account/Notifications";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -201,6 +202,7 @@ const AppShell = () => (
 
             {/* Company (internal backend) */}
             <Route path="/company" element={<ProtectedRoute requiredRole="company_admin"><CompanyDashboard /></ProtectedRoute>} />
+            <Route path="/company/users" element={<ProtectedRoute requiredRole="company_admin"><CompanyUsers /></ProtectedRoute>} />
             <Route path="/company/analysts" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnalysts /></ProtectedRoute>} />
             <Route path="/company/subscribers" element={<ProtectedRoute requiredRole="company_admin"><CompanySubscribers /></ProtectedRoute>} />
             <Route path="/company/revenue" element={<ProtectedRoute requiredRole="company_admin"><CompanyRevenue /></ProtectedRoute>} />
