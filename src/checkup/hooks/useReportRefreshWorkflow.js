@@ -129,11 +129,15 @@ export function useReportRefreshWorkflow({
         return result.nextStore
       })
 
-      buildAnalystTargetUpserts(code, incomingItems, { todayLabel: toSlashDate() }).forEach(
-        (entry) => {
-          upsertTargetReport(entry, { silent: true, markNew: true })
-        }
-      )
+      const upsertEntries = buildAnalystTargetUpserts(code, incomingItems, { todayLabel: toSlashDate() })
+      upsertEntries.forEach((entry) => {
+        upsertTargetReport(entry, { silent: true, markNew: true })
+      })
+      // Persist to target_price_history (best-effort, non-blocking)
+      if (upsertEntries.length > 0) {
+        recordTargetPriceBatch(code, upsertEntries.map(e => ({ firm: e.firm, target: e.target, date: e.date })), 'refresh-reports')
+          .catch(() => {})
+      }
 
       return incomingItems.length > 0
     },
