@@ -6991,8 +6991,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <span style={{fontSize:11,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                   {meta && (
-                    <div style={{fontSize:10,color:C.textMute,marginTop:2}}>
-                      {meta.industry}{meta.strategy && ` · ${meta.strategy}`}{meta.position && ` · ${meta.position}`}
+                    <div style={{fontSize:10,color:C.textMute,marginTop:2,display:'flex',alignItems:'center',gap:6}}>
+                      <span>{meta.industry}{meta.strategy && ` · ${meta.strategy}`}{meta.position && ` · ${meta.position}`}{meta.leader && ` · 領頭 ${meta.leader}`}</span>
+                      {metaOverridden && (
+                        <span title="此產業/策略由 AI 研究覆蓋" style={{fontSize:9,padding:'1px 5px',border:`1px solid ${alpha(C.textMute,'30')}`,borderRadius:3,letterSpacing:'0.06em'}}>AI</span>
+                      )}
                     </div>
                   )}
                 </div>
