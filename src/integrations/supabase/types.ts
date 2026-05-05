@@ -2763,6 +2763,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_expert_capital_status: { Args: { _expert_id: string }; Returns: Json }
       get_knowledge_revision: { Args: never; Returns: string }
       get_weekly_limit_up_leaderboard: {
         Args: { _end_date?: string; _start_date?: string }
