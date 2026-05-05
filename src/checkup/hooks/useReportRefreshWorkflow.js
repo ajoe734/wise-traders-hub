@@ -16,6 +16,7 @@ import {
 import { fetchJsonWithTimeout } from '../lib/utils.js'
 // Phase 3A.4 Step 1: store 直取 setter
 import { useHoldingsStore } from '../stores/holdingsStore.js'
+import { recordTargetPriceBatch } from './useTargetPriceHistory.js'
 
 export function useReportRefreshWorkflow({
   holdings = [],
