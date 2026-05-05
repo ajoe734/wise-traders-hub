@@ -38,36 +38,35 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   // Resolve slug → expert ID
   const { data: expert } = useExpert(expertSlug);
   const expertId = expert?.id;
-  const startingCapital = (expert as any)?.startingCapital ?? null;
-  const INITIAL_CAPITAL = startingCapital ?? 0;
 
   // Fetch overall performance
   const { data: perfData } = useExpertPerformance(expertId);
-  const sinceInceptionReturn = perfData?.cumulative_return ?? 0;
+
+  // Prefer RPC-provided starting_capital (always in sync); fallback to expert record
+  const startingCapital = (perfData as any)?.starting_capital ?? (expert as any)?.startingCapital ?? 0;
+  const INITIAL_CAPITAL = startingCapital ?? 0;
+
+  // 總報酬率（以起始資金為基準，含已實現+未實現）
+  const totalReturnPct = (perfData as any)?.total_return_pct ?? 0;
+  // 已實現累積報酬（保留作 chart 累積線參考）
+  const realizedReturnPct = perfData?.cumulative_return ?? 0;
 
   // Fetch period-bucketed data
   const { data: performanceData = [], isLoading } = usePeriodPerformance(expertId, period);
 
   const currentAsset = useMemo(() => {
-    // Use current_asset from RPC (open positions market value)
+    // Use current_asset from RPC (now: starting + realized + unrealized when starting_capital set)
     const rpcAsset = (perfData as any)?.current_asset ?? 0;
-    if (rpcAsset > 0) return Math.round(rpcAsset);
-    // Fallback to old formula if no open positions
-    if (!startingCapital) return 0;
-    return Math.round(INITIAL_CAPITAL * (1 + sinceInceptionReturn / 100));
-  }, [perfData, sinceInceptionReturn, startingCapital, INITIAL_CAPITAL]);
+    return Math.round(rpcAsset);
+  }, [perfData]);
 
-  // Overall trend for chart color
-  const overallTrend = useMemo(() => {
-    return sinceInceptionReturn >= 0 ? 'positive' : 'negative';
-  }, [sinceInceptionReturn]);
-
+  // Overall trend for chart color (use total return for consistency with KPI)
   const chartColors = useMemo(() => {
-    if (sinceInceptionReturn >= 0) {
+    if (totalReturnPct >= 0) {
       return { stroke: '#E53935', gradientStart: '#E53935', gradientEnd: '#E53935' };
     }
     return { stroke: '#22C55E', gradientStart: '#22C55E', gradientEnd: '#22C55E' };
-  }, [sinceInceptionReturn]);
+  }, [totalReturnPct]);
 
   const periodStats = useMemo(() => {
     if (!performanceData.length) return { best: undefined, worst: undefined };
