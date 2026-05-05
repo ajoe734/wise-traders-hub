@@ -304,6 +304,29 @@ const SignalEditor = () => {
     }
   }, []);
 
+  // 把交易草稿轉成 cash 模擬輸入
+  const buildCashSimTrades = useCallback(() => {
+    const posMap = new Map<string, OpenPosition>();
+    (capital?.open_positions || []).forEach((p) => posMap.set(p.symbol, p));
+    return trades.map((t) => {
+      const shares = normalizeSignalQuantityToShares(parseInt(t.quantity || '0', 10) || 0, t.quantityUnit);
+      const code = t.stockCode.trim();
+      const pos = posMap.get(code);
+      return {
+        action: (t.action || '') as any,
+        price: parseFloat(t.priceHint || '0') || 0,
+        shares,
+        exitShares: pos?.quantity_shares,
+        exitAvgPrice: pos?.entry_price,
+      };
+    });
+  }, [trades, capital]);
+
+  const cashSim = useMemo(() => {
+    const start = capital?.available_cash || 0;
+    return simulateCashAfterTrades(start, buildCashSimTrades());
+  }, [capital, buildCashSimTrades]);
+
   // 驗證
   const validate = (): string | null => {
     if (!expert) return '找不到分析師資料';
@@ -311,6 +334,10 @@ const SignalEditor = () => {
 
     const initial = openPositions.map((p) => ({ symbol: p.symbol, quantity: p.quantity }));
     const simulated: { symbol: string; action: TradeAction; quantity: number }[] = [];
+
+    let remaining = capital?.available_cash || 0;
+    const posMap = new Map<string, OpenPosition>();
+    (capital?.open_positions || []).forEach((p) => posMap.set(p.symbol, p));
 
     for (let i = 0; i < trades.length; i++) {
       const t = trades[i];
@@ -323,16 +350,33 @@ const SignalEditor = () => {
       const price = parseFloat(t.priceHint || '0');
       if (!price || price <= 0) return `${tag}：請填參考價格`;
 
-      // 對 add/trim/sell/exit 做模擬庫存檢查
+      const code = t.stockCode.trim();
+      const shares = normalizeSignalQuantityToShares(qty, t.quantityUnit);
+
       if (['add', 'trim', 'sell', 'exit'].includes(t.action)) {
         const sim = simulatePositions(initial, simulated);
-        const cur = sim.get(t.stockCode.trim()) || 0;
-        if (cur <= 0) return `${tag}：尚無 ${t.stockCode.trim()} 的未平倉部位，無法執行${actionLabels[t.action]}`;
+        const cur = sim.get(code) || 0;
+        if (cur <= 0) return `${tag}：尚無 ${code} 的未平倉部位，無法執行${actionLabels[t.action]}`;
         if ((t.action === 'trim' || t.action === 'sell') && qty > cur) {
           return `${tag}：減碼數量 (${qty}) 超過模擬持倉 (${cur})`;
         }
       }
-      simulated.push({ symbol: t.stockCode.trim(), action: t.action as TradeAction, quantity: qty });
+
+      // 資金硬擋：buy / add 不可超過剩餘可用現金
+      if (t.action === 'buy' || t.action === 'add') {
+        const required = price * shares;
+        if (required > remaining) {
+          return `${tag}：本筆需 ${fmtMoney(required)}，剩餘可用現金僅 ${fmtMoney(remaining)}，已超過操作金額上限`;
+        }
+        remaining -= required;
+      } else if (t.action === 'sell' || t.action === 'trim') {
+        remaining += price * shares;
+      } else if (t.action === 'exit') {
+        const pos = posMap.get(code);
+        remaining += (pos?.entry_price || price) * (pos?.quantity_shares || shares);
+      }
+
+      simulated.push({ symbol: code, action: t.action as TradeAction, quantity: qty });
     }
     return null;
   };
