@@ -86,11 +86,12 @@ const AdminProfile = () => {
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !expert) return;
+    if (!file || !expert || !user?.id) return;
     setUploading(true);
 
-    const ext = file.name.split('.').pop();
-    const path = `avatars/${expert.id}.${ext}`;
+    const ext = file.name.split('.').pop() || 'jpg';
+    // Storage RLS 要求第一層資料夾 = auth.uid()
+    const path = `${user.id}/expert-${expert.id}.${ext}`;
 
     const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
     if (uploadError) {
@@ -100,7 +101,7 @@ const AdminProfile = () => {
     }
 
     const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-    const avatarUrl = urlData.publicUrl;
+    const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
     const { error: updateError } = await supabase.from('experts').update({ avatar_url: avatarUrl }).eq('id', expert.id);
     if (updateError) { toast.error('更新頭像失敗'); }
