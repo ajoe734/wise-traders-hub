@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
     let processed = 0
     let failed = 0
     const startedAt = Date.now()
-    const TIME_BUDGET_MS = 50_000
+    const TIME_BUDGET_MS = 55_000
 
     for (const job of (pendingRows ?? [])) {
       if (Date.now() - startedAt > TIME_BUDGET_MS) break
