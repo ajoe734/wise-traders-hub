@@ -328,6 +328,22 @@ const SignalEditor = () => {
     return simulateCashAfterTrades(start, buildCashSimTrades());
   }, [capital, buildCashSimTrades]);
 
+  // 模擬送出後的持倉股數（僅用於 UI 預覽）
+  const simulatedPositions = useMemo(() => {
+    const initial = (capital?.open_positions || []).map((p) => ({
+      symbol: p.symbol,
+      quantity: p.quantity_shares,
+    }));
+    const simTrades = trades
+      .filter((t) => t.stockCode.trim() && t.action)
+      .map((t) => ({
+        symbol: t.stockCode.trim(),
+        action: t.action as TradeAction,
+        quantity: normalizeSignalQuantityToShares(parseInt(t.quantity || '0', 10) || 0, t.quantityUnit),
+      }));
+    return simulatePositions(initial, simTrades);
+  }, [capital, trades]);
+
   // 驗證
   const validate = (): string | null => {
     if (!expert) return '找不到分析師資料';
@@ -549,6 +565,7 @@ const SignalEditor = () => {
                         <tr className="border-b text-muted-foreground">
                           <th className="text-left py-1.5 font-normal">股票</th>
                           <th className="text-right font-normal">股數</th>
+                          <th className="text-right font-normal">送出後</th>
                           <th className="text-right font-normal">均價</th>
                           <th className="text-right font-normal">現價</th>
                           <th className="text-right font-normal">市值</th>
@@ -557,10 +574,27 @@ const SignalEditor = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {capital.open_positions.map((p) => (
+                        {capital.open_positions.map((p) => {
+                          const simQty = simulatedPositions.get(p.symbol);
+                          const hasSim = simQty !== undefined && simQty !== p.quantity_shares;
+                          const isCleared = hasSim && simQty === 0;
+                          const isDecreased = hasSim && simQty! < p.quantity_shares && simQty! > 0;
+                          const isIncreased = hasSim && simQty! > p.quantity_shares;
+                          return (
                           <tr key={p.symbol} className="border-b last:border-0">
                             <td className="py-1.5">{p.instrument}</td>
                             <td className="text-right">{p.quantity_shares.toLocaleString()}</td>
+                            <td className="text-right">
+                              {!hasSim ? (
+                                <span className="text-muted-foreground">—</span>
+                              ) : isCleared ? (
+                                <span className="text-muted-foreground">全數出清</span>
+                              ) : (
+                                <span className={cn(isDecreased && 'text-success', isIncreased && 'text-destructive')}>
+                                  {simQty!.toLocaleString()} {isDecreased ? '▾' : '▴'}
+                                </span>
+                              )}
+                            </td>
                             <td className="text-right">{Number(p.entry_price || 0).toFixed(2)}</td>
                             <td className="text-right">{p.current_price != null ? Number(p.current_price).toFixed(2) : '—'}</td>
                             <td className="text-right">{fmtMoney(p.market_value)}</td>
@@ -605,7 +639,8 @@ const SignalEditor = () => {
                               </DropdownMenu>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
