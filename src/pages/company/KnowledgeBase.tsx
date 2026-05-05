@@ -291,7 +291,37 @@ export default function KnowledgeBasePage() {
     }
   }
 
-  async function approveCandidate(c: Candidate) {
+  const [bulkApproving, setBulkApproving] = useState(false);
+
+  async function bulkApprove(minConfidence = 0) {
+    const targets = pendingCandidates.filter(c => (c.confidence ?? 0) >= minConfidence);
+    if (targets.length === 0) { toast.info('沒有符合條件的候選'); return; }
+    if (!confirm(`確定一鍵核可 ${targets.length} 條候選${minConfidence > 0 ? `（信心 ≥ ${(minConfidence*100).toFixed(0)}%）` : ''}？`)) return;
+    setBulkApproving(true);
+    let ok = 0, fail = 0;
+    for (const c of targets) {
+      try { await approveCandidate(c, { silent: true }); ok++; }
+      catch { fail++; }
+    }
+    setBulkApproving(false);
+    toast.success(`已核可 ${ok} 條${fail ? `（失敗 ${fail}）` : ''}`);
+    load();
+  }
+
+  async function bulkReject() {
+    if (pendingCandidates.length === 0) return;
+    if (!confirm(`確定一鍵退回所有 ${pendingCandidates.length} 條候選？`)) return;
+    setBulkApproving(true);
+    const ids = pendingCandidates.map(c => c.id);
+    await supabase.from('checkup_knowledge_candidates' as any)
+      .update({ status: 'rejected', reviewer_note: 'bulk reject', reviewed_at: new Date().toISOString() })
+      .in('id', ids);
+    setBulkApproving(false);
+    toast.success(`已退回 ${ids.length} 條`);
+    load();
+  }
+
+  async function approveCandidate(c: Candidate, opts: { silent?: boolean } = {}) {
     // 推進到正式 items；item_id 若無則自動命名
     const itemId = c.item_id || `${c.category.split('_')[0]}-${Date.now().toString(36)}`;
     const payload: any = {
@@ -315,8 +345,8 @@ export default function KnowledgeBasePage() {
     };
     const ins = await supabase.from('checkup_knowledge_items').insert(payload).select().single();
     if (ins.error) {
-      toast.error('核可失敗：' + ins.error.message);
-      return;
+      if (!opts.silent) toast.error('核可失敗：' + ins.error.message);
+      throw ins.error;
     }
     await supabase.from('checkup_knowledge_candidates' as any)
       .update({ status: 'approved', reviewed_at: new Date().toISOString() })
@@ -327,8 +357,10 @@ export default function KnowledgeBasePage() {
       targetId: c.id,
       detail: { promoted_to: ins.data?.id },
     });
-    toast.success('已核可並寫入正式知識庫');
-    load();
+    if (!opts.silent) {
+      toast.success('已核可並寫入正式知識庫');
+      load();
+    }
   }
 
   async function rejectCandidate(c: Candidate) {
@@ -574,6 +606,27 @@ export default function KnowledgeBasePage() {
           </TabsContent>
 
           <TabsContent value="candidates" className="space-y-2 mt-4">
+            {pendingCandidates.length > 0 && (
+              <div className="flex items-center justify-between gap-3 flex-wrap rounded-2xl border bg-card px-4 py-3">
+                <div className="text-sm">
+                  待審 <span className="font-semibold">{pendingCandidates.length}</span> 條 ·
+                  高信心（≥80%） <span className="font-semibold">{pendingCandidates.filter(c => (c.confidence ?? 0) >= 0.8).length}</span> 條
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" disabled={bulkApproving} onClick={() => bulkApprove(0.8)}>
+                    {bulkApproving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                    一鍵核可（高信心 ≥80%）
+                  </Button>
+                  <Button size="sm" disabled={bulkApproving} onClick={() => bulkApprove(0)}>
+                    {bulkApproving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                    一鍵核可全部
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={bulkApproving} onClick={bulkReject}>
+                    <X className="h-4 w-4 mr-1" />全部退回
+                  </Button>
+                </div>
+              </div>
+            )}
             {pendingCandidates.length === 0 && (
               <p className="text-sm text-muted-foreground">目前沒有待審候選。可用上方「Claude 起草」批次產生。</p>
             )}

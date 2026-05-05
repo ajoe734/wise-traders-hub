@@ -45,25 +45,22 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <aside className="w-64 border-r bg-card flex flex-col shrink-0 sticky top-0 h-screen">
-        {/* Header */}
-        <div className="p-4 border-b">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="h-10 w-10 rounded-lg bg-company/10 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-company" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-semibold truncate">海洋福星</h2>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-            </div>
-            
+    <div className="min-h-screen flex" style={{ background: '#F5F3EF' }}>
+      {/* Sidebar — Celoxis pill style */}
+      <aside className="w-64 flex flex-col shrink-0 sticky top-0 h-screen px-4 py-5">
+        {/* Brand */}
+        <div className="flex items-center gap-3 px-3 mb-6">
+          <div className="h-9 w-9 rounded-full bg-foreground/90 flex items-center justify-center">
+            <Building2 className="h-4 w-4 text-background" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-medium tracking-tight truncate">海洋福星</h2>
+            <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1">
+        {/* Navigation — pill rows */}
+        <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
           {navItems.map((item) => {
             const active = isActive(item.path, item.exact);
             return (
@@ -71,45 +68,41 @@ export function CompanyLayout({ children }: CompanyLayoutProps) {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  "group flex items-center gap-3 px-4 py-2.5 rounded-full text-[13px] transition-all",
                   active
-                    ? "bg-company/10 text-company"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-card text-foreground font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-card/60"
                 )}
               >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
+                <item.icon className={cn("h-[18px] w-[18px] shrink-0 stroke-[1.5]", active ? "text-foreground" : "text-muted-foreground/80")} />
+                <span className="truncate">{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
         {/* Footer */}
-        <div className="p-3 border-t space-y-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-muted-foreground"
+        <div className="mt-3 space-y-1">
+          <button
             onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-[13px] text-muted-foreground hover:text-foreground hover:bg-card/60 transition-colors"
           >
-            {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {resolvedTheme === 'dark' ? <Sun className="h-[18px] w-[18px] stroke-[1.5]" /> : <Moon className="h-[18px] w-[18px] stroke-[1.5]" />}
             {resolvedTheme === 'dark' ? '淺色模式' : '深色模式'}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+          </button>
+          <button
             onClick={() => { logout(); navigate('/auth/login'); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-[13px] text-muted-foreground hover:text-destructive hover:bg-card/60 transition-colors"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-[18px] w-[18px] stroke-[1.5]" />
             登出
-          </Button>
+          </button>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="max-w-6xl mx-auto p-6">
+        <div className="max-w-6xl mx-auto p-8 company-shell">
           {children}
         </div>
       </main>
