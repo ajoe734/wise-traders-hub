@@ -722,7 +722,24 @@ const SignalEditor = () => {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">數量</Label>
+                  <Label className="text-xs flex items-center justify-between">
+                    <span>數量</span>
+                    {(t.action === 'buy' || t.action === 'add') && capital && (
+                      <button
+                        type="button"
+                        className="text-[10px] text-primary hover:underline"
+                        onClick={() => {
+                          const price = parseFloat(t.priceHint || '0');
+                          if (!price || price <= 0) { toast.error('請先填參考價位'); return; }
+                          const remainingBefore = idx === 0
+                            ? (capital.available_cash || 0)
+                            : (cashSim.perTrade[idx - 1] ?? capital.available_cash);
+                          const maxShares = Math.max(0, Math.floor(remainingBefore / price));
+                          updateTrade(idx, { quantity: String(maxShares), quantityUnit: '股' });
+                        }}
+                      >最大可買</button>
+                    )}
+                  </Label>
                   <div className="flex gap-2">
                     <Input
                       type="number"
