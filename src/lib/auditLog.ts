@@ -106,6 +106,8 @@ export const ACTION_LABELS: Record<string, string> = {
   'knowledge.delete': '刪除知識庫條目',
   'knowledge.activate': '啟用知識庫條目',
   'knowledge.deactivate': '停用知識庫條目',
+  'knowledge.sync_apply': '同步本地知識庫到雲端',
+  'knowledge.sync_apply_failed': '知識庫同步失敗',
   'knowledge.auto_promote_active': '自動升回使用中',
   'knowledge.auto_demote_rescue': '自動降為救援中',
   'knowledge.auto_grid_search': '自動跑網格搜尋',
