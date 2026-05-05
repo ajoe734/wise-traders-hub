@@ -253,6 +253,23 @@
   .dark .company-shell .bg-card { background-color: hsl(var(--card)); box-shadow: none; }
   .dark .company-shell .text-muted-foreground { color: hsl(0 0% 70%); }
 
+  /* Mobile: tables get horizontal scroll so action buttons stay reachable */
+  .company-shell table { min-width: max-content; }
+  .company-shell .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  @media (max-width: 768px) {
+    .company-shell table :is(th, td) {
+      white-space: nowrap;
+      font-size: 13px;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+    .company-shell table :is(th, td) .whitespace-normal { white-space: normal; }
+  }
+  /* Auto-wrap any direct table inside company-shell so it scrolls horizontally on mobile */
+  .company-shell > table,
+  .company-shell .card table,
+  .company-shell [data-card] table { display: block; overflow-x: auto; }
+
   .gradient-hero {
     background: var(--gradient-hero);
   }
