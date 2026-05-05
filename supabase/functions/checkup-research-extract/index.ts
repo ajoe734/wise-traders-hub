@@ -120,6 +120,12 @@ Deno.serve(async (req) => {
     "reports": [
       { "firm": "券商/來源", "target": 數字, "date": "YYYY/MM/DD 或 YYYY/MM" }
     ]
+  },
+  "meta": {
+    "industry": "產業/次產業" 或 null,
+    "strategy": "投資策略一句話" 或 null,
+    "leader": "族群龍頭股名" 或 null,
+    "position": "波段/長線/短線/觀望" 或 null
   }
 }`;
 
@@ -132,12 +138,12 @@ ${JSON.stringify(dossier || {}, null, 2)}
 研究全文：
 ${report.text}
 
-請抽出可回寫的財報/營收/目標價資料。`;
+請抽出可回寫的財報/營收/目標價/產業策略資料。`;
 
     const text = await callAI([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
-    ], 0.1, 900);
+    ], 0.1, 1200);
 
     if (!text) {
       return new Response(JSON.stringify({ error: '所有 AI 模型均無法使用' }), {
@@ -148,9 +154,56 @@ ${report.text}
     const cleanText = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleanText);
 
+    // Persist meta override + target history (best-effort, service role)
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
+      const authHeader = req.headers.get('authorization') || '';
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+      const userId = user?.id || null;
+
+      if (userId) {
+        const code = String(report.code || '').trim();
+        const meta = parsed?.meta || null;
+        if (meta && (meta.industry || meta.strategy || meta.leader || meta.position)) {
+          await supabase.from('holding_meta_overrides').upsert({
+            user_id: userId, code,
+            industry: meta.industry || null,
+            strategy: meta.strategy || null,
+            leader: meta.leader || null,
+            position: meta.position || null,
+            source: 'ai_enrich',
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,code' });
+        }
+
+        const reports = Array.isArray(parsed?.targets?.reports) ? parsed.targets.reports : [];
+        const batchId = crypto.randomUUID();
+        for (const r of reports) {
+          const target = Number(r?.target);
+          if (!Number.isFinite(target) || target <= 0) continue;
+          await supabase.from('target_price_history').insert({
+            user_id: userId, code,
+            firm: String(r.firm || '').trim(),
+            target,
+            report_date: String(r.date || '').trim() || null,
+            change_type: 'new',
+            source: 'enrich-dossier',
+            batch_id: batchId,
+            detail: { stockName: stock?.name || report.name || null },
+          });
+        }
+      }
+    } catch (persistErr) {
+      console.error('research-extract persist error:', persistErr);
+    }
+
     return new Response(JSON.stringify({
       fundamentals: parsed?.fundamentals || null,
       targets: parsed?.targets || { reports: [] },
+      meta: parsed?.meta || null,
       quota: quotaResult.quota,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
