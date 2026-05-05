@@ -53,6 +53,14 @@ const AdminPerformance = () => {
   const [expertRole, setExpertRole] = useState<string | null>(null);
   const [totalPnlPercent, setTotalPnlPercent] = useState<number | null>(null);
   const [avgPnlPercent, setAvgPnlPercent] = useState<number | null>(null);
+  const [capital, setCapital] = useState<{ starting_capital: number; available_cash: number; open_cost_value: number; realized_pnl_amount: number } | null>(null);
+
+  useEffect(() => {
+    if (!expertId) return;
+    supabase.rpc('get_expert_capital_status' as any, { _expert_id: expertId }).then(({ data }) => {
+      if (data) setCapital(data as any);
+    });
+  }, [expertId]);
 
   const pnlColor = (val: number | null) =>
     val != null && val > 0
