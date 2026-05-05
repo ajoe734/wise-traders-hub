@@ -160,8 +160,8 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
           </div>
           <div className="text-right">
             <div className="text-xs text-muted-foreground">總報酬率</div>
-            <div className={cn("text-lg font-bold", sinceInceptionReturn >= 0 ? "text-success" : "text-destructive")}>
-              {sinceInceptionReturn >= 0 ? "+" : ""}{sinceInceptionReturn.toFixed(2)}%
+            <div className={cn("text-lg font-bold", totalReturnPct >= 0 ? "text-success" : "text-destructive")}>
+              {totalReturnPct >= 0 ? "+" : ""}{Number(totalReturnPct).toFixed(2)}%
             </div>
           </div>
         </div>
