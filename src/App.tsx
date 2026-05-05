@@ -207,6 +207,7 @@ const AppShell = () => (
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />
             <Route path="/company/audit-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyAuditLogs /></ProtectedRoute>} />
             <Route path="/company/system-jobs" element={<ProtectedRoute requiredRole="company_admin"><CompanySystemJobs /></ProtectedRoute>} />
+            <Route path="/company/function-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyFunctionLogs /></ProtectedRoute>} />
             <Route path="/company/knowledge-base" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeBase /></ProtectedRoute>} />
             <Route path="/company/plans" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlans /></ProtectedRoute>} />
             {/* Legacy routes — redirect to unified plan management */}
