@@ -30,6 +30,7 @@ const AdminDashboard = () => {
   const [recentSignals, setRecentSignals] = useState<any[]>([]);
   const [revenueMode, setRevenueMode] = useState<'month' | 'year'>('month');
   const [yearlyRevenue, setYearlyRevenue] = useState(0);
+  const [capital, setCapital] = useState<{ starting_capital: number; available_cash: number; open_cost_value: number; realized_pnl_amount: number } | null>(null);
 
   useEffect(() => { fetchData(); }, [expertSlug]);
 
