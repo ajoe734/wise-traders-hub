@@ -28,6 +28,8 @@ const navItems = [
   { path: '/company/function-logs', icon: ScrollText, label: '函式日誌' },
   { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
   { path: '/company/knowledge-base', icon: Brain, label: '知識庫' },
+  { path: '/company/knowledge-scheduler', icon: Brain, label: '知識庫排程控制台' },
+  { path: '/company/knowledge-audit', icon: FileClock, label: '知識庫審計' },
   { path: '/company/backtest-monitor', icon: FlaskConical, label: '回測監控' },
   { path: '/company/checkup-usage', icon: Gauge, label: '健檢配額' },
   { path: '/company/missing-prices', icon: AlertTriangle, label: '缺價總覽' },
