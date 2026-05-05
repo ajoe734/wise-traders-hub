@@ -87,29 +87,67 @@ const AdminProfile = () => {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !expert || !user?.id) return;
-    setUploading(true);
 
-    const ext = file.name.split('.').pop() || 'jpg';
-    // Storage RLS 要求第一層資料夾 = auth.uid()
-    const path = `${user.id}/expert-${expert.id}.${ext}`;
-
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
-    if (uploadError) {
-      toast.error('上傳失敗：' + uploadError.message);
-      setUploading(false);
+    // 前置檢查
+    if (!file.type.startsWith('image/')) {
+      toast.error('請選擇圖片檔案');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('檔案大小不可超過 5MB');
+      e.target.value = '';
       return;
     }
 
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-    const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+    setUploading(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      // 路徑第一層必須符合 Storage RLS：
+      // - 本人編輯 → 自己 uid
+      // - company_admin 代編輯他人 → 該 expert 的 user_id（admin policy 允許）
+      const folderUid = (!isOwner && isCompanyAdmin && expert.user_id) ? expert.user_id : user.id;
+      const rand = Math.random().toString(36).slice(2, 8);
+      const path = `${folderUid}/avatar-${Date.now()}-${rand}.${ext}`;
 
-    const { error: updateError } = await supabase.from('experts').update({ avatar_url: avatarUrl }).eq('id', expert.id);
-    if (updateError) { toast.error('更新頭像失敗'); }
-    else {
+      // 唯一檔名 → 不需要 upsert，避免觸發 update 路徑的 RLS
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: false, contentType: file.type });
+      if (uploadError) {
+        toast.error('上傳檔案失敗：' + uploadError.message);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const avatarUrl = urlData.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from('experts')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', expert.id);
+      if (updateError) {
+        toast.error('更新頭像失敗：' + updateError.message);
+        return;
+      }
+
+      // best-effort：刪除舊檔（失敗不影響流程）
+      const oldUrl: string | undefined = expert.avatar_url;
+      if (oldUrl && oldUrl.includes('/avatars/')) {
+        try {
+          const oldPath = oldUrl.split('/avatars/')[1]?.split('?')[0];
+          if (oldPath && oldPath !== path) {
+            await supabase.storage.from('avatars').remove([oldPath]);
+          }
+        } catch { /* ignore */ }
+      }
+
       toast.success('頭像已更新');
       setExpert({ ...expert, avatar_url: avatarUrl });
+    } finally {
+      setUploading(false);
+      e.target.value = '';
     }
-    setUploading(false);
   };
 
   const addTag = () => {
