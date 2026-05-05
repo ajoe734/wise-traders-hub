@@ -669,6 +669,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 觸發 LINE 通知（full 模式才發；single 模式靜默以免吵）
+    if (mode === 'full') {
+      try {
+        await sb.functions.invoke('notify-backtest-result', {
+          body: { hours: 2, trigger: body.trigger ?? 'cron' },
+        })
+      } catch (notifyErr) {
+        console.error('notify-backtest-result invoke failed:', notifyErr)
+      }
+    }
+
     return new Response(JSON.stringify({
       ok: true,
       mode,
