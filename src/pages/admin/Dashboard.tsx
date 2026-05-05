@@ -114,10 +114,11 @@ const AdminDashboard = () => {
     setTotalSignals(signalsRes.count || 0);
     setThisMonthSignals(monthSignalsRes.count || 0);
     
-    // Use RPC result for cumulative return
+    // Use RPC result for total return
     if (perfRes.data) {
       const pd = perfRes.data as any;
-      setCumulativeReturn(pd.cumulative_return != null ? Number(pd.cumulative_return) : 0);
+      const totalRet = pd.total_return_pct ?? pd.cumulative_return ?? 0;
+      setCumulativeReturn(Number(totalRet));
       setAvgPnlPercent(pd.avg_pnl != null ? Number(pd.avg_pnl) : 0);
     }
 
