@@ -639,7 +639,8 @@ const SignalEditor = () => {
                               </DropdownMenu>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
