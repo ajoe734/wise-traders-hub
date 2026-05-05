@@ -40,6 +40,7 @@ import {
   calcPnlPercent,
   reverseWeightedAvgPrice,
   calcSellQty,
+  normalizeSignalQuantityToShares,
 } from '@/lib/signalTradeLogic';
 
 // ── calcWeightedAvgPrice / reverseWeightedAvgPrice（加權均價計算）────────────
@@ -124,6 +125,14 @@ describe('signalTradeLogic 防禦性邊界（guard 分支覆蓋）', () => {
   it('calcSellQty: signalQty = null → 使用 existingQty（null coalesce 分支）', () => {
     expect(calcSellQty(null, 100)).toBe(100);
   });
+
+  it('normalizeSignalQuantityToShares: 500 股 → 維持 500，不可誤乘 1000', () => {
+    expect(normalizeSignalQuantityToShares(500, '股')).toBe(500);
+  });
+
+  it('normalizeSignalQuantityToShares: 5 張 → 轉成 5000 股', () => {
+    expect(normalizeSignalQuantityToShares(5, '張')).toBe(5000);
+  });
 });
 
 // ── drift-detection: handle_signal_trade trigger 建倉行為 ─────────────────────
@@ -134,7 +143,7 @@ describe('drift-detection: handle_signal_trade trigger 建倉行為', () => {
     src = readFileSync(
       resolve(
         process.cwd(),
-        'supabase/migrations/20260412102636_efb93043-40d5-4ceb-8afd-32dfa5d4a130.sql',
+        'supabase/migrations/20260505123116_a9c1424b-42e5-488a-bebd-6f95e9c7126e.sql',
       ),
       'utf-8',
     );
@@ -144,6 +153,7 @@ describe('drift-detection: handle_signal_trade trigger 建倉行為', () => {
     expect(src).toContain("NEW.action = 'buy'");
     expect(src).toContain('INSERT INTO public.trade_records');
     expect(src).toContain("'open'::trade_status");
+    expect(src).toContain("quantity_unit = '股'");
   });
 
   it('add → 查詢既有 open trade_record，IF FOUND 則更新加權均價（4.1-2）', () => {
@@ -159,7 +169,14 @@ describe('drift-detection: handle_signal_trade trigger 建倉行為', () => {
 
   it('sell → LEAST(signalQty, existingQty) 計算 sell_qty，保留 remaining_qty（4.1-4）', () => {
     expect(src).toContain('LEAST(');
+    expect(src).toContain('signal_shares');
     expect(src).toContain('remaining_qty');
+  });
+
+  it('quantity_unit 依訊號單位正規化：張乘 1000、股維持原值（4.1 quantity normalization）', () => {
+    expect(src).toContain("COALESCE(NEW.quantity_unit, '張') = '張'");
+    expect(src).toContain('COALESCE(NEW.quantity, 1) * 1000');
+    expect(src).toContain("quantity_unit,\n        '股'");
   });
 
   it('sell remaining_qty <= 0 → UPDATE trade_records 整筆平倉（closed）並計算 pnl_percent（4.1-5）', () => {
