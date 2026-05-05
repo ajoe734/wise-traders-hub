@@ -880,25 +880,33 @@ export default function KnowledgeBasePage() {
                   {backtestRuns.slice(0, 100).map((r: any) => {
                     const item = items.find(i => i.id === r.knowledge_item_id);
                     const isGrid = r.run_mode === 'grid_search';
+                    const isFailed = r.status === 'failed';
                     return (
                       <button
                         key={r.id}
                         onClick={() => isGrid ? setOpenGridDetail(r.id) : setOpenRunDetail(r.id)}
-                        className="w-full border rounded p-2 text-sm flex items-center gap-3 flex-wrap text-left hover:bg-muted/50 transition-colors"
+                        className={`w-full border rounded p-2 text-sm text-left hover:bg-muted/50 transition-colors ${isFailed ? 'border-red-500/40 bg-red-500/5' : ''}`}
                       >
-                        <Badge variant={isGrid ? 'default' : 'outline'}>{r.run_mode}</Badge>
-                        <code className="text-xs text-muted-foreground">{item?.item_id ?? r.knowledge_item_id?.slice(0, 8)}</code>
-                        <span className="flex-1 truncate">{item?.title ?? '(已刪除)'}</span>
-                        {r.auto_action && (
-                          <Badge variant={r.auto_action.includes('archived') ? 'destructive' : 'secondary'} className="text-xs">
-                            {r.auto_action}
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <Badge variant={isFailed ? 'destructive' : isGrid ? 'default' : 'outline'}>
+                            {isFailed ? 'failed' : r.run_mode}
                           </Badge>
+                          <code className="text-xs text-muted-foreground">{item?.item_id ?? r.knowledge_item_id?.slice(0, 8)}</code>
+                          <span className="flex-1 truncate">{item?.title ?? '(已刪除)'}</span>
+                          {r.auto_action && (
+                            <Badge variant={r.auto_action.includes('archived') ? 'destructive' : 'secondary'} className="text-xs">
+                              {r.auto_action}
+                            </Badge>
+                          )}
+                          {!isFailed && r.win_rate != null && <span>勝率 {(r.win_rate * 100).toFixed(1)}%</span>}
+                          {!isFailed && <span className="text-muted-foreground">n={r.total_hits}</span>}
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(r.created_at).toLocaleString('zh-TW', { hour12: false })}
+                          </span>
+                        </div>
+                        {isFailed && r.error_message && (
+                          <p className="text-xs text-red-600 mt-1 line-clamp-2">⚠️ {r.error_message}</p>
                         )}
-                        {r.win_rate != null && <span>勝率 {(r.win_rate * 100).toFixed(1)}%</span>}
-                        <span className="text-muted-foreground">n={r.total_hits}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(r.created_at).toLocaleString('zh-TW', { hour12: false })}
-                        </span>
                       </button>
                     );
                   })}
