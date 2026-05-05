@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, UserCheck, BarChart3, CreditCard,
-  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers, Activity, Brain, Gauge, AlertTriangle, ScrollText, History, Shield, Menu
+  LogOut, Moon, Sun, Building2, Megaphone, FileClock, Receipt, Settings, Layers, Activity, Brain, Gauge, AlertTriangle, ScrollText, History, Shield, Menu, FlaskConical
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +28,7 @@ const navItems = [
   { path: '/company/function-logs', icon: ScrollText, label: '函式日誌' },
   { path: '/company/announcements', icon: Megaphone, label: '系統公告' },
   { path: '/company/knowledge-base', icon: Brain, label: '知識庫' },
+  { path: '/company/backtest-monitor', icon: FlaskConical, label: '回測監控' },
   { path: '/company/checkup-usage', icon: Gauge, label: '健檢配額' },
   { path: '/company/missing-prices', icon: AlertTriangle, label: '缺價總覽' },
   { path: '/company/meta-overrides', icon: History, label: '持倉覆蓋' },
