@@ -110,7 +110,7 @@ describe('drift-detection: calculate_expert_performance RPC 績效計算邏輯',
     rpcSrc = readFileSync(
       resolve(
         process.cwd(),
-        'supabase/migrations/20260505120929_36f655b7-3ad1-4660-a265-f1623c74cc88.sql',
+        'supabase/migrations/20260505123116_a9c1424b-42e5-488a-bebd-6f95e9c7126e.sql',
       ),
       'utf-8',
     );
@@ -129,11 +129,12 @@ describe('drift-detection: calculate_expert_performance RPC 績效計算邏輯',
     expect(rpcSrc).toContain('999.99');
   });
 
-  it("LEFT JOIN current_prices + COALESCE 取價瀑布 + quantity * 1000 + SPLIT_PART symbol 提取（5.3-4/5.3-5）", () => {
+  it('LEFT JOIN current_prices + COALESCE 取價瀑布 + quantity 直接以股數計算 + SPLIT_PART symbol 提取（5.3-4/5.3-5）', () => {
     expect(rpcSrc).toContain('LEFT JOIN public.current_prices cp');
     expect(rpcSrc).toContain('COALESCE(cp.price, tr.current_price, tr.entry_price, 0)');
-    // 若 quantity * 1000 乘數改錯或 SPLIT_PART 邏輯變更，current_asset 計算將靜默錯誤
-    expect(rpcSrc).toContain('tr.quantity * 1000');
+    // 修正後 trade_records.quantity 已是實際股數，不可再硬乘 1000
+    expect(rpcSrc).toContain('tr.quantity * COALESCE(cp.price, tr.current_price, tr.entry_price, 0)');
+    expect(rpcSrc).not.toContain('tr.quantity * 1000');
     expect(rpcSrc).toContain("SPLIT_PART(tr.instrument, ' ', 1)");
   });
 
@@ -164,6 +165,10 @@ describe('drift-detection: calculate_expert_performance RPC 績效計算邏輯',
     expect(rpcSrc).toContain("'total_return_pct'");
     expect(rpcSrc).toContain("'realized_pnl_amount'");
     expect(rpcSrc).toContain("'unrealized_pnl_amount'");
+  });
+
+  it('已實現損益也改成 quantity 直接以股數計算，不可再硬乘 1000', () => {
+    expect(rpcSrc).toContain('COALESCE(tr.quantity, 0) * (COALESCE(tr.exit_price, tr.entry_price, 0) - COALESCE(tr.entry_price, 0))');
   });
 });
 
