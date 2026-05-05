@@ -106,8 +106,15 @@ const SignalEditor = () => {
   const [expert, setExpert] = useState<any>(null);
   const [signalTemplates, setSignalTemplates] = useState<any[]>([]);
   const [openPositions, setOpenPositions] = useState<{ symbol: string; quantity: number; instrument: string }[]>([]);
+  const [capital, setCapital] = useState<CapitalStatus | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const reloadCapital = useCallback(async (eid: string) => {
+    const { data } = await supabase.rpc('get_expert_capital_status' as any, { _expert_id: eid });
+    if (data) setCapital(data as unknown as CapitalStatus);
+  }, []);
 
   // mentor 共用欄位（整篇週記）
   const [teachingTopic, setTeachingTopic] = useState('');
