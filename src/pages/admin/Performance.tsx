@@ -265,16 +265,16 @@ const AdminPerformance = () => {
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
             const row = payload.new as any;
             const sym = row.symbol;
-            setRows(prev => prev.map(r =>
-              r.symbol === sym
-                ? {
-                    ...r,
-                    current_price: row.current_price ? Number(row.current_price) : r.current_price,
-                    pnl: row.pnl ? Number(row.pnl) : r.pnl,
-                    pnl_percent: row.pnl_percent ? Number(row.pnl_percent) : r.pnl_percent,
-                  }
-                : r
-            ));
+            setRows(prev => prev.map(r => {
+              if (r.symbol !== sym) return r;
+              const cur = row.current_price ? Number(row.current_price) : r.current_price;
+              const pct = row.pnl_percent ? Number(row.pnl_percent) : r.pnl_percent;
+              const shares = (r.quantity_unit === '張' ? r.quantity * 1000 : r.quantity);
+              const pnl = (cur != null && r.entry_price != null)
+                ? Math.round((cur - r.entry_price) * shares)
+                : r.pnl;
+              return { ...r, current_price: cur, pnl, pnl_percent: pct };
+            }));
           } else if (payload.eventType === 'DELETE') {
             const old = payload.old as any;
             // 不從列表移除，只清空即時數據
