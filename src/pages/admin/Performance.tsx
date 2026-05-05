@@ -190,12 +190,17 @@ const AdminPerformance = () => {
         const perf = perfMap.get(symbol);
         const entryPrice = r.entry_price ? Number(r.entry_price) : null;
         const curPrice = perf?.current_price ?? (r.current_price ? Number(r.current_price) : null);
-        let pnl = perf?.pnl ?? null;
+        const qty = r.quantity ?? 1;
+        const unit = r.quantity_unit || '張';
+        const shares = unit === '張' ? qty * 1000 : qty;
         let pnlPct = perf?.pnl_percent ?? (r.pnl_percent ? Number(r.pnl_percent) : null);
-        if (pnl == null && curPrice != null && entryPrice != null && entryPrice > 0) {
-          pnl = Math.round((curPrice - entryPrice) * 1000) / 1000;
+        if (pnlPct == null && curPrice != null && entryPrice != null && entryPrice > 0) {
           pnlPct = Math.round(((curPrice - entryPrice) / entryPrice) * 10000) / 100;
         }
+        // 損益金額：永遠用 (現價-進場價) × 股數，user_performances.pnl 是每股價差，不能直接用
+        const pnl = (curPrice != null && entryPrice != null)
+          ? Math.round((curPrice - entryPrice) * shares)
+          : null;
         return {
           id: r.id,
           instrument: r.instrument,
@@ -205,8 +210,8 @@ const AdminPerformance = () => {
           current_price: curPrice,
           pnl,
           pnl_percent: pnlPct,
-          quantity: r.quantity ?? 1,
-          quantity_unit: r.quantity_unit || '張',
+          quantity: qty,
+          quantity_unit: unit,
           status: r.status,
         };
       });
