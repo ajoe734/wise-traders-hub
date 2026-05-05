@@ -63,10 +63,15 @@ function rowToItem(row) {
 // 有實戰驗證 → 用 confidence × winRate；沒驗證 → 純 confidence
 function effectiveScore(item) {
   const c = Number(item.confidence ?? 0.7)
+  let base
   if (item.sampleSize >= 10 && typeof item.winRate === 'number') {
-    return c * (0.5 + 0.5 * item.winRate) // winRate=0 → 0.5c；winRate=1 → c
+    base = c * (0.5 + 0.5 * item.winRate)
+  } else {
+    base = c
   }
-  return c
+  // rescue 池條目降權 ×0.5（仍餵 prompt 但排序靠後）
+  if (item.lifecycleStatus === 'rescue') base *= 0.5
+  return base
 }
 
 /**
