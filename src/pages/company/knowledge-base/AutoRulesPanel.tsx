@@ -55,6 +55,9 @@ export function AutoRulesPanel() {
         min_sample_size: Number(rules.min_sample_size),
         auto_grid_search_below: Number(rules.auto_grid_search_below),
         promote_min_improvement_pct: Number(rules.promote_min_improvement_pct),
+        daily_grid_search_quota: Number(rules.daily_grid_search_quota),
+        rescue_max_weeks: Number(rules.rescue_max_weeks),
+        candidate_observe_days: Number(rules.candidate_observe_days),
         updated_at: new Date().toISOString(),
       };
       let res;
