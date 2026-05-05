@@ -113,20 +113,43 @@ Deno.serve(async (req) => {
 
   const runId = crypto.randomUUID().slice(0, 8)
   const t0 = Date.now()
-  const log = (msg: string, extra?: unknown) =>
-    extra !== undefined
-      ? console.log(`[publish-weekly-journals][${runId}] ${msg}`, extra)
-      : console.log(`[publish-weekly-journals][${runId}] ${msg}`)
-  const logErr = (stage: string, err: unknown, extra?: Record<string, unknown>) => {
+  const fn = 'publish-weekly-journals'
+
+  // 統一結構化 JSON 日誌 + 人類可讀單行訊息
+  const emit = (
+    level: 'info' | 'warn' | 'error',
+    msg: string,
+    ctx: Record<string, unknown> = {},
+  ) => {
+    const payload = {
+      ts: new Date().toISOString(),
+      level,
+      fn,
+      runId,
+      msg,
+      ...ctx,
+    }
+    const human = `[${fn}][${runId}]${ctx.stage ? `[stage=${ctx.stage}]` : ''}${
+      ctx.expertId ? `[expert=${ctx.expertId}]` : ''
+    }${ctx.signalId ? `[signal=${ctx.signalId}]` : ''} ${msg}`
+    const out = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log
+    out(human)
+    out(JSON.stringify(payload))
+  }
+  const log = (msg: string, ctx: Record<string, unknown> = {}) => emit('info', msg, { stage, ...ctx })
+  const logErr = (stageName: string, err: unknown, extra: Record<string, unknown> = {}) => {
     const e = err as any
-    console.error(`[publish-weekly-journals][${runId}][stage=${stage}] FAILED`, {
-      name: e?.name,
-      message: e?.message ?? String(err),
-      code: e?.code,
-      details: e?.details,
-      hint: e?.hint,
-      status: e?.status,
-      stack: e?.stack,
+    emit('error', `FAILED: ${e?.message ?? String(err)}`, {
+      stage: stageName,
+      err: {
+        name: e?.name,
+        message: e?.message ?? String(err),
+        code: e?.code,
+        details: e?.details,
+        hint: e?.hint,
+        status: e?.status,
+        stack: e?.stack,
+      },
       ...extra,
     })
   }
