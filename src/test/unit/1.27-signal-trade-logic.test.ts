@@ -4,6 +4,7 @@ import {
   calcPnlPercent,
   reverseWeightedAvgPrice,
   calcSellQty,
+  simulateCashAfterTrades,
 } from '@/lib/signalTradeLogic';
 
 describe('1.27 signalTradeLogic', () => {
