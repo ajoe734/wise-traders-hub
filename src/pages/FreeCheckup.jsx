@@ -6898,7 +6898,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {activeHolding ? (() => {
             const h = activeHolding;
             const dec = decisionsMap[h.code];
-            const meta = STOCK_META[h.code] || null;
+            const meta = mergeMeta(STOCK_META[h.code] || null, metaOverrides[h.code] || null);
+            const metaOverridden = !!metaOverrides[h.code];
             const T = targets?.[h.code];
             const tp = T ? avgTarget(h.code) : null;
             const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
