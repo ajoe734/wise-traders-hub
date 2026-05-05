@@ -35,11 +35,25 @@ export default function BacktestMonitor() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyAll, setBusyAll] = useState<'cron' | 'notify' | null>(null);
   const [lastCron, setLastCron] = useState<string | null>(null);
-  const [backfill, setBackfill] = useState<{ pending: number; done: number; empty: number } | null>(null);
+  const [backfill, setBackfill] = useState<{
+    pending: number; done: number; empty: number; failed: number; total: number;
+    latest_month: string | null; latest_date: string | null;
+    current_symbol: string | null; current_yyyymm: string | null;
+    recent_done_5min: number; eta_minutes: number | null;
+  } | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const [{ data: runsData }, { data: itemsData }, { data: bfData }] = await Promise.all([
+    const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+    const [
+      { data: runsData },
+      { data: itemsData },
+      { data: bfAll },
+      { data: bfLatest },
+      { data: bfNext },
+      { count: recentCount },
+      { data: bfLatestDate },
+    ] = await Promise.all([
       (supabase as any)
         .from('knowledge_backtest_runs')
         .select('id, knowledge_item_id, status, win_rate, total_hits, error_message, run_mode, created_at, completed_at, parameters')
@@ -48,24 +62,51 @@ export default function BacktestMonitor() {
         .limit(80),
       (supabase as any).from('checkup_knowledge_items').select('id, title'),
       (supabase as any).from('knowledge_backfill_progress').select('status'),
+      (supabase as any).from('knowledge_backfill_progress')
+        .select('yyyymm').eq('status', 'done')
+        .order('yyyymm', { ascending: false }).limit(1).maybeSingle(),
+      (supabase as any).from('knowledge_backfill_progress')
+        .select('symbol, yyyymm').eq('status', 'pending')
+        .order('symbol').order('yyyymm').limit(1).maybeSingle(),
+      (supabase as any).from('knowledge_backfill_progress')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'done').gte('completed_at', fiveMinAgo),
+      (supabase as any).from('daily_price_snapshots')
+        .select('trade_date').order('trade_date', { ascending: false }).limit(1).maybeSingle(),
     ]);
     setRuns((runsData as RunRow[]) || []);
     const map: Record<string, { title: string }> = {};
     for (const it of itemsData || []) map[it.id] = { title: it.title };
     setItems(map);
 
-    if (bfData) {
-      const counts = { pending: 0, done: 0, empty: 0 };
-      for (const r of bfData as any[]) {
+    if (bfAll) {
+      const counts = { pending: 0, done: 0, empty: 0, failed: 0 };
+      for (const r of bfAll as any[]) {
         if (r.status === 'done') counts.done++;
         else if (r.status === 'empty') counts.empty++;
+        else if (r.status === 'failed') counts.failed++;
         else counts.pending++;
       }
-      setBackfill(counts);
+      const total = counts.done + counts.pending + counts.empty + counts.failed;
+      const recent5 = recentCount ?? 0;
+      const ratePerMin = recent5 / 5;
+      const eta = ratePerMin > 0 ? Math.ceil(counts.pending / ratePerMin) : null;
+      setBackfill({
+        ...counts, total,
+        latest_month: (bfLatest as any)?.yyyymm ?? null,
+        latest_date: (bfLatestDate as any)?.trade_date ?? null,
+        current_symbol: (bfNext as any)?.symbol ?? null,
+        current_yyyymm: (bfNext as any)?.yyyymm ?? null,
+        recent_done_5min: recent5,
+        eta_minutes: eta,
+      });
     }
 
-    // 最近一次 cron 執行
-    const cron = (runsData || []).find((r: any) => r.run_mode === 'cron_weekly');
+    const cron = (runsData || []).find((r: any) =>
+      r.run_mode === 'cron_weekly' ||
+      r?.parameters?.trigger === 'auto_after_backfill' ||
+      r?.parameters?.trigger === 'cron_nightly'
+    );
     setLastCron(cron?.created_at ?? null);
     setLoading(false);
   };
@@ -157,12 +198,84 @@ export default function BacktestMonitor() {
             <div className={`text-2xl font-semibold mt-1 ${failed24 ? 'text-red-600' : ''}`}>{failed24}</div>
           </CardContent></Card>
           <Card><CardContent className="p-4">
-            <div className="text-xs text-muted-foreground">回填進度</div>
+            <div className="text-xs text-muted-foreground">回填完成 / 總批次</div>
             <div className="text-sm font-semibold mt-1">
-              {backfill ? `${backfill.done} 完成 / ${backfill.pending} 待跑` : '—'}
+              {backfill ? `${backfill.done.toLocaleString()} / ${backfill.total.toLocaleString()}` : '—'}
             </div>
+            {backfill && backfill.total > 0 && (
+              <div className="w-full h-1.5 bg-muted rounded mt-2 overflow-hidden">
+                <div className="h-full bg-emerald-500 transition-all"
+                  style={{ width: `${((backfill.done + backfill.empty) / backfill.total) * 100}%` }} />
+              </div>
+            )}
           </CardContent></Card>
         </div>
+
+        {backfill && (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">TWSE 日 K 回填細節</div>
+                <Badge variant="outline" className="text-xs">
+                  自動續跑 every 5 min
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <div className="text-muted-foreground">目前處理中</div>
+                  <div className="font-mono mt-0.5">
+                    {backfill.current_symbol
+                      ? `${backfill.current_symbol} / ${backfill.current_yyyymm}`
+                      : '— 已清空'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">最新完成月份</div>
+                  <div className="font-mono mt-0.5">{backfill.latest_month ?? '—'}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">最新交易日</div>
+                  <div className="font-mono mt-0.5">{backfill.latest_date ?? '—'}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">速率（近 5 分鐘）</div>
+                  <div className="font-mono mt-0.5">{backfill.recent_done_5min} 批 / 5min</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs pt-2 border-t">
+                <div>
+                  <div className="text-muted-foreground">待跑</div>
+                  <div className="font-semibold mt-0.5 text-amber-600">{backfill.pending.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">完成</div>
+                  <div className="font-semibold mt-0.5 text-emerald-600">{backfill.done.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">無資料 / 失敗</div>
+                  <div className="font-semibold mt-0.5">
+                    {backfill.empty.toLocaleString()} / <span className={backfill.failed ? 'text-red-600' : ''}>{backfill.failed.toLocaleString()}</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">預估完成</div>
+                  <div className="font-semibold mt-0.5">
+                    {backfill.pending === 0 ? (
+                      <span className="text-emerald-600">已完成 ✅</span>
+                    ) : backfill.eta_minutes != null ? (
+                      backfill.eta_minutes < 60
+                        ? `~${backfill.eta_minutes} 分鐘`
+                        : `~${(backfill.eta_minutes / 60).toFixed(1)} 小時`
+                    ) : '計算中…'}
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground pt-1">
+                💡 回填全部清空後會<b>自動觸發 knowledge-backtest 完整重算</b>，並寫入下方紀錄。
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {failed24 > 0 && (
           <Card className="border-red-300 bg-red-50/50">
