@@ -328,6 +328,22 @@ const SignalEditor = () => {
     return simulateCashAfterTrades(start, buildCashSimTrades());
   }, [capital, buildCashSimTrades]);
 
+  // 模擬送出後的持倉股數（僅用於 UI 預覽）
+  const simulatedPositions = useMemo(() => {
+    const initial = (capital?.open_positions || []).map((p) => ({
+      symbol: p.symbol,
+      quantity: p.quantity_shares,
+    }));
+    const simTrades = trades
+      .filter((t) => t.stockCode.trim() && t.action)
+      .map((t) => ({
+        symbol: t.stockCode.trim(),
+        action: t.action as TradeAction,
+        quantity: normalizeSignalQuantityToShares(parseInt(t.quantity || '0', 10) || 0, t.quantityUnit),
+      }));
+    return simulatePositions(initial, simTrades);
+  }, [capital, trades]);
+
   // 驗證
   const validate = (): string | null => {
     if (!expert) return '找不到分析師資料';
