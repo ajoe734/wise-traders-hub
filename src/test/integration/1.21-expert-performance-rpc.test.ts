@@ -110,7 +110,7 @@ describe('drift-detection: calculate_expert_performance RPC 績效計算邏輯',
     rpcSrc = readFileSync(
       resolve(
         process.cwd(),
-        'supabase/migrations/20260410062402_46a61b2e-c8c1-49a7-b28e-971f72960382.sql',
+        'supabase/migrations/20260505120929_36f655b7-3ad1-4660-a265-f1623c74cc88.sql',
       ),
       'utf-8',
     );
@@ -157,11 +157,13 @@ describe('drift-detection: calculate_expert_performance RPC 績效計算邏輯',
     expect(rpcSrc).toContain("'profit_factor'");
   });
 
-  it('⚠️ [生產缺口 5.3-7] RPC 目前不引用 experts 表及 starting_capital，績效報酬率基準缺口', () => {
-    // calculate_expert_performance 不以 experts.starting_capital 為基準計算報酬率
-    // 此斷言鎖定現況；補實作後需同步更新本測試
-    expect(rpcSrc).not.toContain('starting_capital');
-    expect(rpcSrc).not.toContain('FROM public.experts');
+  it('✅ [生產缺口 5.3-7 已補] RPC 現以 experts.starting_capital 為基準計算 total_return_pct', () => {
+    // 修正後 calculate_expert_performance 已引用 experts 表與 starting_capital
+    expect(rpcSrc).toContain('starting_capital');
+    expect(rpcSrc).toContain('public.experts');
+    expect(rpcSrc).toContain("'total_return_pct'");
+    expect(rpcSrc).toContain("'realized_pnl_amount'");
+    expect(rpcSrc).toContain("'unrealized_pnl_amount'");
   });
 });
 

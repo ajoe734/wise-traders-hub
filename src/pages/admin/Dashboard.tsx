@@ -33,12 +33,13 @@ const AdminDashboard = () => {
 
   useEffect(() => { fetchData(); }, [expertSlug]);
 
-  // Fetch cumulative return from calculate_expert_performance RPC
+  // Fetch total return from calculate_expert_performance RPC
   const fetchPerfStats = async (eid: string) => {
     const { data } = await supabase.rpc('calculate_expert_performance', { _expert_id: eid });
     if (data) {
       const d = data as any;
-      setCumulativeReturn(d.cumulative_return != null ? Number(d.cumulative_return) : 0);
+      const totalRet = d.total_return_pct ?? d.cumulative_return ?? 0;
+      setCumulativeReturn(Number(totalRet));
       setAvgPnlPercent(d.avg_pnl != null ? Number(d.avg_pnl) : 0);
     }
   };
@@ -113,10 +114,11 @@ const AdminDashboard = () => {
     setTotalSignals(signalsRes.count || 0);
     setThisMonthSignals(monthSignalsRes.count || 0);
     
-    // Use RPC result for cumulative return
+    // Use RPC result for total return
     if (perfRes.data) {
       const pd = perfRes.data as any;
-      setCumulativeReturn(pd.cumulative_return != null ? Number(pd.cumulative_return) : 0);
+      const totalRet = pd.total_return_pct ?? pd.cumulative_return ?? 0;
+      setCumulativeReturn(Number(totalRet));
       setAvgPnlPercent(pd.avg_pnl != null ? Number(pd.avg_pnl) : 0);
     }
 
@@ -162,7 +164,7 @@ const AdminDashboard = () => {
       icon: Radio,
     },
     {
-      label: '累計報酬率',
+      label: '總報酬率',
       value: cumulativeReturn,
       change: '',
       changeType: 'neutral' as const,

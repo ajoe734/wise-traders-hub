@@ -12,6 +12,10 @@ export interface ExpertPerformance {
   total_pnl: number;
   return_1y: number;
   current_asset: number;
+  starting_capital?: number;
+  realized_pnl_amount?: number;
+  unrealized_pnl_amount?: number;
+  total_return_pct?: number;
 }
 
 export function useExpertPerformance(expertId: string | undefined) {
