@@ -577,6 +577,7 @@ const SignalEditor = () => {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-32">
                                   {([
+                                    { key: 'add',   label: '加碼', full: false, reason: '' },
                                     { key: 'trim',  label: '減碼', full: false, reason: '' },
                                     { key: 'sell',  label: '出場', full: true,  reason: '' },
                                     { key: 'exit',  label: '停損', full: true,  reason: '<p>停損出場</p>' },
