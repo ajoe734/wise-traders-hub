@@ -120,13 +120,13 @@ Deno.serve(async (req) => {
           lifecycle_status: 'active', rescue_started_at: null, rescue_attempts: 0,
         }).eq('id', it.id)
         summary.promoted++
-        await logAudit(supa, 'knowledge.auto_promote_active', { item_id: it.item_id, win_rate: wr })
+        await logAudit(supa, 'knowledge.auto_promote_active', { target_id: it.id, item_id: it.item_id, win_rate: wr, sample_size: it.sample_size })
       } else if (wr < rules.auto_grid_search_below && it.lifecycle_status === 'active') {
         await supa.from('checkup_knowledge_items').update({
           lifecycle_status: 'rescue', rescue_started_at: new Date().toISOString(),
         }).eq('id', it.id)
         summary.demoted_rescue++
-        await logAudit(supa, 'knowledge.auto_demote_rescue', { item_id: it.item_id, win_rate: wr })
+        await logAudit(supa, 'knowledge.auto_demote_rescue', { target_id: it.id, item_id: it.item_id, win_rate: wr, sample_size: it.sample_size, threshold: rules.auto_grid_search_below })
       }
     }
 
@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
         archived_reason: `rescue_failed_${rules.rescue_max_weeks}w`,
       }).eq('id', it.id)
       summary.rescue_archived++
-      await logAudit(supa, 'knowledge.auto_archive_rescue', { item_id: it.item_id })
+      await logAudit(supa, 'knowledge.auto_archive_rescue', { target_id: it.id, item_id: it.item_id, reason: 'rescue_failed_max_weeks', max_weeks: rules.rescue_max_weeks })
     }
 
     // ========== Step 4: candidate observation period ==========
@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
           }).eq('id', cand.parent_item_id)
         }
         summary.candidate_promoted++
-        await logAudit(supa, 'knowledge.auto_promote_candidate', { item_id: cand.item_id })
+        await logAudit(supa, 'knowledge.auto_promote_candidate', { target_id: cand.id, item_id: cand.item_id, win_rate: wr, parent_win_rate: parentWr, sample_size: cand.sample_size })
       } else {
         await supa.from('checkup_knowledge_items').update({
           lifecycle_status: 'archived',
@@ -221,7 +221,7 @@ Deno.serve(async (req) => {
           archived_reason: 'candidate_underperformed',
         }).eq('id', cand.id)
         summary.candidate_archived++
-        await logAudit(supa, 'knowledge.auto_archive_candidate', { item_id: cand.item_id })
+        await logAudit(supa, 'knowledge.auto_archive_candidate', { target_id: cand.id, item_id: cand.item_id, win_rate: wr, parent_win_rate: parentWr, reason: 'underperformed' })
       }
     }
 
