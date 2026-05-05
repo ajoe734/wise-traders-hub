@@ -723,6 +723,67 @@ export default function KnowledgeBasePage() {
           </TabsContent>
 
           <TabsContent value="backtest" className="space-y-6 mt-4">
+            {/* 近 24 小時回測摘要 */}
+            <div className="border rounded-lg p-4 bg-card">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <h3 className="text-base font-medium flex items-center gap-2">
+                  <Activity className="h-4 w-4" /> 近 24 小時回測摘要
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  共 {recentSummary.total} 次 · 成功 {recentSummary.success} · 失敗 {recentSummary.failed.length} · 自動處置 {recentSummary.autoActions.length}
+                </span>
+              </div>
+              {recentSummary.total === 0 ? (
+                <p className="text-sm text-muted-foreground">過去 24 小時尚無回測。可在「正式知識庫」針對單條按「回測」，或讓 cron 自動跑。</p>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    {recentSummary.topGain && recentSummary.topGain.delta > 0 && (
+                      <div className="border rounded p-2 bg-emerald-500/5">
+                        <p className="text-xs text-muted-foreground mb-1">勝率提升 Top 1（更新成功 ✅）</p>
+                        <p className="text-sm font-medium truncate">{recentSummary.topGain.title}</p>
+                        <p className="text-sm">
+                          {(recentSummary.topGain.prev * 100).toFixed(1)}% → <span className="text-emerald-600 font-medium">{(recentSummary.topGain.cur * 100).toFixed(1)}%</span>
+                          <span className="text-emerald-600 ml-2">↑{(recentSummary.topGain.delta * 100).toFixed(1)}pp</span>
+                        </p>
+                      </div>
+                    )}
+                    {recentSummary.topLoss && recentSummary.topLoss.delta < 0 && (
+                      <div className="border rounded p-2 bg-red-500/5">
+                        <p className="text-xs text-muted-foreground mb-1">勝率下滑 Top 1（需關注 ⚠️）</p>
+                        <p className="text-sm font-medium truncate">{recentSummary.topLoss.title}</p>
+                        <p className="text-sm">
+                          {(recentSummary.topLoss.prev * 100).toFixed(1)}% → <span className="text-red-600 font-medium">{(recentSummary.topLoss.cur * 100).toFixed(1)}%</span>
+                          <span className="text-red-600 ml-2">↓{Math.abs(recentSummary.topLoss.delta * 100).toFixed(1)}pp</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">失敗清單（{recentSummary.failed.length}）</p>
+                    {recentSummary.failed.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">沒有失敗 ✅</p>
+                    ) : (
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {recentSummary.failed.slice(0, 10).map((r: any) => {
+                          const item = items.find(i => i.id === r.knowledge_item_id);
+                          return (
+                            <div key={r.id} className="text-xs border rounded p-1.5 bg-red-500/5">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="destructive" className="text-[10px]">failed</Badge>
+                                <span className="truncate flex-1">{item?.title ?? r.knowledge_item_id?.slice(0, 8)}</span>
+                              </div>
+                              <p className="text-muted-foreground mt-0.5 line-clamp-2">{r.error_message ?? '(無錯誤訊息)'}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <BackfillProgressPanel />
             <AutoRulesPanel />
 
