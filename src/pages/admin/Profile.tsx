@@ -42,8 +42,16 @@ const AdminProfile = () => {
   const [startingCapitalLocked, setStartingCapitalLocked] = useState(false);
   const [showCapitalConfirm, setShowCapitalConfirm] = useState(false);
   const [pendingCapital, setPendingCapital] = useState<number>(0);
+  const [capitalStatus, setCapitalStatus] = useState<{ available_cash: number; open_cost_value: number; realized_pnl_amount: number } | null>(null);
 
   const { data: perf } = useExpertPerformance(expert?.id);
+
+  useEffect(() => {
+    if (!expert?.id) return;
+    supabase.rpc('get_expert_capital_status' as any, { _expert_id: expert.id }).then(({ data }) => {
+      if (data) setCapitalStatus(data as any);
+    });
+  }, [expert?.id]);
 
   useEffect(() => { fetchExpert(); }, [expertSlug]);
 
