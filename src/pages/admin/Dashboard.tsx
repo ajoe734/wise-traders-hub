@@ -164,7 +164,7 @@ const AdminDashboard = () => {
       icon: Radio,
     },
     {
-      label: '累計報酬率',
+      label: '總報酬率',
       value: cumulativeReturn,
       change: '',
       changeType: 'neutral' as const,
