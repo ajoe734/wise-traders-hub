@@ -345,8 +345,8 @@ export default function KnowledgeBasePage() {
     };
     const ins = await supabase.from('checkup_knowledge_items').insert(payload).select().single();
     if (ins.error) {
-      toast.error('核可失敗：' + ins.error.message);
-      return;
+      if (!opts.silent) toast.error('核可失敗：' + ins.error.message);
+      throw ins.error;
     }
     await supabase.from('checkup_knowledge_candidates' as any)
       .update({ status: 'approved', reviewed_at: new Date().toISOString() })
@@ -357,8 +357,10 @@ export default function KnowledgeBasePage() {
       targetId: c.id,
       detail: { promoted_to: ins.data?.id },
     });
-    toast.success('已核可並寫入正式知識庫');
-    load();
+    if (!opts.silent) {
+      toast.success('已核可並寫入正式知識庫');
+      load();
+    }
   }
 
   async function rejectCandidate(c: Candidate) {
