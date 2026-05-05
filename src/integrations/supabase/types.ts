@@ -1210,6 +1210,45 @@ export type Database = {
         }
         Relationships: []
       }
+      holding_meta_overrides: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          industry: string | null
+          leader: string | null
+          position: string | null
+          source: string
+          strategy: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          industry?: string | null
+          leader?: string | null
+          position?: string | null
+          source?: string
+          strategy?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          industry?: string | null
+          leader?: string | null
+          position?: string | null
+          source?: string
+          strategy?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       knowledge_auto_rules: {
         Row: {
           archive_below_win_rate: number
@@ -2123,6 +2162,51 @@ export type Database = {
           job_name?: string
           ran_at?: string
           status?: string
+        }
+        Relationships: []
+      }
+      target_price_history: {
+        Row: {
+          batch_id: string | null
+          change_type: string
+          code: string
+          created_at: string
+          detail: Json
+          firm: string
+          id: string
+          prev_target: number | null
+          report_date: string | null
+          source: string
+          target: number
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          change_type?: string
+          code: string
+          created_at?: string
+          detail?: Json
+          firm?: string
+          id?: string
+          prev_target?: number | null
+          report_date?: string | null
+          source?: string
+          target: number
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          change_type?: string
+          code?: string
+          created_at?: string
+          detail?: Json
+          firm?: string
+          id?: string
+          prev_target?: number | null
+          report_date?: string | null
+          source?: string
+          target?: number
+          user_id?: string
         }
         Relationships: []
       }

@@ -21,6 +21,8 @@ import { coerceStocksString } from "@/checkup/lib/edgeCoerce";
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
+import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
+import TargetPriceHistorySection from "@/checkup/components/TargetPriceHistorySection";
 
 // #region Constants & Helpers — 政策、顏色、種子、純函式（不依賴 React state）
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -456,6 +458,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [quotaModal]);
   const [ready, setReady] = useState(false);
+
+  // AI 覆蓋的 meta（產業/策略/領頭/部位），優先於 STOCK_META
+  const { overrides: metaOverrides, reload: reloadMetaOverrides } = useMetaOverrides();
 
   // persistent state
   const [holdings,  setHoldings]  = useState(null);
@@ -6894,7 +6899,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           {activeHolding ? (() => {
             const h = activeHolding;
             const dec = decisionsMap[h.code];
-            const meta = STOCK_META[h.code] || null;
+            const meta = mergeMeta(STOCK_META[h.code] || null, metaOverrides[h.code] || null);
+            const metaOverridden = !!metaOverrides[h.code];
             const T = targets?.[h.code];
             const tp = T ? avgTarget(h.code) : null;
             const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
@@ -6986,8 +6992,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     <span style={{fontSize:11,color:pc(h.pct)}}>{h.pct>=0?"+":""}{h.pct?.toFixed(2)}%</span>
                   </div>
                   {meta && (
-                    <div style={{fontSize:10,color:C.textMute,marginTop:2}}>
-                      {meta.industry}{meta.strategy && ` · ${meta.strategy}`}{meta.position && ` · ${meta.position}`}
+                    <div style={{fontSize:10,color:C.textMute,marginTop:2,display:'flex',alignItems:'center',gap:6}}>
+                      <span>{meta.industry}{meta.strategy && ` · ${meta.strategy}`}{meta.position && ` · ${meta.position}`}{meta.leader && ` · 領頭 ${meta.leader}`}</span>
+                      {metaOverridden && (
+                        <span title="此產業/策略由 AI 研究覆蓋" style={{fontSize:9,padding:'1px 5px',border:`1px solid ${alpha(C.textMute,'30')}`,borderRadius:3,letterSpacing:'0.06em'}}>AI</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -7110,6 +7119,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </div>
                   </section>
                 )}
+                {/* 目標價版本歷史 */}
+                <TargetPriceHistorySection code={h.code} C={C} alpha={alpha} enabled={!isDemo} />
               </div>
             );
           })() : (
