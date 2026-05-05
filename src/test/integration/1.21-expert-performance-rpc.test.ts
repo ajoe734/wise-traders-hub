@@ -110,7 +110,7 @@ describe('drift-detection: calculate_expert_performance RPC 績效計算邏輯',
     rpcSrc = readFileSync(
       resolve(
         process.cwd(),
-        'supabase/migrations/20260410062402_46a61b2e-c8c1-49a7-b28e-971f72960382.sql',
+        'supabase/migrations/20260505120929_36f655b7-3ad1-4660-a265-f1623c74cc88.sql',
       ),
       'utf-8',
     );
