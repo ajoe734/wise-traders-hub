@@ -130,14 +130,14 @@ Deno.serve(async (req) => {
       .neq('status', 'done')
       .order('symbol')
       .order('yyyymm')
-      .limit(50) // 一次 edge function 最多 50 個請求（~150 秒，超過 budget 會自動收尾）
+      .limit(200) // 一次 edge function 最多 200 個請求（搭配 1.2s 限速 + 55s budget）
     if (pErr) throw pErr
 
     let inserted = 0
     let processed = 0
     let failed = 0
     const startedAt = Date.now()
-    const TIME_BUDGET_MS = 50_000
+    const TIME_BUDGET_MS = 55_000
 
     for (const job of (pendingRows ?? [])) {
       if (Date.now() - startedAt > TIME_BUDGET_MS) break
@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
         }).eq('id', job.id)
         failed++
       }
-      await new Promise(r => setTimeout(r, 3000)) // 限速
+      await new Promise(r => setTimeout(r, 1200)) // 限速：1.2s/req（TWSE 容忍範圍）
     }
 
     // 進度總覽

@@ -120,7 +120,7 @@ export default function BacktestMonitor() {
         body: { mode: 'full', trigger: 'manual' },
       });
       if (error) throw error;
-      toast({ title: '已觸發完整回測', description: '跑完會自動 LINE 通知 admin。' });
+      toast({ title: '已觸發完整回測', description: '跑完會自動 Email 通知所有 admin。' });
       setTimeout(load, 2000);
     } catch (e: any) {
       toast({ title: '觸發失敗', description: String(e?.message ?? e), variant: 'destructive' });
@@ -134,7 +134,7 @@ export default function BacktestMonitor() {
         body: { hours: 24, trigger: 'manual' },
       });
       if (error) throw error;
-      toast({ title: 'LINE 通知已送出', description: JSON.stringify(data) });
+      toast({ title: 'Email 通知已送出', description: JSON.stringify(data) });
     } catch (e: any) {
       toast({ title: '通知失敗', description: String(e?.message ?? e), variant: 'destructive' });
     } finally { setBusyAll(null); }
@@ -168,7 +168,7 @@ export default function BacktestMonitor() {
               <Activity className="h-6 w-6" /> 回測排程監控
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              每晚 22:00（台北）自動執行 <code>knowledge-backtest</code> full 模式。完成後自動 LINE 通知 admin。
+              每晚 22:00（台北）自動執行 <code>knowledge-backtest</code> full 模式。完成後自動 Email 通知所有 company_admin。
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -176,13 +176,20 @@ export default function BacktestMonitor() {
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 重新整理
             </Button>
             <Button variant="outline" size="sm" onClick={sendNotify} disabled={busyAll === 'notify'}>
-              <Bell className="h-4 w-4" /> {busyAll === 'notify' ? '送出中…' : '補發 LINE 通知（24h）'}
+              <Bell className="h-4 w-4" /> {busyAll === 'notify' ? '送出中…' : '補發 Email 通知（24h）'}
             </Button>
             <Button size="sm" onClick={triggerNightly} disabled={busyAll === 'cron'}>
               <PlayCircle className="h-4 w-4" /> {busyAll === 'cron' ? '執行中…' : '立即執行完整回測'}
             </Button>
           </div>
         </div>
+
+        {backfill && backfill.done < 100 && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+            ⚠️ 目前 daily_price_snapshots 只有少量股票，回測樣本不足（多數知識條目會 sample_size &lt; 30，無法通過驗證門檻）。
+            待回填批次完成（pending=0）後會自動觸發 full 回測；勝率/樣本數摘要會以 Email 寄達。
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card><CardContent className="p-4">
