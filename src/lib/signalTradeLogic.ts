@@ -69,3 +69,42 @@ export function normalizeSignalQuantityToShares(
   if (!quantity || quantity <= 0) return 1;
   return quantityUnit === '張' ? quantity * 1000 : quantity;
 }
+
+export interface CashSimTrade {
+  action: 'buy' | 'sell' | 'add' | 'trim' | 'exit' | string;
+  price: number;
+  shares: number;
+  /** Existing open quantity for this symbol when action is 'exit' (used to release full cash) */
+  exitShares?: number;
+  /** Average entry price for the existing position when action is 'exit' (cash released = avg * shares) */
+  exitAvgPrice?: number;
+}
+
+/**
+ * Simulate the analyst's available cash after submitting a list of trades.
+ * - buy/add → consume price × shares
+ * - sell/trim → release price × shares (rough — uses exit price)
+ * - exit → release exitAvgPrice × exitShares if provided, otherwise price × shares
+ */
+export function simulateCashAfterTrades(
+  startCash: number,
+  trades: CashSimTrade[],
+): { remaining: number; perTrade: number[] } {
+  let remaining = startCash;
+  const perTrade: number[] = [];
+  for (const t of trades) {
+    const p = Number(t.price) || 0;
+    const s = Number(t.shares) || 0;
+    if (t.action === 'buy' || t.action === 'add') {
+      remaining -= p * s;
+    } else if (t.action === 'sell' || t.action === 'trim') {
+      remaining += p * s;
+    } else if (t.action === 'exit') {
+      const sh = Number(t.exitShares) || s;
+      const ap = Number(t.exitAvgPrice) || p;
+      remaining += ap * sh;
+    }
+    perTrade.push(remaining);
+  }
+  return { remaining, perTrade };
+}
