@@ -458,6 +458,9 @@ export default function App() {
   }, [quotaModal]);
   const [ready, setReady] = useState(false);
 
+  // AI 覆蓋的 meta（產業/策略/領頭/部位），優先於 STOCK_META
+  const { overrides: metaOverrides, reload: reloadMetaOverrides } = useMetaOverrides();
+
   // persistent state
   const [holdings,  setHoldings]  = useState(null);
   const [tradeLog,  setTradeLog]  = useState(null);
