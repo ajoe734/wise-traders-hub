@@ -7,8 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// 內嵌的本地知識庫快照（2025-2026）。如未來 JSON 更新，請同步更新此處或改用 storage。
-// 注意：edge function 沒辦法讀 src/，所以把資料放在這裡。
 const LOCAL_KB: Record<string, { items: any[] }> = {
   industry_trends: {
     items: [
@@ -61,7 +59,8 @@ const LOCAL_KB: Record<string, { items: any[] }> = {
   },
 };
 
-// 標記為「過時」的條件：industry_trends 中 tags 含 2024 但不含 2025/2026
+const DIFF_FIELDS = ['title', 'fact', 'interpretation', 'action', 'confidence', 'tags'] as const;
+
 function isStale(category: string, row: any): boolean {
   if (category !== 'industry_trends') return false;
   const tags = (row.tags ?? []) as string[];
@@ -70,20 +69,47 @@ function isStale(category: string, row: any): boolean {
   return has2024 && !hasNew;
 }
 
-function diff(local: any, cloud: any): string[] {
-  const fields = ['title', 'fact', 'interpretation', 'action', 'confidence', 'tags'];
-  const out: string[] = [];
-  for (const f of fields) {
-    const a = local[f]; const b = cloud[f];
-    if (Array.isArray(a) || Array.isArray(b)) {
-      if (JSON.stringify(a ?? []) !== JSON.stringify(b ?? [])) out.push(f);
-    } else if (typeof a === 'number' || typeof b === 'number') {
-      if (Number(a ?? 0) !== Number(b ?? 0)) out.push(f);
-    } else {
-      if ((a ?? '') !== (b ?? '')) out.push(f);
+function fieldEqual(a: any, b: any): boolean {
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
+  }
+  if (typeof a === 'number' || typeof b === 'number') {
+    return Number(a ?? 0) === Number(b ?? 0);
+  }
+  return (a ?? '') === (b ?? '');
+}
+
+function diffPerField(local: any, cloud: any) {
+  const out: Record<string, { from: any; to: any }> = {};
+  for (const f of DIFF_FIELDS) {
+    if (!fieldEqual(local[f], cloud[f])) {
+      out[f] = { from: cloud[f] ?? null, to: local[f] ?? null };
     }
   }
   return out;
+}
+
+async function applyOnce(supabase: any, items: { kind: 'insert' | 'update' | 'deactivate'; row: any; cloudId?: string }[]) {
+  const errors: string[] = [];
+  let okCount = 0;
+  for (const it of items) {
+    if (it.kind === 'insert' || it.kind === 'update') {
+      const { error } = await supabase.from('checkup_knowledge_items')
+        .upsert(it.row, { onConflict: 'category,item_id' });
+      if (error) errors.push(`${it.kind} ${it.row.item_id}: ${error.message}`); else okCount++;
+    } else {
+      const { error } = await supabase.from('checkup_knowledge_items')
+        .update({
+          is_active: false,
+          archived_at: new Date().toISOString(),
+          archived_reason: 'stale_2024_replaced_by_sync',
+          lifecycle_status: 'archived',
+        })
+        .eq('id', it.cloudId);
+      if (error) errors.push(`deactivate ${it.row.item_id}: ${error.message}`); else okCount++;
+    }
+  }
+  return { okCount, errors };
 }
 
 Deno.serve(async (req) => {
@@ -95,11 +121,11 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const dryRun = body.dryRun !== false; // 預設 dryRun
+    const dryRun = body.dryRun !== false;
     const trigger = body.trigger ?? (dryRun ? 'manual_preview' : 'manual_apply');
     const actorId = body.actorId ?? null;
 
-    // 取得本地與雲端條目
+    // Build cloud map per category
     const cloudByCat: Record<string, any[]> = {};
     for (const category of Object.keys(LOCAL_KB)) {
       const { data, error } = await supabase
@@ -111,7 +137,7 @@ Deno.serve(async (req) => {
     }
 
     const toInsert: any[] = [];
-    const toUpdate: { row: any; changes: string[]; cloudId: string; oldVersion: number }[] = [];
+    const toUpdate: { row: any; diffs: Record<string, { from: any; to: any }>; cloudId: string; oldVersion: number; cloudRow: any }[] = [];
     const toDeactivate: any[] = [];
     const unchanged: any[] = [];
 
@@ -136,16 +162,15 @@ Deno.serve(async (req) => {
         if (!cloud) {
           toInsert.push(row);
         } else {
-          const changes = diff(row, cloud);
-          if (changes.length > 0) {
-            toUpdate.push({ row, changes, cloudId: cloud.id, oldVersion: cloud.version ?? 1 });
+          const diffs = diffPerField(row, cloud);
+          if (Object.keys(diffs).length > 0) {
+            toUpdate.push({ row, diffs, cloudId: cloud.id, oldVersion: cloud.version ?? 1, cloudRow: cloud });
           } else {
             unchanged.push(row);
           }
         }
       }
 
-      // 過時條目（2024 only）需要停用
       for (const cloud of cloudRows) {
         if (cloud.is_active && !localIds.has(cloud.item_id) && isStale(category, cloud)) {
           toDeactivate.push(cloud);
@@ -163,13 +188,21 @@ Deno.serve(async (req) => {
         unchanged: unchanged.length,
       },
       preview: {
-        insert: toInsert.map(r => ({ category: r.category, item_id: r.item_id, title: r.title, confidence: r.confidence, tags: r.tags })),
+        insert: toInsert.map(r => ({
+          category: r.category, item_id: r.item_id, title: r.title,
+          confidence: r.confidence, tags: r.tags,
+          fact: r.fact, interpretation: r.interpretation, action: r.action,
+        })),
         update: toUpdate.map(u => ({
           category: u.row.category, item_id: u.row.item_id, title: u.row.title,
-          changes: u.changes, version: `v${u.oldVersion} → v${u.oldVersion + 1}`,
+          changed_fields: Object.keys(u.diffs),
+          diffs: u.diffs,
+          version: `v${u.oldVersion} → v${u.oldVersion + 1}`,
           confidence: u.row.confidence, tags: u.row.tags,
         })),
-        deactivate_stale: toDeactivate.map(r => ({ category: r.category, item_id: r.item_id, title: r.title, tags: r.tags })),
+        deactivate_stale: toDeactivate.map(r => ({
+          category: r.category, item_id: r.item_id, title: r.title, tags: r.tags,
+        })),
       },
     };
 
@@ -179,59 +212,80 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 真寫入
-    let okCount = 0;
-    const errors: string[] = [];
+    // Load sync settings
+    const { data: settingsRow } = await supabase
+      .from('knowledge_sync_settings').select('*').limit(1).maybeSingle();
+    const settings = settingsRow ?? {
+      notify_user_ids: [], notify_on_success: false, notify_on_failure: true,
+      retry_on_failure: true, max_retries: 2, retry_delay_ms: 1500,
+    };
 
-    for (const row of toInsert) {
-      const { error } = await supabase.from('checkup_knowledge_items')
-        .upsert(row, { onConflict: 'category,item_id' });
-      if (error) errors.push(`insert ${row.item_id}: ${error.message}`); else okCount++;
-    }
-    for (const u of toUpdate) {
-      const { error } = await supabase.from('checkup_knowledge_items')
-        .upsert(u.row, { onConflict: 'category,item_id' });
-      if (error) errors.push(`update ${u.row.item_id}: ${error.message}`); else okCount++;
-    }
-    for (const r of toDeactivate) {
-      const { error } = await supabase.from('checkup_knowledge_items')
-        .update({ is_active: false, archived_at: new Date().toISOString(), archived_reason: 'stale_2024_replaced_by_sync', lifecycle_status: 'archived' })
-        .eq('id', r.id);
-      if (error) errors.push(`deactivate ${r.item_id}: ${error.message}`); else okCount++;
+    const ops = [
+      ...toInsert.map(r => ({ kind: 'insert' as const, row: r })),
+      ...toUpdate.map(u => ({ kind: 'update' as const, row: u.row })),
+      ...toDeactivate.map(r => ({ kind: 'deactivate' as const, row: r, cloudId: r.id })),
+    ];
+
+    let attempt = 0;
+    let result = await applyOnce(supabase, ops);
+    let allErrors = [...result.errors];
+    let okCount = result.okCount;
+    const maxRetries = settings.retry_on_failure ? Math.max(0, settings.max_retries ?? 0) : 0;
+
+    while (result.errors.length > 0 && attempt < maxRetries) {
+      attempt++;
+      await new Promise(r => setTimeout(r, settings.retry_delay_ms ?? 1500));
+      // retry only failed item_ids
+      const failedIds = new Set(result.errors.map(e => e.split(' ')[1]?.replace(':', '')));
+      const retryOps = ops.filter(o => failedIds.has(o.row.item_id));
+      result = await applyOnce(supabase, retryOps);
+      okCount += result.okCount;
+      allErrors = result.errors; // last attempt errors
     }
 
-    const ok = errors.length === 0;
+    const ok = allErrors.length === 0;
 
-    // 寫 audit
     if (actorId) {
       await supabase.from('audit_logs').insert({
         actor_id: actorId,
         action: ok ? 'knowledge.sync_apply' : 'knowledge.sync_apply_failed',
         target_type: 'checkup_knowledge_items',
-        detail: { trigger, summary: summary.counts, errors, applied_at: new Date().toISOString() },
+        detail: {
+          trigger, summary: summary.counts, errors: allErrors,
+          retry_attempts: attempt,
+          applied_at: new Date().toISOString(),
+        },
       });
     }
 
-    // 失敗時通知所有 admin
-    if (!ok) {
+    // Notifications based on settings
+    let recipients: string[] = Array.isArray(settings.notify_user_ids) ? settings.notify_user_ids : [];
+    if (recipients.length === 0) {
+      // fallback to all admins
       const { data: admins } = await supabase.from('user_roles').select('user_id').eq('role', 'company_admin');
-      const rows = (admins ?? []).map((a: any) => ({
-        user_id: a.user_id,
-        type: 'system',
-        title: '知識庫同步失敗',
-        body: `觸發來源：${trigger}；錯誤：${errors.slice(0, 3).join('; ')}${errors.length > 3 ? `…共 ${errors.length} 個` : ''}`,
-        is_read: false,
-      }));
-      if (rows.length) await supabase.from('notifications').insert(rows);
+      recipients = (admins ?? []).map((a: any) => a.user_id);
     }
 
-    return new Response(JSON.stringify({ success: ok, ...summary, applied: okCount, errors }), {
+    const shouldNotify = (ok && settings.notify_on_success) || (!ok && settings.notify_on_failure);
+    if (shouldNotify && recipients.length > 0) {
+      const title = ok ? '知識庫同步成功' : '知識庫同步失敗';
+      const bodyTxt = ok
+        ? `觸發來源：${trigger}；新增 ${summary.counts.insert}、更新 ${summary.counts.update}、停用 ${summary.counts.deactivate_stale}${attempt > 0 ? `（重試 ${attempt} 次後成功）` : ''}`
+        : `觸發來源：${trigger}；重試 ${attempt} 次後仍失敗：${allErrors.slice(0, 3).join('; ')}${allErrors.length > 3 ? `…共 ${allErrors.length} 個` : ''}`;
+      const rows = recipients.map((uid: string) => ({
+        user_id: uid, type: ok ? 'info' : 'system', title, body: bodyTxt, is_read: false,
+      }));
+      await supabase.from('notifications').insert(rows);
+    }
+
+    return new Response(JSON.stringify({
+      success: ok, ...summary, applied: okCount, errors: allErrors, retry_attempts: attempt,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: ok ? 200 : 500,
     });
   } catch (err) {
     console.error('knowledge-sync error', err);
-    // 全域失敗也寫一條 audit
     try {
       const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
       await supabase.from('audit_logs').insert({
