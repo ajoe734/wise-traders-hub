@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -144,8 +144,8 @@ export default function MetaOverrides() {
                   const hist = history[key];
                   const seed = STOCK_META[r.code];
                   return (
-                    <>
-                      <TableRow key={r.id}>
+                    <Fragment key={key}>
+                      <TableRow>
                         <TableCell className="font-mono text-xs">{r.code}</TableCell>
                         <TableCell className="font-mono text-[10px] text-muted-foreground">{r.user_id.slice(0, 8)}…</TableCell>
                         <TableCell className="text-xs">{r.industry || '—'}</TableCell>
@@ -201,7 +201,7 @@ export default function MetaOverrides() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
                 {filtered.length === 0 && (
