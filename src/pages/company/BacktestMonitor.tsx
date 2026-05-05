@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Activity, RefreshCw, PlayCircle, Bell, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Activity, RefreshCw, PlayCircle, Bell, AlertTriangle, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface RunRow {
