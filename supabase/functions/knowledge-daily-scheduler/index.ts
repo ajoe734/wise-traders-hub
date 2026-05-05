@@ -146,13 +146,21 @@ Deno.serve(async (req) => {
           .update({ rescue_attempts: (it.rescue_attempts ?? 0) + 1 })
           .eq('id', it.id)
         summary.rescue_grid_run++
-        // grid_search edge function 應已自動建立 candidate（archive_and_promote_knowledge）
-        // 若改善 ≥ promote_min_improvement_pct 則新版本被建立為 candidate
+        await logAudit(supa, 'knowledge.auto_grid_search', {
+          target_id: it.id, item_id: it.item_id,
+          attempts: (it.rescue_attempts ?? 0) + 1,
+          best_win_rate: res?.best_win_rate ?? null,
+          improvement_pct: res?.improvement_pct ?? null,
+          created_candidate_id: res?.created_candidate_id ?? null,
+        })
         if (res?.created_candidate_id) {
           await supa.from('checkup_knowledge_items').update({
             lifecycle_status: 'candidate',
             candidate_observed_since: new Date().toISOString(),
           }).eq('id', res.created_candidate_id)
+          await logAudit(supa, 'knowledge.candidate_created', {
+            target_id: res.created_candidate_id, parent_id: it.id, parent_item_id: it.item_id,
+          })
         }
       } catch (e: any) {
         summary.errors.push({ step: 'grid', item_id: it.item_id, msg: String(e?.message ?? e) })
