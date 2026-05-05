@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
         }).eq('id', job.id)
         failed++
       }
-      await new Promise(r => setTimeout(r, 3000)) // 限速
+      await new Promise(r => setTimeout(r, 1200)) // 限速：1.2s/req（TWSE 容忍範圍）
     }
 
     // 進度總覽
