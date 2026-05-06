@@ -2424,6 +2424,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
           const brainData = await callEdge('checkup-analyze', {
             silent: true,
             body: {
+              demo: isDemo,
               kind: 'brain-update',
               systemPrompt: `你是策略知識庫管理器。根據今日分析結果，更新策略大腦。
 回傳**純JSON**格式（不要markdown code block），結構：
