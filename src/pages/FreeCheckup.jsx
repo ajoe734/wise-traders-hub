@@ -956,7 +956,7 @@ export default function App() {
     setCalendarAutoStatus({ status: 'fetching', msg: '' });
     pushUpdateLog({ source:'calendar', trigger, status:'fetching', key:requestKey, msg:`${holdingsList.length} 檔` });
     // ── DEMO 模式：模擬載入 + 套用 DEMO_CALENDAR，不打 edge function ──
-    if (isDemo) {
+    if (isDemo && trigger !== 'manual') {
       try {
         await simulateSteps([
           { label: '掃描未來重大事件...', min: 800, max: 1400 },
@@ -1337,7 +1337,8 @@ export default function App() {
   // 共用：執行一次預測（force=true 會繞過節流並重置已嘗試清單）
   const runPredictEvents = (force = false) => {
     const trigger = force ? 'manual' : 'auto';
-    if (isDemo || !supabaseUser?.id) {
+    // demo 模式允許測試（仍需登入才能呼叫 edge function）
+    if (!supabaseUser?.id) {
       if (force) {
         flashPredictStatus('error', '請先登入後使用事件預測');
         pushUpdateLog({ source:'predict', trigger, status:'blocked-auth', key:'(auth)', msg:'未登入，改走登入引導' });
@@ -3875,7 +3876,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const dec    = decisionsMap[h.code];
               const actionLabel = dec?.actionType === 'exit' ? 'EXIT' : dec?.actionType === 'review' ? 'REVIEW' : 'HOLD';
               const isActive = selectedCode === h.code;
-              const pctVal = h.pct ?? 0;
+              // 漲跌幅：成本與現價都存在時，用「現價/成本-1」現場重算，避免 h.pct 不同步舊值
+              const _costNum = Number(h.cost);
+              const _priceNum = Number(h.price);
+              const pctVal = (_costNum > 0 && Number.isFinite(_priceNum))
+                ? ((_priceNum / _costNum) - 1) * 100
+                : (h.pct ?? 0);
+              // 同步重算未實現損益顯示
+              const pnlVal = (_costNum > 0 && Number.isFinite(_priceNum) && Number.isFinite(Number(h.qty)))
+                ? Math.round((_priceNum - _costNum) * Number(h.qty))
+                : Math.round(h.pnl || 0);
               const sparkData = sparklines[h.code] || [];
               const sparkFailed = !!sparklineErrors[h.code]; // P3: 同步失敗（區分「無資料」與「失敗」）
 
@@ -3909,7 +3919,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   : '尚未同步即時報價';
 
               // P4 a11y：卡片可讀標籤（決策/ROI/PnL）
-              const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal>=0?'+':''}${pctVal.toFixed(2)}%，損益 ${h.pnl>=0?'+':''}${Math.round(h.pnl||0).toLocaleString()}`;
+              const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal>=0?'+':''}${pctVal.toFixed(2)}%，損益 ${pnlVal>=0?'+':''}${pnlVal.toLocaleString()}`;
               const handleCardKeyDown = (e) => {
                 // Shift+Enter 直接開 drawer（取代 onDoubleClick 的鍵盤替代）
                 if (e.shiftKey && (e.key === 'Enter' || e.key === ' ')) {
@@ -3990,7 +4000,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                         <span>{pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span></span>
                       </span>
                       <span style={{fontSize:13,color:subColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
-                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
+                        {pnlVal>=0?'+':''}{pnlVal.toLocaleString()}
                       </span>
                     </div>
 
@@ -4055,7 +4065,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       </span>
                       <div style={{gridColumn:'2',gridRow:'1 / span 2',background:hairColor,width:1,height:'100%'}} />
                       <span className="wb-bottom-val" style={{gridColumn:'1',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
-                        {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
+                        {pnlVal>=0?'+':''}{pnlVal.toLocaleString()}
                         <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
                       </span>
                       <span className="wb-bottom-val" style={{gridColumn:'3',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
@@ -4193,7 +4203,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </span>
                     <div style={{gridColumn:'2',gridRow:'1 / span 2',background:hairColor,width:1,height:'100%'}} />
                     <span className="wb-bottom-val" style={{gridColumn:'1',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
-                      {h.pnl>=0?'+':''}{Math.round(h.pnl||0).toLocaleString()}
+                      {pnlVal>=0?'+':''}{pnlVal.toLocaleString()}
                       <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
                     </span>
                     <span className="wb-bottom-val" style={{gridColumn:'3',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
@@ -4934,7 +4944,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
                   <button
                     onClick={() => {
-                      if (isDemo) { showDemoLockToast('即時更新行事曆'); return; }
+                      // demo 模式也允許測試行事曆更新
                       manualRefreshCalendar();
                     }}
                     disabled={calBusy || !holdings || holdings.length === 0 || calCool > 0}
@@ -4948,7 +4958,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   >{calBusy ? '⟳ 更新中…' : (calCool>0 ? `↻ 冷卻中 ${calCoolSec}s` : '↻ 立刻更新行事曆')}</button>
                   <button
                     onClick={() => {
-                      if (isDemo) { showDemoLockToast('即時預測事件'); return; }
+                      // demo 模式也允許測試事件預測
                       runPredictEvents(true);
                     }}
                     disabled={preBusy || !newsEvents || newsEvents.length === 0 || preCool > 0}
