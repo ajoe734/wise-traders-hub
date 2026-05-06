@@ -590,8 +590,10 @@ export default function App() {
         if (!base) return h;
         const delta = (Math.random() * 0.03 - 0.015); // ±1.5%
         const newPrice = Math.max(0.01, +(base * (1 + delta)).toFixed(2));
-        return { ...h, price: newPrice, priceSource: 'demo' };
+        const { value, pnl, pct } = calcPnlWithNet(h, newPrice);
+        return { ...h, price: newPrice, value, pnl, pct, priceSource: 'live', priceError: null, priceUpdatedAt: new Date().toISOString() };
       }));
+      setLastUpdate(new Date());
       setSaved('✅ DEMO 模擬報價已更新');
       setTimeout(() => setSaved(''), 3000);
       setServerSyncing(false);
