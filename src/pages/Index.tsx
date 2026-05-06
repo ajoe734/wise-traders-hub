@@ -1249,8 +1249,10 @@ const Index = () => {
           </div>
         </div>
       </section>
+      </LazyOnVisible>
 
       {/* Stock Dashboard Section - 持股看板（紫色主視覺） */}
+      <LazyOnVisible minHeight={500}>
       <section className="py-section bg-background">
         <div className="container">
           <div className="max-w-6xl mx-auto">
