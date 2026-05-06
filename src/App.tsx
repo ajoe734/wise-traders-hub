@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { lazy, Suspense } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import {
   queryClient,
@@ -14,98 +15,98 @@ import {
 import { useSignalRealtimeInvalidation } from "@/hooks/useSignalRealtimeInvalidation";
 import { useAttributionTracking } from "@/hooks/useAttributionTracking";
 
-// Portal pages
+// Homepage stays eager so the landing route paints without an extra chunk fetch
 import Index from "./pages/Index";
-import Experts from "./pages/Experts";
-import ExpertProfile from "./pages/ExpertProfile";
-import PlanDetail from "./pages/PlanDetail";
-import Pricing from "./pages/Pricing";
-import Legal from "./pages/Legal";
-import Checkout from "./pages/Checkout";
-import CheckupCheckout from "./pages/CheckupCheckout";
-import FreeCheckupPage from "./pages/FreeCheckup";
-import { CheckupModeProvider } from "./checkup/contexts/CheckupModeContext";
-
-import NotFound from "./pages/NotFound";
-
-// Checkup module pages
-import { PortfolioLayout } from "./checkup/pages/PortfolioLayout";
-import {
-  HoldingsPage,
-  EventsPage,
-  DailyPage,
-  ResearchPage,
-  TradePage,
-  LogPage,
-  NewsPage,
-  OverviewPage,
-} from "./checkup/pages/index.js";
-
-// Auth pages
-import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
-import LineCallback from "./pages/auth/LineCallback";
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import ResetPassword from "./pages/auth/ResetPassword";
-
-// Account pages
-import AccountProfile from "./pages/account/Profile";
-import MyRemittanceOrders from "./pages/account/MyRemittanceOrders";
-
-// App pages (aggregated member view)
-import AppHome from "./pages/app/AppHome";
-import AppSignals from "./pages/app/Signals";
-import AppJournals from "./pages/app/Journals";
-import AppSignalDetail from "./pages/app/SignalDetail";
-import AppJournalDetail from "./pages/app/JournalDetail";
-import AppAccount from "./pages/app/Account";
-
-import AppExplore from "./pages/app/Explore";
-import AppExpertDetail from "./pages/app/ExpertDetail";
-import AppCheckout from "./pages/app/AppCheckout";
-
-// Admin pages (expert backend)
-import AdminDashboard from "./pages/admin/Dashboard";
-import AdminSignals from "./pages/admin/Signals";
-import AdminSignalEditor from "./pages/admin/SignalEditor";
-import AdminSubscribers from "./pages/admin/Subscribers";
-import AdminProfile from "./pages/admin/Profile";
-import AdminPerformance from "./pages/admin/Performance";
-import AdminReasonTemplates from "./pages/admin/ReasonTemplates";
-import AdminSignalTemplates from "./pages/admin/SignalTemplates";
-import AdminAnnouncements from "./pages/admin/Announcements";
-import AdminPlans from "./pages/admin/Plans";
-
-// Company pages (internal backend)
-import CompanyDashboard from "./pages/company/Dashboard";
-import CompanyAnalysts from "./pages/company/Analysts";
-import CompanySubscribers from "./pages/company/Subscribers";
-import CompanyRevenue from "./pages/company/Revenue";
-
-import CompanyPayments from "./pages/company/Payments";
-
-import CompanyAnnouncements from "./pages/company/Announcements";
-import CompanyAuditLogs from "./pages/company/AuditLogs";
-import CompanySystemJobs from "./pages/company/SystemJobs";
-import CompanyFunctionLogs from "./pages/company/FunctionLogs";
-import CompanyKnowledgeBase from "./pages/company/KnowledgeBase";
-import CompanyKnowledgeAudit from "./pages/company/knowledge-base/KnowledgeAudit";
-import CompanyKnowledgeScheduler from "./pages/company/knowledge-base/KnowledgeScheduler";
-import CompanyBacktestMonitor from "./pages/company/BacktestMonitor";
-import CompanyPlans from "./pages/company/Plans";
-import CompanyRemittance from "./pages/company/Remittance";
-import CompanyPaymentSettings from "./pages/company/PaymentSettings";
-import CompanyReferralChannels from "./pages/company/ReferralChannels";
-import CompanyCheckupUsage from "./pages/company/CheckupUsage";
-import CompanyMissingPrices from "./pages/company/MissingPrices";
-import CompanyMetaOverrides from "./pages/company/MetaOverrides";
-import CompanyUsers from "./pages/company/Users";
-import AccountNotifications from "./pages/account/Notifications";
-
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { PendingRemittanceGuard } from "./components/PendingRemittanceGuard";
+
+// Portal pages (lazy)
+const Experts = lazy(() => import("./pages/Experts"));
+const ExpertProfile = lazy(() => import("./pages/ExpertProfile"));
+const PlanDetail = lazy(() => import("./pages/PlanDetail"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const Legal = lazy(() => import("./pages/Legal"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const CheckupCheckout = lazy(() => import("./pages/CheckupCheckout"));
+const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const CheckupModeProviderLazy = lazy(() =>
+  import("./checkup/contexts/CheckupModeContext").then((m) => ({ default: m.CheckupModeProvider }))
+);
+
+// Checkup module pages (lazy)
+const PortfolioLayout = lazy(() =>
+  import("./checkup/pages/PortfolioLayout").then((m) => ({ default: m.PortfolioLayout }))
+);
+const HoldingsPage = lazy(() => import("./checkup/pages/HoldingsPage.jsx"));
+const EventsPage = lazy(() => import("./checkup/pages/EventsPage.jsx"));
+const DailyPage = lazy(() => import("./checkup/pages/DailyPage.jsx"));
+const ResearchPage = lazy(() => import("./checkup/pages/ResearchPage.jsx"));
+const TradePage = lazy(() => import("./checkup/pages/TradePage.jsx"));
+const LogPage = lazy(() => import("./checkup/pages/LogPage.jsx"));
+const NewsPage = lazy(() => import("./checkup/pages/NewsPage.jsx"));
+const OverviewPage = lazy(() => import("./checkup/pages/OverviewPage.jsx"));
+
+// Auth pages (lazy)
+const Login = lazy(() => import("./pages/auth/Login"));
+const Register = lazy(() => import("./pages/auth/Register"));
+const LineCallback = lazy(() => import("./pages/auth/LineCallback"));
+const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
+
+// Account pages
+const AccountProfile = lazy(() => import("./pages/account/Profile"));
+const MyRemittanceOrders = lazy(() => import("./pages/account/MyRemittanceOrders"));
+const AccountNotifications = lazy(() => import("./pages/account/Notifications"));
+
+// App pages
+const AppHome = lazy(() => import("./pages/app/AppHome"));
+const AppSignals = lazy(() => import("./pages/app/Signals"));
+const AppJournals = lazy(() => import("./pages/app/Journals"));
+const AppSignalDetail = lazy(() => import("./pages/app/SignalDetail"));
+const AppJournalDetail = lazy(() => import("./pages/app/JournalDetail"));
+const AppAccount = lazy(() => import("./pages/app/Account"));
+const AppExplore = lazy(() => import("./pages/app/Explore"));
+const AppExpertDetail = lazy(() => import("./pages/app/ExpertDetail"));
+const AppCheckout = lazy(() => import("./pages/app/AppCheckout"));
+
+// Admin pages
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
+const AdminSignals = lazy(() => import("./pages/admin/Signals"));
+const AdminSignalEditor = lazy(() => import("./pages/admin/SignalEditor"));
+const AdminSubscribers = lazy(() => import("./pages/admin/Subscribers"));
+const AdminProfile = lazy(() => import("./pages/admin/Profile"));
+const AdminPerformance = lazy(() => import("./pages/admin/Performance"));
+const AdminReasonTemplates = lazy(() => import("./pages/admin/ReasonTemplates"));
+const AdminSignalTemplates = lazy(() => import("./pages/admin/SignalTemplates"));
+const AdminAnnouncements = lazy(() => import("./pages/admin/Announcements"));
+const AdminPlans = lazy(() => import("./pages/admin/Plans"));
+
+// Company pages
+const CompanyDashboard = lazy(() => import("./pages/company/Dashboard"));
+const CompanyAnalysts = lazy(() => import("./pages/company/Analysts"));
+const CompanySubscribers = lazy(() => import("./pages/company/Subscribers"));
+const CompanyRevenue = lazy(() => import("./pages/company/Revenue"));
+const CompanyPayments = lazy(() => import("./pages/company/Payments"));
+const CompanyAnnouncements = lazy(() => import("./pages/company/Announcements"));
+const CompanyAuditLogs = lazy(() => import("./pages/company/AuditLogs"));
+const CompanySystemJobs = lazy(() => import("./pages/company/SystemJobs"));
+const CompanyFunctionLogs = lazy(() => import("./pages/company/FunctionLogs"));
+const CompanyKnowledgeBase = lazy(() => import("./pages/company/KnowledgeBase"));
+const CompanyKnowledgeAudit = lazy(() => import("./pages/company/knowledge-base/KnowledgeAudit"));
+const CompanyKnowledgeScheduler = lazy(() => import("./pages/company/knowledge-base/KnowledgeScheduler"));
+const CompanyBacktestMonitor = lazy(() => import("./pages/company/BacktestMonitor"));
+const CompanyPlans = lazy(() => import("./pages/company/Plans"));
+const CompanyRemittance = lazy(() => import("./pages/company/Remittance"));
+const CompanyPaymentSettings = lazy(() => import("./pages/company/PaymentSettings"));
+const CompanyReferralChannels = lazy(() => import("./pages/company/ReferralChannels"));
+const CompanyCheckupUsage = lazy(() => import("./pages/company/CheckupUsage"));
+const CompanyMissingPrices = lazy(() => import("./pages/company/MissingPrices"));
+const CompanyMetaOverrides = lazy(() => import("./pages/company/MetaOverrides"));
+const CompanyUsers = lazy(() => import("./pages/company/Users"));
 
 const RealtimeBridge = () => {
   useSignalRealtimeInvalidation();
@@ -134,6 +135,10 @@ const AttributionTracker = () => {
   return null;
 };
 
+const RouteFallback = () => (
+  <div style={{ minHeight: "60vh" }} aria-busy="true" />
+);
+
 const AppShell = () => (
   <AuthProvider>
     <RealtimeBridge />
@@ -144,6 +149,7 @@ const AppShell = () => (
           <AttributionTracker />
           <ScrollToTop />
           <PendingRemittanceGuard />
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             {/* Portal (public) */}
             <Route path="/" element={<SmartHomeRedirect><Index /></SmartHomeRedirect>} />
@@ -153,7 +159,7 @@ const AppShell = () => (
             <Route path="/checkout/:slug/:planId" element={<Checkout />} />
             <Route path="/checkout/checkup/:planId" element={<CheckupCheckout />} />
             <Route path="/pricing" element={<Pricing />} />
-            <Route path="/free-checkup" element={<CheckupModeProvider><FreeCheckupPage /></CheckupModeProvider>} />
+            <Route path="/free-checkup" element={<CheckupModeProviderLazy><FreeCheckupPage /></CheckupModeProviderLazy>} />
             <Route path="/legal" element={<Legal />} />
 
             {/* Checkup portfolio routes */}
@@ -183,13 +189,13 @@ const AppShell = () => (
             <Route path="/auth/forgot-password" element={<ForgotPassword />} />
             <Route path="/auth/reset-password" element={<ResetPassword />} />
 
-            {/* Account (aggregated view) */}
+            {/* Account */}
             <Route path="/account/subscriptions" element={<Navigate to="/app/account" replace />} />
             <Route path="/account/profile" element={<ProtectedRoute><AccountProfile /></ProtectedRoute>} />
             <Route path="/account/remittance" element={<ProtectedRoute><MyRemittanceOrders /></ProtectedRoute>} />
             <Route path="/account/notifications" element={<ProtectedRoute><AccountNotifications /></ProtectedRoute>} />
 
-            {/* App pages (aggregated member view) */}
+            {/* App pages */}
             <Route path="/app" element={<ProtectedRoute subscriberOnly><AppHome /></ProtectedRoute>} />
             <Route path="/app/signals" element={<ProtectedRoute subscriberOnly><AppSignals /></ProtectedRoute>} />
             <Route path="/app/journals" element={<ProtectedRoute subscriberOnly><AppJournals /></ProtectedRoute>} />
@@ -200,29 +206,24 @@ const AppShell = () => (
             <Route path="/app/explore" element={<ProtectedRoute subscriberOnly><AppExplore /></ProtectedRoute>} />
             <Route path="/app/expert/:slug" element={<ProtectedRoute subscriberOnly><AppExpertDetail /></ProtectedRoute>} />
             <Route path="/app/checkout/:slug/:planId" element={<ProtectedRoute subscriberOnly><AppCheckout /></ProtectedRoute>} />
-            {/* SystemDetail removed - no trading_systems table */}
             <Route path="/app/system/:id" element={<Navigate to="/app" replace />} />
 
-            {/* Company (internal backend) */}
+            {/* Company */}
             <Route path="/company" element={<ProtectedRoute requiredRole="company_admin"><CompanyDashboard /></ProtectedRoute>} />
             <Route path="/company/users" element={<ProtectedRoute requiredRole="company_admin"><CompanyUsers /></ProtectedRoute>} />
             <Route path="/company/analysts" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnalysts /></ProtectedRoute>} />
             <Route path="/company/subscribers" element={<ProtectedRoute requiredRole="company_admin"><CompanySubscribers /></ProtectedRoute>} />
             <Route path="/company/revenue" element={<ProtectedRoute requiredRole="company_admin"><CompanyRevenue /></ProtectedRoute>} />
-            
             <Route path="/company/payments" element={<ProtectedRoute requiredRole="company_admin"><CompanyPayments /></ProtectedRoute>} />
-            
             <Route path="/company/announcements" element={<ProtectedRoute requiredRole="company_admin"><CompanyAnnouncements /></ProtectedRoute>} />
             <Route path="/company/audit-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyAuditLogs /></ProtectedRoute>} />
             <Route path="/company/system-jobs" element={<ProtectedRoute requiredRole="company_admin"><CompanySystemJobs /></ProtectedRoute>} />
             <Route path="/company/function-logs" element={<ProtectedRoute requiredRole="company_admin"><CompanyFunctionLogs /></ProtectedRoute>} />
             <Route path="/company/knowledge-base" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeBase /></ProtectedRoute>} />
-            <Route path="/company/knowledge-base" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeBase /></ProtectedRoute>} />
             <Route path="/company/knowledge-audit" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeAudit /></ProtectedRoute>} />
             <Route path="/company/knowledge-scheduler" element={<ProtectedRoute requiredRole="company_admin"><CompanyKnowledgeScheduler /></ProtectedRoute>} />
             <Route path="/company/backtest-monitor" element={<ProtectedRoute requiredRole="company_admin"><CompanyBacktestMonitor /></ProtectedRoute>} />
             <Route path="/company/plans" element={<ProtectedRoute requiredRole="company_admin"><CompanyPlans /></ProtectedRoute>} />
-            {/* Legacy routes — redirect to unified plan management */}
             <Route path="/company/plan-review" element={<Navigate to="/company/plans" replace />} />
             <Route path="/company/plan-splits" element={<Navigate to="/company/plans" replace />} />
             <Route path="/company/remittance" element={<ProtectedRoute requiredRole="company_admin"><CompanyRemittance /></ProtectedRoute>} />
@@ -232,7 +233,7 @@ const AppShell = () => (
             <Route path="/company/missing-prices" element={<ProtectedRoute requiredRole="company_admin"><CompanyMissingPrices /></ProtectedRoute>} />
             <Route path="/company/meta-overrides" element={<ProtectedRoute requiredRole="company_admin"><CompanyMetaOverrides /></ProtectedRoute>} />
 
-            {/* Admin (expert backend) */}
+            {/* Admin */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signals" element={<ProtectedRoute><AdminSignals /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/signals/new" element={<ProtectedRoute><AdminSignalEditor /></ProtectedRoute>} />
@@ -245,13 +246,14 @@ const AppShell = () => (
             <Route path="/admin/:expertSlug/signal-templates" element={<ProtectedRoute><AdminSignalTemplates /></ProtectedRoute>} />
             <Route path="/admin/:expertSlug/announcements" element={<ProtectedRoute><AdminAnnouncements /></ProtectedRoute>} />
 
-            {/* Legacy /me routes - redirect */}
+            {/* Legacy /me routes */}
             <Route path="/me" element={<Navigate to="/app/account" replace />} />
             <Route path="/me/*" element={<Navigate to="/app/account" replace />} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </AuthProvider>
