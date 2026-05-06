@@ -2127,11 +2127,11 @@ export default function App() {
       }
       return;
     }
-    // 未登入 → 引導登入（即時 AI / 知識庫 需要 JWT 才能扣配額與寫 hits，demo+live 也不例外）
-    if (!supabaseUser?.id) {
-      setSaved(isDemo ? '即時 AI 模式需先登入（會扣配額）。請改用「靜態範例」或登入後再試。' : '請先登入後再使用收盤分析');
-      setTimeout(() => setSaved(''), 5000);
-      if (!isDemo) navigate('/auth/login?redirect=/checkup');
+    // 非 demo 但未登入 → 引導登入（demo+live 直接放行，edge function 已支援 demo 旗標免驗證）
+    if (!isDemo && !supabaseUser?.id) {
+      setSaved('請先登入後再使用收盤分析');
+      setTimeout(() => setSaved(''), 4000);
+      navigate('/auth/login?redirect=/checkup');
       return;
     }
     if (hasReachedDailyLimit) {
