@@ -20,6 +20,7 @@ export const EDGE_SCHEMAS = {
       userPrompt: REQ('string', { minLength: 4, label: 'userPrompt（或 prompt）', altKey: 'prompt' }),
       systemPrompt: OPT('string', { label: 'systemPrompt' }),
       kind: OPT('string', { label: 'kind（如 brain-update）' }),
+      demo: OPT('boolean', { label: 'demo 模式' }),
     },
   },
 
