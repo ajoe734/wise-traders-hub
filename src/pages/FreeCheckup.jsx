@@ -5436,6 +5436,29 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
                 <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
               </div>
+              <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${alpha(C.border,'80')}`}}>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",marginBottom:6,fontWeight:500}}>DEMO 收盤分析來源</div>
+                <div style={{display:"flex",gap:6}}>
+                  {[
+                    { k: 'static', label: '靜態範例', hint: '預錄文案，不消耗配額' },
+                    { k: 'live', label: '即時 AI + 知識庫', hint: '呼叫真實 edge / 知識庫' },
+                  ].map(opt => {
+                    const active = demoDailyMode === opt.k;
+                    return (
+                      <button key={opt.k} onClick={() => setDemoDailyMode(opt.k)} title={opt.hint}
+                        style={{flex:1,padding:"6px 10px",borderRadius:6,fontSize:11,fontWeight:active?500:400,letterSpacing:"0.02em",cursor:"pointer",
+                          background: active ? C.text : "transparent",
+                          color: active ? C.bg : C.textSec,
+                          border: `1px solid ${active ? C.text : C.border}`}}>
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{fontSize:10,color:C.textMute,marginTop:6,lineHeight:1.6,opacity:0.8}}>
+                  {demoDailyMode === 'live' ? '⚡ 將呼叫真實 AI / 知識庫，回傳內容會基於目前 demo 持倉動態生成。' : '📋 顯示預錄範例文案，配合 demo 持倉產生個股漲跌列。'}
+                </div>
+              </div>
             </div>
           )}
           {/* 手動觸發按鈕 */}
