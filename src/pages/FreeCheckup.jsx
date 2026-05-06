@@ -956,7 +956,7 @@ export default function App() {
     setCalendarAutoStatus({ status: 'fetching', msg: '' });
     pushUpdateLog({ source:'calendar', trigger, status:'fetching', key:requestKey, msg:`${holdingsList.length} 檔` });
     // ── DEMO 模式：模擬載入 + 套用 DEMO_CALENDAR，不打 edge function ──
-    if (isDemo) {
+    if (isDemo && trigger !== 'manual') {
       try {
         await simulateSteps([
           { label: '掃描未來重大事件...', min: 800, max: 1400 },
