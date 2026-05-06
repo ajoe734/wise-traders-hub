@@ -20,7 +20,8 @@ const navLinks = [
 ];
 
 export function PortalLayout({ children, hideAppEntry = false, hideHeader = false }: PortalLayoutProps) {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole('company_admin');
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
@@ -90,11 +91,16 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                 )}
               </button>
             )}
+            {isAdmin && (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/company">管理後台</Link>
+              </Button>
+            )}
             {user && !hideAppEntry ? (
               <Button size="sm" asChild>
                 <Link to="/app">進入會員區</Link>
               </Button>
-            ) : (
+            ) : !user ? (
               <>
                 <Button variant="ghost" size="sm" asChild>
                   <Link to="/auth/login">登入</Link>
@@ -103,7 +109,7 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                   <Link to="/auth/register">免費註冊</Link>
                 </Button>
               </>
-            )}
+            ) : null}
           </div>
 
           {/* Mobile: Theme Toggle + Menu Button */}
@@ -162,6 +168,15 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                 </Link>
               ))}
               <div className="border-t border-border pt-4 mt-4 space-y-2">
+                {isAdmin && (
+                  <Link
+                    to="/company"
+                    className="block px-3 py-2 rounded-md text-sm font-medium border border-border text-foreground text-center"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    管理後台
+                  </Link>
+                )}
                 {user ? (
                   <Link
                     to="/app"
