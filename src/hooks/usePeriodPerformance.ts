@@ -280,8 +280,13 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
 
       const labelOf = (d: Date) => (period === 'yearly' ? fmtMonth(d) : fmtDay(d));
 
+      // rangeStart：該 period 區間的起始日（與 dates[0] 對應）
+      const rangeStart = dates[0] ? new Date(dates[0]) : new Date();
+      const rangeEnd = dates[dates.length - 1] ? new Date(dates[dates.length - 1]) : new Date();
+      const rangeStocks = perStockRangeReturn(trades, rangeStart, rangeEnd, todayKey);
+
       let prevCum = 0;
-      return dates.map((d) => {
+      const buckets = dates.map((d) => {
         const pnl = snapshotPnL(trades, d, todayKey);
         const cum = startingCapital > 0 ? (pnl / startingCapital) * 100 : 0;
         const periodReturn = cum - prevCum;
@@ -306,8 +311,12 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
           topStock,
           bottomStock,
           stocks,
-        };
+        } as PeriodBucket;
       });
+
+      // 把區間級 rangeStocks 掛在最後一個 bucket（PerformanceOverviewPanel 會讀）
+      if (buckets.length) buckets[buckets.length - 1].rangeStocks = rangeStocks;
+      return buckets;
     },
     enabled: !!expertId,
     staleTime: 60_000,
