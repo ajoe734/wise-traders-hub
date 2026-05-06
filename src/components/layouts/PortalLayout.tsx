@@ -168,6 +168,15 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                 </Link>
               ))}
               <div className="border-t border-border pt-4 mt-4 space-y-2">
+                {isAdmin && (
+                  <Link
+                    to="/company"
+                    className="block px-3 py-2 rounded-md text-sm font-medium border border-border text-foreground text-center"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    管理後台
+                  </Link>
+                )}
                 {user ? (
                   <Link
                     to="/app"
