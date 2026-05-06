@@ -740,6 +740,13 @@ export default function App() {
   const [predictLastError, setPredictLastError] = useState(null);
   // 收盤分析錯誤：{ code, message, cid, opStartedAt, httpStatus, at }
   const [dailyLastError, setDailyLastError] = useState(null);
+  // DEMO 收盤分析模式：'static'（預錄範例）｜'live'（呼叫真實 AI + 知識庫）
+  const [demoDailyMode, setDemoDailyMode] = useState(() => {
+    try { return localStorage.getItem('pf-demo-daily-mode') === 'live' ? 'live' : 'static'; } catch { return 'static'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('pf-demo-daily-mode', demoDailyMode); } catch {}
+  }, [demoDailyMode]);
   const dailyLastErrorRef = useRef(null);
   useEffect(() => { dailyLastErrorRef.current = dailyLastError; }, [dailyLastError]);
   // 重試按鈕的瞬時鎖定：點擊後立即為 true，避免在 setAnalyzing 尚未 flush 前重複送出
@@ -2069,8 +2076,8 @@ export default function App() {
   // ── 每日收盤分析 ─────────────────────────────────────────────────
   const runDailyAnalysis = async () => {
     if (analyzing) return;
-    // ── DEMO 模式：模擬完整收盤分析流程，最後套用 DEMO_ANALYSIS ──
-    if (isDemo) {
+    // ── DEMO 模式（靜態）：模擬完整收盤分析流程，最後套用 DEMO_ANALYSIS ──
+    if (isDemo && demoDailyMode === 'static') {
       setAnalyzing(true);
       setDailyLastError(null);
       try {
@@ -2081,13 +2088,28 @@ export default function App() {
           { label: '策略大腦進化中...', min: 1000, max: 1600 },
         ], setAnalyzeStep);
         const demoToday = new Date().toLocaleDateString('zh-TW').replace(/-/g, '/');
+        // 從目前 demo 持倉模擬 changes，讓報告檔數與持倉一致
+        const demoChanges = (H || []).map(h => {
+          const base = Number(h.price ?? h.cost) || 0;
+          const yesterday = base > 0 ? +(base / (1 + (Math.random() * 0.04 - 0.02))).toFixed(2) : base;
+          const change = +(base - yesterday).toFixed(2);
+          const changePct = yesterday ? +(((base / yesterday) - 1) * 100).toFixed(2) : 0;
+          return {
+            code: h.code, name: h.name, type: h.type,
+            price: base, yesterday, change, changePct,
+            cost: h.cost, qty: h.qty,
+            todayPnl: Math.round(change * (h.qty || 0)),
+            totalPnl: Math.round((base - h.cost) * (h.qty || 0)),
+            totalPct: h.cost ? Math.round(((base / h.cost) - 1) * 10000) / 100 : 0,
+          };
+        }).sort((a, b) => b.changePct - a.changePct);
         const demoReport = {
           id: Date.now(),
           date: demoToday,
           time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
-          totalTodayPnl: 0,
-          changes: [],
-          anomalies: [],
+          totalTodayPnl: demoChanges.reduce((s, c) => s + c.todayPnl, 0),
+          changes: demoChanges,
+          anomalies: demoChanges.filter(c => Math.abs(c.changePct) > 3),
           eventCorrelations: [],
           needsReview: [],
           autoVerified: [],
@@ -2097,7 +2119,7 @@ export default function App() {
         setDailyReport(demoReport);
         setAnalysisHistory(prev => [demoReport, ...(prev || []).filter(r => r.date !== demoToday)].slice(0, 30));
         setStrategyBrain(DEMO_BRAIN_UPDATED);
-        setSaved('DEMO 分析完成，登入後可儲存你的真實報告');
+        setSaved('DEMO 分析完成（靜態範例）');
         setTimeout(() => setSaved(''), 4000);
       } finally {
         setAnalyzing(false);
@@ -2105,8 +2127,8 @@ export default function App() {
       }
       return;
     }
-    // 非 demo 但未登入 → 引導登入
-    if (!supabaseUser?.id) {
+    // 非 demo 但未登入 → 引導登入（demo + live 模式直接放行，跑真實 AI 流程）
+    if (!isDemo && !supabaseUser?.id) {
       setSaved('請先登入後再使用收盤分析');
       setTimeout(() => setSaved(''), 4000);
       navigate('/auth/login?redirect=/checkup');
@@ -5413,6 +5435,29 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 <button onClick={() => { try { startLineLogin?.(); } catch { navigate('/auth/login?redirect=/checkup'); } }} style={{background:"#06C755",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:500,cursor:"pointer",letterSpacing:"0.02em"}}>LINE 登入解鎖</button>
                 <button onClick={() => navigate('/auth/login?redirect=/checkup')} style={{background:"transparent",color:C.text,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 12px",fontSize:11,fontWeight:400,cursor:"pointer",letterSpacing:"0.02em"}}>Email 登入</button>
+              </div>
+              <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${alpha(C.border,'80')}`}}>
+                <div style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",marginBottom:6,fontWeight:500}}>DEMO 收盤分析來源</div>
+                <div style={{display:"flex",gap:6}}>
+                  {[
+                    { k: 'static', label: '靜態範例', hint: '預錄文案，不消耗配額' },
+                    { k: 'live', label: '即時 AI + 知識庫', hint: '呼叫真實 edge / 知識庫' },
+                  ].map(opt => {
+                    const active = demoDailyMode === opt.k;
+                    return (
+                      <button key={opt.k} onClick={() => setDemoDailyMode(opt.k)} title={opt.hint}
+                        style={{flex:1,padding:"6px 10px",borderRadius:6,fontSize:11,fontWeight:active?500:400,letterSpacing:"0.02em",cursor:"pointer",
+                          background: active ? C.text : "transparent",
+                          color: active ? C.bg : C.textSec,
+                          border: `1px solid ${active ? C.text : C.border}`}}>
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{fontSize:10,color:C.textMute,marginTop:6,lineHeight:1.6,opacity:0.8}}>
+                  {demoDailyMode === 'live' ? '⚡ 將呼叫真實 AI / 知識庫，回傳內容會基於目前 demo 持倉動態生成。' : '📋 顯示預錄範例文案，配合 demo 持倉產生個股漲跌列。'}
+                </div>
               </div>
             </div>
           )}
