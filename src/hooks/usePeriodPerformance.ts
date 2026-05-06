@@ -187,8 +187,7 @@ function perStockPnLAt(trades: RawTrade[], D: Date, todayKey: string): Map<strin
     if (exitTs !== null && exitTs <= Dts) {
       pnl = (Number(t.exit_price || 0) - entryPrice) * qty;
     } else {
-      const isToday = fmtDay(D) === todayKey;
-      const mark = isToday ? Number(t.current_price ?? entryPrice) : entryPrice;
+      const mark = Number(t.current_price ?? entryPrice);
       pnl = (mark - entryPrice) * qty;
     }
     map.set(t.instrument, (map.get(t.instrument) || 0) + pnl);
