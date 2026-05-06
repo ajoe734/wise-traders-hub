@@ -2147,6 +2147,8 @@ export default function App() {
     setAnalyzing(true);
     setAnalyzeStep("取得即時股價...");
     pushUpdateLog({ source:'daily', trigger:'manual', status:'fetching', key:cid, msg:'開始收盤分析' });
+    let aiInsight = null;
+    let aiData = null;
     try {
       // 1. 取得最新股價
       const codes = H.map(h => h.code);
