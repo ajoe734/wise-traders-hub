@@ -20,7 +20,8 @@ const navLinks = [
 ];
 
 export function PortalLayout({ children, hideAppEntry = false, hideHeader = false }: PortalLayoutProps) {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole('company_admin');
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
