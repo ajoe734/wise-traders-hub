@@ -3918,7 +3918,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   : '尚未同步即時報價';
 
               // P4 a11y：卡片可讀標籤（決策/ROI/PnL）
-              const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal>=0?'+':''}${pctVal.toFixed(2)}%，損益 ${h.pnl>=0?'+':''}${Math.round(h.pnl||0).toLocaleString()}`;
+              const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal>=0?'+':''}${pctVal.toFixed(2)}%，損益 ${pnlVal>=0?'+':''}${pnlVal.toLocaleString()}`;
               const handleCardKeyDown = (e) => {
                 // Shift+Enter 直接開 drawer（取代 onDoubleClick 的鍵盤替代）
                 if (e.shiftKey && (e.key === 'Enter' || e.key === ' ')) {
