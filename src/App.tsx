@@ -41,14 +41,14 @@ const CheckupModeProviderLazy = lazy(() =>
 const PortfolioLayout = lazy(() =>
   import("./checkup/pages/PortfolioLayout").then((m) => ({ default: m.PortfolioLayout }))
 );
-const HoldingsPage = lazy(() => import("./checkup/pages/HoldingsPage.jsx"));
-const EventsPage = lazy(() => import("./checkup/pages/EventsPage.jsx"));
-const DailyPage = lazy(() => import("./checkup/pages/DailyPage.jsx"));
-const ResearchPage = lazy(() => import("./checkup/pages/ResearchPage.jsx"));
-const TradePage = lazy(() => import("./checkup/pages/TradePage.jsx"));
-const LogPage = lazy(() => import("./checkup/pages/LogPage.jsx"));
-const NewsPage = lazy(() => import("./checkup/pages/NewsPage.jsx"));
-const OverviewPage = lazy(() => import("./checkup/pages/OverviewPage.jsx"));
+const HoldingsPage = lazy(() => import("./checkup/pages/HoldingsPage.jsx").then((m) => ({ default: m.HoldingsPage })));
+const EventsPage = lazy(() => import("./checkup/pages/EventsPage.jsx").then((m) => ({ default: m.EventsPage })));
+const DailyPage = lazy(() => import("./checkup/pages/DailyPage.jsx").then((m) => ({ default: m.DailyPage })));
+const ResearchPage = lazy(() => import("./checkup/pages/ResearchPage.jsx").then((m) => ({ default: m.ResearchPage })));
+const TradePage = lazy(() => import("./checkup/pages/TradePage.jsx").then((m) => ({ default: m.TradePage })));
+const LogPage = lazy(() => import("./checkup/pages/LogPage.jsx").then((m) => ({ default: m.LogPage })));
+const NewsPage = lazy(() => import("./checkup/pages/NewsPage.jsx").then((m) => ({ default: m.NewsPage })));
+const OverviewPage = lazy(() => import("./checkup/pages/OverviewPage.jsx").then((m) => ({ default: m.OverviewPage })));
 
 // Auth pages (lazy)
 const Login = lazy(() => import("./pages/auth/Login"));
