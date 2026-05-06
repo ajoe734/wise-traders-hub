@@ -1337,8 +1337,8 @@ export default function App() {
   // 共用：執行一次預測（force=true 會繞過節流並重置已嘗試清單）
   const runPredictEvents = (force = false) => {
     const trigger = force ? 'manual' : 'auto';
-    // demo 模式允許測試（仍需登入才能呼叫 edge function）
-    if (!supabaseUser?.id) {
+    // demo 模式允許測試（不需登入，走模擬路徑）；非 demo 才要求登入
+    if (!isDemo && !supabaseUser?.id) {
       if (force) {
         flashPredictStatus('error', '請先登入後使用事件預測');
         pushUpdateLog({ source:'predict', trigger, status:'blocked-auth', key:'(auth)', msg:'未登入，改走登入引導' });
