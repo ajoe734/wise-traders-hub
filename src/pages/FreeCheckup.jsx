@@ -4131,6 +4131,18 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                     </span>
                   </div>
 
+                  {/* L2.5：成本 → 現價 */}
+                  <div style={{
+                    display:'flex',alignItems:'baseline',gap:8,marginBottom:8,
+                    fontSize:11,color:subColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',
+                  }}>
+                    <span style={{color:muteColor,letterSpacing:'0.12em',fontSize:9,opacity:0.8}}>成本</span>
+                    <span>{h.cost != null ? Number(h.cost).toFixed(2) : '—'}</span>
+                    <span style={{color:muteColor,opacity:0.6}}>→</span>
+                    <span style={{color:muteColor,letterSpacing:'0.12em',fontSize:9,opacity:0.8}}>現價</span>
+                    <span>{h.price != null ? Number(h.price).toFixed(2) : '—'}</span>
+                  </div>
+
                   {/* L3：分類 tags（filled chip） */}
                   {(meta?.industry || meta?.strategy) && (
                     <div className="wb-tags" style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
