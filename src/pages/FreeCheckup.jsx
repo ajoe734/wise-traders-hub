@@ -4943,7 +4943,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
                   <button
                     onClick={() => {
-                      if (isDemo) { showDemoLockToast('即時更新行事曆'); return; }
+                      // demo 模式也允許測試行事曆更新
                       manualRefreshCalendar();
                     }}
                     disabled={calBusy || !holdings || holdings.length === 0 || calCool > 0}
