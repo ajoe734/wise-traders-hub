@@ -91,11 +91,16 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                 )}
               </button>
             )}
+            {isAdmin && (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/company">管理後台</Link>
+              </Button>
+            )}
             {user && !hideAppEntry ? (
               <Button size="sm" asChild>
                 <Link to="/app">進入會員區</Link>
               </Button>
-            ) : (
+            ) : !user ? (
               <>
                 <Button variant="ghost" size="sm" asChild>
                   <Link to="/auth/login">登入</Link>
@@ -104,7 +109,7 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                   <Link to="/auth/register">免費註冊</Link>
                 </Button>
               </>
-            )}
+            ) : null}
           </div>
 
           {/* Mobile: Theme Toggle + Menu Button */}
