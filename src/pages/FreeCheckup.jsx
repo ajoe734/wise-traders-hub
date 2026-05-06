@@ -740,6 +740,13 @@ export default function App() {
   const [predictLastError, setPredictLastError] = useState(null);
   // 收盤分析錯誤：{ code, message, cid, opStartedAt, httpStatus, at }
   const [dailyLastError, setDailyLastError] = useState(null);
+  // DEMO 收盤分析模式：'static'（預錄範例）｜'live'（呼叫真實 AI + 知識庫）
+  const [demoDailyMode, setDemoDailyMode] = useState(() => {
+    try { return localStorage.getItem('pf-demo-daily-mode') === 'live' ? 'live' : 'static'; } catch { return 'static'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('pf-demo-daily-mode', demoDailyMode); } catch {}
+  }, [demoDailyMode]);
   const dailyLastErrorRef = useRef(null);
   useEffect(() => { dailyLastErrorRef.current = dailyLastError; }, [dailyLastError]);
   // 重試按鈕的瞬時鎖定：點擊後立即為 true，避免在 setAnalyzing 尚未 flush 前重複送出
