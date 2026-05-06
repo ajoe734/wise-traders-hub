@@ -3875,7 +3875,16 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const dec    = decisionsMap[h.code];
               const actionLabel = dec?.actionType === 'exit' ? 'EXIT' : dec?.actionType === 'review' ? 'REVIEW' : 'HOLD';
               const isActive = selectedCode === h.code;
-              const pctVal = h.pct ?? 0;
+              // 漲跌幅：成本與現價都存在時，用「現價/成本-1」現場重算，避免 h.pct 不同步舊值
+              const _costNum = Number(h.cost);
+              const _priceNum = Number(h.price);
+              const pctVal = (_costNum > 0 && Number.isFinite(_priceNum))
+                ? ((_priceNum / _costNum) - 1) * 100
+                : (h.pct ?? 0);
+              // 同步重算未實現損益顯示
+              const pnlVal = (_costNum > 0 && Number.isFinite(_priceNum) && Number.isFinite(Number(h.qty)))
+                ? Math.round((_priceNum - _costNum) * Number(h.qty))
+                : Math.round(h.pnl || 0);
               const sparkData = sparklines[h.code] || [];
               const sparkFailed = !!sparklineErrors[h.code]; // P3: 同步失敗（區分「無資料」與「失敗」）
 
