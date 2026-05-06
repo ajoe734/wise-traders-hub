@@ -11,8 +11,8 @@ import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { useCheckupPlans } from '@/hooks/useCheckupPlans';
-import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
-import cardKungfuBones from '@/assets/card-kungfu-bones.png';
+import cardKungfuSpeed from '@/assets/card-kungfu-speed.webp';
+import cardKungfuBones from '@/assets/card-kungfu-bones.webp';
 
 const Pricing = () => {
   const [exampleModalOpen, setExampleModalOpen] = useState(false);
