@@ -2076,8 +2076,8 @@ export default function App() {
   // ── 每日收盤分析 ─────────────────────────────────────────────────
   const runDailyAnalysis = async () => {
     if (analyzing) return;
-    // ── DEMO 模式：模擬完整收盤分析流程，最後套用 DEMO_ANALYSIS ──
-    if (isDemo) {
+    // ── DEMO 模式（靜態）：模擬完整收盤分析流程，最後套用 DEMO_ANALYSIS ──
+    if (isDemo && demoDailyMode === 'static') {
       setAnalyzing(true);
       setDailyLastError(null);
       try {
@@ -2088,13 +2088,28 @@ export default function App() {
           { label: '策略大腦進化中...', min: 1000, max: 1600 },
         ], setAnalyzeStep);
         const demoToday = new Date().toLocaleDateString('zh-TW').replace(/-/g, '/');
+        // 從目前 demo 持倉模擬 changes，讓報告檔數與持倉一致
+        const demoChanges = (H || []).map(h => {
+          const base = Number(h.price ?? h.cost) || 0;
+          const yesterday = base > 0 ? +(base / (1 + (Math.random() * 0.04 - 0.02))).toFixed(2) : base;
+          const change = +(base - yesterday).toFixed(2);
+          const changePct = yesterday ? +(((base / yesterday) - 1) * 100).toFixed(2) : 0;
+          return {
+            code: h.code, name: h.name, type: h.type,
+            price: base, yesterday, change, changePct,
+            cost: h.cost, qty: h.qty,
+            todayPnl: Math.round(change * (h.qty || 0)),
+            totalPnl: Math.round((base - h.cost) * (h.qty || 0)),
+            totalPct: h.cost ? Math.round(((base / h.cost) - 1) * 10000) / 100 : 0,
+          };
+        }).sort((a, b) => b.changePct - a.changePct);
         const demoReport = {
           id: Date.now(),
           date: demoToday,
           time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
-          totalTodayPnl: 0,
-          changes: [],
-          anomalies: [],
+          totalTodayPnl: demoChanges.reduce((s, c) => s + c.todayPnl, 0),
+          changes: demoChanges,
+          anomalies: demoChanges.filter(c => Math.abs(c.changePct) > 3),
           eventCorrelations: [],
           needsReview: [],
           autoVerified: [],
@@ -2104,7 +2119,7 @@ export default function App() {
         setDailyReport(demoReport);
         setAnalysisHistory(prev => [demoReport, ...(prev || []).filter(r => r.date !== demoToday)].slice(0, 30));
         setStrategyBrain(DEMO_BRAIN_UPDATED);
-        setSaved('DEMO 分析完成，登入後可儲存你的真實報告');
+        setSaved('DEMO 分析完成（靜態範例）');
         setTimeout(() => setSaved(''), 4000);
       } finally {
         setAnalyzing(false);
@@ -2112,8 +2127,8 @@ export default function App() {
       }
       return;
     }
-    // 非 demo 但未登入 → 引導登入
-    if (!supabaseUser?.id) {
+    // 非 demo 但未登入 → 引導登入（demo + live 模式直接放行，跑真實 AI 流程）
+    if (!isDemo && !supabaseUser?.id) {
       setSaved('請先登入後再使用收盤分析');
       setTimeout(() => setSaved(''), 4000);
       navigate('/auth/login?redirect=/checkup');
