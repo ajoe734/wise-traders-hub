@@ -2289,7 +2289,6 @@ ${losers.map(h=>{
 
         const analyzeController = new AbortController();
         const analyzeTimer = setTimeout(() => analyzeController.abort(), 120000); // 2 min timeout
-        let aiData = null;
         let aiHttpStatus = 200;
         let aiErrBody = '';
         try {
