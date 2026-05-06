@@ -22,14 +22,15 @@ import {
   ChevronDown,
   Lightbulb
 } from 'lucide-react';
-import featureXianren from '@/assets/feature-xianren.png';
-import featureSanpai from '@/assets/feature-sanpai.png';
-import featureJiaodai from '@/assets/feature-jiaodai.png';
-import featureFiveFactions from '@/assets/feature-five-factions.png';
-import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
-import cardKungfuBones from '@/assets/card-kungfu-bones.png';
+import featureXianren from '@/assets/feature-xianren.webp';
+import featureSanpai from '@/assets/feature-sanpai.webp';
+import featureJiaodai from '@/assets/feature-jiaodai.webp';
+import featureFiveFactions from '@/assets/feature-five-factions.webp';
+import cardKungfuSpeed from '@/assets/card-kungfu-speed.webp';
+import cardKungfuBones from '@/assets/card-kungfu-bones.webp';
 import { VsBrushMark } from '@/components/VsBrushMark';
 import { WeeklyLimitUpLeaderboard } from '@/components/WeeklyLimitUpLeaderboard';
+import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
 import useEmblaCarousel from 'embla-carousel-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -1042,6 +1043,7 @@ const Index = () => {
       `}</style>
 
       {/* Real Interface Preview Section */}
+      <LazyOnVisible minHeight={600}>
       <section id="preview-section" className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
@@ -1247,8 +1249,10 @@ const Index = () => {
           </div>
         </div>
       </section>
+      </LazyOnVisible>
 
       {/* Stock Dashboard Section - 持股看板（紫色主視覺） */}
+      <LazyOnVisible minHeight={500}>
       <section className="py-section bg-background">
         <div className="container">
           <div className="max-w-6xl mx-auto">
@@ -1330,8 +1334,10 @@ const Index = () => {
           </div>
         </div>
       </section>
+      </LazyOnVisible>
 
       {/* Weekly Limit Up Leaderboard */}
+      <LazyOnVisible minHeight={400}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
@@ -1343,8 +1349,10 @@ const Index = () => {
           </div>
         </div>
       </section>
+      </LazyOnVisible>
 
       {/* How It Works - Dual Path */}
+      <LazyOnVisible minHeight={400}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
@@ -1415,8 +1423,10 @@ const Index = () => {
           </div>
         </div>
       </section>
+      </LazyOnVisible>
 
       {/* Final CTA - Dual Product */}
+      <LazyOnVisible minHeight={300}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="max-w-2xl mx-auto text-center">
@@ -1446,6 +1456,7 @@ const Index = () => {
           </div>
         </div>
       </section>
+      </LazyOnVisible>
 
     </PortalLayout>
   );
