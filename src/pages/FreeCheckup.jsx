@@ -2127,11 +2127,11 @@ export default function App() {
       }
       return;
     }
-    // 未登入 → 引導登入（即時 AI / 知識庫 需要 JWT 才能扣配額與寫 hits，demo+live 也不例外）
-    if (!supabaseUser?.id) {
-      setSaved(isDemo ? '即時 AI 模式需先登入（會扣配額）。請改用「靜態範例」或登入後再試。' : '請先登入後再使用收盤分析');
-      setTimeout(() => setSaved(''), 5000);
-      if (!isDemo) navigate('/auth/login?redirect=/checkup');
+    // 非 demo 但未登入 → 引導登入（demo+live 直接放行，edge function 已支援 demo 旗標免驗證）
+    if (!isDemo && !supabaseUser?.id) {
+      setSaved('請先登入後再使用收盤分析');
+      setTimeout(() => setSaved(''), 4000);
+      navigate('/auth/login?redirect=/checkup');
       return;
     }
     if (hasReachedDailyLimit) {
@@ -2297,6 +2297,7 @@ ${losers.map(h=>{
             signal: analyzeController.signal,
             silent: true,
             body: {
+              demo: isDemo,
               systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
 你擁有用戶過去所有分析的記憶（策略大腦），必須基於累積的教訓和規則來給出建議。
 用戶是積極型事件驅動交易者，持有股票+權證，專注電子科技族群。
@@ -2423,6 +2424,7 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
           const brainData = await callEdge('checkup-analyze', {
             silent: true,
             body: {
+              demo: isDemo,
               kind: 'brain-update',
               systemPrompt: `你是策略知識庫管理器。根據今日分析結果，更新策略大腦。
 回傳**純JSON**格式（不要markdown code block），結構：

@@ -134,8 +134,12 @@ Deno.serve(async (req) => {
 
     // brain-update 是收盤分析的內部 follow-up（同一次健檢的延伸），仍要驗 JWT 但不扣配額
     const isBrainUpdate = body?.kind === 'brain-update';
+    // demo 模式：免登入、不扣配額（僅供 FreeCheckup demo 渲染測試使用）
+    const isDemo = body?.demo === true;
     let quotaSnapshot: any = null;
-    if (!isBrainUpdate) {
+    if (isDemo) {
+      // 跳過驗證，直接放行
+    } else if (!isBrainUpdate) {
       const quota = await consumeCheckupQuota(req, 'daily-analysis', corsHeaders);
       if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
       quotaSnapshot = quota.quota;
