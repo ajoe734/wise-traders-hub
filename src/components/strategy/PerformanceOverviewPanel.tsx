@@ -69,13 +69,21 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   }, [totalReturnPct]);
 
   const periodStats = useMemo(() => {
-    if (!performanceData.length) return { best: undefined, worst: undefined };
-    let best: StockPerf | undefined;
-    let worst: StockPerf | undefined;
-    performanceData.forEach(p => {
-      if (p.topStock && (!best || p.topStock.returnPct > best.returnPct)) best = p.topStock;
-      if (p.bottomStock && (!worst || p.bottomStock.returnPct < worst.returnPct)) worst = p.bottomStock;
-    });
+    if (!performanceData.length) return { best: undefined as StockPerf | undefined, worst: undefined as StockPerf | undefined };
+    // 取最後一個 bucket 的 rangeStocks（區間級報酬，會隨週/月/年 tab 變化）
+    const last = performanceData[performanceData.length - 1];
+    const rs = last?.rangeStocks || [];
+    if (!rs.length) return { best: undefined, worst: undefined };
+    const sorted = [...rs].sort((a, b) => b.returnPct - a.returnPct);
+    const top = sorted[0];
+    const bot = sorted[sorted.length - 1];
+    const best: StockPerf | undefined = top
+      ? { symbol: top.symbol, name: top.name, returnPct: top.returnPct }
+      : undefined;
+    // 只有真的存在不同檔且報酬較低時才顯示 worst（單檔時只顯示 best）
+    const worst: StockPerf | undefined = bot && top && bot.symbol !== top.symbol
+      ? { symbol: bot.symbol, name: bot.name, returnPct: bot.returnPct }
+      : undefined;
     return { best, worst };
   }, [performanceData]);
 

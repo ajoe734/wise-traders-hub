@@ -18,6 +18,8 @@ export interface PeriodBucket {
   topStock?: { symbol: string; name: string; returnPct: number };
   bottomStock?: { symbol: string; name: string; returnPct: number };
   stocks: StockTrade[];
+  /** 區間級各股報酬（僅最後一個 bucket 會帶；提供 best/worst 使用） */
+  rangeStocks?: StockTrade[];
 }
 
 type ViewPeriod = 'yearly' | 'monthly' | 'weekly';
@@ -170,6 +172,83 @@ function perStockSnapshot(
   return out;
 }
 
+/** Per-stock PnL ($) at end of day D */
+function perStockPnLAt(trades: RawTrade[], D: Date, todayKey: string): Map<string, number> {
+  const Dts = D.getTime();
+  const map = new Map<string, number>();
+  for (const t of trades) {
+    if (!t.entry_date) continue;
+    const entryTs = new Date(t.entry_date).getTime();
+    if (entryTs > Dts) continue;
+    const qty = Number(t.quantity || 0);
+    const entryPrice = Number(t.entry_price || 0);
+    if (!qty || !entryPrice) continue;
+    const exitTs = t.exit_date ? new Date(t.exit_date).getTime() : null;
+    let pnl = 0;
+    if (exitTs !== null && exitTs <= Dts) {
+      pnl = (Number(t.exit_price || 0) - entryPrice) * qty;
+    } else {
+      const isToday = fmtDay(D) === todayKey;
+      const mark = isToday ? Number(t.current_price ?? entryPrice) : entryPrice;
+      pnl = (mark - entryPrice) * qty;
+    }
+    map.set(t.instrument, (map.get(t.instrument) || 0) + pnl);
+  }
+  return map;
+}
+
+/** 計算 [rangeStart, rangeEnd] 區間內各檔的「區間報酬」 */
+function perStockRangeReturn(
+  trades: RawTrade[],
+  rangeStart: Date,
+  rangeEnd: Date,
+  todayKey: string
+): StockTrade[] {
+  const startPrior = new Date(rangeStart);
+  startPrior.setDate(startPrior.getDate() - 1);
+  startPrior.setHours(23, 59, 59, 999);
+
+  const pnlEnd = perStockPnLAt(trades, rangeEnd, todayKey);
+  const pnlPrior = perStockPnLAt(trades, startPrior, todayKey);
+
+  // costBase：區間內任一時點曾持有的成本（簡化為 Σ entry_price × qty，僅算 entry_date ≤ rangeEnd）
+  const costMap = new Map<string, { cost: number; sample: RawTrade }>();
+  for (const t of trades) {
+    if (!t.entry_date) continue;
+    const entryTs = new Date(t.entry_date).getTime();
+    if (entryTs > rangeEnd.getTime()) continue;
+    const qty = Number(t.quantity || 0);
+    const entryPrice = Number(t.entry_price || 0);
+    if (!qty || !entryPrice) continue;
+    const cur = costMap.get(t.instrument) || { cost: 0, sample: t };
+    cur.cost += entryPrice * qty;
+    costMap.set(t.instrument, cur);
+  }
+
+  const out: StockTrade[] = [];
+  costMap.forEach((v, instrument) => {
+    if (v.cost <= 0) return;
+    const pnlInRange = (pnlEnd.get(instrument) || 0) - (pnlPrior.get(instrument) || 0);
+    const ret = (pnlInRange / v.cost) * 100;
+    const t = v.sample;
+    const entryDate = t.entry_date || '';
+    const holdingDays = entryDate
+      ? Math.max(1, Math.round((rangeEnd.getTime() - new Date(entryDate).getTime()) / 86400000))
+      : 1;
+    out.push({
+      symbol: instrument,
+      name: instrument,
+      returnPct: Math.round(ret * 100) / 100,
+      entryDate,
+      holdingDays,
+      entryPrice: Number(t.entry_price || 0),
+      currentPrice: Number(t.current_price ?? t.exit_price ?? t.entry_price ?? 0),
+      contributionNote: `區間報酬 ${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%`,
+    });
+  });
+  return out;
+}
+
 export function usePeriodPerformance(expertId: string | undefined, period: ViewPeriod) {
   return useQuery({
     queryKey: ['period-performance-v2', expertId, period],
@@ -201,8 +280,13 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
 
       const labelOf = (d: Date) => (period === 'yearly' ? fmtMonth(d) : fmtDay(d));
 
+      // rangeStart：該 period 區間的起始日（與 dates[0] 對應）
+      const rangeStart = dates[0] ? new Date(dates[0]) : new Date();
+      const rangeEnd = dates[dates.length - 1] ? new Date(dates[dates.length - 1]) : new Date();
+      const rangeStocks = perStockRangeReturn(trades, rangeStart, rangeEnd, todayKey);
+
       let prevCum = 0;
-      return dates.map((d) => {
+      const buckets = dates.map((d) => {
         const pnl = snapshotPnL(trades, d, todayKey);
         const cum = startingCapital > 0 ? (pnl / startingCapital) * 100 : 0;
         const periodReturn = cum - prevCum;
@@ -227,8 +311,12 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
           topStock,
           bottomStock,
           stocks,
-        };
+        } as PeriodBucket;
       });
+
+      // 把區間級 rangeStocks 掛在最後一個 bucket（PerformanceOverviewPanel 會讀）
+      if (buckets.length) buckets[buckets.length - 1].rangeStocks = rangeStocks;
+      return buckets;
     },
     enabled: !!expertId,
     staleTime: 60_000,
