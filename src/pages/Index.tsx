@@ -1456,6 +1456,7 @@ const Index = () => {
           </div>
         </div>
       </section>
+      </LazyOnVisible>
 
     </PortalLayout>
   );
