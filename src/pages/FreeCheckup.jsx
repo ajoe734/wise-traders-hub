@@ -2253,6 +2253,7 @@ export default function App() {
       // 6. 呼叫 Claude API 產生策略分析（含策略大腦上下文）
       setAnalyzeStep("AI 策略分析中（約15-30秒）...");
       let aiInsight = null;
+      let aiData = null;
       try {
         const holdingSummary = changes.map(c =>
           `${c.name}(${c.code}) 今日${c.changePct >= 0 ? "+" : ""}${c.changePct.toFixed(2)}% 累計${c.totalPct >= 0 ? "+" : ""}${c.totalPct}%`
