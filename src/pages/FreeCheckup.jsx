@@ -4957,7 +4957,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   >{calBusy ? '⟳ 更新中…' : (calCool>0 ? `↻ 冷卻中 ${calCoolSec}s` : '↻ 立刻更新行事曆')}</button>
                   <button
                     onClick={() => {
-                      if (isDemo) { showDemoLockToast('即時預測事件'); return; }
+                      // demo 模式也允許測試事件預測
                       runPredictEvents(true);
                     }}
                     disabled={preBusy || !newsEvents || newsEvents.length === 0 || preCool > 0}
