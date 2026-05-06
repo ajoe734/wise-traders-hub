@@ -111,9 +111,8 @@ function snapshotPnL(trades: RawTrade[], D: Date, todayKey: string): number {
       const exitPrice = Number(t.exit_price || 0);
       pnl += (exitPrice - entryPrice) * qty;
     } else {
-      // open at end of D — mark price
-      const isToday = fmtDay(D) === todayKey;
-      const mark = isToday ? Number(t.current_price ?? entryPrice) : entryPrice;
+      // open at end of D — 沒有歷史日線資料，以最新 current_price 為近似
+      const mark = Number(t.current_price ?? entryPrice);
       pnl += (mark - entryPrice) * qty;
     }
   }
