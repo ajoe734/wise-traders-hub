@@ -1334,8 +1334,10 @@ const Index = () => {
           </div>
         </div>
       </section>
+      </LazyOnVisible>
 
       {/* Weekly Limit Up Leaderboard */}
+      <LazyOnVisible minHeight={400}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
@@ -1347,8 +1349,10 @@ const Index = () => {
           </div>
         </div>
       </section>
+      </LazyOnVisible>
 
       {/* How It Works - Dual Path */}
+      <LazyOnVisible minHeight={400}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
