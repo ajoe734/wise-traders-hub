@@ -22,12 +22,12 @@ import {
   ChevronDown,
   Lightbulb
 } from 'lucide-react';
-import featureXianren from '@/assets/feature-xianren.png';
-import featureSanpai from '@/assets/feature-sanpai.png';
-import featureJiaodai from '@/assets/feature-jiaodai.png';
-import featureFiveFactions from '@/assets/feature-five-factions.png';
-import cardKungfuSpeed from '@/assets/card-kungfu-speed.png';
-import cardKungfuBones from '@/assets/card-kungfu-bones.png';
+import featureXianren from '@/assets/feature-xianren.webp';
+import featureSanpai from '@/assets/feature-sanpai.webp';
+import featureJiaodai from '@/assets/feature-jiaodai.webp';
+import featureFiveFactions from '@/assets/feature-five-factions.webp';
+import cardKungfuSpeed from '@/assets/card-kungfu-speed.webp';
+import cardKungfuBones from '@/assets/card-kungfu-bones.webp';
 import { VsBrushMark } from '@/components/VsBrushMark';
 import { WeeklyLimitUpLeaderboard } from '@/components/WeeklyLimitUpLeaderboard';
 import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
