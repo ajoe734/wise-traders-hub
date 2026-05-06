@@ -18,6 +18,8 @@ export interface PeriodBucket {
   topStock?: { symbol: string; name: string; returnPct: number };
   bottomStock?: { symbol: string; name: string; returnPct: number };
   stocks: StockTrade[];
+  /** 區間級各股報酬（僅最後一個 bucket 會帶；提供 best/worst 使用） */
+  rangeStocks?: StockTrade[];
 }
 
 type ViewPeriod = 'yearly' | 'monthly' | 'weekly';
