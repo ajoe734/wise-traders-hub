@@ -30,6 +30,7 @@ import cardKungfuSpeed from '@/assets/card-kungfu-speed.webp';
 import cardKungfuBones from '@/assets/card-kungfu-bones.webp';
 import { VsBrushMark } from '@/components/VsBrushMark';
 import { WeeklyLimitUpLeaderboard } from '@/components/WeeklyLimitUpLeaderboard';
+import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
 import useEmblaCarousel from 'embla-carousel-react';
 import { useCallback, useEffect, useState } from 'react';
