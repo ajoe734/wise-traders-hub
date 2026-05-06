@@ -2297,6 +2297,7 @@ ${losers.map(h=>{
             signal: analyzeController.signal,
             silent: true,
             body: {
+              demo: isDemo,
               systemPrompt: `你是一位專業的台股策略分析師，也是用戶的長期策略顧問。
 你擁有用戶過去所有分析的記憶（策略大腦），必須基於累積的教訓和規則來給出建議。
 用戶是積極型事件驅動交易者，持有股票+權證，專注電子科技族群。
