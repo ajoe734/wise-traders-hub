@@ -1,95 +1,39 @@
-## 目標
-讓你不用每天進後台盯著看：知識庫條目自動分流到三個池子，由排程器自動觸發回測／網格救援／升降級，後台只在「需要你決策」時通知你。
+## 任務一：移除錯誤的免責聲明
 
----
+`src/components/layouts/PortalLayout.tsx` 第 233–236 行的 footer 同時印了：
+- 公司資訊「© 2026 海洋福星生物科技股份有限公司（統編：83479669）」
+- 「投資一定有風險，基金投資有賺有賠，申購前應詳閱公開說明書。」
 
-## 一、生命週期：三段式 `lifecycle_status`
+第二行是基金業用語，與我們「教學平台」定位不符。
 
-新增欄位 `lifecycle_status`（取代純 `is_active` 的二元觀念，`is_active` 仍保留給對外 prompt 使用）：
+**做法**：
+- 移除「投資一定有風險…公開說明書」這一行
+- 公司名稱與統編是法人識別資訊，建議保留（教學平台仍須揭露營業主體）。如果你希望整段都拿掉，告訴我，我會一併刪掉第 234 行。
+- 同步檢查 `src/pages/Legal.tsx` 第 89 行「投資一定有風險，過去的績效不代表未來的表現」這句屬「教學免責」性質，是合理保留的，不動。
 
-| 狀態 | 中文 | 是否進 AI prompt | 說明 |
-|---|---|---|---|
-| `active` | 使用中 | ✅ 是 | 已驗證或編輯認可，正常餵給 Free Checkup |
-| `candidate` | 備選 | ❌ 否 | 新建 / 網格搜尋產出的新版，等樣本累積到門檻才升 active |
-| `rescue` | 救援中 | ⚠️ 降權（confidence × 0.5） | 表現掉到救援線，正在跑網格找新參數，找到就升 candidate |
-| `archived` | 已歸檔 | ❌ 否 | 救援失敗或被新版取代 |
+## 任務二：首頁載入慢的診斷
 
-預設遷移：現有 `is_active=true` → `active`；`is_active=false`（已被 archive_and_promote 換掉的）→ `archived`。
+首頁 `src/pages/Index.tsx` 自身只有兩個 `useEffect`（輪播 hint 計時），沒有阻塞性 fetch；唯一資料來源是 `useWeeklyLeaderboard`，但它是非阻塞渲染（`isLoading` 由子元件處理）。
 
----
+可能的真正原因（需實測才能確認）：
+1. **首屏資產過大**：Index.tsx 1454 行 + 多張 PNG（`feature-xianren`、`card-kungfu-*` 等）+ embla-carousel + WeeklyLimitUpLeaderboard，全部走主 bundle，沒有 code-split。
+2. **字型/外部資源**：`index.html` 預連 Google Fonts（Ma Shan Zheng）+ AppShell 內再 `@import` Inter，FOUT/阻塞。
+3. **首頁 query 多重 round-trip**：weekly leaderboard RPC 若慢會拖累互動但不應卡白屏。
+4. **Cloud 後端延遲**：若 Lovable Cloud 實例壅塞，所有 supabase 呼叫都會慢。
 
-## 二、自動排程（不用人盯）
+**做法（按效益排序）**：
+1. 用 `browser--performance_profile` + `browser--start_profiling` 實際量測首頁載入瓶頸（LCP、long tasks、最慢的 script / network），先看到數據再下藥。
+2. 對 `Index.tsx` 做 **route-level code-split**：把首頁拆成 `lazy()` chunk；把「導師排行榜」「VS 輪播」等下半部 section 改 `React.lazy` + `Suspense`，只在進入 viewport 才載入。
+3. 把 hero 之外的圖片改 `loading="lazy" decoding="async"`，並考慮 WebP（目前是 PNG）。
+4. 移除 `AppShellFrame.jsx` 內動態 `@import` Inter 字型（已經在 `index.html` preconnect Google Fonts，重複載入會阻塞）。
+5. 若量測顯示是後端慢，再依 Lovable Cloud 指引建議升級實例。
 
-延伸現有 `knowledge_auto_rules`（已經有「每週日 03:00」的框架），改成 **每日 03:00**，分階段做事：
+## 執行順序
 
-```text
-每日 03:00 (Asia/Taipei)
- ├─ Step 1: 全量回測（只跑樣本 < 30 或 last_run > 7 天的條目，省成本）
- ├─ Step 2: 套用門檻 → 自動分流
- │    win_rate ≥ promote_above_win_rate (預設 70%) 且 n ≥ 30  → 升信心、保持 active
- │    win_rate ≤ archive_below_win_rate    (預設 40%) 且 n ≥ 30  → 進 rescue（不直接歸檔！）
- │    archive_below < win_rate < auto_grid_search_below (55%)    → 進 rescue
- │    其他                                                          → 維持 active
- ├─ Step 3: 對 rescue 池條目自動跑網格搜尋（每天最多 N 個，避免炸 API）
- │    找到改善 ≥ promote_min_improvement_pct (5%) 的參數 → 建立 candidate（新版）
- │    找不到 → 留在 rescue，連續 3 週救不起來 → archived + 通知你
- └─ Step 4: 對 candidate 池條目觀察 14 天實戰命中
-       n ≥ 30 且 win_rate 不低於原版 → 自動升 active，原版降 archived
-       n < 30 → 繼續觀察
-       win_rate 反而更差 → archived
-```
+1. 先改 footer（30 秒內完成，立即可見）
+2. 進入 default mode 後跑 performance profile，根據實測結果套用第 2–4 點優化
+3. 把實測前/後的 LCP、TTI 數字回報給你
 
-**所有自動動作寫 audit_logs**，後台首頁顯示「過去 7 天自動處理摘要」。
+## 需要你確認
 
----
-
-## 三、後台 UI 改動
-
-`KnowledgeBase.tsx` 列表加 **狀態 Tab**：
-
-```text
-[使用中 142] [備選 8] [救援中 3] [已歸檔 27]
-```
-
-- **使用中**：和現在一樣
-- **備選**：顯示「觀察天數 / 累積樣本 / vs 原版勝率」，可手動「立即升級」或「直接淘汰」
-- **救援中**：顯示「進入救援日期 / 已嘗試網格次數 / 最佳改善%」，可手動「強制歸檔」或「重跑網格」
-- **已歸檔**：顯示「歸檔原因」（救援失敗 / 被 v2 取代 / 手動）
-
-頂部加 **🔔 待決策清單**：只有「救援 3 週仍無解」「candidate 觀察期滿」這類需要你拍板的項目會冒泡，其他全自動走完。
-
----
-
-## 四、技術改動範圍
-
-### Schema（migration）
-1. `checkup_knowledge_items` 加 `lifecycle_status text default 'active'`、`rescue_started_at`、`rescue_attempts int default 0`、`candidate_observed_since`
-2. `knowledge_auto_rules` 加 `daily_grid_search_quota int default 5`、`rescue_max_weeks int default 3`、`candidate_observe_days int default 14`
-3. `getRelevantKnowledge` 的查詢從 `is_active=true` 改成 `lifecycle_status IN ('active','rescue')`，rescue 的 effectiveScore 自動 ×0.5
-
-### Edge Functions
-- 新增 `knowledge-daily-scheduler`（cron 03:00）：跑 Step 1–4
-- 沿用現有 `knowledge-grid-search`，被 scheduler 呼叫
-- 沿用現有 `knowledge-backtest-batch`
-
-### Frontend
-- `KnowledgeBase.tsx`：加狀態 tab + 待決策卡片
-- `AutoRulesPanel.tsx`：加 daily_grid_search_quota / rescue_max_weeks / candidate_observe_days 三個欄位
-
----
-
-## 五、為什麼這樣設計能兼顧「不用盯」與「準確度」
-
-1. **rescue 不直接砍**：勝率掉了先降權（×0.5）但仍在線，避免知識庫突然斷層；網格搶救成功率歷史經驗約 30–50%。
-2. **candidate 觀察期**：新版本不直接上線，先用 14 天 / 30 樣本驗證，避免「網格 overfit」污染主庫。
-3. **每日小步快跑**：每天最多 5 條跑網格，API 成本可預期；7 天內全庫輪一遍。
-4. **只在僵局通知你**：90% 的條目自動走完生命週期，你只看「救 3 週仍救不起來」「candidate 該不該升」這類真正需要人判斷的。
-
----
-
-## 驗證
-- 手動把某條目 win_rate 調到 30% → 隔天應變 rescue
-- rescue 條目跑網格找到 +8% → 自動建 candidate（新 item_id 帶 `-v2`）
-- 連續 3 週 rescue 無解 → 自動 archived 並進「待決策」清單通知
-
-要我就照這個動工嗎？或你想先調哪個門檻（例如 rescue_max_weeks 想設 4 週、candidate_observe_days 想設 7 天）？
+footer 第 234 行「© 2026 海洋福星生物科技股份有限公司（統編：83479669）」要**保留**還是**一起刪掉**？
