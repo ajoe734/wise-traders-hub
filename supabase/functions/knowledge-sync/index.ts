@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
       }
 
       for (const cloud of cloudRows) {
-        if (cloud.is_active && !localIds.has(cloud.item_id) && isStale(category, cloud)) {
+        if (cloud.is_active && !localIds.has(cloud.item_id) && isStale(category, cloud, localIds)) {
           toDeactivate.push(cloud);
         }
       }
