@@ -258,7 +258,74 @@ const ExpertProfile = () => {
         </section>
 
 
+        {/* ── 策略簡介 Section ── */}
+        {(expertInfo.styleTags.length > 0 || expertInfo.markets.length > 0 || expertInfo.riskPreference || expertInfo.operationCycle || expertInfo.strategyName || expertInfo.strategySummary) && (
+          <section>
+            <div className="flex items-center gap-2 mb-6">
+              <Award className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
+              <h2 className="text-h3">策略簡介</h2>
+            </div>
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* 投資風格 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base text-muted-foreground font-medium">投資風格</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {expertInfo.styleTags.length > 0 && (
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-2">風格標籤</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {expertInfo.styleTags.map(tag => (
+                          <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {expertInfo.markets.length > 0 && (
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-2">主要市場</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {expertInfo.markets.map(m => (
+                          <Badge key={m} variant="outline" className="text-xs">{m}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">風險偏好</div>
+                      <div className="text-sm font-medium">{expertInfo.riskPreference || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">操作週期</div>
+                      <div className="text-sm font-medium">{expertInfo.operationCycle || '—'}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
+              {/* 交易系統 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base text-muted-foreground font-medium">交易系統</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {expertInfo.strategyName ? (
+                    <div className="text-lg font-semibold">{expertInfo.strategyName}</div>
+                  ) : (
+                    <div className="text-lg font-semibold text-muted-foreground">尚未命名</div>
+                  )}
+                  {expertInfo.strategySummary && (
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      {expertInfo.strategySummary}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+        )}
 
         {/* ── Performance Section ── */}
         <section>
