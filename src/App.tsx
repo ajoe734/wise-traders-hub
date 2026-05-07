@@ -15,8 +15,8 @@ import {
 import { useSignalRealtimeInvalidation } from "@/hooks/useSignalRealtimeInvalidation";
 import { useAttributionTracking } from "@/hooks/useAttributionTracking";
 
-// Homepage stays eager so the landing route paints without an extra chunk fetch
-import Index from "./pages/Index";
+// All route components are lazy-loaded so the initial bundle stays small
+const Index = lazy(() => import("./pages/Index"));
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
 import { ScrollToTop } from "./components/ScrollToTop";
