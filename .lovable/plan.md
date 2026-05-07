@@ -1,52 +1,31 @@
 ## 目標
+分析師發布訊號／週記後，僅在「台灣自然日同一天」內可收回（rollback）；跨日後一律禁止，避免事後修改真實績效。Mentor 與 Advisor 都套用。
 
-把「帳號權限管理」頁面 (`/company/users`) 擴充成完整的帳號管理中心，管理員能對所有使用者執行：指派/移除角色、停權/解除、重設密碼、編輯顯示名稱與 expert_slug、刪除帳號。
+## 變更
 
-## 後端：擴充 `admin-manage-users` edge function
+### 1. `src/lib/publishingWindow.ts` — 新增 `canRecallSignal(publishedAt)` helper
+- 把 `published_at` 與 `now()` 都轉成 Asia/Taipei 自然日（YYYY-MM-DD）做字串比對
+- 同一天 → `{ ok: true }`；跨日 → `{ ok: false, reason: '已過發布當日（台灣時間），不可收回' }`
+- `published_at` 為 null（mentor pending）→ `ok: true`
 
-在現有 `list / set_role / set_tester` 之外新增以下 actions（皆需 `company_admin`，皆寫入 `audit_logs`）：
+### 2. `src/pages/admin/Signals.tsx` — 前端守衛
+- `handleRecall` 開頭呼叫 `canRecallSignal(target.published_at)`，不通過 → `toast.error(reason)` 直接 return
+- 批次模式：以「批次中最早的 published_at」判斷
+- 兩個收回按鈕（行內 Undo2、頂部 recall）的 `disabled` 與 `title` 加入跨日判斷：
+  - `disabled`: 既有條件 `||` `!canRecallSignal(signal.published_at).ok`
+  - 移除原本「Mentor published 完全不可收回」的特例（改由同日規則統一控管；mentor 發布日當天仍可收回）
 
-1. **`set_banned`** — `{ user_id, banned: boolean }`
-   - 用 `admin.auth.admin.updateUserById(user_id, { ban_duration: banned ? '876000h' : 'none' })` (~100 年 = 永久停權)
-   - 自我保護：不能停權自己
-2. **`send_password_reset`** — `{ user_id }`
-   - 取得 email 後呼叫 `admin.auth.admin.generateLink({ type: 'recovery', email })`
-   - 透過 Resend (已設定 `RESEND_API_KEY`) 寄送重設連結，主旨「重設您的密碼」
-   - Line 虛擬信箱 (`*@line.local`) 拒絕並回傳 `line_account_no_email`
-3. **`update_profile`** — `{ user_id, display_name?, expert_slug? }`
-   - 用 service role 更新 `profiles`（繞過 `protect_profile_fields` trigger）
-   - `expert_slug` 需檢查唯一性
-4. **`delete_user`** — `{ user_id }`
-   - 自我保護 + last-admin 保護
-   - 呼叫 `admin.auth.admin.deleteUser(user_id)`，CASCADE 會清掉 profiles / user_roles / 訂閱
+### 3. DB 觸發器 — 後端硬限制（最後一道防線）
+新增 migration：在 `expert_signals` 上加 `BEFORE UPDATE` trigger `enforce_recall_same_day`
+- 當 `OLD.status='published' AND NEW.status='taken_down'`
+- 若 caller 是 `company_admin` → 放行
+- 否則檢查 `(OLD.published_at AT TIME ZONE 'Asia/Taipei')::date = (now() AT TIME ZONE 'Asia/Taipei')::date`，否則 `RAISE EXCEPTION 'RECALL_EXPIRED: 已過發布當日，不可收回'`
+- 同樣覆蓋直接 DELETE：另加 `BEFORE DELETE` trigger 對 `published` 訊號做相同檢查
 
-每個 action 都記 `audit_logs`：`account.ban / account.unban / account.password_reset / account.update_profile / account.delete`。
+### 4. 記憶
+更新 `mem://logic/trading/publishing-window-restrictions`：補上「rollback 限發布當日台灣時間」規則。
 
-## 前端：改寫 `src/pages/company/Users.tsx`
-
-擴充 `UserRow` 介面新增 `banned_until: string | null`。Edge function 的 `list` 回傳裡用 `usersList?.users` 內的 `banned_until` 欄位帶出。
-
-UI 改動：
-- 表格新增「狀態」欄（顯示 `已停權` badge）
-- 每列右側新增「⋯」操作選單（DropdownMenu），包含：
-  - 編輯資料（開 Dialog 編輯 `display_name` 與 `expert_slug`）
-  - 寄送密碼重設信
-  - 停權／解除停權（toggle）
-  - 刪除帳號（紅色，二次確認 Dialog 需輸入 email 確認）
-- 既有的 管理員 / 分析師 / Tester Switch 欄位保留
-- 篩選列加入 `已停權` 篩選
-
-所有操作沿用既有 `callAction` helper，操作後 `await load()` 重整。
-
-## 技術細節
-
-- 寄信走現有 Resend 模板樣式（參考 `infrastructure/email-notifications-resend` 記憶）。寄件來源沿用專案 `noreply@legendflow.tw`（若已驗證），主旨與內容用繁體中文，連結為 `generateLink` 回傳的 `action_link`，附 60 分鐘有效期說明。
-- Ban 機制使用 Supabase Auth 內建 `ban_duration`，`'none'` 解除、`'876000h'` 永久。前端判斷 `banned_until && new Date(banned_until) > new Date()` 視為停權中。
-- 刪除使用者前，UI 需強制使用者輸入該帳號 email 字串才能啟用「確認刪除」按鈕，避免誤刪。
-- `expert_slug` 衝突直接由 DB unique constraint（若存在）擋下；edge function 將錯誤訊息原樣回傳，前端 toast 顯示。
-- 不修改任何 RLS 或 DB schema；全部走 service role edge function。
-
-## 檔案
-
-- `supabase/functions/admin-manage-users/index.ts` — 新增 4 個 action + list 回傳 banned_until
-- `src/pages/company/Users.tsx` — 表格欄位、DropdownMenu、編輯/刪除 Dialog
+## 不動範圍
+- `pending` 狀態（mentor 隔日 cron 才 publish）依然隨時可收回
+- Company admin 仍可全時收回（用於人工修正）
+- 撤回後的 trade_records / user_performances 清理邏輯不變
