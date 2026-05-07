@@ -1136,10 +1136,13 @@ export type Database = {
           id: string
           markets: string[] | null
           name: string
+          operation_cycle: string | null
+          risk_preference: string | null
           role: Database["public"]["Enums"]["expert_role"]
           slug: string
           starting_capital: number | null
           status: string
+          strategy_name: string | null
           strategy_summary: string | null
           style_tags: string[] | null
           user_id: string
@@ -1156,10 +1159,13 @@ export type Database = {
           id?: string
           markets?: string[] | null
           name: string
+          operation_cycle?: string | null
+          risk_preference?: string | null
           role: Database["public"]["Enums"]["expert_role"]
           slug: string
           starting_capital?: number | null
           status?: string
+          strategy_name?: string | null
           strategy_summary?: string | null
           style_tags?: string[] | null
           user_id: string
@@ -1176,10 +1182,13 @@ export type Database = {
           id?: string
           markets?: string[] | null
           name?: string
+          operation_cycle?: string | null
+          risk_preference?: string | null
           role?: Database["public"]["Enums"]["expert_role"]
           slug?: string
           starting_capital?: number | null
           status?: string
+          strategy_name?: string | null
           strategy_summary?: string | null
           style_tags?: string[] | null
           user_id?: string
