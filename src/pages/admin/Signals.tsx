@@ -1239,8 +1239,8 @@ const AdminSignals = () => {
                                        variant="ghost"
                                        className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
                                        onClick={() => handleRecall(signal.id)}
-                                       disabled={recalling || isReadOnly || (isMentor && signal.status === 'published')}
-                                       title={isMentor && signal.status === 'published' ? '已發布的週記不可收回' : undefined}
+                                       disabled={recalling || isReadOnly || !canRecallSignal((signal as any).published_at).ok}
+                                       title={!canRecallSignal((signal as any).published_at).ok ? canRecallSignal((signal as any).published_at).reason : undefined}
                                      >
                                        <Undo2 className="h-3 w-3" />收回
                                      </Button>
