@@ -13,6 +13,7 @@ import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverv
 import { supabase } from "@/integrations/supabase/client";
 import { useExpert } from "@/hooks/useExpert";
 import { Loader2 } from "lucide-react";
+import { avatarUrl } from "@/lib/imageTransform";
 import { useQuery } from "@tanstack/react-query";
 
 
