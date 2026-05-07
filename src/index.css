@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+/* Noto Sans TC + Inter 由 index.html 以 async stylesheet 載入，避免 render-blocking */
 
 @font-face {
   font-family: 'Longyin Brush';
