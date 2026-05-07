@@ -54,7 +54,7 @@ const Explore = () => {
                   <CardContent className="p-4">
                     <div className="flex gap-4">
                       <Avatar className="h-16 w-16 rounded-lg">
-                        <AvatarImage src={expert.avatarUrl} alt={expert.name} />
+                        <AvatarImage src={avatarUrl(expert.avatarUrl, 128)} alt={expert.name} loading="lazy" decoding="async" />
                         <AvatarFallback className="rounded-lg">{expert.name[0]}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
