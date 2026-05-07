@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { cn } from '@/lib/utils';
+import { avatarUrl } from '@/lib/imageTransform';
 
 interface PersonCardProps {
   person: PersonWithPlans;
@@ -27,7 +28,7 @@ export function PersonCard({ person }: PersonCardProps) {
       <CardContent className="p-0">
         <div className="p-5">
           <div className="flex items-start gap-4">
-            <img src={person.avatarUrl || '/placeholder.svg'} alt={person.name} className="h-14 w-14 rounded-full object-cover ring-2 ring-muted" />
+            <img src={avatarUrl(person.avatarUrl, 112)} alt={person.name} loading="lazy" decoding="async" className="h-14 w-14 rounded-full object-cover ring-2 ring-muted" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-lg">{person.name}</h3>

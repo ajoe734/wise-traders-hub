@@ -13,6 +13,7 @@ import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverv
 import { supabase } from "@/integrations/supabase/client";
 import { useExpert } from "@/hooks/useExpert";
 import { Loader2 } from "lucide-react";
+import { avatarUrl } from "@/lib/imageTransform";
 import { useQuery } from "@tanstack/react-query";
 
 
@@ -134,7 +135,7 @@ const AppExpertDetail = () => {
 
         <div className="flex items-start gap-4">
           <Avatar className={`h-20 w-20 border-2 ${isAdvisor ? 'border-advisor/20' : 'border-mentor/20'}`}>
-            <AvatarImage src={expert.avatarUrl} alt={expert.name} />
+            <AvatarImage src={avatarUrl(expert.avatarUrl, 160)} alt={expert.name} loading="lazy" decoding="async" />
             <AvatarFallback>{expert.name[0]}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
