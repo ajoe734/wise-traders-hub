@@ -43,7 +43,8 @@ export function ExpertCard({ person }: ExpertCardProps) {
       <CardContent className="p-0">
         <div className="p-5">
           <div className="flex items-start gap-4">
-            <img src={person.avatarUrl || '/placeholder.svg'} alt={person.name}
+            <img src={avatarUrl(person.avatarUrl, 160)} alt={person.name}
+              loading="lazy" decoding="async"
               className={cn("h-20 w-20 rounded-full object-cover object-[center_15%] ring-2",
                 isAdv ? "ring-advisor/20 dark:ring-advisor/40" : "ring-mentor/20 dark:ring-mentor/40")} />
             <div className="flex-1 min-w-0">
