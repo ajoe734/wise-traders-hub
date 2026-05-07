@@ -1,62 +1,93 @@
-## 問題定位（已驗證）
+## 目標
+正式區 `/experts` FCP 6.3s → 目標 ≤ 2.5s。動 5 個地方。
 
-DB 實況（剛查 `public.experts`）：
-- 林修齊（lin-xiuqi）→ `status = suspended`
-- 趙鵬博（zhao-pengbo）→ `status = suspended`
-- 彥愷（sharkgu）→ `status = active`
+---
 
-DB RLS 沒問題：`Anyone can view active experts` policy = `status='active' OR (status='draft' AND is_tester)`，suspended 不會曝光給一般訪客。
+### 1. `index.html` — 字型 async 載入 + preconnect Supabase
 
-**真正 Bug 在 `src/hooks/useExpert.ts` 的 `getVisibilityMode` / `filterExpertRows`：**
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://yqacmrgdjlenbijclngi.supabase.co" crossorigin>
+<link rel="preload" as="style" href="...Noto+Sans+TC...Inter...">
+<link rel="stylesheet" href="...Noto+Sans+TC...Inter..." media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="..."></noscript>
+<link rel="stylesheet" href="...Ma+Shan+Zheng..." media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="...Ma+Shan+Zheng..."></noscript>
+```
+
+砍掉 `src/index.css` 第 1 行的 `@import url('...Noto Sans TC...Inter...')`（重複且 render-blocking）。
+
+預計：FCP 砍 ~1.2s。
+
+---
+
+### 2. `src/App.tsx` — `Index` 改 lazy
 
 ```ts
-if (user?.roles.includes('company_admin') || user?.roles.includes('analyst')) {
-  return 'privileged';  // ← privileged mode 直接 return rows; 不過濾任何 status
+const Index = lazy(() => import("./pages/Index"));
+```
+
+第 19 行的 eager import 移除。`<Suspense>` 已包覆 `<Routes>`，不需要額外 fallback。
+
+---
+
+### 3. `vite.config.ts` — 把 lucide-react 全併到單一 vendor chunk，避免 per-icon 拆檔
+
+```ts
+build: {
+  rollupOptions: {
+    output: {
+      manualChunks(id) {
+        if (id.includes('node_modules/lucide-react')) return 'vendor-lucide';
+        if (id.includes('node_modules/@supabase')) return 'vendor-supabase';
+        if (id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'vendor-react';
+      },
+    },
+  },
+},
+```
+
+正式區現在每個 icon 一個 1KB chunk，每個 1.5～2s（CDN round-trip）。合併後一次 fetch。
+
+---
+
+### 4. avatar 走 Supabase Image Transform
+
+5 個檔案要改：`src/components/ExpertCard.tsx`、`src/components/PersonCard.tsx`、`src/pages/ExpertProfile.tsx`、`src/pages/app/ExpertDetail.tsx`、`src/pages/app/Explore.tsx`。
+
+新增 `src/lib/imageTransform.ts`：
+
+```ts
+export function avatarUrl(url?: string | null, size = 160): string {
+  if (!url) return '/placeholder.svg';
+  if (!url.includes('/storage/v1/object/public/')) return url;
+  return url.replace('/object/public/', '/render/image/public/') + `?width=${size}&quality=75&resize=cover`;
 }
 ```
 
-而你目前是用 `company_admin` 帳號登入（畫面右上有「管理後台」按鈕），所以：
-1. RLS 放行所有 row（admin 有 full access policy）
-2. `filterExpertRows('privileged')` 不過濾
-3. → suspended 的林修齊、趙鵬博一起出現在 `/experts` 公開頁
+每個用到 avatar 的地方包成 `avatarUrl(person.avatarUrl, 160)`（`<img loading="lazy" decoding="async">` 也順手加）。
 
-換句話說 admin 自己在公開瀏覽頁看到的內容，跟一般訪客看到的不一致。同樣的問題也存在 `/app/explore`（同一個 `useExperts` hook）和 `src/pages/ExpertProfile.tsx`（雖然有 inline 檢查但同樣對 privileged 沒概念）。
+---
 
-## 修正計畫
+### 5. lazy 路由的 `Suspense` fallback 不要全屏 60vh blank
 
-### 1. `src/hooks/useExpert.ts` — 區分「公開瀏覽」與「後台管理」
+目前 `RouteFallback` 是 `min-height: 60vh` 空白，視覺上看起來「卡住」。改成 PortalLayout 殼 + skeleton，至少 header / nav 立即顯示，感受速度。先用最簡 skeleton：
 
-公開頁面不該因為登入身分不同而看到不同的清單。把 privileged 行為從 hook 預設拿掉，只在後台明確要求時才回傳全部。
-
-```ts
-export function useExperts(opts?: { includeAllStatuses?: boolean }) { ... }
+```tsx
+const RouteFallback = () => (
+  <div style={{ minHeight: "60vh", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div className="h-8 w-8 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
+  </div>
+);
 ```
 
-- 預設：忽略 `roles`，只看 `isTester`（active + tester 才看 draft）。suspended **永遠**過濾掉。
-- `includeAllStatuses: true`：後台管理頁（`src/pages/company/Analysts.tsx` 等）才用，會回全部。
+---
 
-`useExpert(slug)` 同樣處理：公開 profile 不允許 suspended 進入，即使是 admin。
+## 驗證
 
-### 2. 同步調整 `src/pages/ExpertProfile.tsx`
+- `bun run build` 通過、無 type error
+- 重 deploy 後到 `https://legendflow.tw/experts` 重跑 `browser--performance_profile`，比對 FCP / DCL / 資源請求數
+- 預期：FCP < 3s，icon chunks 從 8+ 降為 1 個 vendor chunk
 
-目前 inline 條件 `status === 'active' || (status === 'draft' && isTester)`——其實已正確排除 suspended，但要再 double-check 不會因為 admin user 的 RLS full access 而誤透出。維持現狀即可，加註解。
-
-### 3. 後台側維持原本「看得到 suspended」的能力
-
-`src/pages/company/Analysts.tsx` 走的是直接 `supabase.from('experts').select('*')`（不經 hook），不受影響；不用改。
-
-### 4. 更新測試
-
-`src/test/integration/1.15-suspended-expert-visibility.test.ts` 內 `getVisibilityMode` / `filterExpertRows` 的 privileged 分支語意改了，要同步：privileged mode 在公開 hook 不再回傳 suspended；改測 `useExperts({ includeAllStatuses: true })` 才會回。
-
-### 5. 驗證
-
-- 用 admin 帳號重整 `/experts` → 應只剩彥愷一張卡。
-- 用一般會員 → 一樣只剩彥愷。
-- 用 tester → 多顯示 draft，仍不顯示 suspended。
-- `/app/explore` 同步檢查。
-- 後台 `/company/analysts` 仍可看到全部 3 位（含 suspended）以便管理。
-
-## 為什麼之前「測試都過」卻仍出包
-
-既有 drift test 只驗證 `filterExpertRows('default'/'tester')` 對 suspended 的過濾，**privileged 分支被當作 by-design 全放行**。實際使用情境：admin 開啟公開頁時，這個 by-design 就變成 bug。要把「公開頁」與「後台」的資料來源語意拆乾淨。
+不動測試（現有 unit/integration 不受影響）。
