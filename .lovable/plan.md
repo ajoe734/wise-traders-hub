@@ -1,93 +1,62 @@
 ## 目標
-正式區 `/experts` FCP 6.3s → 目標 ≤ 2.5s。動 5 個地方。
+把 `/experts` FCP 從 3.9s 再往下壓到 ≤ 3.0s，處理上一輪量測剩下的三個瓶頸。
 
 ---
 
-### 1. `index.html` — 字型 async 載入 + preconnect Supabase
+### 1. `index.css` 21KB render-blocking（867ms）→ critical CSS inline + 主檔 async
 
-```html
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://yqacmrgdjlenbijclngi.supabase.co" crossorigin>
-<link rel="preload" as="style" href="...Noto+Sans+TC...Inter...">
-<link rel="stylesheet" href="...Noto+Sans+TC...Inter..." media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="..."></noscript>
-<link rel="stylesheet" href="...Ma+Shan+Zheng..." media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="...Ma+Shan+Zheng..."></noscript>
-```
+**做法**：
+- 在 `index.html` `<head>` 直接 inline 一段 ~2KB 的 critical CSS：只放 `:root` 色票變數、`html/body` 字型 + 背景、`#root { min-height: 100vh }`、spinner keyframes。讓首屏在主 CSS 還沒下載完前就有正確顏色與字型。
+- 主 `index.css`（由 Vite 注入的 `<link rel="stylesheet">`）改為非阻塞載入。Vite 預設會 inject 阻塞式 link，需要在 `index.html` 用一段 inline script 把 build 後的 stylesheet `media` 先設成 `print`、`onload` 再切回 `all`。或改用 `vite-plugin-css-injected-by-js` 之類的 plugin 把 CSS 注入 JS（不採用，會放大 JS bundle）。
 
-砍掉 `src/index.css` 第 1 行的 `@import url('...Noto Sans TC...Inter...')`（重複且 render-blocking）。
+**選定方案**：手刻 inline script，找到 `<link rel="stylesheet" ... .css>` 把 media swap 一次。理由：零依賴、可控。
 
-預計：FCP 砍 ~1.2s。
+預計：FCP 砍 ~600ms。
 
 ---
 
-### 2. `src/App.tsx` — `Index` 改 lazy
+### 2. `Experts-*.js` 路由 chunk 1,353ms → idle prefetch
+
+**做法**：
+在 `src/pages/Index.tsx`（首頁）掛一個 `useEffect` + `requestIdleCallback`，閒置時 `import('./Experts')` 觸發 chunk 預抓。同理對 `Pricing`、`Login` 等熱門路由各補一行。
 
 ```ts
-const Index = lazy(() => import("./pages/Index"));
+useEffect(() => {
+  const idle = (cb: () => void) =>
+    'requestIdleCallback' in window
+      ? (window as any).requestIdleCallback(cb, { timeout: 2000 })
+      : setTimeout(cb, 1500);
+  idle(() => {
+    import('./Experts');
+    import('./Pricing');
+  });
+}, []);
 ```
 
-第 19 行的 eager import 移除。`<Suspense>` 已包覆 `<Routes>`，不需要額外 fallback。
+預計：使用者從首頁點 `/experts` 時 chunk 已在 cache，路由切換 FCP 接近 0。
 
 ---
 
-### 3. `vite.config.ts` — 把 lucide-react 全併到單一 vendor chunk，避免 per-icon 拆檔
+### 3. `~api/analytics` XHR 1,330ms → defer 到 idle 後
 
-```ts
-build: {
-  rollupOptions: {
-    output: {
-      manualChunks(id) {
-        if (id.includes('node_modules/lucide-react')) return 'vendor-lucide';
-        if (id.includes('node_modules/@supabase')) return 'vendor-supabase';
-        if (id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'vendor-react';
-      },
-    },
-  },
-},
-```
+**做法**：
+- 全文搜尋 analytics 觸發點（`useAttributionTracking.ts` 已知是其一），把 `track / pageview` 的呼叫包到 `requestIdleCallback`（fallback `setTimeout(_, 0)` after `load`）。
+- 不影響資料完整性：就算使用者 1.3s 內離開，beacon 模式（`navigator.sendBeacon`）也能補送。如果現在用 `fetch`，順便改用 `keepalive: true`。
 
-正式區現在每個 icon 一個 1KB chunk，每個 1.5～2s（CDN round-trip）。合併後一次 fetch。
-
----
-
-### 4. avatar 走 Supabase Image Transform
-
-5 個檔案要改：`src/components/ExpertCard.tsx`、`src/components/PersonCard.tsx`、`src/pages/ExpertProfile.tsx`、`src/pages/app/ExpertDetail.tsx`、`src/pages/app/Explore.tsx`。
-
-新增 `src/lib/imageTransform.ts`：
-
-```ts
-export function avatarUrl(url?: string | null, size = 160): string {
-  if (!url) return '/placeholder.svg';
-  if (!url.includes('/storage/v1/object/public/')) return url;
-  return url.replace('/object/public/', '/render/image/public/') + `?width=${size}&quality=75&resize=cover`;
-}
-```
-
-每個用到 avatar 的地方包成 `avatarUrl(person.avatarUrl, 160)`（`<img loading="lazy" decoding="async">` 也順手加）。
-
----
-
-### 5. lazy 路由的 `Suspense` fallback 不要全屏 60vh blank
-
-目前 `RouteFallback` 是 `min-height: 60vh` 空白，視覺上看起來「卡住」。改成 PortalLayout 殼 + skeleton，至少 header / nav 立即顯示，感受速度。先用最簡 skeleton：
-
-```tsx
-const RouteFallback = () => (
-  <div style={{ minHeight: "60vh", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <div className="h-8 w-8 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
-  </div>
-);
-```
+預計：解放主執行緒 ~1.3s 的網路 + JS。
 
 ---
 
 ## 驗證
 
-- `bun run build` 通過、無 type error
-- 重 deploy 後到 `https://legendflow.tw/experts` 重跑 `browser--performance_profile`，比對 FCP / DCL / 資源請求數
-- 預期：FCP < 3s，icon chunks 從 8+ 降為 1 個 vendor chunk
+- `bun run build` 通過
+- 部署後再跑 `browser--performance_profile` `https://legendflow.tw/experts` 對比 FCP / LCP / Full Load
+- 預期：FCP 3.9s → ≤ 3.0s，路由切換感受幾乎即時
 
-不動測試（現有 unit/integration 不受影響）。
+---
+
+## 不動
+
+- 不動 TTFB（Lovable CDN 平台層，前端解不了）
+- 不動字型、lucide chunk（已在上一輪處理）
+- 不動 avatar transform（已在上一輪處理）

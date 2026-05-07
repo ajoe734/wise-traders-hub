@@ -23,6 +23,31 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Lovable" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <!-- Critical CSS — inline 首屏色票/字型/spinner，避免 21KB index.css render-blocking -->
+    <style>
+      :root{--background:0 0% 98%;--foreground:0 0% 7%;--muted-foreground:0 0% 40%;--border:0 0% 88%;--primary:4 82% 56%;--primary-foreground:0 0% 100%}
+      html{font-family:'Noto Sans TC','Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+      body{margin:0;background:hsl(var(--background));color:hsl(var(--foreground));line-height:1.45}
+      #root{min-height:100vh}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .animate-spin{animation:spin 1s linear infinite}
+    </style>
+    <script>
+      // 把 Vite 注入的主 CSS link 改為非阻塞載入
+      (function(){
+        function swap(){
+          document.querySelectorAll('link[rel="stylesheet"][href*="/assets/"][href$=".css"]').forEach(function(l){
+            if(l.dataset.asyncSwapped) return;
+            l.dataset.asyncSwapped='1';
+            l.media='print';
+            l.onload=function(){l.media='all'};
+          });
+        }
+        swap();
+        new MutationObserver(swap).observe(document.documentElement,{childList:true,subtree:true});
+      })();
+    </script>
   </head>
 
   <body>

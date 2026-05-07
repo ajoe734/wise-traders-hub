@@ -35,6 +35,20 @@ import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
 import useEmblaCarousel from 'embla-carousel-react';
 import { useCallback, useEffect, useState } from 'react';
 
+// Idle prefetch：閒置時預抓熱門路由 chunk，使用者點擊時近乎即時
+if (typeof window !== 'undefined') {
+  const w = window as Window & {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void;
+  };
+  const run = () => {
+    import('./Experts');
+    import('./Pricing');
+    import('./auth/Login');
+  };
+  if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 2000 });
+  else window.setTimeout(run, 1500);
+}
+
 
 const WeeklyLimitUpLeaderboardSection = () => {
   const { data: entries = [], isLoading } = useWeeklyLeaderboard();
