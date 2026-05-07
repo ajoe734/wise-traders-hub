@@ -61,12 +61,10 @@ const LOCAL_KB: Record<string, { items: any[] }> = {
 
 const DIFF_FIELDS = ['title', 'fact', 'interpretation', 'action', 'confidence', 'tags'] as const;
 
-function isStale(category: string, row: any): boolean {
+function isStale(category: string, row: any, localIds: Set<string>): boolean {
+  // industry_trends: 任何不在本地白名單內的條目視為過時 → 歸檔
   if (category !== 'industry_trends') return false;
-  const tags = (row.tags ?? []) as string[];
-  const has2024 = tags.some(t => t.includes('2024'));
-  const hasNew = tags.some(t => t.includes('2025') || t.includes('2026'));
-  return has2024 && !hasNew;
+  return !localIds.has(row.item_id);
 }
 
 function fieldEqual(a: any, b: any): boolean {
@@ -172,7 +170,7 @@ Deno.serve(async (req) => {
       }
 
       for (const cloud of cloudRows) {
-        if (cloud.is_active && !localIds.has(cloud.item_id) && isStale(category, cloud)) {
+        if (cloud.is_active && !localIds.has(cloud.item_id) && isStale(category, cloud, localIds)) {
           toDeactivate.push(cloud);
         }
       }

@@ -1,31 +1,26 @@
-## 目標
-分析師發布訊號／週記後，僅在「台灣自然日同一天」內可收回（rollback）；跨日後一律禁止，避免事後修改真實績效。Mentor 與 Advisor 都套用。
+## 修正：知識庫產業趨勢仍是舊資料
 
-## 變更
+### 根因
+`knowledge-sync` 的 `isStale()` 只認得 `tags 含 '2024'` 的條目；但 93 條 `ai-ind-XXXX` 舊草稿的 tags 沒有年份字串，所以從未被歸檔，導致新資料被淹沒。
 
-### 1. `src/lib/publishingWindow.ts` — 新增 `canRecallSignal(publishedAt)` helper
-- 把 `published_at` 與 `now()` 都轉成 Asia/Taipei 自然日（YYYY-MM-DD）做字串比對
-- 同一天 → `{ ok: true }`；跨日 → `{ ok: false, reason: '已過發布當日（台灣時間），不可收回' }`
-- `published_at` 為 null（mentor pending）→ `ok: true`
+### 改法（單一邊緣函式 + 一次性 SQL）
 
-### 2. `src/pages/admin/Signals.tsx` — 前端守衛
-- `handleRecall` 開頭呼叫 `canRecallSignal(target.published_at)`，不通過 → `toast.error(reason)` 直接 return
-- 批次模式：以「批次中最早的 published_at」判斷
-- 兩個收回按鈕（行內 Undo2、頂部 recall）的 `disabled` 與 `title` 加入跨日判斷：
-  - `disabled`: 既有條件 `||` `!canRecallSignal(signal.published_at).ok`
-  - 移除原本「Mentor published 完全不可收回」的特例（改由同日規則統一控管；mentor 發布日當天仍可收回）
+**1. `supabase/functions/knowledge-sync/index.ts`**
+- 重寫 `isStale()`：對 `industry_trends` 類別，**任何 cloud item_id 不在本地 LOCAL_KB 白名單內者** → 一律標記下架（`is_active=false`、`lifecycle_status=archived`、`archived_reason='replaced_by_2025_2026_refresh'`）。
+- 保留現有 5 條 `ind-01~ind-05` 為唯一 active 來源；之後要新增條目，就擴 `LOCAL_KB.industry_trends.items`。
+- 其他類別（chip_analysis / technical_analysis / strategy_cases / news_correlation）行為不變。
 
-### 3. DB 觸發器 — 後端硬限制（最後一道防線）
-新增 migration：在 `expert_signals` 上加 `BEFORE UPDATE` trigger `enforce_recall_same_day`
-- 當 `OLD.status='published' AND NEW.status='taken_down'`
-- 若 caller 是 `company_admin` → 放行
-- 否則檢查 `(OLD.published_at AT TIME ZONE 'Asia/Taipei')::date = (now() AT TIME ZONE 'Asia/Taipei')::date`，否則 `RAISE EXCEPTION 'RECALL_EXPIRED: 已過發布當日，不可收回'`
-- 同樣覆蓋直接 DELETE：另加 `BEFORE DELETE` trigger 對 `published` 訊號做相同檢查
+**2. 一次性 migration**
+- 直接 `UPDATE checkup_knowledge_items SET is_active=false, lifecycle_status='archived', archived_at=now(), archived_reason='replaced_by_2025_2026_refresh' WHERE category='industry_trends' AND item_id LIKE 'ai-ind-%' AND is_active=true;`
+- 不刪除（保留審計軌跡），僅軟下架。
 
-### 4. 記憶
-更新 `mem://logic/trading/publishing-window-restrictions`：補上「rollback 限發布當日台灣時間」規則。
+**3. 重跑 sync 驗證**
+- 部署後 invoke `knowledge-sync { dryRun: false }`，確認結果：active = 5、archived = 93。
+- 同時 SQL 抽查 `SELECT count(*) FILTER (WHERE is_active) FROM checkup_knowledge_items WHERE category='industry_trends'` 應 = 5。
 
-## 不動範圍
-- `pending` 狀態（mentor 隔日 cron 才 publish）依然隨時可收回
-- Company admin 仍可全時收回（用於人工修正）
-- 撤回後的 trade_records / user_performances 清理邏輯不變
+### 不在本次處理
+- 其餘四類知識庫的內容更新（這次只解產業趨勢殘留問題）。
+- KnowledgeBase 管理頁 UI（已能正常 CRUD，本次無需動）。
+
+### 預期結果
+前台 / `checkup-predict-events` / 任何讀 `is_active=true` 的呼叫者，產業趨勢只會看到 5 條 2025-2026 主題（CoWoS、HBM、Hybrid、AI PC、矽光子）。
