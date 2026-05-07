@@ -33,6 +33,9 @@ const AdminProfile = () => {
   const [bio, setBio] = useState('');
   const [description, setDescription] = useState('');
   const [strategySummary, setStrategySummary] = useState('');
+  const [strategyName, setStrategyName] = useState('');
+  const [riskPreference, setRiskPreference] = useState('');
+  const [operationCycle, setOperationCycle] = useState('');
   const [styleTags, setStyleTags] = useState<string[]>([]);
   const [markets, setMarkets] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
@@ -65,6 +68,9 @@ const AdminProfile = () => {
       setBio(data.bio || '');
       setDescription(data.description || '');
       setStrategySummary((data as any).strategy_summary || '');
+      setStrategyName((data as any).strategy_name || '');
+      setRiskPreference((data as any).risk_preference || '');
+      setOperationCycle((data as any).operation_cycle || '');
       setStyleTags(data.style_tags || []);
       setMarkets(data.markets || []);
       if (data.starting_capital != null) {
@@ -83,13 +89,16 @@ const AdminProfile = () => {
       bio,
       description,
       strategy_summary: strategySummary,
+      strategy_name: strategyName || null,
+      risk_preference: riskPreference || null,
+      operation_cycle: operationCycle || null,
       style_tags: styleTags,
       markets,
     } as any).eq('id', expert.id);
     setSaving(false);
     if (error) { toast.error('儲存失敗：' + error.message); return; }
     toast.success('已儲存');
-    setExpert({ ...expert, name, bio, description, strategy_summary: strategySummary, style_tags: styleTags, markets });
+    setExpert({ ...expert, name, bio, description, strategy_summary: strategySummary, strategy_name: strategyName, risk_preference: riskPreference, operation_cycle: operationCycle, style_tags: styleTags, markets });
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
