@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { avatarUrl } from '@/lib/imageTransform';
 import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
 
 interface DbPlan {
