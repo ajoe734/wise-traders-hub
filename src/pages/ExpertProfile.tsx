@@ -28,6 +28,9 @@ interface ExpertInfo {
   bio: string;
   description: string;
   strategySummary: string;
+  strategyName: string;
+  riskPreference: string;
+  operationCycle: string;
   avatarUrl: string;
   role: 'advisor' | 'mentor';
   styleTags: string[];
@@ -62,7 +65,7 @@ const ExpertProfile = () => {
 
       const { data: expert } = await supabase
         .from('experts')
-        .select('id, name, bio, description, avatar_url, role, style_tags, markets, status, strategy_summary, backtest_1y_return, backtest_max_drawdown, backtest_annual_return')
+        .select('id, name, bio, description, avatar_url, role, style_tags, markets, status, strategy_summary, strategy_name, risk_preference, operation_cycle, backtest_1y_return, backtest_max_drawdown, backtest_annual_return')
         .eq('slug', slug)
         .single();
 
@@ -86,6 +89,9 @@ const ExpertProfile = () => {
         bio: expert.bio || '',
         description: expert.description || '',
         strategySummary: (expert as any).strategy_summary || '',
+        strategyName: (expert as any).strategy_name || '',
+        riskPreference: (expert as any).risk_preference || '',
+        operationCycle: (expert as any).operation_cycle || '',
         avatarUrl: expert.avatar_url || '/placeholder.svg',
         role: expert.role as 'advisor' | 'mentor',
         styleTags: expert.style_tags || [],

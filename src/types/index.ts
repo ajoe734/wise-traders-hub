@@ -80,6 +80,9 @@ export interface Person {
   timeframe?: string;
   lineChannelId?: string;
   startingCapital?: number | null;
+  riskPreference?: string | null;
+  operationCycle?: string | null;
+  strategyName?: string | null;
 }
 
 export interface TradingSystem {
