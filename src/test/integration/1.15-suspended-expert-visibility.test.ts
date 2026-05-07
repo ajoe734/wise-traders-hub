@@ -41,12 +41,17 @@ describe('getVisibilityMode（能見度模式判斷）', () => {
     expect(getVisibilityMode({ roles: [], isTester: true })).toBe('tester');
   });
 
-  it('company_admin 角色 → 回傳 privileged', () => {
-    expect(getVisibilityMode({ roles: ['company_admin'], isTester: false })).toBe('privileged');
+  it('company_admin 角色在公開頁 → 仍回傳 default（避免 admin 看到 suspended 而與訪客不一致）', () => {
+    expect(getVisibilityMode({ roles: ['company_admin'], isTester: false })).toBe('default');
   });
 
-  it('analyst 角色 → 回傳 privileged', () => {
-    expect(getVisibilityMode({ roles: ['analyst'], isTester: false })).toBe('privileged');
+  it('analyst 角色在公開頁 → 仍回傳 default', () => {
+    expect(getVisibilityMode({ roles: ['analyst'], isTester: false })).toBe('default');
+  });
+
+  it('明確帶 includeAllStatuses=true（後台管理頁）→ 回傳 privileged', () => {
+    expect(getVisibilityMode({ roles: ['company_admin'], isTester: false }, { includeAllStatuses: true })).toBe('privileged');
+    expect(getVisibilityMode(null, { includeAllStatuses: true })).toBe('privileged');
   });
 });
 

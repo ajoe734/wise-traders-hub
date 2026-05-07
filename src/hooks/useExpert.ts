@@ -5,8 +5,21 @@ import { useAuth } from '@/contexts/AuthContext';
 
 type ExpertVisibilityMode = 'default' | 'tester' | 'privileged';
 
-export function getVisibilityMode(user: { isTester: boolean; roles: Array<'company_admin' | 'analyst'> } | null): ExpertVisibilityMode {
-  if (user?.roles.includes('company_admin') || user?.roles.includes('analyst')) {
+/**
+ * 公開瀏覽用的能見度判斷。
+ *
+ * 注意：即使 user 是 company_admin / analyst，公開頁面（/experts、/app/explore、
+ * /expert/:slug）也**不會**回傳 'privileged'。原因是 admin 在公開頁瀏覽時，
+ * 看到的清單必須與一般訪客一致；否則會出現「admin 看得到 suspended 專家、
+ * 訪客看不到」的不對稱（曾因此把已停用的專家誤露在公開頁上）。
+ *
+ * 'privileged' 僅保留給後台管理頁透過 `includeAllStatuses: true` 主動要求。
+ */
+export function getVisibilityMode(
+  user: { isTester: boolean; roles: Array<'company_admin' | 'analyst'> } | null,
+  opts?: { includeAllStatuses?: boolean },
+): ExpertVisibilityMode {
+  if (opts?.includeAllStatuses) {
     return 'privileged';
   }
 
@@ -23,6 +36,7 @@ export function filterExpertRows(rows: any[], visibilityMode: ExpertVisibilityMo
   }
 
   if (visibilityMode === 'tester') {
+    // tester 預覽 draft（既有語意），suspended 永遠排除
     return rows.filter((row) => row.status === 'draft');
   }
 
@@ -62,9 +76,9 @@ export function mapToPersonWithPlans(row: any): PersonWithPlans {
   };
 }
 
-export function useExperts() {
+export function useExperts(opts?: { includeAllStatuses?: boolean }) {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const visibilityMode = getVisibilityMode(user);
+  const visibilityMode = getVisibilityMode(user, opts);
 
   return useQuery({
     queryKey: ['experts', user?.id ?? 'guest', visibilityMode],
@@ -81,9 +95,9 @@ export function useExperts() {
   });
 }
 
-export function useExpert(slug: string | undefined) {
+export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?: boolean }) {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const visibilityMode = getVisibilityMode(user);
+  const visibilityMode = getVisibilityMode(user, opts);
 
   return useQuery({
     queryKey: ['expert', slug, user?.id ?? 'guest', visibilityMode],
