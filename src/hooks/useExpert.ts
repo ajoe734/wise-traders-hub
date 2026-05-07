@@ -76,9 +76,9 @@ export function mapToPersonWithPlans(row: any): PersonWithPlans {
   };
 }
 
-export function useExperts() {
+export function useExperts(opts?: { includeAllStatuses?: boolean }) {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const visibilityMode = getVisibilityMode(user);
+  const visibilityMode = getVisibilityMode(user, opts);
 
   return useQuery({
     queryKey: ['experts', user?.id ?? 'guest', visibilityMode],
@@ -95,9 +95,9 @@ export function useExperts() {
   });
 }
 
-export function useExpert(slug: string | undefined) {
+export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?: boolean }) {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const visibilityMode = getVisibilityMode(user);
+  const visibilityMode = getVisibilityMode(user, opts);
 
   return useQuery({
     queryKey: ['expert', slug, user?.id ?? 'guest', visibilityMode],
