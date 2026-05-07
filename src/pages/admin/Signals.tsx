@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2, Lightbulb, Target, AlertTriangle, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { isPublishingWindowOpen } from '@/lib/publishingWindow';
+import { isPublishingWindowOpen, canRecallSignal } from '@/lib/publishingWindow';
 import { fetchAnalystSignals } from '@/lib/analystDataAccess';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { useFormDraft } from '@/hooks/useFormDraft';
