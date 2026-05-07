@@ -1,62 +1,65 @@
+# /expert/:slug 改版：對齊設計圖
+
 ## 目標
-把 `/experts` FCP 從 3.9s 再往下壓到 ≤ 3.0s，處理上一輪量測剩下的三個瓶頸。
+讓 `/expert/:slug`（公開專家頁）符合設計圖：在 Hero 之下、績效之上，新增「策略簡介」區段，內含**投資風格**與**交易系統**兩張並排卡片。
 
----
+## 改動概覽
 
-### 1. `index.css` 21KB render-blocking（867ms）→ critical CSS inline + 主檔 async
+### 1. 資料層（DB migration）
+`experts` 表新增 3 個欄位（皆 nullable，不破壞現有資料）：
 
-**做法**：
-- 在 `index.html` `<head>` 直接 inline 一段 ~2KB 的 critical CSS：只放 `:root` 色票變數、`html/body` 字型 + 背景、`#root { min-height: 100vh }`、spinner keyframes。讓首屏在主 CSS 還沒下載完前就有正確顏色與字型。
-- 主 `index.css`（由 Vite 注入的 `<link rel="stylesheet">`）改為非阻塞載入。Vite 預設會 inject 阻塞式 link，需要在 `index.html` 用一段 inline script 把 build 後的 stylesheet `media` 先設成 `print`、`onload` 再切回 `all`。或改用 `vite-plugin-css-injected-by-js` 之類的 plugin 把 CSS 注入 JS（不採用，會放大 JS bundle）。
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `risk_preference` | text | 風險偏好（保守 / 穩健 / 積極） |
+| `operation_cycle` | text | 操作週期（短線 / 波段 / 長線） |
+| `strategy_name` | text | 交易系統名稱（例：「價值持有 — 高股息選股」） |
 
-**選定方案**：手刻 inline script，找到 `<link rel="stylesheet" ... .css>` 把 media swap 一次。理由：零依賴、可控。
+`strategy_summary` 既有欄位繼續使用，當作交易系統卡的「一句話描述」。
 
-預計：FCP 砍 ~600ms。
+### 2. 編輯介面
+兩處後台表單同步加入欄位：
+- `src/pages/admin/Profile.tsx`（分析師自編）
+- 公司管理端對應 experts 編輯入口（若有）
 
----
+UI：兩個 select（風險、週期）+ 一個 input（strategy_name）。
 
-### 2. `Experts-*.js` 路由 chunk 1,353ms → idle prefetch
+### 3. 公開頁版面 `src/pages/ExpertProfile.tsx`
 
-**做法**：
-在 `src/pages/Index.tsx`（首頁）掛一個 `useEffect` + `requestIdleCallback`，閒置時 `import('./Experts')` 觸發 chunk 預抓。同理對 `Pricing`、`Login` 等熱門路由各補一行。
+```text
+┌─────────────────── Hero（保留）──────────────────┐
+│  Avatar  Name + RoleBadge                       │
+│         bio / 社群佐證                           │
+└──────────────────────────────────────────────────┘
 
-```ts
-useEffect(() => {
-  const idle = (cb: () => void) =>
-    'requestIdleCallback' in window
-      ? (window as any).requestIdleCallback(cb, { timeout: 2000 })
-      : setTimeout(cb, 1500);
-  idle(() => {
-    import('./Experts');
-    import('./Pricing');
-  });
-}, []);
+── 策略簡介 ─────────────────────────────────────
+┌──────────────────┐  ┌──────────────────┐
+│ 投資風格          │  │ 交易系統          │
+│ • 風格標籤        │  │  strategy_name    │
+│ • 主要市場        │  │  strategy_summary │
+│ • 風險偏好        │  │                   │
+│ • 操作週期        │  │                   │
+└──────────────────┘  └──────────────────┘
+
+── 績效總覽（保留現有 PerformanceOverviewPanel）──
+── 訂閱方案（保留）──────────────────────────────
 ```
 
-預計：使用者從首頁點 `/experts` 時 chunk 已在 cache，路由切換 FCP 接近 0。
+- 桌機 `md:` 兩欄並排，手機單欄堆疊
+- 卡片採極簡 Kore-eda 風（off-white、無陰影、border 0.06）
+- 標題 `策略簡介` 用既有 `SectionHeader`
 
----
+### 4. 型別與 hook
+- `src/types/index.ts`：`PersonWithPlans` 加 `riskPreference`、`operationCycle`、`strategyName`
+- `src/hooks/useExpert.ts`：`mapToPersonWithPlans` 新增三欄映射
+- `src/integrations/supabase/types.ts` 自動更新
 
-### 3. `~api/analytics` XHR 1,330ms → defer 到 idle 後
-
-**做法**：
-- 全文搜尋 analytics 觸發點（`useAttributionTracking.ts` 已知是其一），把 `track / pageview` 的呼叫包到 `requestIdleCallback`（fallback `setTimeout(_, 0)` after `load`）。
-- 不影響資料完整性：就算使用者 1.3s 內離開，beacon 模式（`navigator.sendBeacon`）也能補送。如果現在用 `fetch`，順便改用 `keepalive: true`。
-
-預計：解放主執行緒 ~1.3s 的網路 + JS。
-
----
+### 不動
+- Hero、績效面板、訂閱方案區塊內容邏輯
+- `/app/expert/:slug`（會員端）暫不改，避免一次動太多
+- 既有 `style_tags` / `markets` 仍以 badge 呈現於投資風格卡
 
 ## 驗證
-
-- `bun run build` 通過
-- 部署後再跑 `browser--performance_profile` `https://legendflow.tw/experts` 對比 FCP / LCP / Full Load
-- 預期：FCP 3.9s → ≤ 3.0s，路由切換感受幾乎即時
-
----
-
-## 不動
-
-- 不動 TTFB（Lovable CDN 平台層，前端解不了）
-- 不動字型、lucide chunk（已在上一輪處理）
-- 不動 avatar transform（已在上一輪處理）
+1. Migration 後 admin 編輯 → 公開頁顯示新欄位
+2. 舊資料（無 risk_preference）卡片需有 fallback「—」或隱藏該列
+3. 手機 390/560px 不溢出
+4. `bun run build` 通過

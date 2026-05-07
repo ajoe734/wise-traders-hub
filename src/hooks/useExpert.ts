@@ -59,6 +59,9 @@ export function mapToPersonWithPlans(row: any): PersonWithPlans {
     backtestMaxDrawdown: row.backtest_max_drawdown ?? null,
     backtestAnnualReturn: row.backtest_annual_return ?? null,
     startingCapital: row.starting_capital ?? null,
+    riskPreference: row.risk_preference ?? null,
+    operationCycle: row.operation_cycle ?? null,
+    strategyName: row.strategy_name ?? null,
     plans: (row.expert_plans || [])
       .filter((p: any) => p.is_active)
       .map((p: any): Plan => ({
