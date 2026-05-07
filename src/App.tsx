@@ -136,7 +136,9 @@ const AttributionTracker = () => {
 };
 
 const RouteFallback = () => (
-  <div style={{ minHeight: "60vh" }} aria-busy="true" />
+  <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div className="h-8 w-8 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
+  </div>
 );
 
 const AppShell = () => (
