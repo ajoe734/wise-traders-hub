@@ -385,7 +385,7 @@ const CompanyAnalysts = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>姓名</Label>
-                    <Input value={name} onChange={e => setName(e.target.value)} placeholder="趙彭博" />
+                    <Input value={name} onChange={e => setName(e.target.value)} placeholder="趙鵬博" />
                   </div>
                   <div className="space-y-2">
                     <Label>Slug（URL識別）</Label>
@@ -495,7 +495,7 @@ const CompanyAnalysts = () => {
               </div>
               <div className="space-y-2">
                 <Label>顯示名稱（選填）</Label>
-                <Input value={lineChannelName} onChange={e => setLineChannelName(e.target.value)} placeholder="例：趙彭博｜訊號通知" />
+                <Input value={lineChannelName} onChange={e => setLineChannelName(e.target.value)} placeholder="例：趙鵬博｜訊號通知" />
               </div>
               <div className="space-y-2">
                 <Label>Bot Basic ID</Label>

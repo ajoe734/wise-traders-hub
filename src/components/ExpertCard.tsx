@@ -13,7 +13,7 @@ interface ExpertCardProps {
 
 export function ExpertCard({ person }: ExpertCardProps) {
   const isAdv = person.role === 'advisor';
-  const isFeatured = person.name.includes('趙彭博');
+  const isFeatured = (person as any).isFeatured === true || person.name.includes('趙鵬博');
 
   const planLabels = person.plans.map(plan => {
     switch (plan.planType as PlanType) {
