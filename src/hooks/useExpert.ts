@@ -36,8 +36,8 @@ export function filterExpertRows(rows: any[], visibilityMode: ExpertVisibilityMo
   }
 
   if (visibilityMode === 'tester') {
-    // tester 可看 active + draft，suspended 永遠排除
-    return rows.filter((row) => row.status === 'active' || row.status === 'draft');
+    // tester 預覽 draft（既有語意），suspended 永遠排除
+    return rows.filter((row) => row.status === 'draft');
   }
 
   return rows.filter((row) => row.status === 'active');
