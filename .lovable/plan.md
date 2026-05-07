@@ -1,26 +1,29 @@
-## 修正：知識庫產業趨勢仍是舊資料
+## 問題根因
 
-### 根因
-`knowledge-sync` 的 `isStale()` 只認得 `tags 含 '2024'` 的條目；但 93 條 `ai-ind-XXXX` 舊草稿的 tags 沒有年份字串，所以從未被歸檔，導致新資料被淹沒。
+`src/components/ExpertCard.tsx` 第 16 行：
 
-### 改法（單一邊緣函式 + 一次性 SQL）
+```ts
+const isFeatured = person.name.includes('趙彭博');  // ❌ 鵬 vs 彭
+```
 
-**1. `supabase/functions/knowledge-sync/index.ts`**
-- 重寫 `isStale()`：對 `industry_trends` 類別，**任何 cloud item_id 不在本地 LOCAL_KB 白名單內者** → 一律標記下架（`is_active=false`、`lifecycle_status=archived`、`archived_reason='replaced_by_2025_2026_refresh'`）。
-- 保留現有 5 條 `ind-01~ind-05` 為唯一 active 來源；之後要新增條目，就擴 `LOCAL_KB.industry_trends.items`。
-- 其他類別（chip_analysis / technical_analysis / strategy_cases / news_correlation）行為不變。
+實際資料庫與畫面顯示的是 **趙鵬博**（鵬），所以 `isFeatured` 永遠是 `false` —— 之前你以為已加上的「🔥 熱門推薦」金色徽章 + 金色 ring 從來沒在這位分析師卡片上出現過。截圖裡兩張卡視覺權重完全相同，就是這個原因。
 
-**2. 一次性 migration**
-- 直接 `UPDATE checkup_knowledge_items SET is_active=false, lifecycle_status='archived', archived_at=now(), archived_reason='replaced_by_2025_2026_refresh' WHERE category='industry_trends' AND item_id LIKE 'ai-ind-%' AND is_active=true;`
-- 不刪除（保留審計軌跡），僅軟下架。
+另外 `src/pages/company/Analysts.tsx` 第 388、498 行的 placeholder 也用了同樣的錯字「趙彭博」，會誤導後台運營人員打錯名字，未來新增分析師會踩同一顆雷。
 
-**3. 重跑 sync 驗證**
-- 部署後 invoke `knowledge-sync { dryRun: false }`，確認結果：active = 5、archived = 93。
-- 同時 SQL 抽查 `SELECT count(*) FILTER (WHERE is_active) FROM checkup_knowledge_items WHERE category='industry_trends'` 應 = 5。
+## 修復內容
 
-### 不在本次處理
-- 其餘四類知識庫的內容更新（這次只解產業趨勢殘留問題）。
-- KnowledgeBase 管理頁 UI（已能正常 CRUD，本次無需動）。
+1. **`src/components/ExpertCard.tsx`**
+   - 把 `'趙彭博'` 改成 `'趙鵬博'`。
+   - 順便讓 featured 判斷不要硬綁姓名 → 改用更穩的條件：優先檢查 `person.isFeatured` 欄位（若型別有），fallback 才用姓名比對 `'趙鵬博'`。避免下次改名又斷掉。
 
-### 預期結果
-前台 / `checkup-predict-events` / 任何讀 `is_active=true` 的呼叫者，產業趨勢只會看到 5 條 2025-2026 主題（CoWoS、HBM、Hybrid、AI PC、矽光子）。
+2. **`src/pages/company/Analysts.tsx`**
+   - 兩處 placeholder「趙彭博」→「趙鵬博」。
+
+3. **驗證**
+   - 重新開 `/experts` 頁面，確認趙鵬博卡片右上角出現琥珀色「熱門推薦」徽章 + 整張卡有 `ring-2 ring-amber-500/50` 金邊。
+   - 林修齊那張不應有徽章。
+
+## 沒動到什麼
+
+- 角色品牌色（advisor 紅 / mentor 藍）不動，符合 mem 裡的 expert-role-branding 規則。
+- 上次猜的「CTA 按鈕顏色錯」是錯方向 —— advisor 用紅色 CTA 是 token 設計，不是 bug。
