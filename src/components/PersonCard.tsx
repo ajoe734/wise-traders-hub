@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { cn } from '@/lib/utils';
+import { avatarUrl } from '@/lib/imageTransform';
 
 interface PersonCardProps {
   person: PersonWithPlans;
