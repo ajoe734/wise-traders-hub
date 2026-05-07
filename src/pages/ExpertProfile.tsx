@@ -213,8 +213,10 @@ const ExpertProfile = () => {
           <div className="relative px-6 py-10 md:px-10 md:py-14">
             <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-start">
               <img
-                src={expertInfo.avatarUrl}
+                src={avatarUrl(expertInfo.avatarUrl, 320)}
                 alt={expertInfo.name}
+                loading="eager"
+                decoding="async"
                 className={cn(
                   "h-32 w-32 md:h-40 md:w-40 rounded-2xl object-cover ring-4 shadow-xl",
                   isAdvisor ? "ring-advisor/30" : "ring-mentor/30"
