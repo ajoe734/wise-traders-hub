@@ -10,6 +10,7 @@ import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { ExpertRole } from "@/types";
 import { useExperts } from "@/hooks/useExpert";
 import { useSubscribedExpertSlugs } from "@/hooks/useSubscriptions";
+import { avatarUrl } from "@/lib/imageTransform";
 
 type RoleFilter = "all" | "advisor" | "mentor";
 
