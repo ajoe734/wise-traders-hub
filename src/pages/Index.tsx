@@ -37,15 +37,16 @@ import { useCallback, useEffect, useState } from 'react';
 
 // Idle prefetch：閒置時預抓熱門路由 chunk，使用者點擊時近乎即時
 if (typeof window !== 'undefined') {
-  const idle = (cb: () => void) =>
-    'requestIdleCallback' in window
-      ? (window as Window & { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => void }).requestIdleCallback(cb, { timeout: 2000 })
-      : window.setTimeout(cb, 1500);
-  idle(() => {
+  const w = window as Window & {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void;
+  };
+  const run = () => {
     import('./Experts');
     import('./Pricing');
     import('./auth/Login');
-  });
+  };
+  if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 2000 });
+  else window.setTimeout(run, 1500);
 }
 
 
