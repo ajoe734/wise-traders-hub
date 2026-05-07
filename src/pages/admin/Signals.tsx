@@ -482,12 +482,25 @@ const AdminSignals = () => {
     const batchSiblings = batchId ? signals.filter((s: any) => s.batch_id === batchId) : [];
     const isBatch = batchSiblings.length > 1;
 
+    // 同台灣自然日才能收回（批次以最早 published_at 判斷）
+    const candidates = isBatch ? batchSiblings : [target];
+    const earliestPub = candidates
+      .map((s: any) => s?.published_at)
+      .filter(Boolean)
+      .sort()[0];
+    const guard = canRecallSignal(earliestPub);
+    if (!guard.ok) {
+      toast.error(guard.reason || '已過收回期限');
+      return;
+    }
+
     if (isBatch) {
       const ok = window.confirm(
         `這是同一篇週記的批次發布，共 ${batchSiblings.length} 檔（${batchSiblings.map((s: any) => s.instrument).join('、')}）。要一起收回嗎？`,
       );
       if (!ok) return;
     }
+
 
     setRecalling(true);
     try {
