@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2, Lightbulb, Target, AlertTriangle, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { isPublishingWindowOpen } from '@/lib/publishingWindow';
+import { isPublishingWindowOpen, canRecallSignal } from '@/lib/publishingWindow';
 import { fetchAnalystSignals } from '@/lib/analystDataAccess';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { useFormDraft } from '@/hooks/useFormDraft';
@@ -482,12 +482,25 @@ const AdminSignals = () => {
     const batchSiblings = batchId ? signals.filter((s: any) => s.batch_id === batchId) : [];
     const isBatch = batchSiblings.length > 1;
 
+    // 同台灣自然日才能收回（批次以最早 published_at 判斷）
+    const candidates = isBatch ? batchSiblings : [target];
+    const earliestPub = candidates
+      .map((s: any) => s?.published_at)
+      .filter(Boolean)
+      .sort()[0];
+    const guard = canRecallSignal(earliestPub);
+    if (!guard.ok) {
+      toast.error(guard.reason || '已過收回期限');
+      return;
+    }
+
     if (isBatch) {
       const ok = window.confirm(
         `這是同一篇週記的批次發布，共 ${batchSiblings.length} 檔（${batchSiblings.map((s: any) => s.instrument).join('、')}）。要一起收回嗎？`,
       );
       if (!ok) return;
     }
+
 
     setRecalling(true);
     try {
@@ -1226,8 +1239,8 @@ const AdminSignals = () => {
                                        variant="ghost"
                                        className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
                                        onClick={() => handleRecall(signal.id)}
-                                       disabled={recalling || isReadOnly || (isMentor && signal.status === 'published')}
-                                       title={isMentor && signal.status === 'published' ? '已發布的週記不可收回' : undefined}
+                                       disabled={recalling || isReadOnly || !canRecallSignal((signal as any).published_at).ok}
+                                       title={!canRecallSignal((signal as any).published_at).ok ? canRecallSignal((signal as any).published_at).reason : undefined}
                                      >
                                        <Undo2 className="h-3 w-3" />收回
                                      </Button>
