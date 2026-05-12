@@ -10,6 +10,7 @@ const VERSION_URL = "/version.json";
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // every 5 min while tab is open
 const RELOAD_GUARD_KEY = "lf-version-reload-at";
 const RELOAD_COOLDOWN_MS = 60 * 1000; // avoid reload loops
+const STORAGE_KEYS_TO_CLEAR = ["lf-app-cache-v1"];
 
 const BUNDLED_VERSION =
   typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
@@ -29,9 +30,16 @@ async function fetchLatestVersion(): Promise<string | null> {
 }
 
 function purgeClientCaches() {
+  let lastReloadAt: string | null = null;
   try {
-    window.localStorage.removeItem("lf-app-cache-v1");
+    lastReloadAt = window.sessionStorage.getItem(RELOAD_GUARD_KEY);
+    for (const key of STORAGE_KEYS_TO_CLEAR) {
+      window.localStorage.removeItem(key);
+    }
     window.sessionStorage.clear();
+    if (lastReloadAt) {
+      window.sessionStorage.setItem(RELOAD_GUARD_KEY, lastReloadAt);
+    }
   } catch {
     // ignore storage access failures
   }
@@ -74,6 +82,12 @@ async function checkOnce() {
 export function installVersionCheck() {
   if (typeof window === "undefined") return;
   if (BUNDLED_VERSION === "dev") return; // no-op in dev
+
+  try {
+    document.documentElement.dataset.appBooted = "1";
+  } catch {
+    // ignore
+  }
 
   // 1. Initial check shortly after boot (don't block first paint)
   window.setTimeout(() => {

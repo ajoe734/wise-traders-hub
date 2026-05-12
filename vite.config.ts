@@ -3,14 +3,11 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// Build-time version stamp — used to detect stale client bundles.
 const APP_VERSION = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-// Emits a /version.json with the current build's version so the running
-// client can poll it and force-reload when its bundled version is stale.
-function emitVersionJson(): Plugin {
+function appVersionPlugin(): Plugin {
   return {
-    name: "emit-version-json",
+    name: "app-version-plugin",
     apply: "build",
     generateBundle() {
       this.emitFile({
@@ -18,6 +15,12 @@ function emitVersionJson(): Plugin {
         fileName: "version.json",
         source: JSON.stringify({ version: APP_VERSION, builtAt: new Date().toISOString() }),
       });
+    },
+    transformIndexHtml(html) {
+      return html.replace(
+        /<head>/,
+        `<head>\n    <meta name="app-version" content="${APP_VERSION}" />`,
+      );
     },
   };
 }
@@ -34,7 +37,7 @@ export default defineConfig(({ mode }) => ({
       allowedHosts: [".trycloudflare.com", ".ngrok-free.app", ".ngrok.io", ".loca.lt"],
     }),
   },
-  plugins: [react(), emitVersionJson(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), appVersionPlugin(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
