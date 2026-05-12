@@ -48,6 +48,79 @@
         new MutationObserver(swap).observe(document.documentElement,{childList:true,subtree:true});
       })();
     </script>
+    <script>
+      (function(){
+        var BOOT_FLAG='appBooted';
+        var RELOAD_GUARD_KEY='lf-version-reload-at';
+        var RELOAD_COOLDOWN_MS=60000;
+        var VERSION_URL='/version.json';
+
+        function canReload(){
+          try {
+            var last=Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || 0);
+            if(Date.now()-last<RELOAD_COOLDOWN_MS) return false;
+            sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()));
+            return true;
+          } catch {
+            return true;
+          }
+        }
+
+        function clearCaches(){
+          try { localStorage.removeItem('lf-app-cache-v1'); } catch {}
+          try {
+            var last=sessionStorage.getItem(RELOAD_GUARD_KEY);
+            sessionStorage.clear();
+            if(last) sessionStorage.setItem(RELOAD_GUARD_KEY,last);
+          } catch {}
+          try {
+            if('caches' in window){
+              caches.keys().then(function(keys){
+                return Promise.all(keys.map(function(key){ return caches.delete(key); }));
+              }).catch(function(){});
+            }
+          } catch {}
+        }
+
+        function hardReload(){
+          if(!canReload()) return;
+          clearCaches();
+          var url=new URL(window.location.href);
+          url.searchParams.set('__v', String(Date.now()));
+          window.location.replace(url.toString());
+        }
+
+        function getBootVersion(){
+          var meta=document.querySelector('meta[name="app-version"]');
+          return meta ? meta.getAttribute('content') : null;
+        }
+
+        function verifyVersionBeforeBoot(){
+          var expected=getBootVersion();
+          if(!expected) return;
+          fetch(VERSION_URL + '?t=' + Date.now(), { cache:'no-store', credentials:'omit' })
+            .then(function(res){ return res.ok ? res.json() : null; })
+            .then(function(data){
+              if(!data || !data.version) return;
+              if(document.documentElement.dataset[BOOT_FLAG] === '1') return;
+              if(data.version !== expected) hardReload();
+            })
+            .catch(function(){});
+        }
+
+        setTimeout(function(){
+          if(document.documentElement.dataset[BOOT_FLAG] !== '1') verifyVersionBeforeBoot();
+        }, 2500);
+
+        window.addEventListener('error', function(event){
+          var message='';
+          try { message=String(event && (event.message || (event.error && event.error.message) || '')); } catch {}
+          if(/Failed to fetch dynamically imported module|Importing a module script failed|Load failed|chunk/i.test(message)) {
+            hardReload();
+          }
+        }, true);
+      })();
+    </script>
   </head>
 
   <body>
