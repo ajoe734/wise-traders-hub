@@ -2781,6 +2781,15 @@ export type Database = {
         Returns: Json
       }
       check_checkup_quota: { Args: { _user_id: string }; Returns: Json }
+      check_knowledge_title_similarity: {
+        Args: { _category: string; _threshold?: number; _title: string }
+        Returns: {
+          id: string
+          item_id: string
+          sim: number
+          title: string
+        }[]
+      }
       cleanup_old_announcements: { Args: never; Returns: undefined }
       consume_checkup_quota: {
         Args: { _kind?: string; _user_id: string }
