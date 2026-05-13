@@ -2,15 +2,19 @@
 /**
  * 持倉看板知識庫同步腳本
  *
- * 用途：把本地 5 個 JSON 檔（共 25 條）upsert 到雲端 checkup_knowledge_items 表
+ * 名詞：
+ *   - 種子 JSON：src/checkup/lib/knowledge-base/*.json（5 檔 / 25 條），跟著 build 走，純前端 fallback
+ *   - 知識庫資料表：DB checkup_knowledge_items（線上實際使用，含 AI 起草 + 編輯內容，目前 ~488 條）
+ *
+ * 用途：把「種子 JSON」upsert 到「知識庫資料表」
  * - 以 (category, item_id) 為唯一鍵
  * - 已存在的條目會更新（DB 觸發器自動 bump version + updated_at）
  * - 不存在的條目會新增
- * - 雲端有但本地沒有的條目「不會被刪除」（保留管理員手動新增的內容）
+ * - 知識庫資料表中「種子 JSON 沒有」的條目「不會被刪除」（保留管理員/AI 起草的內容）
  *
  * 使用：
  *   node scripts/sync-knowledge-base.mjs                # dry-run，只列出差異
- *   node scripts/sync-knowledge-base.mjs --apply        # 實際寫入雲端
+ *   node scripts/sync-knowledge-base.mjs --apply        # 實際寫入知識庫資料表
  *
  * 需要環境變數：
  *   VITE_SUPABASE_URL
