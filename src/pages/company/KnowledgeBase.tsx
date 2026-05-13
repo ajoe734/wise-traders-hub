@@ -932,6 +932,10 @@ export default function KnowledgeBasePage() {
               )}
             </div>
           </TabsContent>
+
+          <TabsContent value="cleanup" className="space-y-2 mt-4">
+            <CleanupCandidatesPanel onChanged={load} />
+          </TabsContent>
         </Tabs>
 
         <BacktestRunDetailDialog runId={openRunDetail} onClose={() => setOpenRunDetail(null)} />
