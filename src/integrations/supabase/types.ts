@@ -1544,42 +1544,6 @@ export type Database = {
           },
         ]
       }
-      knowledge_sync_settings: {
-        Row: {
-          id: string
-          max_retries: number
-          notify_on_failure: boolean
-          notify_on_success: boolean
-          notify_user_ids: string[]
-          retry_delay_ms: number
-          retry_on_failure: boolean
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          id?: string
-          max_retries?: number
-          notify_on_failure?: boolean
-          notify_on_success?: boolean
-          notify_user_ids?: string[]
-          retry_delay_ms?: number
-          retry_on_failure?: boolean
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          id?: string
-          max_retries?: number
-          notify_on_failure?: boolean
-          notify_on_success?: boolean
-          notify_user_ids?: string[]
-          retry_delay_ms?: number
-          retry_on_failure?: boolean
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
       line_binding_codes: {
         Row: {
           code: string
@@ -2817,6 +2781,15 @@ export type Database = {
         Returns: Json
       }
       check_checkup_quota: { Args: { _user_id: string }; Returns: Json }
+      check_knowledge_title_similarity: {
+        Args: { _category: string; _threshold?: number; _title: string }
+        Returns: {
+          id: string
+          item_id: string
+          sim: number
+          title: string
+        }[]
+      }
       cleanup_old_announcements: { Args: never; Returns: undefined }
       consume_checkup_quota: {
         Args: { _kind?: string; _user_id: string }
@@ -2872,6 +2845,8 @@ export type Database = {
         Returns: boolean
       }
       is_tester: { Args: { _user_id: string }; Returns: boolean }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       announcement_status: "draft" | "published"

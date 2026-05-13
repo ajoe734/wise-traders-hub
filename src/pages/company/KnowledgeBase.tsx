@@ -21,7 +21,7 @@ import { BackfillProgressPanel } from './knowledge-base/BackfillProgressPanel';
 import { BacktestRunDetailDialog } from './knowledge-base/BacktestRunDetailDialog';
 import { GridSearchDetailDialog } from './knowledge-base/GridSearchDetailDialog';
 import { AutoRulesPanel } from './knowledge-base/AutoRulesPanel';
-import { SyncKnowledgeBaseDialog } from './knowledge-base/SyncKnowledgeBaseDialog';
+import { CleanupCandidatesPanel } from './knowledge-base/CleanupCandidatesPanel';
 
 const CATEGORIES = [
   { key: 'chip_analysis', label: '籌碼分析' },
@@ -122,7 +122,7 @@ export default function KnowledgeBasePage() {
   const [industryTagsInput, setIndustryTagsInput] = useState('');
   const [drafting, setDrafting] = useState(false);
   const [draftCount, setDraftCount] = useState(10);
-  const [mainTab, setMainTab] = useState<'items' | 'candidates' | 'backtest'>('items');
+  const [mainTab, setMainTab] = useState<'items' | 'candidates' | 'backtest' | 'cleanup'>('items');
   const [backtestRuns, setBacktestRuns] = useState<any[]>([]);
   const [backtesting, setBacktesting] = useState<string | null>(null);
   const [gridSearching, setGridSearching] = useState<string | null>(null);
@@ -545,7 +545,6 @@ export default function KnowledgeBasePage() {
               {drafting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
               Claude 起草（{CATEGORIES.find(c => c.key === activeCat)?.label}）
             </Button>
-            <SyncKnowledgeBaseDialog onApplied={load} />
             <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />新增條目</Button>
           </div>
         </div>
@@ -555,6 +554,7 @@ export default function KnowledgeBasePage() {
             <TabsTrigger value="items">正式知識庫 ({items.length})</TabsTrigger>
             <TabsTrigger value="candidates">候選審核 ({pendingCandidates.length})</TabsTrigger>
             <TabsTrigger value="backtest">淘弱加強 ({backtestReport.withSamples.length}/{backtestReport.backtestable.length})</TabsTrigger>
+            <TabsTrigger value="cleanup">待清理候選</TabsTrigger>
           </TabsList>
 
           <TabsContent value="items" className="space-y-4 mt-4">
@@ -931,6 +931,10 @@ export default function KnowledgeBasePage() {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="cleanup" className="space-y-2 mt-4">
+            <CleanupCandidatesPanel onChanged={load} />
           </TabsContent>
         </Tabs>
 
