@@ -1,39 +1,32 @@
-// 知識庫存取模組（雲端為主、JSON 為 fallback）
-// 設計原則：
-// 1. 雲端 checkup_knowledge_items 為權威來源
+// 知識庫存取模組（雲端為唯一權威來源）
+//
+// 設計原則（2026-05 重構）：
+// 1. 雲端 checkup_knowledge_items 是「唯一」資料來源，不再有本地 JSON fallback
 // 2. App 啟動 / Free Checkup 進入時呼叫 preloadKnowledgeBase() 預載到記憶體
 // 3. buildKnowledgeContext / getRelevantKnowledge / getRelevantCases 維持「同步」介面
 //    （prompt 組裝鏈是同步的，避免大規模重寫 dossierUtils）
-// 4. 雲端載入失敗 → 自動 fallback 到打包進來的 JSON
+// 4. 雲端載入失敗 → cache 留空，buildKnowledgeContext 回傳 ''，AI prompt 自然省略「知識庫參考」段落
+//    （刻意不用過時的本地 fallback，避免誤導）
 
 import { supabase } from '@/integrations/supabase/client'
-import chipAnalysisJson from './knowledge-base/chip-analysis.json'
-import technicalAnalysisJson from './knowledge-base/technical-analysis.json'
-import industryTrendsJson from './knowledge-base/industry-trends.json'
-import strategyCasesJson from './knowledge-base/strategy-cases.json'
-import newsCorrelationJson from './knowledge-base/news-correlation.json'
 
-// ----- 雲端 category ↔ 本地 JSON 對照 -----
-const CATEGORY_TO_LOCAL_JSON = {
-  chip_analysis: chipAnalysisJson,
-  technical_analysis: technicalAnalysisJson,
-  industry_trends: industryTrendsJson,
-  strategy_cases: strategyCasesJson,
-  news_correlation: newsCorrelationJson,
-}
+const KNOWN_CATEGORIES = [
+  'chip_analysis',
+  'technical_analysis',
+  'industry_trends',
+  'strategy_cases',
+  'news_correlation',
+]
 
 // ----- 記憶體快取 -----
-// shape: { chip_analysis: [items...], technical_analysis: [...], ..., __source: 'cloud'|'local', __loadedAt: Date }
+// shape: { chip_analysis: [items...], ..., __source: 'cloud'|'empty', __loadedAt: Date }
 let _cache = null
 let _loadingPromise = null
 
-/**
- * 將雲端 row → 統一 item shape（與本地 JSON 同形）
- */
 function rowToItem(row) {
   const base = {
     id: row.item_id,
-    __dbId: row.id ?? null, // uuid for hit tracking
+    __dbId: row.id ?? null,
     __category: row.category,
     title: row.title,
     fact: row.fact,
@@ -41,7 +34,6 @@ function rowToItem(row) {
     action: row.action ?? '',
     confidence: Number(row.confidence ?? 0.75),
     tags: Array.isArray(row.tags) ? row.tags : [],
-    // 結構化欄位（v2）
     triggerCondition: row.trigger_condition ?? null,
     expectedOutcome: row.expected_outcome ?? null,
     winRate: row.win_rate != null ? Number(row.win_rate) : null,
@@ -51,7 +43,6 @@ function rowToItem(row) {
     timeHorizon: row.time_horizon ?? null,
     lifecycleStatus: row.lifecycle_status ?? 'active',
   }
-  // strategy_cases 額外欄位
   if (row.category === 'strategy_cases') {
     base.lessons = row.lessons ?? ''
     base.return = row.return_pct != null ? Number(row.return_pct) : 0
@@ -60,7 +51,6 @@ function rowToItem(row) {
   return base
 }
 
-// 有實戰驗證 → 用 confidence × winRate；沒驗證 → 純 confidence
 function effectiveScore(item) {
   const c = Number(item.confidence ?? 0.7)
   let base
@@ -69,31 +59,16 @@ function effectiveScore(item) {
   } else {
     base = c
   }
-  // rescue 池條目降權 ×0.5（仍餵 prompt 但排序靠後）
   if (item.lifecycleStatus === 'rescue') base *= 0.5
   return base
 }
 
-/**
- * 從本地 JSON 組出與雲端相同 shape 的快取（fallback 用）
- */
-function buildLocalCache() {
-  const cache = { __source: 'local', __loadedAt: new Date() }
-  for (const [category, json] of Object.entries(CATEGORY_TO_LOCAL_JSON)) {
-    cache[category] = (json.items ?? []).slice()
-  }
+function buildEmptyCache(reason = 'empty') {
+  const cache = { __source: reason, __loadedAt: new Date() }
+  for (const cat of KNOWN_CATEGORIES) cache[cat] = []
   return cache
 }
 
-/**
- * 預載雲端知識庫到記憶體。
- * - 應在 App 啟動或 Free Checkup 進入時呼叫一次
- * - 重複呼叫會 dedupe
- * - 載入失敗 → 退回本地 JSON，並 console.warn
- */
-/**
- * 強制清空記憶體快取。下一次 getCacheSync / preload 會重新拉雲端。
- */
 export function resetKnowledgeBaseCache() {
   _cache = null
   _loadingPromise = null
@@ -113,26 +88,21 @@ export function preloadKnowledgeBase({ force = false } = {}) {
 
       if (error) throw error
       if (!data || data.length === 0) {
-        console.warn('[knowledgeBase] cloud returned 0 rows, falling back to local JSON')
-        _cache = buildLocalCache()
+        console.warn('[knowledgeBase] cloud returned 0 rows — knowledge context will be empty')
+        _cache = buildEmptyCache('empty_cloud')
         return _cache
       }
 
-      const next = { __source: 'cloud', __loadedAt: new Date() }
-      for (const category of Object.keys(CATEGORY_TO_LOCAL_JSON)) next[category] = []
+      const next = buildEmptyCache('cloud')
       for (const row of data) {
         if (!next[row.category]) next[row.category] = []
         next[row.category].push(rowToItem(row))
       }
-      // 任何 category 雲端為空 → 用本地 JSON 補
-      for (const [category, json] of Object.entries(CATEGORY_TO_LOCAL_JSON)) {
-        if (next[category].length === 0) next[category] = (json.items ?? []).slice()
-      }
       _cache = next
       return _cache
     } catch (err) {
-      console.warn('[knowledgeBase] cloud preload failed, falling back to local JSON:', err?.message ?? err)
-      _cache = buildLocalCache()
+      console.warn('[knowledgeBase] cloud preload failed — knowledge context will be empty:', err?.message ?? err)
+      _cache = buildEmptyCache('error')
       return _cache
     } finally {
       _loadingPromise = null
@@ -141,13 +111,10 @@ export function preloadKnowledgeBase({ force = false } = {}) {
   return _loadingPromise
 }
 
-/**
- * 取得目前快取（同步）。若尚未預載 → 立即用本地 JSON 撐住，並背景觸發雲端預載。
- */
 function getCacheSync() {
   if (_cache) return _cache
-  // 還沒預載過 → 用 local 立即返回，背景補拉雲端（下次呼叫就拿到雲端版）
-  _cache = buildLocalCache()
+  // 還沒預載 → 立即回傳空 cache 撐住，背景補拉雲端
+  _cache = buildEmptyCache('pending')
   preloadKnowledgeBase({ force: true }).catch(() => {})
   return _cache
 }
@@ -160,9 +127,8 @@ export function getKnowledgeLoadedAt() {
   return getCacheSync().__loadedAt
 }
 
-// ----- 主邏輯（保持與舊版相同的介面與行為）-----
+// ----- 主邏輯 -----
 
-// strategy 欄位 → 最相關的知識庫分類（雲端 category key）
 const STRATEGY_KNOWLEDGE_MAP = {
   成長股: ['industry_trends', 'technical_analysis'],
   景氣循環: ['industry_trends', 'technical_analysis'],
@@ -266,13 +232,8 @@ export function buildKnowledgeContext(stockMeta = {}) {
 // ============================================================
 // 知識命中追蹤 (hit tracking)
 // ============================================================
-// 設計：
-// - getRelevantKnowledge / getRelevantCases 內部會把當次選中的條目寫進 buffer
-// - caller 在呼叫 AI 前後呼叫 flushKnowledgeHits({ stockCode, context }) 寫入 DB
-// - 雲端 cache 中的 item.id 是 item_id（如 'ta-06'），DB 主鍵是 uuid，
-//   所以 flush 時用 item_id 反查 uuid（rowToItem 帶 dbId 進來）
 
-let _hitBuffer = [] // [{ itemId, dbId, confidence, category }]
+let _hitBuffer = []
 
 function rememberHits(items, category) {
   if (!Array.isArray(items)) return
@@ -287,23 +248,17 @@ function rememberHits(items, category) {
   }
 }
 
-/**
- * 將 buffer 寫入 checkup_knowledge_hits。
- * - 由 caller（AI 分析 workflow）在分析觸發後呼叫
- * - 失敗不阻擋主流程，只 console.warn
- */
 export async function flushKnowledgeHits({ stockCode = null, context = null } = {}) {
   if (_hitBuffer.length === 0) return { inserted: 0 }
   const buffer = _hitBuffer
   _hitBuffer = []
 
-  // 去重（同一次 flush，同一條 item 只記一次）
   const seen = new Set()
   const unique = buffer.filter(h => {
     const k = h.dbId ?? h.itemId
     if (seen.has(k)) return false
     seen.add(k)
-    return !!h.dbId // 只寫有 dbId 的（雲端來源）；fallback 到 local JSON 時不記
+    return !!h.dbId
   })
   if (unique.length === 0) return { inserted: 0 }
 
@@ -334,7 +289,6 @@ export function _peekHitBufferForTests() {
   return _hitBuffer.slice()
 }
 
-// 測試 / Admin 用
 export function _resetKnowledgeCacheForTests() {
   _cache = null
   _loadingPromise = null
