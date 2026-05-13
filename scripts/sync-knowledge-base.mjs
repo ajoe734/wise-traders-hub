@@ -138,7 +138,7 @@ async function main() {
     }
   }
 
-  // 雲端有但本地沒有的（保留，不刪）
+  // 知識庫資料表中「種子 JSON 沒有」的條目（保留，不刪）
   const localKeys = new Set(localItems.map(r => `${r.category}::${r.item_id}`));
   const onlyInCloud = cloudItems.filter(r => !localKeys.has(`${r.category}::${r.item_id}`));
 
