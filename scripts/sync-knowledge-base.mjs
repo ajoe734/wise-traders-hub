@@ -146,7 +146,7 @@ async function main() {
   console.log(`✅ 一致：${unchanged.length} 條`);
   console.log(`➕ 新增：${toInsert.length} 條`);
   console.log(`✏️  更新：${toUpdate.length} 條`);
-  console.log(`☁️  雲端獨有（保留不動）：${onlyInCloud.length} 條`);
+  console.log(`🗄️  資料表獨有（保留不動）：${onlyInCloud.length} 條`);
   console.log('');
 
   for (const r of toInsert) {
