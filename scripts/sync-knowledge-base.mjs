@@ -156,7 +156,7 @@ async function main() {
     console.log(`  ✏️  [${row.category}] ${row.item_id} v${currentVersion}→v${currentVersion + 1} (${changes.join(', ')})`);
   }
   for (const r of onlyInCloud) {
-    console.log(`  ☁️  [${r.category}] ${r.item_id} v${r.version} — ${r.title}（雲端獨有，不動）`);
+    console.log(`  🗄️  [${r.category}] ${r.item_id} v${r.version} — ${r.title}（資料表獨有，不動）`);
   }
 
   if (!APPLY) {
