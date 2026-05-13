@@ -2,15 +2,19 @@
 /**
  * 持倉看板知識庫同步腳本
  *
- * 用途：把本地 5 個 JSON 檔（共 25 條）upsert 到雲端 checkup_knowledge_items 表
+ * 名詞：
+ *   - 種子 JSON：src/checkup/lib/knowledge-base/*.json（5 檔 / 25 條），跟著 build 走，純前端 fallback
+ *   - 知識庫資料表：DB checkup_knowledge_items（線上實際使用，含 AI 起草 + 編輯內容，目前 ~488 條）
+ *
+ * 用途：把「種子 JSON」upsert 到「知識庫資料表」
  * - 以 (category, item_id) 為唯一鍵
  * - 已存在的條目會更新（DB 觸發器自動 bump version + updated_at）
  * - 不存在的條目會新增
- * - 雲端有但本地沒有的條目「不會被刪除」（保留管理員手動新增的內容）
+ * - 知識庫資料表中「種子 JSON 沒有」的條目「不會被刪除」（保留管理員/AI 起草的內容）
  *
  * 使用：
  *   node scripts/sync-knowledge-base.mjs                # dry-run，只列出差異
- *   node scripts/sync-knowledge-base.mjs --apply        # 實際寫入雲端
+ *   node scripts/sync-knowledge-base.mjs --apply        # 實際寫入知識庫資料表
  *
  * 需要環境變數：
  *   VITE_SUPABASE_URL
@@ -110,8 +114,8 @@ async function main() {
 
   const localItems = loadLocalItems();
   const cloudItems = await fetchCloudItems();
-  console.log(`📁 本地 JSON：${localItems.length} 條`);
-  console.log(`☁️  雲端目前：${cloudItems.length} 條`);
+  console.log(`📁 種子 JSON：${localItems.length} 條`);
+  console.log(`🗄️  知識庫資料表：${cloudItems.length} 條`);
 
   const cloudMap = new Map(cloudItems.map(r => [`${r.category}::${r.item_id}`, r]));
 
@@ -134,7 +138,7 @@ async function main() {
     }
   }
 
-  // 雲端有但本地沒有的（保留，不刪）
+  // 知識庫資料表中「種子 JSON 沒有」的條目（保留，不刪）
   const localKeys = new Set(localItems.map(r => `${r.category}::${r.item_id}`));
   const onlyInCloud = cloudItems.filter(r => !localKeys.has(`${r.category}::${r.item_id}`));
 
@@ -142,7 +146,7 @@ async function main() {
   console.log(`✅ 一致：${unchanged.length} 條`);
   console.log(`➕ 新增：${toInsert.length} 條`);
   console.log(`✏️  更新：${toUpdate.length} 條`);
-  console.log(`☁️  雲端獨有（保留不動）：${onlyInCloud.length} 條`);
+  console.log(`🗄️  資料表獨有（保留不動）：${onlyInCloud.length} 條`);
   console.log('');
 
   for (const r of toInsert) {
@@ -152,7 +156,7 @@ async function main() {
     console.log(`  ✏️  [${row.category}] ${row.item_id} v${currentVersion}→v${currentVersion + 1} (${changes.join(', ')})`);
   }
   for (const r of onlyInCloud) {
-    console.log(`  ☁️  [${r.category}] ${r.item_id} v${r.version} — ${r.title}（雲端獨有，不動）`);
+    console.log(`  🗄️  [${r.category}] ${r.item_id} v${r.version} — ${r.title}（資料表獨有，不動）`);
   }
 
   if (!APPLY) {
@@ -162,7 +166,7 @@ async function main() {
   }
 
   console.log('');
-  console.log('🚀 開始寫入雲端…');
+  console.log('🚀 開始寫入知識庫資料表…');
 
   let okCount = 0;
   let errCount = 0;

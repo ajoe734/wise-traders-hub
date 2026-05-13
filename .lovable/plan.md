@@ -1,59 +1,86 @@
-## 為什麼後台看不出有這麼多使用量
+## A. 用詞改掉（取代「本地 / 雲端」）
 
-我重新查了一次，差異不是「呈現少」，而是**資料源完全不同**：
+統一改成這兩個詞，UI 文案、後台說明、未來對話一律用：
 
-| 指標 | 數量 | 後台顯示？ |
+- **「種子 JSON」** = `src/checkup/lib/knowledge-base/*.json`（25 條，跟著 build 走，純 fallback）
+- **「知識庫資料表」** = DB `checkup_knowledge_items`（488 條，線上真正使用的那份）
+
+要改的地方：
+1. `src/pages/company/knowledge-base/SyncKnowledgeBaseDialog.tsx` — 把對話框標題/說明的「本地 / 雲端」字樣換成上面的詞
+2. `src/pages/company/KnowledgeBase.tsx` — 任何 tooltip / helper text 同步換掉
+3. `scripts/sync-knowledge-base.mjs` 開頭註解換掉（人讀，不影響功能）
+4. 不改檔名、不改 DB schema、不改函式名
+
+---
+
+## B. 「重新跑知識」到底有哪幾條鏈路 — 完整說明
+
+目前線上**同時有 5 條 cron 在動知識庫**，加上 2 個手動觸發的入口。我把每一條的「誰觸發 / 跑什麼 / 寫到哪 / 對 IO 影響」全列出來：
+
+### B1. 自動排程（5 條，目前都 active）
+
+| jobid | 名稱 | 排程 (UTC) | 台灣時間 | 做什麼 | 對 IO |
+|---|---|---|---|---|---|
+| 13 | `knowledge-validate-weekly` | 週六 19:00 | **週日 03:00** | 抓最近 90 天「真實使用者命中」(`checkup_knowledge_hits`)，對照股價算 win_rate，自動微調 confidence ±0.03~0.05 | 低（hits=0 時幾乎不寫） |
+| 14 | `knowledge-promote-candidates-weekly` | 週六 20:00 | **週日 04:00** | 把候選池 (`checkup_knowledge_candidates`) 中觀察期已到的條目升級進主表 | 低 |
+| 22 | `knowledge-daily-scheduler` | 每天 19:00 | **每天 03:00** | 每日跑 20 條 backtestable + 5 條 grid_search，套自動規則（archive/promote/rescue） | **中**（呼叫 `knowledge-backtest` 多次，每次展開成多檔股票×多 horizon） |
+| 23 | `knowledge-weekly-sync` | 週一 20:00 | 週二 04:00 | 呼叫 `knowledge-sync`（編輯內容對齊） | 低 |
+| 24 | `knowledge-full-audit-weekly` | 週日 19:00 | **週一 03:00** | 全庫掃 488 條：① backtestable 的條目觸發 backtest ② 其他用「年份標記」判過時，標 rescue / 更新 last_validated_at | **高**（這條才是 IO 元兇 — 一次掃整庫） |
+
+> 之前停掉的 jobid 21 是 `knowledge-backtest mode=full`（每天全庫回測，~70k row/day），已 unschedule，不在表內。
+
+### B2. 手動入口（2 個，後台按鈕）
+
+| 入口 | 在哪 | 做什麼 |
 |---|---|---|
-| `checkup_knowledge_hits`（真實用戶命中） | **0 筆** | 是 → 後台每條都顯示「未被使用」✅ 沒錯 |
-| `checkup_knowledge_hits` 近 7 天 | **0 筆** | 是 |
-| `checkup_knowledge_validations`（自動回測產生） | **547,041 筆** | ❌ 後台沒顯示 |
-| `knowledge_backtest_runs`（自動回測批次） | **39,850 筆**（近 8 天每天 3k–7k） | ❌ 後台沒顯示 |
+| `knowledge-draft-scheduler` / `knowledge-draft-claude` | 後台 KnowledgeBase 頁「AI 起草」 | 用 Claude 補某 category 到 100 條，寫入 candidates，等審核 |
+| 「立即執行 full audit」 | 後台 KnowledgeAudit 頁 | 手動觸發 `knowledge-full-audit`（同 jobid 24 那條） |
 
-**結論**：後台沒騙你 — 真正用戶端對知識庫的命中是 **0**。把 DB 撐爆的是「自動回測系統」自己在 spam，跟使用者一點關係都沒有。元兇是 `knowledge-full-audit` 在背景觸發 `knowledge-backtest`、加上 `knowledge-daily-scheduler` 每日跑 20 條 backtestable + 5 條 grid search，但 `knowledge-backtest` 內部會展開成「每條 × 多檔股票 × 多 horizon」→ 每天產生數千筆 run。
+### B3. 一條知識被「動到」的完整生命週期
 
----
+```text
+   AI 起草          管理員審核            升級進主表
+candidates ──手動──▶ 主表 (active) ─────────┐
+                          │                  │
+                          │ 每天 03:00       │ 每週日 03:00
+                          │ daily-scheduler  │ full-audit
+                          ▼                  ▼
+                      knowledge-backtest（跑歷史回測）
+                          │
+                          ▼
+              ┌─ win_rate 高 → promote (confidence↑)
+              ├─ win_rate 中 → 維持 active
+              ├─ win_rate 低 → rescue 池（前端降權 ×0.5）
+              └─ rescue 過久 → archive（不再餵 prompt）
 
-## 計畫（3 件全做 + 補後台可見性）
+                    每週日 03:00
+                  knowledge-validate
+                          │
+                抓真實命中(hits) → 對股價 → 寫 validations
+                          │
+                          ▼
+              微調 confidence ±0.03~0.05（floor 0.3 / ceil 0.95）
+```
 
-### Step 1：DB 清理（一次性，馬上釋放 IO/空間）
+### B4. 重點觀念（解你之前的疑惑）
 
-執行 SQL：
-1. `checkup_knowledge_validations` — **刪除 30 天以前**的紀錄（保留近 30 天供統計）。預估刪除 ~500k 筆，釋放 ~150 MB。
-2. `knowledge_backtest_runs` — **刪除 14 天以前**的 run（保留近 14 天供後台「淘弱加強」面板用）。預估刪除 ~30k 筆，釋放 ~12 MB。
-3. `daily_price_snapshots` — `VACUUM FULL` 釋放 dead tuples（3.4 MB → 預估 < 100 KB）。
-4. 加索引：`checkup_knowledge_validations(created_at)`、`knowledge_backtest_runs(created_at)`，讓後續清理不再 full scan。
-
-### Step 2：本地 vs 雲端知識庫對齊
-
-問題：本地 JSON 只有 25 條，雲端 488 條（含後台陸續新增/Claude 起草的）。
-做法：執行 `node scripts/sync-knowledge-base.mjs --apply`，把本地 25 條 upsert 上去（已存在的會 bump version、本地沒有的雲端條目會保留不刪）。**這個腳本是單向 local→cloud，不會洗掉雲端資料**。
-
-### Step 3：後台補「真實使用量 + 自動回測活動」面板
-
-在 `src/pages/company/KnowledgeBase.tsx` 的標題列下方加一條 **總覽卡**，顯示：
-- 真實命中：累計 0 / 7 天 0（讓你一眼看到「沒人用」）
-- 自動回測：累計 39,850 run / 7 天 35k run（讓你看到 IO 元兇）
-- 驗證樣本：累計 547k / 7 天 483k
-- 各 lifecycle 計數：active 305 / rescue 90 / archived 93
-- 「打開排程說明」按鈕，連到 SystemJobs 頁面
-
-附帶在 lifecycle filter 旁邊加一個「歸檔」勾選，讓你可以看到 93 條 archived（目前預設不顯示，所以你會以為「沒這麼多」）。
-
-### Step 4（可選，本回合不做，等 Step 1 觀察 24h 再決定）
-
-- `knowledge-backtest` 改成 **upsert on `(knowledge_item_id, stock_code, horizon_days)`** + 限制單次最多 N 個 stock，預估每日寫入從 ~70k → 數百筆。
-- `knowledge-full-audit` 改成「先檢查上次 backtest 是否在 7 天內，若是就跳過」，避免重複觸發。
+1. **「使用量看起來很少」** = `checkup_knowledge_hits` 真實命中目前 = 0。後台沒顯示錯。
+2. **「DB IO 卻很大」** = 是 `daily-scheduler` + `full-audit` 在背景跑回測，產生 `checkup_knowledge_validations` 與 `knowledge_backtest_runs`。跟使用者無關。
+3. **真正消耗 IO 的關鍵是 jobid 24（full-audit-weekly）**。如果觀察 24 小時 IO 還是高，下一步就是改 `knowledge-backtest` 加 upsert + 每次限 N 筆。
 
 ---
 
-## 給你決定的兩件事
+## C. 本回合動手範圍
 
-**Q1：清理保留期能接受嗎？**
-- validations 保留 30 天（樣本數已遠超 `min_sample_size=30`，足夠統計）
-- backtest_runs 保留 14 天（後台「淘弱加強」面板只看最近表現）
+只做 **A（改用詞）**。B 是說明，不動程式。
+如果你看完 B 想停掉哪條 cron 或加 feature flag，再講一聲，我另開一筆動。
 
-**Q2：要把 `knowledge-full-audit` 的背景 backtest 觸發暫時停掉嗎？**（避免清理完又被 spam 滿）
-- 建議：暫停 7 天，期間靠 `knowledge-daily-scheduler` 的 20 條/日 限額餵就好。
-- 暫停方式：在 `knowledge-full-audit` 加個 feature flag，預設 false，要跑時手動開。
+---
 
-如果你都 OK，回「都好」我就直接 Step 1+2+3 一次做完。
+## 技術細節（給之後的我看）
+
+- 改用詞涉及檔案：
+  - `src/pages/company/knowledge-base/SyncKnowledgeBaseDialog.tsx`
+  - `src/pages/company/KnowledgeBase.tsx`（tooltip / 區塊標題）
+  - `scripts/sync-knowledge-base.mjs`（檔頭註解）
+- 不動：DB schema、函式名 (`fetchCloudItems`、`buildLocalCache` 等內部變數保留，只是英文命名)、cron 排程。
