@@ -166,7 +166,7 @@ async function main() {
   }
 
   console.log('');
-  console.log('🚀 開始寫入雲端…');
+  console.log('🚀 開始寫入知識庫資料表…');
 
   let okCount = 0;
   let errCount = 0;
