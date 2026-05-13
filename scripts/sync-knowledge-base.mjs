@@ -114,8 +114,8 @@ async function main() {
 
   const localItems = loadLocalItems();
   const cloudItems = await fetchCloudItems();
-  console.log(`📁 本地 JSON：${localItems.length} 條`);
-  console.log(`☁️  雲端目前：${cloudItems.length} 條`);
+  console.log(`📁 種子 JSON：${localItems.length} 條`);
+  console.log(`🗄️  知識庫資料表：${cloudItems.length} 條`);
 
   const cloudMap = new Map(cloudItems.map(r => [`${r.category}::${r.item_id}`, r]));
 
