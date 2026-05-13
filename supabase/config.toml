@@ -112,5 +112,5 @@ verify_jwt = false
 [functions.knowledge-daily-scheduler]
 verify_jwt = false
 
-[functions.knowledge-sync]
+[functions.prune-knowledge-base]
 verify_jwt = false
