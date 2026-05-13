@@ -20,7 +20,7 @@ for (const [file, category] of Object.entries(FILE_TO_CATEGORY)) {
 }
 console.log(`Loaded ${items.length} local items`);
 
-const client = new Client();
+const client = new Client({ ssl: { rejectUnauthorized: false } });
 await client.connect();
 
 let inserted = 0, updated = 0, unchanged = 0;
