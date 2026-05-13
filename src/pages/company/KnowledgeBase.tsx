@@ -554,6 +554,7 @@ export default function KnowledgeBasePage() {
             <TabsTrigger value="items">正式知識庫 ({items.length})</TabsTrigger>
             <TabsTrigger value="candidates">候選審核 ({pendingCandidates.length})</TabsTrigger>
             <TabsTrigger value="backtest">淘弱加強 ({backtestReport.withSamples.length}/{backtestReport.backtestable.length})</TabsTrigger>
+            <TabsTrigger value="cleanup">待清理候選</TabsTrigger>
           </TabsList>
 
           <TabsContent value="items" className="space-y-4 mt-4">
