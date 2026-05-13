@@ -215,7 +215,7 @@ export function SyncKnowledgeBaseDialog({ onApplied }: { onApplied?: () => void 
 
                 {total === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    目前雲端與本地完全一致，無需同步。
+                    目前種子 JSON 與知識庫資料表中對應的編輯版本完全一致，無需同步。
                   </p>
                 )}
 
