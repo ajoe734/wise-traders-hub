@@ -185,9 +185,9 @@ export function SyncKnowledgeBaseDialog({ onApplied }: { onApplied?: () => void 
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[88vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>同步本地知識庫到雲端</DialogTitle>
+          <DialogTitle>同步種子 JSON 到知識庫資料表</DialogTitle>
           <DialogDescription>
-            比對本地 JSON（2025-2026 版）與雲端，逐欄預覽差異後套用，套用完成會自動刷新前端快取。
+            比對「種子 JSON」（前端 fallback 用，2025-2026 版 25 條）與「知識庫資料表」（DB checkup_knowledge_items，線上實際使用），逐欄預覽差異後套用，套用完成會自動刷新前端快取。
           </DialogDescription>
         </DialogHeader>
 
