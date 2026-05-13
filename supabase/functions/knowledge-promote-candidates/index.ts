@@ -157,6 +157,25 @@ Deno.serve(async (req) => {
           status: 'pending',
         };
         if (!row.title || !row.fact) continue;
+
+        // ── 去重：用 pg_trgm 比對同 category 內 active items 的 title，相似度 > 0.85 即跳過 ──
+        const { data: dupCheck } = await supabase.rpc('check_knowledge_title_similarity', {
+          _category: row.category,
+          _title: row.title,
+          _threshold: 0.85,
+        });
+        if (dupCheck && Array.isArray(dupCheck) && dupCheck.length > 0) {
+          // 寫一筆 rejected candidate 留紀錄
+          await supabase.from('checkup_knowledge_candidates').insert({
+            ...row,
+            status: 'rejected',
+            reviewer_note: `auto_dedup: similar to "${dupCheck[0].title}" (similarity=${Number(dupCheck[0].sim).toFixed(2)})`,
+            reviewed_at: new Date().toISOString(),
+            source_meta: { ...row.source_meta, duplicate_of_item_id: dupCheck[0].id, duplicate_similarity: dupCheck[0].sim },
+          });
+          continue;
+        }
+
         const { data: ins, error } = await supabase
           .from('checkup_knowledge_candidates')
           .insert(row)
