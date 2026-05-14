@@ -92,17 +92,18 @@ function AnnouncementBanner() {
 
 const AppHome = () => {
   const { user } = useAuth();
+  const { data: subs = [] } = useMemberSubscriptions();
 
-  const { data: homeData } = useQuery({
-    queryKey: ['app-home', user?.id],
-    queryFn: () => fetchHomeData(user?.id),
-    staleTime: Infinity,
-  });
-
-  const advisorSubs = homeData?.advisorSubs ?? [];
-  const mentorSubs = homeData?.mentorSubs ?? [];
-  const hasAdvisor = homeData?.hasAdvisor ?? false;
-  const hasMentor = homeData?.hasMentor ?? false;
+  const advisorSubs = useMemo(
+    () => subs.filter(s => s.plan_type === 'analyst_signal_l1' || s.plan_type === 'analyst_signal_diag_l2'),
+    [subs],
+  );
+  const mentorSubs = useMemo(
+    () => subs.filter(s => s.plan_type === 'mentor_weekly_journal'),
+    [subs],
+  );
+  const hasAdvisor = advisorSubs.length > 0;
+  const hasMentor = mentorSubs.length > 0;
 
   return (
     <UnifiedAppLayout>
