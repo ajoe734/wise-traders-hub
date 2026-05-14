@@ -292,7 +292,7 @@ function StockRankingList({ stocks, type, onStockClick }: {
               <span className={cn("font-medium tabular-nums", isTop ? "text-success" : "text-destructive")}>
                 {stock.returnPct >= 0 ? "+" : ""}{stock.returnPct.toFixed(1)}%
               </span>
-              <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+              <ChevronRight className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
             </div>
           </button>
         ))}
