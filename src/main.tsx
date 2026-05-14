@@ -13,8 +13,8 @@ installEdgeFetchInterceptor();
 installVersionCheck();
 
 createRoot(document.getElementById("root")!).render(
-  <>
+  <HelmetProvider>
     <App />
     <DedupSettingsButton />
-  </>
+  </HelmetProvider>
 );
