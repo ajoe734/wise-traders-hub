@@ -1,44 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { fetchMemberSubscriptions } from '@/lib/memberDataAccess';
+import { useMemo } from 'react';
+import { useMemberSubscriptions } from './useMemberSubscriptions';
 
 export function useMySubscriptions() {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ['my-subscriptions', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { subscriptions, error } = await fetchMemberSubscriptions(supabase, user.id);
-      if (error) throw new Error(error);
-      return subscriptions.filter((sub: any) => {
-        const expert = sub.expert_plans?.experts;
-        return expert && expert.status === 'active';
-      });
-    },
-    enabled: !!user,
-    staleTime: 30_000,
-  });
+  const { data = [], isLoading, error } = useMemberSubscriptions();
+  // Return raw subscription rows (kept for back-compat with old shape: row + expert_plans nested)
+  const subscriptions = useMemo(() => data.map((s) => s.raw), [data]);
+  return { data: subscriptions, isLoading, error };
 }
 
 export function useSubscribedExpertSlugs() {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ['subscribed-slugs', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data } = await supabase
-        .from('member_subscriptions')
-        .select('plan_id, expert_plans(expert_id, experts(slug))')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-      if (!data) return [];
-      return data
-        .filter((sub: any) => sub.expert_plans?.experts?.status === 'active')
-        .map((sub: any) => sub.expert_plans?.experts?.slug)
-        .filter(Boolean) as string[];
-    },
-    enabled: !!user,
-    staleTime: 30_000,
-  });
+  const { data = [], isLoading, error } = useMemberSubscriptions();
+  const slugs = useMemo(
+    () => Array.from(new Set(data.map((s) => s.expert.slug).filter(Boolean))) as string[],
+    [data],
+  );
+  return { data: slugs, isLoading, error };
 }
