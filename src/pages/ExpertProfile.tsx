@@ -348,7 +348,8 @@ const ExpertProfile = () => {
             <h2 className="text-h3">績效總覽</h2>
           </div>
           <PerformanceOverviewPanel
-            expertSlug={slug || ""}
+            expertId={expertInfo.id}
+            startingCapital={expertInfo.startingCapital}
             variant={isAdvisor ? 'advisor' : 'mentor'}
           />
         </section>
