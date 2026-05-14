@@ -3,7 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { NotificationBell } from '@/components/NotificationBell';
+import { useMemberSubscriptions } from '@/hooks/useMemberSubscriptions';
 import { 
   Home, Radio, BookOpen, User, LogOut, ChevronRight, ChevronLeft,
   Target, Compass, Moon, Sun
