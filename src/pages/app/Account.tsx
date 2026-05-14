@@ -13,6 +13,7 @@ import { LineBindingCard } from '@/components/LineBindingCard';
 import { calcRefund } from '@/lib/refundCalc';
 import { cancelSubscriptionInDB } from '@/lib/cancelSubscription';
 import { supabase } from '@/integrations/supabase/client';
+import { avatarUrl } from '@/lib/imageTransform';
 
 import {
   AlertDialog,
@@ -285,9 +286,11 @@ const Account = () => {
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <img
-                          src={sub.expert.avatar_url || '/placeholder.svg'}
+                          src={avatarUrl(sub.expert.avatar_url, 96)}
                           alt={sub.expert.name}
-                          className="h-12 w-12 rounded-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                          className="shrink-0 h-12 w-12 rounded-full object-cover object-[center_15%]"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">

@@ -20,6 +20,7 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { avatarUrl } from "@/lib/imageTransform";
 
 const AppCheckout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
@@ -397,7 +398,7 @@ const AppCheckout = () => {
 
         <Card><CardContent className="p-4">
           <div className="flex items-center gap-3 mb-4">
-            <Avatar className="h-12 w-12"><AvatarImage src={expert.avatar_url || '/placeholder.svg'} alt={expert.name} /><AvatarFallback>{expert.name[0]}</AvatarFallback></Avatar>
+            <Avatar className="h-12 w-12"><AvatarImage src={avatarUrl(expert.avatar_url, 96)} alt={expert.name} loading="lazy" decoding="async" className="object-[center_15%]" /><AvatarFallback>{expert.name[0]}</AvatarFallback></Avatar>
             <div><p className="font-semibold">{expert.name}</p><p className="text-sm text-muted-foreground">{planData.name}</p></div>
           </div>
         </CardContent></Card>

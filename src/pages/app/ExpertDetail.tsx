@@ -135,7 +135,7 @@ const AppExpertDetail = () => {
 
         <div className="flex items-start gap-4">
           <Avatar className={`h-20 w-20 border-2 ${isAdvisor ? 'border-advisor/20' : 'border-mentor/20'}`}>
-            <AvatarImage src={avatarUrl(expert.avatarUrl, 160)} alt={expert.name} loading="lazy" decoding="async" />
+            <AvatarImage src={avatarUrl(expert.avatarUrl, 160)} alt={expert.name} loading="lazy" decoding="async" className="object-[center_15%]" />
             <AvatarFallback>{expert.name[0]}</AvatarFallback>
           </Avatar>
           <div className="flex-1">

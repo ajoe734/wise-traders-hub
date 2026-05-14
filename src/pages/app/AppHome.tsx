@@ -16,6 +16,7 @@ import {
   Megaphone, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { avatarUrl } from '@/lib/imageTransform';
 import { useMemo, useState } from 'react';
 
 type DbSubscription = MemberSubscriptionRow;
@@ -32,7 +33,7 @@ function ExpertPerfRow({ sub }: { sub: DbSubscription }) {
     >
       <div className="flex items-center gap-2">
         <Avatar className={cn("h-7 w-7 border", sub.expert.role === 'mentor' ? 'border-learning-accent/30' : 'border-signals-accent/30')}>
-          <AvatarImage src={sub.expert.avatar_url || '/placeholder.svg'} alt={sub.expert.name} />
+          <AvatarImage src={avatarUrl(sub.expert.avatar_url, 56)} alt={sub.expert.name} loading="lazy" decoding="async" className="object-[center_15%]" />
           <AvatarFallback className="text-xs">{sub.expert.name[0]}</AvatarFallback>
         </Avatar>
         <span className="text-sm">{sub.expert.name}</span>
@@ -142,7 +143,7 @@ const AppHome = () => {
                 {advisorSubs.slice(0, 3).map(sub => (
                   <Link key={sub.plan_id} to={`/app/expert/${sub.expert.slug}`}>
                     <Avatar className="h-10 w-10 border-2 border-signals-accent/40">
-                      <AvatarImage src={sub.expert.avatar_url || '/placeholder.svg'} alt={sub.expert.name} />
+                      <AvatarImage src={avatarUrl(sub.expert.avatar_url, 80)} alt={sub.expert.name} loading="lazy" decoding="async" className="object-[center_15%]" />
                       <AvatarFallback>{sub.expert.name[0]}</AvatarFallback>
                     </Avatar>
                   </Link>
@@ -191,7 +192,7 @@ const AppHome = () => {
                 {mentorSubs.slice(0, 3).map(sub => (
                   <Link key={sub.plan_id} to={`/app/expert/${sub.expert.slug}`}>
                     <Avatar className="h-10 w-10 border-2 border-learning-accent/40">
-                      <AvatarImage src={sub.expert.avatar_url || '/placeholder.svg'} alt={sub.expert.name} />
+                      <AvatarImage src={avatarUrl(sub.expert.avatar_url, 80)} alt={sub.expert.name} loading="lazy" decoding="async" className="object-[center_15%]" />
                       <AvatarFallback>{sub.expert.name[0]}</AvatarFallback>
                     </Avatar>
                   </Link>

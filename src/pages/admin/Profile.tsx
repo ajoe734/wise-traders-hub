@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useExpertPerformance } from '@/hooks/usePerformance';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
+import { avatarUrl } from '@/lib/imageTransform';
 
 const AdminProfile = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -214,9 +215,11 @@ const AdminProfile = () => {
           <CardContent>
             <div className="flex items-center gap-6">
               <img
-                src={expert.avatar_url || '/placeholder.svg'}
+                src={avatarUrl(expert.avatar_url, 160)}
                 alt={expert.name}
-                className="h-20 w-20 rounded-full object-cover border-2 border-border"
+                loading="lazy"
+                decoding="async"
+                className="shrink-0 h-20 w-20 rounded-full object-cover object-[center_15%] border-2 border-border"
               />
               <div>
                 <PermissionTooltip disabled={isReadOnly}>

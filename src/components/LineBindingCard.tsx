@@ -7,6 +7,7 @@ import { MessageCircle, Copy, Check, RefreshCw, Unlink, ExternalLink, QrCode } f
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { avatarUrl } from '@/lib/imageTransform';
 
 interface LineBindingCardProps {
   expertId: string;
@@ -182,7 +183,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-3">
             {expertAvatarUrl && (
-              <img src={expertAvatarUrl} alt={expertName} className="h-8 w-8 rounded-full object-cover" />
+              <img src={avatarUrl(expertAvatarUrl, 64)} alt={expertName} loading="lazy" decoding="async" className="shrink-0 h-8 w-8 rounded-full object-cover object-[center_15%]" />
             )}
             <div className="min-w-0">
               <span className="block">{lineChannelName || expertName || 'LINE 綁定'}</span>
@@ -243,7 +244,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
             {expertAvatarUrl ? (
-              <img src={expertAvatarUrl} alt={expertName} className="h-10 w-10 rounded-full object-cover flex-shrink-0 opacity-60" />
+              <img src={avatarUrl(expertAvatarUrl, 80)} alt={expertName} loading="lazy" decoding="async" className="shrink-0 h-10 w-10 rounded-full object-cover object-[center_15%] opacity-60" />
             ) : (
               <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                 <MessageCircle className="h-5 w-5 text-muted-foreground" />
@@ -274,7 +275,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
         {!bindingCode ? (
           <div className="flex items-center gap-3">
             {expertAvatarUrl ? (
-              <img src={expertAvatarUrl} alt={expertName} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+              <img src={avatarUrl(expertAvatarUrl, 80)} alt={expertName} loading="lazy" decoding="async" className="shrink-0 h-10 w-10 rounded-full object-cover object-[center_15%]" />
             ) : (
               <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                 <MessageCircle className="h-5 w-5 text-muted-foreground" />

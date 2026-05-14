@@ -12,6 +12,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
+import { avatarUrl } from '@/lib/imageTransform';
 
 
 interface AdminLayoutProps {
@@ -91,9 +92,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <div className="p-4 border-b">
           <div className="flex items-center gap-3 mb-2">
             <img
-              src={expert.avatarUrl || '/placeholder.svg'}
+              src={avatarUrl(expert.avatarUrl, 80)}
               alt={expert.name}
-              className="h-10 w-10 rounded-full object-cover"
+              loading="lazy"
+              decoding="async"
+              className="shrink-0 h-10 w-10 rounded-full object-cover object-[center_15%]"
             />
             <div className="min-w-0">
               <h2 className="font-semibold truncate">{expert.name}</h2>

@@ -5,6 +5,7 @@ import { ChevronRight, Calendar, BookOpen } from 'lucide-react';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { richHtmlPreview } from '@/components/SafeRichHtml';
+import { avatarUrl } from '@/lib/imageTransform';
 
 interface JournalSignal {
   id: string;
@@ -53,9 +54,11 @@ export function JournalCard({ weekStart, weekEnd, signals, expert, to }: Journal
           {/* Expert Info */}
           <div className="flex items-center gap-2 mb-3">
             <img
-              src={expert.avatar_url || '/placeholder.svg'}
+              src={avatarUrl(expert.avatar_url, 64)}
               alt={expert.name}
-              className="h-8 w-8 rounded-full object-cover"
+              loading="lazy"
+              decoding="async"
+              className="shrink-0 h-8 w-8 rounded-full object-cover object-[center_15%]"
             />
             <span className="font-medium">{expert.name}</span>
             <Badge variant="secondary" className="text-[10px]">

@@ -238,7 +238,7 @@ const ExpertProfile = () => {
                 loading="eager"
                 decoding="async"
                 className={cn(
-                  "h-32 w-32 md:h-40 md:w-40 rounded-2xl object-cover ring-4 shadow-xl",
+                  "shrink-0 h-32 w-32 md:h-40 md:w-40 rounded-2xl object-cover object-[center_15%] ring-4 shadow-xl",
                   isAdvisor ? "ring-advisor/30" : "ring-mentor/30"
                 )}
               />

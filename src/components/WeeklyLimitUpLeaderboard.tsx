@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Trophy, Flame, ArrowRight, Target } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { avatarUrl } from '@/lib/imageTransform';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -94,7 +95,7 @@ export function WeeklyLimitUpLeaderboard({
                 </div>
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
-                    <AvatarImage src={entry.avatarUrl} alt={entry.name} />
+                    <AvatarImage src={avatarUrl(entry.avatarUrl, 80)} alt={entry.name} loading="lazy" decoding="async" className="object-[center_15%]" />
                     <AvatarFallback>{entry.name[0]}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
