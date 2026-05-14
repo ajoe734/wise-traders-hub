@@ -33,6 +33,11 @@ function fmtMonth(d: Date): string {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   return `${d.getFullYear()}/${mm}`;
 }
+function isoDay(d: Date): string {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
 
 function getTradingDaysFromTo(start: Date, end: Date): Date[] {
   const out: Date[] = [];
@@ -93,8 +98,42 @@ interface RawTrade {
   pnl_percent: number | null;
 }
 
-/** Equity (PnL $) snapshot at end of day D, given all trades */
-function snapshotPnL(trades: RawTrade[], D: Date, todayKey: string): number {
+/** instrument → ticker symbol（"8299 群聯" → "8299"） */
+function symbolOf(instrument: string): string {
+  return (instrument || '').split(' ')[0] || instrument;
+}
+
+/** snapshotMap: symbol → (yyyy-mm-dd → close_price) */
+type SnapshotMap = Map<string, Map<string, number>>;
+
+/**
+ * 取得 D 日（end of day）的標記價：
+ * 1. 若 D 當日有日收盤快照 → 用 close_price
+ * 2. 若 D 當日無快照，往前找最近一個交易日的收盤
+ * 3. 若 D 是「今天」且都找不到 → 用 current_price
+ * 4. 都沒有 → fallback 至 entry_price
+ */
+function markPrice(t: RawTrade, D: Date, todayKey: string, snapMap: SnapshotMap): number {
+  const sym = symbolOf(t.instrument);
+  const inner = snapMap.get(sym);
+  if (inner) {
+    // try D，再往前回退最多 10 天找最近交易日收盤
+    const probe = new Date(D);
+    for (let i = 0; i < 10; i++) {
+      const k = isoDay(probe);
+      const c = inner.get(k);
+      if (c != null) return Number(c);
+      probe.setDate(probe.getDate() - 1);
+    }
+  }
+  if (fmtDay(D) === todayKey && t.current_price != null) {
+    return Number(t.current_price);
+  }
+  return Number(t.entry_price || 0);
+}
+
+/** Equity (PnL $) snapshot at end of day D */
+function snapshotPnL(trades: RawTrade[], D: Date, todayKey: string, snapMap: SnapshotMap): number {
   const Dts = D.getTime();
   let pnl = 0;
   for (const t of trades) {
@@ -107,12 +146,9 @@ function snapshotPnL(trades: RawTrade[], D: Date, todayKey: string): number {
 
     const exitTs = t.exit_date ? new Date(t.exit_date).getTime() : null;
     if (exitTs !== null && exitTs <= Dts) {
-      // realized
-      const exitPrice = Number(t.exit_price || 0);
-      pnl += (exitPrice - entryPrice) * qty;
+      pnl += (Number(t.exit_price || 0) - entryPrice) * qty;
     } else {
-      // open at end of D — 沒有歷史日線資料，以最新 current_price 為近似
-      const mark = Number(t.current_price ?? entryPrice);
+      const mark = markPrice(t, D, todayKey, snapMap);
       pnl += (mark - entryPrice) * qty;
     }
   }
@@ -123,7 +159,8 @@ function snapshotPnL(trades: RawTrade[], D: Date, todayKey: string): number {
 function perStockSnapshot(
   trades: RawTrade[],
   D: Date,
-  todayKey: string
+  todayKey: string,
+  snapMap: SnapshotMap,
 ): StockTrade[] {
   const Dts = D.getTime();
   const map = new Map<string, { cost: number; pnl: number; sample: RawTrade }>();
@@ -140,8 +177,7 @@ function perStockSnapshot(
     if (exitTs !== null && exitTs <= Dts) {
       pnl = (Number(t.exit_price || 0) - entryPrice) * qty;
     } else {
-      const isToday = fmtDay(D) === todayKey;
-      const mark = isToday ? Number(t.current_price ?? entryPrice) : entryPrice;
+      const mark = markPrice(t, D, todayKey, snapMap);
       pnl = (mark - entryPrice) * qty;
     }
     const cur = map.get(t.instrument) || { cost: 0, pnl: 0, sample: t };
@@ -172,7 +208,12 @@ function perStockSnapshot(
 }
 
 /** Per-stock PnL ($) at end of day D */
-function perStockPnLAt(trades: RawTrade[], D: Date, todayKey: string): Map<string, number> {
+function perStockPnLAt(
+  trades: RawTrade[],
+  D: Date,
+  todayKey: string,
+  snapMap: SnapshotMap,
+): Map<string, number> {
   const Dts = D.getTime();
   const map = new Map<string, number>();
   for (const t of trades) {
@@ -187,7 +228,7 @@ function perStockPnLAt(trades: RawTrade[], D: Date, todayKey: string): Map<strin
     if (exitTs !== null && exitTs <= Dts) {
       pnl = (Number(t.exit_price || 0) - entryPrice) * qty;
     } else {
-      const mark = Number(t.current_price ?? entryPrice);
+      const mark = markPrice(t, D, todayKey, snapMap);
       pnl = (mark - entryPrice) * qty;
     }
     map.set(t.instrument, (map.get(t.instrument) || 0) + pnl);
@@ -200,16 +241,16 @@ function perStockRangeReturn(
   trades: RawTrade[],
   rangeStart: Date,
   rangeEnd: Date,
-  todayKey: string
+  todayKey: string,
+  snapMap: SnapshotMap,
 ): StockTrade[] {
   const startPrior = new Date(rangeStart);
   startPrior.setDate(startPrior.getDate() - 1);
   startPrior.setHours(23, 59, 59, 999);
 
-  const pnlEnd = perStockPnLAt(trades, rangeEnd, todayKey);
-  const pnlPrior = perStockPnLAt(trades, startPrior, todayKey);
+  const pnlEnd = perStockPnLAt(trades, rangeEnd, todayKey, snapMap);
+  const pnlPrior = perStockPnLAt(trades, startPrior, todayKey, snapMap);
 
-  // costBase：區間內任一時點曾持有的成本（簡化為 Σ entry_price × qty，僅算 entry_date ≤ rangeEnd）
   const costMap = new Map<string, { cost: number; sample: RawTrade }>();
   for (const t of trades) {
     if (!t.entry_date) continue;
@@ -247,28 +288,24 @@ function perStockRangeReturn(
   return out;
 }
 
-export function usePeriodPerformance(expertId: string | undefined, period: ViewPeriod) {
+export function usePeriodPerformance(
+  expertId: string | undefined,
+  period: ViewPeriod,
+  startingCapital?: number,
+) {
   return useQuery({
-    queryKey: ['period-performance-v2', expertId, period],
+    queryKey: ['period-performance-v3', expertId, period, startingCapital ?? 0],
     queryFn: async (): Promise<PeriodBucket[]> => {
       if (!expertId) return [];
 
-      const [tradesRes, expertRes] = await Promise.all([
-        supabase
-          .from('trade_records')
-          .select('instrument, entry_date, exit_date, entry_price, exit_price, current_price, quantity, status, pnl_percent')
-          .eq('expert_id', expertId),
-        supabase
-          .from('experts')
-          .select('starting_capital')
-          .eq('id', expertId)
-          .maybeSingle(),
-      ]);
+      const { data: tradeRows, error: tradesErr } = await supabase
+        .from('trade_records')
+        .select('instrument, entry_date, exit_date, entry_price, exit_price, current_price, quantity, status, pnl_percent')
+        .eq('expert_id', expertId);
+      if (tradesErr) throw tradesErr;
+      const trades = (tradeRows || []) as RawTrade[];
 
-      if (tradesRes.error) throw tradesRes.error;
-      const trades = (tradesRes.data || []) as RawTrade[];
-      const startingCapital = Number((expertRes.data as any)?.starting_capital || 0) || 1_000_000;
-
+      const capital = Number(startingCapital || 0) || 1_000_000;
       const todayKey = fmtDay(new Date());
 
       const dates: Date[] =
@@ -278,19 +315,42 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
 
       const labelOf = (d: Date) => (period === 'yearly' ? fmtMonth(d) : fmtDay(d));
 
-      // rangeStart：該 period 區間的起始日（與 dates[0] 對應）
       const rangeStart = dates[0] ? new Date(dates[0]) : new Date();
       const rangeEnd = dates[dates.length - 1] ? new Date(dates[dates.length - 1]) : new Date();
-      const rangeStocks = perStockRangeReturn(trades, rangeStart, rangeEnd, todayKey);
+
+      // 批次抓 daily_price_snapshots，避免 N+1
+      const symbols = Array.from(new Set(trades.map(t => symbolOf(t.instrument)).filter(Boolean)));
+      const snapMap: SnapshotMap = new Map();
+      if (symbols.length > 0) {
+        const fromIso = isoDay(new Date(rangeStart.getTime() - 14 * 86400000)); // 多抓兩週緩衝供回退
+        const toIso = isoDay(new Date());
+        const { data: snaps } = await supabase
+          .from('daily_price_snapshots')
+          .select('symbol, trade_date, close_price')
+          .in('symbol', symbols)
+          .gte('trade_date', fromIso)
+          .lte('trade_date', toIso);
+        for (const row of snaps || []) {
+          const sym = (row as any).symbol as string;
+          const td = (row as any).trade_date as string; // 'YYYY-MM-DD'
+          const close = Number((row as any).close_price);
+          if (!Number.isFinite(close)) continue;
+          let inner = snapMap.get(sym);
+          if (!inner) { inner = new Map(); snapMap.set(sym, inner); }
+          inner.set(td, close);
+        }
+      }
+
+      const rangeStocks = perStockRangeReturn(trades, rangeStart, rangeEnd, todayKey, snapMap);
 
       let prevCum = 0;
       const buckets = dates.map((d) => {
-        const pnl = snapshotPnL(trades, d, todayKey);
-        const cum = startingCapital > 0 ? (pnl / startingCapital) * 100 : 0;
+        const pnl = snapshotPnL(trades, d, todayKey, snapMap);
+        const cum = capital > 0 ? (pnl / capital) * 100 : 0;
         const periodReturn = cum - prevCum;
         prevCum = cum;
 
-        const stocks = perStockSnapshot(trades, d, todayKey);
+        const stocks = perStockSnapshot(trades, d, todayKey, snapMap);
         const sorted = [...stocks].sort((a, b) => b.returnPct - a.returnPct);
         const topStock = sorted[0]
           ? { symbol: sorted[0].symbol, name: sorted[0].name, returnPct: sorted[0].returnPct }
@@ -312,7 +372,6 @@ export function usePeriodPerformance(expertId: string | undefined, period: ViewP
         } as PeriodBucket;
       });
 
-      // 把區間級 rangeStocks 掛在最後一個 bucket（PerformanceOverviewPanel 會讀）
       if (buckets.length) buckets[buckets.length - 1].rangeStocks = rangeStocks;
       return buckets;
     },

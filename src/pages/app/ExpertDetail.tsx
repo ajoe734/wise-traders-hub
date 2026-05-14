@@ -168,7 +168,7 @@ const AppExpertDetail = () => {
           <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
             <Target className="h-4 w-4" />績效總覽
           </h2>
-          <PerformanceOverviewPanel expertSlug={slug || ""} variant={isAdvisor ? 'advisor' : 'mentor'} />
+          <PerformanceOverviewPanel expertId={expert.id} startingCapital={(expert as any).startingCapital ?? null} variant={isAdvisor ? 'advisor' : 'mentor'} />
         </div>
 
         {!isSubscribed && mainPlan && mainMeta && (

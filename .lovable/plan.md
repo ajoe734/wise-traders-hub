@@ -1,68 +1,100 @@
-## 決議
+# /expert/sharkgu 問題修正計畫
 
-1. **`cumulative_return` 砍掉** — 前端只用 `total_return_pct`
-2. **`avg_pnl` 兩個都給** — `avg_pnl_pct`（等權算術平均）+ `avg_pnl_amount`（金額平均）
-3. **`avg_hold_days` 一起修** — 把 open trades 也納入
+## 我看到的真問題
 
----
+不是只有「要不要計入未實現損益」而已，現在至少還有 4 個明確問題：
 
-## 修復內容
+1. **同一頁重抓了兩次專家資料**
+   - `ExpertProfile.tsx` 自己查一次 `experts`
+   - `PerformanceOverviewPanel.tsx` 又用 `useExpert(expertSlug)` 再查一次 `experts + expert_plans(*)`
+   - 實際網路紀錄已看到兩筆：
+     - `experts?select=id,name,bio...&slug=eq.sharkgu`
+     - `experts?select=*,expert_plans(*)&slug=eq.sharkgu`
 
-### Step 1: Migration — 修正 `handle_signal_trade` 不要把 quantity 寫 0
+2. **方案資料也重抓了兩次**
+   - `ExpertProfile.tsx` 已查 `expert_plans`
+   - `useExpert()` 又把 `expert_plans(*)` 一起撈回來
+   - 這代表一個頁面 render 要多付一筆沒必要的關聯查詢
 
-平倉時 `trade_records.quantity` 保留實際成交股數（不是 0）。
-回填 sharkgu 三筆已 closed records 的 quantity（從對應賣出 signal 的 `quantity * 1000` 推回）。
+3. **績效圖的時間序列邏輯確實還有 bug**
+   - 目前 `usePeriodPerformance.ts` 在 `snapshotPnL()` / `perStockPnLAt()` 對「非當日的未平倉部位」直接套 **最新 `current_price`**
+   - 這會把過去每一天都用今天價格重算，週/月曲線都被污染
+   - 同時 `perStockSnapshot()` 又在非 today 回退成 `entryPrice`，造成：
+     - 總曲線一套算法
+     - 個股排行另一套算法
+     - 兩邊互相對不起來
 
-### Step 2: Migration — 重寫 `calculate_expert_performance` RPC
+4. **目前圖表資料與 KPI 來源拆成兩套，存在漂移風險**
+   - KPI 走 `calculate_expert_performance` RPC
+   - 圖表走前端自行從 `trade_records` 重算
+   - 只要估值規則、fallback 規則、日期切點有一點不同，就會再出現「KPI 對，圖表錯」或反過來
 
-砍掉 / 新增 / 修正：
+## 我確認過的現況
 
-| 欄位 | 處理 | 新算法 |
-|---|---|---|
-| `cumulative_return` | **砍掉** | — |
-| `total_pnl` | **砍掉**（誤導性命名）| — |
-| `total_return_pct` | 保留 | `(realized_pnl_amount + unrealized_pnl_amount) / starting_capital × 100` |
-| `realized_pnl_amount` | 保留 | `SUM(quantity × (exit_price - entry_price))`（quantity 不再是 0）|
-| `unrealized_pnl_amount` | 保留 | 維持（open trades 用 current_prices）|
-| `profit_factor` | **改算法** | `SUM(pnl_amount where >0) / SUM(abs(pnl_amount) where <0)`，無虧損 cap 999.99 |
-| `max_drawdown` | **改算法** | 用 `pnl_amount` 累積跑 peak/dd，輸出 `(peak - running) / starting_capital × 100`（百分比，與 starting_capital 同基準）|
-| `avg_pnl_pct` | **新增** | `AVG(pnl_percent)` 等權算術平均（業界口徑）|
-| `avg_pnl_amount` | **新增** | `realized_pnl_amount / total_trades`（金額平均）|
-| `avg_pnl` | **砍掉**（被上面兩個取代）| — |
-| `avg_hold_days` | **改算法** | open trades 用 `NOW() - entry_date`，closed 用 `exit_date - entry_date`，全部納入平均 |
-| `win_rate` | 保留 | 維持 |
-| `total_trades` | 保留 | 維持 |
-| `current_asset` | 保留 | 維持 |
-| `return_1y` | 保留 | 維持 |
-| `starting_capital` | 保留 | 維持 |
+- `/expert/sharkgu` 目前頁面請求主要是：
+  - 1 次專家主資料
+  - 1 次方案
+  - 1 次我的訂閱
+  - 1 次訂閱人數
+  - 1 次 RPC 績效 KPI
+  - 1 次 `trade_records`
+  - 1 次 `starting_capital`
+  - 再加 **重複的 expert + expert_plans 查詢**
+- 瀏覽器量測顯示：
+  - `DOMContentLoaded` 約 **8.3s**
+  - `FCP` 約 **14.1s**
+- JS 很重，但對這頁來說，**先要砍的是重複資料流與錯誤的前端重算**
 
-### Step 3: 前端
+## 修正方案
 
-砍掉所有 `cumulative_return` / `total_pnl` / `avg_pnl` 引用，改用新欄位：
+### 1) 先把專家頁資料流去重
+- 改 `PerformanceOverviewPanel` API，不再吃 `expertSlug` 後自己查 `useExpert()`
+- 由 `ExpertProfile.tsx` 直接把已拿到的 `expertId` / `startingCapital` / `variant` 傳進去
+- 這樣可以直接砍掉：
+  - 重複的 `experts` 查詢
+  - 連帶重複的 `expert_plans(*)` 查詢
+  - 額外的 `experts?select=starting_capital` 查詢
 
-- `src/hooks/usePerformance.ts` — interface 更新
-- `src/components/strategy/PerformanceOverviewPanel.tsx` — 「累積報酬」改顯示 `total_return_pct`
-- `src/components/strategy/TradeStatsCard.tsx` — 平均單筆改顯示 `avg_pnl_pct` 或 `avg_pnl_amount`（依 UI 上下文，pct 給卡片、amount 給 tooltip）
-- `src/pages/app/AppHome.tsx` — 同上
-- `src/pages/admin/Performance.tsx` — 後台表格欄位更新
+### 2) 修正績效圖估值規則，保留未實現損益
+- **未實現損益要保留**，但要用正確時間點的價格
+- 在 `usePeriodPerformance.ts` 補抓 `daily_price_snapshots`
+- 統一規則為：
+  - 若 D 當天有日收盤快照 → 用 `close_price`
+  - 若 D 是今天且有 `current_price` → 用 `current_price`
+  - 若都沒有 → fallback `entry_price`
+- 同一套規則共用到：
+  - `snapshotPnL`
+  - `perStockPnLAt`
+  - `perStockSnapshot`
+  - `perStockRangeReturn`
 
-### Step 4: 測試
+### 3) 讓圖表和 KPI 對齊
+- 圖表終點（最後一個 bucket 的累積值）必須與 RPC 的 `total_return_pct` 對得起來
+- 若最後一天是 today，終點應與目前 KPI 一致
+- 週/月/年的中間點則依歷史快照計算，不再拿今天價格回填過去
 
-- `src/lib/performanceCalc.ts` — 重寫 `calcMaxDrawdown`：改吃 `{ pnl_amount }[]` + `startingCapital`，輸出百分比
-- `src/lib/performanceCalc.ts` — 新增 `calcAvgPnlPct`、`calcAvgPnlAmount`、`calcTotalReturnPct`、`calcAvgHoldDays`
-- `src/test/integration/1.21-expert-performance-rpc.test.ts` — drift assertions 全面更新：
-  - 不再檢查 `'cumulative_return'`、`'total_pnl'`、`'avg_pnl'`
-  - 新增檢查 `'avg_pnl_pct'`、`'avg_pnl_amount'`、`max_drawdown` 用金額累積、`avg_hold_days` 含 open trades
-- `1.16-signal-trade-trigger.test.ts` — 確認平倉後 `quantity` 不為 0
-- 補 sharkgu 場景 fixture：3 筆全勝 → `total_return_pct ≈ 23.21%`、`profit_factor = 999.99`、`max_drawdown = 0`、`avg_pnl_pct ≈ 29.37%`、`avg_pnl_amount = 62000`
+### 4) 順手清掉一個小噪音
+- `member_subscriptions` 的 `HEAD` count request 在瀏覽器被標成 `ERR_ABORTED`
+- 雖然不是主因，但會讓網路面板看起來像壞掉；我會順手確認是否需要改成較穩定的計數方式或避免重複觸發
 
-### Step 5: 驗證
+## 會改到的檔案
 
-migration 跑完後對 sharkgu 執行 `calculate_expert_performance`，預期：
-- `total_return_pct ≈ 23.21%`（原 4.61%）
-- `realized_pnl_amount ≈ 186,000`（原 0）
-- `profit_factor = 999.99`
-- `avg_pnl_pct ≈ 29.37%`、`avg_pnl_amount ≈ 62,000`
-- `avg_hold_days` 含 open 三筆持倉至今天數
+- `src/pages/ExpertProfile.tsx`
+- `src/components/strategy/PerformanceOverviewPanel.tsx`
+- `src/hooks/usePeriodPerformance.ts`
 
-確認後更新 `.lovable/plan.md` 結案。
+## 驗證方式
+
+1. 重開 `/expert/sharkgu`，確認 expert / plans 查詢次數下降
+2. 確認圖表終點 = KPI `total_return_pct`
+3. 確認 5/5、5/8、5/13、5/14 這些節點不再拿今天價格污染過去
+4. 確認個股 best/worst 與整體曲線使用同一套估值規則
+
+## 技術細節
+
+- 這次不改資料庫 schema
+- 只改前端查詢結構與圖表計算邏輯
+- 核心原則是：
+  - **未實現損益要算**
+  - **但只能算到當時那一天的價格，不是拿今天價格灌回過去**
+  - **同一頁不要重查同一份 expert / plans 資料**
