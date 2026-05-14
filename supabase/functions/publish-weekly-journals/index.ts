@@ -51,7 +51,7 @@ function buildPromoMessage(expertName: string, performance: any, signalCount: nu
 
   if (performance) {
     const winRate = performance.win_rate != null ? `${Number(performance.win_rate).toFixed(1)}%` : '-'
-    const cumReturn = performance.cumulative_return != null ? `${Number(performance.cumulative_return).toFixed(1)}%` : '-'
+    const cumReturn = performance.total_return_pct != null ? `${Number(performance.total_return_pct).toFixed(1)}%` : '-'
     const return1y = performance.return_1y != null ? `${Number(performance.return_1y).toFixed(1)}%` : '-'
     const totalTrades = performance.total_trades ?? 0
 
