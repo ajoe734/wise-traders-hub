@@ -69,8 +69,14 @@ function getWeeklyDays(): Date[] {
 function getMonthlyDays(): Date[] {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  return getTradingDaysFromTo(start, now);
+  const out: Date[] = [];
+  const d = new Date(now);
+  while (out.length < 20) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) out.unshift(new Date(d));
+    d.setDate(d.getDate() - 1);
+  }
+  return out;
 }
 
 /** End-of-month dates (capped at today) for last 12 months */
