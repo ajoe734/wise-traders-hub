@@ -143,7 +143,7 @@ describe('drift-detection: handle_signal_trade trigger 建倉行為', () => {
     src = readFileSync(
       resolve(
         process.cwd(),
-        'supabase/migrations/20260505123116_a9c1424b-42e5-488a-bebd-6f95e9c7126e.sql',
+        'supabase/migrations/20260514120252_a26870b1-f964-49be-a4a5-25c67a699ea2.sql',
       ),
       'utf-8',
     );
@@ -201,9 +201,10 @@ describe('drift-detection: handle_signal_trade trigger 建倉行為', () => {
     );
   });
 
-  it('trigger UPDATE guard：status 未變更時 early RETURN NEW；非 published/pending 狀態時亦 early RETURN NEW（4.1 guard）', () => {
+  it('trigger UPDATE guard：status 未變更時 early RETURN NEW；pending → published 只放行發布、不重複寫交易（4.1 guard）', () => {
     expect(src).toContain('IF OLD.status = NEW.status THEN');
-    expect(src).toContain("NOT IN ('published', 'pending')");
+    expect(src).toContain("IF NOT (OLD.status = 'pending' AND NEW.status = 'published') THEN");
+    expect(src).toContain("IF NEW.status <> 'pending' THEN");
   });
 });
 
