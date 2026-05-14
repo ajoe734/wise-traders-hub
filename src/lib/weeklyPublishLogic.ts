@@ -6,7 +6,7 @@
 
 export interface ExpertPerformance {
   win_rate?: number | null;
-  cumulative_return?: number | null;
+  total_return_pct?: number | null;
   return_1y?: number | null;
   total_trades?: number | null;
 }
@@ -54,8 +54,8 @@ export function buildPromoMessage(
     const winRate =
       performance.win_rate != null ? `${Number(performance.win_rate).toFixed(1)}%` : '-';
     const cumReturn =
-      performance.cumulative_return != null
-        ? `${Number(performance.cumulative_return).toFixed(1)}%`
+      performance.total_return_pct != null
+        ? `${Number(performance.total_return_pct).toFixed(1)}%`
         : '-';
     const return1y =
       performance.return_1y != null ? `${Number(performance.return_1y).toFixed(1)}%` : '-';

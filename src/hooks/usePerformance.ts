@@ -5,17 +5,17 @@ import { supabase } from '@/integrations/supabase/client';
 export interface ExpertPerformance {
   total_trades: number;
   win_rate: number;
-  cumulative_return: number;
   max_drawdown: number;
   profit_factor: number;
   avg_hold_days: number;
-  total_pnl: number;
+  avg_pnl_pct: number;
+  avg_pnl_amount: number;
   return_1y: number;
   current_asset: number;
   starting_capital?: number;
   realized_pnl_amount?: number;
   unrealized_pnl_amount?: number;
-  total_return_pct?: number;
+  total_return_pct: number;
 }
 
 export function useExpertPerformance(expertId: string | undefined) {

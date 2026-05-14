@@ -62,7 +62,7 @@ const fetchHomeData = async (userId: string | undefined) => {
 
 function ExpertPerfRow({ sub }: { sub: DbSubscription }) {
   const { data: perf } = useExpertPerformance(sub.expert.id || undefined);
-  const cumulative = (perf as any)?.total_return_pct ?? perf?.cumulative_return ?? 0;
+  const cumulative = perf?.total_return_pct ?? 0;
 
   return (
     <Link 

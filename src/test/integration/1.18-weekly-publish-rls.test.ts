@@ -45,7 +45,7 @@ describe('buildPromoMessage（已取消訂閱者推廣 Flex Message）', () => {
   it('有 performance 資料 → type=flex、altText 含 signalCount、body 含勝率與累計報酬（4.5-1 promo path）', () => {
     const msg = buildPromoMessage(
       '測試專家',
-      { win_rate: 70, cumulative_return: 25.5, return_1y: 20.1, total_trades: 10 },
+      { win_rate: 70, total_return_pct: 25.5, return_1y: 20.1, total_trades: 10 },
       3,
     ) as any;
 
@@ -74,7 +74,7 @@ describe('buildPromoMessage（已取消訂閱者推廣 Flex Message）', () => {
   it('performance 有效但各欄位為 null → 累計報酬、近一年報酬、勝率皆為 "-"、totalTrades 為 0', () => {
     const msg = buildPromoMessage(
       '測試專家',
-      { win_rate: null, cumulative_return: null, return_1y: null, total_trades: null },
+      { win_rate: null, total_return_pct: null, return_1y: null, total_trades: null },
       2,
     ) as any;
     const bodyStr = JSON.stringify(msg.contents);
