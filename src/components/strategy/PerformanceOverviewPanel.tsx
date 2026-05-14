@@ -35,8 +35,9 @@ export function PerformanceOverviewPanel({ expertId, startingCapital: startingCa
   const [selectedStock, setSelectedStock] = useState<StockTradeDetail | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  // Fetch overall performance KPIs
+  // Fetch overall performance KPIs (with realtime invalidation, scoped to detail page)
   const { data: perfData } = useExpertPerformance(expertId);
+  useExpertPerformanceRealtime(expertId);
 
   // 起始資金優先用父層傳入；否則 fallback 到 RPC 回傳值
   const startingCapital = startingCapitalProp ?? (perfData as any)?.starting_capital ?? 0;
