@@ -18,34 +18,16 @@ export interface ExpertPerformance {
   total_return_pct: number;
 }
 
+/**
+ * Read expert performance via RPC. No realtime subscription here — the backend
+ * cron updates `user_performances` every 5 min, and react-query's `staleTime`
+ * + `refetchOnWindowFocus` is enough for list contexts (home, explore).
+ *
+ * For pages that need live updates (expert detail), use
+ * `useExpertPerformanceRealtime(expertId)` to opt in to a single channel
+ * scoped to that page.
+ */
 export function useExpertPerformance(expertId: string | undefined) {
-  const queryClient = useQueryClient();
-
-  // ── Realtime：訂閱 user_performances 變化（後端 stock-price-sync 寫入時觸發 invalidate）──
-  // 注意：user_performances 的 user_id 是分析師本人 user_id，不是訂閱者；
-  // 這裡用 expertId 作 channel key 即可，invalidation 會讓任何看這位分析師的人都重抓最新數字
-  useEffect(() => {
-    if (!expertId) return;
-    const channel = supabase
-      .channel(`expert-perf-${expertId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'user_performances',
-        },
-        () => {
-          // 任何 user_performances 更新就 invalidate；後端 5 分鐘 cron 會批次寫入
-          queryClient.invalidateQueries({ queryKey: ['expert-performance', expertId] });
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [expertId, queryClient]);
-
   return useQuery({
     queryKey: ['expert-performance', expertId],
     queryFn: async () => {
@@ -59,4 +41,28 @@ export function useExpertPerformance(expertId: string | undefined) {
     enabled: !!expertId,
     staleTime: 60_000,
   });
+}
+
+/**
+ * Opt-in realtime subscription for pages that genuinely need live perf updates.
+ * Use sparingly — each call opens a websocket channel.
+ */
+export function useExpertPerformanceRealtime(expertId: string | undefined) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!expertId) return;
+    const channel = supabase
+      .channel(`expert-perf-${expertId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'user_performances' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['expert-performance', expertId] });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [expertId, queryClient]);
 }

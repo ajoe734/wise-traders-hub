@@ -3,7 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { NotificationBell } from '@/components/NotificationBell';
+import { useMemberSubscriptions } from '@/hooks/useMemberSubscriptions';
 import { 
   Home, Radio, BookOpen, User, LogOut, ChevronRight, ChevronLeft,
   Target, Compass, Moon, Sun
@@ -14,12 +16,21 @@ import { cn } from '@/lib/utils';
 const SIGNALS_LAST_SEEN_KEY = 'app:lastSeen:signals';
 const JOURNALS_LAST_SEEN_KEY = 'app:lastSeen:journals';
 
+// Lazy import to avoid circular deps at module init
+const invalidateUnread = (key: 'signals' | 'journals') => {
+  import('@/lib/queryClient').then(({ queryClient }) => {
+    queryClient.invalidateQueries({ queryKey: [`unread-${key}`] });
+  });
+};
+
 export function markAppSignalsAsRead() {
   localStorage.setItem(SIGNALS_LAST_SEEN_KEY, Date.now().toString());
+  invalidateUnread('signals');
 }
 
 export function markAppJournalsAsRead() {
   localStorage.setItem(JOURNALS_LAST_SEEN_KEY, Date.now().toString());
+  invalidateUnread('journals');
 }
 
 // Get which nav group a path belongs to
@@ -134,10 +145,19 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   const { user, supabaseUser, isLoading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [unreadSignals, setUnreadSignals] = useState(0);
-  const [unreadJournals, setUnreadJournals] = useState(0);
-  const [hasAdvisor, setHasAdvisor] = useState(false);
-  const [hasMentor, setHasMentor] = useState(false);
+
+  // Single source of truth for subscriptions (deduped via react-query)
+  const { data: memberSubs = [] } = useMemberSubscriptions();
+  const advisorExpertIds = useMemo(
+    () => Array.from(new Set(memberSubs.filter(s => s.expert.role === 'advisor').map(s => s.expert_id))),
+    [memberSubs],
+  );
+  const mentorExpertIds = useMemo(
+    () => Array.from(new Set(memberSubs.filter(s => s.expert.role === 'mentor').map(s => s.expert_id))),
+    [memberSubs],
+  );
+  const hasAdvisor = advisorExpertIds.length > 0;
+  const hasMentor = mentorExpertIds.length > 0;
 
   // Determine mode from real subscription data
   const mode = (hasAdvisor && hasMentor ? 'both' :
@@ -156,7 +176,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
     ];
   }, []);
 
-  const breadcrumbs = useMemo(() => 
+  const breadcrumbs = useMemo(() =>
     getBreadcrumbConfig(location.pathname, mode),
     [location.pathname, mode]
   );
@@ -165,76 +185,44 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   const isNotHome = location.pathname !== '/app';
   const showBreadcrumbs = breadcrumbs.length > 1;
 
-  // Calculate unread counts
-  useEffect(() => {
-    if (!user) return;
+  // Unread counts as cached react-query queries (no refetch on navigation)
+  const { data: unreadSignals = 0 } = useQuery({
+    queryKey: ['unread-signals', user?.id, advisorExpertIds],
+    queryFn: async () => {
+      if (!user || advisorExpertIds.length === 0) return 0;
+      const lastSeenStr = localStorage.getItem(SIGNALS_LAST_SEEN_KEY);
+      const lastSeen = lastSeenStr ? parseInt(lastSeenStr, 10) : 0;
+      const sinceIso = lastSeen > 0 ? new Date(lastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
+      const { count } = await supabase
+        .from('expert_signals')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'published')
+        .in('expert_id', advisorExpertIds)
+        .gt('published_at', sinceIso);
+      return count ?? 0;
+    },
+    enabled: !!user && advisorExpertIds.length > 0,
+    staleTime: 60_000,
+  });
 
-    const loadUnreadCounts = async () => {
-      // Signals: only count from subscribed experts
-      const signalsLastSeenStr = localStorage.getItem(SIGNALS_LAST_SEEN_KEY);
-      const signalsLastSeen = signalsLastSeenStr ? parseInt(signalsLastSeenStr, 10) : 0;
-      const sinceIso = signalsLastSeen > 0 ? new Date(signalsLastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
-
-      // Get subscribed plans with expert role info
-      const { data: activeSubs } = await supabase
-        .from('member_subscriptions')
-        .select('plan_id, expert_plans(expert_id, plan_type, experts(role))')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-
-      const subs = activeSubs || [];
-      const expertIds = subs
-        .map((s: any) => s.expert_plans?.expert_id)
-        .filter(Boolean);
-
-      // Determine subscription mode from expert roles
-      const advisorExpertIds: string[] = [];
-      const mentorExpertIds: string[] = [];
-      subs.forEach((s: any) => {
-        const role = s.expert_plans?.experts?.role;
-        const eid = s.expert_plans?.expert_id;
-        if (!role || !eid) return;
-        if (role === 'advisor') advisorExpertIds.push(eid);
-        if (role === 'mentor') mentorExpertIds.push(eid);
-      });
-      setHasAdvisor(advisorExpertIds.length > 0);
-      setHasMentor(mentorExpertIds.length > 0);
-
-      // Unread signals: only advisor signals
-      if (advisorExpertIds.length > 0) {
-        const { count: unreadSignalsCount } = await supabase
-          .from('expert_signals')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'published')
-          .in('expert_id', advisorExpertIds)
-          .gt('published_at', sinceIso);
-
-        setUnreadSignals(unreadSignalsCount ?? 0);
-      } else {
-        setUnreadSignals(0);
-      }
-
-      // Unread journals: only mentor signals
-      if (mentorExpertIds.length > 0) {
-        const journalsLastSeenStr = localStorage.getItem(JOURNALS_LAST_SEEN_KEY);
-        const journalsLastSeen = journalsLastSeenStr ? parseInt(journalsLastSeenStr, 10) : 0;
-        const journalsSinceIso = journalsLastSeen > 0 ? new Date(journalsLastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
-
-        const { count: unreadJournalsCount } = await supabase
-          .from('expert_signals')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'published')
-          .in('expert_id', mentorExpertIds)
-          .gt('published_at', journalsSinceIso);
-
-        setUnreadJournals(unreadJournalsCount ?? 0);
-      } else {
-        setUnreadJournals(0);
-      }
-    };
-
-    loadUnreadCounts();
-  }, [user, location.pathname]);
+  const { data: unreadJournals = 0 } = useQuery({
+    queryKey: ['unread-journals', user?.id, mentorExpertIds],
+    queryFn: async () => {
+      if (!user || mentorExpertIds.length === 0) return 0;
+      const lastSeenStr = localStorage.getItem(JOURNALS_LAST_SEEN_KEY);
+      const lastSeen = lastSeenStr ? parseInt(lastSeenStr, 10) : 0;
+      const sinceIso = lastSeen > 0 ? new Date(lastSeen).toISOString() : '1970-01-01T00:00:00.000Z';
+      const { count } = await supabase
+        .from('expert_signals')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'published')
+        .in('expert_id', mentorExpertIds)
+        .gt('published_at', sinceIso);
+      return count ?? 0;
+    },
+    enabled: !!user && mentorExpertIds.length > 0,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     if (!isLoading && !user && !supabaseUser) {
