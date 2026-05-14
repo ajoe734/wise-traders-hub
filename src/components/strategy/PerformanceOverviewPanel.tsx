@@ -15,7 +15,7 @@ import {
 import { FloatingStatCard, StockPerf } from "./FloatingStatCard";
 import { StockTradeDetailSheet, StockTradeDetail } from "./StockTradeDetailSheet";
 import { cn } from "@/lib/utils";
-import { useExpertPerformance } from "@/hooks/usePerformance";
+import { useExpertPerformance, useExpertPerformanceRealtime } from "@/hooks/usePerformance";
 import { usePeriodPerformance, PeriodBucket } from "@/hooks/usePeriodPerformance";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
