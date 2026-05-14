@@ -39,9 +39,9 @@ const AdminDashboard = () => {
     const { data } = await supabase.rpc('calculate_expert_performance', { _expert_id: eid });
     if (data) {
       const d = data as any;
-      const totalRet = d.total_return_pct ?? d.cumulative_return ?? 0;
+      const totalRet = d.total_return_pct ?? 0;
       setCumulativeReturn(Number(totalRet));
-      setAvgPnlPercent(d.avg_pnl != null ? Number(d.avg_pnl) : 0);
+      setAvgPnlPercent(d.avg_pnl_pct != null ? Number(d.avg_pnl_pct) : 0);
     }
   };
 
@@ -120,9 +120,9 @@ const AdminDashboard = () => {
     // Use RPC result for total return
     if (perfRes.data) {
       const pd = perfRes.data as any;
-      const totalRet = pd.total_return_pct ?? pd.cumulative_return ?? 0;
+      const totalRet = pd.total_return_pct ?? 0;
       setCumulativeReturn(Number(totalRet));
-      setAvgPnlPercent(pd.avg_pnl != null ? Number(pd.avg_pnl) : 0);
+      setAvgPnlPercent(pd.avg_pnl_pct != null ? Number(pd.avg_pnl_pct) : 0);
     }
 
     setRecentSignals(recentRes.data || []);

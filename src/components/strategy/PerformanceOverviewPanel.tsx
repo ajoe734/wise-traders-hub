@@ -47,9 +47,7 @@ export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: Pe
   const INITIAL_CAPITAL = startingCapital ?? 0;
 
   // 總報酬率（以起始資金為基準，含已實現+未實現）
-  const totalReturnPct = (perfData as any)?.total_return_pct ?? 0;
-  // 已實現累積報酬（保留作 chart 累積線參考）
-  const realizedReturnPct = perfData?.cumulative_return ?? 0;
+  const totalReturnPct = perfData?.total_return_pct ?? 0;
 
   // Fetch period-bucketed data
   const { data: performanceData = [], isLoading } = usePeriodPerformance(expertId, period);
