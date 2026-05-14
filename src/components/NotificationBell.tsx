@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,37 +14,42 @@ import { fetchMemberNotifications } from '@/lib/memberDataAccess';
 export function NotificationBell() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (user?.id) fetchNotifications();
-  }, [user?.id]);
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { notifications: items } = await fetchMemberNotifications(supabase, user.id, 20);
+      return items;
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
 
-  const fetchNotifications = async () => {
-    if (!user?.id) return;
-    const { notifications: items } = await fetchMemberNotifications(supabase, user.id, 20);
-    setNotifications(items);
-    setUnreadCount(items.filter(n => !n.is_read).length);
+  const unreadCount = useMemo(() => notifications.filter((n: any) => !n.is_read).length, [notifications]);
+
+  const setLocal = (mapper: (n: any) => any) => {
+    queryClient.setQueryData(['notifications', user?.id], (prev: any[] | undefined) =>
+      (prev || []).map(mapper),
+    );
   };
 
   const markAllRead = async () => {
     if (!user?.id) return;
+    setLocal((n) => ({ ...n, is_read: true }));
     await supabase
       .from('notifications')
       .update({ is_read: true })
       .eq('user_id', user.id)
       .eq('is_read', false);
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    setUnreadCount(0);
   };
 
   const handleClick = async (notif: any) => {
     if (!notif.is_read) {
+      setLocal((n) => (n.id === notif.id ? { ...n, is_read: true } : n));
       await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id);
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1));
     }
     if (notif.link) {
       setOpen(false);
