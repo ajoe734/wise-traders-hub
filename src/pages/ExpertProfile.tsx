@@ -68,7 +68,7 @@ const ExpertProfile = () => {
 
       const { data: expert } = await supabase
         .from('experts')
-        .select('id, name, bio, description, avatar_url, role, style_tags, markets, status, strategy_summary, strategy_name, risk_preference, operation_cycle, backtest_1y_return, backtest_max_drawdown, backtest_annual_return')
+        .select('id, name, bio, description, avatar_url, role, style_tags, markets, status, strategy_summary, strategy_name, risk_preference, operation_cycle, backtest_1y_return, backtest_max_drawdown, backtest_annual_return, starting_capital')
         .eq('slug', slug)
         .maybeSingle();
 
@@ -103,6 +103,7 @@ const ExpertProfile = () => {
         backtestReturn1y: (expert as any).backtest_1y_return ?? null,
         backtestMaxDrawdown: (expert as any).backtest_max_drawdown ?? null,
         backtestAnnualReturn: (expert as any).backtest_annual_return ?? null,
+        startingCapital: (expert as any).starting_capital ?? null,
       });
       // ✅ 主資料到位即可渲染；其餘 query 在背景載入，不阻塞 UI
       setLoading(false);
