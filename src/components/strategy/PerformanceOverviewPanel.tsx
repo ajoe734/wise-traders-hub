@@ -15,42 +15,38 @@ import {
 import { FloatingStatCard, StockPerf } from "./FloatingStatCard";
 import { StockTradeDetailSheet, StockTradeDetail } from "./StockTradeDetailSheet";
 import { cn } from "@/lib/utils";
-import { useExpert } from "@/hooks/useExpert";
 import { useExpertPerformance } from "@/hooks/usePerformance";
 import { usePeriodPerformance, PeriodBucket } from "@/hooks/usePeriodPerformance";
 
 type ViewPeriod = "yearly" | "monthly" | "weekly";
 
-const DEFAULT_INITIAL_CAPITAL = 1_000_000;
-
 interface PerformanceOverviewPanelProps {
-  expertSlug: string;
+  /** 由父層直接傳入，避免本元件再查一次 experts 表 */
+  expertId: string | undefined;
+  /** 父層已知的起始資金；若未提供則 fallback 至 RPC 回傳值 */
+  startingCapital?: number | null;
   variant?: 'advisor' | 'mentor';
 }
 
-export function PerformanceOverviewPanel({ expertSlug, variant = 'advisor' }: PerformanceOverviewPanelProps) {
+export function PerformanceOverviewPanel({ expertId, startingCapital: startingCapitalProp, variant = 'advisor' }: PerformanceOverviewPanelProps) {
   const [period, setPeriod] = useState<ViewPeriod>("monthly");
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockTradeDetail | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  // Resolve slug → expert ID
-  const { data: expert } = useExpert(expertSlug);
-  const expertId = expert?.id;
-
-  // Fetch overall performance
+  // Fetch overall performance KPIs
   const { data: perfData } = useExpertPerformance(expertId);
 
-  // Prefer RPC-provided starting_capital (always in sync); fallback to expert record
-  const startingCapital = (perfData as any)?.starting_capital ?? (expert as any)?.startingCapital ?? 0;
+  // 起始資金優先用父層傳入；否則 fallback 到 RPC 回傳值
+  const startingCapital = startingCapitalProp ?? (perfData as any)?.starting_capital ?? 0;
   const INITIAL_CAPITAL = startingCapital ?? 0;
 
   // 總報酬率（以起始資金為基準，含已實現+未實現）
   const totalReturnPct = perfData?.total_return_pct ?? 0;
 
   // Fetch period-bucketed data
-  const { data: performanceData = [], isLoading } = usePeriodPerformance(expertId, period);
+  const { data: performanceData = [], isLoading } = usePeriodPerformance(expertId, period, INITIAL_CAPITAL);
 
   const currentAsset = useMemo(() => {
     // Use current_asset from RPC (now: starting + realized + unrealized when starting_capital set)
