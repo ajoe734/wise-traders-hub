@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SEO } from '@/components/SEO';
 import { Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,12 @@ const ForgotPassword = () => {
 
   return (
     <PortalLayout>
+      <SEO
+        title="忘記密碼 | 智富股市實戰學院"
+        description="輸入註冊電子郵件以接收密碼重設連結。"
+        path="/auth/forgot-password"
+        noindex
+      />
       <div className="container py-12 md:py-20">
         <div className="max-w-md mx-auto">
           <Card>

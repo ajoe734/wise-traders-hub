@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { SEO } from '@/components/SEO';
 import { useEffect, useState } from 'react';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';

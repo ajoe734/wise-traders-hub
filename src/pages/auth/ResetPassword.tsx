@@ -73,6 +73,12 @@ const ResetPassword = () => {
 
   return (
     <PortalLayout>
+      <SEO
+        title="重設密碼 | 智富股市實戰學院"
+        description="設定新的會員登入密碼。"
+        path="/auth/reset-password"
+        noindex
+      />
       <div className="container py-12 md:py-20">
         <div className="max-w-md mx-auto">
           <Card>
