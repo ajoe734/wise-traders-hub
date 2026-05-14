@@ -16,12 +16,21 @@ import { cn } from '@/lib/utils';
 const SIGNALS_LAST_SEEN_KEY = 'app:lastSeen:signals';
 const JOURNALS_LAST_SEEN_KEY = 'app:lastSeen:journals';
 
+// Lazy import to avoid circular deps at module init
+const invalidateUnread = (key: 'signals' | 'journals') => {
+  import('@/lib/queryClient').then(({ queryClient }) => {
+    queryClient.invalidateQueries({ queryKey: [`unread-${key}`] });
+  });
+};
+
 export function markAppSignalsAsRead() {
   localStorage.setItem(SIGNALS_LAST_SEEN_KEY, Date.now().toString());
+  invalidateUnread('signals');
 }
 
 export function markAppJournalsAsRead() {
   localStorage.setItem(JOURNALS_LAST_SEEN_KEY, Date.now().toString());
+  invalidateUnread('journals');
 }
 
 // Get which nav group a path belongs to
