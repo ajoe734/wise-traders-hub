@@ -524,6 +524,8 @@ const Index = () => {
           loop
           muted
           playsInline
+          preload="auto"
+          aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover animate-fade-in"
           style={{ animationDuration: '1.5s', objectPosition: 'center center' }}
         >
