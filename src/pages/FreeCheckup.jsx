@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
+import { SEO } from "@/components/SEO";
 import Md from "@/checkup/components/Md";
 import { CoachMarks } from "@/checkup/components/CoachMarks";
 import { useNavigate } from "react-router-dom";
@@ -2999,6 +3000,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     <div style={{background:C.bg,minHeight:"100vh",color:C.text,
       fontFamily:"'Inter','Noto Sans TC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",paddingBottom:40,
       WebkitFontSmoothing:"antialiased",MozOsxFontSmoothing:"grayscale"}}>
+      <SEO
+        title="免費 AI 持倉診斷 | 智富股市實戰學院"
+        description="免費試用 AI 持倉診斷：自動分析個股、行事曆事件、收盤焦點與交易日誌，一次掌握你的投資組合風險與機會。"
+        path="/free-checkup"
+      />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         *{box-sizing:border-box}
