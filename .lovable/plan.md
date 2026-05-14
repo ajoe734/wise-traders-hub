@@ -1,72 +1,68 @@
-## 真正的問題：DB trigger 引用了不存在的 enum 值
+## 決議
 
-5/8 cron **有跑**，而且找到 6 筆 pending signals，但 batch update `status='published'` 直接被資料庫擋下，整批 rollback：
+1. **`cumulative_return` 砍掉** — 前端只用 `total_return_pct`
+2. **`avg_pnl` 兩個都給** — `avg_pnl_pct`（等權算術平均）+ `avg_pnl_amount`（金額平均）
+3. **`avg_hold_days` 一起修** — 把 open trades 也納入
 
-```
-2026-05-08 12:00:03 ERROR mark_published
-invalid input value for enum signal_status: "taken_down"
-signalIds: [fb6cdfd4..., 1a3a1505..., 47aba5f5..., d577560c..., d9cc216c..., d5b50afe...]
-```
+---
 
-（這 6 筆就是 5/4、5/7、5/8 的訊號，到現在還是 `pending` + `published_at` 已填，所以 UI 看得到舊的 5/4，但永遠卡在 pending、不會 push、不會 trigger trade。5/13、5/14 的也是同樣狀況。）
+## 修復內容
 
-### 為什麼會噴 enum 錯誤
+### Step 1: Migration — 修正 `handle_signal_trade` 不要把 quantity 寫 0
 
-歷史脈絡：
-- 最早 `signal_status enum = ('published','taken_down')`
-- 後來改成 `('pending','published')`，把「收回」改用 DELETE 路徑
-- **但 BEFORE UPDATE trigger `enforce_signal_recall_same_day` 沒改乾淨**，裡面還留著：
-  ```sql
-  IF OLD.status = 'published' AND NEW.status = 'taken_down' THEN ...
-  ```
-- Postgres 在執行 trigger 時要把字串 `'taken_down'` cast 成 `signal_status` enum，enum 裡沒這個值 → 整個 UPDATE 失敗
+平倉時 `trade_records.quantity` 保留實際成交股數（不是 0）。
+回填 sharkgu 三筆已 closed records 的 quantity（從對應賣出 signal 的 `quantity * 1000` 推回）。
 
-→ 結果：**任何 UPDATE expert_signals 都會炸**。publish cron、編輯訊號、`handle_signal_trade` 在 UPDATE 路徑全部受影響。週五 cron 從這個 trigger 部署後就一直靜默失敗。
+### Step 2: Migration — 重寫 `calculate_expert_performance` RPC
 
-### 修復方案
+砍掉 / 新增 / 修正：
 
-寫一個 migration，重建 `enforce_signal_recall_same_day()`，把 UPDATE 分支移除（recall 已改走 DELETE，那段是 dead code），只保留 DELETE 分支：
+| 欄位 | 處理 | 新算法 |
+|---|---|---|
+| `cumulative_return` | **砍掉** | — |
+| `total_pnl` | **砍掉**（誤導性命名）| — |
+| `total_return_pct` | 保留 | `(realized_pnl_amount + unrealized_pnl_amount) / starting_capital × 100` |
+| `realized_pnl_amount` | 保留 | `SUM(quantity × (exit_price - entry_price))`（quantity 不再是 0）|
+| `unrealized_pnl_amount` | 保留 | 維持（open trades 用 current_prices）|
+| `profit_factor` | **改算法** | `SUM(pnl_amount where >0) / SUM(abs(pnl_amount) where <0)`，無虧損 cap 999.99 |
+| `max_drawdown` | **改算法** | 用 `pnl_amount` 累積跑 peak/dd，輸出 `(peak - running) / starting_capital × 100`（百分比，與 starting_capital 同基準）|
+| `avg_pnl_pct` | **新增** | `AVG(pnl_percent)` 等權算術平均（業界口徑）|
+| `avg_pnl_amount` | **新增** | `realized_pnl_amount / total_trades`（金額平均）|
+| `avg_pnl` | **砍掉**（被上面兩個取代）| — |
+| `avg_hold_days` | **改算法** | open trades 用 `NOW() - entry_date`，closed 用 `exit_date - entry_date`，全部納入平均 |
+| `win_rate` | 保留 | 維持 |
+| `total_trades` | 保留 | 維持 |
+| `current_asset` | 保留 | 維持 |
+| `return_1y` | 保留 | 維持 |
+| `starting_capital` | 保留 | 維持 |
 
-```sql
-CREATE OR REPLACE FUNCTION public.enforce_signal_recall_same_day()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE pub_day date; today_tw date;
-BEGIN
-  IF auth.uid() IS NOT NULL AND public.has_role(auth.uid(),'company_admin') THEN
-    RETURN COALESCE(NEW, OLD);
-  END IF;
+### Step 3: 前端
 
-  IF TG_OP = 'DELETE' THEN
-    IF OLD.status = 'published' AND OLD.published_at IS NOT NULL THEN
-      pub_day  := (OLD.published_at AT TIME ZONE 'Asia/Taipei')::date;
-      today_tw := (now()           AT TIME ZONE 'Asia/Taipei')::date;
-      IF pub_day <> today_tw THEN
-        RAISE EXCEPTION 'RECALL_EXPIRED: 已過發布當日（台灣時間），不可刪除已發布訊號'
-          USING ERRCODE = 'check_violation';
-      END IF;
-    END IF;
-    RETURN OLD;
-  END IF;
+砍掉所有 `cumulative_return` / `total_pnl` / `avg_pnl` 引用，改用新欄位：
 
-  RETURN NEW;  -- UPDATE: no restriction needed (recall is DELETE-only)
-END $$;
-```
+- `src/hooks/usePerformance.ts` — interface 更新
+- `src/components/strategy/PerformanceOverviewPanel.tsx` — 「累積報酬」改顯示 `total_return_pct`
+- `src/components/strategy/TradeStatsCard.tsx` — 平均單筆改顯示 `avg_pnl_pct` 或 `avg_pnl_amount`（依 UI 上下文，pct 給卡片、amount 給 tooltip）
+- `src/pages/app/AppHome.tsx` — 同上
+- `src/pages/admin/Performance.tsx` — 後台表格欄位更新
 
-順便把 `trg_enforce_signal_recall_same_day_upd` trigger 砍掉（function 留著給 DELETE trigger 用），這樣以後改 function 不會再有同樣問題。
+### Step 4: 測試
 
-### 補發 5/8、5/13、5/14 的訊號
+- `src/lib/performanceCalc.ts` — 重寫 `calcMaxDrawdown`：改吃 `{ pnl_amount }[]` + `startingCapital`，輸出百分比
+- `src/lib/performanceCalc.ts` — 新增 `calcAvgPnlPct`、`calcAvgPnlAmount`、`calcTotalReturnPct`、`calcAvgHoldDays`
+- `src/test/integration/1.21-expert-performance-rpc.test.ts` — drift assertions 全面更新：
+  - 不再檢查 `'cumulative_return'`、`'total_pnl'`、`'avg_pnl'`
+  - 新增檢查 `'avg_pnl_pct'`、`'avg_pnl_amount'`、`max_drawdown` 用金額累積、`avg_hold_days` 含 open trades
+- `1.16-signal-trade-trigger.test.ts` — 確認平倉後 `quantity` 不為 0
+- 補 sharkgu 場景 fixture：3 筆全勝 → `total_return_pct ≈ 23.21%`、`profit_factor = 999.99`、`max_drawdown = 0`、`avg_pnl_pct ≈ 29.37%`、`avg_pnl_amount = 62000`
 
-migration 跑完之後，手動觸發一次 `publish-weekly-journals`（或直接一條 SQL 把這 6 筆 + 5/13、5/14 共 9 筆的 status 設成 `published`，由 `handle_signal_trade` trigger 帶動 trade_records 平倉）。
+### Step 5: 驗證
 
-我建議走 edge function 那條路，因為它同時會：
-- update status → published
-- 同步 trade_records / user_performances
-- push LINE 給訂閱者（雖然訊息延遲了，但至少資料一致）
+migration 跑完後對 sharkgu 執行 `calculate_expert_performance`，預期：
+- `total_return_pct ≈ 23.21%`（原 4.61%）
+- `realized_pnl_amount ≈ 186,000`（原 0）
+- `profit_factor = 999.99`
+- `avg_pnl_pct ≈ 29.37%`、`avg_pnl_amount ≈ 62,000`
+- `avg_hold_days` 含 open 三筆持倉至今天數
 
-如果你不想補 push，那就只跑 SQL update。
-
-### 要你決定
-
-1. **Migration 寫法**：直接砍掉 UPDATE trigger + 重建 function（建議），或保守一點把字串改 `::text` 比對讓 dead code 變安全
-2. **補發方式**：(a) 重跑 cron edge function（會補 push LINE）／ (b) 只 SQL update status，不補 push
-3. **cron 時間**：要不要順便從週五 20:00 改成 23:00？（你之前提到的期望）
+確認後更新 `.lovable/plan.md` 結案。
