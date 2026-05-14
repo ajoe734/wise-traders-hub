@@ -61,6 +61,7 @@ const ExpertProfile = () => {
   
 
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
       if (!slug) return;
 
@@ -68,7 +69,9 @@ const ExpertProfile = () => {
         .from('experts')
         .select('id, name, bio, description, avatar_url, role, style_tags, markets, status, strategy_summary, strategy_name, risk_preference, operation_cycle, backtest_1y_return, backtest_max_drawdown, backtest_annual_return')
         .eq('slug', slug)
-        .single();
+        .maybeSingle();
+
+      if (cancelled) return;
 
       if (!expert) {
         setExpertNotFound(true);
@@ -76,7 +79,6 @@ const ExpertProfile = () => {
         return;
       }
 
-      // Testers can view draft experts; regular users can only view active
       const isVisible = expert.status === 'active' || (expert.status === 'draft' && user?.isTester);
       if (!isVisible) {
         setExpertNotFound(true);
@@ -101,44 +103,47 @@ const ExpertProfile = () => {
         backtestMaxDrawdown: (expert as any).backtest_max_drawdown ?? null,
         backtestAnnualReturn: (expert as any).backtest_annual_return ?? null,
       });
+      // ✅ 主資料到位即可渲染；其餘 query 在背景載入，不阻塞 UI
+      setLoading(false);
 
-      const { data: plans } = await supabase
+      // 並行載入：方案 / 訂閱人數 / 我的訂閱
+      const plansPromise = supabase
         .from('expert_plans')
         .select('id, name, plan_type, price_monthly, price_yearly, description, features')
         .eq('expert_id', expert.id)
         .eq('is_active', true)
         .order('price_monthly');
 
+      const mySubsPromise = user
+        ? supabase
+            .from('member_subscriptions')
+            .select('plan_id')
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+        : Promise.resolve({ data: [] as { plan_id: string }[] });
+
+      const { data: plans } = await plansPromise;
+      if (cancelled) return;
       setDbPlans(plans || []);
 
-      // Count active subscribers
-      if (plans && plans.length > 0) {
-        const planIds = plans.map(p => p.id);
-        const { count } = await supabase
-          .from('member_subscriptions')
-          .select('id', { count: 'exact', head: true })
-          .in('plan_id', planIds)
-          .eq('status', 'active');
-        setSubscriberCount(count || 0);
-      }
+      const planIds = (plans || []).map(p => p.id);
+      const countPromise = planIds.length
+        ? supabase
+            .from('member_subscriptions')
+            .select('id', { count: 'exact', head: true })
+            .in('plan_id', planIds)
+            .eq('status', 'active')
+        : Promise.resolve({ count: 0 });
 
-      if (user) {
-        const { data: subs } = await supabase
-          .from('member_subscriptions')
-          .select('plan_id')
-          .eq('user_id', user.id)
-          .eq('status', 'active');
-
-        if (subs) {
-          setSubscribedPlanIds(new Set(subs.map(s => s.plan_id)));
-        }
-      }
-
-      setLoading(false);
+      const [{ data: subs }, { count }] = await Promise.all([mySubsPromise, countPromise]);
+      if (cancelled) return;
+      if (subs) setSubscribedPlanIds(new Set(subs.map((s: any) => s.plan_id)));
+      setSubscriberCount(count || 0);
     };
 
     fetchData();
-  }, [slug, user]);
+    return () => { cancelled = true; };
+  }, [slug, user?.id, user?.isTester]);
 
   if (expertNotFound) {
     return (
