@@ -10,6 +10,7 @@ import { CheckCircle, ArrowRight, Shield, Clock, Loader2, Eye } from 'lucide-rea
 import { cn } from '@/lib/utils';
 import { usePlan } from '@/hooks/useExpertPlans';
 import { useAuth } from '@/contexts/AuthContext';
+import { avatarUrl } from '@/lib/imageTransform';
 
 const PlanDetail = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
@@ -87,7 +88,7 @@ const PlanDetail = () => {
       <div className="container py-8 md:py-12 max-w-3xl">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <img src={expert.avatar_url || '/placeholder.svg'} alt={expert.name} className={cn("h-16 w-16 rounded-full object-cover ring-2", isAdvisor ? "ring-advisor/20" : "ring-mentor/20")} />
+          <img src={avatarUrl(expert.avatar_url, 128)} alt={expert.name} loading="lazy" decoding="async" className={cn("shrink-0 h-16 w-16 rounded-full object-cover object-[center_15%] ring-2", isAdvisor ? "ring-advisor/20" : "ring-mentor/20")} />
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold">{expert.name}</h1>

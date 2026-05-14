@@ -12,6 +12,7 @@ import { zhTW } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { richHtmlPreview } from '@/components/SafeRichHtml';
+import { avatarUrl } from '@/lib/imageTransform';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -108,9 +109,11 @@ const Signals = () => {
                       {signal.experts && (
                         <div className="flex items-center gap-2 mb-3">
                           <img
-                            src={signal.experts.avatar_url || '/placeholder.svg'}
+                            src={avatarUrl(signal.experts.avatar_url, 48)}
                             alt={signal.experts.name}
-                            className="h-6 w-6 rounded-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                            className="shrink-0 h-6 w-6 rounded-full object-cover object-[center_15%]"
                           />
                           <span className="text-sm text-muted-foreground">{signal.experts.name}</span>
                          <Badge className="text-[10px] px-2 py-0.5" style={{ backgroundColor: 'hsl(0,25%,16%)', color: '#ffffff', borderColor: 'hsl(0,35%,28%)' }}>

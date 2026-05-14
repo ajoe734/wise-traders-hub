@@ -14,6 +14,7 @@ import { Eye, UserPlus, MessageCircle, Key, Mail, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { logAdminAction } from '@/lib/auditLog';
+import { avatarUrl } from '@/lib/imageTransform';
 
 const CompanyAnalysts = () => {
   const [experts, setExperts] = useState<any[]>([]);
@@ -433,7 +434,7 @@ const CompanyAnalysts = () => {
                     <tr key={exp.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <img src={exp.avatar_url || '/placeholder.svg'} alt={exp.name} className="h-8 w-8 rounded-full object-cover" />
+                          <img src={avatarUrl(exp.avatar_url, 64)} alt={exp.name} loading="lazy" decoding="async" className="shrink-0 h-8 w-8 rounded-full object-cover object-[center_15%]" />
                           <p className="font-medium text-sm">{exp.name}</p>
                         </div>
                       </td>

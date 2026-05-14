@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { avatarUrl } from '@/lib/imageTransform';
 
 interface UserRow {
   user_id: string;
@@ -246,7 +247,7 @@ export default function CompanyUsers() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {r.avatar_url ? (
-                            <img src={r.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+                            <img src={avatarUrl(r.avatar_url, 56)} alt="" loading="lazy" decoding="async" className="shrink-0 h-7 w-7 rounded-full object-cover object-[center_15%]" />
                           ) : (
                             <div className="h-7 w-7 rounded-full bg-muted" />
                           )}

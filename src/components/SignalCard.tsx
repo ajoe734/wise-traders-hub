@@ -7,6 +7,7 @@ import { ActionBadge } from '@/components/ActionBadge';
 import { ChevronRight, Clock } from 'lucide-react';
 import { format, isToday, differenceInHours } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
+import { avatarUrl } from '@/lib/imageTransform';
 
 interface SignalCardProps {
   signal: SignalWithPerson;
@@ -48,9 +49,11 @@ export function SignalCard({ signal, to }: SignalCardProps) {
           {/* Source */}
           <div className="flex items-center gap-2 mb-3">
             <img
-              src={signal.person.avatarUrl || '/placeholder.svg'}
+              src={avatarUrl(signal.person.avatarUrl, 48)}
               alt={signal.person.name}
-              className="h-6 w-6 rounded-full object-cover"
+              loading="lazy"
+              decoding="async"
+              className="shrink-0 h-6 w-6 rounded-full object-cover object-[center_15%]"
             />
             <span className="text-sm text-muted-foreground">
               {signal.person.name}

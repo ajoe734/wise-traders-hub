@@ -12,6 +12,7 @@ import { zhTW } from 'date-fns/locale';
 import { Calendar, BookOpen, Shield, Loader2, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Eye } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { SafeRichHtml, richHtmlPreview } from '@/components/SafeRichHtml';
+import { avatarUrl } from '@/lib/imageTransform';
 
 interface SignalDetail {
   id: string;
@@ -179,7 +180,7 @@ const JournalDetail = () => {
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <img src={signal.experts.avatar_url || '/placeholder.svg'} alt={signal.experts.name} className="h-10 w-10 rounded-full object-cover" />
+          <img src={avatarUrl(signal.experts.avatar_url, 80)} alt={signal.experts.name} loading="lazy" decoding="async" className="shrink-0 h-10 w-10 rounded-full object-cover object-[center_15%]" />
           <div>
             <div className="flex items-center gap-2">
               <span className="font-semibold">{signal.experts.name}</span>

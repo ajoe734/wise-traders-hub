@@ -19,6 +19,7 @@ import { fetchAnalystSignals } from '@/lib/analystDataAccess';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { SafeRichHtml, richHtmlPreview } from '@/components/SafeRichHtml';
+import { avatarUrl } from '@/lib/imageTransform';
 
 const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
 
@@ -977,7 +978,7 @@ const AdminSignals = () => {
                         <div className="p-4 space-y-4">
                           {/* Header: avatar + name + role badge (mirrors JournalDetail) */}
                           <div className="flex items-center gap-3">
-                            <img src={expert?.avatar_url || '/placeholder.svg'} alt={expert?.name} className="h-10 w-10 rounded-full object-cover" />
+                            <img src={avatarUrl(expert?.avatar_url, 80)} alt={expert?.name} loading="lazy" decoding="async" className="shrink-0 h-10 w-10 rounded-full object-cover object-[center_15%]" />
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="font-semibold">{expert?.name}</span>

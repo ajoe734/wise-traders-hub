@@ -32,6 +32,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { avatarUrl } from '@/lib/imageTransform';
 
 interface DbPlan {
   id: string;
@@ -734,9 +735,11 @@ const Checkout = () => {
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-4">
                     <img
-                      src={expert.avatar_url || '/placeholder.svg'}
+                      src={avatarUrl(expert.avatar_url, 112)}
                       alt={expert.name}
-                      className="h-14 w-14 rounded-xl object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      className="shrink-0 h-14 w-14 rounded-xl object-cover object-[center_15%]"
                     />
                     <div>
                       <span className="font-semibold">{expert.name}</span>
@@ -1295,9 +1298,11 @@ const Checkout = () => {
               <div className="space-y-3 pt-2">
                 <div className="flex items-center gap-3">
                   <img
-                    src={expert?.avatar_url || '/placeholder.svg'}
+                    src={avatarUrl(expert?.avatar_url, 80)}
                     alt={expert?.name}
-                    className="h-10 w-10 rounded-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    className="shrink-0 h-10 w-10 rounded-full object-cover object-[center_15%]"
                   />
                   <div>
                     <p className="font-medium text-foreground">{expert?.name}</p>
