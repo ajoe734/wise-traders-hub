@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { SEO } from '@/components/SEO';
 import { useSearchParams } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { ExpertCard } from '@/components/ExpertCard';
@@ -51,6 +52,11 @@ const Experts = () => {
 
   return (
     <PortalLayout>
+      <SEO
+        title="專家列表 | 投顧分析師與實戰導師 - 智富股市實戰學院"
+        description="瀏覽合法持照投顧分析師與實戰導師。比較風格標籤、專長市場、訂閱方案，找到最適合你的專家。"
+        path="/experts"
+      />
       <div className="container py-8 md:py-12">
         {/* Platform Intro */}
         <div className="mb-8 p-6 bg-gradient-to-r from-primary/5 to-advisor/5 dark:from-primary/10 dark:to-advisor/10 rounded-2xl border dark:border-white/10">

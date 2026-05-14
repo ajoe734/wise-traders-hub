@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { SEO } from '@/components/SEO';
 import { useEffect, useState } from 'react';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
@@ -192,6 +193,12 @@ const ExpertProfile = () => {
 
   return (
     <PortalLayout hideAppEntry hideHeader={!!user}>
+      <SEO
+        title={`${expertInfo?.name ?? '專家'} | 智富股市實戰學院`}
+        description={(expertInfo?.bio || `${expertInfo?.name ?? '專家'} 的檔案、操作風格與訂閱方案。`).slice(0, 155)}
+        path={`/expert/${slug}`}
+        type="profile"
+      />
       {isPreview && (
         <div className="sticky top-0 z-50 bg-amber-500 text-amber-50 px-4 py-2 text-sm flex items-center justify-center gap-3 shadow">
           <Eye className="h-4 w-4" />

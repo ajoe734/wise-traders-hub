@@ -1,4 +1,5 @@
 import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { SEO } from '@/components/SEO';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -63,6 +64,11 @@ const PlanDetail = () => {
 
   return (
     <PortalLayout>
+      <SEO
+        title={`${planData.name} | ${expert.name} - 智富股市實戰學院`}
+        description={planData.description || `${expert.name} 的訂閱方案：${planData.name}。查看完整內容與價格。`}
+        path={`/plan/${slug}/${planId}`}
+      />
       {isPreview && (
         <div className="sticky top-0 z-50 bg-amber-500 text-amber-50 px-4 py-2 text-sm flex items-center justify-center gap-3 shadow">
           <Eye className="h-4 w-4" />

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { SEO } from '@/components/SEO';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -510,6 +511,11 @@ const MobilePreviewCarousel = () => {
 const Index = () => {
   return (
     <PortalLayout>
+      <SEO
+        title="智富股市實戰學院 | 投顧分析師與實戰導師訂閱平台"
+        description="專業投顧分析師即時策略訊號 × 實戰導師 T+7 教學週記。穩健、合規、教育為先，幫助投資人建立屬於自己的投資系統。"
+        path="/"
+      />
       {/* Hero Section - Strong Contrast, Minimal Text */}
       <section className="relative overflow-hidden min-h-[70vh] flex items-center">
         {/* Background Video */}

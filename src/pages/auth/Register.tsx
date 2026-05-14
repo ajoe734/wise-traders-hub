@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SEO } from '@/components/SEO';
 import { Link, useNavigate } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,12 @@ const Register = () => {
 
   return (
     <PortalLayout>
+      <SEO
+        title="註冊新帳號 | 智富股市實戰學院"
+        description="免費註冊會員，開始訂閱專家策略訊號與實戰導師週記，建立屬於自己的投資系統。"
+        path="/auth/register"
+        noindex
+      />
       <div className="container py-12 md:py-20">
         <div className="max-w-md mx-auto">
           <Card>

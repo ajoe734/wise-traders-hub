@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { SEO } from '@/components/SEO';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
@@ -86,6 +87,12 @@ const Login = () => {
 
   return (
     <PortalLayout>
+      <SEO
+        title="會員登入 | 智富股市實戰學院"
+        description="登入會員帳號以管理訂閱、接收策略訊號與導師週記。支援電子郵件與 LINE 登入。"
+        path="/auth/login"
+        noindex
+      />
       <div className="container py-12 md:py-20">
         <div className="max-w-md mx-auto">
           <Card>
