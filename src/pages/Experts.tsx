@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { SEO } from '@/components/SEO';
 import { useSearchParams } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { ExpertCard } from '@/components/ExpertCard';

@@ -1,10 +1,16 @@
 import { PortalLayout } from '@/components/layouts/PortalLayout';
+import { SEO } from '@/components/SEO';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, AlertTriangle, Clock, Lock } from 'lucide-react';
 
 const Legal = () => {
   return (
     <PortalLayout>
+      <SEO
+        title="法律聲明與服務說明 | 智富股市實戰學院"
+        description="本平台投顧分析師服務依相關法令辦理，實戰導師內容僅供教學參考。完整服務性質、法規遵循、隱私與風險揭露說明。"
+        path="/legal"
+      />
       <div className="container py-8 md:py-12">
         {/* Header */}
         <div className="mb-12">
