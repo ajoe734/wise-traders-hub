@@ -10,55 +10,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useExpertPerformance } from '@/hooks/usePerformance';
-import { 
+import { useMemberSubscriptions, type MemberSubscriptionRow } from '@/hooks/useMemberSubscriptions';
+import {
   Target, Compass, Radio, ChevronRight, BookOpen, Lock, CheckCircle2, BarChart3,
   Megaphone, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-interface SubExpert {
-  slug: string;
-  name: string;
-  avatar_url: string | null;
-  role: string;
-  id: string;
-  status?: string;
-}
-
-interface DbSubscription {
-  plan_id: string;
-  plan_type: string;
-  expert: SubExpert;
-}
-
-const fetchHomeData = async (userId: string | undefined) => {
-  if (!userId) return { advisorSubs: [] as DbSubscription[], mentorSubs: [] as DbSubscription[], hasAdvisor: false, hasMentor: false };
-
-  const { data: subs } = await supabase
-    .from('member_subscriptions')
-    .select('plan_id, expert_plans(plan_type, expert_id, experts(id, slug, name, avatar_url, role, status))')
-    .eq('user_id', userId)
-    .eq('status', 'active');
-
-  const allSubs: DbSubscription[] = (subs || []).map((s: any) => ({
-    plan_id: s.plan_id,
-    plan_type: s.expert_plans?.plan_type || '',
-    expert: {
-      id: s.expert_plans?.experts?.id || '',
-      slug: s.expert_plans?.experts?.slug || '',
-      name: s.expert_plans?.experts?.name || '',
-      avatar_url: s.expert_plans?.experts?.avatar_url || null,
-      role: s.expert_plans?.experts?.role || '',
-      status: s.expert_plans?.experts?.status || 'active',
-    },
-  })).filter(s => s.expert.slug && s.expert.status === 'active');
-
-  const advisorSubs = allSubs.filter(s => s.plan_type === 'analyst_signal_l1' || s.plan_type === 'analyst_signal_diag_l2');
-  const mentorSubs = allSubs.filter(s => s.plan_type === 'mentor_weekly_journal');
-
-  return { advisorSubs, mentorSubs, hasAdvisor: advisorSubs.length > 0, hasMentor: mentorSubs.length > 0 };
-};
+type DbSubscription = MemberSubscriptionRow;
 
 function ExpertPerfRow({ sub }: { sub: DbSubscription }) {
   const { data: perf } = useExpertPerformance(sub.expert.id || undefined);
