@@ -39,6 +39,7 @@ interface ExpertInfo {
   backtestReturn1y: number | null;
   backtestMaxDrawdown: number | null;
   backtestAnnualReturn: number | null;
+  startingCapital: number | null;
 }
 
 const ExpertProfile = () => {
