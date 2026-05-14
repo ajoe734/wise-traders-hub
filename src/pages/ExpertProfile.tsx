@@ -194,8 +194,8 @@ const ExpertProfile = () => {
   return (
     <PortalLayout hideAppEntry hideHeader={!!user}>
       <SEO
-        title={`${expert.name} | 智富股市實戰學院`}
-        description={(expert.bio || `${expert.name} 的專家檔案、操作風格與訂閱方案。`).slice(0, 155)}
+        title={`${expertInfo?.name ?? '專家'} | 智富股市實戰學院`}
+        description={(expertInfo?.bio || `${expertInfo?.name ?? '專家'} 的檔案、操作風格與訂閱方案。`).slice(0, 155)}
         path={`/expert/${slug}`}
         type="profile"
       />
