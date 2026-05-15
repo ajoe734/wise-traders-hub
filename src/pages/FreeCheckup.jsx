@@ -24,6 +24,10 @@ import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
 import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
+import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
+import HoldingsQuotaMeter from "@/checkup/components/freecheckup/HoldingsQuotaMeter";
+import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBar";
+import HoldingsReversalSection from "@/checkup/components/freecheckup/HoldingsReversalSection";
 const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
 const NewsTab = lazy(() => import("@/checkup/components/freecheckup/NewsTab"));
 const EventsTab = lazy(() => import("@/checkup/components/freecheckup/EventsTab"));
@@ -3327,121 +3331,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           )}
           {/* 配額卡：常駐顯示 used/limit 進度條 + 重置倒數 + 升級 CTA（訪客/載入中也顯示） */}
-          {(() => {
-            // 訪客 fallback：已由上方 amber 提示卡承擔登入 CTA，這裡不再渲染配額卡
-            if (isDemo) {
-              return null;
-            }
-            // 載入中 fallback（已登入但配額尚未取回）
-            if (!quota) {
-              return (
-                <div className="checkup-quota-meter" style={{
-                  marginBottom: 14, padding: "12px 14px",
-                  border: `1px solid ${C.border}`, borderRadius: 10, background: C.card,
-                }}>
-                  <div style={{fontSize:12,color:C.textMute,letterSpacing:"0.02em",marginBottom:8}}>載入配額中…</div>
-                  <div style={{height:4,background:alpha(C.textMute,'18'),borderRadius:2,overflow:"hidden"}}>
-                    <div style={{height:"100%",width:"30%",background:alpha(C.textMute,'40'),animation:"pulse 1.4s ease-in-out infinite"}}/>
-                  </div>
-                </div>
-              );
-            }
-            const used = Number(quota.used || 0);
-            const limit = Math.max(Number(quota.limit || 1), 1);
-            const remain = Math.max(limit - used, 0);
-            const pct = Math.min(100, Math.max(0, (used / limit) * 100));
-            const ratio = remain / limit;
-            const barColor = remain === 0 ? C.down : ratio <= 0.2 ? C.amber : C.teal;
-            const periodCN = quota.period === 'week' ? '本週' : '本月';
-            const showUpgrade = tier === 'free' || tier === 'basic';
-            return (
-              <div className="checkup-quota-meter" style={{
-                marginBottom: 14,
-                padding: "12px 14px",
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
-                background: C.card,
-              }}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:8,flexWrap:"wrap"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                    <span style={{
-                      fontSize:10,letterSpacing:"0.08em",color:C.textMute,fontWeight:500,
-                      padding:"2px 7px",border:`1px solid ${C.border}`,borderRadius:4,
-                    }}>{tierLabel}</span>
-                    <span style={{fontSize:12,color:C.textSec,fontWeight:400,letterSpacing:"0.02em"}}>
-                      {periodCN} AI 健檢
-                    </span>
-                  </div>
-                  <div style={{fontSize:13,color:C.text,fontWeight:500,fontVariantNumeric:"tabular-nums",letterSpacing:"0.02em"}}>
-                    <span style={{color:remain===0?C.down:C.text}}>{used}</span>
-                    <span style={{color:C.textMute,margin:"0 2px"}}>/</span>
-                    <span style={{color:C.textMute}}>{limit}</span>
-                  </div>
-                </div>
-                <div style={{height:4,background:alpha(C.textMute,'18'),borderRadius:2,overflow:"hidden",marginBottom:8}}>
-                  <div style={{
-                    height:"100%",
-                    width:`${pct}%`,
-                    background:barColor,
-                    transition:"width 360ms ease, background-color 200ms",
-                  }}/>
-                </div>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
-                  <div style={{fontSize:11,color:C.textMute,letterSpacing:"0.02em",lineHeight:1.6}}>
-                    {remain === 0
-                      ? <>已用完・<span style={{color:C.textSec}}>{formatResetCountdown(quota.resets_at)}</span></>
-                      : <>還剩 <span style={{color:C.text,fontWeight:500}}>{remain}</span> 次・{formatResetCountdown(quota.resets_at)}</>
-                    }
-                  </div>
-                  {showUpgrade && (
-                    <a href="/pricing#checkup" style={{
-                      fontSize:11,color:C.blue,textDecoration:"none",letterSpacing:"0.02em",
-                      padding:"3px 8px",border:`1px solid ${alpha(C.blue,'40')}`,borderRadius:4,
-                    }}>升級 →</a>
-                  )}
-                </div>
-                {remain === 1 && showUpgrade && (
-                  <div style={{
-                    marginTop:8,
-                    padding:"6px 10px",
-                    background:alpha(C.amber,'10'),
-                    border:`1px solid ${alpha(C.amber,'40')}`,
-                    borderRadius:6,
-                    fontSize:11,color:C.text,letterSpacing:"0.02em",lineHeight:1.6,
-                    display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",
-                  }}>
-                    <span>⚡</span>
-                    <span style={{fontWeight:500}}>最後一次</span>
-                    <span style={{color:C.textSec}}>用完前先升級，下期不間斷</span>
-                  </div>
-                )}
-                {remain === 0 && showUpgrade && (
-                  <div style={{
-                    marginTop:8,
-                    padding:"8px 10px",
-                    background:alpha(C.blue,'08'),
-                    border:`1px solid ${alpha(C.blue,'40')}`,
-                    borderRadius:6,
-                    fontSize:11,color:C.text,letterSpacing:"0.02em",lineHeight:1.6,
-                    display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",
-                  }}>
-                    <span style={{color:C.textSec}}>
-                      {tier === 'free'
-                        ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
-                        : '升級 Pro 即可每月使用 22 次'}
-                    </span>
-                    <a href="/pricing#checkup" style={{
-                      fontSize:11,fontWeight:500,color:"#fff",background:C.blue,
-                      padding:"4px 10px",borderRadius:4,textDecoration:"none",letterSpacing:"0.02em",whiteSpace:"nowrap",
-                    }}>{tier === 'free' ? '查看升級方案' : '升級 Pro'}</a>
-                  </div>
-                )}
-                <div style={{fontSize:10,color:C.textMute,marginTop:6,opacity:0.7,letterSpacing:"0.02em"}}>
-                  截圖解析・收盤分析・新聞彙整・事件預測共用此配額
-                </div>
-              </div>
-            );
-          })()}
+          <HoldingsQuotaMeter
+            isDemo={isDemo}
+            quota={quota}
+            tier={tier}
+            tierLabel={tierLabel}
+            C={C}
+            alpha={alpha}
+            formatResetCountdown={formatResetCountdown}
+          />
           {/* 上傳摘要：剛從上傳成交頁回來時顯示新增/更新項目 */}
           {uploadSummary && (uploadSummary.added.length + uploadSummary.updated.length > 0) && (
             <div
@@ -3490,241 +3388,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             </div>
           )}
           {/* ── Hero：橫向 2 欄構圖（左大數字 + 右市場狀態），底部 4 欄 KPI ── */}
-          {(()=>{
-            const totalPnl = totalVal - totalCost;
-            const totalPct = totalCost > 0 ? ((totalPnl / totalCost) * 100) : 0;
-            const isUp = totalPnl >= 0;
-            const heroColor = wbTone(totalPnl);
-            const winRate = H.length > 0 ? Math.round((winners.length / H.length) * 100) : 0;
-            const today = new Date();
-            const dateStr = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
-            const timeStr = today.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
-            const pendingCount = (exitList?.length || 0) + (reviewList?.length || 0);
-
-            return (
-              <section
-                aria-label="Portfolio Overview"
-                style={{
-                  padding: '20px 4px 22px',
-                  marginBottom: 18,
-                  borderBottom: `1px solid ${WB.hair}`,
-                }}
-              >
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
-                  gap: 24,
-                  alignItems: 'flex-end',
-                  marginBottom: 22,
-                }} className="wb-hero-grid">
-                  {/* 左：Today's P&L 大字 */}
-                  <div>
-                    <div style={{
-                      fontSize: 11, color: WB.inkMute, letterSpacing: '0.12em',
-                      textTransform: 'uppercase', fontWeight: 500, marginBottom: 14,
-                    }}>
-                      Today's P&amp;L
-                    </div>
-                    <div style={{
-                      display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap',
-                    }}>
-                      <span className="wb-hero-pnl-num" style={{
-                        fontSize: 88, fontWeight: 500, color: WB.ink,
-                        letterSpacing: '-0.045em', lineHeight: 0.92,
-                        fontVariantNumeric: 'tabular-nums',
-                      }}>
-                        {isUp ? '+' : ''}{Math.round(totalPnl).toLocaleString()}
-                      </span>
-                      <span className="wb-hero-pnl-pct" style={{
-                        fontSize: 22, fontWeight: 500, color: WB.accent,
-                        letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums',
-                      }}>
-                        {isUp ? '+' : ''}{totalPct.toFixed(2)}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 右：Market 狀態 */}
-                  <div className="wb-hero-market" style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
-                    gap: 6, paddingBottom: 8,
-                  }}>
-                    <div style={{
-                      fontSize: 9.5, color: WB.inkMute, letterSpacing: '0.22em',
-                      textTransform: 'uppercase', fontWeight: 500,
-                      display: 'inline-flex', alignItems: 'baseline', gap: 8,
-                    }}>
-                      Market <span style={{ color: WB.ink }}>TAIWAN</span>
-                      <span style={{
-                        display: 'inline-block', width: 5, height: 5, borderRadius: '50%',
-                        background: WB.accent,
-                      }} />
-                    </div>
-                    <div style={{
-                      fontSize: 11, color: WB.inkMute, letterSpacing: '0.04em',
-                      fontVariantNumeric: 'tabular-nums',
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                    }}>
-                      <span style={{
-                        display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
-                        background: rtConnected ? WB.accent : WB.inkLight,
-                        opacity: rtConnected ? 1 : 0.5,
-                        boxShadow: rtConnected ? `0 0 0 2px ${WB.accent}22` : 'none',
-                        transition: 'all 0.3s ease',
-                      }} />
-                      <span>{rtConnected ? '即時' : (isDemo ? 'DEMO' : '離線')}</span>
-                      <span style={{ color: WB.inkLight }}>·</span>
-                      <span>
-                        {lastUpdate
-                          ? lastUpdate.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-                          : `${dateStr} ${timeStr}`}
-                      </span>
-                    </div>
-                    {pendingCount > 0 && (
-                      <div style={{
-                        fontSize: 11, color: WB.accent, letterSpacing: '0.04em',
-                        marginTop: 2, fontWeight: 500,
-                      }}>
-                        {pendingCount} pending action{pendingCount > 1 ? 's' : ''}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 4 欄 KPI 帶 */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-                  gap: 18,
-                  paddingTop: 16,
-                  borderTop: `1px solid ${WB.hair}`,
-                }} className="wb-hero-kpi">
-                  {[
-                    { label: 'Total Value', value: totalVal > 0 ? Math.round(totalVal).toLocaleString() : '—', sub: 'TWD' },
-                    { label: 'Holdings', value: H.length > 0 ? `${H.length} / ${MAX_HOLDINGS}` : '—', sub: H.length > 0 ? (H.length >= MAX_HOLDINGS - 5 ? '⚠ 接近上限' : 'positions') : '' },
-                    { label: 'Win Rate', value: H.length > 0 ? `${winRate}` : '—', sub: H.length > 0 ? '%' : '' },
-                    { label: 'Cost Basis', value: totalCost > 0 ? Math.round(totalCost).toLocaleString() : '—', sub: 'TWD' },
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <div style={{
-                        fontSize: 9, color: WB.inkLight, letterSpacing: '0.20em',
-                        marginBottom: 6, textTransform: 'uppercase', fontWeight: 500,
-                      }}>
-                        {item.label}
-                      </div>
-                      <div style={{
-                        fontSize: 18, fontWeight: 400, color: WB.ink,
-                        letterSpacing: '-0.005em', fontVariantNumeric: 'tabular-nums',
-                        lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                      }}>
-                        {item.value}
-                        {item.sub && (
-                          <span style={{
-                            fontSize: 10.5, color: WB.inkLight, marginLeft: 4, fontWeight: 400, letterSpacing: '0.04em',
-                          }}>
-                            {item.sub}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            );
-          })()}
+          <HoldingsHero
+            totalVal={totalVal}
+            totalCost={totalCost}
+            holdingsCount={H.length}
+            winnersCount={winners.length}
+            exitListLength={exitList?.length || 0}
+            reviewListLength={reviewList?.length || 0}
+            maxHoldings={MAX_HOLDINGS}
+            rtConnected={rtConnected}
+            lastUpdate={lastUpdate}
+            isDemo={isDemo}
+            WB={WB}
+            wbTone={wbTone}
+          />
 
 
           {/* 反轉追蹤（虧損持股）— 預設折疊，避免擠壓卡片牆 */}
-          {losers.length>0 && (
-            <details style={{marginBottom:14}}>
-              <summary style={{
-                cursor:"pointer", listStyle:"none",
-                fontSize:11, color:C.textMute, fontWeight:400, letterSpacing:"0.06em",
-                padding:"6px 0", display:"inline-flex", alignItems:"center", gap:6,
-              }}>
-                <span style={{display:"inline-block",width:5,height:5,borderRadius:"50%",background:C.down}}/>
-                反轉追蹤 · {losers.length} 檔虧損持股
-                <span style={{opacity:0.5, marginLeft:2}}>展開設定</span>
-              </summary>
-              <div style={{paddingLeft:12, marginTop:6}}>
-                {losers.map(h=>{
-                  const rc = (reversalConditions||{})[h.code];
-                  const [editing, setEditing] = [
-                    reviewingEvent===`rev-${h.code}`,
-                    (v)=>setReviewingEvent(v?`rev-${h.code}`:null)
-                  ];
-                  return <div key={h.code} style={{marginTop:8,padding:"8px 0",
-                    borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div>
-                        <span style={{fontSize:13,fontWeight:400,color:C.text}}>{h.name}</span>
-                        <span style={{fontSize:12,color:C.down,marginLeft:6}}>{h.pct}%</span>
-                      </div>
-                      <button onClick={()=>setEditing(!editing)} style={{
-                         padding:"3px 9px",borderRadius:5,fontSize:11,cursor:"pointer",
-                         background:"transparent",
-                         border:`1px solid ${C.border}`,
-                         color:C.textMute}}>
-                        {rc?"查看條件":"設定反轉條件"}
-                      </button>
-                    </div>
-                    {rc && !editing && (
-                      <div style={{fontSize:12,color:C.textSec,marginTop:4,lineHeight:1.7}}>
-                        反轉訊號：{rc.signal} | 目標：{rc.target} | 停損：{rc.stopLoss}
-                      </div>
-                    )}
-                    {editing && (()=>{
-                      const draft = rc || {signal:"",target:"",stopLoss:"",note:""};
-                      return <div style={{marginTop:8,background:C.subtle,borderRadius:7,padding:10}}>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
-                          <div>
-                            <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>反轉目標價</div>
-                            <input defaultValue={draft.target} id={`rv-t-${h.code}`}
-                              placeholder="如 130"
-                              style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                                borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                          </div>
-                          <div>
-                            <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>停損價</div>
-                            <input defaultValue={draft.stopLoss} id={`rv-s-${h.code}`}
-                              placeholder="如 85"
-                              style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                                borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                          </div>
-                        </div>
-                        <div style={{marginBottom:6}}>
-                          <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>反轉訊號（什麼條件出現代表反轉？）</div>
-                          <input defaultValue={draft.signal} id={`rv-g-${h.code}`}
-                            placeholder="如：月營收連續兩月成長、法人轉買超"
-                            style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                        </div>
-                        <div style={{marginBottom:8}}>
-                          <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>備註</div>
-                          <input defaultValue={draft.note} id={`rv-n-${h.code}`}
-                            placeholder="其他觀察..."
-                            style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                        </div>
-                        <button onClick={()=>{
-                          updateReversal(h.code, {
-                            signal: document.getElementById(`rv-g-${h.code}`).value,
-                            target: document.getElementById(`rv-t-${h.code}`).value,
-                            stopLoss: document.getElementById(`rv-s-${h.code}`).value,
-                            note: document.getElementById(`rv-n-${h.code}`).value,
-                          });
-                          setEditing(false);
-                         }} style={{width:"100%",padding:"8px",borderRadius:6,border:`1px solid ${C.border}`,
-                           background:"transparent",color:C.textSec,fontSize:13,fontWeight:400,cursor:"pointer"}}>
-                          儲存反轉條件
-                        </button>
-                      </div>;
-                    })()}
-                  </div>;
-                })}
-              </div>
-            </details>
-          )}
+          <HoldingsReversalSection
+            losers={losers}
+            reversalConditions={reversalConditions}
+            reviewingEvent={reviewingEvent}
+            setReviewingEvent={setReviewingEvent}
+            updateReversal={updateReversal}
+            C={C}
+            alpha={alpha}
+          />
 
           {/* ══════════ Action Priority（單行 inline 文字流） ══════════ */}
           <HoldingsActionPriority
@@ -3737,125 +3426,29 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
 
           {/* ── 持倉資料庫 Filter Bar ── */}
-
-          {(() => {
-            const totalCount = H.length;
-            const filteredCount = filteredSortedList.length;
-            const chipBtn = (active, onClick, label, key) => (
-              <button key={key} onClick={onClick} style={{
-                background: active ? alpha(C.text, '12') : "transparent",
-                color: active ? C.text : C.textMute,
-                border: `1px solid ${active ? alpha(C.text,'20') : C.border}`,
-                borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 400,
-                cursor: "pointer", transition: "all 0.15s", letterSpacing: "0.02em",
-              }}>{label}</button>
-            );
-            const FilterGroup = ({label, options, set, setter}) => (
-              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400,minWidth:36}}>{label}</span>
-                {options.map(([val, l]) =>
-                  chipBtn(set.has(val), () => toggleSetItem(setter)(val), l, val)
-                )}
-              </div>
-            );
-            const decLabel = { hold:"持有", review:"檢查", exit:"出場" };
-            const thLabel  = { intact:"完整", weakening:"弱化", broken:"破裂" };
-            const urLabel  = { now:"立即", soon:"近期", monitor:"觀察" };
-            const cfLabel  = { conflict:"有衝突", no_conflict:"無衝突" };
-            const pnlLabel = { win:"獲利", loss:"虧損", flat:"平盤" };
-            const activeTags = [];
-            if (searchQ.trim()) activeTags.push({key:"q", label:`🔍 "${searchQ.trim()}"`, clear:()=>setSearchQ("")});
-            filterDecision.forEach(v => activeTags.push({key:`d-${v}`, label:`決策：${decLabel[v]||v}`, clear:()=>toggleSetItem(setFilterDecision)(v)}));
-            filterThesis.forEach(v => activeTags.push({key:`t-${v}`, label:`論點：${thLabel[v]||v}`, clear:()=>toggleSetItem(setFilterThesis)(v)}));
-            filterUrgency.forEach(v => activeTags.push({key:`u-${v}`, label:`緊急：${urLabel[v]||v}`, clear:()=>toggleSetItem(setFilterUrgency)(v)}));
-            filterConflict.forEach(v => activeTags.push({key:`c-${v}`, label:cfLabel[v]||v, clear:()=>toggleSetItem(setFilterConflict)(v)}));
-            filterPnl.forEach(v => activeTags.push({key:`p-${v}`, label:`損益：${pnlLabel[v]||v}`, clear:()=>toggleSetItem(setFilterPnl)(v)}));
-            filterStrategy.forEach(v => activeTags.push({key:`s-${v}`, label:`題材：${v}`, clear:()=>toggleSetItem(setFilterStrategy)(v)}));
-
-            return (
-              <div id="holdings-filter-bar" style={{
-                marginBottom:14, padding:"10px 12px",
-                background: alpha(C.textMute,'04'),
-                border:`1px solid ${alpha(C.textMute,'10')}`,
-                borderRadius:8, display:"flex", flexDirection:"column", gap:10,
-                position:"sticky", top:0, zIndex:5,
-              }}>
-                {/* 搜尋框 */}
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{position:"relative",flex:1}}>
-                    <input
-                      type="text" value={searchQ}
-                      onChange={e=>setSearchQ(e.target.value)}
-                      placeholder="搜尋代碼／名稱／題材／策略"
-                      style={{
-                        width:"100%", padding:"7px 28px 7px 30px",
-                        background:C.card, border:`1px solid ${C.border}`,
-                        borderRadius:6, fontSize:12, color:C.text,
-                        outline:"none", fontFamily:"inherit",
-                      }}
-                    />
-                    <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:C.textMute}}>🔍</span>
-                    {searchQ && (
-                      <button onClick={()=>setSearchQ("")} style={{
-                        position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",
-                        background:"transparent",border:"none",color:C.textMute,fontSize:14,cursor:"pointer",lineHeight:1,padding:0,
-                      }}>✕</button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Filter chips（預設折疊） */}
-                <details>
-                  <summary style={{
-                    cursor:"pointer", listStyle:"none",
-                    fontSize:10, color:C.textMute, fontWeight:400, letterSpacing:"0.10em",
-                    textTransform:"uppercase", padding:"2px 0",
-                  }}>
-                    Filters {activeTags.length > 0 ? `(${activeTags.length})` : ''} <span style={{opacity:0.5,marginLeft:4}}>▾</span>
-                  </summary>
-                  <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
-                    <FilterGroup label="決策" options={[["hold","持有"],["review","檢查"],["exit","出場"]]} set={filterDecision} setter={setFilterDecision} />
-                    <FilterGroup label="論點" options={[["intact","完整"],["weakening","弱化"],["broken","破裂"]]} set={filterThesis} setter={setFilterThesis} />
-                    <FilterGroup label="緊急" options={[["now","立即"],["soon","近期"],["monitor","觀察"]]} set={filterUrgency} setter={setFilterUrgency} />
-                    <FilterGroup label="衝突" options={[["conflict","有衝突"],["no_conflict","無衝突"]]} set={filterConflict} setter={setFilterConflict} />
-                    <FilterGroup label="損益" options={[["win","獲利"],["loss","虧損"],["flat","平盤"]]} set={filterPnl} setter={setFilterPnl} />
-                    {strategyOptions.length > 0 && (
-                      <FilterGroup label="題材" options={strategyOptions.map(s=>[s,s])} set={filterStrategy} setter={setFilterStrategy} />
-                    )}
-                  </div>
-                </details>
-
-                {/* Active tags + counter */}
-                {activeTags.length > 0 && (
-                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",borderTop:`1px dashed ${alpha(C.textMute,'15')}`,paddingTop:8}}>
-                    {activeTags.map(t => (
-                      <span key={t.key} style={{
-                        display:"inline-flex",alignItems:"center",gap:4,
-                        background:alpha(C.text,'08'),color:C.textSec,
-                        padding:"2px 4px 2px 8px",borderRadius:4,fontSize:11,fontWeight:400,
-                      }}>
-                        {t.label}
-                        <button onClick={t.clear} style={{background:"transparent",border:"none",color:C.textMute,cursor:"pointer",padding:"0 4px",fontSize:12,lineHeight:1}}>✕</button>
-                      </span>
-                    ))}
-                    <span style={{flex:1}} />
-                    <span style={{fontSize:11,color:C.textMute,fontWeight:400}}>
-                      已篩選 {filteredCount} / {totalCount} 檔
-                    </span>
-                    <button onClick={clearAllFilters} style={{
-                      background:"transparent",border:"none",color:C.textMute,fontSize:11,cursor:"pointer",
-                      textDecoration:"underline",fontWeight:400,
-                    }}>清除全部</button>
-                  </div>
-                )}
-                {activeTags.length === 0 && (
-                  <div style={{fontSize:11,color:C.textMute,textAlign:"right",fontWeight:400}}>
-                    共 {totalCount} 檔
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          <HoldingsFilterBar
+            totalCount={H.length}
+            filteredCount={filteredSortedList.length}
+            searchQ={searchQ}
+            setSearchQ={setSearchQ}
+            filterDecision={filterDecision}
+            setFilterDecision={setFilterDecision}
+            filterThesis={filterThesis}
+            setFilterThesis={setFilterThesis}
+            filterUrgency={filterUrgency}
+            setFilterUrgency={setFilterUrgency}
+            filterConflict={filterConflict}
+            setFilterConflict={setFilterConflict}
+            filterPnl={filterPnl}
+            setFilterPnl={setFilterPnl}
+            filterStrategy={filterStrategy}
+            setFilterStrategy={setFilterStrategy}
+            strategyOptions={strategyOptions}
+            toggleSetItem={toggleSetItem}
+            clearAllFilters={clearAllFilters}
+            C={C}
+            alpha={alpha}
+          />
 
           {/* 排序 */}
           <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
