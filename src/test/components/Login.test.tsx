@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 
 // Mock layout to avoid pulling NotificationBell / supabase fetches
 vi.mock('@/components/layouts/PortalLayout', () => ({
