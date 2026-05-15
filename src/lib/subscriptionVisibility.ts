@@ -47,6 +47,7 @@ export async function fetchSubscriberSignals(
   supabase: { from: (table: string) => any },
   userId: string | undefined,
   isTester = false,
+  previewExpertId: string | null = null,
 ): Promise<FetchSubscriberSignalsResult> {
   if (!userId) return { signals: [], hasSubscription: false };
 
@@ -61,6 +62,11 @@ export async function fetchSubscriberSignals(
   const expertIds = (activeSubs || [])
     .map((s: any) => s.expert_plans?.expert_id)
     .filter(Boolean);
+
+  // 預覽模式：把預覽的 expert 也加入查詢清單
+  if (previewExpertId && !expertIds.includes(previewExpertId)) {
+    expertIds.push(previewExpertId);
+  }
 
   if (expertIds.length === 0) return { signals: [], hasSubscription: false };
 

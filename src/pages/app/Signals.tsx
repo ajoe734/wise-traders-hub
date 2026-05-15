@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { richHtmlPreview } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
+import { usePreviewMode } from '@/hooks/usePreviewMode';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
   buy: { label: '買進', className: 'bg-success text-white border-success' },
@@ -41,15 +42,16 @@ interface DbSignal {
   } | null;
 }
 
-const fetchSignalsData = (userId: string | undefined, isTester: boolean) =>
-  fetchSubscriberSignals(supabase, userId, isTester);
+const fetchSignalsData = (userId: string | undefined, isTester: boolean, previewExpertId: string | null) =>
+  fetchSubscriberSignals(supabase, userId, isTester, previewExpertId);
 
 const Signals = () => {
   const { user } = useAuth();
+  const { previewExpertId } = usePreviewMode();
 
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['app-signals', user?.id, user?.isTester],
-    queryFn: () => fetchSignalsData(user?.id, user?.isTester ?? false),
+    queryKey: ['app-signals', user?.id, user?.isTester, previewExpertId],
+    queryFn: () => fetchSignalsData(user?.id, user?.isTester ?? false, previewExpertId),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnMount: false,

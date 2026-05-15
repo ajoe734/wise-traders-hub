@@ -15,6 +15,7 @@ import { useExpert } from "@/hooks/useExpert";
 import { Loader2 } from "lucide-react";
 import { avatarUrl } from "@/lib/imageTransform";
 import { useQuery } from "@tanstack/react-query";
+import { usePreviewMode } from "@/hooks/usePreviewMode";
 
 
 const planMeta: Record<string, { title: string; subtitle: string; description: string; features: string[]; icon: any; variant: 'advisor' | 'mentor' }> = {
@@ -116,9 +117,11 @@ const AppExpertDetail = () => {
   const mainPlan = dbPlans[0] || null;
   const mainMeta = mainPlan ? planMeta[mainPlan.plan_type] : (isAdvisor ? planMeta.analyst_signal_l1 : planMeta.mentor_weekly_journal);
 
-  const isSubscribedToFollower = subscribedPlanTypes.some(t => t === 'analyst_signal_l1' || t === 'analyst_signal_diag_l2');
-  const hasHealthCheck = subscribedPlanTypes.includes('analyst_signal_diag_l2');
-  const isSubscribedToCultivator = subscribedPlanTypes.includes('mentor_weekly_journal');
+  const { isPreview, previewSlug } = usePreviewMode();
+  const previewMatch = isPreview && previewSlug === slug;
+  const isSubscribedToFollower = previewMatch || subscribedPlanTypes.some(t => t === 'analyst_signal_l1' || t === 'analyst_signal_diag_l2');
+  const hasHealthCheck = previewMatch || subscribedPlanTypes.includes('analyst_signal_diag_l2');
+  const isSubscribedToCultivator = previewMatch || subscribedPlanTypes.includes('mentor_weekly_journal');
   const isSubscribed = isAdvisor ? isSubscribedToFollower : isSubscribedToCultivator;
 
   const getRoleLabel = (role: ExpertRole) => role === 'advisor' ? "投顧分析師" : "實戰導師";

@@ -11,6 +11,7 @@ import {
   Target, Compass, Moon, Sun
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PreviewBanner } from '@/components/PreviewBanner';
 
 // localStorage keys for unread tracking
 const SIGNALS_LAST_SEEN_KEY = 'app:lastSeen:signals';
@@ -266,6 +267,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <PreviewBanner />
       {/* Top Header */}
       <header className={cn(
         "sticky top-0 z-50 border-b backdrop-blur supports-[backdrop-filter]:bg-background/80",
