@@ -1830,7 +1830,7 @@ export default function App() {
       return 0;
     });
     return list;
-  }, [H, searchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents, compareByPriority]);
+  }, [H, deferredSearchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents, compareByPriority]);
 
   const sorted = filteredSortedList; // 保留原命名相容性
   const displayed = showAll ? sorted : sorted.slice(0,12);
