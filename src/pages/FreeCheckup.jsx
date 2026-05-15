@@ -193,6 +193,8 @@ const WB = {
   accentSoft: 'rgba(255,77,31,0.06)',
 };
 const wbTone = (n) => (Number(n) >= 0 ? WB.accent : WB.ink);
+// P3-perf: 空 sparkline 共用 reference，避免 HoldingCard memo 因每次新陣列而失效
+const EMPTY_SPARK = Object.freeze([]);
 
 // ── Sparkline：純 SVG，無依賴 ── (P3-perf: memo'd 避免持倉每秒 quote tick 重繪)
 const Sparkline = memo(function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, strokeWidth = 1.4, opacity = 0.85 }) {
