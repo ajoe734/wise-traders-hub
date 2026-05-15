@@ -1,63 +1,62 @@
-## 全站頭像／縮圖審計結果
+# 訂閱者預覽 — 模擬已訂閱使用者進 App
 
-### 真正會「被拉變形」的根因
-1. **Flex row 中的 `<img>` 沒有 `shrink-0`**：當旁邊的名字／文字過長時，圖片會被 flex 容器壓扁、寬高失衡（瀏覽器先按 `width` 縮，但 `height` 不會等比縮 → 拉長）。
-2. **直接用 `<img>` 載原圖**：沒走 `avatarUrl()` CDN 縮圖，原圖 1–3 MB 拉到 32px 渲染既慢又容易在 layout shift 時看到拉伸。
-3. **`object-position` 不一致**：只有 `ExpertCard` / 剛修的 `Explore` 用 `object-[center_15%]`，其他卡片臉部偏低或被裁掉。
-4. **Avatar 預設 size 與請求 size 不匹配**：`AppHome`、`AppCheckout`、`ExpertDetail` 都用 `<AvatarImage>` 直接吃 `avatar_url` 原圖。
+## 現況問題
+`AdminLayout` 的「訂閱者預覽」按鈕只是把分析師自己（已登入狀態）導去公開銷售頁 `/expert/{slug}?preview=1`，那是**未訂閱訪客的銷售頁**，所以看起來像「沒登入」。實際上分析師是登入的，只是沒模擬「已訂閱」身分進 App。
 
-### 全站使用點清單（會處理的檔案）
+## 目標
+分析師／公司管理員按下按鈕 → 用自己的帳號、但被視為「該 expert 的已訂閱者」進入 `/app`，能看到訂閱者實際會看到的訊號／週記／專家頁。
 
-頭像（人臉，需正方形 + `object-[center_15%]` + CDN 縮圖）：
+## 實作步驟
+
+### 1. AdminLayout 按鈕行為調整
+- 點擊時 `sessionStorage.setItem('previewExpertSlug', slug)`，然後 `window.open('/app/expert/' + slug, '_blank')`。
+- 開新分頁仍共用 localStorage 的登入 session（已登入）。
+
+### 2. 新增 `usePreviewMode(slug)` hook
+- 讀 `sessionStorage.previewExpertSlug`。
+- 驗證 `user.expertSlug === previewSlug || hasRole('company_admin')`，否則回傳 `false`（防偽造）。
+- 預覽僅是「UI 層解鎖」，不寫 DB、不發訂閱。
+
+### 3. 全域 `<PreviewBanner />`
+- 掛在 `UnifiedAppLayout` / `AppLayout` 頂部。
+- 顯示：「預覽中：以 {專家名稱} 訂閱者身分檢視 ・ [退出預覽]」。
+- 退出 = 清 sessionStorage + 關分頁（或 `navigate('/admin/'+slug)`）。
+
+### 4. 受影響頁面強制視為已訂閱
+在這些頁面把訂閱判斷改為 `isSubscribed || isPreviewForThisExpert`：
+- `src/pages/app/ExpertDetail.tsx` — `isSubscribed` 強制 true，隱藏 CTA、顯示「已訂閱」卡片。
+- `src/pages/app/Signals.tsx` + `SignalsDashboard.tsx` — 該 expert 的 advisor 訊號放行。
+- `src/pages/app/Journals.tsx` + `JournalDetail.tsx` — 該 expert 的 mentor 週記放行。
+- `src/pages/app/AppHome.tsx` — 該 expert 出現在「我的訂閱」清單。
+- `src/pages/app/SignalDetail.tsx` — 同上放行。
+
+### 5. RLS 確認（重要技術風險）
+分析師對「自己的」signals／mentor_journals 在 owner 角度本來就有 SELECT 權，所以查得到。但要確認：
+- `signals`、`mentor_journals` 的 SELECT policy 對 owner/company_admin 是否放行（不需訂閱）。
+- 若被擋，預覽會「畫面解鎖但資料是空的」。
+- 若有缺，補一條 `USING (is_owner_or_admin(expert_id))` 的 SELECT policy（不影響既有訂閱者規則）。
+
+→ 計畫第一版先實作 1–4，並在 5 跑一次實機驗證；若資料載不出來再追加 RLS migration。
+
+## 技術細節
+```text
+[後台]                           [新分頁 /app]
+按「訂閱者預覽」                  ┌─ PreviewBanner 顯示
+  │                              │  「預覽中：以 ○○ 身分檢視」
+  │ 寫入                         │
+  ▼                              │
+sessionStorage                    │
+ previewExpertSlug = slug         │
+  │                              │
+  └─ window.open('/app/expert/'+slug)
+                                  │
+                                  ▼
+                       usePreviewMode(slug) 驗證身分
+                       → isPreview = true
+                       → 各頁面把 isSubscribed 視為 true
 ```
-src/components/JournalCard.tsx           h-8  w-8   flex 內，無 shrink-0、未走 avatarUrl
-src/components/SignalCard.tsx            h-6  w-6   flex 內，無 shrink-0、未走 avatarUrl
-src/components/PersonCard.tsx            h-14 w-14  flex 內，無 shrink-0
-src/components/LineBindingCard.tsx       h-8/h-10   一處缺 shrink-0、未走 avatarUrl
-src/components/layouts/AdminLayout.tsx   h-10 w-10  flex 內，無 shrink-0、未走 avatarUrl
-src/pages/PlanDetail.tsx                 h-16 w-16  flex 內，無 shrink-0、未走 avatarUrl
-src/pages/ExpertProfile.tsx              h-32/40    rounded-2xl，OK 但沒走 avatarUrl 給對應 size
-src/pages/Checkout.tsx                   h-14 + h-10  缺 shrink-0、未走 avatarUrl
-src/pages/app/AppHome.tsx (×3)           Avatar 預設 40，未走 avatarUrl
-src/pages/app/AppCheckout.tsx            Avatar h-12，未走 avatarUrl
-src/pages/app/ExpertDetail.tsx           AvatarImage 直吃原圖
-src/pages/app/Account.tsx                h-12 w-12 flex 內，無 shrink-0、未走 avatarUrl
-src/pages/app/Signals.tsx                h-6  w-6   flex 內，無 shrink-0、未走 avatarUrl
-src/pages/app/SignalsDashboard.tsx       h-5  w-5   缺 shrink-0
-src/pages/app/JournalDetail.tsx          h-10 w-10  flex 內，無 shrink-0、未走 avatarUrl
-src/pages/admin/Signals.tsx              h-10 w-10  flex 內，無 shrink-0、未走 avatarUrl
-src/pages/admin/Analysts.tsx             h-8  w-8   flex 內，無 shrink-0、未走 avatarUrl
-src/pages/admin/Profile.tsx              h-20 w-20  未走 avatarUrl
-src/pages/company/Users.tsx              h-7  w-7   flex 內，無 shrink-0、未走 avatarUrl
-src/components/WeeklyLimitUpLeaderboard  AvatarImage 直吃原圖
-```
 
-### 修正規則（一致套用）
-
-對所有「人臉頭像」`<img>`：
-```tsx
-<img
-  src={avatarUrl(url, size*2)}     // CDN 縮圖，request 2× 給 retina
-  alt={name}
-  loading="lazy"
-  decoding="async"
-  className="shrink-0 h-N w-N rounded-full object-cover object-[center_15%]"
-/>
-```
-
-對所有 `<AvatarImage>`（已含 `aspect-square`、`object-cover`，Avatar 根已 `shrink-0`）：
-- `src` 一律改走 `avatarUrl(url, size*2)`
-- 額外加 `className="object-[center_15%]"`
-
-非人臉縮圖（`Checkout` 商品圖 `h-14 w-14 rounded-xl`）：
-- 補 `shrink-0`，但**不**加 `object-[center_15%]`（保持 center）。
-- 走 `avatarUrl(url, 112)`（同 helper 對非 Supabase URL 透傳，可安全使用）。
-
-### 驗證
-1. `bun run build` 過。
-2. 視覺檢查：`/app/explore`、`/app/home`、`/app/account`、`/app/signals`、`/app/expert/:slug`、`/expert/:slug`、`/checkout`、`/admin/*` 共 8 條路徑，於 viewport 360 / 414 / 739 三個寬度看頭像是否仍是正方形、臉部對齊、不再被名稱擠扁。
-3. Network 面板抽查任一頭像，確認 URL 含 `/render/image/public/` 且 `width=` 為 2× 渲染尺寸。
-
-### 不在此次範圍
-- `Index.tsx` / `Pricing.tsx` 的 `bg-cover` hero 卡片（非頭像，目前無變形回報）。
-- 設計系統重構（`Avatar` 預設值、抽 `<UserAvatar>` 元件）— 若你之後要再來統一可另開。
+## 不做的事
+- 不假登入、不切換 Supabase session（會洩漏分析師自己的資料權限差異）。
+- 不寫測試訂閱進 DB。
+- 不影響真實訂閱者。
