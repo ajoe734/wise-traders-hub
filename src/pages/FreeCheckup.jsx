@@ -1861,7 +1861,34 @@ export default function App() {
   }, [H, deferredSearchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents, compareByPriority]);
 
   const sorted = filteredSortedList; // 保留原命名相容性
-  const displayed = showAll ? sorted : sorted.slice(0,12);
+  // P3-perf: useMemo 避免父 re-render 時重複切片
+  const displayed = useMemo(
+    () => (showAll ? sorted : sorted.slice(0, 12)),
+    [showAll, sorted]
+  );
+
+  // P3-perf: 卡片牆排序與 variant 對應 — 從 IIFE 內 hoist 到 component body 並 useMemo
+  const variantsMap = useMemo(
+    () => assignCardVariants(displayed, {
+      getActionType: (it) => decisionsMap[it.code]?.actionType || 'hold',
+      getPct: (it) => it.pct ?? 0,
+    }),
+    [displayed, decisionsMap]
+  );
+  const orderedDisplayed = useMemo(() => {
+    const variantOrder = { ink: 0, accent: 1, plain: 2 };
+    return [...displayed].sort((a, b) => {
+      const va = variantOrder[variantsMap.get(a.code) || 'plain'];
+      const vb = variantOrder[variantsMap.get(b.code) || 'plain'];
+      return va - vb;
+    });
+  }, [displayed, variantsMap]);
+  const firstFeatureCode = useMemo(
+    () => (orderedDisplayed[0] && variantsMap.get(orderedDisplayed[0].code) === 'ink')
+      ? orderedDisplayed[0].code
+      : null,
+    [orderedDisplayed, variantsMap]
+  );
 
   // ── 來源清單推導：依 drawerSource 決定 prev/next 的循環範圍 ──
   const sourceList = useMemo(() => {
