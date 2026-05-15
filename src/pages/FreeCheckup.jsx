@@ -21,6 +21,7 @@ import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
+import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
 
 // Phase 3 A1: lazy-load heavy/conditional UI to shrink initial bundle
 const Md = lazy(() => import("@/checkup/components/Md"));
