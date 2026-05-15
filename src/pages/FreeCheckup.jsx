@@ -1,7 +1,5 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
 import { SEO } from "@/components/SEO";
-import Md from "@/checkup/components/Md";
-import { CoachMarks } from "@/checkup/components/CoachMarks";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -23,7 +21,13 @@ import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
-import TargetPriceHistorySection from "@/checkup/components/TargetPriceHistorySection";
+
+// Phase 3 A1: lazy-load heavy/conditional UI to shrink initial bundle
+const Md = lazy(() => import("@/checkup/components/Md"));
+const CoachMarks = lazy(() =>
+  import("@/checkup/components/CoachMarks").then((m) => ({ default: m.CoachMarks }))
+);
+const TargetPriceHistorySection = lazy(() => import("@/checkup/components/TargetPriceHistorySection"));
 
 // #region Constants & Helpers — 政策、顏色、種子、純函式（不依賴 React state）
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
