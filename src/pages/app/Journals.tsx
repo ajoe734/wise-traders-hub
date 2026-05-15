@@ -11,6 +11,7 @@ import { zhTW } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
+import { usePreviewMode } from '@/hooks/usePreviewMode';
 
 interface JournalSignal {
   id: string;
@@ -38,17 +39,22 @@ interface WeekGroup {
   expert: JournalSignal['experts'];
 }
 
-const fetchJournalsData = async (userId: string | undefined, isTester: boolean) => {
+const fetchJournalsData = async (userId: string | undefined, isTester: boolean, previewExpertId: string | null) => {
   if (!userId) return { signals: [] as JournalSignal[], hasSubscription: false };
 
   const { data: subs } = await supabase
     .rpc('has_active_subscription', { _user_id: userId });
 
-  if (!subs || subs.length === 0) {
-    return { signals: [] as JournalSignal[], hasSubscription: false };
+  const expertIds = (subs || []).map((s: any) => s.expert_id);
+
+  // 預覽模式：把預覽 expert 加入清單
+  if (previewExpertId && !expertIds.includes(previewExpertId)) {
+    expertIds.push(previewExpertId);
   }
 
-  const expertIds = subs.map((s: any) => s.expert_id);
+  if (expertIds.length === 0) {
+    return { signals: [] as JournalSignal[], hasSubscription: false };
+  }
 
   const expectedStatus = isTester ? 'draft' : 'active';
   const { data: mentorExperts } = await supabase
