@@ -346,6 +346,14 @@ function HoldingRowImpl({
   )
 }
 
+export const HoldingRow = memo(HoldingRowImpl, (prev, next) =>
+  prev.holding === next.holding &&
+  prev.expanded === next.expanded &&
+  prev.onToggle === next.onToggle &&
+  prev.onUpdateTarget === next.onUpdateTarget &&
+  prev.onUpdateAlert === next.onUpdateAlert
+)
+
 /**
  * Holdings Table — 溫暖日常風
  */
@@ -407,6 +415,12 @@ export function HoldingsTable({
     return aVal > bVal ? -1 : aVal < bVal ? 1 : 0
   })
 
+  // stable toggle callback so memo'd HoldingRow doesn't re-render on every parent render
+  const handleToggle = useCallback(
+    (code) => setExpandedStock((prev) => (prev === code ? null : code)),
+    [setExpandedStock]
+  )
+
   return h(
     'div',
     null,
@@ -419,7 +433,7 @@ export function HoldingsTable({
           key: holding.code,
           holding,
           expanded: expandedStock === holding.code,
-          onToggle: () => setExpandedStock(expandedStock === holding.code ? null : holding.code),
+          onToggle: handleToggle,
           onUpdateTarget,
           onUpdateAlert,
         })
