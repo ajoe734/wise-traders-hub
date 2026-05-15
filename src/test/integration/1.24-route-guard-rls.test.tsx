@@ -235,7 +235,9 @@ describe('ProtectedRoute 組件行為', () => {
     expect(screen.getByText('company-content')).toBeInTheDocument();
   });
 
-  it('subscriberOnly + analyst + expertSlug="abc" → 導向 /admin/abc（3.6-4）', () => {
+  // 3.6-4 已調整：subscriberOnly 不再把 admin/analyst 自動導走，他們可正常瀏覽訂閱者頁面，
+  // 預設導向由 SmartHomeRedirect 處理。此處只驗「不踢走、children 正常 render」。
+  it('subscriberOnly + analyst 不再自動導向 /admin/:slug，children 正常 render（3.6-4 新行為）', () => {
     mockUseAuth.mockReturnValue(
       buildAuth({
         isAuthenticated: true,
@@ -258,11 +260,11 @@ describe('ProtectedRoute 組件行為', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByText('admin-page')).toBeInTheDocument();
-    expect(screen.queryByText('app-content')).not.toBeInTheDocument();
+    expect(screen.getByText('app-content')).toBeInTheDocument();
+    expect(screen.queryByText('admin-page')).not.toBeInTheDocument();
   });
 
-  it('subscriberOnly + company_admin → 導向 /company（3.6-4 管理員分支）', () => {
+  it('subscriberOnly + company_admin 不再自動導向 /company，children 正常 render（3.6-4 新行為）', () => {
     mockUseAuth.mockReturnValue(
       buildAuth({
         isAuthenticated: true,
@@ -285,8 +287,8 @@ describe('ProtectedRoute 組件行為', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByText('company-page')).toBeInTheDocument();
-    expect(screen.queryByText('app-content')).not.toBeInTheDocument();
+    expect(screen.getByText('app-content')).toBeInTheDocument();
+    expect(screen.queryByText('company-page')).not.toBeInTheDocument();
   });
 
   it('subscriberOnly + 一般會員（無特殊角色）→ 子元件正常渲染（3.6-4 訂閱者通過）', () => {
