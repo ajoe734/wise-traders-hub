@@ -104,7 +104,55 @@ const dailyProps: any = {
   analysisHistory: [],
 };
 
-describe('FreeCheckup tab — lazy & memo wiring', () => {
+const WB: any = {
+  bg: '#fff', surface: '#fff', surfaceSoft: '#fafafa',
+  ink: '#0a0a0a', inkSub: '#3a3a3a', inkMute: '#6b6862', inkLight: '#9b968d',
+  hair: '#ecece5', hairStrong: '#d4d1c9', accent: '#ff4d1f', accentSoft: 'rgba(255,77,31,0.06)',
+};
+const wbTone = () => WB.ink;
+const Sparkline = () => null;
+
+const holdingsProps: any = {
+  isDemo: false,
+  DEMO_TAB_NOTICE_COPY: { holdings: { title: '', body: '' } },
+  startLineLogin: noop,
+  navigate: noop,
+  C, alpha, WB, wbTone,
+  quota: null, tier: 'free', tierLabel: 'Free',
+  formatResetCountdown: () => '',
+  totalVal: 0, totalCost: 0,
+  H: [], winners: [], exitList: [], reviewList: [],
+  MAX_HOLDINGS: 50, rtConnected: false, lastUpdate: null,
+  uploadSummary: null, setUploadSummary: noop,
+  losers: [], reversalConditions: {},
+  reviewingEvent: null, setReviewingEvent: noop, updateReversal: noop,
+  globalPriorityList: [], decisionsMap: {}, STOCK_META: {},
+  setExpandedDecision: noop,
+  filteredSortedList: [],
+  searchQ: '', setSearchQ: noop,
+  filterDecision: new Set(), setFilterDecision: noop,
+  filterThesis: new Set(), setFilterThesis: noop,
+  filterUrgency: new Set(), setFilterUrgency: noop,
+  filterConflict: new Set(), setFilterConflict: noop,
+  filterPnl: new Set(), setFilterPnl: noop,
+  filterStrategy: new Set(), setFilterStrategy: noop,
+  strategyOptions: [],
+  toggleSetItem: () => () => {},
+  clearAllFilters: noop,
+  sortBy: 'decision', setSortBy: noop, sortDir: 'desc', setSortDir: noop,
+  sortMenuOpen: false, setSortMenuOpen: noop,
+  expandedDecision: null, displayed: [], sorted: [], orderedDisplayed: [],
+  variantsMap: new Map(), firstFeatureCode: null,
+  targets: {}, avgTarget: () => null, sparklines: {}, sparklineErrors: {},
+  EMPTY_SPARK: Object.freeze([]),
+  Sparkline,
+  normalizedEvents: [], openHoldingDrawer: noop,
+  handleHoldingCardSelect: noop, handleHoldingCardOpenDrawer: noop,
+  cardGridCols: 'repeat(3, minmax(0,1fr))',
+  viewMode: 'grid', setViewMode: noop,
+  showAll: true, setShowAll: noop,
+  setTab: noop,
+};
   it('EventsTab dynamic import resolves quickly and exports React.memo component', async () => {
     const t0 = performance.now();
     const mod = await import('@/checkup/components/freecheckup/EventsTab');
