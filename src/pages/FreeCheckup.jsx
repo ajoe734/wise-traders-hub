@@ -1,7 +1,5 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
 import { SEO } from "@/components/SEO";
-import Md from "@/checkup/components/Md";
-import { CoachMarks } from "@/checkup/components/CoachMarks";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -23,7 +21,13 @@ import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
-import TargetPriceHistorySection from "@/checkup/components/TargetPriceHistorySection";
+
+// Phase 3 A1: lazy-load heavy/conditional UI to shrink initial bundle
+const Md = lazy(() => import("@/checkup/components/Md"));
+const CoachMarks = lazy(() =>
+  import("@/checkup/components/CoachMarks").then((m) => ({ default: m.CoachMarks }))
+);
+const TargetPriceHistorySection = lazy(() => import("@/checkup/components/TargetPriceHistorySection"));
 
 // #region Constants & Helpers — 政策、顏色、種子、純函式（不依賴 React state）
 const SUPABASE_FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
@@ -3216,7 +3220,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         )}
 
-        <CoachMarks onTabChange={setTab} />
+        <Suspense fallback={null}><CoachMarks onTabChange={setTab} /></Suspense>
         <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,marginTop:2}}>
           {TABS.map(t=>(
             <button key={t.k} onClick={()=>{setTab(t.k);window.scrollTo({top:0,behavior:"smooth"})}} style={{
@@ -5662,7 +5666,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
                   <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400}}>AI 策 略 分 析</span>
                 </div>
-                <Md text={dailyReport.aiInsight} color={C.textSec} />
+                <Suspense fallback={null}><Md text={dailyReport.aiInsight} color={C.textSec} /></Suspense>
               </div>
             )}
 
@@ -5912,7 +5916,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div style={{padding:"10px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`,marginBottom:4}}>
                         {r.aiInsight && (
                           <div style={{marginBottom:6}}>
-                            <Md text={r.aiInsight} color={C.textSec} />
+                            <Suspense fallback={null}><Md text={r.aiInsight} color={C.textSec} /></Suspense>
                           </div>
                         )}
                         <button onClick={(ev)=>{ev.stopPropagation();setDailyReport(r);
@@ -7219,7 +7223,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </section>
                 )}
                 {/* 目標價版本歷史 */}
-                <TargetPriceHistorySection code={h.code} C={C} alpha={alpha} enabled={!isDemo} />
+                <Suspense fallback={null}><TargetPriceHistorySection code={h.code} C={C} alpha={alpha} enabled={!isDemo} /></Suspense>
               </div>
             );
           })() : (
