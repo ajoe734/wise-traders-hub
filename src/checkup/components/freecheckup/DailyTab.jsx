@@ -1,4 +1,5 @@
 import React, { Suspense, lazy } from 'react';
+import { validateProps } from './_validateProps';
 
 const Md = lazy(() => import('@/checkup/components/Md'));
 
@@ -6,7 +7,47 @@ const Md = lazy(() => import('@/checkup/components/Md'));
  * DailyTab — Free Checkup「收盤分析」tab。
  * 抽自 FreeCheckup.jsx L4747-L5229（純展示，無內部 state）。
  * 行為與原 inline JSX 完全一致；callbacks 都靠 props 傳入。
+ *
+ * Props schema 與型別檢查見 DAILY_TAB_PROP_SCHEMA / dev validateProps。
  */
+const DAILY_TAB_PROP_SCHEMA = {
+  isDemo: 'boolean',
+  navigate: 'function',
+  startLineLogin: { type: 'function', optional: true },
+  C: 'object',
+  alpha: 'function',
+  DEMO_TAB_NOTICE_COPY: 'object',
+  demoDailyMode: 'string',
+  setDemoDailyMode: 'function',
+  dailyReport: { type: 'object', optional: true },
+  setDailyReport: 'function',
+  analyzing: 'boolean',
+  analyzeStep: { type: 'string', optional: true },
+  runDailyAnalysis: 'function',
+  hasReachedDailyLimit: 'boolean',
+  quota: { type: 'object', optional: true },
+  formatResetCountdown: 'function',
+  tier: 'string',
+  dailyLastError: { type: 'object', optional: true },
+  setDailyLastError: 'function',
+  dailyErrorRef: 'object',
+  dailyRetryHistory: 'array',
+  dailyRetryLocked: 'boolean',
+  handleDailyRetry: 'function',
+  pc: 'function',
+  setTab: 'function',
+  setExpandedNews: 'function',
+  coverageOpen: 'boolean',
+  setCoverageOpen: 'function',
+  coverageReport: { type: 'object', optional: true },
+  setCoverageReport: 'function',
+  strategyBrain: { type: 'object', optional: true },
+  setStrategyBrain: 'function',
+  save: 'function',
+  cloudSync: 'boolean',
+  analysisHistory: { type: 'array', optional: true },
+};
+
 function DailyTabImpl({
   // 模式
   isDemo,
@@ -40,6 +81,7 @@ function DailyTabImpl({
   // 歷史
   analysisHistory,
 }) {
+  validateProps('DailyTab', arguments[0], DAILY_TAB_PROP_SCHEMA);
   return (
     <>
           {isDemo && (
