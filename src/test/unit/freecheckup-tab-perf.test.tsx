@@ -153,6 +153,8 @@ const holdingsProps: any = {
   showAll: true, setShowAll: noop,
   setTab: noop,
 };
+
+describe('FreeCheckup tab — lazy & memo wiring', () => {
   it('EventsTab dynamic import resolves quickly and exports React.memo component', async () => {
     const t0 = performance.now();
     const mod = await import('@/checkup/components/freecheckup/EventsTab');
