@@ -1,5 +1,5 @@
 import React from 'react';
-import NewsEventRow from './NewsEventRow';
+import { NewsEventRow } from './NewsEventRow';
 
 /**
  * NewsTab — Free Checkup「新聞分析」tab。
