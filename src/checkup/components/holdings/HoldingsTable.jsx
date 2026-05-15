@@ -1,4 +1,4 @@
-import { createElement as h } from 'react'
+import { createElement as h, memo, useCallback, useMemo } from 'react'
 import { C, alpha } from '../../theme.js'
 import { STOCK_META } from '../../seedData.js'
 import {
@@ -43,13 +43,22 @@ const periodColor = (p) => {
  * Single Holding Card — 直向閱讀卡片
  * 結構：名稱(上) → 報酬率(主視覺) → 標籤 → 補充資訊(下)
  */
-export function HoldingRow({
+function HoldingRowImpl({
   holding,
   expanded = false,
   onToggle = () => {},
   onUpdateTarget = () => {},
   onUpdateAlert = () => {},
 }) {
+  const handleToggle = useCallback(() => onToggle(holding.code), [onToggle, holding.code])
+  const handleUpdateTarget = useCallback(
+    (e) => onUpdateTarget(holding.code, e.target.value ? Number(e.target.value) : null),
+    [onUpdateTarget, holding.code]
+  )
+  const handleUpdateAlert = useCallback(
+    (e) => onUpdateAlert(holding.code, e.target.value),
+    [onUpdateAlert, holding.code]
+  )
   const pnl = getHoldingUnrealizedPnl(holding)
   const pct = getHoldingReturnPct(holding)
   const value = getHoldingMarketValue(holding)
