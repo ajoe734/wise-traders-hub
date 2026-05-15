@@ -26,7 +26,7 @@ import {
   getPortfolioFallback,
   normalizePortfolios,
   pfKey,
-  readStorageValue,
+  
 } from './portfolioUtils.js'
 import {
   normalizeAnalysisHistoryEntries,
