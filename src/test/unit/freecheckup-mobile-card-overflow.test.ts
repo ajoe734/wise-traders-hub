@@ -15,10 +15,14 @@ import { resolve } from 'path';
 let SRC = '';
 
 beforeAll(() => {
-  SRC = readFileSync(
-    resolve(__dirname, '../../pages/FreeCheckup.jsx'),
+  // P3-perf: HoldingCard 已抽出為獨立 memo 元件，掃描時併入內容以保持
+  // 「卡片內聯樣式合約」覆蓋率（ROI / TODAY-VALUE grid / tabular-nums）
+  const main = readFileSync(resolve(__dirname, '../../pages/FreeCheckup.jsx'), 'utf8');
+  const card = readFileSync(
+    resolve(__dirname, '../../checkup/components/freecheckup/HoldingCard.jsx'),
     'utf8'
   );
+  SRC = main + '\n/* === HoldingCard.jsx === */\n' + card;
 });
 
 // 萃取 <style>{`...`}</style> 內所有 CSS 字串，方便正則檢查
@@ -94,7 +98,7 @@ describe('Free Checkup: 卡片靜態防擠壓合約', () => {
 
   it('ROI 與 TODAY/VALUE 內聯樣式採用 tabular-nums (baseline 對齊)', () => {
     // ROI clamp + lineHeight:1
-    expect(SRC).toMatch(/wb-roi[\s\S]{0,400}?fontSize:'clamp\(/);
+    expect(SRC).toMatch(/wb-roi[\s\S]{0,400}?fontSize:\s*'clamp\(/);
     // TODAY/VALUE 數值列使用 fontVariantNumeric:'tabular-nums'
     expect(SRC).toMatch(/wb-bottom-val[\s\S]{0,300}?tabular-nums/);
   });

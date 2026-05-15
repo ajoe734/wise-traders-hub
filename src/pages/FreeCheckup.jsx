@@ -23,6 +23,7 @@ import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
 import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
+import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
 const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
 const NewsTab = lazy(() => import("@/checkup/components/freecheckup/NewsTab"));
 const EventsTab = lazy(() => import("@/checkup/components/freecheckup/EventsTab"));
@@ -192,6 +193,8 @@ const WB = {
   accentSoft: 'rgba(255,77,31,0.06)',
 };
 const wbTone = (n) => (Number(n) >= 0 ? WB.accent : WB.ink);
+// P3-perf: 空 sparkline 共用 reference，避免 HoldingCard memo 因每次新陣列而失效
+const EMPTY_SPARK = Object.freeze([]);
 
 // ── Sparkline：純 SVG，無依賴 ── (P3-perf: memo'd 避免持倉每秒 quote tick 重繪)
 const Sparkline = memo(function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, strokeWidth = 1.4, opacity = 0.85 }) {
@@ -2011,6 +2014,16 @@ export default function App() {
     setDrawerOpen(true);
   };
 
+  // P3-perf: HoldingCard 用的 stable callbacks（透過 ref 取得最新 closure，
+  // 自身 reference 永不變 → React.memo 可有效跳過未變動卡片的 re-render）
+  const openHoldingDrawerRef = useRef(openHoldingDrawer);
+  openHoldingDrawerRef.current = openHoldingDrawer;
+  const handleHoldingCardOpenDrawer = useCallback((code) => {
+    openHoldingDrawerRef.current(code);
+  }, []);
+  const handleHoldingCardSelect = useCallback((code) => {
+    setExpandedDecision(prev => prev === code ? null : code);
+  }, []);
 
   const activeHolding = activeIndex >= 0 ? sourceList[activeIndex] : null;
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
@@ -3878,353 +3891,27 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
 
 
-            const renderCard = (h, idx) => {
-              const isFeatureSlot = h.code === firstFeatureCode;
-              const variant = variantsMap.get(h.code) || 'plain';
-              const T      = targets?.[h.code];
-              const tp     = T ? avgTarget(h.code) : null;
-              const upside = tp && h.price ? ((tp - h.price) / h.price * 100) : null;
-              const meta   = STOCK_META[h.code] || null;
-              const dec    = decisionsMap[h.code];
-              const actionLabel = dec?.actionType === 'exit' ? 'EXIT' : dec?.actionType === 'review' ? 'REVIEW' : 'HOLD';
-              const isActive = selectedCode === h.code;
-              // 漲跌幅：成本與現價都存在時，用「現價/成本-1」現場重算，避免 h.pct 不同步舊值
-              const _costNum = Number(h.cost);
-              const _priceNum = Number(h.price);
-              const pctVal = (_costNum > 0 && Number.isFinite(_priceNum))
-                ? ((_priceNum / _costNum) - 1) * 100
-                : (h.pct ?? 0);
-              // 同步重算未實現損益顯示
-              const pnlVal = (_costNum > 0 && Number.isFinite(_priceNum) && Number.isFinite(Number(h.qty)))
-                ? Math.round((_priceNum - _costNum) * Number(h.qty))
-                : Math.round(h.pnl || 0);
-              const sparkData = sparklines[h.code] || [];
-              const sparkFailed = !!sparklineErrors[h.code]; // P3: 同步失敗（區分「無資料」與「失敗」）
+            const renderCard = (h) => (
+              <HoldingCard
+                key={h.code}
+                holding={h}
+                decision={decisionsMap[h.code]}
+                target={targets?.[h.code]}
+                avgTargetPrice={targets?.[h.code] ? avgTarget(h.code) : null}
+                meta={STOCK_META[h.code] || null}
+                sparkData={sparklines[h.code] || EMPTY_SPARK}
+                sparkFailed={!!sparklineErrors[h.code]}
+                variant={variantsMap.get(h.code) || 'plain'}
+                isFeatureSlot={h.code === firstFeatureCode}
+                isActive={selectedCode === h.code}
+                WB={WB}
+                Sparkline={Sparkline}
+                alpha={alpha}
+                onSelect={handleHoldingCardSelect}
+                onOpenDrawer={handleHoldingCardOpenDrawer}
+              />
+            );
 
-              // ── Workbench 配色：feature card 採 ink 黑底；其餘白底 ──
-              const isInk = variant === 'ink';
-              const cardBg = isInk ? WB.ink : WB.surface;
-              const cardColor = isInk ? '#F4F1EC' : WB.ink;
-              const cardBorder = isInk
-                ? 'none'
-                : `1px solid ${isActive ? WB.hairStrong : WB.hair}`;
-              // span 由 CSS class 控制 (.wb-span-feature 在 ≥641px 時 span 2)
-              const isFeatureCard = isInk && isFeatureSlot;
-              const MIN_H = 320;
-
-              // ROI / 損益顏色憲法：正→accent 橘 + ↑、負→暖灰 + ↓、零→inkLight
-              const muteColor = isInk ? 'rgba(244,241,236,0.50)' : WB.inkLight;
-              const subColor = isInk ? 'rgba(244,241,236,0.80)' : WB.inkSub;
-              const hairColor = isInk ? 'rgba(244,241,236,0.14)' : WB.hair;
-              const lossColor = isInk ? 'rgba(244,241,236,0.55)' : '#8A857F';
-              const pnlColor = pctVal > 0 ? WB.accent : pctVal < 0 ? lossColor : muteColor;
-              const pnlWeight = pctVal > 0 ? 500 : 400;
-              const pnlArrow = pctVal > 0 ? '↑' : pctVal < 0 ? '↓' : '';
-
-              // 報價來源徽章：screenshot=截圖價 / live=即時 / high=最高(成交清空) / ask=賣一(無成交) / yclose=昨收
-              const SRC_LABEL = { screenshot: '截圖', live: '即時', high: '最高', ask: '賣一', yclose: '昨收' };
-              const srcLabel = h.priceSource ? SRC_LABEL[h.priceSource] : null;
-              const srcTitle = h.priceError
-                ? `報價問題：${h.priceError}`
-                : h.priceUpdatedAt
-                  ? `來源：${srcLabel || '—'}　更新於 ${new Date(h.priceUpdatedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`
-                  : '尚未同步即時報價';
-
-              // P4 a11y：卡片可讀標籤（決策/ROI/PnL）
-              const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal>=0?'+':''}${pctVal.toFixed(2)}%，損益 ${pnlVal>=0?'+':''}${pnlVal.toLocaleString()}`;
-              const handleCardKeyDown = (e) => {
-                // Shift+Enter 直接開 drawer（取代 onDoubleClick 的鍵盤替代）
-                if (e.shiftKey && (e.key === 'Enter' || e.key === ' ')) {
-                  e.preventDefault();
-                  openHoldingDrawer(h.code);
-                }
-              };
-
-              // P8 actionText 智慧斷句：在限制長度內找最後一個標點
-              const truncateAction = (txt, limit) => {
-                if (!txt || txt.length <= limit) return txt;
-                const head = txt.slice(0, limit);
-                const m = head.match(/^(.*[。、，；！？,.;!?])[^。、，；！？,.;!?]*$/);
-                const cut = m ? m[1] : head.slice(0, limit - 2);
-                return cut + '…';
-              };
-
-              // ─── Feature card (ink + span 2)：黑底，橘紅 ROI，五層雜誌排版 ───
-              if (isInk && isFeatureSlot) {
-                return (
-                  <button
-                    key={h.code}
-                    className="wb-card wb-card-feature wb-span-feature"
-                    onClick={() => setExpandedDecision(prev => prev === h.code ? null : h.code)}
-                    onDoubleClick={() => openHoldingDrawer(h.code)}
-                    onKeyDown={handleCardKeyDown}
-                    aria-label={ariaLabel}
-                    aria-pressed={isActive}
-                    style={{
-                      position: 'relative',
-                      minHeight: MIN_H,
-                      textAlign: 'left',
-                      background: cardBg,
-                      border: 'none',
-                      borderRadius: 0,
-                      padding: '24px 28px 20px',
-                      cursor: 'pointer',
-                      display: 'flex', flexDirection: 'column',
-                      transition: 'background 160ms ease',
-                      fontFamily: 'inherit',
-                      color: cardColor,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {/* L1：股號 + 名稱 + sparkline + FEATURE tag */}
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:6}}>
-                      <div style={{display:'flex',alignItems:'baseline',gap:8,minWidth:0,flex:1}}>
-                        <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em'}}>{h.code}</span>
-                        <span style={{fontSize:15,fontWeight:400,color:cardColor,letterSpacing:'-0.005em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
-                        {h.qty != null && (
-                          <span style={{fontSize:10,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>× {Number(h.qty).toLocaleString()}{h.unit ? ` ${h.unit}` : ' 股'}</span>
-                        )}
-                      </div>
-                      {sparkData.length >= 2 ? (
-                        <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
-                          <Sparkline data={sparkData} width={60} height={20} color={isInk ? '#F4F1EC' : (pctVal >= 0 ? WB.accent : '#9B968D')} opacity={pctVal >= 0 ? 0.85 : 0.6} />
-                        </span>
-                      ) : (
-                        <span className="wb-spark" aria-hidden title={sparkFailed ? '歷史價尚未同步，稍後重試' : undefined} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:20,fontSize:11,color:muteColor,opacity:0.4,flexShrink:0,letterSpacing:'0.3em'}}>{sparkFailed ? '~' : '———'}</span>
-                      )}
-                      <span style={{
-                        fontSize:9,fontWeight:500,letterSpacing:'0.20em',
-                        color:WB.accent,textTransform:'uppercase',flexShrink:0,
-                      }}>{actionLabel}</span>
-                    </div>
-
-                    {/* L2：ROI 主視覺（橘=正、灰=負，加方向箭頭） */}
-                    <div style={{
-                      display:'flex',alignItems:'baseline',gap:14,marginTop:8,marginBottom:10,
-                    }}>
-                      <span className="wb-roi" style={{
-                        fontSize:'clamp(40px, 6vw + 12px, 64px)',fontWeight:pnlWeight,color:pnlColor,
-                        letterSpacing:'-0.04em',lineHeight:1,
-                        fontVariantNumeric:'tabular-nums',
-                        display:'inline-flex',alignItems:'baseline',gap:6,
-                      }}>
-                        {pnlArrow && <span style={{fontSize:'0.40em',opacity:0.7,fontWeight:400}}>{pnlArrow}</span>}
-                        <span>{pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span></span>
-                      </span>
-                      <span style={{fontSize:13,color:subColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.02em'}}>
-                        {pnlVal>=0?'+':''}{pnlVal.toLocaleString()}
-                      </span>
-                    </div>
-
-                    {/* L2.5：成本 → 現價 */}
-                    <div style={{
-                      display:'flex',alignItems:'baseline',gap:8,marginBottom:10,
-                      fontSize:11,color:subColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',
-                    }}>
-                      <span style={{color:muteColor,letterSpacing:'0.12em',fontSize:9,opacity:0.8}}>成本</span>
-                      <span>{h.cost != null ? Number(h.cost).toFixed(2) : '—'}</span>
-                      <span style={{color:muteColor,opacity:0.6}}>→</span>
-                      <span style={{color:muteColor,letterSpacing:'0.12em',fontSize:9,opacity:0.8}}>現價</span>
-                      <span>{h.price != null ? Number(h.price).toFixed(2) : '—'}</span>
-                    </div>
-
-                    {/* L3：分類 tags（filled chip） */}
-                    {(meta?.industry || meta?.strategy) && (
-                      <div className="wb-tags" style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
-                        {meta?.industry && (
-                          <span style={{fontSize:10,color:'rgba(244,241,236,0.78)',letterSpacing:'0.08em',padding:'4px 8px',background:'rgba(255,255,255,0.08)',border:'none',borderRadius:0}}>{meta.industry}</span>
-                        )}
-                        {meta?.strategy && (
-                          <span style={{fontSize:10,color:'rgba(244,241,236,0.78)',letterSpacing:'0.08em',padding:'4px 8px',background:'rgba(255,255,255,0.08)',border:'none',borderRadius:0}}>{meta.strategy}</span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* L4：說明 */}
-                    <div style={{flex:1,display:'flex',alignItems:'center',gap:18,minHeight:48}}>
-                      <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.7,letterSpacing:'0.01em'}}>
-                        {dec?.actionText
-                          ? truncateAction(dec.actionText, 90)
-                          : (meta?.strategy || '持續監控基本面與籌碼變動。')}
-                      </div>
-                    </div>
-
-                    {/* L5：底部雙區塊 TODAY / VALUE — 固定 grid 對齊 baseline */}
-                    <div className="wb-bottom" style={{
-                      paddingTop:12,marginTop:8,
-                      borderTop:`1px solid ${hairColor}`,
-                      display:'grid',
-                      gridTemplateColumns:'minmax(0,1fr) 1px minmax(0,1fr)',
-                      gridTemplateRows:'auto auto',
-                      columnGap:16,rowGap:2,
-                      alignItems:'baseline',
-                    }}>
-                      <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>TODAY</span>
-                      <span style={{gridColumn:'3',gridRow:'1',display:'flex',alignItems:'center',gap:6,fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>
-                        <span>VALUE</span>
-                        {/* P10: feature 卡補 srcLabel 報價來源徽章（黑底配色） */}
-                        {srcLabel && (
-                          <span title={srcTitle} style={{
-                            fontSize:8,letterSpacing:'0.06em',padding:'1px 5px',borderRadius:2,
-                            background: h.priceSource==='live' ? alpha(WB.accent,'30') : 'rgba(244,241,236,0.10)',
-                            color: h.priceSource==='live' ? WB.accent : 'rgba(244,241,236,0.85)',
-                            opacity:0.9,fontWeight:500,
-                          }}>{srcLabel}</span>
-                        )}
-                        {h.priceError && !srcLabel && (
-                          <span title={h.priceError} style={{fontSize:8,padding:'1px 5px',borderRadius:2,background:'rgba(244,241,236,0.12)',color:'rgba(244,241,236,0.65)'}}>失敗</span>
-                        )}
-                      </span>
-                      <div style={{gridColumn:'2',gridRow:'1 / span 2',background:hairColor,width:1,height:'100%'}} />
-                      <span className="wb-bottom-val" style={{gridColumn:'1',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
-                        {pnlVal>=0?'+':''}{pnlVal.toLocaleString()}
-                        <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
-                      </span>
-                      <span className="wb-bottom-val" style={{gridColumn:'3',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
-                        {h.value?.toLocaleString() || '—'}
-                        {tp && upside != null && (
-                          <span style={{marginLeft:6,color:muteColor}}>TGT {upside>=0?'+':''}{upside.toFixed(1)}%</span>
-                        )}
-                      </span>
-                    </div>
-                  </button>
-                );
-              }
-
-              // ─── Normal card：白底，相同 5 層結構，ROI 52px ───
-              return (
-                <button
-                  key={h.code}
-                  className="wb-card wb-span-1"
-                  onClick={() => setExpandedDecision(prev => prev === h.code ? null : h.code)}
-                  onDoubleClick={() => openHoldingDrawer(h.code)}
-                  onKeyDown={handleCardKeyDown}
-                  aria-label={ariaLabel}
-                  aria-pressed={isActive}
-                  style={{
-                    position: 'relative',
-                    minHeight: MIN_H,
-                    textAlign: 'left',
-                    background: cardBg,
-                    border: cardBorder,
-                    borderRadius: 0,
-                    padding: '22px 22px 18px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: 'background 160ms ease, border-color 160ms ease',
-                    fontFamily: 'inherit',
-                    color: cardColor,
-                    overflow: 'hidden',
-                  }}
-                >
-                  {/* L1：股號 + 名稱 + sparkline + action tag */}
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:4}}>
-                    <div style={{display:'flex',alignItems:'baseline',gap:8,minWidth:0,flex:1}}>
-                      <span style={{fontSize:11,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>{h.code}</span>
-                      <span style={{fontSize:13,fontWeight:400,color:cardColor,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{h.name}</span>
-                      {h.qty != null && (
-                        <span style={{fontSize:10,color:muteColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',flexShrink:0}}>× {Number(h.qty).toLocaleString()}{h.unit ? ` ${h.unit}` : ' 股'}</span>
-                      )}
-                    </div>
-                    {sparkData.length >= 2 ? (
-                      <span className="wb-spark" style={{display:'inline-flex',flexShrink:0}}>
-                        <Sparkline data={sparkData} width={60} height={20} color={pctVal >= 0 ? WB.accent : '#9B968D'} opacity={pctVal >= 0 ? 0.85 : 0.55} />
-                      </span>
-                    ) : (
-                      <span className="wb-spark" aria-hidden title={sparkFailed ? '歷史價尚未同步，稍後重試' : undefined} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:20,fontSize:11,color:muteColor,opacity:0.4,flexShrink:0,letterSpacing:'0.3em'}}>{sparkFailed ? '~' : '———'}</span>
-                    )}
-                    <span style={{
-                      fontSize:9,fontWeight:500,letterSpacing:'0.20em',
-                      color:WB.accent,flexShrink:0,
-                    }}>{actionLabel}</span>
-                  </div>
-
-                  {/* L2：ROI 52px（橘=正、灰=負，加方向箭頭） */}
-                  <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:8,marginBottom:8}}>
-                    <span className="wb-roi" style={{
-                      fontSize:'clamp(36px, 4.5vw + 10px, 52px)',fontWeight:pnlWeight,color:pnlColor,
-                      letterSpacing:'-0.035em',lineHeight:1,
-                      fontVariantNumeric:'tabular-nums',
-                      display:'inline-flex',alignItems:'baseline',gap:5,
-                    }}>
-                      {pnlArrow && <span style={{fontSize:'0.40em',opacity:0.7,fontWeight:400}}>{pnlArrow}</span>}
-                      <span>{pctVal>=0?'+':''}{pctVal.toFixed(2)}<span style={{fontSize:'0.55em',marginLeft:3,opacity:0.6,fontWeight:500,verticalAlign:'baseline'}}>%</span></span>
-                    </span>
-                  </div>
-
-                  {/* L2.5：成本 → 現價 */}
-                  <div style={{
-                    display:'flex',alignItems:'baseline',gap:8,marginBottom:8,
-                    fontSize:11,color:subColor,fontVariantNumeric:'tabular-nums',letterSpacing:'0.04em',
-                  }}>
-                    <span style={{color:muteColor,letterSpacing:'0.12em',fontSize:9,opacity:0.8}}>成本</span>
-                    <span>{h.cost != null ? Number(h.cost).toFixed(2) : '—'}</span>
-                    <span style={{color:muteColor,opacity:0.6}}>→</span>
-                    <span style={{color:muteColor,letterSpacing:'0.12em',fontSize:9,opacity:0.8}}>現價</span>
-                    <span>{h.price != null ? Number(h.price).toFixed(2) : '—'}</span>
-                  </div>
-
-                  {/* L3：分類 tags（filled chip） */}
-                  {(meta?.industry || meta?.strategy) && (
-                    <div className="wb-tags" style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-                      {meta?.industry && (
-                        <span style={{fontSize:10,color:isInk?'rgba(244,241,236,0.78)':WB.inkSub,letterSpacing:'0.08em',padding:'4px 8px',background:isInk?'rgba(255,255,255,0.08)':'#F4F2EE',border:'none',borderRadius:0}}>{meta.industry}</span>
-                      )}
-                      {meta?.strategy && (
-                        <span style={{fontSize:10,color:isInk?'rgba(244,241,236,0.78)':WB.inkSub,letterSpacing:'0.08em',padding:'4px 8px',background:isInk?'rgba(255,255,255,0.08)':'#F4F2EE',border:'none',borderRadius:0}}>{meta.strategy}</span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* L4：說明 */}
-                  <div style={{flex:1,display:'flex',alignItems:'flex-end',gap:14,minHeight:40,paddingTop:4}}>
-                    <div style={{flex:1,fontSize:11,color:subColor,lineHeight:1.65}}>
-                      {dec?.actionText
-                        ? truncateAction(dec.actionText, 60)
-                        : (meta?.strategy ? meta.strategy.slice(0,40) : '')}
-                    </div>
-                  </div>
-
-                  {/* L5：底部雙區塊 TODAY / VALUE — 固定 grid 對齊 baseline */}
-                  <div className="wb-bottom" style={{
-                    paddingTop:10,marginTop:8,
-                    borderTop:`1px solid ${hairColor}`,
-                    display:'grid',
-                    gridTemplateColumns:'minmax(0,1fr) 1px minmax(0,1fr)',
-                    gridTemplateRows:'auto auto',
-                    columnGap:12,rowGap:2,
-                    alignItems:'baseline',
-                    fontSize:10,color:muteColor,fontWeight:400,
-                    fontVariantNumeric:'tabular-nums',letterSpacing:'0.06em',
-                  }}>
-                    <span style={{gridColumn:'1',gridRow:'1',fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>TODAY</span>
-                    <span style={{gridColumn:'3',gridRow:'1',display:'flex',alignItems:'center',gap:6,fontSize:9,color:muteColor,letterSpacing:'0.16em',opacity:0.7,lineHeight:1}}>
-                      <span>VALUE</span>
-                      {srcLabel && (
-                        <span title={srcTitle} style={{
-                          fontSize:8,letterSpacing:'0.06em',padding:'1px 5px',borderRadius:2,
-                          background: h.priceSource==='live' ? alpha(WB.accent,'22') : h.priceSource==='screenshot' ? alpha(muteColor,'18') : alpha(lossColor,'22'),
-                          color: h.priceSource==='live' ? WB.accent : subColor,
-                          opacity:0.85,fontWeight:500,
-                        }}>{srcLabel}</span>
-                      )}
-                      {h.priceError && !srcLabel && (
-                        <span title={h.priceError} style={{fontSize:8,padding:'1px 5px',borderRadius:2,background:alpha(lossColor,'22'),color:lossColor}}>失敗</span>
-                      )}
-                    </span>
-                    <div style={{gridColumn:'2',gridRow:'1 / span 2',background:hairColor,width:1,height:'100%'}} />
-                    <span className="wb-bottom-val" style={{gridColumn:'1',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
-                      {pnlVal>=0?'+':''}{pnlVal.toLocaleString()}
-                      <span style={{marginLeft:6,color:muteColor}}>{pctVal>=0?'+':''}{pctVal.toFixed(2)}%</span>
-                    </span>
-                    <span className="wb-bottom-val" style={{gridColumn:'3',gridRow:'2',fontSize:'clamp(10.5px, 0.9vw + 8px, 12px)',color:subColor,fontVariantNumeric:'tabular-nums',lineHeight:1.2}}>
-                      {h.value?.toLocaleString() || '—'}
-                    </span>
-                  </div>
-                </button>
-              );
-            };
 
             const renderDetailPanel = () => (
               <Suspense fallback={null}>
