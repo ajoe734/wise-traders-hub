@@ -89,6 +89,7 @@ const fetchJournalsData = async (userId: string | undefined, isTester: boolean, 
 
 const Journals = () => {
   const { user } = useAuth();
+  const { previewExpertId } = usePreviewMode();
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   useEffect(() => {
@@ -96,8 +97,8 @@ const Journals = () => {
   }, []);
 
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['app-journals', user?.id, user?.isTester],
-    queryFn: () => fetchJournalsData(user?.id, user?.isTester ?? false),
+    queryKey: ['app-journals', user?.id, user?.isTester, previewExpertId],
+    queryFn: () => fetchJournalsData(user?.id, user?.isTester ?? false, previewExpertId),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnMount: false,
