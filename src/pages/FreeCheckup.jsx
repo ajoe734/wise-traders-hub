@@ -3715,7 +3715,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* ══════════ Action Priority（單行 inline 文字流） ══════════ */}
           <HoldingsActionPriority
-            items={(globalPriorityList || []).slice(0, 3)}
+            items={globalPriorityList}
             decisionsMap={decisionsMap}
             stockMeta={STOCK_META}
             WB={WB}
@@ -3874,25 +3874,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const selectedCode = expandedDecision;
             const selected = selectedCode ? displayed.find(x => x.code === selectedCode) || sorted.find(x => x.code === selectedCode) : null;
 
-            // 配額：最多 1 張 ink（exit 第一張），最多 2 張 accent（其餘 exit 或最緊急 review）
-            const variantsMap = assignCardVariants(displayed, {
-              getActionType: (it) => decisionsMap[it.code]?.actionType || 'hold',
-              getPct: (it) => it.pct ?? 0,
-            });
+            // P3-perf: variantsMap / orderedDisplayed / firstFeatureCode 已 hoist 至 component body 並 useMemo
 
-            // 固定節奏：ink → accent → plain（保留原排序）
-            // 第一格永遠是 feature（ink 若存在則 span 2；否則保持 grid 整齊）
-            // P2: 不再 spread 注入 __featureSlot，改由 renderCard(h, idx) 判斷，保留 referential equality
-            const variantOrder = { ink: 0, accent: 1, plain: 2 };
-            const orderedDisplayed = [...displayed].sort((a, b) => {
-              const va = variantOrder[variantsMap.get(a.code) || 'plain'];
-              const vb = variantOrder[variantsMap.get(b.code) || 'plain'];
-              if (va !== vb) return va - vb;
-              return 0;
-            });
-            // P7: featureSlot 條件 — 第一張且該卡 variant 為 ink 時才當 feature
-            const firstFeatureCode = (orderedDisplayed[0] && (variantsMap.get(orderedDisplayed[0].code) === 'ink'))
-              ? orderedDisplayed[0].code : null;
+
 
             const renderCard = (h, idx) => {
               const isFeatureSlot = h.code === firstFeatureCode;
