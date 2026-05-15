@@ -11,6 +11,7 @@ import {
   Target, Compass, Moon, Sun
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PreviewBanner } from '@/components/PreviewBanner';
 
 // localStorage keys for unread tracking
 const SIGNALS_LAST_SEEN_KEY = 'app:lastSeen:signals';
