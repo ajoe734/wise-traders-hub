@@ -113,7 +113,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             variant="outline"
             size="sm"
             className="w-full mt-3 gap-2 h-8 text-xs"
-            onClick={() => window.open(`/expert/${expertSlug}?preview=1`, '_blank')}
+            onClick={() => {
+              try { sessionStorage.setItem('previewExpertSlug', expertSlug!); } catch {}
+              window.open(`/app/expert/${expertSlug}`, '_blank');
+            }}
           >
             <Eye className="h-3.5 w-3.5" />
             訂閱者預覽
