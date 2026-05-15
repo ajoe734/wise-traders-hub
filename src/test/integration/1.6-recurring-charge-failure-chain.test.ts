@@ -327,25 +327,20 @@ describe('drift-detection: Edge Functions 使用共用 _shared/subscriptionRenew
     expect(src).toContain('extendSubscriptionExpiry');
   });
 
-  it('auto-cancel-failed-renewals 從 _shared/ 取用 processRenewalCancellations', () => {
+  it('auto-cancel-failed-renewals 已停用為 410 stub（手動續訂模型，無自動扣款失敗場景）', () => {
     const src = edgeFn('auto-cancel-failed-renewals');
-    expect(src).toContain('../_shared/subscriptionRenewal.ts');
-    expect(src).toContain('processRenewalCancellations');
-  });
-
-  it('auto-cancel-failed-renewals 從 _shared/ 取用 calcAutoCancelDeadlineUTC', () => {
-    const src = edgeFn('auto-cancel-failed-renewals');
-    expect(src).toContain('calcAutoCancelDeadlineUTC');
+    expect(src).toContain('DEPRECATED');
+    expect(src).toContain('手動續訂');
+    expect(src).toMatch(/status:\s*410/);
+    // 過期斷權邏輯改由 expire-subscriptions 處理；不應再依賴 _shared 續訂工具
+    expect(src).not.toContain('processRenewalCancellations');
+    expect(src).not.toContain('calcAutoCancelDeadlineUTC');
+    expect(src).not.toContain('filterRenewalFailures');
   });
 
   it('notify-payment-failure 從 _shared/ 取用 recordPaymentFailureInDB', () => {
     const src = edgeFn('notify-payment-failure');
     expect(src).toContain('../_shared/subscriptionRenewal.ts');
     expect(src).toContain('recordPaymentFailureInDB');
-  });
-
-  it('auto-cancel-failed-renewals 從 _shared/ 取用 filterRenewalFailures', () => {
-    const src = edgeFn('auto-cancel-failed-renewals');
-    expect(src).toContain('filterRenewalFailures');
   });
 });

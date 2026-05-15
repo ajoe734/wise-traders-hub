@@ -185,13 +185,17 @@ describe('drift-detection: 會員個資隔離 RLS 政策存在於 migration SQL'
     expect(src).toContain('user_id = auth.uid()');
   });
 
-  it('drift: useSubscriptions.ts 使用 fetchMemberSubscriptions（防止 user_id 過濾被繞過）', () => {
+  it('drift: useSubscriptions.ts 委派至 useMemberSubscriptions（user_id 過濾仍由 hook 內部 enforce）', () => {
     const src = readFileSync(
       resolve(process.cwd(), 'src/hooks/useSubscriptions.ts'),
       'utf-8',
     );
-    expect(src).toContain('fetchMemberSubscriptions');
-    expect(src).toContain('@/lib/memberDataAccess');
+    // 新架構：useSubscriptions 不再直接呼叫 fetchMemberSubscriptions，而是委派給
+    // useMemberSubscriptions hook（hook 內部以 .eq('user_id', user.id) 過濾），
+    // react-query 可跨 consumer dedupe。任何繞過 useMemberSubscriptions 直接查
+    // member_subscriptions 的改動都會被下方 assertion 攔下。
+    expect(src).toContain('useMemberSubscriptions');
+    expect(src).not.toMatch(/from\(['"]member_subscriptions['"]\)/);
   });
 
   it('drift: NotificationBell.tsx 使用 fetchMemberNotifications（防止 notifications user_id 過濾被繞過）', () => {
