@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Home, Radio, BookOpen, User, TrendingUp, LogOut, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PreviewBanner } from '@/components/PreviewBanner';
 import { useEffect } from 'react';
 
 // Breadcrumb configuration for different routes
@@ -107,6 +108,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <PreviewBanner />
       {/* Top Header - minimal for mobile */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-4">
