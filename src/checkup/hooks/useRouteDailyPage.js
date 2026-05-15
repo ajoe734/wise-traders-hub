@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRunDailyAnalysis, useRunStressTest } from './api/useAnalysis.js'
 import { useBrainStore } from '../stores/brainStore.js'
@@ -28,17 +28,25 @@ export function useRouteDailyPage() {
   const runDailyAnalysisMutation = useRunDailyAnalysis()
   const runStressTestMutation = useRunStressTest()
 
+  // refs so runDailyAnalysis identity is stable (analysisHistory churns often)
+  const setDailyReportRef = useRef(setDailyReport)
+  const setAnalysisHistoryRef = useRef(setAnalysisHistory)
+  const runDailyAnalysisMutationRef = useRef(runDailyAnalysisMutation)
+  useEffect(() => { setDailyReportRef.current = setDailyReport }, [setDailyReport])
+  useEffect(() => { setAnalysisHistoryRef.current = setAnalysisHistory }, [setAnalysisHistory])
+  useEffect(() => { runDailyAnalysisMutationRef.current = runDailyAnalysisMutation }, [runDailyAnalysisMutation])
+
   const runDailyAnalysis = useCallback(async () => {
     setAnalyzing(true)
     setAnalyzeStep('正在分析今日收盤數據...')
     try {
-      const result = await runDailyAnalysisMutation.mutateAsync({
+      const result = await runDailyAnalysisMutationRef.current.mutateAsync({
         portfolioId,
         data: {},
       })
-      setDailyReport(result)
-      setAnalysisHistory((prev) =>
-        [result, ...(Array.isArray(prev) ? prev : analysisHistory)].slice(0, 30)
+      setDailyReportRef.current(result)
+      setAnalysisHistoryRef.current((prev) =>
+        [result, ...(Array.isArray(prev) ? prev : [])].slice(0, 30)
       )
     } catch (error) {
       console.error('Daily analysis failed:', error)
@@ -46,7 +54,7 @@ export function useRouteDailyPage() {
       setAnalyzing(false)
       setAnalyzeStep('')
     }
-  }, [analysisHistory, portfolioId, runDailyAnalysisMutation, setAnalysisHistory, setDailyReport])
+  }, [portfolioId])
 
   const runStressTest = useCallback(async () => {
     setStressTesting(true)

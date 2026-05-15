@@ -1,4 +1,4 @@
-import { createElement as h } from 'react'
+import { createElement as h, memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { C, alpha } from '../../theme.js'
 import { STOCK_META } from '../../seedData.js'
 import {
@@ -43,13 +43,22 @@ const periodColor = (p) => {
  * Single Holding Card — 直向閱讀卡片
  * 結構：名稱(上) → 報酬率(主視覺) → 標籤 → 補充資訊(下)
  */
-export function HoldingRow({
+function HoldingRowImpl({
   holding,
   expanded = false,
   onToggle = () => {},
   onUpdateTarget = () => {},
   onUpdateAlert = () => {},
 }) {
+  const handleToggle = useCallback(() => onToggle(holding.code), [onToggle, holding.code])
+  const handleUpdateTarget = useCallback(
+    (e) => onUpdateTarget(holding.code, e.target.value ? Number(e.target.value) : null),
+    [onUpdateTarget, holding.code]
+  )
+  const handleUpdateAlert = useCallback(
+    (e) => onUpdateAlert(holding.code, e.target.value),
+    [onUpdateAlert, holding.code]
+  )
   const pnl = getHoldingUnrealizedPnl(holding)
   const pct = getHoldingReturnPct(holding)
   const value = getHoldingMarketValue(holding)
@@ -123,7 +132,7 @@ export function HoldingRow({
         h(
           'button',
           {
-            onClick: onToggle,
+            onClick: handleToggle,
             style: {
               background: 'transparent',
               border: 'none',
@@ -269,8 +278,7 @@ export function HoldingRow({
             h('input', {
               type: 'number',
               value: holding.targetPrice || '',
-              onChange: (e) =>
-                onUpdateTarget(holding.code, e.target.value ? Number(e.target.value) : null),
+              onChange: handleUpdateTarget,
               placeholder: '輸入目標價',
               style: {
                 width: '100%',
@@ -309,7 +317,7 @@ export function HoldingRow({
             h('input', {
               type: 'text',
               value: holding.alert || '',
-              onChange: (e) => onUpdateAlert(holding.code, e.target.value),
+              onChange: handleUpdateAlert,
               placeholder: '如：跌破月線',
               style: {
                 width: '100%',
@@ -337,6 +345,14 @@ export function HoldingRow({
       )
   )
 }
+
+export const HoldingRow = memo(HoldingRowImpl, (prev, next) =>
+  prev.holding === next.holding &&
+  prev.expanded === next.expanded &&
+  prev.onToggle === next.onToggle &&
+  prev.onUpdateTarget === next.onUpdateTarget &&
+  prev.onUpdateAlert === next.onUpdateAlert
+)
 
 /**
  * Holdings Table — 溫暖日常風
@@ -399,6 +415,15 @@ export function HoldingsTable({
     return aVal > bVal ? -1 : aVal < bVal ? 1 : 0
   })
 
+  // stable toggle callback so memo'd HoldingRow doesn't re-render on every parent render
+  const expandedStockRef = useRef(expandedStock)
+  const setExpandedStockRef = useRef(setExpandedStock)
+  useEffect(() => { expandedStockRef.current = expandedStock }, [expandedStock])
+  useEffect(() => { setExpandedStockRef.current = setExpandedStock }, [setExpandedStock])
+  const handleToggle = useCallback((code) => {
+    setExpandedStockRef.current(expandedStockRef.current === code ? null : code)
+  }, [])
+
   return h(
     'div',
     null,
@@ -411,7 +436,7 @@ export function HoldingsTable({
           key: holding.code,
           holding,
           expanded: expandedStock === holding.code,
-          onToggle: () => setExpandedStock(expandedStock === holding.code ? null : holding.code),
+          onToggle: handleToggle,
           onUpdateTarget,
           onUpdateAlert,
         })

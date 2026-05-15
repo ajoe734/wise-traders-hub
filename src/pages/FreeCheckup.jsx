@@ -421,21 +421,31 @@ async function isQuotaExceeded(res) {
 }
 
 // 取得 AI edge function 呼叫所需的 Authorization header（配額辨識用）
+// Session 快取 60 秒，避免每次 AI 呼叫都打一次 supabase.auth.getSession()（mount 時數十次）
+let _sessionCache = { token: null, ts: 0 };
+const SESSION_TTL = 60_000;
 async function aiAuthHeaders() {
-  // Supabase 平台層要求所有 edge function 呼叫至少帶 apikey + Authorization
-  // （即使 function 設了 verify_jwt=false），未登入時 fallback 用 anon key
   const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (token) {
-      return { Authorization: `Bearer ${token}`, apikey: ANON };
+    const now = Date.now();
+    let token = _sessionCache.token;
+    if (!token || now - _sessionCache.ts > SESSION_TTL) {
+      const { data: { session } } = await supabase.auth.getSession();
+      token = session?.access_token || null;
+      _sessionCache = { token, ts: now };
     }
+    if (token) return { Authorization: `Bearer ${token}`, apikey: ANON };
     return { Authorization: `Bearer ${ANON}`, apikey: ANON };
   } catch {
     return { Authorization: `Bearer ${ANON}`, apikey: ANON };
   }
 }
+// Auth 狀態變動時清除 session cache（登入/登出/refresh）
+try {
+  supabase.auth.onAuthStateChange((_evt, session) => {
+    _sessionCache = { token: session?.access_token || null, ts: Date.now() };
+  });
+} catch {}
 // #endregion Constants & Helpers
 
 // #region App() — 主元件（state、effects、JSX 全部 inline；遵守 inline 憲法）
