@@ -2012,6 +2012,16 @@ export default function App() {
     setDrawerOpen(true);
   };
 
+  // P3-perf: HoldingCard 用的 stable callbacks（透過 ref 取得最新 closure，
+  // 自身 reference 永不變 → React.memo 可有效跳過未變動卡片的 re-render）
+  const openHoldingDrawerRef = useRef(openHoldingDrawer);
+  openHoldingDrawerRef.current = openHoldingDrawer;
+  const handleHoldingCardOpenDrawer = useCallback((code) => {
+    openHoldingDrawerRef.current(code);
+  }, []);
+  const handleHoldingCardSelect = useCallback((code) => {
+    setExpandedDecision(prev => prev === code ? null : code);
+  }, []);
 
   const activeHolding = activeIndex >= 0 ? sourceList[activeIndex] : null;
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
