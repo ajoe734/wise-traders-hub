@@ -174,14 +174,25 @@ describe('FreeCheckup tab — lazy & memo wiring', () => {
     expect(ms).toBeLessThan(2500);
   });
 
-  it('FreeCheckup.jsx mounts both tabs only when active (gated by tab===)', () => {
+  it('HoldingsTab dynamic import resolves quickly and exports React.memo component', async () => {
+    const t0 = performance.now();
+    const mod = await import('@/checkup/components/freecheckup/HoldingsTab');
+    const ms = performance.now() - t0;
+    expect(mod.default).toBeDefined();
+    expect((mod.default as any).$$typeof).toBe(REACT_MEMO);
+    expect(ms).toBeLessThan(2500);
+  });
+
+  it('FreeCheckup.jsx mounts all heavy tabs only when active (gated by tab===)', () => {
     const src = fs.readFileSync(path.join(root, 'src/pages/FreeCheckup.jsx'), 'utf8');
     // 確認條件渲染 + Suspense 包裹（沒選中 tab 就完全不 mount）
     expect(src).toMatch(/\{tab==="events" && \(\s*<Suspense fallback=\{null\}>\s*<EventsTab/);
     expect(src).toMatch(/\{tab==="daily" && \(\s*<Suspense fallback=\{null\}>\s*<DailyTab/);
+    expect(src).toMatch(/\{tab==="holdings" && \(\s*<Suspense fallback=\{null\}>\s*<HoldingsTab/);
     // 確認用的是 lazy() 動態 import
     expect(src).toMatch(/const EventsTab = lazy\(\(\) => import\("@\/checkup\/components\/freecheckup\/EventsTab"\)\)/);
     expect(src).toMatch(/const DailyTab = lazy\(\(\) => import\("@\/checkup\/components\/freecheckup\/DailyTab"\)\)/);
+    expect(src).toMatch(/const HoldingsTab = lazy\(\(\) => import\("@\/checkup\/components\/freecheckup\/HoldingsTab"\)\)/);
   });
 });
 
