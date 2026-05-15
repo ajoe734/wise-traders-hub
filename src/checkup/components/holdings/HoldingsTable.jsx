@@ -1,4 +1,4 @@
-import { createElement as h, memo, useCallback, useMemo } from 'react'
+import { createElement as h, memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { C, alpha } from '../../theme.js'
 import { STOCK_META } from '../../seedData.js'
 import {
@@ -416,10 +416,13 @@ export function HoldingsTable({
   })
 
   // stable toggle callback so memo'd HoldingRow doesn't re-render on every parent render
-  const handleToggle = useCallback(
-    (code) => setExpandedStock((prev) => (prev === code ? null : code)),
-    [setExpandedStock]
-  )
+  const expandedStockRef = useRef(expandedStock)
+  const setExpandedStockRef = useRef(setExpandedStock)
+  useEffect(() => { expandedStockRef.current = expandedStock }, [expandedStock])
+  useEffect(() => { setExpandedStockRef.current = setExpandedStock }, [setExpandedStock])
+  const handleToggle = useCallback((code) => {
+    setExpandedStockRef.current(expandedStockRef.current === code ? null : code)
+  }, [])
 
   return h(
     'div',
