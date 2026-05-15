@@ -738,6 +738,28 @@ export default function App() {
   const [newsEvents, setNewsEvents]     = useState(() => isDemo ? DEMO_EVENTS : null);
   const [reviewingEvent, setReviewingEvent] = useState(null);
   const [reviewForm, setReviewForm]     = useState({actual:"up",actualNote:"",lessons:""});
+  // Phase A2-1: stable callbacks for NewsEventRow memoization
+  const reviewFormRef = useRef(reviewForm);
+  useEffect(() => { reviewFormRef.current = reviewForm; }, [reviewForm]);
+  const stableToggleNews = useCallback((id) => {
+    setExpandedNews(prev => {
+      const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
+    });
+  }, []);
+  const stableStartReview = useCallback((id) => {
+    setReviewingEvent(id);
+    setReviewForm({ actual: "up", actualNote: "", lessons: "" });
+  }, []);
+  const stableCancelReview = useCallback(() => {
+    setReviewingEvent(null);
+  }, []);
+  const stableChangeReview = useCallback((patch) => {
+    setReviewForm(prev => ({ ...prev, ...patch }));
+  }, []);
+  const submitReviewRef = useRef(null);
+  const stableSubmitReview = useCallback((id) => {
+    submitReviewRef.current?.(id);
+  }, []);
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [newEvent, setNewEvent]         = useState({date:"",title:"",detail:"",stocks:"",pred:"up",predReason:""});
   const [reversalConditions, setReversalConditions] = useState(null);
