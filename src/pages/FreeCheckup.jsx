@@ -25,6 +25,7 @@ import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
 const NewsTab = lazy(() => import("@/checkup/components/freecheckup/NewsTab"));
+const EventsTab = lazy(() => import("@/checkup/components/freecheckup/EventsTab"));
 
 // Phase 3 A1: lazy-load heavy/conditional UI to shrink initial bundle
 const Md = lazy(() => import("@/checkup/components/Md"));
