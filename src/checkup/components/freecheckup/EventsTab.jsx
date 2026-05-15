@@ -82,6 +82,7 @@ function EventsTabImpl({
   manualRefreshCalendar,
   runPredictEvents,
 }) {
+  validateProps('EventsTab', arguments[0], EVENTS_TAB_PROP_SCHEMA);
   return (
     <>
           {isDemo && (
