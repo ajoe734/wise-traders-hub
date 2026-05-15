@@ -1,5 +1,5 @@
 /**
- * EventsTab / DailyTab 基本效能與懶載入回歸測試。
+ * EventsTab / DailyTab / HoldingsTab 基本效能與懶載入回歸測試。
  *
  * 目的（量化的事）：
  * 1. lazy chunk 真的存在 — `import()` 的解析時間 < 上限
@@ -104,6 +104,56 @@ const dailyProps: any = {
   analysisHistory: [],
 };
 
+const WB: any = {
+  bg: '#fff', surface: '#fff', surfaceSoft: '#fafafa',
+  ink: '#0a0a0a', inkSub: '#3a3a3a', inkMute: '#6b6862', inkLight: '#9b968d',
+  hair: '#ecece5', hairStrong: '#d4d1c9', accent: '#ff4d1f', accentSoft: 'rgba(255,77,31,0.06)',
+};
+const wbTone = () => WB.ink;
+const Sparkline = () => null;
+
+const holdingsProps: any = {
+  isDemo: false,
+  DEMO_TAB_NOTICE_COPY: { holdings: { title: '', body: '' } },
+  startLineLogin: noop,
+  navigate: noop,
+  C, alpha, WB, wbTone,
+  quota: null, tier: 'free', tierLabel: 'Free',
+  formatResetCountdown: () => '',
+  totalVal: 0, totalCost: 0,
+  H: [], winners: [], exitList: [], reviewList: [],
+  MAX_HOLDINGS: 50, rtConnected: false, lastUpdate: null,
+  uploadSummary: null, setUploadSummary: noop,
+  losers: [], reversalConditions: {},
+  reviewingEvent: null, setReviewingEvent: noop, updateReversal: noop,
+  globalPriorityList: [], decisionsMap: {}, STOCK_META: {},
+  setExpandedDecision: noop,
+  filteredSortedList: [],
+  searchQ: '', setSearchQ: noop,
+  filterDecision: new Set(), setFilterDecision: noop,
+  filterThesis: new Set(), setFilterThesis: noop,
+  filterUrgency: new Set(), setFilterUrgency: noop,
+  filterConflict: new Set(), setFilterConflict: noop,
+  filterPnl: new Set(), setFilterPnl: noop,
+  filterStrategy: new Set(), setFilterStrategy: noop,
+  strategyOptions: [],
+  toggleSetItem: () => () => {},
+  clearAllFilters: noop,
+  sortBy: 'decision', setSortBy: noop, sortDir: 'desc', setSortDir: noop,
+  sortMenuOpen: false, setSortMenuOpen: noop,
+  expandedDecision: null, displayed: [], sorted: [], orderedDisplayed: [],
+  variantsMap: new Map(), firstFeatureCode: null,
+  targets: {}, avgTarget: () => null, sparklines: {}, sparklineErrors: {},
+  EMPTY_SPARK: Object.freeze([]),
+  Sparkline,
+  normalizedEvents: [], openHoldingDrawer: noop,
+  handleHoldingCardSelect: noop, handleHoldingCardOpenDrawer: noop,
+  cardGridCols: 'repeat(3, minmax(0,1fr))',
+  viewMode: 'grid', setViewMode: noop,
+  showAll: true, setShowAll: noop,
+  setTab: noop,
+};
+
 describe('FreeCheckup tab — lazy & memo wiring', () => {
   it('EventsTab dynamic import resolves quickly and exports React.memo component', async () => {
     const t0 = performance.now();
@@ -124,14 +174,25 @@ describe('FreeCheckup tab — lazy & memo wiring', () => {
     expect(ms).toBeLessThan(2500);
   });
 
-  it('FreeCheckup.jsx mounts both tabs only when active (gated by tab===)', () => {
+  it('HoldingsTab dynamic import resolves quickly and exports React.memo component', async () => {
+    const t0 = performance.now();
+    const mod = await import('@/checkup/components/freecheckup/HoldingsTab');
+    const ms = performance.now() - t0;
+    expect(mod.default).toBeDefined();
+    expect((mod.default as any).$$typeof).toBe(REACT_MEMO);
+    expect(ms).toBeLessThan(2500);
+  });
+
+  it('FreeCheckup.jsx mounts all heavy tabs only when active (gated by tab===)', () => {
     const src = fs.readFileSync(path.join(root, 'src/pages/FreeCheckup.jsx'), 'utf8');
     // 確認條件渲染 + Suspense 包裹（沒選中 tab 就完全不 mount）
     expect(src).toMatch(/\{tab==="events" && \(\s*<Suspense fallback=\{null\}>\s*<EventsTab/);
     expect(src).toMatch(/\{tab==="daily" && \(\s*<Suspense fallback=\{null\}>\s*<DailyTab/);
+    expect(src).toMatch(/\{tab==="holdings" && \(\s*<Suspense fallback=\{null\}>\s*<HoldingsTab/);
     // 確認用的是 lazy() 動態 import
     expect(src).toMatch(/const EventsTab = lazy\(\(\) => import\("@\/checkup\/components\/freecheckup\/EventsTab"\)\)/);
     expect(src).toMatch(/const DailyTab = lazy\(\(\) => import\("@\/checkup\/components\/freecheckup\/DailyTab"\)\)/);
+    expect(src).toMatch(/const HoldingsTab = lazy\(\(\) => import\("@\/checkup\/components\/freecheckup\/HoldingsTab"\)\)/);
   });
 });
 
@@ -179,6 +240,37 @@ describe('FreeCheckup tab — memo skips re-render with stable props', () => {
     rerender(<Suspense fallback={null}><Tab {...props} /></Suspense>);
     unmount();
     // setFilterType 只在使用者點擊 filter chip 時觸發，rerender 不應呼叫
+    expect(runs).toBe(0);
+  });
+});
+
+describe('FreeCheckup HoldingsTab — lazy + memo + mount budget', () => {
+  it('HoldingsTab first render under jsdom-friendly budget (empty持倉)', async () => {
+    const Tab = (await import('@/checkup/components/freecheckup/HoldingsTab')).default;
+    const t0 = performance.now();
+    const { unmount } = render(
+      <Suspense fallback={null}>
+        <Tab {...holdingsProps} />
+      </Suspense>
+    );
+    const ms = performance.now() - t0;
+    unmount();
+    // ~665 行 JSX（hero+filter+workbench+empty state）在 jsdom 約 80–350ms；800ms 是回歸警戒線
+    expect(ms).toBeLessThan(800);
+  });
+
+  it('HoldingsTab memo skips re-render when parent re-renders with same props', async () => {
+    const Tab = (await import('@/checkup/components/freecheckup/HoldingsTab')).default;
+    let runs = 0;
+    const trackedSetTab = (..._args: any[]) => { runs++; };
+    const props = { ...holdingsProps, setTab: trackedSetTab };
+    const { rerender, unmount } = render(
+      <Suspense fallback={null}><Tab {...props} /></Suspense>
+    );
+    rerender(<Suspense fallback={null}><Tab {...props} /></Suspense>);
+    rerender(<Suspense fallback={null}><Tab {...props} /></Suspense>);
+    unmount();
+    // setTab 僅由「上傳成交」CTA 點擊觸發，rerender 不該呼叫
     expect(runs).toBe(0);
   });
 });
