@@ -15,10 +15,14 @@ import { resolve } from 'path';
 let SRC = '';
 
 beforeAll(() => {
-  SRC = readFileSync(
-    resolve(__dirname, '../../pages/FreeCheckup.jsx'),
+  // P3-perf: HoldingCard 已抽出為獨立 memo 元件，掃描時併入內容以保持
+  // 「卡片內聯樣式合約」覆蓋率（ROI / TODAY-VALUE grid / tabular-nums）
+  const main = readFileSync(resolve(__dirname, '../../pages/FreeCheckup.jsx'), 'utf8');
+  const card = readFileSync(
+    resolve(__dirname, '../../checkup/components/freecheckup/HoldingCard.jsx'),
     'utf8'
   );
+  SRC = main + '\n/* === HoldingCard.jsx === */\n' + card;
 });
 
 // 萃取 <style>{`...`}</style> 內所有 CSS 字串，方便正則檢查
