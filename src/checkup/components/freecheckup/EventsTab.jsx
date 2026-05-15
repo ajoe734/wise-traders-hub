@@ -1,10 +1,55 @@
 import React from 'react';
+import { validateProps } from './_validateProps';
 
 /**
  * EventsTab — Free Checkup「事件追蹤」tab。
  * 抽自 FreeCheckup.jsx L4697-L5201（純展示，無內部 state）。
  * 所有 state / callbacks 透過 props 傳入；行為與原 inline JSX 完全一致。
+ *
+ * Props schema 與型別檢查見 EVENTS_TAB_PROP_SCHEMA / dev validateProps。
  */
+const EVENTS_TAB_PROP_SCHEMA = {
+  isDemo: 'boolean',
+  navigate: 'function',
+  startLineLogin: { type: 'function', optional: true },
+  C: 'object',
+  alpha: 'function',
+  DEMO_TAB_NOTICE_COPY: 'object',
+  TYPE_COLOR: 'object',
+  RETRY_MAX: 'number',
+  calendarAutoStatus: 'object',
+  predictAutoStatus: 'object',
+  calendarLoading: 'boolean',
+  predictingEvents: 'boolean',
+  calendarRetry: 'object',
+  predictRetry: 'object',
+  calendarLastError: { type: 'object', optional: true },
+  predictLastError: { type: 'object', optional: true },
+  calendarLastDebug: { type: 'object', optional: true },
+  predictLastDebug: { type: 'object', optional: true },
+  setCalendarLastDebug: 'function',
+  setPredictLastDebug: 'function',
+  debugPanelOpen: 'boolean',
+  setDebugPanelOpen: 'function',
+  updateLog: 'array',
+  setUpdateLog: 'function',
+  updateLogOpen: 'boolean',
+  setUpdateLogOpen: 'function',
+  classifyAttempt: 'function',
+  deriveSuggestion: 'function',
+  holdings: 'array',
+  newsEvents: 'array',
+  H: 'array',
+  CE: 'array',
+  filteredEvents: 'array',
+  filterType: 'string',
+  setFilterType: 'function',
+  calendarExpanded: 'boolean',
+  setCalendarExpanded: 'function',
+  manualRefreshCalendar: 'function',
+  runPredictEvents: 'function',
+};
+
 function EventsTabImpl({
   // 模式
   isDemo,
