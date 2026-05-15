@@ -37,9 +37,11 @@ import Login from '@/pages/auth/Login';
 
 function renderLogin() {
   return render(
-    <MemoryRouter>
-      <Login />
-    </MemoryRouter>,
+    <HelmetProvider>
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    </HelmetProvider>,
   );
 }
 
