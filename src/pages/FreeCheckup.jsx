@@ -3220,7 +3220,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </div>
         )}
 
-        <CoachMarks onTabChange={setTab} />
+        <Suspense fallback={null}><CoachMarks onTabChange={setTab} /></Suspense>
         <div style={{display:"flex",gap:0,overflowX:"auto",paddingBottom:0,marginTop:2}}>
           {TABS.map(t=>(
             <button key={t.k} onClick={()=>{setTab(t.k);window.scrollTo({top:0,behavior:"smooth"})}} style={{
@@ -5666,7 +5666,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
                   <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.12em",fontWeight:400}}>AI 策 略 分 析</span>
                 </div>
-                <Md text={dailyReport.aiInsight} color={C.textSec} />
+                <Suspense fallback={null}><Md text={dailyReport.aiInsight} color={C.textSec} /></Suspense>
               </div>
             )}
 
@@ -5916,7 +5916,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       <div style={{padding:"10px 0",borderBottom:`1px solid ${alpha(C.textMute,'06')}`,marginBottom:4}}>
                         {r.aiInsight && (
                           <div style={{marginBottom:6}}>
-                            <Md text={r.aiInsight} color={C.textSec} />
+                            <Suspense fallback={null}><Md text={r.aiInsight} color={C.textSec} /></Suspense>
                           </div>
                         )}
                         <button onClick={(ev)=>{ev.stopPropagation();setDailyReport(r);
@@ -7223,7 +7223,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   </section>
                 )}
                 {/* 目標價版本歷史 */}
-                <TargetPriceHistorySection code={h.code} C={C} alpha={alpha} enabled={!isDemo} />
+                <Suspense fallback={null}><TargetPriceHistorySection code={h.code} C={C} alpha={alpha} enabled={!isDemo} /></Suspense>
               </div>
             );
           })() : (
