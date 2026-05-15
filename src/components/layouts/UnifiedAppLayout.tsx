@@ -266,6 +266,7 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <PreviewBanner />
       {/* Top Header */}
       <header className={cn(
         "sticky top-0 z-50 border-b backdrop-blur supports-[backdrop-filter]:bg-background/80",
