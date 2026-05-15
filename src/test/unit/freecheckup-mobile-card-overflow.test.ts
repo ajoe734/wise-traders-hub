@@ -98,7 +98,7 @@ describe('Free Checkup: 卡片靜態防擠壓合約', () => {
 
   it('ROI 與 TODAY/VALUE 內聯樣式採用 tabular-nums (baseline 對齊)', () => {
     // ROI clamp + lineHeight:1
-    expect(SRC).toMatch(/wb-roi[\s\S]{0,400}?fontSize:'clamp\(/);
+    expect(SRC).toMatch(/wb-roi[\s\S]{0,400}?fontSize:\s*'clamp\(/);
     // TODAY/VALUE 數值列使用 fontVariantNumeric:'tabular-nums'
     expect(SRC).toMatch(/wb-bottom-val[\s\S]{0,300}?tabular-nums/);
   });
