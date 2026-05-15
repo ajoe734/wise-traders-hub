@@ -335,15 +335,11 @@ describe('drift-detection: ProtectedRoute.tsx 路由守衛邏輯', () => {
     expect(src).toContain('權限不足');
   });
 
-  it("subscriberOnly + hasRole('company_admin') 導向 /company（3.6-4）", () => {
-    expect(src).toContain("hasRole('company_admin')");
-    expect(src).toContain('to="/company"');
-  });
-
-  it("subscriberOnly + hasRole('analyst') + user.expertSlug 導向 /admin/:expertSlug（3.6-4）", () => {
-    expect(src).toContain("hasRole('analyst')");
-    expect(src).toContain('user.expertSlug');
-    expect(src).toContain('`/admin/${user.expertSlug}`');
+  it('subscriberOnly 已不再內建 admin/analyst 自動導向（3.6-4 新行為）', () => {
+    // 行為已改：admin/analyst 可瀏覽訂閱者頁面，預設導向交給 SmartHomeRedirect。
+    // 守衛邏輯內不應再殘留舊的 hasRole('company_admin')/hasRole('analyst') + Navigate 組合。
+    expect(src).not.toMatch(/hasRole\(['"]company_admin['"]\)[\s\S]{0,80}to=["']\/company["']/);
+    expect(src).not.toMatch(/hasRole\(['"]analyst['"]\)[\s\S]{0,120}\/admin\/\$\{user\.expertSlug\}/);
   });
 });
 
