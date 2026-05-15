@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense, memo } from "react";
 import { SEO } from "@/components/SEO";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -193,8 +193,8 @@ const WB = {
 };
 const wbTone = (n) => (Number(n) >= 0 ? WB.accent : WB.ink);
 
-// ── Sparkline：純 SVG，無依賴 ──
-function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, strokeWidth = 1.4, opacity = 0.85 }) {
+// ── Sparkline：純 SVG，無依賴 ── (P3-perf: memo'd 避免持倉每秒 quote tick 重繪)
+const Sparkline = memo(function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, strokeWidth = 1.4, opacity = 0.85 }) {
   const arr = Array.isArray(data) ? data.filter((n) => Number.isFinite(n)) : [];
   if (arr.length < 2) {
     return (
@@ -230,7 +230,7 @@ function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, str
       <circle cx={lastX} cy={lastY} r={1.8} fill={color} opacity={Math.min(1, opacity + 0.1)} />
     </svg>
   );
-}
+});
 
 const TYPE_COLOR = {
   法說: C.blue,
