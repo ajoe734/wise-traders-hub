@@ -132,7 +132,7 @@ function HoldingRowImpl({
         h(
           'button',
           {
-            onClick: onToggle,
+            onClick: handleToggle,
             style: {
               background: 'transparent',
               border: 'none',
@@ -278,8 +278,7 @@ function HoldingRowImpl({
             h('input', {
               type: 'number',
               value: holding.targetPrice || '',
-              onChange: (e) =>
-                onUpdateTarget(holding.code, e.target.value ? Number(e.target.value) : null),
+              onChange: handleUpdateTarget,
               placeholder: '輸入目標價',
               style: {
                 width: '100%',
@@ -318,7 +317,7 @@ function HoldingRowImpl({
             h('input', {
               type: 'text',
               value: holding.alert || '',
-              onChange: (e) => onUpdateAlert(holding.code, e.target.value),
+              onChange: handleUpdateAlert,
               placeholder: '如：跌破月線',
               style: {
                 width: '100%',
