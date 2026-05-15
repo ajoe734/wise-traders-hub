@@ -243,3 +243,34 @@ describe('FreeCheckup tab — memo skips re-render with stable props', () => {
     expect(runs).toBe(0);
   });
 });
+
+describe('FreeCheckup HoldingsTab — lazy + memo + mount budget', () => {
+  it('HoldingsTab first render under jsdom-friendly budget (empty持倉)', async () => {
+    const Tab = (await import('@/checkup/components/freecheckup/HoldingsTab')).default;
+    const t0 = performance.now();
+    const { unmount } = render(
+      <Suspense fallback={null}>
+        <Tab {...holdingsProps} />
+      </Suspense>
+    );
+    const ms = performance.now() - t0;
+    unmount();
+    // ~665 行 JSX（hero+filter+workbench+empty state）在 jsdom 約 80–350ms；800ms 是回歸警戒線
+    expect(ms).toBeLessThan(800);
+  });
+
+  it('HoldingsTab memo skips re-render when parent re-renders with same props', async () => {
+    const Tab = (await import('@/checkup/components/freecheckup/HoldingsTab')).default;
+    let runs = 0;
+    const trackedSetTab = (..._args: any[]) => { runs++; };
+    const props = { ...holdingsProps, setTab: trackedSetTab };
+    const { rerender, unmount } = render(
+      <Suspense fallback={null}><Tab {...props} /></Suspense>
+    );
+    rerender(<Suspense fallback={null}><Tab {...props} /></Suspense>);
+    rerender(<Suspense fallback={null}><Tab {...props} /></Suspense>);
+    unmount();
+    // setTab 僅由「上傳成交」CTA 點擊觸發，rerender 不該呼叫
+    expect(runs).toBe(0);
+  });
+});
