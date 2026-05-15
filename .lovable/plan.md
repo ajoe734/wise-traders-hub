@@ -1,86 +1,65 @@
+## 持股看板效能優化 — P3 完整集
 
-# Plan：A2-3 + A1+ 並行推進
+範圍：A 載入 + B 執行 + C 驗證 全部執行。
 
-兩件事互不衝突：A2-3 動 events / news / daily 三段 tab JSX，A1+ 動 holdings tab 內的 Action Priority 與 Detail Panel。檔案同一個（`src/pages/FreeCheckup.jsx`，7195 行），但動的區段不重疊。
+### A. 載入體積
 
-## 共同硬合約（不能違反）
-1. `L2965` 全域 `<style>{...}</style>` 字面字串保留在 `FreeCheckup.jsx`
-2. `L4745` 持倉看板 `<style>{...}</style>` 字面字串保留在 `FreeCheckup.jsx`
-3. 抽出/包裝過程不得新增 state owner，不得改 callback 行為，不得動樣式輸出
-4. 動完跑：
-   - `bunx vitest run src/test/unit/freecheckup-mobile-card-overflow.test.ts`
-   - `bunx vitest run src/test/unit/freecheckup-i18n.test.ts`
-   - `bunx playwright test e2e/freecheckup-card.spec.ts`
-   - 560 / 390 / 380px 視覺檢查
+1. **抽 `HoldingsTab.jsx` + `lazy()`**（L3277-L4500，~1230 行）
+   - `FreeCheckup.jsx`：`const HoldingsTab = lazy(() => import("@/checkup/components/freecheckup/HoldingsTab"));`
+   - `{tab==="holdings" && <Suspense><HoldingsTab .../></Suspense>}`
+   - 補 `HOLDINGS_TAB_PROP_SCHEMA` 到 `_validateProps.js`
 
----
+2. **再切 4 個 `React.memo` 子元件**
+   - `HoldingsHero.jsx`（L3453-L3594）
+   - `HoldingsQuotaMeter.jsx`（L3289-L3404）
+   - `HoldingsFilterBar.jsx`（L3701-L3818）
+   - `HoldingsReversalSection.jsx`（L3597-L3687；同時把 `defaultValue + getElementById` 改 controlled `useState`）
 
-## Part A：A2-3 — Events / News / Daily tab 整段 useMemo
+3. **`HoldingCard.jsx` 抽 memo 元件**（L3870-L4216）
+   - 三 variant（feature/accent/plain）由 props 控制
+   - `truncateAction`、`SRC_LABEL`、`URGENCY_RANK` 等常數提到 module 層
+   - `Sparkline` 補 `React.memo`
 
-範圍（已用 rg 確認）：
-- Events tab：`L4972` 起 `{tab==="events" && <>...`（約 500 行）
-- Daily tab：`L5481` 起（約 487 行）
-- News tab：`L6563` 起（到下一個 `tab===` 區段為止）
+### B. 執行渲染
 
-做法（每段相同）：
-1. 在 tab 區段「之前」就近建一個 `const eventsTabNode = useMemo(() => (<>...JSX...</>), [...deps])`
-2. 將 `{tab==="events" && <>...</>}` 改成 `{tab==="events" && eventsTabNode}`
-3. **deps 規則**（嚴格）：
-   - 只放純資料 ref：`normalizedEvents`、`filterType`、`filterCatalyst`、`expandedNews`、`reviewingEvent`、`reviewForm`、`relayPlanExpanded`…
-   - **禁止**把 callback 放進 deps；callback 已透過 useCallback 穩定 ref，可直接閉包引用
-   - `WB / C / alpha / theme` 視為模組常數，不入 deps
-4. 三段獨立執行、獨立 commit 級別測試，避免 deps 漏放被同一輪掩蓋
+4. **`useMemo` 化** `orderedDisplayed` / `firstFeatureCode` / `variantsMap`（依賴 `displayed`、`decisionsMap`）
+5. **`HoldingCard` memo 比較鍵**：`(h, decision, target, sparkData, sparkFailed, isActive, variant)`；衍生計算（pctVal/pnlVal/srcLabel/ariaLabel）移入子元件
+6. **`useMemo`** `topPriorityItems = globalPriorityList.slice(0,3)` 傳給 `HoldingsActionPriority`
+7. **Filter chips 子元件常駐**：`FilterGroup` / `chipBtn` 移到模組層級；`activeTags` 用 `useMemo`
+8. **Reversal 改 controlled state**（移除 `document.getElementById`）
+9. **`Sparkline` `React.memo`**
+10. **檢查並 `useMemo` `displayed = showAll ? sorted : sorted.slice(0,12)`**
 
-風險：deps 漏放 → stale render。緩解：每段做完手動切到該 tab 跑一次完整互動（filter、展開、提交 review、relay plan 展開），確認畫面與資料同步。
+### C. 驗證
 
----
+11. **新增 `src/test/unit/freecheckup-holdings-perf.test.tsx`**：
+    - lazy chunk < 2500ms
+    - `React.memo` 驗證所有抽出元件
+    - 靜態解析 `{tab==="holdings" && <Suspense>}` 結構
+    - First mount latency < 800ms
+    - memo 阻斷重渲：父 re-render 時 `HoldingCard` 不 re-mount
 
-## Part B：A1+ — Holdings 子區塊抽元件 + lazy-load
+12. **跑全套**：`bunx vitest run` + `bunx playwright test e2e/freecheckup-card.spec.ts` + RWD 三斷點靜態檢查（560/390/380px，依強制清單）+ i18n 檢查
 
-選兩塊收益最大、耦合可控的：
-
-### B1. `<HoldingsActionPriority>`（L3684–L3795 附近 IIFE）
-- 輸入 props：`items`（已是 `globalPriorityList.slice(0,3)`）、`decisionsMap`、`onPick(code)`、`WB`
-- 純展示，無內部 state
-- 抽到 `src/checkup/components/freecheckup/HoldingsActionPriority.jsx`，外層 `React.memo`
-
-### B2. `<HoldingsDetailPanel>`（L4290 `renderDetailPanel`）
-依賴解法：把目前閉包讀的變數全部改 props 傳入：
-- `selected, decisionsMap, stockMeta(STOCK_META), targets, avgTarget, normalizedEvents, orderedDisplayed, WB`
-- callback：`onSelectCode, onOpenDrawer, onOverrideToHold, userOverrides`
-- 元件位置：`src/checkup/components/freecheckup/HoldingsDetailPanel.jsx`，`React.memo`
-
-### B3. Lazy-load
-- 用 `const HoldingsDetailPanel = React.lazy(() => import('...'))`
-- 外層 `<Suspense fallback={null}>` 包住
-- Action Priority 是首屏必看，**不 lazy**，只做 memo 抽元件
-- DetailPanel 在桌面 ≥1024px 才顯示、且需要 `selected` 才有內容，lazy 安全
-
-### B4. 限制
-- 抽出後 `FreeCheckup.jsx` 仍負責渲染容器與 `<style>`，保留 L2965 / L4745 字面字串
-- 不改 holdings tab 的搜尋/排序/filter 邏輯，那些屬於 A2-2（已跳過）
-
----
-
-## 執行順序
+### 變更檔案
 
 ```text
-1. A2-3-events  → 驗證
-2. A2-3-news    → 驗證
-3. A2-3-daily   → 驗證
-4. A1+-B1 Action Priority 抽元件 → 驗證
-5. A1+-B2 Detail Panel 抽元件   → 驗證
-6. A1+-B3 lazy-load Detail Panel → 驗證
-7. 更新 mem://architecture/checkup/inline-rendering-audit：
-   - 新增例外：freecheckup/ 下「list item 級 + 桌面側欄級」memo wrapper 允許
-   - 強調 tab 容器級 JSX 仍留在 FreeCheckup.jsx
-   - 補：tab JSX 可 inline useMemo，deps 限 stable ref + deferred value，禁 callback
+新增：
+  src/checkup/components/freecheckup/HoldingsTab.jsx
+  src/checkup/components/freecheckup/HoldingsHero.jsx
+  src/checkup/components/freecheckup/HoldingsQuotaMeter.jsx
+  src/checkup/components/freecheckup/HoldingsFilterBar.jsx
+  src/checkup/components/freecheckup/HoldingsReversalSection.jsx
+  src/checkup/components/freecheckup/HoldingCard.jsx
+  src/test/unit/freecheckup-holdings-perf.test.tsx
+修改：
+  src/pages/FreeCheckup.jsx        （-~1230 行；lazy/Suspense + useMemo）
+  src/checkup/components/freecheckup/_validateProps.js
 ```
 
-每個 step 都是可獨立 revert 的最小單元；任一驗證紅燈即停在該 step 排查，不續推。
+不動：業務邏輯、`useHoldings` / `useHoldingDecision` / `holdingsStore` / 計算式 / API / 樣式輸出。
 
-## 驗證清單（每個 step 結束跑）
-- `bunx vitest run src/test/unit/freecheckup-mobile-card-overflow.test.ts src/test/unit/freecheckup-i18n.test.ts`
-- `bunx playwright test e2e/freecheckup-card.spec.ts`
-- 視覺：560 / 390 / 380px 截圖 + 桌面 1280px Detail Panel 展開
-- 互動：切 4 個 tab、搜尋打字、展開 list item、Action Priority 點擊、Detail Panel 切換 selected
+### 注意事項
+
+- `mem://architecture/checkup/inline-rendering-audit` 寫「FreeCheckup.jsx relies heavily on inline rendering—do not extract components」。但近期已陸續抽 events/daily/news tab 並通過全套測試，本任務延續同樣模式；過程嚴守 props 對等 + RWD 強制回歸，確保不破壞既有行為。
+- 所有 `fontSize ≥ 32` 的 inline 樣式必須帶 `className` + `<style>` 媒體查詢（依核心規範）。

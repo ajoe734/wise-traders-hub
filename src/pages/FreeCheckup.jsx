@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense, memo } from "react";
 import { SEO } from "@/components/SEO";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -193,8 +193,8 @@ const WB = {
 };
 const wbTone = (n) => (Number(n) >= 0 ? WB.accent : WB.ink);
 
-// ── Sparkline：純 SVG，無依賴 ──
-function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, strokeWidth = 1.4, opacity = 0.85 }) {
+// ── Sparkline：純 SVG，無依賴 ── (P3-perf: memo'd 避免持倉每秒 quote tick 重繪)
+const Sparkline = memo(function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, strokeWidth = 1.4, opacity = 0.85 }) {
   const arr = Array.isArray(data) ? data.filter((n) => Number.isFinite(n)) : [];
   if (arr.length < 2) {
     return (
@@ -230,7 +230,7 @@ function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, str
       <circle cx={lastX} cy={lastY} r={1.8} fill={color} opacity={Math.min(1, opacity + 0.1)} />
     </svg>
   );
-}
+});
 
 const TYPE_COLOR = {
   法說: C.blue,
@@ -1861,7 +1861,34 @@ export default function App() {
   }, [H, deferredSearchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents, compareByPriority]);
 
   const sorted = filteredSortedList; // 保留原命名相容性
-  const displayed = showAll ? sorted : sorted.slice(0,12);
+  // P3-perf: useMemo 避免父 re-render 時重複切片
+  const displayed = useMemo(
+    () => (showAll ? sorted : sorted.slice(0, 12)),
+    [showAll, sorted]
+  );
+
+  // P3-perf: 卡片牆排序與 variant 對應 — 從 IIFE 內 hoist 到 component body 並 useMemo
+  const variantsMap = useMemo(
+    () => assignCardVariants(displayed, {
+      getActionType: (it) => decisionsMap[it.code]?.actionType || 'hold',
+      getPct: (it) => it.pct ?? 0,
+    }),
+    [displayed, decisionsMap]
+  );
+  const orderedDisplayed = useMemo(() => {
+    const variantOrder = { ink: 0, accent: 1, plain: 2 };
+    return [...displayed].sort((a, b) => {
+      const va = variantOrder[variantsMap.get(a.code) || 'plain'];
+      const vb = variantOrder[variantsMap.get(b.code) || 'plain'];
+      return va - vb;
+    });
+  }, [displayed, variantsMap]);
+  const firstFeatureCode = useMemo(
+    () => (orderedDisplayed[0] && variantsMap.get(orderedDisplayed[0].code) === 'ink')
+      ? orderedDisplayed[0].code
+      : null,
+    [orderedDisplayed, variantsMap]
+  );
 
   // ── 來源清單推導：依 drawerSource 決定 prev/next 的循環範圍 ──
   const sourceList = useMemo(() => {
@@ -3688,7 +3715,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
           {/* ══════════ Action Priority（單行 inline 文字流） ══════════ */}
           <HoldingsActionPriority
-            items={(globalPriorityList || []).slice(0, 3)}
+            items={globalPriorityList}
             decisionsMap={decisionsMap}
             stockMeta={STOCK_META}
             WB={WB}
@@ -3847,25 +3874,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
             const selectedCode = expandedDecision;
             const selected = selectedCode ? displayed.find(x => x.code === selectedCode) || sorted.find(x => x.code === selectedCode) : null;
 
-            // 配額：最多 1 張 ink（exit 第一張），最多 2 張 accent（其餘 exit 或最緊急 review）
-            const variantsMap = assignCardVariants(displayed, {
-              getActionType: (it) => decisionsMap[it.code]?.actionType || 'hold',
-              getPct: (it) => it.pct ?? 0,
-            });
+            // P3-perf: variantsMap / orderedDisplayed / firstFeatureCode 已 hoist 至 component body 並 useMemo
 
-            // 固定節奏：ink → accent → plain（保留原排序）
-            // 第一格永遠是 feature（ink 若存在則 span 2；否則保持 grid 整齊）
-            // P2: 不再 spread 注入 __featureSlot，改由 renderCard(h, idx) 判斷，保留 referential equality
-            const variantOrder = { ink: 0, accent: 1, plain: 2 };
-            const orderedDisplayed = [...displayed].sort((a, b) => {
-              const va = variantOrder[variantsMap.get(a.code) || 'plain'];
-              const vb = variantOrder[variantsMap.get(b.code) || 'plain'];
-              if (va !== vb) return va - vb;
-              return 0;
-            });
-            // P7: featureSlot 條件 — 第一張且該卡 variant 為 ink 時才當 feature
-            const firstFeatureCode = (orderedDisplayed[0] && (variantsMap.get(orderedDisplayed[0].code) === 'ink'))
-              ? orderedDisplayed[0].code : null;
+
 
             const renderCard = (h, idx) => {
               const isFeatureSlot = h.code === firstFeatureCode;
