@@ -6745,7 +6745,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 const LIMIT = 10;
                 const show = newsVerifyingExpanded ? verifying : verifying.slice(0, LIMIT);
                 return <>
-                  {show.map((e,i)=><EventRow key={e.id} e={e} idx={i}/>)}
+                  {show.map(renderRow)}
                   {verifying.length > LIMIT && (
                     <button onClick={()=>setNewsVerifyingExpanded(!newsVerifyingExpanded)} style={{
                       width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
@@ -6769,7 +6769,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const LIMIT = 10;
               const show = newsPendingExpanded ? pending : pending.slice(0, LIMIT);
               return <>
-                {show.map((e,i)=><EventRow key={e.id} e={e} idx={i}/>)}
+                {show.map(renderRow)}
                 {pending.length > LIMIT && (
                   <button onClick={()=>setNewsPendingExpanded(!newsPendingExpanded)} style={{
                     width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
@@ -6786,7 +6786,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               const LIMIT = 10;
               const show = newsPastExpanded ? past : past.slice(0, LIMIT);
               return <>
-                {show.map((e,i)=><EventRow key={e.id} e={e} idx={i}/>)}
+                {show.map(renderRow)}
                 {past.length > LIMIT && (
                   <button onClick={()=>setNewsPastExpanded(!newsPastExpanded)} style={{
                     width:"100%",padding:"8px 0",border:`1px dashed ${C.border}`,borderRadius:8,
