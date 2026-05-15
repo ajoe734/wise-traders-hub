@@ -1,5 +1,5 @@
 /**
- * EventsTab / DailyTab 基本效能與懶載入回歸測試。
+ * EventsTab / DailyTab / HoldingsTab 基本效能與懶載入回歸測試。
  *
  * 目的（量化的事）：
  * 1. lazy chunk 真的存在 — `import()` 的解析時間 < 上限
