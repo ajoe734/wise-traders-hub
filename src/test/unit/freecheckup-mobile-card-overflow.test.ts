@@ -15,14 +15,20 @@ import { resolve } from 'path';
 let SRC = '';
 
 beforeAll(() => {
-  // P3-perf: HoldingCard 已抽出為獨立 memo 元件，掃描時併入內容以保持
-  // 「卡片內聯樣式合約」覆蓋率（ROI / TODAY-VALUE grid / tabular-nums）
+  // P3-perf: HoldingsTab / HoldingCard 已抽出為獨立元件，掃描時併入內容以保持
+  // 「卡片內聯樣式合約」覆蓋率（ROI / TODAY-VALUE grid / tabular-nums / RWD media queries）
   const main = readFileSync(resolve(__dirname, '../../pages/FreeCheckup.jsx'), 'utf8');
   const card = readFileSync(
     resolve(__dirname, '../../checkup/components/freecheckup/HoldingCard.jsx'),
     'utf8'
   );
-  SRC = main + '\n/* === HoldingCard.jsx === */\n' + card;
+  const tab = readFileSync(
+    resolve(__dirname, '../../checkup/components/freecheckup/HoldingsTab.jsx'),
+    'utf8'
+  );
+  SRC = main
+    + '\n/* === HoldingCard.jsx === */\n' + card
+    + '\n/* === HoldingsTab.jsx === */\n' + tab;
 });
 
 // 萃取 <style>{`...`}</style> 內所有 CSS 字串，方便正則檢查
