@@ -22,13 +22,8 @@ import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
 import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
-import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
-import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
-import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
-import HoldingsQuotaMeter from "@/checkup/components/freecheckup/HoldingsQuotaMeter";
-import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBar";
-import HoldingsReversalSection from "@/checkup/components/freecheckup/HoldingsReversalSection";
-const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
+// P3-perf: HoldingsTab 整段抽出並 lazy-load，首屏不再為持倉牆付出解析成本
+const HoldingsTab = lazy(() => import("@/checkup/components/freecheckup/HoldingsTab"));
 const NewsTab = lazy(() => import("@/checkup/components/freecheckup/NewsTab"));
 const EventsTab = lazy(() => import("@/checkup/components/freecheckup/EventsTab"));
 const DailyTab = lazy(() => import("@/checkup/components/freecheckup/DailyTab"));
