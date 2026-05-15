@@ -337,4 +337,10 @@ describe('drift-detection: Edge Functions 使用共用 _shared/subscriptionRenew
     expect(src).not.toContain('calcAutoCancelDeadlineUTC');
     expect(src).not.toContain('filterRenewalFailures');
   });
+
+  it('notify-payment-failure 從 _shared/ 取用 recordPaymentFailureInDB', () => {
+    const src = edgeFn('notify-payment-failure');
+    expect(src).toContain('../_shared/subscriptionRenewal.ts');
+    expect(src).toContain('recordPaymentFailureInDB');
+  });
 });
