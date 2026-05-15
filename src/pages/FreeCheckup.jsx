@@ -3405,96 +3405,15 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
 
           {/* 反轉追蹤（虧損持股）— 預設折疊，避免擠壓卡片牆 */}
-          {losers.length>0 && (
-            <details style={{marginBottom:14}}>
-              <summary style={{
-                cursor:"pointer", listStyle:"none",
-                fontSize:11, color:C.textMute, fontWeight:400, letterSpacing:"0.06em",
-                padding:"6px 0", display:"inline-flex", alignItems:"center", gap:6,
-              }}>
-                <span style={{display:"inline-block",width:5,height:5,borderRadius:"50%",background:C.down}}/>
-                反轉追蹤 · {losers.length} 檔虧損持股
-                <span style={{opacity:0.5, marginLeft:2}}>展開設定</span>
-              </summary>
-              <div style={{paddingLeft:12, marginTop:6}}>
-                {losers.map(h=>{
-                  const rc = (reversalConditions||{})[h.code];
-                  const [editing, setEditing] = [
-                    reviewingEvent===`rev-${h.code}`,
-                    (v)=>setReviewingEvent(v?`rev-${h.code}`:null)
-                  ];
-                  return <div key={h.code} style={{marginTop:8,padding:"8px 0",
-                    borderBottom:`1px solid ${alpha(C.textMute,'06')}`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div>
-                        <span style={{fontSize:13,fontWeight:400,color:C.text}}>{h.name}</span>
-                        <span style={{fontSize:12,color:C.down,marginLeft:6}}>{h.pct}%</span>
-                      </div>
-                      <button onClick={()=>setEditing(!editing)} style={{
-                         padding:"3px 9px",borderRadius:5,fontSize:11,cursor:"pointer",
-                         background:"transparent",
-                         border:`1px solid ${C.border}`,
-                         color:C.textMute}}>
-                        {rc?"查看條件":"設定反轉條件"}
-                      </button>
-                    </div>
-                    {rc && !editing && (
-                      <div style={{fontSize:12,color:C.textSec,marginTop:4,lineHeight:1.7}}>
-                        反轉訊號：{rc.signal} | 目標：{rc.target} | 停損：{rc.stopLoss}
-                      </div>
-                    )}
-                    {editing && (()=>{
-                      const draft = rc || {signal:"",target:"",stopLoss:"",note:""};
-                      return <div style={{marginTop:8,background:C.subtle,borderRadius:7,padding:10}}>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
-                          <div>
-                            <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>反轉目標價</div>
-                            <input defaultValue={draft.target} id={`rv-t-${h.code}`}
-                              placeholder="如 130"
-                              style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                                borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                          </div>
-                          <div>
-                            <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>停損價</div>
-                            <input defaultValue={draft.stopLoss} id={`rv-s-${h.code}`}
-                              placeholder="如 85"
-                              style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                                borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                          </div>
-                        </div>
-                        <div style={{marginBottom:6}}>
-                          <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>反轉訊號（什麼條件出現代表反轉？）</div>
-                          <input defaultValue={draft.signal} id={`rv-g-${h.code}`}
-                            placeholder="如：月營收連續兩月成長、法人轉買超"
-                            style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                        </div>
-                        <div style={{marginBottom:8}}>
-                          <div style={{fontSize:12,color:C.textMute,marginBottom:2}}>備註</div>
-                          <input defaultValue={draft.note} id={`rv-n-${h.code}`}
-                            placeholder="其他觀察..."
-                            style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,
-                              borderRadius:6,padding:"6px 8px",color:C.text,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                        </div>
-                        <button onClick={()=>{
-                          updateReversal(h.code, {
-                            signal: document.getElementById(`rv-g-${h.code}`).value,
-                            target: document.getElementById(`rv-t-${h.code}`).value,
-                            stopLoss: document.getElementById(`rv-s-${h.code}`).value,
-                            note: document.getElementById(`rv-n-${h.code}`).value,
-                          });
-                          setEditing(false);
-                         }} style={{width:"100%",padding:"8px",borderRadius:6,border:`1px solid ${C.border}`,
-                           background:"transparent",color:C.textSec,fontSize:13,fontWeight:400,cursor:"pointer"}}>
-                          儲存反轉條件
-                        </button>
-                      </div>;
-                    })()}
-                  </div>;
-                })}
-              </div>
-            </details>
-          )}
+          <HoldingsReversalSection
+            losers={losers}
+            reversalConditions={reversalConditions}
+            reviewingEvent={reviewingEvent}
+            setReviewingEvent={setReviewingEvent}
+            updateReversal={updateReversal}
+            C={C}
+            alpha={alpha}
+          />
 
           {/* ══════════ Action Priority（單行 inline 文字流） ══════════ */}
           <HoldingsActionPriority
