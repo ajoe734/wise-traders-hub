@@ -81,6 +81,7 @@ function DailyTabImpl({
   // 歷史
   analysisHistory,
 }) {
+  validateProps('DailyTab', arguments[0], DAILY_TAB_PROP_SCHEMA);
   return (
     <>
           {isDemo && (
