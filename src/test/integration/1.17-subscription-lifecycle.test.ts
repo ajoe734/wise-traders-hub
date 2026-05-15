@@ -247,12 +247,14 @@ describe('drift-detection: 訂閱生命週期各節點', () => {
     expect(src).toContain('is_active: false');
   });
 
-  it('auto-cancel-failed-renewals 呼叫 processRenewalCancellations（4.3-5）', () => {
+  it('auto-cancel-failed-renewals 已停用為 410 stub（4.3-5 改採手動續訂後過期斷權交給 expire-subscriptions）', () => {
     const src = readFileSync(
       resolve(process.cwd(), 'supabase/functions/auto-cancel-failed-renewals/index.ts'),
       'utf-8',
     );
-    expect(src).toContain('processRenewalCancellations');
+    expect(src).toContain('DEPRECATED');
+    expect(src).toMatch(/status:\s*410/);
+    expect(src).not.toContain('processRenewalCancellations');
   });
 
   it('processRenewalCancellations 設定 canceled_at 而不直接改 status，status 由 expire-subscriptions 完成（4.3-5）', () => {
