@@ -23,6 +23,7 @@ import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
 import { useMetaOverrides, mergeMeta } from "@/checkup/hooks/useMetaOverrides";
 import { NewsEventRow } from "@/checkup/components/freecheckup/NewsEventRow";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
+import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
 const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
 const NewsTab = lazy(() => import("@/checkup/components/freecheckup/NewsTab"));
 const EventsTab = lazy(() => import("@/checkup/components/freecheckup/EventsTab"));
