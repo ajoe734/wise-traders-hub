@@ -1770,9 +1770,10 @@ export default function App() {
     [globalSortedList, decisionsMap]
   );
 
-  // 過濾
+  // 過濾（searchQ 用 useDeferredValue 延遲，避免每次 keystroke 重算 H × filters × sort）
+  const deferredSearchQ = useDeferredValue(searchQ);
   const filteredSortedList = useMemo(() => {
-    const tokens = searchQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const tokens = deferredSearchQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const matchSearch = (h) => {
       if (!tokens.length) return true;
       const meta = STOCK_META[h.code] || {};
