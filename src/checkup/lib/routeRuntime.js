@@ -35,23 +35,92 @@ import {
 } from './reportUtils.js'
 import { normalizeWatchlist } from './watchlistUtils.js'
 
-function readPortfolioField(portfolioId, suffix) {
-  const raw = readStorageValue(pfKey(portfolioId, suffix))
-  return raw === undefined ? getPortfolioFallback(portfolioId, suffix) : raw
+// ─────────────────────────────────────────────────────────────
+// 模組層快取：避免每次 setter → 14× JSON.parse + 14× normalize
+// 每個 storage key 記住 (raw, normalized)，raw 字串相同就回傳同一個 normalized reference
+// 這讓子層 useMemo（HoldingsTable、ResearchPanel 等）的依賴比較不會誤判而重算
+// ─────────────────────────────────────────────────────────────
+const __fieldCache = new Map() // storageKey -> { raw, parsed, normalized }
+const __snapshotCache = new Map() // portfolioId -> { signature, snapshot }
+
+function readRawString(key) {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
 }
 
+function readCachedField(key, normalize) {
+  const raw = readRawString(key)
+  const cached = __fieldCache.get(key)
+  if (cached && cached.raw === raw && cached.normalize === normalize) return cached.normalized
+  let parsed
+  if (raw == null) {
+    parsed = undefined
+  } else {
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      parsed = raw
+    }
+  }
+  const normalized = normalize(parsed)
+  __fieldCache.set(key, { raw, parsed, normalized, normalize })
+  return normalized
+}
+
+export function invalidateRouteRuntimeCache(key) {
+  if (key) __fieldCache.delete(key)
+  else __fieldCache.clear()
+  __snapshotCache.clear()
+}
+
+const __identity = (v) => v
+
+function readPortfolioField(portfolioId, suffix, normalize = __identity) {
+  const key = pfKey(portfolioId, suffix)
+  const value = readCachedField(key, normalize)
+  if (value === undefined) {
+    const fallback = getPortfolioFallback(portfolioId, suffix)
+    return normalize === __identity ? fallback : normalize(fallback)
+  }
+  return value
+}
+
+const __arrayOrEmpty = (v) => (Array.isArray(v) ? v : [])
+const __objectOrEmpty = (v) => (v && typeof v === 'object' ? v : {})
+const __strategyBrainNormalize = (v) => normalizeStrategyBrain(v, { allowEmpty: true })
+const __portfolioNotesNormalize = (v) => ({ ...clonePortfolioNotes(), ...(v || {}) })
+
+let __cachedMarketState = null
+let __cachedMarketRawCache = null
+let __cachedMarketRawSync = null
+
 export function readRouteMarketState() {
-  const marketPriceCache = normalizeMarketPriceCache(readStorageValue(MARKET_PRICE_CACHE_KEY))
-  const marketPriceSync = normalizeMarketPriceSync(readStorageValue(MARKET_PRICE_SYNC_KEY))
-  return {
+  const rawCache = readRawString(MARKET_PRICE_CACHE_KEY)
+  const rawSync = readRawString(MARKET_PRICE_SYNC_KEY)
+  if (
+    __cachedMarketState &&
+    rawCache === __cachedMarketRawCache &&
+    rawSync === __cachedMarketRawSync
+  ) {
+    return __cachedMarketState
+  }
+  const marketPriceCache = readCachedField(MARKET_PRICE_CACHE_KEY, normalizeMarketPriceCache)
+  const marketPriceSync = readCachedField(MARKET_PRICE_SYNC_KEY, normalizeMarketPriceSync)
+  __cachedMarketRawCache = rawCache
+  __cachedMarketRawSync = rawSync
+  __cachedMarketState = {
     marketPriceCache,
     marketPriceSync,
     lastUpdate: marketPriceSync?.syncedAt ? new Date(marketPriceSync.syncedAt) : null,
   }
+  return __cachedMarketState
 }
 
 export function readRuntimePortfolios() {
-  const storedPortfolios = readStorageValue(PORTFOLIOS_KEY)
+  const storedPortfolios = readCachedField(PORTFOLIOS_KEY, __identity)
   if (Array.isArray(storedPortfolios) && storedPortfolios.length > 0) {
     return normalizePortfolios(storedPortfolios)
   }
@@ -61,48 +130,72 @@ export function readRuntimePortfolios() {
 export function readPortfolioRuntimeSnapshot(portfolioId, { marketPriceCache = null } = {}) {
   const activePortfolioId = String(portfolioId || OWNER_PORTFOLIO_ID).trim() || OWNER_PORTFOLIO_ID
   const activeMarketPriceCache = marketPriceCache || readRouteMarketState().marketPriceCache
+  const priceMap = activeMarketPriceCache?.prices || null
 
-  const holdings = normalizeHoldings(
-    readPortfolioField(activePortfolioId, 'holdings-v2'),
-    activeMarketPriceCache?.prices
-  )
+  // 用 (portfolioId + 各 raw 字串 + marketCache identity) 當簽章，
+  // 完全一致就回上次同一個 snapshot，讓 outletContext useMemo 不會誤失效
+  const sig =
+    activePortfolioId +
+    '|' +
+    (priceMap ? Object.keys(priceMap).length + ':' + (activeMarketPriceCache.syncedAt || '') : '0') +
+    '|' +
+    [
+      'holdings-v2',
+      'watchlist-v1',
+      'targets-v1',
+      'fundamentals-v1',
+      'analyst-reports-v1',
+      'holding-dossiers-v1',
+      'news-events-v1',
+      'analysis-history-v1',
+      'daily-report-v1',
+      'research-history-v1',
+      'log-v2',
+      'reversal-v1',
+      'brain-v1',
+      'notes-v1',
+    ]
+      .map((s) => readRawString(pfKey(activePortfolioId, s)) || '')
+      .join('§')
 
-  return {
+  const cachedSnapshot = __snapshotCache.get(activePortfolioId)
+  if (cachedSnapshot && cachedSnapshot.signature === sig) return cachedSnapshot.snapshot
+
+  const rawHoldings = readPortfolioField(activePortfolioId, 'holdings-v2')
+  const holdings = applyMarketQuotesToHoldings(normalizeHoldings(rawHoldings, priceMap), priceMap)
+
+  const snapshot = {
     portfolioId: activePortfolioId,
-    holdings: applyMarketQuotesToHoldings(holdings, activeMarketPriceCache?.prices),
-    watchlist: normalizeWatchlist(readPortfolioField(activePortfolioId, 'watchlist-v1')),
-    targets: readPortfolioField(activePortfolioId, 'targets-v1') || {},
-    fundamentals: normalizeFundamentalsStore(
-      readPortfolioField(activePortfolioId, 'fundamentals-v1')
+    holdings,
+    watchlist: readPortfolioField(activePortfolioId, 'watchlist-v1', normalizeWatchlist),
+    targets: readPortfolioField(activePortfolioId, 'targets-v1', __objectOrEmpty),
+    fundamentals: readPortfolioField(activePortfolioId, 'fundamentals-v1', normalizeFundamentalsStore),
+    analystReports: readPortfolioField(
+      activePortfolioId,
+      'analyst-reports-v1',
+      normalizeAnalystReportsStore
     ),
-    analystReports: normalizeAnalystReportsStore(
-      readPortfolioField(activePortfolioId, 'analyst-reports-v1')
+    holdingDossiers: readPortfolioField(
+      activePortfolioId,
+      'holding-dossiers-v1',
+      normalizeHoldingDossiers
     ),
-    holdingDossiers: normalizeHoldingDossiers(
-      readPortfolioField(activePortfolioId, 'holding-dossiers-v1')
+    newsEvents: readPortfolioField(activePortfolioId, 'news-events-v1', normalizeNewsEvents),
+    analysisHistory: readPortfolioField(
+      activePortfolioId,
+      'analysis-history-v1',
+      normalizeAnalysisHistoryEntries
     ),
-    newsEvents: normalizeNewsEvents(readPortfolioField(activePortfolioId, 'news-events-v1')),
-    analysisHistory: normalizeAnalysisHistoryEntries(
-      readPortfolioField(activePortfolioId, 'analysis-history-v1')
-    ),
-    dailyReport: normalizeDailyReportEntry(
-      readPortfolioField(activePortfolioId, 'daily-report-v1')
-    ),
-    researchHistory: Array.isArray(readPortfolioField(activePortfolioId, 'research-history-v1'))
-      ? readPortfolioField(activePortfolioId, 'research-history-v1')
-      : [],
-    tradeLog: Array.isArray(readPortfolioField(activePortfolioId, 'log-v2'))
-      ? readPortfolioField(activePortfolioId, 'log-v2')
-      : [],
-    reversalConditions: readPortfolioField(activePortfolioId, 'reversal-v1') || {},
-    strategyBrain: normalizeStrategyBrain(readPortfolioField(activePortfolioId, 'brain-v1'), {
-      allowEmpty: true,
-    }),
-    portfolioNotes: {
-      ...clonePortfolioNotes(),
-      ...(readPortfolioField(activePortfolioId, 'notes-v1') || {}),
-    },
+    dailyReport: readPortfolioField(activePortfolioId, 'daily-report-v1', normalizeDailyReportEntry),
+    researchHistory: readPortfolioField(activePortfolioId, 'research-history-v1', __arrayOrEmpty),
+    tradeLog: readPortfolioField(activePortfolioId, 'log-v2', __arrayOrEmpty),
+    reversalConditions: readPortfolioField(activePortfolioId, 'reversal-v1', __objectOrEmpty),
+    strategyBrain: readPortfolioField(activePortfolioId, 'brain-v1', __strategyBrainNormalize),
+    portfolioNotes: readPortfolioField(activePortfolioId, 'notes-v1', __portfolioNotesNormalize),
   }
+
+  __snapshotCache.set(activePortfolioId, { signature: sig, snapshot })
+  return snapshot
 }
 
 function buildPortfolioSummary(portfolio, snapshot) {
