@@ -2572,6 +2572,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
 
   // ── 事件復盤 ─────────────────────────────────────────────────────
   const submitReview = (eventId) => {
+    const form = reviewFormRef.current;
     setNewsEvents(prev => {
       const arr = [...(prev || [])];
       const idx = arr.findIndex(e => e.id === eventId);
@@ -2579,10 +2580,10 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       arr[idx] = {
         ...arr[idx],
         status: "past",
-        actual: reviewForm.actual,
-        actualNote: reviewForm.actualNote,
-        correct: arr[idx].pred === reviewForm.actual,
-        lessons: reviewForm.lessons,
+        actual: form.actual,
+        actualNote: form.actualNote,
+        correct: arr[idx].pred === form.actual,
+        lessons: form.lessons,
         reviewDate: new Date().toLocaleDateString("zh-TW"),
       };
       return arr;
@@ -2592,6 +2593,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setSaved("✅ 復盤已儲存");
     setTimeout(() => setSaved(""), 2500);
   };
+  // Phase A2-1: keep submitReviewRef in sync so NewsEventRow can call it via stableSubmitReview
+  useEffect(() => { submitReviewRef.current = submitReview; });
 
   // ── 新增事件 ─────────────────────────────────────────────────────
   const addEvent = () => {
