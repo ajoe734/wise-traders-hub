@@ -33,9 +33,11 @@ import Register from '@/pages/auth/Register';
 
 function renderRegister() {
   return render(
-    <MemoryRouter>
-      <Register />
-    </MemoryRouter>,
+    <HelmetProvider>
+      <MemoryRouter>
+        <Register />
+      </MemoryRouter>
+    </HelmetProvider>,
   );
 }
 
