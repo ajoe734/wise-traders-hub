@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
 import { SEO } from "@/components/SEO";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -1770,9 +1770,10 @@ export default function App() {
     [globalSortedList, decisionsMap]
   );
 
-  // 過濾
+  // 過濾（searchQ 用 useDeferredValue 延遲，避免每次 keystroke 重算 H × filters × sort）
+  const deferredSearchQ = useDeferredValue(searchQ);
   const filteredSortedList = useMemo(() => {
-    const tokens = searchQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const tokens = deferredSearchQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const matchSearch = (h) => {
       if (!tokens.length) return true;
       const meta = STOCK_META[h.code] || {};
@@ -1829,7 +1830,7 @@ export default function App() {
       return 0;
     });
     return list;
-  }, [H, searchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents, compareByPriority]);
+  }, [H, deferredSearchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents, compareByPriority]);
 
   const sorted = filteredSortedList; // 保留原命名相容性
   const displayed = showAll ? sorted : sorted.slice(0,12);
