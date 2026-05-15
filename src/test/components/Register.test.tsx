@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 
 vi.mock('@/components/layouts/PortalLayout', () => ({
   PortalLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
