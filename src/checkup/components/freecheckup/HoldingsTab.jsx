@@ -1,4 +1,6 @@
 import { memo, lazy, Suspense, useState, useCallback } from "react";
+import { useBrainStore } from "@/checkup/stores/brainStore";
+import { validateProps } from "@/checkup/components/freecheckup/_validateProps.js";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
 import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
@@ -9,6 +11,22 @@ import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUplo
 import HoldingsEmptyState from "@/checkup/components/freecheckup/HoldingsEmptyState";
 import HoldingsNoMatchState from "@/checkup/components/freecheckup/HoldingsNoMatchState";
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
+import "@/checkup/styles/holdingsTab.css";
+
+// E1：HoldingsTab 關鍵 callback / store 形狀 schema（dev-only 防漏傳）
+const HOLDINGS_TAB_PROP_SCHEMA = {
+  setTab: 'function',
+  C: 'object',
+  WB: 'object',
+  alpha: 'function',
+  navigate: 'function',
+  filteredSortedList: 'array',
+  orderedDisplayed: 'array',
+  decisionsMap: 'object',
+  STOCK_META: 'object',
+  Sparkline: 'function',
+  handleHoldingCardOpenDrawer: 'function',
+};
 
 const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
 
