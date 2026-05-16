@@ -167,7 +167,7 @@ const ExpertProfile = () => {
   if (!expertInfo || loading) {
     return (
       <PortalLayout hideAppEntry hideHeader={!!user}>
-        <div className="container py-12 flex justify-center min-h-[80vh]">
+        <div className="container py-12 flex justify-center min-h-screen">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </PortalLayout>
