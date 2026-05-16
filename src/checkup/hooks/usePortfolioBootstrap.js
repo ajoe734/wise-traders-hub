@@ -81,6 +81,11 @@ export function usePortfolioBootstrap({
       applyPortfolioSnapshot(snapshot)
       setReady(true)
 
+      // Cloud sync is non-blocking for first paint — defer to browser idle
+      // so the 1-5 edge-function fetches don't compete with React mount.
+      const runCloudSync = async () => {
+        if (cancelled) return
+
       const lastCloudSyncAt = readSyncAt('pf-cloud-sync-at')
       const shouldSyncCloud =
         pid === OWNER_PORTFOLIO_ID &&
