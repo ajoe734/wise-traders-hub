@@ -375,6 +375,7 @@ function HoldingCardImpl(props) {
           {h.value?.toLocaleString() || '—'}
         </span>
       </div>
+      </>)}
     </button>
   );
 }
