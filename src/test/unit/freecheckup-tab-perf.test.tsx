@@ -140,7 +140,7 @@ const holdingsProps: any = {
   toggleSetItem: () => () => {},
   clearAllFilters: noop,
   sortBy: 'decision', setSortBy: noop, sortDir: 'desc', setSortDir: noop,
-  sortMenuOpen: false, setSortMenuOpen: noop,
+  // sortMenuOpen/setSortMenuOpen 已由 HoldingsTab 內化（A2-lite）
   // expandedDecision 已由 brainStore 管理（E2）— 不再從 fixture 傳入
   displayed: [], sorted: [], orderedDisplayed: [],
   variantsMap: new Map(), firstFeatureCode: null,
