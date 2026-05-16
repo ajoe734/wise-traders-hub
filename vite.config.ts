@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          if (id.includes("lucide-react")) return "vendor-lucide";
+          // P5-C: lucide-react no longer force-chunked — let Vite tree-shake per route
           if (id.includes("@supabase")) return "vendor-supabase";
           if (
             id.includes("react-dom") ||
@@ -61,7 +61,24 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("@tiptap") || id.includes("prosemirror")) return "vendor-tiptap";
           if (id.includes("recharts") || id.includes("/d3-") || id.includes("victory-vendor"))
             return "vendor-recharts";
-          if (id.includes("@radix-ui")) return "vendor-radix";
+          // P5-B: split radix — landing only needs slot/tooltip/toast/primitive helpers
+          if (id.includes("@radix-ui")) {
+            if (
+              id.includes("react-slot") ||
+              id.includes("react-tooltip") ||
+              id.includes("react-toast") ||
+              id.includes("react-portal") ||
+              id.includes("react-primitive") ||
+              id.includes("react-presence") ||
+              id.includes("react-compose-refs") ||
+              id.includes("react-context") ||
+              id.includes("react-use-") ||
+              id.includes("react-id")
+            ) {
+              return "vendor-radix-core";
+            }
+            return "vendor-radix-extra";
+          }
           if (
             id.includes("date-fns") ||
             id.includes("/zod/") ||
