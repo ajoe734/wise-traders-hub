@@ -13,8 +13,11 @@ import HoldingsNoMatchState from "@/checkup/components/freecheckup/HoldingsNoMat
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
 import "@/checkup/styles/holdingsTab.css";
 
-// E1：HoldingsTab 關鍵 callback / store 形狀 schema（dev-only 防漏傳）
+// E1：HoldingsTab 完整 prop schema（dev-only，漏傳 setTab 等 callback 立即警告）
+// 為避免 "unknown prop" 噪音，所有目前父層會傳的 prop 都列出；非關鍵者標 'any' optional。
+const _opt = (type) => ({ type, optional: true });
 const HOLDINGS_TAB_PROP_SCHEMA = {
+  // 關鍵 callback / 結構（required）
   setTab: 'function',
   C: 'object',
   WB: 'object',
@@ -26,6 +29,38 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   STOCK_META: 'object',
   Sparkline: 'function',
   handleHoldingCardOpenDrawer: 'function',
+  setSortBy: 'function',
+  setSortDir: 'function',
+  // 其它 prop（容許 any，避免 unknown-prop 警告噪音）
+  isDemo: _opt('any'),
+  DEMO_TAB_NOTICE_COPY: _opt('any'),
+  startLineLogin: _opt('any'),
+  wbTone: _opt('any'),
+  quota: _opt('any'), tier: _opt('any'), tierLabel: _opt('any'), formatResetCountdown: _opt('any'),
+  totalVal: _opt('any'), totalCost: _opt('any'), H: _opt('any'),
+  winners: _opt('any'), exitList: _opt('any'), reviewList: _opt('any'),
+  MAX_HOLDINGS: _opt('any'), rtConnected: _opt('any'), lastUpdate: _opt('any'),
+  uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
+  losers: _opt('any'), reversalConditions: _opt('any'),
+  reviewingEvent: _opt('any'), setReviewingEvent: _opt('any'), updateReversal: _opt('any'),
+  globalPriorityList: _opt('any'),
+  searchQ: _opt('any'), setSearchQ: _opt('any'),
+  filterDecision: _opt('any'), setFilterDecision: _opt('any'),
+  filterThesis: _opt('any'), setFilterThesis: _opt('any'),
+  filterUrgency: _opt('any'), setFilterUrgency: _opt('any'),
+  filterConflict: _opt('any'), setFilterConflict: _opt('any'),
+  filterPnl: _opt('any'), setFilterPnl: _opt('any'),
+  filterStrategy: _opt('any'), setFilterStrategy: _opt('any'),
+  strategyOptions: _opt('any'),
+  toggleSetItem: _opt('any'), clearAllFilters: _opt('any'),
+  sortBy: _opt('any'), sortDir: _opt('any'),
+  displayed: _opt('any'), sorted: _opt('any'),
+  variantsMap: _opt('any'), firstFeatureCode: _opt('any'),
+  targets: _opt('any'), avgTarget: _opt('any'),
+  sparklines: _opt('any'), sparklineErrors: _opt('any'), EMPTY_SPARK: _opt('any'),
+  normalizedEvents: _opt('any'), openHoldingDrawer: _opt('any'),
+  cardGridCols: _opt('any'),
+  showAll: _opt('any'), setShowAll: _opt('any'),
 };
 
 const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
