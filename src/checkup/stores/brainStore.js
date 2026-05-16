@@ -26,6 +26,7 @@ const createInitialState = () => ({
     invalidatedRules: [],
   },
   expandedStock: null,
+  expandedDecision: null, // HoldingsTab：目前展開的持倉決策卡片（持倉牆 → DetailPanel）
   relayPlanExpanded: false,
 });
 
