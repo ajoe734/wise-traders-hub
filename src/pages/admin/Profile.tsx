@@ -537,7 +537,8 @@ const AdminProfile = () => {
                 if (error) { toast.error('設定失敗：' + error.message); return; }
                 toast.success('起始資金已設定');
                 setStartingCapitalLocked(true);
-                setExpert({ ...expert, starting_capital: pendingCapital });
+                queryClient.invalidateQueries({ queryKey: expertQueryKey });
+                queryClient.invalidateQueries({ queryKey: ['admin', 'profile', 'capital-status', expert.id] });
               }}>
                 確認設定
               </AlertDialogAction>
