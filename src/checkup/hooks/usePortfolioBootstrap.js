@@ -1,6 +1,7 @@
 import { API_ENDPOINTS } from '../constants.js'
 import { useEffect } from 'react'
 import { CLOUD_SYNC_TTL, OWNER_PORTFOLIO_ID } from '../constants.js'
+import { runWhenIdle } from '../../lib/idleSchedule'
 // Phase 3A.4 Step 1: store-backed setters 由 hook 內部直接從 store 取，
 // 上游 props 仍接收（向後相容），但會被 store 版本覆寫。
 import { useHoldingsStore } from '../stores/holdingsStore.js'
@@ -254,6 +255,10 @@ export function usePortfolioBootstrap({
           toPid: pid,
         }
       }
+      }
+      runWhenIdle(() => {
+        void runCloudSync()
+      }, 3000)
     }
 
     runBootstrap()
