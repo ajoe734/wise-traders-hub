@@ -353,11 +353,15 @@ const ExpertProfile = () => {
             <Target className={cn("h-5 w-5", isAdvisor ? "text-advisor" : "text-mentor")} />
             <h2 className="text-h3">績效總覽</h2>
           </div>
-          <PerformanceOverviewPanel
-            expertId={expertInfo.id}
-            startingCapital={expertInfo.startingCapital}
-            variant={isAdvisor ? 'advisor' : 'mentor'}
-          />
+          <LazyOnVisible minHeight={400} rootMargin="300px">
+            <Suspense fallback={<div className="h-96 rounded-lg bg-muted/30 animate-pulse" />}>
+              <PerformanceOverviewPanel
+                expertId={expertInfo.id}
+                startingCapital={expertInfo.startingCapital}
+                variant={isAdvisor ? 'advisor' : 'mentor'}
+              />
+            </Suspense>
+          </LazyOnVisible>
         </section>
 
 
