@@ -326,52 +326,53 @@ const Checkout = () => {
     const fetchData = async () => {
       if (!planId || !slug) return;
 
-      // Fetch plan
-      const { data: planData } = await supabase
-        .from('expert_plans')
-        .select('id, name, plan_type, price_monthly, price_yearly, description, features, expert_id')
-        .eq('id', planId)
-        .single();
+      // Fire plan + providers + existing-subscription check in parallel.
+      // Previously these ran serially (plan → expert → providers → subs),
+      // costing ~3 sequential RTTs. expert still depends on plan.expert_id
+      // so it stays sequential, but it now overlaps with providers/subs.
+      const [planRes, providerRes, subsRes] = await Promise.all([
+        supabase
+          .from('expert_plans')
+          .select('id, name, plan_type, price_monthly, price_yearly, description, features, expert_id')
+          .eq('id', planId)
+          .single(),
+        supabase
+          .from('payment_providers_safe')
+          .select('id, display_name, provider_type, is_active, is_default')
+          .eq('is_active', true)
+          .order('is_default', { ascending: false }),
+        user
+          ? supabase
+              .from('member_subscriptions')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('plan_id', planId)
+              .eq('status', 'active')
+          : Promise.resolve({ data: null as { id: string }[] | null }),
+      ]);
 
+      const planData = planRes.data;
       if (!planData) {
         setLoading(false);
         return;
       }
       setPlan(planData);
 
-      // Fetch expert
+      // Fetch expert (depends on plan.expert_id — must follow plan)
       const { data: expertData } = await supabase
         .from('experts')
         .select('id, name, slug, avatar_url, role')
         .eq('id', planData.expert_id)
         .single();
-
       setExpert(expertData);
 
-      // Fetch active payment providers
-      const { data: providerData } = await supabase
-        .from('payment_providers_safe')
-        .select('id, display_name, provider_type, is_active, is_default')
-        .eq('is_active', true)
-        .order('is_default', { ascending: false });
-
-      if (providerData && providerData.length > 0) {
-        setProviders(providerData);
-        setSelectedProvider(providerData[0].id);
+      if (providerRes.data && providerRes.data.length > 0) {
+        setProviders(providerRes.data);
+        setSelectedProvider(providerRes.data[0].id);
       }
 
-      // Check if already subscribed
-      if (user) {
-        const { data: subs } = await supabase
-          .from('member_subscriptions')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('plan_id', planId)
-          .eq('status', 'active');
-
-        if (subs && subs.length > 0) {
-          setAlreadySubscribed(true);
-        }
+      if (subsRes.data && subsRes.data.length > 0) {
+        setAlreadySubscribed(true);
       }
 
       setLoading(false);
