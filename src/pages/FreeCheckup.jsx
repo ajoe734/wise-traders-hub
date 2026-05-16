@@ -528,8 +528,7 @@ export default function App() {
 
   // dashboard UI
   const [sortBy,      setSortBy]      = useState("decision");
-  const [viewMode,    setViewMode]    = useState("grid"); // 'grid' | 'list'
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  // A2-lite: viewMode / sortMenuOpen 已內化為 HoldingsTab local state（純子元件 UI，不影響 parent memo）
   const [filterType,  setFilterType]  = useState("全部");
   const [showAll,     setShowAll]     = useState(false);
   // Viewport-aware grid columns（繞過 CSS cascade 在某些 Chromium dev/preview 環境
@@ -848,7 +847,7 @@ export default function App() {
   }, [calendarRetry.cooldownUntil, predictRetry.cooldownUntil]);
   // Decision System v6
   const [userOverrides, setUserOverrides] = useState({});
-  const [expandedDecision, setExpandedDecision] = useState(null);
+  // A2-lite: expandedDecision 已內化為 HoldingsTab local state（卡片選取不再污染 parent）
   const [debugMode, setDebugMode] = useState(false);
   const [sparklines, setSparklines] = useState({}); // { [code]: number[] }
   const [sparklineErrors, setSparklineErrors] = useState({}); // P3: { [code]: true } 同步失敗的代碼
@@ -2020,9 +2019,7 @@ export default function App() {
   const handleHoldingCardOpenDrawer = useCallback((code) => {
     openHoldingDrawerRef.current(code);
   }, []);
-  const handleHoldingCardSelect = useCallback((code) => {
-    setExpandedDecision(prev => prev === code ? null : code);
-  }, []);
+  // A2-lite: handleHoldingCardSelect 已內化為 HoldingsTab local（搭配 expandedDecision）
 
   const activeHolding = activeIndex >= 0 ? sourceList[activeIndex] : null;
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
@@ -3347,7 +3344,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               globalPriorityList={globalPriorityList}
               decisionsMap={decisionsMap}
               STOCK_META={STOCK_META}
-              setExpandedDecision={setExpandedDecision}
               filteredSortedList={filteredSortedList}
               searchQ={searchQ}
               setSearchQ={setSearchQ}
@@ -3370,9 +3366,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setSortBy={setSortBy}
               sortDir={sortDir}
               setSortDir={setSortDir}
-              sortMenuOpen={sortMenuOpen}
-              setSortMenuOpen={setSortMenuOpen}
-              expandedDecision={expandedDecision}
               displayed={displayed}
               sorted={sorted}
               orderedDisplayed={orderedDisplayed}
@@ -3386,11 +3379,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               Sparkline={Sparkline}
               normalizedEvents={normalizedEvents}
               openHoldingDrawer={openHoldingDrawer}
-              handleHoldingCardSelect={handleHoldingCardSelect}
               handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
               cardGridCols={cardGridCols}
-              viewMode={viewMode}
-              setViewMode={setViewMode}
               showAll={showAll}
               setShowAll={setShowAll}
               setTab={setTab}

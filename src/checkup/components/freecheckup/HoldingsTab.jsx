@@ -1,4 +1,4 @@
-import { memo, lazy, Suspense } from "react";
+import { memo, lazy, Suspense, useState, useCallback } from "react";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
 import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
@@ -18,7 +18,8 @@ const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/
  * P3-perf：
  *   1. 整個 tab 以 React.lazy 載入，首屏不再為持倉牆付出解析/編譯成本
  *   2. memo 化避免 quote tick 引起無謂 re-render
- *   3. 行為與原 inline JSX 完全一致；外部相依以 props 注入（保持 inline 渲染契約）
+ *   3. A2-lite：viewMode / sortMenuOpen / expandedDecision 為純子元件 local state，
+ *      開選單/切視圖/選卡片不再污染 3300+ 行的 FreeCheckup parent
  */
 function HoldingsTab(props) {
   const {
@@ -38,7 +39,7 @@ function HoldingsTab(props) {
     // reversal
     losers, reversalConditions, reviewingEvent, setReviewingEvent, updateReversal,
     // action priority
-    globalPriorityList, decisionsMap, STOCK_META, setExpandedDecision,
+    globalPriorityList, decisionsMap, STOCK_META,
     // filter bar
     filteredSortedList,
     searchQ, setSearchQ,
@@ -52,18 +53,27 @@ function HoldingsTab(props) {
     toggleSetItem, clearAllFilters,
     // sorting
     sortBy, setSortBy, sortDir, setSortDir,
-    sortMenuOpen, setSortMenuOpen,
     // workbench
-    expandedDecision, displayed, sorted, orderedDisplayed,
+    displayed, sorted, orderedDisplayed,
     variantsMap, firstFeatureCode,
     targets, avgTarget, sparklines, sparklineErrors, EMPTY_SPARK,
     Sparkline, normalizedEvents, openHoldingDrawer,
-    handleHoldingCardSelect, handleHoldingCardOpenDrawer,
-    cardGridCols, viewMode, setViewMode,
+    handleHoldingCardOpenDrawer,
+    cardGridCols,
     showAll, setShowAll,
     // navigation
     setTab,
   } = props;
+
+  // A2-lite: local-only UI state — 不再透過 FreeCheckup 傳遞，避免 parent re-render
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [expandedDecision, setExpandedDecision] = useState(null);
+
+  // 卡片點選 toggle — 由 HoldingsTab 自己管理，不再下放到 FreeCheckup
+  const handleHoldingCardSelect = useCallback((code) => {
+    setExpandedDecision((prev) => (prev === code ? null : code));
+  }, []);
 
   return (
     <>
