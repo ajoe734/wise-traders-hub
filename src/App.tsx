@@ -5,7 +5,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import { prefetchHighTrafficRoutes } from "@/lib/routePrefetch";
 import { AuthProvider } from "@/contexts/AuthContext";
 import {
   queryClient,
@@ -132,6 +133,9 @@ const persistOptions = queryPersister
 
 const AttributionTracker = () => {
   useAttributionTracking();
+  useEffect(() => {
+    prefetchHighTrafficRoutes();
+  }, []);
   return null;
 };
 
