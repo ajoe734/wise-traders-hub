@@ -33,8 +33,15 @@ import { VsBrushMark } from '@/components/VsBrushMark';
 import { WeeklyLimitUpLeaderboard } from '@/components/WeeklyLimitUpLeaderboard';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
-import useEmblaCarousel from 'embla-carousel-react';
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense } from 'react';
+
+// P5-D: mobile-only carousels are split into their own chunk and only loaded on small screens
+const MobileVsCarousel = lazy(() =>
+  import('./index-sections/MobileCarousels').then((m) => ({ default: m.MobileVsCarousel }))
+);
+const MobilePreviewCarousel = lazy(() =>
+  import('./index-sections/MobileCarousels').then((m) => ({ default: m.MobilePreviewCarousel }))
+);
 
 // Idle prefetch：閒置時預抓熱門路由 chunk，使用者點擊時近乎即時
 if (typeof window !== 'undefined') {
