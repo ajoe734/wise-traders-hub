@@ -5,6 +5,10 @@ import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
 import HoldingsQuotaMeter from "@/checkup/components/freecheckup/HoldingsQuotaMeter";
 import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBar";
 import HoldingsReversalSection from "@/checkup/components/freecheckup/HoldingsReversalSection";
+import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
+import HoldingsEmptyState from "@/checkup/components/freecheckup/HoldingsEmptyState";
+import HoldingsNoMatchState from "@/checkup/components/freecheckup/HoldingsNoMatchState";
+import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
 
 const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
 
@@ -84,53 +88,13 @@ function HoldingsTab(props) {
         alpha={alpha}
         formatResetCountdown={formatResetCountdown}
       />
-      {/* 上傳摘要：剛從上傳成交頁回來時顯示新增/更新項目 */}
-      {uploadSummary && (uploadSummary.added.length + uploadSummary.updated.length > 0) && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            marginBottom: 14,
-            padding: "12px 14px",
-            border: `1px solid ${alpha(C.amber, '55')}`,
-            background: alpha(C.amber, '10'),
-            borderRadius: 8,
-            fontFamily: "inherit",
-          }}
-        >
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6,gap:12}}>
-            <div style={{fontSize:13,fontWeight:500,color:C.text,letterSpacing:"0.04em"}}>
-              上傳成功 · 新增 {uploadSummary.added.length}・更新 {uploadSummary.updated.length}
-              {uploadSummary.corrected ? "（已套用修正）" : ""}
-            </div>
-            <button
-              onClick={() => setUploadSummary(null)}
-              aria-label="關閉摘要"
-              style={{background:"transparent",border:"none",color:C.textMute,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}
-            >關閉</button>
-          </div>
-          {uploadSummary.added.length > 0 && (
-            <div style={{fontSize:12,color:C.textSec,marginBottom:4,lineHeight:1.7}}>
-              <span style={{color:C.textMute,marginRight:6}}>新增</span>
-              {uploadSummary.added.map((it, i) => (
-                <span key={`a-${i}`} style={{marginRight:10}}>
-                  {it.name || it.code} <span style={{color:C.textMute}}>·{it.code}</span> {it.qty}股
-                </span>
-              ))}
-            </div>
-          )}
-          {uploadSummary.updated.length > 0 && (
-            <div style={{fontSize:12,color:C.textSec,lineHeight:1.7}}>
-              <span style={{color:C.textMute,marginRight:6}}>更新</span>
-              {uploadSummary.updated.map((it, i) => (
-                <span key={`u-${i}`} style={{marginRight:10}}>
-                  {it.name || it.code} <span style={{color:C.textMute}}>·{it.code}</span> {it.action} {it.qty}股
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* 上傳摘要：剛從上傳成交頁回來時顯示新增/更新項目（B1） */}
+      <HoldingsUploadSummary
+        uploadSummary={uploadSummary}
+        setUploadSummary={setUploadSummary}
+        C={C}
+        alpha={alpha}
+      />
       {/* ── Hero：橫向 2 欄構圖（左大數字 + 右市場狀態），底部 4 欄 KPI ── */}
       <HoldingsHero
         totalVal={totalVal}
@@ -282,172 +246,25 @@ function HoldingsTab(props) {
               {orderedDisplayed.map((h, idx) => renderCard(h, idx))}
               {/* 持倉為 0 時顯示強化空狀態（橫跨整列）；有持倉時顯示「+ 上傳成交」虛線卡 */}
               {orderedDisplayed.length === 0 && H.length === 0 ? (
-                <div
-                  className="wb-span-full holdings-empty-guide"
-                  style={{
-                    background:'transparent',
-                    border:`1px dashed ${WB.hairStrong}`,
-                    borderRadius:4,
-                    color:WB.ink,
-                    fontFamily:'inherit',
-                    display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                    gap:24,
-                    padding:'48px 24px',
-                  }}
-                >
-                  {/* 標題區 */}
-                  <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
-                    <span style={{fontSize:18,fontWeight:500,letterSpacing:'0.08em',color:WB.ink}}>還沒有持倉資料</span>
-                    <span style={{fontSize:13,fontWeight:400,lineHeight:1.7,color:WB.inkMute,textAlign:'center',maxWidth:420}}>
-                      上傳一張下單 App 的持倉截圖，系統會自動辨識成交資料，您只需逐條確認即可。
-                    </span>
-                  </div>
-
-                  {/* 3 步教學（含小圖示） */}
-                  <div className="holdings-empty-steps" style={{
-                    display:'grid',
-                    gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
-                    gap:16,
-                    width:'100%',
-                    maxWidth:560,
-                  }}>
-                    {[
-                      {
-                        n:'1',
-                        title:'上傳截圖',
-                        desc:'從券商 App 截下持倉畫面',
-                        icon:(
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <rect x="3" y="5" width="18" height="14" rx="1.5"/>
-                            <circle cx="12" cy="12" r="3.2"/>
-                            <path d="M8 5l1.5-2h5L16 5"/>
-                          </svg>
-                        ),
-                      },
-                      {
-                        n:'2',
-                        title:'AI 辨識',
-                        desc:'自動讀取股號與股數',
-                        icon:(
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M4 7h16M4 12h10M4 17h16"/>
-                            <circle cx="19" cy="12" r="2"/>
-                          </svg>
-                        ),
-                      },
-                      {
-                        n:'3',
-                        title:'確認上傳',
-                        desc:'逐條檢視後一鍵建立',
-                        icon:(
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M5 12.5l4 4 10-10"/>
-                          </svg>
-                        ),
-                      },
-                    ].map((s) => (
-                      <div key={s.n} style={{
-                        display:'flex',flexDirection:'column',alignItems:'center',gap:8,
-                        padding:'16px 8px',
-                        border:`1px solid ${WB.hair}`,
-                        borderRadius:4,
-                        background:'transparent',
-                      }}>
-                        <div style={{
-                          display:'flex',alignItems:'center',justifyContent:'center',
-                          width:36,height:36,borderRadius:'50%',
-                          border:`1px solid ${WB.hairStrong}`,
-                          color:WB.ink,
-                        }}>
-                          {s.icon}
-                        </div>
-                        <span style={{fontSize:11,fontWeight:500,letterSpacing:'0.18em',color:WB.inkMute}}>
-                          {/* i18n-allow:visual-decoration 步驟編號裝飾 */}
-                          STEP {s.n}
-                        </span>
-                        <span style={{fontSize:13,fontWeight:500,color:WB.ink,letterSpacing:'0.04em'}}>{s.title}</span>
-                        <span style={{fontSize:11,fontWeight:400,color:WB.inkMute,textAlign:'center',lineHeight:1.6}}>{s.desc}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* 主 CTA */}
-                  <button
-                    onClick={() => setTab && setTab('trade')}
-                    style={{
-                      marginTop:4,
-                      background:WB.ink,
-                      color:'#fff',
-                      border:'none',
-                      borderRadius:2,
-                      padding:'14px 28px',
-                      fontFamily:'inherit',
-                      fontSize:13,
-                      fontWeight:500,
-                      letterSpacing:'0.18em',
-                      cursor:'pointer',
-                      transition:'opacity 160ms ease',
-                    }}
-                    onMouseEnter={(e)=>{e.currentTarget.style.opacity='0.85';}}
-                    onMouseLeave={(e)=>{e.currentTarget.style.opacity='1';}}
-                  >
-                    現在上傳成交
-                  </button>
-
-                  {/* 副提示 */}
-                  <span style={{fontSize:11,fontWeight:400,letterSpacing:'0.12em',color:WB.inkMute}}>
-                    支援 JPG / PNG 截圖，無需手動輸入
-                  </span>
-                </div>
+                <HoldingsEmptyState
+                  WB={WB}
+                  onUpload={() => setTab && setTab('trade')}
+                />
               ) : orderedDisplayed.length === 0 ? (
                 /* P9: 有持倉但被篩選/搜尋過濾掉 — 「沒有符合條件的持倉」+ 清除全部篩選 CTA */
-                <div
-                  className="wb-span-full"
-                  style={{
-                    background:'transparent',
-                    border:`1px dashed ${WB.hair}`,
-                    borderRadius:4,
-                    color:WB.ink,
-                    fontFamily:'inherit',
-                    display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                    gap:14,
-                    padding:'48px 24px',
-                    minHeight:200,
+                <HoldingsNoMatchState
+                  totalCount={H.length}
+                  WB={WB}
+                  onClearAll={() => {
+                    setSearchQ('');
+                    setFilterDecision(new Set());
+                    setFilterThesis(new Set());
+                    setFilterUrgency(new Set());
+                    setFilterConflict(new Set());
+                    setFilterPnl(new Set());
+                    setFilterStrategy(new Set());
                   }}
-                >
-                  <span style={{fontSize:14,fontWeight:500,letterSpacing:'0.06em',color:WB.ink}}>沒有符合條件的持倉</span>
-                  <span style={{fontSize:12,fontWeight:400,lineHeight:1.7,color:WB.inkMute,textAlign:'center',maxWidth:360}}>
-                    目前 {H.length} 檔持倉中沒有符合搜尋與篩選條件的標的，試著放寬條件。
-                  </span>
-                  <button
-                    onClick={() => {
-                      setSearchQ('');
-                      setFilterDecision(new Set());
-                      setFilterThesis(new Set());
-                      setFilterUrgency(new Set());
-                      setFilterConflict(new Set());
-                      setFilterPnl(new Set());
-                      setFilterStrategy(new Set());
-                    }}
-                    style={{
-                      background:'transparent',
-                      color:WB.ink,
-                      border:`1px solid ${WB.hairStrong}`,
-                      borderRadius:2,
-                      padding:'10px 22px',
-                      fontFamily:'inherit',
-                      fontSize:12,
-                      fontWeight:500,
-                      letterSpacing:'0.16em',
-                      cursor:'pointer',
-                      transition:'background 160ms ease, color 160ms ease',
-                    }}
-                    onMouseEnter={(e)=>{e.currentTarget.style.background=WB.ink;e.currentTarget.style.color='#fff';}}
-                    onMouseLeave={(e)=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color=WB.ink;}}
-                  >
-                    清除所有篩選
-                  </button>
-                </div>
+                />
               ) : (
                 <button
                   onClick={() => setTab && setTab('trade')}
@@ -511,110 +328,19 @@ function HoldingsTab(props) {
         );
       })()}
 
-      {/* Step 7：底部狀態列 */}
-      <div style={{
-        marginTop:24,paddingTop:14,
-        borderTop:`1px solid ${WB.hair}`,
-        display:'flex',justifyContent:'space-between',alignItems:'center',
-        fontSize:10,color:WB.inkMute,letterSpacing:'0.16em',fontWeight:500,
-      }}>
-        <span>{sorted.length} HOLDINGS</span>
-        <div style={{display:'flex',alignItems:'center',gap:14}}>
-          {/* SORT BY 下拉選單 */}
-          <div style={{position:'relative'}}>
-            <button
-              type="button"
-              onClick={() => setSortMenuOpen(v => !v)}
-              style={{
-                background:'transparent', border:'none', padding:0, margin:0,
-                fontSize:10, color:WB.inkMute, letterSpacing:'0.16em', fontWeight:500,
-                cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6,
-                fontFamily:'inherit',
-              }}
-            >
-              SORT BY <span style={{color:WB.ink}}>
-                {(() => {
-                  const map = {decision:'PRIORITY', value:'VALUE', pnl:'P&L', pct:'RETURN', urgency:'URGENCY', confidence:'CONFIDENCE', updated:'UPDATED'};
-                  return map[sortBy] || 'PRIORITY';
-                })()} {sortMenuOpen ? '▴' : '▾'}
-              </span>
-            </button>
-            {sortMenuOpen && (
-              <>
-                <div
-                  onClick={() => setSortMenuOpen(false)}
-                  style={{position:'fixed', inset:0, zIndex:40}}
-                />
-                <div style={{
-                  position:'absolute', bottom:'calc(100% + 6px)', right:0, zIndex:50,
-                  background:WB.surface, border:`1px solid ${WB.hairStrong}`, borderRadius:4,
-                  minWidth:140, padding:'6px 0',
-                  boxShadow:'0 2px 12px rgba(0,0,0,0.04)',
-                }}>
-                  {[['decision','PRIORITY'],['value','VALUE'],['pnl','P&L'],['pct','RETURN'],['urgency','URGENCY'],['confidence','CONFIDENCE'],['updated','UPDATED']].map(([k,l]) => {
-                    const active = sortBy === k;
-                    return (
-                      <button
-                        key={k}
-                        type="button"
-                        onClick={() => {
-                          if (active) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
-                          else { setSortBy(k); setSortDir('desc'); }
-                          setSortMenuOpen(false);
-                        }}
-                        style={{
-                          display:'flex', alignItems:'center', justifyContent:'space-between',
-                          width:'100%', padding:'7px 14px', background:'transparent',
-                          border:'none', cursor:'pointer', fontFamily:'inherit',
-                          fontSize:10, letterSpacing:'0.14em', fontWeight:active?500:400,
-                          color: active ? WB.ink : WB.inkMute, textAlign:'left',
-                        }}
-                      >
-                        <span>{l}</span>
-                        {active && <span style={{fontSize:9,opacity:0.7}}>{sortDir === 'desc' ? '↓' : '↑'}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-          <span style={{width:1,height:12,background:WB.hair}}/>
-          {/* 檢視模式切換 */}
-          <span style={{display:'flex',gap:4}}>
-            <button
-              type="button"
-              onClick={() => setViewMode('grid')}
-              aria-label="格狀檢視"
-              aria-pressed={viewMode === 'grid'}
-              style={{
-                display:'inline-flex',alignItems:'center',justifyContent:'center',
-                width:22,height:22,
-                border:`1px solid ${viewMode === 'grid' ? WB.ink : WB.hair}`,
-                color: viewMode === 'grid' ? WB.ink : WB.inkLight,
-                background:'transparent', padding:0, cursor:'pointer',
-                fontSize:10, borderRadius:2, fontFamily:'inherit',
-                transition:'all 0.15s',
-              }}
-            >▦</button>
-            <button
-              type="button"
-              onClick={() => setViewMode('list')}
-              aria-label="清單檢視"
-              aria-pressed={viewMode === 'list'}
-              style={{
-                display:'inline-flex',alignItems:'center',justifyContent:'center',
-                width:22,height:22,
-                border:`1px solid ${viewMode === 'list' ? WB.ink : WB.hair}`,
-                color: viewMode === 'list' ? WB.ink : WB.inkLight,
-                background:'transparent', padding:0, cursor:'pointer',
-                fontSize:10, borderRadius:2, fontFamily:'inherit',
-                transition:'all 0.15s',
-              }}
-            >≡</button>
-          </span>
-        </div>
-      </div>
+      {/* Step 7：底部狀態列（B4） */}
+      <HoldingsFooterBar
+        sortedCount={sorted.length}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        sortDir={sortDir}
+        setSortDir={setSortDir}
+        sortMenuOpen={sortMenuOpen}
+        setSortMenuOpen={setSortMenuOpen}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        WB={WB}
+      />
 
       {/* RWD：mid 折成 2 欄、行動端 1 欄並隱藏 detail panel */}
       <style>{`
