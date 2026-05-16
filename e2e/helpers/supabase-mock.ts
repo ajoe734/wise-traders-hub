@@ -110,20 +110,7 @@ export async function installRoutes(page: Page, handlers: RouteHandlers) {
     if (!handler) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     }
-    const result = handler({ method, url, body });
-    if (result instanceof Promise) {
-      const resolved = await result;
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(resolved ?? null),
-      });
-    }
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(result ?? null),
-    });
+    return fulfill(route, handler({ method, url, body }));
   });
 
   // Functions
@@ -134,13 +121,7 @@ export async function installRoutes(page: Page, handlers: RouteHandlers) {
     let body: any = null;
     try { body = route.request().postDataJSON(); } catch { /* ignore */ }
     const handler = handlers.functions?.[name];
-    const result = handler ? handler({ body }) : { ok: true };
-    const resolved = result instanceof Promise ? await result : result;
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(resolved ?? {}),
-    });
+    return fulfill(route, handler ? handler({ body }) : { ok: true });
   });
 
   // Auth — block any real auth calls
