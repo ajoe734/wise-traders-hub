@@ -149,7 +149,7 @@ const holdingsProps: any = {
   normalizedEvents: [], openHoldingDrawer: noop,
   handleHoldingCardOpenDrawer: noop,
   cardGridCols: 'repeat(3, minmax(0,1fr))',
-  viewMode: 'grid', setViewMode: noop,
+  // viewMode/setViewMode 已由 HoldingsTab 內化（A2-lite）— 不再從 fixture 傳入
   showAll: true, setShowAll: noop,
   setTab: noop,
 };
