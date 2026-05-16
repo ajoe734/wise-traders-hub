@@ -310,7 +310,7 @@ const Index = () => {
           </h2>
 
           {/* VS Battle Arena - Mobile: Carousel, Desktop: side by side */}
-          <MobileVsCarousel />
+          <Suspense fallback={null}><MobileVsCarousel /></Suspense>
           
           {/* Desktop Layout - side by side */}
           <div className="hidden md:flex vs-arena relative items-center justify-center gap-10">
@@ -630,7 +630,7 @@ const Index = () => {
           </div>
 
           {/* Mobile Swipeable Carousel */}
-          <MobilePreviewCarousel />
+          <Suspense fallback={null}><MobilePreviewCarousel /></Suspense>
 
           {/* Desktop Grid View */}
           <div className="hidden md:grid md:grid-cols-2 gap-lg md:gap-xl max-w-5xl mx-auto">
