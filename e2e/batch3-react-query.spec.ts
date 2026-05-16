@@ -215,6 +215,9 @@ test.describe('/company/analysts create-analyst failure', () => {
     // Dialog is restored open with prefilled fields
     const emailInput = page.locator('input[type="email"]');
     await expect(emailInput).toHaveValue('new@analyst.com');
+    // Wait for the initial experts query to settle so we have a stable baseline
+    await expect.poll(() => expertsFetches, { timeout: 5_000 }).toBeGreaterThan(0);
+    await expect(page.getByText('張三')).toBeVisible();
     const fetchesBeforeCreate = expertsFetches;
 
     await page.getByRole('button', { name: '建立帳號' }).click();
