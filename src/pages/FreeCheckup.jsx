@@ -3344,7 +3344,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               globalPriorityList={globalPriorityList}
               decisionsMap={decisionsMap}
               STOCK_META={STOCK_META}
-              setExpandedDecision={setExpandedDecision}
               filteredSortedList={filteredSortedList}
               searchQ={searchQ}
               setSearchQ={setSearchQ}
@@ -3367,9 +3366,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setSortBy={setSortBy}
               sortDir={sortDir}
               setSortDir={setSortDir}
-              sortMenuOpen={sortMenuOpen}
-              setSortMenuOpen={setSortMenuOpen}
-              expandedDecision={expandedDecision}
               displayed={displayed}
               sorted={sorted}
               orderedDisplayed={orderedDisplayed}
@@ -3383,11 +3379,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               Sparkline={Sparkline}
               normalizedEvents={normalizedEvents}
               openHoldingDrawer={openHoldingDrawer}
-              handleHoldingCardSelect={handleHoldingCardSelect}
               handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
               cardGridCols={cardGridCols}
-              viewMode={viewMode}
-              setViewMode={setViewMode}
               showAll={showAll}
               setShowAll={setShowAll}
               setTab={setTab}
