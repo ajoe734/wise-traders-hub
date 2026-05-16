@@ -243,6 +243,7 @@ function HoldingCardImpl(props) {
             )}
           </span>
         </div>
+        </>)}
       </button>
     );
   }
