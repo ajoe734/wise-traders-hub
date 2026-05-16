@@ -140,16 +140,17 @@ const holdingsProps: any = {
   toggleSetItem: () => () => {},
   clearAllFilters: noop,
   sortBy: 'decision', setSortBy: noop, sortDir: 'desc', setSortDir: noop,
-  sortMenuOpen: false, setSortMenuOpen: noop,
-  expandedDecision: null, displayed: [], sorted: [], orderedDisplayed: [],
+  // sortMenuOpen/setSortMenuOpen 已由 HoldingsTab 內化（A2-lite）
+  // expandedDecision 已由 brainStore 管理（E2）— 不再從 fixture 傳入
+  displayed: [], sorted: [], orderedDisplayed: [],
   variantsMap: new Map(), firstFeatureCode: null,
   targets: {}, avgTarget: () => null, sparklines: {}, sparklineErrors: {},
   EMPTY_SPARK: Object.freeze([]),
   Sparkline,
   normalizedEvents: [], openHoldingDrawer: noop,
-  handleHoldingCardSelect: noop, handleHoldingCardOpenDrawer: noop,
+  handleHoldingCardOpenDrawer: noop,
   cardGridCols: 'repeat(3, minmax(0,1fr))',
-  viewMode: 'grid', setViewMode: noop,
+  // viewMode/setViewMode 已由 HoldingsTab 內化（A2-lite）— 不再從 fixture 傳入
   showAll: true, setShowAll: noop,
   setTab: noop,
 };

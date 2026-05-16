@@ -1,4 +1,6 @@
 import { memo, lazy, Suspense, useState, useCallback } from "react";
+import { useBrainStore } from "@/checkup/stores/brainStore";
+import { validateProps } from "@/checkup/components/freecheckup/_validateProps.js";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
 import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
@@ -9,6 +11,57 @@ import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUplo
 import HoldingsEmptyState from "@/checkup/components/freecheckup/HoldingsEmptyState";
 import HoldingsNoMatchState from "@/checkup/components/freecheckup/HoldingsNoMatchState";
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
+import "@/checkup/styles/holdingsTab.css";
+
+// E1：HoldingsTab 完整 prop schema（dev-only，漏傳 setTab 等 callback 立即警告）
+// 為避免 "unknown prop" 噪音，所有目前父層會傳的 prop 都列出；非關鍵者標 'any' optional。
+const _opt = (type) => ({ type, optional: true });
+const HOLDINGS_TAB_PROP_SCHEMA = {
+  // 關鍵 callback / 結構（required）
+  setTab: 'function',
+  C: 'object',
+  WB: 'object',
+  alpha: 'function',
+  navigate: 'function',
+  filteredSortedList: 'array',
+  orderedDisplayed: 'array',
+  decisionsMap: 'object',
+  STOCK_META: 'object',
+  Sparkline: 'function',
+  handleHoldingCardOpenDrawer: 'function',
+  setSortBy: 'function',
+  setSortDir: 'function',
+  // 其它 prop（容許 any，避免 unknown-prop 警告噪音）
+  isDemo: _opt('any'),
+  DEMO_TAB_NOTICE_COPY: _opt('any'),
+  startLineLogin: _opt('any'),
+  wbTone: _opt('any'),
+  quota: _opt('any'), tier: _opt('any'), tierLabel: _opt('any'), formatResetCountdown: _opt('any'),
+  totalVal: _opt('any'), totalCost: _opt('any'), H: _opt('any'),
+  winners: _opt('any'), exitList: _opt('any'), reviewList: _opt('any'),
+  MAX_HOLDINGS: _opt('any'), rtConnected: _opt('any'), lastUpdate: _opt('any'),
+  uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
+  losers: _opt('any'), reversalConditions: _opt('any'),
+  reviewingEvent: _opt('any'), setReviewingEvent: _opt('any'), updateReversal: _opt('any'),
+  globalPriorityList: _opt('any'),
+  searchQ: _opt('any'), setSearchQ: _opt('any'),
+  filterDecision: _opt('any'), setFilterDecision: _opt('any'),
+  filterThesis: _opt('any'), setFilterThesis: _opt('any'),
+  filterUrgency: _opt('any'), setFilterUrgency: _opt('any'),
+  filterConflict: _opt('any'), setFilterConflict: _opt('any'),
+  filterPnl: _opt('any'), setFilterPnl: _opt('any'),
+  filterStrategy: _opt('any'), setFilterStrategy: _opt('any'),
+  strategyOptions: _opt('any'),
+  toggleSetItem: _opt('any'), clearAllFilters: _opt('any'),
+  sortBy: _opt('any'), sortDir: _opt('any'),
+  displayed: _opt('any'), sorted: _opt('any'),
+  variantsMap: _opt('any'), firstFeatureCode: _opt('any'),
+  targets: _opt('any'), avgTarget: _opt('any'),
+  sparklines: _opt('any'), sparklineErrors: _opt('any'), EMPTY_SPARK: _opt('any'),
+  normalizedEvents: _opt('any'), openHoldingDrawer: _opt('any'),
+  cardGridCols: _opt('any'),
+  showAll: _opt('any'), setShowAll: _opt('any'),
+};
 
 const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
 
@@ -22,6 +75,8 @@ const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/
  *      開選單/切視圖/選卡片不再污染 3300+ 行的 FreeCheckup parent
  */
 function HoldingsTab(props) {
+  // E1: dev-only schema check（漏傳 setTab 等核心 callback 立即在 console 警告）
+  validateProps('HoldingsTab', props, HOLDINGS_TAB_PROP_SCHEMA);
   const {
     // demo / auth
     isDemo,
@@ -65,15 +120,19 @@ function HoldingsTab(props) {
     setTab,
   } = props;
 
-  // A2-lite: local-only UI state — 不再透過 FreeCheckup 傳遞，避免 parent re-render
+  // A2-lite: 純子元件 local UI state（避免污染 FreeCheckup parent）
   const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [expandedDecision, setExpandedDecision] = useState(null);
 
-  // 卡片點選 toggle — 由 HoldingsTab 自己管理，不再下放到 FreeCheckup
+  // E2: expandedDecision 改由 brainStore 管理（與 expandedStock 同步治理）
+  const expandedDecision = useBrainStore((s) => s.expandedDecision);
+  const setExpandedDecision = useBrainStore((s) => s.setExpandedDecision);
+  const toggleExpandedDecision = useBrainStore((s) => s.toggleExpandedDecision);
+
+  // 卡片點選 toggle — 透過 store action，handler reference 永遠穩定
   const handleHoldingCardSelect = useCallback((code) => {
-    setExpandedDecision((prev) => (prev === code ? null : code));
-  }, []);
+    toggleExpandedDecision(code);
+  }, [toggleExpandedDecision]);
 
   return (
     <>
@@ -168,24 +227,32 @@ function HoldingsTab(props) {
         alpha={alpha}
       />
 
-      {/* 排序 */}
-      <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
+      {/* 排序（D2：role="group" + aria-pressed 提供鍵盤/螢幕閱讀器導覽） */}
+      <div role="group" aria-label="排序方式" style={{display:"flex",gap:4,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
         <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>排序</span>
         {[["value","市值"],["pnl","損益"],["pct","報酬%"],["urgency","緊急"],["confidence","信心"],["updated","更新"],["decision","決策"]].map(([k,l])=>{
           const active = sortBy === k;
+          const dirLabel = active ? (sortDir === "desc" ? "由大到小" : "由小到大") : "未啟用";
           return (
-            <button key={k} onClick={()=>{
-              if (active) setSortDir(d => d === "desc" ? "asc" : "desc");
-              else { setSortBy(k); setSortDir("desc"); }
-            }} style={{
-              background:"transparent",
-              color: active ? C.textSec : C.textMute,
-              border:"none",
-              borderBottom: active ? `1px solid ${C.textMute}` : "1px solid transparent",
-              borderRadius:0, padding:"3px 8px", fontSize:11, fontWeight:400, cursor:"pointer",
-              transition:"all 0.15s",
-              display:"inline-flex", alignItems:"center", gap:2,
-            }}>
+            <button
+              key={k}
+              type="button"
+              aria-pressed={active}
+              aria-label={`依${l}排序，目前${dirLabel}`}
+              onClick={()=>{
+                if (active) setSortDir(d => d === "desc" ? "asc" : "desc");
+                else { setSortBy(k); setSortDir("desc"); }
+              }}
+              style={{
+                background:"transparent",
+                color: active ? C.textSec : C.textMute,
+                border:"none",
+                borderBottom: active ? `1px solid ${C.textMute}` : "1px solid transparent",
+                borderRadius:0, padding:"3px 8px", fontSize:11, fontWeight:400, cursor:"pointer",
+                transition:"all 0.15s",
+                display:"inline-flex", alignItems:"center", gap:2,
+              }}
+            >
               {l}
               {active && <span style={{fontSize:9,opacity:0.7}}>{sortDir === "desc" ? "↓" : "↑"}</span>}
             </button>
@@ -352,112 +419,8 @@ function HoldingsTab(props) {
         WB={WB}
       />
 
-      {/* RWD：mid 折成 2 欄、行動端 1 欄並隱藏 detail panel */}
-      <style>{`
-        /* Desktop 預設：3 欄。改用 class 而非 inline style，讓下方 media query 能在行動端生效 */
-        .holdings-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        /* 清單檢視：強制單欄並讓 feature 卡片佔滿一列 */
-        .holdings-card-grid--list { grid-template-columns: 1fr !important; }
-        .holdings-card-grid--list .wb-span-feature,
-        .holdings-card-grid--list .wb-card-feature { grid-column: 1 / -1 !important; }
-        .holdings-card-grid--list .wb-card { min-height: 0 !important; }
-        /* 卡片 span 工具類：以 CSS 控制，避免 inline style 在 RWD 切換時 race */
-        .wb-span-1 { grid-column: span 1; }
-        .wb-span-feature { grid-column: span 2; }
-        .wb-span-full { grid-column: 1 / -1; }
-        @media (max-width: 1279px) {
-          .holdings-workbench { grid-template-columns: minmax(0, 1fr) minmax(0, 320px) !important; }
-          .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-        }
-        @media (max-width: 1023px) {
-          .holdings-workbench { grid-template-columns: 1fr !important; }
-          .holdings-detail-panel { display: none !important; }
-          .holdings-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-        }
-        /* 卡片內元素 baseline 對齊強化（所有尺寸通用） */
-        .wb-card .wb-roi {
-          font-feature-settings: "tnum" 1;
-          vertical-align: baseline;
-          white-space: nowrap;
-          max-width: 100%;
-          overflow: hidden;
-          text-overflow: clip;
-        }
-        .wb-card .wb-roi > * { white-space: nowrap; }
-        .wb-card .wb-bottom { align-items: baseline !important; min-width: 0; }
-        .wb-card .wb-bottom > span { min-width: 0; overflow: hidden; }
-        .wb-card .wb-bottom-val {
-          display: inline-block;
-          vertical-align: baseline;
-          white-space: nowrap;
-          max-width: 100%;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        @media (max-width: 768px) {
-          .wb-card-feature { padding: 20px 18px 16px !important; }
-          .wb-card { padding: 18px 16px 14px !important; }
-          .wb-card .wb-bottom { gap: 10px !important; }
-          .wb-card .wb-tags { row-gap: 6px !important; }
-        }
-        @media (max-width: 640px) {
-          .holdings-card-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
-          .wb-card-feature, .wb-span-feature { grid-column: span 1 !important; }
-          .wb-card { min-height: 0 !important; }
-          .wb-card .wb-spark { width: 52px !important; }
-          .wb-card .wb-bottom { gap: 8px !important; }
-          .wb-card .wb-bottom-val { font-size: clamp(10px, 2.6vw, 12px) !important; }
-        }
-        /* 持倉空狀態引導 — 手機優化 */
-        @media (max-width: 560px) {
-          .holdings-empty-guide { padding: 32px 16px !important; gap: 20px !important; }
-          .holdings-empty-steps { grid-template-columns: 1fr !important; }
-        }
-        @media (max-width: 380px) {
-          .holdings-empty-guide { padding: 24px 12px !important; }
-        }
-        @media (max-width: 380px) {
-          .wb-card .wb-spark { display: none !important; }
-          .wb-card .wb-bottom .wb-bottom-val { letter-spacing: 0 !important; }
-          .wb-card .wb-bottom-val { font-size: clamp(9.5px, 2.4vw, 11px) !important; }
-        }
-        /* 極窄寬度安全溢出策略：縮放 ROI 數字避免擠壓換行 */
-        @media (max-width: 340px) {
-          .wb-card .wb-roi { font-size: clamp(28px, 11vw, 36px) !important; }
-          .wb-card-feature .wb-roi { font-size: clamp(32px, 13vw, 44px) !important; }
-          /* TODAY/VALUE 雙區塊在極窄螢幕的安全溢出策略 */
-          .wb-card .wb-bottom {
-            grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr) !important;
-            column-gap: 6px !important;
-            row-gap: 1px !important;
-            max-width: 100% !important;
-            overflow: hidden !important;
-          }
-          .wb-card .wb-bottom > span {
-            min-width: 0 !important;
-            max-width: 100% !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            white-space: nowrap !important;
-          }
-          .wb-card .wb-bottom-lbl,
-          .wb-card .wb-bottom > span:not(.wb-bottom-val) {
-            font-size: clamp(8.5px, 2.6vw, 10px) !important;
-            letter-spacing: 0 !important;
-          }
-          .wb-card .wb-bottom-val {
-            font-size: clamp(9px, 3vw, 11px) !important;
-            letter-spacing: -0.2px !important;
-            font-variant-numeric: tabular-nums !important;
-          }
-        }
-        /* 超極窄保險（≤320px iPhone SE 1st） */
-        @media (max-width: 320px) {
-          .wb-card .wb-bottom { column-gap: 4px !important; }
-          .wb-card .wb-bottom-val { font-size: clamp(8.5px, 2.8vw, 10.5px) !important; }
-        }
-      `}</style>
+      {/* D1：RWD 樣式已搬至 src/checkup/styles/holdingsTab.css，
+          由 PostCSS 壓縮、且不再每次 render 產生新的 string text node。 */}
     </>
   );
 }

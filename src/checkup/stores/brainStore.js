@@ -26,6 +26,7 @@ const createInitialState = () => ({
     invalidatedRules: [],
   },
   expandedStock: null,
+  expandedDecision: null, // HoldingsTab：目前展開的持倉決策卡片（持倉牆 → DetailPanel）
   relayPlanExpanded: false,
 });
 
@@ -61,6 +62,14 @@ export const useBrainStore = create((set, get) => ({
 
   // Actions - UI State
   setExpandedStock: (expandedStock) => set({ expandedStock }),
+  setExpandedDecision: (expandedDecision) =>
+    set((state) =>
+      typeof expandedDecision === 'function'
+        ? { expandedDecision: expandedDecision(state.expandedDecision) }
+        : { expandedDecision }
+    ),
+  toggleExpandedDecision: (code) =>
+    set((state) => ({ expandedDecision: state.expandedDecision === code ? null : code })),
   setRelayPlanExpanded: (relayPlanExpanded) => set({ relayPlanExpanded }),
 
   // Selectors
