@@ -528,8 +528,7 @@ export default function App() {
 
   // dashboard UI
   const [sortBy,      setSortBy]      = useState("decision");
-  const [viewMode,    setViewMode]    = useState("grid"); // 'grid' | 'list'
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  // A2-lite: viewMode / sortMenuOpen 已內化為 HoldingsTab local state（純子元件 UI，不影響 parent memo）
   const [filterType,  setFilterType]  = useState("全部");
   const [showAll,     setShowAll]     = useState(false);
   // Viewport-aware grid columns（繞過 CSS cascade 在某些 Chromium dev/preview 環境
