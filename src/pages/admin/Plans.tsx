@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,15 +60,40 @@ const MENTOR_PLAN_TYPES: PlanType[] = ['mentor_weekly_journal'];
 const AdminPlans = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const { user, hasRole } = useAuth();
+  const qc = useQueryClient();
   const isCompanyAdmin = hasRole('company_admin');
   const isOwner = !!user?.expertSlug && user.expertSlug === expertSlug;
-  // company_admin 擁有最高權限，可完整操作任一分析師後台；其他角色僅自己的後台可寫入
   const isReadOnly = !isCompanyAdmin && !isOwner;
 
-  const [expert, setExpert] = useState<{ id: string; role: 'advisor' | 'mentor' } | null>(null);
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
+  const plansKey = ['admin', 'plans', expertSlug ?? null] as const;
+  const { data, isLoading: loading } = useQuery({
+    queryKey: plansKey,
+    enabled: !!expertSlug,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data: e } = await supabase.from('experts').select('id, role').eq('slug', expertSlug!).single();
+      if (!e) return { expert: null, plans: [] as Plan[], counts: {} as Record<string, number> };
+      const expert = { id: e.id, role: e.role as 'advisor' | 'mentor' };
+      const { data: ps } = await supabase.from('expert_plans').select('*').eq('expert_id', e.id).order('price_monthly');
+      const list = (ps || []) as Plan[];
+      let counts: Record<string, number> = {};
+      if (list.length > 0) {
+        const ids = list.map(p => p.id);
+        const { data: subs } = await supabase.from('member_subscriptions').select('plan_id').in('plan_id', ids).eq('status', 'active');
+        ids.forEach(id => (counts[id] = 0));
+        (subs || []).forEach(s => { counts[s.plan_id] = (counts[s.plan_id] || 0) + 1; });
+      }
+      return { expert, plans: list, counts };
+    },
+  });
+
+  const expert = data?.expert ?? null;
+  const plans = data?.plans ?? [];
+  const counts = data?.counts ?? {};
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: plansKey });
+    qc.invalidateQueries({ queryKey: ['expert', 'plans', expertSlug] });
+  };
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -84,47 +110,6 @@ const AdminPlans = () => {
   const [saving, setSaving] = useState(false);
 
   const allowedTypes = expert?.role === 'mentor' ? MENTOR_PLAN_TYPES : ADVISOR_PLAN_TYPES;
-
-  useEffect(() => {
-    fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expertSlug]);
-
-  const fetchAll = async () => {
-    if (!expertSlug) return;
-    setLoading(true);
-    const { data: e } = await supabase
-      .from('experts')
-      .select('id, role')
-      .eq('slug', expertSlug)
-      .single();
-    if (!e) { setLoading(false); return; }
-    setExpert({ id: e.id, role: e.role as 'advisor' | 'mentor' });
-
-    const { data: ps } = await supabase
-      .from('expert_plans')
-      .select('*')
-      .eq('expert_id', e.id)
-      .order('price_monthly');
-    const list = (ps || []) as Plan[];
-    setPlans(list);
-
-    if (list.length > 0) {
-      const ids = list.map(p => p.id);
-      const { data: subs } = await supabase
-        .from('member_subscriptions')
-        .select('plan_id')
-        .in('plan_id', ids)
-        .eq('status', 'active');
-      const c: Record<string, number> = {};
-      ids.forEach(id => (c[id] = 0));
-      (subs || []).forEach(s => { c[s.plan_id] = (c[s.plan_id] || 0) + 1; });
-      setCounts(c);
-    } else {
-      setCounts({});
-    }
-    setLoading(false);
-  };
 
   const openCreate = () => {
     setEditingPlan(null);
