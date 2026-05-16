@@ -110,6 +110,127 @@ test.describe('/account/remittance', () => {
     expect(submitCalled).toBe(true);
     expect(remittanceFetches).toBeGreaterThan(initialFetches);
   });
+
+  test('submit failure: shows toast, keeps form values, does NOT refetch', async ({ page }) => {
+    await seedSession(page, { id: 'user-1', email: 'u1@test.com' });
+
+    let remittanceFetches = 0;
+    let submitCalls = 0;
+
+    await installRoutes(page, {
+      rest: {
+        profiles: () => ({ display_name: 'Tester', expert_slug: null, avatar_url: null, line_user_id: null, is_tester: false }),
+        user_roles: () => [],
+        remittance_orders: () => {
+          remittanceFetches += 1;
+          return [{
+            id: 'order-a',
+            product_kind: 'checkup_plan',
+            billing_cycle: 'monthly',
+            amount: 199,
+            status: 'awaiting_info',
+            last5: null,
+            payer_name: null,
+            created_at: new Date().toISOString(),
+            reject_reason: null,
+          }];
+        },
+      },
+      functions: {
+        'submit-remittance-info': () => {
+          submitCalls += 1;
+          return { __status: 500, body: { error: '伺服器忙線中' } };
+        },
+      },
+    });
+
+    await page.goto('/account/remittance');
+    await expect(page.getByLabel('匯款人姓名')).toBeVisible();
+    const fetchesBeforeSubmit = remittanceFetches;
+
+    await page.getByLabel('匯款人姓名').fill('張三');
+    await page.getByLabel('轉出帳號末五碼').fill('12345');
+    const submitBtn = page.getByRole('button', { name: '送出對帳資料' });
+    await submitBtn.click();
+
+    // Error toast surfaces
+    await expect(page.getByText('送出失敗')).toBeVisible();
+
+    // Form fields are preserved so user can retry without re-typing
+    await expect(page.getByLabel('匯款人姓名')).toHaveValue('張三');
+    await expect(page.getByLabel('轉出帳號末五碼')).toHaveValue('12345');
+
+    // Submit button no longer in loading state (submitting flag reset)
+    await expect(submitBtn).toBeEnabled();
+
+    // No refetch happened — status still 待補匯款資料
+    await expect(page.getByText('待補匯款資料')).toBeVisible();
+    expect(submitCalls).toBe(1);
+    expect(remittanceFetches).toBe(fetchesBeforeSubmit);
+  });
+});
+
+test.describe('/company/analysts create-analyst failure', () => {
+  const profile = { display_name: 'Admin', expert_slug: null, avatar_url: null, line_user_id: null, is_tester: false };
+  const adminRoles = [{ role: 'company_admin' }];
+
+  test('create failure: toast, keeps form values, dialog open, no experts refetch', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+
+    // Pre-seed dialog state + form via sessionStorage so we don't need to interact
+    // with the Radix Select (which is flaky under headless test).
+    await page.addInitScript(() => {
+      sessionStorage.setItem('company_analyst_create_open', 'true');
+      sessionStorage.setItem('ca_email', 'new@analyst.com');
+      sessionStorage.setItem('ca_password', 'P@ssw0rd!');
+      sessionStorage.setItem('ca_name', '王五');
+      sessionStorage.setItem('ca_slug', 'wang-wu');
+      sessionStorage.setItem('ca_role', 'advisor');
+    });
+
+    let expertsFetches = 0;
+    let createCalls = 0;
+
+    await installRoutes(page, {
+      rest: {
+        profiles: () => profile,
+        user_roles: () => adminRoles,
+        experts: () => {
+          expertsFetches += 1;
+          return [
+            { id: 'e1', name: '張三', slug: 'zhang', role: 'advisor', status: 'active', avatar_url: '', created_by: 'admin', user_id: 'u1' },
+          ];
+        },
+      },
+      functions: {
+        'create-analyst': ({ body }) => {
+          createCalls += 1;
+          expect(body).toMatchObject({ email: 'new@analyst.com', name: '王五', slug: 'wang-wu', role: 'advisor' });
+          return { __status: 400, body: { error: 'slug 已存在' } };
+        },
+      },
+    });
+
+    await page.goto('/company/analysts');
+    // Dialog is restored open with prefilled fields
+    const emailInput = page.locator('input[type="email"]');
+    await expect(emailInput).toHaveValue('new@analyst.com');
+    const fetchesBeforeCreate = expertsFetches;
+
+    await page.getByRole('button', { name: '建立帳號' }).click();
+
+    // Error toast (sonner) — function returned data.error
+    await expect(page.getByText('slug 已存在')).toBeVisible();
+
+    // Dialog stays open, form values preserved for retry
+    await expect(emailInput).toHaveValue('new@analyst.com');
+    await expect(page.locator('input[type="password"]')).toHaveValue('P@ssw0rd!');
+    await expect(page.getByRole('button', { name: '建立帳號' })).toBeEnabled();
+
+    // No experts cache invalidation on failure
+    expect(createCalls).toBe(1);
+    expect(expertsFetches).toBe(fetchesBeforeCreate);
+  });
 });
 
 test.describe('/company/analysts', () => {
