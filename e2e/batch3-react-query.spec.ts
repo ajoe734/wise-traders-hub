@@ -153,8 +153,8 @@ test.describe('/account/remittance', () => {
     const submitBtn = page.getByRole('button', { name: '送出對帳資料' });
     await submitBtn.click();
 
-    // Error toast surfaces
-    await expect(page.getByText('送出失敗')).toBeVisible();
+    // Error toast surfaces (matches both the visible toast and the aria-live announcement)
+    await expect(page.getByText('送出失敗').first()).toBeVisible();
 
     // Form fields are preserved so user can retry without re-typing
     await expect(page.getByLabel('匯款人姓名')).toHaveValue('張三');
