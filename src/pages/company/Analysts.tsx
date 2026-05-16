@@ -100,14 +100,7 @@ const CompanyAnalysts = () => {
     }
   }, [lineExpertId, experts]);
 
-  useEffect(() => { fetchExperts(); }, []);
-
-  const fetchExperts = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('experts').select('*').order('created_at', { ascending: false });
-    setExperts(data || []);
-    setLoading(false);
-  };
+  const fetchExperts = () => refetchExperts();
 
   const handleCreate = async () => {
     if (!email || !password || !name || !slug || !role) {
