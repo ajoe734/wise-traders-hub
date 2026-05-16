@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Check, Shield, Lock, CheckCircle2, XCircle, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePlan } from "@/hooks/useExpertPlans";
 import { Loader2 } from "lucide-react";
 import {
@@ -26,6 +27,9 @@ const AppCheckout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  // Single auth source — replaces 7 separate `supabase.auth.getUser()` round-trips
+  // that previously fired in every effect/handler.
+  const { user } = useAuth();
   
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
     (searchParams.get("billingCycle") as "monthly" | "yearly") || "monthly"
@@ -57,7 +61,6 @@ const AppCheckout = () => {
   // ISSUE-006: Check for existing active subscription
   useEffect(() => {
     const checkExisting = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user || !planId) return;
       const { data } = await supabase
         .from('member_subscriptions')
@@ -69,7 +72,7 @@ const AppCheckout = () => {
       setExistingSubscription(!!data);
     };
     checkExisting();
-  }, [planId]);
+  }, [planId, user]);
 
   // Load ACpay JS SDK when acpay is selected
   useEffect(() => {
@@ -141,7 +144,6 @@ const AppCheckout = () => {
     try {
       const returnedBillingCycle = searchParams.get("billingCycle") || billingCycle;
       const currentPrice = returnedBillingCycle === "yearly" ? (planData?.price_yearly ?? 0) : (planData?.price_monthly ?? 0);
-      const { data: { user } } = await supabase.auth.getUser();
       const isSimulate = searchParams.get("simulate") === "true";
       const { data, error } = await supabase.functions.invoke("confirm-linepay", {
         body: { transactionId, orderId, amount: currentPrice, planId, billingCycle: returnedBillingCycle, userId: user?.id || null, simulate: isSimulate },
@@ -153,7 +155,6 @@ const AppCheckout = () => {
   const handleEcpayReturn = async () => {
     setIsConfirming(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       const { data: existing } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
       if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); setIsConfirming(false); return; }
@@ -221,7 +222,6 @@ const AppCheckout = () => {
   const handleAcpayReturn = async () => {
     setIsConfirming(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       const { data: existing } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
       if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); setIsConfirming(false); return; }
@@ -277,7 +277,6 @@ const AppCheckout = () => {
   };
 
   const handleLinePayCheckout = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.functions.invoke("create-linepay-order", {
       body: { planId, billingCycle, slug, amount: currentPrice, planName: planData.name, expertName: expert.name, origin: window.location.origin, userId: user?.id || null },
     });
@@ -286,7 +285,6 @@ const AppCheckout = () => {
   };
 
   const handleEcpayCheckout = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.functions.invoke("create-ecpay-order", {
       body: { planId, billingCycle, slug, amount: currentPrice, planName: planData.name, expertName: expert.name, origin: window.location.origin, userId: user?.id || null },
     });
@@ -300,8 +298,6 @@ const AppCheckout = () => {
   };
 
   const handleAcpayCheckout = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-
     // Validate cardholder fields
     const cErrors: { name?: string; email?: string; phone?: string } = {};
     if (!cardHolderName.trim()) cErrors.name = "請輸入英文姓名";
