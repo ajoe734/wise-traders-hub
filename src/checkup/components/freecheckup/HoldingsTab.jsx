@@ -246,172 +246,25 @@ function HoldingsTab(props) {
               {orderedDisplayed.map((h, idx) => renderCard(h, idx))}
               {/* 持倉為 0 時顯示強化空狀態（橫跨整列）；有持倉時顯示「+ 上傳成交」虛線卡 */}
               {orderedDisplayed.length === 0 && H.length === 0 ? (
-                <div
-                  className="wb-span-full holdings-empty-guide"
-                  style={{
-                    background:'transparent',
-                    border:`1px dashed ${WB.hairStrong}`,
-                    borderRadius:4,
-                    color:WB.ink,
-                    fontFamily:'inherit',
-                    display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                    gap:24,
-                    padding:'48px 24px',
-                  }}
-                >
-                  {/* 標題區 */}
-                  <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
-                    <span style={{fontSize:18,fontWeight:500,letterSpacing:'0.08em',color:WB.ink}}>還沒有持倉資料</span>
-                    <span style={{fontSize:13,fontWeight:400,lineHeight:1.7,color:WB.inkMute,textAlign:'center',maxWidth:420}}>
-                      上傳一張下單 App 的持倉截圖，系統會自動辨識成交資料，您只需逐條確認即可。
-                    </span>
-                  </div>
-
-                  {/* 3 步教學（含小圖示） */}
-                  <div className="holdings-empty-steps" style={{
-                    display:'grid',
-                    gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
-                    gap:16,
-                    width:'100%',
-                    maxWidth:560,
-                  }}>
-                    {[
-                      {
-                        n:'1',
-                        title:'上傳截圖',
-                        desc:'從券商 App 截下持倉畫面',
-                        icon:(
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <rect x="3" y="5" width="18" height="14" rx="1.5"/>
-                            <circle cx="12" cy="12" r="3.2"/>
-                            <path d="M8 5l1.5-2h5L16 5"/>
-                          </svg>
-                        ),
-                      },
-                      {
-                        n:'2',
-                        title:'AI 辨識',
-                        desc:'自動讀取股號與股數',
-                        icon:(
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M4 7h16M4 12h10M4 17h16"/>
-                            <circle cx="19" cy="12" r="2"/>
-                          </svg>
-                        ),
-                      },
-                      {
-                        n:'3',
-                        title:'確認上傳',
-                        desc:'逐條檢視後一鍵建立',
-                        icon:(
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M5 12.5l4 4 10-10"/>
-                          </svg>
-                        ),
-                      },
-                    ].map((s) => (
-                      <div key={s.n} style={{
-                        display:'flex',flexDirection:'column',alignItems:'center',gap:8,
-                        padding:'16px 8px',
-                        border:`1px solid ${WB.hair}`,
-                        borderRadius:4,
-                        background:'transparent',
-                      }}>
-                        <div style={{
-                          display:'flex',alignItems:'center',justifyContent:'center',
-                          width:36,height:36,borderRadius:'50%',
-                          border:`1px solid ${WB.hairStrong}`,
-                          color:WB.ink,
-                        }}>
-                          {s.icon}
-                        </div>
-                        <span style={{fontSize:11,fontWeight:500,letterSpacing:'0.18em',color:WB.inkMute}}>
-                          {/* i18n-allow:visual-decoration 步驟編號裝飾 */}
-                          STEP {s.n}
-                        </span>
-                        <span style={{fontSize:13,fontWeight:500,color:WB.ink,letterSpacing:'0.04em'}}>{s.title}</span>
-                        <span style={{fontSize:11,fontWeight:400,color:WB.inkMute,textAlign:'center',lineHeight:1.6}}>{s.desc}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* 主 CTA */}
-                  <button
-                    onClick={() => setTab && setTab('trade')}
-                    style={{
-                      marginTop:4,
-                      background:WB.ink,
-                      color:'#fff',
-                      border:'none',
-                      borderRadius:2,
-                      padding:'14px 28px',
-                      fontFamily:'inherit',
-                      fontSize:13,
-                      fontWeight:500,
-                      letterSpacing:'0.18em',
-                      cursor:'pointer',
-                      transition:'opacity 160ms ease',
-                    }}
-                    onMouseEnter={(e)=>{e.currentTarget.style.opacity='0.85';}}
-                    onMouseLeave={(e)=>{e.currentTarget.style.opacity='1';}}
-                  >
-                    現在上傳成交
-                  </button>
-
-                  {/* 副提示 */}
-                  <span style={{fontSize:11,fontWeight:400,letterSpacing:'0.12em',color:WB.inkMute}}>
-                    支援 JPG / PNG 截圖，無需手動輸入
-                  </span>
-                </div>
+                <HoldingsEmptyState
+                  WB={WB}
+                  onUpload={() => setTab && setTab('trade')}
+                />
               ) : orderedDisplayed.length === 0 ? (
                 /* P9: 有持倉但被篩選/搜尋過濾掉 — 「沒有符合條件的持倉」+ 清除全部篩選 CTA */
-                <div
-                  className="wb-span-full"
-                  style={{
-                    background:'transparent',
-                    border:`1px dashed ${WB.hair}`,
-                    borderRadius:4,
-                    color:WB.ink,
-                    fontFamily:'inherit',
-                    display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                    gap:14,
-                    padding:'48px 24px',
-                    minHeight:200,
+                <HoldingsNoMatchState
+                  totalCount={H.length}
+                  WB={WB}
+                  onClearAll={() => {
+                    setSearchQ('');
+                    setFilterDecision(new Set());
+                    setFilterThesis(new Set());
+                    setFilterUrgency(new Set());
+                    setFilterConflict(new Set());
+                    setFilterPnl(new Set());
+                    setFilterStrategy(new Set());
                   }}
-                >
-                  <span style={{fontSize:14,fontWeight:500,letterSpacing:'0.06em',color:WB.ink}}>沒有符合條件的持倉</span>
-                  <span style={{fontSize:12,fontWeight:400,lineHeight:1.7,color:WB.inkMute,textAlign:'center',maxWidth:360}}>
-                    目前 {H.length} 檔持倉中沒有符合搜尋與篩選條件的標的，試著放寬條件。
-                  </span>
-                  <button
-                    onClick={() => {
-                      setSearchQ('');
-                      setFilterDecision(new Set());
-                      setFilterThesis(new Set());
-                      setFilterUrgency(new Set());
-                      setFilterConflict(new Set());
-                      setFilterPnl(new Set());
-                      setFilterStrategy(new Set());
-                    }}
-                    style={{
-                      background:'transparent',
-                      color:WB.ink,
-                      border:`1px solid ${WB.hairStrong}`,
-                      borderRadius:2,
-                      padding:'10px 22px',
-                      fontFamily:'inherit',
-                      fontSize:12,
-                      fontWeight:500,
-                      letterSpacing:'0.16em',
-                      cursor:'pointer',
-                      transition:'background 160ms ease, color 160ms ease',
-                    }}
-                    onMouseEnter={(e)=>{e.currentTarget.style.background=WB.ink;e.currentTarget.style.color='#fff';}}
-                    onMouseLeave={(e)=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color=WB.ink;}}
-                  >
-                    清除所有篩選
-                  </button>
-                </div>
+                />
               ) : (
                 <button
                   onClick={() => setTab && setTab('trade')}
