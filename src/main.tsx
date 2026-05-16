@@ -2,15 +2,18 @@ import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import App from "./App.tsx";
 import "./index.css";
-import { installEdgeFetchInterceptor } from "./checkup/lib/edgeFetchInterceptor.js";
 import { DedupSettingsButton } from "./checkup/components/DedupSettingsButton";
-import { installVersionCheck } from "./lib/versionCheck";
+import { runWhenIdle } from "./lib/idleSchedule";
 
-// 啟用持倉看板 Edge Function 前端輸入驗證攔截器（缺欄位/格式錯誤時 toast + console.error）
-installEdgeFetchInterceptor();
-
-// 偵測前端 chunk 版本與最新已部署版本不一致時，自動清快取並重新載入
-installVersionCheck();
+// Render first — these two installers are non-critical for first paint
+// (validation toasts + stale-bundle detection). Defer to idle so they
+// don't compete with React mount on slow devices.
+runWhenIdle(() => {
+  void import("./checkup/lib/edgeFetchInterceptor.js").then((m) =>
+    m.installEdgeFetchInterceptor()
+  );
+  void import("./lib/versionCheck").then((m) => m.installVersionCheck());
+}, 3000);
 
 createRoot(document.getElementById("root")!).render(
   <HelmetProvider>
@@ -18,3 +21,4 @@ createRoot(document.getElementById("root")!).render(
     <DedupSettingsButton />
   </HelmetProvider>
 );
+
