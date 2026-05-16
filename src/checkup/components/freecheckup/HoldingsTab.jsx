@@ -192,24 +192,32 @@ function HoldingsTab(props) {
         alpha={alpha}
       />
 
-      {/* 排序 */}
-      <div style={{display:"flex",gap:4,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
+      {/* 排序（D2：role="group" + aria-pressed 提供鍵盤/螢幕閱讀器導覽） */}
+      <div role="group" aria-label="排序方式" style={{display:"flex",gap:4,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
         <span style={{fontSize:10,color:C.textMute,letterSpacing:"0.08em",fontWeight:400}}>排序</span>
         {[["value","市值"],["pnl","損益"],["pct","報酬%"],["urgency","緊急"],["confidence","信心"],["updated","更新"],["decision","決策"]].map(([k,l])=>{
           const active = sortBy === k;
+          const dirLabel = active ? (sortDir === "desc" ? "由大到小" : "由小到大") : "未啟用";
           return (
-            <button key={k} onClick={()=>{
-              if (active) setSortDir(d => d === "desc" ? "asc" : "desc");
-              else { setSortBy(k); setSortDir("desc"); }
-            }} style={{
-              background:"transparent",
-              color: active ? C.textSec : C.textMute,
-              border:"none",
-              borderBottom: active ? `1px solid ${C.textMute}` : "1px solid transparent",
-              borderRadius:0, padding:"3px 8px", fontSize:11, fontWeight:400, cursor:"pointer",
-              transition:"all 0.15s",
-              display:"inline-flex", alignItems:"center", gap:2,
-            }}>
+            <button
+              key={k}
+              type="button"
+              aria-pressed={active}
+              aria-label={`依${l}排序，目前${dirLabel}`}
+              onClick={()=>{
+                if (active) setSortDir(d => d === "desc" ? "asc" : "desc");
+                else { setSortBy(k); setSortDir("desc"); }
+              }}
+              style={{
+                background:"transparent",
+                color: active ? C.textSec : C.textMute,
+                border:"none",
+                borderBottom: active ? `1px solid ${C.textMute}` : "1px solid transparent",
+                borderRadius:0, padding:"3px 8px", fontSize:11, fontWeight:400, cursor:"pointer",
+                transition:"all 0.15s",
+                display:"inline-flex", alignItems:"center", gap:2,
+              }}
+            >
               {l}
               {active && <span style={{fontSize:9,opacity:0.7}}>{sortDir === "desc" ? "↓" : "↑"}</span>}
             </button>
