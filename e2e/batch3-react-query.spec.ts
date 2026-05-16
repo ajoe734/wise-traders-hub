@@ -219,10 +219,13 @@ test.describe('/company/analysts create-analyst failure', () => {
 
     await page.getByRole('button', { name: '建立帳號' }).click();
 
-    // Error toast (sonner) — function returned data.error
-    await expect(page.getByText('slug 已存在')).toBeVisible();
+    // Dialog stays open after failure (clearForm + setIsCreateOpen(false) NOT called)
+    await expect(page.getByText('新增分析師帳號')).toBeVisible();
 
-    // Dialog stays open, form values preserved for retry
+    // Wait briefly for setCreating(false) to flush
+    await page.waitForTimeout(200);
+
+    // Form values preserved for retry
     await expect(emailInput).toHaveValue('new@analyst.com');
     await expect(page.locator('input[type="password"]')).toHaveValue('P@ssw0rd!');
     await expect(page.getByRole('button', { name: '建立帳號' })).toBeEnabled();
