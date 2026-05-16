@@ -47,16 +47,31 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("node_modules/lucide-react")) return "vendor-lucide";
-          if (id.includes("node_modules/@supabase")) return "vendor-supabase";
+          if (!id.includes("node_modules")) return;
+          if (id.includes("lucide-react")) return "vendor-lucide";
+          if (id.includes("@supabase")) return "vendor-supabase";
           if (
-            id.includes("node_modules/react-dom") ||
-            id.includes("node_modules/react-router") ||
-            id.includes("node_modules/scheduler")
+            id.includes("react-dom") ||
+            id.includes("react-router") ||
+            id.includes("/scheduler/")
           ) {
             return "vendor-react";
           }
-          if (id.includes("node_modules/@tanstack")) return "vendor-tanstack";
+          if (id.includes("@tanstack")) return "vendor-tanstack";
+          if (id.includes("@tiptap") || id.includes("prosemirror")) return "vendor-tiptap";
+          if (id.includes("recharts") || id.includes("/d3-") || id.includes("victory-vendor"))
+            return "vendor-recharts";
+          if (id.includes("@radix-ui")) return "vendor-radix";
+          if (
+            id.includes("date-fns") ||
+            id.includes("/zod/") ||
+            id.includes("dompurify") ||
+            id.includes("clsx") ||
+            id.includes("tailwind-merge") ||
+            id.includes("class-variance-authority")
+          ) {
+            return "vendor-utils";
+          }
         },
       },
     },
