@@ -150,37 +150,25 @@ describe('CompanyAnalysts', () => {
     expertsSelectMock.mockResolvedValue({ data: expertsData, error: null });
     invokeMock.mockResolvedValue({ data: { expert_id: 'e3' }, error: null });
 
+    // Pre-seed the dialog open + all form values (including role, which uses Radix Select)
+    sessionStorage.setItem('company_analyst_create_open', 'true');
+    sessionStorage.setItem('ca_email', 'x@y.com');
+    sessionStorage.setItem('ca_password', 'pass1234');
+    sessionStorage.setItem('ca_name', 'New');
+    sessionStorage.setItem('ca_slug', 'new');
+    sessionStorage.setItem('ca_role', 'advisor');
+
     renderPage();
     await waitFor(() => expect(screen.getByText('張三')).toBeInTheDocument());
     const initialCalls = expertsSelectMock.mock.calls.length;
 
-    // Open create dialog
-    fireEvent.click(screen.getByRole('button', { name: /新增分析師/ }));
-    fireEvent.change(screen.getByPlaceholderText('analyst@example.com'), { target: { value: 'x@y.com' } });
-    fireEvent.change(screen.getByPlaceholderText('至少 6 位'), { target: { value: 'pass1234' } });
-    fireEvent.change(screen.getByPlaceholderText('趙鵬博'), { target: { value: 'New' } });
-    fireEvent.change(screen.getByPlaceholderText('zhao-pengbo'), { target: { value: 'new' } });
-
-    // Trigger create — role won't be set via combobox easily, so call invoke via direct button click
-    // The role validator will block, so we set role through sessionStorage and re-render? Simpler: skip role and assert toast.
     fireEvent.click(screen.getByRole('button', { name: '建立帳號' }));
-    // role missing → invoke not called
-    await waitFor(() => expect(invokeMock).not.toHaveBeenCalled());
 
-    // Now simulate role set by writing sessionStorage and re-render
-    sessionStorage.setItem('ca_role', 'advisor');
-    // Re-open
-    renderPage();
-    await waitFor(() => expect(screen.getAllByText('張三').length).toBeGreaterThan(0));
-    fireEvent.click(screen.getAllByRole('button', { name: /新增分析師/ })[0]);
-    // Fill required fields again
-    fireEvent.change(screen.getAllByPlaceholderText('analyst@example.com')[0], { target: { value: 'x@y.com' } });
-    fireEvent.change(screen.getAllByPlaceholderText('至少 6 位')[0], { target: { value: 'pass1234' } });
-    fireEvent.change(screen.getAllByPlaceholderText('趙鵬博')[0], { target: { value: 'New' } });
-    fireEvent.change(screen.getAllByPlaceholderText('zhao-pengbo')[0], { target: { value: 'new' } });
-
-    fireEvent.click(screen.getAllByRole('button', { name: '建立帳號' })[0]);
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('create-analyst', expect.any(Object)));
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith('create-analyst', {
+        body: { email: 'x@y.com', password: 'pass1234', name: 'New', slug: 'new', role: 'advisor' },
+      });
+    });
     // After success: invalidate → refetch
     await waitFor(() => {
       expect(expertsSelectMock.mock.calls.length).toBeGreaterThan(initialCalls);
