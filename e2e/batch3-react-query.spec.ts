@@ -299,3 +299,91 @@ test.describe('/company/analysts', () => {
     resolvePatch();
   });
 });
+
+/**
+ * staleTime cache assertions
+ *
+ * Both `remittance_orders` and `experts` queries use `staleTime: 30_000`.
+ * SPA-navigating away and back should serve the cached data WITHOUT
+ * re-hitting the network within that window. We assert the network counter
+ * stays flat across the round-trip.
+ */
+test.describe('staleTime: no duplicate network calls within 30s', () => {
+  test('/account/remittance fires remittance_orders once on mount, no polling', async ({ page }) => {
+    await seedSession(page, { id: 'user-1', email: 'u1@test.com' });
+
+    let remittanceFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        profiles: () => ({ display_name: 'Tester', expert_slug: null, avatar_url: null, line_user_id: null, is_tester: false }),
+        user_roles: () => [],
+        remittance_orders: () => {
+          remittanceFetches += 1;
+          return [{
+            id: 'order-a',
+            product_kind: 'checkup_plan',
+            billing_cycle: 'monthly',
+            amount: 199,
+            status: 'awaiting_info',
+            last5: null,
+            payer_name: null,
+            created_at: new Date().toISOString(),
+            reject_reason: null,
+          }];
+        },
+      },
+    });
+
+    await page.goto('/account/remittance');
+    await expect(page.getByLabel('匯款人姓名')).toBeVisible();
+    await expect.poll(() => remittanceFetches).toBe(1);
+
+    // Wait well past the React Query default refetchInterval (none configured)
+    // and any auth-flicker refetch window. staleTime=30s means no background poll.
+    await page.waitForTimeout(2_000);
+    expect(remittanceFetches).toBe(1);
+
+    // Simulate a window-focus event — refetchOnWindowFocus should be a no-op
+    // because data is still within staleTime.
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForTimeout(500);
+    expect(remittanceFetches).toBe(1);
+  });
+
+  test('/company/analysts does NOT refetch experts on SPA re-mount', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+
+    let expertsGetFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        profiles: () => ({ display_name: 'Admin', expert_slug: null, avatar_url: null, line_user_id: null, is_tester: false }),
+        user_roles: () => [{ role: 'company_admin' }],
+        experts: ({ method }) => {
+          if (method === 'GET') expertsGetFetches += 1;
+          return [
+            { id: 'e1', name: '張三', slug: 'zhang', role: 'advisor', status: 'active', avatar_url: '', created_by: 'admin', user_id: 'u1' },
+          ];
+        },
+      },
+    });
+
+    await page.goto('/company/analysts');
+    await expect(page.getByText('張三')).toBeVisible();
+    await expect.poll(() => expertsGetFetches).toBeGreaterThan(0);
+    const baseline = expertsGetFetches;
+
+    // SPA navigate to a sibling /company/* route via sidebar
+    await page.getByRole('link', { name: '帳號權限' }).first().click();
+    await page.waitForURL('**/company/users');
+
+    // SPA navigate back
+    await page.getByRole('link', { name: '分析師管理' }).first().click();
+    await page.waitForURL('**/company/analysts');
+    await expect(page.getByText('張三')).toBeVisible();
+
+    await page.waitForTimeout(500);
+
+    // staleTime kept the experts cache fresh — no new GET should have fired
+    expect(expertsGetFetches).toBe(baseline);
+  });
+});
