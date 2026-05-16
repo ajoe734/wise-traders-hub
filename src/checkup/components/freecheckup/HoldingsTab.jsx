@@ -40,6 +40,8 @@ const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/
  *      開選單/切視圖/選卡片不再污染 3300+ 行的 FreeCheckup parent
  */
 function HoldingsTab(props) {
+  // E1: dev-only schema check（漏傳 setTab 等核心 callback 立即在 console 警告）
+  validateProps('HoldingsTab', props, HOLDINGS_TAB_PROP_SCHEMA);
   const {
     // demo / auth
     isDemo,
@@ -83,15 +85,19 @@ function HoldingsTab(props) {
     setTab,
   } = props;
 
-  // A2-lite: local-only UI state — 不再透過 FreeCheckup 傳遞，避免 parent re-render
+  // A2-lite: 純子元件 local UI state（避免污染 FreeCheckup parent）
   const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [expandedDecision, setExpandedDecision] = useState(null);
 
-  // 卡片點選 toggle — 由 HoldingsTab 自己管理，不再下放到 FreeCheckup
+  // E2: expandedDecision 改由 brainStore 管理（與 expandedStock 同步治理）
+  const expandedDecision = useBrainStore((s) => s.expandedDecision);
+  const setExpandedDecision = useBrainStore((s) => s.setExpandedDecision);
+  const toggleExpandedDecision = useBrainStore((s) => s.toggleExpandedDecision);
+
+  // 卡片點選 toggle — 透過 store action，handler reference 永遠穩定
   const handleHoldingCardSelect = useCallback((code) => {
-    setExpandedDecision((prev) => (prev === code ? null : code));
-  }, []);
+    toggleExpandedDecision(code);
+  }, [toggleExpandedDecision]);
 
   return (
     <>
