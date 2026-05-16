@@ -18,11 +18,21 @@ import { logAdminAction } from '@/lib/auditLog';
 import { avatarUrl } from '@/lib/imageTransform';
 
 const CompanyAnalysts = () => {
-  const [experts, setExperts] = useState<any[]>([]);
+  const queryClient = useQueryClient();
+  const { data: experts = [], isLoading: loading } = useQuery({
+    queryKey: ['company-experts'],
+    queryFn: async () => {
+      const { data } = await supabase.from('experts').select('*').order('created_at', { ascending: false });
+      return data || [];
+    },
+    staleTime: 30_000,
+  });
+  const refetchExperts = () => queryClient.invalidateQueries({ queryKey: ['company-experts'] });
+  const setExperts = (updater: (prev: any[]) => any[]) =>
+    queryClient.setQueryData<any[]>(['company-experts'], (prev) => updater(prev || []));
   const [isCreateOpen, setIsCreateOpen] = useState(() => {
     return sessionStorage.getItem('company_analyst_create_open') === 'true';
   });
-  const [loading, setLoading] = useState(true);
 
   // Create analyst form – restore from sessionStorage on mount
   const [email, setEmail] = useState(() => sessionStorage.getItem('ca_email') || '');
