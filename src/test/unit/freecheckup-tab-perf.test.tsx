@@ -147,7 +147,7 @@ const holdingsProps: any = {
   EMPTY_SPARK: Object.freeze([]),
   Sparkline,
   normalizedEvents: [], openHoldingDrawer: noop,
-  handleHoldingCardSelect: noop, handleHoldingCardOpenDrawer: noop,
+  handleHoldingCardOpenDrawer: noop,
   cardGridCols: 'repeat(3, minmax(0,1fr))',
   viewMode: 'grid', setViewMode: noop,
   showAll: true, setShowAll: noop,
