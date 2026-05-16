@@ -1,105 +1,41 @@
-## 真正的元兇（從 network + 程式碼確認）
+# 全頁面效能稽核計畫
 
-進 `/expert/sharkgu` 慢的原因**不是 bundle 大小**，是執行期的三個 bug，請看 network 證據：
+排除：`src/pages/app/Holdings.tsx`、`src/checkup/pages/HoldingsPage.jsx` 及其底下 `holdings/` 元件。
 
-```text
-profiles?...   GET 200  784ms
-user_roles?... GET 200  785ms
-profiles?...   GET 200  924ms     ← 同一筆 user 重打第 2 次
-user_roles?... GET 200 1048ms
-profiles?...   GET 200 1091ms     ← 第 3 次
-user_roles?... GET 200 1215ms
+## 範圍（共 56 個頁面 + 5 個 layout + shared components）
+
+**Public**: Index, Experts, ExpertProfile, PlanDetail, Pricing, Checkout, CheckupCheckout, FreeCheckup, Legal, NotFound
+**Auth**: Login, Register, ForgotPassword, ResetPassword, LineCallback
+**Account**: Profile, Notifications, MyRemittanceOrders
+**App**: AppHome, Signals, SignalsDashboard, SignalDetail, Journals, JournalDetail, SystemDetail, Account, Explore, ExpertDetail, AppCheckout, LearningDashboard
+**Admin**: Dashboard, Signals, SignalEditor, Subscribers, Profile, Performance, ReasonTemplates, SignalTemplates, Announcements, Plans
+**Company**: Dashboard, Analysts, Subscribers, Revenue, Payments, Announcements, AuditLogs, SystemJobs, FunctionLogs, KnowledgeBase + 2 子頁, BacktestMonitor, Plans, Remittance, PaymentSettings, ReferralChannels, CheckupUsage, MissingPrices, MetaOverrides, Users
+**Checkup**: Daily, Events, Log, News, Overview, Research, Trade（含 PortfolioLayout）
+**Layouts**: PortalLayout, AppLayout, UnifiedAppLayout, AdminLayout, CompanyLayout, LearningLayout, SignalsLayout
+
+## 每頁檢查清單（5 項，缺一不可）
+
+1. **首屏 chunk 重量** — 是否直接 import recharts / tiptap / 大型第三方（應走 lazy + Suspense）
+2. **資料抓取模式** — useEffect+supabase 是否該改 React Query / 是否序列瀑布（該 `Promise.all`）/ 是否在每次 render 重抓
+3. **重複請求** — 同一份 profile/roles/subscriptions 是否在頁面 + layout 各抓一次
+4. **記憶化** — 大表 `.map`/`.filter`/排序是否在每次 render 重算（缺 `useMemo`），事件 handler 是否每次 render 新建（缺 `useCallback`）導致子元件 re-render
+5. **CLS / LCP** — 首屏圖片是否有 width/height、骨架是否撐住高度、字型 `font-display`
+
+## 產出
+
+一份分頁清單表格：
+```
+頁面 | 問題類型 | 嚴重度(高/中/低) | 修法 | 預估省 KB or ms
 ```
 
-**`fetchUserProfile` 在進入頁面時被觸發 3 次並行**，每次都是 (profiles + user_roles) 一對，合計 6 個請求，串行延遲到 1.2 秒。這是進頁面卡住的主因。
+呈現後等你拍板修哪些（避免一次改 56 個頁面把 PR 變成地雷）。
 
-### Bug #1 ─ AuthContext dedupe guard 設計錯誤（最致命）
+## 不會做（避免 scope creep）
 
-`src/contexts/AuthContext.tsx` line 152–184：
+- 不會在這輪改 Holdings 相關檔案
+- 不會修改業務邏輯，只動載入策略 / 記憶化 / 查詢合併
+- 不會動 supabase schema / edge functions
 
-```ts
-if (!forceReload && loadingUserRef.current === userId && user) {
-  return;  // ← 守衛條件包含 `&& user`
-}
-loadingUserRef.current = userId;   // ← 但 ref 是在 await 之前才寫
-setIsLoading(true);
-const profile = await fetchUserProfile(...)  // ~800ms
-setUser(profile)                              // ← user 在這之後才有值
-```
+## 預估時間
 
-進場 0~800ms 內 supabase 會連續觸發 `INITIAL_SESSION`、`SIGNED_IN`、`USER_UPDATED`、`TOKEN_REFRESHED` 等多次事件，每次走 `setTimeout(() => loadProfile, 0)`。由於 `user` 還是 `null`，守衛失效，**全部都進到 fetchUserProfile 並行打 supabase**。
-
-**修法**：把守衛拆成兩段，並把 ref 在 await **之前**就 commit：
-
-```ts
-const inFlightRef = React.useRef<Promise<void> | null>(null);
-
-const loadProfile = useCallback(async (sbUser, forceReload = false) => {
-  const userId = sbUser.id;
-  // 同 user 已在飛 → 回傳同一個 promise（不再發第 2 個請求）
-  if (!forceReload && loadingUserRef.current === userId && inFlightRef.current) {
-    return inFlightRef.current;
-  }
-  loadingUserRef.current = userId;
-  setSupabaseUser(sbUser);
-  setIsLoading(true);
-
-  inFlightRef.current = (async () => {
-    try {
-      const profile = await fetchUserProfile(userId, sbUser.email || '');
-      if (loadingUserRef.current === userId) setUser(profile);
-    } finally {
-      if (loadingUserRef.current === userId) setIsLoading(false);
-      inFlightRef.current = null;
-    }
-  })();
-
-  return inFlightRef.current;
-}, []);   // ← 去掉 [user] 依賴，避免每次 setUser 都重建 callback
-```
-
-預期：6 個 auth 請求 → **2 個（一對 profiles + user_roles）**，省 ~3.5 秒。
-
-### Bug #2 ─ `PerformanceOverviewPanel` 立刻載 recharts（394KB raw / 107KB gz）
-
-`ExpertProfile.tsx:350` 在 Hero 下方第二屏就 render `<PerformanceOverviewPanel>`，這個元件靜態 import recharts。即便使用者沒捲下去，整個 vendor-recharts chunk 都被拉進來，**首屏多 1.5 秒 script 解析**（network 顯示 recharts.js 1505ms）。
-
-**修法**：包 `LazyOnVisible` + `React.lazy`：
-
-```tsx
-const PerformanceOverviewPanel = React.lazy(() =>
-  import('@/components/strategy/PerformanceOverviewPanel')
-    .then(m => ({ default: m.PerformanceOverviewPanel }))
-);
-// 使用時
-<LazyOnVisible minHeight={400} rootMargin="200px">
-  <Suspense fallback={<div className="h-96 animate-pulse bg-muted/30 rounded-lg" />}>
-    <PerformanceOverviewPanel ... />
-  </Suspense>
-</LazyOnVisible>
-```
-
-預期：recharts chunk 從首屏移除，**首屏 -107 KB gz**。實際只有使用者捲到「績效總覽」區段才下載。
-
-### Bug #3 ─ Footer CLS 0.214（needs improvement）
-
-`browser--performance_profile` 抓到 footer 在頁面 render 後位移 0.214。應該是 `PortalLayout` 的 footer 高度沒鎖定，等到字型或 logo 載入後才膨脹。
-
-**修法**：給 footer 容器 `min-height` 鎖死（或 `aspect-ratio`），確認 logo `<img>` 有顯式 width/height。
-
-### 不會動的（避免誤會）
-
-- ExpertProfile 主查詢已經有正確的 `cancelled` flag，且 expert→plans→subs+count 已盡量並行，**這段沒問題**。
-- supabase client 本身（先前提案的 P5-A）不動，因為 ROI 太低。
-
-### 預期成效
-
-| 指標 | 現在 | 修完後 |
-|---|---|---|
-| auth 請求數（進頁面） | 6 串行 | 2 |
-| auth 耗時 | ~5 秒 | ~0.8 秒 |
-| 首屏需載 recharts | 是 | 否（捲動才載） |
-| Footer CLS | 0.214 | < 0.05 |
-| 首屏 JS 量 | 含 recharts | -107 KB gz |
-
-要我直接動手嗎？三個 bug 都改，預期進 `/expert/:slug` 從「很久」變「<1 秒首屏」。
+稽核本身約需 50–80 次檔案讀取（每頁 1–2 次 + layout）。會分批回報，不會一次塞 56 個頁面的結論給你。
