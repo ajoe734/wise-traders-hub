@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,63 +20,60 @@ type Row = {
 };
 
 const CompanySubscribers = () => {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [profileMap, setProfileMap] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [kindFilter, setKindFilter] = useState<'all' | 'expert' | 'checkup'>('all');
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchSubs(); }, []);
-
-  const fetchSubs = async () => {
-    setLoading(true);
-    const [eRes, cRes] = await Promise.all([
-      supabase.from('member_subscriptions')
-        .select('*, expert_plans(name, experts(name))')
-        .order('created_at', { ascending: false }),
-      supabase.from('checkup_subscriptions')
-        .select('*, checkup_plans(name)')
-        .order('created_at', { ascending: false }),
-    ]);
-
-    const expertRows: Row[] = (eRes.data || []).map((s: any) => ({
-      id: s.id,
-      user_id: s.user_id,
-      kind: 'expert',
-      plan_name: s.expert_plans?.name || '-',
-      status: s.status,
-      auto_renew: !!s.auto_renew,
-      started_at: s.started_at,
-      expires_at: s.expires_at,
-    }));
-    const checkupRows: Row[] = (cRes.data || []).map((s: any) => ({
-      id: s.id,
-      user_id: s.user_id,
-      kind: 'checkup',
-      plan_name: s.checkup_plans?.name || '健檢方案',
-      status: s.status,
-      auto_renew: !!s.auto_renew,
-      started_at: s.started_at,
-      expires_at: s.expires_at,
-    }));
-    const merged = [...expertRows, ...checkupRows].sort(
-      (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
-    );
-    setRows(merged);
-
-    const userIds = [...new Set(merged.map(s => s.user_id).filter(Boolean))];
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, display_name')
-        .in('user_id', userIds);
-      const map: Record<string, string> = {};
-      (profiles || []).forEach(p => { map[p.user_id] = p.display_name || ''; });
-      setProfileMap(map);
-    }
-    setLoading(false);
-  };
+  const { data, isFetching } = useQuery({
+    queryKey: ['company', 'subscribers'],
+    queryFn: async () => {
+      const [eRes, cRes] = await Promise.all([
+        supabase.from('member_subscriptions')
+          .select('*, expert_plans(name, experts(name))')
+          .order('created_at', { ascending: false }),
+        supabase.from('checkup_subscriptions')
+          .select('*, checkup_plans(name)')
+          .order('created_at', { ascending: false }),
+      ]);
+      const expertRows: Row[] = (eRes.data || []).map((s: any) => ({
+        id: s.id,
+        user_id: s.user_id,
+        kind: 'expert',
+        plan_name: s.expert_plans?.name || '-',
+        status: s.status,
+        auto_renew: !!s.auto_renew,
+        started_at: s.started_at,
+        expires_at: s.expires_at,
+      }));
+      const checkupRows: Row[] = (cRes.data || []).map((s: any) => ({
+        id: s.id,
+        user_id: s.user_id,
+        kind: 'checkup',
+        plan_name: s.checkup_plans?.name || '健檢方案',
+        status: s.status,
+        auto_renew: !!s.auto_renew,
+        started_at: s.started_at,
+        expires_at: s.expires_at,
+      }));
+      const merged = [...expertRows, ...checkupRows].sort(
+        (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+      );
+      const userIds = [...new Set(merged.map(s => s.user_id).filter(Boolean))];
+      let profileMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, display_name')
+          .in('user_id', userIds);
+        (profiles || []).forEach(p => { profileMap[p.user_id] = p.display_name || ''; });
+      }
+      return { rows: merged, profileMap };
+    },
+    staleTime: 30_000,
+  });
+  const rows = data?.rows ?? [];
+  const profileMap = data?.profileMap ?? {};
+  const loading = isFetching && !data;
 
   const activeCount = rows.filter(s => s.status === 'active').length;
   const totalCount = rows.filter(s => s.status !== 'canceled').length;
