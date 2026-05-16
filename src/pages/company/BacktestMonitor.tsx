@@ -53,131 +53,125 @@ interface NotifyLog {
 }
 
 export default function BacktestMonitor() {
-  const [runs, setRuns] = useState<RunRow[]>([]);
-  const [items, setItems] = useState<Record<string, { title: string }>>({});
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyAll, setBusyAll] = useState<'cron' | 'notify' | null>(null);
-  const [lastCron, setLastCron] = useState<string | null>(null);
-  const [failedBackfills, setFailedBackfills] = useState<FailedBackfillRow[]>([]);
-  const [failedBackfillReasons, setFailedBackfillReasons] = useState<Array<{ reason: string; count: number }>>([]);
-  const [notifyLog, setNotifyLog] = useState<NotifyLog | null>(null);
-  const [backfill, setBackfill] = useState<{
-    pending: number; done: number; empty: number; failed: number; total: number;
-    latest_month: string | null; latest_date: string | null;
-    current_symbol: string | null; current_yyyymm: string | null;
-    recent_done_5min: number; eta_minutes: number | null;
-    last_attempted_at: string | null;
-  } | null>(null);
 
-  const load = async () => {
-    setLoading(true);
-    const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
-    const [
-      { data: runsData },
-      { data: itemsData },
-      { data: bfAll },
-      { data: bfLatest },
-      { data: bfNext },
-      { count: recentCount },
-      { data: bfLatestDate },
-      { data: bfFailed },
-      { data: bfLastAttempt },
-      { data: notifyLogs },
-    ] = await Promise.all([
-      (supabase as any)
-        .from('knowledge_backtest_runs')
-        .select('id, knowledge_item_id, status, win_rate, total_hits, error_message, run_mode, created_at, completed_at, parameters')
-        .neq('run_mode', 'grid_search')
-        .order('created_at', { ascending: false })
-        .limit(80),
-      (supabase as any).from('checkup_knowledge_items').select('id, title'),
-      (supabase as any).from('knowledge_backfill_progress').select('status'),
-      (supabase as any).from('knowledge_backfill_progress')
-        .select('yyyymm').eq('status', 'done')
-        .order('yyyymm', { ascending: false }).limit(1).maybeSingle(),
-      (supabase as any).from('knowledge_backfill_progress')
-        .select('symbol, yyyymm').eq('status', 'pending')
-        .order('symbol').order('yyyymm').limit(1).maybeSingle(),
-      (supabase as any).from('knowledge_backfill_progress')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'done').gte('completed_at', fiveMinAgo),
-      (supabase as any).from('daily_price_snapshots')
-        .select('trade_date').order('trade_date', { ascending: false }).limit(1).maybeSingle(),
-      (supabase as any).from('knowledge_backfill_progress')
-        .select('symbol, yyyymm, error_message, attempted_at')
-        .eq('status', 'failed')
-        .order('attempted_at', { ascending: false }).limit(20),
-      (supabase as any).from('knowledge_backfill_progress')
-        .select('attempted_at').not('attempted_at', 'is', null)
-        .order('attempted_at', { ascending: false }).limit(1).maybeSingle(),
-      (supabase as any).from('function_run_logs')
-        .select('created_at, payload, msg, level')
-        .eq('fn', 'notify-backtest-result')
-        .order('created_at', { ascending: false }).limit(1).maybeSingle().then((r: any) => r).catch(() => ({ data: null })),
-    ]);
-    setRuns((runsData as RunRow[]) || []);
-    const map: Record<string, { title: string }> = {};
-    for (const it of itemsData || []) map[it.id] = { title: it.title };
-    setItems(map);
-
-    setFailedBackfills((bfFailed as FailedBackfillRow[]) || []);
-    // 聚合失敗原因
-    const reasonMap = new Map<string, number>();
-    for (const r of (bfFailed as any[]) || []) {
-      const reason = (r.error_message || '未知錯誤').slice(0, 200);
-      reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1);
-    }
-    setFailedBackfillReasons(
-      Array.from(reasonMap.entries())
-        .map(([reason, count]) => ({ reason, count }))
-        .sort((a, b) => b.count - a.count).slice(0, 5)
-    );
-
-    if (notifyLogs) {
-      const p = (notifyLogs as any).payload || {};
-      setNotifyLog({
-        created_at: (notifyLogs as any).created_at,
-        email_sent: p.email_sent ?? 0,
-        email_failed: p.email_failed ?? 0,
-        errors: Array.isArray(p.errors) ? p.errors : [],
-      });
-    }
-
-    if (bfAll) {
-      const counts = { pending: 0, done: 0, empty: 0, failed: 0 };
-      for (const r of bfAll as any[]) {
-        if (r.status === 'done') counts.done++;
-        else if (r.status === 'empty') counts.empty++;
-        else if (r.status === 'failed') counts.failed++;
-        else counts.pending++;
+  const { data: snapshot, isFetching, refetch } = useQuery({
+    queryKey: ['company', 'backtest-monitor'],
+    queryFn: async () => {
+      const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+      const [
+        { data: runsData },
+        { data: itemsData },
+        { data: bfAll },
+        { data: bfLatest },
+        { data: bfNext },
+        { count: recentCount },
+        { data: bfLatestDate },
+        { data: bfFailed },
+        { data: bfLastAttempt },
+        { data: notifyLogs },
+      ] = await Promise.all([
+        (supabase as any)
+          .from('knowledge_backtest_runs')
+          .select('id, knowledge_item_id, status, win_rate, total_hits, error_message, run_mode, created_at, completed_at, parameters')
+          .neq('run_mode', 'grid_search')
+          .order('created_at', { ascending: false })
+          .limit(80),
+        (supabase as any).from('checkup_knowledge_items').select('id, title'),
+        (supabase as any).from('knowledge_backfill_progress').select('status'),
+        (supabase as any).from('knowledge_backfill_progress')
+          .select('yyyymm').eq('status', 'done')
+          .order('yyyymm', { ascending: false }).limit(1).maybeSingle(),
+        (supabase as any).from('knowledge_backfill_progress')
+          .select('symbol, yyyymm').eq('status', 'pending')
+          .order('symbol').order('yyyymm').limit(1).maybeSingle(),
+        (supabase as any).from('knowledge_backfill_progress')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'done').gte('completed_at', fiveMinAgo),
+        (supabase as any).from('daily_price_snapshots')
+          .select('trade_date').order('trade_date', { ascending: false }).limit(1).maybeSingle(),
+        (supabase as any).from('knowledge_backfill_progress')
+          .select('symbol, yyyymm, error_message, attempted_at')
+          .eq('status', 'failed')
+          .order('attempted_at', { ascending: false }).limit(20),
+        (supabase as any).from('knowledge_backfill_progress')
+          .select('attempted_at').not('attempted_at', 'is', null)
+          .order('attempted_at', { ascending: false }).limit(1).maybeSingle(),
+        (supabase as any).from('function_run_logs')
+          .select('created_at, payload, msg, level')
+          .eq('fn', 'notify-backtest-result')
+          .order('created_at', { ascending: false }).limit(1).maybeSingle().then((r: any) => r).catch(() => ({ data: null })),
+      ]);
+      const runs = (runsData as RunRow[]) || [];
+      const items: Record<string, { title: string }> = {};
+      for (const it of itemsData || []) items[it.id] = { title: it.title };
+      const failedBackfills = (bfFailed as FailedBackfillRow[]) || [];
+      const reasonMap = new Map<string, number>();
+      for (const r of (bfFailed as any[]) || []) {
+        const reason = (r.error_message || '未知錯誤').slice(0, 200);
+        reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1);
       }
-      const total = counts.done + counts.pending + counts.empty + counts.failed;
-      const recent5 = recentCount ?? 0;
-      const ratePerMin = recent5 / 5;
-      const eta = ratePerMin > 0 ? Math.ceil(counts.pending / ratePerMin) : null;
-      setBackfill({
-        ...counts, total,
-        latest_month: (bfLatest as any)?.yyyymm ?? null,
-        latest_date: (bfLatestDate as any)?.trade_date ?? null,
-        current_symbol: (bfNext as any)?.symbol ?? null,
-        current_yyyymm: (bfNext as any)?.yyyymm ?? null,
-        recent_done_5min: recent5,
-        eta_minutes: eta,
-        last_attempted_at: (bfLastAttempt as any)?.attempted_at ?? null,
-      });
-    }
-
-    const cron = (runsData || []).find((r: any) =>
-      r.run_mode === 'cron_weekly' ||
-      r?.parameters?.trigger === 'auto_after_backfill' ||
-      r?.parameters?.trigger === 'cron_nightly'
-    );
-    setLastCron(cron?.created_at ?? null);
-    setLoading(false);
+      const failedBackfillReasons = Array.from(reasonMap.entries())
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count).slice(0, 5);
+      let notifyLog: NotifyLog | null = null;
+      if (notifyLogs) {
+        const p = (notifyLogs as any).payload || {};
+        notifyLog = {
+          created_at: (notifyLogs as any).created_at,
+          email_sent: p.email_sent ?? 0,
+          email_failed: p.email_failed ?? 0,
+          errors: Array.isArray(p.errors) ? p.errors : [],
+        };
+      }
+      let backfill: any = null;
+      if (bfAll) {
+        const counts = { pending: 0, done: 0, empty: 0, failed: 0 };
+        for (const r of bfAll as any[]) {
+          if (r.status === 'done') counts.done++;
+          else if (r.status === 'empty') counts.empty++;
+          else if (r.status === 'failed') counts.failed++;
+          else counts.pending++;
+        }
+        const total = counts.done + counts.pending + counts.empty + counts.failed;
+        const recent5 = recentCount ?? 0;
+        const ratePerMin = recent5 / 5;
+        const eta = ratePerMin > 0 ? Math.ceil(counts.pending / ratePerMin) : null;
+        backfill = {
+          ...counts, total,
+          latest_month: (bfLatest as any)?.yyyymm ?? null,
+          latest_date: (bfLatestDate as any)?.trade_date ?? null,
+          current_symbol: (bfNext as any)?.symbol ?? null,
+          current_yyyymm: (bfNext as any)?.yyyymm ?? null,
+          recent_done_5min: recent5,
+          eta_minutes: eta,
+          last_attempted_at: (bfLastAttempt as any)?.attempted_at ?? null,
+        };
+      }
+      const cron = runs.find((r: any) =>
+        r.run_mode === 'cron_weekly' ||
+        r?.parameters?.trigger === 'auto_after_backfill' ||
+        r?.parameters?.trigger === 'cron_nightly'
+      );
+      const lastCron = cron?.created_at ?? null;
+      return { runs, items, failedBackfills, failedBackfillReasons, notifyLog, backfill, lastCron };
+    },
+    staleTime: 30_000,
+  });
+  const runs = snapshot?.runs ?? [];
+  const items = snapshot?.items ?? {};
+  const failedBackfills = snapshot?.failedBackfills ?? [];
+  const failedBackfillReasons = snapshot?.failedBackfillReasons ?? [];
+  const notifyLog = snapshot?.notifyLog ?? null;
+  const backfill = snapshot?.backfill ?? null;
+  const lastCron = snapshot?.lastCron ?? null;
+  const loading = isFetching && !snapshot;
+  const load = () => {
+    queryClient.invalidateQueries({ queryKey: ['company', 'backtest-monitor'] });
+    refetch();
   };
-
-  useEffect(() => { load(); }, []);
 
   const triggerNightly = async () => {
     setBusyAll('cron');
