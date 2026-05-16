@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,16 +23,14 @@ interface Template {
 
 const ReasonTemplates = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
-  const [expert, setExpert] = useState<any>(null);
+  const qc = useQueryClient();
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  // 草稿自動暫存
   const draftKey = `reason-template-draft-${expertSlug}-${editingId ?? 'new'}`;
   const { discard: discardDraft } = useFormDraft(
     draftKey,
@@ -43,23 +42,29 @@ const ReasonTemplates = () => {
     { enabled: dialogOpen }
   );
 
-  const fetchData = useCallback(async () => {
-    if (!expertSlug) return;
-    setLoading(true);
-    const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
-    setExpert(exp);
-    if (exp) {
-      const { data } = await supabase
+  const queryKey = ['admin', 'reason-templates', expertSlug ?? null] as const;
+  const { data, isLoading: loading } = useQuery({
+    queryKey,
+    enabled: !!expertSlug,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug!).single();
+      if (!exp) return { expert: null, templates: [] as Template[] };
+      const { data: tpl } = await supabase
         .from('expert_reason_templates' as any)
         .select('*')
         .eq('expert_id', exp.id)
         .order('sort_order', { ascending: true });
-      setTemplates((data as any as Template[]) || []);
-    }
-    setLoading(false);
-  }, [expertSlug]);
+      return { expert: exp, templates: (tpl as any as Template[]) || [] };
+    },
+  });
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const expert = data?.expert ?? null;
+  React.useEffect(() => {
+    setTemplates(data?.templates ?? []);
+  }, [data?.templates]);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey });
 
   const openCreate = () => {
     // 規範第 2 條：開新表單前清除舊草稿
