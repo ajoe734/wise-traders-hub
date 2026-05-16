@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,28 +13,30 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Megaphone, Pencil, Trash2, Send, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { logAdminAction } from '@/lib/auditLog';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const CompanyAnnouncements = () => {
   const { user } = useAuth();
-  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all');
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchAnnouncements(); }, []);
+  const { data: announcements = [], isLoading: loading } = useQuery({
+    queryKey: ['company', 'announcements'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('created_at', { ascending: false });
+      return data || [];
+    },
+  });
 
-  const fetchAnnouncements = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('announcements')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setAnnouncements(data || []);
-    setLoading(false);
-  };
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['company', 'announcements'] });
 
   const openCreate = () => {
     setEditingId(null);
@@ -64,7 +66,7 @@ const CompanyAnnouncements = () => {
       toast.success('公告已建立');
     }
     setIsOpen(false);
-    fetchAnnouncements();
+    invalidate();
   };
 
   const togglePublish = async (a: any) => {
@@ -85,7 +87,7 @@ const CompanyAnnouncements = () => {
       },
     });
     toast.success(newStatus === 'published' ? '已發布' : '已取消發布');
-    fetchAnnouncements();
+    invalidate();
   };
 
   const handleDelete = async (id: string) => {
@@ -98,10 +100,10 @@ const CompanyAnnouncements = () => {
       detail: { before: { title: target?.title, status: target?.status }, context: { title: target?.title } },
     });
     toast.success('公告已刪除');
-    fetchAnnouncements();
+    invalidate();
   };
 
-  const filtered = announcements.filter(a => statusFilter === 'all' || a.status === statusFilter);
+  const filtered = announcements.filter((a: any) => statusFilter === 'all' || a.status === statusFilter);
 
   return (
     <CompanyLayout>

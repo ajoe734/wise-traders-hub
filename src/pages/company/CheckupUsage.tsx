@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertTriangle, RefreshCw, Search } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 interface UsageRow {
   user_id: string;
@@ -46,28 +47,20 @@ const periodLabel: Record<string, string> = {
 };
 
 export default function CheckupUsagePage() {
-  const [rows, setRows] = useState<UsageRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
   const [filter, setFilter] = useState<'all' | 'near' | 'exhausted'>('all');
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    const { data, error: rpcErr } = await supabase.rpc('admin_checkup_usage_overview');
-    if (rpcErr) {
-      setError(rpcErr.message);
-      setRows([]);
-    } else {
-      setRows((data || []) as UsageRow[]);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+  const { data: rows = [], isLoading: loading, error: queryError, refetch } = useQuery({
+    queryKey: ['company', 'checkup-usage'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error: rpcErr } = await supabase.rpc('admin_checkup_usage_overview');
+      if (rpcErr) throw rpcErr;
+      return (data || []) as UsageRow[];
+    },
+  });
+  const error = queryError ? (queryError as Error).message : null;
+  const load = () => refetch();
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
