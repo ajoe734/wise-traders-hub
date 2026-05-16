@@ -11,6 +11,7 @@
 //   - 行為對等：onClick toggle expandedDecision、onDoubleClick + Shift+Enter 開 drawer
 import { memo } from 'react';
 import { validateProps } from './_validateProps.js';
+import { useInView } from '@/checkup/hooks/useInView.js';
 
 // ── 模組層常數（搬離 renderCard 內部，避免每次重建） ──
 const SRC_LABEL = { screenshot: '截圖', live: '即時', high: '最高', ask: '賣一', yclose: '昨收' };
