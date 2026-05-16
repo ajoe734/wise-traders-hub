@@ -141,20 +141,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Track which user ID we're currently loading to avoid stale updates
   const loadingUserRef = React.useRef<string | null>(null);
+  // In-flight promise dedupe: if the same user load is already running,
+  // subsequent auth events (INITIAL_SESSION / SIGNED_IN / USER_UPDATED that
+  // can fire within the ~800ms profile fetch window) reuse this promise
+  // instead of firing duplicate (profiles + user_roles) request pairs.
+  const inFlightRef = React.useRef<Promise<void> | null>(null);
 
   const clearAuth = useCallback(() => {
     loadingUserRef.current = null;
+    inFlightRef.current = null;
     queryClient.clear();
     setSupabaseUser(null);
     setUser(null);
   }, []);
 
-  const loadProfile = useCallback(async (sbUser: SupabaseUser, forceReload = false) => {
+  const loadProfile = useCallback(async (sbUser: SupabaseUser, forceReload = false): Promise<void> => {
     const userId = sbUser.id;
 
-    // If same user is already loaded, just update supabaseUser (token refresh) and skip
-    if (!forceReload && loadingUserRef.current === userId && user) {
+    // Same user already in-flight or loaded → reuse, only update token ref.
+    if (!forceReload && loadingUserRef.current === userId) {
       setSupabaseUser(sbUser);
+      if (inFlightRef.current) return inFlightRef.current;
       return;
     }
 
@@ -168,20 +175,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSupabaseUser(sbUser);
     setIsLoading(true);
 
-    try {
-      const profile = await fetchUserProfile(userId, sbUser.email || '');
-      // Only apply if this is still the user we're loading
-      if (loadingUserRef.current === userId) {
-        setUser(profile);
+    const promise = (async () => {
+      try {
+        const profile = await fetchUserProfile(userId, sbUser.email || '');
+        if (loadingUserRef.current === userId) {
+          setUser(profile);
+        }
+      } catch (e) {
+        console.error('Failed to load user profile:', e);
+      } finally {
+        if (loadingUserRef.current === userId) {
+          setIsLoading(false);
+          inFlightRef.current = null;
+        }
       }
-    } catch (e) {
-      console.error('Failed to load user profile:', e);
-    } finally {
-      if (loadingUserRef.current === userId) {
-        setIsLoading(false);
-      }
-    }
-  }, [user]);
+    })();
+
+    inFlightRef.current = promise;
+    return promise;
+  }, []);
 
   useEffect(() => {
     // Listen for auth state changes FIRST
