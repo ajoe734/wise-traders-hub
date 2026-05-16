@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment } from 'react';
+import { useState, Fragment } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { STOCK_META } from '@/checkup/seedData';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 type Row = {
   id?: string;
@@ -23,25 +24,27 @@ type Row = {
 };
 
 export default function MetaOverrides() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [history, setHistory] = useState<Record<string, Row[]>>({}); // key=user_id|code
-  const [loading, setLoading] = useState(true);
+  const qc = useQueryClient();
+  const [history, setHistory] = useState<Record<string, Row[]>>({});
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('holding_meta_overrides')
-      .select('id, user_id, code, industry, strategy, leader, position, source, updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(500);
-    if (error) toast.error(error.message);
-    setRows((data as Row[]) || []);
-    setLoading(false);
-  };
+  const { data: rows = [], isLoading: loading, refetch } = useQuery<Row[]>({
+    queryKey: ['company', 'meta-overrides'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('holding_meta_overrides')
+        .select('id, user_id, code, industry, strategy, leader, position, source, updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) { toast.error(error.message); throw error; }
+      return (data as Row[]) || [];
+    },
+  });
 
-  useEffect(() => { load(); }, []);
+  const load = () => refetch();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['company', 'meta-overrides'] });
 
   const loadHistory = async (userId: string, code: string) => {
     const key = `${userId}|${code}`;
@@ -75,13 +78,12 @@ export default function MetaOverrides() {
     if (error) { toast.error(error.message); return; }
     toast.success('已回滾');
     setHistory((h) => { const n = { ...h }; delete n[`${cur.user_id}|${cur.code}`]; return n; });
-    load();
+    invalidate();
   };
 
   const restoreToStockMeta = async (cur: Row) => {
     if (!confirm(`刪除覆蓋並還原 ${cur.code} 至 STOCK_META 預設？`)) return;
     setBusy(cur.code + cur.user_id);
-    // 觸發器會自動 snapshot 一份到 history（action=delete）
     const { error } = await supabase
       .from('holding_meta_overrides')
       .delete()
@@ -90,7 +92,7 @@ export default function MetaOverrides() {
     setBusy(null);
     if (error) { toast.error(error.message); return; }
     toast.success('已還原為 STOCK_META');
-    load();
+    invalidate();
   };
 
   const filtered = rows.filter((r) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, Search, AlertTriangle, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface MissRow {
   id: string;
@@ -34,44 +35,37 @@ const fmt = (iso: string | null) => {
 };
 
 export default function MissingPricesPage() {
-  const [rows, setRows] = useState<MissRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const qc = useQueryClient();
   const [keyword, setKeyword] = useState('');
   const [filter, setFilter] = useState<'unresolved' | 'resolved' | 'all'>('unresolved');
   const [reasonFilter, setReasonFilter] = useState<string>('all');
   const [retrying, setRetrying] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    const { data, error: err } = await supabase
-      .from('checkup_price_misses')
-      .select('*')
-      .order('last_seen_at', { ascending: false })
-      .limit(1000);
-    if (err) {
-      setError(err.message);
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-    // Look up emails via profiles + auth (best-effort: profiles has display_name only;
-    // we read auth.users via admin RPC if available). Fall back to user_id.
-    const userIds = Array.from(new Set((data || []).map((r: any) => r.user_id).filter(Boolean)));
-    const emailMap: Record<string, string> = {};
-    if (userIds.length > 0) {
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('user_id, display_name')
-        .in('user_id', userIds);
-      (profs || []).forEach((p: any) => { emailMap[p.user_id] = p.display_name || ''; });
-    }
-    setRows((data || []).map((r: any) => ({ ...r, user_email: emailMap[r.user_id] || null })));
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
+  const { data: rows = [], isLoading: loading, error: queryErr, refetch } = useQuery<MissRow[]>({
+    queryKey: ['company', 'missing-prices'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error: err } = await supabase
+        .from('checkup_price_misses')
+        .select('*')
+        .order('last_seen_at', { ascending: false })
+        .limit(1000);
+      if (err) throw err;
+      const userIds = Array.from(new Set((data || []).map((r: any) => r.user_id).filter(Boolean)));
+      const emailMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('user_id, display_name')
+          .in('user_id', userIds);
+        (profs || []).forEach((p: any) => { emailMap[p.user_id] = p.display_name || ''; });
+      }
+      return (data || []).map((r: any) => ({ ...r, user_email: emailMap[r.user_id] || null }));
+    },
+  });
+  const error = queryErr ? (queryErr as Error).message : null;
+  const load = () => refetch();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['company', 'missing-prices'] });
 
   const filtered = useMemo(() => {
     return rows.filter(r => {
@@ -96,7 +90,7 @@ export default function MissingPricesPage() {
       if (err) throw err;
       const stillMissing = (data?.missing || []).includes(row.symbol);
       toast(stillMissing ? `${row.symbol} 仍無法補抓：${data?.reasons?.[row.symbol] || 'unknown'}` : `${row.symbol} 補抓成功`);
-      await load();
+      await invalidate();
     } catch (e: any) {
       toast(`重試失敗：${e?.message || '未知錯誤'}`);
     } finally {
