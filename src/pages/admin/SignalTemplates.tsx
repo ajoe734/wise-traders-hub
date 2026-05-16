@@ -119,7 +119,7 @@ const AdminSignalTemplates = () => {
     }
     discardDraft();
     setDialogOpen(false);
-    fetchData();
+    invalidate();
   };
 
   const handleDelete = async (id: string) => {
@@ -127,7 +127,7 @@ const AdminSignalTemplates = () => {
     const { error } = await (supabase.from('expert_signal_templates' as any) as any).delete().eq('id', id);
     if (error) { toast.error(error.message); return; }
     toast.success('模板已刪除');
-    fetchData();
+    invalidate();
   };
 
   // Drag reorder
@@ -143,12 +143,12 @@ const AdminSignalTemplates = () => {
   };
   const handleDragEnd = async () => {
     setDragIdx(null);
-    // Persist new sort_order
     for (let i = 0; i < templates.length; i++) {
       if (templates[i].sort_order !== i) {
         await (supabase.from('expert_signal_templates' as any) as any).update({ sort_order: i }).eq('id', templates[i].id);
       }
     }
+    invalidate();
   };
 
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
