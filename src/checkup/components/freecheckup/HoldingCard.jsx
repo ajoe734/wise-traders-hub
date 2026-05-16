@@ -45,6 +45,8 @@ const HOLDING_CARD_PROP_SCHEMA = {
 
 function HoldingCardImpl(props) {
   validateProps('HoldingCard', props, HOLDING_CARD_PROP_SCHEMA);
+  // C2/C3: 卡片離視窗時延後渲染內容 — 減少初始 DOM/Sparkline SVG 成本
+  const [cardRef, inView] = useInView({ rootMargin: '400px 0px' });
 
   const {
     holding: h,
