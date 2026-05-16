@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -35,56 +35,98 @@ const PREF_LABELS: Record<keyof typeof PREF_DEFAULTS, { title: string; desc: str
 export default function AccountNotifications() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [prefs, setPrefs] = useState<Pref | null>(null);
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const qc = useQueryClient();
+  const userId = user?.id;
 
-  useEffect(() => {
-    if (!user?.id) return;
-    (async () => {
-      setLoading(true);
+  const notifKey = ['account', 'notifications', userId ?? null] as const;
+  const prefKey = ['account', 'notification-prefs', userId ?? null] as const;
+
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['account', 'notifications-page', userId ?? null],
+    enabled: !!userId,
+    staleTime: 30_000,
+    queryFn: async () => {
       const [{ data: pData }, { data: nData }] = await Promise.all([
-        supabase.from('notification_preferences').select('*').eq('user_id', user.id).maybeSingle(),
-        supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(80),
+        supabase.from('notification_preferences').select('*').eq('user_id', userId!).maybeSingle(),
+        supabase.from('notifications').select('*').eq('user_id', userId!).order('created_at', { ascending: false }).limit(80),
       ]);
-      setPrefs((pData as Pref) || { user_id: user.id, ...PREF_DEFAULTS });
-      setItems(nData || []);
-      setLoading(false);
-    })();
-  }, [user?.id]);
+      return {
+        prefs: (pData as Pref) || { user_id: userId!, ...PREF_DEFAULTS },
+        items: nData || [] as any[],
+      };
+    },
+  });
 
-  const update = async (k: keyof typeof PREF_DEFAULTS, v: boolean) => {
-    if (!prefs || !user?.id) return;
-    const next = { ...prefs, [k]: v };
-    setPrefs(next);
-    setSaving(true);
-    const { error } = await supabase.from('notification_preferences').upsert({
-      user_id: user.id,
-      target_price_new: next.target_price_new,
-      target_price_updated: next.target_price_updated,
-      target_price_weekly: next.target_price_weekly,
-      meta_override_changed: next.meta_override_changed,
-    }, { onConflict: 'user_id' });
-    setSaving(false);
-    if (error) toast.error('儲存失敗：' + error.message);
-  };
+  const prefs = data?.prefs ?? null;
+  const items = data?.items ?? [];
 
-  const markAllRead = async () => {
-    if (!user?.id) return;
-    await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false);
-    setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
-  };
+  const updatePref = useMutation({
+    mutationFn: async ({ k, v }: { k: keyof typeof PREF_DEFAULTS; v: boolean }) => {
+      if (!prefs || !userId) throw new Error('no user');
+      const next = { ...prefs, [k]: v };
+      const { error } = await supabase.from('notification_preferences').upsert({
+        user_id: userId,
+        target_price_new: next.target_price_new,
+        target_price_updated: next.target_price_updated,
+        target_price_weekly: next.target_price_weekly,
+        meta_override_changed: next.meta_override_changed,
+      }, { onConflict: 'user_id' });
+      if (error) throw error;
+      return next;
+    },
+    onMutate: async ({ k, v }) => {
+      await qc.cancelQueries({ queryKey: ['account', 'notifications-page', userId] });
+      const prev = qc.getQueryData<any>(['account', 'notifications-page', userId]);
+      if (prev?.prefs) {
+        qc.setQueryData(['account', 'notifications-page', userId], { ...prev, prefs: { ...prev.prefs, [k]: v } });
+      }
+      return { prev };
+    },
+    onError: (err: any, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['account', 'notifications-page', userId], ctx.prev);
+      toast.error('儲存失敗：' + err.message);
+    },
+  });
+
+  const markAllRead = useMutation({
+    mutationFn: async () => {
+      if (!userId) return;
+      await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId).eq('is_read', false);
+    },
+    onSuccess: () => {
+      const prev = qc.getQueryData<any>(['account', 'notifications-page', userId]);
+      if (prev?.items) {
+        qc.setQueryData(['account', 'notifications-page', userId], {
+          ...prev,
+          items: prev.items.map((n: any) => ({ ...n, is_read: true })),
+        });
+      }
+      qc.invalidateQueries({ queryKey: ['account', 'unread-count', userId] });
+    },
+  });
+
+  const markOneRead = useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    },
+    onSuccess: (_d, id) => {
+      const prev = qc.getQueryData<any>(['account', 'notifications-page', userId]);
+      if (prev?.items) {
+        qc.setQueryData(['account', 'notifications-page', userId], {
+          ...prev,
+          items: prev.items.map((x: any) => (x.id === id ? { ...x, is_read: true } : x)),
+        });
+      }
+      qc.invalidateQueries({ queryKey: ['account', 'unread-count', userId] });
+    },
+  });
 
   const handleClick = async (n: any) => {
-    if (!n.is_read) {
-      await supabase.from('notifications').update({ is_read: true }).eq('id', n.id);
-      setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
-    }
+    if (!n.is_read) await markOneRead.mutateAsync(n.id);
     if (n.link) navigate(n.link);
   };
 
-  const unread = items.filter((i) => !i.is_read).length;
+  const unread = items.filter((i: any) => !i.is_read).length;
 
   return (
     <div className="container mx-auto max-w-3xl py-8 px-4">
@@ -108,7 +150,7 @@ export default function AccountNotifications() {
                 <div className="text-sm font-medium">{PREF_LABELS[k].title}</div>
                 <div className="text-xs text-muted-foreground">{PREF_LABELS[k].desc}</div>
               </div>
-              <Switch checked={prefs[k]} onCheckedChange={(v) => update(k, v)} disabled={saving} />
+              <Switch checked={prefs[k]} onCheckedChange={(v) => updatePref.mutate({ k, v })} disabled={updatePref.isPending} />
             </div>
           ))}
         </CardContent>
@@ -120,7 +162,7 @@ export default function AccountNotifications() {
             <CardTitle className="text-base">最近通知</CardTitle>
             <CardDescription>最多顯示最近 80 筆</CardDescription>
           </div>
-          {unread > 0 && <Button variant="outline" size="sm" onClick={markAllRead}>全部已讀</Button>}
+          {unread > 0 && <Button variant="outline" size="sm" onClick={() => markAllRead.mutate()}>全部已讀</Button>}
         </CardHeader>
         <CardContent className="p-0">
           <ScrollArea className="max-h-[60vh]">
@@ -128,7 +170,7 @@ export default function AccountNotifications() {
               <p className="text-sm text-muted-foreground text-center py-12">暫無通知</p>
             ) : (
               <ul className="divide-y">
-                {items.map((n) => (
+                {items.map((n: any) => (
                   <li key={n.id}>
                     <button
                       onClick={() => handleClick(n)}

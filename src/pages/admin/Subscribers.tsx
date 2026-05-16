@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,42 +10,36 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { fetchAnalystSubscribers } from '@/lib/analystDataAccess';
-import { Users, TrendingUp, UserPlus, UserMinus, Search, RefreshCw, Info, XCircle } from 'lucide-react';
+import { Users, UserPlus, UserMinus, Search, RefreshCw, Info, XCircle } from 'lucide-react';
 
 const AdminSubscribers = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
-  const [expert, setExpert] = useState<any>(null);
-  const [subs, setSubs] = useState<any[]>([]);
-  const [profileMap, setProfileMap] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchData(); }, [expertSlug]);
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['admin', 'subscribers', expertSlug ?? null],
+    enabled: !!expertSlug,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug!).single();
+      if (!exp) return { expert: null, subs: [] as any[], profileMap: {} as Record<string, string> };
+      const { subscriptions } = await fetchAnalystSubscribers(supabase, exp.id);
+      const userIds = [...new Set(subscriptions.map(s => s.user_id).filter(Boolean))];
+      let profileMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, display_name')
+          .in('user_id', userIds);
+        (profiles || []).forEach(p => { profileMap[p.user_id] = p.display_name || ''; });
+      }
+      return { expert: exp, subs: subscriptions, profileMap };
+    },
+  });
 
-  const fetchData = async () => {
-    if (!expertSlug) return;
-    setLoading(true);
-
-    const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
-    setExpert(exp);
-    if (!exp) { setLoading(false); return; }
-
-    const { subscriptions } = await fetchAnalystSubscribers(supabase, exp.id);
-    setSubs(subscriptions);
-
-    // Fetch profile names
-    const userIds = [...new Set(subscriptions.map(s => s.user_id).filter(Boolean))];
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, display_name')
-        .in('user_id', userIds);
-      const map: Record<string, string> = {};
-      (profiles || []).forEach(p => { map[p.user_id] = p.display_name || ''; });
-      setProfileMap(map);
-    }
-    setLoading(false);
-  };
+  const expert = data?.expert;
+  const subs = data?.subs ?? [];
+  const profileMap = data?.profileMap ?? {};
 
   const getRemainingDays = (expiresAt: string | null) => {
     if (!expiresAt) return null;
@@ -153,9 +148,7 @@ const AdminSubscribers = () => {
                             ) : '-'}
                           </td>
                           <td className="p-3">
-                            <Badge variant="outline" className="text-xs">
-                              手動
-                            </Badge>
+                            <Badge variant="outline" className="text-xs">手動</Badge>
                           </td>
                           <td className="p-3">
                             <Badge variant={sub.status === 'active' ? 'secondary' : 'outline'} className="text-xs">
@@ -167,12 +160,7 @@ const AdminSubscribers = () => {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span tabIndex={0} className="inline-block">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      disabled
-                                      className="h-7 text-xs gap-1 text-muted-foreground"
-                                    >
+                                    <Button variant="ghost" size="sm" disabled className="h-7 text-xs gap-1 text-muted-foreground">
                                       <XCircle className="h-3 w-3" /> 取消訂閱
                                     </Button>
                                   </span>
