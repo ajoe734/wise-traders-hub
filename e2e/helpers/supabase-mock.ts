@@ -55,14 +55,43 @@ export async function seedSession(page: Page, user: FakeUser) {
   );
 }
 
+/**
+ * Handlers may return any of:
+ *   - plain JSON  → 200 with that body
+ *   - Promise of plain JSON → 200 once resolved
+ *   - { __status: number, body?: any } → custom status / body (use for errors)
+ *   - Promise resolving to either of the above
+ */
+export type HandlerResult = any | { __status: number; body?: any };
+
 export interface RouteHandlers {
-  // table name → handler returning rows / single object
-  rest?: Record<string, (req: { method: string; url: URL; body: any }) => any>;
-  // function name → handler returning JSON body
-  functions?: Record<string, (req: { body: any }) => any>;
+  // table name → handler returning rows / single object / error envelope
+  rest?: Record<string, (req: { method: string; url: URL; body: any }) => HandlerResult>;
+  // function name → handler returning JSON body / error envelope
+  functions?: Record<string, (req: { body: any }) => HandlerResult>;
   // optional callback when /rest/v1/{table} hit (for assertions)
   onRest?: (table: string, method: string) => void;
   onFunction?: (name: string) => void;
+}
+
+function isErrorEnvelope(r: any): r is { __status: number; body?: any } {
+  return r && typeof r === 'object' && typeof r.__status === 'number';
+}
+
+async function fulfill(route: Route, result: any) {
+  const resolved = result instanceof Promise ? await result : result;
+  if (isErrorEnvelope(resolved)) {
+    return route.fulfill({
+      status: resolved.__status,
+      contentType: 'application/json',
+      body: JSON.stringify(resolved.body ?? { error: 'mock_error' }),
+    });
+  }
+  return route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(resolved ?? null),
+  });
 }
 
 export async function installRoutes(page: Page, handlers: RouteHandlers) {
