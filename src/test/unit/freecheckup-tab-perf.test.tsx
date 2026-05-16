@@ -141,7 +141,8 @@ const holdingsProps: any = {
   clearAllFilters: noop,
   sortBy: 'decision', setSortBy: noop, sortDir: 'desc', setSortDir: noop,
   sortMenuOpen: false, setSortMenuOpen: noop,
-  expandedDecision: null, displayed: [], sorted: [], orderedDisplayed: [],
+  // expandedDecision 已由 brainStore 管理（E2）— 不再從 fixture 傳入
+  displayed: [], sorted: [], orderedDisplayed: [],
   variantsMap: new Map(), firstFeatureCode: null,
   targets: {}, avgTarget: () => null, sparklines: {}, sparklineErrors: {},
   EMPTY_SPARK: Object.freeze([]),
