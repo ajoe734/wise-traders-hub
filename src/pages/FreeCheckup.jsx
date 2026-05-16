@@ -847,7 +847,7 @@ export default function App() {
   }, [calendarRetry.cooldownUntil, predictRetry.cooldownUntil]);
   // Decision System v6
   const [userOverrides, setUserOverrides] = useState({});
-  const [expandedDecision, setExpandedDecision] = useState(null);
+  // A2-lite: expandedDecision 已內化為 HoldingsTab local state（卡片選取不再污染 parent）
   const [debugMode, setDebugMode] = useState(false);
   const [sparklines, setSparklines] = useState({}); // { [code]: number[] }
   const [sparklineErrors, setSparklineErrors] = useState({}); // P3: { [code]: true } 同步失敗的代碼
