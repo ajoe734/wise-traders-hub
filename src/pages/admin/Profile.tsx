@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,13 +21,12 @@ import { avatarUrl } from '@/lib/imageTransform';
 const AdminProfile = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const { user, hasRole } = useAuth();
+  const queryClient = useQueryClient();
   const isCompanyAdmin = hasRole('company_admin');
   const isOwner = !!user?.expertSlug && user.expertSlug === expertSlug;
   // company_admin 擁有最高權限，可代為編輯任一分析師個人檔案
   const isReadOnly = !isCompanyAdmin && !isOwner;
 
-  const [expert, setExpert] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Form state
@@ -46,41 +46,55 @@ const AdminProfile = () => {
   const [startingCapitalLocked, setStartingCapitalLocked] = useState(false);
   const [showCapitalConfirm, setShowCapitalConfirm] = useState(false);
   const [pendingCapital, setPendingCapital] = useState<number>(0);
-  const [capitalStatus, setCapitalStatus] = useState<{ available_cash: number; open_cost_value: number; realized_pnl_amount: number } | null>(null);
+
+  // React Query: expert profile
+  const expertQueryKey = ['admin', 'profile', expertSlug] as const;
+  const { data: expert, isLoading: loading } = useQuery({
+    queryKey: expertQueryKey,
+    enabled: !!expertSlug,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('experts').select('*').eq('slug', expertSlug!).single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // React Query: capital status (depends on expert id)
+  const capitalStatusKey = ['admin', 'profile', 'capital-status', expert?.id] as const;
+  const { data: capitalStatus } = useQuery({
+    queryKey: capitalStatusKey,
+    enabled: !!expert?.id,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_expert_capital_status' as any, { _expert_id: expert!.id });
+      if (error) throw error;
+      return data as { available_cash: number; open_cost_value: number; realized_pnl_amount: number } | null;
+    },
+  });
 
   const { data: perf } = useExpertPerformance(expert?.id);
 
+  // Sync form state when expert data loads / changes
   useEffect(() => {
-    if (!expert?.id) return;
-    supabase.rpc('get_expert_capital_status' as any, { _expert_id: expert.id }).then(({ data }) => {
-      if (data) setCapitalStatus(data as any);
-    });
-  }, [expert?.id]);
-
-  useEffect(() => { fetchExpert(); }, [expertSlug]);
-
-  const fetchExpert = async () => {
-    if (!expertSlug) return;
-    setLoading(true);
-    const { data } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
-    if (data) {
-      setExpert(data);
-      setName(data.name || '');
-      setBio(data.bio || '');
-      setDescription(data.description || '');
-      setStrategySummary((data as any).strategy_summary || '');
-      setStrategyName((data as any).strategy_name || '');
-      setRiskPreference((data as any).risk_preference || '');
-      setOperationCycle((data as any).operation_cycle || '');
-      setStyleTags(data.style_tags || []);
-      setMarkets(data.markets || []);
-      if (data.starting_capital != null) {
-        setStartingCapital(String(data.starting_capital));
-        setStartingCapitalLocked(true);
-      }
+    if (!expert) return;
+    setName(expert.name || '');
+    setBio(expert.bio || '');
+    setDescription(expert.description || '');
+    setStrategySummary((expert as any).strategy_summary || '');
+    setStrategyName((expert as any).strategy_name || '');
+    setRiskPreference((expert as any).risk_preference || '');
+    setOperationCycle((expert as any).operation_cycle || '');
+    setStyleTags(expert.style_tags || []);
+    setMarkets(expert.markets || []);
+    if (expert.starting_capital != null) {
+      setStartingCapital(String(expert.starting_capital));
+      setStartingCapitalLocked(true);
+    } else {
+      setStartingCapital('');
+      setStartingCapitalLocked(false);
     }
-    setLoading(false);
-  };
+  }, [expert]);
 
   const handleSave = async () => {
     if (!expert) return;
@@ -99,7 +113,7 @@ const AdminProfile = () => {
     setSaving(false);
     if (error) { toast.error('儲存失敗：' + error.message); return; }
     toast.success('已儲存');
-    setExpert({ ...expert, name, bio, description, strategy_summary: strategySummary, strategy_name: strategyName, risk_preference: riskPreference, operation_cycle: operationCycle, style_tags: styleTags, markets });
+    queryClient.invalidateQueries({ queryKey: expertQueryKey });
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -161,7 +175,7 @@ const AdminProfile = () => {
       }
 
       toast.success('頭像已更新');
-      setExpert({ ...expert, avatar_url: avatarUrl });
+      queryClient.invalidateQueries({ queryKey: expertQueryKey });
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -523,7 +537,8 @@ const AdminProfile = () => {
                 if (error) { toast.error('設定失敗：' + error.message); return; }
                 toast.success('起始資金已設定');
                 setStartingCapitalLocked(true);
-                setExpert({ ...expert, starting_capital: pendingCapital });
+                queryClient.invalidateQueries({ queryKey: expertQueryKey });
+                queryClient.invalidateQueries({ queryKey: ['admin', 'profile', 'capital-status', expert.id] });
               }}>
                 確認設定
               </AlertDialogAction>
