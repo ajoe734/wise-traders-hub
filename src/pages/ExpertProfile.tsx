@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { SEO } from '@/components/SEO';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +11,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { avatarUrl } from '@/lib/imageTransform';
-import { PerformanceOverviewPanel } from '@/components/strategy/PerformanceOverviewPanel';
+import { LazyOnVisible } from '@/components/LazyOnVisible';
+
+const PerformanceOverviewPanel = lazy(() =>
+  import('@/components/strategy/PerformanceOverviewPanel').then((m) => ({
+    default: m.PerformanceOverviewPanel,
+  }))
+);
 
 interface DbPlan {
   id: string;
