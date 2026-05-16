@@ -175,7 +175,7 @@ const AdminProfile = () => {
       }
 
       toast.success('頭像已更新');
-      setExpert({ ...expert, avatar_url: avatarUrl });
+      queryClient.invalidateQueries({ queryKey: expertQueryKey });
     } finally {
       setUploading(false);
       e.target.value = '';
