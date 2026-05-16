@@ -63,8 +63,7 @@ const WeeklyLimitUpLeaderboardSection = () => {
   return <WeeklyLimitUpLeaderboard entries={entries} isLoading={isLoading} />;
 };
 
-
-
+const Index = () => {
   return (
     <PortalLayout>
       <SEO
