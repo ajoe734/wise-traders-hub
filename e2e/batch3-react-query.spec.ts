@@ -9,7 +9,7 @@ import { seedSession, installRoutes } from './helpers/supabase-mock';
  * `e2e/helpers/supabase-mock.ts`.
  */
 
-test.describe('/account/remittance-orders', () => {
+test.describe('/account/remittance', () => {
   test('logged-out: does NOT query remittance_orders', async ({ page }) => {
     let remittanceCalled = false;
     await installRoutes(page, {
@@ -18,7 +18,7 @@ test.describe('/account/remittance-orders', () => {
       },
     });
 
-    await page.goto('/account/remittance-orders');
+    await page.goto('/account/remittance');
     // Allow auth context to settle / redirect
     await page.waitForLoadState('networkidle');
 
@@ -39,7 +39,7 @@ test.describe('/account/remittance-orders', () => {
       },
     });
 
-    await page.goto('/account/remittance-orders');
+    await page.goto('/account/remittance');
     // Spinner visible while orders endpoint is pending
     await expect(page.locator('.animate-spin').first()).toBeVisible();
 
@@ -97,7 +97,7 @@ test.describe('/account/remittance-orders', () => {
       },
     });
 
-    await page.goto('/account/remittance-orders');
+    await page.goto('/account/remittance');
     await expect(page.getByLabel('匯款人姓名')).toBeVisible();
     const initialFetches = remittanceFetches;
 
