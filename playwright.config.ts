@@ -53,19 +53,28 @@ export default defineConfig({
   projects: [
     {
       name: 'iphone-se-320',
+      testMatch: /freecheckup-card\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 320, height: 568 } },
     },
     {
       name: 'narrow-340',
+      testMatch: /freecheckup-card\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 340, height: 700 } },
     },
     {
       name: 'iphone-12-mini-375',
+      testMatch: /freecheckup-card\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 812 } },
     },
     {
       name: 'iphone-pro-max-414',
+      testMatch: /freecheckup-card\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 414, height: 896 } },
+    },
+    {
+      name: 'desktop-batch3',
+      testMatch: /batch3-.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
   ],
   webServer: {
