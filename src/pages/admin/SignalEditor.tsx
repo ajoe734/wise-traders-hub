@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPublishingWindowOpen } from '@/lib/publishingWindow';
 import { useFormDraft } from '@/hooks/useFormDraft';
-import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { LazyRichTextEditor as RichTextEditor } from '@/components/admin/LazyRichTextEditor';
 import { sanitizeRichHtml, isHtmlEmpty, htmlToPlainText } from '@/lib/sanitizeHtml';
 import { simulatePositions, TradeAction } from '@/lib/simulatePositions';
 import { normalizeSignalQuantityToShares, simulateCashAfterTrades } from '@/lib/signalTradeLogic';

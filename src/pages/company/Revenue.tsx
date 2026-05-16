@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,10 +16,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Cell,
-} from 'recharts';
+// recharts is lazy-loaded via RevenueCharts (≈107 KB gz off the company entry chunk)
+const MonthTrendChart = lazy(() => import('@/components/company/RevenueCharts').then(m => ({ default: m.MonthTrendChart })));
+const SourceBreakdownChart = lazy(() => import('@/components/company/RevenueCharts').then(m => ({ default: m.SourceBreakdownChart })));
+const CheckupTrendChart = lazy(() => import('@/components/company/RevenueCharts').then(m => ({ default: m.CheckupTrendChart })));
+
+const ChartFallback = ({ height = 260 }: { height?: number }) => (
+  <div className="flex items-center justify-center text-xs text-muted-foreground" style={{ height }}>
+    載入圖表…
+  </div>
+);
 import {
   Download, Undo2, AlertTriangle, ChevronDown, ChevronRight, Search,
 } from 'lucide-react';
@@ -485,17 +491,9 @@ const CompanyRevenue = () => {
                   {monthTrend.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">尚無資料</p>
                   ) : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <LineChart data={monthTrend}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                        <XAxis dataKey="month" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                        <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                        <Tooltip formatter={(v: number) => fmtMoney(v)} />
-                        <Line type="monotone" dataKey="gross" name="毛收" stroke="hsl(var(--company))" strokeWidth={2} />
-                        <Line type="monotone" dataKey="platform" name="平台" stroke="hsl(var(--primary))" strokeWidth={2} />
-                        <Line type="monotone" dataKey="expert" name="專家" stroke="hsl(var(--mentor))" strokeWidth={2} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <Suspense fallback={<ChartFallback height={260} />}>
+                      <MonthTrendChart data={monthTrend} />
+                    </Suspense>
                   )}
                 </CardContent>
               </Card>
@@ -506,19 +504,9 @@ const CompanyRevenue = () => {
                   {sourceBreakdown.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">尚無資料</p>
                   ) : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <BarChart data={sourceBreakdown} layout="vertical" margin={{ left: 10, right: 30 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-                        <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v: number) => `$${v.toLocaleString()}`} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={70} />
-                        <Tooltip formatter={(v: number) => fmtMoney(v)} />
-                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={28}>
-                          {sourceBreakdown.map((_, i) => (
-                            <Cell key={i} fill="hsl(var(--company))" />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <Suspense fallback={<ChartFallback height={260} />}>
+                      <SourceBreakdownChart data={sourceBreakdown} />
+                    </Suspense>
                   )}
                 </CardContent>
               </Card>
@@ -847,15 +835,9 @@ const CompanyRevenue = () => {
                 {checkupTrend.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">尚無資料</p>
                 ) : (
-                  <ResponsiveContainer width="100%" height={240}>
-                    <LineChart data={checkupTrend}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(v: number) => fmtMoney(v)} />
-                      <Line type="monotone" dataKey="gross" name="毛收" stroke="hsl(var(--company))" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <Suspense fallback={<ChartFallback height={240} />}>
+                    <CheckupTrendChart data={checkupTrend} />
+                  </Suspense>
                 )}
               </CardContent>
             </Card>
