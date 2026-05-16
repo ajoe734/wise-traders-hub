@@ -5,6 +5,10 @@ import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
 import HoldingsQuotaMeter from "@/checkup/components/freecheckup/HoldingsQuotaMeter";
 import HoldingsFilterBar from "@/checkup/components/freecheckup/HoldingsFilterBar";
 import HoldingsReversalSection from "@/checkup/components/freecheckup/HoldingsReversalSection";
+import HoldingsUploadSummary from "@/checkup/components/freecheckup/HoldingsUploadSummary";
+import HoldingsEmptyState from "@/checkup/components/freecheckup/HoldingsEmptyState";
+import HoldingsNoMatchState from "@/checkup/components/freecheckup/HoldingsNoMatchState";
+import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
 
 const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/HoldingsDetailPanel"));
 
