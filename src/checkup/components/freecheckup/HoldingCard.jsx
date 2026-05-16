@@ -11,6 +11,7 @@
 //   - 行為對等：onClick toggle expandedDecision、onDoubleClick + Shift+Enter 開 drawer
 import { memo } from 'react';
 import { validateProps } from './_validateProps.js';
+import { useInView } from '@/checkup/hooks/useInView.js';
 
 // ── 模組層常數（搬離 renderCard 內部，避免每次重建） ──
 const SRC_LABEL = { screenshot: '截圖', live: '即時', high: '最高', ask: '賣一', yclose: '昨收' };
@@ -44,6 +45,8 @@ const HOLDING_CARD_PROP_SCHEMA = {
 
 function HoldingCardImpl(props) {
   validateProps('HoldingCard', props, HOLDING_CARD_PROP_SCHEMA);
+  // C2/C3: 卡片離視窗時延後渲染內容 — 減少初始 DOM/Sparkline SVG 成本
+  const [cardRef, inView] = useInView({ rootMargin: '400px 0px' });
 
   const {
     holding: h,
@@ -114,6 +117,7 @@ function HoldingCardImpl(props) {
     return (
       <button
         key={h.code}
+        ref={cardRef}
         className="wb-card wb-card-feature wb-span-feature"
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -136,6 +140,7 @@ function HoldingCardImpl(props) {
           overflow: 'hidden',
         }}
       >
+        {inView && (<>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0, flex: 1 }}>
             <span style={{ fontSize: 11, color: muteColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em' }}>{h.code}</span>
@@ -238,6 +243,7 @@ function HoldingCardImpl(props) {
             )}
           </span>
         </div>
+        </>)}
       </button>
     );
   }
@@ -246,6 +252,7 @@ function HoldingCardImpl(props) {
   return (
     <button
       key={h.code}
+      ref={cardRef}
       className="wb-card wb-span-1"
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -269,6 +276,7 @@ function HoldingCardImpl(props) {
         overflow: 'hidden',
       }}
     >
+      {inView && (<>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0, flex: 1 }}>
           <span style={{ fontSize: 11, color: muteColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', flexShrink: 0 }}>{h.code}</span>
@@ -367,6 +375,7 @@ function HoldingCardImpl(props) {
           {h.value?.toLocaleString() || '—'}
         </span>
       </div>
+      </>)}
     </button>
   );
 }
