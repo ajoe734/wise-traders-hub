@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,17 +48,14 @@ const emptyForm = { title: '', action: 'buy', reason: '', risk_note: '', strateg
 const AdminSignalTemplates = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
   const { hasRole } = useAuth();
+  const qc = useQueryClient();
   const isCompanyAdmin = hasRole('company_admin');
-  const [expert, setExpert] = useState<any>(null);
   const [templates, setTemplates] = useState<SignalTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  // 草稿自動暫存（規範：mem://management/form-persistence-rules）
-  // 編輯既有模板用 id 為 key，新增用 'new'
   const draftKey = `signal-template-draft-${expertSlug}-${editingId ?? 'new'}`;
   const { discard: discardDraft } = useFormDraft(
     draftKey,
@@ -66,23 +64,31 @@ const AdminSignalTemplates = () => {
     { enabled: dialogOpen }
   );
 
-  const fetchData = useCallback(async () => {
-    if (!expertSlug) return;
-    setLoading(true);
-    const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
-    setExpert(exp);
-    if (exp) {
-      const { data } = await supabase
+  const queryKey = ['admin', 'signal-templates', expertSlug ?? null] as const;
+  const { data, isLoading: loading } = useQuery({
+    queryKey,
+    enabled: !!expertSlug,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug!).single();
+      if (!exp) return { expert: null, templates: [] as SignalTemplate[] };
+      const { data: tpl } = await supabase
         .from('expert_signal_templates' as any)
         .select('*')
         .eq('expert_id', exp.id)
         .order('sort_order', { ascending: true });
-      setTemplates((data as any) || []);
-    }
-    setLoading(false);
-  }, [expertSlug]);
+      return { expert: exp, templates: (tpl as any as SignalTemplate[]) || [] };
+    },
+  });
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const expert = data?.expert ?? null;
+  // sync server templates -> local (so drag reorder can work)
+  React.useEffect(() => {
+    setTemplates(data?.templates ?? []);
+  }, [data?.templates]);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey });
+
 
   const openCreate = () => {
     // 規範第 2 條：點擊「新增」必須清空 + 清除舊草稿
@@ -113,7 +119,7 @@ const AdminSignalTemplates = () => {
     }
     discardDraft();
     setDialogOpen(false);
-    fetchData();
+    invalidate();
   };
 
   const handleDelete = async (id: string) => {
@@ -121,7 +127,7 @@ const AdminSignalTemplates = () => {
     const { error } = await (supabase.from('expert_signal_templates' as any) as any).delete().eq('id', id);
     if (error) { toast.error(error.message); return; }
     toast.success('模板已刪除');
-    fetchData();
+    invalidate();
   };
 
   // Drag reorder
@@ -137,12 +143,12 @@ const AdminSignalTemplates = () => {
   };
   const handleDragEnd = async () => {
     setDragIdx(null);
-    // Persist new sort_order
     for (let i = 0; i < templates.length; i++) {
       if (templates[i].sort_order !== i) {
         await (supabase.from('expert_signal_templates' as any) as any).update({ sort_order: i }).eq('id', templates[i].id);
       }
     }
+    invalidate();
   };
 
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;

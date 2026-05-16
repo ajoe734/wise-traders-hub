@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,20 +22,21 @@ const fmtDate = (s: string | null) => {
 };
 
 const AdminAnnouncements = () => {
-  const [items, setItems] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { expertSlug } = useParams<{ expertSlug: string }>();
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
+  const { data: items = [], isLoading: loading } = useQuery({
+    queryKey: ['admin', 'announcements', expertSlug ?? null],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('announcements')
         .select('id, title, content, status, published_at, created_at')
         .eq('status', 'published')
         .order('published_at', { ascending: false });
-      setItems((data as Announcement[]) || []);
-      setLoading(false);
-    })();
-  }, []);
+      if (error) throw error;
+      return (data as Announcement[]) || [];
+    },
+    staleTime: 30_000,
+  });
 
   return (
     <AdminLayout>
