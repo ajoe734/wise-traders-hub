@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { PortalLayout } from "@/components/layouts/PortalLayout";
 import { Button } from "@/components/ui/button";
@@ -40,20 +41,23 @@ function formatDate(iso: string) {
 
 export default function MyRemittanceOrders() {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<Order[] | null>(null);
+  const queryClient = useQueryClient();
+  const { data: orders = null } = useQuery({
+    queryKey: ['remittance-orders', user?.id],
+    queryFn: async () => {
+      if (!user) return [] as Order[];
+      const { data } = await supabase
+        .from("remittance_orders")
+        .select("id, product_kind, billing_cycle, amount, status, last5, payer_name, created_at, reject_reason")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      return (data as Order[]) ?? [];
+    },
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+  const load = () => queryClient.invalidateQueries({ queryKey: ['remittance-orders', user?.id] });
   const [drafts, setDrafts] = useState<Record<string, { last5: string; payerName: string; submitting: boolean }>>({});
-
-  const load = async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("remittance_orders")
-      .select("id, product_kind, billing_cycle, amount, status, last5, payer_name, created_at, reject_reason")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    setOrders((data as Order[]) ?? []);
-  };
-
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id]);
 
   const updateDraft = (id: string, patch: Partial<{ last5: string; payerName: string; submitting: boolean }>) => {
     setDrafts((prev) => ({ ...prev, [id]: { last5: "", payerName: "", submitting: false, ...prev[id], ...patch } }));
