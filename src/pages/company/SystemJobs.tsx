@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Activity, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 interface JobLog {
   id: string;
@@ -38,16 +39,14 @@ const fmtDateTime = (s: string) => {
 };
 
 export default function SystemJobsPage() {
-  const [logs, setLogs] = useState<JobLog[]>([]);
   const [page, setPage] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [jobNames, setJobNames] = useState<string[]>([]);
   const [jobFilter, setJobFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
+  const { data: jobNames = [] } = useQuery<string[]>({
+    queryKey: ['company', 'system-jobs', 'names'],
+    staleTime: 60_000,
+    queryFn: async () => {
       const { data } = await (supabase as any)
         .from('system_jobs_log')
         .select('job_name')
@@ -55,26 +54,27 @@ export default function SystemJobsPage() {
         .limit(500);
       const set = new Set<string>();
       (data || []).forEach((r: any) => set.add(r.job_name));
-      setJobNames(Array.from(set).sort());
-    })();
-  }, []);
+      return Array.from(set).sort();
+    },
+  });
 
-  useEffect(() => { fetchLogs(); /* eslint-disable-next-line */ }, [page, jobFilter, statusFilter]);
-
-  const fetchLogs = async () => {
-    setLoading(true);
-    let q = (supabase as any)
-      .from('system_jobs_log')
-      .select('id, job_name, status, detail, duration_ms, ran_at', { count: 'exact' })
-      .order('ran_at', { ascending: false })
-      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
-    if (jobFilter !== 'all') q = q.eq('job_name', jobFilter);
-    if (statusFilter !== 'all') q = q.eq('status', statusFilter);
-    const { data, count } = await q;
-    setLogs((data as JobLog[]) || []);
-    setTotal(count || 0);
-    setLoading(false);
-  };
+  const { data: logsData, isLoading: loading } = useQuery({
+    queryKey: ['company', 'system-jobs', 'logs', page, jobFilter, statusFilter],
+    staleTime: 30_000,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from('system_jobs_log')
+        .select('id, job_name, status, detail, duration_ms, ran_at', { count: 'exact' })
+        .order('ran_at', { ascending: false })
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+      if (jobFilter !== 'all') q = q.eq('job_name', jobFilter);
+      if (statusFilter !== 'all') q = q.eq('status', statusFilter);
+      const { data, count } = await q;
+      return { logs: (data as JobLog[]) || [], total: count || 0 };
+    },
+  });
+  const logs = logsData?.logs || [];
+  const total = logsData?.total || 0;
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 

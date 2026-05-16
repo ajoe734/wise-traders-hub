@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { Download, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 
 interface LogRow {
   id: string;
@@ -24,26 +25,32 @@ interface LogRow {
 export default function FunctionLogs() {
   const [runId, setRunId] = useState('');
   const [fnFilter, setFnFilter] = useState('publish-weekly-journals');
-  const [rows, setRows] = useState<LogRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState<{ fn: string; runId: string } | null>(null);
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    try {
+  const { data: rows = [], isFetching: loading, refetch } = useQuery<LogRow[]>({
+    queryKey: ['company', 'function-logs', submitted?.fn ?? '', submitted?.runId ?? ''],
+    enabled: !!submitted,
+    staleTime: 30_000,
+    queryFn: async () => {
       let q = supabase.from('function_run_logs')
         .select('*')
         .order('created_at', { ascending: true })
         .limit(1000);
-      if (runId.trim()) q = q.eq('run_id', runId.trim());
-      if (fnFilter.trim()) q = q.eq('fn', fnFilter.trim());
+      if (submitted?.runId) q = q.eq('run_id', submitted.runId);
+      if (submitted?.fn) q = q.eq('fn', submitted.fn);
       const { data, error } = await q;
       if (error) throw error;
-      setRows((data ?? []) as LogRow[]);
       if (!data?.length) toast.info('查無紀錄');
-    } catch (e: any) {
-      toast.error(e?.message ?? '查詢失敗');
-    } finally {
-      setLoading(false);
+      return (data ?? []) as LogRow[];
+    },
+  });
+
+  const fetchLogs = () => {
+    const next = { fn: fnFilter.trim(), runId: runId.trim() };
+    if (submitted && submitted.fn === next.fn && submitted.runId === next.runId) {
+      refetch();
+    } else {
+      setSubmitted(next);
     }
   };
 

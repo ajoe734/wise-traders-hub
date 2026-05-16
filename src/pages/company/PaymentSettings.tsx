@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { logAdminAction } from '@/lib/auditLog';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 type EcpayStatus = {
   source: string;
@@ -23,9 +24,9 @@ type EcpayStatus = {
 };
 
 export default function CompanyPaymentSettings() {
+  const qc = useQueryClient();
   const [standard, setStandard] = useState<{ pct_platform: number; pct_expert: number }>({ pct_platform: 55, pct_expert: 45 });
   const [original, setOriginal] = useState<{ pct_platform: number; pct_expert: number }>({ pct_platform: 55, pct_expert: 45 });
-  const [loading, setLoading] = useState(true);
   const [ecpayStatus, setEcpayStatus] = useState<EcpayStatus | null>(null);
   const [ecpayChecking, setEcpayChecking] = useState(false);
 
@@ -40,18 +41,22 @@ export default function CompanyPaymentSettings() {
     setEcpayStatus(data as EcpayStatus);
   };
 
+  const { data: loaded, isLoading: loading } = useQuery({
+    queryKey: ['company', 'payment-settings', 'split_standard'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data } = await (supabase.from as any)('payment_settings_safe').select('key, value').eq('key', 'split_standard').maybeSingle();
+      const s = (data?.value as any) || { pct_platform: 55, pct_expert: 45 };
+      return { pct_platform: s.pct_platform ?? 55, pct_expert: s.pct_expert ?? 45 };
+    },
+  });
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await (supabase.from as any)('payment_settings_safe').select('key, value').eq('key', 'split_standard').maybeSingle();
-    const s = (data?.value as any) || { pct_platform: 55, pct_expert: 45 };
-    const v = { pct_platform: s.pct_platform ?? 55, pct_expert: s.pct_expert ?? 45 };
-    setStandard(v);
-    setOriginal(v);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (loaded) {
+      setStandard(loaded);
+      setOriginal(loaded);
+    }
+  }, [loaded]);
 
   const saveStandard = async () => {
     const total = (standard.pct_platform || 0) + (standard.pct_expert || 0);
@@ -72,6 +77,7 @@ export default function CompanyPaymentSettings() {
       detail: { before: original, after: standard },
     });
     setOriginal(standard);
+    qc.invalidateQueries({ queryKey: ['company', 'payment-settings', 'split_standard'] });
     toast({ title: '已儲存標準分潤' });
   };
 
