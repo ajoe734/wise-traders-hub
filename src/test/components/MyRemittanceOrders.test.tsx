@@ -42,7 +42,7 @@ const orderChain = {
   order: vi.fn().mockImplementation(() => Promise.resolve(orderQuery)),
 };
 
-const fromMock = vi.fn(() => orderChain);
+const fromMock = vi.fn((_t: string) => orderChain);
 const invokeMock = vi.fn();
 
 vi.mock('@/integrations/supabase/client', () => ({
