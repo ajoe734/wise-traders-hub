@@ -2019,9 +2019,7 @@ export default function App() {
   const handleHoldingCardOpenDrawer = useCallback((code) => {
     openHoldingDrawerRef.current(code);
   }, []);
-  const handleHoldingCardSelect = useCallback((code) => {
-    setExpandedDecision(prev => prev === code ? null : code);
-  }, []);
+  // A2-lite: handleHoldingCardSelect 已內化為 HoldingsTab local（搭配 expandedDecision）
 
   const activeHolding = activeIndex >= 0 ? sourceList[activeIndex] : null;
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
