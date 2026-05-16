@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -29,42 +30,44 @@ interface Order {
 }
 
 export default function CompanyRemittance() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [planMap, setPlanMap] = useState<Record<string, string>>({});
-  const [checkupPlanMap, setCheckupPlanMap] = useState<Record<string, string>>({});
-  const [adminMap, setAdminMap] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'awaiting_info' | 'pending' | 'confirmed' | 'rejected' | 'expired' | 'all'>('pending');
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
 
-  const load = async () => {
-    setLoading(true);
-    let q = supabase.from('remittance_orders').select('*').order('created_at', { ascending: false });
-    if (filter !== 'all') q = q.eq('status', filter);
-    const { data, error } = await q;
-    if (error) {
-      toast({ title: '載入失敗', description: error.message, variant: 'destructive' });
-      setLoading(false);
-      return;
-    }
-    const list = (data || []) as Order[];
-    setOrders(list);
-
-    const planIds = [...new Set(list.map(o => o.plan_id).filter(Boolean))] as string[];
-    const checkupIds = [...new Set(list.map(o => o.checkup_plan_id).filter(Boolean))] as string[];
-    const adminIds = [...new Set(list.map(o => o.confirmed_by).filter(Boolean))] as string[];
-    const [pRes, cpRes, profRes] = await Promise.all([
-      planIds.length ? supabase.from('expert_plans').select('id, name').in('id', planIds) : Promise.resolve({ data: [] as any }),
-      checkupIds.length ? supabase.from('checkup_plans').select('id, name').in('id', checkupIds) : Promise.resolve({ data: [] as any }),
-      adminIds.length ? supabase.from('profiles').select('user_id, display_name').in('user_id', adminIds) : Promise.resolve({ data: [] as any }),
-    ]);
-    setPlanMap(Object.fromEntries(((pRes.data as any[]) || []).map(p => [p.id, p.name])));
-    setCheckupPlanMap(Object.fromEntries(((cpRes.data as any[]) || []).map(p => [p.id, p.name])));
-    setAdminMap(Object.fromEntries(((profRes.data as any[]) || []).map(p => [p.user_id, p.display_name || p.user_id.slice(0, 8)])));
-    setLoading(false);
+  const { data, isFetching, refetch } = useQuery({
+    queryKey: ['company', 'remittance', filter],
+    queryFn: async () => {
+      let q = supabase.from('remittance_orders').select('*').order('created_at', { ascending: false });
+      if (filter !== 'all') q = q.eq('status', filter);
+      const { data, error } = await q;
+      if (error) throw error;
+      const list = (data || []) as Order[];
+      const planIds = [...new Set(list.map(o => o.plan_id).filter(Boolean))] as string[];
+      const checkupIds = [...new Set(list.map(o => o.checkup_plan_id).filter(Boolean))] as string[];
+      const adminIds = [...new Set(list.map(o => o.confirmed_by).filter(Boolean))] as string[];
+      const [pRes, cpRes, profRes] = await Promise.all([
+        planIds.length ? supabase.from('expert_plans').select('id, name').in('id', planIds) : Promise.resolve({ data: [] as any }),
+        checkupIds.length ? supabase.from('checkup_plans').select('id, name').in('id', checkupIds) : Promise.resolve({ data: [] as any }),
+        adminIds.length ? supabase.from('profiles').select('user_id, display_name').in('user_id', adminIds) : Promise.resolve({ data: [] as any }),
+      ]);
+      return {
+        orders: list,
+        planMap: Object.fromEntries(((pRes.data as any[]) || []).map(p => [p.id, p.name])) as Record<string, string>,
+        checkupPlanMap: Object.fromEntries(((cpRes.data as any[]) || []).map(p => [p.id, p.name])) as Record<string, string>,
+        adminMap: Object.fromEntries(((profRes.data as any[]) || []).map(p => [p.user_id, p.display_name || p.user_id.slice(0, 8)])) as Record<string, string>,
+      };
+    },
+    staleTime: 30_000,
+  });
+  const orders = data?.orders ?? [];
+  const planMap = data?.planMap ?? {};
+  const checkupPlanMap = data?.checkupPlanMap ?? {};
+  const adminMap = data?.adminMap ?? {};
+  const loading = isFetching && !data;
+  const load = () => {
+    queryClient.invalidateQueries({ queryKey: ['company', 'remittance'] });
+    refetch();
   };
-
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
 
   const confirm = async (order: Order) => {
     const { data, error } = await supabase.functions.invoke('confirm-remittance', { body: { orderId: order.id } });

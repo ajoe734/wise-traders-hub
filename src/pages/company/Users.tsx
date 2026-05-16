@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,9 +56,13 @@ const errorMap: Record<string, string> = {
 
 export default function CompanyUsers() {
   const { user } = useAuth();
-  const [rows, setRows] = useState<UserRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
   const [filter, setFilter] = useState<'all' | 'admin' | 'analyst' | 'banned'>('all');
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -68,23 +73,23 @@ export default function CompanyUsers() {
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
 
+  const { data: rows = [], isFetching, refetch } = useQuery<UserRow[]>({
+    queryKey: ['company', 'users', debouncedSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('admin-manage-users', {
+        body: { action: 'list', search: debouncedSearch, limit: 200 },
+      });
+      if (error) throw error;
+      return data?.users || [];
+    },
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+  const loading = isFetching && rows.length === 0;
   const load = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase.functions.invoke('admin-manage-users', {
-      body: { action: 'list', search, limit: 200 },
-    });
-    if (error) {
-      toast({ title: '載入失敗', description: error.message, variant: 'destructive' });
-    } else {
-      setRows(data?.users || []);
-    }
-    setLoading(false);
-  }, [search]);
-
-  useEffect(() => {
-    const t = setTimeout(load, 300);
-    return () => clearTimeout(t);
-  }, [load]);
+    await queryClient.invalidateQueries({ queryKey: ['company', 'users'] });
+    await refetch();
+  }, [queryClient, refetch]);
 
   const isBanned = (r: UserRow) => !!r.banned_until && new Date(r.banned_until) > new Date();
 

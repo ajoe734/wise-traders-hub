@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -76,12 +77,7 @@ const fmtVal = (v: any): string => {
 };
 
 const AuditLogsPage = () => {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [actorMap, setActorMap] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [allActions, setAllActions] = useState<string[]>([]);
   const [detailLog, setDetailLog] = useState<AuditLog | null>(null);
 
   // Filters
@@ -92,9 +88,10 @@ const AuditLogsPage = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // 動態 actions 列表
-  useEffect(() => {
-    (async () => {
+  // 動態 actions 列表（變動少，快取較長）
+  const { data: allActions = [] } = useQuery<string[]>({
+    queryKey: ['company', 'audit-logs', 'actions'],
+    queryFn: async () => {
       const { data } = await supabase
         .from('audit_logs')
         .select('action')
@@ -102,60 +99,57 @@ const AuditLogsPage = () => {
         .limit(500);
       const set = new Set<string>();
       (data || []).forEach((r: any) => set.add(r.action));
-      setAllActions(Array.from(set).sort());
-    })();
-  }, []);
+      return Array.from(set).sort();
+    },
+    staleTime: 5 * 60_000,
+  });
 
-  useEffect(() => {
-    fetchLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, actionFilter, namespaceFilter, range, startDate, endDate]);
+  const { data, isFetching } = useQuery({
+    queryKey: ['company', 'audit-logs', { page, actionFilter, namespaceFilter, range, startDate, endDate }],
+    queryFn: async () => {
+      let q = supabase
+        .from('audit_logs')
+        .select('id, actor_id, action, target_type, target_id, detail, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    let q = supabase
-      .from('audit_logs')
-      .select('id, actor_id, action, target_type, target_id, detail, created_at', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+      if (actionFilter !== 'all') q = q.eq('action', actionFilter);
+      if (namespaceFilter !== 'all') q = q.like('action', `${namespaceFilter}.%`);
 
-    if (actionFilter !== 'all') q = q.eq('action', actionFilter);
-    if (namespaceFilter !== 'all') q = q.like('action', `${namespaceFilter}.%`);
-
-    // 時間範圍
-    let s = startDate, e = endDate;
-    if (range !== 'custom' && range !== 'all') {
-      const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
-      const from = new Date(Date.now() - days * 86400_000);
-      s = from.toISOString();
-      q = q.gte('created_at', s);
-    } else if (range === 'custom') {
-      if (s) q = q.gte('created_at', new Date(s).toISOString());
-      if (e) {
-        const ed = new Date(e); ed.setHours(23, 59, 59, 999);
-        q = q.lte('created_at', ed.toISOString());
+      let s = startDate, e = endDate;
+      if (range !== 'custom' && range !== 'all') {
+        const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
+        const from = new Date(Date.now() - days * 86400_000);
+        s = from.toISOString();
+        q = q.gte('created_at', s);
+      } else if (range === 'custom') {
+        if (s) q = q.gte('created_at', new Date(s).toISOString());
+        if (e) {
+          const ed = new Date(e); ed.setHours(23, 59, 59, 999);
+          q = q.lte('created_at', ed.toISOString());
+        }
       }
-    }
 
-    const { data, count } = await q;
-    const rows = (data as AuditLog[]) || [];
-    setLogs(rows);
-    setTotal(count || 0);
-
-    const ids = [...new Set(rows.map((l) => l.actor_id).filter(Boolean))] as string[];
-    if (ids.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, display_name')
-        .in('user_id', ids);
-      const map: Record<string, string> = {};
-      (profiles || []).forEach((p: any) => { map[p.user_id] = p.display_name || ''; });
-      setActorMap(map);
-    } else {
-      setActorMap({});
-    }
-    setLoading(false);
-  };
+      const { data: rowData, count } = await q;
+      const rows = (rowData as AuditLog[]) || [];
+      const ids = [...new Set(rows.map((l) => l.actor_id).filter(Boolean))] as string[];
+      let actorMap: Record<string, string> = {};
+      if (ids.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, display_name')
+          .in('user_id', ids);
+        (profiles || []).forEach((p: any) => { actorMap[p.user_id] = p.display_name || ''; });
+      }
+      return { logs: rows, total: count || 0, actorMap };
+    },
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+  const logs = data?.logs ?? [];
+  const total = data?.total ?? 0;
+  const actorMap = data?.actorMap ?? {};
+  const loading = isFetching && !data;
 
   const filteredLogs = useMemo(() => {
     if (!actorQuery.trim()) return logs;
