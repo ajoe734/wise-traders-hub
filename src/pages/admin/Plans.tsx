@@ -188,7 +188,7 @@ const AdminPlans = () => {
       );
     }
     setDialogOpen(false);
-    fetchAll();
+    invalidate();
   };
 
   const toggleActive = async (p: Plan) => {
@@ -198,7 +198,7 @@ const AdminPlans = () => {
       .eq('id', p.id);
     if (error) { toast.error('切換失敗：' + error.message); return; }
     toast.success(!p.is_active ? '方案已上架' : '方案已下架');
-    fetchAll();
+    invalidate();
   };
 
   if (loading) {
