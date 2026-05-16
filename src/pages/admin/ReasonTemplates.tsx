@@ -104,14 +104,14 @@ const ReasonTemplates = () => {
     }
     discardDraft();
     setDialogOpen(false);
-    fetchData();
+    invalidate();
   };
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('expert_reason_templates' as any).delete().eq('id', id);
     if (error) { toast.error(error.message); return; }
     toast.success('模板已刪除');
-    fetchData();
+    invalidate();
   };
 
   const handleDragStart = (idx: number) => setDragIdx(idx);
@@ -128,11 +128,11 @@ const ReasonTemplates = () => {
 
   const handleDragEnd = async () => {
     setDragIdx(null);
-    // Batch update sort_order
-    const updates = templates.map((t, i) => 
+    const updates = templates.map((t, i) =>
       supabase.from('expert_reason_templates' as any).update({ sort_order: i } as any).eq('id', t.id)
     );
     await Promise.all(updates);
+    invalidate();
   };
 
   if (loading) return <AdminLayout><div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div></AdminLayout>;
