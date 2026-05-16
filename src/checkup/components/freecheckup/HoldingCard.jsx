@@ -252,6 +252,7 @@ function HoldingCardImpl(props) {
   return (
     <button
       key={h.code}
+      ref={cardRef}
       className="wb-card wb-span-1"
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -275,6 +276,7 @@ function HoldingCardImpl(props) {
         overflow: 'hidden',
       }}
     >
+      {inView && (<>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0, flex: 1 }}>
           <span style={{ fontSize: 11, color: muteColor, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', flexShrink: 0 }}>{h.code}</span>
