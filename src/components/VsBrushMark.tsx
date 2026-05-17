@@ -1,5 +1,5 @@
 import React from "react";
-import vsBrush from "@/assets/vs-clean-noseal.png";
+import vsBrush from "@/assets/vs-clean-noseal.webp";
 
 type VsBrushMarkProps = {
   className?: string;

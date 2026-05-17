@@ -43,19 +43,8 @@ const MobilePreviewCarousel = lazy(() =>
   import('./index-sections/MobileCarousels').then((m) => ({ default: m.MobilePreviewCarousel }))
 );
 
-// Idle prefetch：閒置時預抓熱門路由 chunk，使用者點擊時近乎即時
-if (typeof window !== 'undefined') {
-  const w = window as Window & {
-    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void;
-  };
-  const run = () => {
-    import('./Experts');
-    import('./Pricing');
-    import('./auth/Login');
-  };
-  if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 2000 });
-  else window.setTimeout(run, 1500);
-}
+// Batch1-#2: idle prefetch moved to centralized prefetchHighTrafficRoutes()
+// in src/lib/routePrefetch.ts (invoked from AttributionTracker in App.tsx).
 
 
 const WeeklyLimitUpLeaderboardSection = () => {

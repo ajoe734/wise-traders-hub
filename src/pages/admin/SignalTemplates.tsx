@@ -19,7 +19,7 @@ import { useFormDraft } from '@/hooks/useFormDraft';
 import step1AdvImg from '@/assets/template-step1.png';
 import step2AdvImg from '@/assets/template-step2-new.png';
 import step1MenImg from '@/assets/template-step1-mentor.png';
-import step2MenImg from '@/assets/template-step2-mentor.png';
+import step2MenImg from '@/assets/template-step2-mentor.webp';
 
 interface SignalTemplate {
   id: string;
