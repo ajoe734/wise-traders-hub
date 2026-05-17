@@ -113,10 +113,17 @@ const Experts = () => {
         </div>
 
         {/* Results */}
+        {isError && allPeople.length > 0 && (
+          <div className="mb-4">
+            <ExpertFetchError variant="inline" error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
+          </div>
+        )}
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
+        ) : isError && allPeople.length === 0 ? (
+          <ExpertFetchError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
         ) : filteredPeople.length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPeople.map(person => (
