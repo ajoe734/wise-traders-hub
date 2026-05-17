@@ -244,8 +244,8 @@ export default function BacktestMonitor() {
       });
       if (error) throw error;
       toast({ title: 'Email 通知已送出', description: JSON.stringify(data) });
-    } catch (e: any) {
-      toast({ title: '通知失敗', description: String(e?.message ?? e), variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: '通知失敗', description: errorMessage(e), variant: 'destructive' });
     } finally { setBusyAll(null); }
   };
 
