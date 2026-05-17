@@ -51,18 +51,38 @@ export function useExpertPerformanceRealtime(expertId: string | undefined) {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (!expertId) return;
-    const channel = supabase
-      .channel(`expert-perf-${expertId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'user_performances' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['expert-performance', expertId] });
-        }
-      )
-      .subscribe();
+    // Defer websocket setup to browser idle — `user_performances` only refreshes
+    // on a 5-min cron, so opening the channel on the critical render path costs
+    // ~200ms of script time for zero perceived benefit.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    const start = () => {
+      channel = supabase
+        .channel(`expert-perf-${expertId}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'user_performances' },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ['expert-performance', expertId] });
+          }
+        )
+        .subscribe();
+    };
+    const handle: number = typeof w.requestIdleCallback === 'function'
+      ? w.requestIdleCallback(start, { timeout: 3000 })
+      : (setTimeout(start, 1500) as unknown as number);
+
     return () => {
-      supabase.removeChannel(channel);
+      if (typeof w.cancelIdleCallback === 'function') {
+        try { w.cancelIdleCallback(handle); } catch {}
+      } else {
+        clearTimeout(handle as unknown as ReturnType<typeof setTimeout>);
+      }
+      if (channel) supabase.removeChannel(channel);
     };
   }, [expertId, queryClient]);
 }
+
