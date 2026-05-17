@@ -263,6 +263,9 @@ export function useExpertDetailBundle(slug: string | undefined) {
     },
     enabled: !!slug && !isAuthLoading,
     staleTime: EXPERT_STALE_MS,
+    retry: expertRetry,
+    retryDelay: expertRetryDelay,
+    placeholderData: keepPreviousData,
   });
 }
 
