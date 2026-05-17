@@ -7,6 +7,7 @@ import { RoleBadge } from '@/components/RoleBadge';
 import { cn } from '@/lib/utils';
 import { Flame } from 'lucide-react';
 import { avatarUrl } from '@/lib/imageTransform';
+import { intentHandlers } from '@/lib/routePrefetch';
 interface ExpertCardProps {
   person: PersonWithPlans;
 }
