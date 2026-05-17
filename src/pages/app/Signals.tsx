@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { richHtmlPreview } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
+import { intentHandlers } from '@/lib/routePrefetch';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
