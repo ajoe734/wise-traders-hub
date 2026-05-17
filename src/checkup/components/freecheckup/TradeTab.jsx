@@ -1,4 +1,42 @@
 import React from 'react';
+import { validateProps } from './_validateProps';
+
+/**
+ * Props schema 與 EVENTS_TAB_PROP_SCHEMA 同款 dev-time 守門。
+ * 任何 prop 增刪必須同步本表，否則 freecheckup-tab-prop-schema.test.ts 會擋。
+ */
+const TRADE_TAB_PROP_SCHEMA = {
+  C: 'object', alpha: 'function', card: 'object', lbl: 'object',
+  parsing: 'boolean', parseStep: 'string',
+  parseErr: { type: 'string', optional: true },
+  parsed: { type: 'object', optional: true }, setParsed: 'function',
+  img: { type: 'string', optional: true },
+  dragOver: 'boolean', setDragOver: 'function',
+  processFile: 'function', parseShot: 'function',
+  setImg: 'function', setB64: 'function', setParseErr: 'function',
+  isDemo: 'boolean',
+  startLineLogin: { type: 'function', optional: true },
+  hasReachedDailyLimit: 'boolean',
+  tier: { type: 'string', optional: true },
+  quota: { type: 'object', optional: true },
+  formatResetDateTime: 'function', formatResetCountdown: 'function',
+  holdings: 'array', setHoldings: 'function', setTradeLog: 'function',
+  setUploadSummary: 'function',
+  holdingsChangedByUserRef: 'object',
+  stripDemoSeedHoldings: 'function',
+  mergeTradeIntoHoldings: 'function',
+  upsertSnapshotHolding: 'function',
+  SNAPSHOT_IMPORT_ACTION: 'string',
+  MAX_HOLDINGS: 'number',
+  toast: 'function', setTab: 'function',
+  memoAns: { type: 'object', optional: true },
+  memoIn: 'string', setMemoIn: 'function',
+  memoStep: 'number', qs: 'array', submitMemo: 'function',
+  tpCode: 'string', setTpCode: 'function',
+  tpFirm: 'string', setTpFirm: 'function',
+  tpVal: 'string', setTpVal: 'function',
+  setTargets: 'function', setSaved: 'function',
+};
 
 /**
  * TradeTab — Free Checkup「上傳成交」tab。
