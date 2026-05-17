@@ -11,7 +11,7 @@ import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Targ
 import { cn } from '@/lib/utils';
 import { avatarUrl } from '@/lib/imageTransform';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
-import { useExpert, useExpertSubscriptionStats } from '@/hooks/useExpert';
+import { useExpertDetailBundle } from '@/hooks/useExpert';
 
 const PerformanceOverviewPanel = lazy(() =>
   import('@/components/strategy/PerformanceOverviewPanel').then((m) => ({
