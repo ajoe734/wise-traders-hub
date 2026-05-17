@@ -4,15 +4,36 @@ import { seedSession, installRoutes } from './helpers/supabase-mock';
 /**
  * Batch 5b React Query regression — desktop E2E.
  *
- * Coverage: 5 /company/* pages migrated to React Query.
+ * Batch 5b scope: 11 admin/company pages + admin/Profile.
  *
- * For each page we assert:
+ * Migration & coverage matrix
+ * ---------------------------------------------------------------
+ *   page                              migrated   covered here
+ *   ---------------------------------------------------------------
+ *   /company/audit-logs                  ✅           ✅
+ *   /company/backtest-monitor            ✅           ✅
+ *   /company/remittance                  ✅           ✅
+ *   /company/subscribers                 ✅           ✅
+ *   /company/users                       ✅           ✅
+ *   /company/analysts                    ✅           ✅
+ *   /admin/:slug/profile                 ✅           ✅
+ *   /company/knowledge-base              ⏸ deferred   test.fixme
+ *   /company/payments                    ⏸ deferred   test.fixme
+ *   /company/plans                       ⏸ deferred   test.fixme
+ *   /company/revenue                     ⏸ deferred   test.fixme
+ *   /company/referral-channels           ➖ stub       n/a
+ * ---------------------------------------------------------------
+ *
+ * For each migrated page we assert:
  *   1. Mount fires the underlying query exactly once.
  *   2. Re-render / focus / sibling navigation does NOT refetch within staleTime.
  *   3. Changing a piece of the queryKey (filter / page / search) DOES refetch.
  *   4. A successful mutation invalidates and triggers a refetch.
  *
  * Auth + REST + Functions are mocked via `e2e/helpers/supabase-mock.ts`.
+ *
+ * Run the whole suite:
+ *   bunx playwright test e2e/batch5b-react-query.spec.ts
  */
 
 const adminProfile = {
