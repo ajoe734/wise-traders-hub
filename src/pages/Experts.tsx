@@ -18,7 +18,7 @@ const Experts = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [marketFilter, setMarketFilter] = useState<string | null>(null);
 
-  const { data: allPeople = [], isLoading } = useExperts();
+  const { data: allPeople = [], isLoading, isError, error, refetch, isRefetching } = useExperts();
 
   const filteredPeople = useMemo(() => {
     const filtered = allPeople.filter(person => {
