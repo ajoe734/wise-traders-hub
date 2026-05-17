@@ -191,7 +191,7 @@ const AppHome = () => {
               </FeatureCard>
               <div className="flex items-center gap-2">
                 {mentorSubs.slice(0, 3).map(sub => (
-                  <Link key={sub.plan_id} to={`/app/expert/${sub.expert.slug}`}>
+                  <Link key={sub.plan_id} to={`/app/expert/${sub.expert.slug}`} {...intentHandlers('app-expert-detail')}>
                     <Avatar className="h-10 w-10 border-2 border-learning-accent/40">
                       <AvatarImage src={avatarUrl(sub.expert.avatar_url, 80)} alt={sub.expert.name} loading="lazy" decoding="async" className="object-[center_15%]" />
                       <AvatarFallback>{sub.expert.name[0]}</AvatarFallback>
