@@ -84,9 +84,11 @@ describe('mergeExpertIntoListCaches', () => {
 
     const next = qc.getQueryData<PersonWithPlans[]>(['experts', 'u1', 'default'])!;
     expect(next).not.toBe(list); // 新 array
-    expect(next[0]).toBe(fresh); // 用注入的 expert 物件取代
+    // 注意：QueryClient.setQueryData 會做 structural sharing，
+    // 所以無法用 toBe(fresh) 比 reference，這裡用 deep equal 驗值。
+    expect(next[0]).toEqual(fresh);
     expect(next[0].bio).toBe('fresh');
-    expect(next[1]).toBe(other); // 其他位置 reference 不動
+    expect(next[1]).toEqual(other);
   });
 
   it('多個 list cache：所有含該 slug 的 list 都被 patch；非 [experts] 前綴的 cache 不動', () => {
