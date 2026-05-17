@@ -226,10 +226,10 @@ const AppHome = () => {
 
         {/* Quick Links */}
         <section className="pt-2 space-y-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-          <Link to="/app/account" className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors">
+          <Link to="/app/account" {...intentHandlers('app-account')} className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors">
             <span className="text-sm text-muted-foreground">管理訂閱</span><ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
-          <Link to="/app/explore" className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors">
+          <Link to="/app/explore" {...intentHandlers('app-explore')} className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors">
             <span className="text-sm text-muted-foreground">探索更多專家</span><ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
           <Link to="/free-checkup" className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors">
