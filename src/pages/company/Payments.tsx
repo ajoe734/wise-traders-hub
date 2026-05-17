@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -247,6 +248,7 @@ const PaymentGroupSection = ({
 };
 
 const CompanyPayments = () => {
+  const queryClient = useQueryClient();
   const [providers, setProviders] = useState<ProviderRow[]>([]);
 
   // Add provider dialog
@@ -271,46 +273,66 @@ const CompanyPayments = () => {
   // Unsupported channel info dialog (acpay / newebpay / line_pay)
   const [infoOpen, setInfoOpen] = useState<ProviderType | null>(null);
 
+  /**
+   * Single snapshot for the whole page. Providers + remit + ecpay are
+   * fetched in parallel and mirrored to local state so the existing
+   * optimistic-update + form-edit code keeps working unchanged.
+   * Mutations call invalidateQueries(['company','payments']) to refetch.
+   */
+  const { data: snapshot } = useQuery({
+    queryKey: ['company', 'payments'],
+    queryFn: async () => {
+      const [providersRes, remitRes, ecpayRes] = await Promise.all([
+        supabase.from('payment_providers').select('*').order('created_at'),
+        (supabase.from as any)('payment_settings_safe').select('value').eq('key', 'remittance_account').maybeSingle(),
+        (supabase.from as any)('payment_settings_safe')
+          .select('value, updated_at').eq('key', 'ecpay_credentials').maybeSingle(),
+      ]);
+
+      const filtered = ((providersRes.data || []) as ProviderRow[])
+        .filter((p) => p.provider_type !== ('stripe' as ProviderType));
+      const order: Record<string, number> = { ecpay: 0, acpay: 1, newebpay: 2, line_pay: 3 };
+      filtered.sort((a, b) => (order[a.provider_type] ?? 99) - (order[b.provider_type] ?? 99));
+
+      const remitValue = (remitRes.data?.value as Record<string, string>) || {};
+
+      const ecpayRaw = (ecpayRes.data?.value as EcpayCredsRow & { has_hash_key?: boolean; has_hash_iv?: boolean }) || {};
+      const ecpayWithTs: EcpayCredsRow = { ...ecpayRaw, updated_at: ecpayRes.data?.updated_at };
+      // safe view masks hash_key/hash_iv — strip so saveEcpay can't overwrite DB with "***".
+      delete (ecpayWithTs as any).hash_key;
+      delete (ecpayWithTs as any).hash_iv;
+
+      return {
+        providers: filtered,
+        remit: remitValue,
+        ecpay: ecpayWithTs,
+        ecpayHasKey: !!ecpayRaw.has_hash_key,
+        ecpayHasIV: !!ecpayRaw.has_hash_iv,
+      };
+    },
+    staleTime: 30_000,
+  });
+
+  // Mirror snapshot → local state so form/optimistic code keeps working.
   useEffect(() => {
-    fetchProviders();
-    fetchRemit();
-    fetchEcpay();
-  }, []);
-
-  // ---------- Fetchers ----------
-  const fetchProviders = async () => {
-    const { data } = await supabase.from('payment_providers').select('*').order('created_at');
-    const filtered = ((data || []) as ProviderRow[]).filter((p) => p.provider_type !== ('stripe' as ProviderType));
-    const order: Record<string, number> = { ecpay: 0, acpay: 1, newebpay: 2, line_pay: 3 };
-    filtered.sort((a, b) => (order[a.provider_type] ?? 99) - (order[b.provider_type] ?? 99));
-    setProviders(filtered);
-  };
-
-  const fetchRemit = async () => {
-    const { data } = await (supabase.from as any)('payment_settings_safe').select('value').eq('key', 'remittance_account').maybeSingle();
-    const v = (data?.value as Record<string, string>) || {};
-    setRemit(v);
-    setRemitOriginal(v);
-  };
-
-  const fetchEcpay = async () => {
-    // 讀取走 safe view：HashKey / HashIV 不會回傳原值，只回 has_* 旗標 + 末四碼
-    const { data } = await (supabase.from as any)('payment_settings_safe')
-      .select('value, updated_at')
-      .eq('key', 'ecpay_credentials')
-      .maybeSingle();
-    const v = (data?.value as EcpayCredsRow & { has_hash_key?: boolean; has_hash_iv?: boolean }) || {};
-    const withTs: EcpayCredsRow = { ...v, updated_at: data?.updated_at };
-    // 不可把 mask 後的字串塞回 hash_key / hash_iv state，避免後續 saveEcpay 誤把 *** 字串覆寫回 DB
-    delete (withTs as any).hash_key;
-    delete (withTs as any).hash_iv;
-    setEcpay(withTs);
-    setEcpayOriginal(withTs);
-    setEcpayHasKey(!!v.has_hash_key);
-    setEcpayHasIV(!!v.has_hash_iv);
+    if (!snapshot) return;
+    setProviders(snapshot.providers);
+    setRemit(snapshot.remit);
+    setRemitOriginal(snapshot.remit);
+    setEcpay(snapshot.ecpay);
+    setEcpayOriginal(snapshot.ecpay);
+    setEcpayHasKey(snapshot.ecpayHasKey);
+    setEcpayHasIV(snapshot.ecpayHasIV);
     setEcpayHashKeyInput('');
     setEcpayHashIVInput('');
-  };
+  }, [snapshot]);
+
+  // Invalidate helpers — used by all mutations below.
+  const invalidatePayments = () =>
+    queryClient.invalidateQueries({ queryKey: ['company', 'payments'] });
+  const fetchProviders = invalidatePayments;
+  const fetchRemit = invalidatePayments;
+  const fetchEcpay = invalidatePayments;
 
   // ---------- Derived: channel matrix ----------
   const channels: ChannelRow[] = useMemo(() => {
