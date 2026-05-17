@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,14 +75,12 @@ const PLAN_TYPE_LABEL: Record<string, string> = {
 };
 
 export default function CompanyPlans() {
-  const [rows, setRows] = useState<PlanRow[]>([]);
-  const [defaultRule, setDefaultRule] = useState<DefaultRule>({ pct_platform: 55, pct_expert: 45 });
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [outerTab, setOuterTab] = useState<'plans' | 'cross_discounts' | 'checkup'>('plans');
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
   const [acting, setActing] = useState(false);
 
-  // Cross-product discounts
+  // Cross-product discounts — local form state (seeded from query, mutated by inputs).
   const [cross, setCross] = useState<Record<string, number>>({});
   const [crossOriginal, setCrossOriginal] = useState<Record<string, number>>({});
   const [savingCross, setSavingCross] = useState(false);
@@ -97,43 +96,62 @@ export default function CompanyPlans() {
   const [splitForm, setSplitForm] = useState({ pct_platform: 55, pct_expert: 45, is_active: true, notes: '' });
   const [splitEditing, setSplitEditing] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    const [plansRes, overridesRes, settingsRes, crossRes] = await Promise.all([
-      supabase
-        .from('expert_plans')
-        .select('*, experts:expert_id(name, slug, role)')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('plan_split_overrides')
-        .select('id, plan_id, pct_platform, pct_expert, is_active, notes'),
-      (supabase.from as any)('payment_settings_safe').select('key, value').eq('key', 'split_standard').maybeSingle(),
-      (supabase.from as any)('payment_settings_safe').select('value').eq('key', 'cross_discounts').maybeSingle(),
-    ]);
+  /**
+   * Single snapshot query for the whole page. Filters (outerTab/tab) are
+   * pure client-side — they do NOT go into the queryKey, so tab switching
+   * within the 30s staleTime never refetches. Mutations call
+   * invalidateQueries(['company','plans']).
+   */
+  const { data, isFetching } = useQuery({
+    queryKey: ['company', 'plans'],
+    queryFn: async () => {
+      const [plansRes, overridesRes, settingsRes, crossRes] = await Promise.all([
+        supabase
+          .from('expert_plans')
+          .select('*, experts:expert_id(name, slug, role)')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('plan_split_overrides')
+          .select('id, plan_id, pct_platform, pct_expert, is_active, notes'),
+        (supabase.from as any)('payment_settings_safe').select('key, value').eq('key', 'split_standard').maybeSingle(),
+        (supabase.from as any)('payment_settings_safe').select('value').eq('key', 'cross_discounts').maybeSingle(),
+      ]);
 
-    if (plansRes.error) toast.error('載入方案失敗：' + plansRes.error.message);
+      if (plansRes.error) toast.error('載入方案失敗：' + plansRes.error.message);
 
-    const overrideMap = new Map<string, OverrideRow>();
-    (overridesRes.data || []).forEach((o: any) => overrideMap.set(o.plan_id, {
-      id: o.id, pct_platform: o.pct_platform, pct_expert: o.pct_expert,
-      is_active: o.is_active, notes: o.notes,
-    }));
+      const overrideMap = new Map<string, OverrideRow>();
+      (overridesRes.data || []).forEach((o: any) => overrideMap.set(o.plan_id, {
+        id: o.id, pct_platform: o.pct_platform, pct_expert: o.pct_expert,
+        is_active: o.is_active, notes: o.notes,
+      }));
 
-    const merged: PlanRow[] = (plansRes.data || []).map((p: any) => ({
-      ...p,
-      override: overrideMap.get(p.id) ?? null,
-    }));
-    setRows(merged);
+      const merged: PlanRow[] = (plansRes.data || []).map((p: any) => ({
+        ...p,
+        override: overrideMap.get(p.id) ?? null,
+      }));
 
-    const s = settingsRes.data?.value as any;
-    if (s) setDefaultRule({ pct_platform: s.pct_platform ?? 55, pct_expert: s.pct_expert ?? 45 });
+      const s = settingsRes.data?.value as any;
+      const defaultRule: DefaultRule = s
+        ? { pct_platform: s.pct_platform ?? 55, pct_expert: s.pct_expert ?? 45 }
+        : { pct_platform: 55, pct_expert: 45 };
 
-    const c = (crossRes.data?.value as Record<string, number>) || {};
-    setCross(c);
-    setCrossOriginal(c);
+      const crossMap = (crossRes.data?.value as Record<string, number>) || {};
 
-    setLoading(false);
-  };
+      return { rows: merged, defaultRule, crossMap };
+    },
+    staleTime: 30_000,
+  });
+
+  const rows = data?.rows ?? [];
+  const defaultRule = data?.defaultRule ?? { pct_platform: 55, pct_expert: 45 };
+  const loading = isFetching && !data;
+
+  // Seed editable cross-discount form whenever the server snapshot lands.
+  useEffect(() => {
+    if (!data) return;
+    setCross(data.crossMap);
+    setCrossOriginal(data.crossMap);
+  }, [data]);
 
   const saveCross = async () => {
     setSavingCross(true);
@@ -149,9 +167,8 @@ export default function CompanyPlans() {
     });
     setCrossOriginal(cross);
     toast.success('已儲存跨產品折扣');
+    queryClient.invalidateQueries({ queryKey: ['company', 'plans'] });
   };
-
-  useEffect(() => { load(); }, []);
 
   const current = useMemo(() => rows.find(r => r.id === openId) ?? null, [rows, openId]);
 
@@ -161,8 +178,10 @@ export default function CompanyPlans() {
 
   const pendingCount = rows.filter(r => r.review_status === 'pending').length;
 
+  // Mutations invalidate the snapshot; React Query will refetch and the
+  // currently-open sheet (if any) stays mounted while data refreshes.
   const refreshAndKeepOpen = async () => {
-    await load();
+    await queryClient.invalidateQueries({ queryKey: ['company', 'plans'] });
   };
 
   // ----- Review actions -----

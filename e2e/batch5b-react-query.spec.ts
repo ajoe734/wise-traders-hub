@@ -17,10 +17,10 @@ import { seedSession, installRoutes } from './helpers/supabase-mock';
  *   /company/users                       ✅           ✅
  *   /company/analysts                    ✅           ✅
  *   /admin/:slug/profile                 ✅           ✅
- *   /company/knowledge-base              ⏸ deferred   test.fixme
- *   /company/payments                    ⏸ deferred   test.fixme
- *   /company/plans                       ⏸ deferred   test.fixme
- *   /company/revenue                     ⏸ deferred   test.fixme
+ *   /company/knowledge-base              ✅           ✅
+ *   /company/payments                    ✅           ✅
+ *   /company/plans                       ✅           ✅
+ *   /company/revenue                     ✅           ✅
  *   /company/referral-channels           ➖ stub       n/a
  * ---------------------------------------------------------------
  *
@@ -702,20 +702,282 @@ test.describe('/admin/:slug/profile', () => {
 });
 
 // -----------------------------------------------------------------------------
-// Deferred pages — placeholders so the suite tracks pending migrations.
-// Unskip (`test.fixme` → `test`) once each page adopts React Query.
+// Batch 5b round-2 migrations — staleTime + invalidation contract per page.
+// All 4 pages now use a single ['company', '<slug>'] query (revenue also keys
+// by preset). Every mutation funnels through queryClient.invalidateQueries.
 // -----------------------------------------------------------------------------
-test.describe('Batch 5b deferred (pending React Query migration)', () => {
-  test.fixme('/company/knowledge-base — query-once + mutation invalidation', async () => {
-    // TODO: queryKey ['company','knowledge-base', tab] expected after migration
+
+// /company/knowledge-base — queryKey: ['company','knowledge-base']
+test.describe('/company/knowledge-base', () => {
+  test('mount fires snapshot once; mainTab switch within staleTime does not refetch', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let itemsFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        ...baseRest,
+        checkup_knowledge_items: ({ method }) => {
+          if (method === 'GET') itemsFetches += 1;
+          return [];
+        },
+        checkup_knowledge_usage_stats: () => [],
+        checkup_knowledge_candidates: () => [],
+        knowledge_backtest_runs: () => [],
+      },
+    });
+
+    await page.goto('/company/knowledge-base');
+    await expect.poll(() => itemsFetches).toBe(1);
+
+    // Tab switches are client-side filters; queryKey stays the same.
+    const candidatesTab = page.getByRole('tab', { name: /候選|Candidate/i }).first();
+    if (await candidatesTab.count()) {
+      await candidatesTab.click();
+      await page.waitForTimeout(400);
+      expect(itemsFetches).toBe(1);
+    }
+
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForTimeout(400);
+    expect(itemsFetches).toBe(1);
   });
-  test.fixme('/company/payments — query-once + mutation invalidation', async () => {
-    // TODO: queryKey ['company','payments', {dateRange, status}] expected
+
+  test('external invalidateQueries(["company","knowledge-base"]) refetches', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let itemsFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        ...baseRest,
+        checkup_knowledge_items: ({ method }) => {
+          if (method === 'GET') itemsFetches += 1;
+          return [];
+        },
+        checkup_knowledge_usage_stats: () => [],
+        checkup_knowledge_candidates: () => [],
+        knowledge_backtest_runs: () => [],
+      },
+    });
+    await page.goto('/company/knowledge-base');
+    await expect.poll(() => itemsFetches).toBe(1);
+
+    await page.evaluate(() => {
+      const qc = (window as any).__lfQueryClient;
+      qc.invalidateQueries({ queryKey: ['company', 'knowledge-base'] });
+    });
+    await expect.poll(() => itemsFetches, { timeout: 3_000 }).toBeGreaterThan(1);
   });
-  test.fixme('/company/plans — query-once + mutation invalidation', async () => {
-    // TODO: queryKey ['company','plans'] (+ ['company','checkup-plans']) expected
+});
+
+// /company/payments — queryKey: ['company','payments']
+test.describe('/company/payments', () => {
+  test('mount fires providers query once; focus does not refetch', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let providersFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        ...baseRest,
+        payment_providers: ({ method }) => {
+          if (method === 'GET') providersFetches += 1;
+          return [];
+        },
+        payment_settings_safe: () => null,
+      },
+    });
+
+    await page.goto('/company/payments');
+    await expect.poll(() => providersFetches).toBe(1);
+
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForTimeout(400);
+    expect(providersFetches).toBe(1);
   });
-  test.fixme('/company/revenue — query-once + mutation invalidation', async () => {
-    // TODO: queryKey ['company','revenue', {period}] expected
+
+  test('external invalidateQueries(["company","payments"]) refetches all 3 fetches', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let providersFetches = 0;
+    let settingsFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        ...baseRest,
+        payment_providers: ({ method }) => {
+          if (method === 'GET') providersFetches += 1;
+          return [];
+        },
+        payment_settings_safe: ({ method }) => {
+          if (method === 'GET') settingsFetches += 1;
+          return null;
+        },
+      },
+    });
+    await page.goto('/company/payments');
+    await expect.poll(() => providersFetches).toBe(1);
+    await expect.poll(() => settingsFetches).toBeGreaterThanOrEqual(2); // remit + ecpay
+
+    const baseline = settingsFetches;
+    await page.evaluate(() => {
+      const qc = (window as any).__lfQueryClient;
+      qc.invalidateQueries({ queryKey: ['company', 'payments'] });
+    });
+    await expect.poll(() => providersFetches, { timeout: 3_000 }).toBeGreaterThan(1);
+    await expect.poll(() => settingsFetches, { timeout: 3_000 }).toBeGreaterThan(baseline);
+  });
+});
+
+// /company/plans — queryKey: ['company','plans']
+test.describe('/company/plans', () => {
+  test('mount fires once; outer/inner tab switches do not refetch (client-side)', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let plansFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        ...baseRest,
+        expert_plans: ({ method }) => {
+          if (method === 'GET') plansFetches += 1;
+          return [];
+        },
+        plan_split_overrides: () => [],
+        payment_settings_safe: () => null,
+        checkup_plans: () => [],
+      },
+    });
+
+    await page.goto('/company/plans');
+    await expect.poll(() => plansFetches).toBe(1);
+
+    // Click inner "全部方案" tab — client-side filter only.
+    const allTab = page.getByRole('tab', { name: '全部方案' });
+    if (await allTab.count()) {
+      await allTab.click();
+      await page.waitForTimeout(400);
+      expect(plansFetches).toBe(1);
+    }
+
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForTimeout(400);
+    expect(plansFetches).toBe(1);
+  });
+
+  test('external invalidateQueries(["company","plans"]) refetches', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let plansFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        ...baseRest,
+        expert_plans: ({ method }) => {
+          if (method === 'GET') plansFetches += 1;
+          return [];
+        },
+        plan_split_overrides: () => [],
+        payment_settings_safe: () => null,
+        checkup_plans: () => [],
+      },
+    });
+    await page.goto('/company/plans');
+    await expect.poll(() => plansFetches).toBe(1);
+
+    await page.evaluate(() => {
+      const qc = (window as any).__lfQueryClient;
+      qc.invalidateQueries({ queryKey: ['company', 'plans'] });
+    });
+    await expect.poll(() => plansFetches, { timeout: 3_000 }).toBeGreaterThan(1);
+  });
+});
+
+// /company/revenue — queryKey: ['company','revenue', preset]
+test.describe('/company/revenue', () => {
+  const restStub = () => ({
+    ...baseRest,
+    revenue_splits: () => [],
+    payment_transactions: () => [],
+    remittance_orders: () => [],
+    member_subscriptions: () => [],
+    checkup_subscriptions: () => [],
+    experts: () => [],
+    expert_plans: () => [],
+    checkup_plans: () => [],
+    profiles: () => [],
+    payment_providers: () => [],
+  });
+
+  test('mount fires once; focus within staleTime does not refetch', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let splitsFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        ...restStub(),
+        revenue_splits: ({ method }) => {
+          if (method === 'GET') splitsFetches += 1;
+          return [];
+        },
+      },
+    });
+
+    await page.goto('/company/revenue');
+    await expect.poll(() => splitsFetches).toBeGreaterThan(0);
+    const baseline = splitsFetches;
+
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForTimeout(400);
+    expect(splitsFetches).toBe(baseline);
+  });
+
+  test('changing preset (queryKey changes) triggers refetch; switching back uses cache', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let splitsFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        ...restStub(),
+        revenue_splits: ({ method }) => {
+          if (method === 'GET') splitsFetches += 1;
+          return [];
+        },
+      },
+    });
+
+    await page.goto('/company/revenue');
+    await expect.poll(() => splitsFetches).toBeGreaterThan(0);
+    const baseline = splitsFetches;
+
+    // Select preset combobox (first one is typically 區間 preset)
+    const presetTrigger = page.getByRole('combobox').first();
+    await presetTrigger.click();
+    const lastMonth = page.getByRole('option', { name: /上個月|上月|Last month/i }).first();
+    if (await lastMonth.count()) {
+      await lastMonth.click();
+      await expect.poll(() => splitsFetches, { timeout: 3_000 }).toBeGreaterThan(baseline);
+      const afterChange = splitsFetches;
+
+      // Switch back to this month — cached within staleTime, no refetch.
+      await presetTrigger.click();
+      const thisMonth = page.getByRole('option', { name: /本月|這個月|This month/i }).first();
+      if (await thisMonth.count()) {
+        await thisMonth.click();
+        await page.waitForTimeout(500);
+        expect(splitsFetches).toBe(afterChange);
+      }
+    }
+  });
+
+  test('external invalidateQueries(["company","revenue"]) refetches all preset caches', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let splitsFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        ...restStub(),
+        revenue_splits: ({ method }) => {
+          if (method === 'GET') splitsFetches += 1;
+          return [];
+        },
+      },
+    });
+
+    await page.goto('/company/revenue');
+    await expect.poll(() => splitsFetches).toBeGreaterThan(0);
+    const baseline = splitsFetches;
+
+    await page.evaluate(() => {
+      const qc = (window as any).__lfQueryClient;
+      qc.invalidateQueries({ queryKey: ['company', 'revenue'] });
+    });
+    await expect.poll(() => splitsFetches, { timeout: 3_000 }).toBeGreaterThan(baseline);
   });
 });
