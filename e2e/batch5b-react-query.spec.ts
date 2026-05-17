@@ -356,3 +356,125 @@ test.describe('/company/backtest-monitor', () => {
     }
   });
 });
+
+// -----------------------------------------------------------------------------
+// /company/analysts — queryKey: ['company-experts']
+// -----------------------------------------------------------------------------
+test.describe('/company/analysts', () => {
+  test('mount fires once; focus & re-render do not refetch within staleTime', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let expertsFetches = 0;
+    await installRoutes(page, {
+      rest: {
+        ...baseRest,
+        experts: ({ method, url }) => {
+          if (method === 'GET') {
+            // The page query is `select=*&order=created_at...` — distinguish from
+            // any layout query that joins expert_plans.
+            const select = url.searchParams.get('select') || '';
+            if (!select.includes('expert_plans')) expertsFetches += 1;
+          }
+          return [
+            { id: 'e1', name: 'Alice', slug: 'alice', status: 'active', created_at: new Date().toISOString(), created_by: 'admin', avatar_url: null, role: 'analyst', email: 'a@x.com' },
+          ];
+        },
+        expert_line_channels: () => [],
+        member_line_bindings_analyst: () => [],
+      },
+    });
+
+    await page.goto('/company/analysts');
+    await expect(page.getByText('Alice').first()).toBeVisible();
+    await expect.poll(() => expertsFetches).toBe(1);
+
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForTimeout(400);
+    expect(expertsFetches).toBe(1);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// /admin/:slug/profile — keys: ['admin','profile', slug]
+//                              ['admin','profile','capital-status', expertId]
+// -----------------------------------------------------------------------------
+test.describe('/admin/:slug/profile', () => {
+  const expertRow = {
+    id: 'exp-1',
+    user_id: 'admin',
+    slug: 'alice',
+    name: 'Alice',
+    bio: '',
+    description: '',
+    style_tags: [],
+    markets: [],
+    starting_capital: 1000000,
+    avatar_url: null,
+    status: 'active',
+    role: 'analyst',
+  };
+
+  test('expert + capital-status fire once; focus does not refetch', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let expertSelectStarFetches = 0;
+    let capitalRpcCalls = 0;
+    await installRoutes(page, {
+      rest: {
+        ...baseRest,
+        experts: ({ method, url }) => {
+          if (method === 'GET') {
+            const select = url.searchParams.get('select') || '';
+            // The page query is `select=*` (no expert_plans join).
+            if (select === '*') expertSelectStarFetches += 1;
+            // Layout (useExpert) uses '*,expert_plans(*)' — out of scope here.
+            return [expertRow];
+          }
+          return [expertRow];
+        },
+        rpc: ({ url }) => {
+          if (url.pathname.endsWith('/get_expert_capital_status')) {
+            capitalRpcCalls += 1;
+            return { available_cash: 500000, open_cost_value: 400000, realized_pnl_amount: 100000 };
+          }
+          return null;
+        },
+      },
+    });
+
+    await page.goto('/admin/alice/profile');
+    await expect.poll(() => expertSelectStarFetches, { timeout: 5_000 }).toBe(1);
+    await expect.poll(() => capitalRpcCalls, { timeout: 5_000 }).toBe(1);
+
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForTimeout(400);
+    expect(expertSelectStarFetches).toBe(1);
+    expect(capitalRpcCalls).toBe(1);
+  });
+
+  test('handleSave invalidates expert key → refetches expert', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let expertSelectStarFetches = 0;
+    let expertUpdates = 0;
+    await installRoutes(page, {
+      rest: {
+        ...baseRest,
+        experts: ({ method, url }) => {
+          if (method === 'GET') {
+            const select = url.searchParams.get('select') || '';
+            if (select === '*') expertSelectStarFetches += 1;
+          }
+          if (method === 'PATCH') expertUpdates += 1;
+          return [expertRow];
+        },
+        rpc: () => ({ available_cash: 0, open_cost_value: 0, realized_pnl_amount: 0 }),
+      },
+    });
+
+    await page.goto('/admin/alice/profile');
+    await expect.poll(() => expertSelectStarFetches).toBe(1);
+
+    await page.getByRole('button', { name: /儲存變更/ }).click();
+
+    await expect.poll(() => expertUpdates, { timeout: 3_000 }).toBe(1);
+    await expect.poll(() => expertSelectStarFetches, { timeout: 3_000 }).toBeGreaterThan(1);
+  });
+});
