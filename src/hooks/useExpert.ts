@@ -155,6 +155,10 @@ export function useExperts(opts?: { includeAllStatuses?: boolean }) {
     },
     enabled: !isAuthLoading,
     staleTime: EXPERT_STALE_MS,
+    retry: expertRetry,
+    retryDelay: expertRetryDelay,
+    // 失敗的 refetch 不該把畫面打回 loading：保留前一次成功的 list。
+    placeholderData: keepPreviousData,
   });
 }
 
