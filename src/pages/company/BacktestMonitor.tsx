@@ -62,6 +62,40 @@ interface NotifyLog {
   errors: string[];
 }
 
+interface NotifyLogRow {
+  created_at: string;
+  payload: { email_sent?: number; email_failed?: number; errors?: unknown } | null;
+}
+
+interface BackfillProgressRow {
+  status: string;
+}
+
+interface BackfillSymbolRow {
+  symbol: string | null;
+  yyyymm: string | null;
+}
+
+interface BackfillSnapshot {
+  pending: number;
+  done: number;
+  empty: number;
+  failed: number;
+  total: number;
+  latest_month: string | null;
+  latest_date: string | null;
+  current_symbol: string | null;
+  current_yyyymm: string | null;
+  recent_done_5min: number;
+  eta_minutes: number | null;
+  last_attempted_at: string | null;
+}
+
+interface KnowledgeItemRow {
+  id: string;
+  title: string;
+}
+
 export default function BacktestMonitor() {
   const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
