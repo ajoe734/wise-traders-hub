@@ -1,52 +1,23 @@
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { SEO } from '@/components/SEO';
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, ArrowRight, Shield, Clock, Check, Loader2, ArrowLeft, Target, TrendingUp, Award, Users, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { avatarUrl } from '@/lib/imageTransform';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
+import { useExpert, useExpertSubscriptionStats } from '@/hooks/useExpert';
 
 const PerformanceOverviewPanel = lazy(() =>
   import('@/components/strategy/PerformanceOverviewPanel').then((m) => ({
     default: m.PerformanceOverviewPanel,
   }))
 );
-
-interface DbPlan {
-  id: string;
-  name: string;
-  plan_type: string;
-  price_monthly: number;
-  price_yearly: number | null;
-  description: string | null;
-  features: any;
-}
-
-interface ExpertInfo {
-  id: string;
-  name: string;
-  bio: string;
-  description: string;
-  strategySummary: string;
-  strategyName: string;
-  riskPreference: string;
-  operationCycle: string;
-  avatarUrl: string;
-  role: 'advisor' | 'mentor';
-  styleTags: string[];
-  markets: string[];
-  backtestReturn1y: number | null;
-  backtestMaxDrawdown: number | null;
-  backtestAnnualReturn: number | null;
-  startingCapital: number | null;
-}
 
 const ExpertProfile = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -59,99 +30,42 @@ const ExpertProfile = () => {
     (user?.expertSlug && user.expertSlug === slug) || hasRole('company_admin')
   );
 
-  const [expertInfo, setExpertInfo] = useState<ExpertInfo | null>(null);
-  const [expertNotFound, setExpertNotFound] = useState(false);
-  const [dbPlans, setDbPlans] = useState<DbPlan[]>([]);
-  const [subscribedPlanIds, setSubscribedPlanIds] = useState<Set<string>>(new Set());
-  const [subscriberCount, setSubscriberCount] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  
+  // Tester preview (`status=draft`) lives in the same query as the public
+  // path — `useExpert` already routes through `getVisibilityMode(user)`.
+  const { data: expert, isLoading: expertLoading, isFetched: expertFetched } = useExpert(slug);
+  const expertId = expert?.id;
+  const dbPlans = expert?.plans ?? [];
+  const planIds = dbPlans.map((p) => p.id);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchData = async () => {
-      if (!slug) return;
+  const { data: stats } = useExpertSubscriptionStats(expertId, planIds);
+  const subscribedPlanIds = stats?.mySubscribedPlanIds ?? new Set<string>();
+  const subscriberCount = stats?.subscriberCount ?? null;
 
-      const { data: expert } = await supabase
-        .from('experts')
-        .select('id, name, bio, description, avatar_url, role, style_tags, markets, status, strategy_summary, strategy_name, risk_preference, operation_cycle, backtest_1y_return, backtest_max_drawdown, backtest_annual_return, starting_capital')
-        .eq('slug', slug)
-        .maybeSingle();
+  const expertNotFound = expertFetched && !expert;
+  const loading = expertLoading && !expert;
 
-      if (cancelled) return;
-
-      if (!expert) {
-        setExpertNotFound(true);
-        setLoading(false);
-        return;
-      }
-
-      const isVisible = expert.status === 'active' || (expert.status === 'draft' && user?.isTester);
-      if (!isVisible) {
-        setExpertNotFound(true);
-        setLoading(false);
-        return;
-      }
-
-      setExpertInfo({
+  // Adapt `PersonWithPlans` → the panel/render shape this file used before.
+  const expertInfo = expert
+    ? {
         id: expert.id,
         name: expert.name,
         bio: expert.bio || '',
         description: expert.description || '',
-        strategySummary: (expert as any).strategy_summary || '',
-        strategyName: (expert as any).strategy_name || '',
-        riskPreference: (expert as any).risk_preference || '',
-        operationCycle: (expert as any).operation_cycle || '',
-        avatarUrl: expert.avatar_url || '/placeholder.svg',
-        role: expert.role as 'advisor' | 'mentor',
-        styleTags: expert.style_tags || [],
+        strategySummary: expert.strategySummary || '',
+        strategyName: expert.strategyName || '',
+        riskPreference: expert.riskPreference || '',
+        operationCycle: expert.operationCycle || '',
+        avatarUrl: expert.avatarUrl || '/placeholder.svg',
+        role: expert.role,
+        styleTags: expert.styleTags || [],
         markets: expert.markets || [],
-        backtestReturn1y: (expert as any).backtest_1y_return ?? null,
-        backtestMaxDrawdown: (expert as any).backtest_max_drawdown ?? null,
-        backtestAnnualReturn: (expert as any).backtest_annual_return ?? null,
-        startingCapital: (expert as any).starting_capital ?? null,
-      });
-      // ✅ 主資料到位即可渲染；其餘 query 在背景載入，不阻塞 UI
-      setLoading(false);
+        backtestReturn1y: expert.backtestReturn1y ?? null,
+        backtestMaxDrawdown: expert.backtestMaxDrawdown ?? null,
+        backtestAnnualReturn: expert.backtestAnnualReturn ?? null,
+        startingCapital: expert.startingCapital ?? null,
+      }
+    : null;
 
-      // 並行載入：方案 / 訂閱人數 / 我的訂閱
-      const plansPromise = supabase
-        .from('expert_plans')
-        .select('id, name, plan_type, price_monthly, price_yearly, description, features')
-        .eq('expert_id', expert.id)
-        .eq('is_active', true)
-        .order('price_monthly');
-
-      const mySubsPromise = user
-        ? supabase
-            .from('member_subscriptions')
-            .select('plan_id')
-            .eq('user_id', user.id)
-            .eq('status', 'active')
-        : Promise.resolve({ data: [] as { plan_id: string }[] });
-
-      const { data: plans } = await plansPromise;
-      if (cancelled) return;
-      setDbPlans(plans || []);
-
-      const planIds = (plans || []).map(p => p.id);
-      const countPromise = planIds.length
-        ? supabase
-            .from('member_subscriptions')
-            .select('id', { count: 'exact', head: true })
-            .in('plan_id', planIds)
-            .eq('status', 'active')
-        : Promise.resolve({ count: 0 });
-
-      const [{ data: subs }, { count }] = await Promise.all([mySubsPromise, countPromise]);
-      if (cancelled) return;
-      if (subs) setSubscribedPlanIds(new Set(subs.map((s: any) => s.plan_id)));
-      setSubscriberCount(count || 0);
-    };
-
-    fetchData();
-    return () => { cancelled = true; };
-  }, [slug, user?.id, user?.isTester]);
 
   if (expertNotFound) {
     return (
@@ -378,7 +292,7 @@ const ExpertProfile = () => {
             <div className="grid md:grid-cols-2 gap-6">
               {dbPlans.map(plan => {
                 const isSubscribed = subscribedPlanIds.has(plan.id);
-                const isFollowerType = plan.plan_type !== 'mentor_weekly_journal';
+                const isFollowerType = plan.planType !== 'mentor_weekly_journal';
 
                 return (
                   <Card key={plan.id} className={cn(
@@ -395,14 +309,14 @@ const ExpertProfile = () => {
                     )}
                     <CardHeader>
                       <CardTitle className="text-lg">{plan.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{getPlanLabel(plan.plan_type)}</p>
+                      <p className="text-sm text-muted-foreground">{getPlanLabel(plan.planType)}</p>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {plan.description && <p className="text-muted-foreground text-sm">{plan.description}</p>}
                       <ul className="space-y-2">
                         {(Array.isArray(plan.features) && plan.features.filter((f: any) => typeof f === 'string' && f.trim()).length > 0
                           ? (plan.features as string[]).filter((f) => typeof f === 'string' && f.trim())
-                          : getPlanFeatures(plan.plan_type)
+                          : getPlanFeatures(plan.planType)
                         ).map((feature, idx) => (
                           <li key={idx} className="flex items-center gap-2 text-sm">
                             <CheckCircle className={cn("h-4 w-4 shrink-0", isFollowerType ? "text-advisor" : "text-mentor")} />
@@ -411,17 +325,17 @@ const ExpertProfile = () => {
                         ))}
                       </ul>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-bold">NT$ {formatPrice(plan.price_monthly)}</span>
+                        <span className="text-2xl font-bold">NT$ {formatPrice(plan.priceMonthly)}</span>
                         <span className="text-muted-foreground">/ 月</span>
                       </div>
-                      {plan.price_yearly && (
+                      {plan.priceYearly && (
                         <p className="text-xs text-muted-foreground line-through opacity-60">
-                          年繳 NT$ {formatPrice(plan.price_yearly)}（省 {Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100)}%）── 尚未開放
+                          年繳 NT$ {formatPrice(plan.priceYearly)}（省 {Math.round((1 - plan.priceYearly / (plan.priceMonthly * 12)) * 100)}%）── 尚未開放
                         </p>
                       )}
                       <div className={cn("flex items-start gap-2 p-3 rounded-lg text-sm", isFollowerType ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor")}>
                         {isFollowerType ? <Shield className="h-4 w-4 mt-0.5 shrink-0" /> : <Clock className="h-4 w-4 mt-0.5 shrink-0" />}
-                        <span>{getPlanNote(plan.plan_type)}</span>
+                        <span>{getPlanNote(plan.planType)}</span>
                       </div>
                       {isSubscribed ? (
                         <Button variant="outline" className={cn("w-full", isFollowerType ? "border-advisor text-advisor hover:bg-advisor/10" : "border-mentor text-mentor hover:bg-mentor/10")} disabled>
