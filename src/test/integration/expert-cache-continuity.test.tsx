@@ -175,3 +175,99 @@ describe('Expert cache continuity — list ⇄ detail', () => {
     expect(expertsFetches.list).toBe(1); // 沒有第 2 次 fetch
   });
 });
+
+/**
+ * 模擬「在 SPA 內切換頁面」：list → detail(A) → list → detail(A) → detail(B)。
+ * 每次「進新頁面」用 renderHook + unmount 表示，queryClient 跨頁面共用。
+ *
+ * 在 5min staleTime 內：
+ *   - 重進 list / 重進已看過的 detail → 0 次新 fetch（cache hit）
+ *   - 第一次進新 slug 的 detail → 因為 list cache 有 row，initialData 命中
+ *     且因 staleTime 仍 fresh，不應觸發 detail fetch
+ */
+describe('Expert cache 在頁面切換中持續命中（5 min staleTime）', () => {
+  it('list → detail(A) → list → detail(A) 全程只 fetch list 一次', async () => {
+    const qc = makeQC();
+    const w = wrapper(qc);
+
+    listRows = [expertRow({ slug: 'alpha' }), expertRow({ id: 'e-beta', slug: 'beta', name: 'Beta' })];
+
+    // 1) 開 list
+    const list1 = renderHook(() => useExperts(), { wrapper: w });
+    await waitFor(() => expect(list1.result.current.isSuccess).toBe(true));
+    expect(expertsFetches.list).toBe(1);
+    list1.unmount();
+
+    // 2) 進 detail(A) — 應 initialData 命中，無 detail fetch
+    const detailA1 = renderHook(() => useExpert('alpha'), { wrapper: w });
+    expect(detailA1.result.current.data?.slug).toBe('alpha');
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(detailFetchesBySlug.alpha || 0).toBe(0);
+    detailA1.unmount();
+
+    // 3) 回 list — staleTime 內 cache hit
+    const list2 = renderHook(() => useExperts(), { wrapper: w });
+    expect(list2.result.current.data?.length).toBe(2);
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(expertsFetches.list).toBe(1);
+    list2.unmount();
+
+    // 4) 再進 detail(A) — 仍是 cache hit
+    const detailA2 = renderHook(() => useExpert('alpha'), { wrapper: w });
+    expect(detailA2.result.current.data?.slug).toBe('alpha');
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(detailFetchesBySlug.alpha || 0).toBe(0);
+    expect(expertsFetches.list).toBe(1);
+  });
+
+  it('detail(A) → detail(B) — list cache 有 B 時 B 走 initialData 不打 detail', async () => {
+    const qc = makeQC();
+    const w = wrapper(qc);
+
+    listRows = [expertRow({ slug: 'alpha' }), expertRow({ id: 'e-beta', slug: 'beta', name: 'Beta' })];
+
+    // 先預熱 list
+    const list = renderHook(() => useExperts(), { wrapper: w });
+    await waitFor(() => expect(list.result.current.isSuccess).toBe(true));
+    list.unmount();
+
+    // detail(A)
+    const da = renderHook(() => useExpert('alpha'), { wrapper: w });
+    expect(da.result.current.data?.slug).toBe('alpha');
+    da.unmount();
+
+    // detail(B) — 也應從 list cache 拿到 initialData
+    const db = renderHook(() => useExpert('beta'), { wrapper: w });
+    expect(db.result.current.data?.slug).toBe('beta');
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(detailFetchesBySlug.alpha || 0).toBe(0);
+    expect(detailFetchesBySlug.beta || 0).toBe(0);
+    expect(expertsFetches.list).toBe(1);
+  });
+
+  it('staleTime 過期後重進頁面才會 refetch（用 invalidate 模擬時間流逝）', async () => {
+    const qc = makeQC();
+    const w = wrapper(qc);
+
+    const list1 = renderHook(() => useExperts(), { wrapper: w });
+    await waitFor(() => expect(list1.result.current.isSuccess).toBe(true));
+    expect(expertsFetches.list).toBe(1);
+    list1.unmount();
+
+    // staleTime 內重進：cache hit
+    const list2 = renderHook(() => useExperts(), { wrapper: w });
+    expect(list2.result.current.data?.length).toBe(1);
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(expertsFetches.list).toBe(1);
+    list2.unmount();
+
+    // 模擬 staleTime 過期 — invalidate 強制視為 stale
+    await act(async () => {
+      await qc.invalidateQueries({ queryKey: ['experts'] });
+    });
+
+    const list3 = renderHook(() => useExperts(), { wrapper: w });
+    await waitFor(() => expect(expertsFetches.list).toBe(2));
+    list3.unmount();
+  });
+});
