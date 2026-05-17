@@ -482,6 +482,7 @@ const CompanyPayments = () => {
     if (clearDefault) {
       toast.warning(`已停用 ${provider?.display_name}，並自動取消其預設通道狀態`);
     }
+    invalidatePayments();
   };
 
   const setAsDefault = async (id: string) => {
@@ -508,6 +509,7 @@ const CompanyPayments = () => {
       detail: { context: { provider_type: target.provider_type, display_name: target.display_name } },
     });
     toast.success(`已設定 ${target.display_name} 為預設通道`);
+    invalidatePayments();
   };
 
   const saveRemit = async () => {
@@ -523,6 +525,7 @@ const CompanyPayments = () => {
     setRemitOriginal(remit);
     toast.success('匯款帳戶已更新');
     setRemitOpen(false);
+    invalidatePayments();
   };
 
   return (
