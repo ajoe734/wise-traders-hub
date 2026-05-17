@@ -154,8 +154,8 @@ export default function KnowledgeBasePage() {
       return {
         items: ((itemsRes.data ?? []) as any) as KnowledgeItem[],
         usage: usageMap,
-        candidates: (candRes.error ? [] : (candRes.data ?? [])) as Candidate[],
-        backtestRuns: (runsRes.error ? [] : (runsRes.data ?? [])) as any[],
+        candidates: (candRes.error ? [] : (candRes.data ?? [])) as unknown as Candidate[],
+        backtestRuns: (runsRes.error ? [] : (runsRes.data ?? [])) as unknown as any[],
       };
     },
     staleTime: 60_000,
