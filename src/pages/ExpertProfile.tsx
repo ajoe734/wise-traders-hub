@@ -292,7 +292,7 @@ const ExpertProfile = () => {
             <div className="grid md:grid-cols-2 gap-6">
               {dbPlans.map(plan => {
                 const isSubscribed = subscribedPlanIds.has(plan.id);
-                const isFollowerType = plan.plan_type !== 'mentor_weekly_journal';
+                const isFollowerType = plan.planType !== 'mentor_weekly_journal';
 
                 return (
                   <Card key={plan.id} className={cn(
@@ -309,14 +309,14 @@ const ExpertProfile = () => {
                     )}
                     <CardHeader>
                       <CardTitle className="text-lg">{plan.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{getPlanLabel(plan.plan_type)}</p>
+                      <p className="text-sm text-muted-foreground">{getPlanLabel(plan.planType)}</p>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {plan.description && <p className="text-muted-foreground text-sm">{plan.description}</p>}
                       <ul className="space-y-2">
                         {(Array.isArray(plan.features) && plan.features.filter((f: any) => typeof f === 'string' && f.trim()).length > 0
                           ? (plan.features as string[]).filter((f) => typeof f === 'string' && f.trim())
-                          : getPlanFeatures(plan.plan_type)
+                          : getPlanFeatures(plan.planType)
                         ).map((feature, idx) => (
                           <li key={idx} className="flex items-center gap-2 text-sm">
                             <CheckCircle className={cn("h-4 w-4 shrink-0", isFollowerType ? "text-advisor" : "text-mentor")} />
@@ -325,17 +325,17 @@ const ExpertProfile = () => {
                         ))}
                       </ul>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-bold">NT$ {formatPrice(plan.price_monthly)}</span>
+                        <span className="text-2xl font-bold">NT$ {formatPrice(plan.priceMonthly)}</span>
                         <span className="text-muted-foreground">/ 月</span>
                       </div>
-                      {plan.price_yearly && (
+                      {plan.priceYearly && (
                         <p className="text-xs text-muted-foreground line-through opacity-60">
-                          年繳 NT$ {formatPrice(plan.price_yearly)}（省 {Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100)}%）── 尚未開放
+                          年繳 NT$ {formatPrice(plan.priceYearly)}（省 {Math.round((1 - plan.priceYearly / (plan.priceMonthly * 12)) * 100)}%）── 尚未開放
                         </p>
                       )}
                       <div className={cn("flex items-start gap-2 p-3 rounded-lg text-sm", isFollowerType ? "bg-advisor/5 text-advisor" : "bg-mentor/5 text-mentor")}>
                         {isFollowerType ? <Shield className="h-4 w-4 mt-0.5 shrink-0" /> : <Clock className="h-4 w-4 mt-0.5 shrink-0" />}
-                        <span>{getPlanNote(plan.plan_type)}</span>
+                        <span>{getPlanNote(plan.planType)}</span>
                       </div>
                       {isSubscribed ? (
                         <Button variant="outline" className={cn("w-full", isFollowerType ? "border-advisor text-advisor hover:bg-advisor/10" : "border-mentor text-mentor hover:bg-mentor/10")} disabled>
