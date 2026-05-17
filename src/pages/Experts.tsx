@@ -9,6 +9,7 @@ import { ExpertRole } from '@/types';
 import { Search, Filter, Shield, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useExperts } from '@/hooks/useExpert';
+import { ExpertFetchError } from '@/components/ExpertFetchError';
 import { Loader2 } from 'lucide-react';
 
 const Experts = () => {
