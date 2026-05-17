@@ -41,21 +41,23 @@ const expertRow = (over: Partial<any> = {}) => ({
 
 // 計數 + 可控回傳值
 const expertsFetches: { list: number; detail: number } = { list: 0, detail: 0 };
+const detailFetchesBySlug: Record<string, number> = {};
 let listRows: any[] = [];
 let detailRows: any[] = [];
+let detailRowsBySlug: Record<string, any[]> | null = null;
 
 function buildExpertsBuilder() {
-  // 模擬 .from('experts').select('*, expert_plans(*)') 之後可能 chain
-  // .order('created_at')（list 路徑）或 .eq('slug', X)（detail 路徑）
   return {
     select: vi.fn().mockReturnValue({
       order: vi.fn().mockImplementation(async () => {
         expertsFetches.list += 1;
         return { data: listRows, error: null };
       }),
-      eq: vi.fn().mockImplementation(async (_col: string, _val: string) => {
+      eq: vi.fn().mockImplementation(async (_col: string, val: string) => {
         expertsFetches.detail += 1;
-        return { data: detailRows, error: null };
+        detailFetchesBySlug[val] = (detailFetchesBySlug[val] || 0) + 1;
+        const rows = detailRowsBySlug ? (detailRowsBySlug[val] || []) : detailRows;
+        return { data: rows, error: null };
       }),
     }),
   };
