@@ -95,7 +95,7 @@ const EXPERT_STALE_MS = 5 * 60 * 1000;
  * so list revisit after a detail-page fetch shows the fresher row without
  * waiting for refetch. No-op when the slug isn't present in any list.
  */
-function mergeExpertIntoListCaches(
+export function mergeExpertIntoListCaches(
   queryClient: ReturnType<typeof useQueryClient>,
   expert: PersonWithPlans,
 ) {
