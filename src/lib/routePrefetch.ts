@@ -53,6 +53,8 @@ export function prefetchHighTrafficRoutes() {
   prefetchRoute("register", () => import("@/pages/auth/Register"));
   prefetchRoute("pricing", () => import("@/pages/Pricing"));
   prefetchRoute("experts", () => import("@/pages/Experts"));
+  prefetchRoute("expert-profile", () => import("@/pages/ExpertProfile"));
+  prefetchRoute("app-home", () => import("@/pages/app/AppHome"));
   prefetchRoute("legal", () => import("@/pages/Legal"));
 }
 
