@@ -5,9 +5,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { Activity, RefreshCw, PlayCircle, Bell, AlertTriangle, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { errorMessage } from '@/lib/errorMessage';
 
+/**
+ * Local row interfaces for tables that aren't yet in the generated
+ * Supabase types (knowledge_backtest_runs, knowledge_backfill_progress,
+ * function_run_logs, etc.). The `(supabase as any).from(...)` casts below
+ * are intentional: the generated types tree doesn't know these tables,
+ * so the cast happens once at the query boundary and the result is
+ * narrowed through these interfaces.
+ */
 interface RunRow {
   id: string;
   knowledge_item_id: string | null;
@@ -18,7 +28,7 @@ interface RunRow {
   run_mode: string;
   created_at: string;
   completed_at: string | null;
-  parameters: any;
+  parameters: Json | null;
 }
 
 const fmtDateTime = (s: string | null) => {
