@@ -298,26 +298,40 @@ test.describe('/company/users', () => {
 //                              ['company','audit-logs', {page,...filters}] (30s)
 // -----------------------------------------------------------------------------
 test.describe('/company/audit-logs', () => {
+  type AuditHandlers = {
+    onActions?: () => void;
+    onPage?: (url: URL) => void;
+    rows?: any[];
+  };
+
+  const buildRoutes = (h: AuditHandlers = {}) => ({
+    rest: {
+      ...baseRest,
+      audit_logs: ({ url, method }: { url: URL; method: string }) => {
+        if (method !== 'GET') return [];
+        const select = url.searchParams.get('select') || '';
+        if (select === 'action') {
+          h.onActions?.();
+          return [
+            { action: 'auth.login' },
+            { action: 'auth.logout' },
+            { action: 'plan.update' },
+          ];
+        }
+        h.onPage?.(url);
+        return h.rows ?? [];
+      },
+    },
+  });
+
   test('actions query (5min) does not refetch on filter change; page query does', async ({ page }) => {
     await seedSession(page, { id: 'admin', email: 'admin@test.com' });
     let actionsFetches = 0;
     let pageFetches = 0;
-    await installRoutes(page, {
-      rest: {
-        ...baseRest,
-        audit_logs: ({ url, method }) => {
-          if (method !== 'GET') return [];
-          const select = url.searchParams.get('select') || '';
-          // The actions-only query selects just `action`; the page query selects detailed cols.
-          if (select === 'action') {
-            actionsFetches += 1;
-            return [{ action: 'auth.login' }, { action: 'auth.logout' }];
-          }
-          pageFetches += 1;
-          return [];
-        },
-      },
-    });
+    await installRoutes(page, buildRoutes({
+      onActions: () => { actionsFetches += 1; },
+      onPage: () => { pageFetches += 1; },
+    }));
 
     await page.goto('/company/audit-logs');
     await expect.poll(() => actionsFetches).toBeGreaterThan(0);
@@ -326,16 +340,89 @@ test.describe('/company/audit-logs', () => {
     const pageBaseline = pageFetches;
 
     // Change time range filter — page queryKey changes → refetch page; actions stays
-    await page.getByRole('combobox').nth(1).click();
+    await page.getByRole('combobox').nth(2).click();
     await page.getByRole('option', { name: '最近 90 天' }).click();
 
     await expect.poll(() => pageFetches, { timeout: 3_000 }).toBeGreaterThan(pageBaseline);
     expect(actionsFetches).toBe(actionsBaseline);
 
-    // Window focus → both stay flat (within staleTime)
+    // Window focus → both stay flat (within staleTime / refetchOnWindowFocus disabled)
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     await page.waitForTimeout(400);
     expect(actionsFetches).toBe(actionsBaseline);
+  });
+
+  test('switching filter back within staleTime uses cache (no extra fetch)', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let pageFetches = 0;
+    await installRoutes(page, buildRoutes({ onPage: () => { pageFetches += 1; } }));
+
+    await page.goto('/company/audit-logs');
+    await expect.poll(() => pageFetches).toBe(1);
+
+    // 30d (default) → 7d → first new key, refetch
+    await page.getByRole('combobox').nth(2).click();
+    await page.getByRole('option', { name: '最近 7 天' }).click();
+    await expect.poll(() => pageFetches, { timeout: 3_000 }).toBe(2);
+
+    // Back to 30d — already cached within staleTime (30s) → no refetch
+    await page.getByRole('combobox').nth(2).click();
+    await page.getByRole('option', { name: '最近 30 天' }).click();
+    await page.waitForTimeout(500);
+    expect(pageFetches).toBe(2);
+
+    // Back to 7d — also cached
+    await page.getByRole('combobox').nth(2).click();
+    await page.getByRole('option', { name: '最近 7 天' }).click();
+    await page.waitForTimeout(500);
+    expect(pageFetches).toBe(2);
+  });
+
+  test('changing namespace filter refetches page query but not actions list', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let actionsFetches = 0;
+    let pageFetches = 0;
+    await installRoutes(page, buildRoutes({
+      onActions: () => { actionsFetches += 1; },
+      onPage: () => { pageFetches += 1; },
+    }));
+
+    await page.goto('/company/audit-logs');
+    await expect.poll(() => actionsFetches).toBe(1);
+    await expect.poll(() => pageFetches).toBe(1);
+
+    // Switch namespace (類別) combobox to a specific value → only page query changes
+    await page.getByRole('combobox').nth(0).click();
+    await page.getByRole('option', { name: 'auth' }).click();
+
+    await expect.poll(() => pageFetches, { timeout: 3_000 }).toBe(2);
+    expect(actionsFetches).toBe(1);
+  });
+
+  test('external invalidateQueries(["company","audit-logs"]) triggers refetch', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    let pageFetches = 0;
+    let actionsFetches = 0;
+    await installRoutes(page, buildRoutes({
+      onActions: () => { actionsFetches += 1; },
+      onPage: () => { pageFetches += 1; },
+    }));
+
+    await page.goto('/company/audit-logs');
+    await expect.poll(() => pageFetches).toBe(1);
+    await expect.poll(() => actionsFetches).toBe(1);
+
+    // Simulate a mutation elsewhere that invalidates the audit-logs cache.
+    // Prefix-only invalidation must refetch both the page query and the
+    // actions list (both share the ['company','audit-logs', ...] prefix).
+    await page.evaluate(() => {
+      const qc = (window as any).__lfQueryClient;
+      if (!qc) throw new Error('queryClient not exposed on window');
+      qc.invalidateQueries({ queryKey: ['company', 'audit-logs'] });
+    });
+
+    await expect.poll(() => pageFetches, { timeout: 3_000 }).toBeGreaterThan(1);
+    await expect.poll(() => actionsFetches, { timeout: 3_000 }).toBeGreaterThan(1);
   });
 });
 
