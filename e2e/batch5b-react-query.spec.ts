@@ -499,3 +499,22 @@ test.describe('/admin/:slug/profile', () => {
     await expect.poll(() => expertSelectStarFetches, { timeout: 3_000 }).toBeGreaterThan(1);
   });
 });
+
+// -----------------------------------------------------------------------------
+// Deferred pages — placeholders so the suite tracks pending migrations.
+// Unskip (`test.fixme` → `test`) once each page adopts React Query.
+// -----------------------------------------------------------------------------
+test.describe('Batch 5b deferred (pending React Query migration)', () => {
+  test.fixme('/company/knowledge-base — query-once + mutation invalidation', async () => {
+    // TODO: queryKey ['company','knowledge-base', tab] expected after migration
+  });
+  test.fixme('/company/payments — query-once + mutation invalidation', async () => {
+    // TODO: queryKey ['company','payments', {dateRange, status}] expected
+  });
+  test.fixme('/company/plans — query-once + mutation invalidation', async () => {
+    // TODO: queryKey ['company','plans'] (+ ['company','checkup-plans']) expected
+  });
+  test.fixme('/company/revenue — query-once + mutation invalidation', async () => {
+    // TODO: queryKey ['company','revenue', {period}] expected
+  });
+});
