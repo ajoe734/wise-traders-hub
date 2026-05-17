@@ -74,6 +74,7 @@ function TradeTabImpl({
   tpCode, setTpCode, tpFirm, setTpFirm, tpVal, setTpVal,
   setTargets, setSaved,
 }) {
+  validateProps('TradeTab', arguments[0], TRADE_TAB_PROP_SCHEMA);
   return (
     <>
       {/* 全頁覆蓋 loading：解析中時鎖住操作但保留下方持倉資料可見於背景 */}
