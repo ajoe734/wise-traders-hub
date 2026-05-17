@@ -13,6 +13,14 @@ import {
   queryPersister,
   PERSISTED_QUERY_PREFIXES,
 } from "@/lib/queryClient";
+
+// Expose queryClient on window for E2E tests. Non-sensitive (no secrets),
+// guarded behind a single namespaced key. Tests use this to trigger
+// invalidateQueries from outside React without UI mutation hooks.
+if (typeof window !== "undefined") {
+  (window as unknown as { __lfQueryClient?: typeof queryClient }).__lfQueryClient = queryClient;
+}
+
 import { useSignalRealtimeInvalidation } from "@/hooks/useSignalRealtimeInvalidation";
 import { useAttributionTracking } from "@/hooks/useAttributionTracking";
 
