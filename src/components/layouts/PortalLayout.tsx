@@ -13,10 +13,10 @@ interface PortalLayoutProps {
   hideHeader?: boolean;
 }
 
-const navLinks = [
+const navLinks: { href: string; label: string; intent?: Parameters<typeof intentHandlers>[0] }[] = [
   { href: '/', label: '首頁' },
-  { href: '/experts', label: '探索名師' },
-  { href: '/pricing', label: '方案說明' },
+  { href: '/experts', label: '探索名師', intent: 'experts' },
+  { href: '/pricing', label: '方案說明', intent: 'pricing' },
   { href: '/legal', label: '法律聲明' },
 ];
 
