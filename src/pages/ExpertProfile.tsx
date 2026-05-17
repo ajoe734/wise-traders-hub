@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { avatarUrl } from '@/lib/imageTransform';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useExpertDetailBundle } from '@/hooks/useExpert';
+import { ExpertFetchError } from '@/components/ExpertFetchError';
 
 const PerformanceOverviewPanel = lazy(() =>
   import('@/components/strategy/PerformanceOverviewPanel').then((m) => ({
