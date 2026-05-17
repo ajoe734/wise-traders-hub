@@ -167,7 +167,7 @@ const AppHome = () => {
                     <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-signals-accent" />分析師操作邏輯解說</li>
                   </ul>
                   <Button asChild variant="advisor" size="sm" className="w-full">
-                    <Link to="/app/explore">探索分析師<ChevronRight className="h-4 w-4 ml-1" /></Link>
+                    <Link to="/app/explore" {...intentHandlers('app-explore')}>探索分析師<ChevronRight className="h-4 w-4 ml-1" /></Link>
                   </Button>
                 </div>
               </div>
