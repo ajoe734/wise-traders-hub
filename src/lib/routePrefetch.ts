@@ -59,8 +59,50 @@ export function prefetchHighTrafficRoutes() {
 /**
  * Intent-based prefetch — wire to `onMouseDown` / `onTouchStart` /
  * `onFocus` of links and CTAs that frequently launch a navigation.
- * Safe in dev because it only fires after a real user action.
+ *
+ * PROD-only: in dev / Lovable preview, Vite would re-transform the lazy
+ * chunk on every hover and steal bandwidth from whatever the user is
+ * currently looking at. Production bundles are pre-built, so intent-time
+ * prefetch is essentially free.
  */
 export function prefetchOnIntent(key: string, loader: Loader) {
-  return () => prefetchRoute(key, loader);
+  return () => {
+    if (typeof import.meta !== "undefined" && !import.meta.env?.PROD) return;
+    prefetchRoute(key, loader);
+  };
+}
+
+/**
+ * Centralized loader registry for high-traffic routes so call sites
+ * stay declarative: `<Link {...intentHandlers("expert-profile")} />`.
+ */
+const INTENT_LOADERS: Record<string, Loader> = {
+  login: () => import("@/pages/auth/Login"),
+  register: () => import("@/pages/auth/Register"),
+  pricing: () => import("@/pages/Pricing"),
+  experts: () => import("@/pages/Experts"),
+  "expert-profile": () => import("@/pages/ExpertProfile"),
+  "plan-detail": () => import("@/pages/PlanDetail"),
+  "app-home": () => import("@/pages/app/AppHome"),
+  "app-explore": () => import("@/pages/app/Explore"),
+  "app-expert-detail": () => import("@/pages/app/ExpertDetail"),
+  "app-signals": () => import("@/pages/app/Signals"),
+  "app-journals": () => import("@/pages/app/Journals"),
+  "app-account": () => import("@/pages/app/Account"),
+};
+
+/**
+ * Returns event handlers to spread onto a `<Link>` / `<Button>` for
+ * intent-time chunk prefetching. No-op (returns `undefined` handlers)
+ * for unknown keys or in dev mode.
+ */
+export function intentHandlers(key: keyof typeof INTENT_LOADERS) {
+  const loader = INTENT_LOADERS[key];
+  if (!loader) return {};
+  const fire = prefetchOnIntent(key, loader);
+  return {
+    onMouseDown: fire,
+    onTouchStart: fire,
+    onFocus: fire,
+  };
 }
