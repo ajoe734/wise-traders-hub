@@ -5,9 +5,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { Activity, RefreshCw, PlayCircle, Bell, AlertTriangle, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { errorMessage } from '@/lib/errorMessage';
 
+/**
+ * Local row interfaces for tables that aren't yet in the generated
+ * Supabase types (knowledge_backtest_runs, knowledge_backfill_progress,
+ * function_run_logs, etc.). The `(supabase as any).from(...)` casts below
+ * are intentional: the generated types tree doesn't know these tables,
+ * so the cast happens once at the query boundary and the result is
+ * narrowed through these interfaces.
+ */
 interface RunRow {
   id: string;
   knowledge_item_id: string | null;
@@ -18,7 +28,7 @@ interface RunRow {
   run_mode: string;
   created_at: string;
   completed_at: string | null;
-  parameters: any;
+  parameters: Json | null;
 }
 
 const fmtDateTime = (s: string | null) => {
@@ -50,6 +60,40 @@ interface NotifyLog {
   email_sent: number;
   email_failed: number;
   errors: string[];
+}
+
+interface NotifyLogRow {
+  created_at: string;
+  payload: { email_sent?: number; email_failed?: number; errors?: unknown } | null;
+}
+
+interface BackfillProgressRow {
+  status: string;
+}
+
+interface BackfillSymbolRow {
+  symbol: string | null;
+  yyyymm: string | null;
+}
+
+interface BackfillSnapshot {
+  pending: number;
+  done: number;
+  empty: number;
+  failed: number;
+  total: number;
+  latest_month: string | null;
+  latest_date: string | null;
+  current_symbol: string | null;
+  current_yyyymm: string | null;
+  recent_done_5min: number;
+  eta_minutes: number | null;
+  last_attempted_at: string | null;
+}
+
+interface KnowledgeItemRow {
+  id: string;
+  title: string;
 }
 
 export default function BacktestMonitor() {
@@ -102,14 +146,16 @@ export default function BacktestMonitor() {
         (supabase as any).from('function_run_logs')
           .select('created_at, payload, msg, level')
           .eq('fn', 'notify-backtest-result')
-          .order('created_at', { ascending: false }).limit(1).maybeSingle().then((r: any) => r).catch(() => ({ data: null })),
+          .order('created_at', { ascending: false }).limit(1).maybeSingle().then((r) => r).catch(() => ({ data: null })),
       ]);
-      const runs = (runsData as RunRow[]) || [];
+      const runs = (runsData as RunRow[] | null) ?? [];
       const items: Record<string, { title: string }> = {};
-      for (const it of itemsData || []) items[it.id] = { title: it.title };
-      const failedBackfills = (bfFailed as FailedBackfillRow[]) || [];
+      for (const it of (itemsData as KnowledgeItemRow[] | null) ?? []) {
+        items[it.id] = { title: it.title };
+      }
+      const failedBackfills = (bfFailed as FailedBackfillRow[] | null) ?? [];
       const reasonMap = new Map<string, number>();
-      for (const r of (bfFailed as any[]) || []) {
+      for (const r of failedBackfills) {
         const reason = (r.error_message || '未知錯誤').slice(0, 200);
         reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1);
       }
@@ -118,18 +164,19 @@ export default function BacktestMonitor() {
         .sort((a, b) => b.count - a.count).slice(0, 5);
       let notifyLog: NotifyLog | null = null;
       if (notifyLogs) {
-        const p = (notifyLogs as any).payload || {};
+        const row = notifyLogs as NotifyLogRow;
+        const p = row.payload ?? {};
         notifyLog = {
-          created_at: (notifyLogs as any).created_at,
+          created_at: row.created_at,
           email_sent: p.email_sent ?? 0,
           email_failed: p.email_failed ?? 0,
-          errors: Array.isArray(p.errors) ? p.errors : [],
+          errors: Array.isArray(p.errors) ? (p.errors as string[]) : [],
         };
       }
-      let backfill: any = null;
+      let backfill: BackfillSnapshot | null = null;
       if (bfAll) {
         const counts = { pending: 0, done: 0, empty: 0, failed: 0 };
-        for (const r of bfAll as any[]) {
+        for (const r of bfAll as BackfillProgressRow[]) {
           if (r.status === 'done') counts.done++;
           else if (r.status === 'empty') counts.empty++;
           else if (r.status === 'failed') counts.failed++;
@@ -141,20 +188,22 @@ export default function BacktestMonitor() {
         const eta = ratePerMin > 0 ? Math.ceil(counts.pending / ratePerMin) : null;
         backfill = {
           ...counts, total,
-          latest_month: (bfLatest as any)?.yyyymm ?? null,
-          latest_date: (bfLatestDate as any)?.trade_date ?? null,
-          current_symbol: (bfNext as any)?.symbol ?? null,
-          current_yyyymm: (bfNext as any)?.yyyymm ?? null,
+          latest_month: (bfLatest as BackfillSymbolRow | null)?.yyyymm ?? null,
+          latest_date: (bfLatestDate as { trade_date: string | null } | null)?.trade_date ?? null,
+          current_symbol: (bfNext as BackfillSymbolRow | null)?.symbol ?? null,
+          current_yyyymm: (bfNext as BackfillSymbolRow | null)?.yyyymm ?? null,
           recent_done_5min: recent5,
           eta_minutes: eta,
-          last_attempted_at: (bfLastAttempt as any)?.attempted_at ?? null,
+          last_attempted_at: (bfLastAttempt as { attempted_at: string | null } | null)?.attempted_at ?? null,
         };
       }
-      const cron = runs.find((r: any) =>
-        r.run_mode === 'cron_weekly' ||
-        r?.parameters?.trigger === 'auto_after_backfill' ||
-        r?.parameters?.trigger === 'cron_nightly'
-      );
+      const cron = runs.find((r) => {
+        const params = (r.parameters && typeof r.parameters === 'object' && !Array.isArray(r.parameters))
+          ? (r.parameters as Record<string, unknown>)
+          : null;
+        const trigger = params?.trigger;
+        return r.run_mode === 'cron_weekly' || trigger === 'auto_after_backfill' || trigger === 'cron_nightly';
+      });
       const lastCron = cron?.created_at ?? null;
       return { runs, items, failedBackfills, failedBackfillReasons, notifyLog, backfill, lastCron };
     },
@@ -182,8 +231,8 @@ export default function BacktestMonitor() {
       if (error) throw error;
       toast({ title: '已觸發完整回測', description: '跑完會自動 Email 通知所有 admin。' });
       setTimeout(load, 2000);
-    } catch (e: any) {
-      toast({ title: '觸發失敗', description: String(e?.message ?? e), variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: '觸發失敗', description: errorMessage(e), variant: 'destructive' });
     } finally { setBusyAll(null); }
   };
 
@@ -195,8 +244,8 @@ export default function BacktestMonitor() {
       });
       if (error) throw error;
       toast({ title: 'Email 通知已送出', description: JSON.stringify(data) });
-    } catch (e: any) {
-      toast({ title: '通知失敗', description: String(e?.message ?? e), variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: '通知失敗', description: errorMessage(e), variant: 'destructive' });
     } finally { setBusyAll(null); }
   };
 
@@ -210,8 +259,8 @@ export default function BacktestMonitor() {
       if (error) throw error;
       toast({ title: '已重新執行', description: items[itemId]?.title ?? itemId });
       setTimeout(load, 1500);
-    } catch (e: any) {
-      toast({ title: '重試失敗', description: String(e?.message ?? e), variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: '重試失敗', description: errorMessage(e), variant: 'destructive' });
     } finally { setBusyId(null); }
   };
 
