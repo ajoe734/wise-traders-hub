@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -112,10 +113,7 @@ interface UsageStat {
 }
 
 export default function KnowledgeBasePage() {
-  const [items, setItems] = useState<KnowledgeItem[]>([]);
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [usage, setUsage] = useState<Record<string, UsageStat>>({});
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [activeCat, setActiveCat] = useState<Category>('chip_analysis');
   const [editing, setEditing] = useState<Partial<KnowledgeItem> | null>(null);
   const [tagsInput, setTagsInput] = useState('');
@@ -123,43 +121,55 @@ export default function KnowledgeBasePage() {
   const [drafting, setDrafting] = useState(false);
   const [draftCount, setDraftCount] = useState(10);
   const [mainTab, setMainTab] = useState<'items' | 'candidates' | 'backtest' | 'cleanup'>('items');
-  const [backtestRuns, setBacktestRuns] = useState<any[]>([]);
   const [backtesting, setBacktesting] = useState<string | null>(null);
   const [gridSearching, setGridSearching] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const [openRunDetail, setOpenRunDetail] = useState<string | null>(null);
   const [openGridDetail, setOpenGridDetail] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
-    const [itemsRes, usageRes, candRes, runsRes] = await Promise.all([
-      supabase.from('checkup_knowledge_items').select('*').order('category').order('item_id'),
-      supabase.from('checkup_knowledge_usage_stats' as any).select('*'),
-      supabase.from('checkup_knowledge_candidates' as any).select('*').order('created_at', { ascending: false }),
-      supabase.from('knowledge_backtest_runs' as any).select('*').order('created_at', { ascending: false }).limit(200),
-    ]);
-    if (itemsRes.error) {
-      toast.error('讀取失敗：' + itemsRes.error.message);
-    } else {
-      setItems((itemsRes.data ?? []) as any);
-    }
-    if (!usageRes.error && Array.isArray(usageRes.data)) {
-      const map: Record<string, UsageStat> = {};
-      for (const row of usageRes.data as any[]) {
-        map[row.knowledge_item_id] = row as UsageStat;
+  /**
+   * Single snapshot for the whole knowledge-base page. Tabs (mainTab) and
+   * category filter (activeCat) are pure client-side — they do NOT go into
+   * the queryKey, so tab/cat switching within the 60s staleTime never
+   * refetches. Mutations call invalidateQueries(['company','knowledge-base']).
+   */
+  const { data, isFetching } = useQuery({
+    queryKey: ['company', 'knowledge-base'],
+    queryFn: async () => {
+      const [itemsRes, usageRes, candRes, runsRes] = await Promise.all([
+        supabase.from('checkup_knowledge_items').select('*').order('category').order('item_id'),
+        supabase.from('checkup_knowledge_usage_stats' as any).select('*'),
+        supabase.from('checkup_knowledge_candidates' as any).select('*').order('created_at', { ascending: false }),
+        supabase.from('knowledge_backtest_runs' as any).select('*').order('created_at', { ascending: false }).limit(200),
+      ]);
+      if (itemsRes.error) {
+        toast.error('讀取失敗：' + itemsRes.error.message);
       }
-      setUsage(map);
-    }
-    if (!candRes.error && Array.isArray(candRes.data)) {
-      setCandidates(candRes.data as any);
-    }
-    if (!runsRes.error && Array.isArray(runsRes.data)) {
-      setBacktestRuns(runsRes.data as any[]);
-    }
-    setLoading(false);
-  }
+      const usageMap: Record<string, UsageStat> = {};
+      if (!usageRes.error && Array.isArray(usageRes.data)) {
+        for (const row of usageRes.data as any[]) {
+          usageMap[row.knowledge_item_id] = row as UsageStat;
+        }
+      }
+      return {
+        items: ((itemsRes.data ?? []) as any) as KnowledgeItem[],
+        usage: usageMap,
+        candidates: (candRes.error ? [] : (candRes.data ?? [])) as Candidate[],
+        backtestRuns: (runsRes.error ? [] : (runsRes.data ?? [])) as any[],
+      };
+    },
+    staleTime: 60_000,
+  });
 
-  useEffect(() => { load(); }, []);
+  const items = data?.items ?? [];
+  const usage = data?.usage ?? {};
+  const candidates = data?.candidates ?? [];
+  const backtestRuns = data?.backtestRuns ?? [];
+  const loading = isFetching && !data;
+
+  // Every mutation funnels through this so we never miss an invalidation.
+  const load = () =>
+    queryClient.invalidateQueries({ queryKey: ['company', 'knowledge-base'] });
 
   const grouped = useMemo(() => {
     const m: Record<Category, KnowledgeItem[]> = {
