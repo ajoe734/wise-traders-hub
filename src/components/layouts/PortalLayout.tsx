@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Menu, X, TrendingUp, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
+import { intentHandlers } from '@/lib/routePrefetch';
 
 interface PortalLayoutProps {
   children: ReactNode;
