@@ -40,11 +40,27 @@ export function prefetchRoute(key: string, loader: Loader) {
 /**
  * Prefetch a curated list of high-traffic public routes shortly after the
  * shell is interactive. Anything below the fold or behind auth stays lazy.
+ *
+ * Only runs in production builds. In dev / Lovable preview, Vite serves each
+ * lazy chunk through a full transform round-trip, so idle-time prefetching
+ * actively competes with the modules the current page needs to render and
+ * adds 1+ second to FCP. Production bundles are already pre-chunked, so
+ * idle prefetch is safe (and useful) there.
  */
 export function prefetchHighTrafficRoutes() {
+  if (typeof import.meta !== "undefined" && !import.meta.env?.PROD) return;
   prefetchRoute("login", () => import("@/pages/auth/Login"));
   prefetchRoute("register", () => import("@/pages/auth/Register"));
   prefetchRoute("pricing", () => import("@/pages/Pricing"));
   prefetchRoute("experts", () => import("@/pages/Experts"));
   prefetchRoute("legal", () => import("@/pages/Legal"));
+}
+
+/**
+ * Intent-based prefetch — wire to `onMouseDown` / `onTouchStart` /
+ * `onFocus` of links and CTAs that frequently launch a navigation.
+ * Safe in dev because it only fires after a real user action.
+ */
+export function prefetchOnIntent(key: string, loader: Loader) {
+  return () => prefetchRoute(key, loader);
 }
