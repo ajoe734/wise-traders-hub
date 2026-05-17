@@ -102,6 +102,14 @@ const AppExpertDetail = () => {
     return <UnifiedAppLayout><div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div></UnifiedAppLayout>;
   }
 
+  if (isError && !expert) {
+    return (
+      <UnifiedAppLayout>
+        <ExpertFetchError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
+      </UnifiedAppLayout>
+    );
+  }
+
   if (!expert) {
     return (
       <UnifiedAppLayout>
