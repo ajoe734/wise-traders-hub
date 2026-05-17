@@ -45,27 +45,34 @@ describe('FreeCheckup tab prop schemas', () => {
   const fc = read('src/pages/FreeCheckup.jsx');
   const eventsSrc = read('src/checkup/components/freecheckup/EventsTab.jsx');
   const dailySrc = read('src/checkup/components/freecheckup/DailyTab.jsx');
+  const tradeSrc = read('src/checkup/components/freecheckup/TradeTab.jsx');
+  const logSrc = read('src/checkup/components/freecheckup/LogTab.jsx');
 
-  it('EventsTab schema matches FreeCheckup call site', () => {
-    const callSite = extractJsxProps(fc, 'EventsTab');
-    const schema = extractSchemaKeys(eventsSrc, 'EVENTS_TAB_PROP_SCHEMA');
+  function expectMatch(tag: string, schemaName: string, src: string) {
+    const callSite = extractJsxProps(fc, tag);
+    const schema = extractSchemaKeys(src, schemaName);
     const missingInSchema = [...callSite].filter((p) => !schema.has(p));
     const missingInCallSite = [...schema].filter((p) => !callSite.has(p));
     expect({ missingInSchema, missingInCallSite }).toEqual({
       missingInSchema: [],
       missingInCallSite: [],
     });
+  }
+
+  it('EventsTab schema matches FreeCheckup call site', () => {
+    expectMatch('EventsTab', 'EVENTS_TAB_PROP_SCHEMA', eventsSrc);
   });
 
   it('DailyTab schema matches FreeCheckup call site', () => {
-    const callSite = extractJsxProps(fc, 'DailyTab');
-    const schema = extractSchemaKeys(dailySrc, 'DAILY_TAB_PROP_SCHEMA');
-    const missingInSchema = [...callSite].filter((p) => !schema.has(p));
-    const missingInCallSite = [...schema].filter((p) => !callSite.has(p));
-    expect({ missingInSchema, missingInCallSite }).toEqual({
-      missingInSchema: [],
-      missingInCallSite: [],
-    });
+    expectMatch('DailyTab', 'DAILY_TAB_PROP_SCHEMA', dailySrc);
+  });
+
+  it('TradeTab schema matches FreeCheckup call site', () => {
+    expectMatch('TradeTab', 'TRADE_TAB_PROP_SCHEMA', tradeSrc);
+  });
+
+  it('LogTab schema matches FreeCheckup call site', () => {
+    expectMatch('LogTab', 'LOG_TAB_PROP_SCHEMA', logSrc);
   });
 });
 
