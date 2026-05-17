@@ -981,4 +981,3 @@ test.describe('/company/revenue', () => {
     await expect.poll(() => splitsFetches, { timeout: 3_000 }).toBeGreaterThan(baseline);
   });
 });
-});
