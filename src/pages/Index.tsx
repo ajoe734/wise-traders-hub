@@ -72,20 +72,36 @@ const Index = () => {
         path="/"
       />
       {/* Hero Section - Strong Contrast, Minimal Text */}
-      <section className="relative overflow-hidden min-h-[70vh] flex items-center">
-        {/* Background Video */}
+      <section className="relative overflow-hidden min-h-[70vh] flex items-center bg-black">
+        {/* Background Video — lazy: only loads after first paint to avoid
+            competing with hero JS/CSS for bandwidth. The black section bg
+            acts as the poster. */}
         <video
+          ref={(el) => {
+            if (!el || el.dataset.lfLoaded === '1') return;
+            el.dataset.lfLoaded = '1';
+            const attach = () => {
+              if (el.querySelector('source')) return;
+              const s = document.createElement('source');
+              s.src = '/videos/hero-bg.mp4';
+              s.type = 'video/mp4';
+              el.appendChild(s);
+              el.load();
+            };
+            const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void };
+            if (w.requestIdleCallback) w.requestIdleCallback(attach, { timeout: 1500 });
+            else window.setTimeout(attach, 600);
+          }}
           autoPlay
           loop
           muted
           playsInline
-          preload="auto"
+          preload="none"
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover animate-fade-in"
           style={{ animationDuration: '1.5s', objectPosition: 'center center' }}
-        >
-          <source src="/videos/hero-bg.mp4" type="video/mp4" />
-        </video>
+        />
+
         {/* Dark overlay for strong contrast */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40 animate-fade-in" style={{ animationDuration: '1.5s' }} />
         

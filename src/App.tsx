@@ -24,8 +24,9 @@ if (typeof window !== "undefined") {
 import { useSignalRealtimeInvalidation } from "@/hooks/useSignalRealtimeInvalidation";
 import { useAttributionTracking } from "@/hooks/useAttributionTracking";
 
-// All route components are lazy-loaded so the initial bundle stays small
-const Index = lazy(() => import("./pages/Index"));
+// Index is eagerly imported — it's the highest-traffic route, so we skip
+// the Suspense fallback round-trip to remove the initial loading spinner.
+import Index from "./pages/Index";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
 import { ScrollToTop } from "./components/ScrollToTop";
