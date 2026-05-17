@@ -1,7 +1,31 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PersonWithPlans, PlanType, Plan } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+
+/**
+ * 重試策略：
+ *  - 最多 2 次（共 3 次嘗試），指數退避 400ms / 1.2s
+ *  - 對 4xx（含 RLS 401/403、NOT_FOUND 404）不重試 — 重試也只會多打一輪
+ *    同樣失敗的請求，徒增載入時間
+ *  - 對網路 / 5xx / timeout 才重試
+ *
+ * 這個策略與 queryClient.ts 的全域 `retry: 1` 互斥（這裡覆蓋），
+ * 因為 experts 是公開頁面，使用者對閃爍與卡頓很敏感，需要更積極的重試。
+ */
+function isTransientError(err: unknown): boolean {
+  const e = err as { status?: number; code?: string | number; message?: string } | null;
+  if (!e) return true;
+  if (typeof e.status === 'number' && e.status >= 400 && e.status < 500) return false;
+  // PostgREST 錯誤碼：PGRST116 = 0 rows、42501 = RLS denied
+  if (e.code === 'PGRST116' || e.code === '42501') return false;
+  return true;
+}
+
+const expertRetry = (failureCount: number, error: unknown) =>
+  isTransientError(error) && failureCount < 2;
+const expertRetryDelay = (attemptIndex: number) => Math.min(400 * 3 ** attemptIndex, 4_000);
+
 
 type ExpertVisibilityMode = 'default' | 'tester' | 'privileged';
 
@@ -131,6 +155,10 @@ export function useExperts(opts?: { includeAllStatuses?: boolean }) {
     },
     enabled: !isAuthLoading,
     staleTime: EXPERT_STALE_MS,
+    retry: expertRetry,
+    retryDelay: expertRetryDelay,
+    // 失敗的 refetch 不該把畫面打回 loading：保留前一次成功的 list。
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -181,6 +209,9 @@ export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?
     },
     enabled: !!slug && !isAuthLoading,
     staleTime: EXPERT_STALE_MS,
+    retry: expertRetry,
+    retryDelay: expertRetryDelay,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -232,6 +263,9 @@ export function useExpertDetailBundle(slug: string | undefined) {
     },
     enabled: !!slug && !isAuthLoading,
     staleTime: EXPERT_STALE_MS,
+    retry: expertRetry,
+    retryDelay: expertRetryDelay,
+    placeholderData: keepPreviousData,
   });
 }
 

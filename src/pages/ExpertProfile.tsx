@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { avatarUrl } from '@/lib/imageTransform';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useExpertDetailBundle } from '@/hooks/useExpert';
+import { ExpertFetchError } from '@/components/ExpertFetchError';
 
 const PerformanceOverviewPanel = lazy(() =>
   import('@/components/strategy/PerformanceOverviewPanel').then((m) => ({
@@ -31,7 +32,15 @@ const ExpertProfile = () => {
   );
 
   // Single RPC bundle: expert + plans + subscriber count + my subscribed ids.
-  const { data: bundle, isLoading: bundleLoading, isFetched: bundleFetched } = useExpertDetailBundle(slug);
+  const {
+    data: bundle,
+    isLoading: bundleLoading,
+    isFetched: bundleFetched,
+    isError: bundleError,
+    error: bundleErrObj,
+    refetch: refetchBundle,
+    isRefetching: bundleRefetching,
+  } = useExpertDetailBundle(slug);
   const expert = bundle?.expert ?? null;
   const dbPlans = expert?.plans ?? [];
   const subscribedPlanIds = bundle?.mySubscribedPlanIds ?? new Set<string>();
@@ -63,13 +72,26 @@ const ExpertProfile = () => {
     : null;
 
 
-  if (expertNotFound) {
+  // expertNotFound 只在 fetch 已完成且確實沒資料時才成立；fetch 失敗時走 error UI
+  if (expertNotFound && !bundleError) {
     return (
       <PortalLayout hideAppEntry hideHeader={!!user}>
         <div className="container py-12 text-center">
           <h1 className="text-2xl font-bold mb-4">找不到此專家</h1>
           <Button asChild><Link to="/experts">返回專家列表</Link></Button>
         </div>
+      </PortalLayout>
+    );
+  }
+
+  if (bundleError && !expertInfo) {
+    return (
+      <PortalLayout hideAppEntry hideHeader={!!user}>
+        <ExpertFetchError
+          error={bundleErrObj}
+          onRetry={() => refetchBundle()}
+          isRetrying={bundleRefetching}
+        />
       </PortalLayout>
     );
   }

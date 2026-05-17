@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { ExpertRole } from "@/types";
 import { useExperts } from "@/hooks/useExpert";
+import { ExpertFetchError } from "@/components/ExpertFetchError";
 import { useSubscribedExpertSlugs } from "@/hooks/useSubscriptions";
 import { avatarUrl } from "@/lib/imageTransform";
 import { intentHandlers } from "@/lib/routePrefetch";
@@ -17,7 +18,7 @@ type RoleFilter = "all" | "advisor" | "mentor";
 
 const Explore = () => {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const { data: allExperts = [], isLoading } = useExperts();
+  const { data: allExperts = [], isLoading, isError, error, refetch, isRefetching } = useExperts();
   const { data: subscribedSlugs = [] } = useSubscribedExpertSlugs();
 
   const filteredExperts = allExperts.filter((expert) => {
@@ -44,8 +45,13 @@ const Explore = () => {
           </TabsList>
         </Tabs>
 
+        {isError && allExperts.length > 0 && (
+          <ExpertFetchError variant="inline" error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
+        )}
         {isLoading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+        ) : isError && allExperts.length === 0 ? (
+          <ExpertFetchError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
         ) : (
           <div className="space-y-4">
             {filteredExperts.map((expert) => {

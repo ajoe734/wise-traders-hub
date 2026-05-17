@@ -9,6 +9,7 @@ import { ExpertRole } from '@/types';
 import { Search, Filter, Shield, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useExperts } from '@/hooks/useExpert';
+import { ExpertFetchError } from '@/components/ExpertFetchError';
 import { Loader2 } from 'lucide-react';
 
 const Experts = () => {
@@ -17,7 +18,7 @@ const Experts = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [marketFilter, setMarketFilter] = useState<string | null>(null);
 
-  const { data: allPeople = [], isLoading } = useExperts();
+  const { data: allPeople = [], isLoading, isError, error, refetch, isRefetching } = useExperts();
 
   const filteredPeople = useMemo(() => {
     const filtered = allPeople.filter(person => {
@@ -112,10 +113,17 @@ const Experts = () => {
         </div>
 
         {/* Results */}
+        {isError && allPeople.length > 0 && (
+          <div className="mb-4">
+            <ExpertFetchError variant="inline" error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
+          </div>
+        )}
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
+        ) : isError && allPeople.length === 0 ? (
+          <ExpertFetchError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
         ) : filteredPeople.length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPeople.map(person => (

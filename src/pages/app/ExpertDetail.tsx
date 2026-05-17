@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverviewPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useExpert } from "@/hooks/useExpert";
+import { ExpertFetchError } from "@/components/ExpertFetchError";
 import { Loader2 } from "lucide-react";
 import { avatarUrl } from "@/lib/imageTransform";
 import { useQuery } from "@tanstack/react-query";
@@ -58,7 +59,7 @@ const AppExpertDetail = () => {
   const navigate = useNavigate();
   const [subscribedPlanTypes, setSubscribedPlanTypes] = useState<string[]>([]);
   
-  const { data: expert, isLoading } = useExpert(slug);
+  const { data: expert, isLoading, isError, error, refetch, isRefetching } = useExpert(slug);
   
 
   // Fetch expert plans from DB
@@ -99,6 +100,14 @@ const AppExpertDetail = () => {
 
   if (isLoading) {
     return <UnifiedAppLayout><div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div></UnifiedAppLayout>;
+  }
+
+  if (isError && !expert) {
+    return (
+      <UnifiedAppLayout>
+        <ExpertFetchError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
+      </UnifiedAppLayout>
+    );
   }
 
   if (!expert) {
