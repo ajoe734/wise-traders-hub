@@ -7,7 +7,9 @@ import { validateProps } from './_validateProps';
 const LOG_TAB_PROP_SCHEMA = {
   isDemo: 'boolean',
   tradeLog: 'array',
-  C: 'object', alpha: 'function', card: 'object',
+  C: 'object',
+  alpha: 'function',
+  card: 'object',
   DEMO_TAB_NOTICE_COPY: 'object',
   startLineLogin: { type: 'function', optional: true },
   navigate: 'function',
