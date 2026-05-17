@@ -155,7 +155,7 @@ const CompanyRevenue = () => {
   const splits = data?.splits ?? [];
   const transactions = data?.transactions ?? [];
   const remittance = data?.remittance ?? [];
-  const subscriptions = data?.subscriptions ?? [];
+  const subscriptions: any[] = data?.subscriptions ?? [];
   const checkupSubs = data?.checkupSubs ?? [];
   const experts = data?.experts ?? [];
   const plans = data?.plans ?? [];
