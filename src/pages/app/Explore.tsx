@@ -11,6 +11,7 @@ import { ExpertRole } from "@/types";
 import { useExperts } from "@/hooks/useExpert";
 import { useSubscribedExpertSlugs } from "@/hooks/useSubscriptions";
 import { avatarUrl } from "@/lib/imageTransform";
+import { intentHandlers } from "@/lib/routePrefetch";
 
 type RoleFilter = "all" | "advisor" | "mentor";
 
