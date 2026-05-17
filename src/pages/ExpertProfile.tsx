@@ -30,19 +30,15 @@ const ExpertProfile = () => {
     (user?.expertSlug && user.expertSlug === slug) || hasRole('company_admin')
   );
 
-  // Tester preview (`status=draft`) lives in the same query as the public
-  // path — `useExpert` already routes through `getVisibilityMode(user)`.
-  const { data: expert, isLoading: expertLoading, isFetched: expertFetched } = useExpert(slug);
-  const expertId = expert?.id;
+  // Single RPC bundle: expert + plans + subscriber count + my subscribed ids.
+  const { data: bundle, isLoading: bundleLoading, isFetched: bundleFetched } = useExpertDetailBundle(slug);
+  const expert = bundle?.expert ?? null;
   const dbPlans = expert?.plans ?? [];
-  const planIds = dbPlans.map((p) => p.id);
+  const subscribedPlanIds = bundle?.mySubscribedPlanIds ?? new Set<string>();
+  const subscriberCount = bundle?.subscriberCount ?? null;
 
-  const { data: stats } = useExpertSubscriptionStats(expertId, planIds);
-  const subscribedPlanIds = stats?.mySubscribedPlanIds ?? new Set<string>();
-  const subscriberCount = stats?.subscriberCount ?? null;
-
-  const expertNotFound = expertFetched && !expert;
-  const loading = expertLoading && !expert;
+  const expertNotFound = bundleFetched && !expert;
+  const loading = bundleLoading && !expert;
 
   // Adapt `PersonWithPlans` → the panel/render shape this file used before.
   const expertInfo = expert
