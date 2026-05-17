@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { avatarUrl } from '@/lib/imageTransform';
+import { intentHandlers } from '@/lib/routePrefetch';
 import { useMemo, useState } from 'react';
 
 type DbSubscription = MemberSubscriptionRow;
@@ -166,7 +167,7 @@ const AppHome = () => {
                     <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-signals-accent" />分析師操作邏輯解說</li>
                   </ul>
                   <Button asChild variant="advisor" size="sm" className="w-full">
-                    <Link to="/app/explore">探索分析師<ChevronRight className="h-4 w-4 ml-1" /></Link>
+                    <Link to="/app/explore" {...intentHandlers('app-explore')}>探索分析師<ChevronRight className="h-4 w-4 ml-1" /></Link>
                   </Button>
                 </div>
               </div>
@@ -190,7 +191,7 @@ const AppHome = () => {
               </FeatureCard>
               <div className="flex items-center gap-2">
                 {mentorSubs.slice(0, 3).map(sub => (
-                  <Link key={sub.plan_id} to={`/app/expert/${sub.expert.slug}`}>
+                  <Link key={sub.plan_id} to={`/app/expert/${sub.expert.slug}`} {...intentHandlers('app-expert-detail')}>
                     <Avatar className="h-10 w-10 border-2 border-learning-accent/40">
                       <AvatarImage src={avatarUrl(sub.expert.avatar_url, 80)} alt={sub.expert.name} loading="lazy" decoding="async" className="object-[center_15%]" />
                       <AvatarFallback>{sub.expert.name[0]}</AvatarFallback>
@@ -215,7 +216,7 @@ const AppHome = () => {
                     <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-learning-accent" />買賣點複盤檢討</li>
                   </ul>
                   <Button asChild variant="mentor" size="sm" className="w-full">
-                    <Link to="/app/explore">探索導師<ChevronRight className="h-4 w-4 ml-1" /></Link>
+                    <Link to="/app/explore" {...intentHandlers('app-explore')}>探索導師<ChevronRight className="h-4 w-4 ml-1" /></Link>
                   </Button>
                 </div>
               </div>
@@ -225,10 +226,10 @@ const AppHome = () => {
 
         {/* Quick Links */}
         <section className="pt-2 space-y-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-          <Link to="/app/account" className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors">
+          <Link to="/app/account" {...intentHandlers('app-account')} className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors">
             <span className="text-sm text-muted-foreground">管理訂閱</span><ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
-          <Link to="/app/explore" className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors">
+          <Link to="/app/explore" {...intentHandlers('app-explore')} className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors">
             <span className="text-sm text-muted-foreground">探索更多專家</span><ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
           <Link to="/free-checkup" className="flex items-center justify-between p-4 rounded-xl bg-foreground/[0.03] border border-foreground/[0.08] hover:bg-foreground/[0.06] transition-colors">

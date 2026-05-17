@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
+import { intentHandlers } from '@/lib/routePrefetch';
 
 interface JournalSignal {
   id: string;
@@ -203,7 +204,7 @@ const Journals = () => {
             <CardContent className="p-6 text-center space-y-3">
               <p className="text-muted-foreground">您尚未訂閱任何實戰導師</p>
               <p className="text-sm text-muted-foreground">訂閱後即可在此查看修煉派週記教學</p>
-              <Link to="/app/explore">
+              <Link to="/app/explore" {...intentHandlers('app-explore')}>
                 <button className="mt-2 inline-flex items-center gap-2 rounded-md bg-learning-accent px-6 py-2.5 text-sm font-medium text-white hover:bg-learning-accent/90">
                   前往探索導師
                 </button>

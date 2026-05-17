@@ -11,6 +11,7 @@ import { ExpertRole } from "@/types";
 import { useExperts } from "@/hooks/useExpert";
 import { useSubscribedExpertSlugs } from "@/hooks/useSubscriptions";
 import { avatarUrl } from "@/lib/imageTransform";
+import { intentHandlers } from "@/lib/routePrefetch";
 
 type RoleFilter = "all" | "advisor" | "mentor";
 
@@ -80,11 +81,11 @@ const Explore = () => {
                     <div className="flex gap-2 mt-4">
                       {isSubscribed ? (
                         <Button asChild className={`flex-1 ${expert.role === 'advisor' ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90'} text-white`}>
-                          <Link to={`/app/expert/${expert.slug}`}>查看專家詳情<ChevronRight className="h-4 w-4 ml-1" /></Link>
+                          <Link to={`/app/expert/${expert.slug}`} {...intentHandlers('app-expert-detail')}>查看專家詳情<ChevronRight className="h-4 w-4 ml-1" /></Link>
                         </Button>
                       ) : (
                         <Button asChild variant="outline" className="flex-1">
-                          <Link to={`/expert/${expert.slug}?from=explore`}>查看訂閱方案<ChevronRight className="h-4 w-4 ml-1" /></Link>
+                          <Link to={`/expert/${expert.slug}?from=explore`} {...intentHandlers('expert-profile')}>查看訂閱方案<ChevronRight className="h-4 w-4 ml-1" /></Link>
                         </Button>
                       )}
                     </div>

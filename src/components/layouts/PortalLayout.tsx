@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Menu, X, TrendingUp, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
+import { intentHandlers } from '@/lib/routePrefetch';
 
 interface PortalLayoutProps {
   children: ReactNode;
@@ -12,10 +13,10 @@ interface PortalLayoutProps {
   hideHeader?: boolean;
 }
 
-const navLinks = [
+const navLinks: { href: string; label: string; intent?: Parameters<typeof intentHandlers>[0] }[] = [
   { href: '/', label: '首頁' },
-  { href: '/experts', label: '探索名師' },
-  { href: '/pricing', label: '方案說明' },
+  { href: '/experts', label: '探索名師', intent: 'experts' },
+  { href: '/pricing', label: '方案說明', intent: 'pricing' },
   { href: '/legal', label: '法律聲明' },
 ];
 
@@ -51,6 +52,7 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
               <Link
                 key={link.href}
                 to={link.href}
+                {...(link.intent ? intentHandlers(link.intent) : {})}
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-cta",
                   location.pathname === link.href 
@@ -98,15 +100,15 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
             )}
             {user && !hideAppEntry ? (
               <Button size="sm" asChild>
-                <Link to="/app">進入會員區</Link>
+                <Link to="/app" {...intentHandlers('app-home')}>進入會員區</Link>
               </Button>
             ) : !user ? (
               <>
                 <Button variant="ghost" size="sm" asChild>
-                  <Link to="/auth/login">登入</Link>
+                  <Link to="/auth/login" {...intentHandlers('login')}>登入</Link>
                 </Button>
                 <Button size="sm" asChild>
-                  <Link to="/auth/register">免費註冊</Link>
+                  <Link to="/auth/register" {...intentHandlers('register')}>免費註冊</Link>
                 </Button>
               </>
             ) : null}
@@ -156,6 +158,7 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                 <Link
                   key={link.href}
                   to={link.href}
+                  {...(link.intent ? intentHandlers(link.intent) : {})}
                   className={cn(
                     "block px-3 py-2 rounded-md text-sm font-medium transition-colors",
                     location.pathname === link.href 
@@ -180,6 +183,7 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                 {user ? (
                   <Link
                     to="/app"
+                    {...intentHandlers('app-home')}
                     className="block px-3 py-2 rounded-md text-sm font-medium bg-cta text-cta-foreground text-center"
                     onClick={() => setMobileMenuOpen(false)}
                   >
@@ -189,6 +193,7 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                   <>
                     <Link
                       to="/auth/login"
+                      {...intentHandlers('login')}
                       className="block px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted"
                       onClick={() => setMobileMenuOpen(false)}
                     >
@@ -196,6 +201,7 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                     </Link>
                     <Link
                       to="/auth/register"
+                      {...intentHandlers('register')}
                       className="block px-3 py-2 rounded-md text-sm font-medium bg-cta text-cta-foreground text-center"
                       onClick={() => setMobileMenuOpen(false)}
                     >

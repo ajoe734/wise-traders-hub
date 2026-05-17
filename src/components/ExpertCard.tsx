@@ -7,6 +7,7 @@ import { RoleBadge } from '@/components/RoleBadge';
 import { cn } from '@/lib/utils';
 import { Flame } from 'lucide-react';
 import { avatarUrl } from '@/lib/imageTransform';
+import { intentHandlers } from '@/lib/routePrefetch';
 interface ExpertCardProps {
   person: PersonWithPlans;
 }
@@ -67,10 +68,10 @@ export function ExpertCard({ person }: ExpertCardProps) {
         </div>
         <div className="border-t dark:border-white/10 bg-muted/30 dark:bg-white/[0.03] p-4 flex gap-2">
           <Button variant="outline" size="sm" className="flex-1" asChild>
-            <Link to={`/expert/${person.slug}`}>查看介紹</Link>
+            <Link to={`/expert/${person.slug}`} {...intentHandlers('expert-profile')}>查看介紹</Link>
           </Button>
           <Button variant={isAdv ? 'advisor' : 'mentor'} size="sm" className="flex-1" asChild>
-            <Link to={`/expert/${person.slug}#plans`}>查看方案</Link>
+            <Link to={`/expert/${person.slug}#plans`} {...intentHandlers('expert-profile')}>查看方案</Link>
           </Button>
         </div>
       </CardContent>

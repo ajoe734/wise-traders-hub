@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { richHtmlPreview } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
+import { intentHandlers } from '@/lib/routePrefetch';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
 
 const actionConfig: Record<string, { label: string; className: string }> = {
@@ -152,7 +153,7 @@ const Signals = () => {
             <CardContent className="p-6 text-center space-y-3">
               <p className="text-muted-foreground">您尚未訂閱任何分析師</p>
               <p className="text-sm text-muted-foreground">訂閱後即可在此查看即時投顧訊號</p>
-              <Link to="/app/explore">
+              <Link to="/app/explore" {...intentHandlers('app-explore')}>
                 <button className="mt-2 inline-flex items-center gap-2 rounded-md bg-signals-accent px-6 py-2.5 text-sm font-medium text-white hover:bg-signals-accent/90">
                   前往探索分析師
                 </button>
