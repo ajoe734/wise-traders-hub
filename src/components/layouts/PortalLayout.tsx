@@ -158,6 +158,7 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
                 <Link
                   key={link.href}
                   to={link.href}
+                  {...(link.intent ? intentHandlers(link.intent) : {})}
                   className={cn(
                     "block px-3 py-2 rounded-md text-sm font-medium transition-colors",
                     location.pathname === link.href 
