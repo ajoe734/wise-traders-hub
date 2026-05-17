@@ -145,6 +145,54 @@ export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?
 }
 
 /**
+ * Single-RPC bundle for /expert/:slug — expert + active+approved plans +
+ * subscriber count + my subscribed plan ids in one round trip. Seeds the
+ * legacy `['expert', ...]` and `['expert-subscription-stats', ...]` caches
+ * so downstream hooks become pure cache hits.
+ */
+export interface ExpertDetailBundle {
+  expert: PersonWithPlans | null;
+  subscriberCount: number;
+  mySubscribedPlanIds: Set<string>;
+}
+
+export function useExpertDetailBundle(slug: string | undefined) {
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const visibilityMode = getVisibilityMode(user);
+  const queryClient = useQueryClient();
+
+  return useQuery<ExpertDetailBundle>({
+    queryKey: ['expert-bundle', slug, user?.id ?? 'guest', visibilityMode],
+    queryFn: async () => {
+      if (!slug) return { expert: null, subscriberCount: 0, mySubscribedPlanIds: new Set() };
+      const { data, error } = await supabase.rpc('get_expert_detail_bundle', { _slug: slug });
+      if (error) throw error;
+      if (!data) return { expert: null, subscriberCount: 0, mySubscribedPlanIds: new Set() };
+
+      const bundle = data as any;
+      const expertRow = bundle.expert ? { ...bundle.expert, expert_plans: bundle.plans || [] } : null;
+      const expert = expertRow ? mapToPersonWithPlans(expertRow) : null;
+      const mine = new Set<string>((bundle.my_subscribed_plan_ids || []) as string[]);
+      const count = Number(bundle.subscriber_count || 0);
+
+      // Seed peer caches so useExpert / useExpertSubscriptionStats hit cache.
+      if (expert) {
+        queryClient.setQueryData(['expert', slug, user?.id ?? 'guest', visibilityMode], expert);
+        const planKey = expert.plans.map((p) => p.id).sort().join(',');
+        queryClient.setQueryData(
+          ['expert-subscription-stats', expert.id, user?.id ?? 'guest', planKey],
+          { mySubscribedPlanIds: mine, subscriberCount: count },
+        );
+      }
+
+      return { expert, subscriberCount: count, mySubscribedPlanIds: mine };
+    },
+    enabled: !!slug && !isAuthLoading,
+    staleTime: 30_000,
+  });
+}
+
+/**
  * Combined query for /expert/:slug — "my active subscription plan IDs for
  * this expert" + "total active subscriber count". One round trip, shared
  * staleTime, single invalidation key.

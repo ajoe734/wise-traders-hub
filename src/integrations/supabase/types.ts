@@ -2806,6 +2806,7 @@ export type Database = {
         }[]
       }
       get_expert_capital_status: { Args: { _expert_id: string }; Returns: Json }
+      get_expert_detail_bundle: { Args: { _slug: string }; Returns: Json }
       get_knowledge_revision: { Args: never; Returns: string }
       get_weekly_limit_up_leaderboard: {
         Args: { _end_date?: string; _start_date?: string }
