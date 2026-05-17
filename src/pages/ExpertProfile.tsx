@@ -32,7 +32,15 @@ const ExpertProfile = () => {
   );
 
   // Single RPC bundle: expert + plans + subscriber count + my subscribed ids.
-  const { data: bundle, isLoading: bundleLoading, isFetched: bundleFetched } = useExpertDetailBundle(slug);
+  const {
+    data: bundle,
+    isLoading: bundleLoading,
+    isFetched: bundleFetched,
+    isError: bundleError,
+    error: bundleErrObj,
+    refetch: refetchBundle,
+    isRefetching: bundleRefetching,
+  } = useExpertDetailBundle(slug);
   const expert = bundle?.expert ?? null;
   const dbPlans = expert?.plans ?? [];
   const subscribedPlanIds = bundle?.mySubscribedPlanIds ?? new Set<string>();
