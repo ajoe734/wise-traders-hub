@@ -72,13 +72,26 @@ const ExpertProfile = () => {
     : null;
 
 
-  if (expertNotFound) {
+  // expertNotFound 只在 fetch 已完成且確實沒資料時才成立；fetch 失敗時走 error UI
+  if (expertNotFound && !bundleError) {
     return (
       <PortalLayout hideAppEntry hideHeader={!!user}>
         <div className="container py-12 text-center">
           <h1 className="text-2xl font-bold mb-4">找不到此專家</h1>
           <Button asChild><Link to="/experts">返回專家列表</Link></Button>
         </div>
+      </PortalLayout>
+    );
+  }
+
+  if (bundleError && !expertInfo) {
+    return (
+      <PortalLayout hideAppEntry hideHeader={!!user}>
+        <ExpertFetchError
+          error={bundleErrObj}
+          onRetry={() => refetchBundle()}
+          isRetrying={bundleRefetching}
+        />
       </PortalLayout>
     );
   }
