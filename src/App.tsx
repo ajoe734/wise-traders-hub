@@ -163,6 +163,7 @@ const AppShell = () => (
       <BrowserRouter>
           <AttributionTracker />
           <ScrollToTop />
+          <PerfMetricsTracker />
           <PendingRemittanceGuard />
           <Suspense fallback={<RouteFallback />}>
           <Routes>
