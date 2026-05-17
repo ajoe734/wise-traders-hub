@@ -29,6 +29,7 @@ const Index = lazy(() => import("./pages/Index"));
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { PerfMetricsTracker } from "./components/PerfMetricsTracker";
 import { PendingRemittanceGuard } from "./components/PendingRemittanceGuard";
 
 // Portal pages (lazy)
@@ -116,6 +117,7 @@ const CompanyCheckupUsage = lazy(() => import("./pages/company/CheckupUsage"));
 const CompanyMissingPrices = lazy(() => import("./pages/company/MissingPrices"));
 const CompanyMetaOverrides = lazy(() => import("./pages/company/MetaOverrides"));
 const CompanyUsers = lazy(() => import("./pages/company/Users"));
+const CompanyPerfMetrics = lazy(() => import("./pages/company/PerfMetrics"));
 
 const RealtimeBridge = () => {
   useSignalRealtimeInvalidation();
@@ -162,6 +164,7 @@ const AppShell = () => (
       <BrowserRouter>
           <AttributionTracker />
           <ScrollToTop />
+          <PerfMetricsTracker />
           <PendingRemittanceGuard />
           <Suspense fallback={<RouteFallback />}>
           <Routes>
@@ -246,6 +249,7 @@ const AppShell = () => (
             <Route path="/company/checkup-usage" element={<ProtectedRoute requiredRole="company_admin"><CompanyCheckupUsage /></ProtectedRoute>} />
             <Route path="/company/missing-prices" element={<ProtectedRoute requiredRole="company_admin"><CompanyMissingPrices /></ProtectedRoute>} />
             <Route path="/company/meta-overrides" element={<ProtectedRoute requiredRole="company_admin"><CompanyMetaOverrides /></ProtectedRoute>} />
+            <Route path="/company/perf-metrics" element={<ProtectedRoute requiredRole="company_admin"><CompanyPerfMetrics /></ProtectedRoute>} />
 
             {/* Admin */}
             <Route path="/admin/:expertSlug" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />

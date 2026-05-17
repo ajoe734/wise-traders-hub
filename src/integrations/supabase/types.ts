@@ -1933,6 +1933,42 @@ export type Database = {
           },
         ]
       }
+      perf_metrics: {
+        Row: {
+          created_at: string
+          fcp_ms: number | null
+          id: string
+          lcp_ms: number | null
+          route: string
+          session_id: string | null
+          ua_kind: string | null
+          user_id: string | null
+          viewport_w: number | null
+        }
+        Insert: {
+          created_at?: string
+          fcp_ms?: number | null
+          id?: string
+          lcp_ms?: number | null
+          route: string
+          session_id?: string | null
+          ua_kind?: string | null
+          user_id?: string | null
+          viewport_w?: number | null
+        }
+        Update: {
+          created_at?: string
+          fcp_ms?: number | null
+          id?: string
+          lcp_ms?: number | null
+          route?: string
+          session_id?: string | null
+          ua_kind?: string | null
+          user_id?: string | null
+          viewport_w?: number | null
+        }
+        Relationships: []
+      }
       plan_split_overrides: {
         Row: {
           created_at: string
@@ -2791,6 +2827,7 @@ export type Database = {
         }[]
       }
       cleanup_old_announcements: { Args: never; Returns: undefined }
+      cleanup_old_perf_metrics: { Args: never; Returns: undefined }
       consume_checkup_quota: {
         Args: { _kind?: string; _user_id: string }
         Returns: Json
@@ -2808,6 +2845,7 @@ export type Database = {
       get_expert_capital_status: { Args: { _expert_id: string }; Returns: Json }
       get_expert_detail_bundle: { Args: { _slug: string }; Returns: Json }
       get_knowledge_revision: { Args: never; Returns: string }
+      get_perf_metrics_summary: { Args: { _days?: number }; Returns: Json }
       get_weekly_limit_up_leaderboard: {
         Args: { _end_date?: string; _start_date?: string }
         Returns: {
