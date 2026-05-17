@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -91,67 +92,84 @@ const ruleSourceLabels: Record<string, string> = {
 /* ============================== 主元件 ============================== */
 const CompanyRevenue = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [preset, setPreset] = useState<'this_month' | 'last_month' | 'last_3m' | 'ytd'>('this_month');
   const range = useMemo(() => getRangePreset(preset), [preset]);
-
-  const [splits, setSplits] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [remittance, setRemittance] = useState<any[]>([]);
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
-  const [checkupSubs, setCheckupSubs] = useState<any[]>([]);
-  const [experts, setExperts] = useState<any[]>([]);
-  const [plans, setPlans] = useState<any[]>([]);
-  const [checkupPlans, setCheckupPlans] = useState<any[]>([]);
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [providers, setProviders] = useState<any[]>([]);
-  const [paidTxTotalCount, setPaidTxTotalCount] = useState<number>(0);
-  const [splitTotalCount, setSplitTotalCount] = useState<number>(0);
 
   const [refundingTx, setRefundingTx] = useState<any>(null);
   const [refundReason, setRefundReason] = useState('');
 
-  useEffect(() => { fetchAll(); /* eslint-disable-next-line */ }, [preset]);
+  /**
+   * Single snapshot keyed by `preset`. Changing preset → new key → refetch.
+   * Within the 30s staleTime: focus / re-render / sibling re-mount → no refetch.
+   * Mutations call invalidateQueries(['company','revenue']) (prefix match
+   * covers every preset variant) to force a fresh pull after refunds.
+   */
+  const { data } = useQuery({
+    queryKey: ['company', 'revenue', preset],
+    queryFn: async () => {
+      const fromIso = range.from.toISOString();
+      const toIso = range.to.toISOString();
 
-  const fetchAll = async () => {
-    const fromIso = range.from.toISOString();
-    const toIso = range.to.toISOString();
+      const [
+        sp, tx, rm, sub, csub, exp, pl, cpl, prof, prov, txCount, spCount,
+      ] = await Promise.all([
+        supabase.from('revenue_splits').select('*')
+          .gte('created_at', fromIso).lte('created_at', toIso)
+          .order('created_at', { ascending: false }),
+        supabase.from('payment_transactions').select('*')
+          .gte('created_at', fromIso).lte('created_at', toIso)
+          .order('created_at', { ascending: false }),
+        supabase.from('remittance_orders').select('*')
+          .gte('created_at', fromIso).lte('created_at', toIso)
+          .order('created_at', { ascending: false }),
+        supabase.from('member_subscriptions').select('*').order('started_at', { ascending: false }),
+        supabase.from('checkup_subscriptions').select('*').order('started_at', { ascending: false }),
+        supabase.from('experts').select('id, name, role, slug'),
+        supabase.from('expert_plans').select('id, name, expert_id, plan_type, price_monthly, price_yearly'),
+        supabase.from('checkup_plans').select('id, name, tier, price_monthly, price_yearly'),
+        supabase.from('profiles').select('user_id, display_name'),
+        supabase.from('payment_providers').select('id, display_name, provider_type'),
+        supabase.from('payment_transactions').select('*', { count: 'exact', head: true }).eq('status', 'paid'),
+        supabase.from('revenue_splits').select('*', { count: 'exact', head: true }),
+      ]);
 
-    const [
-      sp, tx, rm, sub, csub, exp, pl, cpl, prof, prov, txCount, spCount,
-    ] = await Promise.all([
-      supabase.from('revenue_splits').select('*')
-        .gte('created_at', fromIso).lte('created_at', toIso)
-        .order('created_at', { ascending: false }),
-      supabase.from('payment_transactions').select('*')
-        .gte('created_at', fromIso).lte('created_at', toIso)
-        .order('created_at', { ascending: false }),
-      supabase.from('remittance_orders').select('*')
-        .gte('created_at', fromIso).lte('created_at', toIso)
-        .order('created_at', { ascending: false }),
-      supabase.from('member_subscriptions').select('*').order('started_at', { ascending: false }),
-      supabase.from('checkup_subscriptions').select('*').order('started_at', { ascending: false }),
-      supabase.from('experts').select('id, name, role, slug'),
-      supabase.from('expert_plans').select('id, name, expert_id, plan_type, price_monthly, price_yearly'),
-      supabase.from('checkup_plans').select('id, name, tier, price_monthly, price_yearly'),
-      supabase.from('profiles').select('user_id, display_name'),
-      supabase.from('payment_providers').select('id, display_name, provider_type'),
-      supabase.from('payment_transactions').select('*', { count: 'exact', head: true }).eq('status', 'paid'),
-      supabase.from('revenue_splits').select('*', { count: 'exact', head: true }),
-    ]);
+      return {
+        splits: sp.data || [],
+        transactions: tx.data || [],
+        remittance: rm.data || [],
+        subscriptions: sub.data || [],
+        checkupSubs: csub.data || [],
+        experts: exp.data || [],
+        plans: pl.data || [],
+        checkupPlans: cpl.data || [],
+        profiles: prof.data || [],
+        providers: prov.data || [],
+        paidTxTotalCount: txCount.count || 0,
+        splitTotalCount: spCount.count || 0,
+      };
+    },
+    staleTime: 30_000,
+  });
 
-    setSplits(sp.data || []);
-    setTransactions(tx.data || []);
-    setRemittance(rm.data || []);
-    setSubscriptions(sub.data || []);
-    setCheckupSubs(csub.data || []);
-    setExperts(exp.data || []);
-    setPlans(pl.data || []);
-    setCheckupPlans(cpl.data || []);
-    setProfiles(prof.data || []);
-    setProviders(prov.data || []);
-    setPaidTxTotalCount(txCount.count || 0);
-    setSplitTotalCount(spCount.count || 0);
-  };
+  const splits = data?.splits ?? [];
+  const transactions = data?.transactions ?? [];
+  const remittance = data?.remittance ?? [];
+  const subscriptions = data?.subscriptions ?? [];
+  const checkupSubs = data?.checkupSubs ?? [];
+  const experts = data?.experts ?? [];
+  const plans = data?.plans ?? [];
+  const checkupPlans = data?.checkupPlans ?? [];
+  const profiles = data?.profiles ?? [];
+  const providers = data?.providers ?? [];
+  const paidTxTotalCount = data?.paidTxTotalCount ?? 0;
+  const splitTotalCount = data?.splitTotalCount ?? 0;
+
+  // Mutations invalidate the entire ['company','revenue'] prefix so every
+  // cached preset gets refreshed and there's no stale UI when the user
+  // flips between preset tabs after a refund.
+  const fetchAll = () =>
+    queryClient.invalidateQueries({ queryKey: ['company', 'revenue'] });
 
   /* ----------------- 索引 map（後續多次 join 用） ----------------- */
   const expertMap = useMemo<Record<string, any>>(() => Object.fromEntries(experts.map(e => [e.id, e])), [experts]);
