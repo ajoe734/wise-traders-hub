@@ -1,74 +1,130 @@
-## 為什麼首頁 Loading 慢
 
-我實際對 `/` 走了一輪程式碼路徑，找到三個明確的瓶頸（與 session replay 觀察到的「先閃 spinner、約 1.4 秒後才出內容」完全吻合）：
+# 全站效能與可維護性改善計畫
 
-### 1. 首頁本身被 lazy-load（最關鍵）
-`src/App.tsx:28`
-```
-const Index = lazy(() => import("./pages/Index"));
-```
-所有路由（含 `/`）都走 `React.lazy + Suspense`，所以第一次到首頁時：
-1. 先下載 main bundle
-2. 再下載 `pages/Index` chunk（含 6 張 webp import、VsBrushMark、WeeklyLeaderboard、PortalLayout…）
-3. 期間畫面只剩 `RouteFallback` 那顆轉圈圈 → 就是你看到的「Loading」
-
-首頁是流量最高的路由，**不應該**走 lazy，這個多繞一圈的 chunk 下載就是主要延遲來源。
-
-### 2. Hero 影片 4.4MB、`preload="auto"`、沒有 poster
-`public/videos/hero-bg.mp4` = **4.4 MB**
-`src/pages/Index.tsx:77-88`
-```html
-<video autoPlay loop muted playsInline preload="auto" ...>
-```
-- `preload="auto"` 會在頁面一開始就跟 JS chunk / webp 競爭頻寬，拖慢 LCP
-- 沒有 `poster`，影片下載前該區是純黑色
-- 影片元素本身就是 LCP candidate，影片沒到 = LCP 沒到
-
-### 3. WeeklyLimitUpLeaderboard 立即發 query
-`src/pages/Index.tsx:925` 渲染在很下面（要捲動才看得到），但 `useWeeklyLeaderboard()` 在 Index mount 當下就觸發 Supabase 查詢，跟首屏資源搶頻寬。
+掃過 480 個前端檔 + 71 個 edge functions + 175 條 migrations 後，列出真正會影響使用者體驗或長期維護成本的問題，依「影響大、改動小」的順序分四批執行。
 
 ---
 
-## 修復計畫
+## 一、立即改善（高 ROI、低風險）— Batch 1
 
-### A. 首頁改 eager import（最大效益）
+### 1. Hero 影音與圖檔瘦身（首屏體感）
+| 檔案 | 目前 | 問題 | 動作 |
+|---|---|---|---|
+| `public/videos/hero-bg.mp4` | **4.4 MB** | 即使已 `preload="none"`、idle 才掛 source，行動網路仍會吃光額度 | 用 ffmpeg 重壓 H.264 CRF 30 + AAC 96k；同時輸出 `webm`（VP9 CRF 35），`<source>` 依序提供。目標 ≤ 1.2 MB |
+| `src/assets/hero-bg.png` | **1.7 MB** | 同時存在但似乎沒被引用 | 確認後刪除 |
+| `src/assets/vs-brush-alpha.png` / `vs-brush-transparent.png` | **935 + 894 KB** | 兩張內容疑似重複；PNG 但用於裝飾 | 留一張，轉 WebP（預期 < 80KB） |
+| `src/assets/template-step2-mentor.png` | 889 KB | PNG | 轉 WebP |
+| `card-kungfu-bones/speed.webp` | 227 / 194 KB | 仍偏大 | `cwebp -q 75 -resize 1200 0` |
+
+預期：首頁傳輸量 −5 MB 以上，LCP 在 3G 約 −1.2s。
+
+### 2. Index.tsx idle prefetch 重複呼叫
+`src/pages/Index.tsx` 內自己 `requestIdleCallback` 預載 Experts/Pricing/Login，又跑 `prefetchHighTrafficRoutes()`（在 `AttributionTracker`），兩者重複。
+→ 移除 Index.tsx 內聯版本，集中由 `routePrefetch.ts` 管理；可順手把 `expert-profile`、`app-home` 加入清單。
+
+### 3. lucide-react icon 拆 chunk
+`Index.tsx` 一次 import 15 個 icon，但 vite 沒對 `lucide-react` 強制分塊（vite.config 註解寫 P5-C 已移除），icon barrel 會被打進 Index chunk。建議：
+- 改為命名子路徑：`import Shield from "lucide-react/dist/esm/icons/shield"` 或
+- 重新加入 `if (id.includes("lucide-react")) return "vendor-lucide"`
+
+二者擇一即可，預期 Index chunk gzipped −15~25 KB。
+
+### 4. console.* / debug 殘留
+- `src/pages/FreeCheckup.jsx` 15 處、`auth/LineCallback.tsx` 14 處、`Checkout.tsx` 10 處 `console.log/warn/error`。
+- 加 `vite` 設定：`esbuild.drop = ['console','debugger']` 僅在 production 移除，保留 `console.error`（透過 `pure` 機制白名單）。一行設定，零侵入。
+
+---
+
+## 二、結構性重構（中風險）— Batch 2
+
+### 5. `src/pages/FreeCheckup.jsx`（4513 行）
+記憶體中明訂「不可拆元件」（依賴 inline 渲染），但 **可拆的**：
+- 29 個 `useEffect` + 93 個 `useState` → 抽出純 hooks（`useFreeCheckupPersistence`、`useFreeCheckupHeroState`、`useFreeCheckupSubscription`）放 `src/checkup/hooks/freecheckup/`，主檔只留 JSX。
+- 不違反「inline rendering 憲法」，因為只搬狀態邏輯不搬 JSX。
+- 同步補對應 unit test（已有 `freecheckup-tab-perf.test.tsx`、`freecheckup-mobile-card-overflow.test.ts` 作回歸保護）。
+
+### 6. 大型管理頁去 `any`
+| 檔 | any 數 |
+|---|---|
+| `pages/company/KnowledgeBase.tsx` | 41 |
+| `pages/admin/Signals.tsx` | 31 |
+| `pages/company/BacktestMonitor.tsx` | 26 |
+| `pages/admin/SignalEditor.tsx` | 22 |
+
+→ 從 `src/integrations/supabase/types.ts` 拉 `Database['public']['Tables'][...]['Row']` 取代 `any`，每檔 PR 規模可控（< 200 行 diff）。全站 520 處 `any` 預估第一輪可砍 60%。
+
+### 7. Index.tsx（1058 行）拆 section
+仿 `index-sections/MobileCarousels.tsx` 模式，依首屏/二屏拆：
+- `IndexHero.tsx`（eager）
+- `IndexFeatures.tsx`（eager）
+- `IndexLeaderboard.tsx`、`IndexFaq.tsx`、`IndexCta.tsx`（`LazyOnVisible`）
+
+主檔縮到 < 200 行，二屏以下不影響首屏 JS。
+
+---
+
+## 三、查詢與資料層（持續性效能）— Batch 3
+
+### 8. 補齊 React Query 命中率
+近期 `useExpertDetailBundle` 已示範「seed peer caches」模式。同樣模式套到：
+- `useExperts` ↔ `useExpert`：list 頁的卡片資料應 seed `['expert', slug]`，避免進詳情頁再打一次。
+- `useMemberSubscriptions` 在 `AppLayout` 已抓，但 `AppHome/Explore/ExpertDetail` 仍各自 query → 統一改吃 context 或共用 queryKey。
+
+### 9. `staleTime` 校準
+`queryClient.ts` 預設 `staleTime: 5min`，但 `useExperts` / `useExpert` / `useExpertSubscriptionStats` 各自又設 30~60s，覆蓋了預設。確認 SLA 後拉齊（建議公開頁 60s、登入頁 30s）。
+
+### 10. `supabase/functions/` 71 支共用程式碼
+`_shared` 已存在，但抽樣看 `checkup-*` 12 支 edge function 仍各自重複 CORS / Auth / Supabase client 初始化樣板。建議補一支 `_shared/handler.ts`：
 ```ts
-// src/App.tsx
-import Index from "./pages/Index";   // 取代 lazy(() => import("./pages/Index"))
+export const withCors = (h) => async (req) => { ...handle OPTIONS... return h(req) }
+export const withSupabase = (h) => async (req) => { ... }
 ```
-其餘路由維持 lazy。代價：main bundle 多 ~Index 的大小，但換掉 Suspense 等待，首屏直接渲染。
-
-### B. Hero 影片改 lazy + poster
-- 產生一張 hero poster（webp，約 100KB）放在 `src/assets/hero-poster.webp`
-- `<video>` 改：
-  - `preload="metadata"`（不抓整支）
-  - 加 `poster={heroPoster}`
-  - 用 `IntersectionObserver` 或 onCanPlay 在 mount 後才把 `src` 掛上（或用 `<source data-src>` + useEffect 賦值）
-- 另外把影片改成 720p / CRF 28 重壓，目標 < 1.5MB（後續再做）
-
-### C. 下方 widget 延遲查詢
-把 `WeeklyLimitUpLeaderboardSection` 用既有的 `LazyOnVisible` 包起來（首頁已有此 component），元件不進入視窗就不掛載、不查詢。
-
-### D. 6 張 feature webp 確認尺寸
-快速檢查 `feature-xianren / sanpai / jiaodai / five-factions / card-kungfu-*` 的尺寸，超過 200KB 的重新壓縮（webp q=75, max 1200w）。屬於 follow-up。
+不必一次全改，新功能用、舊的 touch 到就改。
 
 ---
 
-## 預期改善
+## 四、長尾整理（低急迫）— Batch 4
 
-| 項目 | 現況 | 改後 |
-|---|---|---|
-| 首屏 spinner | 出現 ~1.4s | 消失 |
-| Hero 區黑屏 | 直到 4.4MB 影片載入 | poster 立即出現 |
-| 並行請求競爭 | 影片 + 6 webp + leaderboard 同時搶 | 只剩 6 webp + index chunk |
+### 11. 175 條 migration 壓平
+不會刪 history，但可：
+- 在 `supabase/migrations/` 旁建 `_archive/` 放 2025/12 之前的舊 migration（CI 不執行，只供翻閱）。
+- 同時產出一份 `schema-snapshot.sql` 當參考。
+新人 onboarding 看 schema 從 3000 行 types.ts 改成讀 snapshot。
 
-預期 FCP / LCP 改善 600–1500ms（實際數字可以用你剛建好的 `/company/perf-metrics` 儀表板觀察）。
+### 12. 移除/合併未使用的 UI primitives
+`src/components/ui/` 有 52 檔（shadcn 全套）。實際引用掃描後砍掉 0 次引用者（保留檔案會被打進 chunks 是迷思，但會增加 IDE/lint 工作量）。
+
+### 13. PerfMetrics 儀表板加報警閾值
+你已建 `/company/perf-metrics`，但目前只顯示 p50/p75/p95。再加：
+- 紅燈閾值（LCP > 2.5s, FCP > 1.8s）
+- 「過去 24h 比前一天惡化」標記
+這樣本計畫上線後可以用自己的儀表板驗收。
 
 ---
 
-## 技術備註
+## 技術細節（給工程實作）
 
-- 不改任何 UI 視覺，純效能優化
-- 不動 `prefetchHighTrafficRoutes` 與 `routePrefetch.ts`（上一輪剛做完）
-- `LazyOnVisible` 已存在於 `src/components/LazyOnVisible.tsx`
-- A 步驟做完後，可再考慮把 `PortalLayout`、`SEO` 也從 Index 拆出共用 chunk，但先不做避免過度優化
+- **影片轉檔**（Batch 1.1）：
+  ```bash
+  ffmpeg -i hero-bg.mp4 -vf "scale=1280:-2" -c:v libx264 -crf 30 -preset slow -an -movflags +faststart hero-bg.mp4.new
+  ffmpeg -i hero-bg.mp4 -vf "scale=1280:-2" -c:v libvpx-vp9 -crf 35 -b:v 0 -an hero-bg.webm
+  ```
+- **drop console**（Batch 1.4）：`vite.config.ts` → `esbuild: { drop: mode === 'production' ? ['console','debugger'] : [] }`，並用 `pure: ['console.error']` 避免錯誤回報被吃掉。
+- **lucide chunking**（Batch 1.3）：vite.config.ts `manualChunks` 加：
+  ```ts
+  if (id.includes("lucide-react")) return "vendor-lucide";
+  ```
+- **FreeCheckup 拆 hook**（Batch 2.5）：所有抽出的 hook 都要符合「inline rendering audit」記憶 — 只搬 state/effect，**不可** 搬 JSX 或創造新 component。
+
+---
+
+## 執行順序建議
+
+| Batch | 改動規模 | 風險 | 預期收益 |
+|---|---|---|---|
+| 1（資產 + 設定） | 小 | 低 | 首頁 LCP −1s、JS −25KB |
+| 2（重構） | 中 | 中 | FreeCheckup 可維護性↑、any −300 |
+| 3（資料層） | 中 | 低 | 詳情頁 round-trip −50% |
+| 4（清理） | 小 | 低 | 長期維護成本↓ |
+
+每個 batch 跑完都用 `/company/perf-metrics` 對比 RUM 數據驗收，符合「不准偷懶」核心規範要求的「驗證閉環」。
