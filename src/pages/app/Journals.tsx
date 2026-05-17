@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { usePreviewMode } from '@/hooks/usePreviewMode';
+import { intentHandlers } from '@/lib/routePrefetch';
 
 interface JournalSignal {
   id: string;
