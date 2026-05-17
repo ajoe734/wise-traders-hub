@@ -96,8 +96,10 @@ function wrapper(qc: QueryClient) {
 beforeEach(() => {
   expertsFetches.list = 0;
   expertsFetches.detail = 0;
+  for (const k of Object.keys(detailFetchesBySlug)) delete detailFetchesBySlug[k];
   listRows = [expertRow()];
   detailRows = [expertRow()];
+  detailRowsBySlug = null;
 });
 
 describe('Expert cache continuity — list ⇄ detail', () => {
