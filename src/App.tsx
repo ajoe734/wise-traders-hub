@@ -29,6 +29,7 @@ const Index = lazy(() => import("./pages/Index"));
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { PerfMetricsTracker } from "./components/PerfMetricsTracker";
 import { PendingRemittanceGuard } from "./components/PendingRemittanceGuard";
 
 // Portal pages (lazy)
