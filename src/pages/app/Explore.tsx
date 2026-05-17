@@ -45,8 +45,13 @@ const Explore = () => {
           </TabsList>
         </Tabs>
 
+        {isError && allExperts.length > 0 && (
+          <ExpertFetchError variant="inline" error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
+        )}
         {isLoading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+        ) : isError && allExperts.length === 0 ? (
+          <ExpertFetchError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
         ) : (
           <div className="space-y-4">
             {filteredExperts.map((expert) => {
