@@ -34,6 +34,7 @@ const navItems = [
   { path: '/company/checkup-usage', icon: Gauge, label: '健檢配額' },
   { path: '/company/missing-prices', icon: AlertTriangle, label: '缺價總覽' },
   { path: '/company/meta-overrides', icon: History, label: '持倉覆蓋' },
+  { path: '/company/perf-metrics', icon: Gauge, label: '前台效能' },
 ];
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
