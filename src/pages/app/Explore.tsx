@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { ExpertRole } from "@/types";
 import { useExperts } from "@/hooks/useExpert";
+import { ExpertFetchError } from "@/components/ExpertFetchError";
 import { useSubscribedExpertSlugs } from "@/hooks/useSubscriptions";
 import { avatarUrl } from "@/lib/imageTransform";
 import { intentHandlers } from "@/lib/routePrefetch";
