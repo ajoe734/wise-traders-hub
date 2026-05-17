@@ -28,6 +28,7 @@ const NewsTab = lazy(() => import("@/checkup/components/freecheckup/NewsTab"));
 const EventsTab = lazy(() => import("@/checkup/components/freecheckup/EventsTab"));
 const DailyTab = lazy(() => import("@/checkup/components/freecheckup/DailyTab"));
 const LogTab = lazy(() => import("@/checkup/components/freecheckup/LogTab"));
+const TradeTab = lazy(() => import("@/checkup/components/freecheckup/TradeTab"));
 
 // Phase 3 A1: lazy-load heavy/conditional UI to shrink initial bundle
 const Md = lazy(() => import("@/checkup/components/Md"));
