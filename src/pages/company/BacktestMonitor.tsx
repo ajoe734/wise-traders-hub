@@ -259,8 +259,8 @@ export default function BacktestMonitor() {
       if (error) throw error;
       toast({ title: '已重新執行', description: items[itemId]?.title ?? itemId });
       setTimeout(load, 1500);
-    } catch (e: any) {
-      toast({ title: '重試失敗', description: String(e?.message ?? e), variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: '重試失敗', description: errorMessage(e), variant: 'destructive' });
     } finally { setBusyId(null); }
   };
 
