@@ -428,40 +428,154 @@ test.describe('/company/audit-logs', () => {
 
 // -----------------------------------------------------------------------------
 // /company/backtest-monitor — queryKey: ['company','backtest-monitor']
+//
+// NOTE: This page is a single-key snapshot dashboard. It has NO user-facing
+// filter controls ("監控條件") — the 3 pipeline cards + table all share the
+// same query. We therefore cover staleTime + every mutation path that should
+// (or explicitly should NOT) invalidate the cache.
 // -----------------------------------------------------------------------------
 test.describe('/company/backtest-monitor', () => {
-  test('mount fires the combined snapshot once; refresh button invalidates', async ({ page }) => {
-    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
-    // Sentinel: knowledge_backtest_runs is unique to this page's snapshot query.
-    let snapshotFetches = 0;
+  const runRow = (id: string) => ({
+    id,
+    knowledge_item_id: 'kn-1',
+    status: 'failed',
+    win_rate: null,
+    total_hits: 0,
+    error_message: 'INSUFFICIENT_DATA',
+    run_mode: 'full',
+    created_at: new Date().toISOString(),
+    completed_at: null,
+    parameters: {},
+  });
+
+  type Counters = {
+    snapshot: number;
+    invokes: Record<string, number>;
+  };
+
+  const installSnapshotRoutes = async (page: any, counters: Counters, runs: any[] = []) => {
     await installRoutes(page, {
       rest: {
         ...baseRest,
         knowledge_backtest_runs: ({ method }) => {
-          if (method === 'GET') snapshotFetches += 1;
-          return [];
+          if (method === 'GET') counters.snapshot += 1;
+          return runs;
         },
-        checkup_knowledge_items: () => [],
+        checkup_knowledge_items: () => [{ id: 'kn-1', title: '黃金交叉' }],
         knowledge_backfill_progress: () => [],
         daily_price_snapshots: () => [],
-        function_run_logs: () => [],
+        function_run_logs: () => null,
+      },
+      functions: {
+        'knowledge-backtest': ({ body }) => {
+          counters.invokes['knowledge-backtest'] = (counters.invokes['knowledge-backtest'] ?? 0) + 1;
+          counters.invokes[`knowledge-backtest:${body?.mode ?? 'unknown'}`] =
+            (counters.invokes[`knowledge-backtest:${body?.mode ?? 'unknown'}`] ?? 0) + 1;
+          return { ok: true };
+        },
+        'notify-backtest-result': () => {
+          counters.invokes['notify-backtest-result'] = (counters.invokes['notify-backtest-result'] ?? 0) + 1;
+          return { email_sent: 1, email_failed: 0 };
+        },
       },
     });
+  };
+
+  test('mount fires snapshot once; focus does not refetch within staleTime', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    const counters: Counters = { snapshot: 0, invokes: {} };
+    await installSnapshotRoutes(page, counters);
 
     await page.goto('/company/backtest-monitor');
-    await expect.poll(() => snapshotFetches).toBe(1);
+    await expect.poll(() => counters.snapshot).toBe(1);
 
-    // Focus → no refetch within staleTime
+    // Within 30s staleTime, focus must NOT refetch.
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     await page.waitForTimeout(400);
-    expect(snapshotFetches).toBe(1);
+    expect(counters.snapshot).toBe(1);
 
-    // Manual refresh button → invalidate triggers exactly one additional fetch
-    const refreshBtn = page.getByRole('button', { name: /重新整理|刷新|Refresh/i }).first();
-    if (await refreshBtn.count()) {
-      await refreshBtn.click();
-      await expect.poll(() => snapshotFetches, { timeout: 3_000 }).toBe(2);
-    }
+    // Tab/visibility flip equivalent — refetchOnWindowFocus is disabled globally.
+    await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForTimeout(200);
+    expect(counters.snapshot).toBe(1);
+  });
+
+  test('manual 重新整理 button invalidates → exactly +1 fetch', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    const counters: Counters = { snapshot: 0, invokes: {} };
+    await installSnapshotRoutes(page, counters);
+
+    await page.goto('/company/backtest-monitor');
+    await expect.poll(() => counters.snapshot).toBe(1);
+
+    await page.getByRole('button', { name: /重新整理/ }).click();
+    await expect.poll(() => counters.snapshot, { timeout: 3_000 }).toBe(2);
+
+    // Second click → +1 more. invalidate + refetch is idempotent per click.
+    await page.getByRole('button', { name: /重新整理/ }).click();
+    await expect.poll(() => counters.snapshot, { timeout: 3_000 }).toBe(3);
+  });
+
+  test('「立即執行完整回測」mutation refetches snapshot via setTimeout(load, 2000)', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    const counters: Counters = { snapshot: 0, invokes: {} };
+    await installSnapshotRoutes(page, counters);
+
+    await page.goto('/company/backtest-monitor');
+    await expect.poll(() => counters.snapshot).toBe(1);
+
+    await page.getByRole('button', { name: /立即執行完整回測/ }).click();
+    await expect.poll(() => counters.invokes['knowledge-backtest:full'] ?? 0, { timeout: 3_000 }).toBe(1);
+
+    // load() fires ~2s later — give it 4s budget.
+    await expect.poll(() => counters.snapshot, { timeout: 4_500 }).toBeGreaterThan(1);
+  });
+
+  test('「重試」single-item mutation refetches snapshot via setTimeout(load, 1500)', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    const counters: Counters = { snapshot: 0, invokes: {} };
+    await installSnapshotRoutes(page, counters, [runRow('r-1')]);
+
+    await page.goto('/company/backtest-monitor');
+    await expect(page.getByText('黃金交叉')).toBeVisible();
+    await expect.poll(() => counters.snapshot).toBe(1);
+
+    await page.getByRole('button', { name: /重試/ }).first().click();
+    await expect.poll(() => counters.invokes['knowledge-backtest:single'] ?? 0, { timeout: 3_000 }).toBe(1);
+    await expect.poll(() => counters.snapshot, { timeout: 4_000 }).toBeGreaterThan(1);
+  });
+
+  test('「補發 Email 通知」mutation does NOT invalidate snapshot (by design)', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    const counters: Counters = { snapshot: 0, invokes: {} };
+    await installSnapshotRoutes(page, counters);
+
+    await page.goto('/company/backtest-monitor');
+    await expect.poll(() => counters.snapshot).toBe(1);
+
+    await page.getByRole('button', { name: /補發 Email 通知/ }).click();
+    await expect.poll(() => counters.invokes['notify-backtest-result'] ?? 0, { timeout: 3_000 }).toBe(1);
+
+    // notify-only path intentionally skips load(); snapshot must remain at 1.
+    await page.waitForTimeout(2_500);
+    expect(counters.snapshot).toBe(1);
+  });
+
+  test('external invalidateQueries(["company","backtest-monitor"]) triggers refetch', async ({ page }) => {
+    await seedSession(page, { id: 'admin', email: 'admin@test.com' });
+    const counters: Counters = { snapshot: 0, invokes: {} };
+    await installSnapshotRoutes(page, counters);
+
+    await page.goto('/company/backtest-monitor');
+    await expect.poll(() => counters.snapshot).toBe(1);
+
+    await page.evaluate(() => {
+      const qc = (window as any).__lfQueryClient;
+      if (!qc) throw new Error('queryClient not exposed on window');
+      qc.invalidateQueries({ queryKey: ['company', 'backtest-monitor'] });
+    });
+
+    await expect.poll(() => counters.snapshot, { timeout: 3_000 }).toBeGreaterThan(1);
   });
 });
 
