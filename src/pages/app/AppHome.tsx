@@ -216,7 +216,7 @@ const AppHome = () => {
                     <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-learning-accent" />買賣點複盤檢討</li>
                   </ul>
                   <Button asChild variant="mentor" size="sm" className="w-full">
-                    <Link to="/app/explore">探索導師<ChevronRight className="h-4 w-4 ml-1" /></Link>
+                    <Link to="/app/explore" {...intentHandlers('app-explore')}>探索導師<ChevronRight className="h-4 w-4 ml-1" /></Link>
                   </Button>
                 </div>
               </div>
