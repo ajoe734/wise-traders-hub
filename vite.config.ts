@@ -43,12 +43,20 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Batch1-#4: prod-only — strip console.* (keep console.error for monitoring)
+  // and debugger statements. Dev keeps everything for debugging.
+  esbuild: {
+    drop: mode === "production" ? ["debugger"] : [],
+    pure: mode === "production" ? ["console.log", "console.info", "console.debug", "console.warn"] : [],
+  },
   build: {
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          // P5-C: lucide-react no longer force-chunked — let Vite tree-shake per route
+          // Batch1-#3: force-chunk lucide-react so per-route icon imports
+          // don't end up duplicated in every page chunk.
+          if (id.includes("lucide-react")) return "vendor-lucide";
           if (id.includes("@supabase")) return "vendor-supabase";
           if (
             id.includes("react-dom") ||
