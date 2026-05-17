@@ -101,6 +101,7 @@ export function useExperts(opts?: { includeAllStatuses?: boolean }) {
 export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?: boolean }) {
   const { user, isLoading: isAuthLoading } = useAuth();
   const visibilityMode = getVisibilityMode(user, opts);
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: ['expert', slug, user?.id ?? 'guest', visibilityMode],
@@ -117,7 +118,80 @@ export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?
 
       return mapToPersonWithPlans(visibleRows[0]);
     },
+    // Seed from the experts-list cache when available (e.g. navigating
+    // from /app/explore or /experts). Renders the detail page instantly
+    // and turns the network call into a silent background refresh.
+    initialData: () => {
+      if (!slug) return undefined;
+      const lists = queryClient.getQueriesData<PersonWithPlans[]>({ queryKey: ['experts'] });
+      for (const [, list] of lists) {
+        const hit = Array.isArray(list) ? list.find((p) => p?.slug === slug) : undefined;
+        if (hit) return hit;
+      }
+      return undefined;
+    },
+    initialDataUpdatedAt: () => {
+      const states = queryClient.getQueriesData<PersonWithPlans[]>({ queryKey: ['experts'] });
+      let newest = 0;
+      for (const [key] of states) {
+        const state = queryClient.getQueryState(key);
+        if (state?.dataUpdatedAt && state.dataUpdatedAt > newest) newest = state.dataUpdatedAt;
+      }
+      return newest || undefined;
+    },
     enabled: !!slug && !isAuthLoading,
     staleTime: 30_000,
   });
 }
+
+/**
+ * Combined query for /expert/:slug — "my active subscription plan IDs for
+ * this expert" + "total active subscriber count". One round trip, shared
+ * staleTime, single invalidation key.
+ */
+export interface ExpertSubscriptionStats {
+  mySubscribedPlanIds: Set<string>;
+  subscriberCount: number;
+}
+
+export function useExpertSubscriptionStats(
+  expertId: string | undefined,
+  planIds: string[] | undefined,
+) {
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const planKey = (planIds || []).slice().sort().join(',');
+
+  return useQuery<ExpertSubscriptionStats>({
+    queryKey: ['expert-subscription-stats', expertId, user?.id ?? 'guest', planKey],
+    queryFn: async () => {
+      const ids = planIds || [];
+      if (ids.length === 0) {
+        return { mySubscribedPlanIds: new Set<string>(), subscriberCount: 0 };
+      }
+
+      const mineP = user
+        ? supabase
+            .from('member_subscriptions')
+            .select('plan_id')
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .in('plan_id', ids)
+        : Promise.resolve({ data: [] as { plan_id: string }[] });
+
+      const countP = supabase
+        .from('member_subscriptions')
+        .select('id', { count: 'exact', head: true })
+        .in('plan_id', ids)
+        .eq('status', 'active');
+
+      const [{ data: mine }, { count }] = await Promise.all([mineP, countP]);
+      return {
+        mySubscribedPlanIds: new Set((mine || []).map((r: any) => r.plan_id)),
+        subscriberCount: count || 0,
+      };
+    },
+    enabled: !!expertId && !isAuthLoading,
+    staleTime: 60_000,
+  });
+}
+
