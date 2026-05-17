@@ -231,8 +231,8 @@ export default function BacktestMonitor() {
       if (error) throw error;
       toast({ title: '已觸發完整回測', description: '跑完會自動 Email 通知所有 admin。' });
       setTimeout(load, 2000);
-    } catch (e: any) {
-      toast({ title: '觸發失敗', description: String(e?.message ?? e), variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: '觸發失敗', description: errorMessage(e), variant: 'destructive' });
     } finally { setBusyAll(null); }
   };
 
