@@ -79,6 +79,42 @@ export function mapToPersonWithPlans(row: any): PersonWithPlans {
   };
 }
 
+/**
+ * staleTime convention — keep all expert queries aligned at 5 min.
+ *
+ * Experts change rarely (admin profile edits). 30s caused background
+ * refetches on every tab-switch / route revisit even though the data
+ * was effectively identical, defeating the cache seeding below.
+ * 5 min matches the global default in `queryClient.ts` so list ⇄ detail
+ * navigation stays a pure cache hit within a normal browsing session.
+ */
+const EXPERT_STALE_MS = 5 * 60 * 1000;
+
+/**
+ * Back-propagate a single expert into every cached `['experts', ...]` list,
+ * so list revisit after a detail-page fetch shows the fresher row without
+ * waiting for refetch. No-op when the slug isn't present in any list.
+ */
+function mergeExpertIntoListCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  expert: PersonWithPlans,
+) {
+  const lists = queryClient.getQueriesData<PersonWithPlans[]>({ queryKey: ['experts'] });
+  for (const [key, list] of lists) {
+    if (!Array.isArray(list)) continue;
+    const idx = list.findIndex((p) => p?.slug === expert.slug);
+    if (idx === -1) continue;
+    const prev = list[idx];
+    // Skip if the cached row is byte-identical (cheap shallow JSON compare
+    // — fine for these small objects, and avoids triggering re-renders
+    // on every detail-page visit).
+    if (JSON.stringify(prev) === JSON.stringify(expert)) continue;
+    const next = list.slice();
+    next[idx] = expert;
+    queryClient.setQueryData(key, next);
+  }
+}
+
 export function useExperts(opts?: { includeAllStatuses?: boolean }) {
   const { user, isLoading: isAuthLoading } = useAuth();
   const visibilityMode = getVisibilityMode(user, opts);
@@ -94,7 +130,7 @@ export function useExperts(opts?: { includeAllStatuses?: boolean }) {
       return filterExpertRows(data || [], visibilityMode).map(mapToPersonWithPlans);
     },
     enabled: !isAuthLoading,
-    staleTime: 30_000,
+    staleTime: EXPERT_STALE_MS,
   });
 }
 
@@ -116,7 +152,11 @@ export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?
       const visibleRows = filterExpertRows(data, visibilityMode);
       if (visibleRows.length === 0) return null;
 
-      return mapToPersonWithPlans(visibleRows[0]);
+      const expert = mapToPersonWithPlans(visibleRows[0]);
+      // Back-propagate to list caches so re-entering /experts or
+      // /app/explore shows the latest row immediately.
+      mergeExpertIntoListCaches(queryClient, expert);
+      return expert;
     },
     // Seed from the experts-list cache when available (e.g. navigating
     // from /app/explore or /experts). Renders the detail page instantly
@@ -140,7 +180,7 @@ export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?
       return newest || undefined;
     },
     enabled: !!slug && !isAuthLoading,
-    staleTime: 30_000,
+    staleTime: EXPERT_STALE_MS,
   });
 }
 
@@ -183,12 +223,15 @@ export function useExpertDetailBundle(slug: string | undefined) {
           ['expert-subscription-stats', expert.id, user?.id ?? 'guest', planKey],
           { mySubscribedPlanIds: mine, subscriberCount: count },
         );
+        // Back-propagate to list caches — keeps /experts and /app/explore
+        // consistent when the user landed on a detail page first.
+        mergeExpertIntoListCaches(queryClient, expert);
       }
 
       return { expert, subscriberCount: count, mySubscribedPlanIds: mine };
     },
     enabled: !!slug && !isAuthLoading,
-    staleTime: 30_000,
+    staleTime: EXPERT_STALE_MS,
   });
 }
 
