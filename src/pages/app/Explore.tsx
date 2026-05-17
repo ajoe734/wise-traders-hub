@@ -18,7 +18,7 @@ type RoleFilter = "all" | "advisor" | "mentor";
 
 const Explore = () => {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const { data: allExperts = [], isLoading } = useExperts();
+  const { data: allExperts = [], isLoading, isError, error, refetch, isRefetching } = useExperts();
   const { data: subscribedSlugs = [] } = useSubscribedExpertSlugs();
 
   const filteredExperts = allExperts.filter((expert) => {
