@@ -59,7 +59,7 @@ const AppExpertDetail = () => {
   const navigate = useNavigate();
   const [subscribedPlanTypes, setSubscribedPlanTypes] = useState<string[]>([]);
   
-  const { data: expert, isLoading } = useExpert(slug);
+  const { data: expert, isLoading, isError, error, refetch, isRefetching } = useExpert(slug);
   
 
   // Fetch expert plans from DB
