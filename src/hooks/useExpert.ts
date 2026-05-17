@@ -209,6 +209,9 @@ export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?
     },
     enabled: !!slug && !isAuthLoading,
     staleTime: EXPERT_STALE_MS,
+    retry: expertRetry,
+    retryDelay: expertRetryDelay,
+    placeholderData: keepPreviousData,
   });
 }
 
