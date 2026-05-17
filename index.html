@@ -120,13 +120,22 @@
           if(document.documentElement.dataset[BOOT_FLAG] !== '1') verifyVersionBeforeBoot();
         }, 2500);
 
+        var STALE_CHUNK_RE=/Failed to fetch dynamically imported module|Importing a module script failed|Load failed|error loading dynamically imported module|chunk/i;
+
         window.addEventListener('error', function(event){
           var message='';
           try { message=String(event && (event.message || (event.error && event.error.message) || '')); } catch {}
-          if(/Failed to fetch dynamically imported module|Importing a module script failed|Load failed|chunk/i.test(message)) {
-            hardReload();
-          }
+          if(STALE_CHUNK_RE.test(message)) hardReload();
         }, true);
+
+        window.addEventListener('unhandledrejection', function(event){
+          var message='';
+          try {
+            var reason=event && event.reason;
+            message=String((reason && (reason.message || reason)) || '');
+          } catch {}
+          if(STALE_CHUNK_RE.test(message)) hardReload();
+        });
       })();
     </script>
   </head>
