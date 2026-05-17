@@ -100,15 +100,15 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
             )}
             {user && !hideAppEntry ? (
               <Button size="sm" asChild>
-                <Link to="/app">進入會員區</Link>
+                <Link to="/app" {...intentHandlers('app-home')}>進入會員區</Link>
               </Button>
             ) : !user ? (
               <>
                 <Button variant="ghost" size="sm" asChild>
-                  <Link to="/auth/login">登入</Link>
+                  <Link to="/auth/login" {...intentHandlers('login')}>登入</Link>
                 </Button>
                 <Button size="sm" asChild>
-                  <Link to="/auth/register">免費註冊</Link>
+                  <Link to="/auth/register" {...intentHandlers('register')}>免費註冊</Link>
                 </Button>
               </>
             ) : null}
