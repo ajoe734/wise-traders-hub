@@ -1,4 +1,17 @@
 import React from 'react';
+import { validateProps } from './_validateProps';
+
+/**
+ * Props schema 守門：增刪同步 freecheckup-tab-prop-schema.test.ts。
+ */
+const LOG_TAB_PROP_SCHEMA = {
+  isDemo: 'boolean',
+  tradeLog: 'array',
+  C: 'object', alpha: 'function', card: 'object',
+  DEMO_TAB_NOTICE_COPY: 'object',
+  startLineLogin: { type: 'function', optional: true },
+  navigate: 'function',
+};
 
 /**
  * LogTab — Free Checkup「交易記錄」tab。
@@ -15,6 +28,7 @@ function LogTabImpl({
   startLineLogin,
   navigate,
 }) {
+  validateProps('LogTab', arguments[0], LOG_TAB_PROP_SCHEMA);
   return (
     <>
       {isDemo && (
