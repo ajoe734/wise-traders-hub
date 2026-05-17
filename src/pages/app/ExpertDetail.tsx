@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { PerformanceOverviewPanel } from "@/components/strategy/PerformanceOverviewPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useExpert } from "@/hooks/useExpert";
+import { ExpertFetchError } from "@/components/ExpertFetchError";
 import { Loader2 } from "lucide-react";
 import { avatarUrl } from "@/lib/imageTransform";
 import { useQuery } from "@tanstack/react-query";
