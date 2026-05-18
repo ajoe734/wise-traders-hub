@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { queryClient } from '@/lib/queryClient';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
