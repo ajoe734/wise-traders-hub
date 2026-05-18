@@ -1,139 +1,92 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { jsonResponse } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 
 async function hmacSha256Base64(secret: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
   return btoa(String.fromCharCode(...new Uint8Array(signature)));
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+const handler = withLogging("create-linepay-order", async (req, log) => {
+  const {
+    planId, billingCycle, slug, amount, planName, expertName, origin,
+    userId, originalAmount, discountAmount, discountReason, attribution, expertId,
+    upgradeFromSubscriptionId,
+  } = await req.json();
+
+  if (!planId || !billingCycle || !slug || !amount || !origin) {
+    return jsonResponse({ error: "Missing required fields" }, { status: 400 });
   }
+
+  const channelId = Deno.env.get("LINEPAY_CHANNEL_ID")!;
+  const channelSecret = Deno.env.get("LINEPAY_CHANNEL_SECRET")!;
+  const isSimulate = (Deno.env.get("LINEPAY_SIMULATE") || "true") === "true";
+
+  const orderId = `ORDER-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const nonce = crypto.randomUUID();
 
   try {
-    const {
-      planId, billingCycle, slug, amount, planName, expertName, origin,
-      // Stage 3 additions
-      userId, originalAmount, discountAmount, discountReason, attribution, expertId,
-      upgradeFromSubscriptionId,
-    } = await req.json();
-
-    if (!planId || !billingCycle || !slug || !amount || !origin) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const channelId = Deno.env.get("LINEPAY_CHANNEL_ID")!;
-    const channelSecret = Deno.env.get("LINEPAY_CHANNEL_SECRET")!;
-    // Control simulate mode via env var — set to "false" in production
-    const isSimulate = (Deno.env.get("LINEPAY_SIMULATE") || "true") === "true";
-
-    const orderId = `ORDER-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-    const nonce = crypto.randomUUID();
-
-    // Stage 3: persist payment intent for confirm-linepay to read attribution/discount
-    try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const sb = createClient(supabaseUrl, serviceKey);
-      await sb.from("payment_intents").insert({
-        trade_no: orderId,
-        user_id: userId || null,
-        product_kind: "expert_plan",
-        plan_id: planId,
-        expert_id: expertId || null,
-        billing_cycle: billingCycle,
-        original_amount: originalAmount ?? amount,
-        discount_amount: discountAmount ?? 0,
-        discount_reason: discountReason ?? null,
-        amount,
-        attribution: attribution ?? null,
-        upgrade_from_subscription_id: upgradeFromSubscriptionId ?? null,
-      });
-    } catch (e) {
-      console.error("payment_intents insert (linepay) failed (non-fatal):", e);
-    }
-
-    const requestBody = {
+    const sb = serviceClient();
+    await sb.from("payment_intents").insert({
+      trade_no: orderId,
+      user_id: userId || null,
+      product_kind: "expert_plan",
+      plan_id: planId,
+      expert_id: expertId || null,
+      billing_cycle: billingCycle,
+      original_amount: originalAmount ?? amount,
+      discount_amount: discountAmount ?? 0,
+      discount_reason: discountReason ?? null,
       amount,
-      currency: "TWD",
-      orderId,
-      packages: [
-        {
-          id: planId,
-          amount,
-          name: expertName || "訂閱方案",
-          products: [
-            {
-              name: planName || "訂閱方案",
-              quantity: 1,
-              price: amount,
-            },
-          ],
-        },
-      ],
-      redirectUrls: {
-        confirmUrl: `${origin}/app/checkout/${slug}/${planId}?linepay=confirm&billingCycle=${billingCycle}&simulate=${isSimulate}`,
-        cancelUrl: `${origin}/app/checkout/${slug}/${planId}?linepay=cancel`,
-      },
-    };
-
-    const linepayApiUrl = Deno.env.get("LINEPAY_API_URL") || "https://sandbox-api-pay.line.me";
-    const apiUri = "/v3/payments/request";
-    const bodyStr = JSON.stringify(requestBody);
-    const signatureMessage = channelSecret + apiUri + bodyStr + nonce;
-    const signature = await hmacSha256Base64(channelSecret, signatureMessage);
-
-    const response = await fetch(`${linepayApiUrl}${apiUri}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-LINE-ChannelId": channelId,
-        "X-LINE-Authorization-Nonce": nonce,
-        "X-LINE-Authorization": signature,
-      },
-      body: bodyStr,
+      attribution: attribution ?? null,
+      upgrade_from_subscription_id: upgradeFromSubscriptionId ?? null,
     });
+  } catch (e) { log.error("payment_intents_insert_failed", { message: (e as Error).message }); }
 
-    const result = await response.json();
+  const requestBody = {
+    amount, currency: "TWD", orderId,
+    packages: [{
+      id: planId, amount, name: expertName || "訂閱方案",
+      products: [{ name: planName || "訂閱方案", quantity: 1, price: amount }],
+    }],
+    redirectUrls: {
+      confirmUrl: `${origin}/app/checkout/${slug}/${planId}?linepay=confirm&billingCycle=${billingCycle}&simulate=${isSimulate}`,
+      cancelUrl: `${origin}/app/checkout/${slug}/${planId}?linepay=cancel`,
+    },
+  };
 
-    if (result.returnCode !== "0000") {
-      console.error("LINE Pay Request API error:", result);
-      return new Response(JSON.stringify({ error: result.returnMessage || "LINE Pay error" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+  const linepayApiUrl = Deno.env.get("LINEPAY_API_URL") || "https://sandbox-api-pay.line.me";
+  const apiUri = "/v3/payments/request";
+  const bodyStr = JSON.stringify(requestBody);
+  const signatureMessage = channelSecret + apiUri + bodyStr + nonce;
+  const signature = await hmacSha256Base64(channelSecret, signatureMessage);
 
-    return new Response(
-      JSON.stringify({
-        paymentUrl: result.info.paymentUrl.web,
-        transactionId: result.info.transactionId,
-        orderId,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error: unknown) {
-    console.error("create-linepay-order error:", error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  const response = await fetch(`${linepayApiUrl}${apiUri}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-LINE-ChannelId": channelId,
+      "X-LINE-Authorization-Nonce": nonce,
+      "X-LINE-Authorization": signature,
+    },
+    body: bodyStr,
+  });
+
+  const result = await response.json();
+
+  if (result.returnCode !== "0000") {
+    log.error("linepay_request_failed", { returnCode: result.returnCode });
+    return jsonResponse({ error: result.returnMessage || "LINE Pay error" }, { status: 400 });
   }
+
+  return jsonResponse({
+    paymentUrl: result.info.paymentUrl.web,
+    transactionId: result.info.transactionId,
+    orderId,
+  });
 });
+
+Deno.serve(handler);
