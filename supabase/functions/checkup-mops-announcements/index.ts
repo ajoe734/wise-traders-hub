@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders } from '../_shared/cors.ts';
 
 const ANNOUNCEMENT_TYPES: Record<string, string> = {
   '營收': 'revenue', '股利': 'dividend', '配息': 'dividend', '除權': 'dividend',

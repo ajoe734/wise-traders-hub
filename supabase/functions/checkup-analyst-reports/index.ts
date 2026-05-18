@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders } from '../_shared/cors.ts';
 
 function decodeHtml(value: string) {
   return String(value || '')
