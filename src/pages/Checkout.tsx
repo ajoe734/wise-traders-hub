@@ -2,29 +2,19 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useCrossProductDiscount } from '@/hooks/useCrossProductDiscount';
 import { readAttribution } from '@/hooks/useAttributionTracking';
 import { calcUpgradeProration } from '@/lib/revenueSplit';
-import { CheckCircle, Loader2, CreditCard, Shield, ArrowLeft, Check, XCircle } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-} from '@/components/ui/alert-dialog';
+import { Loader2, ArrowLeft, Check } from 'lucide-react';
 import { CheckoutConsentDialog } from './_checkout/CheckoutConsentDialog';
-import { cn } from '@/lib/utils';
-import { avatarUrl } from '@/lib/imageTransform';
+import { PlanInfoCard } from './_checkout/PlanInfoCard';
+import { PaymentMethodPicker } from './_checkout/PaymentMethodPicker';
+import { OrderSummaryCard } from './_checkout/OrderSummaryCard';
+import { CheckoutResultDialog, type CheckoutResult } from './_checkout/CheckoutResultDialog';
 
 interface DbPlan {
   id: string;
