@@ -238,7 +238,7 @@ export interface ExpertDetailBundle {
 }
 
 export function useExpertDetailBundle(slug: string | undefined) {
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user } = useAuth();
   const visibilityMode = getVisibilityMode(user);
   const queryClient = useQueryClient();
 
