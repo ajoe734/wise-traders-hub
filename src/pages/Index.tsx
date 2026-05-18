@@ -313,11 +313,10 @@ const Index = () => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <ul
-            className="grid grid-cols-2 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x"
+            className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x"
             style={{ borderColor: 'rgba(255,255,255,0.12)' }}
           >
             {[
-              { num: '10,000+', title: '活躍訂閱用戶', sub: '來自全球的交易者' },
               { num: '75%+',    title: '勝率表現',     sub: '歷史訊號平均勝率' },
               { num: '24 / 7',  title: '即時市場分析', sub: '不間斷的市場監控' },
               { num: '1000+',   title: '深度研究報告', sub: '涵蓋全球主要市場' },
