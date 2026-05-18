@@ -224,9 +224,7 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
           <div className="grid gap-8 md:grid-cols-4">
             <div className="md:col-span-2">
               <Link to="/" className="flex items-center gap-2 mb-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground">
-                  <TrendingUp className="h-4 w-4 text-background" />
-                </div>
+                <Logomark size={32} />
                 <span className="font-semibold text-foreground">智富股市實戰學院</span>
               </Link>
               <p className="text-sm text-muted-foreground dark:text-white/60 max-w-sm">
