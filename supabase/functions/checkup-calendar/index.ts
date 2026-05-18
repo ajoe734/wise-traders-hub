@@ -2,11 +2,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { applyCoercion } from "../_shared/inputCoerce.ts";
-
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 import { fetchNewsForCode } from '../_shared/newsCache.ts';
 import { parseJsonArray } from '../_shared/jsonRepair.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 // Note: 'google/gemini-2.0-flash' is deprecated on the Gateway (returns 400). Use only supported models.
@@ -216,10 +216,7 @@ function makeStableId(label: string, date: string, type: string): string {
 async function fetchWarrantExpiryEvents(warrantCodes: string[]): Promise<any[]> {
   if (warrantCodes.length === 0) return [];
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const supabase = serviceClient();
     const { data, error } = await supabase
       .from('warrant_expiry')
       .select('symbol, name, expire_date')
@@ -342,12 +339,9 @@ ${outputFormat}
 只輸出 JSON 陣列，不要包含任何其他文字。`;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+const handler = withLogging('checkup-calendar', async (req, log) => {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'Method not allowed' }, { status: 405 });
   }
 
   if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
@@ -483,3 +477,5 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+Deno.serve(handler);

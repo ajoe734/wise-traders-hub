@@ -1,10 +1,10 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { applyCoercion } from "../_shared/inputCoerce.ts";
-
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 
 const TWSE_DAY = "https://www.twse.com.tw/exchangeReport/STOCK_DAY";
 // TPEX 新版 API（2024 改版後）：回 JSON，欄位 tables[0].data
@@ -120,9 +120,7 @@ async function fetchSparkline(code: string): Promise<number[]> {
   return b;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
+const handler = withLogging('checkup-sparkline', async (req, log) => {
   // Diagnostic probe — GET /?probe=1 returns raw status from TPEX endpoints
   const u = new URL(req.url);
   if (u.searchParams.get("probe") === "1") {
@@ -173,17 +171,12 @@ Deno.serve(async (req) => {
       .filter((v) => /^\d{4,6}[A-Z]?$/i.test(v))
       .slice(0, 30);
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(SUPABASE_URL, SERVICE_KEY, {
-      auth: { persistSession: false },
-    });
+    const sb = serviceClient();
 
     const day = todayKey();
     const result: Record<string, number[]> = {};
     const toFetch: string[] = [];
 
-    // Cache lookup — 只把「有資料（length >= 2）」的視為有效快取
     const cacheKeys = codes.map((c) => `sparkline_${c}_${day}`);
     if (cacheKeys.length > 0) {
       const { data: cached } = await sb
@@ -194,7 +187,7 @@ Deno.serve(async (req) => {
       const map = new Map<string, number[]>();
       (cached || []).forEach((row: any) => {
         const arr = Array.isArray(row?.data?.closes) ? row.data.closes : [];
-        if (arr.length >= 2) map.set(row.key, arr); // 空/不足結果視同未快取，避免「壞掉一整天」
+        if (arr.length >= 2) map.set(row.key, arr);
       });
       for (const c of codes) {
         const k = `sparkline_${c}_${day}`;
@@ -202,8 +195,8 @@ Deno.serve(async (req) => {
         else toFetch.push(c);
       }
     }
+    log.info('cache_lookup', { total: codes.length, hits: codes.length - toFetch.length, toFetch: toFetch.length });
 
-    // Fetch missing in parallel (batched concurrency)
     const batchSize = 6;
     for (let i = 0; i < toFetch.length; i += batchSize) {
       const batch = toFetch.slice(i, i + batchSize);
@@ -212,7 +205,6 @@ Deno.serve(async (req) => {
       batch.forEach((c, idx) => {
         const closes = results[idx] || [];
         result[c] = closes;
-        // 只有抓到實際資料才寫快取，避免空值汙染
         if (closes.length >= 2) {
           upserts.push({
             user_id: "00000000-0000-0000-0000-000000000000",
@@ -226,14 +218,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ result }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ result });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    log.error('handler_error', { msg });
+    return jsonResponse({ error: msg }, { status: 500 });
   }
 });
+
+Deno.serve(handler);
