@@ -401,9 +401,7 @@ function buildGrid(triggerType: string, base: any): any[] {
   return grids
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
-
+Deno.serve(withLogging('knowledge-backtest', async (req, log) => {
   try {
     const body = await req.json().catch(() => ({}))
     const mode: string = body.mode ?? 'single'
@@ -413,7 +411,8 @@ Deno.serve(async (req) => {
     const promoteIfBetter: boolean = !!body.promote_if_better
     const minImprovementPct: number = Number(body.min_improvement_pct ?? 5)  // 至少改善 5% 才升級
 
-    const sb = createClient(SUPABASE_URL, SERVICE_KEY)
+    log.info('params', { mode, itemId, dateStart, dateEnd, promoteIfBetter })
+    const sb = serviceClient()
 
     // 載入價格資料（一次性）
     const rows = await loadPriceData(sb, dateStart, dateEnd)
