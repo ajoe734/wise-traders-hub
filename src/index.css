@@ -118,9 +118,9 @@
     --sidebar-border: 0 0% 88%;
     --sidebar-ring: 18 84% 55%;
 
-    /* Signals Theme (跟單派) - Red/Warm */
-    --signals-accent: 4 82% 56%;
-    --signals-accent-light: 4 82% 95%;
+    /* Signals Theme (跟單派) - Brand Orange */
+    --signals-accent: 18 84% 55%;
+    --signals-accent-light: 18 84% 95%;
     --signals-header: 0 0% 100%;
     --signals-nav: 0 0% 100%;
     --signals-border: 0 0% 88%;
@@ -143,8 +143,8 @@
     --popover: 0 0% 10%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 4 82% 56%;
-    --primary-hover: 4 82% 65%;
+    --primary: 18 84% 55%;
+    --primary-hover: 18 84% 65%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 18%;
@@ -172,7 +172,7 @@
     --success: 4 82% 60%; /* 紅色 - 上漲/獲利 */
     --warning: 38 92% 60%;
 
-    --advisor-light: 4 82% 15%;
+    --advisor-light: 18 84% 15%;
     --mentor-light: 210 80% 15%;
     --success-light: 142 76% 15%;
     --warning-light: 38 92% 15%;
@@ -182,16 +182,16 @@
 
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 4 82% 56%;
+    --sidebar-primary: 18 84% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 15%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 4 82% 56%;
+    --sidebar-ring: 18 84% 55%;
 
-    /* Signals Theme (跟單派) - Red/Warm - Dark mode */
-    --signals-accent: 4 82% 56%;
-    --signals-accent-light: 4 82% 15%;
+    /* Signals Theme (跟單派) - Brand Orange - Dark mode */
+    --signals-accent: 18 84% 55%;
+    --signals-accent-light: 18 84% 15%;
     --signals-header: 0 0% 7%;
     --signals-nav: 0 0% 7%;
     --signals-border: 0 0% 20%;
