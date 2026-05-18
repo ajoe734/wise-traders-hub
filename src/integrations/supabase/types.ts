@@ -1935,9 +1935,11 @@ export type Database = {
       }
       perf_metrics: {
         Row: {
+          cls_score: number | null
           created_at: string
           fcp_ms: number | null
           id: string
+          inp_ms: number | null
           lcp_ms: number | null
           route: string
           session_id: string | null
@@ -1946,9 +1948,11 @@ export type Database = {
           viewport_w: number | null
         }
         Insert: {
+          cls_score?: number | null
           created_at?: string
           fcp_ms?: number | null
           id?: string
+          inp_ms?: number | null
           lcp_ms?: number | null
           route: string
           session_id?: string | null
@@ -1957,9 +1961,11 @@ export type Database = {
           viewport_w?: number | null
         }
         Update: {
+          cls_score?: number | null
           created_at?: string
           fcp_ms?: number | null
           id?: string
+          inp_ms?: number | null
           lcp_ms?: number | null
           route?: string
           session_id?: string | null
