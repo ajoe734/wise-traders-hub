@@ -1,0 +1,205 @@
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { LazyRichTextEditor as RichTextEditor } from '@/components/admin/LazyRichTextEditor';
+import { htmlToPlainText } from '@/lib/sanitizeHtml';
+import type { TradeAction } from '@/lib/simulatePositions';
+import type { TradeDraft, CapitalStatus, AIAssistFn } from './types';
+
+interface Props {
+  idx: number;
+  trade: TradeDraft;
+  totalTrades: number;
+  signalTemplates: any[];
+  capital: CapitalStatus | null;
+  cashSim: { remaining: number; perTrade: number[] };
+  expertId?: string;
+  updateTrade: (idx: number, patch: Partial<TradeDraft>) => void;
+  removeTrade: (idx: number) => void;
+  moveTrade: (idx: number, dir: -1 | 1) => void;
+  fetchStockInfo: (idx: number, code: string) => void;
+  callAIAssist: AIAssistFn;
+}
+
+export function TradeCard({
+  idx, trade: t, totalTrades, signalTemplates, capital, cashSim,
+  expertId, updateTrade, removeTrade, moveTrade, fetchStockInfo, callAIAssist,
+}: Props) {
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-medium text-muted-foreground">操作 #{idx + 1}</div>
+          <div className="flex items-center gap-1">
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveTrade(idx, -1)} disabled={idx === 0}>
+              <ArrowUp className="h-4 w-4" />
+            </Button>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveTrade(idx, 1)} disabled={idx === totalTrades - 1}>
+              <ArrowDown className="h-4 w-4" />
+            </Button>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeTrade(idx)} disabled={totalTrades === 1}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">操作時間</Label>
+            <Input
+              type="datetime-local"
+              value={t.executedAt}
+              onChange={(e) => updateTrade(idx, { executedAt: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">股票代碼</Label>
+            <Input
+              value={t.stockCode}
+              onChange={(e) => {
+                const v = e.target.value;
+                updateTrade(idx, { stockCode: v });
+                if (v.trim().length >= 4) fetchStockInfo(idx, v);
+              }}
+              placeholder="例：2330"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">股票名稱</Label>
+            <Input value={t.stockName} onChange={(e) => updateTrade(idx, { stockName: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">操作方向</Label>
+            <Select value={t.action} onValueChange={(v) => updateTrade(idx, { action: v as TradeAction })}>
+              <SelectTrigger><SelectValue placeholder="選擇" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="buy">買進</SelectItem>
+                <SelectItem value="sell">賣出</SelectItem>
+                <SelectItem value="add">加碼</SelectItem>
+                <SelectItem value="trim">減碼</SelectItem>
+                <SelectItem value="exit">平損</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center justify-between">
+              <span>數量</span>
+              {(t.action === 'buy' || t.action === 'add') && capital && (
+                <button
+                  type="button"
+                  className="text-[10px] text-primary hover:underline"
+                  onClick={() => {
+                    const price = parseFloat(t.priceHint || '0');
+                    if (!price || price <= 0) { toast.error('請先填參考價位'); return; }
+                    const remainingBefore = idx === 0
+                      ? (capital.available_cash || 0)
+                      : (cashSim.perTrade[idx - 1] ?? capital.available_cash);
+                    const maxShares = Math.max(0, Math.floor(remainingBefore / price));
+                    updateTrade(idx, { quantity: String(maxShares), quantityUnit: '股' });
+                  }}
+                >最大可買</button>
+              )}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min={0}
+                value={t.quantity}
+                onChange={(e) => updateTrade(idx, { quantity: e.target.value })}
+                className="flex-1"
+              />
+              <Select value={t.quantityUnit} onValueChange={(v) => updateTrade(idx, { quantityUnit: v as '張' | '股' })}>
+                <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="張">張</SelectItem>
+                  <SelectItem value="股">股</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">參考價位</Label>
+            <Input type="number" value={t.priceHint} onChange={(e) => updateTrade(idx, { priceHint: e.target.value })} placeholder="890" />
+          </div>
+        </div>
+
+        {signalTemplates.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">套用訊號模板（不會覆蓋已填內容）</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {signalTemplates.map((tpl) => (
+                <Button
+                  key={tpl.id}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() =>
+                    updateTrade(idx, {
+                      action: t.action || tpl.action,
+                      reasonSummary: t.reasonSummary || (tpl.reason ? `<p>${tpl.reason}</p>` : ''),
+                      riskNotes: t.riskNotes || (tpl.risk_note ? `<p>${tpl.risk_note}</p>` : ''),
+                      reasonDetail: t.reasonDetail || (tpl.strategy_note ? `<p>${tpl.strategy_note}</p>` : ''),
+                    })
+                  }
+                >
+                  {tpl.title}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">為什麼這樣操作？</Label>
+          <RichTextEditor
+            uploadFolder={expertId}
+            value={t.reasonSummary}
+            onChange={(html) => updateTrade(idx, { reasonSummary: html })}
+            placeholder="決策摘要、訊號背後的理由…"
+            minHeight={90}
+            aiField="reason_summary"
+            onAIAssist={(mode, html, ins) =>
+              callAIAssist('reason_summary', mode, htmlToPlainText(html), ins, {
+                instrument: `${t.stockCode} ${t.stockName}`.trim(),
+                action: t.action,
+                price_hint: t.priceHint,
+              })
+            }
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">部位控管想法</Label>
+          <RichTextEditor
+            uploadFolder={expertId}
+            value={t.reasonDetail}
+            onChange={(html) => updateTrade(idx, { reasonDetail: html })}
+            placeholder="進出場條件、停損停利、加碼計畫…"
+            minHeight={100}
+            aiField="reason_detail"
+            onAIAssist={(mode, html, ins) => callAIAssist('reason_detail', mode, htmlToPlainText(html), ins)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">風險提醒</Label>
+          <RichTextEditor
+            uploadFolder={expertId}
+            value={t.riskNotes}
+            onChange={(html) => updateTrade(idx, { riskNotes: html })}
+            placeholder="可能出錯的情境、停損點、總曝險…"
+            minHeight={80}
+            aiField="risk_notes"
+            onAIAssist={(mode, html, ins) => callAIAssist('risk_notes', mode, htmlToPlainText(html), ins)}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
