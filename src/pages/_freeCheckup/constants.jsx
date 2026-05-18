@@ -351,6 +351,7 @@ export function loadLocal(key, fallback) {
 
 let _currentUserId = null;
 export function setCurrentUserId(uid) { _currentUserId = uid; }
+export function getCurrentUserId() { return _currentUserId; }
 
 export async function save(key, data, userId) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
