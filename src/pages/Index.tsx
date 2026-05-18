@@ -539,6 +539,7 @@ const Index = () => {
           </button>
         </div>
       </section>
+      </LazyOnVisible>
       
       {/* VS Animation Keyframes + Hover Battle Effect */}
       <style>{`
