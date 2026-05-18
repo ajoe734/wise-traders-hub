@@ -293,7 +293,7 @@ export function useExpertSubscriptionStats(
   expertId: string | undefined,
   planIds: string[] | undefined,
 ) {
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user } = useAuth();
   const planKey = (planIds || []).slice().sort().join(',');
 
   return useQuery<ExpertSubscriptionStats>({
