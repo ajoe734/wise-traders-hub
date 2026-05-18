@@ -76,6 +76,7 @@ import {
   loadAllFromCloud,
   loadLocal,
   setCurrentUserId,
+  getCurrentUserId,
   save,
   formatResetCountdown,
   formatResetDateTime,
