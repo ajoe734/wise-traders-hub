@@ -1,17 +1,15 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
-
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 
 // Knowledge stored in checkup_storage with key prefix 'knowledge-'
-Deno.serve(async (req) => {
+const handler = withLogging('checkup-knowledge', async (req, log) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const supabase = serviceClient();
 
   const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
   try {
@@ -141,9 +139,10 @@ Deno.serve(async (req) => {
       status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error('Knowledge error:', err);
-    return new Response(JSON.stringify({ success: false, error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    const msg = (err as Error).message;
+    log.error('handler_error', { msg });
+    return jsonResponse({ success: false, error: msg }, { status: 500 });
   }
 });
+
+Deno.serve(handler);

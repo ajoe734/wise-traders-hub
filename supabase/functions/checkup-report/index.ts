@@ -1,20 +1,18 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 
 function esc(s: string) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-Deno.serve(async (req) => {
+const handler = withLogging('checkup-report', async (req, log) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'GET') {
     return new Response('Method not allowed', { status: 405, headers: corsHeaders });
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const supabase = serviceClient();
 
   // Extract user_id from JWT
   const authHeader = req.headers.get('authorization') || '';
@@ -84,8 +82,12 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
     });
   } catch (err) {
-    return new Response(`錯誤: ${(err as Error).message}`, {
+    const msg = (err as Error).message;
+    log.error('handler_error', { msg });
+    return new Response(`錯誤: ${msg}`, {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
     });
   }
 });
+
+Deno.serve(handler);

@@ -2,8 +2,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
-
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -105,12 +105,10 @@ async function callAI(messages: any[], temperature = 0.3, maxTokens = 8192): Pro
   return '';
 }
 
-Deno.serve(async (req) => {
+const handler = withLogging('checkup-analyze', async (req, log) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'Method not allowed' }, { status: 405 });
   }
 
   if (!Deno.env.get('ANTHROPIC_API_KEY') && !Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
@@ -213,10 +211,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error('AI analysis error:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: 'AI 分析失敗', detail: message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    log.error('handler_error', { msg: message });
+    return jsonResponse({ error: 'AI 分析失敗', detail: message }, { status: 500 });
   }
 });
+
+Deno.serve(handler);
