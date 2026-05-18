@@ -1,10 +1,10 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { applyCoercion } from "../_shared/inputCoerce.ts";
-
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 
 const TWSE_DAY = "https://www.twse.com.tw/exchangeReport/STOCK_DAY";
 // TPEX 新版 API（2024 改版後）：回 JSON，欄位 tables[0].data
