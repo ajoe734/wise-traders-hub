@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { logAdminAction } from '@/lib/auditLog';
 import { avatarUrl } from '@/lib/imageTransform';
+import { useSessionString, useSessionBool, useSessionNullable } from '@/hooks/useSessionState';
 
 const CompanyAnalysts = () => {
   const queryClient = useQueryClient();
@@ -30,75 +31,42 @@ const CompanyAnalysts = () => {
   const refetchExperts = () => queryClient.invalidateQueries({ queryKey: ['company-experts'] });
   const setExperts = (updater: (prev: any[]) => any[]) =>
     queryClient.setQueryData<any[]>(['company-experts'], (prev) => updater(prev || []));
-  const [isCreateOpen, setIsCreateOpen] = useState(() => {
-    return sessionStorage.getItem('company_analyst_create_open') === 'true';
-  });
+  const [isCreateOpen, setIsCreateOpen] = useSessionBool('company_analyst_create_open', false);
 
-  // Create analyst form – restore from sessionStorage on mount
-  const [email, setEmail] = useState(() => sessionStorage.getItem('ca_email') || '');
-  const [password, setPassword] = useState(() => sessionStorage.getItem('ca_password') || '');
-  const [name, setName] = useState(() => sessionStorage.getItem('ca_name') || '');
-  const [slug, setSlug] = useState(() => sessionStorage.getItem('ca_slug') || '');
-  const [role, setRole] = useState(() => sessionStorage.getItem('ca_role') || '');
+  // Create analyst form – persisted to sessionStorage per key
+  const [email, setEmail] = useSessionString('ca_email');
+  const [password, setPassword] = useSessionString('ca_password');
+  const [name, setName] = useSessionString('ca_name');
+  const [slug, setSlug] = useSessionString('ca_slug');
+  const [role, setRole] = useSessionString('ca_role');
   const [creating, setCreating] = useState(false);
-
-  // Persist create form state
-  useEffect(() => {
-    sessionStorage.setItem('company_analyst_create_open', String(isCreateOpen));
-  }, [isCreateOpen]);
-  useEffect(() => { sessionStorage.setItem('ca_email', email); }, [email]);
-  useEffect(() => { sessionStorage.setItem('ca_password', password); }, [password]);
-  useEffect(() => { sessionStorage.setItem('ca_name', name); }, [name]);
-  useEffect(() => { sessionStorage.setItem('ca_slug', slug); }, [slug]);
-  useEffect(() => { sessionStorage.setItem('ca_role', role); }, [role]);
 
   const clearForm = () => {
     setEmail(''); setPassword(''); setName(''); setSlug(''); setRole('');
     ['ca_email','ca_password','ca_name','ca_slug','ca_role'].forEach(k => sessionStorage.removeItem(k));
   };
 
-  // LINE channel management
-  const [lineExpertId, setLineExpertId] = useState<string | null>(() => {
-    return sessionStorage.getItem('company_line_expert_id') || null;
-  });
-  const [lineExpertName, setLineExpertName] = useState(() => sessionStorage.getItem('cl_name') || '');
+  // LINE channel management — all persisted via useSessionState hooks
+  const [lineExpertId, setLineExpertId] = useSessionNullable('company_line_expert_id');
+  const [lineExpertName, setLineExpertName] = useSessionString('cl_name');
   const [lineChannel, setLineChannel] = useState<any>(null);
   const [lineLoading, setLineLoading] = useState(false);
-  const [lineChannelId, setLineChannelId] = useState(() => sessionStorage.getItem('cl_channelId') || '');
-  const [lineToken, setLineToken] = useState(() => sessionStorage.getItem('cl_token') || '');
-  const [lineChannelName, setLineChannelName] = useState(() => sessionStorage.getItem('cl_channelName') || '');
-  const [lineOaId, setLineOaId] = useState(() => sessionStorage.getItem('cl_oaId') || '');
-  const [lineQrCodeUrl, setLineQrCodeUrl] = useState(() => sessionStorage.getItem('cl_qrCode') || '');
-  const [lineActive, setLineActive] = useState(() => sessionStorage.getItem('cl_active') !== 'false');
+  const [lineChannelId, setLineChannelId] = useSessionString('cl_channelId');
+  const [lineToken, setLineToken] = useSessionString('cl_token');
+  const [lineChannelName, setLineChannelName] = useSessionString('cl_channelName');
+  const [lineOaId, setLineOaId] = useSessionString('cl_oaId');
+  const [lineQrCodeUrl, setLineQrCodeUrl] = useSessionString('cl_qrCode');
+  const [lineActive, setLineActive] = useSessionBool('cl_active', true);
   const [savingLine, setSavingLine] = useState(false);
   const [lineBindingsCount, setLineBindingsCount] = useState(0);
 
-  // Persist LINE form fields
-  useEffect(() => { sessionStorage.setItem('cl_name', lineExpertName); }, [lineExpertName]);
-  useEffect(() => { sessionStorage.setItem('cl_channelId', lineChannelId); }, [lineChannelId]);
-  useEffect(() => { sessionStorage.setItem('cl_token', lineToken); }, [lineToken]);
-  useEffect(() => { sessionStorage.setItem('cl_channelName', lineChannelName); }, [lineChannelName]);
-  useEffect(() => { sessionStorage.setItem('cl_oaId', lineOaId); }, [lineOaId]);
-  useEffect(() => { sessionStorage.setItem('cl_qrCode', lineQrCodeUrl); }, [lineQrCodeUrl]);
-  useEffect(() => { sessionStorage.setItem('cl_active', String(lineActive)); }, [lineActive]);
-
+  // Restore LINE dialog title on mount when experts arrive — sole remaining effect
   useEffect(() => {
-    if (lineExpertId) {
-      sessionStorage.setItem('company_line_expert_id', lineExpertId);
-    } else {
-      sessionStorage.removeItem('company_line_expert_id');
-    }
-  }, [lineExpertId]);
-
-  // Restore LINE dialog on mount if persisted — no flicker if fields already cached
-  useEffect(() => {
-    if (lineExpertId && experts.length > 0) {
+    if (lineExpertId && experts.length > 0 && !lineExpertName) {
       const exp = experts.find(e => e.id === lineExpertId);
-      if (exp && !lineExpertName) {
-        setLineExpertName(exp.name);
-      }
+      if (exp) setLineExpertName(exp.name);
     }
-  }, [lineExpertId, experts]);
+  }, [lineExpertId, experts, lineExpertName, setLineExpertName]);
 
   const fetchExperts = () => refetchExperts();
 
