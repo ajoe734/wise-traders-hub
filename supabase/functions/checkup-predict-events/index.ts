@@ -1,10 +1,10 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
-
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 import { fetchNewsForCodes } from '../_shared/newsCache.ts';
 import { parseJsonArray } from '../_shared/jsonRepair.ts';
 
