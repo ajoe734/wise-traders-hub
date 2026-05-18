@@ -1,31 +1,21 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { jsonResponse } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 import { acpayGenerateSign as generateSign, acpayParseXml as parseXml, acpayExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";
 import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription, renewExistingSubscription } from "../_shared/paymentProcessor.ts";
 
-// ACpay 3DS notify_url handler (PDF section 4.6)
-// Receives XML POST from ACpay after 3DS OTP verification
-// Must return plain text "SUCCESS" on success
-
-Deno.serve(async (req) => {
-  // notify_url only receives POST from ACpay server, no CORS needed
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200 });
-  }
-
+// ACpay 3DS notify_url handler — must return plain text "SUCCESS"
+const handler = withLogging("acpay-notify", async (req, log) => {
   try {
     const body = await req.text();
-    console.log("ACpay notify raw body:", body);
-
+    log.info("raw_body_len", { len: body.length });
     const params = parseXml(body);
-    console.log("ACpay notify parsed:", JSON.stringify(params));
 
     const merchantKey = Deno.env.get("ACPAY_MERCHANT_KEY")!;
-
-    // Verify signature
     if (params.sign) {
       const expectedSign = await generateSign(params, merchantKey);
       if (expectedSign !== params.sign) {
-        console.error("ACpay notify sign verification FAILED");
+        log.error("sign_mismatch");
         return new Response("FAIL", { status: 200 });
       }
     }
@@ -35,14 +25,8 @@ Deno.serve(async (req) => {
     const totalFee = parseInt(params.total_fee || "0", 10);
     const transactionId = acpayExtractTxId(params);
 
-    // Parse metadata from attach field
     let metadata: any = {};
-    try {
-      metadata = JSON.parse(params.attach || "{}");
-    } catch {
-      console.error("Failed to parse attach field");
-    }
-
+    try { metadata = JSON.parse(params.attach || "{}"); } catch {}
     const planId = metadata.plan_id;
     const billingCycle = metadata.billing_cycle;
     const userId = metadata.user_id;
@@ -50,108 +34,76 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Payment failed
     if (payResult !== "0") {
-      console.log("ACpay payment failed, pay_result:", payResult);
+      log.info("payment_failed", { payResult });
       if (userId && planId) {
         try {
           await fetch(`${supabaseUrl}/functions/v1/notify-payment-failure`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${serviceRoleKey}`,
-            },
-            body: JSON.stringify({
-              userId,
-              planId,
-              amount: totalFee,
-              provider: "acpay",
-              errorDetail: `pay_result: ${payResult}`,
-            }),
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceRoleKey}` },
+            body: JSON.stringify({ userId, planId, amount: totalFee, provider: "acpay",
+              errorDetail: `pay_result: ${payResult}` }),
           });
-        } catch (e) {
-          console.error("Failed to send payment failure notification:", e);
-        }
+        } catch (e) { log.error("notify_failure_failed", { message: (e as Error).message }); }
       }
       return new Response("SUCCESS", { status: 200 });
     }
 
-    // Payment successful — write to DB
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = serviceClient();
 
-    // Duplicate check by provider_tx_id
     if (await isDuplicatePaymentTx(supabase, transactionId)) {
-      console.log("Duplicate notification for:", transactionId);
+      log.info("duplicate", { transactionId });
       return new Response("SUCCESS", { status: 200 });
     }
 
-    // Get ACpay provider
     const { data: provider } = await supabase
-      .from("payment_providers")
-      .select("id")
-      .eq("provider_type", "acpay")
-      .eq("is_active", true)
-      .single();
+      .from("payment_providers").select("id")
+      .eq("provider_type", "acpay").eq("is_active", true).single();
 
     const now = new Date();
 
     let subscriptionId: string | null = null;
     if (userId && planId) {
-      // Duplicate subscription protection
       const { data: existing } = await supabase
-        .from("member_subscriptions")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("plan_id", planId)
-        .eq("status", "active");
+        .from("member_subscriptions").select("id")
+        .eq("user_id", userId).eq("plan_id", planId).eq("status", "active");
 
       if (existing && existing.length > 0) {
-        // 手動續訂：延長 expires_at（疊加到原有效期）
         subscriptionId = existing[0].id;
         const renewResult = await renewExistingSubscription(supabase, {
-          subscriptionId: subscriptionId!,
-          billingCycle,
-          now,
+          subscriptionId: subscriptionId!, billingCycle, now,
         });
-        if (renewResult.error) console.error("Renewal extend error:", renewResult.error);
-        else console.log("Subscription renewed, new expires_at:", renewResult.newExpiresAt);
+        if (renewResult.error) log.error("renewal_extend_error", { error: String(renewResult.error) });
 
         const { error: txError } = await recordPaymentForExistingSubscription(supabase, {
-          subscriptionId: subscriptionId!,
-          amount: totalFee,
-          currency: "TWD",
-          providerTxId: transactionId,
-          providerId: provider?.id || null,
-          now,
+          subscriptionId: subscriptionId!, amount: totalFee, currency: "TWD",
+          providerTxId: transactionId, providerId: provider?.id || null, now,
         });
-        if (txError) console.error("Transaction insert error:", txError);
+        if (txError) log.error("tx_insert_error", { message: String(txError) });
       } else {
-        // 原子性建立訂閱 + 交易紀錄（若訂閱失敗不建立交易）
         const result = await createSubscriptionAndTransaction(supabase, {
           userId, planId, billingCycle, amount: totalFee, currency: "TWD",
           providerTxId: transactionId, providerId: provider?.id || null, now,
         });
-        if (result.error) console.error("Failed to create subscription and transaction:", result.error);
+        if (result.error) log.error("create_sub_tx_failed", { error: String(result.error) });
         else subscriptionId = result.subscriptionId;
       }
     } else {
-      // 無訂閱資訊時仍建立交易紀錄
       const { error: txError } = await supabase.from("payment_transactions").insert({
-        amount: totalFee,
-        currency: "TWD",
-        status: "paid",
+        amount: totalFee, currency: "TWD", status: "paid",
         paid_at: now.toISOString(),
         provider_id: provider?.id || null,
-        provider_tx_id: transactionId,
-        subscription_id: null,
+        provider_tx_id: transactionId, subscription_id: null,
       });
-      if (txError) console.error("Transaction insert error:", txError);
+      if (txError) log.error("tx_insert_error", { message: txError.message });
     }
 
-    console.log("ACpay notify processed successfully for:", outTradeNo);
+    void outTradeNo; void subscriptionId; void jsonResponse;
     return new Response("SUCCESS", { status: 200 });
   } catch (error) {
-    console.error("acpay-notify error:", error);
+    log.error("uncaught", { message: (error as Error).message });
     return new Response("FAIL", { status: 200 });
   }
 });
+
+Deno.serve(handler);

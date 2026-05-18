@@ -1,65 +1,47 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { jsonResponse } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 import { ecpayGenerateCheckMacValue, ecpayExtractTxId, isDuplicatePaymentTx } from "../_shared/paymentVerify.ts";
 import { writeRevenueSplit } from "../_shared/paymentProcessor.ts";
 import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
+const handler = withLogging("checkup-ecpay-callback", async (req, log) => {
   try {
     const formData = await req.formData();
     const params: Record<string, string> = {};
     for (const [key, value] of formData.entries()) params[key] = String(value);
 
-    console.log("Checkup ECPay callback:", JSON.stringify(params));
-
     const receivedMac = params.CheckMacValue;
     const { CheckMacValue, ...paramsWithoutMac } = params;
-    const credsClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-    const creds = await loadEcpayCreds(credsClient);
-    const hashKey = creds.hashKey;
-    const hashIV = creds.hashIV;
-    const expected = await ecpayGenerateCheckMacValue(paramsWithoutMac, hashKey, hashIV);
+    const supabase = serviceClient();
+    const creds = await loadEcpayCreds(supabase);
+    const expected = await ecpayGenerateCheckMacValue(paramsWithoutMac, creds.hashKey, creds.hashIV);
 
     if (receivedMac !== expected) {
-      console.error("Checkup CheckMacValue mismatch");
+      log.error("checkmacvalue_mismatch");
       return new Response("0|CheckMacValue Error", { status: 200 });
     }
 
     const rtnCode = params.RtnCode;
     const tradeAmt = parseInt(params.TradeAmt || "0");
-    const customField1 = params.CustomField1 || "";  // "CK:<uuid>"
+    const customField1 = params.CustomField1 || "";
     const billingCycle = params.CustomField2;
     const userId = params.CustomField4;
 
     if (!customField1.startsWith("CK:")) {
-      console.error("Not a checkup order, ignoring");
+      log.info("not_checkup_order");
       return new Response("1|OK", { status: 200 });
     }
     const checkupPlanId = customField1.slice(3);
 
     if (rtnCode !== "1") {
-      console.log("Checkup payment failed, RtnCode:", rtnCode);
+      log.info("payment_failed", { rtnCode });
       return new Response("1|OK", { status: 200 });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
     const txId = ecpayExtractTxId(params);
     if (await isDuplicatePaymentTx(supabase, txId)) {
-      console.log("Duplicate checkup notification:", txId);
+      log.info("duplicate", { txId });
       return new Response("1|OK", { status: 200 });
     }
 
@@ -72,18 +54,12 @@ Deno.serve(async (req) => {
     if (billingCycle === "yearly") expiresAt.setFullYear(expiresAt.getFullYear() + 1);
     else expiresAt.setMonth(expiresAt.getMonth() + 1);
 
-    // 防重 + 手動續訂：已 active → 延長 expires_at（疊加到原有效期）
     const { data: existing } = await supabase
-      .from("checkup_subscriptions")
-      .select("id, expires_at")
-      .eq("user_id", userId)
-      .eq("plan_id", checkupPlanId)
-      .eq("status", "active")
-      .maybeSingle();
+      .from("checkup_subscriptions").select("id, expires_at")
+      .eq("user_id", userId).eq("plan_id", checkupPlanId).eq("status", "active").maybeSingle();
 
     let subscriptionId: string | null = existing?.id ?? null;
     if (existing) {
-      // 從原 expires_at 起算（若已過期則從 now 起算）
       const baseExpiry = existing.expires_at ? new Date(existing.expires_at) : now;
       const start = baseExpiry.getTime() > now.getTime() ? baseExpiry : now;
       const newExpiry = new Date(start);
@@ -93,12 +69,10 @@ Deno.serve(async (req) => {
         .from("checkup_subscriptions")
         .update({ expires_at: newExpiry.toISOString(), status: "active" })
         .eq("id", existing.id);
-      if (renewErr) console.error("checkup renewal extend error:", renewErr);
-      else console.log("checkup renewed, new expires_at:", newExpiry.toISOString());
+      if (renewErr) log.error("renewal_extend_error", { message: renewErr.message });
     } else {
       const { data: sub, error } = await supabase
-        .from("checkup_subscriptions")
-        .insert({
+        .from("checkup_subscriptions").insert({
           user_id: userId,
           plan_id: checkupPlanId,
           billing_cycle: billingCycle,
@@ -106,24 +80,19 @@ Deno.serve(async (req) => {
           started_at: now.toISOString(),
           expires_at: expiresAt.toISOString(),
           provider_id: provider?.id ?? null,
-        })
-        .select("id").single();
+        }).select("id").single();
       if (error) {
-        console.error("checkup_subscriptions insert error:", error);
+        log.error("checkup_subscriptions_insert_error", { message: error.message });
         return new Response("0|Error", { status: 200 });
       }
       subscriptionId = sub.id;
     }
 
-    // 交易紀錄（subscription_id 留空，因為 payment_transactions 預設指向 member_subscriptions；
-    // 健檢交易僅記金額與 provider_tx_id 作為對帳依據）
-    // Stage 3: read intent for attribution / discount
     const tradeNo = params.MerchantTradeNo;
     const { data: intent } = await supabase
       .from("payment_intents")
       .select("original_amount, discount_amount, discount_reason, attribution")
-      .eq("trade_no", tradeNo)
-      .maybeSingle();
+      .eq("trade_no", tradeNo).maybeSingle();
 
     const { data: tx } = await supabase.from("payment_transactions").insert({
       amount: tradeAmt,
@@ -139,13 +108,11 @@ Deno.serve(async (req) => {
       subscription_id: null,
     }).select("id").single();
 
-    // Stage 3: revenue split for checkup (platform 100%)
     if (tx) {
       try {
         await writeRevenueSplit(supabase, {
           transactionId: tx.id,
-          planId: null,
-          expertId: null,
+          planId: null, expertId: null,
           productKind: "checkup",
           gross: intent?.original_amount ?? tradeAmt,
           discount: intent?.discount_amount ?? 0,
@@ -153,13 +120,16 @@ Deno.serve(async (req) => {
           attribution: intent?.attribution ?? null,
         });
       } catch (e) {
-        console.error("checkup writeRevenueSplit failed:", e);
+        log.error("revenue_split_failed", { message: (e as Error).message });
       }
     }
 
+    void subscriptionId;
     return new Response("1|OK", { status: 200 });
   } catch (error) {
-    console.error("checkup-ecpay-callback error:", error);
+    log.error("uncaught", { message: (error as Error).message });
     return new Response("0|Error", { status: 200 });
   }
 });
+
+Deno.serve(handler);
