@@ -1,7 +1,8 @@
 import { ReactNode, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Home, Radio, BookOpen, User, TrendingUp, LogOut, ChevronRight } from 'lucide-react';
+import { Home, Radio, BookOpen, User, LogOut, ChevronRight } from 'lucide-react';
+import { Logomark } from '@/components/brand';
 import { cn } from '@/lib/utils';
 import { PreviewBanner } from '@/components/PreviewBanner';
 import { useEffect } from 'react';
