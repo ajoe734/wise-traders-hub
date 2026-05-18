@@ -49,12 +49,20 @@ export function prefetchRoute(key: string, loader: Loader) {
  */
 export function prefetchHighTrafficRoutes() {
   if (typeof import.meta !== "undefined" && !import.meta.env?.PROD) return;
-  prefetchRoute("login", () => import("@/pages/auth/Login"));
-  prefetchRoute("register", () => import("@/pages/auth/Register"));
-  prefetchRoute("pricing", () => import("@/pages/Pricing"));
-  prefetchRoute("experts", () => import("@/pages/Experts"));
-  prefetchRoute("expert-profile", () => import("@/pages/ExpertProfile"));
-  prefetchRoute("app-home", () => import("@/pages/app/AppHome"));
+  // Stagger entries so low-end devices don't process 6 chunk transforms in a
+  // single idle frame (each route module pulls 30-150KB + parse cost).
+  // 600ms spacing keeps main-thread interactive gaps wide enough for input.
+  const entries: Array<[string, Loader]> = [
+    ["login", () => import("@/pages/auth/Login")],
+    ["register", () => import("@/pages/auth/Register")],
+    ["pricing", () => import("@/pages/Pricing")],
+    ["experts", () => import("@/pages/Experts")],
+    ["expert-profile", () => import("@/pages/ExpertProfile")],
+    ["app-home", () => import("@/pages/app/AppHome")],
+  ];
+  entries.forEach(([key, loader], i) => {
+    setTimeout(() => prefetchRoute(key, loader), i * 600);
+  });
 }
 
 /**
