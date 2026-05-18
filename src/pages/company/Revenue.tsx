@@ -99,6 +99,7 @@ const CompanyRevenue = () => {
     expertMap, planMap, checkupPlanMap, profileMap, providerMap, subMap,
     overview, monthTrend, sourceBreakdown, txMerged,
     expertPayouts, splitsByExpert, checkupOverview, checkupTrend,
+    range,
     invalidate: fetchAll,
   } = useRevenueData(preset);
 
