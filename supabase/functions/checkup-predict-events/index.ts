@@ -174,7 +174,7 @@ function extractJsonArrayStr(text: string): any[] {
 }
 
 function getSupabaseAdmin() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  return serviceClient();
 }
 
 /* ── Cache ── */
