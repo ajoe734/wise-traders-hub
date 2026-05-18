@@ -1,10 +1,10 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
-
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const GATEWAY_MODELS = ['google/gemini-3-flash-preview', 'google/gemini-2.5-flash', 'google/gemini-2.5-flash-lite'];
@@ -55,18 +55,14 @@ async function callAI(messages: any[], temperature = 0.1, maxTokens = 900): Prom
   return '';
 }
 
-Deno.serve(async (req) => {
+const handler = withLogging('checkup-research-extract', async (req, log) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'Method not allowed' }, { status: 405 });
   }
 
   if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {
-    return new Response(JSON.stringify({ error: 'AI API key 未設定' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'AI API key 未設定' }, { status: 500 });
   }
 
   try {
@@ -156,9 +152,7 @@ ${report.text}
 
     // Persist meta override + target history (best-effort, service role)
     try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, serviceRoleKey);
+      const supabase = serviceClient();
       const authHeader = req.headers.get('authorization') || '';
       const token = authHeader.replace('Bearer ', '');
       const { data: { user } } = await supabase.auth.getUser(token);
@@ -225,10 +219,10 @@ ${report.text}
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error('Research extract error:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: '研究資料抽取失敗', detail: message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    log.error('handler_error', { msg: message });
+    return jsonResponse({ error: '研究資料抽取失敗', detail: message }, { status: 500 });
   }
 });
+
+Deno.serve(handler);
