@@ -19,6 +19,9 @@ interface RouteRow {
   fcp_p95: number | null;
   lcp_p50: number | null;
   lcp_p95: number | null;
+  inp_p75: number | null;
+  inp_p95: number | null;
+  cls_p75: number | null;
 }
 
 interface Summary {
@@ -30,6 +33,10 @@ interface Summary {
     fcp_p95: number | null;
     lcp_p50: number | null;
     lcp_p95: number | null;
+    inp_p75: number | null;
+    inp_p95: number | null;
+    cls_p75: number | null;
+    cls_p95: number | null;
   };
   daily: Array<{
     day: string;
@@ -38,11 +45,17 @@ interface Summary {
     fcp_p95: number | null;
     lcp_p50: number | null;
     lcp_p95: number | null;
+    inp_p50: number | null;
+    inp_p95: number | null;
+    cls_p50: number | null;
+    cls_p95: number | null;
   }>;
   routes: RouteRow[];
 }
 
 const fmtMs = (v: number | null | undefined) => (v == null ? '—' : `${v} ms`);
+const fmtCls = (v: number | null | undefined) =>
+  v == null ? '—' : v.toFixed(3);
 
 function tone(v: number | null, good: number, warn: number) {
   if (v == null) return 'text-foreground/50';
