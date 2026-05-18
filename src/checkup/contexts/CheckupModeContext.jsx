@@ -146,7 +146,25 @@ export function CheckupModeProvider({ children }) {
     }
   }, [isDemo])
 
-  const value = {
+  const startLineLogin = useCallback(() => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`
+    const returnTo = `${window.location.pathname}${window.location.search}`
+    try {
+      sessionStorage.setItem('line_login_return_to', returnTo)
+    } catch {}
+    const appOrigin = window.location.origin
+    const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}&app_origin=${encodeURIComponent(appOrigin)}`
+    console.log('[LINE-LOGIN] Checkup page → LINE authorize', { returnTo, appOrigin, authorizeUrl })
+    window.location.href = authorizeUrl
+  }, [])
+
+  const incrementUploadCount = useCallback(async () => {
+    await refreshQuota()
+  }, [refreshQuota])
+
+  // Memoize value object so consumers don't re-render on unrelated parent updates.
+  const value = useMemo(() => ({
     mode,
     tier,
     tierLabel,
@@ -158,7 +176,6 @@ export function CheckupModeProvider({ children }) {
     isReady,
     canUpload,
     canRefreshManually,
-    // Legacy compat — kept so existing components keep working
     hasReachedDailyLimit: !hasQuota && tier !== 'guest',
     needsAddFriend,
     isLineFriend,
@@ -167,27 +184,17 @@ export function CheckupModeProvider({ children }) {
     demoData,
     refreshQuota,
     applyQuotaFromResponse,
-    // Legacy no-op for callers still using this name
     /**
      * @deprecated 配額由 edge function 原子扣點。請改用 applyQuotaFromResponse(data) 同步 UI。
-     * 保留為 no-op（refreshQuota）避免舊 caller 炸掉。
      */
-    incrementUploadCount: async () => {
-      await refreshQuota()
-    },
-    startLineLogin: () => {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      const callbackUrl = `${supabaseUrl}/functions/v1/line-login-callback`
-      const returnTo = `${window.location.pathname}${window.location.search}`
-      try {
-        sessionStorage.setItem('line_login_return_to', returnTo)
-      } catch {}
-      const appOrigin = window.location.origin
-      const authorizeUrl = `${supabaseUrl}/functions/v1/line-login-authorize?redirect_uri=${encodeURIComponent(callbackUrl)}&return_to=${encodeURIComponent(returnTo)}&app_origin=${encodeURIComponent(appOrigin)}`
-      console.log('[LINE-LOGIN] Checkup page → LINE authorize', { returnTo, appOrigin, authorizeUrl })
-      window.location.href = authorizeUrl
-    },
-  }
+    incrementUploadCount,
+    startLineLogin,
+  }), [
+    mode, tier, tierLabel, quota, remainingQuota, hasQuota, periodLabel,
+    isDemo, isReady, canUpload, canRefreshManually, needsAddFriend,
+    isLineFriend, lineProfile, supabaseUser, demoData,
+    refreshQuota, applyQuotaFromResponse, incrementUploadCount, startLineLogin,
+  ])
 
   return (
     <CheckupModeContext.Provider value={value}>

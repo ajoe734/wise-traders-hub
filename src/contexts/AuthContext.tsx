@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { queryClient } from '@/lib/queryClient';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
@@ -96,11 +96,14 @@ interface AuthUser {
   lineUserId: string | null;
 }
 
-interface AuthContextType {
+interface AuthStateValue {
   user: AuthUser | null;
   supabaseUser: SupabaseUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+}
+
+interface AuthActionsValue {
   hasRole: (role: AppRole) => boolean;
   refreshProfile: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -110,8 +113,16 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-AuthContext.displayName = 'AuthContext';
+type AuthContextType = AuthStateValue & AuthActionsValue;
+
+// Split contexts: state changes on auth events (login/logout/token refresh) and
+// re-renders all subscribers; actions are stable refs so action-only consumers
+// (forms, buttons) never re-render on token refresh. `useAuth()` keeps the
+// merged shape for backward compatibility.
+const AuthStateContext = createContext<AuthStateValue | undefined>(undefined);
+const AuthActionsContext = createContext<AuthActionsValue | undefined>(undefined);
+AuthStateContext.displayName = 'AuthStateContext';
+AuthActionsContext.displayName = 'AuthActionsContext';
 
 async function fetchUserProfile(userId: string, email: string): Promise<AuthUser> {
   const [profileRes, rolesRes] = await Promise.all([
@@ -231,28 +242,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const hasRole = (role: AppRole) => user?.roles.includes(role) ?? false;
+  // Refs let action callbacks read latest state without re-creating identity.
+  // This keeps the AuthActionsContext value stable across token refreshes, so
+  // action-only consumers (forms, buttons) no longer re-render every refresh.
+  const userRef = React.useRef(user);
+  const supabaseUserRef = React.useRef(supabaseUser);
+  React.useEffect(() => { userRef.current = user; }, [user]);
+  React.useEffect(() => { supabaseUserRef.current = supabaseUser; }, [supabaseUser]);
+
+  const hasRole = useCallback((role: AppRole) => userRef.current?.roles.includes(role) ?? false, []);
 
   const refreshProfile = useCallback(async () => {
-    if (!supabaseUser) return;
-    await loadProfile(supabaseUser, true);
-  }, [supabaseUser, loadProfile]);
+    const sb = supabaseUserRef.current;
+    if (!sb) return;
+    await loadProfile(sb, true);
+  }, [loadProfile]);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Clear state before login to prevent stale data
+  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     clearAuth();
     setIsLoading(true);
-
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setIsLoading(false);
       return { success: false, error: mapAuthError(error, 'login') };
     }
-    // Profile loading happens via onAuthStateChange — force reload for new login
     return { success: true };
-  };
+  }, [clearAuth]);
 
-  const register = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
+  const register = useCallback(async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -265,9 +282,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: mapAuthError(error, 'register') };
     }
     return { success: true };
-  };
+  }, []);
 
-  const requestPasswordReset = async (email: string): Promise<{ success: boolean; error?: string }> => {
+  const requestPasswordReset = useCallback(async (email: string): Promise<{ success: boolean; error?: string }> => {
     const trimmed = email.trim();
     if (/@line\.local$/i.test(trimmed)) {
       return { success: false, error: '此帳號為 LINE 登入帳號，請改用「使用 LINE 快速登入」' };
@@ -279,36 +296,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: mapAuthError(error, 'reset') };
     }
     return { success: true };
-  };
+  }, []);
 
-  const updatePassword = async (password: string): Promise<{ success: boolean; error?: string }> => {
+  const updatePassword = useCallback(async (password: string): Promise<{ success: boolean; error?: string }> => {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       return { success: false, error: mapAuthError(error, 'update') };
     }
     return { success: true };
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     clearAuth();
     setIsLoading(true);
     await supabase.auth.signOut();
     setIsLoading(false);
-  };
+  }, [clearAuth]);
 
   const isAuthenticated = !!user && !isLoading;
 
+  const stateValue = useMemo<AuthStateValue>(
+    () => ({ user, supabaseUser, isLoading, isAuthenticated }),
+    [user, supabaseUser, isLoading, isAuthenticated],
+  );
+
+  // Actions value identity is stable for the provider lifetime — all members
+  // are useCallback-wrapped with no state deps (they read via refs).
+  const actionsValue = useMemo<AuthActionsValue>(
+    () => ({ hasRole, refreshProfile, login, register, requestPasswordReset, updatePassword, logout }),
+    [hasRole, refreshProfile, login, register, requestPasswordReset, updatePassword, logout],
+  );
+
   return (
-    <AuthContext.Provider value={{ user, supabaseUser, isLoading, isAuthenticated, hasRole, refreshProfile, login, register, requestPasswordReset, updatePassword, logout }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthActionsContext.Provider value={actionsValue}>
+      <AuthStateContext.Provider value={stateValue}>
+        {children}
+      </AuthStateContext.Provider>
+    </AuthActionsContext.Provider>
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+export function useAuthState(): AuthStateValue {
+  const ctx = useContext(AuthStateContext);
+  if (ctx === undefined) throw new Error('useAuthState must be used within an AuthProvider');
+  return ctx;
 }
+
+export function useAuthActions(): AuthActionsValue {
+  const ctx = useContext(AuthActionsContext);
+  if (ctx === undefined) throw new Error('useAuthActions must be used within an AuthProvider');
+  return ctx;
+}
+
+/**
+ * Backward-compatible combined hook. Prefer `useAuthState` or `useAuthActions`
+ * in new code to avoid unnecessary re-renders on token refresh.
+ */
+export function useAuth(): AuthContextType {
+  const state = useAuthState();
+  const actions = useAuthActions();
+  return useMemo(() => ({ ...state, ...actions }), [state, actions]);
+}
+
