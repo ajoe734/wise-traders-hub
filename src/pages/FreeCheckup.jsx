@@ -44,7 +44,6 @@ import {
   classifyAttempt,
   deriveSuggestion,
   RETRY_POLICY,
-  INIT_TARGETS,
   avgTarget,
   INIT_HOLDINGS,
   INIT_WATCHLIST,
@@ -71,11 +70,6 @@ import {
   isExactDemoHolding,
   stripDemoSeedHoldings,
   getHoldingCodesKey,
-  setLocalStorageOwner,
-  loadScopedLocal,
-  loadAllFromCloud,
-  loadLocal,
-  setCurrentUserId,
   getCurrentUserId,
   save,
   formatResetCountdown,
@@ -83,6 +77,11 @@ import {
   isQuotaExceeded,
   aiAuthHeaders,
 } from "./_freeCheckup/constants";
+import {
+  useHoldingsMigration,
+  useFreeCheckupBootstrap,
+  useFetchCalendarEventsRef,
+} from "@/hooks/useFreeCheckupBootstrap";
 
 // #region App() — 主元件（state、effects、JSX 全部 inline；遵守 inline 憲法）
 export default function App() {
