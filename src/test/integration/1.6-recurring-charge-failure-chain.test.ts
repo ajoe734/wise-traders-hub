@@ -28,7 +28,7 @@ import {
   filterRenewalFailures,
   processRenewalCancellations,
   type RenewalFailureLog,
-} from '@/lib/subscriptionRenewal';
+} from '../../../supabase/functions/_shared/subscriptionRenewal';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

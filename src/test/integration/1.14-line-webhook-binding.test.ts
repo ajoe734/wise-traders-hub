@@ -25,7 +25,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { createQueryMock } from '@/test/mocks/supabase';
-import { lineWebhookVerifySignature } from '@/lib/paymentVerify';
+import { lineWebhookVerifySignature } from '../../../supabase/functions/_shared/paymentVerify';
 import { processLineBindingCode } from '@/lib/lineBindingProcessor';
 
 const EXPERT_ID = 'expert-uuid-1';

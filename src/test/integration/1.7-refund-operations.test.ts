@@ -32,7 +32,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { createQueryMock } from '@/test/mocks/supabase';
 import { cancelSubscriptionInDB } from '@/lib/cancelSubscription';
-import { processRefundInDB } from '@/lib/refundProcessor';
+import { processRefundInDB } from '../../../supabase/functions/_shared/refundProcessor';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

@@ -37,7 +37,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { createQueryMock } from '@/test/mocks/supabase';
 import { cancelSubscriptionInDB } from '@/lib/cancelSubscription';
-import { extendSubscriptionExpiry } from '@/lib/subscriptionRenewal';
+import { extendSubscriptionExpiry } from '../../../supabase/functions/_shared/subscriptionRenewal';
 
 // ── cancelSubscriptionInDB（主動取消路徑 4.3-3）────────────────────────────────
 

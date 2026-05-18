@@ -37,7 +37,7 @@ import {
   acpayExtractTxId,
   acpayRecurringExtractTxId,
   ecpayExtractTxId,
-} from '@/lib/paymentVerify';
+} from '../../../supabase/functions/_shared/paymentVerify';
 import { createQueryMock } from '../mocks/supabase';
 
 // ── 參考實作（Node.js crypto，不依賴 Web Crypto API）─────────────────────────
