@@ -14,7 +14,6 @@ return errorResponse('bad request', 400);
 ```
 Broad allow-list covers every header the web client currently sends. **Never write a `const corsHeaders = {…}` block inline.**
 
-`checkupCors.ts` is a backward-compat re-export — do not import from it in new code.
 
 ### `edgeLogger.ts` — structured logging
 ```ts
