@@ -185,39 +185,11 @@ const AdminSignals = () => {
     }
   };
 
-  const lastFetchRef = useRef<number>(0);
-  const fetchData = useCallback(async (force = false) => {
-    if (!expertSlug) return;
-    // Skip refetch if data was loaded recently (within 30s) unless forced
-    const now = Date.now();
-    if (!force && expert && lastFetchRef.current && now - lastFetchRef.current < 30_000) return;
-    // Only show loading spinner on first load (no existing data)
-    if (!expert) setLoading(true);
-    const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
-    setExpert(exp);
-    if (exp) {
-      const { signals: fetchedSignals } = await fetchAnalystSignals(supabase, exp.id);
-      setSignals(fetchedSignals);
-      const { data: openTrades } = await supabase
-        .from('trade_records')
-        .select('instrument')
-        .eq('expert_id', exp.id)
-        .eq('status', 'open');
-      setOpenInstruments(new Set((openTrades || []).map(t => t.instrument)));
-      const { data: p } = await supabase.from('expert_plans').select('id, name').eq('expert_id', exp.id).eq('is_active', true);
-      setPlans(p || []);
-      const { data: tpl } = await supabase
-        .from('expert_signal_templates' as any)
-        .select('id, title, action, reason, risk_note, strategy_note')
-        .eq('expert_id', exp.id)
-        .order('sort_order', { ascending: true });
-      setSignalTemplates((tpl as any) || []);
-    }
-    lastFetchRef.current = Date.now();
-    setLoading(false);
-  }, [expertSlug, expert]);
-
-  useEffect(() => { fetchData(); }, [expertSlug]);
+  // Data loading is fully handled by useAdminSignals (React Query, 30s staleTime).
+  // Keep a stable callable for legacy call sites that previously invoked fetchData(true).
+  const fetchData = useCallback(async (_force = false) => {
+    await refetchAdminSignals();
+  }, [refetchAdminSignals]);
 
   const handlePublish = async () => {
     if (!expert) {
