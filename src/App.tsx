@@ -28,6 +28,7 @@ import { useAttributionTracking } from "@/hooks/useAttributionTracking";
 // the Suspense fallback round-trip to remove the initial loading spinner.
 import Index from "./pages/Index";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { RouteChunkBoundary } from "./components/RouteChunkBoundary";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { PerfMetricsTracker } from "./components/PerfMetricsTracker";
@@ -163,6 +164,7 @@ const AppShell = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+          <RouteChunkBoundary>
           <AttributionTracker />
           <ScrollToTop />
           <PerfMetricsTracker />
@@ -273,6 +275,7 @@ const AppShell = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           </Suspense>
+          </RouteChunkBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </AuthProvider>
