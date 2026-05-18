@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<title>legendflow · Brand Kit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700;8..60,800;8..60,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bone:       #E7E0D6;
+    --bone-soft:  #FAFAFA;
+    --ink:        #0B120E;
+    --ink-soft:   #2F3232;
+    --iron:       #838585;
+    --cta:        #EC662D;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bone); color: var(--ink); font-family: 'Source Serif 4', serif; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.06;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-size: 240px 240px;
+  }
+  .caps { font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.24em; text-transform: uppercase; font-size: 10px; font-weight: 500; color: var(--iron); }
+  main { max-width: 1100px; margin: 0 auto; padding: 80px 40px 120px; position: relative; z-index: 1; }
+  h1 { font-size: 88px; font-weight: 700; letter-spacing: -0.04em; margin: 8px 0 4px; line-height: 0.95; }
+  h1 .dot { color: var(--cta); font-weight: 900; font-size: 0.5em; vertical-align: 0.6em; padding: 0 0.05em; }
+  .lede { font-size: 18px; line-height: 1.7; color: var(--ink-soft); max-width: 580px; font-style: italic; margin: 12px 0 0; }
+  h2 { font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--iron); margin: 80px 0 24px; border-bottom: 1px solid rgba(11,18,14,0.12); padding-bottom: 14px; }
+
+  .specimen { background: var(--bone-soft); border: 1px solid rgba(11,18,14,0.08); padding: 80px 56px; display: grid; place-items: center; margin-bottom: 16px; }
+  .specimen.dark { background: var(--ink); }
+  .specimen.cta { background: var(--cta); }
+  .specimen.tight { padding: 40px 32px; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  .wm { font-family: 'Source Serif 4', serif; font-weight: 600; letter-spacing: -0.025em; line-height: 1; }
+  .wm .d { color: var(--cta); font-size: 0.6em; vertical-align: 0.32em; font-weight: 900; padding: 0 0.08em; }
+  .dark .wm { color: var(--bone-soft); }
+  .cta-bg .wm { color: var(--bone-soft); }
+  .cta-bg .wm .d { color: var(--ink); }
+
+  .fav { display: grid; place-items: center; }
+  .fav-tile {
+    background: var(--ink); color: var(--bone-soft); border-radius: 16%;
+    display: grid; place-items: center;
+    font-family: 'Source Serif 4', serif; font-weight: 700; letter-spacing: -0.04em;
+  }
+  .fav-512 { width: 256px; height: 256px; font-size: 152px; border-radius: 60px; }
+  .fav-512 .d { color: var(--cta); font-size: 0.45em; vertical-align: 0.5em; padding: 0 4px; }
+  .fav-180 { width: 180px; height: 180px; font-size: 110px; border-radius: 42px; }
+  .fav-180 .d { color: var(--cta); font-size: 0.45em; vertical-align: 0.5em; padding: 0 3px; }
+  .fav-32  { width: 64px; height: 64px; font-size: 38px; border-radius: 14px; }
+  .fav-32 .d { color: var(--cta); font-size: 0.5em; vertical-align: 0.4em; padding: 0 1px; }
+  .fav-16  { width: 32px; height: 32px; font-size: 20px; border-radius: 7px; }
+  .fav-16 .d { color: var(--cta); }
+
+  .swatch-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .swatch { aspect-ratio: 1; border-radius: 4px; padding: 14px; display: flex; flex-direction: column; justify-content: flex-end; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.04em; }
+  .swatch .nm { font-weight: 700; color: inherit; }
+  .swatch .hex { opacity: 0.65; }
+
+  table { width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+  th, td { text-align: left; padding: 14px 12px; border-bottom: 1px solid rgba(11,18,14,0.08); }
+  th { font-size: 10px; letter-spacing: 0.18em; color: var(--iron); font-weight: 500; text-transform: uppercase; }
+  td.s { font-family: 'Source Serif 4', serif; font-size: 15px; }
+
+  .dont, .do { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 16px 0; border-bottom: 1px solid rgba(11,18,14,0.06); align-items: start; }
+  .dont .x { color: #B5402F; font-weight: 700; font-size: 18px; line-height: 1; padding-top: 1px; }
+  .do .v { color: var(--cta); font-weight: 700; font-size: 18px; line-height: 1; padding-top: 1px; }
+
+  .codeblock {
+    background: var(--ink); color: var(--bone-soft);
+    padding: 28px 32px; border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; line-height: 1.7;
+    overflow-x: auto;
+  }
+  .codeblock .key { color: #F0A145; }
+  .codeblock .str { color: #98C379; }
+  .codeblock .comment { color: var(--iron); }
+
+  .ctx-frame {
+    background: var(--bone-soft); border: 1px solid rgba(11,18,14,0.08); border-radius: 4px; overflow: hidden;
+  }
+  .ctx-topbar { padding: 14px 22px; border-bottom: 1px solid rgba(11,18,14,0.08); display: flex; align-items: center; gap: 12px; }
+  .ctx-brand-icon { width: 28px; height: 28px; background: var(--ink); color: var(--bone-soft); border-radius: 7px; display: grid; place-items: center; font-family: 'Source Serif 4', serif; font-weight: 700; font-size: 14px; }
+  .ctx-brand-icon .d { color: var(--cta); font-size: 0.6em; padding: 0 1px; }
+  .ctx-brand-text { font-family: 'Source Serif 4', serif; font-weight: 600; font-size: 15px; letter-spacing: -0.015em; }
+  .ctx-brand-text .d { color: var(--cta); font-size: 0.6em; vertical-align: 0.3em; padding: 0 2px; }
+  .ctx-body { padding: 36px 22px; }
+  .ctx-num { font-family: 'IBM Plex Mono', monospace; font-size: 64px; font-weight: 600; letter-spacing: -0.04em; color: var(--cta); font-variant-numeric: tabular-nums slashed-zero; line-height: 1; }
+  .ctx-num .sym { font-size: 0.42em; vertical-align: 0.3em; opacity: 0.55; }
+
+  .quote { font-style: italic; font-size: 22px; line-height: 1.55; color: var(--ink-soft); max-width: 720px; }
+  .quote::before { content: '"'; font-size: 1.4em; color: var(--cta); margin-right: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="caps">BRAND KIT · v1 · 2026-05-18</div>
+  <h1>legend<span class="dot">●</span>flow</h1>
+  <p class="lede">為一般大眾打造的持倉看板。讀懂市場圖例，順流而行。</p>
+
+  <!-- ─────────────────── 命名與語意 ─────────────────── -->
+  <h2>01 · 命名語意</h2>
+  <div class="row2">
+    <div>
+      <p class="quote">legend 是「傳奇」，也是金融圖表的「圖例」。flow 是「流動」，也是順勢。合起來是「能讀懂市場圖例的順流者」。</p>
+    </div>
+    <div style="font-size: 14px; line-height: 1.8; color: var(--ink-soft);">
+      <div style="border-left: 2px solid var(--cta); padding-left: 16px; margin-bottom: 14px;">
+        <div class="caps" style="color: var(--cta); margin-bottom: 4px;">PRONUNCIATION</div>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px;">/ˈledʒ.ənd.floʊ/</span>
+      </div>
+      <div style="border-left: 2px solid var(--ink); padding-left: 16px;">
+        <div class="caps" style="margin-bottom: 4px;">SPELLING</div>
+        全小寫、無空格、無連字號。<br/>
+        中間橘點是視覺裝飾、不是字元。<br/>
+        ASCII fallback: <code>legendflow</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────────── 字標 wordmark ─────────────────── -->
+  <h2>02 · 字標 · primary wordmark</h2>
+  <div class="specimen">
+    <span class="wm" style="font-size: 96px;">legend<span class="d">●</span>flow</span>
+  </div>
+  <div class="row3">
+    <div class="specimen dark tight">
+      <span class="wm" style="font-size: 48px;">legend<span class="d">●</span>flow</span>
+    </div>
+    <div class="specimen tight">
+      <span class="wm" style="font-size: 48px;">legend<span class="d">●</span>flow</span>
+    </div>
+    <div class="specimen tight cta-bg" style="background: var(--cta);">
+      <span class="wm" style="font-size: 48px;">legend<span class="d">●</span>flow</span>
+    </div>
+  </div>
+
+  <!-- ─────────────────── 字標規格 ─────────────────── -->
+  <h2>03 · 字標規格</h2>
+  <table>
+    <thead><tr><th>屬性</th><th>值</th><th>備註</th></tr></thead>
+    <tbody>
+      <tr><td>字體</td><td class="s">Source Serif 4</td><td>fallback: Noto Serif TC → Georgia → serif</td></tr>
+      <tr><td>字重</td><td>600 (SemiBold)</td><td>標準場景；800 用於海報 hero</td></tr>
+      <tr><td>大小寫</td><td>全小寫</td><td>從不大寫，從不首字大寫</td></tr>
+      <tr><td>字距 letter-spacing</td><td>−0.025em</td><td>稍微收緊，serif 標題慣例</td></tr>
+      <tr><td>橘點直徑</td><td>0.18 × 字高</td><td>實心圓 · #EC662D · 垂直置中於 x-height</td></tr>
+      <tr><td>橘點留白</td><td>左右各 0.08em</td><td>避免黏住字</td></tr>
+      <tr><td>最小可讀寬度</td><td>120px</td><td>低於此寬請改用 mark</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ─────────────────── favicon / app icon ─────────────────── -->
+  <h2>04 · 標識縮寫 · favicon</h2>
+  <p style="color: var(--ink-soft); font-size: 14px; line-height: 1.7; max-width: 640px; margin-bottom: 24px;">當空間不足以容納完整 wordmark 時，用 <b>l●f</b> 縮寫。墨黑底圓角方塊、米白字、主橘點。512 / 180 / 32 / 16 四個尺寸。</p>
+  <div class="specimen">
+    <div style="display: flex; align-items: center; gap: 56px;">
+      <div class="fav-tile fav-512">l<span class="d">●</span>f</div>
+      <div class="fav-tile fav-180">l<span class="d">●</span>f</div>
+      <div class="fav-tile fav-32">l<span class="d">●</span>f</div>
+      <div class="fav-tile fav-16"><span class="d" style="font-size: 12px;">●</span></div>
+    </div>
+  </div>
+  <p style="color: var(--iron); font-size: 11px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.12em; margin-top: 8px;">512 (PWA) · 180 (Apple touch) · 32 (favicon) · 16 (browser tab — 純橘點)</p>
+
+  <!-- ─────────────────── 色票 ─────────────────── -->
+  <h2>05 · 色票</h2>
+  <div class="swatch-row">
+    <div class="swatch" style="background: var(--cta); color: var(--bone-soft);"><div class="nm">CTA</div><div class="hex">#EC662D</div></div>
+    <div class="swatch" style="background: var(--ink); color: var(--bone-soft);"><div class="nm">INK</div><div class="hex">#0B120E</div></div>
+    <div class="swatch" style="background: var(--ink-soft); color: var(--bone-soft);"><div class="nm">INK SOFT</div><div class="hex">#2F3232</div></div>
+    <div class="swatch" style="background: var(--iron); color: var(--bone-soft);"><div class="nm">IRON</div><div class="hex">#838585</div></div>
+    <div class="swatch" style="background: var(--bone); border: 1px solid rgba(11,18,14,0.08);"><div class="nm">BONE</div><div class="hex">#E7E0D6</div></div>
+    <div class="swatch" style="background: var(--bone-soft); border: 1px solid rgba(11,18,14,0.08);"><div class="nm">BONE SOFT</div><div class="hex">#FAFAFA</div></div>
+  </div>
+
+  <!-- ─────────────────── 不要這樣用 ─────────────────── -->
+  <h2>06 · 不要這樣用</h2>
+  <div>
+    <div class="dont"><span class="x">✕</span><div><b>不要把橘點換顏色</b> · 那個橘點是品牌核心識別。如果背景是橘色，把點換成墨黑 (#0B120E)；其他場景一律 #EC662D。</div></div>
+    <div class="dont"><span class="x">✕</span><div><b>不要拆開兩個字</b> · <code>legend flow</code>（中間空格）、<code>Legend Flow</code>（大寫）、<code>legend-flow</code>（連字號）都不可。</div></div>
+    <div class="dont"><span class="x">✕</span><div><b>不要用 Helvetica / Arial / Inter 等 sans-serif</b> · 必須 serif。如果環境只有 sans，用 Source Serif 4 fallback 到 Georgia，不要落到 system-ui。</div></div>
+    <div class="dont"><span class="x">✕</span><div><b>不要加圖標、不要加箭頭、不要加 K 線</b> · 字標就是 logo，不要附加金融圖標元素。</div></div>
+    <div class="dont"><span class="x">✕</span><div><b>不要描邊</b> · serif 字本身的襯線就是質感，描邊會破壞。</div></div>
+    <div class="dont"><span class="x">✕</span><div><b>不要漸層</b> · 從來不漸層。實心色塊就是品牌。</div></div>
+  </div>
+
+  <!-- ─────────────────── 套用在 dashboard ─────────────────── -->
+  <h2>07 · 套用情境 · v2 dashboard top bar</h2>
+  <p style="color: var(--ink-soft); font-size: 14px; line-height: 1.7; max-width: 640px; margin-bottom: 24px;">既有 v2 mockup 已替換完成。Top bar 左側現在是 <b>l●f</b> 方塊 + <b>legend●flow</b> wordmark 並排。</p>
+  <div class="ctx-frame">
+    <div class="ctx-topbar">
+      <div class="ctx-brand-icon">l<span class="d">●</span>f</div>
+      <div class="ctx-brand-text">legend<span class="d">●</span>flow</div>
+      <div class="caps" style="margin-left: 8px;">v2</div>
+    </div>
+    <div class="ctx-body">
+      <div class="caps" style="margin-bottom: 14px;">今日 P&amp;L</div>
+      <div class="ctx-num"><span class="sym">$</span>+1,452</div>
+    </div>
+  </div>
+
+  <!-- ─────────────────── 給 Claude Code 的引用方式 ─────────────────── -->
+  <h2>08 · Code 引用方式</h2>
+  <p style="color: var(--ink-soft); font-size: 14px; line-height: 1.7; max-width: 640px; margin-bottom: 24px;">SVG 純檔放在 <code>brand/</code> 資料夾。React component 範例：</p>
+  <div class="codeblock">
+<span class="comment">// src/components/Brand/Logomark.jsx</span><br/>
+<span class="key">export</span> <span class="key">function</span> Logomark({ size = <span class="str">28</span> }) {<br/>
+&nbsp;&nbsp;<span class="key">return</span> (<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&lt;div style={{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;width: size, height: size,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;background: <span class="str">'var(--ink)'</span>, color: <span class="str">'var(--bone-soft)'</span>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;borderRadius: size * <span class="str">0.25</span>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;display: <span class="str">'grid'</span>, placeItems: <span class="str">'center'</span>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fontFamily: <span class="str">'Source Serif 4, serif'</span>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fontWeight: <span class="str">700</span>, fontSize: size * <span class="str">0.5</span>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;letterSpacing: <span class="str">'-0.04em'</span>, lineHeight: <span class="str">1</span>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;}}&gt;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;l&lt;span style={{ color: <span class="str">'var(--cta)'</span>, fontSize: <span class="str">'0.6em'</span> }}&gt;●&lt;/span&gt;f<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&lt;/div&gt;<br/>
+&nbsp;&nbsp;);<br/>
+}<br/>
+<br/>
+<span class="comment">// src/components/Brand/Wordmark.jsx</span><br/>
+<span class="key">export</span> <span class="key">function</span> Wordmark({ size = <span class="str">15</span> }) {<br/>
+&nbsp;&nbsp;<span class="key">return</span> (<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&lt;span style={{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fontFamily: <span class="str">'Source Serif 4, serif'</span>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fontWeight: <span class="str">600</span>, fontSize: size,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;letterSpacing: <span class="str">'-0.025em'</span>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;}}&gt;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;legend&lt;span style={{ color: <span class="str">'var(--cta)'</span>, fontSize: <span class="str">'0.6em'</span>, verticalAlign: <span class="str">'0.3em'</span>, padding: <span class="str">'0 0.08em'</span> }}&gt;●&lt;/span&gt;flow<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&lt;/span&gt;<br/>
+&nbsp;&nbsp;);<br/>
+}
+  </div>
+
+  <!-- ─────────────────── 檔案清單 ─────────────────── -->
+  <h2>09 · 檔案清單</h2>
+  <table>
+    <thead><tr><th>檔案</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td>brand/legendflow-wordmark-ink.svg</td><td>主版 · 米色背景使用</td></tr>
+      <tr><td>brand/legendflow-wordmark-bone.svg</td><td>深色版 · 墨黑背景使用</td></tr>
+      <tr><td>brand/legendflow-wordmark-cta.svg</td><td>主橘前景 · 米色 / 白色背景</td></tr>
+      <tr><td>brand/legendflow-wordmark-mono.svg</td><td>單色版 · 印刷 / 浮水印用</td></tr>
+      <tr><td>brand/legendflow-favicon-64.svg</td><td>標識方塊 · l●f 縮寫</td></tr>
+      <tr><td>brand/legendflow-favicon-16.svg</td><td>純橘點 · 16px 瀏覽器 tab</td></tr>
+      <tr><td>brand/legendflow-og-1200x630.svg</td><td>Open Graph social card</td></tr>
+      <tr><td>brand/brand-kit.html</td><td>本文件</td></tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>
