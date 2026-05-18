@@ -370,7 +370,7 @@ const Index = () => {
       </section>
 
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
-      <LazyOnVisible minHeight={700}>
+      <LazyOnVisible mode="content-visibility" minHeight={1400}>
       <section
         className="relative overflow-hidden py-20 md:py-28"
         style={{ backgroundColor: '#F5F0E6' }}
