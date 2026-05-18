@@ -103,7 +103,11 @@ export function validationResponse(fields: FieldIssue[], corsHeaders: Record<str
     .join('；');
   return new Response(
     JSON.stringify({
-      error: 'VALIDATION_ERROR',
+      code: 'INVALID_INPUT',
+      // Back-compat: legacy callers read `error` as the code string.
+      error: 'INVALID_INPUT',
+      // Older callers also relied on `error: 'VALIDATION_ERROR'` — keep an alias.
+      legacy_error: 'VALIDATION_ERROR',
       message: `參數驗證失敗：${summary}`,
       fields,
     }),
