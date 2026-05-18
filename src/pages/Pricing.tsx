@@ -93,7 +93,7 @@ const Pricing = () => {
       faction: '跟單派',
       title: '分析師下單即時line通知',
       icon: Radio,
-      price: dbPrices.follower ? dbPrices.follower.toLocaleString() : '請洽詢',
+      price: bundle?.minAdvisorPrice ? bundle.minAdvisorPrice.toLocaleString() : '請洽詢',
       painPoint: '選股還在看K線，太慢了。',
       quickChips: ['即時通知', '進出場紀錄', '策略拆解'],
       features: ['即時訊號通知', '完整進出場紀錄', '策略邏輯拆解', '戰績定期回顧'],
