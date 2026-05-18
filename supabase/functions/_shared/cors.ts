@@ -30,5 +30,8 @@ export function jsonResponse(data: unknown, init: ResponseInit = {}): Response {
 }
 
 export function errorResponse(message: string, status = 500, extra?: Record<string, unknown>): Response {
-  return jsonResponse({ error: message, ...(extra || {}) }, { status });
+  // Default to INTERNAL_ERROR; callers wanting a specific code should pass
+  // `code` in `extra` or use `codedErrorResponse` from `_shared/errorCodes.ts`.
+  const code = (extra && typeof extra.code === 'string') ? extra.code : 'INTERNAL_ERROR';
+  return jsonResponse({ code, error: code, message, ...(extra || {}) }, { status });
 }
