@@ -76,6 +76,7 @@ import {
   loadAllFromCloud,
   loadLocal,
   setCurrentUserId,
+  getCurrentUserId,
   save,
   formatResetCountdown,
   formatResetDateTime,
@@ -885,7 +886,7 @@ export default function App() {
   useEffect(() => {
     if (!(ready && holdings && !isDemo)) return;
     save("pf-holdings-v2", holdings);
-    const uid = _currentUserId;
+    const uid = getCurrentUserId();
     if (!uid) return;
     if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
     cloudHoldingsTimerRef.current = setTimeout(async () => {
@@ -908,7 +909,7 @@ export default function App() {
     return () => {
       if (cloudHoldingsTimerRef.current) clearTimeout(cloudHoldingsTimerRef.current);
     };
-  }, [holdings, ready, isDemo, _currentUserId]);
+  }, [holdings, ready, isDemo, getCurrentUserId()]);
 
   // ── Realtime：訂閱 current_prices 變化，後端 cron 寫入新價格時自動更新畫面 ──
   // 用 holdings code 字串作 deps，避免每次 reference 變動就重訂閱
@@ -956,8 +957,8 @@ export default function App() {
   const cloudTradeLogTimerRef = useRef(null);
   const cloudTradeLogErrorShownRef = useRef(false);
   const saveTradeLogToCloud = async (logs) => {
-    if (!logs || !_currentUserId) return;
-    const uid = _currentUserId;
+    if (!logs || !getCurrentUserId()) return;
+    const uid = getCurrentUserId();
     try {
       const rows = logs.map(l => ({
         ...(typeof l.id === "string" && l.id.length === 36 ? { id: l.id } : {}),
@@ -2668,7 +2669,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     setShowResetConfirm(false);
 
     // 雲端清空所有 pf-* key
-    const uid = _currentUserId;
+    const uid = getCurrentUserId();
     if (uid) {
       CLOUD_SYNC_KEYS.forEach(k => {
         const emptyVal = k === "pf-calendar-v1" ? { events: [], holdingCodes: "" }
