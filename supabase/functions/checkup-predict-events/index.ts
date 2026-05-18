@@ -547,3 +547,5 @@ ${eventsForPrompt}
     });
   }
 });
+
+Deno.serve(handler);
