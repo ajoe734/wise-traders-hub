@@ -309,228 +309,176 @@ const Index = () => {
 
       {/* 選門派 Section - VS Fighting Game Visual Scene (lazy: below-the-fold) */}
       <LazyOnVisible minHeight={700}>
-      <section className="py-24 relative overflow-hidden">
-        
+      {/* 江湖兩派 — Premium editorial / ink-wash version */}
+      <LazyOnVisible minHeight={700}>
+      <section
+        className="relative overflow-hidden py-20 md:py-28"
+        style={{
+          backgroundColor: '#F5F0E6',
+          backgroundImage:
+            "radial-gradient(circle at 20% 30%, rgba(0,0,0,0.04), transparent 55%), radial-gradient(circle at 85% 70%, rgba(0,0,0,0.05), transparent 60%), url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%222%22 stitchTiles=%22stitch%22/><feColorMatrix values=%220 0 0 0 0.06  0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0.08 0%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')",
+          backgroundBlendMode: 'multiply, multiply, normal',
+        }}
+      >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          {/* Main Title - Battle Declaration */}
-          <h2 className="text-center text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-16">
-            江湖兩派，選你的模式
-          </h2>
-
-          {/* VS Battle Arena - Mobile: Carousel, Desktop: side by side */}
-          <Suspense fallback={null}><MobileVsCarousel /></Suspense>
-          
-          {/* Desktop Layout - side by side */}
-          <div className="hidden md:flex vs-arena relative items-center justify-center gap-10">
-            
-            {/* Left Fighter - 跟單派 (Red frame) */}
-            <div className="vs-card vs-card-left w-[40%] relative cursor-pointer transition-all duration-500">
-              {/* Card Frame - red border & glow */}
-              <div 
-                className="relative p-[6px] rounded-lg"
-                style={{ 
-                  background: 'linear-gradient(135deg, rgba(239,68,68,0.9) 0%, rgba(180,40,40,0.7) 100%)',
-                  boxShadow: 'inset 0 0 2px rgba(255,255,255,0.4)'
-                }}
-              >
-                {/* Card Body - dark background */}
-                <div 
-                  className="relative overflow-hidden w-full rounded-md"
-                  style={{ 
-                    minHeight: '340px',
-                    backgroundColor: '#1a1a1a'
-                  }}
-                >
-                  {/* Health Bar - KOF style parallelogram */}
-                  <div 
-                    className="absolute left-4 right-4 z-20"
-                    style={{ 
-                      top: '16px',
-                      height: '32px',
-                      padding: '4px',
-                      background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-                      clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
-                    }}
-                  >
-                    <div 
-                      className="hp-bar-red"
-                      style={{ 
-                        width: '100%',
-                        height: '100%',
-                        background: 'linear-gradient(180deg, #ff4444 0%, #ee0000 40%, #cc0000 70%, #990000 100%)',
-                        boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
-                        clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
-                        position: 'relative'
-                      }}
-                    >
-                      <div style={{ 
-                        position: 'absolute',
-                        top: '3px',
-                        left: '16px',
-                        right: '16px',
-                        height: '5px',
-                        background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,150,150,0.3))',
-                        clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
-                      }} />
-                    </div>
-                  </div>
-                  <div 
-                    className="hp-glow-red absolute left-4 right-4 z-10 pointer-events-none"
-                    style={{ 
-                      top: '16px',
-                      height: '32px',
-                      background: 'rgba(255, 0, 0, 0.5)',
-                      filter: 'blur(12px)',
-                      clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
-                    }}
-                  />
-                  
-                  <div 
-                    className="absolute inset-0 bg-cover transition-all duration-500"
-                    style={{ 
-                      backgroundImage: `url(${cardKungfuSpeed})`,
-                      backgroundPosition: 'center right',
-                      filter: 'brightness(1.2) contrast(1.1)'
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/20" />
-                  
-                  <div 
-                    className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-start text-left"
-                    style={{ minHeight: '340px' }}
-                  >
-                    <p 
-                      className="text-3xl lg:text-4xl text-white mb-4 text-left w-full"
-                      style={{ fontFamily: '"Longyin Brush", cursive' }}
-                    >
-                      跟單派
-                    </p>
-                    <p className="text-white/70 text-lg italic mb-8 text-left">
-                      「天下武功，唯快不破」
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Center VS - Desktop: Calligraphy Brush Mark */}
-            <div className="flex items-center justify-center select-none pointer-events-none shrink-0 relative">
-              <div 
-                className="absolute inset-0 blur-2xl"
-                style={{
-                  background: 'radial-gradient(circle, rgba(255,100,100,0.4) 0%, rgba(100,150,255,0.4) 100%)',
-                  animation: 'vsGlowPulse 2s ease-in-out infinite'
-                }} 
-              />
-              <VsBrushMark 
-                className="w-36 h-36 lg:w-40 lg:h-40" 
-                title="VS" 
-                style={{ animation: 'vsPulse 2s ease-in-out infinite' }}
-              />
-            </div>
-
-            {/* Right Fighter - 修煉派 (Blue frame) */}
-            <div className="vs-card vs-card-right w-[40%] relative cursor-pointer transition-all duration-500">
-              {/* Card Frame - blue border & glow */}
-              <div 
-                className="relative p-[6px] rounded-lg"
-                style={{ 
-                  background: 'linear-gradient(135deg, rgba(59,130,246,0.9) 0%, rgba(40,80,180,0.7) 100%)',
-                  boxShadow: 'inset 0 0 2px rgba(255,255,255,0.4)'
-                }}
-              >
-                {/* Card Body - dark background */}
-                <div 
-                  className="relative overflow-hidden w-full rounded-md"
-                  style={{ 
-                    minHeight: '340px',
-                    backgroundColor: '#1a1a1a'
-                  }}
-                >
-                  {/* Health Bar - KOF style parallelogram */}
-                  <div 
-                    className="absolute left-4 right-4 z-20"
-                    style={{ 
-                      top: '16px',
-                      height: '32px',
-                      padding: '4px',
-                      background: 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 50%, #0a0a0a 100%)',
-                      clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.6)'
-                    }}
-                  >
-                    <div 
-                      className="hp-bar-blue"
-                      style={{ 
-                        width: '100%',
-                        height: '100%',
-                        background: 'linear-gradient(180deg, #44aaff 0%, #0088ee 40%, #0066cc 70%, #004499 100%)',
-                        boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4)',
-                        clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
-                        position: 'relative'
-                      }}
-                    >
-                      <div style={{ 
-                        position: 'absolute',
-                        top: '3px',
-                        left: '16px',
-                        right: '16px',
-                        height: '5px',
-                        background: 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(150,200,255,0.3))',
-                        clipPath: 'polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%)'
-                      }} />
-                    </div>
-                  </div>
-                  <div 
-                    className="hp-glow-blue absolute left-4 right-4 z-10 pointer-events-none"
-                    style={{ 
-                      top: '16px',
-                      height: '32px',
-                      background: 'rgba(0, 136, 255, 0.5)',
-                      filter: 'blur(12px)',
-                      clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)'
-                    }}
-                  />
-                  
-                  <div 
-                    className="absolute inset-0 bg-cover transition-all duration-500"
-                    style={{ 
-                      backgroundImage: `url(${cardKungfuBones})`,
-                      backgroundPosition: 'center left',
-                      filter: 'brightness(1.2) contrast(1.1)'
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-l from-black/80 via-black/40 to-black/20" />
-                  
-                  <div 
-                    className="relative z-10 p-8 pb-10 flex flex-col h-full justify-end items-end text-right"
-                    style={{ minHeight: '340px' }}
-                  >
-                    <p 
-                      className="text-3xl lg:text-4xl text-white mb-4 text-right w-full"
-                      style={{ fontFamily: '"Longyin Brush", cursive' }}
-                    >
-                      修煉派
-                    </p>
-                    <p className="text-white/70 text-lg italic mb-8 text-right">
-                      「看你骨骼精奇，是個練武奇才」
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* Eyebrow + Title */}
+          <div className="text-center mb-12 md:mb-16">
+            <p
+              className="text-sm md:text-base tracking-[0.4em] mb-4"
+              style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
+            >
+              江湖兩派
+            </p>
+            <h2
+              className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4"
+              style={{ color: '#171717', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
+            >
+              選你的模式
+            </h2>
+            <p className="text-base md:text-lg" style={{ color: 'rgba(23,23,23,0.65)' }}>
+              不同的投資哲學，同樣的致勝之道
+            </p>
           </div>
-          
+
+          {/* Two-card grid */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 md:gap-4 items-stretch">
+            {/* Left — 跟單派 */}
+            <Link
+              to="/experts?role=advisor"
+              className="jianghu-card group relative block overflow-hidden rounded-2xl"
+              style={{
+                minHeight: '460px',
+                border: '1px solid rgba(23,23,23,0.12)',
+                backgroundColor: '#1a1a1a',
+              }}
+            >
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                style={{ backgroundImage: `url(${jianghuFollowBg})` }}
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.85) 100%)',
+                }}
+              />
+              <div className="relative z-10 flex h-full flex-col justify-end p-7 md:p-9" style={{ minHeight: '460px' }}>
+                <img
+                  src={iconLightningCircle}
+                  alt=""
+                  className="w-14 h-14 md:w-16 md:h-16 mb-5"
+                  loading="lazy"
+                />
+                <h3
+                  className="text-3xl md:text-4xl font-bold text-white mb-3"
+                  style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.08em' }}
+                >
+                  跟單派
+                </h3>
+                <p className="text-base md:text-lg mb-3" style={{ color: '#EC662D' }}>
+                  跟隨高手，即刻出擊
+                </p>
+                <p className="text-sm md:text-base text-white/80 leading-relaxed mb-6">
+                  接收即時交易訊號，跟隨專業分析師的腳步，捕捉市場機會，追求穩定收益。
+                </p>
+                <span
+                  className="inline-flex items-center gap-2 text-sm md:text-base font-medium"
+                  style={{ color: '#EC662D' }}
+                >
+                  了解更多
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </span>
+              </div>
+            </Link>
+
+            {/* Divider — desktop only */}
+            <div className="hidden md:flex items-center justify-center px-2">
+              <img
+                src={dividerChoosePath}
+                alt="選擇你的路"
+                className="h-[360px] w-auto opacity-90"
+                loading="lazy"
+              />
+            </div>
+
+            {/* Mobile divider */}
+            <div className="md:hidden flex items-center justify-center py-2">
+              <div className="flex items-center gap-3 text-xs tracking-[0.4em]" style={{ color: '#EC662D' }}>
+                <span className="h-px w-10" style={{ backgroundColor: 'rgba(23,23,23,0.2)' }} />
+                選擇你的路
+                <span className="h-px w-10" style={{ backgroundColor: 'rgba(23,23,23,0.2)' }} />
+              </div>
+            </div>
+
+            {/* Right — 修煉派 */}
+            <Link
+              to="/experts?role=mentor"
+              className="jianghu-card group relative block overflow-hidden rounded-2xl"
+              style={{
+                minHeight: '460px',
+                border: '1px solid rgba(23,23,23,0.12)',
+                backgroundColor: '#1a1a1a',
+              }}
+            >
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                style={{ backgroundImage: `url(${jianghuStudyBg})` }}
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.85) 100%)',
+                }}
+              />
+              <div className="relative z-10 flex h-full flex-col justify-end p-7 md:p-9" style={{ minHeight: '460px' }}>
+                <img
+                  src={iconBookCircle}
+                  alt=""
+                  className="w-14 h-14 md:w-16 md:h-16 mb-5"
+                  loading="lazy"
+                />
+                <h3
+                  className="text-3xl md:text-4xl font-bold text-white mb-3"
+                  style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.08em' }}
+                >
+                  修煉派
+                </h3>
+                <p className="text-base md:text-lg mb-3" style={{ color: '#EC662D' }}>
+                  修煉內功，掌控全局
+                </p>
+                <p className="text-sm md:text-base text-white/80 leading-relaxed mb-6">
+                  學習專業投資框架，深入市場分析邏輯，培養獨立思考能力，成為市場贏家。
+                </p>
+                <span
+                  className="inline-flex items-center gap-2 text-sm md:text-base font-medium"
+                  style={{ color: '#EC662D' }}
+                >
+                  了解更多
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </span>
+              </div>
+            </Link>
+          </div>
+
+          {/* Footnote */}
+          <p
+            className="text-center mt-10 text-sm md:text-base"
+            style={{ color: 'rgba(23,23,23,0.6)' }}
+          >
+            兩派會員皆可享有 <span style={{ color: '#EC662D', fontWeight: 600 }}>legendflow</span> 完整生態系統服務
+          </p>
         </div>
-        
-        {/* Unified Scroll Down Indicator */}
-        <div className="flex flex-col items-center py-8 md:py-12">
+
+        {/* Scroll Down Indicator */}
+        <div className="flex flex-col items-center pt-12">
           <button
             onClick={() => {
               document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer"
+            className="flex flex-col items-center gap-2 transition-colors group cursor-pointer"
+            style={{ color: 'rgba(23,23,23,0.55)' }}
           >
             <span className="text-sm">往下看會員畫面</span>
             <div className="flex flex-col items-center animate-bounce">
@@ -542,91 +490,18 @@ const Index = () => {
         </div>
       </section>
       </LazyOnVisible>
-      
-      {/* VS Animation Keyframes + Hover Battle Effect */}
+
       <style>{`
-        @keyframes vsSlideInLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-50px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+        .jianghu-card {
+          transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
         }
-        @keyframes vsSlideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(50px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        
-        /* HP bar pulse animation */
-        @keyframes hpPulseRed {
-          0%, 100% {
-            box-shadow: inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4);
-          }
-          50% {
-            box-shadow: inset 0 3px 0 rgba(255,255,255,0.8), inset 0 -2px 4px rgba(0,0,0,0.4), 0 0 8px rgba(255,0,0,0.6);
-          }
-        }
-        @keyframes hpPulseBlue {
-          0%, 100% {
-            box-shadow: inset 0 3px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.4);
-          }
-          50% {
-            box-shadow: inset 0 3px 0 rgba(255,255,255,0.8), inset 0 -2px 4px rgba(0,0,0,0.4), 0 0 8px rgba(0,136,255,0.6);
-          }
-        }
-        @keyframes glowPulse {
-          0%, 100% {
-            opacity: 0.6;
-          }
-          50% {
-            opacity: 1;
-          }
-        }
-        
-        .hp-bar-red {
-          animation: hpPulseRed 2s ease-in-out infinite;
-        }
-        .hp-bar-blue {
-          animation: hpPulseBlue 2s ease-in-out infinite;
-        }
-        .hp-glow-red, .hp-glow-blue {
-          animation: glowPulse 2s ease-in-out infinite;
-        }
-        
-        /* Battle hover effect - when one card is hovered, the other dims and shrinks */
-        .vs-card {
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .vs-card:hover {
-          z-index: 20;
-          transform: scale(1.03);
-          filter: brightness(1.15);
-        }
-        
-        /* When left card is hovered, right card dims */
-        .vs-arena:has(.vs-card-left:hover) .vs-card-right {
-          transform: scale(0.96);
-          filter: brightness(0.7);
-          opacity: 0.85;
-        }
-        
-        /* When right card is hovered, left card dims */
-        .vs-arena:has(.vs-card-right:hover) .vs-card-left {
-          transform: scale(0.96);
-          filter: brightness(0.7);
-          opacity: 0.85;
+        .jianghu-card:hover {
+          transform: translateY(-6px);
+          border-color: rgba(236,102,45,0.55) !important;
+          box-shadow: 0 20px 40px -20px rgba(236,102,45,0.35), 0 0 0 1px rgba(236,102,45,0.3);
         }
       `}</style>
+
 
       {/* Real Interface Preview Section */}
       <LazyOnVisible minHeight={600}>
