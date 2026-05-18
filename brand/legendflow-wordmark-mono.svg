@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 180" role="img" aria-label="legendflow">
-  <text x="40" y="148" font-family="'Source Serif 4','Noto Serif TC',Georgia,serif" font-weight="600" font-size="120" letter-spacing="-3.5" fill="currentColor">legend</text>
-  <circle cx="378.5" cy="106" r="12" fill="currentColor"/>
-  <text x="402.5" y="148" font-family="'Source Serif 4','Noto Serif TC',Georgia,serif" font-weight="600" font-size="120" letter-spacing="-3.5" fill="currentColor">flow</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 160" role="img" aria-label="legendflow">
+  
+  <text x="0" y="120" font-size="140" fill="#0B120E">legend</text>
+  <circle cx="412" cy="76" r="14" fill="#0B120E"></circle>
+  <text x="440" y="120" font-size="140" fill="#0B120E">flow</text>
 </svg>
