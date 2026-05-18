@@ -149,12 +149,14 @@ async function verify(fn: string): Promise<Row> {
     })),
   ]);
   const preflightOk = (preflight.status === 200 || preflight.status === 204) && preflight.cors;
-  const invalidOk =
-    invalid.status > 0 &&
-    invalid.cors &&
-    invalid.cidOk &&
-    // either it parsed a known code, OR it returned a non-JSON callback body (e.g. ecpay text)
-    (invalid.code === null ? !invalid.contentType.includes("application/json") : invalid.codeKnown);
+  // Invalid POST contract:
+  //  - 2xx: function legitimately accepts any body (cron / callback). OK as long as CORS + cid present.
+  //  - 4xx/5xx JSON: must expose a known `code`.
+  //  - non-JSON (e.g. text callback): OK as long as CORS + cid present.
+  let invalidOk = invalid.status > 0 && invalid.cors && invalid.cidOk;
+  if (invalidOk && invalid.status >= 400 && invalid.contentType.includes("application/json")) {
+    invalidOk = invalid.codeKnown;
+  }
   return { fn, preflight, invalid, ok: preflightOk && invalidOk };
 }
 
