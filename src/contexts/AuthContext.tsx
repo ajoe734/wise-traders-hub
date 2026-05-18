@@ -96,11 +96,14 @@ interface AuthUser {
   lineUserId: string | null;
 }
 
-interface AuthContextType {
+interface AuthStateValue {
   user: AuthUser | null;
   supabaseUser: SupabaseUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+}
+
+interface AuthActionsValue {
   hasRole: (role: AppRole) => boolean;
   refreshProfile: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -110,8 +113,16 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-AuthContext.displayName = 'AuthContext';
+type AuthContextType = AuthStateValue & AuthActionsValue;
+
+// Split contexts: state changes on auth events (login/logout/token refresh) and
+// re-renders all subscribers; actions are stable refs so action-only consumers
+// (forms, buttons) never re-render on token refresh. `useAuth()` keeps the
+// merged shape for backward compatibility.
+const AuthStateContext = createContext<AuthStateValue | undefined>(undefined);
+const AuthActionsContext = createContext<AuthActionsValue | undefined>(undefined);
+AuthStateContext.displayName = 'AuthStateContext';
+AuthActionsContext.displayName = 'AuthActionsContext';
 
 async function fetchUserProfile(userId: string, email: string): Promise<AuthUser> {
   const [profileRes, rolesRes] = await Promise.all([
