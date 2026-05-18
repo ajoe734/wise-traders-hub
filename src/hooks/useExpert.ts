@@ -271,7 +271,7 @@ export function useExpertDetailBundle(slug: string | undefined) {
 
       return { expert, subscriberCount: count, mySubscribedPlanIds: mine };
     },
-    enabled: !!slug && !isAuthLoading,
+    enabled: !!slug,
     staleTime: EXPERT_STALE_MS,
     retry: expertRetry,
     retryDelay: expertRetryDelay,
