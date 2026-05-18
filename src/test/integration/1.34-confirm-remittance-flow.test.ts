@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { writeRevenueSplit, recordPaymentForExistingSubscription } from '@/lib/paymentProcessor';
+import { writeRevenueSplit, recordPaymentForExistingSubscription } from '../../../supabase/functions/_shared/paymentProcessor';
 import { createQueryMock } from '../mocks/supabase';
 
 function buildSupabase(tables: Record<string, { data: unknown; error: unknown }>) {

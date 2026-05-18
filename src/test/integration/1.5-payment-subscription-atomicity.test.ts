@@ -23,7 +23,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription } from '@/lib/paymentProcessor';
+import { createSubscriptionAndTransaction, recordPaymentForExistingSubscription } from '../../../supabase/functions/_shared/paymentProcessor';
 import { createQueryMock } from '../mocks/supabase';
 
 // ── Mock 工具：依資料表名稱回傳不同 queryMock ──────────────────────────────────
