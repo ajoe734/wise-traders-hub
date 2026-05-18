@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CreditCard, Loader2, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { User } from '@supabase/supabase-js';
+
 
 interface PaymentProvider {
   id: string;
@@ -21,7 +21,7 @@ interface OrderSummaryCardProps {
   crossDiscount: number;
   upgradeCredit: number;
   formatPrice: (p: number) => string;
-  user: User | null;
+  user: { id: string } | null;
   isAdvisor: boolean;
   isProcessing: boolean;
   alreadySubscribed: boolean;
