@@ -710,314 +710,54 @@ const Checkout = () => {
           <div className="grid md:grid-cols-5 gap-8">
             {/* Left: Order Summary */}
             <div className="md:col-span-3 space-y-6">
-              {/* Expert + Plan Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">訂閱內容</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={avatarUrl(expert.avatar_url, 112)}
-                      alt={expert.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="shrink-0 h-14 w-14 rounded-xl object-cover object-[center_15%]"
-                    />
-                    <div>
-                      <span className="font-semibold">{expert.name}</span>
-                      <p className="text-sm text-muted-foreground">{plan.name}</p>
-                    </div>
-                  </div>
+              <PlanInfoCard
+                plan={plan}
+                expert={expert}
+                isAdvisor={isAdvisor}
+                billingCycle={billingCycle}
+                setBillingCycle={setBillingCycle}
+                getPlanFeatures={getPlanFeatures}
+                formatPrice={formatPrice}
+              />
 
-                  <div className={cn(
-                    "p-4 rounded-lg border-2",
-                    isAdvisor ? "border-advisor/20 bg-advisor-light/30" : "border-mentor/20 bg-mentor-light/30"
-                  )}>
-                    <h3 className="font-semibold mb-2">{plan.name}</h3>
-                    {plan.description && (
-                      <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
-                    )}
-                    <ul className="space-y-2">
-                      {(Array.isArray(plan.features) && (plan.features as any[]).filter((f: any) => typeof f === 'string' && f.trim()).length > 0
-                        ? (plan.features as string[]).filter((f) => typeof f === 'string' && f.trim())
-                        : getPlanFeatures(plan.plan_type)
-                      ).map((feature, idx) => (
-                        <li key={idx} className="flex items-center gap-2 text-sm">
-                          <CheckCircle className={cn(
-                            "h-4 w-4",
-                            isAdvisor ? "text-advisor" : "text-mentor"
-                          )} />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Billing Cycle */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">選擇付款週期</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      onClick={() => setBillingCycle('monthly')}
-                      className={cn(
-                        "p-4 rounded-lg border-2 text-left transition-colors",
-                        billingCycle === 'monthly'
-                          ? isAdvisor ? "border-primary bg-primary/5" : "border-mentor bg-mentor-light/30"
-                          : isAdvisor ? "border-border hover:border-primary/50" : "border-border hover:border-mentor/50"
-                      )}
-                    >
-                      <p className="font-semibold">月繳</p>
-                      <p className="text-2xl font-bold mt-1">NT$ {formatPrice(plan.price_monthly)}</p>
-                      <p className="text-sm text-muted-foreground">每月</p>
-                    </button>
-                    <button
-                      disabled
-                      className={cn(
-                        "p-4 rounded-lg border-2 text-left transition-colors relative",
-                        "border-border opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      {plan.price_yearly && (
-                        <Badge variant="secondary" className="absolute -top-2 -right-2 rotate-12">
-                          省 {Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100)}%
-                        </Badge>
-                      )}
-                      <p className="font-semibold">年繳</p>
-                      <p className="text-2xl font-bold mt-1">
-                        NT$ {formatPrice(plan.price_yearly || plan.price_monthly * 12)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">尚未開放</p>
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Payment Method Selection */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">選擇付款方式</CardTitle>
-                  <p className="text-xs text-muted-foreground">🧪 目前為沙盒測試模式</p>
-                </CardHeader>
-                <CardContent>
-                  {providers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">尚未設定可用的付款方式</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {providers.map(provider => (
-                        <button
-                          key={provider.id}
-                          onClick={() => setSelectedProvider(provider.id)}
-                          className={cn(
-                            "w-full flex items-center gap-4 p-4 rounded-lg border-2 text-left transition-colors",
-                            selectedProvider === provider.id
-                              ? isAdvisor ? "border-primary bg-primary/5" : "border-mentor bg-mentor-light/30"
-                              : isAdvisor ? "border-border hover:border-primary/50" : "border-border hover:border-mentor/50"
-                          )}
-                        >
-                          <span className="text-2xl">{getProviderIcon(provider.provider_type)}</span>
-                          <div className="flex-1">
-                            <p className="font-semibold">{provider.display_name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {provider.provider_type === 'acpay' && '信用卡付款'}
-                              {provider.provider_type === 'ecpay' && '信用卡'}
-                              {provider.provider_type === 'line_pay' && 'LINE Pay 行動支付'}
-                              {provider.provider_type === 'newebpay' && '信用卡 / WebATM'}
-                            </p>
-                          </div>
-                          <div className={cn(
-                            "w-5 h-5 rounded-full border-2 flex items-center justify-center",
-                            selectedProvider === provider.id
-                              ? isAdvisor ? "border-primary bg-primary" : "border-mentor bg-mentor"
-                              : "border-muted-foreground/30"
-                          )}>
-                            {selectedProvider === provider.id && (
-                              <Check className="h-3 w-3 text-primary-foreground" />
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* ACpay card fields — shown when ACpay is selected */}
-              {isAcpay && (
-                <Card>
-                  <CardContent className="p-6 space-y-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CreditCard className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="text-sm font-medium">信用卡資訊</h3>
-                    </div>
-
-                    {/* ACpay SDK renders card input fields here */}
-                    <div ref={acpayCardRef} className="space-y-3">
-                      <div>
-                        <Label htmlFor="portal-acpay-card-number" className="text-xs text-muted-foreground">卡號</Label>
-                        <div id="portal-acpay-card-number" className="h-10 border rounded-md border-input bg-background px-3 py-2" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label htmlFor="portal-acpay-expiry" className="text-xs text-muted-foreground">有效日期</Label>
-                          <div id="portal-acpay-expiry" className="h-10 border rounded-md border-input bg-background px-3 py-2" />
-                        </div>
-                        <div>
-                          <Label htmlFor="portal-acpay-ccv" className="text-xs text-muted-foreground">安全碼</Label>
-                          <div id="portal-acpay-ccv" className="h-10 border rounded-md border-input bg-background px-3 py-2" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border-t pt-4 space-y-3">
-                      <h4 className="text-xs font-medium text-muted-foreground">持卡人資訊</h4>
-                      <div>
-                        <Label htmlFor="portal-card-holder-name" className="text-xs text-muted-foreground">英文姓名（如卡片上所示）</Label>
-                        <Input
-                          id="portal-card-holder-name"
-                          value={cardHolderName}
-                          onChange={(e) => { setCardHolderName(e.target.value); setCardFieldErrors(prev => ({ ...prev, name: undefined })); }}
-                          placeholder="WANG DA MING"
-                          className={`mt-1 ${cardFieldErrors.name ? 'border-destructive' : ''}`}
-                        />
-                        {cardFieldErrors.name && <p className="text-xs text-destructive mt-1">{cardFieldErrors.name}</p>}
-                      </div>
-                      <div>
-                        <Label htmlFor="portal-card-holder-email" className="text-xs text-muted-foreground">電子郵件</Label>
-                        <Input
-                          id="portal-card-holder-email"
-                          type="email"
-                          value={cardHolderEmail}
-                          onChange={(e) => { setCardHolderEmail(e.target.value); setCardFieldErrors(prev => ({ ...prev, email: undefined })); }}
-                          placeholder="example@mail.com"
-                          className={`mt-1 ${cardFieldErrors.email ? 'border-destructive' : ''}`}
-                        />
-                        {cardFieldErrors.email && <p className="text-xs text-destructive mt-1">{cardFieldErrors.email}</p>}
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <Label htmlFor="portal-country-code" className="text-xs text-muted-foreground">國碼</Label>
-                          <Input
-                            id="portal-country-code"
-                            value={countryCode}
-                            onChange={(e) => setCountryCode(e.target.value)}
-                            placeholder="886"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Label htmlFor="portal-card-holder-phone" className="text-xs text-muted-foreground">手機號碼（去掉前綴 0）</Label>
-                          <Input
-                            id="portal-card-holder-phone"
-                            value={cardHolderPhone}
-                            onChange={(e) => { setCardHolderPhone(e.target.value); setCardFieldErrors(prev => ({ ...prev, phone: undefined })); }}
-                            placeholder="912345678"
-                            className={`mt-1 ${cardFieldErrors.phone ? 'border-destructive' : ''}`}
-                          />
-                          {cardFieldErrors.phone && <p className="text-xs text-destructive mt-1">{cardFieldErrors.phone}</p>}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              <PaymentMethodPicker
+                providers={providers}
+                selectedProvider={selectedProvider}
+                setSelectedProvider={setSelectedProvider}
+                isAdvisor={isAdvisor}
+                isAcpay={isAcpay}
+                acpayCardRef={acpayCardRef}
+                cardHolderName={cardHolderName}
+                setCardHolderName={setCardHolderName}
+                cardHolderEmail={cardHolderEmail}
+                setCardHolderEmail={setCardHolderEmail}
+                cardHolderPhone={cardHolderPhone}
+                setCardHolderPhone={setCardHolderPhone}
+                countryCode={countryCode}
+                setCountryCode={setCountryCode}
+                cardFieldErrors={cardFieldErrors}
+                setCardFieldErrors={setCardFieldErrors}
+              />
             </div>
 
             {/* Right: Payment Summary */}
             <div className="md:col-span-2">
-              <Card className="sticky top-24">
-                <CardHeader>
-                  <CardTitle className="text-lg">付款摘要</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">方案</span>
-                    <span>{plan.name}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">週期</span>
-                    <span>{billingCycle === 'monthly' ? '月繳' : '年繳'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">付款方式</span>
-                    <span>{providers.find(p => p.id === selectedProvider)?.display_name || '-'}</span>
-                  </div>
-                  <div className="border-t pt-4 space-y-2">
-                    {(crossDiscount > 0 || upgradeCredit > 0) && (
-                      <>
-                        <div className="flex justify-between text-sm text-muted-foreground">
-                          <span>原價</span>
-                          <span>NT$ {formatPrice(basePrice)}</span>
-                        </div>
-                        {crossDiscount > 0 && (
-                          <div className="flex justify-between text-sm text-primary">
-                            <span>跨產品折扣</span>
-                            <span>- NT$ {formatPrice(crossDiscount)}</span>
-                          </div>
-                        )}
-                        {upgradeCredit > 0 && (
-                          <div className="flex justify-between text-sm text-primary">
-                            <span>月升年抵扣</span>
-                            <span>- NT$ {formatPrice(upgradeCredit)}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    <div className="flex justify-between font-semibold">
-                      <span>總計</span>
-                      <span>NT$ {formatPrice(price)}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      單次扣款，效期 {billingCycle === 'monthly' ? '1 個月' : '1 年'}，到期需手動續訂
-                    </p>
-                  </div>
-
-                  <Badge variant="outline" className="w-full justify-center py-1">
-                    🧪 沙盒測試模式 — 不會實際扣款
-                  </Badge>
-
-                  {user ? (
-                    <Button
-                      className={cn("w-full", !isAdvisor && "bg-mentor hover:bg-mentor-dark")}
-                      size="lg"
-                      onClick={handleCheckout}
-                      disabled={isProcessing || alreadySubscribed || !selectedProvider}
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          處理中...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="h-4 w-4 mr-2" />
-                          確認付款（沙盒）
-                        </>
-                      )}
-                    </Button>
-                  ) : (
-                    <Button className={cn("w-full", !isAdvisor && "bg-mentor hover:bg-mentor/90 text-white")} size="lg" asChild>
-                      <Link to="/auth/login">登入後付款</Link>
-                    </Button>
-                  )}
-
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Shield className="h-3.5 w-3.5" />
-                    <span>SSL 加密安全付款</span>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground">
-                    點擊「確認付款」即表示您同意我們的{' '}
-                    <Link to="/legal" className="underline">服務條款</Link>。
-                    訂閱可隨時取消。
-                  </p>
-                </CardContent>
-              </Card>
+              <OrderSummaryCard
+                plan={plan}
+                providers={providers}
+                selectedProvider={selectedProvider}
+                billingCycle={billingCycle}
+                basePrice={basePrice}
+                price={price}
+                crossDiscount={crossDiscount}
+                upgradeCredit={upgradeCredit}
+                formatPrice={formatPrice}
+                user={user}
+                isAdvisor={isAdvisor}
+                isProcessing={isProcessing}
+                alreadySubscribed={alreadySubscribed}
+                onCheckout={handleCheckout}
+              />
             </div>
           </div>
 
