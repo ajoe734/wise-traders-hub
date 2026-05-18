@@ -27,7 +27,7 @@ const handler = withLogging("create-checkup-ecpay-order", async (req, log) => {
     originalAmount, discountAmount, discountReason, attribution } = body;
 
   if (!checkupPlanId || !billingCycle || !amount || !origin || !userId) {
-    return jsonResponse({ error: "Missing required fields" }, { status: 400 });
+    return codedErrorResponse("INVALID_INPUT", "缺少必填欄位：checkupPlanId / billingCycle / amount / origin / userId");
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -35,12 +35,12 @@ const handler = withLogging("create-checkup-ecpay-order", async (req, log) => {
   const { data: plan } = await supabase
     .from("checkup_plans").select("price_monthly, price_yearly, is_active")
     .eq("id", checkupPlanId).maybeSingle();
-  if (!plan || !plan.is_active) return jsonResponse({ error: "Plan not found" }, { status: 404 });
+  if (!plan || !plan.is_active) return codedErrorResponse("NOT_FOUND", "方案不存在或已停用");
 
   const expected = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
   const expectedFinal = Number(expected) - Number(discountAmount || 0);
   if (Number(amount) !== expectedFinal) {
-    return jsonResponse({ error: "Amount mismatch" }, { status: 400 });
+    return codedErrorResponse("INVALID_INPUT", "金額不符");
   }
 
   const creds = await loadEcpayCreds(supabase);
