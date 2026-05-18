@@ -107,7 +107,7 @@ const Pricing = () => {
       faction: '修煉派',
       title: '每週交易紀錄與心法公開',
       icon: BookOpen,
-      price: dbPrices.cultivator ? dbPrices.cultivator.toLocaleString() : '請洽詢',
+      price: bundle?.minMentorPrice ? bundle.minMentorPrice.toLocaleString() : '請洽詢',
       painPoint: '給我全部，練出自己的投資秘笈',
       quickChips: ['每週復盤', '決策依據', '框架整理'],
       features: ['上週決策復盤', '出手依據拆解', '避雷交易紀律', '框架筆記整理'],
