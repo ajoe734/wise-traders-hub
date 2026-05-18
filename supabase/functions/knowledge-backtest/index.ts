@@ -14,15 +14,9 @@
 //   - checkup_knowledge_items: 更新 win_rate / sample_size / backtest_stats
 //   - knowledge_grid_search_results: 網格每格結果（grid_search mode）
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts'
+import { withLogging } from '../_shared/edgeLogger.ts'
+import { serviceClient } from '../_shared/supabaseClients.ts'
 
 // ---- 型別 ----
 interface PriceRow {
