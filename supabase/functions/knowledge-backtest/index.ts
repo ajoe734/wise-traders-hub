@@ -434,8 +434,7 @@ Deno.serve(withLogging('knowledge-backtest', async (req, log) => {
       if (error) throw error
       items = (data ?? []) as KnowledgeItem[]
     } else {
-      if (!itemId) return new Response(JSON.stringify({ ok: false, error: 'item_id required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (!itemId) return errorResponse('item_id required', 400, { ok: false })
       const { data, error } = await sb
         .from('checkup_knowledge_items')
         .select('id,item_id,trigger_condition,expected_outcome,confidence')
