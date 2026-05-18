@@ -86,6 +86,8 @@ const Index = () => {
           muted
           playsInline
           preload="none"
+          width={1920}
+          height={1080}
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover animate-fade-in"
           style={{ animationDuration: '1.5s', objectPosition: 'center center' }}
@@ -370,7 +372,7 @@ const Index = () => {
       </section>
 
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
-      <LazyOnVisible minHeight={700}>
+      <LazyOnVisible mode="content-visibility" minHeight={1400}>
       <section
         className="relative overflow-hidden py-20 md:py-28"
         style={{ backgroundColor: '#F5F0E6' }}
@@ -599,7 +601,7 @@ const Index = () => {
 
 
       {/* Real Interface Preview Section */}
-      <LazyOnVisible minHeight={600}>
+      <LazyOnVisible minHeight={1000}>
       <section id="preview-section" className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
@@ -808,7 +810,7 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* Stock Dashboard Section - 持股看板（紫色主視覺） */}
-      <LazyOnVisible minHeight={500}>
+      <LazyOnVisible mode="content-visibility" minHeight={900}>
       <section className="py-section bg-background">
         <div className="container">
           <div className="max-w-6xl mx-auto">
@@ -893,7 +895,7 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* Weekly Limit Up Leaderboard */}
-      <LazyOnVisible minHeight={400}>
+      <LazyOnVisible mode="content-visibility" minHeight={700}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
@@ -908,7 +910,7 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* How It Works - Dual Path */}
-      <LazyOnVisible minHeight={400}>
+      <LazyOnVisible mode="content-visibility" minHeight={800}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
@@ -982,7 +984,7 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* Final CTA - Dual Product */}
-      <LazyOnVisible minHeight={300}>
+      <LazyOnVisible mode="content-visibility" minHeight={400}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="max-w-2xl mx-auto text-center">

@@ -173,7 +173,7 @@ export function useExperts(opts?: { includeAllStatuses?: boolean }) {
 }
 
 export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?: boolean }) {
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user } = useAuth();
   const visibilityMode = getVisibilityMode(user, opts);
   const queryClient = useQueryClient();
 
@@ -217,7 +217,7 @@ export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?
       }
       return newest || undefined;
     },
-    enabled: !!slug && !isAuthLoading,
+    enabled: !!slug,
     staleTime: EXPERT_STALE_MS,
     retry: expertRetry,
     retryDelay: expertRetryDelay,
@@ -238,7 +238,7 @@ export interface ExpertDetailBundle {
 }
 
 export function useExpertDetailBundle(slug: string | undefined) {
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user } = useAuth();
   const visibilityMode = getVisibilityMode(user);
   const queryClient = useQueryClient();
 
@@ -271,7 +271,7 @@ export function useExpertDetailBundle(slug: string | undefined) {
 
       return { expert, subscriberCount: count, mySubscribedPlanIds: mine };
     },
-    enabled: !!slug && !isAuthLoading,
+    enabled: !!slug,
     staleTime: EXPERT_STALE_MS,
     retry: expertRetry,
     retryDelay: expertRetryDelay,
@@ -293,7 +293,7 @@ export function useExpertSubscriptionStats(
   expertId: string | undefined,
   planIds: string[] | undefined,
 ) {
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user } = useAuth();
   const planKey = (planIds || []).slice().sort().join(',');
 
   return useQuery<ExpertSubscriptionStats>({
@@ -325,7 +325,7 @@ export function useExpertSubscriptionStats(
         subscriberCount: count || 0,
       };
     },
-    enabled: !!expertId && !isAuthLoading,
+    enabled: !!expertId,
     staleTime: 60_000,
   });
 }
