@@ -216,10 +216,7 @@ function makeStableId(label: string, date: string, type: string): string {
 async function fetchWarrantExpiryEvents(warrantCodes: string[]): Promise<any[]> {
   if (warrantCodes.length === 0) return [];
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const supabase = serviceClient();
     const { data, error } = await supabase
       .from('warrant_expiry')
       .select('symbol, name, expire_date')
