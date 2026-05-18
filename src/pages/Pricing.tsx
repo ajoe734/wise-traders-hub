@@ -4,7 +4,7 @@ import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Radio, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { supabase } from '@/integrations/supabase/client';
+import { usePricingBundle } from '@/hooks/usePricingBundle';
 import { PricingPlanCard, type PricingPlan } from './_pricing/PricingPlanCard';
 import { PricingExampleModal } from './_pricing/PricingExampleModal';
 import { PricingFaq } from './_pricing/PricingFaq';
@@ -19,7 +19,7 @@ const Pricing = () => {
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showHint, setShowHint] = useState(true);
 
-  const [dbPrices, setDbPrices] = useState<Record<string, number>>({});
+  const { data: bundle } = usePricingBundle();
 
   const isMobile = useIsMobile();
   const followerCardRef = useRef<HTMLDivElement>(null);
@@ -36,24 +36,6 @@ const Pricing = () => {
   useEffect(() => {
     const timer = setTimeout(() => setShowHint(false), 4000);
     return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const fetchPrices = async () => {
-      const { data } = await supabase
-        .from('expert_plans')
-        .select('plan_type, price_monthly')
-        .eq('is_active', true);
-      if (data && data.length > 0) {
-        const advisorPlans = data.filter(p => p.plan_type.startsWith('analyst_'));
-        const mentorPlans = data.filter(p => p.plan_type === 'mentor_weekly_journal');
-        const prices: Record<string, number> = {};
-        if (advisorPlans.length > 0) prices.follower = Math.min(...advisorPlans.map(p => p.price_monthly));
-        if (mentorPlans.length > 0) prices.cultivator = Math.min(...mentorPlans.map(p => p.price_monthly));
-        setDbPrices(prices);
-      }
-    };
-    fetchPrices();
   }, []);
 
   const openExample = (type: 'follower' | 'cultivator') => {
@@ -111,7 +93,7 @@ const Pricing = () => {
       faction: '跟單派',
       title: '分析師下單即時line通知',
       icon: Radio,
-      price: dbPrices.follower ? dbPrices.follower.toLocaleString() : '請洽詢',
+      price: bundle?.minAdvisorPrice ? bundle.minAdvisorPrice.toLocaleString() : '請洽詢',
       painPoint: '選股還在看K線，太慢了。',
       quickChips: ['即時通知', '進出場紀錄', '策略拆解'],
       features: ['即時訊號通知', '完整進出場紀錄', '策略邏輯拆解', '戰績定期回顧'],
@@ -125,7 +107,7 @@ const Pricing = () => {
       faction: '修煉派',
       title: '每週交易紀錄與心法公開',
       icon: BookOpen,
-      price: dbPrices.cultivator ? dbPrices.cultivator.toLocaleString() : '請洽詢',
+      price: bundle?.minMentorPrice ? bundle.minMentorPrice.toLocaleString() : '請洽詢',
       painPoint: '給我全部，練出自己的投資秘笈',
       quickChips: ['每週復盤', '決策依據', '框架整理'],
       features: ['上週決策復盤', '出手依據拆解', '避雷交易紀律', '框架筆記整理'],

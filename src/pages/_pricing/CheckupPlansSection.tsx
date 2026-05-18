@@ -1,17 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Stethoscope, CheckCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
-import { useCheckupPlans } from '@/hooks/useCheckupPlans';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePricingBundle } from '@/hooks/usePricingBundle';
 
 export function CheckupPlansSection() {
-  const { data: plans = [] } = useCheckupPlans();
-  const [quota, setQuota] = useState<any>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const { data: bundle } = usePricingBundle();
+  const plans = bundle?.checkupPlans ?? [];
+  const quota = bundle?.checkupQuota ?? null;
 
   // 滾動到 #checkup 錨點 — 等 plans 載入完成
   useEffect(() => {
@@ -29,25 +31,11 @@ export function CheckupPlansSection() {
     return () => { cancelled = true; };
   }, [plans.length]);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const uid = session?.user?.id;
-        if (!uid) return;
-        if (mounted) setUserId(uid);
-        const { data, error } = await supabase.rpc('check_checkup_quota', { _user_id: uid });
-        if (!error && data && mounted) setQuota(data);
-      } catch {}
-    })();
-    return () => { mounted = false; };
-  }, []);
-
   if (plans.length === 0) return null;
 
   const currentTier = quota?.tier || (userId ? 'free' : null);
   const tierLabel = (t: string) => t === 'pro' ? 'Pro' : t === 'basic' ? 'Basic' : t === 'free' ? '免費版' : '訪客';
+
 
   return (
     <div id="checkup" className="max-w-4xl mx-auto mb-12 scroll-mt-24">
