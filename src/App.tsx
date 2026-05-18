@@ -27,6 +27,7 @@ import { useAttributionTracking } from "@/hooks/useAttributionTracking";
 // Index is eagerly imported — it's the highest-traffic route, so we skip
 // the Suspense fallback round-trip to remove the initial loading spinner.
 import Index from "./pages/Index";
+import Legal from "./pages/Legal";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RouteChunkBoundary } from "./components/RouteChunkBoundary";
 import { SmartHomeRedirect } from "./components/SmartHomeRedirect";
@@ -39,7 +40,7 @@ const Experts = lazy(() => import("./pages/Experts"));
 const ExpertProfile = lazy(() => import("./pages/ExpertProfile"));
 const PlanDetail = lazy(() => import("./pages/PlanDetail"));
 const Pricing = lazy(() => import("./pages/Pricing"));
-const Legal = lazy(() => import("./pages/Legal"));
+
 const Checkout = lazy(() => import("./pages/Checkout"));
 const CheckupCheckout = lazy(() => import("./pages/CheckupCheckout"));
 const FreeCheckupPage = lazy(() => import("./pages/FreeCheckup"));
