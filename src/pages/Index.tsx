@@ -982,7 +982,7 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* Final CTA - Dual Product */}
-      <LazyOnVisible minHeight={300}>
+      <LazyOnVisible mode="content-visibility" minHeight={400}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="max-w-2xl mx-auto text-center">
