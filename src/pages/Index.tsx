@@ -378,7 +378,7 @@ const Index = () => {
                 style={{
                   backgroundImage: `url(${jianghuFollowBg})`,
                   backgroundSize: 'cover',
-                  backgroundPosition: '75% 18%',
+                  backgroundPosition: 'center center',
                 }}
               />
               {/* Text-safe overlay — bottom-up dark gradient */}
@@ -386,7 +386,7 @@ const Index = () => {
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   background:
-                    'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.68) 34%, rgba(0,0,0,0.28) 62%, rgba(0,0,0,0) 100%)',
+                    'linear-gradient(to top, rgba(0,0,0,0.86) 0%, rgba(0,0,0,0.62) 38%, rgba(0,0,0,0.22) 68%, rgba(0,0,0,0) 100%)',
                 }}
               />
               {/* Content wrapper — icon + text in clean dark zone */}
@@ -450,14 +450,14 @@ const Index = () => {
                 style={{
                   backgroundImage: `url(${jianghuStudyBg})`,
                   backgroundSize: 'cover',
-                  backgroundPosition: '78% 20%',
+                  backgroundPosition: 'center center',
                 }}
               />
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   background:
-                    'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.68) 34%, rgba(0,0,0,0.28) 62%, rgba(0,0,0,0) 100%)',
+                    'linear-gradient(to top, rgba(0,0,0,0.86) 0%, rgba(0,0,0,0.62) 38%, rgba(0,0,0,0.22) 68%, rgba(0,0,0,0) 100%)',
                 }}
               />
               <div
