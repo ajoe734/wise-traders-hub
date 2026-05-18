@@ -1,4 +1,5 @@
 import { jsonResponse } from "../_shared/cors.ts";
+import { codedErrorResponse } from "../_shared/errorCodes.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 import { loadEcpayCreds } from "../_shared/ecpayCredentials.ts";
