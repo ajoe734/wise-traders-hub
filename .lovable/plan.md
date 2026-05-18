@@ -1,98 +1,55 @@
-# legendflow Logo 套用計畫
+## 目標
 
-## 決策確認
+產出新版 `.lovable/perf-audit-2026-06.md`，**窮舉 src/App.tsx 全部 60+ 路由**每一頁的效能檢討，取代 v2（v2 標榜窮舉但實際只列了 9 個頁面標題即斷尾）。
 
-| # | 決策 | 結果 |
-|---|---|---|
-| 1 | 站名 | **雙品牌**：站名文字仍為「智富股市實戰學院」（SEO/email/合約不動），logo 視覺改為 legendflow |
-| 2 | CTA 主色 | **暫不換**，保留現有 `--primary` / `--cta`。`#EC662D` 僅出現在 logo 點與 brand assets。記憶保留待未來啟用 |
-| 3 | 範圍 | **分階段執行**，每階段獨立可驗收 |
+## 不在範圍
 
----
+- 任何 code change、migration、deploy
+- 重複呈現 RUM/edge 真實數據以外的推測
+- 改動既有檔案（v2 留作歷史對照）
 
-## Phase 1 — Logo 視覺替換（最小風險、可立即上線）
+## 蒐集步驟（read-only）
 
-替換 header/footer 的 `TrendingUp` icon + 文字組合，文字保留「智富股市實戰學院」。
+1. **真實數據**
+   - `perf_metrics` 30 天每路由 p50/p75/p95 LCP / FCP / CLS / INP + samples
+   - `function_logs` / edge logs 7 天 calls/avg/max/error
+   - `postgres_logs` 24h 慢 query / ERROR
+   - 執行 `supabase--cloud_status` 確認後端體質
 
-**檔案：**
-- `src/components/layouts/PortalLayout.tsx` — header L57-61、footer L177-181
-  - 移除 `<div className="bg-foreground"><TrendingUp /></div>`
-  - 改為 `<Logomark size={36} />`（header）/ `<Logomark size={32} />`（footer）
-  - 文字「智富股市實戰學院」**保留**
-- `src/components/layouts/AppLayout.tsx` — header logo 區塊同樣替換為 `<Logomark size={32} />`
-- `src/components/layouts/AdminLayout.tsx` — 若有 logo 區塊一併替換（需先讀檔確認）
-- 移除 `TrendingUp` 的 import（若無其他用途）
+2. **靜態指標逐頁掃描**（針對 App.tsx 每一個 `<Route>`）
+   - 行數 (`wc -l`)
+   - `useEffect` 數量
+   - `supabase.from|rpc|functions.invoke` 直查次數
+   - `useQuery` / `useMutation` 數量
+   - 是否使用 React.lazy / Suspense 邊界
+   - 是否有 inline `<style>` 巨石或 ≥1KB inline data
+   - 重型相依（tiptap / recharts / framer-motion / d3）
 
-**驗收：**
-- 桌面 + 手機 header/footer logo 改為墨黑方塊 `l●f`
-- 站名文字「智富股市實戰學院」未動
-- 淺色 / 深色主題下 Logomark 對比正常
+3. **路由分群** 對照 App.tsx：
+   - 公開 Portal (Index / Experts / ExpertProfile / PlanDetail / Pricing / Legal / Checkout / CheckupCheckout / FreeCheckup / NotFound)
+   - Auth (Login / Register / LineCallback / ForgotPassword / ResetPassword)
+   - Portfolio /portfolio/:id (8 子頁：Holdings / Events / Daily / Research / Trade / Log / News / Overview)
+   - Account (Profile / MyRemittanceOrders / Notifications)
+   - App /app (Home / Signals / Journals / SignalDetail / JournalDetail / Account / Explore / ExpertDetail / Checkout + Holdings / LearningDashboard / SignalsDashboard / SystemDetail)
+   - Admin (Dashboard / Signals / SignalEditor / Subscribers / Profile / Performance / ReasonTemplates / SignalTemplates / Announcements / Plans)
+   - Company (Dashboard / Analysts / Subscribers / Revenue / Payments / Announcements / AuditLogs / SystemJobs / FunctionLogs / KnowledgeBase / KnowledgeAudit / KnowledgeScheduler / BacktestMonitor / Plans / Remittance / PaymentSettings / ReferralChannels / CheckupUsage / MissingPrices / MetaOverrides / Users / PerfMetrics)
 
----
+## 輸出檔案
 
-## Phase 2 — Favicon + OG 圖
+`.lovable/perf-audit-2026-06.md`，章節：
 
-**檔案搬移：**
-- `brand/legendflow-favicon-16.svg` → `public/favicon-16.svg`
-- `brand/legendflow-favicon-32.svg` → `public/favicon-32.svg`
-- `brand/legendflow-favicon-180.svg` → `public/apple-touch-icon.svg`
-- `brand/legendflow-favicon-512.svg` → `public/favicon-512.svg`
-- `brand/legendflow-og-1200x630.svg` → `public/og-image.svg`
-- 刪除舊 `public/favicon.ico`（避免瀏覽器預設請求覆蓋）
+1. **真實數據摘要**（RUM 表 + edge + SQL + cloud_status）
+2. **方法論**（指令、判讀規則、警示等級定義 P0/P1/P2）
+3. **窮舉頁面清單**（依分群，**每一個路由一條**，固定欄位）
+   ```
+   #### `/route` File.tsx — N 行 / ue X / sb Y / rq Z / lazy ✓
+   - [等級] 觀察 → 行動
+   ```
+   缺一頁即視為未完成（依 Core「不准偷懶」條款）
+4. **全站交叉議題**（vendor chunk、persister、CLS pattern、N+1）
+5. **行動優先序**（P0/P1/P2 整理成可勾選 backlog）
+6. **驗證清單**（如何回頭比對 v2 → v3 修了什麼）
 
-**`index.html` 修改：**
-- 加入多尺寸 `<link rel="icon">` / `apple-touch-icon`
-- 加入 `<meta property="og:image" content="https://legendflow.tw/og-image.svg" />`
-- `<title>` / `og:title` / `og:site_name` / JSON-LD `name` **不動**（站名仍為「智富股市實戰學院」）
+## 交付確認
 
-**驗收：**
-- Tab favicon 顯示橘點墨黑方塊
-- Social preview 顯示 legendflow OG 卡
-
----
-
-## Phase 3 — Brand 字型載入
-
-加入 Source Serif 4 + Noto Serif TC 給 Logomark/Wordmark 使用（不替換現有 Noto Sans TC / Inter 內文字型）。
-
-**`index.html`：**
-- 在現有 Google Fonts `<link>` 加入 `Source+Serif+4:wght@600;700` 與 `Noto+Serif+TC:wght@600;700`
-- 保持非阻塞載入模式
-
-**`tailwind.config.ts`（可選）：**
-- 新增 `fontFamily.serifBrand` token，供未來 brand 區塊使用
-
-**驗收：**
-- Logomark `l●f` 顯示 Source Serif 4 字型（非 fallback Georgia）
-- Network 確認 fonts 載入
-
----
-
-## Phase 4（保留、不執行）— 主色切換到 #EC662D
-
-依使用者決策**暫不執行**，但留下記憶與切換清單：
-- `src/index.css` 中 `--primary` / `--cta` HSL 值改為 `17 80% 55%`
-- 需全站 visual regression（所有 button、active state、advisor 識別色）
-- 啟用時須另開 PR + 截圖審查
-
-> 記憶已記錄於 `mem://brand/legendflow-identity`，未來指令「啟用 brand 主色」即執行此階段。
-
----
-
-## 不在本計畫內
-
-- 站名文字替換（雙品牌決策已排除）
-- Email 模板、Line push、合約頁文案（站名不動）
-- `sitemap.xml` / `robots.txt` / `llms.txt`（站名不動）
-- SEO `<title>` 後綴（站名不動）
-- 主色 token 變更（Phase 4 保留）
-
----
-
-## 執行順序建議
-
-1. **Phase 1 單獨上線** → 視覺驗收 OK 再進 Phase 2
-2. **Phase 2 + Phase 3 可合併一個 PR**（都是 head 區與 public assets）
-3. Phase 4 等使用者另行指示
-
-按「實作計畫」後我會從 Phase 1 開始，做完回報再進下一階段。
+寫完後執行 `grep -c '^#### \`/' .lovable/perf-audit-2026-06.md`，數字需 ≥ App.tsx 路由總數，否則補完再交。
