@@ -173,7 +173,7 @@ export function useExperts(opts?: { includeAllStatuses?: boolean }) {
 }
 
 export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?: boolean }) {
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user } = useAuth();
   const visibilityMode = getVisibilityMode(user, opts);
   const queryClient = useQueryClient();
 
