@@ -4,13 +4,12 @@
 // typically because the user has cached an old chunk — we wipe local
 // caches and force a hard reload so they pull fresh assets.
 
+import { reloadForFreshBundle } from "./staleChunkRecovery";
+
 declare const __APP_VERSION__: string;
 
 const VERSION_URL = "/version.json";
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // every 5 min while tab is open
-const RELOAD_GUARD_KEY = "lf-version-reload-at";
-const RELOAD_COOLDOWN_MS = 60 * 1000; // avoid reload loops
-const STORAGE_KEYS_TO_CLEAR = ["lf-app-cache-v1"];
 
 const BUNDLED_VERSION =
   typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
@@ -29,44 +28,6 @@ async function fetchLatestVersion(): Promise<string | null> {
   }
 }
 
-function purgeClientCaches() {
-  let lastReloadAt: string | null = null;
-  try {
-    lastReloadAt = window.sessionStorage.getItem(RELOAD_GUARD_KEY);
-    for (const key of STORAGE_KEYS_TO_CLEAR) {
-      window.localStorage.removeItem(key);
-    }
-    window.sessionStorage.clear();
-    if (lastReloadAt) {
-      window.sessionStorage.setItem(RELOAD_GUARD_KEY, lastReloadAt);
-    }
-  } catch {
-    // ignore storage access failures
-  }
-  // Best-effort wipe of CacheStorage (service worker / HTTP caches we own)
-  if ("caches" in window) {
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
-      .catch(() => {});
-  }
-}
-
-function forceReload() {
-  try {
-    const last = Number(window.sessionStorage.getItem(RELOAD_GUARD_KEY) || 0);
-    if (Date.now() - last < RELOAD_COOLDOWN_MS) return; // already reloaded recently
-    window.sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()));
-  } catch {
-    // ignore
-  }
-  purgeClientCaches();
-  // Cache-busting query so the document itself isn't served stale
-  const url = new URL(window.location.href);
-  url.searchParams.set("__v", String(Date.now()));
-  window.location.replace(url.toString());
-}
-
 async function checkOnce() {
   const latest = await fetchLatestVersion();
   if (!latest) return;
@@ -75,7 +36,7 @@ async function checkOnce() {
     console.warn(
       `[versionCheck] bundle ${BUNDLED_VERSION} is stale (latest ${latest}); reloading`,
     );
-    forceReload();
+    reloadForFreshBundle();
   }
 }
 
@@ -105,7 +66,8 @@ export function installVersionCheck() {
   });
 
   // 4. Vite preload error → almost always a stale chunk; clear & reload
-  window.addEventListener("vite:preloadError", () => {
-    forceReload();
+  window.addEventListener("vite:preloadError", (event) => {
+    event.preventDefault?.();
+    reloadForFreshBundle();
   });
 }
