@@ -146,11 +146,12 @@ export default function PerfMetricsPage() {
                 <tr className="text-left text-foreground/55 border-b border-foreground/10">
                   <th className="py-2 pr-4">路徑</th>
                   <th className="py-2 pr-4 text-right">樣本</th>
-                  <th className="py-2 pr-4 text-right">FCP P50</th>
-                  <th className="py-2 pr-4 text-right">FCP P75</th>
-                  <th className="py-2 pr-4 text-right">FCP P95</th>
                   <th className="py-2 pr-4 text-right">LCP P50</th>
-                  <th className="py-2 text-right">LCP P95</th>
+                  <th className="py-2 pr-4 text-right">LCP P95</th>
+                  <th className="py-2 pr-4 text-right">INP P75</th>
+                  <th className="py-2 pr-4 text-right">INP P95</th>
+                  <th className="py-2 pr-4 text-right">CLS P75</th>
+                  <th className="py-2 text-right">FCP P75</th>
                 </tr>
               </thead>
               <tbody>
@@ -160,16 +161,17 @@ export default function PerfMetricsPage() {
                     <td className="py-2 pr-4 text-right tabular-nums">
                       <Badge variant="secondary">{r.samples}</Badge>
                     </td>
-                    <td className={`py-2 pr-4 text-right tabular-nums ${tone(r.fcp_p50, 1800, 3000)}`}>{fmtMs(r.fcp_p50)}</td>
-                    <td className={`py-2 pr-4 text-right tabular-nums ${tone(r.fcp_p75, 2200, 3500)}`}>{fmtMs(r.fcp_p75)}</td>
-                    <td className={`py-2 pr-4 text-right tabular-nums ${tone(r.fcp_p95, 3000, 5000)}`}>{fmtMs(r.fcp_p95)}</td>
                     <td className={`py-2 pr-4 text-right tabular-nums ${tone(r.lcp_p50, 2500, 4000)}`}>{fmtMs(r.lcp_p50)}</td>
-                    <td className={`py-2 text-right tabular-nums ${tone(r.lcp_p95, 4000, 6000)}`}>{fmtMs(r.lcp_p95)}</td>
+                    <td className={`py-2 pr-4 text-right tabular-nums ${tone(r.lcp_p95, 4000, 6000)}`}>{fmtMs(r.lcp_p95)}</td>
+                    <td className={`py-2 pr-4 text-right tabular-nums ${tone(r.inp_p75, 200, 500)}`}>{fmtMs(r.inp_p75)}</td>
+                    <td className={`py-2 pr-4 text-right tabular-nums ${tone(r.inp_p95, 500, 1000)}`}>{fmtMs(r.inp_p95)}</td>
+                    <td className={`py-2 pr-4 text-right tabular-nums ${tone(r.cls_p75 != null ? r.cls_p75 * 1000 : null, 100, 250)}`}>{fmtCls(r.cls_p75)}</td>
+                    <td className={`py-2 text-right tabular-nums ${tone(r.fcp_p75, 2200, 3500)}`}>{fmtMs(r.fcp_p75)}</td>
                   </tr>
                 ))}
                 {!isLoading && (data?.routes?.length ?? 0) === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-6 text-center text-foreground/50">尚無資料</td>
+                    <td colSpan={9} className="py-6 text-center text-foreground/50">尚無資料</td>
                   </tr>
                 )}
               </tbody>
