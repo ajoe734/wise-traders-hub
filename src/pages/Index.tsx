@@ -307,8 +307,6 @@ const Index = () => {
         
       `}</style>
 
-      {/* 選門派 Section - VS Fighting Game Visual Scene (lazy: below-the-fold) */}
-      <LazyOnVisible minHeight={700}>
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
       <LazyOnVisible minHeight={700}>
       <section
