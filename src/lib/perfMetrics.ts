@@ -1,7 +1,13 @@
 /**
- * Front-end RUM collector — FCP & LCP per route.
- * Fire-and-forget insert into public.perf_metrics.
- * Designed to be cheap: one PerformanceObserver per page, one insert on flush.
+ * Front-end RUM collector — FCP / LCP / CLS / INP per route.
+ *
+ * - FCP / LCP: per-route via PerformanceObserver (relative to route start).
+ * - CLS: accumulated per route from `layout-shift` entries (excludes had-recent-input).
+ * - INP: per route from `event` entries, taking the max interaction duration
+ *        (max ≈ INP for typical session length; full p98 not justified for our volume).
+ *
+ * Flushes a single insert into `public.perf_metrics` on route change /
+ * visibility hidden / pagehide. Fire-and-forget; never throws.
  */
 import { supabase } from '@/integrations/supabase/client';
 
@@ -37,7 +43,9 @@ interface PageMetrics {
   startedAt: number;
   fcp: number | null;
   lcp: number | null;
-  observer: PerformanceObserver | null;
+  cls: number;
+  inp: number;
+  observers: PerformanceObserver[];
   flushed: boolean;
 }
 
@@ -47,10 +55,12 @@ let inited = false;
 async function flush(metrics: PageMetrics) {
   if (metrics.flushed) return;
   metrics.flushed = true;
-  try {
-    metrics.observer?.disconnect();
-  } catch {}
-  if (metrics.fcp == null && metrics.lcp == null) return;
+  for (const obs of metrics.observers) {
+    try { obs.disconnect(); } catch { /* noop */ }
+  }
+  const hasAny =
+    metrics.fcp != null || metrics.lcp != null || metrics.cls > 0 || metrics.inp > 0;
+  if (!hasAny) return;
 
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -58,6 +68,8 @@ async function flush(metrics: PageMetrics) {
       route: metrics.route,
       fcp_ms: metrics.fcp != null ? Math.round(metrics.fcp) : null,
       lcp_ms: metrics.lcp != null ? Math.round(metrics.lcp) : null,
+      inp_ms: metrics.inp > 0 ? Math.round(metrics.inp) : null,
+      cls_score: metrics.cls > 0 ? Number(metrics.cls.toFixed(4)) : null,
       user_id: user?.id ?? null,
       session_id: getSessionId(),
       viewport_w: typeof window !== 'undefined' ? window.innerWidth : null,
@@ -68,55 +80,77 @@ async function flush(metrics: PageMetrics) {
   }
 }
 
-function startTracking(route: string) {
-  // Flush previous page (route change before flush event)
-  if (current && !current.flushed) {
-    flush(current);
+function safeObserve(type: string, cb: (list: PerformanceObserverEntryList) => void): PerformanceObserver | null {
+  try {
+    const obs = new PerformanceObserver(cb);
+    // `buffered` lets us pick up entries that fired before observe()
+    obs.observe({ type, buffered: true } as PerformanceObserverInit);
+    return obs;
+  } catch {
+    return null;
   }
+}
+
+function startTracking(route: string) {
+  if (current && !current.flushed) flush(current);
 
   const page: PageMetrics = {
     route,
     startedAt: performance.now(),
     fcp: null,
     lcp: null,
-    observer: null,
+    cls: 0,
+    inp: 0,
+    observers: [],
     flushed: false,
   };
   current = page;
 
   if (typeof PerformanceObserver === 'undefined') return;
 
-  // For the very first page load, paint entries may already exist.
+  // First page: paint entries may already exist.
   try {
-    const paints = performance.getEntriesByType('paint');
-    for (const e of paints) {
-      if (e.name === 'first-contentful-paint' && page.fcp == null) {
-        page.fcp = e.startTime;
+    for (const e of performance.getEntriesByType('paint')) {
+      if (e.name === 'first-contentful-paint' && page.fcp == null) page.fcp = e.startTime;
+    }
+  } catch { /* noop */ }
+
+  const paintObs = safeObserve('paint', (list) => {
+    for (const entry of list.getEntries()) {
+      if (entry.name === 'first-contentful-paint' && page.fcp == null) {
+        page.fcp = entry.startTime - page.startedAt;
       }
     }
-  } catch {}
+  });
+  if (paintObs) page.observers.push(paintObs);
 
-  try {
-    const obs = new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) {
-        if (entry.entryType === 'paint' && entry.name === 'first-contentful-paint') {
-          if (page.fcp == null) page.fcp = entry.startTime - page.startedAt;
-        } else if (entry.entryType === 'largest-contentful-paint') {
-          page.lcp = (entry as any).startTime - page.startedAt;
-        }
-      }
-    });
-    obs.observe({ type: 'paint', buffered: true });
-    obs.observe({ type: 'largest-contentful-paint', buffered: true });
-    page.observer = obs;
-  } catch {}
+  const lcpObs = safeObserve('largest-contentful-paint', (list) => {
+    for (const entry of list.getEntries()) {
+      page.lcp = (entry as PerformanceEntry).startTime - page.startedAt;
+    }
+  });
+  if (lcpObs) page.observers.push(lcpObs);
+
+  const clsObs = safeObserve('layout-shift', (list) => {
+    for (const entry of list.getEntries() as Array<PerformanceEntry & { value: number; hadRecentInput: boolean }>) {
+      if (!entry.hadRecentInput) page.cls += entry.value;
+    }
+  });
+  if (clsObs) page.observers.push(clsObs);
+
+  const evObs = safeObserve('event', (list) => {
+    for (const entry of list.getEntries() as Array<PerformanceEntry & { interactionId?: number; duration: number }>) {
+      if (!entry.interactionId) continue;
+      if (entry.duration > page.inp) page.inp = entry.duration;
+    }
+  });
+  if (evObs) page.observers.push(evObs);
 }
 
 export function initPerfMetrics() {
   if (inited || typeof window === 'undefined') return;
   inited = true;
 
-  // Skip company admin pages — we measure user-facing perf, not internal tools.
   const isInternal = () => {
     const p = window.location.pathname;
     return p.startsWith('/company') || p.startsWith('/admin');
@@ -126,7 +160,6 @@ export function initPerfMetrics() {
     startTracking(normalizeRoute(window.location.pathname));
   }
 
-  // Flush on hidden / unload
   const onHide = () => {
     if (current && !current.flushed) flush(current);
   };
