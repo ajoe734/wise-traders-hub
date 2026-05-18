@@ -4,6 +4,7 @@ import { validateInput, validationResponse } from "../_shared/inputValidator.ts"
 import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 // Pro 模型先行：高密度截圖（20+ 持倉）需要 Vision + 大 token
@@ -57,7 +58,7 @@ async function callVision(apiKey: string, model: string, systemPrompt: string, b
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('checkup-parse', async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -127,4 +128,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));

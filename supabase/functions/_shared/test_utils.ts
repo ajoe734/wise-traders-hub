@@ -66,3 +66,24 @@ export async function runPreflightTest(fn: string) {
     if (!allowH.includes(h)) throw new Error(`OPTIONS Allow-Headers missing "${h}": ${allowH}`);
   }
 }
+
+/**
+ * Generic contract: send an invalid request and assert that whatever response
+ * comes back still carries CORS headers + propagates x-correlation-id.
+ * We deliberately do NOT assert status — some functions (callbacks, cron)
+ * legitimately return 200 on garbage input.
+ */
+export async function runInvalidBodyContract(
+  fn: string,
+  opts: { method?: "GET" | "POST"; body?: string; query?: Record<string, string> } = {},
+) {
+  const method = opts.method ?? "POST";
+  const cid = `test-${crypto.randomUUID()}`;
+  const res = await fetch(fnUrl(fn, opts.query), {
+    method,
+    headers: authHeaders({ "content-type": "application/json", "x-correlation-id": cid }),
+    body: method === "GET" ? undefined : (opts.body ?? JSON.stringify({ __invalid__: true })),
+  });
+  await drain(res);
+  assertCorsAndCorrelation(res, cid);
+}

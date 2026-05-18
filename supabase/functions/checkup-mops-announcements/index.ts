@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 
 const ANNOUNCEMENT_TYPES: Record<string, string> = {
   '營收': 'revenue', '股利': 'dividend', '配息': 'dividend', '除權': 'dividend',
@@ -17,7 +18,7 @@ function inferType(title: string) {
   return 'other';
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('checkup-mops-announcements', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'GET') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -94,4 +95,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));
