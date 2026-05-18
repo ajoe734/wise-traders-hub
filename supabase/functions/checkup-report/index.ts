@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { corsHeaders } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
@@ -9,7 +10,7 @@ function esc(s: string) { return String(s).replace(/&/g, '&amp;').replace(/</g, 
 const handler = withLogging('checkup-report', async (req, log) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'GET') {
-    return new Response('Method not allowed', { status: 405, headers: corsHeaders });
+    return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   }
 
   const supabase = serviceClient();

@@ -135,9 +135,7 @@ const handler = withLogging('checkup-knowledge', async (req, log) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   } catch (err) {
     const msg = (err as Error).message;
     log.error('handler_error', { msg });

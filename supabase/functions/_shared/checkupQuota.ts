@@ -38,7 +38,7 @@ export async function consumeCheckupQuota(
     return {
       ok: false,
       status: 401,
-      body: { error: 'AUTH_REQUIRED', message: '請先登入再使用 AI 功能' },
+      body: { code: 'AUTH_REQUIRED', error: 'AUTH_REQUIRED', message: '請先登入再使用 AI 功能' },
     };
   }
 
@@ -49,16 +49,16 @@ export async function consumeCheckupQuota(
       headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_ROLE_KEY },
     });
     if (!userRes.ok) {
-      return { ok: false, status: 401, body: { error: 'AUTH_INVALID' } };
+      return { ok: false, status: 401, body: { code: 'AUTH_FAILED', error: 'AUTH_FAILED', message: 'JWT 無效或已過期' } };
     }
     const u = await userRes.json();
     userId = u?.id || '';
   } catch (err) {
     console.error('[quota] getUser failed', err);
-    return { ok: false, status: 401, body: { error: 'AUTH_INVALID' } };
+    return { ok: false, status: 401, body: { code: 'AUTH_FAILED', error: 'AUTH_FAILED', message: 'JWT 驗證失敗' } };
   }
   if (!userId) {
-    return { ok: false, status: 401, body: { error: 'AUTH_INVALID' } };
+    return { ok: false, status: 401, body: { code: 'AUTH_FAILED', error: 'AUTH_FAILED', message: '找不到使用者' } };
   }
 
   // Call consume_checkup_quota RPC via service role (bypass RLS, runs SECURITY DEFINER)
@@ -95,6 +95,7 @@ export async function consumeCheckupQuota(
           ok: false,
           status: 429,
           body: {
+            code: 'QUOTA_EXCEEDED',
             error: 'QUOTA_EXCEEDED',
             message: '本期 AI 配額已用完，下期重置或升級方案後可繼續使用',
             quota: snapshot,
@@ -105,8 +106,8 @@ export async function consumeCheckupQuota(
       console.error('[quota] consume RPC failed', rpcRes.status, text);
       return {
         ok: false,
-        status: 500,
-        body: { error: 'QUOTA_CHECK_FAILED', detail: text.slice(0, 300) },
+        status: 502,
+        body: { code: 'UPSTREAM_ERROR', error: 'UPSTREAM_ERROR', message: '配額服務暫時無法使用', detail: text.slice(0, 300) },
         userId,
       };
     }
@@ -117,8 +118,8 @@ export async function consumeCheckupQuota(
     console.error('[quota] consume error', err);
     return {
       ok: false,
-      status: 500,
-      body: { error: 'QUOTA_CHECK_FAILED', detail: String(err) },
+      status: 502,
+      body: { code: 'UPSTREAM_ERROR', error: 'UPSTREAM_ERROR', message: '配額服務連線失敗', detail: String(err) },
       userId,
     };
   }
@@ -129,7 +130,7 @@ export function quotaErrorResponse(
   result: QuotaResult,
   corsHeaders: Record<string, string> = {},
 ): Response {
-  return new Response(JSON.stringify(result.body || { error: 'QUOTA_CHECK_FAILED' }), {
+  return new Response(JSON.stringify(result.body || { code: 'INTERNAL_ERROR', error: 'INTERNAL_ERROR', message: 'Quota check failed' }), {
     status: result.status || 500,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });

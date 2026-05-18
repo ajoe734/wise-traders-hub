@@ -33,3 +33,10 @@ Deno.test(`${FN} — happy path with ex_ch propagates correlation id`, async () 
   assertEquals(res.status, 200);
   assertCorsAndCorrelation(res, cid);
 });
+
+Deno.test(`${FN} — missing ex_ch body exposes code INVALID_INPUT`, async () => {
+  const res = await fetch(fnUrl(FN), { method: "GET", headers: authHeaders() });
+  const body = JSON.parse(await drain(res));
+  if (body.code !== "INVALID_INPUT") throw new Error(`expected code=INVALID_INPUT, got ${body.code}`);
+  if (typeof body.message !== "string" || !body.message.length) throw new Error("missing message");
+});

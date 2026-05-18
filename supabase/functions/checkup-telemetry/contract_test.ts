@@ -52,3 +52,19 @@ Deno.test(`${FN} — auto-assigns correlation id when client omits it`, async ()
   const cid = assertCorsAndCorrelation(res);
   if (!cid || cid.length < 8) throw new Error(`auto cid looks invalid: ${cid}`);
 });
+
+Deno.test(`${FN} — POST invalid body exposes code INVALID_INPUT`, async () => {
+  const res = await fetch(fnUrl(FN), {
+    method: "POST",
+    headers: authHeaders({ "content-type": "application/json" }),
+    body: JSON.stringify({}),
+  });
+  const body = JSON.parse(await drain(res));
+  if (body.code !== "INVALID_INPUT") throw new Error(`expected code=INVALID_INPUT, got ${body.code}`);
+});
+
+Deno.test(`${FN} — DELETE exposes code METHOD_NOT_ALLOWED`, async () => {
+  const res = await fetch(fnUrl(FN), { method: "DELETE", headers: authHeaders() });
+  const body = JSON.parse(await drain(res));
+  if (body.code !== "METHOD_NOT_ALLOWED") throw new Error(`expected code=METHOD_NOT_ALLOWED, got ${body.code}`);
+});

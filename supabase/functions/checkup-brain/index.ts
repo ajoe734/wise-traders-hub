@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
@@ -156,7 +157,7 @@ const handler = withLogging("checkup-brain", async (req, log) => {
       return jsonResponse({ error: "未知 action" }, { status: 400 });
     }
 
-    return jsonResponse({ error: "Method not allowed" }, { status: 405 });
+    return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   } catch (err) {
     log.error("brain_storage_error", { message: err instanceof Error ? err.message : String(err) });
     const message = err instanceof Error ? err.message : "Unknown error";

@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 
 const ANNOUNCEMENT_TYPES: Record<string, string> = {
@@ -21,9 +22,7 @@ function inferType(title: string) {
 Deno.serve(withLogging('checkup-mops-announcements', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'GET') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   }
 
   try {

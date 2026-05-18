@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { withLogging } from '../_shared/edgeLogger.ts';
 
 function decodeHtml(value: string) {
@@ -105,9 +106,7 @@ ${items.map(i => `- [${i.id}] ${i.title}\n  來源：${i.source || '未知'} | �
 Deno.serve(withLogging('checkup-analyst-reports', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   }
 
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
