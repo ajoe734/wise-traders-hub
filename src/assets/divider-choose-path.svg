@@ -1,0 +1,9 @@
+<svg width="120" height="360" viewBox="0 0 120 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="60" cy="28" r="18" fill="#FFF7E8" stroke="#EC662D" stroke-width="2"/>
+<path d="M52 25L60 33L68 25" stroke="#EC662D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M60 48V150" stroke="#1A1A1A" stroke-opacity="0.22" stroke-width="2"/>
+<path d="M60 312V348" stroke="#1A1A1A" stroke-opacity="0.22" stroke-width="2"/>
+<path d="M30 140L60 160L90 140" stroke="#1A1A1A" stroke-opacity="0.22" stroke-width="2"/>
+<path d="M30 300L60 280L90 300" stroke="#1A1A1A" stroke-opacity="0.22" stroke-width="2"/>
+<text x="60" y="205" text-anchor="middle" font-family="Noto Serif TC, serif" font-size="22" font-weight="700" fill="#171717" writing-mode="tb">選擇你的路</text>
+</svg>
