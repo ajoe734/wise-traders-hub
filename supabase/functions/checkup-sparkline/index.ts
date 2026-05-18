@@ -226,4 +226,4 @@ const handler = withLogging('checkup-sparkline', async (req, log) => {
   }
 });
 
-Deno.serve((req) => (import.meta as any).default ? (import.meta as any).default(req) : new Response('not wired', { status: 500 }));
+Deno.serve(handler);
