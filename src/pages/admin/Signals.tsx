@@ -41,7 +41,7 @@ const AdminSignals = () => {
     setSignals,
     refetch: refetchAdminSignals,
   } = useAdminSignals(expertSlug);
-  const [openInstrumentsState] = [openInstruments]; // alias for legacy reads
+  // (openInstruments / signals etc. come from useAdminSignals above)
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
