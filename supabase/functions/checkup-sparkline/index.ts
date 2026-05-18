@@ -120,7 +120,7 @@ async function fetchSparkline(code: string): Promise<number[]> {
   return b;
 }
 
-export default withLogging('checkup-sparkline', async (req, log) => {
+const handler = withLogging('checkup-sparkline', async (req, log) => {
   // Diagnostic probe — GET /?probe=1 returns raw status from TPEX endpoints
   const u = new URL(req.url);
   if (u.searchParams.get("probe") === "1") {
