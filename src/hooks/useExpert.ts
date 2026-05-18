@@ -217,7 +217,7 @@ export function useExpert(slug: string | undefined, opts?: { includeAllStatuses?
       }
       return newest || undefined;
     },
-    enabled: !!slug && !isAuthLoading,
+    enabled: !!slug,
     staleTime: EXPERT_STALE_MS,
     retry: expertRetry,
     retryDelay: expertRetryDelay,
