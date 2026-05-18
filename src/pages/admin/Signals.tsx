@@ -52,8 +52,6 @@ const AdminSignals = () => {
   };
 
   const [isCreateOpen, setIsCreateOpen] = useState(getSavedOpen);
-  const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Form — always start blank
   const [stockCode, setStockCode] = useState('');
