@@ -355,19 +355,17 @@ const Index = () => {
               </li>
             ))}
           </ul>
-          {/* 橘色銜接圓點 */}
-          <div className="flex justify-center" aria-hidden="true">
-            <span
-              className="block rounded-full"
-              style={{
-                width: 10,
-                height: 10,
-                backgroundColor: '#EC662D',
-                transform: 'translateY(50%)',
-                boxShadow: '0 0 0 4px #070707',
-              }}
-            />
-          </div>
+        </div>
+        {/* 橘色銜接圓點 — 跨越黑色與米白交界 */}
+        <div
+          aria-hidden="true"
+          className="absolute left-1/2 -translate-x-1/2"
+          style={{ bottom: '-9px', zIndex: 20 }}
+        >
+          <span
+            className="block rounded-full"
+            style={{ width: 18, height: 18, backgroundColor: '#EC662D' }}
+          />
         </div>
       </section>
 
