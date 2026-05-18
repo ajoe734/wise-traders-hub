@@ -15,73 +15,13 @@ import { Plus, Search, Filter, Eye, ChevronDown, ChevronUp, Loader2, Undo2, Ligh
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPublishingWindowOpen, canRecallSignal } from '@/lib/publishingWindow';
-import { fetchAnalystSignals } from '@/lib/analystDataAccess';
 import { PermissionTooltip } from '@/components/admin/PermissionTooltip';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { SafeRichHtml, richHtmlPreview } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
-
-const stripDotPrefix = (text: string) => text.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '');
-
-const actionLabels: Record<string, { label: string; className: string }> = {
-  buy: { label: '買進', className: 'bg-success text-white border-success' },
-  sell: { label: '賣出', className: 'bg-destructive text-white border-destructive' },
-  add: { label: '加碼', className: 'bg-blue-500 text-blue-50 border-blue-500' },
-  trim: { label: '減碼', className: 'bg-amber-500 text-amber-50 border-amber-500' },
-  exit: { label: '平損', className: 'bg-slate-500 text-slate-50 border-slate-500' },
-};
-
-const PreviewTradeItem = ({ action, instrument, priceHint, reasonSummary, reasonDetail, riskNotes }: {
-  action: string; instrument: string; priceHint?: number | null; reasonSummary: string; reasonDetail: string; riskNotes: string;
-}) => {
-  const [expanded, setExpanded] = useState(false);
-  const hasDetails = reasonSummary || reasonDetail || riskNotes;
-  const ai = actionLabels[action] || actionLabels.buy;
-  return (
-    <div className="px-4 py-3">
-      <div className={`flex items-center gap-3 ${hasDetails ? 'cursor-pointer' : ''}`} onClick={() => hasDetails && setExpanded(!expanded)}>
-        <Badge className={cn(ai.className, 'text-[10px] px-1.5 py-0')}>{ai.label}</Badge>
-        <div className="flex-1 min-w-0">
-          <span className="font-medium text-sm">{instrument}</span>
-          {priceHint != null && <span className="text-xs text-muted-foreground ml-1">@{priceHint}</span>}
-        </div>
-        {hasDetails && (
-          <button className="text-muted-foreground shrink-0">
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-        )}
-      </div>
-      {expanded && hasDetails && (
-        <div className="mt-3 ml-9 space-y-3">
-          {reasonSummary && (
-            <div>
-              <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1">
-                <Lightbulb className="h-3.5 w-3.5 text-primary" /> 為什麼這樣操作？
-              </h3>
-              <p className="text-xs text-muted-foreground whitespace-pre-line">{reasonSummary}</p>
-            </div>
-          )}
-          {reasonDetail && (
-            <div>
-              <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1">
-                <Target className="h-3.5 w-3.5 text-primary" /> 部位控管想法
-              </h3>
-              <p className="text-xs text-muted-foreground whitespace-pre-line">{reasonDetail}</p>
-            </div>
-          )}
-          {riskNotes && (
-            <div>
-              <h3 className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-warning">
-                <AlertTriangle className="h-3.5 w-3.5" /> 風險提醒
-              </h3>
-              <p className="text-xs text-muted-foreground whitespace-pre-line">{riskNotes}</p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+import { useAdminSignals } from '@/hooks/useAdminSignals';
+import { actionLabels } from '@/pages/_adminSignals/actionLabels';
+import { PreviewTradeItem } from '@/pages/_adminSignals/PreviewTradeItem';
 
 const AdminSignals = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -91,12 +31,20 @@ const AdminSignals = () => {
   const isCompanyAdmin = hasRole('company_admin');
   const isOwner = !!user?.expertSlug && user.expertSlug === expertSlug;
   const isReadOnly = !isCompanyAdmin && !isOwner;
-  const [expert, setExpert] = useState<any>(null);
-  const [signals, setSignals] = useState<any[]>([]);
-  const [openInstruments, setOpenInstruments] = useState<Set<string>>(new Set());
-  const [plans, setPlans] = useState<any[]>([]);
-  const [signalTemplates, setSignalTemplates] = useState<{ id: string; title: string; action: string; reason: string; risk_note: string; strategy_note: string }[]>([]);
+  const {
+    expert,
+    signals,
+    openInstruments,
+    plans,
+    signalTemplates,
+    loading,
+    setSignals,
+    refetch: refetchAdminSignals,
+  } = useAdminSignals(expertSlug);
+  const [openInstrumentsState] = [openInstruments]; // alias for legacy reads
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
   // Only persist dialog open state across navigation (not form content)
   const FORM_KEY = `signal-form-${expertSlug}`;
   const getSavedOpen = () => {
