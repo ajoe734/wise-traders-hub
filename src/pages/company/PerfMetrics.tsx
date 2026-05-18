@@ -108,9 +108,14 @@ export default function PerfMetricsPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <SummaryCard label="樣本數" value={totals?.samples?.toLocaleString() ?? '—'} sub={`${totals?.routes ?? 0} 條路徑`} />
-        <SummaryCard label="FCP P50" value={fmtMs(totals?.fcp_p50)} sub="目標 < 1800ms" toneClass={tone(totals?.fcp_p50 ?? null, 1800, 3000)} />
         <SummaryCard label="LCP P50" value={fmtMs(totals?.lcp_p50)} sub="目標 < 2500ms" toneClass={tone(totals?.lcp_p50 ?? null, 2500, 4000)} />
-        <SummaryCard label="LCP P95" value={fmtMs(totals?.lcp_p95)} sub="慢請求" toneClass={tone(totals?.lcp_p95 ?? null, 4000, 6000)} />
+        <SummaryCard label="INP P75" value={fmtMs(totals?.inp_p75)} sub="目標 < 200ms" toneClass={tone(totals?.inp_p75 ?? null, 200, 500)} />
+        <SummaryCard
+          label="CLS P75"
+          value={fmtCls(totals?.cls_p75)}
+          sub="目標 < 0.1"
+          toneClass={tone(totals?.cls_p75 != null ? totals.cls_p75 * 1000 : null, 100, 250)}
+        />
       </div>
 
       <Card className="mb-6">
