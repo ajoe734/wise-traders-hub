@@ -1,189 +1,42 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Brain, Activity, Sparkles, Check, X, Loader2, TrendingUp } from 'lucide-react';
-import { logAdminAction } from '@/lib/auditLog';
-import { BackfillProgressPanel } from './knowledge-base/BackfillProgressPanel';
+import { Pencil, Trash2, Brain, Activity, Sparkles, Check, X, Loader2, TrendingUp, Plus } from 'lucide-react';
 import { BacktestRunDetailDialog } from './knowledge-base/BacktestRunDetailDialog';
 import { GridSearchDetailDialog } from './knowledge-base/GridSearchDetailDialog';
-import { AutoRulesPanel } from './knowledge-base/AutoRulesPanel';
 import { CleanupCandidatesPanel } from './knowledge-base/CleanupCandidatesPanel';
-
-const CATEGORIES = [
-  { key: 'chip_analysis', label: '籌碼分析' },
-  { key: 'technical_analysis', label: '技術分析' },
-  { key: 'industry_trends', label: '產業趨勢' },
-  { key: 'strategy_cases', label: '策略案例' },
-  { key: 'news_correlation', label: '新聞事件' },
-] as const;
-
-type Category = typeof CATEGORIES[number]['key'];
-
-interface KnowledgeItem {
-  id: string;
-  category: Category;
-  item_id: string;
-  title: string;
-  fact: string;
-  interpretation: string | null;
-  action: string | null;
-  lessons: string | null;
-  return_pct: number | null;
-  outcome: string | null;
-  confidence: number | null;
-  tags: string[] | null;
-  is_active: boolean;
-  version: number;
-  updated_at: string;
-  trigger_condition: any;
-  expected_outcome: any;
-  win_rate: number | null;
-  sample_size: number;
-  source_type: string;
-  industry_tags: string[];
-  time_horizon: string | null;
-  lifecycle_status?: 'active' | 'candidate' | 'rescue' | 'archived';
-  rescue_started_at?: string | null;
-  rescue_attempts?: number;
-  candidate_observed_since?: string | null;
-  archived_reason?: string | null;
-}
-
-interface Candidate {
-  id: string;
-  category: Category;
-  item_id: string | null;
-  title: string;
-  fact: string;
-  interpretation: string | null;
-  action: string | null;
-  lessons: string | null;
-  return_pct: number | null;
-  outcome: string | null;
-  confidence: number;
-  tags: string[];
-  trigger_condition: any;
-  expected_outcome: any;
-  industry_tags: string[];
-  time_horizon: string | null;
-  status: 'pending' | 'approved' | 'rejected';
-  source_type: string;
-  source_meta: any;
-  reviewer_note: string | null;
-  created_at: string;
-}
-
-const emptyItem = (category: Category): Partial<KnowledgeItem> => ({
-  category,
-  item_id: '',
-  title: '',
-  fact: '',
-  interpretation: '',
-  action: '',
-  lessons: '',
-  return_pct: 0,
-  outcome: 'success',
-  confidence: 0.75,
-  tags: [],
-  is_active: true,
-  industry_tags: [],
-  time_horizon: '',
-});
-
-interface UsageStat {
-  knowledge_item_id: string;
-  hit_count: number;
-  hit_count_7d: number;
-  last_hit_at: string | null;
-}
+import { KnowledgeItemEditor } from './knowledge-base/KnowledgeItemEditor';
+import { BacktestTab } from './knowledge-base/BacktestTab';
+import {
+  useKnowledgeBase, CATEGORIES, emptyItem,
+  type Category, type KnowledgeItem,
+} from '@/hooks/useKnowledgeBase';
 
 export default function KnowledgeBasePage() {
-  const queryClient = useQueryClient();
+  const kb = useKnowledgeBase();
+  const {
+    items, usage, candidates: _candidates, backtestRuns,
+    grouped, pendingCandidates, backtestReport, recentSummary,
+    loading,
+    saveItem, removeItem, toggleActive,
+    draftWithClaude, approveCandidate, rejectCandidate,
+    bulkApprove, bulkReject,
+    runBacktest, runGridSearch,
+    drafting, bulkApproving, backtesting, gridSearching,
+  } = kb;
+
   const [activeCat, setActiveCat] = useState<Category>('chip_analysis');
   const [editing, setEditing] = useState<Partial<KnowledgeItem> | null>(null);
   const [tagsInput, setTagsInput] = useState('');
   const [industryTagsInput, setIndustryTagsInput] = useState('');
-  const [drafting, setDrafting] = useState(false);
   const [draftCount, setDraftCount] = useState(10);
   const [mainTab, setMainTab] = useState<'items' | 'candidates' | 'backtest' | 'cleanup'>('items');
-  const [backtesting, setBacktesting] = useState<string | null>(null);
-  const [gridSearching, setGridSearching] = useState<string | null>(null);
-  const [backfilling, setBackfilling] = useState(false);
   const [openRunDetail, setOpenRunDetail] = useState<string | null>(null);
   const [openGridDetail, setOpenGridDetail] = useState<string | null>(null);
-
-  /**
-   * Single snapshot for the whole knowledge-base page. Tabs (mainTab) and
-   * category filter (activeCat) are pure client-side — they do NOT go into
-   * the queryKey, so tab/cat switching within the 60s staleTime never
-   * refetches. Mutations call invalidateQueries(['company','knowledge-base']).
-   */
-  const { data, isFetching } = useQuery({
-    queryKey: ['company', 'knowledge-base'],
-    queryFn: async () => {
-      const [itemsRes, usageRes, candRes, runsRes] = await Promise.all([
-        supabase.from('checkup_knowledge_items').select('*').order('category').order('item_id'),
-        supabase.from('checkup_knowledge_usage_stats' as any).select('*'),
-        supabase.from('checkup_knowledge_candidates' as any).select('*').order('created_at', { ascending: false }),
-        supabase.from('knowledge_backtest_runs' as any).select('*').order('created_at', { ascending: false }).limit(200),
-      ]);
-      if (itemsRes.error) {
-        toast.error('讀取失敗：' + itemsRes.error.message);
-      }
-      const usageMap: Record<string, UsageStat> = {};
-      if (!usageRes.error && Array.isArray(usageRes.data)) {
-        for (const row of usageRes.data as any[]) {
-          usageMap[row.knowledge_item_id] = row as UsageStat;
-        }
-      }
-      return {
-        items: ((itemsRes.data ?? []) as any) as KnowledgeItem[],
-        usage: usageMap,
-        candidates: (candRes.error ? [] : (candRes.data ?? [])) as unknown as Candidate[],
-        backtestRuns: (runsRes.error ? [] : (runsRes.data ?? [])) as unknown as any[],
-      };
-    },
-    staleTime: 60_000,
-  });
-
-  const items = data?.items ?? [];
-  const usage = data?.usage ?? {};
-  const candidates = data?.candidates ?? [];
-  const backtestRuns = data?.backtestRuns ?? [];
-  const loading = isFetching && !data;
-
-  // Every mutation funnels through this so we never miss an invalidation.
-  const load = () =>
-    queryClient.invalidateQueries({ queryKey: ['company', 'knowledge-base'] });
-
-  const grouped = useMemo(() => {
-    const m: Record<Category, KnowledgeItem[]> = {
-      chip_analysis: [], technical_analysis: [], industry_trends: [],
-      strategy_cases: [], news_correlation: [],
-    };
-    for (const it of items) m[it.category]?.push(it);
-    return m;
-  }, [items]);
-
-  const pendingCandidates = useMemo(
-    () => candidates.filter(c => c.status === 'pending'),
-    [candidates],
-  );
 
   function openNew() {
     setEditing(emptyItem(activeCat));
@@ -195,343 +48,11 @@ export default function KnowledgeBasePage() {
     setTagsInput((item.tags ?? []).join(', '));
     setIndustryTagsInput((item.industry_tags ?? []).join(', '));
   }
-
-  async function save() {
+  async function handleSave() {
     if (!editing) return;
-    const e = editing;
-    if (!e.item_id || !e.title || !e.fact || !e.category) {
-      toast.error('代號 / 標題 / 事實 為必填');
-      return;
-    }
-    const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
-    const industryTags = industryTagsInput.split(',').map(t => t.trim()).filter(Boolean);
-    const payload: any = {
-      category: e.category,
-      item_id: e.item_id,
-      title: e.title,
-      fact: e.fact,
-      interpretation: e.interpretation ?? null,
-      action: e.action ?? null,
-      lessons: e.lessons ?? null,
-      return_pct: e.return_pct ?? null,
-      outcome: e.outcome ?? null,
-      confidence: e.confidence ?? 0.75,
-      tags,
-      industry_tags: industryTags,
-      time_horizon: e.time_horizon || null,
-      trigger_condition: (e as any).trigger_condition ?? null,
-      expected_outcome: (e as any).expected_outcome ?? null,
-      is_active: e.is_active ?? true,
-    };
-
-    let result;
-    const isUpdate = Boolean((e as any).id);
-    if (isUpdate) {
-      const before = items.find(x => x.id === (e as any).id);
-      result = await supabase.from('checkup_knowledge_items')
-        .update(payload).eq('id', (e as any).id).select().single();
-      if (!result.error) {
-        await logAdminAction({
-          action: 'knowledge.update',
-          targetType: 'checkup_knowledge_items',
-          targetId: (e as any).id,
-          detail: { before, after: result.data },
-        });
-      }
-    } else {
-      result = await supabase.from('checkup_knowledge_items')
-        .insert(payload).select().single();
-      if (!result.error) {
-        await logAdminAction({
-          action: 'knowledge.create',
-          targetType: 'checkup_knowledge_items',
-          targetId: result.data?.id,
-          detail: { after: result.data },
-        });
-      }
-    }
-    if (result.error) {
-      toast.error('儲存失敗：' + result.error.message);
-      return;
-    }
-    toast.success(isUpdate ? '已更新（版本自動 +1）' : '已新增');
-    setEditing(null);
-    load();
+    const ok = await saveItem(editing, tagsInput, industryTagsInput);
+    if (ok) setEditing(null);
   }
-
-  async function remove(item: KnowledgeItem) {
-    if (!confirm(`確定刪除「${item.title}」？`)) return;
-    const { error } = await supabase
-      .from('checkup_knowledge_items').delete().eq('id', item.id);
-    if (error) { toast.error(error.message); return; }
-    await logAdminAction({
-      action: 'knowledge.delete',
-      targetType: 'checkup_knowledge_items',
-      targetId: item.id,
-      detail: { before: item },
-    });
-    toast.success('已刪除');
-    load();
-  }
-
-  async function toggleActive(item: KnowledgeItem) {
-    const { error, data } = await supabase
-      .from('checkup_knowledge_items')
-      .update({ is_active: !item.is_active })
-      .eq('id', item.id)
-      .select().single();
-    if (error) { toast.error(error.message); return; }
-    await logAdminAction({
-      action: item.is_active ? 'knowledge.deactivate' : 'knowledge.activate',
-      targetType: 'checkup_knowledge_items',
-      targetId: item.id,
-      detail: { before: item, after: data },
-    });
-    load();
-  }
-
-  async function draftWithClaude() {
-    setDrafting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('knowledge-draft-claude', {
-        body: { category: activeCat, count: draftCount },
-      });
-      if (error) throw error;
-      toast.success(`Claude 草擬完成：新增 ${data?.inserted ?? 0} 條候選`);
-      setMainTab('candidates');
-      load();
-    } catch (err: any) {
-      toast.error('草擬失敗：' + (err?.message ?? String(err)));
-    } finally {
-      setDrafting(false);
-    }
-  }
-
-  const [bulkApproving, setBulkApproving] = useState(false);
-
-  async function bulkApprove(minConfidence = 0) {
-    const targets = pendingCandidates.filter(c => (c.confidence ?? 0) >= minConfidence);
-    if (targets.length === 0) { toast.info('沒有符合條件的候選'); return; }
-    if (!confirm(`確定一鍵核可 ${targets.length} 條候選${minConfidence > 0 ? `（信心 ≥ ${(minConfidence*100).toFixed(0)}%）` : ''}？`)) return;
-    setBulkApproving(true);
-    let ok = 0, fail = 0;
-    for (const c of targets) {
-      try { await approveCandidate(c, { silent: true }); ok++; }
-      catch { fail++; }
-    }
-    setBulkApproving(false);
-    toast.success(`已核可 ${ok} 條${fail ? `（失敗 ${fail}）` : ''}`);
-    load();
-  }
-
-  async function bulkReject() {
-    if (pendingCandidates.length === 0) return;
-    if (!confirm(`確定一鍵退回所有 ${pendingCandidates.length} 條候選？`)) return;
-    setBulkApproving(true);
-    const ids = pendingCandidates.map(c => c.id);
-    await supabase.from('checkup_knowledge_candidates' as any)
-      .update({ status: 'rejected', reviewer_note: 'bulk reject', reviewed_at: new Date().toISOString() })
-      .in('id', ids);
-    setBulkApproving(false);
-    toast.success(`已退回 ${ids.length} 條`);
-    load();
-  }
-
-  async function approveCandidate(c: Candidate, opts: { silent?: boolean } = {}) {
-    // 推進到正式 items；item_id 若無則自動命名
-    const itemId = c.item_id || `${c.category.split('_')[0]}-${Date.now().toString(36)}`;
-    const payload: any = {
-      category: c.category,
-      item_id: itemId,
-      title: c.title,
-      fact: c.fact,
-      interpretation: c.interpretation,
-      action: c.action,
-      lessons: c.lessons,
-      return_pct: c.return_pct,
-      outcome: c.outcome,
-      confidence: c.confidence,
-      tags: c.tags ?? [],
-      industry_tags: c.industry_tags ?? [],
-      time_horizon: c.time_horizon,
-      trigger_condition: c.trigger_condition,
-      expected_outcome: c.expected_outcome,
-      source_type: c.source_type ?? 'ai_draft',
-      is_active: true,
-    };
-    const ins = await supabase.from('checkup_knowledge_items').insert(payload).select().single();
-    if (ins.error) {
-      if (!opts.silent) toast.error('核可失敗：' + ins.error.message);
-      throw ins.error;
-    }
-    await supabase.from('checkup_knowledge_candidates' as any)
-      .update({ status: 'approved', reviewed_at: new Date().toISOString() })
-      .eq('id', c.id);
-    await logAdminAction({
-      action: 'knowledge.candidate.approve',
-      targetType: 'checkup_knowledge_candidates',
-      targetId: c.id,
-      detail: { promoted_to: ins.data?.id },
-    });
-    if (!opts.silent) {
-      toast.success('已核可並寫入正式知識庫');
-      load();
-    }
-  }
-
-  async function rejectCandidate(c: Candidate) {
-    const note = prompt('退回原因（選填）：') ?? '';
-    await supabase.from('checkup_knowledge_candidates' as any)
-      .update({ status: 'rejected', reviewer_note: note, reviewed_at: new Date().toISOString() })
-      .eq('id', c.id);
-    await logAdminAction({
-      action: 'knowledge.candidate.reject',
-      targetType: 'checkup_knowledge_candidates',
-      targetId: c.id,
-      detail: { reason: note },
-    });
-    toast.success('已退回');
-    load();
-  }
-
-  async function runBacktest(item: KnowledgeItem) {
-    if (!item.trigger_condition?.type) {
-      toast.error('此條目無 trigger_condition.type，無法回測');
-      return;
-    }
-    setBacktesting(item.id);
-    const prevWr = item.win_rate;
-    const prevN = item.sample_size ?? 0;
-    try {
-      const { data, error } = await supabase.functions.invoke('knowledge-backtest', {
-        body: { mode: 'single', item_id: item.id },
-      });
-      if (error) throw error;
-      if (data?.error === 'INSUFFICIENT_DATA') {
-        toast.error(data.message || '歷史資料不足，請先完成「初始化（36 個月）」回填');
-      } else {
-        const stats = data?.results?.[0]?.stats;
-        const newWr = stats?.win_rate;
-        const newN = stats?.total_hits ?? 0;
-        const wrTxt = newWr != null ? `${(newWr * 100).toFixed(1)}%` : 'N/A';
-        const wrDelta = (prevWr != null && newWr != null)
-          ? `（${(prevWr * 100).toFixed(1)}% → ${(newWr * 100).toFixed(1)}%，${newWr >= prevWr ? '↑' : '↓'}${Math.abs((newWr - prevWr) * 100).toFixed(1)}pp）`
-          : '（首次回測）';
-        toast.success(`✅ 回測完成 · ${item.title}\n勝率 ${wrTxt} ${wrDelta}\n樣本 n=${prevN} → ${newN}`);
-      }
-      load();
-    } catch (err: any) {
-      toast.error(`❌ 回測失敗 · ${item.title}\n${err?.message ?? String(err)}`);
-    } finally {
-      setBacktesting(null);
-    }
-  }
-
-  async function runGridSearch(item: KnowledgeItem) {
-    if (!item.trigger_condition?.type) {
-      toast.error('此條目無 trigger_condition.type，無法網格搜尋');
-      return;
-    }
-    const promote = window.confirm('找到更佳參數時是否自動歸檔舊版並升級？\n（按「確定」=自動升級；按「取消」=只跑搜尋不升級）');
-    setGridSearching(item.id);
-    try {
-      const { data, error } = await supabase.functions.invoke('knowledge-backtest', {
-        body: { mode: 'grid_search', item_id: item.id, promote_if_better: promote },
-      });
-      if (error) throw error;
-      const best = data?.best;
-      if (data?.promoted) {
-        toast.success(`已升級到 v+1：勝率 ${(best?.stats?.win_rate * 100).toFixed(1)}%`);
-      } else {
-        toast.success(`網格搜尋完成（${data?.grid_size ?? 0} 組），最佳勝率 ${best?.stats?.win_rate != null ? (best.stats.win_rate * 100).toFixed(1) + '%' : 'N/A'}`);
-      }
-      load();
-    } catch (err: any) {
-      toast.error('網格搜尋失敗：' + (err?.message ?? String(err)));
-    } finally {
-      setGridSearching(null);
-    }
-  }
-
-  async function runBackfill() {
-    if (!window.confirm('將從 TWSE 拉取近 36 個月日 K 資料，需要分多次執行（每次 ~50 秒）。確定開始？')) return;
-    setBackfilling(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('backfill-daily-snapshots', {
-        body: { months: 36 },
-      });
-      if (error) throw error;
-      toast.success(`回填完成：寫入 ${data?.rows_inserted ?? 0} 筆${data?.partial ? '（未完成，請再次點擊繼續）' : ''}`);
-    } catch (err: any) {
-      toast.error('回填失敗：' + (err?.message ?? String(err)));
-    } finally {
-      setBackfilling(false);
-    }
-  }
-
-  // ---- 報表分頁衍生資料 ----
-  const backtestReport = useMemo(() => {
-    const backtestable = items.filter(i => (i as any).backtestable && i.is_active);
-    const withSamples = backtestable.filter(i => (i.sample_size ?? 0) >= 30);
-    const distribution = { excellent: 0, good: 0, fair: 0, poor: 0, untested: 0 };
-    const toArchive: KnowledgeItem[] = [];
-    const toOptimize: KnowledgeItem[] = [];
-    for (const it of backtestable) {
-      const wr = it.win_rate;
-      if (wr == null || (it.sample_size ?? 0) < 30) {
-        distribution.untested++;
-        continue;
-      }
-      if (wr >= 0.7) distribution.excellent++;
-      else if (wr >= 0.55) distribution.good++;
-      else if (wr >= 0.45) distribution.fair++;
-      else distribution.poor++;
-
-      if (wr < 0.45) toArchive.push(it);
-      else if (wr >= 0.45 && wr < 0.6) toOptimize.push(it);
-    }
-    return { backtestable, withSamples, distribution, toArchive, toOptimize };
-  }, [items]);
-
-  // 近 24 小時回測摘要：成功/失敗/最大勝率變化/失敗清單
-  const recentSummary = useMemo(() => {
-    const since = Date.now() - 24 * 60 * 60 * 1000;
-    const recent = backtestRuns.filter((r: any) => new Date(r.created_at).getTime() >= since);
-    const success = recent.filter((r: any) => r.status === 'completed');
-    const failed = recent.filter((r: any) => r.status === 'failed');
-    const autoActions = success.filter((r: any) => !!r.auto_action);
-    // 找最大勝率提升 / 下滑：用同一 item 最近兩筆 completed 比對
-    const byItem = new Map<string, any[]>();
-    for (const r of backtestRuns) {
-      if (r.status !== 'completed' || r.win_rate == null || !r.knowledge_item_id) continue;
-      if (!byItem.has(r.knowledge_item_id)) byItem.set(r.knowledge_item_id, []);
-      byItem.get(r.knowledge_item_id)!.push(r);
-    }
-    const deltas: { item_id: string; title: string; prev: number; cur: number; delta: number }[] = [];
-    for (const r of success) {
-      if (r.win_rate == null) continue;
-      const list = byItem.get(r.knowledge_item_id) ?? [];
-      const prev = list.find((x: any) => new Date(x.created_at).getTime() < new Date(r.created_at).getTime());
-      if (!prev || prev.win_rate == null) continue;
-      const item = items.find(i => i.id === r.knowledge_item_id);
-      deltas.push({
-        item_id: r.knowledge_item_id,
-        title: item?.title ?? r.knowledge_item_id?.slice(0, 8),
-        prev: Number(prev.win_rate),
-        cur: Number(r.win_rate),
-        delta: Number(r.win_rate) - Number(prev.win_rate),
-      });
-    }
-    deltas.sort((a, b) => b.delta - a.delta);
-    return {
-      total: recent.length,
-      success: success.length,
-      failed,
-      autoActions,
-      topGain: deltas[0],
-      topLoss: deltas[deltas.length - 1],
-    };
-  }, [backtestRuns, items]);
 
   return (
     <CompanyLayout>
@@ -551,7 +72,10 @@ export default function KnowledgeBasePage() {
               onChange={(e) => setDraftCount(Math.max(1, Math.min(20, Number(e.target.value) || 10)))}
               className="w-20"
             />
-            <Button onClick={draftWithClaude} disabled={drafting} variant="outline">
+            <Button
+              onClick={() => draftWithClaude(activeCat, draftCount, () => setMainTab('candidates'))}
+              disabled={drafting} variant="outline"
+            >
               {drafting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
               Claude 起草（{CATEGORIES.find(c => c.key === activeCat)?.label}）
             </Button>
@@ -669,7 +193,7 @@ export default function KnowledgeBasePage() {
                           <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => remove(item)}>
+                          <Button variant="ghost" size="icon" onClick={() => removeItem(item)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -750,380 +274,37 @@ export default function KnowledgeBasePage() {
             ))}
           </TabsContent>
 
-          <TabsContent value="backtest" className="space-y-6 mt-4">
-            {/* 近 24 小時回測摘要 */}
-            <div className="border rounded-lg p-4 bg-card">
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                <h3 className="text-base font-medium flex items-center gap-2">
-                  <Activity className="h-4 w-4" /> 近 24 小時回測摘要
-                </h3>
-                <span className="text-xs text-muted-foreground">
-                  共 {recentSummary.total} 次 · 成功 {recentSummary.success} · 失敗 {recentSummary.failed.length} · 自動處置 {recentSummary.autoActions.length}
-                </span>
-              </div>
-              {recentSummary.total === 0 ? (
-                <p className="text-sm text-muted-foreground">過去 24 小時尚無回測。可在「正式知識庫」針對單條按「回測」，或讓 cron 自動跑。</p>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    {recentSummary.topGain && recentSummary.topGain.delta > 0 && (
-                      <div className="border rounded p-2 bg-emerald-500/5">
-                        <p className="text-xs text-muted-foreground mb-1">勝率提升 Top 1（更新成功 ✅）</p>
-                        <p className="text-sm font-medium truncate">{recentSummary.topGain.title}</p>
-                        <p className="text-sm">
-                          {(recentSummary.topGain.prev * 100).toFixed(1)}% → <span className="text-emerald-600 font-medium">{(recentSummary.topGain.cur * 100).toFixed(1)}%</span>
-                          <span className="text-emerald-600 ml-2">↑{(recentSummary.topGain.delta * 100).toFixed(1)}pp</span>
-                        </p>
-                      </div>
-                    )}
-                    {recentSummary.topLoss && recentSummary.topLoss.delta < 0 && (
-                      <div className="border rounded p-2 bg-red-500/5">
-                        <p className="text-xs text-muted-foreground mb-1">勝率下滑 Top 1（需關注 ⚠️）</p>
-                        <p className="text-sm font-medium truncate">{recentSummary.topLoss.title}</p>
-                        <p className="text-sm">
-                          {(recentSummary.topLoss.prev * 100).toFixed(1)}% → <span className="text-red-600 font-medium">{(recentSummary.topLoss.cur * 100).toFixed(1)}%</span>
-                          <span className="text-red-600 ml-2">↓{Math.abs(recentSummary.topLoss.delta * 100).toFixed(1)}pp</span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">失敗清單（{recentSummary.failed.length}）</p>
-                    {recentSummary.failed.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">沒有失敗 ✅</p>
-                    ) : (
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {recentSummary.failed.slice(0, 10).map((r: any) => {
-                          const item = items.find(i => i.id === r.knowledge_item_id);
-                          return (
-                            <div key={r.id} className="text-xs border rounded p-1.5 bg-red-500/5">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="destructive" className="text-[10px]">failed</Badge>
-                                <span className="truncate flex-1">{item?.title ?? r.knowledge_item_id?.slice(0, 8)}</span>
-                              </div>
-                              <p className="text-muted-foreground mt-0.5 line-clamp-2">{r.error_message ?? '(無錯誤訊息)'}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <BackfillProgressPanel />
-            <AutoRulesPanel />
-
-            {/* 統計區塊 */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {[
-                { label: '優秀 ≥70%', count: backtestReport.distribution.excellent, color: 'bg-green-500' },
-                { label: '良好 55-70%', count: backtestReport.distribution.good, color: 'bg-emerald-400' },
-                { label: '普通 45-55%', count: backtestReport.distribution.fair, color: 'bg-yellow-400' },
-                { label: '弱 <45%', count: backtestReport.distribution.poor, color: 'bg-red-500' },
-                { label: '尚未驗證', count: backtestReport.distribution.untested, color: 'bg-muted-foreground' },
-              ].map(s => (
-                <div key={s.label} className="border rounded-lg p-4 bg-card">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${s.color}`} />
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
-                  </div>
-                  <p className="text-2xl font-semibold mt-1">{s.count}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* 待淘汰 */}
-            <div>
-              <h3 className="text-base font-medium mb-2 flex items-center gap-2">
-                <Trash2 className="h-4 w-4 text-red-500" />
-                待淘汰（勝率 &lt; 45%，n ≥ 30）
-              </h3>
-              {backtestReport.toArchive.length === 0 ? (
-                <p className="text-sm text-muted-foreground">沒有條目落在淘汰區，狀況良好。</p>
-              ) : (
-                <div className="space-y-2">
-                  {backtestReport.toArchive.map(it => (
-                    <div key={it.id} className="border rounded-lg p-3 bg-card flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <code className="text-xs text-muted-foreground">{it.item_id}</code>
-                          <span className="font-medium">{it.title}</span>
-                          <Badge variant="destructive">勝率 {((it.win_rate ?? 0) * 100).toFixed(0)}% (n={it.sample_size})</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{it.fact}</p>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <Button size="sm" variant="outline" onClick={() => runGridSearch(it)} disabled={gridSearching === it.id}>
-                          {gridSearching === it.id ? <Loader2 className="h-4 w-4 animate-spin" /> : '網格救援'}
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => toggleActive(it)}>停用</Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 待優化 */}
-            <div>
-              <h3 className="text-base font-medium mb-2 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-yellow-500" />
-                待優化（勝率 45-60%，建議跑網格搜尋）
-              </h3>
-              {backtestReport.toOptimize.length === 0 ? (
-                <p className="text-sm text-muted-foreground">沒有條目落在優化區。</p>
-              ) : (
-                <div className="space-y-2">
-                  {backtestReport.toOptimize.map(it => (
-                    <div key={it.id} className="border rounded-lg p-3 bg-card flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <code className="text-xs text-muted-foreground">{it.item_id}</code>
-                          <span className="font-medium">{it.title}</span>
-                          <Badge variant="secondary">勝率 {((it.win_rate ?? 0) * 100).toFixed(0)}% (n={it.sample_size})</Badge>
-                          <Badge variant="outline">{it.trigger_condition?.type}</Badge>
-                        </div>
-                        <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-x-auto">當前參數：{JSON.stringify(it.trigger_condition, null, 0)}</pre>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <Button size="sm" onClick={() => runGridSearch(it)} disabled={gridSearching === it.id}>
-                          {gridSearching === it.id ? <Loader2 className="h-4 w-4 animate-spin" /> : '網格搜尋'}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 最近回測 runs */}
-            <div>
-              <h3 className="text-base font-medium mb-2">最近回測紀錄（{backtestRuns.length}）— 點選列檢視明細</h3>
-              {backtestRuns.length === 0 ? (
-                <p className="text-sm text-muted-foreground">尚未跑過回測。可在「正式知識庫」每條 backtestable 條目按「回測」開始。</p>
-              ) : (
-                <div className="space-y-1 max-h-96 overflow-y-auto">
-                  {backtestRuns.slice(0, 100).map((r: any) => {
-                    const item = items.find(i => i.id === r.knowledge_item_id);
-                    const isGrid = r.run_mode === 'grid_search';
-                    const isFailed = r.status === 'failed';
-                    return (
-                      <button
-                        key={r.id}
-                        onClick={() => isGrid ? setOpenGridDetail(r.id) : setOpenRunDetail(r.id)}
-                        className={`w-full border rounded p-2 text-sm text-left hover:bg-muted/50 transition-colors ${isFailed ? 'border-red-500/40 bg-red-500/5' : ''}`}
-                      >
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <Badge variant={isFailed ? 'destructive' : isGrid ? 'default' : 'outline'}>
-                            {isFailed ? 'failed' : r.run_mode}
-                          </Badge>
-                          <code className="text-xs text-muted-foreground">{item?.item_id ?? r.knowledge_item_id?.slice(0, 8)}</code>
-                          <span className="flex-1 truncate">{item?.title ?? '(已刪除)'}</span>
-                          {r.auto_action && (
-                            <Badge variant={r.auto_action.includes('archived') ? 'destructive' : 'secondary'} className="text-xs">
-                              {r.auto_action}
-                            </Badge>
-                          )}
-                          {!isFailed && r.win_rate != null && <span>勝率 {(r.win_rate * 100).toFixed(1)}%</span>}
-                          {!isFailed && <span className="text-muted-foreground">n={r.total_hits}</span>}
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(r.created_at).toLocaleString('zh-TW', { hour12: false })}
-                          </span>
-                        </div>
-                        {isFailed && r.error_message && (
-                          <p className="text-xs text-red-600 mt-1 line-clamp-2">⚠️ {r.error_message}</p>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+          <TabsContent value="backtest">
+            <BacktestTab
+              items={items}
+              backtestRuns={backtestRuns}
+              backtestReport={backtestReport}
+              recentSummary={recentSummary}
+              gridSearching={gridSearching}
+              onGridSearch={runGridSearch}
+              onToggleActive={toggleActive}
+              onOpenRunDetail={setOpenRunDetail}
+              onOpenGridDetail={setOpenGridDetail}
+            />
           </TabsContent>
 
           <TabsContent value="cleanup" className="space-y-2 mt-4">
-            <CleanupCandidatesPanel onChanged={load} />
+            <CleanupCandidatesPanel onChanged={kb.load} />
           </TabsContent>
         </Tabs>
 
         <BacktestRunDetailDialog runId={openRunDetail} onClose={() => setOpenRunDetail(null)} />
         <GridSearchDetailDialog runId={openGridDetail} onClose={() => setOpenGridDetail(null)} />
 
-        <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{(editing as any)?.id ? '編輯條目' : '新增條目'}</DialogTitle>
-            </DialogHeader>
-            {editing && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>分類</Label>
-                    <Select
-                      value={editing.category}
-                      onValueChange={(v) => setEditing({ ...editing, category: v as Category })}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIES.map(c => (
-                          <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>條目代號（如 ta-06）</Label>
-                    <Input
-                      value={editing.item_id ?? ''}
-                      onChange={(e) => setEditing({ ...editing, item_id: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label>標題</Label>
-                  <Input
-                    value={editing.title ?? ''}
-                    onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>事實 (fact)</Label>
-                  <Textarea rows={2}
-                    value={editing.fact ?? ''}
-                    onChange={(e) => setEditing({ ...editing, fact: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>解讀 (interpretation)</Label>
-                  <Textarea rows={2}
-                    value={editing.interpretation ?? ''}
-                    onChange={(e) => setEditing({ ...editing, interpretation: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>行動 (action)</Label>
-                  <Textarea rows={2}
-                    value={editing.action ?? ''}
-                    onChange={(e) => setEditing({ ...editing, action: e.target.value })}
-                  />
-                </div>
-                {editing.category === 'strategy_cases' && (
-                  <>
-                    <div>
-                      <Label>教訓 (lessons)</Label>
-                      <Textarea rows={2}
-                        value={editing.lessons ?? ''}
-                        onChange={(e) => setEditing({ ...editing, lessons: e.target.value })}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>報酬率（小數，0.15 = 15%）</Label>
-                        <Input type="number" step="0.01"
-                          value={editing.return_pct ?? 0}
-                          onChange={(e) => setEditing({ ...editing, return_pct: Number(e.target.value) })}
-                        />
-                      </div>
-                      <div>
-                        <Label>結果</Label>
-                        <Select
-                          value={editing.outcome ?? 'success'}
-                          onValueChange={(v) => setEditing({ ...editing, outcome: v })}
-                        >
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="success">success</SelectItem>
-                            <SelectItem value="failure">failure</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Label>信心度（0–1）</Label>
-                    <Input type="number" min={0} max={1} step="0.01"
-                      value={editing.confidence ?? 0.75}
-                      onChange={(e) => setEditing({ ...editing, confidence: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div>
-                    <Label>時間視野</Label>
-                    <Select
-                      value={editing.time_horizon ?? ''}
-                      onValueChange={(v) => setEditing({ ...editing, time_horizon: v })}
-                    >
-                      <SelectTrigger><SelectValue placeholder="未設定" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="intraday">當沖</SelectItem>
-                        <SelectItem value="short">短線 (1-5d)</SelectItem>
-                        <SelectItem value="swing">波段 (1-4w)</SelectItem>
-                        <SelectItem value="medium">中線 (1-3m)</SelectItem>
-                        <SelectItem value="long">{'長線 (>3m)'}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-end gap-2 pb-1">
-                    <Switch
-                      checked={editing.is_active ?? true}
-                      onCheckedChange={(v) => setEditing({ ...editing, is_active: v })}
-                    />
-                    <Label>啟用</Label>
-                  </div>
-                </div>
-                <div>
-                  <Label>標籤（以逗號分隔）</Label>
-                  <Input
-                    value={tagsInput}
-                    onChange={(e) => setTagsInput(e.target.value)}
-                    placeholder="半導體, 庫存, 週期"
-                  />
-                </div>
-                <div>
-                  <Label>產業標籤（以逗號分隔）</Label>
-                  <Input
-                    value={industryTagsInput}
-                    onChange={(e) => setIndustryTagsInput(e.target.value)}
-                    placeholder="semiconductor, biotech, shipping"
-                  />
-                </div>
-                <div>
-                  <Label>觸發條件 (trigger_condition, JSON)</Label>
-                  <Textarea rows={3}
-                    value={(editing as any).trigger_condition ? JSON.stringify((editing as any).trigger_condition, null, 2) : ''}
-                    onChange={(e) => {
-                      try {
-                        const v = e.target.value.trim() ? JSON.parse(e.target.value) : null;
-                        setEditing({ ...editing, trigger_condition: v } as any);
-                      } catch { /* 暫存原文 */ }
-                    }}
-                    placeholder='{"foreign_buy_days": ">=3", "volume_ratio": ">1.5"}'
-                  />
-                </div>
-                <div>
-                  <Label>預期結果 (expected_outcome, JSON)</Label>
-                  <Textarea rows={3}
-                    value={(editing as any).expected_outcome ? JSON.stringify((editing as any).expected_outcome, null, 2) : ''}
-                    onChange={(e) => {
-                      try {
-                        const v = e.target.value.trim() ? JSON.parse(e.target.value) : null;
-                        setEditing({ ...editing, expected_outcome: v } as any);
-                      } catch { /* 暫存原文 */ }
-                    }}
-                    placeholder='{"direction": "up", "magnitude_pct": 5, "horizon_days": 10}'
-                  />
-                </div>
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditing(null)}>取消</Button>
-              <Button onClick={save}>儲存</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <KnowledgeItemEditor
+          editing={editing}
+          setEditing={setEditing}
+          tagsInput={tagsInput}
+          setTagsInput={setTagsInput}
+          industryTagsInput={industryTagsInput}
+          setIndustryTagsInput={setIndustryTagsInput}
+          onSave={handleSave}
+        />
       </div>
     </CompanyLayout>
   );
