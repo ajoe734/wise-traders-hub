@@ -1,95 +1,84 @@
-## 效能 / 可維護性 — 剩餘缺口盤點
+# 系統優化 / 程式維護簡化 — 新計劃（2026/05/18）
 
-下面是目前還沒做、且 ROI 較高的項目。已完成的（Legal eager、routePrefetch 清理、manualChunks 拆分、prod console drop、tab 拆 5/6）不再列。
+距上次盤點已完成：lucide tree-shake、preconnect、refundProcessor 跨界 import、Index.tsx hero 以外段落 lazy、INP/CLS RUM、bundle-snapshot CI、AuthContext 拆 state/actions、Edge `_shared/` 共用層骨架（cors/logger/clients/README）。
 
----
-
-### A. FreeCheckup.jsx 收尾（最大維護債）
-
-現況：3973 行 / 186KB / 121 個 hook、5 個 Tab 已拆但 **TradeTab 還沒拆**，且容器本身仍塞滿 runtime composer、CoachMarks 排程、prompt 模板、debug 視窗。
-
-A1. **拆出 TradeTab**（剩下唯一一個 inline tab，依 memory 約束 L2965/L4745 `<style>` 字面字串不可外移，其餘 JSX/handler 可走 props 注入模式，比照其他 5 個 tab 已驗證的合約）。
-A2. **抽出 runtime hooks 群**：把 `useAppRuntimeComposer` (33KB) 的呼叫包成 `useFreeCheckupRuntime()`，讓 FreeCheckup.jsx 只剩「容器 + tab 切換 + style 硬合約」。
-A3. **debug / dev-only 區塊用 `import.meta.env.DEV` gate 並動態 import**，避免 prod bundle 帶 dev panel。
-
-驗收：FreeCheckup.jsx ≤ 1500 行；`bunx playwright test e2e/freecheckup-card.spec.ts` + 560/390/380 RWD 清單通過。
+以下是**剩餘**且 ROI 高的工作，依「影響面 × 解決成本」重排。
 
 ---
 
-### B. 大檔案拆分（>40KB 頁面）
+## P0 — 立即可做、效果明顯
 
-下列頁面都 >40KB 單檔，re-render 與閱讀成本都高：
+### A1. FreeCheckup TradeTab 抽出 + runtime hook 收斂
+- 現況：`FreeCheckup.jsx` 仍有 **3595 行**。5 個 tab 已抽，僅剩 TradeTab inline。
+- 動作：
+  - 抽 `_freeCheckup/tabs/TradeTab.jsx`（比照其他 tab 的 props 注入合約）。
+  - 把 `useAppRuntimeComposer` 呼叫包成 `useFreeCheckupRuntime()` hook。
+  - L2965 / L4745 `<style>` 字面字串（`wb-hero-grid` / `.wb-card`）**留在容器**，不可外移。
+- 驗收：FreeCheckup.jsx ≤ 1500 行；560/390/380 RWD 清單 + `e2e/freecheckup-card.spec.ts` 全綠。
 
-- `admin/Signals.tsx` (66KB)、`Checkout.tsx` (60KB)、`company/KnowledgeBase.tsx` (53KB)、`Index.tsx` (51KB)、`company/Revenue.tsx` (49KB)、`Pricing.tsx` (48KB)、`admin/SignalEditor.tsx` (42KB)、`company/Payments.tsx` (37KB)、`company/Plans.tsx` (33KB)
+### D2. 其他 Context value 審視
+- `PortfolioPanelsContext`、`CheckupModeContext` 確認 value `useMemo`，避免父層 re-render 連帶 cascade。
+- `useSignalRealtimeInvalidation` 檢查 channel subscribe/unsubscribe 對稱。
 
-B1. 為每個檔案抽出「資料 hook + 子區塊元件」到同層 `./_parts/` 或 `./_hooks/`。先做流量最高的 `Index.tsx`、`Checkout.tsx`、`Pricing.tsx`。
-B2. `Index.tsx` 把 hero 以外的 section 全部 `lazy + LazyOnVisible`（已有元件可重用）。
-
----
-
-### C. Bundle / 載入效能
-
-C1. **`recharts` route-level lazy**：目前 `vendor-recharts` chunk 被 admin/company 多頁共用，但 portal `Index` / `Pricing` 沒用到卻可能被 prefetch 鏈帶入；確認 dynamic import 路徑乾淨。
-C2. **`@tiptap` 只在 SignalEditor / RichTextEditor 內 lazy**：檢查 `LazyRichTextEditor` 是否真的延後到互動才載入（目前 `vendor-tiptap` 體積大）。
-C3. **`lucide-react` icon tree-shake 檢查**：`vendor-lucide` 是手動合併 chunk，若某些頁只用 3-5 個 icon，改 `import { X } from "lucide-react/icons/x"` 可直接 tree-shake，砍掉 `vendor-lucide` 共用 chunk。
-C4. **預連接 / preload LCP**：`index.html` 加 `<link rel="preconnect" href="<supabase-url>">` 與首頁 hero 圖 `rel="preload" as="image" fetchpriority="high"`。
-C5. **route prefetch 節流**：`prefetchHighTrafficRoutes` 在 `requestIdleCallback` 內逐個 import，確認沒在低階手機塞滿主執行緒。
-
-驗收：用 `/company/perf-metrics` 看 LCP/FCP 7 天分位，B+C 後 P75 LCP 應 < 2.5s。
+### C5. routePrefetch 節流檢查
+- 確認 `prefetchHighTrafficRoutes` 在 `requestIdleCallback` 內逐個 import，低階手機不塞滿主執行緒；超過 3 個目標時改 `setTimeout` 排隊。
 
 ---
 
-### D. React re-render / state 熱點
+## P1 — 大檔案拆分（>40KB 頁面）
 
-D1. **`AuthContext`** 是否把整包 user/session/profile 放同一個 value？拆成 `AuthStateContext`（變動少）+ `AuthActionsContext`（穩定 ref），避免每次 token refresh 全 app re-render。
-D2. **`PortfolioPanelsContext`、`CheckupModeContext`** 同樣審視 value 物件是否 `useMemo`。
-D3. **`useSignalRealtimeInvalidation`** 確認 channel 只 subscribe 一次、unmount 有 unsubscribe，避免重複 invalidate。
-D4. **大列表**（admin/company subscribers、payments、analysts）若 >200 列，導入 `@tanstack/react-virtual`（已在 vendor-tanstack chunk）。
+剩餘流量高的單檔（行數）：
 
----
+| 檔案 | 行數 | 拆分手法 |
+|---|---|---|
+| `Checkout.tsx` | 1351 | 抽 `_checkout/`：plan-summary、payment-method-picker、consent-block、submit-flow hook |
+| `admin/Signals.tsx` | 1328 | 抽 filter bar、bulk-action toolbar、row 元件 |
+| `company/KnowledgeBase.tsx` | 1130 | 已有 `knowledge-base/` 子資料夾，繼續搬主檔的 tab/table |
+| `Index.tsx` | 1049 | hero 以外 section 已 lazy；剩 SEO / structured-data 區可抽 `_index/` |
+| `Pricing.tsx` | 1028 | 抽 plan-card、faq、comparison-table 子元件 |
+| `company/Revenue.tsx` | 968 | 抽圖表與表格區塊（圖表已用 PerfMetricsChart 模式可參考）|
 
-### E. Edge Functions 維護債
-
-- `knowledge-backtest/index.ts` 28KB 單檔；其他 supabase/functions 也應檢視。
-E1. 共用邏輯抽到 `supabase/functions/_shared/`（已有資料夾，但使用率不一）：DB client、auth check、CORS、error envelope 全部統一。
-E2. 加 `EdgeFunctionLogger` wrapper，所有 fn 一致寫入 `function_logs`（`/company/function-logs` 已有 UI）。
-E3. 列出沒有對應測試的 fn，補 `supabase--test_edge_functions` 最低保 happy path。
-
----
-
-### F. 型別 / Lint / Dead code
-
-F1. `rg "any"` 在 src 內統計濫用，逐檔收斂（保留 `validateProps.js` 等明確 any）。
-F2. `npx knip` 或 `ts-prune` 跑一次找未使用 exports（特別是 `src/checkup/lib/index.js` re-export 大集合，可能拖 tree-shake）。
-F3. `src/lib/refundProcessor.ts` 只是 re-export `supabase/functions/_shared/refundProcessor`，這種跨界 import 在 client bundle 會把 edge code 拉進來；改成「共用純函式放 `src/lib/`、edge 從 lib import」單向依賴。
+策略：每檔抽 2–4 個子元件 + 1 個 data hook，控制在 ≤ 600 行容器；流量序：`Checkout → Pricing → Index → 其餘 admin/company`。
 
 ---
 
-### G. 測試 / CI 加固
+## P2 — Edge Function 共用層全面套用
 
-G1. RWD 清單 + i18n 檢查已有 script，但 `.github/workflows/freecheckup-rwd.yml` 是否阻擋 merge？確認 required check。
-G2. 為 D1 拆 context 之前先寫 `AuthContext` re-render 計數測試（render counter component）作為 baseline。
-G3. Edge function 失敗（E2）後自動寫 `function_logs` 的 vitest 用 supabase mock 補測。
+骨架已就位（`_shared/cors.ts` `edgeLogger.ts` `supabaseClients.ts`），但 71 個 functions 只有 `knowledge-backtest` 真的接上。
 
----
-
-### H. 觀測 / 回饋迴路
-
-H1. `PerfMetricsTracker` 目前蒐 FCP/LCP，加上 **INP** 與 **CLS**（web-vitals 已是輕量，可同檔擴充）。
-H2. `/company/perf-metrics` 加「依路由分位數」表，定位是哪頁拖累 P75。
-H3. 加「bundle size 趨勢」CI step：`vite build --report` 後寫一份 size json 進 artifact，PR diff > 50KB 警告。
+- E1. 分批遷移到 `withLogging` + `serviceClient/userClient`，每批 5–8 個 function：
+  1. **低風險批**：checkup-* 唯讀類（calendar、predict-events、sparkline、telemetry、twse、news、research...）
+  2. **背景排程批**：*-cron、daily-*、expire-*、cleanup-*、knowledge-* scheduler
+  3. **金流 / webhook 批**（最後做，需配 supabase--test_edge_functions 跑 happy path）：ecpay-callback、acpay-*、confirm-*、line-webhook、process-refund
+- E2. 統一 `function_logs` 寫入（`/company/function-logs` UI 已有）。
+- E3. 列出沒測試的 fn，金流/webhook 類補 happy-path test。
 
 ---
 
-### 建議實作順序（依 ROI）
+## P3 — 型別 / 死碼 / CI 加固
 
-1. **A1+A2** — FreeCheckup 收尾（解最大維護債、影響日常開發速度）
-2. **D1** — AuthContext 拆分（全 app re-render）
-3. **C3+C4** — lucide tree-shake + preconnect（LCP 立即見效）
-4. **F3** — refundProcessor 跨界 import（避免 edge 程式碼污染 client bundle）
-5. **B1** — 大頁面拆分（Index → Checkout → Pricing）
-6. **H1+H3** — 觀測 INP/CLS + bundle 趨勢（建立回饋迴路）
-7. **E1+E2** — Edge function 共用層
-8. 其餘長尾
+- F1. `ts-prune` 或 `knip` 一次性掃 dead exports，特別審 `src/checkup/lib/index.js` 的 re-export 大集合（會拖 tree-shake）。
+- F2. `any` 收斂：目前計數工具未抓到（檔內 cast 多為 `as any`），改用 `rg "as any" src` 一次列表，優先處理 hooks 與 lib 層。
+- G1. 確認 `.github/workflows/freecheckup-rwd.yml` 是 required check（阻擋 merge）。
+- G2. 為已拆 AuthContext 補 re-render counter 測試作為 baseline（D1 已完成，但缺迴歸防線）。
+- G3. Edge function 失敗自動寫 `function_logs` 的 vitest mock 測試。
 
-要我先開哪一塊？建議從 1（A1 TradeTab）或 2（AuthContext 拆分）起手。
+---
+
+## P4 — 觀測 / 回饋迴路（補完）
+
+- H2. `/company/perf-metrics` 已有路由分位數欄；確認 P75 LCP 目標 < 2.5s 的 SLO 警示（超過時 dashboard 標紅）。
+- H3 延伸. `scripts/bundle-snapshot.mjs` 已能擋 PR；加 GitHub Actions step 在 PR comment 貼 diff 表，提升可見度。
+
+---
+
+## 建議實作順序
+
+1. **A1**（TradeTab + runtime hook）— 解最大維護債，影響日常開發速度
+2. **D2 + C5**（小修，半天可完成）
+3. **P1 大檔拆分** 流量序：Checkout → Pricing → Index
+4. **P2 Edge 遷移** 低風險批先行
+5. **P3 死碼 / 型別**
+6. **P2 金流批 + P4 觀測補完**
+
+要先開哪一塊？建議從 **A1**（FreeCheckup 收尾）或 **P1-Checkout** 起手。
