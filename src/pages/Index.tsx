@@ -908,7 +908,7 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* How It Works - Dual Path */}
-      <LazyOnVisible minHeight={400}>
+      <LazyOnVisible mode="content-visibility" minHeight={800}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
