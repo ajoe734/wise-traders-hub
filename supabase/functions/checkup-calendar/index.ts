@@ -477,3 +477,5 @@ const handler = withLogging('checkup-calendar', async (req, log) => {
     });
   }
 });
+
+Deno.serve(handler);
