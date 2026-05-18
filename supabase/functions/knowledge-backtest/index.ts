@@ -14,7 +14,7 @@
 //   - checkup_knowledge_items: 更新 win_rate / sample_size / backtest_stats
 //   - knowledge_grid_search_results: 網格每格結果（grid_search mode）
 
-import { corsHeaders, jsonResponse, errorResponse } from '../_shared/cors.ts'
+import { jsonResponse, errorResponse } from '../_shared/cors.ts'
 import { withLogging } from '../_shared/edgeLogger.ts'
 import { serviceClient } from '../_shared/supabaseClients.ts'
 
