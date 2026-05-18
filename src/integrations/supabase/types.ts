@@ -2852,6 +2852,8 @@ export type Database = {
       get_expert_detail_bundle: { Args: { _slug: string }; Returns: Json }
       get_knowledge_revision: { Args: never; Returns: string }
       get_perf_metrics_summary: { Args: { _days?: number }; Returns: Json }
+      get_pricing_bundle: { Args: { _user_id?: string }; Returns: Json }
+      get_public_experts_list: { Args: never; Returns: Json }
       get_weekly_limit_up_leaderboard: {
         Args: { _end_date?: string; _start_date?: string }
         Returns: {
