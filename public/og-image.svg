@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="legendflow Open Graph card">
+  <defs>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.92" numOctaves="2" stitchTiles="stitch"></feTurbulence>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0"></feColorMatrix>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="#E7E0D6"></rect>
+  <rect width="1200" height="630" fill="#0B120E" opacity="0.04" filter="url(#grain)"></rect>
+
+  
+  <text x="80" y="100" font-family="IBM Plex Mono, monospace" font-size="20" letter-spacing="6" fill="#838585">EDITORIAL PORTFOLIO JOURNAL</text>
+
+  
+  <text x="80" y="380" font-family="Source Serif 4, Source Serif Pro, Georgia, serif" font-weight="700" font-size="240" letter-spacing="-7" fill="#0B120E">legend</text>
+  <circle cx="797" cy="296" r="24" fill="#EC662D"></circle>
+  <text x="845" y="380" font-family="Source Serif 4, Source Serif Pro, Georgia, serif" font-weight="700" font-size="240" letter-spacing="-7" fill="#0B120E">flow</text>
+
+  
+  <text x="80" y="460" font-family="Source Serif 4, Source Serif Pro, Georgia, serif" font-size="32" font-style="italic" fill="#2F3232">為一般大眾打造的持倉看板。</text>
+  <text x="80" y="500" font-family="Source Serif 4, Source Serif Pro, Georgia, serif" font-size="32" font-style="italic" fill="#2F3232">讀懂市場圖例，順流而行。</text>
+
+  
+  <text x="80" y="580" font-family="IBM Plex Mono, monospace" font-size="18" letter-spacing="3" fill="#838585">EST. 2026 · MMXXVI</text>
+  <text x="1120" y="580" font-family="IBM Plex Mono, monospace" font-size="18" letter-spacing="3" fill="#838585" text-anchor="end">LEGENDFLOW.IO</text>
+</svg>

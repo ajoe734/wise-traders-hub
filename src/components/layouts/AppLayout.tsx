@@ -1,7 +1,8 @@
 import { ReactNode, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Home, Radio, BookOpen, User, TrendingUp, LogOut, ChevronRight } from 'lucide-react';
+import { Home, Radio, BookOpen, User, LogOut, ChevronRight } from 'lucide-react';
+import { Logomark } from '@/components/brand';
 import { cn } from '@/lib/utils';
 import { PreviewBanner } from '@/components/PreviewBanner';
 import { useEffect } from 'react';
@@ -113,9 +114,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-4">
           <Link to="/app" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-hero">
-              <TrendingUp className="h-4 w-4 text-primary-foreground" />
-            </div>
+            <Logomark size={32} />
             <span className="font-semibold text-foreground">智富股市實戰學院</span>
           </Link>
           <button
