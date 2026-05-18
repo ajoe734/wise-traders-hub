@@ -522,7 +522,7 @@ Deno.serve(withLogging('knowledge-backtest', async (req, log) => {
         }
       }
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         ok: true,
         mode: 'grid_search',
         item_id: item.id,
@@ -531,7 +531,7 @@ Deno.serve(withLogging('knowledge-backtest', async (req, log) => {
         best: { parameters: best.params, stats: best.stats, score: best.score },
         top_5: results.slice(0, 5).map(r => ({ parameters: r.params, win_rate: r.stats.win_rate, total_hits: r.stats.total_hits, score: +r.score.toFixed(3) })),
         promoted,
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      })
     }
 
     // single / full
