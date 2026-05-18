@@ -6,9 +6,6 @@
 //   2. `corsPreflight()` / `jsonResponse()` — wrappers that always emit
 //      `corsHeaders`, so a function can never accidentally drop CORS on an
 //      error path.
-//
-// `_shared/checkupCors.ts` is kept as a deprecated re-export so existing
-// imports keep working without touching every checkup function.
 
 export const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
