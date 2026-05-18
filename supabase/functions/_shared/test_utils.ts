@@ -67,15 +67,20 @@ export async function runPreflightTest(fn: string) {
   }
 }
 
+const KNOWN_CODES = new Set([
+  "INVALID_INPUT", "AUTH_REQUIRED", "AUTH_FAILED", "FORBIDDEN", "NOT_FOUND",
+  "METHOD_NOT_ALLOWED", "QUOTA_EXCEEDED", "RATE_LIMITED", "UPSTREAM_ERROR",
+  "TIMEOUT", "INTERNAL_ERROR",
+]);
+
 /**
  * Generic contract: send an invalid request and assert that whatever response
- * comes back still carries CORS headers + propagates x-correlation-id.
- * We deliberately do NOT assert status — some functions (callbacks, cron)
- * legitimately return 200 on garbage input.
+ * comes back still carries CORS headers + propagates x-correlation-id, AND
+ * (when the body is JSON) exposes a structured `code` from the canonical set.
  */
 export async function runInvalidBodyContract(
   fn: string,
-  opts: { method?: "GET" | "POST"; body?: string; query?: Record<string, string> } = {},
+  opts: { method?: "GET" | "POST"; body?: string; query?: Record<string, string>; expectCode?: string } = {},
 ) {
   const method = opts.method ?? "POST";
   const cid = `test-${crypto.randomUUID()}`;
@@ -84,6 +89,20 @@ export async function runInvalidBodyContract(
     headers: authHeaders({ "content-type": "application/json", "x-correlation-id": cid }),
     body: method === "GET" ? undefined : (opts.body ?? JSON.stringify({ __invalid__: true })),
   });
-  await drain(res);
+  const text = await drain(res);
   assertCorsAndCorrelation(res, cid);
+  // Only assert code shape when we got a JSON error body (some callbacks reply text).
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  if (res.status >= 400 && ct.includes("application/json")) {
+    let body: any;
+    try { body = JSON.parse(text); } catch { return; }
+    if (typeof body?.code === "string") {
+      if (!KNOWN_CODES.has(body.code)) {
+        throw new Error(`[${fn}] unknown error code "${body.code}" not in canonical set`);
+      }
+      if (opts.expectCode && body.code !== opts.expectCode) {
+        throw new Error(`[${fn}] expected code ${opts.expectCode}, got ${body.code}`);
+      }
+    }
+  }
 }
