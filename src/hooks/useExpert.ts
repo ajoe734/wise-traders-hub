@@ -146,6 +146,14 @@ export function useExperts(opts?: { includeAllStatuses?: boolean }) {
   return useQuery({
     queryKey: ['experts', user?.id ?? 'guest', visibilityMode],
     queryFn: async () => {
+      // 'default' 路徑（訪客 + 一般登入者）走 RPC bundle，省一次 RLS+巢狀 select。
+      // tester / privileged 仍需 draft / suspended 列，走原 select * 路徑。
+      if (visibilityMode === 'default') {
+        const { data, error } = await supabase.rpc('get_public_experts_list');
+        if (error) throw error;
+        const rows = Array.isArray(data) ? data : [];
+        return rows.map(mapToPersonWithPlans);
+      }
       const { data, error } = await supabase
         .from('experts')
         .select('*, expert_plans(*)')
@@ -153,7 +161,9 @@ export function useExperts(opts?: { includeAllStatuses?: boolean }) {
       if (error) throw error;
       return filterExpertRows(data || [], visibilityMode).map(mapToPersonWithPlans);
     },
-    enabled: !isAuthLoading,
+    // default 模式不需要等 auth：訪客與一般登入者拿到的清單一致。
+    // tester / privileged 才需要 auth 解析後再發。
+    enabled: visibilityMode === 'default' ? true : !isAuthLoading,
     staleTime: EXPERT_STALE_MS,
     retry: expertRetry,
     retryDelay: expertRetryDelay,
