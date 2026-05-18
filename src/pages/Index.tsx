@@ -367,7 +367,7 @@ const Index = () => {
               to="/experts?role=advisor"
               className="jianghu-card group relative block overflow-hidden rounded-2xl"
               style={{
-                height: '420px',
+                aspectRatio: '3 / 4',
                 border: '1px solid rgba(23,23,23,0.12)',
                 backgroundColor: '#1a1a1a',
               }}
@@ -439,7 +439,7 @@ const Index = () => {
               to="/experts?role=mentor"
               className="jianghu-card group relative block overflow-hidden rounded-2xl"
               style={{
-                height: '420px',
+                aspectRatio: '3 / 4',
                 border: '1px solid rgba(23,23,23,0.12)',
                 backgroundColor: '#1a1a1a',
               }}
