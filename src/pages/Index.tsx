@@ -305,6 +305,73 @@ const Index = () => {
         
       `}</style>
 
+      {/* 黑色數據列 — full-width stats bar above 江湖兩派 */}
+      <section
+        aria-label="平台數據"
+        className="relative w-full"
+        style={{ backgroundColor: '#070707' }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <ul
+            className="grid grid-cols-2 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x"
+            style={{ borderColor: 'rgba(255,255,255,0.12)' }}
+          >
+            {[
+              { num: '10,000+', title: '活躍訂閱用戶', sub: '來自全球的交易者' },
+              { num: '75%+',    title: '勝率表現',     sub: '歷史訊號平均勝率' },
+              { num: '24 / 7',  title: '即時市場分析', sub: '不間斷的市場監控' },
+              { num: '1000+',   title: '深度研究報告', sub: '涵蓋全球主要市場' },
+              { num: '4.9 / 5', title: '用戶滿意度',   sub: '來自真實用戶評價' },
+            ].map((s, i) => (
+              <li
+                key={s.title}
+                className="flex flex-col items-center justify-center text-center px-4 py-7 md:py-9"
+                style={{
+                  borderColor: 'rgba(255,255,255,0.12)',
+                  minHeight: 160,
+                }}
+              >
+                <div
+                  className="text-3xl md:text-4xl lg:text-[44px] text-white mb-2"
+                  style={{
+                    fontFamily: '"Noto Serif TC","Source Serif 4","Georgia",serif',
+                    letterSpacing: '0.02em',
+                    fontWeight: 500,
+                  }}
+                >
+                  {s.num}
+                </div>
+                <div
+                  className="text-sm md:text-base text-white mb-1"
+                  style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.15em' }}
+                >
+                  {s.title}
+                </div>
+                <div
+                  className="text-xs md:text-[13px]"
+                  style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em' }}
+                >
+                  {s.sub}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {/* 橘色銜接圓點 */}
+          <div className="flex justify-center" aria-hidden="true">
+            <span
+              className="block rounded-full"
+              style={{
+                width: 10,
+                height: 10,
+                backgroundColor: '#EC662D',
+                transform: 'translateY(50%)',
+                boxShadow: '0 0 0 4px #070707',
+              }}
+            />
+          </div>
+        </div>
+      </section>
+
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
       <LazyOnVisible minHeight={700}>
       <section
