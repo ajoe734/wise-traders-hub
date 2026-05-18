@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
@@ -387,7 +388,7 @@ async function fetchRealtimeQuotes(supabase: any, codes: string[]): Promise<Map<
 
 const handler = withLogging('checkup-predict-events', async (req, log) => {
   if (req.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed' }, { status: 405 });
+    return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   }
 
   if (!Deno.env.get('LOVABLE_API_KEY') && !Deno.env.get('GOOGLE_GEMINI_API_KEY')) {

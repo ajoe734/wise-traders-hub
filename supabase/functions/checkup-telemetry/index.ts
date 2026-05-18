@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
@@ -63,7 +64,7 @@ const handler = withLogging('checkup-telemetry', async (req, log) => {
       return jsonResponse({ ok: true, accepted: incoming.length, stored: merged.length });
     }
 
-    return jsonResponse({ error: 'Method not allowed' }, { status: 405 });
+    return codedErrorResponse('METHOD_NOT_ALLOWED', '不支援的 HTTP 方法');
   } catch (err) {
     log.error('handler_error', { msg: (err as Error).message });
     return jsonResponse({ error: (err as Error).message }, { status: 500 });
