@@ -1,72 +1,95 @@
+# 全站效能 / 維護性審計計畫
 
-## 為什麼仍然慢（實際量測點）
+## 目標
+產出**純審計報告**（不改 code），列出全站每一頁的效能瓶頸、維護性問題、優先級與預估收益，供你逐條核可後再分批執行。
 
-`/experts`：
-- `useExperts` 直接 `SELECT *, expert_plans(*)`，巢狀帶全欄位、走 PostgREST，每次都解 RLS。
-- 而且 `enabled: !isAuthLoading` — 必須等 `supabase.auth.getSession()` 完成才會發出，常見 200–600ms 純等。
-- 沒對 Supabase 做 `preconnect`，首訪要付一次 TLS。
+## 範圍（窮舉，不抽樣）
+依 `src/App.tsx` 路由表，全部納入：
 
-`/pricing`：
-- `Pricing.tsx` 內 `useEffect` 直接打 `expert_plans` 抓全部列只為了算最小值 → 沒 react-query 快取、每次進頁都重打，且回傳整張表。
-- 同頁 `<CheckupPlansSection>` 又再開：① `useCheckupPlans` ② `supabase.auth.getSession()` ③ `rpc('check_checkup_quota')`，序列等待。
-- 結果一個 `/pricing` 至少 3–4 個獨立 round-trip。
+**公開頁（5）**
+`/`, `/experts`, `/expert/:slug`, `/pricing`, `/free-checkup`, `/legal`
 
-## 修改計畫
+**會員 App（10+）**
+`/app`, `/app/explore`, `/app/holdings`, `/app/journals`, `/app/journal/:id`, `/app/signals`, `/app/signals-dashboard`, `/app/signal/:id`, `/app/system/:id`, `/app/learning`, `/app/expert/:slug`, `/app/checkout`, `/app/account`, `/app/notifications`, `/app/remittance-orders`
 
-### 1. 後端：新增兩個輕量 RPC（一次 round-trip）
+**結帳 / 付款（3）**
+`/checkout`, `/checkup-checkout`, `/plan/:id`
 
-`supabase/migrations/*_pricing_perf.sql`
+**Admin 後台（10）**
+`/admin/:slug` Dashboard, Signals, SignalEditor, SignalTemplates, ReasonTemplates, Plans, Subscribers, Performance, Announcements, Profile
 
-- `get_public_experts_list()` — STABLE SECURITY DEFINER，只回傳清單卡需要的欄位（id, slug, name, role, avatar_url, bio, style_tags, markets, strategy_*、backtest_* 與每位專家的 active plans 精簡欄位）；server-side 直接過濾 `status='active'`。取代 `SELECT *, expert_plans(*)`，payload 砍 ~60%、且省一次 RLS 多表評估。
-- `get_pricing_bundle(_user_id uuid)` — 一次回傳：
-  - `min_advisor_price` / `min_mentor_price`（取代 `Pricing.tsx` 的整表抓取）
-  - `checkup_plans`（active, 按 sort_order）
-  - `checkup_quota`（若 `_user_id` 非 null，內部呼叫 `check_checkup_quota`）
+**Company 後台（20）**
+Dashboard, Analysts, Users, Plans, Subscribers, Revenue, Payments, PaymentSettings, Remittance, Announcements, AuditLogs, BacktestMonitor, CheckupUsage, FunctionLogs, KnowledgeBase, MetaOverrides, MissingPrices, PerfMetrics, ReferralChannels, SystemJobs
 
-兩支都加上 `GRANT EXECUTE TO anon, authenticated`。
+**Auth（5）** Login, Register, ForgotPassword, ResetPassword, LineCallback
 
-加索引（如尚未存在）：
-- `experts(status, created_at)`
-- `expert_plans(expert_id, is_active)`
+## 審計維度（每頁逐項打勾）
 
-### 2. 前端：`useExperts` 不再等 auth、改打 RPC
+1. **資料載入**
+   - `useEffect` + `supabase.from(...)` 直查（未走 react-query）→ 無快取、重複請求
+   - `enabled: !isAuthLoading` 阻塞公開資料
+   - N+1（先撈父再 map 撈子）
+   - `select *` vs 指定欄位
+   - 缺 RPC bundle 機會（多次查詢可合併）
+2. **DB 端**
+   - 對應 query 是否有 index（join FK、order/filter 欄位）
+   - RLS policy 是否觸發 sequential scan
+3. **Bundle / 載入**
+   - 是否 `lazy()`、route-level code split
+   - 第三方大套件（recharts、tiptap、framer-motion…）是否只在需要時載入
+   - 圖片 `loading="lazy"` / `decoding="async"` / 尺寸宣告
+4. **Realtime**
+   - 訂閱是否必要、是否清理、是否範圍過大
+5. **維護性**
+   - 重複 fetch 邏輯（同一張表多處直查）
+   - QueryKey 命名一致性
+   - 錯誤處理重複、缺 `errorMessage` util
+   - 元件過長（>500 行）需要拆分
+6. **真實 RUM 數據**
+   - 用 `supabase--analytics_query` 拉最近 7 天 `function_edge_logs` 每個 edge function 的 p50/p95/error rate
+   - 從 `perf_metrics_rum` 表抓前台路徑 p95 FCP/LCP
+   - 從 `postgres_logs` 抓 slow query
 
-`src/hooks/useExpert.ts`
-- 把 `enabled: !isAuthLoading` 拿掉 — 公開頁清單對所有人一樣，先發出 guest 查詢；auth 解析完成且為 tester 再額外刷新。
-- queryFn 改呼叫 `rpc('get_public_experts_list')`；保留 tester 走原 `select *` 路徑以維持 draft 預覽。
-- 維持既有 `staleTime: 5min` 與 `placeholderData: keepPreviousData`。
+## 交付物（單一 Markdown 報告）
 
-### 3. 前端：`/pricing` 改用單一 bundle hook
+存到 `.lovable/perf-audit-2026-05.md`，結構：
 
-新增 `src/hooks/usePricingBundle.ts`：
-- `useQuery(['pricing-bundle', userId])` → `rpc('get_pricing_bundle', { _user_id })`，`staleTime: 60s`。
-- 回傳 `{ minAdvisorPrice, minMentorPrice, checkupPlans, checkupQuota }`。
+```text
+# 全站效能審計 2026-05
 
-改寫 `src/pages/Pricing.tsx`：
-- 刪除 `useEffect` 直接打 `expert_plans` 的區塊，改用 `usePricingBundle()` 的 `minAdvisorPrice/minMentorPrice`。
-- `CheckupPlansSection` 改接收 props（plans + quota），不再自行 `useCheckupPlans` / `auth.getSession()` / `rpc`。
+## 1. 真實數據摘要
+- 最慢前台路由（RUM p95 LCP top 10）
+- 最慢 edge function（p95 top 10 + error rate）
+- 最慢 SQL（postgres_logs top 10）
 
-如此 `/pricing` 從 3–4 round-trip 降為 **1**。
+## 2. 各頁問題清單
+### /app/holdings
+- [P0] N+1：先撈 holdings 再逐筆撈 quote  → 預估省 1.2s
+- [P1] 未走 react-query，切 tab 重撈
+- [P2] 元件 820 行，建議拆 3 個
+...（每頁同格式）
 
-### 4. 加 preconnect，省冷啟 TLS
+## 3. 跨頁共通問題
+- 14 處 `useEffect` 直查 → 統一遷 react-query
+- 8 處 `enabled: !isAuthLoading` 對公開資料 → 移除
+- 缺 index 清單（5 個）
 
-`index.html` `<head>` 加：
-```html
-<link rel="preconnect" href="https://yqacmrgdjlenbijclngi.supabase.co" crossorigin>
-<link rel="dns-prefetch" href="https://yqacmrgdjlenbijclngi.supabase.co">
+## 4. 建議執行批次
+- Batch 1（最高 ROI，~3 PR）：…
+- Batch 2（中 ROI，~5 PR）：…
+- Batch 3（低 ROI / Admin 內部）：…
 ```
 
-### 5. Nav hover 預取
+## 流程
 
-在 `PortalLayout` 的 `/experts`、`/pricing` 連結加 `onMouseEnter` → `queryClient.prefetchQuery`，桌機常見可省 100–300ms。
+1. 拉 RUM + edge logs + postgres logs（3 個並行 analytics query）
+2. 對每頁掃描 source（grep `useEffect.*supabase`、`enabled: !isAuthLoading`、`select(`、`lazy(`）
+3. 對應 DB schema 檢查 index
+4. 整理成上述報告，**不動任何 source code**
 
-## 驗證
+## 不做（明確排除）
+- 任何 code 修改、migration、edge function deploy
+- 設計改動
+- Admin/Company 頁的功能改動
 
-- DevTools Network：`/experts` 首次應只 1 個 RPC、無 auth 阻塞；`/pricing` 只 1 個 RPC。
-- `supabase--analytics_query` 看 RPC p95 < 150ms。
-- 既有 `e2e/batch5b-react-query.spec.ts` 應仍通過；補一個 unit test 確認 `usePricingBundle` 在無 session 時也能拿到資料。
-
-## 不動的
-
-- 不改設計、不改路由、不改 RLS 模型（只是用 SECURITY DEFINER RPC 包成單次查詢）。
-- 不動 `useExpertDetailBundle`（已是 bundle 模式）。
+報告交付後你逐條核可，我再分批實作（每批一個獨立 PR）。
