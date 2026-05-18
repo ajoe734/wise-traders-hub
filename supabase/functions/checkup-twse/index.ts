@@ -1,14 +1,10 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 
-import { corsHeaders } from '../_shared/checkupCors.ts';
-
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+const handler = withLogging('checkup-twse', async (req, log) => {
   try {
     const url = new URL(req.url);
     const exCh = url.searchParams.get('ex_ch');
@@ -20,7 +16,6 @@ Deno.serve(async (req) => {
       source: { ex_ch: exCh },
     });
     if (issues.length) return validationResponse(issues, corsHeaders);
-
 
     // 只用 MIS 即時報價 API（對齊 Python 腳本）
     const ts = Date.now();
@@ -43,7 +38,6 @@ Deno.serve(async (req) => {
       if (!existing) {
         bestByCode.set(item.c, item);
       } else {
-        // 優先保留有成交量或有成交價的
         const existZ = parseFloat(existing.z);
         const newZ = parseFloat(item.z);
         const existV = parseInt(existing.v, 10) || 0;
@@ -55,19 +49,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 直接回傳去重後的原始 MIS 資料，不做任何價格修改
-    // 前端自行實作 4 層瀑布邏輯：z > h(有量) > a > y
     data.msgArray = Array.from(bestByCode.values());
 
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-store' },
+    return jsonResponse(data, {
+      headers: { 'Cache-Control': 'no-cache, no-store' },
     });
   } catch (error) {
-    console.error('TWSE proxy error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: 'TWSE API 請求失敗', detail: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    log.error('twse_proxy_error', { message });
+    return jsonResponse({ error: 'TWSE API 請求失敗', detail: message }, { status: 500 });
   }
 });
+
+Deno.serve(handler);

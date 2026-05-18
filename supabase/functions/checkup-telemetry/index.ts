@@ -1,11 +1,12 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
-
-import { corsHeaders } from '../_shared/checkupCors.ts';
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/supabaseClients.ts";
+import { withLogging } from "../_shared/edgeLogger.ts";
 
 const TELEMETRY_LIMIT = 200;
+const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
 
 function normalizeEntry(value: any) {
   if (!value || typeof value !== 'object') return null;
@@ -22,26 +23,18 @@ function normalizeEntry(value: any) {
   };
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+const handler = withLogging('checkup-telemetry', async (req, log) => {
+  const supabase = serviceClient();
 
   try {
     if (req.method === 'GET') {
-      const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
       const { data: row } = await supabase
         .from('checkup_storage').select('data').eq('user_id', SYSTEM_UID).eq('key', 'telemetry-events').maybeSingle();
       const entries = Array.isArray(row?.data) ? row.data.slice(0, 50) : [];
-      return new Response(JSON.stringify({ entries }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ entries });
     }
 
     if (req.method === 'POST') {
-      const SYSTEM_UID = '00000000-0000-0000-0000-000000000000';
       let body: any = {};
       try { body = await req.json(); } catch { body = {}; }
 
@@ -54,8 +47,7 @@ Deno.serve(async (req) => {
       });
       if (issues.length) return validationResponse(issues, corsHeaders);
 
-      const { action, data } = body;
-
+      const { data } = body;
 
       const incoming = (data?.entries || []).map(normalizeEntry).filter(Boolean);
       const { data: existing } = await supabase
@@ -68,17 +60,14 @@ Deno.serve(async (req) => {
         { onConflict: 'user_id,key' }
       );
 
-      return new Response(JSON.stringify({ ok: true, accepted: incoming.length, stored: merged.length }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ ok: true, accepted: incoming.length, stored: merged.length });
     }
 
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'Method not allowed' }, { status: 405 });
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    log.error('handler_error', { msg: (err as Error).message });
+    return jsonResponse({ error: (err as Error).message }, { status: 500 });
   }
 });
+
+Deno.serve(handler);
