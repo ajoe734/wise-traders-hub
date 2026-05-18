@@ -1,18 +1,19 @@
 import { jsonResponse } from "../_shared/cors.ts";
+import { codedErrorResponse } from "../_shared/errorCodes.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
 
 const handler = withLogging("create-checkup-remittance", async (req, log) => {
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return jsonResponse({ error: "Unauthorized" }, { status: 401 });
+  if (!authHeader) return codedErrorResponse("AUTH_REQUIRED", "請先登入");
 
   const supabase = userClient(req);
   const { data: userData, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !userData?.user) return jsonResponse({ error: "Unauthorized" }, { status: 401 });
+  if (userErr || !userData?.user) return codedErrorResponse("AUTH_FAILED", "登入狀態無效");
   const userId = userData.user.id;
 
   const { checkupPlanId, billingCycle, originalAmount, discountAmount, discountReason, attribution } = await req.json();
-  if (!checkupPlanId || !billingCycle) return jsonResponse({ error: "Missing required fields" }, { status: 400 });
+  if (!checkupPlanId || !billingCycle) return codedErrorResponse("INVALID_INPUT", "缺少必填欄位：checkupPlanId / billingCycle");
 
   const admin = serviceClient();
   const { data: plan } = await admin.from("checkup_plans")

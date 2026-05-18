@@ -77,9 +77,7 @@ const handler = withLogging('checkup-research', async (req, log) => {
     userId = user?.id || null;
   } catch {}
   if (!userId) {
-    return new Response(JSON.stringify({ error: '未認證' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return codedErrorResponse('AUTH_FAILED', '未認證或 JWT 無效');
   }
 
   try {
