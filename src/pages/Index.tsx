@@ -29,6 +29,7 @@ import featureJiaodai from '@/assets/feature-jiaodai.webp';
 import featureFiveFactions from '@/assets/feature-five-factions.webp';
 import jianghuFollowBg from '@/assets/jianghu-follow-bg.png';
 import jianghuStudyBg from '@/assets/jianghu-study-bg.png';
+import jianghuSectionBg from '@/assets/jianghu-section-bg.jpg';
 import iconLightningCircle from '@/assets/icon-lightning-circle.svg';
 import iconBookCircle from '@/assets/icon-book-circle.svg';
 import dividerChoosePath from '@/assets/divider-choose-path.svg';
