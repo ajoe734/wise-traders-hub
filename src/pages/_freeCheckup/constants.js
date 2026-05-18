@@ -328,7 +328,7 @@ export const loadScopedLocal = (key, fallback, userId) => {
   return loadLocal(key, fallback);
 };
 
-async function loadAllFromCloud(userId) {
+export async function loadAllFromCloud(userId) {
   if (!userId) return {};
   try {
     const { data: rows } = await supabase
@@ -352,7 +352,7 @@ export function loadLocal(key, fallback) {
 let _currentUserId = null;
 export function setCurrentUserId(uid) { _currentUserId = uid; }
 
-async function save(key, data, userId) {
+export async function save(key, data, userId) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
   const uid = userId || _currentUserId;
   if (uid) setLocalStorageOwner(uid);
@@ -396,7 +396,7 @@ export function formatResetDateTime(resetsAt) {
 }
 // 解析後端回應，判斷是否為個人配額用盡（QUOTA_EXCEEDED）
 // 回傳 true 代表已是配額用盡，呼叫端應彈 modal 而非當錯誤處理
-async function isQuotaExceeded(res) {
+export async function isQuotaExceeded(res) {
   if (!res || res.status !== 429) return false;
   try {
     const cloned = res.clone();
@@ -414,7 +414,7 @@ async function isQuotaExceeded(res) {
 // Session 快取 60 秒，避免每次 AI 呼叫都打一次 supabase.auth.getSession()（mount 時數十次）
 let _sessionCache = { token: null, ts: 0 };
 const SESSION_TTL = 60_000;
-async function aiAuthHeaders() {
+export async function aiAuthHeaders() {
   const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
   try {
     const now = Date.now();
