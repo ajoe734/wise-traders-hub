@@ -449,8 +449,7 @@ Deno.serve(withLogging('knowledge-backtest', async (req, log) => {
       const triggerType = item.trigger_condition?.type
       const grid = buildGrid(triggerType, {})
       if (grid.length === 0) {
-        return new Response(JSON.stringify({ ok: false, error: `No grid defined for trigger type: ${triggerType}` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return errorResponse(`No grid defined for trigger type: ${triggerType}`, 400, { ok: false })
       }
 
       // 為這個 grid_search 建一個 parent run
