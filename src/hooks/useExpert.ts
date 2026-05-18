@@ -325,7 +325,7 @@ export function useExpertSubscriptionStats(
         subscriberCount: count || 0,
       };
     },
-    enabled: !!expertId && !isAuthLoading,
+    enabled: !!expertId,
     staleTime: 60_000,
   });
 }
