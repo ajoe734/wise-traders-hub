@@ -14,15 +14,9 @@
 //   - checkup_knowledge_items: 更新 win_rate / sample_size / backtest_stats
 //   - knowledge_grid_search_results: 網格每格結果（grid_search mode）
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+import { jsonResponse, errorResponse } from '../_shared/cors.ts'
+import { withLogging } from '../_shared/edgeLogger.ts'
+import { serviceClient } from '../_shared/supabaseClients.ts'
 
 // ---- 型別 ----
 interface PriceRow {
@@ -407,9 +401,7 @@ function buildGrid(triggerType: string, base: any): any[] {
   return grids
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
-
+Deno.serve(withLogging('knowledge-backtest', async (req, log) => {
   try {
     const body = await req.json().catch(() => ({}))
     const mode: string = body.mode ?? 'single'
@@ -419,16 +411,15 @@ Deno.serve(async (req) => {
     const promoteIfBetter: boolean = !!body.promote_if_better
     const minImprovementPct: number = Number(body.min_improvement_pct ?? 5)  // 至少改善 5% 才升級
 
-    const sb = createClient(SUPABASE_URL, SERVICE_KEY)
+    log.info('params', { mode, itemId, dateStart, dateEnd, promoteIfBetter })
+    const sb = serviceClient()
 
     // 載入價格資料（一次性）
     const rows = await loadPriceData(sb, dateStart, dateEnd)
     if (rows.length < 100) {
-      return new Response(JSON.stringify({
-        ok: false,
-        error: 'INSUFFICIENT_DATA',
-        message: `daily_price_snapshots 只有 ${rows.length} 筆，請先呼叫 backfill-daily-snapshots`,
-      }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return errorResponse(`daily_price_snapshots 只有 ${rows.length} 筆，請先呼叫 backfill-daily-snapshots`, 400, {
+        ok: false, error: 'INSUFFICIENT_DATA',
+      })
     }
     const bySym = groupBySymbol(rows)
 
@@ -443,8 +434,7 @@ Deno.serve(async (req) => {
       if (error) throw error
       items = (data ?? []) as KnowledgeItem[]
     } else {
-      if (!itemId) return new Response(JSON.stringify({ ok: false, error: 'item_id required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (!itemId) return errorResponse('item_id required', 400, { ok: false })
       const { data, error } = await sb
         .from('checkup_knowledge_items')
         .select('id,item_id,trigger_condition,expected_outcome,confidence')
@@ -459,8 +449,7 @@ Deno.serve(async (req) => {
       const triggerType = item.trigger_condition?.type
       const grid = buildGrid(triggerType, {})
       if (grid.length === 0) {
-        return new Response(JSON.stringify({ ok: false, error: `No grid defined for trigger type: ${triggerType}` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return errorResponse(`No grid defined for trigger type: ${triggerType}`, 400, { ok: false })
       }
 
       // 為這個 grid_search 建一個 parent run
@@ -533,7 +522,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         ok: true,
         mode: 'grid_search',
         item_id: item.id,
@@ -542,7 +531,7 @@ Deno.serve(async (req) => {
         best: { parameters: best.params, stats: best.stats, score: best.score },
         top_5: results.slice(0, 5).map(r => ({ parameters: r.params, win_rate: r.stats.win_rate, total_hits: r.stats.total_hits, score: +r.score.toFixed(3) })),
         promoted,
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      })
     }
 
     // single / full
@@ -676,11 +665,11 @@ Deno.serve(async (req) => {
           body: { hours: 2, trigger: body.trigger ?? 'cron' },
         })
       } catch (notifyErr) {
-        console.error('notify-backtest-result invoke failed:', notifyErr)
+        log.error('notify_invoke_failed', { err: String(notifyErr) })
       }
     }
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       ok: true,
       mode,
       universe_size: bySym.size,
@@ -689,11 +678,10 @@ Deno.serve(async (req) => {
       auto_rules_enabled: !!autoRules,
       auto_actions: autoActions,
       results: out,
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    })
 
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, error: String(err) }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    log.error('handler_threw', { err: String(err) })
+    return errorResponse(String(err), 500, { ok: false })
   }
-})
+}))
