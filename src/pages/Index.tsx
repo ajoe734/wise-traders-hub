@@ -893,7 +893,7 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* Weekly Limit Up Leaderboard */}
-      <LazyOnVisible minHeight={400}>
+      <LazyOnVisible mode="content-visibility" minHeight={700}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
