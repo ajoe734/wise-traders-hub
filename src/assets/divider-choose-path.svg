@@ -1,9 +1,30 @@
-<svg width="120" height="360" viewBox="0 0 120 360" fill="none" xmlns="http://www.w3.org/2000/svg">
-<circle cx="60" cy="28" r="18" fill="#FFF7E8" stroke="#EC662D" stroke-width="2"/>
-<path d="M52 25L60 33L68 25" stroke="#EC662D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M60 48V150" stroke="#1A1A1A" stroke-opacity="0.22" stroke-width="2"/>
-<path d="M60 312V348" stroke="#1A1A1A" stroke-opacity="0.22" stroke-width="2"/>
-<path d="M30 140L60 160L90 140" stroke="#1A1A1A" stroke-opacity="0.22" stroke-width="2"/>
-<path d="M30 300L60 280L90 300" stroke="#1A1A1A" stroke-opacity="0.22" stroke-width="2"/>
-<text x="60" y="205" text-anchor="middle" font-family="Noto Serif TC, serif" font-size="22" font-weight="700" fill="#171717" writing-mode="tb">選擇你的路</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="320" viewBox="0 0 56 320" fill="none">
+  <!-- top arrow -->
+  <path d="M28 6 L24 14 L28 12 L32 14 Z" fill="#171717" opacity="0.55"/>
+  <!-- top line -->
+  <line x1="28" y1="18" x2="28" y2="64" stroke="#171717" stroke-width="1" opacity="0.4"/>
+  <!-- vertical text: 選擇你的道路 -->
+  <g font-family="'Noto Serif TC', 'Songti TC', serif" font-size="15" fill="#171717" opacity="0.75" text-anchor="middle" letter-spacing="2">
+    <text x="28" y="82">選</text>
+    <text x="28" y="102">擇</text>
+    <text x="28" y="122">你</text>
+    <text x="28" y="142">的</text>
+    <text x="28" y="162">道</text>
+    <text x="28" y="182">路</text>
+  </g>
+  <!-- diamond separator -->
+  <g opacity="0.5">
+    <path d="M28 196 L33 201 L28 206 L23 201 Z" fill="#EC662D"/>
+  </g>
+  <!-- vertical text: 開始你的傳奇 -->
+  <g font-family="'Noto Serif TC', 'Songti TC', serif" font-size="13" fill="#171717" opacity="0.6" text-anchor="middle" letter-spacing="2">
+    <text x="28" y="224">開</text>
+    <text x="28" y="240">始</text>
+    <text x="28" y="256">傳</text>
+    <text x="28" y="272">奇</text>
+  </g>
+  <!-- bottom line -->
+  <line x1="28" y1="282" x2="28" y2="304" stroke="#171717" stroke-width="1" opacity="0.4"/>
+  <!-- bottom arrow -->
+  <path d="M28 314 L24 306 L28 308 L32 306 Z" fill="#171717" opacity="0.55"/>
 </svg>

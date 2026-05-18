@@ -29,6 +29,7 @@ import featureJiaodai from '@/assets/feature-jiaodai.webp';
 import featureFiveFactions from '@/assets/feature-five-factions.webp';
 import jianghuFollowBg from '@/assets/jianghu-follow-bg.png';
 import jianghuStudyBg from '@/assets/jianghu-study-bg.png';
+import jianghuSectionBg from '@/assets/jianghu-section-bg.jpg';
 import iconLightningCircle from '@/assets/icon-lightning-circle.svg';
 import iconBookCircle from '@/assets/icon-book-circle.svg';
 import dividerChoosePath from '@/assets/divider-choose-path.svg';
@@ -308,13 +309,37 @@ const Index = () => {
       <LazyOnVisible minHeight={700}>
       <section
         className="relative overflow-hidden py-20 md:py-28"
-        style={{
-          backgroundColor: '#F5F0E6',
-          backgroundImage:
-            "radial-gradient(circle at 20% 30%, rgba(0,0,0,0.04), transparent 55%), radial-gradient(circle at 85% 70%, rgba(0,0,0,0.05), transparent 60%), url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%222%22 stitchTiles=%22stitch%22/><feColorMatrix values=%220 0 0 0 0.06  0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0.08 0%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')",
-          backgroundBlendMode: 'multiply, multiply, normal',
-        }}
+        style={{ backgroundColor: '#F5F0E6' }}
       >
+        {/* Ink-wash mountain backdrop — very faint, top of section only */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 pointer-events-none"
+          style={{
+            height: '70%',
+            backgroundImage: `url(${jianghuSectionBg})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center top',
+            backgroundRepeat: 'no-repeat',
+            opacity: 0.35,
+            maskImage:
+              'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 55%, rgba(0,0,0,0) 100%)',
+            WebkitMaskImage:
+              'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 55%, rgba(0,0,0,0) 100%)',
+          }}
+        />
+        {/* Subtle paper grain */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage:
+              "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%222%22 stitchTiles=%22stitch%22/><feColorMatrix values=%220 0 0 0 0.06  0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0.06 0%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')",
+            mixBlendMode: 'multiply',
+            opacity: 0.6,
+          }}
+        />
+
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Eyebrow + Title */}
           <div className="text-center mb-12 md:mb-16">
@@ -353,7 +378,7 @@ const Index = () => {
                 style={{
                   backgroundImage: `url(${jianghuFollowBg})`,
                   backgroundSize: 'cover',
-                  backgroundPosition: '75% 18%',
+                  backgroundPosition: 'center center',
                 }}
               />
               {/* Text-safe overlay — bottom-up dark gradient */}
@@ -361,7 +386,7 @@ const Index = () => {
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   background:
-                    'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.68) 34%, rgba(0,0,0,0.28) 62%, rgba(0,0,0,0) 100%)',
+                    'linear-gradient(to top, rgba(0,0,0,0.86) 0%, rgba(0,0,0,0.62) 38%, rgba(0,0,0,0.22) 68%, rgba(0,0,0,0) 100%)',
                 }}
               />
               {/* Content wrapper — icon + text in clean dark zone */}
@@ -398,13 +423,13 @@ const Index = () => {
             </Link>
 
             {/* Divider — desktop only, low presence */}
-            <div className="hidden md:flex items-center justify-center" style={{ width: '40px' }}>
+            <div className="hidden md:flex items-center justify-center" style={{ width: '56px' }}>
               <img
                 src={dividerChoosePath}
                 alt=""
                 aria-hidden="true"
                 className="w-auto"
-                style={{ height: '260px', opacity: 0.5 }}
+                style={{ height: '320px', opacity: 0.7 }}
                 loading="lazy"
               />
             </div>
@@ -425,14 +450,14 @@ const Index = () => {
                 style={{
                   backgroundImage: `url(${jianghuStudyBg})`,
                   backgroundSize: 'cover',
-                  backgroundPosition: '78% 20%',
+                  backgroundPosition: 'center center',
                 }}
               />
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   background:
-                    'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.68) 34%, rgba(0,0,0,0.28) 62%, rgba(0,0,0,0) 100%)',
+                    'linear-gradient(to top, rgba(0,0,0,0.86) 0%, rgba(0,0,0,0.62) 38%, rgba(0,0,0,0.22) 68%, rgba(0,0,0,0) 100%)',
                 }}
               />
               <div
