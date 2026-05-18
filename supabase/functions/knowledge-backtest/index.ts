@@ -417,11 +417,9 @@ Deno.serve(withLogging('knowledge-backtest', async (req, log) => {
     // 載入價格資料（一次性）
     const rows = await loadPriceData(sb, dateStart, dateEnd)
     if (rows.length < 100) {
-      return new Response(JSON.stringify({
-        ok: false,
-        error: 'INSUFFICIENT_DATA',
-        message: `daily_price_snapshots 只有 ${rows.length} 筆，請先呼叫 backfill-daily-snapshots`,
-      }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return errorResponse(`daily_price_snapshots 只有 ${rows.length} 筆，請先呼叫 backfill-daily-snapshots`, 400, {
+        ok: false, error: 'INSUFFICIENT_DATA',
+      })
     }
     const bySym = groupBySymbol(rows)
 
