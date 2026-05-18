@@ -86,6 +86,8 @@ const Index = () => {
           muted
           playsInline
           preload="none"
+          width={1920}
+          height={1080}
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover animate-fade-in"
           style={{ animationDuration: '1.5s', objectPosition: 'center center' }}
