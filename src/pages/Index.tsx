@@ -423,13 +423,13 @@ const Index = () => {
             </Link>
 
             {/* Divider — desktop only, low presence */}
-            <div className="hidden md:flex items-center justify-center" style={{ width: '40px' }}>
+            <div className="hidden md:flex items-center justify-center" style={{ width: '56px' }}>
               <img
                 src={dividerChoosePath}
                 alt=""
                 aria-hidden="true"
                 className="w-auto"
-                style={{ height: '260px', opacity: 0.5 }}
+                style={{ height: '320px', opacity: 0.7 }}
                 loading="lazy"
               />
             </div>
