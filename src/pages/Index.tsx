@@ -38,9 +38,6 @@ import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
 import { lazy, Suspense } from 'react';
 
 // P5-D: mobile-only carousels are split into their own chunk and only loaded on small screens
-const MobileVsCarousel = lazy(() =>
-  import('./index-sections/MobileCarousels').then((m) => ({ default: m.MobileVsCarousel }))
-);
 const MobilePreviewCarousel = lazy(() =>
   import('./index-sections/MobileCarousels').then((m) => ({ default: m.MobilePreviewCarousel }))
 );
