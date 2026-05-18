@@ -1,84 +1,65 @@
-# 系統優化 / 程式維護簡化 — 新計劃（2026/05/18）
 
-距上次盤點已完成：lucide tree-shake、preconnect、refundProcessor 跨界 import、Index.tsx hero 以外段落 lazy、INP/CLS RUM、bundle-snapshot CI、AuthContext 拆 state/actions、Edge `_shared/` 共用層骨架（cors/logger/clients/README）。
+# 第二輪優化計劃
 
-以下是**剩餘**且 ROI 高的工作，依「影響面 × 解決成本」重排。
-
----
-
-## P0 — 立即可做、效果明顯
-
-### A1. FreeCheckup TradeTab 抽出 + runtime hook 收斂
-- 現況：`FreeCheckup.jsx` 仍有 **3595 行**。5 個 tab 已抽，僅剩 TradeTab inline。
-- 動作：
-  - 抽 `_freeCheckup/tabs/TradeTab.jsx`（比照其他 tab 的 props 注入合約）。
-  - 把 `useAppRuntimeComposer` 呼叫包成 `useFreeCheckupRuntime()` hook。
-  - L2965 / L4745 `<style>` 字面字串（`wb-hero-grid` / `.wb-card`）**留在容器**，不可外移。
-- 驗收：FreeCheckup.jsx ≤ 1500 行；560/390/380 RWD 清單 + `e2e/freecheckup-card.spec.ts` 全綠。
-
-### D2. 其他 Context value 審視
-- `PortfolioPanelsContext`、`CheckupModeContext` 確認 value `useMemo`，避免父層 re-render 連帶 cascade。
-- `useSignalRealtimeInvalidation` 檢查 channel subscribe/unsubscribe 對稱。
-
-### C5. routePrefetch 節流檢查
-- 確認 `prefetchHighTrafficRoutes` 在 `requestIdleCallback` 內逐個 import，低階手機不塞滿主執行緒；超過 3 個目標時改 `setTimeout` 排隊。
+第一輪已完成 C5（routePrefetch 節流）、D2（Context 審視）、P1-Checkout 第一刀（Consent Dialog，1351 → 1121 行）。本輪繼續，仍維持「每輪 3–4 個小步驟、驗收明確」的節奏。
 
 ---
 
-## P1 — 大檔案拆分（>40KB 頁面）
+## 步驟 1 — P1-Checkout 收尾（1121 → 目標 ≤ 700 行）
 
-剩餘流量高的單檔（行數）：
+`src/pages/Checkout.tsx` 仍有 1121 行，再抽 3 塊：
 
-| 檔案 | 行數 | 拆分手法 |
+- `_checkout/PlanSummaryCard.tsx` — 方案資訊卡（標題、價格、週期切換、跨產品折扣顯示）
+- `_checkout/PaymentMethodPicker.tsx` — 付款方式選擇區（ECPay / ACpay / 匯款）含對應說明
+- `_checkout/useCheckoutSubmit.ts` — 把 submit flow（驗證 → 建單 → 導轉）抽成 hook
+
+驗收：Checkout.tsx ≤ 700 行；現有測試 `src/test/components/AppCheckout.test.tsx`、`1.5-payment-subscription-atomicity` 維持綠燈；手動跑一次 ECPay / ACpay / 匯款三條路徑（preview 點擊）。
+
+## 步驟 2 — P1-Pricing 拆分（1028 → 目標 ≤ 600 行）
+
+`src/pages/Pricing.tsx` 抽：
+
+- `_pricing/PlanCard.tsx` — 單一方案卡（價格、特色列、CTA）
+- `_pricing/ComparisonTable.tsx` — 方案比較表
+- `_pricing/PricingFaq.tsx` — FAQ 區
+
+容器保留 SEO / hero / data 組裝。驗收：Pricing.tsx ≤ 600 行；視覺截圖比對 lg/md/sm 三斷點無位移。
+
+## 步驟 3 — Edge 共用層遷移（低風險批，3 個 function）
+
+從唯讀類挑 3 個 ROI 最高、流量最大的試水：
+
+1. `checkup-calendar`
+2. `checkup-predict-events`
+3. `checkup-sparkline`
+
+每個改造內容：
+- 刪除 inline `corsHeaders` → import `_shared/cors.ts`
+- 刪除 inline `createClient(...)` → 用 `serviceClient()` 或 `userClient(req)`
+- handler 包 `withLogging('fn-name', ...)`，`console.log/error` → `log.info/error`
+- 預期每個 function 減 ~30 行 boilerplate，並自動產生 `requestId` + duration log
+
+驗收：3 個 function 部署成功；用 `supabase--curl_edge_functions` 各打一次驗 happy path；`/company/function-logs` 看得到 JSON 結構化 log + requestId。
+
+---
+
+## 技術細節
+
+- **不動的東西**：FreeCheckup（已收尾）、`<style>` 字面字串、AuthContext 拆分、constants.jsx `getCurrentUserId()` 合約。
+- **不動金流批**：ecpay-callback / acpay-* / process-refund 留到最後一輪，需配 happy-path test 後再動。
+- **檔案合約**：抽出的子元件 props 用 explicit interface，不偷懶用 `any`；hook 回傳值以 `useMemo`/`useCallback` 包好避免 cascade re-render。
+- **回滾策略**：每步驟獨立 commit，若 e2e 失敗只回滾該步。
+
+---
+
+## 順序與時間估算
+
+| 步驟 | 預估 | 風險 |
 |---|---|---|
-| `Checkout.tsx` | 1351 | 抽 `_checkout/`：plan-summary、payment-method-picker、consent-block、submit-flow hook |
-| `admin/Signals.tsx` | 1328 | 抽 filter bar、bulk-action toolbar、row 元件 |
-| `company/KnowledgeBase.tsx` | 1130 | 已有 `knowledge-base/` 子資料夾，繼續搬主檔的 tab/table |
-| `Index.tsx` | 1049 | hero 以外 section 已 lazy；剩 SEO / structured-data 區可抽 `_index/` |
-| `Pricing.tsx` | 1028 | 抽 plan-card、faq、comparison-table 子元件 |
-| `company/Revenue.tsx` | 968 | 抽圖表與表格區塊（圖表已用 PerfMetricsChart 模式可參考）|
+| 1. Checkout 收尾 | 中 | 低（純拆分，邏輯不動） |
+| 2. Pricing 拆分 | 中 | 極低（純展示頁） |
+| 3. Edge 3 fn 遷移 | 小 | 低（唯讀類，骨架已驗證過 knowledge-backtest） |
 
-策略：每檔抽 2–4 個子元件 + 1 個 data hook，控制在 ≤ 600 行容器；流量序：`Checkout → Pricing → Index → 其餘 admin/company`。
+完成後 Checkout/Pricing 進入可維護區間，Edge 共用層證明 pattern 可用，第三輪可放心擴大到 Index/Signals 與背景排程批。
 
----
-
-## P2 — Edge Function 共用層全面套用
-
-骨架已就位（`_shared/cors.ts` `edgeLogger.ts` `supabaseClients.ts`），但 71 個 functions 只有 `knowledge-backtest` 真的接上。
-
-- E1. 分批遷移到 `withLogging` + `serviceClient/userClient`，每批 5–8 個 function：
-  1. **低風險批**：checkup-* 唯讀類（calendar、predict-events、sparkline、telemetry、twse、news、research...）
-  2. **背景排程批**：*-cron、daily-*、expire-*、cleanup-*、knowledge-* scheduler
-  3. **金流 / webhook 批**（最後做，需配 supabase--test_edge_functions 跑 happy path）：ecpay-callback、acpay-*、confirm-*、line-webhook、process-refund
-- E2. 統一 `function_logs` 寫入（`/company/function-logs` UI 已有）。
-- E3. 列出沒測試的 fn，金流/webhook 類補 happy-path test。
-
----
-
-## P3 — 型別 / 死碼 / CI 加固
-
-- F1. `ts-prune` 或 `knip` 一次性掃 dead exports，特別審 `src/checkup/lib/index.js` 的 re-export 大集合（會拖 tree-shake）。
-- F2. `any` 收斂：目前計數工具未抓到（檔內 cast 多為 `as any`），改用 `rg "as any" src` 一次列表，優先處理 hooks 與 lib 層。
-- G1. 確認 `.github/workflows/freecheckup-rwd.yml` 是 required check（阻擋 merge）。
-- G2. 為已拆 AuthContext 補 re-render counter 測試作為 baseline（D1 已完成，但缺迴歸防線）。
-- G3. Edge function 失敗自動寫 `function_logs` 的 vitest mock 測試。
-
----
-
-## P4 — 觀測 / 回饋迴路（補完）
-
-- H2. `/company/perf-metrics` 已有路由分位數欄；確認 P75 LCP 目標 < 2.5s 的 SLO 警示（超過時 dashboard 標紅）。
-- H3 延伸. `scripts/bundle-snapshot.mjs` 已能擋 PR；加 GitHub Actions step 在 PR comment 貼 diff 表，提升可見度。
-
----
-
-## 建議實作順序
-
-1. **A1**（TradeTab + runtime hook）— 解最大維護債，影響日常開發速度
-2. **D2 + C5**（小修，半天可完成）
-3. **P1 大檔拆分** 流量序：Checkout → Pricing → Index
-4. **P2 Edge 遷移** 低風險批先行
-5. **P3 死碼 / 型別**
-6. **P2 金流批 + P4 觀測補完**
-
-要先開哪一塊？建議從 **A1**（FreeCheckup 收尾）或 **P1-Checkout** 起手。
+要按此順序開工嗎？或想調整哪一步？
