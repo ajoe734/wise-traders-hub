@@ -665,11 +665,11 @@ Deno.serve(withLogging('knowledge-backtest', async (req, log) => {
           body: { hours: 2, trigger: body.trigger ?? 'cron' },
         })
       } catch (notifyErr) {
-        console.error('notify-backtest-result invoke failed:', notifyErr)
+        log.error('notify_invoke_failed', { err: String(notifyErr) })
       }
     }
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       ok: true,
       mode,
       universe_size: bySym.size,
@@ -678,11 +678,10 @@ Deno.serve(withLogging('knowledge-backtest', async (req, log) => {
       auto_rules_enabled: !!autoRules,
       auto_actions: autoActions,
       results: out,
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    })
 
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, error: String(err) }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    log.error('handler_threw', { err: String(err) })
+    return errorResponse(String(err), 500, { ok: false })
   }
-})
+}))
