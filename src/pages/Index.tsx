@@ -336,45 +336,55 @@ const Index = () => {
           </div>
 
           {/* Two-card grid */}
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 md:gap-4 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 md:gap-5 items-stretch">
             {/* Left — 跟單派 */}
             <Link
               to="/experts?role=advisor"
               className="jianghu-card group relative block overflow-hidden rounded-2xl"
               style={{
-                minHeight: '460px',
+                height: '420px',
                 border: '1px solid rgba(23,23,23,0.12)',
                 backgroundColor: '#1a1a1a',
               }}
             >
+              {/* Background image — keep samurai out of bottom-left text safe area */}
               <div
-                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                style={{ backgroundImage: `url(${jianghuFollowBg})` }}
-              />
-              <div
-                className="absolute inset-0"
+                className="absolute inset-0 bg-no-repeat transition-transform duration-700 group-hover:scale-105"
                 style={{
-                  background:
-                    'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.85) 100%)',
+                  backgroundImage: `url(${jianghuFollowBg})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: '75% 18%',
                 }}
               />
-              <div className="relative z-10 flex h-full flex-col justify-end p-7 md:p-9" style={{ minHeight: '460px' }}>
+              {/* Text-safe overlay — bottom-up dark gradient */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.68) 34%, rgba(0,0,0,0.28) 62%, rgba(0,0,0,0) 100%)',
+                }}
+              />
+              {/* Content wrapper — icon + text in clean dark zone */}
+              <div
+                className="absolute z-10"
+                style={{ bottom: '32px', left: '36px', right: '36px', maxWidth: '420px' }}
+              >
                 <img
                   src={iconLightningCircle}
                   alt=""
-                  className="w-14 h-14 md:w-16 md:h-16 mb-5"
+                  className="w-12 h-12 md:w-14 md:h-14 mb-4"
                   loading="lazy"
                 />
                 <h3
-                  className="text-3xl md:text-4xl font-bold text-white mb-3"
+                  className="text-3xl md:text-4xl font-bold text-white mb-2"
                   style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.08em' }}
                 >
                   跟單派
                 </h3>
-                <p className="text-base md:text-lg mb-3" style={{ color: '#EC662D' }}>
+                <p className="text-base md:text-lg mb-2" style={{ color: '#EC662D' }}>
                   跟隨高手，即刻出擊
                 </p>
-                <p className="text-sm md:text-base text-white/80 leading-relaxed mb-6">
+                <p className="text-sm md:text-[15px] text-white/80 leading-relaxed mb-4">
                   接收即時交易訊號，跟隨專業分析師的腳步，捕捉市場機會，追求穩定收益。
                 </p>
                 <span
@@ -387,23 +397,16 @@ const Index = () => {
               </div>
             </Link>
 
-            {/* Divider — desktop only */}
-            <div className="hidden md:flex items-center justify-center px-2">
+            {/* Divider — desktop only, low presence */}
+            <div className="hidden md:flex items-center justify-center" style={{ width: '40px' }}>
               <img
                 src={dividerChoosePath}
-                alt="選擇你的路"
-                className="h-[360px] w-auto opacity-90"
+                alt=""
+                aria-hidden="true"
+                className="w-auto"
+                style={{ height: '260px', opacity: 0.5 }}
                 loading="lazy"
               />
-            </div>
-
-            {/* Mobile divider */}
-            <div className="md:hidden flex items-center justify-center py-2">
-              <div className="flex items-center gap-3 text-xs tracking-[0.4em]" style={{ color: '#EC662D' }}>
-                <span className="h-px w-10" style={{ backgroundColor: 'rgba(23,23,23,0.2)' }} />
-                選擇你的路
-                <span className="h-px w-10" style={{ backgroundColor: 'rgba(23,23,23,0.2)' }} />
-              </div>
             </div>
 
             {/* Right — 修煉派 */}
@@ -411,39 +414,47 @@ const Index = () => {
               to="/experts?role=mentor"
               className="jianghu-card group relative block overflow-hidden rounded-2xl"
               style={{
-                minHeight: '460px',
+                height: '420px',
                 border: '1px solid rgba(23,23,23,0.12)',
                 backgroundColor: '#1a1a1a',
               }}
             >
+              {/* Background image — push subject right/top so it clears bottom-left text area */}
               <div
-                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                style={{ backgroundImage: `url(${jianghuStudyBg})` }}
-              />
-              <div
-                className="absolute inset-0"
+                className="absolute inset-0 bg-no-repeat transition-transform duration-700 group-hover:scale-105"
                 style={{
-                  background:
-                    'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.85) 100%)',
+                  backgroundImage: `url(${jianghuStudyBg})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: '78% 20%',
                 }}
               />
-              <div className="relative z-10 flex h-full flex-col justify-end p-7 md:p-9" style={{ minHeight: '460px' }}>
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.68) 34%, rgba(0,0,0,0.28) 62%, rgba(0,0,0,0) 100%)',
+                }}
+              />
+              <div
+                className="absolute z-10"
+                style={{ bottom: '32px', left: '36px', right: '36px', maxWidth: '420px' }}
+              >
                 <img
                   src={iconBookCircle}
                   alt=""
-                  className="w-14 h-14 md:w-16 md:h-16 mb-5"
+                  className="w-12 h-12 md:w-14 md:h-14 mb-4"
                   loading="lazy"
                 />
                 <h3
-                  className="text-3xl md:text-4xl font-bold text-white mb-3"
+                  className="text-3xl md:text-4xl font-bold text-white mb-2"
                   style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.08em' }}
                 >
                   修煉派
                 </h3>
-                <p className="text-base md:text-lg mb-3" style={{ color: '#EC662D' }}>
+                <p className="text-base md:text-lg mb-2" style={{ color: '#EC662D' }}>
                   修煉內功，掌控全局
                 </p>
-                <p className="text-sm md:text-base text-white/80 leading-relaxed mb-6">
+                <p className="text-sm md:text-[15px] text-white/80 leading-relaxed mb-4">
                   學習專業投資框架，深入市場分析邏輯，培養獨立思考能力，成為市場贏家。
                 </p>
                 <span
