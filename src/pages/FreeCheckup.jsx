@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
-import { DEMO_ANALYSIS, DEMO_BRAIN, DEMO_EVENTS, DEMO_CALENDAR, DEMO_BRAIN_UPDATED } from "@/checkup/data/demoData";
+import { DEMO_ANALYSIS, DEMO_EVENTS, DEMO_CALENDAR, DEMO_BRAIN_UPDATED } from "@/checkup/data/demoData";
 import { simulateSteps, demoDelay } from "@/checkup/utils/demoSimulate";
 import DemoBanner from "@/checkup/components/DemoBanner";
-import { INIT_HOLDINGS as SEED_HOLDINGS, STOCK_META, IND_COLOR } from "@/checkup/seedData";
+import { STOCK_META, IND_COLOR } from "@/checkup/seedData";
 import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
@@ -44,7 +44,6 @@ import {
   classifyAttempt,
   deriveSuggestion,
   RETRY_POLICY,
-  INIT_TARGETS,
   avgTarget,
   INIT_HOLDINGS,
   INIT_WATCHLIST,
@@ -71,11 +70,6 @@ import {
   isExactDemoHolding,
   stripDemoSeedHoldings,
   getHoldingCodesKey,
-  setLocalStorageOwner,
-  loadScopedLocal,
-  loadAllFromCloud,
-  loadLocal,
-  setCurrentUserId,
   getCurrentUserId,
   save,
   formatResetCountdown,
@@ -83,6 +77,11 @@ import {
   isQuotaExceeded,
   aiAuthHeaders,
 } from "./_freeCheckup/constants";
+import {
+  useHoldingsMigration,
+  useFreeCheckupBootstrap,
+  useFetchCalendarEventsRef,
+} from "@/hooks/useFreeCheckupBootstrap";
 
 // #region App() — 主元件（state、effects、JSX 全部 inline；遵守 inline 憲法）
 export default function App() {
@@ -755,129 +754,20 @@ export default function App() {
 
   // boot
   // 一次性清除所有舊版寫死持倉快取（v1 遷移標記）
-  useEffect(() => {
-    try {
-      const migrated = localStorage.getItem("pf-holdings-v2-migrated");
-      if (!migrated) {
-        localStorage.removeItem("pf-holdings-v2");
-        localStorage.setItem("pf-holdings-v2-migrated", "1");
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    if (!authReady) return; // wait for auth state to be determined
-    (async () => {
-      // ── Demo 模式：直接使用假資料 ──
-      if (isDemo) {
-        setLocalStorageOwner("demo");
-        setHoldings(SEED_HOLDINGS);
-        setTradeLog([]);
-        setTargets(INIT_TARGETS);
-        setNewsEvents(DEMO_EVENTS);
-        setAnalysisHistory([]);
-        setReversalConditions({});
-        setStrategyBrain(DEMO_BRAIN);
-        setCalendarEvents([]);
-        setReady(true);
-        return;
-      }
-
-      // ── 雲端優先：批次載入所有 pf-* key ──
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      const userId = currentUser?.id;
-      if (userId) setCurrentUserId(userId);
-
-      const wasReset = sessionStorage.getItem("pf-reset-flag") || localStorage.getItem("pf-reset-flag");
-      if (wasReset) {
-        sessionStorage.removeItem("pf-reset-flag");
-        localStorage.removeItem("pf-reset-flag");
-      }
-
-      let cloud = {};
-      if (!wasReset && userId) {
-        cloud = await loadAllFromCloud(userId);
-      }
-
-      const pick = (key, fallback) => {
-        if (Object.prototype.hasOwnProperty.call(cloud, key)) {
-          if (userId) setLocalStorageOwner(userId);
-          try { localStorage.setItem(key, JSON.stringify(cloud[key])); } catch {}
-          return cloud[key];
-        }
-        return loadScopedLocal(key, fallback, userId);
-      };
-
-      const h = pick("pf-holdings-v2", []);
-      const t = pick("pf-targets-v1", {});
-      const ne = pick("pf-news-events-v1", []);
-      const ah = pick("pf-analysis-history-v1", []);
-      const rc = pick("pf-reversal-v1", {});
-      const sb = pick("pf-brain-v1", null);
-      const ceRaw = pick("pf-calendar-v1", null);
-
-      let ce;
-      if (ceRaw && !Array.isArray(ceRaw) && ceRaw.events) {
-        ce = ceRaw.events;
-        ce._holdingCodes = ceRaw.holdingCodes || "";
-      } else {
-        ce = ceRaw || [];
-      }
-
-      const sanitizedHoldings = stripDemoSeedHoldings(Array.isArray(h) ? h : []);
-      const removedDemoSeedCount = (Array.isArray(h) ? h.length : 0) - sanitizedHoldings.length;
-      const holdingCodesKey = getHoldingCodesKey(sanitizedHoldings);
-      const storedCalendarHoldingCodes = Array.isArray(ce) ? (ce._holdingCodes || "") : "";
-      const shouldRebuildDerivedEvents =
-        holdingCodesKey.length > 0 &&
-        (removedDemoSeedCount > 0 || storedCalendarHoldingCodes !== holdingCodesKey);
-      const manualNewsEvents = (Array.isArray(ne) ? ne : []).filter((event) => event?.source !== "calendar");
-
-      let l = [];
-      try {
-        const { data } = await supabase.from("checkup_trade_memos").select("*").order("created_at", { ascending: false });
-        if (data && data.length > 0) {
-          l = data.map(row => ({
-            id: row.id,
-            date: row.trade_date || "",
-            time: row.trade_time || "",
-            action: row.action || "",
-            code: row.code || "",
-            name: row.name || "",
-            qty: row.qty != null ? Number(row.qty) : 0,
-            price: row.price != null ? Number(row.price) : 0,
-            qa: Array.isArray(row.qa) ? row.qa : [],
-          }));
-        } else {
-          l = loadLocal("pf-log-v2", []);
-        }
-      } catch {
-        l = loadLocal("pf-log-v2", []);
-      }
-
-      setHoldings(sanitizedHoldings); setTradeLog(l); setTargets(t);
-      setStrategyBrain(sb); setCalendarEvents(shouldRebuildDerivedEvents ? [] : ce);
-
-      const hasHoldings = sanitizedHoldings.length > 0;
-      if (!hasHoldings) {
-        setNewsEvents([]); setAnalysisHistory([]); setReversalConditions({});
-        setStrategyBrain(null); setCalendarEvents([]);
-        save("pf-news-events-v1", []); save("pf-analysis-history-v1", []);
-        save("pf-reversal-v1", {}); save("pf-brain-v1", null); save("pf-calendar-v1", []);
-        save("pf-targets-v1", {});
-        setTargets({});
-      } else {
-        setNewsEvents(shouldRebuildDerivedEvents ? manualNewsEvents : ne);
-        setAnalysisHistory(ah); setReversalConditions(rc);
-      }
-      setReady(true);
-      setCloudSync(true);
-
-      if (shouldRebuildDerivedEvents) {
-        fetchCalendarEvents(sanitizedHoldings, resetGuardRef.current, []);
-      }
-    })();
-  }, [authReady, isDemo]);
+  // A1 bootstrap 重構：migrate + cloud-first hydration 已抽出至 useFreeCheckupBootstrap
+  useHoldingsMigration();
+  const fetchCalendarEventsRef = useFetchCalendarEventsRef(fetchCalendarEvents);
+  useFreeCheckupBootstrap({
+    authReady,
+    isDemo,
+    resetGuardRef,
+    fetchCalendarEventsRef,
+    setters: {
+      setHoldings, setTradeLog, setTargets,
+      setNewsEvents, setAnalysisHistory, setReversalConditions,
+      setStrategyBrain, setCalendarEvents, setReady, setCloudSync,
+    },
+  });
 
   // auto-save
   // 雲端 upsert debounce + 錯誤處理（避免快速操作時觸發過多請求）
