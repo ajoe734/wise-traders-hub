@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { withLogging } from '../_shared/edgeLogger.ts';
 
 function decodeHtml(value: string) {
   return String(value || '')
@@ -101,7 +102,7 @@ ${items.map(i => `- [${i.id}] ${i.title}\n  來源：${i.source || '未知'} | �
   } catch { return new Map(); }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withLogging('checkup-analyst-reports', async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -185,4 +186,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));
