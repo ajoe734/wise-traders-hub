@@ -526,7 +526,7 @@ const Index = () => {
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Eyebrow + Title */}
-          <div className="text-center mb-12 md:mb-16">
+          <div className="text-center mb-6 md:mb-8">
             <p
               className="text-sm md:text-base tracking-[0.4em] mb-4"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
