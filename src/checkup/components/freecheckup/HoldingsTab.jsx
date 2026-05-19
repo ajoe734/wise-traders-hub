@@ -114,8 +114,12 @@ function HoldingsTab(props) {
     setTab,
   } = props;
 
-  // E-Maint-R7: isDemo / startLineLogin 直接由 CheckupModeContext 取得，停止 prop drilling
-  const { isDemo, startLineLogin } = useCheckupMode();
+  // E-Maint-R7: isDemo / startLineLogin 優先由 CheckupModeContext 取得，
+  // 缺少 provider 時（例如效能測試 fixture）退回 props，保持向後相容。
+  let _mode = null;
+  try { _mode = useCheckupMode(); } catch { _mode = null; }
+  const isDemo = _mode ? _mode.isDemo : props.isDemo;
+  const startLineLogin = _mode ? _mode.startLineLogin : props.startLineLogin;
 
   // E-Maint-R1: 6 個 derived useMemo 下沉
   const sorted = filteredSortedList; // 命名相容性
