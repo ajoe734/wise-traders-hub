@@ -601,7 +601,7 @@ const Index = () => {
 
 
       {/* Real Interface Preview Section */}
-      <LazyOnVisible minHeight={1000}>
+      <LazyOnVisible mode="content-visibility" minHeight={1000}>
       <section id="preview-section" className="py-section bg-card dark:bg-white/[0.03]">
         <div className="container">
           <div className="text-center mb-xl">
