@@ -2902,6 +2902,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setReviewingEvent={setReviewingEvent}
               updateReversal={updateReversal}
               globalPriorityList={globalPriorityList}
+              actionPriorityItems={actionPriorityItems}
               decisionsMap={decisionsMap}
               STOCK_META={STOCK_META}
               filteredSortedList={filteredSortedList}
