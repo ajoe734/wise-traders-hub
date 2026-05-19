@@ -53,6 +53,68 @@ const WeeklyLimitUpLeaderboardSection = () => {
   return <WeeklyLimitUpLeaderboard entries={entries} isLoading={isLoading} />;
 };
 
+// 數字 count-up 動畫（載入時自動跑動）
+const CountUpNumber = ({
+  target,
+  decimals = 0,
+  prefix = '',
+  suffix = '',
+  duration = 1600,
+  delay = 0,
+}: {
+  target: number;
+  decimals?: number;
+  prefix?: string;
+  suffix?: string;
+  duration?: number;
+  delay?: number;
+}) => {
+  const [value, setValue] = useState(0);
+  const rafRef = useRef<number>(0);
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+      setValue(target);
+      return;
+    }
+
+    let startTime = 0;
+    const timer = window.setTimeout(() => {
+      const tick = (now: number) => {
+        if (!startTime) startTime = now;
+        const t = Math.min((now - startTime) / duration, 1);
+        // easeOutCubic
+        const eased = 1 - Math.pow(1 - t, 3);
+        setValue(target * eased);
+        if (t < 1) rafRef.current = requestAnimationFrame(tick);
+        else setValue(target);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    }, delay);
+
+    return () => {
+      window.clearTimeout(timer);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [target, duration, delay]);
+
+  return (
+    <span>
+      {prefix}
+      {value.toFixed(decimals)}
+      {suffix}
+    </span>
+  );
+};
+
+
 const Index = () => {
   return (
     <PortalLayout>
