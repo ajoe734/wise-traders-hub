@@ -679,7 +679,7 @@ const Index = () => {
 
           {/* Footnote */}
           <p
-            className="text-center mt-10 text-sm md:text-base"
+            className="text-center mt-6 text-sm md:text-base"
             style={{ color: 'rgba(23,23,23,0.6)' }}
           >
             兩派會員皆可享有 <span style={{ color: '#EC662D', fontWeight: 600 }}>legendflow</span> 完整生態系統服務
