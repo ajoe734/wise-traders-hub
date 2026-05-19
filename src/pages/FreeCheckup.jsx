@@ -16,7 +16,7 @@ import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCo
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
 import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
-import { coerceStocksString } from "@/checkup/lib/edgeCoerce";
+// coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
 import { mergeCalendarToNewsEvents } from "@/checkup/lib/calendarSync";
@@ -3070,7 +3070,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               newEvent={newEvent}
               setNewEvent={setNewEvent}
               addEvent={addEvent}
-              coerceStocksString={coerceStocksString}
+              
               toast={toast}
               expandedNews={expandedNews}
               reviewingEvent={reviewingEvent}

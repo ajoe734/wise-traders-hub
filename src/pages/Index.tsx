@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { SEO } from '@/components/SEO';
+import { SEOLite as SEO } from '@/components/SEOLite';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
