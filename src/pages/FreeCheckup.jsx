@@ -1319,6 +1319,21 @@ export default function App() {
     [globalSortedList, decisionsMap]
   );
 
+  // B-P5 (holdings audit 2026-05): 預先在 parent 組裝 3 筆 priority items（含 tag/desc），
+  // HoldingsActionPriority 不再需要接 decisionsMap / STOCK_META 全表。
+  const actionPriorityItems = useMemo(
+    () => globalPriorityList.map(h => {
+      const dec = decisionsMap[h.code];
+      const tag = dec?.actionType === 'exit' ? 'EXIT'
+        : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH';
+      const desc = dec?.actionText
+        ? (dec.actionText.length > 32 ? dec.actionText.slice(0, 30) + '…' : dec.actionText)
+        : (STOCK_META[h.code]?.strategy || '持續監控');
+      return { code: h.code, name: h.name, pct: h.pct ?? 0, tag, desc };
+    }),
+    [globalPriorityList, decisionsMap]
+  );
+
   const exitList = useMemo(
     () => globalSortedList.filter(h => decisionsMap[h.code]?.actionType === 'exit'),
     [globalSortedList, decisionsMap]
