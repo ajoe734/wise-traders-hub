@@ -1390,7 +1390,8 @@ export default function App() {
       return 0;
     });
     return list;
-  }, [H, deferredSearchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, normalizedEvents, compareByPriority]);
+    // A3：normalizedEvents 已預算進 decisionsMap.lastTouchedAt，從此處 deps 移除
+  }, [H, deferredSearchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, compareByPriority]);
 
   const sorted = filteredSortedList; // 保留原命名相容性
   // P3-perf: useMemo 避免父 re-render 時重複切片
