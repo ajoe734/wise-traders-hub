@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
-import { SEO } from "@/components/SEO";
+import { SEOLite as SEO } from "@/components/SEOLite";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
