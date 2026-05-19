@@ -37,12 +37,7 @@ import dividerChoosePath from '@/assets/divider-choose-path.svg';
 import { WeeklyLimitUpLeaderboard } from '@/components/WeeklyLimitUpLeaderboard';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
-import { lazy, Suspense } from 'react';
 
-// P5-D: mobile-only carousels are split into their own chunk and only loaded on small screens
-const MobilePreviewCarousel = lazy(() =>
-  import('./index-sections/MobileCarousels').then((m) => ({ default: m.MobilePreviewCarousel }))
-);
 
 // Batch1-#2: idle prefetch moved to centralized prefetchHighTrafficRoutes()
 // in src/lib/routePrefetch.ts (invoked from AttributionTracker in App.tsx).
@@ -492,8 +487,8 @@ const Index = () => {
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
       <LazyOnVisible mode="content-visibility" minHeight={1400}>
       <section
-        className="relative overflow-hidden pt-10 md:pt-14 pb-16 md:pb-20"
-        style={{ backgroundColor: '#F5F0E6' }}
+        className="relative overflow-hidden pt-6 md:pt-8 pb-8 md:pb-10"
+        style={{ backgroundColor: '#EFE7D6' }}
       >
         {/* Ink-wash mountain backdrop — very faint, top of section only */}
         <div
@@ -505,7 +500,7 @@ const Index = () => {
             backgroundSize: 'cover',
             backgroundPosition: 'center top',
             backgroundRepeat: 'no-repeat',
-            opacity: 0.35,
+            opacity: 0.42,
             maskImage:
               'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 55%, rgba(0,0,0,0) 100%)',
             WebkitMaskImage:
@@ -551,7 +546,7 @@ const Index = () => {
               to="/experts?role=advisor"
               className="jianghu-card group relative block overflow-hidden rounded-2xl"
               style={{
-                aspectRatio: '3 / 4',
+                aspectRatio: '4 / 5',
                 border: '1px solid rgba(23,23,23,0.12)',
                 backgroundColor: '#1a1a1a',
               }}
@@ -623,7 +618,7 @@ const Index = () => {
               to="/experts?role=mentor"
               className="jianghu-card group relative block overflow-hidden rounded-2xl"
               style={{
-                aspectRatio: '3 / 4',
+                aspectRatio: '4 / 5',
                 border: '1px solid rgba(23,23,23,0.12)',
                 backgroundColor: '#1a1a1a',
               }}
@@ -679,27 +674,35 @@ const Index = () => {
 
           {/* Footnote */}
           <p
-            className="text-center mt-10 text-sm md:text-base"
+            className="text-center mt-6 text-sm md:text-base"
             style={{ color: 'rgba(23,23,23,0.6)' }}
           >
             兩派會員皆可享有 <span style={{ color: '#EC662D', fontWeight: 600 }}>legendflow</span> 完整生態系統服務
           </p>
         </div>
 
-        {/* Scroll Down Indicator */}
-        <div className="flex flex-col items-center pt-12">
+        {/* Scroll Down Indicator — 卷軸引導 */}
+        <div className="flex flex-col items-center pt-5 md:pt-6">
+          <div
+            aria-hidden="true"
+            className="mb-2"
+            style={{
+              width: 1,
+              height: 22,
+              background: 'linear-gradient(to bottom, transparent, rgba(236,102,45,0.55))',
+            }}
+          />
           <button
             onClick={() => {
               document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="flex flex-col items-center gap-2 transition-colors group cursor-pointer"
-            style={{ color: 'rgba(23,23,23,0.55)' }}
+            className="flex flex-col items-center gap-1.5 transition-colors group cursor-pointer"
+            style={{ color: 'rgba(23,23,23,0.6)' }}
           >
-            <span className="text-sm">往下看會員畫面</span>
+            <span className="text-xs md:text-sm tracking-[0.25em]">往下看會員畫面</span>
             <div className="flex flex-col items-center animate-bounce">
-              <ChevronDown className="h-5 w-5 opacity-30" />
-              <ChevronDown className="h-5 w-5 -mt-3 opacity-60" />
-              <ChevronDown className="h-5 w-5 -mt-3 opacity-100" />
+              <ChevronDown className="h-4 w-4 opacity-40" />
+              <ChevronDown className="h-4 w-4 -mt-2.5 opacity-80" />
             </div>
           </button>
         </div>
@@ -718,212 +721,322 @@ const Index = () => {
       `}</style>
 
 
-      {/* Real Interface Preview Section */}
+      {/* Real Interface Preview Section — 黑金戰情室 */}
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
-      <section id="preview-section" className="py-section bg-card dark:bg-white/[0.03]">
-        <div className="container">
-          <div className="text-center mb-xl">
-            <p className="text-muted-foreground text-sm mb-xs">產品真實畫面</p>
-            <h2 className="text-h2 text-foreground">會員戰情室一覽</h2>
-            <p className="text-muted-foreground mt-2">訂閱後，你會在戰情室看到這些內容</p>
+      <section
+        id="preview-section"
+        className="relative py-section overflow-hidden"
+        style={{ backgroundColor: '#0E0C0A' }}
+      >
+        {/* 暖光 radial — 中心標題後方 */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 pointer-events-none"
+          style={{
+            height: '55%',
+            background:
+              'radial-gradient(ellipse 55% 70% at 50% 18%, rgba(236,102,45,0.12), rgba(236,102,45,0.04) 45%, transparent 75%)',
+          }}
+        />
+        {/* 左右卡片背後低透明度橘色暈光 */}
+        <div
+          aria-hidden="true"
+          className="absolute pointer-events-none hidden md:block"
+          style={{
+            left: '4%', top: '40%', width: '38%', height: '45%',
+            background: 'radial-gradient(ellipse, rgba(236,102,45,0.10), transparent 70%)',
+            filter: 'blur(60px)',
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="absolute pointer-events-none hidden md:block"
+          style={{
+            right: '4%', top: '40%', width: '38%', height: '45%',
+            background: 'radial-gradient(ellipse, rgba(212,166,67,0.08), transparent 70%)',
+            filter: 'blur(60px)',
+          }}
+        />
+        {/* 紙紋墨色雜訊 */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage:
+              "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22 stitchTiles=%22stitch%22/><feColorMatrix values=%220 0 0 0 0.95  0 0 0 0 0.88  0 0 0 0 0.76  0 0 0 0.07 0%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')",
+            mixBlendMode: 'overlay',
+            opacity: 0.55,
+          }}
+        />
+
+        <div className="container relative z-10">
+          {/* Eyebrow + H2 + Sub — 緊湊精緻 */}
+          <div className="text-center mb-8 md:mb-10">
+            <p
+              className="text-[11px] md:text-xs tracking-[0.4em] uppercase mb-1.5"
+              style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
+            >
+              產品真實畫面
+            </p>
+            <h2
+              className="text-3xl md:text-4xl lg:text-[44px] font-bold mb-2"
+              style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
+            >
+              會員戰情室一覽
+            </h2>
+            <p className="text-sm md:text-base mb-1" style={{ color: 'rgba(244,236,219,0.72)' }}>
+              即時訊號、操作紀錄、戰績回顧，都集中在同一個畫面。
+            </p>
+            <p className="text-xs md:text-sm" style={{ color: 'rgba(244,236,219,0.42)' }}>
+              訂閱後，你會在戰情室看到這些內容
+            </p>
           </div>
 
-          {/* Mobile Swipeable Carousel */}
-          <Suspense fallback={null}><MobilePreviewCarousel /></Suspense>
-
-          {/* Desktop Grid View */}
-          <div className="hidden md:grid md:grid-cols-2 gap-lg md:gap-xl max-w-5xl mx-auto">
-            {/* Signal List Preview - 跟單派 */}
+          {/* Grid — 手機上下堆疊，桌機左右並排，等高 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 max-w-5xl mx-auto px-5 md:px-0">
+            {/* ── 跟單派戰情室 ── */}
             <div className="flex flex-col">
-              <div className="bg-background dark:bg-white/5 rounded-lg border border-border dark:border-white/10 border-t-4 border-t-signals p-sm md:p-md mb-sm md:mb-md flex-1 flex flex-col">
-                {/* 派別標籤 */}
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge className="bg-signals/10 text-signals border border-signals/20 text-xs font-medium">
-                    跟單派 · SIGNALS
-                  </Badge>
+              <div
+                className="warroom-card flex-1 flex flex-col rounded-xl overflow-hidden"
+                style={{
+                  backgroundColor: 'rgba(20,17,13,0.85)',
+                  border: '1px solid rgba(236,102,45,0.22)',
+                  boxShadow: '0 30px 60px -30px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
+                }}
+              >
+                {/* Card header — 固定高度功能列 */}
+                <div
+                  className="flex items-center justify-between px-5 py-4 border-b"
+                  style={{ borderColor: 'rgba(236,102,45,0.18)', minHeight: 64 }}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[10px] font-medium tracking-wider"
+                      style={{ backgroundColor: 'rgba(236,102,45,0.12)', color: '#EC662D', border: '1px solid rgba(236,102,45,0.3)' }}
+                    >
+                      <Zap className="h-3 w-3" />
+                      SIGNALS
+                    </span>
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
+                    >
+                      即時訊號牆
+                    </span>
+                  </div>
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px]"
+                    style={{ backgroundColor: 'rgba(236,102,45,0.1)', color: '#EC662D' }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#EC662D' }} />
+                    即時
+                  </span>
                 </div>
-                <div className="flex items-center gap-2 mb-sm md:mb-md pb-sm md:pb-md border-b border-border">
-                  <Zap className="h-4 w-4 text-signals" />
-                  <span className="text-xs md:text-sm font-medium">即時訊號牆</span>
-                  <Badge variant="outline" className="text-[10px] ml-auto bg-signals/10 text-signals border-signals/20">即時</Badge>
-                </div>
-                <div className="space-y-1.5 md:space-y-2 flex-1">
-                  {/* Sample Signal 1 */}
-                  <div className="p-2 md:p-2.5 rounded-md bg-muted/50 border-l-2 border-success">
-                    <div className="flex items-center justify-between mb-0.5 md:mb-1">
-                      <span className="font-semibold text-[11px] md:text-xs">2330.TW 台積電</span>
-                      <Badge className="bg-success/10 text-success text-[9px] md:text-[10px]">買進</Badge>
+
+                {/* Rows */}
+                <div className="flex-1 px-3 py-3 space-y-2">
+                  {[
+                    { code: '2330.TW', name: '台積電', tag: '買進', tagColor: '#EC662D', desc: '突破季線壓力，外資連續買超', price: '580 – 590', time: '09:32' },
+                    { code: '2454.TW', name: '聯發科', tag: '加碼', tagColor: '#D4A643', desc: '續創新高，AI 晶片出貨成長', price: '1,250 – 1,280', time: '10:15' },
+                    { code: '3008.TW', name: '大立光', tag: '減碼', tagColor: '#C49040', desc: '達目標價，量能萎縮先獲利了結', price: '155 – 160', time: '11:00' },
+                    { code: '2317.TW', name: '鴻海', tag: '買進', tagColor: '#EC662D', desc: '站上所有均線，外資連續買超', price: '178 – 182', time: '13:45' },
+                    { code: '2603.TW', name: '長榮', tag: '出場', tagColor: '#8B8680', desc: '跌破支撐，執行停損紀律', price: '185 – 188', time: '14:20' },
+                  ].map((r) => (
+                    <div
+                      key={r.code}
+                      className="px-3 py-2.5 rounded-md"
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.025)',
+                        borderLeft: `2px solid ${r.tagColor}`,
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          <span className="text-xs font-mono tracking-wider" style={{ color: 'rgba(244,236,219,0.55)' }}>
+                            {r.code}
+                          </span>
+                          <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB' }}>
+                            {r.name}
+                          </span>
+                        </div>
+                        <span
+                          className="shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-medium"
+                          style={{ backgroundColor: `${r.tagColor}1f`, color: r.tagColor, border: `1px solid ${r.tagColor}44` }}
+                        >
+                          {r.tag}
+                        </span>
+                      </div>
+                      <p className="text-[11px] mb-1.5 leading-snug" style={{ color: 'rgba(244,236,219,0.6)' }}>
+                        {r.desc}
+                      </p>
+                      <div className="flex items-center justify-between text-[10px]" style={{ color: 'rgba(244,236,219,0.4)' }}>
+                        <span className="font-mono">{r.price}</span>
+                        <span className="font-mono">{r.time}</span>
+                      </div>
                     </div>
-                    <p className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5 md:mb-1">突破季線壓力，外資連續買超</p>
-                    <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] text-muted-foreground">
-                      <span>約 580-590</span>
-                      <span>09:32</span>
-                    </div>
-                  </div>
-                  {/* Sample Signal 2 */}
-                  <div className="p-2 md:p-2.5 rounded-md bg-muted/50 border-l-2 border-primary">
-                    <div className="flex items-center justify-between mb-0.5 md:mb-1">
-                      <span className="font-semibold text-[11px] md:text-xs">2454.TW 聯發科</span>
-                      <Badge className="bg-primary/10 text-primary text-[9px] md:text-[10px]">加碼</Badge>
-                    </div>
-                    <p className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5 md:mb-1">續創新高，AI 晶片出貨成長</p>
-                    <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] text-muted-foreground">
-                      <span>約 1250-1280</span>
-                      <span>10:15</span>
-                    </div>
-                  </div>
-                  {/* Sample Signal 3 */}
-                  <div className="p-2 md:p-2.5 rounded-md bg-muted/50 border-l-2 border-amber-500">
-                    <div className="flex items-center justify-between mb-0.5 md:mb-1">
-                      <span className="font-semibold text-[11px] md:text-xs">3008.TW 大立光</span>
-                      <Badge className="bg-amber-500/10 text-amber-600 text-[9px] md:text-[10px]">減碼</Badge>
-                    </div>
-                    <p className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5 md:mb-1">達目標價位，量能萎縮先獲利了結</p>
-                    <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] text-muted-foreground">
-                      <span>約 155-160</span>
-                      <span>11:00</span>
-                    </div>
-                  </div>
-                  {/* Sample Signal 4 */}
-                  <div className="p-2 md:p-2.5 rounded-md bg-muted/50 border-l-2 border-success">
-                    <div className="flex items-center justify-between mb-0.5 md:mb-1">
-                      <span className="font-semibold text-[11px] md:text-xs">2317.TW 鴻海</span>
-                      <Badge className="bg-success/10 text-success text-[9px] md:text-[10px]">買進</Badge>
-                    </div>
-                    <p className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5 md:mb-1">站上所有均線，外資連續買超</p>
-                    <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] text-muted-foreground">
-                      <span>約 178-182</span>
-                      <span>13:45</span>
-                    </div>
-                  </div>
-                  {/* Sample Signal 5 */}
-                  <div className="p-2 md:p-2.5 rounded-md bg-muted/50 border-l-2 border-destructive">
-                    <div className="flex items-center justify-between mb-0.5 md:mb-1">
-                      <span className="font-semibold text-[11px] md:text-xs">2603.TW 長榮</span>
-                      <Badge className="bg-destructive/10 text-destructive text-[9px] md:text-[10px]">出場</Badge>
-                    </div>
-                    <p className="text-[9px] md:text-[10px] text-muted-foreground mb-0.5 md:mb-1">跌破支撐，執行停損紀律</p>
-                    <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] text-muted-foreground">
-                      <span>約 185-188</span>
-                      <span>14:20</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
-              <h4 className="text-base md:text-h5 mb-xs text-foreground">跟單派戰情室</h4>
-              <p className="text-muted-foreground text-xs md:text-sm leading-relaxed">
+              <h4
+                className="mt-4 text-base md:text-lg"
+                style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
+              >
+                跟單派戰情室
+              </h4>
+              <p className="text-xs md:text-sm mt-1 leading-relaxed" style={{ color: 'rgba(244,236,219,0.55)' }}>
                 即時接收專家買賣訊號，包含價位區間與操作理由。
               </p>
             </div>
 
-            {/* 修煉派 - 週記式交易紀錄預覽 */}
+            {/* ── 修煉派週記 ── */}
             <div className="flex flex-col">
-              <div className="bg-background dark:bg-white/5 rounded-lg border border-border dark:border-white/10 border-t-4 border-t-mentor p-sm md:p-md mb-sm md:mb-md flex-1 flex flex-col">
-                {/* 派別標籤 */}
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge className="bg-mentor/10 text-mentor border border-mentor/20 text-xs font-medium">
-                    修煉派 · LEARNING
-                  </Badge>
+              <div
+                className="warroom-card flex-1 flex flex-col rounded-xl overflow-hidden"
+                style={{
+                  backgroundColor: 'rgba(20,17,13,0.85)',
+                  border: '1px solid rgba(212,166,67,0.22)',
+                  boxShadow: '0 30px 60px -30px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
+                }}
+              >
+                {/* Card header */}
+                <div
+                  className="flex items-center justify-between px-5 py-4 border-b"
+                  style={{ borderColor: 'rgba(212,166,67,0.18)', minHeight: 64 }}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[10px] font-medium tracking-wider"
+                      style={{ backgroundColor: 'rgba(212,166,67,0.12)', color: '#D4A643', border: '1px solid rgba(212,166,67,0.3)' }}
+                    >
+                      <BookOpen className="h-3 w-3" />
+                      LEARNING
+                    </span>
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
+                    >
+                      本週操作紀錄
+                    </span>
+                  </div>
+                  <span
+                    className="text-[10px] font-mono"
+                    style={{ color: 'rgba(244,236,219,0.55)' }}
+                  >
+                    12/23 – 12/27
+                  </span>
                 </div>
-                
-                {/* 標題區 */}
-                <div className="flex items-center justify-between mb-sm md:mb-md pb-sm md:pb-md border-b border-border">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-mentor" />
-                    <span className="text-xs md:text-sm font-medium">本週操作紀錄</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 md:gap-2">
-                    <Badge variant="outline" className="text-[9px] md:text-[10px] bg-mentor/10 text-mentor border-mentor/20">週記</Badge>
-                    <span className="text-[10px] md:text-xs text-muted-foreground">12/23~12/27</span>
-                  </div>
+
+                {/* Rows */}
+                <div className="flex-1 px-3 py-3 space-y-2">
+                  {[
+                    { day: '週一', tag: '買進', tagColor: '#EC662D', code: '2303.TW', name: '聯電', desc: '突破短期壓力，量能放大', ret: '+3.5%', retColor: '#EC662D' },
+                    { day: '週二', tag: '買進', tagColor: '#EC662D', code: '3037.TW', name: '欣興', desc: '跳空上漲，追蹤 ABF 載板題材', ret: '-2.8%', retColor: '#8B8680' },
+                    { day: '週三', tag: '買進', tagColor: '#EC662D', code: '2317.TW', name: '鴻海', desc: '站上所有均線，外資連買', ret: '+4.2%', retColor: '#EC662D' },
+                    { day: '週四', tag: null, tagColor: '#8B8680', code: null, name: null, desc: '觀望無操作', ret: null, retColor: '#8B8680' },
+                    { day: '週五', tag: '減碼', tagColor: '#D4A643', code: '2303.TW', name: '聯電', desc: '達目標價位，獲利了結', ret: '已鎖利', retColor: '#D4A643' },
+                  ].map((r, i) => (
+                    <div
+                      key={i}
+                      className="px-3 py-2.5 rounded-md"
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.025)',
+                        borderLeft: `2px solid ${r.tagColor}`,
+                        opacity: r.tag ? 1 : 0.6,
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-baseline gap-2.5 min-w-0">
+                          <span className="text-[11px] font-medium shrink-0" style={{ color: 'rgba(244,236,219,0.55)', fontFamily: '"Noto Serif TC", serif' }}>
+                            {r.day}
+                          </span>
+                          {r.tag && (
+                            <span
+                              className="px-1.5 py-0.5 rounded-sm text-[10px] font-medium"
+                              style={{ backgroundColor: `${r.tagColor}1f`, color: r.tagColor, border: `1px solid ${r.tagColor}44` }}
+                            >
+                              {r.tag}
+                            </span>
+                          )}
+                          {r.code && (
+                            <>
+                              <span className="text-[11px] font-mono shrink-0" style={{ color: 'rgba(244,236,219,0.5)' }}>
+                                {r.code}
+                              </span>
+                              <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB' }}>
+                                {r.name}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {r.ret && (
+                          <span className="shrink-0 text-[11px] font-mono font-medium" style={{ color: r.retColor }}>
+                            {r.ret}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] leading-snug pl-0" style={{ color: 'rgba(244,236,219,0.55)' }}>
+                        {r.desc}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-                
-                {/* 每日交易列表 - 週一到週五 */}
-                <div className="space-y-1.5 md:space-y-2 flex-1">
-                  {/* 週一 */}
-                  <div className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg bg-muted/30">
-                    <span className="text-[10px] md:text-xs text-muted-foreground w-6 md:w-8 shrink-0">週一</span>
-                    <Badge className="bg-success/10 text-success text-[9px] md:text-[10px] shrink-0">買進</Badge>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[10px] md:text-xs font-medium">2303.TW 聯電</span>
-                      <p className="text-[9px] md:text-[10px] text-muted-foreground truncate">突破短期壓力，量能放大</p>
-                    </div>
-                    <Badge variant="outline" className="text-[9px] md:text-[10px] text-success">+3.5%</Badge>
-                  </div>
-                  
-                  {/* 週二 */}
-                  <div className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg bg-muted/30">
-                    <span className="text-[10px] md:text-xs text-muted-foreground w-6 md:w-8 shrink-0">週二</span>
-                    <Badge className="bg-success/10 text-success text-[9px] md:text-[10px] shrink-0">買進</Badge>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[10px] md:text-xs font-medium">3037.TW 欣興</span>
-                      <p className="text-[9px] md:text-[10px] text-muted-foreground truncate">跳空上漲，追蹤 ABF 載板題材</p>
-                    </div>
-                    <Badge variant="outline" className="text-[9px] md:text-[10px] text-destructive">-2.8%</Badge>
-                  </div>
-                  
-                  {/* 週三 */}
-                  <div className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg bg-muted/30">
-                    <span className="text-[10px] md:text-xs text-muted-foreground w-6 md:w-8 shrink-0">週三</span>
-                    <Badge className="bg-success/10 text-success text-[9px] md:text-[10px] shrink-0">買進</Badge>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[10px] md:text-xs font-medium">2317.TW 鴻海</span>
-                      <p className="text-[9px] md:text-[10px] text-muted-foreground truncate">站上所有均線，外資連買</p>
-                    </div>
-                    <Badge variant="outline" className="text-[9px] md:text-[10px] text-success">+4.2%</Badge>
-                  </div>
-                  
-                  {/* 週四 - 觀望 */}
-                  <div className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg bg-muted/20">
-                    <span className="text-[10px] md:text-xs text-muted-foreground w-6 md:w-8 shrink-0">週四</span>
-                    <span className="text-[9px] md:text-[10px] text-muted-foreground italic">— 觀望無操作</span>
-                  </div>
-                  
-                  {/* 週五 */}
-                  <div className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg bg-muted/30">
-                    <span className="text-[10px] md:text-xs text-muted-foreground w-6 md:w-8 shrink-0">週五</span>
-                    <Badge className="bg-amber-500/10 text-amber-600 text-[9px] md:text-[10px] shrink-0">減碼</Badge>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[10px] md:text-xs font-medium">2303.TW 聯電</span>
-                      <p className="text-[9px] md:text-[10px] text-muted-foreground truncate">達目標價位，獲利了結</p>
-                    </div>
-                    <Badge variant="outline" className="text-[9px] md:text-[10px] text-success">已鎖利</Badge>
-                  </div>
-                </div>
-                
+
                 {/* 本週教學重點 */}
-                <div className="mt-3 md:mt-4 pt-2 md:pt-3 border-t border-border">
-                  <div className="flex items-center gap-1 mb-1.5 md:mb-2">
-                    <Lightbulb className="h-3 w-3 text-mentor" />
-                    <span className="text-[9px] md:text-[10px] font-medium text-muted-foreground">本週教學重點</span>
+                <div
+                  className="px-5 py-3 border-t"
+                  style={{ borderColor: 'rgba(212,166,67,0.18)', backgroundColor: 'rgba(212,166,67,0.04)' }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Lightbulb className="h-3 w-3" style={{ color: '#D4A643' }} />
+                    <span className="text-[10px] font-medium tracking-wider uppercase" style={{ color: '#D4A643' }}>
+                      本週教學重點
+                    </span>
                   </div>
-                  <ul className="space-y-0.5 md:space-y-1 text-[9px] md:text-[10px] text-muted-foreground">
-                    <li className="flex items-start gap-1">
-                      <span className="text-mentor">•</span> 嚴格執行停損是短線操作的關鍵
+                  <ul className="space-y-1 text-[11px] leading-snug" style={{ color: 'rgba(244,236,219,0.65)' }}>
+                    <li className="flex items-start gap-1.5">
+                      <span style={{ color: '#D4A643' }}>—</span> 嚴格執行停損是短線操作的關鍵
                     </li>
-                    <li className="flex items-start gap-1">
-                      <span className="text-mentor">•</span> 量能確認後再進場可提高勝率
+                    <li className="flex items-start gap-1.5">
+                      <span style={{ color: '#D4A643' }}>—</span> 量能確認後再進場可提高勝率
                     </li>
                   </ul>
                 </div>
               </div>
-              <h4 className="text-base md:text-h5 mb-xs text-foreground">修煉派週記教學</h4>
-              <p className="text-muted-foreground text-xs md:text-sm leading-relaxed">
+              <h4
+                className="mt-4 text-base md:text-lg"
+                style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
+              >
+                修煉派週記教學
+              </h4>
+              <p className="text-xs md:text-sm mt-1 leading-relaxed" style={{ color: 'rgba(244,236,219,0.55)' }}>
                 每週回顧導師的實際操作，包含進出場理由與學習重點（T+7 延遲）。
               </p>
             </div>
           </div>
 
-          {/* CTA Button */}
-          <div className="text-center mt-lg md:mt-xl">
+          {/* CTA */}
+          <div className="text-center mt-10 md:mt-12">
             <Link to="/pricing">
-              <Button size="lg" className="bg-primary hover:bg-primary/90">
+              <Button
+                size="lg"
+                className="border-0"
+                style={{ backgroundColor: '#EC662D', color: '#fff' }}
+              >
                 <ArrowRight className="mr-2 h-4 w-4" />
                 方案說明
               </Button>
             </Link>
           </div>
         </div>
+
+        <style>{`
+          .warroom-card { transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease; }
+          .warroom-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(236,102,45,0.4) !important;
+            box-shadow: 0 40px 80px -30px rgba(236,102,45,0.25), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+          }
+        `}</style>
       </section>
       </LazyOnVisible>
 
