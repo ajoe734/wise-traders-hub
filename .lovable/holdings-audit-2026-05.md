@@ -103,3 +103,48 @@
 - FreeCheckup.jsx：+27 行（P2 註解 + value-key memo + actionPriorityItems memo）
 - HoldingsActionPriority.jsx：+10 行（fallback 路徑 + 註解）
 - HoldingsTab.jsx：+2 行（新 prop）
+
+---
+
+## Batch C（架構級）— 2026-05 落地
+
+執行範圍：C-A（刪 orphan）+ C-B（重命名 React Query hook）+ C-C（README 強化）。
+跳過 C1（合併樣板層）+ C3（HoldingsPanel createElement→JSX），理由如下。
+
+### C-A：刪除 orphan 本地 state hook
+- **刪除** `src/checkup/hooks/useHoldings.js`（239 行）
+- 全 codebase 窮舉：除自身 + index.js re-export 外**無任何消費者**
+- `src/checkup/hooks/index.js` L10 移除 `export { useHoldings }`，留下命名澄清註解
+
+### C-B：useHoldings.ts → useMyTradeRecordHoldings.ts
+- **重命名** `src/hooks/useHoldings.ts` → `src/hooks/useMyTradeRecordHoldings.ts`
+- 檔頭新增命名地圖（三套 holdings hooks 用途澄清）
+- 唯一消費者 `src/pages/app/SignalsDashboard.tsx` L18 import 路徑同步更新
+- 對外 `useMyHoldings` 函式名保留（避免 ripple）
+
+### C-C：README 升級為憲法
+- `src/checkup/components/holdings/README.md`：
+  - 加雙向禁止 import 規則（freecheckup ↔ holdings 樣板層互不引用）
+  - 明確兩套刻意分離（表格 vs 卡片牆 = 不同產品形態）
+  - 加 Hooks 命名澄清段（與 C-A/C-B 對齊）
+
+### 跳過 C1（合併樣板層與 freecheckup 持倉版）
+- 實際盤點：`HoldingsPanel`(559 行)+`HoldingsTable`(446 行) 仍被 `HoldingsPage` + `AppPanels` 主動使用
+- 兩套是**完全不同產品形態**（會員版表格 vs free-checkup 卡片牆），合併會破壞 UX
+- 改為強化憲法（README 雙向禁止規則）
+
+### 跳過 C3（HoldingsPanel.jsx createElement → JSX）
+- 559 行純機械翻譯，無 perf/feature 增益，回歸風險高
+- 留待整體 .tsx 化運動再批次處理
+
+### 驗證
+- ✅ `rg "@/hooks/useHoldings"` 殘留為 0（只剩文件註解）
+- ✅ `checkup-store-backed-hooks` 18/18 通過
+- ✅ `checkup-helper-catalog` 9/9 通過
+- ✅ `freecheckup-tab-perf` 9/9 通過
+
+### LOC 變化
+- 刪除：useHoldings.js (239 行 orphan) + useHoldings.ts (24 行)
+- 新增：useMyTradeRecordHoldings.ts (35 行，含命名地圖註解)
+- README 更新 + index.js 註解化
+- 淨減少：約 220 行
