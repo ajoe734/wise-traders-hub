@@ -3070,7 +3070,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               newEvent={newEvent}
               setNewEvent={setNewEvent}
               addEvent={addEvent}
-              coerceStocksString={coerceStocksString}
+              
               toast={toast}
               expandedNews={expandedNews}
               reviewingEvent={reviewingEvent}
