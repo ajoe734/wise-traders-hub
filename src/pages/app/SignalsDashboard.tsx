@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isToday, differenceInMinutes } from 'date-fns';
-import { useMyHoldings } from '@/hooks/useHoldings';
+import { useMyHoldings } from '@/hooks/useMyTradeRecordHoldings';
 import { richHtmlPreview } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 

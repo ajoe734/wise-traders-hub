@@ -7,7 +7,8 @@ export { usePortfolioManagement } from './usePortfolioManagement.js'
 export { useAppConfirmationDialog } from './useAppConfirmationDialog.js'
 export { useMarketData } from './useMarketData.js'
 export { useEvents } from './useEvents.js'
-export { useHoldings } from './useHoldings.js'
+// C-A (holdings audit 2026-05): useHoldings (local-state) 已刪除 — orphan, 從未被消費。
+// 持倉狀態請改用 useHoldingsStore（Zustand）或 useMyTradeRecordHoldings（React Query）。
 export { useReports } from './useReports.js'
 export { usePortfolioDerivedData } from './usePortfolioDerivedData.js'
 export { usePortfolioBootstrap } from './usePortfolioBootstrap.js'
