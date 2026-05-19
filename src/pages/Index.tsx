@@ -168,29 +168,38 @@ const Index = () => {
               21世紀用更愜意的方式賺錢
             </p>
             
-            {/* Dual-Product CTA: Subscription (red) + Stock Dashboard (purple) */}
+            {/* Primary CTA: 開始看懂我的持股 + secondary 探索專家 */}
             <div className="flex flex-col sm:flex-row gap-sm">
-              <Button size="xl" asChild>
-                <Link to="/experts">
-                  探索專家
+              <Button
+                size="xl"
+                asChild
+                style={{ backgroundColor: '#EC662D', color: '#fff' }}
+                className="hover:brightness-110 border-0 shadow-[0_10px_30px_-12px_rgba(236,102,45,0.65)]"
+              >
+                <Link to="/free-checkup">
+                  開始看懂我的持股
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
               <Button
                 size="xl"
-                className="bg-purple-600 hover:bg-purple-700 text-white border-0"
+                variant="outline"
                 asChild
+                className="bg-transparent border-white/40 text-white hover:bg-white/10 hover:text-white"
               >
-                <Link to="/free-checkup">
-                  持股健檢
+                <Link to="/experts">
+                  探索專家
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
             </div>
-            <div className="mt-sm">
+            <p className="mt-sm text-sm md:text-[15px] text-primary-foreground/75 leading-relaxed">
+              不用猜消息，先看訊號、路線與戰績。
+            </p>
+            <div className="mt-2">
               <Link
                 to="/pricing"
-                className="text-sm text-primary-foreground/70 hover:text-primary-foreground underline underline-offset-4"
+                className="text-xs text-primary-foreground/55 hover:text-primary-foreground/90 underline underline-offset-4"
               >
                 查看方案比較 →
               </Link>
