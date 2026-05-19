@@ -33,7 +33,7 @@ import jianghuStudyBg from '@/assets/jianghu-study-bg.png';
 import jianghuSectionBg from '@/assets/jianghu-section-bg.jpg';
 import iconLightningCircle from '@/assets/icon-lightning-circle.svg';
 import iconBookCircle from '@/assets/icon-book-circle.svg';
-import dividerChoosePath from '@/assets/divider-choose-path.svg';
+
 import { WeeklyLimitUpLeaderboard } from '@/components/WeeklyLimitUpLeaderboard';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
