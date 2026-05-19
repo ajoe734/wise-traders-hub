@@ -528,18 +528,18 @@ const Index = () => {
           {/* Eyebrow + Title */}
           <div className="text-center mb-6 md:mb-8">
             <p
-              className="text-sm md:text-base tracking-[0.4em] mb-4"
+              className="text-xs md:text-sm tracking-[0.4em] mb-2"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
               江湖兩派
             </p>
             <h2
-              className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4"
+              className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2"
               style={{ color: '#171717', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
             >
               選你的模式
             </h2>
-            <p className="text-base md:text-lg" style={{ color: 'rgba(23,23,23,0.65)' }}>
+            <p className="text-sm md:text-base" style={{ color: 'rgba(23,23,23,0.65)' }}>
               不同的投資哲學，同樣的致勝之道
             </p>
           </div>
