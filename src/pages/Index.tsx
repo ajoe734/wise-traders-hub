@@ -168,29 +168,38 @@ const Index = () => {
               21世紀用更愜意的方式賺錢
             </p>
             
-            {/* Dual-Product CTA: Subscription (red) + Stock Dashboard (purple) */}
+            {/* Primary CTA: 開始看懂我的持股 + secondary 探索專家 */}
             <div className="flex flex-col sm:flex-row gap-sm">
-              <Button size="xl" asChild>
-                <Link to="/experts">
-                  探索專家
+              <Button
+                size="xl"
+                asChild
+                style={{ backgroundColor: '#EC662D', color: '#fff' }}
+                className="hover:brightness-110 border-0 shadow-[0_10px_30px_-12px_rgba(236,102,45,0.65)]"
+              >
+                <Link to="/free-checkup">
+                  開始看懂我的持股
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
               <Button
                 size="xl"
-                className="bg-purple-600 hover:bg-purple-700 text-white border-0"
+                variant="outline"
                 asChild
+                className="bg-transparent border-white/40 text-white hover:bg-white/10 hover:text-white"
               >
-                <Link to="/free-checkup">
-                  持股健檢
+                <Link to="/experts">
+                  探索專家
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
             </div>
-            <div className="mt-sm">
+            <p className="mt-sm text-sm md:text-[15px] text-primary-foreground/75 leading-relaxed">
+              不用猜消息，先看訊號、路線與戰績。
+            </p>
+            <div className="mt-2">
               <Link
                 to="/pricing"
-                className="text-sm text-primary-foreground/70 hover:text-primary-foreground underline underline-offset-4"
+                className="text-xs text-primary-foreground/55 hover:text-primary-foreground/90 underline underline-offset-4"
               >
                 查看方案比較 →
               </Link>
@@ -221,11 +230,11 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Right Column - Staggered Cards */}
-            <div className="flex flex-col gap-6">
-              {/* Card 01 - 仙人指路 */}
+            {/* Right Column - Staggered Cards (full-visible, layered) */}
+            <div className="flex flex-col gap-5 lg:pr-2">
+              {/* Card 01 - 看懂訊號 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-0"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-0 lg:mr-10"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.1s',
@@ -240,24 +249,22 @@ const Index = () => {
                   }}
                 />
                 <div 
-                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
+                  className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
                 />
-                {/* Large Number Decoration */}
-                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none">01</span>
-                {/* Red Dot */}
-                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none" style={{ fontFamily: '"Noto Serif TC","Source Serif 4",serif' }}>01</span>
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
-                <div className="relative z-10 p-8 pt-16 pb-10">
-                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">仙人指路</h3>
-                  <p className="text-white/70 leading-relaxed">
-                    第一時間推播，掌握每次漲停或轉折訊號。
+                <div className="relative z-10 p-8 pt-16 pb-9">
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>看懂訊號</h3>
+                  <p className="text-white/75 leading-relaxed text-[15px]">
+                    不是猜消息，而是先看市場留下的痕跡。
                   </p>
                 </div>
               </div>
 
-              {/* Card 02 - 三派會師 */}
+              {/* Card 02 - 找出戰線 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-6"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-5 lg:mr-5"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.25s',
@@ -268,28 +275,26 @@ const Index = () => {
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
                   style={{ 
                     backgroundImage: `url(${featureFiveFactions})`,
-                    opacity: 0.75
+                    opacity: 0.7
                   }}
                 />
                 <div 
-                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
+                  className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
                 />
-                {/* Large Number Decoration */}
-                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none">02</span>
-                {/* Red Dot */}
-                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none" style={{ fontFamily: '"Noto Serif TC","Source Serif 4",serif' }}>02</span>
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
-                <div className="relative z-10 p-8 pt-16 pb-10">
-                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">五大派系</h3>
-                  <p className="text-white/70 leading-relaxed">
-                    集結價值派、籌碼派、技術派、策略派、系統派，任你挑選最對味的交易門派。
+                <div className="relative z-10 p-8 pt-16 pb-9">
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>找出戰線</h3>
+                  <p className="text-white/75 leading-relaxed text-[15px]">
+                    從資金、籌碼與價格，判斷該守還是該退。
                   </p>
                 </div>
               </div>
 
               {/* Card 03 - 招招有交代 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-12"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-10 lg:mr-0"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.4s',
@@ -304,22 +309,20 @@ const Index = () => {
                   }}
                 />
                 <div 
-                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
+                  className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
                 />
-                {/* Large Number Decoration */}
-                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none">03</span>
-                {/* Red Dot */}
-                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none" style={{ fontFamily: '"Noto Serif TC","Source Serif 4",serif' }}>03</span>
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
-                <div className="relative z-10 p-8 pt-16 pb-10">
-                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">招招有交代</h3>
-                  <p className="text-white/70 leading-relaxed">
-                    勝率、報酬、回測全都透明公開。
+                <div className="relative z-10 p-8 pt-16 pb-9">
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>招招有交代</h3>
+                  <p className="text-white/75 leading-relaxed text-[15px]">
+                    勝率、報酬、回測全部公開，不靠一句老師說。
                   </p>
                 </div>
               </div>
 
-              {/* Mobile CTA - Only visible below lg: */}
+              {/* Mobile CTA */}
               <div className="lg:hidden flex justify-center mt-4">
                 <Button asChild size="lg" className="group">
                   <Link to="/pricing">
@@ -382,10 +385,10 @@ const Index = () => {
             style={{ borderColor: 'rgba(255,255,255,0.12)' }}
           >
             {[
-              { target: 75,   decimals: 0, prefix: '', suffix: '%+',   title: '勝率表現',     sub: '歷史訊號平均勝率' },
-              { target: 24,   decimals: 0, prefix: '', suffix: ' / 7', title: '即時市場分析', sub: '不間斷的市場監控' },
-              { target: 1000, decimals: 0, prefix: '', suffix: '+',    title: '深度研究報告', sub: '涵蓋全球主要市場' },
-              { target: 4.9,  decimals: 1, prefix: '', suffix: ' / 5', title: '用戶滿意度',   sub: '來自真實用戶評價' },
+              { target: 75,   decimals: 0, prefix: '', suffix: '%+',   title: '勝率表現', sub: '歷史訊號平均勝率' },
+              { target: 24,   decimals: 0, prefix: '', suffix: ' / 7', title: '盤勢巡邏', sub: '不間斷市場監控' },
+              { target: 1000, decimals: 0, prefix: '', suffix: '+',    title: '江湖戰報', sub: '涵蓋台股主要市場' },
+              { target: 4.9,  decimals: 1, prefix: '', suffix: ' / 5', title: '門派評價', sub: '來自真實用戶回饋' },
             ].map((s, i) => (
               <li
                 key={s.title}
@@ -442,10 +445,54 @@ const Index = () => {
         </div>
       </section>
 
+      {/* 黑 → 米 墨色山水過渡帶 */}
+      <div
+        aria-hidden="true"
+        className="relative w-full overflow-hidden"
+        style={{ height: 140, backgroundColor: '#F5F0E6' }}
+      >
+        {/* 上半：黑色墨暈淡出 */}
+        <div
+          className="absolute inset-x-0 top-0"
+          style={{
+            height: '100%',
+            background:
+              'linear-gradient(to bottom, #070707 0%, rgba(7,7,7,0.78) 22%, rgba(33,28,22,0.42) 52%, rgba(120,100,80,0.12) 78%, rgba(245,240,230,0) 100%)',
+          }}
+        />
+        {/* 山水剪影：底部一抹淡墨遠山 */}
+        <svg
+          className="absolute inset-x-0 bottom-0 w-full"
+          viewBox="0 0 1440 120"
+          preserveAspectRatio="none"
+          style={{ height: 70, opacity: 0.32 }}
+        >
+          <path
+            d="M0,90 C120,60 220,75 340,55 C460,35 560,70 700,50 C840,30 960,80 1100,60 C1240,40 1340,70 1440,55 L1440,120 L0,120 Z"
+            fill="#1a1410"
+          />
+          <path
+            d="M0,108 C160,92 280,100 420,90 C560,80 700,105 880,95 C1060,85 1240,100 1440,92 L1440,120 L0,120 Z"
+            fill="#3a2e22"
+            opacity="0.55"
+          />
+        </svg>
+        {/* 一筆橘色細線：門派氣口 */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2"
+          style={{
+            bottom: 28,
+            width: 1,
+            height: 36,
+            backgroundColor: 'rgba(236,102,45,0.55)',
+          }}
+        />
+      </div>
+
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
       <LazyOnVisible mode="content-visibility" minHeight={1400}>
       <section
-        className="relative overflow-hidden py-20 md:py-28"
+        className="relative overflow-hidden pt-10 md:pt-14 pb-16 md:pb-20"
         style={{ backgroundColor: '#F5F0E6' }}
       >
         {/* Ink-wash mountain backdrop — very faint, top of section only */}
@@ -479,20 +526,20 @@ const Index = () => {
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Eyebrow + Title */}
-          <div className="text-center mb-12 md:mb-16">
+          <div className="text-center mb-6 md:mb-8">
             <p
-              className="text-sm md:text-base tracking-[0.4em] mb-4"
+              className="text-xs md:text-sm tracking-[0.4em] mb-2"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
               江湖兩派
             </p>
             <h2
-              className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4"
+              className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2"
               style={{ color: '#171717', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
             >
               選你的模式
             </h2>
-            <p className="text-base md:text-lg" style={{ color: 'rgba(23,23,23,0.65)' }}>
+            <p className="text-sm md:text-base" style={{ color: 'rgba(23,23,23,0.65)' }}>
               不同的投資哲學，同樣的致勝之道
             </p>
           </div>
