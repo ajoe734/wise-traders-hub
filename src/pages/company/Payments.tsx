@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  CreditCard, ExternalLink, Landmark, AlertTriangle, Wallet, Dialog as _,
+  CreditCard, ExternalLink, Landmark, AlertTriangle, Wallet,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
