@@ -1197,7 +1197,7 @@ export default function App() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [H.map((h) => h.code).join(',')]);
+  }, [holdingsCodesKey, isDemo]); // D-Perf-R3 (2026-05 第二輪)：改吃已 memo 的 codes key
 
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
   const totalCost = H.reduce((s,h)=> s + (h.totalCost != null ? h.totalCost : h.cost * h.qty), 0);
