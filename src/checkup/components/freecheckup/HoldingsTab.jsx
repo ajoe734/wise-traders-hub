@@ -1,5 +1,6 @@
-import { memo, lazy, Suspense, useState, useCallback } from "react";
+import { memo, lazy, Suspense, useState, useCallback, useMemo } from "react";
 import { useBrainStore } from "@/checkup/stores/brainStore";
+import { useViewportWidth } from "@/hooks/useViewportWidth";
 import { validateProps } from "@/checkup/components/freecheckup/_validateProps.js";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
@@ -60,7 +61,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   targets: _opt('any'), avgTarget: _opt('any'),
   sparklines: _opt('any'), sparklineErrors: _opt('any'), EMPTY_SPARK: _opt('any'),
   normalizedEvents: _opt('any'), openHoldingDrawer: _opt('any'),
-  cardGridCols: _opt('any'),
+  // cardGridCols 已下沉至本元件內由 useViewportWidth 計算，parent 不再透傳
   showAll: _opt('any'), setShowAll: _opt('any'),
 };
 
@@ -115,7 +116,6 @@ function HoldingsTab(props) {
     targets, avgTarget, sparklines, sparklineErrors, EMPTY_SPARK,
     Sparkline, normalizedEvents, openHoldingDrawer,
     handleHoldingCardOpenDrawer,
-    cardGridCols,
     showAll, setShowAll,
     // navigation
     setTab,
