@@ -145,68 +145,16 @@ const Checkout = () => {
     }
   }, [searchParams, plan, user]);
 
-  // Handle ECPay return — use Realtime to detect subscription created by server callback
-  useEffect(() => {
-    const ecpayResult = searchParams.get('ecpay');
-    if (ecpayResult !== 'result' || !user || !planId || resultDialog) return;
-
-    setIsConfirming(true);
-
-    // First, check if subscription already exists (callback may have already fired)
-    const checkExisting = async () => {
-      const { data: subs } = await supabase
-        .from('member_subscriptions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('plan_id', planId)
-        .eq('status', 'active');
-      if (subs && subs.length > 0) {
-        setIsConfirming(false);
-        setResultDialog({ open: true, success: true });
-        return true;
-      }
-      return false;
-    };
-
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-
-    checkExisting().then(found => {
-      if (found) return;
-
-      // Listen for realtime INSERT on member_subscriptions for this user+plan
-      channel = supabase
-        .channel('ecpay-sub-confirm')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'member_subscriptions',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            const row = payload.new as any;
-            if (row.plan_id === planId && row.status === 'active') {
-              setIsConfirming(false);
-              setResultDialog({ open: true, success: true });
-            }
-          }
-        )
-        .subscribe();
-
-      // Timeout after 60 seconds
-      timeout = setTimeout(() => {
-        setIsConfirming(false);
-        setResultDialog({ open: true, success: false, message: '付款確認逾時，如已扣款請聯繫客服' });
-      }, 60000);
-    });
-
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-      if (timeout) clearTimeout(timeout);
-    };
-  }, [searchParams, user, planId]);
+  // Handle ECPay return — 共用 useSubscriptionConfirmation
+  useSubscriptionConfirmation({
+    table: 'member_subscriptions',
+    userId: user?.id,
+    planId,
+    enabled: searchParams.get('ecpay') === 'result' && !resultDialog,
+    channelKey: 'ecpay-sub',
+    setConfirming: setIsConfirming,
+    onConfirmed: (r) => setResultDialog({ open: true, success: r.success, message: r.message }),
+  });
 
   useEffect(() => {
     const fetchData = async () => {
