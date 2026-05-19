@@ -172,6 +172,9 @@ export const WB = {
 export const wbTone = (n) => (Number(n) >= 0 ? WB.accent : WB.ink);
 // P3-perf: 空 sparkline 共用 reference，避免 HoldingCard memo 因每次新陣列而失效
 export const EMPTY_SPARK = Object.freeze([]);
+// B-P2 (holdings audit 2026-05): holdings 為 null 時的單一空陣列 reference，
+// 與 H 的 value-key memo 搭配，避免下游 9 個 useMemo 因每次空陣列而失效
+export const EMPTY_HOLDINGS = Object.freeze([]);
 
 // ── Sparkline：純 SVG，無依賴 ── (P3-perf: memo'd 避免持倉每秒 quote tick 重繪)
 export const Sparkline = memo(function Sparkline({ data = [], width = 120, height = 36, color = WB.accent, strokeWidth = 1.4, opacity = 0.85 }) {
