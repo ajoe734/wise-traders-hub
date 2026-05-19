@@ -233,3 +233,44 @@ HoldingCard / HoldingsActionPriority / HoldingsDetailPanel / HoldingsEmptyState 
 ### 後續批次
 - **G 批（待決定）**：unit test 補強（`compareByPriority` / `holdingsValueKey` / `HoldingsPage` / DetailPanel overlay）
 - **獨立**：HoldingCard.tsx / HoldingsTab.tsx 移除 `@ts-nocheck`（需先把 `useInView` 改 `as const` tuple、`Sparkline` memo 加 props 型別、`useCheckupMode` 明確 generic）
+
+---
+
+## Batch G（覆蓋率）— 2026-05 落地
+
+### 新檔 `src/checkup/lib/holdingsSort.ts`
+抽出兩支熱路徑純函式（原本 inline 在 FreeCheckup.jsx / useRouteHoldingsPage.js，無法 unit test）：
+- `URGENCY_RANK`, `CONF_RANK`
+- `makeCompareByPriority(decisionsMap)` — 回傳 sort comparator；保留 priority → urgency → confidence → value → code 五階 tiebreaker。
+- `holdingsValueKeyShort(holdings)` — `code|qty|price|cost`，FreeCheckup B-P2 用。
+- `holdingsValueKeyFull(holdings)` — `+value|pct|integrityIssue`，useRouteHoldingsPage D-Perf-R6 用。
+
+### 上游改 import
+- `src/pages/FreeCheckup.jsx`：刪除 inline `URGENCY_RANK` / `CONF_RANK` / `compareByPriority` / `holdingsValueKey`，改 import。`compareByPriority` 從 `useCallback` 換成 `useMemo(() => makeCompareByPriority(decisionsMap))`。淨減約 17 行。
+- `src/checkup/hooks/useRouteHoldingsPage.js`：刪除 inline `holdingsValueKey`，改 import `holdingsValueKeyFull`。
+
+### 新測試
+- `src/test/unit/holdings-sort.test.ts`（17 tests）：rank 常數順序、5 階 comparator、空 decisionsMap fallback、short vs full 差異（value 變動 → short 不變、full 變）。
+- `src/test/unit/holdings-page.test.tsx`（7 tests）：用 mock `usePortfolioRouteContext` + `useBrainStore` 直接驗證 `useRouteHoldingsPage` derived（totalVal / totalCost / winners 降序 / losers 升序 / integrityIssues 過濾）+ **D-Perf-R6 reference 穩定性**（值未變 → 同 reference；price 變 → reference 變、totalVal 更新）。
+
+### 驗證
+- ✅ `holdings-sort` 17/17、`holdings-page` 7/7
+- ✅ 回歸 4 套（freecheckup-tab-prop-schema / freecheckup-tab-perf / freecheckup-mobile-card-overflow / freecheckup-i18n）共 50/50 pass
+- ✅ `tsc -p tsconfig.app.json --noEmit` 無錯
+
+### Perf-R5（detail panel overlay 化）— 暫不執行
+依用戶指示獨立排程，理由：
+- 涉及 layout 行為變更（grid 佔位 → fixed/absolute overlay），需 z-index / scroll lock / focus trap 規格
+- 必須跑視覺回歸（手機 390/560、桌機 1280/1920）
+- 與當前批次目標（覆蓋率）正交
+
+### LOC 變化
+| 檔案 | 變化 |
+|---|---|
+| `holdingsSort.ts` | +57（新） |
+| `FreeCheckup.jsx` | −17 |
+| `useRouteHoldingsPage.js` | −5 |
+| `holdings-sort.test.ts` | +130（新） |
+| `holdings-page.test.tsx` | +110（新） |
+| **生產碼淨計** | **+35** |
+| **測試淨計** | **+240** |
