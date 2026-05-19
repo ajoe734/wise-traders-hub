@@ -2815,9 +2815,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="holdings" && (
           <Suspense fallback={null}>
             <HoldingsTab
-              isDemo={isDemo}
               DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
-              startLineLogin={startLineLogin}
               navigate={navigate}
               C={C}
               alpha={alpha}
@@ -2844,7 +2842,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setReviewingEvent={setReviewingEvent}
               updateReversal={updateReversal}
               globalPriorityList={globalPriorityList}
-              actionPriorityItems={actionPriorityItems}
               decisionsMap={decisionsMap}
               STOCK_META={STOCK_META}
               filteredSortedList={filteredSortedList}
@@ -2862,24 +2859,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setFilterPnl={setFilterPnl}
               filterStrategy={filterStrategy}
               setFilterStrategy={setFilterStrategy}
-              strategyOptions={strategyOptions}
               toggleSetItem={toggleSetItem}
               clearAllFilters={clearAllFilters}
               sortBy={sortBy}
               setSortBy={setSortBy}
               sortDir={sortDir}
               setSortDir={setSortDir}
-              displayed={displayed}
-              sorted={sorted}
-              orderedDisplayed={orderedDisplayed}
-              variantsMap={variantsMap}
-              firstFeatureCode={firstFeatureCode}
               targets={targets}
               avgTarget={avgTarget}
               sparklines={sparklines}
               sparklineErrors={sparklineErrors}
               EMPTY_SPARK={EMPTY_SPARK}
-              Sparkline={Sparkline}
               normalizedEvents={normalizedEvents}
               openHoldingDrawer={openHoldingDrawer}
               handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
@@ -2887,6 +2877,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setShowAll={setShowAll}
               setTab={setTab}
             />
+
           </Suspense>
         )}
         {/* #endregion Tab: Holdings */}
