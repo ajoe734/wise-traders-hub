@@ -319,10 +319,10 @@ const Index = () => {
             style={{ borderColor: 'rgba(255,255,255,0.12)' }}
           >
             {[
-              { num: '75%+',    title: '勝率表現',     sub: '歷史訊號平均勝率' },
-              { num: '24 / 7',  title: '即時市場分析', sub: '不間斷的市場監控' },
-              { num: '1000+',   title: '深度研究報告', sub: '涵蓋全球主要市場' },
-              { num: '4.9 / 5', title: '用戶滿意度',   sub: '來自真實用戶評價' },
+              { target: 75,   decimals: 0, prefix: '', suffix: '%+',   title: '勝率表現',     sub: '歷史訊號平均勝率' },
+              { target: 24,   decimals: 0, prefix: '', suffix: ' / 7', title: '即時市場分析', sub: '不間斷的市場監控' },
+              { target: 1000, decimals: 0, prefix: '', suffix: '+',    title: '深度研究報告', sub: '涵蓋全球主要市場' },
+              { target: 4.9,  decimals: 1, prefix: '', suffix: ' / 5', title: '用戶滿意度',   sub: '來自真實用戶評價' },
             ].map((s, i) => (
               <li
                 key={s.title}
@@ -333,14 +333,22 @@ const Index = () => {
                 }}
               >
                 <div
-                  className="text-3xl md:text-4xl lg:text-[44px] text-white mb-2"
+                  className="text-3xl md:text-4xl lg:text-[44px] text-white mb-2 tabular-nums"
                   style={{
                     fontFamily: '"Noto Serif TC","Source Serif 4","Georgia",serif',
                     letterSpacing: '0.02em',
                     fontWeight: 500,
+                    fontVariantNumeric: 'tabular-nums',
                   }}
                 >
-                  {s.num}
+                  <CountUpNumber
+                    target={s.target}
+                    decimals={s.decimals}
+                    prefix={s.prefix}
+                    suffix={s.suffix}
+                    delay={120 + i * 140}
+                    duration={1600}
+                  />
                 </div>
                 <div
                   className="text-sm md:text-base text-white mb-1"
