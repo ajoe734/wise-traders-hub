@@ -1154,12 +1154,11 @@ export default function App() {
   // applyMarketQuotesToHoldings / mergeTradeIntoHoldings 內部恆 spread 新陣列，
   // 即使 quote tick 後值未變，holdings reference 仍會抖動 → 下游 9 個 useMemo 全失效。
   // 此處用 code|qty|price|cost hash，值未變時回傳同一 reference。
-  const holdingsValueKey = useMemo(() => {
-    if (!Array.isArray(holdings) || holdings.length === 0) return '';
-    return holdings.map(h => `${h.code}|${h.qty}|${h.price}|${h.cost}`).join(';');
-  }, [holdings]);
+  // G-Coverage: 抽到 @/checkup/lib/holdingsSort
+  const holdingsValueKey = useMemo(() => holdingsValueKeyShort(holdings), [holdings]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const H = useMemo(() => holdings || EMPTY_HOLDINGS, [holdingsValueKey]);
+
 
   // ── Sparkline 載入：持倉變動時，僅補抓還沒快取的代碼 ──
   useEffect(() => {
