@@ -133,51 +133,8 @@ const AppCheckout = () => {
     } catch { setResultDialog({ open: true, success: false }); } finally { setIsConfirming(false); }
   };
 
-  const handleEcpayReturn = async () => {
-    setIsConfirming(true);
-    try {
-      if (!user) throw new Error("Not authenticated");
-      const { data: existing } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
-      if (existing && existing.length > 0) { setResultDialog({ open: true, success: true }); setIsConfirming(false); return; }
-      // Realtime + Polling dual guarantee
-      let resolved = false;
-      const channel = supabase
-        .channel('ecpay-app-confirm')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'member_subscriptions', filter: `user_id=eq.${user.id}` }, (payload) => {
-          const row = payload.new as any;
-          if (row.plan_id === planId && row.status === 'active' && !resolved) {
-            resolved = true;
-            clearInterval(pollTimer);
-            setIsConfirming(false);
-            setResultDialog({ open: true, success: true });
-          }
-        })
-        .subscribe();
-      // Polling fallback every 5 seconds
-      const pollTimer = setInterval(async () => {
-        if (resolved) { clearInterval(pollTimer); return; }
-        const { data: polled } = await supabase.from("member_subscriptions").select("id").eq("user_id", user.id).eq("plan_id", planId!).eq("status", "active");
-        if (polled && polled.length > 0 && !resolved) {
-          resolved = true;
-          clearInterval(pollTimer);
-          supabase.removeChannel(channel);
-          setIsConfirming(false);
-          setResultDialog({ open: true, success: true });
-        }
-      }, 5000);
-      // 60s timeout — show "pending" not "failed"
-      setTimeout(() => {
-        clearInterval(pollTimer);
-        supabase.removeChannel(channel);
-        if (!resolved) {
-          setIsConfirming(false);
-          setResultDialog({ open: true, success: false });
-          // Override the dialog message via a special flag
-          setPendingTimeout(true);
-        }
-      }, 60000);
-    } catch { setIsConfirming(false); setResultDialog({ open: true, success: false }); }
-  };
+  // ECPay return handler — removed, now handled by useSubscriptionConfirmation above
+
 
   if (isLoading) {
     return <UnifiedAppLayout><div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div></UnifiedAppLayout>;
