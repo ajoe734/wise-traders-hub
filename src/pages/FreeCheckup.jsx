@@ -1556,8 +1556,10 @@ export default function App() {
   const activeHolding = activeIndex >= 0 ? sourceList[activeIndex] : null;
   const top5 = [...H].sort((a,b)=>b.value-a.value).slice(0,5);
   const topColors = [C.blue, C.amber, C.lavender, C.olive, C.teal];
-  const winners = H.filter(h=>h.pnl>0).sort((a,b)=>b.pct-a.pct);
-  const losers  = H.filter(h=>h.pnl<0).sort((a,b)=>a.pct-b.pct);
+  // A4：winnersCount 只用於 HoldingsHero（4 欄 KPI / win rate）；
+  // losers 仍是陣列（HoldingsReversalSection 需明細）
+  const winnersCount = useMemo(() => H.filter(h=>h.pnl>0).length, [H]);
+  const losers  = useMemo(() => H.filter(h=>h.pnl<0).sort((a,b)=>a.pct-b.pct), [H]);
 
   const filteredEvents = filterType==="全部" ? CE : CE.filter(e=>e.type===filterType);
 
