@@ -148,3 +148,57 @@
 - 新增：useMyTradeRecordHoldings.ts (35 行，含命名地圖註解)
 - README 更新 + index.js 註解化
 - 淨減少：約 220 行
+
+---
+
+## Batch D（2026-05 第二輪 — 純效能）落地
+
+承接第二輪盤點（`.lovable/plan.md`）。執行 R2 / R3 / R6；R1 / R4 / R5 / R7 跳過理由如下。
+
+### D-Perf-R2：viewport 訂閱下沉到 HoldingsTab
+- **新增** `src/hooks/useViewportWidth.ts`（24 行通用 hook）
+- `src/pages/FreeCheckup.jsx` L158-176：移除 `vw` state + `cardGridCols` 計算（-19 行）
+- `src/checkup/components/freecheckup/HoldingsTab.jsx`：import `useViewportWidth`，在元件內 useMemo([vw]) 算 `cardGridCols`
+- 移除 `cardGridCols` prop（schema + props 解構 + parent 透傳同步清理）
+- 影響：resize tick 不再觸發 3,515 行 god component re-render，只影響 HoldingsTab 本身
+
+### D-Perf-R3：sparkline useEffect deps 改吃 holdingsCodesKey
+- L1200：`[H.map(h=>h.code).join(',')]` → `[holdingsCodesKey, isDemo]`
+- 省去每次 render 的 map+join，同時補上 `isDemo` 漏掉的 dep
+
+### D-Perf-R6：HoldingsPage（會員版）holdings valueKey 穩定化
+- `src/checkup/hooks/useRouteHoldingsPage.js` 完整重寫
+- 新增 `EMPTY_HOLDINGS` frozen + `holdingsValueKey`（code|qty|price|cost|value|pct|integrityIssue）
+- `holdings` ref 對齊 B-P2 模式 → store push 值未變時 winners/losers/total* 全部命中快取
+
+### 跳過 D-Perf-R1（cardGridCols memo + HoldingsTab memo）
+- HoldingsTab 已 `export default memo(HoldingsTab)`（L428）
+- `cardGridCols` 是 primitive string，memo equality 本來就過得了
+- R2 處理完後此項自然成立（且 vw 已不在 parent）
+
+### 跳過 D-Perf-R4（normalizedEvents 透傳）
+- `HoldingsDetailPanel` L14/L30 實際消費 normalizedEvents（relatedEvents 篩選）
+- DetailPanel 已 lazy，未開啟時不下載；但需要 prop 流到該層
+- 抽 Context 風險高於收益，留 E 批一併處理
+
+### 跳過 D-Perf-R5（grid reflow overlay 化）
+- 涉及 layout 行為變更與 z-index 風險，需獨立 G 批 + 視覺回歸
+
+### 跳過 D-Perf-R7（filter / sort 拆兩段 useMemo）
+- 篩選器變動時 sort 重排成本實測不顯著，性價比低
+
+### 驗證
+- ✅ `scripts/check-freecheckup-rwd.mjs` 通過（3516 行靜態檢查）
+- ✅ `freecheckup-tab-perf` 9/9
+- ✅ `freecheckup-tab-prop-schema` 5/5
+- ✅ `checkup-store-backed-hooks` 18/18
+- ⚠️ unknown prop 警告（winners / exitList / reviewList / cardGridCols / setExpandedDecision）來自測試 fixture stale，與 D 批無關
+- ⚠️ `freecheckup-mobile-card-overflow` 18 fail：CSS source mismatch 既存，留 E-Maint-R5
+
+### LOC 變化
+- FreeCheckup.jsx：−16
+- HoldingsTab.jsx：+13（useViewportWidth + useMemo）
+- useViewportWidth.ts：+24（新）
+- useRouteHoldingsPage.js：+18
+- 淨增約 +40，但 god component 縮減、resize 路徑解耦
+
