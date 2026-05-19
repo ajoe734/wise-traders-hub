@@ -551,69 +551,123 @@ const Index = () => {
               className="jianghu-card group relative block overflow-hidden rounded-2xl"
               style={{
                 aspectRatio: '4 / 5',
-                border: '1px solid rgba(23,23,23,0.12)',
+                border: '1px solid rgba(23,23,23,0.14)',
                 backgroundColor: '#1a1a1a',
               }}
             >
-              {/* Background image — keep samurai out of bottom-left text safe area */}
+              {/* Background image */}
               <div
-                className="absolute inset-0 bg-no-repeat transition-transform duration-700 group-hover:scale-105"
+                className="absolute inset-0 bg-no-repeat jianghu-card-bg"
                 style={{
                   backgroundImage: `url(${jianghuFollowBg})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center center',
                 }}
               />
-              {/* Text-safe overlay — bottom-up dark gradient */}
+              {/* Text-safe overlay — 加深以露出更多上半部資訊 */}
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   background:
-                    'linear-gradient(to top, rgba(0,0,0,0.86) 0%, rgba(0,0,0,0.62) 38%, rgba(0,0,0,0.22) 68%, rgba(0,0,0,0) 100%)',
+                    'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.78) 35%, rgba(0,0,0,0.42) 62%, rgba(0,0,0,0.05) 100%)',
                 }}
               />
-              {/* Content wrapper — icon + text in clean dark zone */}
+              {/* 右上角「進入此派」標籤 */}
+              <span
+                className="absolute z-20 top-4 right-4 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] md:text-[11px] font-medium tracking-wider backdrop-blur-sm transition-all duration-300 group-hover:bg-[rgba(236,102,45,0.95)] group-hover:text-white"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.12)',
+                  color: '#fff',
+                  border: '1px solid rgba(255,255,255,0.22)',
+                }}
+              >
+                進入此派 <ArrowRight className="w-3 h-3" />
+              </span>
+              {/* Hover 底部橘色光邊 */}
+              <div
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 h-[3px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{
+                  background: 'linear-gradient(to right, transparent, #EC662D 50%, transparent)',
+                  boxShadow: '0 0 24px rgba(236,102,45,0.6)',
+                }}
+              />
+              {/* Content — 拉高位置讓更多資訊露出 */}
               <div
                 className="absolute z-10"
-                style={{ bottom: '32px', left: '36px', right: '36px', maxWidth: '420px' }}
+                style={{ bottom: '28px', left: '32px', right: '32px', maxWidth: '420px' }}
               >
                 <img
                   src={iconLightningCircle}
                   alt=""
-                  className="w-12 h-12 md:w-14 md:h-14 mb-4"
+                  className="w-10 h-10 md:w-12 md:h-12 mb-3"
                   loading="lazy"
                 />
                 <h3
-                  className="text-3xl md:text-4xl font-bold text-white mb-2"
+                  className="text-2xl md:text-[32px] font-bold text-white mb-1.5"
                   style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.08em' }}
                 >
                   跟單派
                 </h3>
-                <p className="text-base md:text-lg mb-2" style={{ color: '#EC662D' }}>
-                  跟隨高手，即刻出擊
+                <p className="text-sm md:text-base mb-2.5" style={{ color: '#EC662D' }}>
+                  跟著高手，即刻出擊
                 </p>
-                <p className="text-sm md:text-[15px] text-white/80 leading-relaxed mb-4">
-                  接收即時交易訊號，跟隨專業分析師的腳步，捕捉市場機會，追求穩定收益。
+                <p
+                  className="inline-block text-[11px] md:text-xs px-2 py-1 rounded-sm mb-3"
+                  style={{
+                    color: 'rgba(255,255,255,0.92)',
+                    backgroundColor: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                  }}
+                >
+                  適合：想要明確訊號的人
                 </p>
                 <span
-                  className="inline-flex items-center gap-2 text-sm md:text-base font-medium"
+                  className="flex items-center gap-2 text-sm md:text-base font-medium"
                   style={{ color: '#EC662D' }}
                 >
                   了解更多
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1.5" />
                 </span>
               </div>
             </Link>
 
-            {/* Divider — desktop only, low presence */}
-            <div className="hidden md:flex items-center justify-center" style={{ width: '56px' }}>
-              <img
-                src={dividerChoosePath}
-                alt=""
+            {/* Divider — 垂直引導：橘線 / 文字 / chevron / 小圓點 */}
+            <div className="hidden md:flex flex-col items-center justify-center" style={{ width: '64px' }}>
+              <div
                 aria-hidden="true"
-                className="w-auto"
-                style={{ height: '320px', opacity: 0.7 }}
-                loading="lazy"
+                style={{
+                  width: 1,
+                  height: 72,
+                  background: 'linear-gradient(to bottom, transparent, rgba(236,102,45,0.55))',
+                }}
+              />
+              <p
+                className="my-3 text-[10px] tracking-[0.45em] writing-vertical-rl"
+                style={{
+                  color: 'rgba(23,23,23,0.55)',
+                  fontFamily: '"Noto Serif TC", serif',
+                  writingMode: 'vertical-rl',
+                  textOrientation: 'upright',
+                  letterSpacing: '0.35em',
+                }}
+              >
+                選擇你的道路
+              </p>
+              <div className="flex flex-col items-center" aria-hidden="true">
+                <ChevronDown className="h-3.5 w-3.5" style={{ color: 'rgba(236,102,45,0.5)' }} />
+                <ChevronDown className="h-3.5 w-3.5 -mt-2" style={{ color: 'rgba(236,102,45,0.85)' }} />
+              </div>
+              <div
+                aria-hidden="true"
+                className="mt-3"
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: '50%',
+                  backgroundColor: '#EC662D',
+                  boxShadow: '0 0 8px rgba(236,102,45,0.6)',
+                }}
               />
             </div>
 
@@ -623,13 +677,12 @@ const Index = () => {
               className="jianghu-card group relative block overflow-hidden rounded-2xl"
               style={{
                 aspectRatio: '4 / 5',
-                border: '1px solid rgba(23,23,23,0.12)',
+                border: '1px solid rgba(23,23,23,0.14)',
                 backgroundColor: '#1a1a1a',
               }}
             >
-              {/* Background image — push subject right/top so it clears bottom-left text area */}
               <div
-                className="absolute inset-0 bg-no-repeat transition-transform duration-700 group-hover:scale-105"
+                className="absolute inset-0 bg-no-repeat jianghu-card-bg"
                 style={{
                   backgroundImage: `url(${jianghuStudyBg})`,
                   backgroundSize: 'cover',
@@ -640,41 +693,67 @@ const Index = () => {
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   background:
-                    'linear-gradient(to top, rgba(0,0,0,0.86) 0%, rgba(0,0,0,0.62) 38%, rgba(0,0,0,0.22) 68%, rgba(0,0,0,0) 100%)',
+                    'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.78) 35%, rgba(0,0,0,0.42) 62%, rgba(0,0,0,0.05) 100%)',
+                }}
+              />
+              <span
+                className="absolute z-20 top-4 right-4 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] md:text-[11px] font-medium tracking-wider backdrop-blur-sm transition-all duration-300 group-hover:bg-[rgba(236,102,45,0.95)] group-hover:text-white"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.12)',
+                  color: '#fff',
+                  border: '1px solid rgba(255,255,255,0.22)',
+                }}
+              >
+                進入此派 <ArrowRight className="w-3 h-3" />
+              </span>
+              <div
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 h-[3px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{
+                  background: 'linear-gradient(to right, transparent, #EC662D 50%, transparent)',
+                  boxShadow: '0 0 24px rgba(236,102,45,0.6)',
                 }}
               />
               <div
                 className="absolute z-10"
-                style={{ bottom: '32px', left: '36px', right: '36px', maxWidth: '420px' }}
+                style={{ bottom: '28px', left: '32px', right: '32px', maxWidth: '420px' }}
               >
                 <img
                   src={iconBookCircle}
                   alt=""
-                  className="w-12 h-12 md:w-14 md:h-14 mb-4"
+                  className="w-10 h-10 md:w-12 md:h-12 mb-3"
                   loading="lazy"
                 />
                 <h3
-                  className="text-3xl md:text-4xl font-bold text-white mb-2"
+                  className="text-2xl md:text-[32px] font-bold text-white mb-1.5"
                   style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.08em' }}
                 >
                   修煉派
                 </h3>
-                <p className="text-base md:text-lg mb-2" style={{ color: '#EC662D' }}>
+                <p className="text-sm md:text-base mb-2.5" style={{ color: '#EC662D' }}>
                   修煉內功，掌控全局
                 </p>
-                <p className="text-sm md:text-[15px] text-white/80 leading-relaxed mb-4">
-                  學習專業投資框架，深入市場分析邏輯，培養獨立思考能力，成為市場贏家。
+                <p
+                  className="inline-block text-[11px] md:text-xs px-2 py-1 rounded-sm mb-3"
+                  style={{
+                    color: 'rgba(255,255,255,0.92)',
+                    backgroundColor: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                  }}
+                >
+                  適合：想學判斷框架的人
                 </p>
                 <span
-                  className="inline-flex items-center gap-2 text-sm md:text-base font-medium"
+                  className="flex items-center gap-2 text-sm md:text-base font-medium"
                   style={{ color: '#EC662D' }}
                 >
                   了解更多
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1.5" />
                 </span>
               </div>
             </Link>
           </div>
+
 
           {/* Footnote */}
           <p
