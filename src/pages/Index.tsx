@@ -445,10 +445,54 @@ const Index = () => {
         </div>
       </section>
 
+      {/* 黑 → 米 墨色山水過渡帶 */}
+      <div
+        aria-hidden="true"
+        className="relative w-full overflow-hidden"
+        style={{ height: 140, backgroundColor: '#F5F0E6' }}
+      >
+        {/* 上半：黑色墨暈淡出 */}
+        <div
+          className="absolute inset-x-0 top-0"
+          style={{
+            height: '100%',
+            background:
+              'linear-gradient(to bottom, #070707 0%, rgba(7,7,7,0.78) 22%, rgba(33,28,22,0.42) 52%, rgba(120,100,80,0.12) 78%, rgba(245,240,230,0) 100%)',
+          }}
+        />
+        {/* 山水剪影：底部一抹淡墨遠山 */}
+        <svg
+          className="absolute inset-x-0 bottom-0 w-full"
+          viewBox="0 0 1440 120"
+          preserveAspectRatio="none"
+          style={{ height: 70, opacity: 0.32 }}
+        >
+          <path
+            d="M0,90 C120,60 220,75 340,55 C460,35 560,70 700,50 C840,30 960,80 1100,60 C1240,40 1340,70 1440,55 L1440,120 L0,120 Z"
+            fill="#1a1410"
+          />
+          <path
+            d="M0,108 C160,92 280,100 420,90 C560,80 700,105 880,95 C1060,85 1240,100 1440,92 L1440,120 L0,120 Z"
+            fill="#3a2e22"
+            opacity="0.55"
+          />
+        </svg>
+        {/* 一筆橘色細線：門派氣口 */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2"
+          style={{
+            bottom: 28,
+            width: 1,
+            height: 36,
+            backgroundColor: 'rgba(236,102,45,0.55)',
+          }}
+        />
+      </div>
+
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
       <LazyOnVisible mode="content-visibility" minHeight={1400}>
       <section
-        className="relative overflow-hidden py-20 md:py-28"
+        className="relative overflow-hidden pt-10 md:pt-14 pb-16 md:pb-20"
         style={{ backgroundColor: '#F5F0E6' }}
       >
         {/* Ink-wash mountain backdrop — very faint, top of section only */}
