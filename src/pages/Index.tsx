@@ -686,20 +686,28 @@ const Index = () => {
           </p>
         </div>
 
-        {/* Scroll Down Indicator */}
-        <div className="flex flex-col items-center pt-12">
+        {/* Scroll Down Indicator — 卷軸引導 */}
+        <div className="flex flex-col items-center pt-5 md:pt-6">
+          <div
+            aria-hidden="true"
+            className="mb-2"
+            style={{
+              width: 1,
+              height: 22,
+              background: 'linear-gradient(to bottom, transparent, rgba(236,102,45,0.55))',
+            }}
+          />
           <button
             onClick={() => {
               document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="flex flex-col items-center gap-2 transition-colors group cursor-pointer"
-            style={{ color: 'rgba(23,23,23,0.55)' }}
+            className="flex flex-col items-center gap-1.5 transition-colors group cursor-pointer"
+            style={{ color: 'rgba(23,23,23,0.6)' }}
           >
-            <span className="text-sm">往下看會員畫面</span>
+            <span className="text-xs md:text-sm tracking-[0.25em]">往下看會員畫面</span>
             <div className="flex flex-col items-center animate-bounce">
-              <ChevronDown className="h-5 w-5 opacity-30" />
-              <ChevronDown className="h-5 w-5 -mt-3 opacity-60" />
-              <ChevronDown className="h-5 w-5 -mt-3 opacity-100" />
+              <ChevronDown className="h-4 w-4 opacity-40" />
+              <ChevronDown className="h-4 w-4 -mt-2.5 opacity-80" />
             </div>
           </button>
         </div>
