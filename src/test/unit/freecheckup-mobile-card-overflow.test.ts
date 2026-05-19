@@ -15,8 +15,9 @@ import { resolve } from 'path';
 let SRC = '';
 
 beforeAll(() => {
-  // P3-perf: HoldingsTab / HoldingCard 已抽出為獨立元件，掃描時併入內容以保持
-  // 「卡片內聯樣式合約」覆蓋率（ROI / TODAY-VALUE grid / tabular-nums / RWD media queries）
+  // E-Maint-R5 (holdings audit 2026-05 第二輪): 統一 CSS 來源為
+  // src/checkup/styles/holdingsTab.css（可被 PostCSS 壓縮、不每次 render 重建 text node）。
+  // 測試需要同時掃描：jsx inline <style>（Hero RWD）+ holdingsTab.css（卡片 RWD）。
   const main = readFileSync(resolve(__dirname, '../../pages/FreeCheckup.jsx'), 'utf8');
   const card = readFileSync(
     resolve(__dirname, '../../checkup/components/freecheckup/HoldingCard.jsx'),
@@ -26,9 +27,15 @@ beforeAll(() => {
     resolve(__dirname, '../../checkup/components/freecheckup/HoldingsTab.jsx'),
     'utf8'
   );
+  const holdingsCss = readFileSync(
+    resolve(__dirname, '../../checkup/styles/holdingsTab.css'),
+    'utf8'
+  );
   SRC = main
     + '\n/* === HoldingCard.jsx === */\n' + card
-    + '\n/* === HoldingsTab.jsx === */\n' + tab;
+    + '\n/* === HoldingsTab.jsx === */\n' + tab
+    // 把外部 CSS 包成 <style>{`...`}</style> 形式，讓 getAllCss() 一致萃取
+    + '\n/* === holdingsTab.css === */\n<style>{`' + holdingsCss + '`}</style>';
 });
 
 // 萃取 <style>{`...`}</style> 內所有 CSS 字串，方便正則檢查

@@ -1,6 +1,8 @@
 import { memo, lazy, Suspense, useState, useCallback, useMemo } from "react";
 import { useBrainStore } from "@/checkup/stores/brainStore";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
+import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
+import { useHoldingsDerivations } from "@/checkup/hooks/useHoldingsDerivations";
 import { validateProps } from "@/checkup/components/freecheckup/_validateProps.js";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
@@ -14,28 +16,28 @@ import HoldingsNoMatchState from "@/checkup/components/freecheckup/HoldingsNoMat
 import HoldingsFooterBar from "@/checkup/components/freecheckup/HoldingsFooterBar";
 import "@/checkup/styles/holdingsTab.css";
 
-// E1：HoldingsTab 完整 prop schema（dev-only，漏傳 setTab 等 callback 立即警告）
-// 為避免 "unknown prop" 噪音，所有目前父層會傳的 prop 都列出；非關鍵者標 'any' optional。
+// E1：HoldingsTab prop schema（dev-only，漏傳 setTab 等 callback 立即警告）
+// E-Maint-R1 / R6 / R7 (holdings audit 2026-05 第二輪)：
+//   - displayed / variantsMap / orderedDisplayed / firstFeatureCode / actionPriorityItems / strategyOptions
+//     已下沉到 useHoldingsDerivations hook，parent 不再透傳
+//   - WB / alpha / Sparkline 由 HoldingCard 直接 import constants.jsx，停止 prop 透傳
+//   - isDemo / startLineLogin 由 useCheckupMode 直接讀取
 const _opt = (type) => ({ type, optional: true });
 const HOLDINGS_TAB_PROP_SCHEMA = {
   // 關鍵 callback / 結構（required）
   setTab: 'function',
   C: 'object',
-  WB: 'object',
-  alpha: 'function',
+  WB: 'object',                       // 仍用於本元件內 Detail Panel 外框
+  alpha: 'function',                  // demo 提示卡片仍需 alpha(C.amber, ...)
   navigate: 'function',
   filteredSortedList: 'array',
-  orderedDisplayed: 'array',
   decisionsMap: 'object',
   STOCK_META: 'object',
-  Sparkline: 'function',
   handleHoldingCardOpenDrawer: 'function',
   setSortBy: 'function',
   setSortDir: 'function',
   // 其它 prop（容許 any，避免 unknown-prop 警告噪音）
-  isDemo: _opt('any'),
   DEMO_TAB_NOTICE_COPY: _opt('any'),
-  startLineLogin: _opt('any'),
   wbTone: _opt('any'),
   quota: _opt('any'), tier: _opt('any'), tierLabel: _opt('any'), formatResetCountdown: _opt('any'),
   totalVal: _opt('any'), totalCost: _opt('any'), H: _opt('any'),
@@ -45,7 +47,6 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   losers: _opt('any'), reversalConditions: _opt('any'),
   reviewingEvent: _opt('any'), setReviewingEvent: _opt('any'), updateReversal: _opt('any'),
   globalPriorityList: _opt('any'),
-  actionPriorityItems: _opt('any'),
   searchQ: _opt('any'), setSearchQ: _opt('any'),
   filterDecision: _opt('any'), setFilterDecision: _opt('any'),
   filterThesis: _opt('any'), setFilterThesis: _opt('any'),
@@ -53,15 +54,11 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   filterConflict: _opt('any'), setFilterConflict: _opt('any'),
   filterPnl: _opt('any'), setFilterPnl: _opt('any'),
   filterStrategy: _opt('any'), setFilterStrategy: _opt('any'),
-  strategyOptions: _opt('any'),
   toggleSetItem: _opt('any'), clearAllFilters: _opt('any'),
   sortBy: _opt('any'), sortDir: _opt('any'),
-  displayed: _opt('any'), sorted: _opt('any'),
-  variantsMap: _opt('any'), firstFeatureCode: _opt('any'),
   targets: _opt('any'), avgTarget: _opt('any'),
   sparklines: _opt('any'), sparklineErrors: _opt('any'), EMPTY_SPARK: _opt('any'),
   normalizedEvents: _opt('any'), openHoldingDrawer: _opt('any'),
-  // cardGridCols 已下沉至本元件內由 useViewportWidth 計算，parent 不再透傳
   showAll: _opt('any'), setShowAll: _opt('any'),
 };
 
@@ -75,15 +72,14 @@ const HoldingsDetailPanel = lazy(() => import("@/checkup/components/freecheckup/
  *   2. memo 化避免 quote tick 引起無謂 re-render
  *   3. A2-lite：viewMode / sortMenuOpen / expandedDecision 為純子元件 local state，
  *      開選單/切視圖/選卡片不再污染 3300+ 行的 FreeCheckup parent
+ *   4. E-Maint-R1：useHoldingsDerivations 收斂 6 個 derived useMemo
  */
 function HoldingsTab(props) {
   // E1: dev-only schema check（漏傳 setTab 等核心 callback 立即在 console 警告）
   validateProps('HoldingsTab', props, HOLDINGS_TAB_PROP_SCHEMA);
   const {
-    // demo / auth
-    isDemo,
+    // demo / auth notice
     DEMO_TAB_NOTICE_COPY,
-    startLineLogin,
     navigate,
     // theme tokens
     C, alpha, WB, wbTone,
@@ -95,8 +91,8 @@ function HoldingsTab(props) {
     uploadSummary, setUploadSummary,
     // reversal
     losers, reversalConditions, reviewingEvent, setReviewingEvent, updateReversal,
-    // action priority
-    globalPriorityList, decisionsMap, STOCK_META, actionPriorityItems,
+    // action priority + decisions
+    globalPriorityList, decisionsMap, STOCK_META,
     // filter bar
     filteredSortedList,
     searchQ, setSearchQ,
@@ -106,27 +102,48 @@ function HoldingsTab(props) {
     filterConflict, setFilterConflict,
     filterPnl, setFilterPnl,
     filterStrategy, setFilterStrategy,
-    strategyOptions,
     toggleSetItem, clearAllFilters,
     // sorting
     sortBy, setSortBy, sortDir, setSortDir,
-    // workbench
-    displayed, sorted, orderedDisplayed,
-    variantsMap, firstFeatureCode,
+    // workbench data
     targets, avgTarget, sparklines, sparklineErrors, EMPTY_SPARK,
-    Sparkline, normalizedEvents, openHoldingDrawer,
+    normalizedEvents, openHoldingDrawer,
     handleHoldingCardOpenDrawer,
     showAll, setShowAll,
     // navigation
     setTab,
   } = props;
 
+  // E-Maint-R7: isDemo / startLineLogin 優先由 CheckupModeContext 取得，
+  // 缺少 provider 時（例如效能測試 fixture）退回 props，保持向後相容。
+  let _mode = null;
+  try { _mode = useCheckupMode(); } catch { _mode = null; }
+  const isDemo = _mode ? _mode.isDemo : props.isDemo;
+  const startLineLogin = _mode ? _mode.startLineLogin : props.startLineLogin;
+
+  // E-Maint-R1: 6 個 derived useMemo 下沉
+  const sorted = filteredSortedList; // 命名相容性
+  const {
+    displayed,
+    variantsMap,
+    orderedDisplayed,
+    firstFeatureCode,
+    actionPriorityItems,
+    strategyOptions,
+  } = useHoldingsDerivations({
+    sorted,
+    decisionsMap,
+    stockMeta: STOCK_META,
+    holdings: H,
+    showAll,
+    globalPriorityList,
+  });
+
   // A2-lite: 純子元件 local UI state（避免污染 FreeCheckup parent）
   const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
 
-  // D-Perf-R2 (2026-05 第二輪)：viewport 訂閱下沉到本元件，
-  // resize tick 只觸發 HoldingsTab 本身重渲，不再污染 FreeCheckup god component。
+  // D-Perf-R2 (2026-05 第二輪)：viewport 訂閱下沉到本元件
   const vw = useViewportWidth(1280);
   const cardGridCols = useMemo(
     () => (vw <= 640
@@ -290,9 +307,6 @@ function HoldingsTab(props) {
             variant={variantsMap.get(h.code) || 'plain'}
             isFeatureSlot={h.code === firstFeatureCode}
             isActive={selectedCode === h.code}
-            WB={WB}
-            Sparkline={Sparkline}
-            alpha={alpha}
             onSelect={handleHoldingCardSelect}
             onOpenDrawer={handleHoldingCardOpenDrawer}
           />

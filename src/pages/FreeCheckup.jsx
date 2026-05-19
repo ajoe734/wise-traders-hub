@@ -15,7 +15,7 @@ import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
-import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
+// E-Maint-R1: assignCardVariants 已下沉至 useHoldingsDerivations，父層不再需要
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
@@ -52,7 +52,7 @@ import {
   wbTone,
   EMPTY_SPARK,
   EMPTY_HOLDINGS,
-  Sparkline,
+  // E-Maint-R6: Sparkline 不再由父層 import — HoldingCard 直接從 constants.jsx 取
   TYPE_COLOR,
   MEMO_Q,
   PARSE_PROMPT,
@@ -1261,15 +1261,12 @@ export default function App() {
 
 
   // ── 持倉資料庫：篩選 + 排序 ──
-  // 動態題材選項
-  const strategyOptions = useMemo(() => {
-    const set = new Set();
-    H.forEach(h => {
-      const s = STOCK_META[h.code]?.strategy;
-      if (s) set.add(s);
-    });
-    return Array.from(set).sort();
-  }, [H]);
+  // E-Maint-R1 (holdings audit 2026-05 第二輪)：
+  //   strategyOptions / actionPriorityItems / displayed / variantsMap /
+  //   orderedDisplayed / firstFeatureCode 已下沉到 useHoldingsDerivations
+  //   （在 HoldingsTab 內 call）。父層只保留下游其他 region 仍會用到的：
+  //     - globalSortedList / globalPriorityList → drawer source + HoldingsTab prop
+  //     - exitList / reviewList / upcomingList   → KPI 計數 + drawer source
 
   // 排序時用：取 dec.lastTouchedAt 與 h.priceUpdatedAt 中的較新
   const getUpdatedAt = (h, dec) => {
@@ -1303,20 +1300,6 @@ export default function App() {
     [globalSortedList, decisionsMap]
   );
 
-  // B-P5 (holdings audit 2026-05): 預先在 parent 組裝 3 筆 priority items（含 tag/desc），
-  // HoldingsActionPriority 不再需要接 decisionsMap / STOCK_META 全表。
-  const actionPriorityItems = useMemo(
-    () => globalPriorityList.map(h => {
-      const dec = decisionsMap[h.code];
-      const tag = dec?.actionType === 'exit' ? 'EXIT'
-        : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH';
-      const desc = dec?.actionText
-        ? (dec.actionText.length > 32 ? dec.actionText.slice(0, 30) + '…' : dec.actionText)
-        : (STOCK_META[h.code]?.strategy || '持續監控');
-      return { code: h.code, name: h.name, pct: h.pct ?? 0, tag, desc };
-    }),
-    [globalPriorityList, decisionsMap]
-  );
 
   const exitList = useMemo(
     () => globalSortedList.filter(h => decisionsMap[h.code]?.actionType === 'exit'),
@@ -1402,35 +1385,10 @@ export default function App() {
     // A3：normalizedEvents 已預算進 decisionsMap.lastTouchedAt，從此處 deps 移除
   }, [H, deferredSearchQ, filterDecision, filterThesis, filterUrgency, filterConflict, filterPnl, filterStrategy, sortBy, sortDir, decisionsMap, compareByPriority]);
 
-  const sorted = filteredSortedList; // 保留原命名相容性
-  // P3-perf: useMemo 避免父 re-render 時重複切片
-  const displayed = useMemo(
-    () => (showAll ? sorted : sorted.slice(0, 12)),
-    [showAll, sorted]
-  );
+  // E-Maint-R1: sorted / displayed / variantsMap / orderedDisplayed / firstFeatureCode
+  // 已下沉至 useHoldingsDerivations（在 HoldingsTab 內 call）。
+  // 父層改用 filteredSortedList 即可。
 
-  // P3-perf: 卡片牆排序與 variant 對應 — 從 IIFE 內 hoist 到 component body 並 useMemo
-  const variantsMap = useMemo(
-    () => assignCardVariants(displayed, {
-      getActionType: (it) => decisionsMap[it.code]?.actionType || 'hold',
-      getPct: (it) => it.pct ?? 0,
-    }),
-    [displayed, decisionsMap]
-  );
-  const orderedDisplayed = useMemo(() => {
-    const variantOrder = { ink: 0, accent: 1, plain: 2 };
-    return [...displayed].sort((a, b) => {
-      const va = variantOrder[variantsMap.get(a.code) || 'plain'];
-      const vb = variantOrder[variantsMap.get(b.code) || 'plain'];
-      return va - vb;
-    });
-  }, [displayed, variantsMap]);
-  const firstFeatureCode = useMemo(
-    () => (orderedDisplayed[0] && variantsMap.get(orderedDisplayed[0].code) === 'ink')
-      ? orderedDisplayed[0].code
-      : null,
-    [orderedDisplayed, variantsMap]
-  );
 
   // ── 來源清單推導：依 drawerSource 決定 prev/next 的循環範圍 ──
   const sourceList = useMemo(() => {
@@ -2857,9 +2815,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         {tab==="holdings" && (
           <Suspense fallback={null}>
             <HoldingsTab
-              isDemo={isDemo}
               DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
-              startLineLogin={startLineLogin}
               navigate={navigate}
               C={C}
               alpha={alpha}
@@ -2886,7 +2842,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setReviewingEvent={setReviewingEvent}
               updateReversal={updateReversal}
               globalPriorityList={globalPriorityList}
-              actionPriorityItems={actionPriorityItems}
               decisionsMap={decisionsMap}
               STOCK_META={STOCK_META}
               filteredSortedList={filteredSortedList}
@@ -2904,24 +2859,17 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setFilterPnl={setFilterPnl}
               filterStrategy={filterStrategy}
               setFilterStrategy={setFilterStrategy}
-              strategyOptions={strategyOptions}
               toggleSetItem={toggleSetItem}
               clearAllFilters={clearAllFilters}
               sortBy={sortBy}
               setSortBy={setSortBy}
               sortDir={sortDir}
               setSortDir={setSortDir}
-              displayed={displayed}
-              sorted={sorted}
-              orderedDisplayed={orderedDisplayed}
-              variantsMap={variantsMap}
-              firstFeatureCode={firstFeatureCode}
               targets={targets}
               avgTarget={avgTarget}
               sparklines={sparklines}
               sparklineErrors={sparklineErrors}
               EMPTY_SPARK={EMPTY_SPARK}
-              Sparkline={Sparkline}
               normalizedEvents={normalizedEvents}
               openHoldingDrawer={openHoldingDrawer}
               handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
@@ -2929,6 +2877,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setShowAll={setShowAll}
               setTab={setTab}
             />
+
           </Suspense>
         )}
         {/* #endregion Tab: Holdings */}
