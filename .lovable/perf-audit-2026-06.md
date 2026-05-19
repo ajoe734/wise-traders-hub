@@ -314,11 +314,11 @@ grep -cE 'useMutation\('      # mu
 - [ ] **company/Payments 864 行**：抽 hook + 拆 table/dialog
 - [ ] **company/Plans 742 行**：同上
 - [ ] **admin/Profile 610 行 + 8 sb**：抽 useProfileForm
-- [ ] **admin/Performance 695 行 + 5 ue**：Recharts lazy 確認 + 拆元件
+- [ ] **admin/Performance 695 行 + 5 ue**：抽 hook + 拆元件（無 recharts，lazy 不適用）
 - [ ] **admin/Signals 1246 行**：B4 二輪，拆 detail dialog
-- [ ] **admin/Dashboard 10 sb**：N+1 重構
-- [ ] **Users.tsx 合約脫鉤**：Batch 5b 測試與實作對齊
-- [ ] **company/BacktestMonitor 664 行**：Recharts lazy 確認
+- [x] ~~**admin/Dashboard 10 sb**~~：已查證為單 query Promise.all，非 N+1
+- [x] ~~**Users.tsx 合約脫鉤**~~：已查證實作為 `useQuery<UserRow[]>(['company','users',debouncedSearch])`，合約對齊
+- [ ] **company/BacktestMonitor 664 行**：抽 hook（無 recharts）
 
 ### P2（季度）
 - [ ] 23 個小頁面的 sb 直查 → useMutation 收斂（提升錯誤一致性）
