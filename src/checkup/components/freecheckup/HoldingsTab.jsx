@@ -1,5 +1,6 @@
-import { memo, lazy, Suspense, useState, useCallback } from "react";
+import { memo, lazy, Suspense, useState, useCallback, useMemo } from "react";
 import { useBrainStore } from "@/checkup/stores/brainStore";
+import { useViewportWidth } from "@/hooks/useViewportWidth";
 import { validateProps } from "@/checkup/components/freecheckup/_validateProps.js";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
@@ -60,7 +61,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   targets: _opt('any'), avgTarget: _opt('any'),
   sparklines: _opt('any'), sparklineErrors: _opt('any'), EMPTY_SPARK: _opt('any'),
   normalizedEvents: _opt('any'), openHoldingDrawer: _opt('any'),
-  cardGridCols: _opt('any'),
+  // cardGridCols 已下沉至本元件內由 useViewportWidth 計算，parent 不再透傳
   showAll: _opt('any'), setShowAll: _opt('any'),
 };
 
@@ -115,7 +116,6 @@ function HoldingsTab(props) {
     targets, avgTarget, sparklines, sparklineErrors, EMPTY_SPARK,
     Sparkline, normalizedEvents, openHoldingDrawer,
     handleHoldingCardOpenDrawer,
-    cardGridCols,
     showAll, setShowAll,
     // navigation
     setTab,
@@ -124,6 +124,18 @@ function HoldingsTab(props) {
   // A2-lite: 純子元件 local UI state（避免污染 FreeCheckup parent）
   const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+
+  // D-Perf-R2 (2026-05 第二輪)：viewport 訂閱下沉到本元件，
+  // resize tick 只觸發 HoldingsTab 本身重渲，不再污染 FreeCheckup god component。
+  const vw = useViewportWidth(1280);
+  const cardGridCols = useMemo(
+    () => (vw <= 640
+      ? '1fr'
+      : vw <= 1279
+        ? 'repeat(2, minmax(0, 1fr))'
+        : 'repeat(3, minmax(0, 1fr))'),
+    [vw]
+  );
 
   // E2: expandedDecision 改由 brainStore 管理（與 expandedStock 同步治理）
   const expandedDecision = useBrainStore((s) => s.expandedDecision);

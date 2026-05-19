@@ -2,9 +2,11 @@ import { useMemo } from 'react'
 import { useBrainStore } from '../stores/brainStore.js'
 import { usePortfolioRouteContext } from '../pages/usePortfolioRouteContext.js'
 
+const EMPTY_HOLDINGS = Object.freeze([])
+
 export function useRouteHoldingsPage() {
   const {
-    holdings = [],
+    holdings: holdingsRaw = EMPTY_HOLDINGS,
     reversalConditions = {},
     updateTargetPrice = () => {},
     updateAlert = () => {},
@@ -13,6 +15,19 @@ export function useRouteHoldingsPage() {
 
   const expandedStock = useBrainStore((state) => state.expandedStock)
   const setExpandedStock = useBrainStore((state) => state.setExpandedStock)
+
+  // D-Perf-R6 (holdings audit 2026-05 第二輪)：對齊 FreeCheckup B-P2，
+  // store push 雖然每次 spread 新陣列，但若值未變則 valueKey 不變 → 同一 reference。
+  // 下游 winners/losers/integrityIssues/total* 等 derived 全部命中快取。
+  const holdingsValueKey = useMemo(() => {
+    if (!Array.isArray(holdingsRaw) || holdingsRaw.length === 0) return ''
+    return holdingsRaw
+      .map((h) => `${h.code}|${h.qty}|${h.price}|${h.cost}|${h.value}|${h.pct}|${h.integrityIssue || ''}`)
+      .join(';')
+  }, [holdingsRaw])
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const holdings = useMemo(() => holdingsRaw || EMPTY_HOLDINGS, [holdingsValueKey])
 
   return useMemo(() => {
     const totalVal = holdings.reduce((sum, item) => sum + (item.value || 0), 0)

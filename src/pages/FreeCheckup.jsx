@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
 import { SEOLite as SEO } from "@/components/SEOLite";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -155,25 +155,9 @@ export default function App() {
   // A2-lite: viewMode / sortMenuOpen 已內化為 HoldingsTab local state（純子元件 UI，不影響 parent memo）
   const [filterType,  setFilterType]  = useState("全部");
   const [showAll,     setShowAll]     = useState(false);
-  // Viewport-aware grid columns（繞過 CSS cascade 在某些 Chromium dev/preview 環境
-  // 下對 `<style>` 內 `grid-template-columns: 1fr !important` 不生效的詭異問題）
-  // 使用 useLayoutEffect 在 paint 前同步設定，避免 hydration race
-  const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
-  useLayoutEffect(() => {
-    if (typeof window === 'undefined') return;
-    // mount 後立即同步一次（覆寫 useState 初值，處理 SSR/hydration 落差）
-    setVw(window.innerWidth);
-    const onResize = () => setVw(window.innerWidth);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  const cardGridCols = vw <= 640
-    ? '1fr'
-    : vw <= 1023
-      ? 'repeat(2, minmax(0, 1fr))'
-      : vw <= 1279
-        ? 'repeat(2, minmax(0, 1fr))'
-        : 'repeat(3, minmax(0, 1fr))';
+  // D-Perf-R2 (holdings audit 2026-05 第二輪)：viewport 訂閱已下沉到 HoldingsTab
+  // 內部，避免 resize tick 觸發 god component 全量 re-render。cardGridCols
+  // 不再由 parent 計算與透傳。
   const [expandedNews, setExpandedNews] = useState(new Set());
   const [newsPendingExpanded, setNewsPendingExpanded] = useState(false);
   const [newsVerifyingExpanded, setNewsVerifyingExpanded] = useState(false);
@@ -1213,7 +1197,7 @@ export default function App() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [H.map((h) => h.code).join(',')]);
+  }, [holdingsCodesKey, isDemo]); // D-Perf-R3 (2026-05 第二輪)：改吃已 memo 的 codes key
 
   const totalVal  = H.reduce((s,h)=>s+h.value,0);
   const totalCost = H.reduce((s,h)=> s + (h.totalCost != null ? h.totalCost : h.cost * h.qty), 0);
@@ -2941,7 +2925,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               normalizedEvents={normalizedEvents}
               openHoldingDrawer={openHoldingDrawer}
               handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
-              cardGridCols={cardGridCols}
               showAll={showAll}
               setShowAll={setShowAll}
               setTab={setTab}
