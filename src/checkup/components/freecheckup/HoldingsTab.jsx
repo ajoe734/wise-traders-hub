@@ -38,7 +38,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   wbTone: _opt('any'),
   quota: _opt('any'), tier: _opt('any'), tierLabel: _opt('any'), formatResetCountdown: _opt('any'),
   totalVal: _opt('any'), totalCost: _opt('any'), H: _opt('any'),
-  winners: _opt('any'), exitList: _opt('any'), reviewList: _opt('any'),
+  winnersCount: _opt('any'), exitListCount: _opt('any'), reviewListCount: _opt('any'),
   MAX_HOLDINGS: _opt('any'), rtConnected: _opt('any'), lastUpdate: _opt('any'),
   uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
   losers: _opt('any'), reversalConditions: _opt('any'),
