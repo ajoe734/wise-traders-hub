@@ -1221,8 +1221,8 @@ export default function App() {
   // A2/A3（holdings audit 2026-05）：在此一次預算
   //   - priority（4 階決策優先度）→ 排序時純讀數字，無需 priorityOf wrapper
   //   - lastTouchedAt（決策更新 + 相關事件最新時間）→ filteredSortedList 不再依賴 normalizedEvents
-  const URGENCY_RANK = { now: 3, soon: 2, monitor: 1 };
-  const CONF_RANK = { high: 3, medium: 2, low: 1 };
+  // G-Coverage: URGENCY_RANK / CONF_RANK 抽到 @/checkup/lib/holdingsSort（保留 inline 註解：值未變更）
+
   const decisionsMap = useMemo(() => {
     const map = {};
     const now = new Date();
