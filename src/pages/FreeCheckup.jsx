@@ -15,7 +15,7 @@ import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
-import { assignCardVariants } from "@/checkup/hooks/useHoldingDecision";
+// E-Maint-R1: assignCardVariants 已下沉至 useHoldingsDerivations，父層不再需要
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { callEdge } from "@/checkup/lib/edgeInvoke";
 import { preloadKnowledgeBase } from "@/checkup/lib/knowledgeBase";
@@ -52,7 +52,7 @@ import {
   wbTone,
   EMPTY_SPARK,
   EMPTY_HOLDINGS,
-  Sparkline,
+  Sparkline, // 仍用於 NewsEventRow 等非持倉牆元件
   TYPE_COLOR,
   MEMO_Q,
   PARSE_PROMPT,
