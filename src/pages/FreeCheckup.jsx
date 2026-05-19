@@ -15,6 +15,7 @@ import { C as ThemeC, L as ThemeL, A, alpha } from "@/checkup/theme";
 import { calcWeightedAvgCost, calcNetSettlement, calcPnlWithNet, calcRemainingCostAfterPartialSell } from "@/checkup/lib/holdingMath";
 import { buildDecision, sortByDecisionPriority, isEventOpen, getEffectiveStatus } from "@/checkup/lib/holdingEventUtils";
 import { normalizeEventRecord } from "@/checkup/lib/eventUtils";
+import { URGENCY_RANK, CONF_RANK, makeCompareByPriority, holdingsValueKeyShort } from "@/checkup/lib/holdingsSort";
 // E-Maint-R1: assignCardVariants 已下沉至 useHoldingsDerivations，父層不再需要
 // coerceStocksString moved into NewsTab (lazy chunk) — keep out of main bundle
 import { callEdge } from "@/checkup/lib/edgeInvoke";
@@ -1153,12 +1154,11 @@ export default function App() {
   // applyMarketQuotesToHoldings / mergeTradeIntoHoldings 內部恆 spread 新陣列，
   // 即使 quote tick 後值未變，holdings reference 仍會抖動 → 下游 9 個 useMemo 全失效。
   // 此處用 code|qty|price|cost hash，值未變時回傳同一 reference。
-  const holdingsValueKey = useMemo(() => {
-    if (!Array.isArray(holdings) || holdings.length === 0) return '';
-    return holdings.map(h => `${h.code}|${h.qty}|${h.price}|${h.cost}`).join(';');
-  }, [holdings]);
+  // G-Coverage: 抽到 @/checkup/lib/holdingsSort
+  const holdingsValueKey = useMemo(() => holdingsValueKeyShort(holdings), [holdings]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const H = useMemo(() => holdings || EMPTY_HOLDINGS, [holdingsValueKey]);
+
 
   // ── Sparkline 載入：持倉變動時，僅補抓還沒快取的代碼 ──
   useEffect(() => {
@@ -1221,8 +1221,8 @@ export default function App() {
   // A2/A3（holdings audit 2026-05）：在此一次預算
   //   - priority（4 階決策優先度）→ 排序時純讀數字，無需 priorityOf wrapper
   //   - lastTouchedAt（決策更新 + 相關事件最新時間）→ filteredSortedList 不再依賴 normalizedEvents
-  const URGENCY_RANK = { now: 3, soon: 2, monitor: 1 };
-  const CONF_RANK = { high: 3, medium: 2, low: 1 };
+  // G-Coverage: URGENCY_RANK / CONF_RANK 抽到 @/checkup/lib/holdingsSort（保留 inline 註解：值未變更）
+
   const decisionsMap = useMemo(() => {
     const map = {};
     const now = new Date();
@@ -1276,19 +1276,9 @@ export default function App() {
   };
 
   // A2：compareByPriority 只依賴 decisionsMap（已內含 priority），不再 wrap priorityOf
-  const compareByPriority = useCallback((a, b) => {
-    const da = decisionsMap[a.code], db = decisionsMap[b.code];
-    const pa = da?.priority ?? 5, pb = db?.priority ?? 5;
-    if (pa !== pb) return pa - pb;
-    const ua = URGENCY_RANK[da?.urgency] || 0, ub = URGENCY_RANK[db?.urgency] || 0;
-    if (ua !== ub) return ub - ua;
-    const ca = CONF_RANK[da?.confidence] || 0, cb = CONF_RANK[db?.confidence] || 0;
-    if (ca !== cb) return cb - ca;
-    const v = (b.value || 0) - (a.value || 0);
-    if (v !== 0) return v;
-    // P6: code 字典序 tiebreaker，確保並列時順序穩定
-    return String(a.code || '').localeCompare(String(b.code || ''));
-  }, [decisionsMap]);
+  // A2 + G-Coverage：compareByPriority 抽到 @/checkup/lib/holdingsSort 以供 unit test
+  const compareByPriority = useMemo(() => makeCompareByPriority(decisionsMap), [decisionsMap]);
+
 
   // 全局優先排序（不受 filter 影響）
   const globalSortedList = useMemo(() => {
