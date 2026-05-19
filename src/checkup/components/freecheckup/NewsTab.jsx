@@ -20,7 +20,6 @@ function NewsTabImpl({
   showAddEvent, setShowAddEvent,
   newEvent, setNewEvent,
   addEvent,
-  coerceStocksString,
   toast,
   // News rows
   expandedNews,
