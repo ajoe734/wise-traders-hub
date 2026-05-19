@@ -425,28 +425,13 @@ const Checkout = () => {
         }
         setCardFieldErrors({});
 
-        let prime: string | null = null;
-        const ACPay = (window as any).ACPay;
-        if (ACPay && acpayFieldsRef.current) {
-          try {
-            const result = await new Promise<any>((resolve, reject) => {
-              ACPay.getPrime(acpayFieldsRef.current, (primeResult: any) => {
-                if (primeResult.status !== 0) {
-                  reject(new Error(primeResult.msg || '取得 prime token 失敗'));
-                } else {
-                  resolve(primeResult);
-                }
-              });
-            });
-            prime = result.prime;
-          } catch (e: any) {
-            console.error('ACpay getPrime error:', e);
-            setResultDialog({ open: true, success: false, message: e.message || '信用卡資訊有誤，請確認後重試' });
-            return;
-          }
-        } else {
-          console.warn('ACpay SDK not available, using simulate mode');
-          prime = 'SIMULATE_PRIME';
+        let prime: string;
+        try {
+          prime = await acpayGetPrime();
+        } catch (e: any) {
+          console.error('ACpay getPrime error:', e);
+          setResultDialog({ open: true, success: false, message: e.message || '信用卡資訊有誤，請確認後重試' });
+          return;
         }
 
         const acpayAttribution = readAttribution();
