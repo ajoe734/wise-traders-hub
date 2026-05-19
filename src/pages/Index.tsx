@@ -289,9 +289,9 @@ const Index = () => {
                 <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
                 <div className="relative z-10 p-8 pt-16 pb-9">
-                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>看懂訊號</h3>
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>看懂持股</h3>
                   <p className="text-white/75 leading-relaxed text-[15px]">
-                    不是猜消息，而是先看市場留下的痕跡。
+                    先判斷手上股票是洗盤、轉弱，還是趨勢延續。
                   </p>
                 </div>
               </div>
