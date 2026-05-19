@@ -37,7 +37,7 @@ import dividerChoosePath from '@/assets/divider-choose-path.svg';
 import { WeeklyLimitUpLeaderboard } from '@/components/WeeklyLimitUpLeaderboard';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
-import { lazy } from 'react';
+
 
 // Batch1-#2: idle prefetch moved to centralized prefetchHighTrafficRoutes()
 // in src/lib/routePrefetch.ts (invoked from AttributionTracker in App.tsx).
