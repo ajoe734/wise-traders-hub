@@ -119,7 +119,7 @@ const Index = () => {
         path="/"
       />
       {/* Hero Section - Strong Contrast, Minimal Text */}
-      <section className="relative overflow-hidden min-h-[70vh] flex items-center bg-black">
+      <section className="relative overflow-hidden min-h-[78vh] flex items-center bg-black">
         {/* Background Video — lazy: only loads after first paint to avoid
             competing with hero JS/CSS for bandwidth. The black section bg
             acts as the poster. */}
@@ -153,26 +153,55 @@ const Index = () => {
 
         {/* Dark overlay for strong contrast */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40 animate-fade-in" style={{ animationDuration: '1.5s' }} />
-        
+
+        {/* 左側文字後方極淡黑色 radial — 讓白字更穩，右側山峰保持清楚 */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none animate-fade-in"
+          style={{
+            background:
+              'radial-gradient(ellipse 55% 70% at 22% 50%, rgba(0,0,0,0.55), rgba(0,0,0,0.25) 45%, transparent 75%)',
+            animationDuration: '1.5s',
+          }}
+        />
+
+        {/* 底部深黑漸層 — 與「三招定勝負」區段平順銜接 */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-0 pointer-events-none"
+          style={{
+            height: '22%',
+            background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.85) 65%, #000 100%)',
+          }}
+        />
+
         <div className="container relative z-10 py-section">
           <div className="max-w-xl animate-fade-in">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-md text-primary-foreground leading-[1.15] drop-shadow-lg">
+            <h1
+              className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4 text-primary-foreground leading-[1.15] drop-shadow-lg"
+            >
               讀萬卷書，不如緊跟大戶
             </h1>
-            <p className="text-lg md:text-xl text-primary-foreground/80 mb-xl max-w-md leading-relaxed">
-              21世紀用更愜意的方式賺錢
+            <p
+              className="text-base md:text-lg lg:text-xl text-primary-foreground/90 mb-5 max-w-md leading-relaxed"
+              style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.04em' }}
+            >
+              不是聽明牌，而是看懂高手怎麼判斷進退。
             </p>
-            
-            {/* Primary CTA: 開始看懂我的持股 + secondary 探索專家 */}
+            <p className="text-sm md:text-[15px] text-primary-foreground/70 mb-xl max-w-md leading-relaxed">
+              把即時訊號、高手復盤與持股健檢，整理成你每天看得懂的投資戰情室。
+            </p>
+
+            {/* Primary CTA: 開始持股健檢 + secondary 探索會員方案 */}
             <div className="flex flex-col sm:flex-row gap-sm">
               <Button
                 size="xl"
                 asChild
                 style={{ backgroundColor: '#EC662D', color: '#fff' }}
-                className="hover:brightness-110 border-0 shadow-[0_10px_30px_-12px_rgba(236,102,45,0.65)]"
+                className="hero-cta-primary border-0 shadow-[0_10px_30px_-12px_rgba(236,102,45,0.65)] transition-all duration-300"
               >
                 <Link to="/free-checkup">
-                  開始看懂我的持股
+                  開始持股健檢
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
@@ -182,26 +211,36 @@ const Index = () => {
                 asChild
                 className="bg-transparent border-white/40 text-white hover:bg-white/10 hover:text-white"
               >
-                <Link to="/experts">
-                  探索專家
+                <Link to="/pricing">
+                  探索會員方案
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
             </div>
             <p className="mt-sm text-sm md:text-[15px] text-primary-foreground/75 leading-relaxed">
-              不用猜消息，先看訊號、路線與戰績。
+              先看懂手上的股票，再決定要跟單還是修煉。
             </p>
             <div className="mt-2">
               <Link
                 to="/pricing"
-                className="text-xs text-primary-foreground/55 hover:text-primary-foreground/90 underline underline-offset-4"
+                className="text-xs text-primary-foreground/50 hover:text-primary-foreground/85 underline underline-offset-4"
               >
                 查看方案比較 →
               </Link>
             </div>
           </div>
         </div>
+
+        <style>{`
+          .hero-cta-primary:hover {
+            filter: brightness(1.08);
+            box-shadow:
+              0 14px 36px -10px rgba(236,102,45,0.7),
+              0 0 32px -4px rgba(236,102,45,0.55) !important;
+          }
+        `}</style>
       </section>
+
 
       {/* Three Core Features Section - Magazine Layout */}
       <section className="py-section bg-muted/50 dark:bg-white/[0.02]">
@@ -250,9 +289,9 @@ const Index = () => {
                 <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
                 <div className="relative z-10 p-8 pt-16 pb-9">
-                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>看懂訊號</h3>
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>看懂持股</h3>
                   <p className="text-white/75 leading-relaxed text-[15px]">
-                    不是猜消息，而是先看市場留下的痕跡。
+                    先判斷手上股票是洗盤、轉弱，還是趨勢延續。
                   </p>
                 </div>
               </div>
@@ -280,9 +319,9 @@ const Index = () => {
                 <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
                 <div className="relative z-10 p-8 pt-16 pb-9">
-                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>找出戰線</h3>
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>找到高手</h3>
                   <p className="text-white/75 leading-relaxed text-[15px]">
-                    從資金、籌碼與價格，判斷該守還是該退。
+                    選擇適合你的投資路線，不再亂追市場聲音。
                   </p>
                 </div>
               </div>
@@ -310,9 +349,9 @@ const Index = () => {
                 <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
                 <div className="relative z-10 p-8 pt-16 pb-9">
-                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>招招有交代</h3>
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>追蹤戰績</h3>
                   <p className="text-white/75 leading-relaxed text-[15px]">
-                    勝率、報酬、回測全部公開，不靠一句老師說。
+                    每一筆訊號、復盤與結果，都留下紀錄。
                   </p>
                 </div>
               </div>
