@@ -230,11 +230,11 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Right Column - Staggered Cards */}
-            <div className="flex flex-col gap-6">
-              {/* Card 01 - 仙人指路 */}
+            {/* Right Column - Staggered Cards (full-visible, layered) */}
+            <div className="flex flex-col gap-5 lg:pr-2">
+              {/* Card 01 - 看懂訊號 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-0"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-0 lg:mr-10"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.1s',
@@ -249,24 +249,22 @@ const Index = () => {
                   }}
                 />
                 <div 
-                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
+                  className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
                 />
-                {/* Large Number Decoration */}
-                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none">01</span>
-                {/* Red Dot */}
-                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none" style={{ fontFamily: '"Noto Serif TC","Source Serif 4",serif' }}>01</span>
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
-                <div className="relative z-10 p-8 pt-16 pb-10">
-                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">仙人指路</h3>
-                  <p className="text-white/70 leading-relaxed">
-                    第一時間推播，掌握每次漲停或轉折訊號。
+                <div className="relative z-10 p-8 pt-16 pb-9">
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>看懂訊號</h3>
+                  <p className="text-white/75 leading-relaxed text-[15px]">
+                    不是猜消息，而是先看市場留下的痕跡。
                   </p>
                 </div>
               </div>
 
-              {/* Card 02 - 三派會師 */}
+              {/* Card 02 - 找出戰線 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-6"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-5 lg:mr-5"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.25s',
@@ -277,28 +275,26 @@ const Index = () => {
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
                   style={{ 
                     backgroundImage: `url(${featureFiveFactions})`,
-                    opacity: 0.75
+                    opacity: 0.7
                   }}
                 />
                 <div 
-                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
+                  className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
                 />
-                {/* Large Number Decoration */}
-                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none">02</span>
-                {/* Red Dot */}
-                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none" style={{ fontFamily: '"Noto Serif TC","Source Serif 4",serif' }}>02</span>
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
-                <div className="relative z-10 p-8 pt-16 pb-10">
-                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">五大派系</h3>
-                  <p className="text-white/70 leading-relaxed">
-                    集結價值派、籌碼派、技術派、策略派、系統派，任你挑選最對味的交易門派。
+                <div className="relative z-10 p-8 pt-16 pb-9">
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>找出戰線</h3>
+                  <p className="text-white/75 leading-relaxed text-[15px]">
+                    從資金、籌碼與價格，判斷該守還是該退。
                   </p>
                 </div>
               </div>
 
               {/* Card 03 - 招招有交代 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-12"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-10 lg:mr-0"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.4s',
@@ -313,20 +309,29 @@ const Index = () => {
                   }}
                 />
                 <div 
-                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
+                  className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30 transition-opacity duration-300 group-hover:opacity-80" 
                 />
-                {/* Large Number Decoration */}
-                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none">03</span>
-                {/* Red Dot */}
-                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span className="absolute top-4 left-5 text-6xl font-bold text-white/10 select-none" style={{ fontFamily: '"Noto Serif TC","Source Serif 4",serif' }}>03</span>
+                <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
-                <div className="relative z-10 p-8 pt-16 pb-10">
-                  <h3 className="text-2xl font-bold text-white mb-2 transition-all duration-300 group-hover:text-white group-hover:drop-shadow-lg">招招有交代</h3>
-                  <p className="text-white/70 leading-relaxed">
-                    勝率、報酬、回測全都透明公開。
+                <div className="relative z-10 p-8 pt-16 pb-9">
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>招招有交代</h3>
+                  <p className="text-white/75 leading-relaxed text-[15px]">
+                    勝率、報酬、回測全部公開，不靠一句老師說。
                   </p>
                 </div>
               </div>
+
+              {/* Mobile CTA */}
+              <div className="lg:hidden flex justify-center mt-4">
+                <Button asChild size="lg" className="group">
+                  <Link to="/pricing">
+                    查看方案說明
+                    <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
 
               {/* Mobile CTA - Only visible below lg: */}
               <div className="lg:hidden flex justify-center mt-4">
