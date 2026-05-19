@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
-import { DEMO_ANALYSIS, DEMO_EVENTS, DEMO_CALENDAR, DEMO_BRAIN_UPDATED } from "@/checkup/data/demoData";
+// P0-3: demoData (~15 KB) lazy — only fetched when isDemo handlers run
 import { simulateSteps, demoDelay } from "@/checkup/utils/demoSimulate";
 import DemoBanner from "@/checkup/components/DemoBanner";
 import { STOCK_META, IND_COLOR } from "@/checkup/seedData";
@@ -364,7 +364,7 @@ export default function App() {
   const [analyzeStep, setAnalyzeStep]   = useState("");
   const [dailyReport, setDailyReport]   = useState(null);
   const [analysisHistory, setAnalysisHistory] = useState(null);
-  const [newsEvents, setNewsEvents]     = useState(() => isDemo ? DEMO_EVENTS : null);
+  const [newsEvents, setNewsEvents]     = useState(null);
   const [reviewingEvent, setReviewingEvent] = useState(null);
   const [reviewForm, setReviewForm]     = useState({actual:"up",actualNote:"",lessons:""});
   // Phase A2-1: stable callbacks for NewsEventRow memoization
@@ -636,6 +636,7 @@ export default function App() {
           { label: '掃描未來重大事件...', min: 800, max: 1400 },
           { label: '比對持股相關性...', min: 700, max: 1200 },
         ], () => {});
+        const { DEMO_CALENDAR } = await import("@/checkup/data/demoData");
         const merged = [...DEMO_CALENDAR];
         merged._holdingCodes = holdingsList.map(h => h.code).sort().join(',');
         setCalendarEvents(merged);
@@ -1697,6 +1698,7 @@ export default function App() {
             totalPct: h.cost ? Math.round(((base / h.cost) - 1) * 10000) / 100 : 0,
           };
         }).sort((a, b) => b.changePct - a.changePct);
+        const { DEMO_ANALYSIS, DEMO_BRAIN_UPDATED } = await import("@/checkup/data/demoData");
         const demoReport = {
           id: Date.now(),
           date: demoToday,
