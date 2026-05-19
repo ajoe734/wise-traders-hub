@@ -290,9 +290,6 @@ function HoldingsTab(props) {
             variant={variantsMap.get(h.code) || 'plain'}
             isFeatureSlot={h.code === firstFeatureCode}
             isActive={selectedCode === h.code}
-            WB={WB}
-            Sparkline={Sparkline}
-            alpha={alpha}
             onSelect={handleHoldingCardSelect}
             onOpenDrawer={handleHoldingCardOpenDrawer}
           />
