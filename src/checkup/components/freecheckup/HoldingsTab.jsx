@@ -38,7 +38,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   wbTone: _opt('any'),
   quota: _opt('any'), tier: _opt('any'), tierLabel: _opt('any'), formatResetCountdown: _opt('any'),
   totalVal: _opt('any'), totalCost: _opt('any'), H: _opt('any'),
-  winners: _opt('any'), exitList: _opt('any'), reviewList: _opt('any'),
+  winnersCount: _opt('any'), exitListCount: _opt('any'), reviewListCount: _opt('any'),
   MAX_HOLDINGS: _opt('any'), rtConnected: _opt('any'), lastUpdate: _opt('any'),
   uploadSummary: _opt('any'), setUploadSummary: _opt('any'),
   losers: _opt('any'), reversalConditions: _opt('any'),
@@ -87,7 +87,7 @@ function HoldingsTab(props) {
     C, alpha, WB, wbTone,
     // quota / hero
     quota, tier, tierLabel, formatResetCountdown,
-    totalVal, totalCost, H, winners, exitList, reviewList,
+    totalVal, totalCost, H, winnersCount, exitListCount, reviewListCount,
     MAX_HOLDINGS, rtConnected, lastUpdate,
     // upload summary
     uploadSummary, setUploadSummary,
@@ -169,9 +169,9 @@ function HoldingsTab(props) {
         totalVal={totalVal}
         totalCost={totalCost}
         holdingsCount={H.length}
-        winnersCount={winners.length}
-        exitListLength={exitList?.length || 0}
-        reviewListLength={reviewList?.length || 0}
+        winnersCount={winnersCount}
+        exitListLength={exitListCount || 0}
+        reviewListLength={reviewListCount || 0}
         maxHoldings={MAX_HOLDINGS}
         rtConnected={rtConnected}
         lastUpdate={lastUpdate}
