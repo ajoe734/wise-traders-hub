@@ -1391,77 +1391,231 @@ const Index = () => {
       </LazyOnVisible>
 
 
-      {/* How It Works - Dual Path */}
-      <LazyOnVisible mode="content-visibility" minHeight={800}>
-      <section className="py-section bg-card dark:bg-white/[0.03]">
-        <div className="container">
-          <div className="text-center mb-xl">
-            <p className="text-muted-foreground text-sm mb-xs">兩條動線，依需求選擇</p>
-            <h2 className="text-h2 text-foreground">如何開始？</h2>
+      {/* How It Works - Dual Path · 黑金戰情室分流 */}
+      <LazyOnVisible mode="content-visibility" minHeight={900}>
+      <section
+        className="relative overflow-hidden py-section"
+        style={{
+          background:
+            'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(236,102,45,0.06) 0%, transparent 60%), linear-gradient(180deg, #0E0C0A 0%, #0B0907 100%)',
+        }}
+      >
+        {/* 上方橘金分隔線 */}
+        <div
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{
+            background:
+              'linear-gradient(90deg, transparent 0%, rgba(212,166,67,0.35) 50%, transparent 100%)',
+          }}
+        />
+        {/* 紙紋紋理 */}
+        <div
+          className="absolute inset-0 opacity-[0.04] pointer-events-none mix-blend-overlay"
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          }}
+        />
+
+        <div className="container relative">
+          <div className="text-center mb-xl max-w-2xl mx-auto">
+            <p
+              className="text-xs tracking-[0.3em] uppercase mb-xs"
+              style={{ color: '#D4A643' }}
+            >
+              看完戰報，選你的下一步
+            </p>
+            <h2
+              className="text-h2 mb-sm"
+              style={{ color: '#F4ECDB' }}
+            >
+              入門第一步，先選你的節奏
+            </h2>
+            <p
+              className="text-sm leading-relaxed"
+              style={{ color: 'rgba(244,236,219,0.65)' }}
+            >
+              想跟著高手行動，走訂閱專家。<br className="sm:hidden" />
+              想先看懂手上的股票，走持股健檢。
+            </p>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-lg max-w-6xl mx-auto">
-            {/* Path A - 跟單訂閱 */}
-            <div className="rounded-xl border border-border bg-background dark:bg-white/[0.02] border-t-4 border-t-primary p-md md:p-lg">
-              <div className="mb-md">
-                <Badge className="bg-primary/10 text-primary border border-primary/20 mb-xs">想跟單高手？</Badge>
-                <h3 className="text-h4 text-foreground">訂閱專家動線</h3>
+            {/* Path A - 訂閱專家（橘金，桌機左 / 手機下） */}
+            <div
+              className="warroom-path-card order-2 lg:order-1 group relative rounded-xl p-md md:p-lg flex flex-col"
+              style={{
+                background:
+                  'linear-gradient(160deg, rgba(28,22,16,0.95) 0%, rgba(20,16,12,0.95) 100%)',
+                border: '1px solid rgba(212,166,67,0.28)',
+                boxShadow:
+                  '0 24px 60px -30px rgba(236,102,45,0.35), inset 0 1px 0 rgba(244,236,219,0.04)',
+              }}
+            >
+              {/* header */}
+              <div className="mb-md min-h-[92px]">
+                <span
+                  className="inline-block text-[11px] tracking-[0.2em] uppercase px-2.5 py-1 rounded-sm mb-sm"
+                  style={{
+                    color: '#EC662D',
+                    background: 'rgba(236,102,45,0.1)',
+                    border: '1px solid rgba(236,102,45,0.35)',
+                  }}
+                >
+                  適合你，如果想跟著高手行動
+                </span>
+                <h3 className="text-h4" style={{ color: '#F4ECDB' }}>訂閱專家</h3>
+                <p
+                  className="text-sm mt-xs leading-relaxed"
+                  style={{ color: 'rgba(244,236,219,0.6)' }}
+                >
+                  選擇你信任的投資風格，追蹤訊號、紀錄與復盤。
+                </p>
               </div>
-              <div className="grid grid-cols-2 gap-sm mb-md">
+
+              <div
+                className="text-xs mb-md pb-sm border-b"
+                style={{
+                  color: 'rgba(212,166,67,0.7)',
+                  borderColor: 'rgba(212,166,67,0.18)',
+                }}
+              >
+                適合對象：想要明確訊號、操作紀錄、高手復盤的人
+              </div>
+
+              <ol className="space-y-3 mb-lg flex-1">
                 {[
-                  { step: 1, icon: Users, title: '選擇專家', desc: '投顧或實戰導師' },
-                  { step: 2, icon: BarChart3, title: '選擇方案', desc: '依需求挑選' },
-                  { step: 3, icon: Radio, title: 'LINE 接收', desc: '即時訊號推播' },
-                  { step: 4, icon: GraduationCap, title: '持續學習', desc: '建立投資系統' },
+                  { step: '01', title: '選擇專家', desc: '找到你信任的投資風格' },
+                  { step: '02', title: '選擇方案', desc: '依需求挑選跟單或學習內容' },
+                  { step: '03', title: '進入戰情室', desc: '追蹤訊號、紀錄與績效' },
                 ].map((item) => (
-                  <div key={item.step} className="flex gap-sm items-start p-sm rounded-lg bg-muted/40">
-                    <Badge variant="secondary" className="shrink-0">{item.step}</Badge>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  <li key={item.step} className="flex gap-3 items-start">
+                    <span
+                      className="shrink-0 w-9 h-9 flex items-center justify-center text-xs font-medium tracking-wider rounded-sm"
+                      style={{
+                        color: '#EC662D',
+                        background: 'rgba(236,102,45,0.08)',
+                        border: '1px solid rgba(236,102,45,0.3)',
+                      }}
+                    >
+                      {item.step}
+                    </span>
+                    <div className="min-w-0 pt-0.5">
+                      <p className="text-sm font-medium" style={{ color: '#F4ECDB' }}>{item.title}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'rgba(244,236,219,0.55)' }}>{item.desc}</p>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
-              <Button size="lg" className="w-full" asChild>
+              </ol>
+
+              <Button
+                size="lg"
+                className="w-full border-0 text-white font-medium"
+                style={{
+                  background: 'linear-gradient(135deg, #EC662D 0%, #D4541F 100%)',
+                  boxShadow: '0 8px 24px -10px rgba(236,102,45,0.6)',
+                }}
+                asChild
+              >
                 <Link to="/experts">
-                  探索專家
-                  <ArrowRight className="h-4 w-4 ml-2" />
+                  探索名師
+                  <ArrowRight className="h-4 w-4 ml-2 warroom-arrow transition-transform" />
                 </Link>
               </Button>
             </div>
 
-            {/* Path B - 持股看板 */}
-            <div className="rounded-xl border border-border bg-background dark:bg-white/[0.02] border-t-4 border-t-purple-500 p-md md:p-lg">
-              <div className="mb-md">
-                <Badge className="bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/30 mb-xs">想管自己的持股？</Badge>
-                <h3 className="text-h4 text-foreground">持股看板動線</h3>
+            {/* Path B - 持股健檢（暗紫金，桌機右 / 手機上） */}
+            <div
+              className="warroom-path-card order-1 lg:order-2 group relative rounded-xl p-md md:p-lg flex flex-col"
+              style={{
+                background:
+                  'linear-gradient(160deg, rgba(26,20,28,0.95) 0%, rgba(18,14,20,0.95) 100%)',
+                border: '1px solid rgba(168,128,180,0.28)',
+                boxShadow:
+                  '0 24px 60px -30px rgba(168,128,180,0.3), inset 0 1px 0 rgba(244,236,219,0.04)',
+              }}
+            >
+              <div className="mb-md min-h-[92px]">
+                <span
+                  className="inline-block text-[11px] tracking-[0.2em] uppercase px-2.5 py-1 rounded-sm mb-sm"
+                  style={{
+                    color: '#C9A3D4',
+                    background: 'rgba(168,128,180,0.1)',
+                    border: '1px solid rgba(168,128,180,0.35)',
+                  }}
+                >
+                  適合你，如果想先看懂持股
+                </span>
+                <h3 className="text-h4" style={{ color: '#F4ECDB' }}>持股健檢</h3>
+                <p
+                  className="text-sm mt-xs leading-relaxed"
+                  style={{ color: 'rgba(244,236,219,0.6)' }}
+                >
+                  輸入手上的股票，先看懂風險、事件與市場線索。
+                </p>
               </div>
-              <div className="grid grid-cols-2 gap-sm mb-md">
+
+              <div
+                className="text-xs mb-md pb-sm border-b"
+                style={{
+                  color: 'rgba(201,163,212,0.75)',
+                  borderColor: 'rgba(168,128,180,0.2)',
+                }}
+              >
+                適合對象：手上有股票，但不知道該守、該退、還是該等的人
+              </div>
+
+              <ol className="space-y-3 mb-lg flex-1">
                 {[
-                  { step: 1, icon: Target, title: '免費健檢', desc: '無需註冊' },
-                  { step: 2, icon: BarChart3, title: '輸入持股', desc: '股票代號與張數' },
-                  { step: 3, icon: Zap, title: 'AI 分析', desc: '結構與風險洞察' },
-                  { step: 4, icon: LineChart, title: '雲端同步', desc: '事件、新聞、績效' },
+                  { step: '01', title: '免費健檢', desc: '不用註冊，先輸入股票' },
+                  { step: '02', title: 'AI 分析', desc: '整理新聞、事件與風險線索' },
+                  { step: '03', title: '進入看板', desc: '追蹤部位變化與後續提醒' },
                 ].map((item) => (
-                  <div key={item.step} className="flex gap-sm items-start p-sm rounded-lg bg-muted/40">
-                    <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300 border-0 shrink-0">{item.step}</Badge>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  <li key={item.step} className="flex gap-3 items-start">
+                    <span
+                      className="shrink-0 w-9 h-9 flex items-center justify-center text-xs font-medium tracking-wider rounded-sm"
+                      style={{
+                        color: '#C9A3D4',
+                        background: 'rgba(168,128,180,0.08)',
+                        border: '1px solid rgba(168,128,180,0.3)',
+                      }}
+                    >
+                      {item.step}
+                    </span>
+                    <div className="min-w-0 pt-0.5">
+                      <p className="text-sm font-medium" style={{ color: '#F4ECDB' }}>{item.title}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'rgba(244,236,219,0.55)' }}>{item.desc}</p>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
-              <Button size="lg" className="w-full bg-purple-600 hover:bg-purple-700 text-white border-0" asChild>
+              </ol>
+
+              <Button
+                size="lg"
+                className="w-full border-0 font-medium"
+                style={{
+                  background: 'linear-gradient(135deg, #8E6FA0 0%, #6E5180 100%)',
+                  color: '#F4ECDB',
+                  boxShadow: '0 8px 24px -10px rgba(168,128,180,0.5)',
+                }}
+                asChild
+              >
                 <Link to="/free-checkup">
                   開始持股健檢
-                  <ArrowRight className="h-4 w-4 ml-2" />
+                  <ArrowRight className="h-4 w-4 ml-2 warroom-arrow transition-transform" />
                 </Link>
               </Button>
             </div>
           </div>
         </div>
+
+        <style>{`
+          .warroom-path-card { transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; }
+          .warroom-path-card:hover { transform: translateY(-2px); }
+          .warroom-path-card:hover .warroom-arrow { transform: translateX(4px); }
+          .warroom-path-card.order-2:hover { border-color: rgba(236,102,45,0.55); box-shadow: 0 28px 70px -28px rgba(236,102,45,0.5), inset 0 1px 0 rgba(244,236,219,0.06); }
+          .warroom-path-card.order-1:hover { border-color: rgba(201,163,212,0.55); box-shadow: 0 28px 70px -28px rgba(168,128,180,0.45), inset 0 1px 0 rgba(244,236,219,0.06); }
+        `}</style>
       </section>
       </LazyOnVisible>
 
