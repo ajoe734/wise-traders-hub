@@ -52,7 +52,7 @@ import {
   wbTone,
   EMPTY_SPARK,
   EMPTY_HOLDINGS,
-  Sparkline, // 仍用於 NewsEventRow 等非持倉牆元件
+  // E-Maint-R6: Sparkline 不再由父層 import — HoldingCard 直接從 constants.jsx 取
   TYPE_COLOR,
   MEMO_Q,
   PARSE_PROMPT,
