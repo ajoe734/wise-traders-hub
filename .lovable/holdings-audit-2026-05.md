@@ -202,3 +202,34 @@
 - useRouteHoldingsPage.js：+18
 - 淨增約 +40，但 god component 縮減、resize 路徑解耦
 
+
+---
+
+## Batch F（命名/型別）— 2026-05 落地
+
+### F-Maint-R2：pages/app/Holdings.tsx → SubscribedExpertsList.tsx
+- 純命名清理；該檔為「我訂閱的專家列表」UI，與 `/free-checkup` 持倉看板無關，名稱誤導已存在。
+- 全域無任何 import 引用該檔（孤兒路由元件），直接 `mv` + 將 `export default function Holdings()` 改為 `SubscribedExpertsList()` 完成。
+
+### F-Maint-R3：HoldingsPanel createElement → JSX，改 .tsx
+- `src/checkup/components/holdings/HoldingsPanel.jsx`（559 行 `createElement(h, ...)`）→ `.tsx` JSX 重寫。
+- 語意 / 樣式 / 子元件 export（HoldingsSummary / HoldingsIntegrityWarning / PortfolioHealthCheck / Top5Holdings / WinLossSummary / HoldingsPanel）1:1 對齊。
+- 同步更新 `holdings/index.js` 與 `README.md` 的副檔名。
+- 採 `// @ts-nocheck` 漸進式策略：tsconfig `strict: false`，但保留 nocheck 以避免未來嚴格化時這檔卡關。
+
+### F-Maint-R4：freecheckup/ 12 支 .jsx → .tsx
+HoldingCard / HoldingsActionPriority / HoldingsDetailPanel / HoldingsEmptyState / HoldingsFilterBar / HoldingsFooterBar / HoldingsHero / HoldingsNoMatchState / HoldingsQuotaMeter / HoldingsReversalSection / HoldingsTab / HoldingsUploadSummary — 12 檔。
+- 純 `mv .jsx → .tsx`，內容不動（tsconfig `noImplicitAny: false` + `strict: false` 直接通過）。
+- HoldingCard.tsx / HoldingsTab.tsx 加 `// @ts-nocheck`（useInView tuple 推斷、Sparkline memo props、useCheckupMode unknown 等遺留錯誤，留待後續逐檔型別化）。其餘 10 檔不需 nocheck。
+- 同步更新測試與 README：
+  - `src/test/unit/freecheckup-mobile-card-overflow.test.ts`：`HoldingCard.jsx` / `HoldingsTab.jsx` → `.tsx`
+  - `src/checkup/components/holdings/README.md`：`Holding*.jsx` → `Holding*.tsx`
+
+### 驗證
+- ✅ `bunx vitest run freecheckup-mobile-card-overflow freecheckup-tab-prop-schema freecheckup-tab-perf` → **43/43 pass**
+- ✅ `tsc -p tsconfig.app.json --noEmit` 無錯
+- ✅ `rg "HoldingsPanel\.jsx|freecheckup/Holding\w*\.jsx"` 僅留註解中歷史引用
+
+### 後續批次
+- **G 批（待決定）**：unit test 補強（`compareByPriority` / `holdingsValueKey` / `HoldingsPage` / DetailPanel overlay）
+- **獨立**：HoldingCard.tsx / HoldingsTab.tsx 移除 `@ts-nocheck`（需先把 `useInView` 改 `as const` tuple、`Sparkline` memo 加 props 型別、`useCheckupMode` 明確 generic）
