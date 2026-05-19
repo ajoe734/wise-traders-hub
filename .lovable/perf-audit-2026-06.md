@@ -357,3 +357,14 @@ grep -c '^#### `/' .lovable/perf-audit-2026-06.md
 - **總計：1733 → 1426（-307，-17.7%）**
 
 行為保持一致：保留 LINE Pay confirm（仍走 edge function 不需訂閱輪詢）、ACpay simulate fallback、AppCheckout 的 `pendingTimeout` 訊息覆寫。
+
+## P0-3 · 主 chunk 收斂（完成 2026-05-19）
+
+兩個低風險改動，把 `react-helmet-async` (~31 KB) 從 landing 主 chunk 拔掉，並把 `edgeCoerce.js` (199 行) 從 FreeCheckup 主檔靜態 import 移進 NewsTab lazy chunk。
+
+- `src/pages/Index.tsx`：`SEO` → `SEOLite`（移除 helmet 依賴）
+- `src/pages/Legal.tsx`：同上
+- `src/checkup/components/freecheckup/NewsTab.jsx`：直接 import `coerceStocksString`
+- `src/pages/FreeCheckup.jsx`：移除 top-level `edgeCoerce` import 與 prop pass-through
+
+預估：landing 初始 JS -31 KB（helmet），FreeCheckup 主 chunk -5 KB（coerce）。社群爬蟲 og:* 仍走 `index.html` 站級靜態 meta，無 SEO 風險。
