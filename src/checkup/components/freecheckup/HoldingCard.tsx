@@ -1,3 +1,4 @@
+// @ts-nocheck — 漸進式 .jsx→.tsx 遷移（F-Maint-R4），完整型別化留待後續批次
 // HoldingCard — 抽自 FreeCheckup.jsx renderCard()。
 // React.memo 包裝，跑 shallow compare：
 //   - holding / decision / target / meta / sparkData：父層 useMemo 後 reference 穩定
