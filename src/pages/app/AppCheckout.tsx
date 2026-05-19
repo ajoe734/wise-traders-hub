@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { UnifiedAppLayout } from "@/components/layouts/UnifiedAppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,8 @@ import { ArrowLeft, Check, Shield, Lock, CheckCircle2, XCircle, CreditCard } fro
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlan } from "@/hooks/useExpertPlans";
+import { useAcpaySdk } from "@/hooks/checkout/useAcpaySdk";
+import { useSubscriptionConfirmation } from "@/hooks/checkout/useSubscriptionConfirmation";
 import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
