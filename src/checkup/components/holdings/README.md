@@ -11,13 +11,13 @@
 原 `HoldingsWorkbench` / `HoldingHero` / `HoldingCard` / `HoldingDetailPanel` / `PriorityStrip`
 五支樣板檔已刪除（合計 1,252 行）— 從未被任何路由引用，僅自我互引。
 
-`/free-checkup` 的持倉看板實作在 `src/checkup/components/freecheckup/Holding*.jsx`，
+`/free-checkup` 的持倉看板實作在 `src/checkup/components/freecheckup/Holding*.tsx`，
 與本目錄完全獨立；憲法詳見 `mem://architecture/checkup/inline-rendering-audit`。
 
 ## 維護規則（憲法）
 1. `/free-checkup` 的持倉變更請改 `src/checkup/components/freecheckup/`，**不要** import 本目錄
 2. `/checkup`（會員版）的表格持倉變更請改本目錄，**不要** import freecheckup/Holding*
-3. 修改 token 時，同步更新 `freecheckup/HoldingCard.jsx` 等對應檔
+3. 修改 token 時，同步更新 `freecheckup/HoldingCard.tsx` 等對應檔
 4. 兩套刻意分離：表格 vs 卡片牆是不同產品形態，合併會破壞 UX
 
 ## Hooks 命名澄清（C 批 M7）
