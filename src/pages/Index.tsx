@@ -22,7 +22,12 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  Lightbulb
+  Lightbulb,
+  Flame,
+  Trophy,
+  Clock,
+  History,
+  ScrollText
 } from 'lucide-react';
 import featureXianren from '@/assets/feature-xianren.webp';
 import featureSanpai from '@/assets/feature-sanpai.webp';
