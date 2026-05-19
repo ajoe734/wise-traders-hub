@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCheckupPlan } from "@/hooks/useCheckupPlans";
 import { useCrossProductDiscount } from "@/hooks/useCrossProductDiscount";
 import { readAttribution } from "@/hooks/useAttributionTracking";
+import { useSubscriptionConfirmation } from "@/hooks/checkout/useSubscriptionConfirmation";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction,
@@ -48,42 +49,16 @@ export default function CheckupCheckout() {
       });
   }, []);
 
-  // ECPay 回跳確認
-  useEffect(() => {
-    if (searchParams.get("ecpay") !== "result" || !user || !planId || resultDialog) return;
-    setIsConfirming(true);
-    let resolved = false;
-    const check = async () => {
-      const { data: existing } = await supabase
-        .from("checkup_subscriptions")
-        .select("id").eq("user_id", user.id).eq("plan_id", planId).eq("status", "active");
-      if (existing && existing.length > 0) {
-        resolved = true; setIsConfirming(false);
-        setResultDialog({ open: true, success: true });
-      }
-    };
-    check();
-    const channel = supabase.channel("ck-ecpay")
-      .on("postgres_changes", {
-        event: "INSERT", schema: "public", table: "checkup_subscriptions",
-        filter: `user_id=eq.${user.id}`,
-      }, (payload) => {
-        const row = payload.new as any;
-        if (row.plan_id === planId && row.status === "active" && !resolved) {
-          resolved = true; clearTimeout(timer); supabase.removeChannel(channel);
-          setIsConfirming(false); setResultDialog({ open: true, success: true });
-        }
-      })
-      .subscribe();
-    const timer = setTimeout(() => {
-      if (!resolved) {
-        supabase.removeChannel(channel);
-        setIsConfirming(false);
-        setResultDialog({ open: true, success: false, message: "付款確認逾時，如已扣款請聯繫客服" });
-      }
-    }, 60_000);
-    return () => { clearTimeout(timer); supabase.removeChannel(channel); };
-  }, [searchParams, user, planId]);
+  // ECPay 回跳確認 — 共用 useSubscriptionConfirmation
+  useSubscriptionConfirmation({
+    table: "checkup_subscriptions",
+    userId: user?.id,
+    planId,
+    enabled: searchParams.get("ecpay") === "result" && !resultDialog,
+    channelKey: "ck-ecpay",
+    setConfirming: setIsConfirming,
+    onConfirmed: (r) => setResultDialog({ open: true, success: r.success, message: r.message }),
+  });
 
   // Hooks must be called unconditionally — keep this above any early returns
   const { amount: crossDiscount, reason: crossReason } = useCrossProductDiscount({

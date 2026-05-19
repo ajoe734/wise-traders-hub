@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCrossProductDiscount } from '@/hooks/useCrossProductDiscount';
 import { readAttribution } from '@/hooks/useAttributionTracking';
 import { calcUpgradeProration } from '@/lib/revenueSplit';
+import { useAcpaySdk } from '@/hooks/checkout/useAcpaySdk';
+import { useSubscriptionConfirmation } from '@/hooks/checkout/useSubscriptionConfirmation';
 import { Loader2, ArrowLeft, Check } from 'lucide-react';
 import { CheckoutConsentDialog } from './_checkout/CheckoutConsentDialog';
 import { PlanInfoCard } from './_checkout/PlanInfoCard';
@@ -71,127 +73,29 @@ const Checkout = () => {
   const [countryCode, setCountryCode] = useState('886');
   const [cardFieldErrors, setCardFieldErrors] = useState<{ name?: string; email?: string; phone?: string }>({});
 
-  // ACpay SDK refs
+  // ACpay SDK — 共用 useAcpaySdk
   const acpayCardRef = useRef<HTMLDivElement>(null);
-  const acpaySdkLoaded = useRef(false);
-  const acpayFieldsRef = useRef<any>(null);
 
   // Determine if selected provider is ACpay
   const selectedProviderObj = providers.find(p => p.id === selectedProvider);
   const isAcpay = selectedProviderObj?.provider_type === 'acpay';
 
-  // Load ACpay JS SDK when acpay provider is selected
-  useEffect(() => {
-    if (!isAcpay || acpaySdkLoaded.current) return;
+  const { getPrime: acpayGetPrime } = useAcpaySdk(isAcpay, {
+    numberEl: '#portal-acpay-card-number',
+    expirationDateEl: '#portal-acpay-expiry',
+    ccvEl: '#portal-acpay-ccv',
+  });
 
-    const sdkUrl = 'https://js.payloop.com.tw/sdk/v1.0/acpay.js';
-    const existingScript = document.querySelector(`script[src="${sdkUrl}"]`);
-    if (existingScript) {
-      acpaySdkLoaded.current = true;
-      initACpayFields();
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = sdkUrl;
-    script.async = true;
-    script.onload = () => {
-      acpaySdkLoaded.current = true;
-      initACpayFields();
-    };
-    script.onerror = () => {
-      console.error('Failed to load ACpay SDK');
-    };
-    document.head.appendChild(script);
-  }, [isAcpay]);
-
-  const initACpayFields = useCallback(() => {
-    if (!acpayCardRef.current || !(window as any).ACPay) return;
-
-    try {
-      const ACPay = (window as any).ACPay;
-      const fields = ACPay.setupSDK({
-        fields: {
-          number: { element: '#portal-acpay-card-number', placeholder: '卡號' },
-          expirationDate: { element: '#portal-acpay-expiry', placeholder: 'MM/YY' },
-          ccv: { element: '#portal-acpay-ccv', placeholder: '安全碼' },
-        },
-      });
-      acpayFieldsRef.current = fields;
-    } catch (e) {
-      console.error('ACpay SDK init error:', e);
-    }
-  }, []);
-
-  // Handle ACpay 3DS return
-  useEffect(() => {
-    const acpayResult = searchParams.get('acpay');
-    if (acpayResult !== 'result' || !user || !planId || resultDialog) return;
-
-    setIsConfirming(true);
-
-    const checkAndListen = async () => {
-      const { data: existing } = await supabase
-        .from('member_subscriptions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('plan_id', planId)
-        .eq('status', 'active');
-
-      if (existing && existing.length > 0) {
-        setIsConfirming(false);
-        setResultDialog({ open: true, success: true });
-        return;
-      }
-
-      let resolved = false;
-      const channel = supabase
-        .channel('acpay-portal-confirm')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'member_subscriptions',
-          filter: `user_id=eq.${user.id}`,
-        }, (payload) => {
-          const row = payload.new as any;
-          if (row.plan_id === planId && row.status === 'active' && !resolved) {
-            resolved = true;
-            clearInterval(pollTimer);
-            setIsConfirming(false);
-            setResultDialog({ open: true, success: true });
-          }
-        })
-        .subscribe();
-
-      const pollTimer = setInterval(async () => {
-        if (resolved) { clearInterval(pollTimer); return; }
-        const { data: polled } = await supabase
-          .from('member_subscriptions')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('plan_id', planId)
-          .eq('status', 'active');
-        if (polled && polled.length > 0 && !resolved) {
-          resolved = true;
-          clearInterval(pollTimer);
-          supabase.removeChannel(channel);
-          setIsConfirming(false);
-          setResultDialog({ open: true, success: true });
-        }
-      }, 5000);
-
-      setTimeout(() => {
-        clearInterval(pollTimer);
-        supabase.removeChannel(channel);
-        if (!resolved) {
-          setIsConfirming(false);
-          setResultDialog({ open: true, success: false, message: '付款確認逾時，如已扣款請聯繫客服' });
-        }
-      }, 60000);
-    };
-
-    checkAndListen();
-  }, [searchParams, user, planId]);
+  // ACpay 回跳確認 — 共用 hook
+  useSubscriptionConfirmation({
+    table: 'member_subscriptions',
+    userId: user?.id,
+    planId,
+    enabled: searchParams.get('acpay') === 'result' && !resultDialog,
+    channelKey: 'acpay-portal',
+    setConfirming: setIsConfirming,
+    onConfirmed: (r) => setResultDialog({ open: true, success: r.success, message: r.message }),
+  });
 
   // Handle LINE Pay return
   useEffect(() => {
@@ -241,68 +145,16 @@ const Checkout = () => {
     }
   }, [searchParams, plan, user]);
 
-  // Handle ECPay return — use Realtime to detect subscription created by server callback
-  useEffect(() => {
-    const ecpayResult = searchParams.get('ecpay');
-    if (ecpayResult !== 'result' || !user || !planId || resultDialog) return;
-
-    setIsConfirming(true);
-
-    // First, check if subscription already exists (callback may have already fired)
-    const checkExisting = async () => {
-      const { data: subs } = await supabase
-        .from('member_subscriptions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('plan_id', planId)
-        .eq('status', 'active');
-      if (subs && subs.length > 0) {
-        setIsConfirming(false);
-        setResultDialog({ open: true, success: true });
-        return true;
-      }
-      return false;
-    };
-
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-
-    checkExisting().then(found => {
-      if (found) return;
-
-      // Listen for realtime INSERT on member_subscriptions for this user+plan
-      channel = supabase
-        .channel('ecpay-sub-confirm')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'member_subscriptions',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            const row = payload.new as any;
-            if (row.plan_id === planId && row.status === 'active') {
-              setIsConfirming(false);
-              setResultDialog({ open: true, success: true });
-            }
-          }
-        )
-        .subscribe();
-
-      // Timeout after 60 seconds
-      timeout = setTimeout(() => {
-        setIsConfirming(false);
-        setResultDialog({ open: true, success: false, message: '付款確認逾時，如已扣款請聯繫客服' });
-      }, 60000);
-    });
-
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-      if (timeout) clearTimeout(timeout);
-    };
-  }, [searchParams, user, planId]);
+  // Handle ECPay return — 共用 useSubscriptionConfirmation
+  useSubscriptionConfirmation({
+    table: 'member_subscriptions',
+    userId: user?.id,
+    planId,
+    enabled: searchParams.get('ecpay') === 'result' && !resultDialog,
+    channelKey: 'ecpay-sub',
+    setConfirming: setIsConfirming,
+    onConfirmed: (r) => setResultDialog({ open: true, success: r.success, message: r.message }),
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -573,28 +425,13 @@ const Checkout = () => {
         }
         setCardFieldErrors({});
 
-        let prime: string | null = null;
-        const ACPay = (window as any).ACPay;
-        if (ACPay && acpayFieldsRef.current) {
-          try {
-            const result = await new Promise<any>((resolve, reject) => {
-              ACPay.getPrime(acpayFieldsRef.current, (primeResult: any) => {
-                if (primeResult.status !== 0) {
-                  reject(new Error(primeResult.msg || '取得 prime token 失敗'));
-                } else {
-                  resolve(primeResult);
-                }
-              });
-            });
-            prime = result.prime;
-          } catch (e: any) {
-            console.error('ACpay getPrime error:', e);
-            setResultDialog({ open: true, success: false, message: e.message || '信用卡資訊有誤，請確認後重試' });
-            return;
-          }
-        } else {
-          console.warn('ACpay SDK not available, using simulate mode');
-          prime = 'SIMULATE_PRIME';
+        let prime: string;
+        try {
+          prime = await acpayGetPrime();
+        } catch (e: any) {
+          console.error('ACpay getPrime error:', e);
+          setResultDialog({ open: true, success: false, message: e.message || '信用卡資訊有誤，請確認後重試' });
+          return;
         }
 
         const acpayAttribution = readAttribution();

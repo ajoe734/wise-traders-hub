@@ -342,3 +342,18 @@ grep -cE 'useMutation\('      # mu
 grep -c '^#### `/' .lovable/perf-audit-2026-06.md
 ```
 應 ≥ App.tsx 路由數（不含 Navigate）= 58；本檔列 **67**（含 9 個 Navigate 群體標註） — ✅ 通過「不准偷懶」條款。
+
+## A · useCheckoutFlow 重構（完成 2026-05-19）
+
+抽出兩個共用 hook，解決 Checkout/AppCheckout/CheckupCheckout 三檔的重複邏輯：
+
+- `src/hooks/checkout/useAcpaySdk.ts` — ACpay JS SDK 載入 + setupSDK + getPrime 封裝
+- `src/hooks/checkout/useSubscriptionConfirmation.ts` — 通用化 ECPay/ACpay return URL → Realtime + polling + 60s timeout
+
+行數變化：
+- `Checkout.tsx`：808 → 645（-163）
+- `app/AppCheckout.tsx`：562 → 443（-119）
+- `CheckupCheckout.tsx`：363 → 338（-25）
+- **總計：1733 → 1426（-307，-17.7%）**
+
+行為保持一致：保留 LINE Pay confirm（仍走 edge function 不需訂閱輪詢）、ACpay simulate fallback、AppCheckout 的 `pendingTimeout` 訊息覆寫。
