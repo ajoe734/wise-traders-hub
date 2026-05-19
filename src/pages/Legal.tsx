@@ -1,5 +1,5 @@
 import { PortalLayout } from '@/components/layouts/PortalLayout';
-import { SEO } from '@/components/SEO';
+import { SEOLite as SEO } from '@/components/SEOLite';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, AlertTriangle, Clock, Lock } from 'lucide-react';
 
