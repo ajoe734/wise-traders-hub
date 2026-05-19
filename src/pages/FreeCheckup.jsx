@@ -1276,19 +1276,9 @@ export default function App() {
   };
 
   // A2：compareByPriority 只依賴 decisionsMap（已內含 priority），不再 wrap priorityOf
-  const compareByPriority = useCallback((a, b) => {
-    const da = decisionsMap[a.code], db = decisionsMap[b.code];
-    const pa = da?.priority ?? 5, pb = db?.priority ?? 5;
-    if (pa !== pb) return pa - pb;
-    const ua = URGENCY_RANK[da?.urgency] || 0, ub = URGENCY_RANK[db?.urgency] || 0;
-    if (ua !== ub) return ub - ua;
-    const ca = CONF_RANK[da?.confidence] || 0, cb = CONF_RANK[db?.confidence] || 0;
-    if (ca !== cb) return cb - ca;
-    const v = (b.value || 0) - (a.value || 0);
-    if (v !== 0) return v;
-    // P6: code 字典序 tiebreaker，確保並列時順序穩定
-    return String(a.code || '').localeCompare(String(b.code || ''));
-  }, [decisionsMap]);
+  // A2 + G-Coverage：compareByPriority 抽到 @/checkup/lib/holdingsSort 以供 unit test
+  const compareByPriority = useMemo(() => makeCompareByPriority(decisionsMap), [decisionsMap]);
+
 
   // 全局優先排序（不受 filter 影響）
   const globalSortedList = useMemo(() => {
