@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useMySubscriptions } from '@/hooks/useSubscriptions';
 
-export default function Holdings() {
+export default function SubscribedExpertsList() {
   const { data: subscriptions = [] } = useMySubscriptions();
   const hasAnySubscription = subscriptions.length > 0;
 

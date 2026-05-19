@@ -20,11 +20,11 @@ beforeAll(() => {
   // 測試需要同時掃描：jsx inline <style>（Hero RWD）+ holdingsTab.css（卡片 RWD）。
   const main = readFileSync(resolve(__dirname, '../../pages/FreeCheckup.jsx'), 'utf8');
   const card = readFileSync(
-    resolve(__dirname, '../../checkup/components/freecheckup/HoldingCard.jsx'),
+    resolve(__dirname, '../../checkup/components/freecheckup/HoldingCard.tsx'),
     'utf8'
   );
   const tab = readFileSync(
-    resolve(__dirname, '../../checkup/components/freecheckup/HoldingsTab.jsx'),
+    resolve(__dirname, '../../checkup/components/freecheckup/HoldingsTab.tsx'),
     'utf8'
   );
   const holdingsCss = readFileSync(
@@ -32,8 +32,8 @@ beforeAll(() => {
     'utf8'
   );
   SRC = main
-    + '\n/* === HoldingCard.jsx === */\n' + card
-    + '\n/* === HoldingsTab.jsx === */\n' + tab
+    + '\n/* === HoldingCard.tsx === */\n' + card
+    + '\n/* === HoldingsTab.tsx === */\n' + tab
     // 把外部 CSS 包成 <style>{`...`}</style> 形式，讓 getAllCss() 一致萃取
     + '\n/* === holdingsTab.css === */\n<style>{`' + holdingsCss + '`}</style>';
 });
