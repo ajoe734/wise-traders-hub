@@ -72,6 +72,8 @@ export function useFreeCheckupBootstrap({
     (async () => {
       // ── Demo 模式：直接使用假資料 ──
       if (isDemo) {
+        const { DEMO_EVENTS, DEMO_BRAIN } = await import("@/checkup/data/demoData");
+        if (cancelled) return;
         setLocalStorageOwner("demo");
         setHoldings(SEED_HOLDINGS);
         setTradeLog([]);
