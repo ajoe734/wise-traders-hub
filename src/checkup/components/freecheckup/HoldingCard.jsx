@@ -1,17 +1,20 @@
 // HoldingCard — 抽自 FreeCheckup.jsx renderCard()。
 // React.memo 包裝，跑 shallow compare：
 //   - holding / decision / target / meta / sparkData：父層 useMemo 後 reference 穩定
-//   - WB / Sparkline / alpha：module-level 常數，永遠 ===
+//   - WB / alpha / Sparkline：module-level 常數，永遠 ===（E-Maint-R6 改為直接 import，停止 prop 透傳）
 //   - onSelect / onOpenDrawer：父層用 useCallback + ref pattern 提供穩定 reference
 // 結果：每秒 quote tick 不會重渲染未變動的卡片。
 //
 // 設計憲法（不可違反）：
-//   - 配色由 props.WB 決定；不直接寫 hex（除了反白透明色）
+//   - 配色直接 import _freeCheckup/constants.jsx 的 WB（free-checkup 單色橘紅憲法 #FF4D1F，
+//     刻意與 holdings/holdingsTokens.js 的 #EC662D 分開，不污染他頁）
 //   - fontSize 動態 clamp 已含媒體查詢，需保持 className="wb-roi" / "wb-card" 等
 //   - 行為對等：onClick toggle expandedDecision、onDoubleClick + Shift+Enter 開 drawer
 import { memo } from 'react';
 import { validateProps } from './_validateProps.js';
 import { useInView } from '@/checkup/hooks/useInView.js';
+import { WB, Sparkline } from '@/pages/_freeCheckup/constants.jsx';
+import { alpha } from '@/checkup/theme.js';
 
 // ── 模組層常數（搬離 renderCard 內部，避免每次重建） ──
 const SRC_LABEL = { screenshot: '截圖', live: '即時', high: '最高', ask: '賣一', yclose: '昨收' };
@@ -36,9 +39,6 @@ const HOLDING_CARD_PROP_SCHEMA = {
   variant: 'string',
   isFeatureSlot: 'boolean',
   isActive: 'boolean',
-  WB: 'object',
-  Sparkline: 'function',
-  alpha: 'function',
   onSelect: 'function',
   onOpenDrawer: 'function',
 };
@@ -59,9 +59,6 @@ function HoldingCardImpl(props) {
     variant,
     isFeatureSlot,
     isActive,
-    WB,
-    Sparkline,
-    alpha,
     onSelect,
     onOpenDrawer,
   } = props;
