@@ -2863,9 +2863,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               totalVal={totalVal}
               totalCost={totalCost}
               H={H}
-              winners={winners}
-              exitList={exitList}
-              reviewList={reviewList}
+              winnersCount={winnersCount}
+              exitListCount={exitList.length}
+              reviewListCount={reviewList.length}
               MAX_HOLDINGS={MAX_HOLDINGS}
               rtConnected={rtConnected}
               lastUpdate={lastUpdate}
