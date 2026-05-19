@@ -50,10 +50,13 @@ const AppCheckout = () => {
   const [countryCode, setCountryCode] = useState("886");
   const [cardFieldErrors, setCardFieldErrors] = useState<{ name?: string; email?: string; phone?: string }>({});
 
-  // ACpay SDK refs
+  // ACpay SDK — 共用 useAcpaySdk
   const acpayCardRef = useRef<HTMLDivElement>(null);
-  const acpaySdkLoaded = useRef(false);
-  const acpayFieldsRef = useRef<any>(null);
+  const { getPrime: acpayGetPrime } = useAcpaySdk(paymentMethod === "acpay", {
+    numberEl: "#acpay-card-number",
+    expirationDateEl: "#acpay-expiry",
+    ccvEl: "#acpay-ccv",
+  });
 
   const [existingSubscription, setExistingSubscription] = useState<boolean | null>(null);
 
@@ -76,68 +79,44 @@ const AppCheckout = () => {
     checkExisting();
   }, [planId, user]);
 
-  // Load ACpay JS SDK when acpay is selected
-  useEffect(() => {
-    if (paymentMethod !== "acpay" || acpaySdkLoaded.current) return;
+  // ECPay 回跳確認 — 共用 hook
+  useSubscriptionConfirmation({
+    table: 'member_subscriptions',
+    userId: user?.id,
+    planId,
+    enabled: searchParams.get('ecpay') === 'result' && !resultDialog,
+    channelKey: 'ecpay-app',
+    setConfirming: setIsConfirming,
+    onConfirmed: (r) => {
+      setResultDialog({ open: true, success: r.success });
+      if (!r.success) setPendingTimeout(true);
+    },
+  });
 
-    // ACpay SDK CDN — test environment
-    const sdkUrl = "https://js.payloop.com.tw/sdk/v1.0/acpay.js";
-    const existingScript = document.querySelector(`script[src="${sdkUrl}"]`);
-    if (existingScript) {
-      acpaySdkLoaded.current = true;
-      initACpayFields();
-      return;
-    }
+  // ACpay 回跳確認 — 共用 hook
+  useSubscriptionConfirmation({
+    table: 'member_subscriptions',
+    userId: user?.id,
+    planId,
+    enabled: searchParams.get('acpay') === 'result' && !resultDialog,
+    channelKey: 'acpay-app',
+    setConfirming: setIsConfirming,
+    onConfirmed: (r) => {
+      setResultDialog({ open: true, success: r.success });
+      if (!r.success) setPendingTimeout(true);
+    },
+  });
 
-    const script = document.createElement("script");
-    script.src = sdkUrl;
-    script.async = true;
-    script.onload = () => {
-      acpaySdkLoaded.current = true;
-      initACpayFields();
-    };
-    script.onerror = () => {
-      console.error("Failed to load ACpay SDK");
-    };
-    document.head.appendChild(script);
-  }, [paymentMethod]);
-
-  const initACpayFields = useCallback(() => {
-    if (!acpayCardRef.current || !(window as any).ACPay) return;
-
-    try {
-      const ACPay = (window as any).ACPay;
-      // Initialize SDK with merchant config
-      const fields = ACPay.setupSDK({
-        // The ACpay SDK will render secure card input fields inside the container
-        fields: {
-          number: { element: "#acpay-card-number", placeholder: "卡號" },
-          expirationDate: { element: "#acpay-expiry", placeholder: "MM/YY" },
-          ccv: { element: "#acpay-ccv", placeholder: "安全碼" },
-        },
-      });
-      acpayFieldsRef.current = fields;
-    } catch (e) {
-      console.error("ACpay SDK init error:", e);
-    }
-  }, []);
-
-  // Handle LINE Pay return (confirm flow)
+  // LINE Pay return (confirm flow) — 仍維持原本的 edge function 確認
   useEffect(() => {
     const linepay = searchParams.get("linepay");
     const transactionId = searchParams.get("transactionId");
     const txOrderId = searchParams.get("orderId");
-    const ecpay = searchParams.get("ecpay");
-    const acpay = searchParams.get("acpay");
 
     if (linepay === "confirm" && transactionId && !isConfirming && !resultDialog && planData) {
       confirmLinePayPayment(transactionId, txOrderId || "");
     } else if (linepay === "cancel") {
       setResultDialog({ open: true, success: false });
-    } else if (ecpay === "result") {
-      handleEcpayReturn();
-    } else if (acpay === "result") {
-      handleAcpayReturn();
     }
   }, [searchParams, planData]);
 
