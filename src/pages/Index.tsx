@@ -319,9 +319,9 @@ const Index = () => {
                 <span className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EC662D' }} />
                 
                 <div className="relative z-10 p-8 pt-16 pb-9">
-                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>找出戰線</h3>
+                  <h3 className="text-2xl md:text-[28px] font-bold text-white mb-2" style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.05em' }}>找到高手</h3>
                   <p className="text-white/75 leading-relaxed text-[15px]">
-                    從資金、籌碼與價格，判斷該守還是該退。
+                    選擇適合你的投資路線，不再亂追市場聲音。
                   </p>
                 </div>
               </div>
