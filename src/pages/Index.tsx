@@ -385,10 +385,10 @@ const Index = () => {
             style={{ borderColor: 'rgba(255,255,255,0.12)' }}
           >
             {[
-              { target: 75,   decimals: 0, prefix: '', suffix: '%+',   title: '勝率表現',     sub: '歷史訊號平均勝率' },
-              { target: 24,   decimals: 0, prefix: '', suffix: ' / 7', title: '即時市場分析', sub: '不間斷的市場監控' },
-              { target: 1000, decimals: 0, prefix: '', suffix: '+',    title: '深度研究報告', sub: '涵蓋全球主要市場' },
-              { target: 4.9,  decimals: 1, prefix: '', suffix: ' / 5', title: '用戶滿意度',   sub: '來自真實用戶評價' },
+              { target: 75,   decimals: 0, prefix: '', suffix: '%+',   title: '勝率表現', sub: '歷史訊號平均勝率' },
+              { target: 24,   decimals: 0, prefix: '', suffix: ' / 7', title: '盤勢巡邏', sub: '不間斷市場監控' },
+              { target: 1000, decimals: 0, prefix: '', suffix: '+',    title: '江湖戰報', sub: '涵蓋台股主要市場' },
+              { target: 4.9,  decimals: 1, prefix: '', suffix: ' / 5', title: '門派評價', sub: '來自真實用戶回饋' },
             ].map((s, i) => (
               <li
                 key={s.title}
