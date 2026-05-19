@@ -39,19 +39,13 @@ import jianghuSectionBg from '@/assets/jianghu-section-bg.jpg';
 import iconLightningCircle from '@/assets/icon-lightning-circle.svg';
 import iconBookCircle from '@/assets/icon-book-circle.svg';
 
-import { WeeklyLimitUpLeaderboard } from '@/components/WeeklyLimitUpLeaderboard';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
-import { useWeeklyLeaderboard } from '@/hooks/useWeeklyLeaderboard';
 
 
 // Batch1-#2: idle prefetch moved to centralized prefetchHighTrafficRoutes()
 // in src/lib/routePrefetch.ts (invoked from AttributionTracker in App.tsx).
 
 
-const WeeklyLimitUpLeaderboardSection = () => {
-  const { data: entries = [], isLoading } = useWeeklyLeaderboard();
-  return <WeeklyLimitUpLeaderboard entries={entries} isLoading={isLoading} />;
-};
 
 // 數字 count-up 動畫（載入時自動跑動）
 const CountUpNumber = ({
