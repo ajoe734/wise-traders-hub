@@ -63,3 +63,43 @@
 - **B 批**：抽 `useHoldingsDerived` hook（M2）、穩定化 `H` reference（P2）、`HoldingsActionPriority` 收斂（P5）、`.jsx` → `.tsx`（M5）
 - **C 批**：合併樣板/freecheckup 來源（C1）、命名清理（M7）、`HoldingsPanel` JSX 化（M6）
 - **獨立**：修 `freecheckup-mobile-card-overflow.test.ts` 與 `holdingsTab.css` 來源對齊
+
+---
+
+## Batch B（高 ROI 子集）— 2026-05 落地
+
+執行範圍：B-P2 + B-P5（跳過 B1 抽 hook、B4 .jsx→.tsx，理由如下）。
+
+### B-P2：穩定化 `H` reference（最大效能增益）
+- `src/pages/_freeCheckup/constants.jsx`：新增 `EMPTY_HOLDINGS = Object.freeze([])`
+- `src/pages/FreeCheckup.jsx` L1167：
+  - 新增 `holdingsValueKey`（`code|qty|price|cost` join）useMemo
+  - `H` 改為 `useMemo(() => holdings || EMPTY_HOLDINGS, [holdingsValueKey])`
+- 影響：quote tick 後若 holdings 值未變（`normalizeHoldings` 結構恆 spread），`H` reference 保持穩定 → 下游 9 個 useMemo（globalSortedList / exitList / reviewList / upcomingList / filteredSortedList / variantsMap / strategyOptions / orderedDisplayed / firstFeatureCode）全部命中快取
+
+### B-P5：HoldingsActionPriority 收斂為純 items 物件
+- `src/pages/FreeCheckup.jsx` L1322：新增 `actionPriorityItems` useMemo，預先組裝 3 筆 `{code,name,pct,tag,desc}`
+- `HoldingsTab.jsx`：新增 `actionPriorityItems` prop，傳入 `<HoldingsActionPriority items={actionPriorityItems || globalPriorityList} />`
+- `HoldingsActionPriority.jsx`：items 已含 tag/desc，不再依賴 `decisionsMap` / `STOCK_META` 全表；保留舊呼叫 fallback 路徑
+
+### B-P3：EMPTY_SPARK 已是 module-level frozen array（L174）
+- 無需處理，已落實。
+
+### 跳過 B1（抽 `useHoldingsDerived` hook）
+- 9 個 useMemo 之間隱藏耦合多（holdingsCodesKey / decisionsMap / globalSortedList），抽出後需鋪 6 個輸入 + 6 個輸出，介面寬度反而上升
+- 真正瓶頸 P2 已處理，hook 抽出對 perf 無額外增益
+- 維護性收益短期 < 風險（影響 60+ props 介面）
+
+### 跳過 B4（.jsx → .tsx）
+- 純機械重命名 + 12 個檔案 schema 翻譯，無 perf/maintainability 增益
+- validateProps dev 護欄已足夠，待整體 .tsx 化運動再批次處理
+
+### 驗證
+- ✅ `scripts/check-freecheckup-rwd.mjs` 通過
+- ✅ `freecheckup-tab-perf` / `freecheckup-tab-prop-schema` / `freecheckup-i18n` 測試通過
+- ⚠️ `freecheckup-mobile-card-overflow` 18 fail — Batch A 已記錄的歷史問題（CSS source mismatch），本批未引入新失敗
+
+### LOC 變化
+- FreeCheckup.jsx：+27 行（P2 註解 + value-key memo + actionPriorityItems memo）
+- HoldingsActionPriority.jsx：+10 行（fallback 路徑 + 註解）
+- HoldingsTab.jsx：+2 行（新 prop）
