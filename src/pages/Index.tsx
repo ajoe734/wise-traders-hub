@@ -795,13 +795,24 @@ const Index = () => {
       <style>{`
         .jianghu-card {
           transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+          box-shadow: 0 18px 40px -22px rgba(0,0,0,0.55);
         }
         .jianghu-card:hover {
           transform: translateY(-6px);
-          border-color: rgba(236,102,45,0.55) !important;
-          box-shadow: 0 20px 40px -20px rgba(236,102,45,0.35), 0 0 0 1px rgba(236,102,45,0.3);
+          border-color: rgba(236,102,45,0.6) !important;
+          box-shadow:
+            0 32px 60px -24px rgba(0,0,0,0.7),
+            0 18px 40px -18px rgba(236,102,45,0.45),
+            0 0 0 1px rgba(236,102,45,0.35);
+        }
+        .jianghu-card-bg {
+          transition: transform 0.7s ease;
+        }
+        .jianghu-card:hover .jianghu-card-bg {
+          transform: scale(1.03);
         }
       `}</style>
+
 
 
       {/* Real Interface Preview Section — 黑金戰情室 */}
