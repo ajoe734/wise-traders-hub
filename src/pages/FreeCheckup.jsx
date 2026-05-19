@@ -1223,12 +1223,44 @@ export default function App() {
   );
   // P1+P12: decisionsMap 只依賴 code 列表（穩定字串）
   // buildDecision(code, events, overrides, now) 不看報價，所以 H 變動但 codes 不變時不重算決策
+  //
+  // A2/A3（holdings audit 2026-05）：在此一次預算
+  //   - priority（4 階決策優先度）→ 排序時純讀數字，無需 priorityOf wrapper
+  //   - lastTouchedAt（決策更新 + 相關事件最新時間）→ filteredSortedList 不再依賴 normalizedEvents
+  const URGENCY_RANK = { now: 3, soon: 2, monitor: 1 };
+  const CONF_RANK = { high: 3, medium: 2, low: 1 };
   const decisionsMap = useMemo(() => {
     const map = {};
     const now = new Date();
     const codes = holdingsCodesKey ? holdingsCodesKey.split(',').filter(Boolean) : [];
+    // 預先按 code 索引事件，O(events) → O(events) 而非 O(holdings × events)
+    const eventTimeByCode = {};
+    for (const e of normalizedEvents) {
+      const t = e.occurredAt ? new Date(e.occurredAt).getTime() : 0;
+      if (!t) continue;
+      for (const c of (e.relatedCodes || [])) {
+        if (!eventTimeByCode[c] || t > eventTimeByCode[c]) eventTimeByCode[c] = t;
+      }
+    }
     codes.forEach(code => {
-      map[code] = buildDecision(code, normalizedEvents, userOverrides, now);
+      const dec = buildDecision(code, normalizedEvents, userOverrides, now);
+      // Phase 2.5 4 階優先度（原 priorityOf）
+      let priority = 5;
+      if (dec) {
+        if (dec.actionType === 'exit') priority = 0;
+        else if (dec.actionType === 'review') priority = 1;
+        else if (dec.urgency === 'now' || dec.hasConflict) priority = 2;
+        else if (dec.urgency === 'soon') priority = 3;
+        else if (dec.thesisState === 'weakening') priority = 4;
+      }
+      const decTime = dec?.lastUpdatedAt ? new Date(dec.lastUpdatedAt).getTime() : 0;
+      const evtTime = eventTimeByCode[code] || 0;
+      // lastTouchedAt 不含 priceUpdatedAt（那是 per-tick，排序時再合併）
+      map[code] = {
+        ...dec,
+        priority,
+        lastTouchedAt: Math.max(decTime, evtTime),
+      };
     });
     return map;
   }, [holdingsCodesKey, normalizedEvents, userOverrides]);
@@ -1245,34 +1277,18 @@ export default function App() {
     return Array.from(set).sort();
   }, [H]);
 
-  const URGENCY_RANK = { now: 3, soon: 2, monitor: 1 };
-  const CONF_RANK = { high: 3, medium: 2, low: 1 };
-
+  // 排序時用：取 dec.lastTouchedAt 與 h.priceUpdatedAt 中的較新
   const getUpdatedAt = (h, dec) => {
-    const candidates = [];
-    if (dec?.lastUpdatedAt) candidates.push(new Date(dec.lastUpdatedAt).getTime());
-    const evts = normalizedEvents.filter(e => (e.relatedCodes || []).includes(h.code));
-    evts.forEach(e => { if (e.occurredAt) candidates.push(new Date(e.occurredAt).getTime()); });
-    if (h.priceUpdatedAt) candidates.push(new Date(h.priceUpdatedAt).getTime());
-    return candidates.length ? Math.max(...candidates) : 0;
+    const a = dec?.lastTouchedAt || 0;
+    const b = h.priceUpdatedAt ? new Date(h.priceUpdatedAt).getTime() : 0;
+    return Math.max(a, b);
   };
 
-  // Phase 2.5: 決策優先度（4 階）
-  const priorityOf = useCallback((h) => {
-    const dec = decisionsMap[h.code];
-    if (!dec) return 5;
-    if (dec.actionType === 'exit') return 0;
-    if (dec.actionType === 'review') return 1;
-    if (dec.urgency === 'now' || dec.hasConflict) return 2;
-    if (dec.urgency === 'soon') return 3;
-    if (dec.thesisState === 'weakening') return 4;
-    return 5;
-  }, [decisionsMap]);
-
+  // A2：compareByPriority 只依賴 decisionsMap（已內含 priority），不再 wrap priorityOf
   const compareByPriority = useCallback((a, b) => {
-    const pa = priorityOf(a), pb = priorityOf(b);
-    if (pa !== pb) return pa - pb;
     const da = decisionsMap[a.code], db = decisionsMap[b.code];
+    const pa = da?.priority ?? 5, pb = db?.priority ?? 5;
+    if (pa !== pb) return pa - pb;
     const ua = URGENCY_RANK[da?.urgency] || 0, ub = URGENCY_RANK[db?.urgency] || 0;
     if (ua !== ub) return ub - ua;
     const ca = CONF_RANK[da?.confidence] || 0, cb = CONF_RANK[db?.confidence] || 0;
@@ -1281,7 +1297,7 @@ export default function App() {
     if (v !== 0) return v;
     // P6: code 字典序 tiebreaker，確保並列時順序穩定
     return String(a.code || '').localeCompare(String(b.code || ''));
-  }, [priorityOf, decisionsMap]);
+  }, [decisionsMap]);
 
   // 全局優先排序（不受 filter 影響）
   const globalSortedList = useMemo(() => {
