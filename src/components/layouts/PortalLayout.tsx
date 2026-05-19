@@ -98,7 +98,11 @@ export function PortalLayout({ children, hideAppEntry = false, hideHeader = fals
               </Button>
             )}
             {user && !hideAppEntry ? (
-              <Button size="sm" asChild>
+              <Button
+                size="sm"
+                asChild
+                className="border border-transparent transition-all duration-300 hover:border-[rgba(236,102,45,0.65)] hover:shadow-[0_0_18px_-2px_rgba(236,102,45,0.55)]"
+              >
                 <Link to="/app" {...intentHandlers('app-home')}>進入會員區</Link>
               </Button>
             ) : !user ? (
