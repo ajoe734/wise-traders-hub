@@ -1,5 +1,6 @@
 import React from 'react';
 import { NewsEventRow } from './NewsEventRow';
+import { coerceStocksString } from '@/checkup/lib/edgeCoerce';
 
 /**
  * NewsTab — Free Checkup「新聞分析」tab。
