@@ -44,6 +44,7 @@ const HOLDINGS_TAB_PROP_SCHEMA = {
   losers: _opt('any'), reversalConditions: _opt('any'),
   reviewingEvent: _opt('any'), setReviewingEvent: _opt('any'), updateReversal: _opt('any'),
   globalPriorityList: _opt('any'),
+  actionPriorityItems: _opt('any'),
   searchQ: _opt('any'), setSearchQ: _opt('any'),
   filterDecision: _opt('any'), setFilterDecision: _opt('any'),
   filterThesis: _opt('any'), setFilterThesis: _opt('any'),
@@ -94,7 +95,7 @@ function HoldingsTab(props) {
     // reversal
     losers, reversalConditions, reviewingEvent, setReviewingEvent, updateReversal,
     // action priority
-    globalPriorityList, decisionsMap, STOCK_META,
+    globalPriorityList, decisionsMap, STOCK_META, actionPriorityItems,
     // filter bar
     filteredSortedList,
     searchQ, setSearchQ,
@@ -192,11 +193,10 @@ function HoldingsTab(props) {
         alpha={alpha}
       />
 
-      {/* ══════════ Action Priority（單行 inline 文字流） ══════════ */}
+      {/* ══════════ Action Priority（單行 inline 文字流） ══════════
+          B-P5: items 在 parent 已預先含 tag/desc，元件不再吃 decisionsMap/stockMeta */}
       <HoldingsActionPriority
-        items={globalPriorityList}
-        decisionsMap={decisionsMap}
-        stockMeta={STOCK_META}
+        items={actionPriorityItems || globalPriorityList}
         WB={WB}
         onPick={setExpandedDecision}
       />

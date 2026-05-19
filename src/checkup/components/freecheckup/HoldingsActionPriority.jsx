@@ -4,12 +4,14 @@ import React from 'react';
  * HoldingsActionPriority — Holdings tab 頂部 Action Priority 單行文字流
  * 抽自 FreeCheckup.jsx L3684-L3768，純展示元件，無內部 state。
  *
- * 不引入新 state owner、不變更樣式輸出。
+ * B-P5 (holdings audit 2026-05)：
+ *   parent 預先組裝 items（含 tag/desc），元件不再接 decisionsMap/STOCK_META 全表。
+ *   舊呼叫（傳 holdings + decisionsMap + stockMeta）仍 fallback 支援。
  */
 function HoldingsActionPriorityImpl({
   items = [],
-  decisionsMap = {},
-  stockMeta = {},
+  decisionsMap,
+  stockMeta,
   WB,
   onPick,
 }) {
@@ -44,17 +46,23 @@ function HoldingsActionPriorityImpl({
         display: 'flex', flexWrap: 'wrap',
         gap: '14px 28px', flex: 1,
       }}>
-        {items.map((h) => {
-          const dec = decisionsMap[h.code];
-          const tag = dec?.actionType === 'exit' ? 'EXIT'
-            : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH';
-          const desc = dec?.actionText
-            ? (dec.actionText.length > 32 ? dec.actionText.slice(0, 30) + '…' : dec.actionText)
-            : (stockMeta[h.code]?.strategy || '持續監控');
+        {items.map((it) => {
+          // B-P5: items 已含 tag/desc/pct；舊呼叫 fallback 至 decisionsMap/stockMeta
+          let tag = it.tag;
+          let desc = it.desc;
+          if (!tag || !desc) {
+            const dec = decisionsMap ? decisionsMap[it.code] : null;
+            tag = tag || (dec?.actionType === 'exit' ? 'EXIT'
+              : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH');
+            desc = desc || (dec?.actionText
+              ? (dec.actionText.length > 32 ? dec.actionText.slice(0, 30) + '…' : dec.actionText)
+              : (stockMeta?.[it.code]?.strategy || '持續監控'));
+          }
+          const pct = it.pct ?? 0;
           return (
             <button
-              key={h.code}
-              onClick={() => onPick && onPick(h.code)}
+              key={it.code}
+              onClick={() => onPick && onPick(it.code)}
               style={{
                 background: 'transparent', border: 'none', padding: 0,
                 fontFamily: 'inherit', cursor: 'pointer',
@@ -70,12 +78,12 @@ function HoldingsActionPriorityImpl({
                   fontSize: 9, color: WB.accent, letterSpacing: '0.16em',
                   fontWeight: 500,
                 }}>{tag}</span>
-                <span>{h.code}</span>
-                <span style={{ color: WB.inkSub, fontWeight: 400 }}>{h.name}</span>
+                <span>{it.code}</span>
+                <span style={{ color: WB.inkSub, fontWeight: 400 }}>{it.name}</span>
                 <span style={{
                   color: WB.inkLight, fontSize: 11, fontVariantNumeric: 'tabular-nums', fontWeight: 400,
                 }}>
-                  {(h.pct ?? 0) >= 0 ? '+' : ''}{(h.pct ?? 0).toFixed(1)}%
+                  {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
                 </span>
               </span>
               <span style={{

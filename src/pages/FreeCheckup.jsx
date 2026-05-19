@@ -51,6 +51,7 @@ import {
   WB,
   wbTone,
   EMPTY_SPARK,
+  EMPTY_HOLDINGS,
   Sparkline,
   TYPE_COLOR,
   MEMO_Q,
@@ -1164,7 +1165,16 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [holdingsCodesKey, ready]);
-  const H = holdings || [];
+  // B-P2 (holdings audit 2026-05): 以 value-key 穩定 H reference。
+  // applyMarketQuotesToHoldings / mergeTradeIntoHoldings 內部恆 spread 新陣列，
+  // 即使 quote tick 後值未變，holdings reference 仍會抖動 → 下游 9 個 useMemo 全失效。
+  // 此處用 code|qty|price|cost hash，值未變時回傳同一 reference。
+  const holdingsValueKey = useMemo(() => {
+    if (!Array.isArray(holdings) || holdings.length === 0) return '';
+    return holdings.map(h => `${h.code}|${h.qty}|${h.price}|${h.cost}`).join(';');
+  }, [holdings]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const H = useMemo(() => holdings || EMPTY_HOLDINGS, [holdingsValueKey]);
 
   // ── Sparkline 載入：持倉變動時，僅補抓還沒快取的代碼 ──
   useEffect(() => {
@@ -1307,6 +1317,21 @@ export default function App() {
   const globalPriorityList = useMemo(
     () => globalSortedList.filter(h => (decisionsMap[h.code]?.priority ?? 5) <= 4).slice(0, 3),
     [globalSortedList, decisionsMap]
+  );
+
+  // B-P5 (holdings audit 2026-05): 預先在 parent 組裝 3 筆 priority items（含 tag/desc），
+  // HoldingsActionPriority 不再需要接 decisionsMap / STOCK_META 全表。
+  const actionPriorityItems = useMemo(
+    () => globalPriorityList.map(h => {
+      const dec = decisionsMap[h.code];
+      const tag = dec?.actionType === 'exit' ? 'EXIT'
+        : dec?.actionType === 'review' ? 'REVIEW' : 'WATCH';
+      const desc = dec?.actionText
+        ? (dec.actionText.length > 32 ? dec.actionText.slice(0, 30) + '…' : dec.actionText)
+        : (STOCK_META[h.code]?.strategy || '持續監控');
+      return { code: h.code, name: h.name, pct: h.pct ?? 0, tag, desc };
+    }),
+    [globalPriorityList, decisionsMap]
   );
 
   const exitList = useMemo(
@@ -2877,6 +2902,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               setReviewingEvent={setReviewingEvent}
               updateReversal={updateReversal}
               globalPriorityList={globalPriorityList}
+              actionPriorityItems={actionPriorityItems}
               decisionsMap={decisionsMap}
               STOCK_META={STOCK_META}
               filteredSortedList={filteredSortedList}
