@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useBrainStore } from '../stores/brainStore.js'
 import { usePortfolioRouteContext } from '../pages/usePortfolioRouteContext.js'
+import { holdingsValueKeyFull } from '../lib/holdingsSort.ts'
 
 const EMPTY_HOLDINGS = Object.freeze([])
 
