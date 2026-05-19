@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, lazy, Suspense } from "react";
 import { SEOLite as SEO } from "@/components/SEOLite";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -2925,7 +2925,6 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
               normalizedEvents={normalizedEvents}
               openHoldingDrawer={openHoldingDrawer}
               handleHoldingCardOpenDrawer={handleHoldingCardOpenDrawer}
-              cardGridCols={cardGridCols}
               showAll={showAll}
               setShowAll={setShowAll}
               setTab={setTab}
