@@ -534,10 +534,14 @@ const Index = () => {
             >
               選你的模式
             </h2>
-            <p className="text-sm md:text-base" style={{ color: 'rgba(23,23,23,0.65)' }}>
+            <p className="text-sm md:text-base mb-1.5" style={{ color: 'rgba(23,23,23,0.65)' }}>
               不同的投資哲學，同樣的致勝之道
             </p>
+            <p className="text-xs md:text-sm" style={{ color: 'rgba(23,23,23,0.5)' }}>
+              想直接跟著訊號行動，選跟單派；想學會判斷市場，選修煉派。
+            </p>
           </div>
+
 
           {/* Two-card grid */}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 md:gap-5 items-stretch">
