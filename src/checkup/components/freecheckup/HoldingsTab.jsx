@@ -125,6 +125,18 @@ function HoldingsTab(props) {
   const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
 
+  // D-Perf-R2 (2026-05 第二輪)：viewport 訂閱下沉到本元件，
+  // resize tick 只觸發 HoldingsTab 本身重渲，不再污染 FreeCheckup god component。
+  const vw = useViewportWidth(1280);
+  const cardGridCols = useMemo(
+    () => (vw <= 640
+      ? '1fr'
+      : vw <= 1279
+        ? 'repeat(2, minmax(0, 1fr))'
+        : 'repeat(3, minmax(0, 1fr))'),
+    [vw]
+  );
+
   // E2: expandedDecision 改由 brainStore 管理（與 expandedStock 同步治理）
   const expandedDecision = useBrainStore((s) => s.expandedDecision);
   const setExpandedDecision = useBrainStore((s) => s.setExpandedDecision);
