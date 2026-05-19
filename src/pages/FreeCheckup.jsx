@@ -1305,8 +1305,8 @@ export default function App() {
   }, [H, compareByPriority]);
 
   const globalPriorityList = useMemo(
-    () => globalSortedList.filter(h => priorityOf(h) <= 4).slice(0, 3),
-    [globalSortedList, priorityOf]
+    () => globalSortedList.filter(h => (decisionsMap[h.code]?.priority ?? 5) <= 4).slice(0, 3),
+    [globalSortedList, decisionsMap]
   );
 
   const exitList = useMemo(
