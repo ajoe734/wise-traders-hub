@@ -332,17 +332,6 @@ const Index = () => {
                 </Button>
               </div>
             </div>
-
-              {/* Mobile CTA - Only visible below lg: */}
-              <div className="lg:hidden flex justify-center mt-4">
-                <Button asChild size="lg" className="group">
-                  <Link to="/pricing">
-                    查看方案說明
-                    <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
-                  </Link>
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
       </section>
