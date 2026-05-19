@@ -180,7 +180,7 @@ grep -cE 'useMutation\('      # mu
 ### 3.6 Admin /admin/:expertSlug（10）
 
 #### `/admin/:slug` Dashboard.tsx — 248 / ue 1 / **sb 10** / rq 2
-- 🟠 **[P1]** 10 個 sb 直查 + 僅 2 個 query → **N+1 風險**。抽 `useAdminDashboard()` 一次性 RPC 或 parallel `Promise.all`。
+- ✅ **[已查證・非 N+1]** 10 個 sb 全部在單一 `useQuery` 內以 `Promise.all` 並行（L36-44），另 1 個 capital query。grep 數字誤導，實際健康。
 
 #### `/admin/:slug/signals` Signals.tsx — **1246 行** / ue 1 / **sb 14** / rq 0
 - 🟠 **[P1]** B4 已抽 `useAdminSignals` hook + `PreviewTradeItem` 子元件，但主檔仍 1246 行。下一輪繼續抽 detail dialog / batch table row。
@@ -199,7 +199,7 @@ grep -cE 'useMutation\('      # mu
 - 🟠 **[P1]** 巨檔；8 個 sb + 僅 2 個 query。表單抽 `useProfileForm` + `useFormDraft`，sb 改 mutation。
 
 #### `/admin/:slug/performance` Performance.tsx — **695 行 / ue 5** / sb 2 / rq 0
-- 🟠 **[P1]** 695 行 + 5 effect 無 query。Recharts 已用，**確認 lazy import**。
+- 🟠 **[P1]** 695 行 + 5 effect 無 query。**已查證無 recharts import**（資料表/卡片頁，非圖表），lazy 不適用。剩工作：抽 `usePerformanceData` query + 拆子元件。
 
 #### `/admin/:slug/reason-templates` ReasonTemplates — 218 / ue 1 / sb 3 / rq 1
 #### `/admin/:slug/signal-templates` SignalTemplates — 280 / ue 1 / sb 5 / rq 1
@@ -211,10 +211,10 @@ grep -cE 'useMutation\('      # mu
 ### 3.7 Company /company/*（22）
 
 #### `/company` Dashboard.tsx — 122 / 0 / **sb 9** / rq 1
-- 🟠 **[P1]** 9 個 sb 直查混 1 query → **典型 N+1**。抽 `useCompanyDashboard()` 並行化。
+- ✅ **[已查證・非 N+1]** 9 個 sb 全部在單一 `useQuery` 內以 `Promise.all` 並行（L20-30）+ 30s staleTime。grep 數字誤導，實際健康。
 
 #### `/company/users` Users.tsx — 435 / ue 1 / sb 2 / rq 0
-- 🟠 **[P1]** Batch 5b 測試裡寫了 `['company','users',debouncedSearch]` key 合約，但檔內 `rq 0`。**測試合約 vs 實作脫鉤** — 立刻檢查實作是否被回退。
+- ✅ **[已查證・合約對齊]** 實作為 `useQuery<UserRow[]>({ queryKey: ['company','users', debouncedSearch], ... })` + `keepPreviousData`（L76-86），與 batch5b 測試合約完全一致。grep 沒抓到泛型 `useQuery<T>`。
 
 #### `/company/analysts` Analysts.tsx — 587 / ue 1 / sb 7 / rq 1
 - 🟠 **[P1]** B6 已抽 `useSessionState`，但 7 個 sb 直查仍在；行數 587 偏高。
@@ -251,7 +251,7 @@ grep -cE 'useMutation\('      # mu
 - 🟡 **[P2]** 5 sb 抽 hook。
 
 #### `/company/backtest-monitor` BacktestMonitor.tsx — **664 行** / 0 / sb 3 / rq 1
-- 🟠 **[P1]** 巨檔 + Recharts。**確認 Recharts lazy import**；否則仿 Revenue 模式抽。
+- 🟠 **[P1]** 巨檔。**已查證無 recharts import**（純表格/狀態頁）。剩工作：抽 `useBacktestMonitor` + 拆子元件。
 
 #### `/company/plans` Plans.tsx — **742 行** / ue 1 / sb 5 / rq 1
 - 🟠 **[P1]** 742 行 + 5 sb 混 1 query → 抽 hook 並拆 dialog。
@@ -310,15 +310,15 @@ grep -cE 'useMutation\('      # mu
 
 ### P1（本月）
 - [ ] **抽 useCheckoutFlow** 統一 3 個 checkout（-1000 行、+18 query）
-- [ ] **company/Dashboard N+1**：9 sb → 1 RPC 或 `Promise.all`
+- [x] ~~**company/Dashboard N+1**~~：已查證為單 query Promise.all，非 N+1
 - [ ] **company/Payments 864 行**：抽 hook + 拆 table/dialog
 - [ ] **company/Plans 742 行**：同上
 - [ ] **admin/Profile 610 行 + 8 sb**：抽 useProfileForm
-- [ ] **admin/Performance 695 行 + 5 ue**：Recharts lazy 確認 + 拆元件
+- [ ] **admin/Performance 695 行 + 5 ue**：抽 hook + 拆元件（無 recharts，lazy 不適用）
 - [ ] **admin/Signals 1246 行**：B4 二輪，拆 detail dialog
-- [ ] **admin/Dashboard 10 sb**：N+1 重構
-- [ ] **Users.tsx 合約脫鉤**：Batch 5b 測試與實作對齊
-- [ ] **company/BacktestMonitor 664 行**：Recharts lazy 確認
+- [x] ~~**admin/Dashboard 10 sb**~~：已查證為單 query Promise.all，非 N+1
+- [x] ~~**Users.tsx 合約脫鉤**~~：已查證實作為 `useQuery<UserRow[]>(['company','users',debouncedSearch])`，合約對齊
+- [ ] **company/BacktestMonitor 664 行**：抽 hook（無 recharts）
 
 ### P2（季度）
 - [ ] 23 個小頁面的 sb 直查 → useMutation 收斂（提升錯誤一致性）
