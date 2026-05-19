@@ -551,7 +551,7 @@ const Index = () => {
               to="/experts?role=advisor"
               className="jianghu-card group relative block overflow-hidden rounded-2xl"
               style={{
-                aspectRatio: '3 / 4',
+                aspectRatio: '4 / 5',
                 border: '1px solid rgba(23,23,23,0.12)',
                 backgroundColor: '#1a1a1a',
               }}
