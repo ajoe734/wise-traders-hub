@@ -169,9 +169,9 @@ function HoldingsTab(props) {
         totalVal={totalVal}
         totalCost={totalCost}
         holdingsCount={H.length}
-        winnersCount={winners.length}
-        exitListLength={exitList?.length || 0}
-        reviewListLength={reviewList?.length || 0}
+        winnersCount={winnersCount}
+        exitListLength={exitListCount || 0}
+        reviewListLength={reviewListCount || 0}
         maxHoldings={MAX_HOLDINGS}
         rtConnected={rtConnected}
         lastUpdate={lastUpdate}
