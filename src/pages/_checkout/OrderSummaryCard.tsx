@@ -94,9 +94,11 @@ export function OrderSummaryCard({
           </p>
         </div>
 
-        <Badge variant="outline" className="w-full justify-center py-1">
-          🧪 沙盒測試模式 — 不會實際扣款
-        </Badge>
+        {isSandbox && (
+          <Badge variant="outline" className="w-full justify-center py-1">
+            🧪 沙盒測試模式 — 不會實際扣款
+          </Badge>
+        )}
 
         {user ? (
           <Button
