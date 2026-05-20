@@ -89,7 +89,13 @@ export default function CheckupCheckout() {
   const price = Math.max(0, basePrice - crossDiscount);
 
   const onSubmit = async () => {
-    if (!user) { navigate("/auth/login"); return; }
+    if (!user) {
+      try {
+        sessionStorage.setItem('redirect_after_login', `${window.location.pathname}${window.location.search}`);
+      } catch {}
+      navigate("/auth/login");
+      return;
+    }
     setIsProcessing(true);
     try {
       const attribution = readAttribution();

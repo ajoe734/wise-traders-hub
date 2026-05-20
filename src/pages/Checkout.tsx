@@ -308,6 +308,9 @@ const Checkout = () => {
 
   const handleCheckout = async () => {
     if (!user) {
+      try {
+        sessionStorage.setItem('redirect_after_login', `${window.location.pathname}${window.location.search}`);
+      } catch {}
       navigate('/auth/login');
       return;
     }
