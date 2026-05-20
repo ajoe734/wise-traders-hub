@@ -17,6 +17,7 @@ interface PaymentMethodPickerProps {
   setSelectedProvider: (id: string) => void;
   isAdvisor: boolean;
   isAcpay: boolean;
+  isSandbox?: boolean;
   acpayCardRef: RefObject<HTMLDivElement>;
   cardHolderName: string;
   setCardHolderName: (v: string) => void;
