@@ -43,6 +43,7 @@ interface PaymentProvider {
   provider_type: string;
   is_active: boolean;
   is_default: boolean;
+  env?: string | null;
 }
 
 const Checkout = () => {
