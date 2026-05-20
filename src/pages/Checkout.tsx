@@ -172,7 +172,7 @@ const Checkout = () => {
           .single(),
         supabase
           .from('payment_providers_safe')
-          .select('id, display_name, provider_type, is_active, is_default')
+          .select('id, display_name, provider_type, is_active, is_default, env')
           .eq('is_active', true)
           .order('is_default', { ascending: false }),
         user
