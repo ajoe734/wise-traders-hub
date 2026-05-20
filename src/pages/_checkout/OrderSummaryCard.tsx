@@ -23,6 +23,7 @@ interface OrderSummaryCardProps {
   formatPrice: (p: number) => string;
   user: { id: string } | null;
   isAdvisor: boolean;
+  isSandbox?: boolean;
   isProcessing: boolean;
   alreadySubscribed: boolean;
   onCheckout: () => void;
@@ -40,6 +41,7 @@ export function OrderSummaryCard({
   formatPrice,
   user,
   isAdvisor,
+  isSandbox = false,
   isProcessing,
   alreadySubscribed,
   onCheckout,
@@ -92,9 +94,11 @@ export function OrderSummaryCard({
           </p>
         </div>
 
-        <Badge variant="outline" className="w-full justify-center py-1">
-          🧪 沙盒測試模式 — 不會實際扣款
-        </Badge>
+        {isSandbox && (
+          <Badge variant="outline" className="w-full justify-center py-1">
+            🧪 沙盒測試模式 — 不會實際扣款
+          </Badge>
+        )}
 
         {user ? (
           <Button
@@ -111,7 +115,7 @@ export function OrderSummaryCard({
             ) : (
               <>
                 <CreditCard className="h-4 w-4 mr-2" />
-                確認付款（沙盒）
+                {isSandbox ? '確認付款（沙盒）' : '確認付款'}
               </>
             )}
           </Button>

@@ -43,6 +43,7 @@ interface PaymentProvider {
   provider_type: string;
   is_active: boolean;
   is_default: boolean;
+  env?: string | null;
 }
 
 const Checkout = () => {
@@ -79,6 +80,7 @@ const Checkout = () => {
   // Determine if selected provider is ACpay
   const selectedProviderObj = providers.find(p => p.id === selectedProvider);
   const isAcpay = selectedProviderObj?.provider_type === 'acpay';
+  const isSandbox = (selectedProviderObj?.env ?? 'production') !== 'production';
 
   const { getPrime: acpayGetPrime } = useAcpaySdk(isAcpay, {
     numberEl: '#portal-acpay-card-number',
@@ -172,7 +174,7 @@ const Checkout = () => {
           .single(),
         supabase
           .from('payment_providers_safe')
-          .select('id, display_name, provider_type, is_active, is_default')
+          .select('id, display_name, provider_type, is_active, is_default, env')
           .eq('is_active', true)
           .order('is_default', { ascending: false }),
         user
@@ -564,6 +566,7 @@ const Checkout = () => {
                 setSelectedProvider={setSelectedProvider}
                 isAdvisor={isAdvisor}
                 isAcpay={isAcpay}
+                isSandbox={isSandbox}
                 acpayCardRef={acpayCardRef}
                 cardHolderName={cardHolderName}
                 setCardHolderName={setCardHolderName}
@@ -592,6 +595,7 @@ const Checkout = () => {
                 formatPrice={formatPrice}
                 user={user}
                 isAdvisor={isAdvisor}
+                isSandbox={isSandbox}
                 isProcessing={isProcessing}
                 alreadySubscribed={alreadySubscribed}
                 onCheckout={handleCheckout}

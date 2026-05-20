@@ -1,63 +1,40 @@
-# 修正計畫
+## 問題
 
-## 我已確認的問題
-- 你貼的正式站 checkout 連結不是「登入後資料沒顯示」而已，實際上是頁面直接黑掉。
-- 瀏覽器 production console 已出現 React `error #310`，官方對應是：`Rendered more hooks than during the previous render.`
-- network 也證明資料其實有回來：`expert_plans`、`payment_providers_safe`、`experts` 都是 200。
-- 因此目前 root cause 偏向 `Checkout.tsx` 的 hooks 呼叫順序錯誤，不是後端查不到資料。
+Checkout 頁面三處「沙盒」字樣是 hardcoded，與後端實際付款環境完全脫鉤。
 
-## 具體 root cause
-`src/pages/Checkout.tsx` 目前有這個結構：
-- 前面先 `if (loading) return ...`
-- 再 `if (!plan || !expert) return ...`
-- 但後面才呼叫：
-  - `useCrossProductDiscount(...)`
-  - `useState(0)` for `upgradeCredit`
-  - `useEffect(...)` for upgrade credit
+DB `payment_settings.ecpay_credentials.env = "production"`，綠界其實會真的扣款，但前台一律顯示「沙盒測試模式」，使用者誤以為退回沙盒。
 
-這會造成：
-- 第一次 render（loading=true）時，後面那批 hooks 沒被呼叫
-- 下一次 render（loading=false）時，後面 hooks 又被呼叫
-- hooks 數量前後不一致，正式環境就直接炸成黑頁
+## 方案
 
-同檔對照：`CheckupCheckout.tsx` 已經有把 hooks 放在 early return 之前，還寫了註解 `Hooks must be called unconditionally`，所以這更能證明 `Checkout.tsx` 是漏改。
+讓前台讀取後端真實 env，僅在 `env !== "production"` 時才顯示沙盒提示。
 
-## 我會怎麼改
-1. 調整 `src/pages/Checkout.tsx` 的 hooks 順序
-   - 把 `useCrossProductDiscount`
-   - `upgradeCredit / upgradeFromSubId` 的 `useState`
-   - 對應的 `useEffect`
-   全部移到任何 early return 之前，確保每次 render hooks 順序一致。
+### 1. 後端揭露 env 給前台
 
-2. 保持功能不變
-   - 不改 Hero
-   - 不改首頁其他區塊
-   - 不改 checkout 商業邏輯
-   - 不改資料表／後端
-   - 只修這次黑頁 root cause
+新增一個極輕量公開查詢點：擴充既有的 `admin-ecpay-status` 不行（需 admin 權限），改在 `payment_settings` 增加可公開讀取的 view，或更簡單：在 `payment_providers.config` 寫入 `env` 欄位，由 RLS policy "Anyone can view active providers" 直接帶給前台。
 
-3. 驗證範圍
-   - 重新打開 `https://legendflow.tw/checkout/sharkgu/ab1d8e55-290b-43a8-8cbb-b94dcc937200`
-   - 確認不再黑頁
-   - 確認 plan / expert / provider 正常顯示
-   - 再驗一次未登入 → 登入 → 回到 checkout 的流程沒有被這次修正影響
+採後者，遷移內容：
 
-## 技術說明
-這次不是資料問題，而是 React hooks 規則問題：
-
-```text
-錯誤模式：
-render A -> 提前 return，只跑一部分 hooks
-render B -> 不提前 return，多跑了其他 hooks
-=> Rendered more hooks than during the previous render
+```sql
+update payment_providers
+set config = jsonb_set(coalesce(config, '{}'::jsonb), '{env}', '"production"')
+where provider_type = 'ecpay';
 ```
 
-正確模式：
-```text
-每一次 render
--> 先固定呼叫所有 hooks
--> 再決定 loading / empty / content 要 return 哪個 UI
-```
+之後 ECPay 設定維運時，DB 兩處 (`payment_settings.ecpay_credentials.env`、`payment_providers.config.env`) 必須同步更新；可在 `admin-ecpay-status` 或設定 UI 內補一個 trigger / 寫入同步邏輯（本次先以遷移修一次正式環境）。
 
-## 預期結果
-修完後，正式站這條 checkout 連結應該會正常顯示內容，不會再只剩黑畫面。
+### 2. 前台依 env 切顯示
+
+- `src/pages/Checkout.tsx`：從 `providers` 找出 selected provider 的 `config.env`，推導 `isSandbox = env !== 'production'`，傳給兩個子元件。
+- `src/pages/_checkout/PaymentMethodPicker.tsx`：`isSandbox` 為 true 才顯示 `🧪 目前為沙盒測試模式`。
+- `src/pages/_checkout/OrderSummaryCard.tsx`：badge (line 95-97) 與按鈕字 (line 114) 改為條件式；production 時 badge 不顯示，按鈕字改回「確認付款」。
+
+### 3. 驗證
+
+- 在 preview（後端為 production）登入 `/checkout/sharkgu/ab1d8e55-...`，badge 與「（沙盒）」字樣應消失。
+- 將 `payment_providers.config.env` 暫改為 `stage` 驗證會重新顯示，再改回 `production`。
+- 不動 ACpay / LINE Pay / 匯款的既有行為。
+
+## 不會改動
+
+- 真實付款流程、edge function 的 mode 解析邏輯（`ecpayCredentials.ts`）皆不變。
+- 只調整前台顯示與一次資料修正。
