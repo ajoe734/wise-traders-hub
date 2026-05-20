@@ -566,6 +566,7 @@ const Checkout = () => {
                 setSelectedProvider={setSelectedProvider}
                 isAdvisor={isAdvisor}
                 isAcpay={isAcpay}
+                isSandbox={isSandbox}
                 acpayCardRef={acpayCardRef}
                 cardHolderName={cardHolderName}
                 setCardHolderName={setCardHolderName}
