@@ -595,6 +595,7 @@ const Checkout = () => {
                 formatPrice={formatPrice}
                 user={user}
                 isAdvisor={isAdvisor}
+                isSandbox={isSandbox}
                 isProcessing={isProcessing}
                 alreadySubscribed={alreadySubscribed}
                 onCheckout={handleCheckout}
