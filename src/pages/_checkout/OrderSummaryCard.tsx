@@ -115,7 +115,7 @@ export function OrderSummaryCard({
             ) : (
               <>
                 <CreditCard className="h-4 w-4 mr-2" />
-                確認付款（沙盒）
+                {isSandbox ? '確認付款（沙盒）' : '確認付款'}
               </>
             )}
           </Button>
