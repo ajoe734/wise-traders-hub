@@ -80,6 +80,7 @@ const Checkout = () => {
   // Determine if selected provider is ACpay
   const selectedProviderObj = providers.find(p => p.id === selectedProvider);
   const isAcpay = selectedProviderObj?.provider_type === 'acpay';
+  const isSandbox = (selectedProviderObj?.env ?? 'production') !== 'production';
 
   const { getPrime: acpayGetPrime } = useAcpaySdk(isAcpay, {
     numberEl: '#portal-acpay-card-number',
