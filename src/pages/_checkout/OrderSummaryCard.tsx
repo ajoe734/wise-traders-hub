@@ -23,6 +23,7 @@ interface OrderSummaryCardProps {
   formatPrice: (p: number) => string;
   user: { id: string } | null;
   isAdvisor: boolean;
+  isSandbox?: boolean;
   isProcessing: boolean;
   alreadySubscribed: boolean;
   onCheckout: () => void;
@@ -40,6 +41,7 @@ export function OrderSummaryCard({
   formatPrice,
   user,
   isAdvisor,
+  isSandbox = false,
   isProcessing,
   alreadySubscribed,
   onCheckout,
