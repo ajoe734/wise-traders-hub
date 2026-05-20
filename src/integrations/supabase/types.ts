@@ -2721,6 +2721,7 @@ export type Database = {
         Row: {
           created_at: string | null
           display_name: string | null
+          env: string | null
           id: string | null
           is_active: boolean | null
           is_default: boolean | null
@@ -2729,6 +2730,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           display_name?: string | null
+          env?: never
           id?: string | null
           is_active?: boolean | null
           is_default?: boolean | null
@@ -2737,6 +2739,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           display_name?: string | null
+          env?: never
           id?: string | null
           is_active?: boolean | null
           is_default?: boolean | null
