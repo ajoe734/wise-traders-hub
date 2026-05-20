@@ -47,6 +47,7 @@ export function PaymentMethodPicker({
   setSelectedProvider,
   isAdvisor,
   isAcpay,
+  isSandbox = false,
   acpayCardRef,
   cardHolderName,
   setCardHolderName,
@@ -64,7 +65,7 @@ export function PaymentMethodPicker({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">選擇付款方式</CardTitle>
-          <p className="text-xs text-muted-foreground">🧪 目前為沙盒測試模式</p>
+          {isSandbox && <p className="text-xs text-muted-foreground">🧪 目前為沙盒測試模式</p>}
         </CardHeader>
         <CardContent>
           {providers.length === 0 ? (
