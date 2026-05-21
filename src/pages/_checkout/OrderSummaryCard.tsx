@@ -46,6 +46,14 @@ export function OrderSummaryCard({
   alreadySubscribed,
   onCheckout,
 }: OrderSummaryCardProps) {
+  const navigate = useNavigate();
+  const handleLoginRedirect = () => {
+    sessionStorage.setItem(
+      'redirect_after_login',
+      `${window.location.pathname}${window.location.search}`,
+    );
+    navigate('/auth/login');
+  };
   return (
     <Card className="sticky top-24">
       <CardHeader>
