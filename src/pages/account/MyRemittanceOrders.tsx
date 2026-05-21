@@ -59,6 +59,7 @@ const EMPTY_DRAFT: Draft = {
 
 export default function MyRemittanceOrders() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: orders = null } = useQuery({
     queryKey: ['remittance-orders', user?.id],
