@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +46,14 @@ export function OrderSummaryCard({
   alreadySubscribed,
   onCheckout,
 }: OrderSummaryCardProps) {
+  const navigate = useNavigate();
+  const handleLoginRedirect = () => {
+    sessionStorage.setItem(
+      'redirect_after_login',
+      `${window.location.pathname}${window.location.search}`,
+    );
+    navigate('/auth/login');
+  };
   return (
     <Card className="sticky top-24">
       <CardHeader>
@@ -120,8 +128,13 @@ export function OrderSummaryCard({
             )}
           </Button>
         ) : (
-          <Button className={cn("w-full", !isAdvisor && "bg-mentor hover:bg-mentor/90 text-white")} size="lg" asChild>
-            <Link to="/auth/login">登入後付款</Link>
+          <Button
+            type="button"
+            onClick={handleLoginRedirect}
+            className={cn("w-full", !isAdvisor && "bg-mentor hover:bg-mentor/90 text-white")}
+            size="lg"
+          >
+            登入後付款
           </Button>
         )}
 
