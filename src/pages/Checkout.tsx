@@ -485,28 +485,37 @@ const Checkout = () => {
         return;
       }
 
-      // Other providers: simulate payment and create subscription directly
-      const expiresAt = new Date();
-      if (billingCycle === 'monthly') {
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
-      } else {
-        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+      // Remittance / other manual providers: create a remittance_orders row via edge function.
+      // Subscription is only created by admin via confirm-remittance after payment is verified.
+      const remitAttribution = readAttribution();
+      const { data: remitData, error: remitError } = await supabase.functions.invoke(
+        'create-expert-remittance',
+        {
+          body: {
+            planId: plan.id,
+            billingCycle,
+            originalAmount: basePrice,
+            discountAmount: totalDiscount,
+            discountReason,
+            attribution: remitAttribution,
+            upgradeFromSubscriptionId: upgradeCredit > 0 ? upgradeFromSubId : null,
+          },
+        },
+      );
+
+      if (remitError || !remitData?.orderId) {
+        console.error('Create remittance order error:', remitError || remitData);
+        setResultDialog({
+          open: true,
+          success: false,
+          message: '建立匯款訂單失敗，請稍後再試',
+        });
+        return;
       }
 
-      const { error: subError } = await supabase
-        .from('member_subscriptions')
-        .insert({
-          user_id: user.id,
-          plan_id: plan.id,
-          status: 'active',
-          provider_id: selectedProvider,
-          started_at: new Date().toISOString(),
-          expires_at: expiresAt.toISOString(),
-        });
-
-      if (subError) throw subError;
-
-      setResultDialog({ open: true, success: true });
+      // Navigate to remittance orders page so the user can fill in last-5 / payer name
+      navigate('/account/remittance');
+      return;
     } catch (err: any) {
       console.error('Checkout error:', err);
       setResultDialog({ open: true, success: false, message: err.message || '請稍後再試' });
