@@ -53,6 +53,11 @@ const handler = withLogging("create-expert-remittance", async (req, log) => {
     : 0;
   const amount = Math.max(0, original - discount);
 
+  const attributionPayload = {
+    ...(attribution && typeof attribution === "object" ? attribution : {}),
+    ...(upgradeFromSubscriptionId ? { upgrade_from_subscription_id: upgradeFromSubscriptionId } : {}),
+  };
+
   const { data, error } = await admin.from("remittance_orders").insert({
     user_id: userId,
     product_kind: "expert_plan",
@@ -63,8 +68,7 @@ const handler = withLogging("create-expert-remittance", async (req, log) => {
     original_amount: original,
     discount_amount: discount,
     discount_reason: discount > 0 ? (discountReason ?? null) : null,
-    attribution: attribution ?? null,
-    upgrade_from_subscription_id: upgradeFromSubscriptionId ?? null,
+    attribution: Object.keys(attributionPayload).length > 0 ? attributionPayload : null,
     last5: null,
     payer_name: null,
     status: "awaiting_info",
