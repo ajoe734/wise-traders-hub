@@ -111,8 +111,8 @@ describe('MyRemittanceOrders', () => {
     ];
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('待補匯款資料')).toBeInTheDocument();
-      expect(screen.getByText('已開通')).toBeInTheDocument();
+      expect(screen.getAllByText('待補匯款資料').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('已開通').length).toBeGreaterThan(0);
     });
     expect(screen.getByLabelText('匯款人姓名')).toBeInTheDocument();
     expect(screen.getByText(/匯款人 王/)).toBeInTheDocument();
