@@ -44,11 +44,17 @@ const orderChain = {
 
 const fromMock = vi.fn((_t: string) => orderChain);
 const invokeMock = vi.fn();
+const channelMock = {
+  on: vi.fn().mockReturnThis(),
+  subscribe: vi.fn().mockReturnThis(),
+};
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     from: (t: string) => fromMock(t),
     functions: { invoke: (...args: any[]) => invokeMock(...args) },
+    channel: vi.fn(() => channelMock),
+    removeChannel: vi.fn(),
   },
 }));
 
@@ -105,8 +111,8 @@ describe('MyRemittanceOrders', () => {
     ];
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('待補匯款資料')).toBeInTheDocument();
-      expect(screen.getByText('已開通')).toBeInTheDocument();
+      expect(screen.getAllByText('待補匯款資料').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('已開通').length).toBeGreaterThan(0);
     });
     expect(screen.getByLabelText('匯款人姓名')).toBeInTheDocument();
     expect(screen.getByText(/匯款人 王/)).toBeInTheDocument();
@@ -120,17 +126,22 @@ describe('MyRemittanceOrders', () => {
     });
   });
 
-  it('validates last5 format and does not call edge function', async () => {
+  it('validates last5 format and disables submit', async () => {
     orderQuery.data = [orderRow({ status: 'awaiting_info' })];
     renderPage();
     await waitFor(() => screen.getByLabelText('匯款人姓名'));
 
     fireEvent.change(screen.getByLabelText('匯款人姓名'), { target: { value: '張三' } });
-    fireEvent.change(screen.getByLabelText('轉出帳號末五碼'), { target: { value: '123' } });
-    fireEvent.click(screen.getByRole('button', { name: '送出對帳資料' }));
+    const last5Input = screen.getByLabelText('轉出帳號末五碼');
+    fireEvent.change(last5Input, { target: { value: '123' } });
+    fireEvent.blur(last5Input);
 
+    const submitBtn = screen.getByRole('button', { name: '送出對帳資料' });
+    expect(submitBtn).toBeDisabled();
+    expect(screen.getByText('請輸入 5 位數字')).toBeInTheDocument();
+
+    fireEvent.click(submitBtn);
     expect(invokeMock).not.toHaveBeenCalled();
-    expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: '末五碼格式錯誤' }));
   });
 
   it('invalidates and refetches after successful submit', async () => {

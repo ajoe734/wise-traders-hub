@@ -15,6 +15,7 @@ export interface CheckoutResult {
   open: boolean;
   success: boolean;
   message?: string;
+  canRetry?: boolean;
 }
 
 interface CheckoutResultDialogProps {
@@ -26,6 +27,7 @@ interface CheckoutResultDialogProps {
   formatPrice: (p: number) => string;
   isAdvisor: boolean;
   onAction: () => void;
+  onRetry?: () => void;
 }
 
 export function CheckoutResultDialog({
@@ -37,7 +39,9 @@ export function CheckoutResultDialog({
   formatPrice,
   isAdvisor,
   onAction,
+  onRetry,
 }: CheckoutResultDialogProps) {
+  const showRetry = !resultDialog?.success && resultDialog?.canRetry !== false && !!onRetry;
   return (
     <AlertDialog open={resultDialog?.open ?? false} onOpenChange={() => {}}>
       <AlertDialogContent>
@@ -83,11 +87,22 @@ export function CheckoutResultDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
+          {showRetry && (
+            <AlertDialogAction
+              onClick={onRetry}
+              className={cn(!isAdvisor && "bg-mentor hover:bg-mentor/90")}
+            >
+              重試
+            </AlertDialogAction>
+          )}
           <AlertDialogAction
             onClick={onAction}
-            className={cn(!isAdvisor && "bg-mentor hover:bg-mentor/90")}
+            className={cn(
+              showRetry ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                : (!isAdvisor && 'bg-mentor hover:bg-mentor/90'),
+            )}
           >
-            {resultDialog?.success ? '前往帳號頁' : '重試'}
+            {resultDialog?.success ? '前往帳號頁' : showRetry ? '關閉' : '重試'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

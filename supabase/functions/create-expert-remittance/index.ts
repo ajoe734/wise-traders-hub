@@ -20,6 +20,7 @@ const handler = withLogging("create-expert-remittance", async (req, log) => {
     discountReason,
     attribution,
     upgradeFromSubscriptionId,
+    clientRequestId,
   } = await req.json();
 
   if (!planId || !billingCycle) {
@@ -30,6 +31,35 @@ const handler = withLogging("create-expert-remittance", async (req, log) => {
   }
 
   const admin = serviceClient();
+
+  // ── Idempotency 1: same clientRequestId → return existing order
+  if (clientRequestId && typeof clientRequestId === "string") {
+    const { data: existingByReq } = await admin
+      .from("remittance_orders")
+      .select("id, amount")
+      .eq("user_id", userId)
+      .eq("client_request_id", clientRequestId)
+      .maybeSingle();
+    if (existingByReq) {
+      return jsonResponse({ orderId: existingByReq.id, amount: existingByReq.amount, reused: true });
+    }
+  }
+
+  // ── Idempotency 2: existing unfinished order for same plan/cycle → reuse
+  const { data: existingOpen } = await admin
+    .from("remittance_orders")
+    .select("id, amount")
+    .eq("user_id", userId)
+    .eq("plan_id", planId)
+    .eq("billing_cycle", billingCycle)
+    .in("status", ["awaiting_info", "pending"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingOpen) {
+    return jsonResponse({ orderId: existingOpen.id, amount: existingOpen.amount, reused: true });
+  }
+
   const { data: plan } = await admin
     .from("expert_plans")
     .select("id, price_monthly, price_yearly, is_active, review_status, expert_id")
@@ -72,9 +102,22 @@ const handler = withLogging("create-expert-remittance", async (req, log) => {
     last5: null,
     payer_name: null,
     status: "awaiting_info",
+    client_request_id: clientRequestId ?? null,
   }).select("id").single();
 
   if (error) {
+    // Unique-violation race: another concurrent insert won — re-read & return it
+    if ((error as any).code === "23505" && clientRequestId) {
+      const { data: raceWinner } = await admin
+        .from("remittance_orders")
+        .select("id, amount")
+        .eq("user_id", userId)
+        .eq("client_request_id", clientRequestId)
+        .maybeSingle();
+      if (raceWinner) {
+        return jsonResponse({ orderId: raceWinner.id, amount: raceWinner.amount, reused: true });
+      }
+    }
     log.error("remittance_insert_error", { message: error.message });
     return jsonResponse({ error: error.message }, { status: 500 });
   }
