@@ -251,6 +251,18 @@ const Account = () => {
       <div className="p-4 space-y-6">
         <h1 className="text-xl font-bold">帳號設定</h1>
 
+        {pendingRemitCount > 0 && (
+          <Card className="border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
+            <CardContent className="p-4 flex items-center justify-between gap-3">
+              <div className="text-sm">
+                <p className="font-medium">您有 {pendingRemitCount} 筆匯款訂單尚未補齊資料</p>
+                <p className="text-muted-foreground mt-0.5">補填末五碼與匯款人姓名，後台才能為您對帳開通。</p>
+              </div>
+              <Button size="sm" onClick={() => navigate('/account/remittance')}>前往補填</Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* User Info Card */}
         <Card>
           <CardContent className="p-4 space-y-3">
