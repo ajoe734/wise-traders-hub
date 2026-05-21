@@ -128,8 +128,13 @@ export function OrderSummaryCard({
             )}
           </Button>
         ) : (
-          <Button className={cn("w-full", !isAdvisor && "bg-mentor hover:bg-mentor/90 text-white")} size="lg" asChild>
-            <Link to="/auth/login">登入後付款</Link>
+          <Button
+            type="button"
+            onClick={handleLoginRedirect}
+            className={cn("w-full", !isAdvisor && "bg-mentor hover:bg-mentor/90 text-white")}
+            size="lg"
+          >
+            登入後付款
           </Button>
         )}
 
