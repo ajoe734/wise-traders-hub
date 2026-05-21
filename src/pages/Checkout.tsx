@@ -63,7 +63,11 @@ const Checkout = () => {
   const [isConfirming, setIsConfirming] = useState(false);
   const [loading, setLoading] = useState(true);
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
-  const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string } | null>(null);
+  const [resultDialog, setResultDialog] = useState<CheckoutResult | null>(null);
+  // Idempotency key for remittance order creation — kept stable per page session
+  const remittanceReqIdRef = useRef<string>(typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+  // Synchronous guard against rapid double-clicks before React re-renders isProcessing
+  const submittingRef = useRef(false);
   const [consentOpen, setConsentOpen] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
 
@@ -327,6 +331,8 @@ const Checkout = () => {
   };
 
   const proceedCheckout = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsProcessing(true);
 
     try {
@@ -499,6 +505,7 @@ const Checkout = () => {
             discountReason,
             attribution: remitAttribution,
             upgradeFromSubscriptionId: upgradeCredit > 0 ? upgradeFromSubId : null,
+            clientRequestId: remittanceReqIdRef.current,
           },
         },
       );
@@ -509,6 +516,7 @@ const Checkout = () => {
           open: true,
           success: false,
           message: '建立匯款訂單失敗，請稍後再試',
+          canRetry: true,
         });
         return;
       }
@@ -518,9 +526,10 @@ const Checkout = () => {
       return;
     } catch (err: any) {
       console.error('Checkout error:', err);
-      setResultDialog({ open: true, success: false, message: err.message || '請稍後再試' });
+      setResultDialog({ open: true, success: false, message: err.message || '請稍後再試', canRetry: true });
     } finally {
       setIsProcessing(false);
+      submittingRef.current = false;
     }
   };
 
@@ -650,6 +659,10 @@ const Checkout = () => {
           } else {
             setResultDialog(null);
           }
+        }}
+        onRetry={() => {
+          setResultDialog(null);
+          proceedCheckout();
         }}
       />
     </PortalLayout>
