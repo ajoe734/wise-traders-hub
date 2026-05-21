@@ -53,11 +53,27 @@ interface DbSubscription {
 
 const Account = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   
   const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(true);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [pendingRemitCount, setPendingRemitCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { count } = await supabase
+        .from('remittance_orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'awaiting_info');
+      if (!cancelled) setPendingRemitCount(count ?? 0);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
   const [subscribedExpertIds, setSubscribedExpertIds] = useState<Set<string>>(new Set());
   const [allAdvisors, setAllAdvisors] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null; channel_name?: string | null }[]>([]);
   const [allMentors, setAllMentors] = useState<{ id: string; slug: string; name: string; role: string; avatar_url: string | null; line_oa_id?: string | null; qr_code_url?: string | null; channel_name?: string | null }[]>([]);
