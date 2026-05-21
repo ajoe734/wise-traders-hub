@@ -44,11 +44,17 @@ const orderChain = {
 
 const fromMock = vi.fn((_t: string) => orderChain);
 const invokeMock = vi.fn();
+const channelMock = {
+  on: vi.fn().mockReturnThis(),
+  subscribe: vi.fn().mockReturnThis(),
+};
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     from: (t: string) => fromMock(t),
     functions: { invoke: (...args: any[]) => invokeMock(...args) },
+    channel: vi.fn(() => channelMock),
+    removeChannel: vi.fn(),
   },
 }));
 
