@@ -4,9 +4,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-const SESSION_KEY = "pending_remittance_checked";
+const SESSION_KEY = "pending_remittance_notified";
 
-// Paths where we should NOT auto-redirect (avoid trapping the user / breaking flows)
+// Paths where we should NOT remind (avoid noise during these flows)
 const SKIP_PREFIXES = [
   "/account/remittance",
   "/auth/",
@@ -17,8 +17,9 @@ const SKIP_PREFIXES = [
 
 /**
  * After login, if the user has any remittance_orders with status='awaiting_info',
- * redirect them once per session to /account/remittance to remind them to fill in
- * the payer name and last-5 digits.
+ * show a non-blocking toast with an action button to navigate to /account/remittance.
+ * We DO NOT force-redirect — the user can keep using the app and come back later
+ * via the toast, the Profile page entry, or the banner on /app/account.
  */
 export function PendingRemittanceGuard() {
   const { user, isAuthenticated, isLoading, hasRole } = useAuth();
@@ -29,17 +30,13 @@ export function PendingRemittanceGuard() {
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated || !user) {
-      // Reset on logout so next login re-checks
       sessionStorage.removeItem(SESSION_KEY);
       checkedRef.current = false;
       return;
     }
-    // Skip role-based admin/analyst users
     if (hasRole("company_admin") || user.expertSlug) return;
-    // Already checked this session
     if (checkedRef.current) return;
     if (sessionStorage.getItem(SESSION_KEY) === user.id) return;
-    // Skip on certain paths
     if (SKIP_PREFIXES.some((p) => location.pathname.startsWith(p))) return;
 
     checkedRef.current = true;
@@ -56,8 +53,16 @@ export function PendingRemittanceGuard() {
         toast({
           title: "您有匯款訂單尚未補齊資料",
           description: "請補填匯款人姓名與轉出帳號末五碼，後台才能為您對帳開通。",
+          duration: 10000,
+          action: (
+            <button
+              onClick={() => navigate("/account/remittance")}
+              className="text-xs font-medium underline-offset-2 hover:underline"
+            >
+              前往補填
+            </button>
+          ) as any,
         });
-        navigate("/account/remittance", { replace: true });
       }
     })();
   }, [isAuthenticated, isLoading, user, hasRole, navigate, location.pathname]);

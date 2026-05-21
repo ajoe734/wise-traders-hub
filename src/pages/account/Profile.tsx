@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +16,22 @@ const AccountProfile = () => {
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [pendingRemitCount, setPendingRemitCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { count } = await supabase
+        .from('remittance_orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'awaiting_info');
+      if (!cancelled) setPendingRemitCount(count ?? 0);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -197,6 +212,16 @@ const AccountProfile = () => {
           <div className="flex flex-wrap gap-4">
             <Button variant="outline" asChild>
               <Link to="/account/subscriptions">查看訂閱</Link>
+            </Button>
+            <Button variant="outline" asChild className="relative">
+              <Link to="/account/remittance">
+                我的匯款訂單
+                {pendingRemitCount > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-xs">
+                    {pendingRemitCount}
+                  </span>
+                )}
+              </Link>
             </Button>
             <Button variant="outline" asChild>
               <Link to="/account/notifications">提醒中心</Link>

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PortalLayout } from "@/components/layouts/PortalLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Info } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +59,7 @@ const EMPTY_DRAFT: Draft = {
 
 export default function MyRemittanceOrders() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: orders = null } = useQuery({
     queryKey: ['remittance-orders', user?.id],
@@ -163,14 +164,35 @@ export default function MyRemittanceOrders() {
   return (
     <PortalLayout hideAppEntry hideHeader>
       <div className="container max-w-2xl py-8 space-y-6">
-        <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
-          <Link to="/free-checkup"><ArrowLeft className="h-4 w-4" /> 返回</Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2 gap-2"
+          onClick={() => {
+            if (window.history.length > 1) navigate(-1);
+            else navigate('/account/profile');
+          }}
+        >
+          <ArrowLeft className="h-4 w-4" /> 返回
         </Button>
 
         <div>
           <h1 className="text-2xl font-bold">我的匯款訂單</h1>
           <p className="text-sm text-muted-foreground mt-1">完成轉帳後，請在這裡補填末五碼與匯款人姓名。</p>
         </div>
+
+        {/* Helpful notice: it's OK to leave this page */}
+        <Card className="border-dashed">
+          <CardContent className="p-4 flex gap-3 text-sm text-muted-foreground">
+            <Info className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+            <div className="space-y-1">
+              <p>請於 <b className="text-foreground">3 日內</b>完成銀行轉帳，並回到此頁補填末五碼與匯款人姓名。</p>
+              <p>您可以<b className="text-foreground">先離開本頁</b>，稍後從「會員中心 → 我的匯款訂單」或登入後的提醒回來繼續。</p>
+              <p>逾期未補資料，訂單會自動關閉，屆時請重新下單即可。</p>
+            </div>
+          </CardContent>
+        </Card>
+
 
         {orders === null ? (
           <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
