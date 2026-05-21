@@ -2142,6 +2142,7 @@ export type Database = {
           attribution: Json | null
           billing_cycle: string
           checkup_plan_id: string | null
+          client_request_id: string | null
           confirmed_at: string | null
           confirmed_by: string | null
           created_at: string
@@ -2163,6 +2164,7 @@ export type Database = {
           attribution?: Json | null
           billing_cycle: string
           checkup_plan_id?: string | null
+          client_request_id?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
@@ -2184,6 +2186,7 @@ export type Database = {
           attribution?: Json | null
           billing_cycle?: string
           checkup_plan_id?: string | null
+          client_request_id?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
