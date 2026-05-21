@@ -1,40 +1,58 @@
-## 問題
+# 修復：登入後跳到會員戰情室而不是回付款頁
 
-Checkout 頁面三處「沙盒」字樣是 hardcoded，與後端實際付款環境完全脫鉤。
+## 根因
 
-DB `payment_settings.ecpay_credentials.env = "production"`，綠界其實會真的扣款，但前台一律顯示「沙盒測試模式」，使用者誤以為退回沙盒。
+`src/pages/_checkout/OrderSummaryCard.tsx` 第 124 行的「登入後付款」按鈕：
 
-## 方案
-
-讓前台讀取後端真實 env，僅在 `env !== "production"` 時才顯示沙盒提示。
-
-### 1. 後端揭露 env 給前台
-
-新增一個極輕量公開查詢點：擴充既有的 `admin-ecpay-status` 不行（需 admin 權限），改在 `payment_settings` 增加可公開讀取的 view，或更簡單：在 `payment_providers.config` 寫入 `env` 欄位，由 RLS policy "Anyone can view active providers" 直接帶給前台。
-
-採後者，遷移內容：
-
-```sql
-update payment_providers
-set config = jsonb_set(coalesce(config, '{}'::jsonb), '{env}', '"production"')
-where provider_type = 'ecpay';
+```tsx
+<Button asChild>
+  <Link to="/auth/login">登入後付款</Link>
+</Button>
 ```
 
-之後 ECPay 設定維運時，DB 兩處 (`payment_settings.ecpay_credentials.env`、`payment_providers.config.env`) 必須同步更新；可在 `admin-ecpay-status` 或設定 UI 內補一個 trigger / 寫入同步邏輯（本次先以遷移修一次正式環境）。
+是純連結，**沒有寫入 `sessionStorage.redirect_after_login`**。
 
-### 2. 前台依 env 切顯示
+`Login.tsx` 登入成功後的回跳優先序是：
+1. `sessionStorage.getItem('redirect_after_login')`（沒有）
+2. `company_admin` → `/company`
+3. `user.expertSlug` → `/admin/{slug}`
+4. **fallback → `/app`** ← 你被丟到這裡
 
-- `src/pages/Checkout.tsx`：從 `providers` 找出 selected provider 的 `config.env`，推導 `isSandbox = env !== 'production'`，傳給兩個子元件。
-- `src/pages/_checkout/PaymentMethodPicker.tsx`：`isSandbox` 為 true 才顯示 `🧪 目前為沙盒測試模式`。
-- `src/pages/_checkout/OrderSummaryCard.tsx`：badge (line 95-97) 與按鈕字 (line 114) 改為條件式；production 時 badge 不顯示，按鈕字改回「確認付款」。
+對照 `Checkout.tsx:312` 與 `CheckupCheckout.tsx:94` 的「未登入自動導向」分支都有正確設定 sessionStorage，只有這顆手動按鈕漏掉。
 
-### 3. 驗證
+## 修改
 
-- 在 preview（後端為 production）登入 `/checkout/sharkgu/ab1d8e55-...`，badge 與「（沙盒）」字樣應消失。
-- 將 `payment_providers.config.env` 暫改為 `stage` 驗證會重新顯示，再改回 `production`。
-- 不動 ACpay / LINE Pay / 匯款的既有行為。
+**只動一個檔案**：`src/pages/_checkout/OrderSummaryCard.tsx`
 
-## 不會改動
+把該 Button 從 `<Link>` 改成 `onClick` handler：
 
-- 真實付款流程、edge function 的 mode 解析邏輯（`ecpayCredentials.ts`）皆不變。
-- 只調整前台顯示與一次資料修正。
+```tsx
+const handleLoginRedirect = () => {
+  sessionStorage.setItem(
+    'redirect_after_login',
+    `${window.location.pathname}${window.location.search}`
+  );
+  navigate('/auth/login');
+};
+
+<Button onClick={handleLoginRedirect} className={...} size="lg">
+  登入後付款
+</Button>
+```
+
+需要 `import { useNavigate } from 'react-router-dom'`。
+
+## 驗證
+
+1. 登出狀態進入 `/checkout/sharkgu/<planId>`
+2. 點「登入後付款」
+3. 完成 email/password 或 LINE 登入
+4. 應該回到 `/checkout/sharkgu/<planId>`，**不是** `/app`
+
+LINE 登入路徑也涵蓋——`Login.tsx` 的 `handleLineLogin` 已經會讀 `location.state.from`，但 sessionStorage 是更穩的 fallback（OAuth round-trip 後 location state 可能遺失）。
+
+## 範圍外（這次不動）
+
+- `redirect_after_login` 機制本身（已是現行慣例）
+- `Login.tsx` 回跳優先序
+- LINE callback 流程
