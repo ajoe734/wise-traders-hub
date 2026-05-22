@@ -33,6 +33,7 @@ export default function CompanyRemittance() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'awaiting_info' | 'pending' | 'confirmed' | 'rejected' | 'expired' | 'all'>('pending');
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const { data, isFetching, refetch } = useQuery({
     queryKey: ['company', 'remittance', filter],
@@ -70,23 +71,37 @@ export default function CompanyRemittance() {
   };
 
   const confirm = async (order: Order) => {
-    const { data, error } = await supabase.functions.invoke('confirm-remittance', { body: { orderId: order.id } });
-    if (error || (data as any)?.error) {
-      toast({ title: '確認失敗', description: error?.message || (data as any)?.error, variant: 'destructive' });
-      return;
+    if (busyId) return;
+    setBusyId(order.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('confirm-remittance', { body: { orderId: order.id } });
+      const errMsg = error?.message || (data as any)?.error;
+      if (errMsg) {
+        // 重複點擊 / 狀態已改變：當成資訊提示，不是錯誤
+        const alreadyProcessed = /not pending|already|not found/i.test(String(errMsg));
+        if (alreadyProcessed) {
+          toast({ title: '此訂單已被處理', description: '可能已由其他操作完成，正在重新整理列表' });
+          load();
+          return;
+        }
+        toast({ title: '確認失敗', description: errMsg, variant: 'destructive' });
+        return;
+      }
+      await logAdminAction({
+        action: 'remittance.confirm',
+        targetType: 'remittance_orders',
+        targetId: order.id,
+        detail: {
+          before: { status: order.status },
+          after: { status: 'confirmed' },
+          context: { payer_name: order.payer_name, amount: order.amount, last5: order.last5 },
+        },
+      });
+      toast({ title: '已確認入帳', description: '訂閱已啟用' });
+      load();
+    } finally {
+      setBusyId(null);
     }
-    await logAdminAction({
-      action: 'remittance.confirm',
-      targetType: 'remittance_orders',
-      targetId: order.id,
-      detail: {
-        before: { status: order.status },
-        after: { status: 'confirmed' },
-        context: { payer_name: order.payer_name, amount: order.amount, last5: order.last5 },
-      },
-    });
-    toast({ title: '已確認入帳', description: '訂閱已啟用' });
-    load();
   };
 
   const reject = async (order: Order) => {
@@ -200,7 +215,7 @@ export default function CompanyRemittance() {
                 </div>
                 {o.status === 'pending' && (
                   <div className="flex flex-col gap-2 w-64 shrink-0">
-                    <Button size="sm" onClick={() => confirm(o)}>確認入帳並啟用訂閱</Button>
+                    <Button size="sm" onClick={() => confirm(o)} disabled={busyId === o.id}>{busyId === o.id ? '處理中…' : '確認入帳並啟用訂閱'}</Button>
                     <Input
                       placeholder="拒絕原因…"
                       value={rejectReason[o.id] || ''}
