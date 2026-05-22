@@ -9,6 +9,9 @@ export interface MemberSubExpert {
   avatar_url: string | null;
   role: 'advisor' | 'mentor' | string;
   status: string;
+  line_oa_id: string | null;
+  line_channel_name: string | null;
+  qr_code_url: string | null;
 }
 
 export interface MemberSubscriptionRow {
@@ -32,7 +35,7 @@ export function useMemberSubscriptions() {
       if (!user) return [];
       const { data, error } = await supabase
         .from('member_subscriptions')
-        .select('*, expert_plans(*, experts(id, slug, name, avatar_url, role, status))')
+        .select('*, expert_plans(*, experts(id, slug, name, avatar_url, role, status, line_oa_id, line_channel_name, qr_code_url))')
         .eq('user_id', user.id)
         .eq('status', 'active');
       if (error) throw error;
@@ -52,6 +55,9 @@ export function useMemberSubscriptions() {
               avatar_url: e.avatar_url ?? null,
               role: e.role,
               status: e.status || 'active',
+              line_oa_id: e.line_oa_id ?? null,
+              line_channel_name: e.line_channel_name ?? null,
+              qr_code_url: e.qr_code_url ?? null,
             },
             raw: s,
           } as MemberSubscriptionRow;
