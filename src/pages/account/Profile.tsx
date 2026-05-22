@@ -214,7 +214,7 @@ const AccountProfile = () => {
               <Link to="/account/subscriptions">查看訂閱</Link>
             </Button>
             <Button variant="outline" asChild className="relative">
-              <Link to="/account/remittance">
+              <Link to="/account/remittance" state={{ from: { pathname: '/account/profile', search: '' } }}>
                 我的匯款訂單
                 {pendingRemitCount > 0 && (
                   <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-xs">

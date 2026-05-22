@@ -258,7 +258,7 @@ const Account = () => {
                 <p className="font-medium">您有 {pendingRemitCount} 筆匯款訂單尚未補齊資料</p>
                 <p className="text-muted-foreground mt-0.5">補填末五碼與匯款人姓名，後台才能為您對帳開通。</p>
               </div>
-              <Button size="sm" onClick={() => navigate('/account/remittance')}>前往補填</Button>
+              <Button size="sm" onClick={() => navigate('/account/remittance', { state: { from: { pathname: '/app/account', search: '' } } })}>前往補填</Button>
             </CardContent>
           </Card>
         )}
