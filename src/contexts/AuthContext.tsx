@@ -250,7 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   React.useEffect(() => { userRef.current = user; }, [user]);
   React.useEffect(() => { supabaseUserRef.current = supabaseUser; }, [supabaseUser]);
 
-  const hasRole = useCallback((role: AppRole) => userRef.current?.roles.includes(role) ?? false, []);
+  const hasRole = useCallback((role: AppRole) => user?.roles.includes(role) ?? false, [user]);
 
   const refreshProfile = useCallback(async () => {
     const sb = supabaseUserRef.current;
