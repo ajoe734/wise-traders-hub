@@ -187,27 +187,56 @@ const AccountProfile = () => {
             </CardContent>
           </Card>
 
-          {/* LINE Connection */}
+          {/* LINE Signal Notifications — per-expert binding */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <MessageCircle className="h-5 w-5" />
-                LINE 綁定
+                LINE 訊號通知
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                <div>
-                  <p className="font-medium">LINE 帳號</p>
-                  <p className="text-sm text-muted-foreground">尚未綁定</p>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 p-3 rounded-lg bg-muted/40 text-xs text-muted-foreground">
+                <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p>
+                    <span className="font-medium text-foreground">每位專家有獨立的 LINE 官方帳號</span>，
+                    需要先加他的好友、再分別綁定，平台才能透過該 OA 推送即時訊號給你。
+                  </p>
+                  <p>
+                    這跟「用 LINE 登入平台」是兩件事——登入綁的是你的 legendflow 帳號身分，
+                    通知綁的是你在「該專家 OA」裡的 LINE 身分。
+                  </p>
                 </div>
-                <Button variant="outline" disabled>
-                  綁定 LINE（即將開放）
-                </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                綁定後可透過 LINE 接收即時訊號通知
-              </p>
+
+              {subsLoading ? (
+                <div className="text-sm text-muted-foreground text-center py-6">載入中…</div>
+              ) : subscriptions.length === 0 ? (
+                <div className="text-center py-6 space-y-3">
+                  <p className="text-sm text-muted-foreground">你目前沒有訂閱任何專家</p>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/experts">瀏覽專家</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {subscriptions.map((sub) => (
+                    <LineBindingCard
+                      key={sub.expert_id}
+                      expertId={sub.expert.id}
+                      expertSlug={sub.expert.slug}
+                      expertName={sub.expert.name}
+                      expertAvatarUrl={sub.expert.avatar_url ?? undefined}
+                      lineOaId={sub.expert.line_oa_id ?? undefined}
+                      lineChannelName={sub.expert.line_channel_name ?? undefined}
+                      qrCodeUrl={sub.expert.qr_code_url ?? undefined}
+                      isAdvisor={sub.expert.role === 'advisor'}
+                      isSubscribed={true}
+                    />
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
