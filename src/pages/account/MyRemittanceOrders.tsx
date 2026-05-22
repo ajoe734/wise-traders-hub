@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/lib/backNav";
 import { PortalLayout } from "@/components/layouts/PortalLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -59,7 +59,7 @@ const EMPTY_DRAFT: Draft = {
 
 export default function MyRemittanceOrders() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/account/profile');
   const queryClient = useQueryClient();
   const { data: orders = null } = useQuery({
     queryKey: ['remittance-orders', user?.id],
@@ -168,10 +168,7 @@ export default function MyRemittanceOrders() {
           variant="ghost"
           size="sm"
           className="-ml-2 gap-2"
-          onClick={() => {
-            if (window.history.length > 1) navigate(-1);
-            else navigate('/account/profile');
-          }}
+          onClick={goBack}
         >
           <ArrowLeft className="h-4 w-4" /> 返回
         </Button>
