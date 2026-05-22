@@ -19,6 +19,7 @@ const AccountProfile = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [pendingRemitCount, setPendingRemitCount] = useState(0);
+  const { data: subscriptions = [], isLoading: subsLoading } = useMemberSubscriptions();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
