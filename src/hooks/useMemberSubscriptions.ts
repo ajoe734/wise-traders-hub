@@ -9,6 +9,9 @@ export interface MemberSubExpert {
   avatar_url: string | null;
   role: 'advisor' | 'mentor' | string;
   status: string;
+  line_oa_id: string | null;
+  line_channel_name: string | null;
+  qr_code_url: string | null;
 }
 
 export interface MemberSubscriptionRow {

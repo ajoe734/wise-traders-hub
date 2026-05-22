@@ -1,121 +1,80 @@
-# 返回按鈕異常修正計畫
+# Line 綁定為什麼是「一個專家一次」？
 
-## 我已確認的問題
+## 先說結論：這是業務本質決定的，不是設計偷懶
 
-這不是你錯覺，現在返回邏輯確實很亂，而且不只一頁。
+平台上**每位專家／分析師都有自己獨立的 LINE 官方帳號（OA）**（資料庫欄位 `experts.line_oa_id`、`line_channel_name`、`qr_code_url` 都是 per-expert）。
 
-1. `/account/remittance` 現在用 `navigate(-1)`
-   - 這代表它完全吃瀏覽器歷史。
-   - 如果你是從提醒 toast、結帳成功跳轉、會員區、甚至持股相關頁面繞進來，上一頁就可能是持股看板或 `/app`，所以按返回就被送回錯地方。
+所以「綁定」這件事，其實是在回答：
+> 「你（user X）在 專家 A 的 LINE OA 裡，是哪一個 LINE 使用者？」
 
-2. App 內很多頁的頂部返回不是「回你剛剛來的地方」，而是「照 breadcrumb 猜上一層」
-   - `UnifiedAppLayout.tsx`
-   - `SignalsLayout.tsx`
-   - `LearningLayout.tsx`
-   這三個共用 layout 都是用目前 pathname 算 breadcrumb，再回推上一層；如果沒有明確來源，就 fallback 到 `/app`。
+這個對應關係，**對每個專家都不一樣**——因為使用者要先去**加那位專家的官方帳號為好友**，OA 才有辦法推訊號給你。沒加好友 → 平台再怎麼綁也推不出去。
 
-3. 目前整站幾乎沒有一套正式的「來源頁」機制
-   - 少數頁面只有 query string（像 `from=account`）
-   - 其他頁面不是靠瀏覽器 history，就是靠 breadcrumb 猜
-   - 所以一旦你是經過 redirect、toast、登入回跳、guard 提醒進頁，返回就很容易失真
+這也是為什麼程式裡是 `member_line_bindings (user_id, expert_id, line_user_id)` 三元組，而不是單純 `user.line_user_id`。
 
-## 修正目標
+## 那「用 LINE 登入平台」呢？是同一件事嗎？
 
-把「返回」改成**可預期、可控、跟入口一致**：
+**不是，完全是兩件事。** 這在專案核心規則裡明文記載：
 
-- 從哪裡進去，就回哪裡
-- 沒有明確來源時，才走該頁自己的安全 fallback
-- 不再讓瀏覽器歷史或 breadcrumb 猜測決定去向
-- 至少把目前會被使用者碰到的 portal / account / app detail 頁全部收斂成同一套規則
+- **LINE 登入平台**：用的是 _LoginChannel_，回答「你是哪個 legendflow 帳號」 → 一次就好。
+- **LINE 訊號綁定**：用的是 _各專家的 MessagingChannel（OA）_，回答「你在這位專家的 OA 裡是誰」 → 訂幾個專家就要綁幾次。
 
-## 實作計畫
+兩邊的 LINE userId 在技術上甚至不一樣（同一個人在不同 channel 會拿到不同 ID），所以**就算你用 LINE 登入了，也無法自動推斷你在「股海老牛」OA 裡是誰**。
 
-### 1. 建一個共用返回規則層
-新增一個輕量的共用 helper / hook，統一處理：
+## 真正令人困惑的是 UI，不是業務邏輯
 
-- 讀取 `location.state.from`
-- 讀取既有 query 來源（如 `from=account`）
-- 決定該頁的 fallback
-- 提供 `goBackOrFallback()` 之類的統一 API
+目前 `/account/profile` 那張「LINE 綁定（即將開放）」假卡片，把人誤導去以為「綁定 = 一鍵一次搞定」。實際機制其實已經完整實作了，只是入口爛。
 
-這層不直接用 `navigate(-1)` 當主邏輯；`-1` 只保留在極少數明確需要的情境，預設不再依賴它。
+## 提案：把 Profile 的 LINE 區塊改成這樣
 
-### 2. 補上「來源頁 state」傳遞
-在會導向下一層頁面的入口，補傳 route state，例如：
+把現在那張死卡片換成「我訂閱中的專家 LINE 通知狀態」清單：
 
-- 探索列表 → 專家頁
-- 專家頁 → Checkout
-- 會員中心 / 訂閱頁 / 提醒入口 → 匯款訂單頁
-- 訊號列表 → 訊號詳情
-- 週記列表 → 週記詳情
-- app 內探索 → 專家詳情
+```text
+┌─ LINE 訊號通知 ──────────────────────────────────┐
+│ 為什麼每位專家要分別綁定？                       │
+│ 每位專家有自己的 LINE 官方帳號，你需要先加他的   │
+│ 好友，平台才能透過該 OA 推訊號給你。             │
+│                                                  │
+│ ┌──────────────────────────────────────────┐    │
+│ │ [頭] 股海老牛 OA          ✓ 已綁定        │    │
+│ │      LINE 暱稱：Wayne                     │    │
+│ │                              [解除綁定]   │    │
+│ └──────────────────────────────────────────┘    │
+│ ┌──────────────────────────────────────────┐    │
+│ │ [頭] 阿格力 OA            未綁定          │    │
+│ │      加入好友：@agriculture   [QR]        │    │
+│ │                            [取得驗證碼]   │    │
+│ └──────────────────────────────────────────┘    │
+│ ┌──────────────────────────────────────────┐    │
+│ │ [頭] 某顧問 OA            尚未訂閱        │    │
+│ │                              [前往訂閱]   │    │
+│ └──────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────┘
+```
 
-這樣 detail page 的返回會知道自己該回哪個入口，而不是亂猜你是從哪來。
+每張卡其實就是直接複用既有的 `LineBindingCard` 元件——所有邏輯（生成碼、realtime 更新、解綁、QR）都已經寫好了，只差掛載。
 
-### 3. 先修你現在炸到的重災區
-優先處理這些已確認有風險的頁：
+## 改動範圍
 
-- `src/pages/account/MyRemittanceOrders.tsx`
-  - 拿掉 `navigate(-1)`
-  - 改為：有明確來源就回來源，否則回 `/account/profile` 或 `/app/account`（依實際入口決策）
+**單檔即可**：`src/pages/account/Profile.tsx`
 
-- `src/pages/app/SignalDetail.tsx`
-  - 現在也是 `navigate(-1)`，改成固定回訊號列表來源
+1. 移除現有「LINE 綁定（即將開放）」的死卡片（lines 188–209）。
+2. 換成新區塊：
+   - 一段一行的說明：「每位專家有獨立 LINE 官方帳號，需分別綁定」+ 一個小 tooltip／可摺疊「為什麼？」。
+   - 用 `useMemberSubscriptions()` 拉目前 active 訂閱清單。
+   - 對每個訂閱中的專家，用 `expert_id / slug / name / avatar / line_oa_id / line_channel_name / qr_code_url` 渲染一個 `<LineBindingCard ... compact={false} />`。
+   - 沒有任何訂閱時：顯示空狀態「你目前沒有訂閱專家，訂閱後即可在這裡設定 LINE 通知」+ 連 `/experts`。
+3. `useMemberSubscriptions` 已經 join 到 `experts` 但**沒有**選 `line_oa_id / line_channel_name / qr_code_url` 三個欄位，需要小幅補上 select。
 
-- `src/components/layouts/UnifiedAppLayout.tsx`
-- `src/components/layouts/SignalsLayout.tsx`
-- `src/components/layouts/LearningLayout.tsx`
-  - 把現在「breadcrumb 推上一層」改成「優先吃來源 state，沒有才用 breadcrumb fallback」
+## 不在範圍
 
-### 4. 補齊 remittance 流程的回來路徑
-把匯款相關入口全部補成同一套：
+- 不動 webhook / 推播邏輯（本來就 OK）。
+- 不動 LINE 平台登入流程。
+- 不動其他頁面已掛載的 `LineBindingCard`（例如 ExpertDetail）。
 
-- Checkout 建單成功跳去 `/account/remittance` 時，帶來源 state
-- Profile 的「我的匯款訂單」入口帶來源 state
-- App Account banner 的「前往補填」帶來源 state
-- PendingRemittanceGuard toast 的「前往補填」也帶來源 state
+## 技術備註
 
-這樣匯款頁的返回就不會再隨機回持股或其他地方。
+- `useMemberSubscriptions.ts` 的 select 從 `experts(id, slug, name, avatar_url, role, status)` 擴成 `experts(id, slug, name, avatar_url, role, status, line_oa_id, line_channel_name, qr_code_url)`，並在 `MemberSubExpert` interface 補欄位。這三個欄位是公開可讀的（experts 表的公開 profile 欄位），不會踩 RLS。
+- `Profile.tsx` 從 `@/hooks/useMemberSubscriptions` import。
+- 純前端 + 顯示用既有 hook，不需要 migration、不需要 edge function 改動。
 
-### 5. 盤點並修掉其他仍在用 `navigate(-1)` 的頁面
-目前我已確認至少這兩個直接中槍：
-
-- `src/pages/account/MyRemittanceOrders.tsx`
-- `src/pages/app/SignalDetail.tsx`
-
-我會把所有使用者可見的返回按鈕再掃一輪，只保留少數真的應該依賴原生 history 的情境，其他都改成明確導向。
-
-### 6. 驗證
-我會針對以下情境逐一驗：
-
-- 專家頁 → Checkout → 匯款頁 → 返回
-- 會員中心 → 我的匯款訂單 → 返回
-- App Account banner → 匯款頁 → 返回
-- toast 提醒 → 匯款頁 → 返回
-- 訊號列表 → 訊號詳情 → 返回
-- app 內探索 → 專家詳情 → 返回
-- 登入後回跳再進 detail 頁時，返回仍正確
-
-## 技術細節
-
-### 會動到的檔案
-- `src/pages/account/MyRemittanceOrders.tsx`
-- `src/pages/app/SignalDetail.tsx`
-- `src/components/layouts/UnifiedAppLayout.tsx`
-- `src/components/layouts/SignalsLayout.tsx`
-- `src/components/layouts/LearningLayout.tsx`
-- `src/pages/account/Profile.tsx`
-- `src/pages/app/Account.tsx`
-- `src/components/PendingRemittanceGuard.tsx`
-- `src/pages/Checkout.tsx`
-- 視掃描結果，補幾個入口頁（例如 `ExpertProfile.tsx`、`AppExplore` 相關入口）
-
-### 不會動的範圍
-- 後端
-- 匯款訂單資料結構
-- 對帳流程
-- 付款邏輯本身
-
-## 預期結果
-
-修完後，返回按鈕不會再「莫名其妙掉回持股看板」，而是會穩定回到使用者實際進入該頁的入口；匯款頁、訊號詳情、會員區 detail 頁都會一致。
+確認方向 OK 就直接做。
