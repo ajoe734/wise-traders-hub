@@ -215,7 +215,7 @@ export default function CompanyRemittance() {
                 </div>
                 {o.status === 'pending' && (
                   <div className="flex flex-col gap-2 w-64 shrink-0">
-                    <Button size="sm" onClick={() => confirm(o)}>確認入帳並啟用訂閱</Button>
+                    <Button size="sm" onClick={() => confirm(o)} disabled={busyId === o.id}>{busyId === o.id ? '處理中…' : '確認入帳並啟用訂閱'}</Button>
                     <Input
                       placeholder="拒絕原因…"
                       value={rejectReason[o.id] || ''}
