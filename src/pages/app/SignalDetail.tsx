@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useGoBack } from '@/lib/backNav';
 import { UnifiedAppLayout, markAppSignalsAsRead } from '@/components/layouts/UnifiedAppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,7 +67,7 @@ const fetchSignalDetail = async (signalId: string): Promise<DbSignal | null> => 
 
 const SignalDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/app/signals');
   const [searchParams] = useSearchParams();
   const { user, hasRole } = useAuth();
 
@@ -118,7 +119,7 @@ const SignalDetail = () => {
           variant="ghost"
           size="sm"
           className="gap-2 -ml-2"
-          onClick={() => navigate(-1)}
+          onClick={goBack}
         >
           <ArrowLeft className="h-4 w-4" />
           返回訊號中心

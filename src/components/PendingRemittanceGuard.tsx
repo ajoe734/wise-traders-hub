@@ -56,7 +56,7 @@ export function PendingRemittanceGuard() {
           duration: 10000,
           action: (
             <button
-              onClick={() => navigate("/account/remittance")}
+              onClick={() => navigate("/account/remittance", { state: { from: { pathname: location.pathname, search: location.search } } })}
               className="text-xs font-medium underline-offset-2 hover:underline"
             >
               前往補填

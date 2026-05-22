@@ -527,7 +527,9 @@ const Checkout = () => {
         success: true,
         message: '已建立匯款訂單。請於 3 日內完成銀行轉帳，並回到「會員中心 → 我的匯款訂單」補填末五碼與匯款人姓名。您可以隨時離開本頁稍後再回來。',
       });
-      navigate('/account/remittance');
+      navigate('/account/remittance', {
+        state: { from: { pathname: window.location.pathname, search: window.location.search } },
+      });
       return;
     } catch (err: any) {
       console.error('Checkout error:', err);

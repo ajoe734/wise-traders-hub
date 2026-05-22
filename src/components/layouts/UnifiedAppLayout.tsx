@@ -244,6 +244,11 @@ export function UnifiedAppLayout({ children }: UnifiedAppLayoutProps) {
   }
 
   const handleBack = () => {
+    const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
+    if (from?.pathname && from.pathname.startsWith('/')) {
+      navigate(`${from.pathname}${from.search ?? ''}`);
+      return;
+    }
     if (breadcrumbs.length >= 2) {
       navigate(breadcrumbs[breadcrumbs.length - 2].path);
     } else {
