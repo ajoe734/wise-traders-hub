@@ -33,6 +33,7 @@ export default function CompanyRemittance() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'awaiting_info' | 'pending' | 'confirmed' | 'rejected' | 'expired' | 'all'>('pending');
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const { data, isFetching, refetch } = useQuery({
     queryKey: ['company', 'remittance', filter],
