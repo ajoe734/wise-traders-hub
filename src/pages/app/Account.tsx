@@ -313,16 +313,34 @@ const Account = () => {
                     )} />
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
-                        <img
-                          src={avatarUrl(sub.expert.avatar_url, 96)}
-                          alt={sub.expert.name}
-                          loading="lazy"
-                          decoding="async"
-                          className="shrink-0 h-12 w-12 rounded-full object-cover object-[center_15%]"
-                        />
+                        {sub.expert.slug ? (
+                          <Link to={`/app/expert/${sub.expert.slug}`} className="shrink-0 rounded-full ring-2 ring-transparent hover:ring-primary/40 transition">
+                            <img
+                              src={avatarUrl(sub.expert.avatar_url, 96)}
+                              alt={sub.expert.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="h-12 w-12 rounded-full object-cover object-[center_15%]"
+                            />
+                          </Link>
+                        ) : (
+                          <img
+                            src={avatarUrl(sub.expert.avatar_url, 96)}
+                            alt={sub.expert.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="shrink-0 h-12 w-12 rounded-full object-cover object-[center_15%]"
+                          />
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className="font-semibold">{sub.expert.name}</h3>
+                            {sub.expert.slug ? (
+                              <Link to={`/app/expert/${sub.expert.slug}`} className="font-semibold hover:underline">
+                                {sub.expert.name}
+                              </Link>
+                            ) : (
+                              <h3 className="font-semibold">{sub.expert.name}</h3>
+                            )}
                             {isCanceling ? (
                               <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
                                 已取消（服務至月底）
