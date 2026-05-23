@@ -17,6 +17,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { RemittanceAccountCard } from "./_remittance/RemittanceAccountCard";
+
 
 type Method = "ecpay" | "remittance";
 
@@ -29,25 +31,14 @@ export default function CheckupCheckout() {
   const { data: plan, isLoading } = useCheckupPlan(planId);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [method, setMethod] = useState<Method>("ecpay");
-  const [bank, setBank] = useState<{ bank_name: string; bank_code: string; account_number: string; account_name: string } | null>(null);
+  // (removed) inline bank state — now handled by <RemittanceAccountCard />
   const [isProcessing, setIsProcessing] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string; goRemittance?: boolean } | null>(null);
 
-  // 收款帳號
-  useEffect(() => {
-    (supabase.from as any)("payment_settings_safe").select("value").eq("key", "remittance_account").maybeSingle()
-      .then(({ data }) => {
-        const v = data?.value as any;
-        if (v) setBank({
-          bank_name: v.bank_name ?? v.bank ?? "",
-          bank_code: v.bank_code ?? v.branch ?? "",
-          account_number: v.account_number ?? v.account ?? "",
-          account_name: v.account_name ?? v.name ?? "",
-        });
-      });
-  }, []);
+  // 收款帳號改由 <RemittanceAccountCard /> 內部 react-query 撈取
+
 
   // ECPay 回跳確認 — 共用 useSubscriptionConfirmation
   useSubscriptionConfirmation({
@@ -250,29 +241,21 @@ export default function CheckupCheckout() {
         </div>
 
         {method === "remittance" && (
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="text-sm space-y-1">
-                <p className="font-medium">收款帳號</p>
-                {bank && (bank.bank_name || bank.account_number) ? (
-                  <div className="text-muted-foreground space-y-0.5">
-                    <p>銀行：{bank.bank_name || "—"}{bank.bank_code ? `（${bank.bank_code}）` : ""}</p>
-                    <p>戶名：{bank.account_name || "—"}</p>
-                    <p>帳號：<span className="font-mono">{bank.account_number || "—"}</span></p>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">收款帳號尚未設定，請聯絡客服。</p>
-                )}
-              </div>
-              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
-                <p className="font-medium text-foreground">流程說明</p>
-                <p>1. 按下下方「建立匯款訂單」後，我們會為您建立一筆訂單。</p>
-                <p>2. 請於 3 日內到上方銀行帳號完成轉帳。</p>
-                <p>3. 轉帳完成後，回到「我的匯款訂單」補填<b>匯款人姓名</b>與<b>轉出帳號末五碼</b>，後台對帳後即為您開通。</p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-3">
+            <RemittanceAccountCard amount={price} />
+            <Card>
+              <CardContent className="p-5">
+                <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                  <p className="font-medium text-foreground">流程說明</p>
+                  <p>1. 按下下方「建立匯款訂單」後，我們會為您建立一筆訂單。</p>
+                  <p>2. 請於 3 日內到上方銀行帳號完成轉帳。</p>
+                  <p>3. 轉帳完成後，回到「我的匯款訂單」補填<b>匯款人姓名</b>與<b>轉出帳號末五碼</b>，後台對帳後即為您開通。</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
+
 
         <Card>
           <CardContent className="p-5 space-y-2">

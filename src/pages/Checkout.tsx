@@ -17,6 +17,8 @@ import { PlanInfoCard } from './_checkout/PlanInfoCard';
 import { PaymentMethodPicker } from './_checkout/PaymentMethodPicker';
 import { OrderSummaryCard } from './_checkout/OrderSummaryCard';
 import { CheckoutResultDialog, type CheckoutResult } from './_checkout/CheckoutResultDialog';
+import { RemittanceAccountCard } from './_remittance/RemittanceAccountCard';
+
 
 interface DbPlan {
   id: string;
@@ -604,7 +606,12 @@ const Checkout = () => {
                 cardFieldErrors={cardFieldErrors}
                 setCardFieldErrors={setCardFieldErrors}
               />
+
+              {selectedProviderObj?.provider_type === 'remittance' && (
+                <RemittanceAccountCard amount={price} />
+              )}
             </div>
+
 
             {/* Right: Payment Summary */}
             <div className="md:col-span-2">

@@ -1,72 +1,69 @@
-## 問題
+## 問題（更正版）
 
-`/company/subscribers` 與 `/admin/subscribers/:slug` 只顯示 `profiles.display_name`（如 Ray、tsai），看不出帳號是誰、用 Email 還是 Line 登入，公司對帳無法處理。
+實測三個頁面：
 
-`email` 存在 `auth.users`，前端拿不到 → 需要透過 service role edge function 取得。
+| 頁面 | 路由 | 顯示收款帳號？ |
+|---|---|---|
+| `Checkout.tsx`（專家方案結帳） | `/checkout/:slug/:planId` | ❌ 完全沒有 |
+| `CheckupCheckout.tsx`（健檢結帳） | `/checkout/checkup/:planId` | ✅ 有撈 `payment_settings_safe` |
+| `MyRemittanceOrders.tsx`（補末五碼頁） | `/account/remittance` | ❌ 完全沒有 |
+
+使用者截圖那筆是「專家方案 月繳 NT$599」走 `Checkout.tsx`，建立完 awaiting_info 訂單直接導去 `/account/remittance`，**整段流程從頭到尾沒出現銀行帳號**，所以才會幹譙。
+
+收款帳號資料源已存在 `payment_settings_safe` 表 key=`remittance_account`（`CheckupCheckout` 用的同一份）。
 
 ## 方案
 
-### 1. 後端：擴充 `supabase/functions/admin-manage-users/index.ts`
+### 1. 抽共用元件 `src/pages/_remittance/RemittanceAccountCard.tsx`（新增）
 
-新增 `action: 'lookup_identities'`：
+避免在三處重複維護同樣 UI / 取數邏輯。
 
-- Input: `{ user_ids: string[] }`（最多 500 個）
-- 權限：沿用既有 `company_admin` 檢查
-- 動作：
-  - `profiles` 撈 `user_id, display_name, line_user_id`
-  - `supabase.auth.admin.listUsers()` 後以 Map 對應 email
-  - 判斷登入方式：`line_user_id` 不為空 → `'line'`；否則 → `'email'`
-- Output:
+- 內部 React Query：`['remittance-account-info']`，`staleTime: 5 min`
+- 從 `payment_settings_safe`（`key='remittance_account'`）撈 `{ bank_name, bank_code, account_number, account_name }`，沿用 checkup 的欄位 fallback (`bank/branch/account/name`)
+- props：`{ amount?: number; orderId?: string; className?: string }`
+- UI（kore-eda minimal、無陰影漸層、字級 ≤ 22px）：
   ```
-  { identities: [{ user_id, display_name, email, login_method, line_user_id }] }
+  收款帳號
+  ─────────────────
+  銀行   玉山銀行（808）
+  戶名   ◯◯◯
+  帳號   1234567890123456   [複製]
+  金額   NT$ 599            [複製]    ← amount 有給才顯示
   ```
+- 帳號 / 金額右側 `Copy` icon → `navigator.clipboard.writeText` + toast「已複製」
+- 金額複製時去掉 `NT$ ` 與千分位，只複製純數字
+- 未設定時顯示「收款帳號尚未設定，請聯絡客服」
 
-不寫 RLS、不改 schema。
+### 2. `src/pages/Checkout.tsx` — 加上元件
 
-### 2. 前端共用 hook：`src/hooks/useUserIdentities.ts`（新增）
+- 找到付款方式選到匯款／其他 manual provider 時的條件區塊（與 ecpay 並列那段），插入 `<RemittanceAccountCard amount={price} />`
+- 同時把現有「建立匯款訂單後請於 3 日內完成轉帳」的提示文字保留，但金額由元件提供
+- 不傳 `orderId`（此時還沒建單）
 
-- 接收 `userIds: string[]`
-- React Query：`['user-identities', sortedIds.join(',')]`，`staleTime: 60s`
-- 呼叫 `admin-manage-users` lookup_identities
-- 回傳 `Record<user_id, Identity>`
+### 3. `src/pages/CheckupCheckout.tsx` — 換成共用元件
 
-### 3. 修改 `src/pages/company/Subscribers.tsx`
+- 刪掉 L32 `bank` state、L38-49 的 `useEffect` 抓取邏輯、L256-265 inline UI
+- 改成 `<RemittanceAccountCard amount={price} />`
+- 流程說明文字（L268-272）保留
 
-- 移除目前用 `profiles` 自己查 display_name 的程式碼
-- 改用 `useUserIdentities(userIds)`
-- 訂閱者欄位改為兩行顯示：
-  ```
-  [Email] 海洋福星
-  bjoe734@gmail.com · a1b2c3d4
-  ```
-  或
-  ```
-  [Line] Ray
-  Uab10de · a1b2c3d4
-  ```
-  - 第一行：`badge(login_method) + display_name`
-  - 第二行：`email`（Email 帳號）或 `line_user_id 末 6 碼`（Line 帳號）+ `user_id 末 8 碼`（淺色 muted）
-- 搜尋欄涵蓋：email、line_user_id、display_name、user_id 末碼
-- CSV 匯出新增三欄：`登入方式`、`Email`、`Line ID 末段`
+### 4. `src/pages/account/MyRemittanceOrders.tsx` — 每張未付款訂單卡片加入元件
 
-### 4. 修改 `src/pages/admin/Subscribers.tsx`（分析師後台）
+- 在 `status === 'awaiting_info' || status === 'pending'` 的訂單卡裡，補末五碼表單**上方**插入 `<RemittanceAccountCard amount={o.amount} orderId={o.id.slice(0,8)} />`
+- 已 confirmed / rejected / expired 的不顯示
 
-同樣換成 `useUserIdentities`，「姓名」欄一樣兩行顯示。分析師也應該看得到訂閱者怎麼聯絡。
+### 5. 頂部說明微調 `MyRemittanceOrders.tsx`
 
-### 5. Badge 樣式
+把現有「請於 3 日內完成銀行轉帳」那段加一句：「下方每筆訂單會列出收款帳號與應匯金額。」
 
-- Email badge：`variant="outline"` + 淺灰
-- Line badge：`bg-[#06C755]/10 text-[#06C755]` 沿用 Line 綠
+## 不改
+
+- 不改 schema、不改任何 edge function
+- 不改 `Checkout.tsx` 的 ecpay/acpay 分支
+- 不改 `StatusStepper`、不動 `AppCheckout.tsx`（沒有匯款選項）
+- 不動 `PendingRemittanceGuard`、`Account.tsx`、`Profile.tsx` 等列表入口
 
 ## 技術細節
 
-- `auth.admin.listUsers()` 預設 50 筆 / page。Lookup function 內要分頁直到撈完，或只撈 `perPage=1000` 一頁（目前用戶量遠低於此）
-- `lookup_identities` 不寫 audit log（純讀取）
-- Edge function 已 `verify_jwt = true` (預設) + `company_admin` 檢查，不額外設定
-- 不修改 `useMemberSubscriptions` / `useSubscriptions`（會員端 hooks 不需要 identity 資訊）
-
-## 不做的事
-
-- 不合併 Email / Line 帳號（違反 identity isolation 鐵則）
-- 不在會員端任何頁面顯示其他用戶 email
-- 不改 schema、不改 RLS
+- `payment_settings_safe` 在 `types.ts` 沒涵蓋 → 沿用既有 `(supabase.from as any)` 寫法
+- 元件放在 `src/pages/_remittance/`（已有 `StatusStepper.tsx` 同樣模式）
+- React Query cache key 全站共用 `['remittance-account-info']`，三個頁面只會發一次請求
