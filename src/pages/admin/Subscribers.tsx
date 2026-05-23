@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { fetchAnalystSubscribers } from '@/lib/analystDataAccess';
 import { Users, UserPlus, UserMinus, Search, RefreshCw, Info, XCircle } from 'lucide-react';
+import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 
 const AdminSubscribers = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
