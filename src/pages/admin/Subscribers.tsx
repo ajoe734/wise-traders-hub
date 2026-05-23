@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { fetchAnalystSubscribers } from '@/lib/analystDataAccess';
 import { Users, UserPlus, UserMinus, Search, RefreshCw, Info, XCircle } from 'lucide-react';
+import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 
 const AdminSubscribers = () => {
   const { expertSlug } = useParams<{ expertSlug: string }>();
@@ -22,24 +23,16 @@ const AdminSubscribers = () => {
     staleTime: 30_000,
     queryFn: async () => {
       const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug!).single();
-      if (!exp) return { expert: null, subs: [] as any[], profileMap: {} as Record<string, string> };
+      if (!exp) return { expert: null, subs: [] as any[] };
       const { subscriptions } = await fetchAnalystSubscribers(supabase, exp.id);
-      const userIds = [...new Set(subscriptions.map(s => s.user_id).filter(Boolean))];
-      let profileMap: Record<string, string> = {};
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, display_name')
-          .in('user_id', userIds);
-        (profiles || []).forEach(p => { profileMap[p.user_id] = p.display_name || ''; });
-      }
-      return { expert: exp, subs: subscriptions, profileMap };
+      return { expert: exp, subs: subscriptions };
     },
   });
 
   const expert = data?.expert;
   const subs = data?.subs ?? [];
-  const profileMap = data?.profileMap ?? {};
+  const userIds = [...new Set(subs.map((s: any) => s.user_id).filter(Boolean))] as string[];
+  const { identities } = useUserIdentities(userIds);
 
   const getRemainingDays = (expiresAt: string | null) => {
     if (!expiresAt) return null;
@@ -53,9 +46,12 @@ const AdminSubscribers = () => {
   const filtered = subs.filter(s => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    const name = (profileMap[s.user_id] || '').toLowerCase();
+    const id = identities[s.user_id];
+    const name = (id?.display_name || '').toLowerCase();
+    const email = (id?.email || '').toLowerCase();
+    const line = (id?.line_user_id || '').toLowerCase();
     const plan = (s.expert_plans?.name || '').toLowerCase();
-    return name.includes(q) || plan.includes(q);
+    return name.includes(q) || email.includes(q) || line.includes(q) || plan.includes(q) || s.user_id.toLowerCase().includes(q);
   });
 
   const stats = [
@@ -131,9 +127,24 @@ const AdminSubscribers = () => {
                   ) : (
                     filtered.map((sub) => {
                       const remaining = getRemainingDays(sub.expires_at);
+                      const id = identities[sub.user_id];
+                      const isLine = id?.login_method === 'line';
                       return (
                         <tr key={sub.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="p-3 text-sm font-medium">{profileMap[sub.user_id] || sub.user_id?.slice(0, 8)}</td>
+                          <td className="p-3 text-sm font-medium">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0 ${isLine ? 'bg-[#06C755]/10 text-[#06C755] border-[#06C755]/30' : ''}`}
+                              >
+                                {isLine ? 'Line' : 'Email'}
+                              </Badge>
+                              <span>{id?.display_name || sub.user_id?.slice(0, 8)}</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground font-normal mt-0.5">
+                              {formatIdentitySecondary(id, sub.user_id)}
+                            </div>
+                          </td>
                           <td className="p-3 text-sm">{sub.expert_plans?.name || '-'}</td>
                           <td className="p-3 text-sm text-muted-foreground">{sub.started_at ? new Date(sub.started_at).toLocaleDateString('zh-TW') : '-'}</td>
                           <td className="p-3 text-sm text-muted-foreground">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('zh-TW') : '-'}</td>

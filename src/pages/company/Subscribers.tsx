@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope } from 'lucide-react';
+import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 
 type Row = {
   id: string;
@@ -58,21 +59,13 @@ const CompanySubscribers = () => {
       const merged = [...expertRows, ...checkupRows].sort(
         (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
       );
-      const userIds = [...new Set(merged.map(s => s.user_id).filter(Boolean))];
-      let profileMap: Record<string, string> = {};
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, display_name')
-          .in('user_id', userIds);
-        (profiles || []).forEach(p => { profileMap[p.user_id] = p.display_name || ''; });
-      }
-      return { rows: merged, profileMap };
+      return { rows: merged };
     },
     staleTime: 30_000,
   });
   const rows = data?.rows ?? [];
-  const profileMap = data?.profileMap ?? {};
+  const userIds = useMemo(() => [...new Set(rows.map((r) => r.user_id).filter(Boolean))], [rows]);
+  const { identities } = useUserIdentities(userIds);
   const loading = isFetching && !data;
 
   const activeCount = rows.filter(s => s.status === 'active').length;
@@ -90,7 +83,10 @@ const CompanySubscribers = () => {
     const matchStatus = statusFilter === 'all' || s.status === statusFilter;
     if (!search) return matchStatus;
     const q = search.toLowerCase();
-    const displayName = (profileMap[s.user_id] || '').toLowerCase();
+    const id = identities[s.user_id];
+    const displayName = (id?.display_name || '').toLowerCase();
+    const email = (id?.email || '').toLowerCase();
+    const lineId = (id?.line_user_id || '').toLowerCase();
     const planName = s.plan_name.toLowerCase();
     const startDate = s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '';
     const endDate = s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '';
@@ -98,8 +94,12 @@ const CompanySubscribers = () => {
     const remainingStr = remaining != null ? (remaining > 0 ? `${remaining} 天` : '已到期') : '';
     const renewStr = s.auto_renew ? '自動' : '手動';
     const kindStr = s.kind === 'checkup' ? '健檢' : '訂閱';
-    const matchSearch = displayName.includes(q) || planName.includes(q) || startDate.includes(q)
-      || endDate.includes(q) || remainingStr.includes(q) || renewStr.includes(q) || kindStr.includes(q);
+    const loginStr = id?.login_method === 'line' ? 'line' : 'email';
+    const matchSearch = displayName.includes(q) || email.includes(q) || lineId.includes(q)
+      || s.user_id.toLowerCase().includes(q)
+      || planName.includes(q) || startDate.includes(q)
+      || endDate.includes(q) || remainingStr.includes(q) || renewStr.includes(q)
+      || kindStr.includes(q) || loginStr.includes(q);
     return matchStatus && matchSearch;
   });
 
@@ -110,16 +110,23 @@ const CompanySubscribers = () => {
   const checkupCount = rows.filter(s => s.kind === 'checkup' && s.status === 'active').length;
 
   const handleExport = () => {
-    const headers = ['類型', '訂閱者', '方案', '開始日', '到期日', '狀態', '續訂'];
-    const rowsCsv = filtered.map(s => [
-      s.kind === 'checkup' ? '健檢' : '訂閱方案',
-      profileMap[s.user_id] || s.user_id?.slice(0, 8),
-      s.plan_name,
-      s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '-',
-      s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '-',
-      s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
-      s.auto_renew ? '自動' : '手動',
-    ]);
+    const headers = ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '方案', '開始日', '到期日', '狀態', '續訂'];
+    const rowsCsv = filtered.map(s => {
+      const id = identities[s.user_id];
+      return [
+        s.kind === 'checkup' ? '健檢' : '訂閱方案',
+        id?.display_name || s.user_id?.slice(0, 8),
+        id?.login_method === 'line' ? 'Line' : 'Email',
+        id?.email || '',
+        id?.line_user_id ? id.line_user_id.slice(-6) : '',
+        s.user_id,
+        s.plan_name,
+        s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '-',
+        s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '-',
+        s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
+        s.auto_renew ? '自動' : '手動',
+      ];
+    });
     const csv = [headers, ...rowsCsv].map(r => r.join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -196,6 +203,8 @@ const CompanySubscribers = () => {
                 ) : (
                   filtered.map(sub => {
                     const remaining = getRemainingDays(sub.expires_at);
+                    const id = identities[sub.user_id];
+                    const isLine = id?.login_method === 'line';
                     return (
                       <tr key={`${sub.kind}-${sub.id}`} className="border-b last:border-0">
                         <td className="p-4">
@@ -203,7 +212,20 @@ const CompanySubscribers = () => {
                             {sub.kind === 'checkup' ? '健檢' : '訂閱方案'}
                           </Badge>
                         </td>
-                        <td className="p-4 text-sm">{profileMap[sub.user_id] || sub.user_id?.slice(0, 8)}</td>
+                        <td className="p-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 ${isLine ? 'bg-[#06C755]/10 text-[#06C755] border-[#06C755]/30' : ''}`}
+                            >
+                              {isLine ? 'Line' : 'Email'}
+                            </Badge>
+                            <span className="font-medium">{id?.display_name || sub.user_id?.slice(0, 8)}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {formatIdentitySecondary(id, sub.user_id)}
+                          </div>
+                        </td>
                         <td className="p-4 text-sm">{sub.plan_name}</td>
                         <td className="p-4 text-sm text-muted-foreground">{sub.started_at ? new Date(sub.started_at).toLocaleDateString('zh-TW') : '-'}</td>
                         <td className="p-4 text-sm text-muted-foreground">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('zh-TW') : '-'}</td>

@@ -321,6 +321,39 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    if (action === 'lookup_identities') {
+      const userIds = Array.isArray(body?.user_ids) ? (body.user_ids as string[]).filter(Boolean) : [];
+      if (userIds.length === 0) return json({ identities: [] });
+      if (userIds.length > 500) return json({ error: 'too_many_ids' }, 400);
+
+      const { data: profiles } = await admin
+        .from('profiles')
+        .select('user_id, display_name, line_user_id')
+        .in('user_id', userIds);
+
+      const { data: usersList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const emailById = new Map<string, string>();
+      (usersList?.users || []).forEach((u: any) => emailById.set(u.id, u.email || ''));
+
+      const profileById = new Map<string, any>();
+      (profiles || []).forEach((p) => profileById.set(p.user_id, p));
+
+      const identities = userIds.map((uid) => {
+        const p = profileById.get(uid) || {};
+        const email = emailById.get(uid) || '';
+        const isLine = !!p.line_user_id || email.endsWith('@line.local');
+        return {
+          user_id: uid,
+          display_name: p.display_name || null,
+          email,
+          line_user_id: p.line_user_id || null,
+          login_method: isLine ? 'line' : 'email',
+        };
+      });
+
+      return json({ identities });
+    }
+
     return json({ error: 'unknown_action' }, 400);
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500);
