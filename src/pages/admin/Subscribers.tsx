@@ -46,9 +46,12 @@ const AdminSubscribers = () => {
   const filtered = subs.filter(s => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    const name = (profileMap[s.user_id] || '').toLowerCase();
+    const id = identities[s.user_id];
+    const name = (id?.display_name || '').toLowerCase();
+    const email = (id?.email || '').toLowerCase();
+    const line = (id?.line_user_id || '').toLowerCase();
     const plan = (s.expert_plans?.name || '').toLowerCase();
-    return name.includes(q) || plan.includes(q);
+    return name.includes(q) || email.includes(q) || line.includes(q) || plan.includes(q) || s.user_id.toLowerCase().includes(q);
   });
 
   const stats = [
