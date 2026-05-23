@@ -23,24 +23,16 @@ const AdminSubscribers = () => {
     staleTime: 30_000,
     queryFn: async () => {
       const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug!).single();
-      if (!exp) return { expert: null, subs: [] as any[], profileMap: {} as Record<string, string> };
+      if (!exp) return { expert: null, subs: [] as any[] };
       const { subscriptions } = await fetchAnalystSubscribers(supabase, exp.id);
-      const userIds = [...new Set(subscriptions.map(s => s.user_id).filter(Boolean))];
-      let profileMap: Record<string, string> = {};
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, display_name')
-          .in('user_id', userIds);
-        (profiles || []).forEach(p => { profileMap[p.user_id] = p.display_name || ''; });
-      }
-      return { expert: exp, subs: subscriptions, profileMap };
+      return { expert: exp, subs: subscriptions };
     },
   });
 
   const expert = data?.expert;
   const subs = data?.subs ?? [];
-  const profileMap = data?.profileMap ?? {};
+  const userIds = [...new Set(subs.map((s: any) => s.user_id).filter(Boolean))] as string[];
+  const { identities } = useUserIdentities(userIds);
 
   const getRemainingDays = (expiresAt: string | null) => {
     if (!expiresAt) return null;
