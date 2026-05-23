@@ -83,7 +83,10 @@ const CompanySubscribers = () => {
     const matchStatus = statusFilter === 'all' || s.status === statusFilter;
     if (!search) return matchStatus;
     const q = search.toLowerCase();
-    const displayName = (profileMap[s.user_id] || '').toLowerCase();
+    const id = identities[s.user_id];
+    const displayName = (id?.display_name || '').toLowerCase();
+    const email = (id?.email || '').toLowerCase();
+    const lineId = (id?.line_user_id || '').toLowerCase();
     const planName = s.plan_name.toLowerCase();
     const startDate = s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '';
     const endDate = s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '';
@@ -91,8 +94,12 @@ const CompanySubscribers = () => {
     const remainingStr = remaining != null ? (remaining > 0 ? `${remaining} 天` : '已到期') : '';
     const renewStr = s.auto_renew ? '自動' : '手動';
     const kindStr = s.kind === 'checkup' ? '健檢' : '訂閱';
-    const matchSearch = displayName.includes(q) || planName.includes(q) || startDate.includes(q)
-      || endDate.includes(q) || remainingStr.includes(q) || renewStr.includes(q) || kindStr.includes(q);
+    const loginStr = id?.login_method === 'line' ? 'line' : 'email';
+    const matchSearch = displayName.includes(q) || email.includes(q) || lineId.includes(q)
+      || s.user_id.toLowerCase().includes(q)
+      || planName.includes(q) || startDate.includes(q)
+      || endDate.includes(q) || remainingStr.includes(q) || renewStr.includes(q)
+      || kindStr.includes(q) || loginStr.includes(q);
     return matchStatus && matchSearch;
   });
 
