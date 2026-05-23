@@ -12,6 +12,8 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { RemittanceStatusStepper } from "./_remittance/StatusStepper";
+import { RemittanceAccountCard } from "@/pages/_remittance/RemittanceAccountCard";
+
 
 type Order = {
   id: string;
@@ -183,7 +185,7 @@ export default function MyRemittanceOrders() {
           <CardContent className="p-4 flex gap-3 text-sm text-muted-foreground">
             <Info className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
             <div className="space-y-1">
-              <p>請於 <b className="text-foreground">3 日內</b>完成銀行轉帳，並回到此頁補填末五碼與匯款人姓名。</p>
+              <p>請於 <b className="text-foreground">3 日內</b>完成銀行轉帳，並回到此頁補填末五碼與匯款人姓名。下方每筆未付款訂單會列出收款帳號與應匯金額。</p>
               <p>您可以<b className="text-foreground">先離開本頁</b>，稍後從「會員中心 → 我的匯款訂單」或登入後的提醒回來繼續。</p>
               <p>逾期未補資料，訂單會自動關閉，屆時請重新下單即可。</p>
             </div>
@@ -233,6 +235,8 @@ export default function MyRemittanceOrders() {
 
                     {isAwaiting && (
                       <div className="border-t pt-3 space-y-3">
+                        <RemittanceAccountCard amount={o.amount} orderId={o.id.slice(0, 8)} />
+
                         <div className="space-y-1.5">
                           <Label htmlFor={`payer-${o.id}`}>匯款人姓名</Label>
                           <Input
