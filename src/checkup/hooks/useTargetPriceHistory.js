@@ -139,7 +139,7 @@ export async function recordTargetPriceBatch(code, entries, source = 'refresh-re
           title: `${code} 目標價更新`,
           body: `新增 ${newCount} 筆 / 修改 ${updCount} 筆（來源：${source}）`,
           type: 'info',
-          link: '/free-checkup',
+          link: '/holding-checkup',
         })
       }
     } catch (notifyErr) {

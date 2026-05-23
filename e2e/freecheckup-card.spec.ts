@@ -2,10 +2,10 @@ import { test, expect, type Page, type TestInfo } from '@playwright/test';
 import { navigateAndWaitForCardReady } from './helpers/navigation';
 
 /**
- * Mobile QA — /free-checkup decision-workbench card
+ * Mobile QA — /holding-checkup decision-workbench card
  *
  * For every supported viewport (320 / 340 / 375 / 414) we:
- *   1. Visit /free-checkup with a deterministic seeded portfolio (demo mode).
+ *   1. Visit /holding-checkup with a deterministic seeded portfolio (demo mode).
  *   2. Wait for `.wb-card` to render.
  *   3. Assert each card's ROI / % / TODAY / VALUE blocks fit within the card's
  *      content box (no horizontal overflow, no clipped scroll-width).
@@ -15,7 +15,7 @@ import { navigateAndWaitForCardReady } from './helpers/navigation';
  *   bunx playwright test --update-snapshots
  */
 
-const ROUTE = '/free-checkup';
+const ROUTE = '/holding-checkup';
 
 // Workbench cards live inside the holdings grid.  Hero/summary cards also use
 // `.wb-card`, so we always scope to this selector to avoid false positives on

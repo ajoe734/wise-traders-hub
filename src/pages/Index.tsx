@@ -170,7 +170,7 @@ const Index = () => {
                 style={{ backgroundColor: '#EC662D', color: '#fff' }}
                 className="hover:brightness-110 border-0 shadow-[0_10px_30px_-12px_rgba(236,102,45,0.65)]"
               >
-                <Link to="/free-checkup">
+                <Link to="/holding-checkup">
                   開始看懂我的持股
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -1167,7 +1167,7 @@ const Index = () => {
                 ))}
                 <div className="pt-sm">
                   <Button size="xl" className="bg-purple-600 hover:bg-purple-700 text-white border-0" asChild>
-                    <Link to="/free-checkup">
+                    <Link to="/holding-checkup">
                       免費試用持股看板
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
@@ -1600,7 +1600,7 @@ const Index = () => {
                 }}
                 asChild
               >
-                <Link to="/free-checkup">
+                <Link to="/holding-checkup">
                   開始持股健檢
                   <ArrowRight className="h-4 w-4 ml-2 warroom-arrow transition-transform" />
                 </Link>
@@ -1636,7 +1636,7 @@ const Index = () => {
                 </Link>
               </Button>
               <Button size="xl" className="bg-purple-600 hover:bg-purple-700 text-white border-0" asChild>
-                <Link to="/free-checkup">
+                <Link to="/holding-checkup">
                   免費健檢
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
