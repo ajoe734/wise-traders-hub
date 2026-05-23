@@ -152,6 +152,11 @@ const AttributionTracker = () => {
   return null;
 };
 
+const LegacyFreeCheckupRedirect = () => {
+  const location = useLocation();
+  return <Navigate to={`/holding-checkup${location.search}${location.hash}`} replace />;
+};
+
 const RouteFallback = () => (
   <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
     <div className="h-8 w-8 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
