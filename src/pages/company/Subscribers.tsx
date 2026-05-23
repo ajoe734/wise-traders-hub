@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Users, UserCheck, UserX, RefreshCw, Download, Stethoscope } from 'lucide-react';
+import { useUserIdentities, formatIdentitySecondary } from '@/hooks/useUserIdentities';
 
 type Row = {
   id: string;
