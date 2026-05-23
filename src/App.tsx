@@ -180,7 +180,8 @@ const AppShell = () => (
             <Route path="/checkout/:slug/:planId" element={<Checkout />} />
             <Route path="/checkout/checkup/:planId" element={<CheckupCheckout />} />
             <Route path="/pricing" element={<Pricing />} />
-            <Route path="/free-checkup" element={<CheckupModeProviderLazy><FreeCheckupPage /></CheckupModeProviderLazy>} />
+            <Route path="/holding-checkup" element={<CheckupModeProviderLazy><FreeCheckupPage /></CheckupModeProviderLazy>} />
+            <Route path="/free-checkup" element={<LegacyFreeCheckupRedirect />} />
             <Route path="/legal" element={<Legal />} />
 
             {/* Checkup portfolio routes */}
