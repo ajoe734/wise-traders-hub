@@ -127,9 +127,24 @@ const AdminSubscribers = () => {
                   ) : (
                     filtered.map((sub) => {
                       const remaining = getRemainingDays(sub.expires_at);
+                      const id = identities[sub.user_id];
+                      const isLine = id?.login_method === 'line';
                       return (
                         <tr key={sub.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="p-3 text-sm font-medium">{profileMap[sub.user_id] || sub.user_id?.slice(0, 8)}</td>
+                          <td className="p-3 text-sm font-medium">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0 ${isLine ? 'bg-[#06C755]/10 text-[#06C755] border-[#06C755]/30' : ''}`}
+                              >
+                                {isLine ? 'Line' : 'Email'}
+                              </Badge>
+                              <span>{id?.display_name || sub.user_id?.slice(0, 8)}</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground font-normal mt-0.5">
+                              {formatIdentitySecondary(id, sub.user_id)}
+                            </div>
+                          </td>
                           <td className="p-3 text-sm">{sub.expert_plans?.name || '-'}</td>
                           <td className="p-3 text-sm text-muted-foreground">{sub.started_at ? new Date(sub.started_at).toLocaleDateString('zh-TW') : '-'}</td>
                           <td className="p-3 text-sm text-muted-foreground">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('zh-TW') : '-'}</td>
