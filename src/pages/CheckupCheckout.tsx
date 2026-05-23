@@ -31,25 +31,14 @@ export default function CheckupCheckout() {
   const { data: plan, isLoading } = useCheckupPlan(planId);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [method, setMethod] = useState<Method>("ecpay");
-  const [bank, setBank] = useState<{ bank_name: string; bank_code: string; account_number: string; account_name: string } | null>(null);
+  // (removed) inline bank state — now handled by <RemittanceAccountCard />
   const [isProcessing, setIsProcessing] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string; goRemittance?: boolean } | null>(null);
 
-  // 收款帳號
-  useEffect(() => {
-    (supabase.from as any)("payment_settings_safe").select("value").eq("key", "remittance_account").maybeSingle()
-      .then(({ data }) => {
-        const v = data?.value as any;
-        if (v) setBank({
-          bank_name: v.bank_name ?? v.bank ?? "",
-          bank_code: v.bank_code ?? v.branch ?? "",
-          account_number: v.account_number ?? v.account ?? "",
-          account_name: v.account_name ?? v.name ?? "",
-        });
-      });
-  }, []);
+  // 收款帳號改由 <RemittanceAccountCard /> 內部 react-query 撈取
+
 
   // ECPay 回跳確認 — 共用 useSubscriptionConfirmation
   useSubscriptionConfirmation({
