@@ -110,16 +110,23 @@ const CompanySubscribers = () => {
   const checkupCount = rows.filter(s => s.kind === 'checkup' && s.status === 'active').length;
 
   const handleExport = () => {
-    const headers = ['類型', '訂閱者', '方案', '開始日', '到期日', '狀態', '續訂'];
-    const rowsCsv = filtered.map(s => [
-      s.kind === 'checkup' ? '健檢' : '訂閱方案',
-      profileMap[s.user_id] || s.user_id?.slice(0, 8),
-      s.plan_name,
-      s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '-',
-      s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '-',
-      s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
-      s.auto_renew ? '自動' : '手動',
-    ]);
+    const headers = ['類型', '訂閱者', '登入方式', 'Email', 'Line ID 末段', 'User ID', '方案', '開始日', '到期日', '狀態', '續訂'];
+    const rowsCsv = filtered.map(s => {
+      const id = identities[s.user_id];
+      return [
+        s.kind === 'checkup' ? '健檢' : '訂閱方案',
+        id?.display_name || s.user_id?.slice(0, 8),
+        id?.login_method === 'line' ? 'Line' : 'Email',
+        id?.email || '',
+        id?.line_user_id ? id.line_user_id.slice(-6) : '',
+        s.user_id,
+        s.plan_name,
+        s.started_at ? new Date(s.started_at).toLocaleDateString('zh-TW') : '-',
+        s.expires_at ? new Date(s.expires_at).toLocaleDateString('zh-TW') : '-',
+        s.status === 'active' ? '活躍' : s.status === 'expired' ? '已到期' : '已取消',
+        s.auto_renew ? '自動' : '手動',
+      ];
+    });
     const csv = [headers, ...rowsCsv].map(r => r.join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
