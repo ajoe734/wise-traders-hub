@@ -316,7 +316,7 @@ export default function CheckupCheckout() {
                 const ok = resultDialog?.success;
                 setResultDialog(null);
                 if (goRemit) navigate("/account/remittance");
-                else if (ok) navigate("/free-checkup");
+                else if (ok) navigate("/holding-checkup");
               }}>{resultDialog?.goRemittance ? "前往補填匯款資料" : "確定"}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

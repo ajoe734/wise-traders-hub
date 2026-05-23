@@ -48,7 +48,7 @@ export function DedupSettingsButton() {
     return () => { unsub() }
   }, [])
 
-  if (!path.startsWith('/free-checkup')) return null
+  if (!path.startsWith('/holding-checkup') && !path.startsWith('/free-checkup')) return null
 
   const update = (patch: Partial<typeof prefs>) => setPrefsState(setCoercePrefs(patch))
 

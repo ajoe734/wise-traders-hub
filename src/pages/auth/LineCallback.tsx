@@ -18,9 +18,9 @@ export default function LineCallback() {
     const type = searchParams.get('type');
     const returnToParam = searchParams.get('return_to');
     const returnToSession = sessionStorage.getItem('line_login_return_to');
-    const returnTo = returnToParam || returnToSession || '/free-checkup';
+    const returnTo = returnToParam || returnToSession || '/holding-checkup';
     const lineError = searchParams.get('line_error');
-    const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/free-checkup';
+    const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/holding-checkup';
 
     console.log(DBG, 'Callback mounted', {
       tokenHash: tokenHash ? `${tokenHash.slice(0, 8)}…` : null,

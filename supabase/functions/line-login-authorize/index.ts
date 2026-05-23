@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const url = new URL(req.url);
     const redirectUri = url.searchParams.get('redirect_uri') || '';
-    const returnTo = url.searchParams.get('return_to') || '/free-checkup';
+    const returnTo = url.searchParams.get('return_to') || '/holding-checkup';
     const appOrigin = url.searchParams.get('app_origin') || '';
 
     // Build state with return_to for post-login redirect

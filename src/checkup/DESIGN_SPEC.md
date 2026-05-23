@@ -1,6 +1,6 @@
 # Checkup Module — Design Specification (Finalized)
 
-> 此規範為 `/free-checkup` 頁面的最終設計約束文件。
+> 此規範為 `/holding-checkup` 頁面的最終設計約束文件。
 > 任何 UI 修改必須遵守以下規則。
 
 ---

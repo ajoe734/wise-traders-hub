@@ -23,12 +23,12 @@ serve(async (req) => {
     const error = url.searchParams.get('error');
 
     // Parse state
-    let returnTo = '/free-checkup';
+    let returnTo = '/holding-checkup';
     let redirectUri = '';
     let appOrigin = '';
     try {
       const stateData = JSON.parse(atob(stateParam));
-      returnTo = stateData.return_to || '/free-checkup';
+      returnTo = stateData.return_to || '/holding-checkup';
       redirectUri = stateData.redirect_uri || '';
       appOrigin = stateData.app_origin || '';
       console.log('[LINE-CB-FN] Parsed state:', JSON.stringify({ returnTo, appOrigin, hasCode: !!code, error }));
@@ -36,7 +36,7 @@ serve(async (req) => {
       console.warn('[LINE-CB-FN] Failed to parse state param');
     }
 
-    const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/free-checkup';
+    const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/holding-checkup';
 
     // Open Redirect protection: whitelist allowed origins
     const ALLOWED_ORIGINS = [
@@ -276,7 +276,7 @@ serve(async (req) => {
     const siteUrl = Deno.env.get('SITE_URL') || 'https://wise-traders-hub.lovable.app';
     return new Response(null, {
       status: 302,
-      headers: { Location: `${siteUrl}/free-checkup?line_error=internal` },
+      headers: { Location: `${siteUrl}/holding-checkup?line_error=internal` },
     });
   }
 });

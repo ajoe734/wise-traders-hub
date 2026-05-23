@@ -1,6 +1,6 @@
 # Demo 資料維護 SOP
 
-> 目的：訪客模式（`/free-checkup` 未登入）的所有展示內容來自 `src/checkup/data/demoData.js`。為了避免畫面看起來「過期」（例如收盤分析提到上個月才有的事件），需要定期更新本檔。
+> 目的：訪客模式（`/holding-checkup` 未登入）的所有展示內容來自 `src/checkup/data/demoData.js`。為了避免畫面看起來「過期」（例如收盤分析提到上個月才有的事件），需要定期更新本檔。
 
 ## 更新頻率
 
@@ -40,7 +40,7 @@ node scripts/refresh-demo-data.mjs
 
 ### 3. 驗收
 
-訪客模式（瀏覽器隱身視窗 → `/free-checkup`）必須通過：
+訪客模式（瀏覽器隱身視窗 → `/holding-checkup`）必須通過：
 
 - [ ] DemoBanner 顯示，**沒有**「示範資料更新中」
 - [ ] 持倉看板顯示完整 20+ 檔
