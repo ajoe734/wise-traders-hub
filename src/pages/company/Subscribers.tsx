@@ -59,21 +59,13 @@ const CompanySubscribers = () => {
       const merged = [...expertRows, ...checkupRows].sort(
         (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
       );
-      const userIds = [...new Set(merged.map(s => s.user_id).filter(Boolean))];
-      let profileMap: Record<string, string> = {};
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, display_name')
-          .in('user_id', userIds);
-        (profiles || []).forEach(p => { profileMap[p.user_id] = p.display_name || ''; });
-      }
-      return { rows: merged, profileMap };
+      return { rows: merged };
     },
     staleTime: 30_000,
   });
   const rows = data?.rows ?? [];
-  const profileMap = data?.profileMap ?? {};
+  const userIds = useMemo(() => [...new Set(rows.map((r) => r.user_id).filter(Boolean))], [rows]);
+  const { identities } = useUserIdentities(userIds);
   const loading = isFetching && !data;
 
   const activeCount = rows.filter(s => s.status === 'active').length;
