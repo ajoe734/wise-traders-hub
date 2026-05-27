@@ -37,6 +37,14 @@ export default function CheckupCheckout() {
   const [isConfirming, setIsConfirming] = useState(false);
   const [resultDialog, setResultDialog] = useState<{ open: boolean; success: boolean; message?: string; goRemittance?: boolean } | null>(null);
 
+  // GTM Purchase event — fires once when success dialog opens
+  useEffect(() => {
+    if (resultDialog?.open && resultDialog?.success) {
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      (window as any).dataLayer.push({ event: 'Purchase' });
+    }
+  }, [resultDialog?.open, resultDialog?.success]);
+
   // 收款帳號改由 <RemittanceAccountCard /> 內部 react-query 撈取
 
 
