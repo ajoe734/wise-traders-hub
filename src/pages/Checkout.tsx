@@ -66,6 +66,14 @@ const Checkout = () => {
   const [loading, setLoading] = useState(true);
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
   const [resultDialog, setResultDialog] = useState<CheckoutResult | null>(null);
+
+  // GTM Purchase event — fires once when success dialog opens
+  useEffect(() => {
+    if (resultDialog?.open && resultDialog?.success) {
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      (window as any).dataLayer.push({ event: 'Purchase' });
+    }
+  }, [resultDialog?.open, resultDialog?.success]);
   // Idempotency key for remittance order creation — kept stable per page session
   const remittanceReqIdRef = useRef<string>(typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
   // Synchronous guard against rapid double-clicks before React re-renders isProcessing
