@@ -1030,29 +1030,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* 低調 CTA — 戰情室下方銜接 */}
-          <div className="text-center mt-10 md:mt-12 max-w-md mx-auto px-5">
-            <p
-              className="text-sm md:text-base mb-3"
-              style={{ color: 'rgba(244,236,219,0.78)', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.04em' }}
-            >
-              先用自己的股票試一次
-            </p>
-            <Link to="/holding-checkup">
-              <Button
-                size="default"
-                variant="outline"
-                className="border bg-transparent hover:bg-[rgba(236,102,45,0.08)]"
-                style={{ borderColor: 'rgba(236,102,45,0.55)', color: '#F4ECDB' }}
-              >
-                開始持股健檢
-                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-              </Button>
-            </Link>
-            <p className="text-[11px] md:text-xs mt-3" style={{ color: 'rgba(244,236,219,0.42)' }}>
-              不用註冊，先看懂手上的部位。
-            </p>
-          </div>
         </div>
 
         <style>{`
@@ -1089,10 +1066,37 @@ const Index = () => {
       </section>
       </LazyOnVisible>
 
+      {/* Seam: 戰情室(墨) → 喘息淺紙帶 → 戰報榜(墨) — 打斷整段深色，承接到本週榜文 */}
+      <InkFade direction="ink-to-paper" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
+      <div
+        className="relative overflow-hidden"
+        style={{ background: 'hsl(var(--jh-paper))' }}
+      >
+        <div
+          className="absolute inset-0 opacity-[0.07] mix-blend-multiply pointer-events-none"
+          aria-hidden="true"
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.27  0 0 0 0 0.15  0 0 0 0.45 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+          }}
+        />
+        <div className="container relative py-10 md:py-12 text-center">
+          <div
+            className="inline-flex items-center gap-3 text-[11px] tracking-[0.36em] uppercase"
+            style={{ color: 'hsl(var(--jh-amber-dim))' }}
+          >
+            <span className="block w-8 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.55)' }} />
+            戰情室外，江湖每週開榜一次
+            <span className="block w-8 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.55)' }} />
+          </div>
+        </div>
+      </div>
+      <InkFade direction="paper-to-ink" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
+
       {/* Weekly Limit Up Leaderboard - War Report Style */}
       <LazyOnVisible mode="content-visibility" minHeight={620}>
       <section
-        className="relative overflow-hidden py-16 md:py-20"
+        className="relative overflow-hidden py-12 md:py-14"
         style={{ background: 'hsl(var(--jh-ink))' }}
       >
         {/* Ambient layers */}
@@ -1404,6 +1408,12 @@ const Index = () => {
                   </div>
                 ))}
                 <div className="pt-sm">
+                  <p
+                    className="text-sm mb-3"
+                    style={{ color: 'hsl(var(--jh-earth))', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.04em' }}
+                  >
+                    先用自己的股票試一次
+                  </p>
                   <Button
                     size="xl"
                     className="text-white border-0"
@@ -1415,6 +1425,9 @@ const Index = () => {
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
                   </Button>
+                  <p className="text-[11px] mt-3" style={{ color: 'hsl(var(--jh-stone))' }}>
+                    不用註冊，先看懂手上的部位。
+                  </p>
                 </div>
               </div>
 
