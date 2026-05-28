@@ -764,42 +764,42 @@ const Index = () => {
         </div>
 
         {/* 過渡敘事 — 兩派收束 → 內門戰情室（緊湊） */}
-        <div className="relative flex flex-col items-center pt-4 md:pt-5 pb-0">
-          {/* 從左右兩派卡片底部往中間收束的弧線 */}
+        <div className="relative flex flex-col items-center pt-2 md:pt-2 pb-0">
+          {/* 從左右兩派卡片底部往中間收束的弧線（強化辨識度） */}
           <svg
             aria-hidden="true"
             viewBox="0 0 1000 64"
             preserveAspectRatio="none"
-            className="w-full max-w-5xl h-10 md:h-12 -mt-2"
+            className="w-full max-w-5xl h-8 md:h-10 -mt-1"
           >
             <defs>
               <linearGradient id="conv-left-arc" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor="rgba(236,102,45,0)" />
-                <stop offset="60%" stopColor="rgba(236,102,45,0.45)" />
-                <stop offset="100%" stopColor="rgba(236,102,45,0.7)" />
+                <stop offset="55%" stopColor="rgba(236,102,45,0.75)" />
+                <stop offset="100%" stopColor="rgba(236,102,45,0.95)" />
               </linearGradient>
               <linearGradient id="conv-right-arc" x1="1" y1="0" x2="0" y2="0">
                 <stop offset="0%" stopColor="rgba(212,166,67,0)" />
-                <stop offset="60%" stopColor="rgba(212,166,67,0.45)" />
-                <stop offset="100%" stopColor="rgba(212,166,67,0.7)" />
+                <stop offset="55%" stopColor="rgba(212,166,67,0.75)" />
+                <stop offset="100%" stopColor="rgba(212,166,67,0.95)" />
               </linearGradient>
             </defs>
             {/* 左派：從左上往中下收束 */}
-            <path d="M 20 4 C 280 4, 420 56, 500 60" fill="none" stroke="url(#conv-left-arc)" strokeWidth="1" />
+            <path d="M 20 4 C 280 4, 420 56, 500 60" fill="none" stroke="url(#conv-left-arc)" strokeWidth="1.4" />
             {/* 右派：從右上往中下收束 */}
-            <path d="M 980 4 C 720 4, 580 56, 500 60" fill="none" stroke="url(#conv-right-arc)" strokeWidth="1" />
+            <path d="M 980 4 C 720 4, 580 56, 500 60" fill="none" stroke="url(#conv-right-arc)" strokeWidth="1.4" />
           </svg>
 
           <button
             onClick={() => {
               document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="flex flex-col items-center gap-1 cursor-pointer text-center px-6 -mt-1"
-            style={{ color: 'rgba(23,23,23,0.7)' }}
+            className="flex flex-col items-center gap-1.5 cursor-pointer text-center px-6"
+            style={{ color: 'rgba(23,23,23,0.82)' }}
           >
             <span
-              className="text-xs md:text-sm"
-              style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.08em' }}
+              className="text-base md:text-lg font-medium"
+              style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.06em' }}
             >
               選定路線後，所有訊號都會回到同一個戰情室
             </span>
@@ -817,32 +817,56 @@ const Index = () => {
             className="mt-2"
             style={{
               width: 1,
-              height: 28,
+              height: 22,
               background:
-                'linear-gradient(to bottom, rgba(236,102,45,0.7), rgba(14,12,10,0.95))',
+                'linear-gradient(to bottom, rgba(236,102,45,0.85), rgba(14,12,10,0.95))',
             }}
           />
         </div>
 
-        {/* 米白 → 墨色 漸層銜接（紙面入墨） */}
+        {/* 米白 → 墨色 暈染過渡（紙面入墨，不規則邊緣） */}
         <div
           aria-hidden="true"
-          className="relative w-full"
-          style={{
-            height: 72,
-            background:
-              'linear-gradient(to bottom, transparent 0%, rgba(14,12,10,0.25) 35%, rgba(14,12,10,0.7) 75%, #0E0C0A 100%)',
-          }}
+          className="relative w-full overflow-hidden"
+          style={{ height: 48 }}
         >
-          {/* 淡霧層 */}
+          {/* 主漸層 */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(to bottom, transparent 0%, rgba(14,12,10,0.2) 30%, rgba(14,12,10,0.65) 70%, #0E0C0A 100%)',
+            }}
+          />
+          {/* 不規則墨色暈染 — 左 */}
+          <div
+            className="absolute"
+            style={{
+              left: '-10%', top: '20%', width: '55%', height: '120%',
+              background:
+                'radial-gradient(ellipse 70% 60% at 40% 70%, rgba(14,12,10,0.85), transparent 70%)',
+              filter: 'blur(8px)',
+            }}
+          />
+          {/* 不規則墨色暈染 — 右 */}
+          <div
+            className="absolute"
+            style={{
+              right: '-12%', top: '15%', width: '60%', height: '120%',
+              background:
+                'radial-gradient(ellipse 65% 65% at 55% 75%, rgba(14,12,10,0.8), transparent 70%)',
+              filter: 'blur(10px)',
+            }}
+          />
+          {/* 紙紋霧氣（頂部殘留） */}
           <div
             className="absolute inset-x-0 top-0"
             style={{
-              height: '100%',
+              height: '60%',
               background:
-                'radial-gradient(ellipse 60% 100% at 50% 0%, rgba(245,243,239,0.35), transparent 70%)',
+                'radial-gradient(ellipse 55% 100% at 50% 0%, rgba(245,243,239,0.4), transparent 75%)',
               mixBlendMode: 'screen',
-              opacity: 0.6,
+              opacity: 0.55,
             }}
           />
           {/* 中央延續線 */}
@@ -852,7 +876,7 @@ const Index = () => {
               width: 1,
               height: '100%',
               background:
-                'linear-gradient(to bottom, rgba(236,102,45,0.7), rgba(236,102,45,0.25) 60%, transparent)',
+                'linear-gradient(to bottom, rgba(236,102,45,0.85), rgba(236,102,45,0.35) 60%, transparent)',
             }}
           />
         </div>
@@ -887,7 +911,7 @@ const Index = () => {
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
       <section
         id="preview-section"
-        className="relative py-section overflow-hidden"
+        className="relative pt-4 md:pt-6 pb-section overflow-hidden"
         style={{ backgroundColor: '#0E0C0A' }}
       >
         {/* 暖光 radial — 中心標題後方 */}
@@ -933,7 +957,7 @@ const Index = () => {
 
         <div className="container relative z-10">
           {/* 接住過渡線：垂直線從上方延伸到標題前 */}
-          <div className="flex flex-col items-center -mt-2 mb-4">
+          <div className="flex flex-col items-center -mt-12 md:-mt-14 mb-3">
             <div
               aria-hidden="true"
               style={{
