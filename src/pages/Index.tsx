@@ -1050,12 +1050,22 @@ const Index = () => {
                     </span>
                   </div>
                   <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px]"
-                    style={{ backgroundColor: 'rgba(236,102,45,0.1)', color: '#EC662D' }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] tracking-wider"
+                    style={{ backgroundColor: 'rgba(236,102,45,0.1)', color: '#EC662D', border: '1px solid rgba(236,102,45,0.25)' }}
                   >
                     <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#EC662D' }} />
                     即時
                   </span>
+                </div>
+
+                {/* 可信度輔助說明 */}
+                <div
+                  className="px-5 py-2 border-b"
+                  style={{ borderColor: 'rgba(212,166,67,0.10)', backgroundColor: 'rgba(212,166,67,0.03)' }}
+                >
+                  <p className="text-[10.5px] leading-relaxed" style={{ color: 'rgba(244,236,219,0.45)', letterSpacing: '0.03em' }}>
+                    收盤後同步更新，訊號僅供會員追蹤與復盤。
+                  </p>
                 </div>
 
                 {/* Rows */}
