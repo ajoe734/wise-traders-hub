@@ -114,3 +114,10 @@ verify_jwt = false
 
 [functions.prune-knowledge-base]
 verify_jwt = false
+
+[functions.traffic-ingest]
+verify_jwt = false
+
+[functions.traffic-cleanup]
+verify_jwt = false
+
