@@ -1430,7 +1430,7 @@ const Index = () => {
                   borderColor: 'hsl(var(--jh-amber) / 0.35)',
                 }}
               >
-                持股卷宗 · STOCK DOSSIER
+                看完別人的戰績，換看你自己手上這局
               </Badge>
               <h2 className="text-h2 mb-xs" style={{ color: 'hsl(var(--jh-ink))' }}>
                 先看懂自己的持股，再決定下一步
