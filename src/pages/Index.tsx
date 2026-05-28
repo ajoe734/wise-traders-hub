@@ -368,6 +368,9 @@ const Index = () => {
         
       `}</style>
 
+      {/* Seam: 三招(紙) → 戰績(墨) */}
+      <InkFade direction="paper-to-ink" height={120} paperColor="#F5F0E6" inkColor="#070707" />
+
       {/* 黑色數據列 — full-width stats bar above 江湖兩派 */}
       <section
         aria-label="平台數據"
