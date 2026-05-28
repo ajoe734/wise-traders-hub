@@ -39,7 +39,7 @@ import iconLightningCircle from '@/assets/icon-lightning-circle.svg';
 import iconBookCircle from '@/assets/icon-book-circle.svg';
 
 import { LazyOnVisible } from '@/components/LazyOnVisible';
-import { InkFade } from '@/components/jianghu/InkFade';
+
 
 
 // Batch1-#2: idle prefetch moved to centralized prefetchHighTrafficRoutes()
@@ -142,8 +142,16 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Seam: Hero(墨黑) → 三招(紙) — 不要硬切黑白 */}
-      <InkFade direction="ink-to-paper" height={130} paperColor="hsl(var(--jh-paper))" inkColor="#000000" />
+      {/* Seam: Hero(墨黑) → 三招(紙) — 短版紙面浮出，40px */}
+      <div
+        aria-hidden="true"
+        className="relative w-full"
+        style={{
+          height: 40,
+          background:
+            'linear-gradient(180deg, #000 0%, hsl(var(--jh-paper) / 0.35) 55%, hsl(var(--jh-paper)) 100%)',
+        }}
+      />
 
       {/* Three Core Features Section - Magazine Layout */}
       <section className="relative py-section" style={{ background: 'hsl(var(--jh-paper))' }}>
@@ -667,8 +675,30 @@ const Index = () => {
 
 
 
-      {/* Seam: 選你的模式(紙) → 會員戰情室(墨) */}
-      <InkFade direction="paper-to-ink" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-battle-bg))" />
+      {/* Seam: 選你的模式(紙) → 會員戰情室(墨褐) — 章節分界：暗金細線 + 中央菱形 */}
+      <div
+        aria-hidden="true"
+        className="relative w-full flex items-center justify-center"
+        style={{
+          height: 64,
+          background:
+            'linear-gradient(180deg, hsl(var(--jh-paper)) 0%, hsl(var(--jh-paper)) 48%, hsl(var(--jh-battle-bg)) 52%, hsl(var(--jh-battle-bg)) 100%)',
+        }}
+      >
+        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 flex items-center justify-center px-8">
+          <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, hsl(var(--jh-amber) / 0.55) 30%, hsl(var(--jh-amber) / 0.55) 70%, transparent)' }} />
+          <span
+            className="mx-4 rotate-45 block"
+            style={{
+              width: 8,
+              height: 8,
+              background: 'hsl(var(--jh-amber) / 0.85)',
+              boxShadow: '0 0 0 1px hsl(var(--jh-battle-bg))',
+            }}
+          />
+          <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, hsl(var(--jh-amber) / 0.55) 30%, hsl(var(--jh-amber) / 0.55) 70%, transparent)' }} />
+        </div>
+      </div>
 
       {/* Real Interface Preview Section — 會員戰情室 */}
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
@@ -1069,32 +1099,31 @@ const Index = () => {
       </section>
       </LazyOnVisible>
 
-      {/* Seam: 戰情室(墨) → 喘息淺紙帶 → 戰報榜(墨) — 打斷整段深色，承接到本週榜文 */}
-      <InkFade direction="ink-to-paper" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-battle-bg))" />
+      {/* Seam: 戰情室(墨褐) → 戰報榜(暗褐) — 同色系內部轉場，僅靠暗金細線 + 標題分層 */}
       <div
-        className="relative overflow-hidden"
-        style={{ background: 'hsl(var(--jh-paper))' }}
+        aria-hidden="false"
+        className="relative w-full"
+        style={{
+          background:
+            'linear-gradient(180deg, hsl(var(--jh-battle-bg)) 0%, hsl(var(--jh-report-bg)) 100%)',
+        }}
       >
         <div
-          className="absolute inset-0 opacity-[0.07] mix-blend-multiply pointer-events-none"
+          className="absolute inset-x-0 top-0 h-px"
           aria-hidden="true"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.27  0 0 0 0 0.15  0 0 0 0.45 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
-          }}
+          style={{ background: 'linear-gradient(90deg, transparent, hsl(var(--jh-amber) / 0.4) 30%, hsl(var(--jh-amber) / 0.4) 70%, transparent)' }}
         />
-        <div className="container relative py-10 md:py-12 text-center">
+        <div className="container relative py-6 text-center">
           <div
             className="inline-flex items-center gap-3 text-[11px] tracking-[0.36em] uppercase"
-            style={{ color: 'hsl(var(--jh-amber-dim))' }}
+            style={{ color: 'hsl(var(--jh-amber-soft) / 0.7)' }}
           >
-            <span className="block w-8 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.55)' }} />
+            <span className="block w-8 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.5)' }} />
             戰情室外，江湖每週開榜一次
-            <span className="block w-8 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.55)' }} />
+            <span className="block w-8 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.5)' }} />
           </div>
         </div>
       </div>
-      <InkFade direction="paper-to-ink" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-report-bg))" />
 
       {/* Weekly Limit Up Leaderboard - War Report Style */}
       <LazyOnVisible mode="content-visibility" minHeight={620}>
@@ -1340,7 +1369,16 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* Seam: 戰報榜(墨) → 持股卷宗(紙) */}
-      <InkFade direction="ink-to-paper" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-report-bg))" />
+      {/* Seam: 戰報榜(暗褐) → 持股卷宗(紙) — 短版墨色退場，50px */}
+      <div
+        aria-hidden="true"
+        className="relative w-full"
+        style={{
+          height: 50,
+          background:
+            'linear-gradient(180deg, hsl(var(--jh-report-bg)) 0%, hsl(var(--jh-report-bg) / 0.55) 45%, hsl(var(--jh-paper)) 100%)',
+        }}
+      />
       {/* Stock Dashboard Section - 持股卷宗（江湖卷宗風） */}
       <LazyOnVisible mode="content-visibility" minHeight={900}>
       <section
