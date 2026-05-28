@@ -1,0 +1,127 @@
+// Ingest anonymous + authenticated traffic events.
+//
+// Two payload kinds:
+//   - kind=visit  → upsert traffic_visits (first-touch attribution + last_seen bump)
+//   - kind=event  → insert a single row into traffic_events (page view)
+//
+// Designed for navigator.sendBeacon — never returns 4xx for valid shapes; logs
+// and returns 200 even on partial errors so the client never retries indefinitely.
+
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { corsHeaders, jsonResponse, corsPreflight } from '../_shared/cors.ts';
+import { serviceClient, getCallerUserId } from '../_shared/supabaseClients.ts';
+
+function safeHost(referrer: string | null | undefined): string | null {
+  if (!referrer) return null;
+  try {
+    const u = new URL(referrer);
+    return u.hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function normalizeRoute(path: string): string {
+  return (path || '/')
+    .replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '/:id')
+    .replace(/\/\d{4,}/g, '/:id')
+    .slice(0, 200);
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return corsPreflight();
+  if (req.method !== 'POST') {
+    return jsonResponse({ ok: false }, { status: 405 });
+  }
+
+  let body: Record<string, unknown> = {};
+  try { body = await req.json(); } catch { body = {}; }
+
+  const supabase = serviceClient();
+  const userId = await getCallerUserId(req);
+
+  const kind = String(body.kind || '');
+  const visitor_id = typeof body.visitor_id === 'string' ? body.visitor_id.slice(0, 128) : '';
+  if (!visitor_id) return jsonResponse({ ok: false, error: 'visitor_id_required' });
+
+  try {
+    if (kind === 'visit') {
+      const landing_path = normalizeRoute(String(body.landing_path || '/'));
+      const referrer = typeof body.referrer === 'string' ? body.referrer.slice(0, 1000) : null;
+      const referrer_host = safeHost(referrer);
+      const utm_source = (body.utm_source as string | null) || null;
+      const utm_medium = (body.utm_medium as string | null) || null;
+      const utm_campaign = (body.utm_campaign as string | null) || null;
+      const utm_content = (body.utm_content as string | null) || null;
+      const utm_term = (body.utm_term as string | null) || null;
+      const ref_code = (body.ref_code as string | null) || null;
+      const device_kind = (body.device_kind as string | null) || null;
+
+      const { data: channelRow } = await supabase.rpc('derive_traffic_channel', {
+        _utm_medium: utm_medium,
+        _utm_source: utm_source,
+        _referrer_host: referrer_host,
+      });
+      const channel = (typeof channelRow === 'string' && channelRow) || 'direct';
+
+      // Check if visitor exists (no UPSERT — we want to preserve first-touch fields).
+      const { data: existing } = await supabase
+        .from('traffic_visits')
+        .select('id, page_views, user_id')
+        .eq('visitor_id', visitor_id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('traffic_visits')
+          .update({
+            last_seen_at: new Date().toISOString(),
+            page_views: (existing.page_views || 0) + 1,
+            user_id: existing.user_id || userId || null,
+          })
+          .eq('id', existing.id);
+      } else {
+        await supabase.from('traffic_visits').insert({
+          visitor_id,
+          user_id: userId || null,
+          first_landing_path: landing_path,
+          first_referrer: referrer,
+          first_referrer_host: referrer_host,
+          utm_source, utm_medium, utm_campaign, utm_content, utm_term, ref_code,
+          channel,
+          device_kind,
+        });
+      }
+
+      return jsonResponse({ ok: true, channel });
+    }
+
+    if (kind === 'event') {
+      const route = normalizeRoute(String(body.route || '/'));
+      const referrer = typeof body.referrer === 'string' ? body.referrer.slice(0, 1000) : null;
+
+      // Batch support: body.routes = string[]
+      const routes = Array.isArray(body.routes) ? (body.routes as string[]).slice(0, 50) : [route];
+      const rows = routes.map((r) => ({
+        visitor_id,
+        user_id: userId || null,
+        route: normalizeRoute(String(r || '/')),
+        referrer_host: safeHost(referrer),
+      }));
+      await supabase.from('traffic_events').insert(rows);
+
+      // Also bump traffic_visits.last_seen_at + user_id backfill (best-effort, async)
+      supabase.from('traffic_visits').update({
+        last_seen_at: new Date().toISOString(),
+        user_id: userId || undefined,
+      }).eq('visitor_id', visitor_id).then(() => {});
+
+      return jsonResponse({ ok: true, count: rows.length });
+    }
+
+    return jsonResponse({ ok: false, error: 'unknown_kind' });
+  } catch (e) {
+    console.error('[traffic-ingest] error', (e as Error).message);
+    return jsonResponse({ ok: false }, { status: 200, headers: corsHeaders });
+  }
+});
