@@ -668,7 +668,7 @@ const Index = () => {
 
 
       {/* Seam: 選你的模式(紙) → 會員戰情室(墨) */}
-      <InkFade direction="paper-to-ink" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
+      <InkFade direction="paper-to-ink" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-battle-bg))" />
 
       {/* Real Interface Preview Section — 會員戰情室 */}
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
