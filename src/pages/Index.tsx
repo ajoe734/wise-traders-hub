@@ -1372,7 +1372,7 @@ const Index = () => {
       {/* Seam: 戰報榜(暗褐) → 持股卷宗(紙) — 短版墨色退場，50px */}
       <div
         aria-hidden="true"
-        className="relative w-full"
+        className="relative w-full jh-seam-report-to-stock"
         style={{
           height: 50,
           background:
@@ -1382,7 +1382,7 @@ const Index = () => {
       {/* Stock Dashboard Section - 持股卷宗（江湖卷宗風） */}
       <LazyOnVisible mode="content-visibility" minHeight={900}>
       <section
-        className="relative overflow-hidden py-section"
+        className="relative overflow-hidden py-section jh-night-section"
         style={{ background: 'hsl(var(--jh-paper))' }}
       >
         {/* 上緣墨色餘韻 — 從 InkFade 自然延續，不要硬切純白 */}
