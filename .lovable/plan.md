@@ -1,121 +1,132 @@
+## 目標
 
-# 首頁全頁敘事整頓計畫
+在公司後台建立一套完整流量監控，涵蓋：
+1. **流量來源**（直接、自然搜尋、社群、推薦）
+2. **廣告來源**（utm_source / utm_medium / utm_campaign / utm_content / ref_code）
+3. **廣告轉換營收**（哪一個 campaign 帶來多少註冊、多少訂單、多少實收）
 
-不動內容、只動順序／開頭文案／場景定位／殘留 SaaS 視覺。先把整條線連起來，再回頭做單區塊微調。
+目前已有：
+- `referral_attributions`（30 天 first-touch 鎖定，但只在登入後寫入；匿名流量未被儲存）
+- `payment_transactions`、`checkout_subscriptions`、`member_subscriptions`、`revenue_splits`（營收側資料完整）
+- `perfMetrics`（純效能 RUM，無流量歸因）
 
----
-
-## 一、現況逐段體檢
-
-按目前 `src/pages/Index.tsx` 從上到下：
-
-| # | 區塊 | 場景 | 問題 |
-|---|---|---|---|
-| 1 | Hero | 深墨山海 | OK，世界觀已立 |
-| 2 | 三招定勝負 | 淺紙 | 標題只有「你會用到的三件事」，沒承接 Hero 的江湖亂局 |
-| 3 | **黑色數據列**（L375，"平台數據"） | 深 | **最大破口**：三招中段突然插一條 SaaS metric bar，硬切深色，破壞「三招→選模式」的紙面敘事 |
-| 4 | 墨→米手寫過渡（L447） | 過渡 | 與 `<InkFade>` 重複，留著的是舊版水平 gradient + 山形 SVG，方向 OK 但與 InkFade 規格不一致 |
-| 5 | 選你的模式 | 淺紙 | 場景對，但前面被黑色數據列打斷，看不出是從三招延伸 |
-| 6 | 會員戰情室 | 深墨 | 場景對，標題「入門之後，進入你的戰情室」OK |
-| 7 | 持股卷宗 | 淺紙 | 剛江湖化過，OK，但**順序錯位**——應該在「戰報榜建立信任」之後才放「換你試一次」 |
-| 8 | 本週戰報榜 | 深墨 | 場景對，但放在持股卷宗之後，使用者已經被叫去輸入持股了，戰報失去信任前置作用 |
-| 9 | 如何開始（雙路線） | 深墨 | 場景定位錯：應該是淺色「門派入口卷軸」，目前做成深色戰情室分流，跟前面戰報榜深墨連在一起，使用者搞不清楚已經出戰情室了 |
-| 10 | Final CTA | 純白 `bg-card` | **第二破口**：整段純白 SaaS 收尾，按鈕居中、無紙感、無山海，像跳出整個世界 |
+缺口：
+- 沒有匿名 page view／session 紀錄
+- 沒有 referrer / 流量分類
+- 沒有「campaign → 訂單」歸因表
+- 後台沒有任何流量儀表板
 
 ---
 
-## 二、目標順序（對齊使用者敘事）
+## 設計
 
-```text
-1. Hero                外部江湖／市場亂局           深墨
-2. 三招定勝負          提供判斷方法                 淺紙
-3. 選你的模式          選擇跟單派／修煉派           淺紙
-4. 會員戰情室          進入內門，看見訊號與紀錄     深墨
-5. 本週戰報榜          用戰績建立信任               深墨
-6. 持股卷宗            把自己的股票放進戰局         淺紙
-7. 如何開始            兩條入門路線                 淺紙（門派入口卷軸）
-8. Final CTA           收尾印章                     淺紙（榜尾落款，不是 SaaS 白卡）
+### 1. 資料層（新增 3 張表）
+
+**`traffic_visits`** — 每次匿名造訪的 first-touch（一個 visitor_id 一筆，每 30 天可重置）
+- `visitor_id`、`first_landing_path`、`first_referrer`、`first_referrer_host`
+- `utm_source / medium / campaign / content / term / ref_code`
+- `channel`（direct / organic / social / referral / paid / email，後端 trigger 由 utm + referrer 推導）
+- `device_kind`（mobile / desktop）、`country`（可選，後續再補）
+- `first_seen_at`、`last_seen_at`、`page_views`、`user_id`（登入後 backfill）
+
+**`traffic_events`** — 輕量 page view 事件流（保留 90 天）
+- `visitor_id`、`route`（normalize 過）、`occurred_at`、`user_id?`
+
+**`conversions`** — 訂單成立時寫入，鎖定當下 attribution
+- `visitor_id`、`user_id`、`order_kind`（expert_sub / checkup_sub / one_off）、`order_id`
+- `utm_source / medium / campaign / content / ref_code`、`channel`
+- `gross_amount`、`platform_amount`、`expert_amount`、`occurred_at`
+- 由 edge function（`confirm-linepay` / `ecpay-callback` / `acpay-notify`）在付款成功時 insert
+
+所有表加 `GRANT` + RLS（admin full、user 自己唯讀自己的列）。
+
+### 2. 前端埋點（最小侵入）
+
+新增 `src/lib/trafficTracker.ts`：
+- 在 `App.tsx`（或 `PerfMetricsTracker` 同層）初始化
+- 首次造訪：解析 `document.referrer` + URL params → POST 到新 edge function `traffic-ingest` 寫 `traffic_visits` upsert
+- 每次 route change：寫 `traffic_events`（debounce、batch、`navigator.sendBeacon` on hide）
+- 登入後：backfill `user_id` 到 `traffic_visits` 與 `traffic_events`
+- 沿用既有 `lf_visitor_id` localStorage key，與 `useAttributionTracking` 整合（不重複埋點）
+
+### 3. 轉換寫入（後端）
+
+在三個付款成功的 edge function（`confirm-linepay`、`ecpay-callback`、`acpay-notify`）成功 branch 加入：
+```ts
+// 讀 user 最近 30 天 first-touch attribution
+// 與訂單金額一起 insert conversions
+```
+封裝成 `supabase/functions/_shared/recordConversion.ts`。
+
+### 4. 後台 UI（新增 `/company/traffic`）
+
+於 `CompanyLayout` 側欄新增「流量監控」入口。頁面分三個 tab：
+
+**Tab A：總覽**
+- KPI 卡：本月 visitors / sessions / page views / 註冊數 / 訂單數 / 總營收 / 平均 CVR / 平均 CAC（若有手動輸入廣告花費）
+- 折線圖：每日訪客 vs 註冊 vs 訂單
+
+**Tab B：流量來源**
+- channel 分布甜甜圈 / 表格（direct / organic / social / referral / paid / email）
+- referrer host top 20 表格
+- landing page top 20 表格
+
+**Tab C：廣告與轉換營收**
+- 以 `utm_campaign` 為主鍵的彙總表：
+  | campaign | source/medium | visits | signups | orders | gross | platform | CVR | ARPU |
+- 可下鑽到單一 campaign 看 utm_content 細分
+- 可手動於每個 campaign 輸入「廣告花費」（新表 `ad_spend`：campaign + month + spend）→ 算 ROAS / CAC
+- 日期區間：本月 / 上月 / 近 3 月 / 自訂
+
+所有圖表沿用既有 `RevenueCharts.tsx` lazy pattern，避免膨脹 company entry。
+
+### 5. 排程與資料保留
+
+新增 `traffic-cleanup` cron（每日）：
+- `traffic_events` 保留 90 天
+- `traffic_visits` 保留 365 天
+- 從 `supabase/config.toml` 註冊 `verify_jwt = false`
+
+### 6. 美學
+
+維持後台一致風格（`hsl(var(--company))` 系列），不套用江湖卷軸樣式（這是內部後台）。
+
+---
+
+## 技術細節
+
+**Channel 推導規則**（DB function 或 edge function）：
+```
+if utm_medium in (cpc, paid, ppc, display) → paid
+elif utm_source 存在 → 依 source（fb/ig/line → social；google_search → organic 等）
+elif referrer host 屬於搜尋引擎 → organic
+elif referrer host 屬於社群 → social
+elif referrer 存在 → referral
+else → direct
 ```
 
-對應結構動作：
-- **刪除**「黑色數據列」(L374–444) 整段，或把數字併進 Hero 底部小字帶（不再獨立成 section）
-- **對調**：持股卷宗 ↔ 本週戰報榜，讓戰報→持股是「先看高手戰績，再把自己持股放進來」
-- **如何開始**從深墨改成淺紙卷軸，與戰報榜（深）之間用 `<InkFade ink-to-paper>`，與 Final CTA（淺）連續同色不再過渡
-- **Final CTA** 從白底改成卷軸落款風（米紙底 + 印章橘 + 細邊），承接「如何開始」同一張卷軸
+**`traffic_visits` 不會過度寫入**：
+- 前端先判斷 localStorage 是否已有 visit_logged 標記（24h TTL），有就 skip ingest
+- ingest edge function upsert by visitor_id，increment `page_views`、更新 `last_seen_at`
 
-連續色帶會變成：
+**Page view 量級控制**：
+- `traffic_events` 只寫 route，不寫 query string，避免 PII
+- 內部路由（/company、/admin）不追蹤
 
-```text
-深 → 淺 → 淺 → 深 → 深 → 淺 → 淺 → 淺
- Hero  三招 選模式 戰情室 戰報  持股 如何開始 落款
-   └InkFade┘     └InkFade┘ (連續深) └InkFade┘ (連續淺，無過渡)
-```
-
-只剩 3 個 InkFade 銜接點，比現在 5 段斷層乾淨。
+**與既有 `referral_attributions` 的關係**：
+- 保留現表（不破壞既有歸因），但新版 `traffic_visits` 為主資料源
+- 在 migration 中將舊資料 backfill 到 `traffic_visits`
 
 ---
 
-## 三、每段「開頭承接句」設計
+## 交付步驟
 
-每段標題上方加一行 eyebrow 承接，讓使用者知道滑到哪個場景。不新增大段文案，只是 eyebrow 一行。
+1. Migration：建立 `traffic_visits` / `traffic_events` / `conversions` / `ad_spend` + RLS + GRANT + channel 推導 function + cleanup cron 註冊
+2. Edge functions：`traffic-ingest`、`traffic-cleanup`、`_shared/recordConversion.ts`
+3. 修改三個付款 callback 寫入 `conversions`
+4. 新增 `src/lib/trafficTracker.ts` + 在 `App.tsx` 初始化
+5. 新增 `src/pages/company/Traffic.tsx`（三個 tab）+ 圖表 lazy chunk
+6. 在 `CompanyLayout` 側欄加入口、`App.tsx` 註冊 route
+7. 文件：在 `mem://infrastructure/traffic-monitoring` 紀錄 schema 與保留政策
 
-| 區塊 | 既有 eyebrow | 改為承接句 |
-|---|---|---|
-| 三招 | 你會用到的三件事 | **市場太亂的時候，先回到這三件事** |
-| 選你的模式 | 江湖兩派 | **看懂三招之後，挑一條你想走的路** |
-| 會員戰情室 | 產品實戰畫面 | **選定路線後，所有訊號都會回到同一個戰情室** |
-| 戰報榜 | 本週戰報 | **戰情室裡，每週都會結算這份榜文** |
-| 持股卷宗 | 持股卷宗 · STOCK DOSSIER | **看完別人的戰績，換看你自己手上這局** |
-| 如何開始 | 看完戰報，選你的下一步 | **如果你準備動手了，這是兩條入門路線** |
-| Final CTA | 兩種服務，依你需要的方式開始 | **江湖入口已開，挑一個方式起手** |
-
----
-
-## 四、每段場景定位修正
-
-| 區塊 | 現況 | 目標定位 | 視覺動作 |
-|---|---|---|---|
-| 黑色數據列 | 獨立 SaaS metric bar | **刪除或併入 Hero** | 拿掉整個 section；數字若要保留，做成 Hero 底部一條 0.4em tracking 的小字帶（"訊號 N · 專家 N · 命中率 N%"），不獨立分段 |
-| 三招（淺） | 雜誌排版 OK | 卷軸方法論卡 | 不動排版，只把背景 `bg-muted/50` 改成 `--jh-paper-soft`，去掉灰調，補一層極淡紙紋 |
-| 選你的模式（淺） | 江湖底圖 OK | 門派入口 | 不動 |
-| 會員戰情室（深） | OK | 內門戰情室 | 不動 |
-| 戰報榜（深） | 已戰報化 | 榜文 | 不動，移動到戰情室之後 |
-| 持股卷宗（淺） | 已卷宗化 | 個人持股冊 | 不動，移動到戰報之後 |
-| 如何開始 | 深墨 + 紫金兩派 | **淺紙卷軸·門派入口** | 背景改 `--jh-paper`，兩派卡改用 `--jh-paper-soft` 紙底 + `--jh-candle` / `--jh-amber-dim` 兩色細邊；不再用深色戰情室語彙 |
-| Final CTA | 白底 SaaS | **卷軸落款** | 背景改 `--jh-paper`，加一條暗金細線在標題上方，按鈕保留橘實／橘虛兩顆，整段加一個極淡的紙紋與右下「印」字朱印（SVG） |
-
----
-
-## 五、轉場修正
-
-- 刪除舊的「墨→米手寫山形過渡」(L446–488)，改用 `<InkFade direction="ink-to-paper" height={140} />`，與其他三處規格統一
-- 移除「會員戰情室 → 持股卷宗」目前的 `pt-[220px] md:pt-[280px]`（L848），改由前一個 `<InkFade>` 提供過渡高度
-- 戰報榜（深）→ 如何開始（改為淺）之間，新增 `<InkFade direction="ink-to-paper" height={140} />`
-- 如何開始（淺）→ Final CTA（淺）之間**不放 InkFade**，讓兩段共用同一張卷軸，中間只放一條暗金細線分節
-
----
-
-## 六、執行順序（建議分階段，每階段截圖驗收）
-
-1. **Step A — 順序與結構**：刪黑色數據列、對調戰報榜↔持股卷宗、刪舊過渡換 InkFade、調整 InkFade 位置
-2. **Step B — 場景翻面**：如何開始改淺色卷軸、Final CTA 改卷軸落款
-3. **Step C — 承接句**：七段 eyebrow 一次到位
-4. **Step D — 紙感補強**：三招背景換 jh-paper-soft + 紙紋
-
-每步結束截全頁長圖驗收，確認三段深淺帶（Hero｜戰情室+戰報｜如何開始+落款）三塊乾淨、之間只有 3 個 InkFade。
-
----
-
-## 七、不動清單
-
-- Hero 圖與結構
-- 三招三張卡內容與排版
-- 選你的模式兩張卡
-- 會員戰情室兩張卡
-- 戰報榜資料與卡片
-- 持股卷宗右側卡片內容
-- 任何路由、商業邏輯、文案的核心句
-
----
-
-請確認方向，確認後我才進 build mode 依 Step A → D 實作。
+不修改首頁、不動 Index.tsx，不影響既有江湖視覺。

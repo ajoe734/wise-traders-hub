@@ -35,7 +35,9 @@ const navItems = [
   { path: '/company/missing-prices', icon: AlertTriangle, label: '缺價總覽' },
   { path: '/company/meta-overrides', icon: History, label: '持倉覆蓋' },
   { path: '/company/perf-metrics', icon: Gauge, label: '前台效能' },
+  { path: '/company/traffic', icon: Activity, label: '流量監控' },
 ];
+
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();

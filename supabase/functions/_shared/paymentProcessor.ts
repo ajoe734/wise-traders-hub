@@ -12,6 +12,7 @@
  */
 
 import { calcSplit, loadPaymentDefaults, type SplitInput } from './revenueSplit.ts';
+import { recordConversion } from './recordConversion.ts';
 
 export interface CreateSubAndTxParams {
   userId: string;
@@ -89,8 +90,9 @@ export async function createSubscriptionAndTransaction(
   }
 
   // Stage 3: revenue split (best-effort, never block)
+  let splitResult: { platform_amount: number; expert_amount: number } | null = null;
   try {
-    await writeRevenueSplit(supabase, {
+    splitResult = await writeRevenueSplit(supabase, {
       transactionId: tx.id,
       planId: params.planId,
       expertId: params.expertId ?? null,
@@ -103,6 +105,17 @@ export async function createSubscriptionAndTransaction(
   } catch (e) {
     console.error('writeRevenueSplit failed:', e);
   }
+
+  // Traffic attribution: record conversion (best-effort, never block)
+  await recordConversion(supabase as any, {
+    userId: params.userId,
+    orderKind: params.productKind === 'checkup' ? 'checkup_sub' : 'expert_sub',
+    orderId: sub.id,
+    grossAmount: params.originalAmount ?? params.amount,
+    platformAmount: splitResult?.platform_amount ?? 0,
+    expertAmount: splitResult?.expert_amount ?? 0,
+  });
+
 
   return { subscriptionId: sub.id, transactionId: tx.id, error: null };
 }
@@ -185,8 +198,9 @@ export async function recordPaymentForExistingSubscription(
     .single();
 
   if (!error && tx) {
+    let splitResult: { platform_amount: number; expert_amount: number } | null = null;
     try {
-      await writeRevenueSplit(supabase, {
+      splitResult = await writeRevenueSplit(supabase, {
         transactionId: tx.id,
         planId: params.planId ?? null,
         expertId: params.expertId ?? null,
@@ -199,7 +213,29 @@ export async function recordPaymentForExistingSubscription(
     } catch (e) {
       console.error('writeRevenueSplit failed:', e);
     }
+
+    // Renewal — look up user from subscription and record conversion
+    try {
+      const { data: sub } = await supabase
+        .from('member_subscriptions')
+        .select('user_id')
+        .eq('id', params.subscriptionId)
+        .maybeSingle();
+      if (sub?.user_id) {
+        await recordConversion(supabase as any, {
+          userId: sub.user_id,
+          orderKind: params.productKind === 'checkup' ? 'checkup_sub' : 'expert_sub',
+          orderId: params.subscriptionId,
+          grossAmount: params.originalAmount ?? params.amount,
+          platformAmount: splitResult?.platform_amount ?? 0,
+          expertAmount: splitResult?.expert_amount ?? 0,
+        });
+      }
+    } catch (e) {
+      console.error('recordConversion (renewal) failed:', e);
+    }
   }
+
 
   return { error: error?.message ?? null };
 }
@@ -257,5 +293,8 @@ export async function writeRevenueSplit(supabase: any, p: WriteSplitParams) {
     rule_snapshot: split.rule_snapshot,
     utm_snapshot: p.attribution || null,
   });
+
+  return { platform_amount: split.platform_amount, expert_amount: split.expert_amount };
 }
+
 
