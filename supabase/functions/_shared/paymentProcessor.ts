@@ -293,5 +293,8 @@ export async function writeRevenueSplit(supabase: any, p: WriteSplitParams) {
     rule_snapshot: split.rule_snapshot,
     utm_snapshot: p.attribution || null,
   });
+
+  return { platform_amount: split.platform_amount, expert_amount: split.expert_amount };
 }
+
 
