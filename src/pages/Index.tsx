@@ -763,33 +763,66 @@ const Index = () => {
           </p>
         </div>
 
-        {/* Scroll Down Indicator — 卷軸引導 */}
-        <div className="flex flex-col items-center pt-5 md:pt-6">
-          <div
+        {/* 過渡敘事 — 兩派收束 → 內門戰情室 */}
+        <div className="flex flex-col items-center pt-8 md:pt-10">
+          {/* 左右兩派收束的細線（V 字） */}
+          <svg
             aria-hidden="true"
-            className="mb-2"
-            style={{
-              width: 1,
-              height: 22,
-              background: 'linear-gradient(to bottom, transparent, rgba(236,102,45,0.55))',
-            }}
-          />
+            width="220"
+            height="34"
+            viewBox="0 0 220 34"
+            className="mb-3 opacity-80"
+          >
+            <defs>
+              <linearGradient id="conv-left" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="rgba(236,102,45,0)" />
+                <stop offset="100%" stopColor="rgba(236,102,45,0.55)" />
+              </linearGradient>
+              <linearGradient id="conv-right" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(212,166,67,0)" />
+                <stop offset="100%" stopColor="rgba(212,166,67,0.55)" />
+              </linearGradient>
+            </defs>
+            <line x1="2" y1="2" x2="110" y2="30" stroke="url(#conv-left)" strokeWidth="1" />
+            <line x1="218" y1="2" x2="110" y2="30" stroke="url(#conv-right)" strokeWidth="1" />
+          </svg>
+
           <button
             onClick={() => {
               document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="flex flex-col items-center gap-1.5 transition-colors group cursor-pointer"
-            style={{ color: 'rgba(23,23,23,0.6)' }}
+            className="flex flex-col items-center gap-2 cursor-pointer text-center px-6"
+            style={{ color: 'rgba(23,23,23,0.7)' }}
           >
-            <span className="text-xs md:text-sm tracking-[0.25em]">往下看會員畫面</span>
-            <div className="flex flex-col items-center animate-bounce">
-              <ChevronDown className="h-4 w-4 opacity-40" />
-              <ChevronDown className="h-4 w-4 -mt-2.5 opacity-80" />
-            </div>
+            <span
+              className="text-sm md:text-base"
+              style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.08em' }}
+            >
+              選定路線後，所有訊號都會回到同一個戰情室
+            </span>
+            <span
+              className="text-[10px] md:text-xs tracking-[0.35em] uppercase"
+              style={{ color: 'rgba(236,102,45,0.85)' }}
+            >
+              入　門
+            </span>
           </button>
+
+          {/* 細線往下銜接深色戰情室 */}
+          <div
+            aria-hidden="true"
+            className="mt-3"
+            style={{
+              width: 1,
+              height: 46,
+              background:
+                'linear-gradient(to bottom, rgba(236,102,45,0.55), rgba(14,12,10,0.95))',
+            }}
+          />
         </div>
       </section>
       </LazyOnVisible>
+
 
       <style>{`
         .jianghu-card {
@@ -869,21 +902,35 @@ const Index = () => {
               className="text-[11px] md:text-xs tracking-[0.4em] uppercase mb-1.5"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
-              產品真實畫面
+              產品實戰畫面
             </p>
             <h2
-              className="text-3xl md:text-4xl lg:text-[44px] font-bold mb-2"
+              className="text-3xl md:text-4xl lg:text-[44px] font-bold mb-3"
               style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
             >
-              會員戰情室一覽
+              入門之後，進入你的戰情室
             </h2>
-            <p className="text-sm md:text-base mb-1" style={{ color: 'rgba(244,236,219,0.72)' }}>
-              即時訊號、操作紀錄、戰績回顧，都集中在同一個畫面。
+            <p className="text-sm md:text-base mb-4" style={{ color: 'rgba(244,236,219,0.72)' }}>
+              訊號、操作紀錄、戰績回顧，都會收進同一張戰局圖裡。
             </p>
-            <p className="text-xs md:text-sm" style={{ color: 'rgba(244,236,219,0.42)' }}>
-              訂閱後，你會在戰情室看到這些內容
-            </p>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[10px] md:text-xs tracking-wider"
+                style={{ backgroundColor: 'rgba(236,102,45,0.12)', color: '#EC662D', border: '1px solid rgba(236,102,45,0.3)' }}
+              >
+                <Zap className="h-3 w-3" />
+                跟單派訊號
+              </span>
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[10px] md:text-xs tracking-wider"
+                style={{ backgroundColor: 'rgba(212,166,67,0.12)', color: '#D4A643', border: '1px solid rgba(212,166,67,0.3)' }}
+              >
+                <BookOpen className="h-3 w-3" />
+                修煉派復盤
+              </span>
+            </div>
           </div>
+
 
           {/* Grid — 手機上下堆疊，桌機左右並排，等高 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 max-w-5xl mx-auto px-5 md:px-0">
@@ -1008,7 +1055,7 @@ const Index = () => {
                       className="text-sm font-medium"
                       style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
                     >
-                      本週操作紀錄
+                      本週追蹤紀錄
                     </span>
                   </div>
                   <span
