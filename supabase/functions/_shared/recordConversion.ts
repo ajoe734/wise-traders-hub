@@ -5,7 +5,9 @@
 //
 // Designed to be safe to call from edge functions — never throws to the caller.
 
-import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+// Note: SupabaseClient is typed as `any` here to avoid pulling Deno npm:
+// types into the project's TS checker (this file is consumed by Deno only).
+type SupabaseClient = any;
 
 export interface ConversionInput {
   userId: string;
