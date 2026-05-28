@@ -1530,10 +1530,7 @@ const Index = () => {
                         </div>
                         <p className="text-[11px] mt-0.5" style={{ color: 'hsl(var(--jh-stone))' }}>持有 {h.qty} 股 · {h.note}</p>
                       </div>
-                      <span
-                        className="text-sm font-semibold tabular-nums"
-                        style={{ color: h.tone === 'up' ? 'hsl(0 55% 42%)' : 'hsl(140 30% 32%)' }}
-                      >
+                      <span className={`text-sm font-semibold tabular-nums ${h.tone === 'up' ? 'jh-pct-up' : 'jh-pct-down'}`}>
                         {h.pct}
                       </span>
                     </div>
