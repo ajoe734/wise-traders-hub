@@ -1156,39 +1156,55 @@ const Index = () => {
                     </span>
                   </div>
                   <span
-                    className="text-[10px] font-mono"
-                    style={{ color: 'rgba(244,236,219,0.55)' }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] tracking-wider"
+                    style={{ backgroundColor: 'rgba(212,166,67,0.1)', color: '#D4A643', border: '1px solid rgba(212,166,67,0.25)' }}
                   >
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#D4A643' }} />
+                    本週
+                  </span>
+                </div>
+
+                {/* 可信度輔助說明 */}
+                <div
+                  className="px-5 py-2 border-b flex items-center justify-between gap-3"
+                  style={{ borderColor: 'rgba(212,166,67,0.10)', backgroundColor: 'rgba(212,166,67,0.03)' }}
+                >
+                  <p className="text-[10.5px] leading-relaxed" style={{ color: 'rgba(244,236,219,0.45)', letterSpacing: '0.03em' }}>
+                    每週整理操作紀錄，方便回看判斷依據。
+                  </p>
+                  <span className="text-[10px] font-mono shrink-0" style={{ color: 'rgba(244,236,219,0.45)' }}>
                     12/23 – 12/27
                   </span>
                 </div>
 
                 {/* Rows */}
-                <div className="flex-1 px-3 py-3 space-y-2">
+                <div className="flex-1 px-3 py-2">
                   {[
                     { day: '週一', tag: '買進', tagColor: '#EC662D', code: '2303.TW', name: '聯電', desc: '突破短期壓力，量能放大', ret: '+3.5%', retColor: '#EC662D' },
                     { day: '週二', tag: '買進', tagColor: '#EC662D', code: '3037.TW', name: '欣興', desc: '跳空上漲，追蹤 ABF 載板題材', ret: '-2.8%', retColor: '#8B8680' },
                     { day: '週三', tag: '買進', tagColor: '#EC662D', code: '2317.TW', name: '鴻海', desc: '站上所有均線，外資連買', ret: '+4.2%', retColor: '#EC662D' },
                     { day: '週四', tag: null, tagColor: '#8B8680', code: null, name: null, desc: '觀望無操作', ret: null, retColor: '#8B8680' },
                     { day: '週五', tag: '減碼', tagColor: '#D4A643', code: '2303.TW', name: '聯電', desc: '達目標價位，獲利了結', ret: '已鎖利', retColor: '#D4A643' },
-                  ].map((r, i) => (
+                  ].map((r, i, arr) => (
                     <div
                       key={i}
-                      className="px-3 py-2.5 rounded-md"
+                      className="px-3.5 py-3.5 rounded-md"
                       style={{
-                        backgroundColor: 'rgba(255,255,255,0.025)',
+                        backgroundColor: 'rgba(255,255,255,0.018)',
                         borderLeft: `2px solid ${r.tagColor}`,
-                        opacity: r.tag ? 1 : 0.6,
+                        borderBottom: i < arr.length - 1 ? '1px solid rgba(212,166,67,0.07)' : 'none',
+                        marginBottom: i < arr.length - 1 ? 4 : 0,
+                        opacity: r.tag ? 1 : 0.65,
                       }}
                     >
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-baseline gap-2.5 min-w-0">
                           <span className="text-[11px] font-medium shrink-0" style={{ color: 'rgba(244,236,219,0.55)', fontFamily: '"Noto Serif TC", serif' }}>
                             {r.day}
                           </span>
                           {r.tag && (
                             <span
-                              className="px-1.5 py-0.5 rounded-sm text-[10px] font-medium"
+                              className="px-1.5 py-0.5 rounded-sm text-[10px] font-medium tracking-wider"
                               style={{ backgroundColor: `${r.tagColor}1f`, color: r.tagColor, border: `1px solid ${r.tagColor}44` }}
                             >
                               {r.tag}
@@ -1199,7 +1215,7 @@ const Index = () => {
                               <span className="text-[11px] font-mono shrink-0" style={{ color: 'rgba(244,236,219,0.5)' }}>
                                 {r.code}
                               </span>
-                              <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB' }}>
+                              <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif' }}>
                                 {r.name}
                               </span>
                             </>
@@ -1211,7 +1227,7 @@ const Index = () => {
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] leading-snug pl-0" style={{ color: 'rgba(244,236,219,0.55)' }}>
+                      <p className="text-[11.5px] leading-relaxed pl-0" style={{ color: 'rgba(244,236,219,0.6)' }}>
                         {r.desc}
                       </p>
                     </div>
