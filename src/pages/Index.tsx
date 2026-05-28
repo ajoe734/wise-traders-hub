@@ -763,9 +763,9 @@ const Index = () => {
           </p>
         </div>
 
-        {/* 過渡敘事 — 兩派收束 → 內門戰情室（緊湊） */}
+        {/* 過渡敘事 — 兩派收束 → 內門戰情室（連續墨色暈染） */}
         <div className="relative flex flex-col items-center pt-2 md:pt-2 pb-0">
-          {/* 從左右兩派卡片底部往中間收束的弧線（強化辨識度） */}
+          {/* 從左右兩派卡片底部往中間收束的弧線 */}
           <svg
             aria-hidden="true"
             viewBox="0 0 1000 64"
@@ -784,9 +784,7 @@ const Index = () => {
                 <stop offset="100%" stopColor="rgba(212,166,67,0.95)" />
               </linearGradient>
             </defs>
-            {/* 左派：從左上往中下收束 */}
             <path d="M 20 4 C 280 4, 420 56, 500 60" fill="none" stroke="url(#conv-left-arc)" strokeWidth="1.4" />
-            {/* 右派：從右上往中下收束 */}
             <path d="M 980 4 C 720 4, 580 56, 500 60" fill="none" stroke="url(#conv-right-arc)" strokeWidth="1.4" />
           </svg>
 
@@ -804,79 +802,67 @@ const Index = () => {
               選定路線後，所有訊號都會回到同一個戰情室
             </span>
             <span
-              className="text-[10px] tracking-[0.35em] uppercase"
+              className="text-[10px] tracking-[0.35em] uppercase mt-1"
               style={{ color: 'rgba(236,102,45,0.85)' }}
             >
               入　門
             </span>
           </button>
-
-          {/* 中央垂直線：往下穿入深色戰情室 */}
-          <div
-            aria-hidden="true"
-            className="mt-2"
-            style={{
-              width: 1,
-              height: 22,
-              background:
-                'linear-gradient(to bottom, rgba(236,102,45,0.85), rgba(14,12,10,0.95))',
-            }}
-          />
         </div>
 
-        {/* 米白 → 墨色 暈染過渡（紙面入墨，不規則邊緣） */}
+        {/* 單一連續墨色暈染：紙面 → 淡墨霧氣 → 深墨；中央橘線一路穿到底 */}
         <div
           aria-hidden="true"
-          className="relative w-full overflow-hidden"
-          style={{ height: 48 }}
+          className="relative w-full overflow-hidden mt-3 md:mt-4"
+          style={{ height: 140 }}
         >
-          {/* 主漸層 */}
+          {/* 主漸層：平滑、無水平硬邊 */}
           <div
             className="absolute inset-0"
             style={{
               background:
-                'linear-gradient(to bottom, transparent 0%, rgba(14,12,10,0.2) 30%, rgba(14,12,10,0.65) 70%, #0E0C0A 100%)',
+                'linear-gradient(to bottom, rgba(239,231,214,0) 0%, rgba(60,45,32,0.18) 30%, rgba(28,22,16,0.55) 60%, rgba(14,12,10,0.92) 88%, #0E0C0A 100%)',
             }}
           />
-          {/* 不規則墨色暈染 — 左 */}
+          {/* 不規則墨色暈染 — 左（柔化邊緣，避免水平髒邊） */}
           <div
             className="absolute"
             style={{
-              left: '-10%', top: '20%', width: '55%', height: '120%',
+              left: '-15%', top: '10%', width: '70%', height: '120%',
               background:
-                'radial-gradient(ellipse 70% 60% at 40% 70%, rgba(14,12,10,0.85), transparent 70%)',
-              filter: 'blur(8px)',
+                'radial-gradient(ellipse 60% 70% at 45% 70%, rgba(14,12,10,0.7), transparent 72%)',
+              filter: 'blur(18px)',
             }}
           />
           {/* 不規則墨色暈染 — 右 */}
           <div
             className="absolute"
             style={{
-              right: '-12%', top: '15%', width: '60%', height: '120%',
+              right: '-15%', top: '8%', width: '70%', height: '120%',
               background:
-                'radial-gradient(ellipse 65% 65% at 55% 75%, rgba(14,12,10,0.8), transparent 70%)',
-              filter: 'blur(10px)',
+                'radial-gradient(ellipse 60% 70% at 55% 72%, rgba(14,12,10,0.7), transparent 72%)',
+              filter: 'blur(18px)',
             }}
           />
-          {/* 紙紋霧氣（頂部殘留） */}
+          {/* 上方紙面殘霧 */}
           <div
             className="absolute inset-x-0 top-0"
             style={{
-              height: '60%',
+              height: '45%',
               background:
-                'radial-gradient(ellipse 55% 100% at 50% 0%, rgba(245,243,239,0.4), transparent 75%)',
+                'radial-gradient(ellipse 60% 100% at 50% 0%, rgba(239,231,214,0.45), transparent 80%)',
               mixBlendMode: 'screen',
-              opacity: 0.55,
+              opacity: 0.6,
             }}
           />
-          {/* 中央延續線 */}
+          {/* 中央橘線：從紙面一路穿入深墨，無中斷 */}
           <div
             className="absolute left-1/2 top-0 -translate-x-1/2"
             style={{
               width: 1,
               height: '100%',
               background:
-                'linear-gradient(to bottom, rgba(236,102,45,0.85), rgba(236,102,45,0.35) 60%, transparent)',
+                'linear-gradient(to bottom, rgba(236,102,45,0.9) 0%, rgba(236,102,45,0.7) 50%, rgba(236,102,45,0.45) 85%, rgba(236,102,45,0.25) 100%)',
             }}
           />
         </div>
