@@ -360,21 +360,21 @@ const Index = () => {
           {/* Eyebrow + Title */}
           <div className="text-center mb-6 md:mb-8">
             <p
-              className="text-xs md:text-sm tracking-[0.4em] mb-2"
+              className="text-xs md:text-sm tracking-[0.4em] mb-2 jh-mode-eyebrow"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
               看懂三招之後，挑一條你想走的路
             </p>
             <h2
-              className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2"
+              className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2 jh-mode-title"
               style={{ color: '#171717', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
             >
               選你的模式
             </h2>
-            <p className="text-sm md:text-base mb-1.5" style={{ color: 'rgba(23,23,23,0.65)' }}>
+            <p className="text-sm md:text-base mb-1.5 jh-mode-sub" style={{ color: 'rgba(23,23,23,0.65)' }}>
               不同的投資哲學，同樣的致勝之道
             </p>
-            <p className="text-xs md:text-sm" style={{ color: 'rgba(23,23,23,0.5)' }}>
+            <p className="text-xs md:text-sm jh-mode-sub-soft" style={{ color: 'rgba(23,23,23,0.5)' }}>
               想直接跟著訊號行動，選跟單派；想學會判斷市場，選修煉派。
             </p>
           </div>
