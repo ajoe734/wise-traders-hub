@@ -1094,7 +1094,7 @@ const Index = () => {
           </div>
         </div>
       </div>
-      <InkFade direction="paper-to-ink" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
+      <InkFade direction="paper-to-ink" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-report-bg))" />
 
       {/* Weekly Limit Up Leaderboard - War Report Style */}
       <LazyOnVisible mode="content-visibility" minHeight={620}>
