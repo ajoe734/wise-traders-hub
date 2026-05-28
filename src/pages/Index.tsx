@@ -630,7 +630,7 @@ const Index = () => {
             onClick={() => {
               document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="flex flex-col items-center gap-1.5 cursor-pointer text-center px-6"
+            className="flex flex-col items-center gap-1.5 cursor-pointer text-center px-6 jh-mode-cta-line"
             style={{ color: 'rgba(23,23,23,0.82)' }}
           >
             <span
