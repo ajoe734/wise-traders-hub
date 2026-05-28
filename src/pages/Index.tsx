@@ -668,14 +668,14 @@ const Index = () => {
 
 
       {/* Seam: 選你的模式(紙) → 會員戰情室(墨) */}
-      <InkFade direction="paper-to-ink" height={150} paperColor="#EFE7D6" inkColor="#0E0C0A" />
+      <InkFade direction="paper-to-ink" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
 
       {/* Real Interface Preview Section — 會員戰情室 */}
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
       <section
         id="preview-section"
         className="relative py-section overflow-hidden"
-        style={{ backgroundColor: '#0E0C0A' }}
+        style={{ backgroundColor: 'hsl(var(--jh-ink))' }}
       >
 
 
