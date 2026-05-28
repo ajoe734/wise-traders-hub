@@ -1360,7 +1360,14 @@ const Index = () => {
         <div className="container">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-xl">
-              <Badge className="bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/30 mb-sm">
+              <Badge
+                className="mb-sm border"
+                style={{
+                  background: 'rgba(168,139,76,0.10)',
+                  color: '#7A6132',
+                  borderColor: 'rgba(168,139,76,0.35)',
+                }}
+              >
                 持股看板 · STOCK DASHBOARD
               </Badge>
               <h2 className="text-h2 text-foreground mb-xs">不想跟單？讓 AI 顧好你的持股</h2>
@@ -1377,7 +1384,14 @@ const Index = () => {
                   { icon: LineChart, title: '新聞與績效彙整', desc: '個股新聞、損益走勢、獲利排行，一頁看懂。' },
                 ].map((item) => (
                   <div key={item.title} className="flex gap-md items-start">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300 shrink-0">
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-sm shrink-0 border"
+                      style={{
+                        background: 'rgba(168,139,76,0.10)',
+                        color: '#7A6132',
+                        borderColor: 'rgba(168,139,76,0.35)',
+                      }}
+                    >
                       <item.icon className="h-5 w-5" />
                     </div>
                     <div>
@@ -1387,7 +1401,12 @@ const Index = () => {
                   </div>
                 ))}
                 <div className="pt-sm">
-                  <Button size="xl" className="bg-purple-600 hover:bg-purple-700 text-white border-0" asChild>
+                  <Button
+                    size="xl"
+                    className="text-white border-0"
+                    style={{ background: '#EC662D' }}
+                    asChild
+                  >
                     <Link to="/holding-checkup">
                       免費試用持股看板
                       <ArrowRight className="h-4 w-4 ml-2" />
@@ -1396,29 +1415,52 @@ const Index = () => {
                 </div>
               </div>
 
-              <div className="bg-card dark:bg-white/[0.03] rounded-xl border border-border dark:border-purple-500/20 border-t-4 border-t-purple-500 p-md md:p-lg">
-                <div className="flex items-center justify-between mb-md pb-sm border-b border-border">
+              <div
+                className="rounded-sm p-md md:p-lg relative overflow-hidden"
+                style={{
+                  background: '#FBF7EE',
+                  border: '1px solid rgba(60,45,32,0.14)',
+                  borderTop: '3px solid #A88B4C',
+                  boxShadow: '0 24px 60px -30px rgba(60,45,32,0.25)',
+                }}
+              >
+                <div
+                  className="flex items-center justify-between mb-md pb-sm border-b"
+                  style={{ borderColor: 'rgba(60,45,32,0.10)' }}
+                >
                   <div className="flex items-center gap-2">
-                    <Target className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                    <span className="text-sm font-medium">我的持股</span>
+                    <ScrollText className="h-4 w-4" style={{ color: '#7A6132' }} />
+                    <span className="text-sm font-medium" style={{ color: '#3C2D20' }}>我的持倉卷宗</span>
                   </div>
-                  <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-600 dark:text-purple-300">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px]"
+                    style={{
+                      borderColor: 'rgba(168,139,76,0.40)',
+                      color: '#7A6132',
+                      background: 'rgba(168,139,76,0.08)',
+                    }}
+                  >
                     AI 分析中
                   </Badge>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {[
                     { code: '2330', name: '台積電', qty: '2,000', pct: '+12.4%', tone: 'up', note: '法說 12/16' },
                     { code: '2454', name: '聯發科', qty: '1,000', pct: '+5.8%', tone: 'up', note: 'AI 出貨成長' },
                     { code: '2603', name: '長榮', qty: '5,000', pct: '-3.2%', tone: 'down', note: '建議檢視' },
                   ].map((h) => (
-                    <div key={h.code} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/40">
+                    <div
+                      key={h.code}
+                      className="flex items-center gap-3 px-3 py-2.5"
+                      style={{ borderBottom: '1px dashed rgba(60,45,32,0.10)' }}
+                    >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm">{h.code}</span>
-                          <span className="text-sm text-foreground">{h.name}</span>
+                          <span className="font-semibold text-sm" style={{ color: '#1A1612', fontFamily: '"Noto Serif TC",serif' }}>{h.code}</span>
+                          <span className="text-sm" style={{ color: '#3C2D20' }}>{h.name}</span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">持有 {h.qty} 股 · {h.note}</p>
+                        <p className="text-[11px] mt-0.5" style={{ color: 'rgba(60,45,32,0.6)' }}>持有 {h.qty} 股 · {h.note}</p>
                       </div>
                       <span className={`text-sm font-semibold tabular-nums ${h.tone === 'up' ? 'text-destructive' : 'text-success'}`}>
                         {h.pct}
@@ -1426,9 +1468,9 @@ const Index = () => {
                     </div>
                   ))}
                 </div>
-                <div className="mt-md pt-sm border-t border-border">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Lightbulb className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                <div className="mt-md pt-sm border-t" style={{ borderColor: 'rgba(60,45,32,0.10)' }}>
+                  <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(60,45,32,0.7)' }}>
+                    <Lightbulb className="h-3.5 w-3.5" style={{ color: '#A88B4C' }} />
                     <span>AI 建議：長榮跌破支撐，可考慮減碼</span>
                   </div>
                 </div>
