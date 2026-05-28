@@ -145,7 +145,7 @@ const Index = () => {
       {/* Seam: Hero(墨黑) → 三招(紙) — 短版紙面浮出，40px */}
       <div
         aria-hidden="true"
-        className="relative w-full"
+        className="relative w-full jh-seam-hero-to-trio"
         style={{
           height: 40,
           background:
@@ -154,7 +154,7 @@ const Index = () => {
       />
 
       {/* Three Core Features Section - Magazine Layout */}
-      <section className="relative py-section" style={{ background: 'hsl(var(--jh-paper))' }}>
+      <section className="relative py-section jh-section-paper">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
             {/* Left Column - Narrative */}
