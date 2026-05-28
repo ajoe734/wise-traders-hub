@@ -1160,7 +1160,7 @@ const Index = () => {
             className="relative rounded-md max-w-4xl mx-auto overflow-hidden"
             style={{
               background:
-                'linear-gradient(180deg, hsl(var(--jh-ink-soft) / 0.95), hsl(var(--jh-ink) / 0.95))',
+                'linear-gradient(180deg, hsl(var(--jh-report-bg) / 0.92), hsl(var(--jh-report-bg) / 0.98))',
               border: '1px solid hsl(var(--jh-amber) / 0.28)',
               boxShadow:
                 '0 0 0 1px hsl(var(--jh-amber) / 0.06), 0 30px 60px -30px hsl(var(--jh-candle) / 0.22)',
