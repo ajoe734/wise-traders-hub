@@ -1793,18 +1793,18 @@ const Index = () => {
               style={{
                 background:
                   'linear-gradient(160deg, rgba(26,20,28,0.95) 0%, rgba(18,14,20,0.95) 100%)',
-                border: '1px solid rgba(168,128,180,0.28)',
+                border: '1px solid rgba(168,139,76,0.28)',
                 boxShadow:
-                  '0 24px 60px -30px rgba(168,128,180,0.3), inset 0 1px 0 rgba(244,236,219,0.04)',
+                  '0 24px 60px -30px rgba(168,139,76,0.3), inset 0 1px 0 rgba(244,236,219,0.04)',
               }}
             >
               <div className="mb-md min-h-[92px]">
                 <span
                   className="inline-block text-[11px] tracking-[0.2em] uppercase px-2.5 py-1 rounded-sm mb-sm"
                   style={{
-                    color: '#C9A3D4',
-                    background: 'rgba(168,128,180,0.1)',
-                    border: '1px solid rgba(168,128,180,0.35)',
+                    color: '#D4C28C',
+                    background: 'rgba(168,139,76,0.1)',
+                    border: '1px solid rgba(168,139,76,0.35)',
                   }}
                 >
                   適合你，如果想先看懂持股
@@ -1821,8 +1821,8 @@ const Index = () => {
               <div
                 className="text-xs mb-md pb-sm border-b"
                 style={{
-                  color: 'rgba(201,163,212,0.75)',
-                  borderColor: 'rgba(168,128,180,0.2)',
+                  color: 'rgba(212,194,140,0.75)',
+                  borderColor: 'rgba(168,139,76,0.2)',
                 }}
               >
                 適合對象：手上有股票，但不知道該守、該退、還是該等的人
@@ -1838,9 +1838,9 @@ const Index = () => {
                     <span
                       className="shrink-0 w-9 h-9 flex items-center justify-center text-xs font-medium tracking-wider rounded-sm"
                       style={{
-                        color: '#C9A3D4',
-                        background: 'rgba(168,128,180,0.08)',
-                        border: '1px solid rgba(168,128,180,0.3)',
+                        color: '#D4C28C',
+                        background: 'rgba(168,139,76,0.08)',
+                        border: '1px solid rgba(168,139,76,0.3)',
                       }}
                     >
                       {item.step}
@@ -1857,9 +1857,9 @@ const Index = () => {
                 size="lg"
                 className="w-full border-0 font-medium"
                 style={{
-                  background: 'linear-gradient(135deg, #8E6FA0 0%, #6E5180 100%)',
+                  background: 'linear-gradient(135deg, #A88B4C 0%, #7A6132 100%)',
                   color: '#F4ECDB',
-                  boxShadow: '0 8px 24px -10px rgba(168,128,180,0.5)',
+                  boxShadow: '0 8px 24px -10px rgba(168,139,76,0.5)',
                 }}
                 asChild
               >
@@ -1877,7 +1877,7 @@ const Index = () => {
           .warroom-path-card:hover { transform: translateY(-2px); }
           .warroom-path-card:hover .warroom-arrow { transform: translateX(4px); }
           .warroom-path-card.order-2:hover { border-color: rgba(236,102,45,0.55); box-shadow: 0 28px 70px -28px rgba(236,102,45,0.5), inset 0 1px 0 rgba(244,236,219,0.06); }
-          .warroom-path-card.order-1:hover { border-color: rgba(201,163,212,0.55); box-shadow: 0 28px 70px -28px rgba(168,128,180,0.45), inset 0 1px 0 rgba(244,236,219,0.06); }
+          .warroom-path-card.order-1:hover { border-color: rgba(212,194,140,0.55); box-shadow: 0 28px 70px -28px rgba(168,139,76,0.45), inset 0 1px 0 rgba(244,236,219,0.06); }
         `}</style>
       </section>
       </LazyOnVisible>
