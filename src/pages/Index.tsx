@@ -1882,6 +1882,9 @@ const Index = () => {
       </section>
       </LazyOnVisible>
 
+      {/* Seam: 如何開始(墨) → Final CTA(紙) */}
+      <InkFade direction="ink-to-paper" height={130} paperColor="#FFFFFF" inkColor="#0B0907" />
+
       {/* Final CTA - Dual Product */}
       <LazyOnVisible mode="content-visibility" minHeight={400}>
       <section className="py-section bg-card dark:bg-white/[0.03]">
@@ -1898,7 +1901,13 @@ const Index = () => {
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
-              <Button size="xl" className="bg-purple-600 hover:bg-purple-700 text-white border-0" asChild>
+              <Button
+                size="xl"
+                variant="outline"
+                className="border-2"
+                style={{ borderColor: '#EC662D', color: '#EC662D', background: 'transparent' }}
+                asChild
+              >
                 <Link to="/holding-checkup">
                   免費健檢
                   <ArrowRight className="h-4 w-4 ml-2" />
