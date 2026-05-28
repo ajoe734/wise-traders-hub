@@ -1192,7 +1192,7 @@ const Index = () => {
               style={{ color: 'hsl(var(--jh-amber-soft))' }}
             >
               <span className="block w-6 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.6)' }} />
-              本週戰報
+              戰情室裡，每週都會結算這份榜文
               <span className="block w-6 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.6)' }} />
             </div>
             <h2
