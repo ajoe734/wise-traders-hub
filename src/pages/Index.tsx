@@ -1369,7 +1369,16 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* Seam: 戰報榜(墨) → 持股卷宗(紙) */}
-      <InkFade direction="ink-to-paper" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-report-bg))" />
+      {/* Seam: 戰報榜(暗褐) → 持股卷宗(紙) — 短版墨色退場，50px */}
+      <div
+        aria-hidden="true"
+        className="relative w-full"
+        style={{
+          height: 50,
+          background:
+            'linear-gradient(180deg, hsl(var(--jh-report-bg)) 0%, hsl(var(--jh-report-bg) / 0.55) 45%, hsl(var(--jh-paper)) 100%)',
+        }}
+      />
       {/* Stock Dashboard Section - 持股卷宗（江湖卷宗風） */}
       <LazyOnVisible mode="content-visibility" minHeight={900}>
       <section
