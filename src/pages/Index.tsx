@@ -789,7 +789,7 @@ const Index = () => {
               className="text-[11px] md:text-xs tracking-[0.4em] uppercase mb-1.5"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
-              產品實戰畫面
+              選定路線後，所有訊號都會回到同一個戰情室
             </p>
 
             <h2
