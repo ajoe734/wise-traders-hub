@@ -1050,56 +1050,89 @@ const Index = () => {
                     </span>
                   </div>
                   <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px]"
-                    style={{ backgroundColor: 'rgba(236,102,45,0.1)', color: '#EC662D' }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] tracking-wider"
+                    style={{ backgroundColor: 'rgba(236,102,45,0.1)', color: '#EC662D', border: '1px solid rgba(236,102,45,0.25)' }}
                   >
                     <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#EC662D' }} />
                     即時
                   </span>
                 </div>
 
+                {/* 可信度輔助說明 */}
+                <div
+                  className="px-5 py-2 border-b"
+                  style={{ borderColor: 'rgba(212,166,67,0.10)', backgroundColor: 'rgba(212,166,67,0.03)' }}
+                >
+                  <p className="text-[10.5px] leading-relaxed" style={{ color: 'rgba(244,236,219,0.45)', letterSpacing: '0.03em' }}>
+                    收盤後同步更新，訊號僅供會員追蹤與復盤。
+                  </p>
+                </div>
+
                 {/* Rows */}
-                <div className="flex-1 px-3 py-3 space-y-2">
+                <div className="flex-1 px-3 py-2">
                   {[
                     { code: '2330.TW', name: '台積電', tag: '買進', tagColor: '#EC662D', desc: '突破季線壓力，外資連續買超', price: '580 – 590', time: '09:32' },
                     { code: '2454.TW', name: '聯發科', tag: '加碼', tagColor: '#D4A643', desc: '續創新高，AI 晶片出貨成長', price: '1,250 – 1,280', time: '10:15' },
                     { code: '3008.TW', name: '大立光', tag: '減碼', tagColor: '#C49040', desc: '達目標價，量能萎縮先獲利了結', price: '155 – 160', time: '11:00' },
                     { code: '2317.TW', name: '鴻海', tag: '買進', tagColor: '#EC662D', desc: '站上所有均線，外資連續買超', price: '178 – 182', time: '13:45' },
                     { code: '2603.TW', name: '長榮', tag: '出場', tagColor: '#8B8680', desc: '跌破支撐，執行停損紀律', price: '185 – 188', time: '14:20' },
-                  ].map((r) => (
+                  ].map((r, idx, arr) => (
                     <div
                       key={r.code}
-                      className="px-3 py-2.5 rounded-md"
+                      className="px-3.5 py-3.5 rounded-md"
                       style={{
-                        backgroundColor: 'rgba(255,255,255,0.025)',
+                        backgroundColor: 'rgba(255,255,255,0.018)',
                         borderLeft: `2px solid ${r.tagColor}`,
+                        borderBottom: idx < arr.length - 1 ? '1px solid rgba(212,166,67,0.07)' : 'none',
+                        marginBottom: idx < arr.length - 1 ? 4 : 0,
                       }}
                     >
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-baseline gap-2 min-w-0">
-                          <span className="text-xs font-mono tracking-wider" style={{ color: 'rgba(244,236,219,0.55)' }}>
+                          <span className="text-[11px] font-mono tracking-wider" style={{ color: 'rgba(244,236,219,0.5)' }}>
                             {r.code}
                           </span>
-                          <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB' }}>
+                          <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif' }}>
                             {r.name}
                           </span>
                         </div>
                         <span
-                          className="shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-medium"
+                          className="shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-medium tracking-wider"
                           style={{ backgroundColor: `${r.tagColor}1f`, color: r.tagColor, border: `1px solid ${r.tagColor}44` }}
                         >
                           {r.tag}
                         </span>
                       </div>
-                      <p className="text-[11px] mb-1.5 leading-snug" style={{ color: 'rgba(244,236,219,0.6)' }}>
+                      <p className="text-[11.5px] mb-2 leading-relaxed" style={{ color: 'rgba(244,236,219,0.62)' }}>
                         {r.desc}
                       </p>
-                      <div className="flex items-center justify-between text-[10px]" style={{ color: 'rgba(244,236,219,0.4)' }}>
-                        <span className="font-mono">{r.price}</span>
+                      <div className="flex items-center justify-between text-[10px] pt-1" style={{ color: 'rgba(244,236,219,0.42)', borderTop: '1px dashed rgba(212,166,67,0.10)' }}>
+                        <span className="font-mono tracking-wider">建議區間 {r.price}</span>
                         <span className="font-mono">{r.time}</span>
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* 本日重點觀察 — 與右卡 教學重點 對齊 */}
+                <div
+                  className="px-5 py-3 border-t"
+                  style={{ borderColor: 'rgba(236,102,45,0.18)', backgroundColor: 'rgba(236,102,45,0.04)' }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Zap className="h-3 w-3" style={{ color: '#EC662D' }} />
+                    <span className="text-[10px] font-medium tracking-wider uppercase" style={{ color: '#EC662D' }}>
+                      本日重點觀察
+                    </span>
+                  </div>
+                  <ul className="space-y-1 text-[11px] leading-snug" style={{ color: 'rgba(244,236,219,0.65)' }}>
+                    <li className="flex items-start gap-1.5">
+                      <span style={{ color: '#EC662D' }}>—</span> 半導體類股動能集中，留意外資籌碼
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span style={{ color: '#EC662D' }}>—</span> 跌破支撐立即停損，不留戀任何部位
+                    </li>
+                  </ul>
                 </div>
               </div>
               <h4
@@ -1144,39 +1177,55 @@ const Index = () => {
                     </span>
                   </div>
                   <span
-                    className="text-[10px] font-mono"
-                    style={{ color: 'rgba(244,236,219,0.55)' }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] tracking-wider"
+                    style={{ backgroundColor: 'rgba(212,166,67,0.1)', color: '#D4A643', border: '1px solid rgba(212,166,67,0.25)' }}
                   >
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#D4A643' }} />
+                    本週
+                  </span>
+                </div>
+
+                {/* 可信度輔助說明 */}
+                <div
+                  className="px-5 py-2 border-b flex items-center justify-between gap-3"
+                  style={{ borderColor: 'rgba(212,166,67,0.10)', backgroundColor: 'rgba(212,166,67,0.03)' }}
+                >
+                  <p className="text-[10.5px] leading-relaxed" style={{ color: 'rgba(244,236,219,0.45)', letterSpacing: '0.03em' }}>
+                    每週整理操作紀錄，方便回看判斷依據。
+                  </p>
+                  <span className="text-[10px] font-mono shrink-0" style={{ color: 'rgba(244,236,219,0.45)' }}>
                     12/23 – 12/27
                   </span>
                 </div>
 
                 {/* Rows */}
-                <div className="flex-1 px-3 py-3 space-y-2">
+                <div className="flex-1 px-3 py-2">
                   {[
                     { day: '週一', tag: '買進', tagColor: '#EC662D', code: '2303.TW', name: '聯電', desc: '突破短期壓力，量能放大', ret: '+3.5%', retColor: '#EC662D' },
                     { day: '週二', tag: '買進', tagColor: '#EC662D', code: '3037.TW', name: '欣興', desc: '跳空上漲，追蹤 ABF 載板題材', ret: '-2.8%', retColor: '#8B8680' },
                     { day: '週三', tag: '買進', tagColor: '#EC662D', code: '2317.TW', name: '鴻海', desc: '站上所有均線，外資連買', ret: '+4.2%', retColor: '#EC662D' },
                     { day: '週四', tag: null, tagColor: '#8B8680', code: null, name: null, desc: '觀望無操作', ret: null, retColor: '#8B8680' },
                     { day: '週五', tag: '減碼', tagColor: '#D4A643', code: '2303.TW', name: '聯電', desc: '達目標價位，獲利了結', ret: '已鎖利', retColor: '#D4A643' },
-                  ].map((r, i) => (
+                  ].map((r, i, arr) => (
                     <div
                       key={i}
-                      className="px-3 py-2.5 rounded-md"
+                      className="px-3.5 py-3.5 rounded-md"
                       style={{
-                        backgroundColor: 'rgba(255,255,255,0.025)',
+                        backgroundColor: 'rgba(255,255,255,0.018)',
                         borderLeft: `2px solid ${r.tagColor}`,
-                        opacity: r.tag ? 1 : 0.6,
+                        borderBottom: i < arr.length - 1 ? '1px solid rgba(212,166,67,0.07)' : 'none',
+                        marginBottom: i < arr.length - 1 ? 4 : 0,
+                        opacity: r.tag ? 1 : 0.65,
                       }}
                     >
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-baseline gap-2.5 min-w-0">
                           <span className="text-[11px] font-medium shrink-0" style={{ color: 'rgba(244,236,219,0.55)', fontFamily: '"Noto Serif TC", serif' }}>
                             {r.day}
                           </span>
                           {r.tag && (
                             <span
-                              className="px-1.5 py-0.5 rounded-sm text-[10px] font-medium"
+                              className="px-1.5 py-0.5 rounded-sm text-[10px] font-medium tracking-wider"
                               style={{ backgroundColor: `${r.tagColor}1f`, color: r.tagColor, border: `1px solid ${r.tagColor}44` }}
                             >
                               {r.tag}
@@ -1187,7 +1236,7 @@ const Index = () => {
                               <span className="text-[11px] font-mono shrink-0" style={{ color: 'rgba(244,236,219,0.5)' }}>
                                 {r.code}
                               </span>
-                              <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB' }}>
+                              <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif' }}>
                                 {r.name}
                               </span>
                             </>
@@ -1199,7 +1248,7 @@ const Index = () => {
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] leading-snug pl-0" style={{ color: 'rgba(244,236,219,0.55)' }}>
+                      <p className="text-[11.5px] leading-relaxed pl-0" style={{ color: 'rgba(244,236,219,0.6)' }}>
                         {r.desc}
                       </p>
                     </div>
@@ -1239,18 +1288,28 @@ const Index = () => {
             </div>
           </div>
 
-          {/* CTA */}
-          <div className="text-center mt-10 md:mt-12">
-            <Link to="/pricing">
+          {/* 低調 CTA — 戰情室下方銜接 */}
+          <div className="text-center mt-10 md:mt-12 max-w-md mx-auto px-5">
+            <p
+              className="text-sm md:text-base mb-3"
+              style={{ color: 'rgba(244,236,219,0.78)', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.04em' }}
+            >
+              先用自己的股票試一次
+            </p>
+            <Link to="/holding-checkup">
               <Button
-                size="lg"
-                className="border-0"
-                style={{ backgroundColor: '#EC662D', color: '#fff' }}
+                size="default"
+                variant="outline"
+                className="border bg-transparent hover:bg-[rgba(236,102,45,0.08)]"
+                style={{ borderColor: 'rgba(236,102,45,0.55)', color: '#F4ECDB' }}
               >
-                <ArrowRight className="mr-2 h-4 w-4" />
-                方案說明
+                開始持股健檢
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </Button>
             </Link>
+            <p className="text-[11px] md:text-xs mt-3" style={{ color: 'rgba(244,236,219,0.42)' }}>
+              不用註冊，先看懂手上的部位。
+            </p>
           </div>
         </div>
 
