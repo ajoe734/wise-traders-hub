@@ -413,6 +413,37 @@
       linear-gradient(180deg, hsl(var(--jh-ink-soft)) 0%, hsl(var(--jh-ink-soft)) 48%, hsl(var(--jh-battle-bg)) 52%, hsl(var(--jh-battle-bg)) 100%) !important;
   }
 
+  /* === 戰報榜之後（持股卷宗 / 入門路線 / Final CTA）夜間一致性 ============
+     使用 CSS 變數本地覆寫：所有 inline style hsl(var(--jh-*)) 會自動切到夜色，
+     不必逐一改 Index.tsx 的 style 屬性，也不必對抗 inline 優先序。            */
+  .dark .jh-night-section {
+    /* 背景紙色 → 深墨夜色 */
+    --jh-paper:       30 11% 9%;    /* 深墨主背景（夜間卷宗） */
+    --jh-paper-light: 28 12% 13%;   /* 暗褐卡片底（path card） */
+    --jh-paper-deep:  28 14% 16%;
+    --jh-bone:        28 13% 14%;   /* 燭火下的卷宗卡底 */
+    /* 文字反轉：墨字 → 骨白 / 暗金 / 霧灰 */
+    --jh-ink:         38 30% 90%;   /* 主文字（同 bone 原色） */
+    --jh-earth:       36 16% 68%;   /* 次文字（霧灰暖調） */
+    --jh-stone:       36 10% 56%;   /* tertiary、提示文字 */
+  }
+  .dark .jh-night-section {
+    background-color: hsl(var(--jh-ink-soft)) !important;
+    background-image:
+      radial-gradient(ellipse 75% 55% at 50% 0%, hsl(var(--jh-earth) / 0.10), transparent 70%),
+      radial-gradient(ellipse 60% 50% at 80% 100%, hsl(var(--jh-amber) / 0.05), transparent 70%);
+  }
+  /* 紙紋在夜間用 screen 透出微塵感 */
+  .dark .jh-night-section [class*="mix-blend-multiply"] {
+    mix-blend-mode: screen !important;
+    opacity: 0.06 !important;
+  }
+  /* 戰報榜 → 持股卷宗 的轉場：夜間不要切到米白 */
+  .dark .jh-seam-report-to-stock {
+    background:
+      linear-gradient(180deg, hsl(var(--jh-report-bg)) 0%, hsl(var(--jh-ink-soft) / 0.85) 55%, hsl(var(--jh-ink-soft)) 100%) !important;
+  }
+
   .gradient-hero {
     background: var(--gradient-hero);
   }
