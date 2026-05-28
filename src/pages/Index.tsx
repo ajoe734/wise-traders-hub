@@ -1231,13 +1231,36 @@ const Index = () => {
         </div>
 
         <style>{`
-          .warroom-card { transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease; }
+          .warroom-card {
+            transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease;
+            position: relative;
+            background-image:
+              linear-gradient(rgba(20,17,13,0.92), rgba(20,17,13,0.92)),
+              url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.86  0 0 0 0 0.70  0 0 0 0.10 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
+            background-blend-mode: overlay;
+          }
+          .warroom-card::before {
+            content: '';
+            position: absolute; inset: 0;
+            pointer-events: none;
+            border-radius: inherit;
+            background:
+              linear-gradient(180deg, rgba(212,166,67,0.35), transparent 6%, transparent 94%, rgba(212,166,67,0.25)) border-box;
+            -webkit-mask:
+              linear-gradient(#000 0 0) content-box,
+              linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+                    mask-composite: exclude;
+            padding: 1px;
+            opacity: 0.6;
+          }
           .warroom-card:hover {
             transform: translateY(-3px);
             border-color: rgba(236,102,45,0.4) !important;
             box-shadow: 0 40px 80px -30px rgba(236,102,45,0.25), inset 0 1px 0 rgba(255,255,255,0.06) !important;
           }
         `}</style>
+
       </section>
       </LazyOnVisible>
 
