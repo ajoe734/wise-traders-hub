@@ -1055,7 +1055,7 @@ const Index = () => {
                       className="text-sm font-medium"
                       style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
                     >
-                      本週操作紀錄
+                      本週追蹤紀錄
                     </span>
                   </div>
                   <span
