@@ -725,102 +725,17 @@ const Index = () => {
 
 
 
-      {/* Real Interface Preview Section — 黑金戰情室 */}
+      {/* Seam: 選你的模式(紙) → 會員戰情室(墨) */}
+      <InkFade direction="paper-to-ink" height={150} paperColor="#EFE7D6" inkColor="#0E0C0A" />
+
+      {/* Real Interface Preview Section — 會員戰情室 */}
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
       <section
         id="preview-section"
-        className="relative pt-[220px] md:pt-[280px] pb-section overflow-hidden"
+        className="relative py-section overflow-hidden"
         style={{ backgroundColor: '#0E0C0A' }}
       >
-        {/* ── 連續墨色暈染：從上一段的米白紙面，自然滲入深墨戰情室 ── */}
-        {/* 主紙面層 — 由頂部的 #EFE7D6 透過不規則 ellipse 暈染下沉，沒有水平直線 */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 pointer-events-none"
-          style={{
-            height: 360,
-            background:
-              'radial-gradient(ellipse 130% 95% at 50% -10%, #EFE7D6 0%, #EFE7D6 28%, rgba(180,150,110,0.55) 50%, rgba(60,45,32,0.35) 70%, rgba(20,16,12,0.1) 88%, transparent 100%)',
-          }}
-        />
-        {/* 左側雲霧紙團 — 讓邊緣不規則 */}
-        <div
-          aria-hidden="true"
-          className="absolute pointer-events-none"
-          style={{
-            left: '-12%', top: '-40px', width: '70%', height: 340,
-            background:
-              'radial-gradient(ellipse 60% 55% at 40% 30%, #EFE7D6 0%, rgba(239,231,214,0.6) 30%, rgba(120,90,60,0.25) 65%, transparent 85%)',
-            filter: 'blur(22px)',
-          }}
-        />
-        {/* 右側雲霧紙團 */}
-        <div
-          aria-hidden="true"
-          className="absolute pointer-events-none"
-          style={{
-            right: '-12%', top: '-30px', width: '70%', height: 340,
-            background:
-              'radial-gradient(ellipse 60% 55% at 60% 28%, #EFE7D6 0%, rgba(239,231,214,0.6) 30%, rgba(120,90,60,0.25) 65%, transparent 85%)',
-            filter: 'blur(22px)',
-          }}
-        />
-        {/* 下沉的墨團 — 從深墨往上滲入，邊緣柔軟、無水平線 */}
-        <div
-          aria-hidden="true"
-          className="absolute pointer-events-none"
-          style={{
-            left: '5%', top: 180, width: '45%', height: 260,
-            background:
-              'radial-gradient(ellipse 55% 60% at 50% 70%, rgba(14,12,10,0.85), rgba(14,12,10,0.5) 45%, transparent 78%)',
-            filter: 'blur(28px)',
-          }}
-        />
-        <div
-          aria-hidden="true"
-          className="absolute pointer-events-none"
-          style={{
-            right: '5%', top: 200, width: '45%', height: 260,
-            background:
-              'radial-gradient(ellipse 55% 60% at 50% 70%, rgba(14,12,10,0.85), rgba(14,12,10,0.5) 45%, transparent 78%)',
-            filter: 'blur(28px)',
-          }}
-        />
-        {/* 中央墨色下沉 — 接住標題後方 */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 pointer-events-none"
-          style={{
-            top: 140, height: 280,
-            background:
-              'radial-gradient(ellipse 80% 70% at 50% 80%, rgba(14,12,10,0.75), transparent 75%)',
-            filter: 'blur(20px)',
-          }}
-        />
-        {/* 紙紋雜訊 — 延伸進過渡帶，讓米白與墨色都帶紙質感 */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 pointer-events-none"
-          style={{
-            height: 380,
-            backgroundImage:
-              "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%222%22 stitchTiles=%22stitch%22/><feColorMatrix values=%220 0 0 0 0.06  0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0.06 0%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')",
-            mixBlendMode: 'multiply',
-            opacity: 0.55,
-          }}
-        />
-        {/* 中央橘色細線 — 從紙面引導進深墨，存在感降低，不再像切割線 */}
-        <div
-          aria-hidden="true"
-          className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
-          style={{
-            top: 0,
-            width: 1,
-            height: 260,
-            background:
-              'linear-gradient(to bottom, rgba(236,102,45,0) 0%, rgba(236,102,45,0.35) 30%, rgba(236,102,45,0.28) 70%, rgba(236,102,45,0) 100%)',
-          }}
-        />
+
 
         {/* 暖光 radial — 中心標題後方（保留，加強戰情室氛圍） */}
         <div
