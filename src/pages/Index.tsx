@@ -675,8 +675,30 @@ const Index = () => {
 
 
 
-      {/* Seam: 選你的模式(紙) → 會員戰情室(墨) */}
-      <InkFade direction="paper-to-ink" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-battle-bg))" />
+      {/* Seam: 選你的模式(紙) → 會員戰情室(墨褐) — 章節分界：暗金細線 + 中央菱形 */}
+      <div
+        aria-hidden="true"
+        className="relative w-full flex items-center justify-center"
+        style={{
+          height: 64,
+          background:
+            'linear-gradient(180deg, hsl(var(--jh-paper)) 0%, hsl(var(--jh-paper)) 48%, hsl(var(--jh-battle-bg)) 52%, hsl(var(--jh-battle-bg)) 100%)',
+        }}
+      >
+        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 flex items-center justify-center px-8">
+          <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, hsl(var(--jh-amber) / 0.55) 30%, hsl(var(--jh-amber) / 0.55) 70%, transparent)' }} />
+          <span
+            className="mx-4 rotate-45 block"
+            style={{
+              width: 8,
+              height: 8,
+              background: 'hsl(var(--jh-amber) / 0.85)',
+              boxShadow: '0 0 0 1px hsl(var(--jh-battle-bg))',
+            }}
+          />
+          <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, hsl(var(--jh-amber) / 0.55) 30%, hsl(var(--jh-amber) / 0.55) 70%, transparent)' }} />
+        </div>
+      </div>
 
       {/* Real Interface Preview Section — 會員戰情室 */}
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
