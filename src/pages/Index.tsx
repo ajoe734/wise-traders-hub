@@ -486,7 +486,7 @@ const Index = () => {
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
       <LazyOnVisible mode="content-visibility" minHeight={1400}>
       <section
-        className="relative overflow-hidden pt-6 md:pt-8 pb-8 md:pb-10"
+        className="relative overflow-hidden pt-6 md:pt-8 pb-0"
         style={{ backgroundColor: '#EFE7D6' }}
       >
         {/* Ink-wash mountain backdrop — very faint, top of section only */}
