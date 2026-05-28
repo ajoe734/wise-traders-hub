@@ -902,21 +902,35 @@ const Index = () => {
               className="text-[11px] md:text-xs tracking-[0.4em] uppercase mb-1.5"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
-              產品真實畫面
+              產品實戰畫面
             </p>
             <h2
-              className="text-3xl md:text-4xl lg:text-[44px] font-bold mb-2"
+              className="text-3xl md:text-4xl lg:text-[44px] font-bold mb-3"
               style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
             >
-              會員戰情室一覽
+              入門之後，進入你的戰情室
             </h2>
-            <p className="text-sm md:text-base mb-1" style={{ color: 'rgba(244,236,219,0.72)' }}>
-              即時訊號、操作紀錄、戰績回顧，都集中在同一個畫面。
+            <p className="text-sm md:text-base mb-4" style={{ color: 'rgba(244,236,219,0.72)' }}>
+              訊號、操作紀錄、戰績回顧，都會收進同一張戰局圖裡。
             </p>
-            <p className="text-xs md:text-sm" style={{ color: 'rgba(244,236,219,0.42)' }}>
-              訂閱後，你會在戰情室看到這些內容
-            </p>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[10px] md:text-xs tracking-wider"
+                style={{ backgroundColor: 'rgba(236,102,45,0.12)', color: '#EC662D', border: '1px solid rgba(236,102,45,0.3)' }}
+              >
+                <Zap className="h-3 w-3" />
+                跟單派訊號
+              </span>
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[10px] md:text-xs tracking-wider"
+                style={{ backgroundColor: 'rgba(212,166,67,0.12)', color: '#D4A643', border: '1px solid rgba(212,166,67,0.3)' }}
+              >
+                <BookOpen className="h-3 w-3" />
+                修煉派復盤
+              </span>
+            </div>
           </div>
+
 
           {/* Grid — 手機上下堆疊，桌機左右並排，等高 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 max-w-5xl mx-auto px-5 md:px-0">
