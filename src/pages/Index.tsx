@@ -1113,6 +1113,27 @@ const Index = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* 本日重點觀察 — 與右卡 教學重點 對齊 */}
+                <div
+                  className="px-5 py-3 border-t"
+                  style={{ borderColor: 'rgba(236,102,45,0.18)', backgroundColor: 'rgba(236,102,45,0.04)' }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Zap className="h-3 w-3" style={{ color: '#EC662D' }} />
+                    <span className="text-[10px] font-medium tracking-wider uppercase" style={{ color: '#EC662D' }}>
+                      本日重點觀察
+                    </span>
+                  </div>
+                  <ul className="space-y-1 text-[11px] leading-snug" style={{ color: 'rgba(244,236,219,0.65)' }}>
+                    <li className="flex items-start gap-1.5">
+                      <span style={{ color: '#EC662D' }}>—</span> 半導體類股動能集中，留意外資籌碼
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span style={{ color: '#EC662D' }}>—</span> 跌破支撐立即停損，不留戀任何部位
+                    </li>
+                  </ul>
+                </div>
               </div>
               <h4
                 className="mt-4 text-base md:text-lg"
