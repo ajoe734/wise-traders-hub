@@ -958,11 +958,13 @@ const Index = () => {
 
           {/* Eyebrow + H2 + Sub — 緊湊精緻 */}
           <div className="text-center mb-8 md:mb-10">
-
+            <p
+              className="text-[11px] md:text-xs tracking-[0.4em] uppercase mb-1.5"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
               產品實戰畫面
             </p>
+
             <h2
               className="text-3xl md:text-4xl lg:text-[44px] font-bold mb-3"
               style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
