@@ -1070,7 +1070,7 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* Seam: 戰情室(墨) → 喘息淺紙帶 → 戰報榜(墨) — 打斷整段深色，承接到本週榜文 */}
-      <InkFade direction="ink-to-paper" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
+      <InkFade direction="ink-to-paper" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-battle-bg))" />
       <div
         className="relative overflow-hidden"
         style={{ background: 'hsl(var(--jh-paper))' }}
