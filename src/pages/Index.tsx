@@ -413,7 +413,7 @@ const Index = () => {
               className="text-xs md:text-sm tracking-[0.4em] mb-2"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
-              江湖兩派
+              看懂三招之後，挑一條你想走的路
             </p>
             <h2
               className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2"
