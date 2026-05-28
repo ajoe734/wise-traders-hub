@@ -1372,7 +1372,7 @@ const Index = () => {
       {/* Seam: 戰報榜(暗褐) → 持股卷宗(紙) — 短版墨色退場，50px */}
       <div
         aria-hidden="true"
-        className="relative w-full"
+        className="relative w-full jh-seam-report-to-stock"
         style={{
           height: 50,
           background:
@@ -1382,7 +1382,7 @@ const Index = () => {
       {/* Stock Dashboard Section - 持股卷宗（江湖卷宗風） */}
       <LazyOnVisible mode="content-visibility" minHeight={900}>
       <section
-        className="relative overflow-hidden py-section"
+        className="relative overflow-hidden py-section jh-night-section"
         style={{ background: 'hsl(var(--jh-paper))' }}
       >
         {/* 上緣墨色餘韻 — 從 InkFade 自然延續，不要硬切純白 */}
@@ -1556,7 +1556,7 @@ const Index = () => {
       {/* How It Works - Dual Path · 門派入口卷軸（淺紙） */}
       <LazyOnVisible mode="content-visibility" minHeight={900}>
       <section
-        className="relative overflow-hidden py-section"
+        className="relative overflow-hidden py-section jh-night-section"
         style={{ background: 'hsl(var(--jh-paper))' }}
       >
         {/* 同屬紙場景，不再加暗金分隔線，避免「柵欄感」 */}
@@ -1770,7 +1770,7 @@ const Index = () => {
       {/* Final CTA — 卷軸落款（紙面延續，無過渡） */}
       <LazyOnVisible mode="content-visibility" minHeight={400}>
       <section
-        className="relative overflow-hidden py-section"
+        className="relative overflow-hidden py-section jh-night-section"
         style={{ background: 'hsl(var(--jh-paper))' }}
       >
         {/* 紙紋 */}
