@@ -668,14 +668,14 @@ const Index = () => {
 
 
       {/* Seam: 選你的模式(紙) → 會員戰情室(墨) */}
-      <InkFade direction="paper-to-ink" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
+      <InkFade direction="paper-to-ink" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-battle-bg))" />
 
       {/* Real Interface Preview Section — 會員戰情室 */}
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
       <section
         id="preview-section"
         className="relative py-section overflow-hidden"
-        style={{ backgroundColor: 'hsl(var(--jh-ink))' }}
+        style={{ backgroundColor: 'hsl(var(--jh-battle-bg))' }}
       >
 
 
@@ -1070,7 +1070,7 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* Seam: 戰情室(墨) → 喘息淺紙帶 → 戰報榜(墨) — 打斷整段深色，承接到本週榜文 */}
-      <InkFade direction="ink-to-paper" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
+      <InkFade direction="ink-to-paper" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-battle-bg))" />
       <div
         className="relative overflow-hidden"
         style={{ background: 'hsl(var(--jh-paper))' }}
@@ -1094,13 +1094,13 @@ const Index = () => {
           </div>
         </div>
       </div>
-      <InkFade direction="paper-to-ink" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
+      <InkFade direction="paper-to-ink" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-report-bg))" />
 
       {/* Weekly Limit Up Leaderboard - War Report Style */}
       <LazyOnVisible mode="content-visibility" minHeight={620}>
       <section
         className="relative overflow-hidden py-12 md:py-14"
-        style={{ background: 'hsl(var(--jh-ink))' }}
+        style={{ background: 'hsl(var(--jh-report-bg))' }}
       >
         {/* Ambient layers */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
@@ -1160,7 +1160,7 @@ const Index = () => {
             className="relative rounded-md max-w-4xl mx-auto overflow-hidden"
             style={{
               background:
-                'linear-gradient(180deg, hsl(var(--jh-ink-soft) / 0.95), hsl(var(--jh-ink) / 0.95))',
+                'linear-gradient(180deg, hsl(var(--jh-report-bg) / 0.92), hsl(var(--jh-report-bg) / 0.98))',
               border: '1px solid hsl(var(--jh-amber) / 0.28)',
               boxShadow:
                 '0 0 0 1px hsl(var(--jh-amber) / 0.06), 0 30px 60px -30px hsl(var(--jh-candle) / 0.22)',
@@ -1340,7 +1340,7 @@ const Index = () => {
       </LazyOnVisible>
 
       {/* Seam: 戰報榜(墨) → 持股卷宗(紙) */}
-      <InkFade direction="ink-to-paper" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
+      <InkFade direction="ink-to-paper" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-report-bg))" />
       {/* Stock Dashboard Section - 持股卷宗（江湖卷宗風） */}
       <LazyOnVisible mode="content-visibility" minHeight={900}>
       <section
