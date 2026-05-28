@@ -932,10 +932,33 @@ const Index = () => {
         />
 
         <div className="container relative z-10">
+          {/* 接住過渡線：垂直線從上方延伸到標題前 */}
+          <div className="flex flex-col items-center -mt-2 mb-4">
+            <div
+              aria-hidden="true"
+              style={{
+                width: 1,
+                height: 28,
+                background:
+                  'linear-gradient(to bottom, rgba(236,102,45,0.7), rgba(236,102,45,0.15))',
+              }}
+            />
+            <div
+              aria-hidden="true"
+              className="mt-1"
+              style={{
+                width: 6,
+                height: 6,
+                transform: 'rotate(45deg)',
+                background: 'rgba(236,102,45,0.55)',
+                boxShadow: '0 0 10px rgba(236,102,45,0.45)',
+              }}
+            />
+          </div>
+
           {/* Eyebrow + H2 + Sub — 緊湊精緻 */}
           <div className="text-center mb-8 md:mb-10">
-            <p
-              className="text-[11px] md:text-xs tracking-[0.4em] uppercase mb-1.5"
+
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
               產品實戰畫面
