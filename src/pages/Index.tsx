@@ -1351,7 +1351,10 @@ const Index = () => {
       </section>
       </LazyOnVisible>
 
-      {/* Stock Dashboard Section - 持股看板（紫色主視覺） */}
+      {/* Seam: 會員戰情室(墨) → 持股看板(紙) */}
+      <InkFade direction="ink-to-paper" height={140} paperColor="#FAFAFA" inkColor="#0E0C0A" />
+
+      {/* Stock Dashboard Section - 持股看板（江湖卷宗風） */}
       <LazyOnVisible mode="content-visibility" minHeight={900}>
       <section className="py-section bg-background">
         <div className="container">
