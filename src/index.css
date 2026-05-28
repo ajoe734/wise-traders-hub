@@ -131,7 +131,28 @@
     --learning-header: 0 0% 100%;
     --learning-nav: 0 0% 100%;
     --learning-border: 0 0% 88%;
+
+    /* === Jianghu Art Direction (山海江湖美術系統) =================== *
+     * 統一首頁山海／戰情室美術語言，禁止再散落 hex。請用 hsl(var(--jh-*))。
+     * 對應規範見 mem://style/jianghu-art-direction（之後補）
+     * --------------------------------------------------------------- */
+    --jh-paper:       38 36% 89%;   /* #EFE7D6 主紙面 */
+    --jh-paper-deep:  36 26% 80%;   /* #D8CCB0 深紙、印章底 */
+    --jh-paper-light: 40 33% 95%;   /* #F5F0E6 米霧 */
+    --jh-ink:         30 14% 5%;    /* #0F0D0B 深墨主背景 */
+    --jh-ink-soft:    30 11% 9%;    /* #1A1612 軟墨層 */
+    --jh-charcoal:    30 8% 14%;    /* #25211E 炭黑卡片底 */
+    --jh-earth:       30 35% 22%;   /* #4A3621 土褐 */
+    --jh-amber:       44 56% 47%;   /* #BC9530 暗金主線 */
+    --jh-amber-dim:   44 45% 35%;   /* #826831 暗金深 */
+    --jh-amber-soft:  44 56% 65%;   /* #D8B96A 暗金亮 */
+    --jh-candle:      18 84% 55%;   /* #EC662D 燭火橘（節制使用） */
+    --jh-stone:       35 8% 47%;    /* #7E7873 石灰中性 */
+    --jh-muted:       38 12% 70%;   /* #B8B0A4 卷宗注解 */
+    --jh-border:      44 50% 47%;   /* 與 --jh-amber 同基底，搭配 alpha 使用 */
+    --jh-bone:        38 30% 92%;   /* #F1EAD9 骨白前景 */
   }
+
 
   .dark {
     --background: 0 0% 7%;
