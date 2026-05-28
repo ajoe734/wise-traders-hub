@@ -345,6 +345,74 @@
     --wr-noise-alpha:      0.10;
   }
 
+  /* === 山海江湖：三招 / 選你的模式 — 淺=白天卷軸 / 深=夜間江湖 ====== */
+  /* 淺色維持紙色，深色換成夜墨；用 class 鎖定，避免動到 token 影響其他頁面 */
+  .jh-section-paper {
+    background-color: hsl(var(--jh-paper));
+  }
+  .dark .jh-section-paper {
+    /* 不用純黑 — 深墨 + 一點土褐溫度 */
+    background-color: hsl(var(--jh-ink-soft));
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% 0%, hsl(var(--jh-earth) / 0.18), transparent 70%),
+      radial-gradient(ellipse 60% 50% at 20% 100%, hsl(var(--jh-amber) / 0.05), transparent 70%);
+  }
+  /* 紙紋切煙塵：淺色用 multiply 壓墨，深色用 screen 透出微塵 */
+  .dark .jh-paper-grain {
+    mix-blend-mode: screen !important;
+    opacity: 0.07 !important;
+  }
+  /* 山水殘影：深色更壓暗，避免亮霧 */
+  .dark .jh-mountain-backdrop {
+    opacity: 0.18 !important;
+    filter: brightness(0.55) contrast(1.05) sepia(0.15);
+  }
+  /* 三招卡片 — 深色加暗金細邊與燭火陰影；圖片再壓暗一階 */
+  .dark .jh-trio-card {
+    box-shadow:
+      0 24px 50px -28px rgba(0,0,0,0.9),
+      inset 0 0 0 1px hsl(var(--jh-amber) / 0.22) !important;
+  }
+  .dark .jh-trio-card .jh-trio-bg {
+    opacity: 0.42 !important;
+    filter: brightness(0.85) sepia(0.2);
+  }
+  /* 選你的模式 — 深色山門：卡片邊框、hover 燭火、加深圖片遮罩 */
+  .dark .jianghu-card {
+    border-color: hsl(var(--jh-amber) / 0.30) !important;
+    background-color: hsl(var(--jh-ink)) !important;
+    box-shadow:
+      0 22px 50px -24px rgba(0,0,0,0.9),
+      inset 0 0 0 1px hsl(var(--jh-amber) / 0.10) !important;
+  }
+  .dark .jianghu-card .jianghu-card-bg {
+    filter: brightness(0.75) sepia(0.18) contrast(1.05);
+  }
+  .dark .jianghu-card:hover {
+    border-color: hsl(var(--jh-amber-soft) / 0.55) !important;
+    box-shadow:
+      0 32px 60px -22px rgba(0,0,0,0.95),
+      0 0 24px hsl(var(--jh-candle) / 0.25),
+      inset 0 0 0 1px hsl(var(--jh-amber-soft) / 0.35) !important;
+  }
+  /* 選模式區的文字（原本是黑色 inline style，深色看不見） */
+  .dark .jh-mode-eyebrow      { color: hsl(var(--jh-amber-soft)) !important; }
+  .dark .jh-mode-title        { color: hsl(var(--jh-bone)) !important; }
+  .dark .jh-mode-sub          { color: hsl(var(--jh-bone) / 0.72) !important; }
+  .dark .jh-mode-sub-soft     { color: hsl(var(--jh-bone) / 0.55) !important; }
+  .dark .jh-mode-divider-text { color: hsl(var(--jh-bone) / 0.55) !important; }
+  .dark .jh-mode-cta-line     { color: hsl(var(--jh-bone) / 0.85) !important; }
+  .dark .jh-mode-footnote     { color: hsl(var(--jh-bone) / 0.62) !important; }
+  /* Hero → 三招 / 選模式 → 戰情室 的縫合漸層在深色要換頭尾色 */
+  .dark .jh-seam-hero-to-trio {
+    background:
+      linear-gradient(180deg, #000 0%, hsl(var(--jh-ink-soft) / 0.6) 55%, hsl(var(--jh-ink-soft)) 100%) !important;
+  }
+  .dark .jh-seam-mode-to-battle {
+    background:
+      linear-gradient(180deg, hsl(var(--jh-ink-soft)) 0%, hsl(var(--jh-ink-soft)) 48%, hsl(var(--jh-battle-bg)) 52%, hsl(var(--jh-battle-bg)) 100%) !important;
+  }
+
   .gradient-hero {
     background: var(--gradient-hero);
   }

@@ -145,7 +145,7 @@ const Index = () => {
       {/* Seam: Hero(墨黑) → 三招(紙) — 短版紙面浮出，40px */}
       <div
         aria-hidden="true"
-        className="relative w-full"
+        className="relative w-full jh-seam-hero-to-trio"
         style={{
           height: 40,
           background:
@@ -154,7 +154,7 @@ const Index = () => {
       />
 
       {/* Three Core Features Section - Magazine Layout */}
-      <section className="relative py-section" style={{ background: 'hsl(var(--jh-paper))' }}>
+      <section className="relative py-section jh-section-paper">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
             {/* Left Column - Narrative */}
@@ -179,7 +179,7 @@ const Index = () => {
             <div className="flex flex-col gap-5 lg:pr-2">
               {/* Card 01 - 看懂訊號 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-0 lg:mr-10"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-0 lg:mr-10 jh-trio-card"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.1s',
@@ -187,7 +187,7 @@ const Index = () => {
                 }}
               >
                 <div 
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03] jh-trio-bg"
                   style={{ 
                     backgroundImage: `url(${featureXianren})`,
                     opacity: 0.6
@@ -209,7 +209,7 @@ const Index = () => {
 
               {/* Card 02 - 找出戰線 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-5 lg:mr-5"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-5 lg:mr-5 jh-trio-card"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.25s',
@@ -217,7 +217,7 @@ const Index = () => {
                 }}
               >
                 <div 
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03] jh-trio-bg"
                   style={{ 
                     backgroundImage: `url(${featureFiveFactions})`,
                     opacity: 0.7
@@ -239,7 +239,7 @@ const Index = () => {
 
               {/* Card 03 - 招招有交代 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-10 lg:mr-0"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-10 lg:mr-0 jh-trio-card"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.4s',
@@ -247,7 +247,7 @@ const Index = () => {
                 }}
               >
                 <div 
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03] jh-trio-bg"
                   style={{ 
                     backgroundImage: `url(${featureJiaodai})`,
                     opacity: 0.6
@@ -324,13 +324,12 @@ const Index = () => {
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
       <LazyOnVisible mode="content-visibility" minHeight={1400}>
       <section
-        className="relative overflow-hidden pt-6 md:pt-8 pb-0"
-        style={{ backgroundColor: 'hsl(var(--jh-paper))' }}
+        className="relative overflow-hidden pt-6 md:pt-8 pb-0 jh-section-paper"
       >
         {/* Ink-wash mountain backdrop — very faint, top of section only */}
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 top-0 pointer-events-none"
+          className="absolute inset-x-0 top-0 pointer-events-none jh-mountain-backdrop"
           style={{
             height: '70%',
             backgroundImage: `url(${jianghuSectionBg})`,
@@ -347,7 +346,7 @@ const Index = () => {
         {/* Subtle paper grain */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none jh-paper-grain"
           style={{
             backgroundImage:
               "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%222%22 stitchTiles=%22stitch%22/><feColorMatrix values=%220 0 0 0 0.06  0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0.06 0%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')",
@@ -356,25 +355,26 @@ const Index = () => {
           }}
         />
 
+
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Eyebrow + Title */}
           <div className="text-center mb-6 md:mb-8">
             <p
-              className="text-xs md:text-sm tracking-[0.4em] mb-2"
+              className="text-xs md:text-sm tracking-[0.4em] mb-2 jh-mode-eyebrow"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
               看懂三招之後，挑一條你想走的路
             </p>
             <h2
-              className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2"
+              className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2 jh-mode-title"
               style={{ color: '#171717', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
             >
               選你的模式
             </h2>
-            <p className="text-sm md:text-base mb-1.5" style={{ color: 'rgba(23,23,23,0.65)' }}>
+            <p className="text-sm md:text-base mb-1.5 jh-mode-sub" style={{ color: 'rgba(23,23,23,0.65)' }}>
               不同的投資哲學，同樣的致勝之道
             </p>
-            <p className="text-xs md:text-sm" style={{ color: 'rgba(23,23,23,0.5)' }}>
+            <p className="text-xs md:text-sm jh-mode-sub-soft" style={{ color: 'rgba(23,23,23,0.5)' }}>
               想直接跟著訊號行動，選跟單派；想學會判斷市場，選修煉派。
             </p>
           </div>
@@ -480,7 +480,7 @@ const Index = () => {
                 }}
               />
               <p
-                className="my-3 text-[10px] tracking-[0.45em] writing-vertical-rl"
+                className="my-3 text-[10px] tracking-[0.45em] writing-vertical-rl jh-mode-divider-text"
                 style={{
                   color: 'rgba(23,23,23,0.55)',
                   fontFamily: '"Noto Serif TC", serif',
@@ -594,7 +594,7 @@ const Index = () => {
 
           {/* Footnote */}
           <p
-            className="text-center mt-6 text-sm md:text-base"
+            className="text-center mt-6 text-sm md:text-base jh-mode-footnote"
             style={{ color: 'rgba(23,23,23,0.6)' }}
           >
             兩派會員皆可享有 <span style={{ color: '#EC662D', fontWeight: 600 }}>legendflow</span> 完整生態系統服務
@@ -630,7 +630,7 @@ const Index = () => {
             onClick={() => {
               document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="flex flex-col items-center gap-1.5 cursor-pointer text-center px-6"
+            className="flex flex-col items-center gap-1.5 cursor-pointer text-center px-6 jh-mode-cta-line"
             style={{ color: 'rgba(23,23,23,0.82)' }}
           >
             <span
@@ -678,7 +678,7 @@ const Index = () => {
       {/* Seam: 選你的模式(紙) → 會員戰情室(墨褐) — 章節分界：暗金細線 + 中央菱形 */}
       <div
         aria-hidden="true"
-        className="relative w-full flex items-center justify-center"
+        className="relative w-full flex items-center justify-center jh-seam-mode-to-battle"
         style={{
           height: 64,
           background:
