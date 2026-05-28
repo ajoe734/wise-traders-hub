@@ -799,15 +799,15 @@ const Index = () => {
               <div
                 className="warroom-card flex-1 flex flex-col rounded-xl overflow-hidden"
                 style={{
-                  backgroundColor: 'rgba(20,17,13,0.85)',
-                  border: '1px solid rgba(236,102,45,0.22)',
-                  boxShadow: '0 30px 60px -30px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
+                  backgroundColor: 'var(--wr-bg)',
+                  border: '1px solid var(--wr-border-orange)',
+                  boxShadow: 'var(--wr-card-shadow)',
                 }}
               >
                 {/* Card header — 固定高度功能列 */}
                 <div
                   className="flex items-center justify-between px-5 py-4 border-b"
-                  style={{ borderColor: 'rgba(236,102,45,0.18)', minHeight: 64 }}
+                  style={{ borderColor: 'var(--wr-divider-orange)', minHeight: 64 }}
                 >
                   <div className="flex items-center gap-2.5">
                     <span
@@ -819,7 +819,7 @@ const Index = () => {
                     </span>
                     <span
                       className="text-sm font-medium"
-                      style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
+                      style={{ color: 'var(--wr-ink)', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
                     >
                       即時訊號牆
                     </span>
@@ -836,9 +836,9 @@ const Index = () => {
                 {/* 可信度輔助說明 */}
                 <div
                   className="px-5 py-2 border-b"
-                  style={{ borderColor: 'rgba(212,166,67,0.10)', backgroundColor: 'rgba(212,166,67,0.03)' }}
+                  style={{ borderColor: 'var(--wr-divider-soft)', backgroundColor: 'var(--wr-trust-bg)' }}
                 >
-                  <p className="text-[10.5px] leading-relaxed" style={{ color: 'rgba(244,236,219,0.45)', letterSpacing: '0.03em' }}>
+                  <p className="text-[10.5px] leading-relaxed" style={{ color: 'var(--wr-ink-faint)', letterSpacing: '0.03em' }}>
                     收盤後同步更新，訊號僅供會員追蹤與復盤。
                   </p>
                 </div>
@@ -856,18 +856,18 @@ const Index = () => {
                       key={r.code}
                       className="px-3.5 py-3.5 rounded-md"
                       style={{
-                        backgroundColor: 'rgba(255,255,255,0.018)',
+                        backgroundColor: 'var(--wr-row-bg)',
                         borderLeft: `2px solid ${r.tagColor}`,
-                        borderBottom: idx < arr.length - 1 ? '1px solid rgba(212,166,67,0.07)' : 'none',
+                        borderBottom: idx < arr.length - 1 ? '1px solid var(--wr-row-divider)' : 'none',
                         marginBottom: idx < arr.length - 1 ? 4 : 0,
                       }}
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-baseline gap-2 min-w-0">
-                          <span className="text-[11px] font-mono tracking-wider" style={{ color: 'rgba(244,236,219,0.5)' }}>
+                          <span className="text-[11px] font-mono tracking-wider" style={{ color: 'var(--wr-ink-mute)' }}>
                             {r.code}
                           </span>
-                          <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif' }}>
+                          <span className="text-sm font-semibold truncate" style={{ color: 'var(--wr-ink)', fontFamily: '"Noto Serif TC", serif' }}>
                             {r.name}
                           </span>
                         </div>
@@ -878,10 +878,10 @@ const Index = () => {
                           {r.tag}
                         </span>
                       </div>
-                      <p className="text-[11.5px] mb-2 leading-relaxed" style={{ color: 'rgba(244,236,219,0.62)' }}>
+                      <p className="text-[11.5px] mb-2 leading-relaxed" style={{ color: 'var(--wr-ink-soft)' }}>
                         {r.desc}
                       </p>
-                      <div className="flex items-center justify-between text-[10px] pt-1" style={{ color: 'rgba(244,236,219,0.42)', borderTop: '1px dashed rgba(212,166,67,0.10)' }}>
+                      <div className="flex items-center justify-between text-[10px] pt-1" style={{ color: 'var(--wr-ink-faint)', borderTop: '1px dashed var(--wr-divider-soft)' }}>
                         <span className="font-mono tracking-wider">建議區間 {r.price}</span>
                         <span className="font-mono">{r.time}</span>
                       </div>
@@ -892,7 +892,7 @@ const Index = () => {
                 {/* 本日重點觀察 — 與右卡 教學重點 對齊 */}
                 <div
                   className="px-5 py-3 border-t"
-                  style={{ borderColor: 'rgba(236,102,45,0.18)', backgroundColor: 'rgba(236,102,45,0.04)' }}
+                  style={{ borderColor: 'var(--wr-divider-orange)', backgroundColor: 'var(--wr-footer-orange-bg)' }}
                 >
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Zap className="h-3 w-3" style={{ color: '#EC662D' }} />
@@ -900,7 +900,7 @@ const Index = () => {
                       本日重點觀察
                     </span>
                   </div>
-                  <ul className="space-y-1 text-[11px] leading-snug" style={{ color: 'rgba(244,236,219,0.65)' }}>
+                  <ul className="space-y-1 text-[11px] leading-snug" style={{ color: 'var(--wr-ink-soft)' }}>
                     <li className="flex items-start gap-1.5">
                       <span style={{ color: '#EC662D' }}>—</span> 半導體類股動能集中，留意外資籌碼
                     </li>
@@ -912,11 +912,11 @@ const Index = () => {
               </div>
               <h4
                 className="mt-4 text-base md:text-lg"
-                style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
+                style={{ color: 'var(--wr-ink)', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
               >
                 跟單派戰情室
               </h4>
-              <p className="text-xs md:text-sm mt-1 leading-relaxed" style={{ color: 'rgba(244,236,219,0.55)' }}>
+              <p className="text-xs md:text-sm mt-1 leading-relaxed" style={{ color: 'var(--wr-ink-mute)' }}>
                 即時接收專家買賣訊號，包含價位區間與操作理由。
               </p>
             </div>
@@ -926,15 +926,15 @@ const Index = () => {
               <div
                 className="warroom-card flex-1 flex flex-col rounded-xl overflow-hidden"
                 style={{
-                  backgroundColor: 'rgba(20,17,13,0.85)',
-                  border: '1px solid rgba(212,166,67,0.22)',
-                  boxShadow: '0 30px 60px -30px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)',
+                  backgroundColor: 'var(--wr-bg)',
+                  border: '1px solid var(--wr-border-amber)',
+                  boxShadow: 'var(--wr-card-shadow)',
                 }}
               >
                 {/* Card header */}
                 <div
                   className="flex items-center justify-between px-5 py-4 border-b"
-                  style={{ borderColor: 'rgba(212,166,67,0.18)', minHeight: 64 }}
+                  style={{ borderColor: 'var(--wr-divider)', minHeight: 64 }}
                 >
                   <div className="flex items-center gap-2.5">
                     <span
@@ -946,14 +946,14 @@ const Index = () => {
                     </span>
                     <span
                       className="text-sm font-medium"
-                      style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
+                      style={{ color: 'var(--wr-ink)', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
                     >
                       本週追蹤紀錄
                     </span>
                   </div>
                   <span
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] tracking-wider"
-                    style={{ backgroundColor: 'rgba(212,166,67,0.1)', color: '#D4A643', border: '1px solid rgba(212,166,67,0.25)' }}
+                    style={{ backgroundColor: 'var(--wr-divider-soft)', color: '#D4A643', border: '1px solid rgba(212,166,67,0.25)' }}
                   >
                     <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#D4A643' }} />
                     本週
@@ -963,12 +963,12 @@ const Index = () => {
                 {/* 可信度輔助說明 */}
                 <div
                   className="px-5 py-2 border-b flex items-center justify-between gap-3"
-                  style={{ borderColor: 'rgba(212,166,67,0.10)', backgroundColor: 'rgba(212,166,67,0.03)' }}
+                  style={{ borderColor: 'var(--wr-divider-soft)', backgroundColor: 'var(--wr-trust-bg)' }}
                 >
-                  <p className="text-[10.5px] leading-relaxed" style={{ color: 'rgba(244,236,219,0.45)', letterSpacing: '0.03em' }}>
+                  <p className="text-[10.5px] leading-relaxed" style={{ color: 'var(--wr-ink-faint)', letterSpacing: '0.03em' }}>
                     每週整理操作紀錄，方便回看判斷依據。
                   </p>
-                  <span className="text-[10px] font-mono shrink-0" style={{ color: 'rgba(244,236,219,0.45)' }}>
+                  <span className="text-[10px] font-mono shrink-0" style={{ color: 'var(--wr-ink-faint)' }}>
                     12/23 – 12/27
                   </span>
                 </div>
@@ -986,16 +986,16 @@ const Index = () => {
                       key={i}
                       className="px-3.5 py-3.5 rounded-md"
                       style={{
-                        backgroundColor: 'rgba(255,255,255,0.018)',
+                        backgroundColor: 'var(--wr-row-bg)',
                         borderLeft: `2px solid ${r.tagColor}`,
-                        borderBottom: i < arr.length - 1 ? '1px solid rgba(212,166,67,0.07)' : 'none',
+                        borderBottom: i < arr.length - 1 ? '1px solid var(--wr-row-divider)' : 'none',
                         marginBottom: i < arr.length - 1 ? 4 : 0,
                         opacity: r.tag ? 1 : 0.65,
                       }}
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-baseline gap-2.5 min-w-0">
-                          <span className="text-[11px] font-medium shrink-0" style={{ color: 'rgba(244,236,219,0.55)', fontFamily: '"Noto Serif TC", serif' }}>
+                          <span className="text-[11px] font-medium shrink-0" style={{ color: 'var(--wr-ink-mute)', fontFamily: '"Noto Serif TC", serif' }}>
                             {r.day}
                           </span>
                           {r.tag && (
@@ -1008,10 +1008,10 @@ const Index = () => {
                           )}
                           {r.code && (
                             <>
-                              <span className="text-[11px] font-mono shrink-0" style={{ color: 'rgba(244,236,219,0.5)' }}>
+                              <span className="text-[11px] font-mono shrink-0" style={{ color: 'var(--wr-ink-mute)' }}>
                                 {r.code}
                               </span>
-                              <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif' }}>
+                              <span className="text-sm font-semibold truncate" style={{ color: 'var(--wr-ink)', fontFamily: '"Noto Serif TC", serif' }}>
                                 {r.name}
                               </span>
                             </>
@@ -1023,7 +1023,7 @@ const Index = () => {
                           </span>
                         )}
                       </div>
-                      <p className="text-[11.5px] leading-relaxed pl-0" style={{ color: 'rgba(244,236,219,0.6)' }}>
+                      <p className="text-[11.5px] leading-relaxed pl-0" style={{ color: 'var(--wr-ink-soft)' }}>
                         {r.desc}
                       </p>
                     </div>
@@ -1033,7 +1033,7 @@ const Index = () => {
                 {/* 本週教學重點 */}
                 <div
                   className="px-5 py-3 border-t"
-                  style={{ borderColor: 'rgba(212,166,67,0.18)', backgroundColor: 'rgba(212,166,67,0.04)' }}
+                  style={{ borderColor: 'var(--wr-divider)', backgroundColor: 'var(--wr-footer-amber-bg)' }}
                 >
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Lightbulb className="h-3 w-3" style={{ color: '#D4A643' }} />
@@ -1041,7 +1041,7 @@ const Index = () => {
                       本週教學重點
                     </span>
                   </div>
-                  <ul className="space-y-1 text-[11px] leading-snug" style={{ color: 'rgba(244,236,219,0.65)' }}>
+                  <ul className="space-y-1 text-[11px] leading-snug" style={{ color: 'var(--wr-ink-soft)' }}>
                     <li className="flex items-start gap-1.5">
                       <span style={{ color: '#D4A643' }}>—</span> 嚴格執行停損是短線操作的關鍵
                     </li>
@@ -1053,11 +1053,11 @@ const Index = () => {
               </div>
               <h4
                 className="mt-4 text-base md:text-lg"
-                style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
+                style={{ color: 'var(--wr-ink)', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
               >
                 修煉派週記教學
               </h4>
-              <p className="text-xs md:text-sm mt-1 leading-relaxed" style={{ color: 'rgba(244,236,219,0.55)' }}>
+              <p className="text-xs md:text-sm mt-1 leading-relaxed" style={{ color: 'var(--wr-ink-mute)' }}>
                 每週回顧導師的實際操作，包含進出場理由與學習重點（T+7 延遲）。
               </p>
             </div>
@@ -1070,7 +1070,7 @@ const Index = () => {
             transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease;
             position: relative;
             background-image:
-              linear-gradient(rgba(20,17,13,0.92), rgba(20,17,13,0.92)),
+              linear-gradient(var(--wr-overlay), var(--wr-overlay)),
               url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.86  0 0 0 0 0.70  0 0 0 0.10 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
             background-blend-mode: overlay;
           }
