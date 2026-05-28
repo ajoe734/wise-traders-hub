@@ -1099,32 +1099,31 @@ const Index = () => {
       </section>
       </LazyOnVisible>
 
-      {/* Seam: 戰情室(墨) → 喘息淺紙帶 → 戰報榜(墨) — 打斷整段深色，承接到本週榜文 */}
-      <InkFade direction="ink-to-paper" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-battle-bg))" />
+      {/* Seam: 戰情室(墨褐) → 戰報榜(暗褐) — 同色系內部轉場，僅靠暗金細線 + 標題分層 */}
       <div
-        className="relative overflow-hidden"
-        style={{ background: 'hsl(var(--jh-paper))' }}
+        aria-hidden="false"
+        className="relative w-full"
+        style={{
+          background:
+            'linear-gradient(180deg, hsl(var(--jh-battle-bg)) 0%, hsl(var(--jh-report-bg)) 100%)',
+        }}
       >
         <div
-          className="absolute inset-0 opacity-[0.07] mix-blend-multiply pointer-events-none"
+          className="absolute inset-x-0 top-0 h-px"
           aria-hidden="true"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.27  0 0 0 0 0.15  0 0 0 0.45 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
-          }}
+          style={{ background: 'linear-gradient(90deg, transparent, hsl(var(--jh-amber) / 0.4) 30%, hsl(var(--jh-amber) / 0.4) 70%, transparent)' }}
         />
-        <div className="container relative py-10 md:py-12 text-center">
+        <div className="container relative py-6 text-center">
           <div
             className="inline-flex items-center gap-3 text-[11px] tracking-[0.36em] uppercase"
-            style={{ color: 'hsl(var(--jh-amber-dim))' }}
+            style={{ color: 'hsl(var(--jh-amber-soft) / 0.7)' }}
           >
-            <span className="block w-8 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.55)' }} />
+            <span className="block w-8 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.5)' }} />
             戰情室外，江湖每週開榜一次
-            <span className="block w-8 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.55)' }} />
+            <span className="block w-8 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.5)' }} />
           </div>
         </div>
       </div>
-      <InkFade direction="paper-to-ink" height={110} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-report-bg))" />
 
       {/* Weekly Limit Up Leaderboard - War Report Style */}
       <LazyOnVisible mode="content-visibility" minHeight={620}>
