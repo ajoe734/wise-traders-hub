@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SEOLite as SEO } from '@/components/SEOLite';
 import { PortalLayout } from '@/components/layouts/PortalLayout';
@@ -48,66 +47,6 @@ import { InkFade } from '@/components/jianghu/InkFade';
 
 
 
-// 數字 count-up 動畫（載入時自動跑動）
-const CountUpNumber = ({
-  target,
-  decimals = 0,
-  prefix = '',
-  suffix = '',
-  duration = 1600,
-  delay = 0,
-}: {
-  target: number;
-  decimals?: number;
-  prefix?: string;
-  suffix?: string;
-  duration?: number;
-  delay?: number;
-}) => {
-  const [value, setValue] = useState(0);
-  const rafRef = useRef<number>(0);
-  const startedRef = useRef(false);
-
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-
-    const prefersReduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) {
-      setValue(target);
-      return;
-    }
-
-    let startTime = 0;
-    const timer = window.setTimeout(() => {
-      const tick = (now: number) => {
-        if (!startTime) startTime = now;
-        const t = Math.min((now - startTime) / duration, 1);
-        // easeOutCubic
-        const eased = 1 - Math.pow(1 - t, 3);
-        setValue(target * eased);
-        if (t < 1) rafRef.current = requestAnimationFrame(tick);
-        else setValue(target);
-      };
-      rafRef.current = requestAnimationFrame(tick);
-    }, delay);
-
-    return () => {
-      window.clearTimeout(timer);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [target, duration, delay]);
-
-  return (
-    <span>
-      {prefix}
-      {value.toFixed(decimals)}
-      {suffix}
-    </span>
-  );
-};
 
 
 const Index = () => {
@@ -204,12 +143,12 @@ const Index = () => {
       </section>
 
       {/* Three Core Features Section - Magazine Layout */}
-      <section className="py-section bg-muted/50 dark:bg-white/[0.02]">
+      <section className="relative py-section" style={{ background: 'hsl(var(--jh-paper-light))' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
             {/* Left Column - Narrative */}
             <div className="lg:sticky lg:top-32">
-              <p className="text-muted-foreground text-sm tracking-widest uppercase mb-sm">你會用到的三件事</p>
+              <p className="text-muted-foreground text-sm tracking-widest uppercase mb-sm">市場太亂的時候，先回到這三件事</p>
               <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-md leading-tight">三招定勝負</h2>
               <p className="text-lg text-muted-foreground leading-relaxed">
                 訊號、路線、戰績，解放盯盤。
@@ -368,124 +307,8 @@ const Index = () => {
         
       `}</style>
 
-      {/* Seam: 三招(紙) → 戰績(墨) */}
-      <InkFade direction="paper-to-ink" height={120} paperColor="#F5F0E6" inkColor="#070707" />
+      {/* 三招(紙) → 選你的模式(紙) — 同屬淺紙場景，無需過渡 */}
 
-      {/* 黑色數據列 — full-width stats bar above 江湖兩派 */}
-      <section
-        aria-label="平台數據"
-        className="relative w-full"
-        style={{ backgroundColor: '#070707' }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <ul
-            className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x"
-            style={{ borderColor: 'rgba(255,255,255,0.12)' }}
-          >
-            {[
-              { target: 75,   decimals: 0, prefix: '', suffix: '%+',   title: '勝率表現', sub: '歷史訊號平均勝率' },
-              { target: 24,   decimals: 0, prefix: '', suffix: ' / 7', title: '盤勢巡邏', sub: '不間斷市場監控' },
-              { target: 1000, decimals: 0, prefix: '', suffix: '+',    title: '江湖戰報', sub: '涵蓋台股主要市場' },
-              { target: 4.9,  decimals: 1, prefix: '', suffix: ' / 5', title: '門派評價', sub: '來自真實用戶回饋' },
-            ].map((s, i) => (
-              <li
-                key={s.title}
-                className="flex flex-col items-center justify-center text-center px-4 py-7 md:py-9"
-                style={{
-                  borderColor: 'rgba(255,255,255,0.12)',
-                  minHeight: 160,
-                }}
-              >
-                <div
-                  className="text-3xl md:text-4xl lg:text-[44px] text-white mb-2 tabular-nums"
-                  style={{
-                    fontFamily: '"Noto Serif TC","Source Serif 4","Georgia",serif',
-                    letterSpacing: '0.02em',
-                    fontWeight: 500,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  <CountUpNumber
-                    target={s.target}
-                    decimals={s.decimals}
-                    prefix={s.prefix}
-                    suffix={s.suffix}
-                    delay={120 + i * 140}
-                    duration={1600}
-                  />
-                </div>
-                <div
-                  className="text-sm md:text-base text-white mb-1"
-                  style={{ fontFamily: '"Noto Serif TC",serif', letterSpacing: '0.15em' }}
-                >
-                  {s.title}
-                </div>
-                <div
-                  className="text-xs md:text-[13px]"
-                  style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em' }}
-                >
-                  {s.sub}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-        {/* 橘色銜接圓點 — 跨越黑色與米白交界 */}
-        <div
-          aria-hidden="true"
-          className="absolute left-1/2 -translate-x-1/2"
-          style={{ bottom: '-9px', zIndex: 20 }}
-        >
-          <span
-            className="block rounded-full"
-            style={{ width: 18, height: 18, backgroundColor: '#EC662D' }}
-          />
-        </div>
-      </section>
-
-      {/* 黑 → 米 墨色山水過渡帶 */}
-      <div
-        aria-hidden="true"
-        className="relative w-full overflow-hidden"
-        style={{ height: 140, backgroundColor: '#F5F0E6' }}
-      >
-        {/* 上半：黑色墨暈淡出 */}
-        <div
-          className="absolute inset-x-0 top-0"
-          style={{
-            height: '100%',
-            background:
-              'linear-gradient(to bottom, #070707 0%, rgba(7,7,7,0.78) 22%, rgba(33,28,22,0.42) 52%, rgba(120,100,80,0.12) 78%, rgba(245,240,230,0) 100%)',
-          }}
-        />
-        {/* 山水剪影：底部一抹淡墨遠山 */}
-        <svg
-          className="absolute inset-x-0 bottom-0 w-full"
-          viewBox="0 0 1440 120"
-          preserveAspectRatio="none"
-          style={{ height: 70, opacity: 0.32 }}
-        >
-          <path
-            d="M0,90 C120,60 220,75 340,55 C460,35 560,70 700,50 C840,30 960,80 1100,60 C1240,40 1340,70 1440,55 L1440,120 L0,120 Z"
-            fill="#1a1410"
-          />
-          <path
-            d="M0,108 C160,92 280,100 420,90 C560,80 700,105 880,95 C1060,85 1240,100 1440,92 L1440,120 L0,120 Z"
-            fill="#3a2e22"
-            opacity="0.55"
-          />
-        </svg>
-        {/* 一筆橘色細線：門派氣口 */}
-        <div
-          className="absolute left-1/2 -translate-x-1/2"
-          style={{
-            bottom: 28,
-            width: 1,
-            height: 36,
-            backgroundColor: 'rgba(236,102,45,0.55)',
-          }}
-        />
-      </div>
 
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
       <LazyOnVisible mode="content-visibility" minHeight={1400}>
@@ -529,7 +352,7 @@ const Index = () => {
               className="text-xs md:text-sm tracking-[0.4em] mb-2"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
-              江湖兩派
+              看懂三招之後，挑一條你想走的路
             </p>
             <h2
               className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2"
@@ -841,102 +664,17 @@ const Index = () => {
 
 
 
-      {/* Real Interface Preview Section — 黑金戰情室 */}
+      {/* Seam: 選你的模式(紙) → 會員戰情室(墨) */}
+      <InkFade direction="paper-to-ink" height={150} paperColor="#EFE7D6" inkColor="#0E0C0A" />
+
+      {/* Real Interface Preview Section — 會員戰情室 */}
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
       <section
         id="preview-section"
-        className="relative pt-[220px] md:pt-[280px] pb-section overflow-hidden"
+        className="relative py-section overflow-hidden"
         style={{ backgroundColor: '#0E0C0A' }}
       >
-        {/* ── 連續墨色暈染：從上一段的米白紙面，自然滲入深墨戰情室 ── */}
-        {/* 主紙面層 — 由頂部的 #EFE7D6 透過不規則 ellipse 暈染下沉，沒有水平直線 */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 pointer-events-none"
-          style={{
-            height: 360,
-            background:
-              'radial-gradient(ellipse 130% 95% at 50% -10%, #EFE7D6 0%, #EFE7D6 28%, rgba(180,150,110,0.55) 50%, rgba(60,45,32,0.35) 70%, rgba(20,16,12,0.1) 88%, transparent 100%)',
-          }}
-        />
-        {/* 左側雲霧紙團 — 讓邊緣不規則 */}
-        <div
-          aria-hidden="true"
-          className="absolute pointer-events-none"
-          style={{
-            left: '-12%', top: '-40px', width: '70%', height: 340,
-            background:
-              'radial-gradient(ellipse 60% 55% at 40% 30%, #EFE7D6 0%, rgba(239,231,214,0.6) 30%, rgba(120,90,60,0.25) 65%, transparent 85%)',
-            filter: 'blur(22px)',
-          }}
-        />
-        {/* 右側雲霧紙團 */}
-        <div
-          aria-hidden="true"
-          className="absolute pointer-events-none"
-          style={{
-            right: '-12%', top: '-30px', width: '70%', height: 340,
-            background:
-              'radial-gradient(ellipse 60% 55% at 60% 28%, #EFE7D6 0%, rgba(239,231,214,0.6) 30%, rgba(120,90,60,0.25) 65%, transparent 85%)',
-            filter: 'blur(22px)',
-          }}
-        />
-        {/* 下沉的墨團 — 從深墨往上滲入，邊緣柔軟、無水平線 */}
-        <div
-          aria-hidden="true"
-          className="absolute pointer-events-none"
-          style={{
-            left: '5%', top: 180, width: '45%', height: 260,
-            background:
-              'radial-gradient(ellipse 55% 60% at 50% 70%, rgba(14,12,10,0.85), rgba(14,12,10,0.5) 45%, transparent 78%)',
-            filter: 'blur(28px)',
-          }}
-        />
-        <div
-          aria-hidden="true"
-          className="absolute pointer-events-none"
-          style={{
-            right: '5%', top: 200, width: '45%', height: 260,
-            background:
-              'radial-gradient(ellipse 55% 60% at 50% 70%, rgba(14,12,10,0.85), rgba(14,12,10,0.5) 45%, transparent 78%)',
-            filter: 'blur(28px)',
-          }}
-        />
-        {/* 中央墨色下沉 — 接住標題後方 */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 pointer-events-none"
-          style={{
-            top: 140, height: 280,
-            background:
-              'radial-gradient(ellipse 80% 70% at 50% 80%, rgba(14,12,10,0.75), transparent 75%)',
-            filter: 'blur(20px)',
-          }}
-        />
-        {/* 紙紋雜訊 — 延伸進過渡帶，讓米白與墨色都帶紙質感 */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 pointer-events-none"
-          style={{
-            height: 380,
-            backgroundImage:
-              "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%222%22 stitchTiles=%22stitch%22/><feColorMatrix values=%220 0 0 0 0.06  0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0.06 0%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')",
-            mixBlendMode: 'multiply',
-            opacity: 0.55,
-          }}
-        />
-        {/* 中央橘色細線 — 從紙面引導進深墨，存在感降低，不再像切割線 */}
-        <div
-          aria-hidden="true"
-          className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
-          style={{
-            top: 0,
-            width: 1,
-            height: 260,
-            background:
-              'linear-gradient(to bottom, rgba(236,102,45,0) 0%, rgba(236,102,45,0.35) 30%, rgba(236,102,45,0.28) 70%, rgba(236,102,45,0) 100%)',
-          }}
-        />
+
 
         {/* 暖光 radial — 中心標題後方（保留，加強戰情室氛圍） */}
         <div
@@ -990,7 +728,7 @@ const Index = () => {
               className="text-[11px] md:text-xs tracking-[0.4em] uppercase mb-1.5"
               style={{ color: '#EC662D', fontFamily: '"Noto Serif TC", serif' }}
             >
-              產品實戰畫面
+              選定路線後，所有訊號都會回到同一個戰情室
             </p>
 
             <h2
@@ -1351,173 +1089,6 @@ const Index = () => {
       </section>
       </LazyOnVisible>
 
-      {/* Seam: 會員戰情室(墨) → 持股卷宗(紙) — 接到 jh-paper 而不是純白 */}
-      <InkFade direction="ink-to-paper" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
-
-      {/* Stock Dashboard Section - 持股卷宗（江湖卷宗風） */}
-      <LazyOnVisible mode="content-visibility" minHeight={900}>
-      <section
-        className="relative overflow-hidden py-section"
-        style={{ background: 'hsl(var(--jh-paper))' }}
-      >
-        {/* 上緣墨色餘韻 — 從 InkFade 自然延續，不要硬切純白 */}
-        <div
-          className="absolute inset-x-0 top-0 h-40 pointer-events-none"
-          aria-hidden="true"
-          style={{
-            background:
-              'radial-gradient(ellipse 90% 100% at 50% 0%, hsl(var(--jh-ink) / 0.18) 0%, hsl(var(--jh-ink) / 0.06) 35%, transparent 70%)',
-          }}
-        />
-        {/* 紙紋 */}
-        <div
-          className="absolute inset-0 opacity-[0.08] mix-blend-multiply pointer-events-none"
-          aria-hidden="true"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.27  0 0 0 0 0.15  0 0 0 0.45 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
-          }}
-        />
-        <div className="container relative">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-xl">
-              <Badge
-                className="mb-sm border"
-                style={{
-                  background: 'hsl(var(--jh-amber) / 0.10)',
-                  color: 'hsl(var(--jh-amber-dim))',
-                  borderColor: 'hsl(var(--jh-amber) / 0.35)',
-                }}
-              >
-                持股卷宗 · STOCK DOSSIER
-              </Badge>
-              <h2 className="text-h2 mb-xs" style={{ color: 'hsl(var(--jh-ink))' }}>
-                先看懂自己的持股，再決定下一步
-              </h2>
-              <p className="max-w-2xl mx-auto" style={{ color: 'hsl(var(--jh-earth))' }}>
-                輸入持股，整理風險、事件與市場線索。先看清眼前這一局，再決定要跟單、修煉或觀望。
-              </p>
-            </div>
-
-            <div className="grid lg:grid-cols-[1fr_1.1fr] gap-xl items-center">
-              <div className="space-y-md">
-                {[
-                  { icon: BarChart3, title: '持股局勢拆解', desc: '一鍵整理手上部位，找出需要留意的風險。' },
-                  { icon: Calendar, title: '關鍵事件提醒', desc: '法說會、除權息、財報日，提前掌握節點。' },
-                  { icon: LineChart, title: '新聞戰報彙整', desc: '個股新聞、損益走勢、獲利排行，一頁看懂。' },
-                ].map((item) => (
-                  <div key={item.title} className="flex gap-md items-start">
-                    <div
-                      className="flex h-10 w-10 items-center justify-center rounded-sm shrink-0 border"
-                      style={{
-                        background: 'hsl(var(--jh-amber) / 0.10)',
-                        color: 'hsl(var(--jh-amber-dim))',
-                        borderColor: 'hsl(var(--jh-amber) / 0.35)',
-                      }}
-                    >
-                      <item.icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-h5 mb-xs" style={{ color: 'hsl(var(--jh-ink))' }}>{item.title}</h4>
-                      <p className="text-sm leading-relaxed" style={{ color: 'hsl(var(--jh-earth))' }}>{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-                <div className="pt-sm">
-                  <Button
-                    size="xl"
-                    className="text-white border-0"
-                    style={{ background: 'hsl(var(--jh-candle))' }}
-                    asChild
-                  >
-                    <Link to="/holding-checkup">
-                      免費試用持股卷宗
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-
-              <div
-                className="rounded-sm p-md md:p-lg relative overflow-hidden"
-                style={{
-                  background: 'hsl(var(--jh-bone))',
-                  border: '1px solid hsl(var(--jh-earth) / 0.18)',
-                  borderTop: '2px solid hsl(var(--jh-amber))',
-                  boxShadow: '0 26px 64px -32px hsl(var(--jh-ink) / 0.45)',
-                }}
-              >
-                {/* 卡片內紙紋 */}
-                <div
-                  className="absolute inset-0 opacity-[0.07] mix-blend-multiply pointer-events-none"
-                  aria-hidden="true"
-                  style={{
-                    backgroundImage:
-                      "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.3  0 0 0 0 0.22  0 0 0 0 0.12  0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
-                  }}
-                />
-                <div
-                  className="relative flex items-center justify-between mb-md pb-sm"
-                  style={{ borderBottom: '1px dashed hsl(var(--jh-amber) / 0.40)' }}
-                >
-                  <div className="flex items-center gap-2">
-                    <ScrollText className="h-4 w-4" style={{ color: 'hsl(var(--jh-amber-dim))' }} />
-                    <span className="text-sm font-medium tracking-wide" style={{ color: 'hsl(var(--jh-ink))', fontFamily: '"Noto Serif TC",serif' }}>
-                      我的持倉卷宗
-                    </span>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className="text-[10px]"
-                    style={{
-                      borderColor: 'hsl(var(--jh-amber) / 0.45)',
-                      color: 'hsl(var(--jh-amber-dim))',
-                      background: 'hsl(var(--jh-amber) / 0.08)',
-                    }}
-                  >
-                    本日已對帳
-                  </Badge>
-                </div>
-                <div className="relative space-y-1.5">
-                  {[
-                    { code: '2330', name: '台積電', qty: '2,000', pct: '+12.4%', tone: 'up', note: '法說 12/16' },
-                    { code: '2454', name: '聯發科', qty: '1,000', pct: '+5.8%', tone: 'up', note: 'AI 出貨成長' },
-                    { code: '2603', name: '長榮', qty: '5,000', pct: '-3.2%', tone: 'down', note: '建議檢視' },
-                  ].map((h) => (
-                    <div
-                      key={h.code}
-                      className="flex items-center gap-3 px-3 py-2.5"
-                      style={{ borderBottom: '1px dashed hsl(var(--jh-earth) / 0.18)' }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm" style={{ color: 'hsl(var(--jh-ink))', fontFamily: '"Noto Serif TC",serif' }}>{h.code}</span>
-                          <span className="text-sm" style={{ color: 'hsl(var(--jh-earth))' }}>{h.name}</span>
-                        </div>
-                        <p className="text-[11px] mt-0.5" style={{ color: 'hsl(var(--jh-stone))' }}>持有 {h.qty} 股 · {h.note}</p>
-                      </div>
-                      <span
-                        className="text-sm font-semibold tabular-nums"
-                        style={{ color: h.tone === 'up' ? 'hsl(0 55% 42%)' : 'hsl(140 30% 32%)' }}
-                      >
-                        {h.pct}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="relative mt-md pt-sm" style={{ borderTop: '1px dashed hsl(var(--jh-amber) / 0.30)' }}>
-                  <div className="flex items-center gap-2 text-xs" style={{ color: 'hsl(var(--jh-earth))' }}>
-                    <Lightbulb className="h-3.5 w-3.5" style={{ color: 'hsl(var(--jh-amber))' }} />
-                    <span>戰情線索：長榮跌破支撐，建議檢視部位</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-      </LazyOnVisible>
-
       {/* Weekly Limit Up Leaderboard - War Report Style */}
       <LazyOnVisible mode="content-visibility" minHeight={620}>
       <section
@@ -1560,7 +1131,7 @@ const Index = () => {
               style={{ color: 'hsl(var(--jh-amber-soft))' }}
             >
               <span className="block w-6 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.6)' }} />
-              本週戰報
+              戰情室裡，每週都會結算這份榜文
               <span className="block w-6 h-px" style={{ background: 'hsl(var(--jh-amber) / 0.6)' }} />
             </div>
             <h2
@@ -1761,30 +1332,194 @@ const Index = () => {
       </section>
       </LazyOnVisible>
 
-
-      {/* How It Works - Dual Path · 黑金戰情室分流 */}
+      {/* Seam: 戰報榜(墨) → 持股卷宗(紙) */}
+      <InkFade direction="ink-to-paper" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
+      {/* Stock Dashboard Section - 持股卷宗（江湖卷宗風） */}
       <LazyOnVisible mode="content-visibility" minHeight={900}>
       <section
         className="relative overflow-hidden py-section"
-        style={{
-          background:
-            'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(236,102,45,0.06) 0%, transparent 60%), linear-gradient(180deg, #0E0C0A 0%, #0B0907 100%)',
-        }}
+        style={{ background: 'hsl(var(--jh-paper))' }}
       >
-        {/* 上方橘金分隔線 */}
+        {/* 上緣墨色餘韻 — 從 InkFade 自然延續，不要硬切純白 */}
+        <div
+          className="absolute inset-x-0 top-0 h-40 pointer-events-none"
+          aria-hidden="true"
+          style={{
+            background:
+              'radial-gradient(ellipse 90% 100% at 50% 0%, hsl(var(--jh-ink) / 0.18) 0%, hsl(var(--jh-ink) / 0.06) 35%, transparent 70%)',
+          }}
+        />
+        {/* 紙紋 */}
+        <div
+          className="absolute inset-0 opacity-[0.08] mix-blend-multiply pointer-events-none"
+          aria-hidden="true"
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.27  0 0 0 0 0.15  0 0 0 0.45 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+          }}
+        />
+        <div className="container relative">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-xl">
+              <Badge
+                className="mb-sm border"
+                style={{
+                  background: 'hsl(var(--jh-amber) / 0.10)',
+                  color: 'hsl(var(--jh-amber-dim))',
+                  borderColor: 'hsl(var(--jh-amber) / 0.35)',
+                }}
+              >
+                看完別人的戰績，換看你自己手上這局
+              </Badge>
+              <h2 className="text-h2 mb-xs" style={{ color: 'hsl(var(--jh-ink))' }}>
+                先看懂自己的持股，再決定下一步
+              </h2>
+              <p className="max-w-2xl mx-auto" style={{ color: 'hsl(var(--jh-earth))' }}>
+                輸入持股，整理風險、事件與市場線索。先看清眼前這一局，再決定要跟單、修煉或觀望。
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-[1fr_1.1fr] gap-xl items-center">
+              <div className="space-y-md">
+                {[
+                  { icon: BarChart3, title: '持股局勢拆解', desc: '一鍵整理手上部位，找出需要留意的風險。' },
+                  { icon: Calendar, title: '關鍵事件提醒', desc: '法說會、除權息、財報日，提前掌握節點。' },
+                  { icon: LineChart, title: '新聞戰報彙整', desc: '個股新聞、損益走勢、獲利排行，一頁看懂。' },
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-md items-start">
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-sm shrink-0 border"
+                      style={{
+                        background: 'hsl(var(--jh-amber) / 0.10)',
+                        color: 'hsl(var(--jh-amber-dim))',
+                        borderColor: 'hsl(var(--jh-amber) / 0.35)',
+                      }}
+                    >
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-h5 mb-xs" style={{ color: 'hsl(var(--jh-ink))' }}>{item.title}</h4>
+                      <p className="text-sm leading-relaxed" style={{ color: 'hsl(var(--jh-earth))' }}>{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-sm">
+                  <Button
+                    size="xl"
+                    className="text-white border-0"
+                    style={{ background: 'hsl(var(--jh-candle))' }}
+                    asChild
+                  >
+                    <Link to="/holding-checkup">
+                      免費試用持股卷宗
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+
+              <div
+                className="rounded-sm p-md md:p-lg relative overflow-hidden"
+                style={{
+                  background: 'hsl(var(--jh-bone))',
+                  border: '1px solid hsl(var(--jh-earth) / 0.18)',
+                  borderTop: '2px solid hsl(var(--jh-amber))',
+                  boxShadow: '0 26px 64px -32px hsl(var(--jh-ink) / 0.45)',
+                }}
+              >
+                {/* 卡片內紙紋 */}
+                <div
+                  className="absolute inset-0 opacity-[0.07] mix-blend-multiply pointer-events-none"
+                  aria-hidden="true"
+                  style={{
+                    backgroundImage:
+                      "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.3  0 0 0 0 0.22  0 0 0 0 0.12  0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+                  }}
+                />
+                <div
+                  className="relative flex items-center justify-between mb-md pb-sm"
+                  style={{ borderBottom: '1px dashed hsl(var(--jh-amber) / 0.40)' }}
+                >
+                  <div className="flex items-center gap-2">
+                    <ScrollText className="h-4 w-4" style={{ color: 'hsl(var(--jh-amber-dim))' }} />
+                    <span className="text-sm font-medium tracking-wide" style={{ color: 'hsl(var(--jh-ink))', fontFamily: '"Noto Serif TC",serif' }}>
+                      我的持倉卷宗
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px]"
+                    style={{
+                      borderColor: 'hsl(var(--jh-amber) / 0.45)',
+                      color: 'hsl(var(--jh-amber-dim))',
+                      background: 'hsl(var(--jh-amber) / 0.08)',
+                    }}
+                  >
+                    本日已對帳
+                  </Badge>
+                </div>
+                <div className="relative space-y-1.5">
+                  {[
+                    { code: '2330', name: '台積電', qty: '2,000', pct: '+12.4%', tone: 'up', note: '法說 12/16' },
+                    { code: '2454', name: '聯發科', qty: '1,000', pct: '+5.8%', tone: 'up', note: 'AI 出貨成長' },
+                    { code: '2603', name: '長榮', qty: '5,000', pct: '-3.2%', tone: 'down', note: '建議檢視' },
+                  ].map((h) => (
+                    <div
+                      key={h.code}
+                      className="flex items-center gap-3 px-3 py-2.5"
+                      style={{ borderBottom: '1px dashed hsl(var(--jh-earth) / 0.18)' }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm" style={{ color: 'hsl(var(--jh-ink))', fontFamily: '"Noto Serif TC",serif' }}>{h.code}</span>
+                          <span className="text-sm" style={{ color: 'hsl(var(--jh-earth))' }}>{h.name}</span>
+                        </div>
+                        <p className="text-[11px] mt-0.5" style={{ color: 'hsl(var(--jh-stone))' }}>持有 {h.qty} 股 · {h.note}</p>
+                      </div>
+                      <span
+                        className="text-sm font-semibold tabular-nums"
+                        style={{ color: h.tone === 'up' ? 'hsl(0 55% 42%)' : 'hsl(140 30% 32%)' }}
+                      >
+                        {h.pct}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="relative mt-md pt-sm" style={{ borderTop: '1px dashed hsl(var(--jh-amber) / 0.30)' }}>
+                  <div className="flex items-center gap-2 text-xs" style={{ color: 'hsl(var(--jh-earth))' }}>
+                    <Lightbulb className="h-3.5 w-3.5" style={{ color: 'hsl(var(--jh-amber))' }} />
+                    <span>戰情線索：長榮跌破支撐，建議檢視部位</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      </LazyOnVisible>
+
+
+      {/* How It Works - Dual Path · 門派入口卷軸（淺紙） */}
+      <LazyOnVisible mode="content-visibility" minHeight={900}>
+      <section
+        className="relative overflow-hidden py-section"
+        style={{ background: 'hsl(var(--jh-paper))' }}
+      >
+        {/* 上方暗金分隔線 */}
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{
             background:
-              'linear-gradient(90deg, transparent 0%, rgba(212,166,67,0.35) 50%, transparent 100%)',
+              'linear-gradient(90deg, transparent 0%, hsl(var(--jh-amber) / 0.45) 50%, transparent 100%)',
           }}
         />
-        {/* 紙紋紋理 */}
+        {/* 紙紋 */}
         <div
-          className="absolute inset-0 opacity-[0.04] pointer-events-none mix-blend-overlay"
+          aria-hidden="true"
+          className="absolute inset-0 opacity-[0.07] pointer-events-none mix-blend-multiply"
           style={{
             backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.27  0 0 0 0 0.15  0 0 0 0.45 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
           }}
         />
 
@@ -1792,19 +1527,19 @@ const Index = () => {
           <div className="text-center mb-xl max-w-2xl mx-auto">
             <p
               className="text-xs tracking-[0.3em] uppercase mb-xs"
-              style={{ color: '#D4A643' }}
+              style={{ color: 'hsl(var(--jh-amber-dim))' }}
             >
-              看完戰報，選你的下一步
+              如果你準備動手了，這是兩條入門路線
             </p>
             <h2
               className="text-h2 mb-sm"
-              style={{ color: '#F4ECDB' }}
+              style={{ color: 'hsl(var(--jh-ink))', fontFamily: '"Noto Serif TC", serif' }}
             >
               入門第一步，先選你的節奏
             </h2>
             <p
               className="text-sm leading-relaxed"
-              style={{ color: 'rgba(244,236,219,0.65)' }}
+              style={{ color: 'hsl(var(--jh-earth))' }}
             >
               想跟著高手行動，走訂閱專家。<br className="sm:hidden" />
               想先看懂手上的股票，走持股健檢。
@@ -1812,33 +1547,30 @@ const Index = () => {
           </div>
 
           <div className="grid lg:grid-cols-2 gap-lg max-w-6xl mx-auto">
-            {/* Path A - 訂閱專家（橘金，桌機左 / 手機下） */}
+            {/* Path A - 訂閱專家（燭火橘） */}
             <div
               className="warroom-path-card order-2 lg:order-1 group relative rounded-xl p-md md:p-lg flex flex-col"
               style={{
-                background:
-                  'linear-gradient(160deg, rgba(28,22,16,0.95) 0%, rgba(20,16,12,0.95) 100%)',
-                border: '1px solid rgba(212,166,67,0.28)',
-                boxShadow:
-                  '0 24px 60px -30px rgba(236,102,45,0.35), inset 0 1px 0 rgba(244,236,219,0.04)',
+                background: 'hsl(var(--jh-paper-light))',
+                border: '1px solid hsl(var(--jh-candle) / 0.32)',
+                boxShadow: '0 18px 48px -28px hsl(var(--jh-candle) / 0.28)',
               }}
             >
-              {/* header */}
               <div className="mb-md min-h-[92px]">
                 <span
                   className="inline-block text-[11px] tracking-[0.2em] uppercase px-2.5 py-1 rounded-sm mb-sm"
                   style={{
-                    color: '#EC662D',
-                    background: 'rgba(236,102,45,0.1)',
-                    border: '1px solid rgba(236,102,45,0.35)',
+                    color: 'hsl(var(--jh-candle))',
+                    background: 'hsl(var(--jh-candle) / 0.08)',
+                    border: '1px solid hsl(var(--jh-candle) / 0.32)',
                   }}
                 >
                   適合你，如果想跟著高手行動
                 </span>
-                <h3 className="text-h4" style={{ color: '#F4ECDB' }}>訂閱專家</h3>
+                <h3 className="text-h4" style={{ color: 'hsl(var(--jh-ink))' }}>訂閱專家</h3>
                 <p
                   className="text-sm mt-xs leading-relaxed"
-                  style={{ color: 'rgba(244,236,219,0.6)' }}
+                  style={{ color: 'hsl(var(--jh-earth))' }}
                 >
                   選擇你信任的投資風格，追蹤訊號、紀錄與復盤。
                 </p>
@@ -1847,8 +1579,8 @@ const Index = () => {
               <div
                 className="text-xs mb-md pb-sm border-b"
                 style={{
-                  color: 'rgba(212,166,67,0.7)',
-                  borderColor: 'rgba(212,166,67,0.18)',
+                  color: 'hsl(var(--jh-amber-dim))',
+                  borderColor: 'hsl(var(--jh-amber) / 0.25)',
                 }}
               >
                 適合對象：想要明確訊號、操作紀錄、高手復盤的人
@@ -1864,16 +1596,16 @@ const Index = () => {
                     <span
                       className="shrink-0 w-9 h-9 flex items-center justify-center text-xs font-medium tracking-wider rounded-sm"
                       style={{
-                        color: '#EC662D',
-                        background: 'rgba(236,102,45,0.08)',
-                        border: '1px solid rgba(236,102,45,0.3)',
+                        color: 'hsl(var(--jh-candle))',
+                        background: 'hsl(var(--jh-candle) / 0.08)',
+                        border: '1px solid hsl(var(--jh-candle) / 0.3)',
                       }}
                     >
                       {item.step}
                     </span>
                     <div className="min-w-0 pt-0.5">
-                      <p className="text-sm font-medium" style={{ color: '#F4ECDB' }}>{item.title}</p>
-                      <p className="text-xs mt-0.5" style={{ color: 'rgba(244,236,219,0.55)' }}>{item.desc}</p>
+                      <p className="text-sm font-medium" style={{ color: 'hsl(var(--jh-ink))' }}>{item.title}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'hsl(var(--jh-earth))' }}>{item.desc}</p>
                     </div>
                   </li>
                 ))}
@@ -1883,8 +1615,8 @@ const Index = () => {
                 size="lg"
                 className="w-full border-0 text-white font-medium"
                 style={{
-                  background: 'linear-gradient(135deg, #EC662D 0%, #D4541F 100%)',
-                  boxShadow: '0 8px 24px -10px rgba(236,102,45,0.6)',
+                  background: 'hsl(var(--jh-candle))',
+                  boxShadow: '0 8px 24px -10px hsl(var(--jh-candle) / 0.5)',
                 }}
                 asChild
               >
@@ -1895,32 +1627,30 @@ const Index = () => {
               </Button>
             </div>
 
-            {/* Path B - 持股健檢（暗紫金，桌機右 / 手機上） */}
+            {/* Path B - 持股健檢（暗金） */}
             <div
               className="warroom-path-card order-1 lg:order-2 group relative rounded-xl p-md md:p-lg flex flex-col"
               style={{
-                background:
-                  'linear-gradient(160deg, rgba(26,20,28,0.95) 0%, rgba(18,14,20,0.95) 100%)',
-                border: '1px solid rgba(168,139,76,0.28)',
-                boxShadow:
-                  '0 24px 60px -30px rgba(168,139,76,0.3), inset 0 1px 0 rgba(244,236,219,0.04)',
+                background: 'hsl(var(--jh-paper-light))',
+                border: '1px solid hsl(var(--jh-amber) / 0.35)',
+                boxShadow: '0 18px 48px -28px hsl(var(--jh-amber) / 0.28)',
               }}
             >
               <div className="mb-md min-h-[92px]">
                 <span
                   className="inline-block text-[11px] tracking-[0.2em] uppercase px-2.5 py-1 rounded-sm mb-sm"
                   style={{
-                    color: '#D4C28C',
-                    background: 'rgba(168,139,76,0.1)',
-                    border: '1px solid rgba(168,139,76,0.35)',
+                    color: 'hsl(var(--jh-amber-dim))',
+                    background: 'hsl(var(--jh-amber) / 0.08)',
+                    border: '1px solid hsl(var(--jh-amber) / 0.35)',
                   }}
                 >
                   適合你，如果想先看懂持股
                 </span>
-                <h3 className="text-h4" style={{ color: '#F4ECDB' }}>持股健檢</h3>
+                <h3 className="text-h4" style={{ color: 'hsl(var(--jh-ink))' }}>持股健檢</h3>
                 <p
                   className="text-sm mt-xs leading-relaxed"
-                  style={{ color: 'rgba(244,236,219,0.6)' }}
+                  style={{ color: 'hsl(var(--jh-earth))' }}
                 >
                   輸入手上的股票，先看懂風險、事件與市場線索。
                 </p>
@@ -1929,8 +1659,8 @@ const Index = () => {
               <div
                 className="text-xs mb-md pb-sm border-b"
                 style={{
-                  color: 'rgba(212,194,140,0.75)',
-                  borderColor: 'rgba(168,139,76,0.2)',
+                  color: 'hsl(var(--jh-amber-dim))',
+                  borderColor: 'hsl(var(--jh-amber) / 0.25)',
                 }}
               >
                 適合對象：手上有股票，但不知道該守、該退、還是該等的人
@@ -1946,16 +1676,16 @@ const Index = () => {
                     <span
                       className="shrink-0 w-9 h-9 flex items-center justify-center text-xs font-medium tracking-wider rounded-sm"
                       style={{
-                        color: '#D4C28C',
-                        background: 'rgba(168,139,76,0.08)',
-                        border: '1px solid rgba(168,139,76,0.3)',
+                        color: 'hsl(var(--jh-amber-dim))',
+                        background: 'hsl(var(--jh-amber) / 0.08)',
+                        border: '1px solid hsl(var(--jh-amber) / 0.32)',
                       }}
                     >
                       {item.step}
                     </span>
                     <div className="min-w-0 pt-0.5">
-                      <p className="text-sm font-medium" style={{ color: '#F4ECDB' }}>{item.title}</p>
-                      <p className="text-xs mt-0.5" style={{ color: 'rgba(244,236,219,0.55)' }}>{item.desc}</p>
+                      <p className="text-sm font-medium" style={{ color: 'hsl(var(--jh-ink))' }}>{item.title}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'hsl(var(--jh-earth))' }}>{item.desc}</p>
                     </div>
                   </li>
                 ))}
@@ -1965,9 +1695,9 @@ const Index = () => {
                 size="lg"
                 className="w-full border-0 font-medium"
                 style={{
-                  background: 'linear-gradient(135deg, #A88B4C 0%, #7A6132 100%)',
-                  color: '#F4ECDB',
-                  boxShadow: '0 8px 24px -10px rgba(168,139,76,0.5)',
+                  background: 'linear-gradient(135deg, hsl(var(--jh-amber)) 0%, hsl(var(--jh-amber-dim)) 100%)',
+                  color: 'hsl(var(--jh-bone))',
+                  boxShadow: '0 8px 24px -10px hsl(var(--jh-amber) / 0.5)',
                 }}
                 asChild
               >
@@ -1984,26 +1714,81 @@ const Index = () => {
           .warroom-path-card { transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; }
           .warroom-path-card:hover { transform: translateY(-2px); }
           .warroom-path-card:hover .warroom-arrow { transform: translateX(4px); }
-          .warroom-path-card.order-2:hover { border-color: rgba(236,102,45,0.55); box-shadow: 0 28px 70px -28px rgba(236,102,45,0.5), inset 0 1px 0 rgba(244,236,219,0.06); }
-          .warroom-path-card.order-1:hover { border-color: rgba(212,194,140,0.55); box-shadow: 0 28px 70px -28px rgba(168,139,76,0.45), inset 0 1px 0 rgba(244,236,219,0.06); }
         `}</style>
       </section>
       </LazyOnVisible>
 
-      {/* Seam: 如何開始(墨) → Final CTA(紙) */}
-      <InkFade direction="ink-to-paper" height={130} paperColor="#FFFFFF" inkColor="#0B0907" />
 
-      {/* Final CTA - Dual Product */}
+
+      {/* Final CTA — 卷軸落款（紙面延續，無過渡） */}
       <LazyOnVisible mode="content-visibility" minHeight={400}>
-      <section className="py-section bg-card dark:bg-white/[0.03]">
-        <div className="container">
+      <section
+        className="relative overflow-hidden py-section"
+        style={{ background: 'hsl(var(--jh-paper))' }}
+      >
+        {/* 紙紋 */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none opacity-[0.08] mix-blend-multiply"
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.27  0 0 0 0 0.15  0 0 0 0.45 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+          }}
+        />
+        {/* 右下朱印 */}
+        <div
+          aria-hidden="true"
+          className="absolute pointer-events-none hidden md:block"
+          style={{
+            right: '8%',
+            bottom: '12%',
+            width: 64,
+            height: 64,
+            border: '2px solid hsl(var(--jh-candle) / 0.55)',
+            color: 'hsl(var(--jh-candle) / 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: '"Noto Serif TC", serif',
+            fontSize: 30,
+            letterSpacing: 0,
+            transform: 'rotate(-6deg)',
+            boxShadow: 'inset 0 0 0 1px hsl(var(--jh-candle) / 0.25)',
+          }}
+        >
+          印
+        </div>
+        <div className="container relative">
           <div className="max-w-2xl mx-auto text-center">
-            <p className="text-muted-foreground text-sm mb-xs">兩種服務，依你需要的方式開始</p>
-            <h2 className="text-h2 mb-md text-foreground">
+            {/* 暗金細線 */}
+            <div
+              aria-hidden="true"
+              className="mx-auto mb-md"
+              style={{
+                width: 64,
+                height: 1,
+                background: 'linear-gradient(90deg, transparent, hsl(var(--jh-amber) / 0.55), transparent)',
+              }}
+            />
+            <p
+              className="text-xs tracking-[0.32em] uppercase mb-xs"
+              style={{ color: 'hsl(var(--jh-amber-dim))' }}
+            >
+              江湖入口已開，挑一個方式起手
+            </p>
+            <h2
+              className="text-h2 mb-md"
+              style={{ color: 'hsl(var(--jh-ink))', fontFamily: '"Noto Serif TC", serif' }}
+            >
               準備好開始了嗎？
             </h2>
             <div className="flex flex-col sm:flex-row gap-md justify-center">
-              <Button size="xl" asChild>
+              <Button
+                size="xl"
+                className="border-0 text-white"
+                style={{ background: 'hsl(var(--jh-candle))' }}
+                asChild
+              >
                 <Link to="/experts">
                   探索專家
                   <ArrowRight className="h-4 w-4 ml-2" />
@@ -2013,7 +1798,11 @@ const Index = () => {
                 size="xl"
                 variant="outline"
                 className="border-2"
-                style={{ borderColor: '#EC662D', color: '#EC662D', background: 'transparent' }}
+                style={{
+                  borderColor: 'hsl(var(--jh-candle))',
+                  color: 'hsl(var(--jh-candle))',
+                  background: 'transparent',
+                }}
                 asChild
               >
                 <Link to="/holding-checkup">
@@ -2023,7 +1812,11 @@ const Index = () => {
               </Button>
             </div>
             <div className="mt-md">
-              <Link to="/auth/register" className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4">
+              <Link
+                to="/auth/register"
+                className="text-sm underline underline-offset-4"
+                style={{ color: 'hsl(var(--jh-earth))' }}
+              >
                 或先免費註冊帳號 →
               </Link>
             </div>
