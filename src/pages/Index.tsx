@@ -678,7 +678,7 @@ const Index = () => {
       {/* Seam: 選你的模式(紙) → 會員戰情室(墨褐) — 章節分界：暗金細線 + 中央菱形 */}
       <div
         aria-hidden="true"
-        className="relative w-full flex items-center justify-center"
+        className="relative w-full flex items-center justify-center jh-seam-mode-to-battle"
         style={{
           height: 64,
           background:
