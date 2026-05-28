@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_spend: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          spend_amount: number
+          updated_at: string
+          utm_campaign: string
+          utm_medium: string | null
+          utm_source: string | null
+          yyyymm: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          spend_amount?: number
+          updated_at?: string
+          utm_campaign: string
+          utm_medium?: string | null
+          utm_source?: string | null
+          yyyymm: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          spend_amount?: number
+          updated_at?: string
+          utm_campaign?: string
+          utm_medium?: string | null
+          utm_source?: string | null
+          yyyymm?: string
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           content: string
@@ -641,6 +677,63 @@ export type Database = {
           kind?: string
           used_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      conversions: {
+        Row: {
+          channel: string
+          created_at: string
+          expert_amount: number
+          gross_amount: number
+          id: string
+          occurred_at: string
+          order_id: string | null
+          order_kind: string
+          platform_amount: number
+          ref_code: string | null
+          user_id: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          expert_amount?: number
+          gross_amount?: number
+          id?: string
+          occurred_at?: string
+          order_id?: string | null
+          order_kind: string
+          platform_amount?: number
+          ref_code?: string | null
+          user_id: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          expert_amount?: number
+          gross_amount?: number
+          id?: string
+          occurred_at?: string
+          order_id?: string | null
+          order_kind?: string
+          platform_amount?: number
+          ref_code?: string | null
+          user_id?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string | null
         }
         Relationships: []
       }
@@ -2475,6 +2568,99 @@ export type Database = {
         }
         Relationships: []
       }
+      traffic_events: {
+        Row: {
+          id: string
+          occurred_at: string
+          referrer_host: string | null
+          route: string
+          user_id: string | null
+          visitor_id: string
+        }
+        Insert: {
+          id?: string
+          occurred_at?: string
+          referrer_host?: string | null
+          route: string
+          user_id?: string | null
+          visitor_id: string
+        }
+        Update: {
+          id?: string
+          occurred_at?: string
+          referrer_host?: string | null
+          route?: string
+          user_id?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
+      traffic_visits: {
+        Row: {
+          channel: string
+          country: string | null
+          created_at: string
+          device_kind: string | null
+          first_landing_path: string | null
+          first_referrer: string | null
+          first_referrer_host: string | null
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          page_views: number
+          ref_code: string | null
+          user_id: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          visitor_id: string
+        }
+        Insert: {
+          channel?: string
+          country?: string | null
+          created_at?: string
+          device_kind?: string | null
+          first_landing_path?: string | null
+          first_referrer?: string | null
+          first_referrer_host?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          page_views?: number
+          ref_code?: string | null
+          user_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          visitor_id: string
+        }
+        Update: {
+          channel?: string
+          country?: string | null
+          created_at?: string
+          device_kind?: string | null
+          first_landing_path?: string | null
+          first_referrer?: string | null
+          first_referrer_host?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          page_views?: number
+          ref_code?: string | null
+          user_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       user_performances: {
         Row: {
           current_price: number | null
@@ -2840,12 +3026,21 @@ export type Database = {
       }
       cleanup_old_announcements: { Args: never; Returns: undefined }
       cleanup_old_perf_metrics: { Args: never; Returns: undefined }
+      cleanup_old_traffic: { Args: never; Returns: undefined }
       consume_checkup_quota: {
         Args: { _kind?: string; _user_id: string }
         Returns: Json
       }
       delete_expired_binding_codes: { Args: never; Returns: undefined }
       delete_old_prices: { Args: never; Returns: undefined }
+      derive_traffic_channel: {
+        Args: {
+          _referrer_host: string
+          _utm_medium: string
+          _utm_source: string
+        }
+        Returns: string
+      }
       get_analyst_subscriber_profiles: {
         Args: never
         Returns: {
@@ -2860,6 +3055,10 @@ export type Database = {
       get_perf_metrics_summary: { Args: { _days?: number }; Returns: Json }
       get_pricing_bundle: { Args: { _user_id?: string }; Returns: Json }
       get_public_experts_list: { Args: never; Returns: Json }
+      get_traffic_overview: {
+        Args: { _from: string; _to: string }
+        Returns: Json
+      }
       get_weekly_limit_up_leaderboard: {
         Args: { _end_date?: string; _start_date?: string }
         Returns: {
