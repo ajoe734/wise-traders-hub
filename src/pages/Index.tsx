@@ -179,7 +179,7 @@ const Index = () => {
             <div className="flex flex-col gap-5 lg:pr-2">
               {/* Card 01 - 看懂訊號 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-0 lg:mr-10"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-0 lg:mr-10 jh-trio-card"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.1s',
@@ -187,7 +187,7 @@ const Index = () => {
                 }}
               >
                 <div 
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03] jh-trio-bg"
                   style={{ 
                     backgroundImage: `url(${featureXianren})`,
                     opacity: 0.6
@@ -209,7 +209,7 @@ const Index = () => {
 
               {/* Card 02 - 找出戰線 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-5 lg:mr-5"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-5 lg:mr-5 jh-trio-card"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.25s',
@@ -217,7 +217,7 @@ const Index = () => {
                 }}
               >
                 <div 
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03] jh-trio-bg"
                   style={{ 
                     backgroundImage: `url(${featureFiveFactions})`,
                     opacity: 0.7
@@ -239,7 +239,7 @@ const Index = () => {
 
               {/* Card 03 - 招招有交代 */}
               <div 
-                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-10 lg:mr-0"
+                className="relative overflow-hidden rounded-xl bg-black group cursor-pointer transition-all duration-300 hover:shadow-2xl lg:ml-10 lg:mr-0 jh-trio-card"
                 style={{ 
                   animation: 'fadeSlideUp 0.6s ease-out forwards',
                   animationDelay: '0.4s',
@@ -247,7 +247,7 @@ const Index = () => {
                 }}
               >
                 <div 
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03]"
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.03] jh-trio-bg"
                   style={{ 
                     backgroundImage: `url(${featureJiaodai})`,
                     opacity: 0.6
