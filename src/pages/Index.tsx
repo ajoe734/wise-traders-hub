@@ -317,7 +317,7 @@ const Index = () => {
       <LazyOnVisible mode="content-visibility" minHeight={1400}>
       <section
         className="relative overflow-hidden pt-6 md:pt-8 pb-0"
-        style={{ backgroundColor: '#EFE7D6' }}
+        style={{ backgroundColor: 'hsl(var(--jh-paper))' }}
       >
         {/* Ink-wash mountain backdrop — very faint, top of section only */}
         <div
