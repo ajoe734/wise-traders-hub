@@ -1770,7 +1770,7 @@ const Index = () => {
       {/* Final CTA — 卷軸落款（紙面延續，無過渡） */}
       <LazyOnVisible mode="content-visibility" minHeight={400}>
       <section
-        className="relative overflow-hidden py-section"
+        className="relative overflow-hidden py-section jh-night-section"
         style={{ background: 'hsl(var(--jh-paper))' }}
       >
         {/* 紙紋 */}
