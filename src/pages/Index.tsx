@@ -675,7 +675,7 @@ const Index = () => {
       <section
         id="preview-section"
         className="relative py-section overflow-hidden"
-        style={{ backgroundColor: 'hsl(var(--jh-ink))' }}
+        style={{ backgroundColor: 'hsl(var(--jh-battle-bg))' }}
       >
 
 
