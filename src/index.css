@@ -227,6 +227,10 @@
     --learning-header: 0 0% 7%;
     --learning-nav: 0 0% 7%;
     --learning-border: 0 0% 20%;
+
+    /* 深色模式：戰情室／戰報榜回到夜間深墨 */
+    --jh-battle-bg:   30 14% 5%;    /* 同 --jh-ink */
+    --jh-report-bg:   30 14% 5%;
   }
 }
 
