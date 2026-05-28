@@ -1030,29 +1030,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* 低調 CTA — 戰情室下方銜接 */}
-          <div className="text-center mt-10 md:mt-12 max-w-md mx-auto px-5">
-            <p
-              className="text-sm md:text-base mb-3"
-              style={{ color: 'rgba(244,236,219,0.78)', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.04em' }}
-            >
-              先用自己的股票試一次
-            </p>
-            <Link to="/holding-checkup">
-              <Button
-                size="default"
-                variant="outline"
-                className="border bg-transparent hover:bg-[rgba(236,102,45,0.08)]"
-                style={{ borderColor: 'rgba(236,102,45,0.55)', color: '#F4ECDB' }}
-              >
-                開始持股健檢
-                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-              </Button>
-            </Link>
-            <p className="text-[11px] md:text-xs mt-3" style={{ color: 'rgba(244,236,219,0.42)' }}>
-              不用註冊，先看懂手上的部位。
-            </p>
-          </div>
         </div>
 
         <style>{`
