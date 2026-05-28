@@ -299,6 +299,52 @@
   .company-shell .card table,
   .company-shell [data-card] table { display: block; overflow-x: auto; }
 
+  /* === 會員戰情室卡片：light=骨白卷宗 / dark=夜間墨黑 ============ */
+  .warroom-card {
+    /* light defaults — 骨白卷宗 */
+    --wr-bg:               hsl(var(--jh-bone));
+    --wr-overlay:          hsl(var(--jh-bone) / 0.92);
+    --wr-ink:              hsl(var(--jh-ink));
+    --wr-ink-soft:         hsl(var(--jh-ink) / 0.78);
+    --wr-ink-mute:         hsl(var(--jh-ink) / 0.58);
+    --wr-ink-faint:        hsl(var(--jh-ink) / 0.42);
+    --wr-row-bg:           hsl(var(--jh-paper-deep) / 0.32);
+    --wr-divider:          hsl(var(--jh-amber) / 0.32);
+    --wr-divider-soft:     hsl(var(--jh-amber) / 0.18);
+    --wr-row-divider:      hsl(var(--jh-amber) / 0.14);
+    --wr-divider-orange:   hsl(var(--jh-candle) / 0.28);
+    --wr-trust-bg:         hsl(var(--jh-amber) / 0.06);
+    --wr-footer-amber-bg:  hsl(var(--jh-amber) / 0.08);
+    --wr-footer-orange-bg: hsl(var(--jh-candle) / 0.06);
+    --wr-border-orange:    hsl(var(--jh-candle) / 0.32);
+    --wr-border-amber:     hsl(var(--jh-amber) / 0.35);
+    --wr-card-shadow:      0 18px 40px -24px hsl(var(--jh-ink) / 0.35), inset 0 1px 0 hsl(var(--jh-amber) / 0.10);
+    --wr-noise-rgb:        0.35 0.27 0.15;
+    --wr-noise-alpha:      0.12;
+  }
+  .dark .warroom-card {
+    /* dark — 夜間戰情室 */
+    --wr-bg:               rgba(20,17,13,0.85);
+    --wr-overlay:          rgba(20,17,13,0.92);
+    --wr-ink:              #F4ECDB;
+    --wr-ink-soft:         rgba(244,236,219,0.70);
+    --wr-ink-mute:         rgba(244,236,219,0.52);
+    --wr-ink-faint:        rgba(244,236,219,0.42);
+    --wr-row-bg:           rgba(255,255,255,0.018);
+    --wr-divider:          rgba(212,166,67,0.18);
+    --wr-divider-soft:     rgba(212,166,67,0.10);
+    --wr-row-divider:      rgba(212,166,67,0.07);
+    --wr-divider-orange:   rgba(236,102,45,0.18);
+    --wr-trust-bg:         rgba(212,166,67,0.03);
+    --wr-footer-amber-bg:  rgba(212,166,67,0.04);
+    --wr-footer-orange-bg: rgba(236,102,45,0.04);
+    --wr-border-orange:    rgba(236,102,45,0.22);
+    --wr-border-amber:     rgba(212,166,67,0.22);
+    --wr-card-shadow:      0 30px 60px -30px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04);
+    --wr-noise-rgb:        0.95 0.86 0.70;
+    --wr-noise-alpha:      0.10;
+  }
+
   .gradient-hero {
     background: var(--gradient-hero);
   }
