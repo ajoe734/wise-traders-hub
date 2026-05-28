@@ -480,7 +480,7 @@ const Index = () => {
                 }}
               />
               <p
-                className="my-3 text-[10px] tracking-[0.45em] writing-vertical-rl"
+                className="my-3 text-[10px] tracking-[0.45em] writing-vertical-rl jh-mode-divider-text"
                 style={{
                   color: 'rgba(23,23,23,0.55)',
                   fontFamily: '"Noto Serif TC", serif',
