@@ -763,30 +763,62 @@ const Index = () => {
           </p>
         </div>
 
-        {/* Scroll Down Indicator — 卷軸引導 */}
-        <div className="flex flex-col items-center pt-5 md:pt-6">
-          <div
+        {/* 過渡敘事 — 兩派收束 → 內門戰情室 */}
+        <div className="flex flex-col items-center pt-8 md:pt-10">
+          {/* 左右兩派收束的細線（V 字） */}
+          <svg
             aria-hidden="true"
-            className="mb-2"
-            style={{
-              width: 1,
-              height: 22,
-              background: 'linear-gradient(to bottom, transparent, rgba(236,102,45,0.55))',
-            }}
-          />
+            width="220"
+            height="34"
+            viewBox="0 0 220 34"
+            className="mb-3 opacity-80"
+          >
+            <defs>
+              <linearGradient id="conv-left" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="rgba(236,102,45,0)" />
+                <stop offset="100%" stopColor="rgba(236,102,45,0.55)" />
+              </linearGradient>
+              <linearGradient id="conv-right" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(212,166,67,0)" />
+                <stop offset="100%" stopColor="rgba(212,166,67,0.55)" />
+              </linearGradient>
+            </defs>
+            <line x1="2" y1="2" x2="110" y2="30" stroke="url(#conv-left)" strokeWidth="1" />
+            <line x1="218" y1="2" x2="110" y2="30" stroke="url(#conv-right)" strokeWidth="1" />
+          </svg>
+
           <button
             onClick={() => {
               document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="flex flex-col items-center gap-1.5 transition-colors group cursor-pointer"
-            style={{ color: 'rgba(23,23,23,0.6)' }}
+            className="flex flex-col items-center gap-2 cursor-pointer text-center px-6"
+            style={{ color: 'rgba(23,23,23,0.7)' }}
           >
-            <span className="text-xs md:text-sm tracking-[0.25em]">往下看會員畫面</span>
-            <div className="flex flex-col items-center animate-bounce">
-              <ChevronDown className="h-4 w-4 opacity-40" />
-              <ChevronDown className="h-4 w-4 -mt-2.5 opacity-80" />
-            </div>
+            <span
+              className="text-sm md:text-base"
+              style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.08em' }}
+            >
+              選定路線後，所有訊號都會回到同一個戰情室
+            </span>
+            <span
+              className="text-[10px] md:text-xs tracking-[0.35em] uppercase"
+              style={{ color: 'rgba(236,102,45,0.85)' }}
+            >
+              入　門
+            </span>
           </button>
+
+          {/* 細線往下銜接深色戰情室 */}
+          <div
+            aria-hidden="true"
+            className="mt-3"
+            style={{
+              width: 1,
+              height: 46,
+              background:
+                'linear-gradient(to bottom, rgba(236,102,45,0.55), rgba(14,12,10,0.95))',
+            }}
+          />
         </div>
       </section>
       </LazyOnVisible>
