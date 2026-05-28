@@ -1069,43 +1069,45 @@ const Index = () => {
                 </div>
 
                 {/* Rows */}
-                <div className="flex-1 px-3 py-3 space-y-2">
+                <div className="flex-1 px-3 py-2">
                   {[
                     { code: '2330.TW', name: '台積電', tag: '買進', tagColor: '#EC662D', desc: '突破季線壓力，外資連續買超', price: '580 – 590', time: '09:32' },
                     { code: '2454.TW', name: '聯發科', tag: '加碼', tagColor: '#D4A643', desc: '續創新高，AI 晶片出貨成長', price: '1,250 – 1,280', time: '10:15' },
                     { code: '3008.TW', name: '大立光', tag: '減碼', tagColor: '#C49040', desc: '達目標價，量能萎縮先獲利了結', price: '155 – 160', time: '11:00' },
                     { code: '2317.TW', name: '鴻海', tag: '買進', tagColor: '#EC662D', desc: '站上所有均線，外資連續買超', price: '178 – 182', time: '13:45' },
                     { code: '2603.TW', name: '長榮', tag: '出場', tagColor: '#8B8680', desc: '跌破支撐，執行停損紀律', price: '185 – 188', time: '14:20' },
-                  ].map((r) => (
+                  ].map((r, idx, arr) => (
                     <div
                       key={r.code}
-                      className="px-3 py-2.5 rounded-md"
+                      className="px-3.5 py-3.5 rounded-md"
                       style={{
-                        backgroundColor: 'rgba(255,255,255,0.025)',
+                        backgroundColor: 'rgba(255,255,255,0.018)',
                         borderLeft: `2px solid ${r.tagColor}`,
+                        borderBottom: idx < arr.length - 1 ? '1px solid rgba(212,166,67,0.07)' : 'none',
+                        marginBottom: idx < arr.length - 1 ? 4 : 0,
                       }}
                     >
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-baseline gap-2 min-w-0">
-                          <span className="text-xs font-mono tracking-wider" style={{ color: 'rgba(244,236,219,0.55)' }}>
+                          <span className="text-[11px] font-mono tracking-wider" style={{ color: 'rgba(244,236,219,0.5)' }}>
                             {r.code}
                           </span>
-                          <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB' }}>
+                          <span className="text-sm font-semibold truncate" style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif' }}>
                             {r.name}
                           </span>
                         </div>
                         <span
-                          className="shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-medium"
+                          className="shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-medium tracking-wider"
                           style={{ backgroundColor: `${r.tagColor}1f`, color: r.tagColor, border: `1px solid ${r.tagColor}44` }}
                         >
                           {r.tag}
                         </span>
                       </div>
-                      <p className="text-[11px] mb-1.5 leading-snug" style={{ color: 'rgba(244,236,219,0.6)' }}>
+                      <p className="text-[11.5px] mb-2 leading-relaxed" style={{ color: 'rgba(244,236,219,0.62)' }}>
                         {r.desc}
                       </p>
-                      <div className="flex items-center justify-between text-[10px]" style={{ color: 'rgba(244,236,219,0.4)' }}>
-                        <span className="font-mono">{r.price}</span>
+                      <div className="flex items-center justify-between text-[10px] pt-1" style={{ color: 'rgba(244,236,219,0.42)', borderTop: '1px dashed rgba(212,166,67,0.10)' }}>
+                        <span className="font-mono tracking-wider">建議區間 {r.price}</span>
                         <span className="font-mono">{r.time}</span>
                       </div>
                     </div>
