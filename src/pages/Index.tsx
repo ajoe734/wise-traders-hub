@@ -142,8 +142,16 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Seam: Hero(墨黑) → 三招(紙) — 不要硬切黑白 */}
-      <InkFade direction="ink-to-paper" height={130} paperColor="hsl(var(--jh-paper))" inkColor="#000000" />
+      {/* Seam: Hero(墨黑) → 三招(紙) — 短版紙面浮出，40px */}
+      <div
+        aria-hidden="true"
+        className="relative w-full"
+        style={{
+          height: 40,
+          background:
+            'linear-gradient(180deg, #000 0%, hsl(var(--jh-paper) / 0.35) 55%, hsl(var(--jh-paper)) 100%)',
+        }}
+      />
 
       {/* Three Core Features Section - Magazine Layout */}
       <section className="relative py-section" style={{ background: 'hsl(var(--jh-paper))' }}>
