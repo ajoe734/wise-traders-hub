@@ -142,8 +142,11 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Seam: Hero(墨黑) → 三招(紙) — 不要硬切黑白 */}
+      <InkFade direction="ink-to-paper" height={130} paperColor="hsl(var(--jh-paper))" inkColor="#000000" />
+
       {/* Three Core Features Section - Magazine Layout */}
-      <section className="relative py-section" style={{ background: 'hsl(var(--jh-paper-light))' }}>
+      <section className="relative py-section" style={{ background: 'hsl(var(--jh-paper))' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
             {/* Left Column - Narrative */}
@@ -314,7 +317,7 @@ const Index = () => {
       <LazyOnVisible mode="content-visibility" minHeight={1400}>
       <section
         className="relative overflow-hidden pt-6 md:pt-8 pb-0"
-        style={{ backgroundColor: '#EFE7D6' }}
+        style={{ backgroundColor: 'hsl(var(--jh-paper))' }}
       >
         {/* Ink-wash mountain backdrop — very faint, top of section only */}
         <div
@@ -665,14 +668,14 @@ const Index = () => {
 
 
       {/* Seam: 選你的模式(紙) → 會員戰情室(墨) */}
-      <InkFade direction="paper-to-ink" height={150} paperColor="#EFE7D6" inkColor="#0E0C0A" />
+      <InkFade direction="paper-to-ink" height={150} paperColor="hsl(var(--jh-paper))" inkColor="hsl(var(--jh-ink))" />
 
       {/* Real Interface Preview Section — 會員戰情室 */}
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
       <section
         id="preview-section"
         className="relative py-section overflow-hidden"
-        style={{ backgroundColor: '#0E0C0A' }}
+        style={{ backgroundColor: 'hsl(var(--jh-ink))' }}
       >
 
 
@@ -1518,14 +1521,7 @@ const Index = () => {
         className="relative overflow-hidden py-section"
         style={{ background: 'hsl(var(--jh-paper))' }}
       >
-        {/* 上方暗金分隔線 */}
-        <div
-          className="absolute top-0 left-0 right-0 h-px"
-          style={{
-            background:
-              'linear-gradient(90deg, transparent 0%, hsl(var(--jh-amber) / 0.45) 50%, transparent 100%)',
-          }}
-        />
+        {/* 同屬紙場景，不再加暗金分隔線，避免「柵欄感」 */}
         {/* 紙紋 */}
         <div
           aria-hidden="true"
