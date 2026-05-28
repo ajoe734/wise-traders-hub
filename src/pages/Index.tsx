@@ -810,62 +810,6 @@ const Index = () => {
           </button>
         </div>
 
-        {/* 單一連續墨色暈染：紙面 → 淡墨霧氣 → 深墨；中央橘線一路穿到底 */}
-        <div
-          aria-hidden="true"
-          className="relative w-full overflow-hidden mt-3 md:mt-4"
-          style={{ height: 140 }}
-        >
-          {/* 主漸層：平滑、無水平硬邊 */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                'linear-gradient(to bottom, rgba(239,231,214,0) 0%, rgba(60,45,32,0.18) 30%, rgba(28,22,16,0.55) 60%, rgba(14,12,10,0.92) 88%, #0E0C0A 100%)',
-            }}
-          />
-          {/* 不規則墨色暈染 — 左（柔化邊緣，避免水平髒邊） */}
-          <div
-            className="absolute"
-            style={{
-              left: '-15%', top: '10%', width: '70%', height: '120%',
-              background:
-                'radial-gradient(ellipse 60% 70% at 45% 70%, rgba(14,12,10,0.7), transparent 72%)',
-              filter: 'blur(18px)',
-            }}
-          />
-          {/* 不規則墨色暈染 — 右 */}
-          <div
-            className="absolute"
-            style={{
-              right: '-15%', top: '8%', width: '70%', height: '120%',
-              background:
-                'radial-gradient(ellipse 60% 70% at 55% 72%, rgba(14,12,10,0.7), transparent 72%)',
-              filter: 'blur(18px)',
-            }}
-          />
-          {/* 上方紙面殘霧 */}
-          <div
-            className="absolute inset-x-0 top-0"
-            style={{
-              height: '45%',
-              background:
-                'radial-gradient(ellipse 60% 100% at 50% 0%, rgba(239,231,214,0.45), transparent 80%)',
-              mixBlendMode: 'screen',
-              opacity: 0.6,
-            }}
-          />
-          {/* 中央橘線：從紙面一路穿入深墨，無中斷 */}
-          <div
-            className="absolute left-1/2 top-0 -translate-x-1/2"
-            style={{
-              width: 1,
-              height: '100%',
-              background:
-                'linear-gradient(to bottom, rgba(236,102,45,0.9) 0%, rgba(236,102,45,0.7) 50%, rgba(236,102,45,0.45) 85%, rgba(236,102,45,0.25) 100%)',
-            }}
-          />
-        </div>
       </section>
       </LazyOnVisible>
 
