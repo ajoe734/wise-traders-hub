@@ -1521,14 +1521,7 @@ const Index = () => {
         className="relative overflow-hidden py-section"
         style={{ background: 'hsl(var(--jh-paper))' }}
       >
-        {/* 上方暗金分隔線 */}
-        <div
-          className="absolute top-0 left-0 right-0 h-px"
-          style={{
-            background:
-              'linear-gradient(90deg, transparent 0%, hsl(var(--jh-amber) / 0.45) 50%, transparent 100%)',
-          }}
-        />
+        {/* 同屬紙場景，不再加暗金分隔線，避免「柵欄感」 */}
         {/* 紙紋 */}
         <div
           aria-hidden="true"
