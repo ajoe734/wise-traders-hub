@@ -209,7 +209,7 @@ const Index = () => {
           <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
             {/* Left Column - Narrative */}
             <div className="lg:sticky lg:top-32">
-              <p className="text-muted-foreground text-sm tracking-widest uppercase mb-sm">你會用到的三件事</p>
+              <p className="text-muted-foreground text-sm tracking-widest uppercase mb-sm">市場太亂的時候，先回到這三件事</p>
               <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-md leading-tight">三招定勝負</h2>
               <p className="text-lg text-muted-foreground leading-relaxed">
                 訊號、路線、戰績，解放盯盤。
