@@ -40,6 +40,7 @@ import iconLightningCircle from '@/assets/icon-lightning-circle.svg';
 import iconBookCircle from '@/assets/icon-book-circle.svg';
 
 import { LazyOnVisible } from '@/components/LazyOnVisible';
+import { InkFade } from '@/components/jianghu/InkFade';
 
 
 // Batch1-#2: idle prefetch moved to centralized prefetchHighTrafficRoutes()
