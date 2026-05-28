@@ -911,7 +911,7 @@ const Index = () => {
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
       <section
         id="preview-section"
-        className="relative py-section overflow-hidden"
+        className="relative pt-4 md:pt-6 pb-section overflow-hidden"
         style={{ backgroundColor: '#0E0C0A' }}
       >
         {/* 暖光 radial — 中心標題後方 */}
