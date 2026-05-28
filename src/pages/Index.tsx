@@ -324,13 +324,12 @@ const Index = () => {
       {/* 江湖兩派 — Premium editorial / ink-wash version */}
       <LazyOnVisible mode="content-visibility" minHeight={1400}>
       <section
-        className="relative overflow-hidden pt-6 md:pt-8 pb-0"
-        style={{ backgroundColor: 'hsl(var(--jh-paper))' }}
+        className="relative overflow-hidden pt-6 md:pt-8 pb-0 jh-section-paper"
       >
         {/* Ink-wash mountain backdrop — very faint, top of section only */}
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 top-0 pointer-events-none"
+          className="absolute inset-x-0 top-0 pointer-events-none jh-mountain-backdrop"
           style={{
             height: '70%',
             backgroundImage: `url(${jianghuSectionBg})`,
@@ -347,7 +346,7 @@ const Index = () => {
         {/* Subtle paper grain */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none jh-paper-grain"
           style={{
             backgroundImage:
               "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22160%22 height=%22160%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%222%22 stitchTiles=%22stitch%22/><feColorMatrix values=%220 0 0 0 0.06  0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0.06 0%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')",
@@ -355,6 +354,7 @@ const Index = () => {
             opacity: 0.6,
           }}
         />
+
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Eyebrow + Title */}
