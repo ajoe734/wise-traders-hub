@@ -1556,7 +1556,7 @@ const Index = () => {
       {/* How It Works - Dual Path · 門派入口卷軸（淺紙） */}
       <LazyOnVisible mode="content-visibility" minHeight={900}>
       <section
-        className="relative overflow-hidden py-section"
+        className="relative overflow-hidden py-section jh-night-section"
         style={{ background: 'hsl(var(--jh-paper))' }}
       >
         {/* 同屬紙場景，不再加暗金分隔線，避免「柵欄感」 */}
