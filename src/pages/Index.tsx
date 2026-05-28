@@ -897,7 +897,7 @@ const Index = () => {
       <LazyOnVisible mode="content-visibility" minHeight={1000}>
       <section
         id="preview-section"
-        className="relative pt-4 md:pt-6 pb-section overflow-hidden"
+        className="relative pt-0 pb-section overflow-hidden"
         style={{ backgroundColor: '#0E0C0A' }}
       >
         {/* 暖光 radial — 中心標題後方 */}
@@ -942,26 +942,16 @@ const Index = () => {
         />
 
         <div className="container relative z-10">
-          {/* 接住過渡線：垂直線從上方延伸到標題前 */}
-          <div className="flex flex-col items-center -mt-12 md:-mt-14 mb-3">
+          {/* 接住過渡線：菱形標記直接坐落在暈染下緣 */}
+          <div className="flex flex-col items-center pt-2 mb-3">
             <div
               aria-hidden="true"
-              style={{
-                width: 1,
-                height: 28,
-                background:
-                  'linear-gradient(to bottom, rgba(236,102,45,0.7), rgba(236,102,45,0.15))',
-              }}
-            />
-            <div
-              aria-hidden="true"
-              className="mt-1"
               style={{
                 width: 6,
                 height: 6,
                 transform: 'rotate(45deg)',
-                background: 'rgba(236,102,45,0.55)',
-                boxShadow: '0 0 10px rgba(236,102,45,0.45)',
+                background: 'rgba(236,102,45,0.7)',
+                boxShadow: '0 0 12px rgba(236,102,45,0.5)',
               }}
             />
           </div>
