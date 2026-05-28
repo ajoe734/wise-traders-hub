@@ -1100,7 +1100,7 @@ const Index = () => {
       <LazyOnVisible mode="content-visibility" minHeight={620}>
       <section
         className="relative overflow-hidden py-12 md:py-14"
-        style={{ background: 'hsl(var(--jh-ink))' }}
+        style={{ background: 'hsl(var(--jh-report-bg))' }}
       >
         {/* Ambient layers */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
