@@ -1408,6 +1408,12 @@ const Index = () => {
                   </div>
                 ))}
                 <div className="pt-sm">
+                  <p
+                    className="text-sm mb-3"
+                    style={{ color: 'hsl(var(--jh-earth))', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.04em' }}
+                  >
+                    先用自己的股票試一次
+                  </p>
                   <Button
                     size="xl"
                     className="text-white border-0"
@@ -1419,6 +1425,9 @@ const Index = () => {
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
                   </Button>
+                  <p className="text-[11px] mt-3" style={{ color: 'hsl(var(--jh-stone))' }}>
+                    不用註冊，先看懂手上的部位。
+                  </p>
                 </div>
               </div>
 
