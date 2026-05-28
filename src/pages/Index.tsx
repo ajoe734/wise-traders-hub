@@ -142,8 +142,11 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Seam: Hero(墨黑) → 三招(紙) — 不要硬切黑白 */}
+      <InkFade direction="ink-to-paper" height={130} paperColor="hsl(var(--jh-paper))" inkColor="#000000" />
+
       {/* Three Core Features Section - Magazine Layout */}
-      <section className="relative py-section" style={{ background: 'hsl(var(--jh-paper-light))' }}>
+      <section className="relative py-section" style={{ background: 'hsl(var(--jh-paper))' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
             {/* Left Column - Narrative */}
