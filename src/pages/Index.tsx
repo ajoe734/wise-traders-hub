@@ -204,7 +204,7 @@ const Index = () => {
       </section>
 
       {/* Three Core Features Section - Magazine Layout */}
-      <section className="py-section bg-muted/50 dark:bg-white/[0.02]">
+      <section className="relative py-section" style={{ background: 'hsl(var(--jh-paper-light))' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 lg:gap-20 items-start">
             {/* Left Column - Narrative */}
