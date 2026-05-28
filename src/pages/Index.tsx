@@ -763,60 +763,96 @@ const Index = () => {
           </p>
         </div>
 
-        {/* 過渡敘事 — 兩派收束 → 內門戰情室 */}
-        <div className="flex flex-col items-center pt-8 md:pt-10">
-          {/* 左右兩派收束的細線（V 字） */}
+        {/* 過渡敘事 — 兩派收束 → 內門戰情室（緊湊） */}
+        <div className="relative flex flex-col items-center pt-4 md:pt-5 pb-0">
+          {/* 從左右兩派卡片底部往中間收束的弧線 */}
           <svg
             aria-hidden="true"
-            width="220"
-            height="34"
-            viewBox="0 0 220 34"
-            className="mb-3 opacity-80"
+            viewBox="0 0 1000 64"
+            preserveAspectRatio="none"
+            className="w-full max-w-5xl h-10 md:h-12 -mt-2"
           >
             <defs>
-              <linearGradient id="conv-left" x1="0" y1="0" x2="1" y2="1">
+              <linearGradient id="conv-left-arc" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor="rgba(236,102,45,0)" />
-                <stop offset="100%" stopColor="rgba(236,102,45,0.55)" />
+                <stop offset="60%" stopColor="rgba(236,102,45,0.45)" />
+                <stop offset="100%" stopColor="rgba(236,102,45,0.7)" />
               </linearGradient>
-              <linearGradient id="conv-right" x1="1" y1="0" x2="0" y2="1">
+              <linearGradient id="conv-right-arc" x1="1" y1="0" x2="0" y2="0">
                 <stop offset="0%" stopColor="rgba(212,166,67,0)" />
-                <stop offset="100%" stopColor="rgba(212,166,67,0.55)" />
+                <stop offset="60%" stopColor="rgba(212,166,67,0.45)" />
+                <stop offset="100%" stopColor="rgba(212,166,67,0.7)" />
               </linearGradient>
             </defs>
-            <line x1="2" y1="2" x2="110" y2="30" stroke="url(#conv-left)" strokeWidth="1" />
-            <line x1="218" y1="2" x2="110" y2="30" stroke="url(#conv-right)" strokeWidth="1" />
+            {/* 左派：從左上往中下收束 */}
+            <path d="M 20 4 C 280 4, 420 56, 500 60" fill="none" stroke="url(#conv-left-arc)" strokeWidth="1" />
+            {/* 右派：從右上往中下收束 */}
+            <path d="M 980 4 C 720 4, 580 56, 500 60" fill="none" stroke="url(#conv-right-arc)" strokeWidth="1" />
           </svg>
 
           <button
             onClick={() => {
               document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="flex flex-col items-center gap-2 cursor-pointer text-center px-6"
+            className="flex flex-col items-center gap-1 cursor-pointer text-center px-6 -mt-1"
             style={{ color: 'rgba(23,23,23,0.7)' }}
           >
             <span
-              className="text-sm md:text-base"
+              className="text-xs md:text-sm"
               style={{ fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.08em' }}
             >
               選定路線後，所有訊號都會回到同一個戰情室
             </span>
             <span
-              className="text-[10px] md:text-xs tracking-[0.35em] uppercase"
+              className="text-[10px] tracking-[0.35em] uppercase"
               style={{ color: 'rgba(236,102,45,0.85)' }}
             >
               入　門
             </span>
           </button>
 
-          {/* 細線往下銜接深色戰情室 */}
+          {/* 中央垂直線：往下穿入深色戰情室 */}
           <div
             aria-hidden="true"
-            className="mt-3"
+            className="mt-2"
             style={{
               width: 1,
-              height: 46,
+              height: 28,
               background:
-                'linear-gradient(to bottom, rgba(236,102,45,0.55), rgba(14,12,10,0.95))',
+                'linear-gradient(to bottom, rgba(236,102,45,0.7), rgba(14,12,10,0.95))',
+            }}
+          />
+        </div>
+
+        {/* 米白 → 墨色 漸層銜接（紙面入墨） */}
+        <div
+          aria-hidden="true"
+          className="relative w-full"
+          style={{
+            height: 72,
+            background:
+              'linear-gradient(to bottom, transparent 0%, rgba(14,12,10,0.25) 35%, rgba(14,12,10,0.7) 75%, #0E0C0A 100%)',
+          }}
+        >
+          {/* 淡霧層 */}
+          <div
+            className="absolute inset-x-0 top-0"
+            style={{
+              height: '100%',
+              background:
+                'radial-gradient(ellipse 60% 100% at 50% 0%, rgba(245,243,239,0.35), transparent 70%)',
+              mixBlendMode: 'screen',
+              opacity: 0.6,
+            }}
+          />
+          {/* 中央延續線 */}
+          <div
+            className="absolute left-1/2 top-0 -translate-x-1/2"
+            style={{
+              width: 1,
+              height: '100%',
+              background:
+                'linear-gradient(to bottom, rgba(236,102,45,0.7), rgba(236,102,45,0.25) 60%, transparent)',
             }}
           />
         </div>
@@ -896,6 +932,30 @@ const Index = () => {
         />
 
         <div className="container relative z-10">
+          {/* 接住過渡線：垂直線從上方延伸到標題前 */}
+          <div className="flex flex-col items-center -mt-2 mb-4">
+            <div
+              aria-hidden="true"
+              style={{
+                width: 1,
+                height: 28,
+                background:
+                  'linear-gradient(to bottom, rgba(236,102,45,0.7), rgba(236,102,45,0.15))',
+              }}
+            />
+            <div
+              aria-hidden="true"
+              className="mt-1"
+              style={{
+                width: 6,
+                height: 6,
+                transform: 'rotate(45deg)',
+                background: 'rgba(236,102,45,0.55)',
+                boxShadow: '0 0 10px rgba(236,102,45,0.45)',
+              }}
+            />
+          </div>
+
           {/* Eyebrow + H2 + Sub — 緊湊精緻 */}
           <div className="text-center mb-8 md:mb-10">
             <p
@@ -904,6 +964,7 @@ const Index = () => {
             >
               產品實戰畫面
             </p>
+
             <h2
               className="text-3xl md:text-4xl lg:text-[44px] font-bold mb-3"
               style={{ color: '#F4ECDB', fontFamily: '"Noto Serif TC", serif', letterSpacing: '0.05em' }}
@@ -1170,13 +1231,36 @@ const Index = () => {
         </div>
 
         <style>{`
-          .warroom-card { transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease; }
+          .warroom-card {
+            transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease;
+            position: relative;
+            background-image:
+              linear-gradient(rgba(20,17,13,0.92), rgba(20,17,13,0.92)),
+              url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.86  0 0 0 0 0.70  0 0 0 0.10 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
+            background-blend-mode: overlay;
+          }
+          .warroom-card::before {
+            content: '';
+            position: absolute; inset: 0;
+            pointer-events: none;
+            border-radius: inherit;
+            background:
+              linear-gradient(180deg, rgba(212,166,67,0.35), transparent 6%, transparent 94%, rgba(212,166,67,0.25)) border-box;
+            -webkit-mask:
+              linear-gradient(#000 0 0) content-box,
+              linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+                    mask-composite: exclude;
+            padding: 1px;
+            opacity: 0.6;
+          }
           .warroom-card:hover {
             transform: translateY(-3px);
             border-color: rgba(236,102,45,0.4) !important;
             box-shadow: 0 40px 80px -30px rgba(236,102,45,0.25), inset 0 1px 0 rgba(255,255,255,0.06) !important;
           }
         `}</style>
+
       </section>
       </LazyOnVisible>
 
