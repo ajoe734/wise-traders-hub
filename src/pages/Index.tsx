@@ -957,7 +957,7 @@ const Index = () => {
 
         <div className="container relative z-10">
           {/* 接住過渡線：垂直線從上方延伸到標題前 */}
-          <div className="flex flex-col items-center -mt-2 mb-4">
+          <div className="flex flex-col items-center -mt-12 md:-mt-14 mb-3">
             <div
               aria-hidden="true"
               style={{
