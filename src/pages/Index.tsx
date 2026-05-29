@@ -1189,10 +1189,10 @@ const Index = () => {
             className="relative rounded-md max-w-4xl mx-auto overflow-hidden"
             style={{
               background:
-                'linear-gradient(180deg, hsl(var(--jh-report-bg) / 0.92), hsl(var(--jh-report-bg) / 0.98))',
-              border: '1px solid hsl(var(--jh-amber) / 0.28)',
+                'linear-gradient(180deg, hsl(var(--jh-report-bg) / 0.94), hsl(var(--jh-report-bg)) 100%)',
+              border: '1px solid hsl(var(--jh-amber) / 0.18)',
               boxShadow:
-                '0 0 0 1px hsl(var(--jh-amber) / 0.06), 0 30px 60px -30px hsl(var(--jh-candle) / 0.22)',
+                '0 0 0 1px hsl(var(--jh-amber) / 0.04), 0 30px 60px -30px hsl(var(--jh-candle) / 0.18), inset 0 1px 0 hsl(var(--jh-amber) / 0.06)',
             }}
           >
             {/* Card header — scroll-of-honor bar */}
