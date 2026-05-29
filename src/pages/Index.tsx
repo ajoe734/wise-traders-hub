@@ -1186,7 +1186,7 @@ const Index = () => {
 
           {/* Main war-report card */}
           <div
-            className="relative rounded-md max-w-4xl mx-auto overflow-hidden"
+            className="relative rounded-md max-w-4xl mx-auto overflow-hidden jh-report-card"
             style={{
               background:
                 'linear-gradient(180deg, hsl(var(--jh-report-bg) / 0.94), hsl(var(--jh-report-bg)) 100%)',
