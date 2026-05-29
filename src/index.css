@@ -459,6 +459,23 @@
   .dark .jh-pct-up   { color: hsl(0 65% 60%); }
   .dark .jh-pct-down { color: hsl(140 35% 55%); }
 
+  /* === 手機版可讀性下限（≤640px） — 只放寬 row padding / line-height，
+     不動桌機版佈局，不改文案、不改順序、不改圖片                          */
+  @media (max-width: 640px) {
+    /* 持股卷宗 / 戰情室 / 入門路線 卡片內 row padding +10% */
+    .jh-night-section .px-3.py-2\.5 { padding: 0.75rem 0.875rem; }
+    .warroom-card .px-3.py-2\.5     { padding: 0.75rem 0.875rem; }
+    /* 卡片內小字行高至少 1.55，避免兩行擠在一起 */
+    .jh-night-section .text-\[11px\],
+    .jh-night-section .text-xs,
+    .warroom-card .text-\[11px\],
+    .warroom-card .text-xs { line-height: 1.6; }
+    /* 段落之間下限 12px：相鄰 <p> 自動加 mt-3 等效 */
+    .jh-night-section p + p { margin-top: 0.75rem; }
+    /* CTA 上下留白增加 */
+    .jh-night-section .text-center .flex-col > * + * { margin-top: 0.875rem; }
+  }
+
   .gradient-hero {
     background: var(--gradient-hero);
   }
