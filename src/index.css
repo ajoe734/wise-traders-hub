@@ -144,10 +144,14 @@
     --jh-charcoal:    30 8% 14%;    /* #25211E 炭黑卡片底 */
     --jh-earth:       30 35% 22%;   /* #4A3621 土褐 */
     --jh-amber:       44 56% 47%;   /* #BC9530 暗金主線 */
-    --jh-amber-dim:   44 45% 35%;   /* #826831 暗金深 */
+    /* readability：暗金資訊文字下限。原 44 45% 35%（#826831）對 cream 紙面只剩 ~3.5:1，
+       提升至 38 50% 30%（#735320）約 5:1，符合 AA 小字標準，承載 eyebrow / 適合對象 / 規則文字 */
+    --jh-amber-dim:   38 50% 30%;   /* #735320 暗金資訊文字 */
     --jh-amber-soft:  44 56% 65%;   /* #D8B96A 暗金亮 */
     --jh-candle:      18 84% 55%;   /* #EC662D 燭火橘（節制使用） */
-    --jh-stone:       35 8% 47%;    /* #7E7873 石灰中性 */
+    /* readability：stone 為卡片 footer / 11px 小字，原 35 8% 47% 對 cream 偏淡，
+       提升至 30 12% 36%（#695C53）讓「持有 X 股」與註解清楚可讀 */
+    --jh-stone:       30 12% 36%;   /* #695C53 石灰小字 */
     --jh-muted:       38 12% 70%;   /* #B8B0A4 卷宗注解 */
     --jh-border:      44 50% 47%;   /* 與 --jh-amber 同基底，搭配 alpha 使用 */
     --jh-bone:        38 30% 92%;   /* #F1EAD9 骨白前景 */
@@ -327,9 +331,11 @@
     --wr-bg:               rgba(20,17,13,0.85);
     --wr-overlay:          rgba(20,17,13,0.92);
     --wr-ink:              #F4ECDB;
-    --wr-ink-soft:         rgba(244,236,219,0.70);
-    --wr-ink-mute:         rgba(244,236,219,0.52);
-    --wr-ink-faint:        rgba(244,236,219,0.42);
+    /* readability：戰情室卡片副標／提示，原 0.70/0.52 在夜色卡上偏暗，
+       提升至 0.82/0.64 讓「線索描述、規則文字」清楚可讀，仍保留層次 */
+    --wr-ink-soft:         rgba(244,236,219,0.82);
+    --wr-ink-mute:         rgba(244,236,219,0.64);
+    --wr-ink-faint:        rgba(244,236,219,0.46);
     --wr-row-bg:           rgba(255,255,255,0.018);
     --wr-divider:          rgba(212,166,67,0.18);
     --wr-divider-soft:     rgba(212,166,67,0.10);
@@ -398,11 +404,13 @@
   /* 選模式區的文字（原本是黑色 inline style，深色看不見） */
   .dark .jh-mode-eyebrow      { color: hsl(var(--jh-amber-soft)) !important; }
   .dark .jh-mode-title        { color: hsl(var(--jh-bone)) !important; }
-  .dark .jh-mode-sub          { color: hsl(var(--jh-bone) / 0.72) !important; }
-  .dark .jh-mode-sub-soft     { color: hsl(var(--jh-bone) / 0.55) !important; }
-  .dark .jh-mode-divider-text { color: hsl(var(--jh-bone) / 0.55) !important; }
-  .dark .jh-mode-cta-line     { color: hsl(var(--jh-bone) / 0.85) !important; }
-  .dark .jh-mode-footnote     { color: hsl(var(--jh-bone) / 0.62) !important; }
+  /* readability：sub 0.72→0.82、sub-soft 0.55→0.70（承載「持股局勢」說明）、
+     divider-text 0.55→0.68、footnote 0.62→0.74，皆高於 0.68 的可讀下限 */
+  .dark .jh-mode-sub          { color: hsl(var(--jh-bone) / 0.82) !important; }
+  .dark .jh-mode-sub-soft     { color: hsl(var(--jh-bone) / 0.70) !important; }
+  .dark .jh-mode-divider-text { color: hsl(var(--jh-bone) / 0.68) !important; }
+  .dark .jh-mode-cta-line     { color: hsl(var(--jh-bone) / 0.88) !important; }
+  .dark .jh-mode-footnote     { color: hsl(var(--jh-bone) / 0.74) !important; }
   /* Hero → 三招 / 選模式 → 戰情室 的縫合漸層在深色要換頭尾色 */
   .dark .jh-seam-hero-to-trio {
     background:
@@ -424,8 +432,10 @@
     --jh-bone:        28 13% 14%;   /* 燭火下的卷宗卡底 */
     /* 文字反轉：墨字 → 骨白 / 暗金 / 霧灰 */
     --jh-ink:         38 30% 90%;   /* 主文字（同 bone 原色） */
-    --jh-earth:       36 16% 68%;   /* 次文字（霧灰暖調） */
-    --jh-stone:       36 10% 56%;   /* tertiary、提示文字 */
+    /* readability：earth 68→78（副標／一般說明文字下限），stone 56→68
+       （持倉表 11px 註解「持有 X 股」），仍保留 vs --jh-ink(90%) 的層次 */
+    --jh-earth:       36 18% 78%;   /* 次文字（霧灰暖調，副標／說明） */
+    --jh-stone:       36 12% 68%;   /* tertiary、小字註解 */
   }
   .dark .jh-night-section {
     background-color: hsl(var(--jh-ink-soft)) !important;
@@ -448,6 +458,23 @@
   .jh-pct-down { color: hsl(140 30% 32%); }
   .dark .jh-pct-up   { color: hsl(0 65% 60%); }
   .dark .jh-pct-down { color: hsl(140 35% 55%); }
+
+  /* === 手機版可讀性下限（≤640px） — 只放寬 row padding / line-height，
+     不動桌機版佈局，不改文案、不改順序、不改圖片                          */
+  @media (max-width: 640px) {
+    /* 持股卷宗 / 戰情室 / 入門路線 卡片內 row padding +10% */
+    .jh-night-section .px-3.py-2\.5 { padding: 0.75rem 0.875rem; }
+    .warroom-card .px-3.py-2\.5     { padding: 0.75rem 0.875rem; }
+    /* 卡片內小字行高至少 1.55，避免兩行擠在一起 */
+    .jh-night-section .text-\[11px\],
+    .jh-night-section .text-xs,
+    .warroom-card .text-\[11px\],
+    .warroom-card .text-xs { line-height: 1.6; }
+    /* 段落之間下限 12px：相鄰 <p> 自動加 mt-3 等效 */
+    .jh-night-section p + p { margin-top: 0.75rem; }
+    /* CTA 上下留白增加 */
+    .jh-night-section .text-center .flex-col > * + * { margin-top: 0.875rem; }
+  }
 
   .gradient-hero {
     background: var(--gradient-hero);
