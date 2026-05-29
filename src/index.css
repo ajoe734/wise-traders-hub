@@ -331,9 +331,11 @@
     --wr-bg:               rgba(20,17,13,0.85);
     --wr-overlay:          rgba(20,17,13,0.92);
     --wr-ink:              #F4ECDB;
-    --wr-ink-soft:         rgba(244,236,219,0.70);
-    --wr-ink-mute:         rgba(244,236,219,0.52);
-    --wr-ink-faint:        rgba(244,236,219,0.42);
+    /* readability：戰情室卡片副標／提示，原 0.70/0.52 在夜色卡上偏暗，
+       提升至 0.82/0.64 讓「線索描述、規則文字」清楚可讀，仍保留層次 */
+    --wr-ink-soft:         rgba(244,236,219,0.82);
+    --wr-ink-mute:         rgba(244,236,219,0.64);
+    --wr-ink-faint:        rgba(244,236,219,0.46);
     --wr-row-bg:           rgba(255,255,255,0.018);
     --wr-divider:          rgba(212,166,67,0.18);
     --wr-divider-soft:     rgba(212,166,67,0.10);
