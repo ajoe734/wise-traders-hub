@@ -1189,10 +1189,10 @@ const Index = () => {
             className="relative rounded-md max-w-4xl mx-auto overflow-hidden"
             style={{
               background:
-                'linear-gradient(180deg, hsl(var(--jh-report-bg) / 0.92), hsl(var(--jh-report-bg) / 0.98))',
-              border: '1px solid hsl(var(--jh-amber) / 0.28)',
+                'linear-gradient(180deg, hsl(var(--jh-report-bg) / 0.94), hsl(var(--jh-report-bg)) 100%)',
+              border: '1px solid hsl(var(--jh-amber) / 0.18)',
               boxShadow:
-                '0 0 0 1px hsl(var(--jh-amber) / 0.06), 0 30px 60px -30px hsl(var(--jh-candle) / 0.22)',
+                '0 0 0 1px hsl(var(--jh-amber) / 0.04), 0 30px 60px -30px hsl(var(--jh-candle) / 0.18), inset 0 1px 0 hsl(var(--jh-amber) / 0.06)',
             }}
           >
             {/* Card header — scroll-of-honor bar */}
@@ -1251,12 +1251,12 @@ const Index = () => {
               </p>
             </div>
 
-            {/* 3-column summary */}
+            {/* 3-column summary — 榜文三欄記錄，深褐墨色而非純黑 dashboard */}
             <div
               className="grid grid-cols-1 sm:grid-cols-3 gap-px"
               style={{
-                background: 'hsl(var(--jh-amber) / 0.14)',
-                borderTop: '1px solid hsl(var(--jh-amber) / 0.14)',
+                background: 'hsl(var(--jh-amber) / 0.08)',
+                borderTop: '1px solid hsl(var(--jh-amber) / 0.10)',
               }}
             >
               {[
@@ -1264,7 +1264,7 @@ const Index = () => {
                 { icon: History, label: '歷史命中', value: '回看過去漲停案例', sub: '理解起漲前線索' },
                 { icon: Calendar, label: '更新規則', value: '每日收盤後更新', sub: '以實際命中紀錄為準' },
               ].map((item, i) => (
-                <div key={i} className="px-5 py-4" style={{ background: 'hsl(var(--jh-ink-soft))' }}>
+                <div key={i} className="px-5 py-4" style={{ background: 'hsl(var(--jh-report-cell, var(--jh-ink-soft)))' }}>
                   <div className="flex items-center gap-1.5 mb-2">
                     <item.icon className="h-3.5 w-3.5" style={{ color: 'hsl(var(--jh-amber-soft))' }} />
                     <span
@@ -1285,7 +1285,7 @@ const Index = () => {
             </div>
 
             {/* Historical case preview — skeleton until real data */}
-            <div className="px-5 md:px-7 py-5" style={{ borderTop: '1px solid hsl(var(--jh-amber) / 0.14)' }}>
+            <div className="px-5 md:px-7 py-5" style={{ borderTop: '1px solid hsl(var(--jh-amber) / 0.10)' }}>
               <div className="flex items-center gap-2 mb-3">
                 <span
                   className="text-[10px] px-2 py-0.5 rounded-sm"
@@ -1338,17 +1338,19 @@ const Index = () => {
             <div
               className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 px-5 py-5"
               style={{
-                borderTop: '1px solid hsl(var(--jh-amber) / 0.18)',
-                background: 'linear-gradient(180deg, transparent, hsl(var(--jh-candle) / 0.04))',
+                borderTop: '1px solid hsl(var(--jh-amber) / 0.14)',
+                background: 'linear-gradient(180deg, transparent, hsl(var(--jh-candle) / 0.03))',
               }}
             >
               <Link
                 to="/experts?role=advisor"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-sm text-sm font-medium transition-all hover:brightness-110"
+                className="jh-report-cta w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-sm text-sm font-medium transition-all"
                 style={{
-                  background: 'hsl(var(--jh-candle))',
-                  color: 'hsl(var(--jh-ink))',
-                  boxShadow: '0 8px 24px -10px hsl(var(--jh-candle) / 0.6)',
+                  background: 'hsl(18 76% 50%)',
+                  color: 'hsl(var(--jh-bone))',
+                  border: '1px solid hsl(var(--jh-amber) / 0.45)',
+                  boxShadow:
+                    'inset 0 1px 0 hsl(var(--jh-amber-soft) / 0.25), inset 0 -1px 0 hsl(0 0% 0% / 0.18), 0 6px 18px -10px hsl(var(--jh-candle) / 0.45)',
                 }}
               >
                 <Trophy className="h-4 w-4" />
@@ -1374,9 +1376,9 @@ const Index = () => {
         aria-hidden="true"
         className="relative w-full jh-seam-report-to-stock"
         style={{
-          height: 50,
+          height: 56,
           background:
-            'linear-gradient(180deg, hsl(var(--jh-report-bg)) 0%, hsl(var(--jh-report-bg) / 0.55) 45%, hsl(var(--jh-paper)) 100%)',
+            'linear-gradient(180deg, hsl(var(--jh-report-bg)) 0%, hsl(var(--jh-report-bg) / 0.72) 40%, hsl(var(--jh-paper) / 0.85) 80%, hsl(var(--jh-paper)) 100%)',
         }}
       />
       {/* Stock Dashboard Section - 持股卷宗（江湖卷宗風） */}

@@ -159,6 +159,7 @@
     /* 淺色模式：戰情室／戰報榜不要用純黑，要明顯像墨褐／暗茶卷軸 */
     --jh-battle-bg:   28 26% 20%;   /* #41331F 墨褐情報板（明顯帶土褐） */
     --jh-report-bg:   32 32% 25%;   /* #524026 暗褐榜文（再偏紙褐一階） */
+    --jh-report-cell: 32 28% 22%;   /* 三欄記錄欄底（淺色不會用到，留作 fallback） */
   }
 
 
@@ -232,9 +233,10 @@
     --learning-nav: 0 0% 7%;
     --learning-border: 0 0% 20%;
 
-    /* 深色模式：戰情室／戰報榜回到夜間深墨 */
-    --jh-battle-bg:   30 14% 5%;    /* 同 --jh-ink */
-    --jh-report-bg:   30 14% 5%;
+    /* 深色模式：戰情室／戰報榜回到夜間深墨褐（帶土褐暖，不純黑） */
+    --jh-battle-bg:   28 16% 7%;    /* 微暖墨褐 */
+    --jh-report-bg:   28 18% 9%;    /* 深褐榜文，避免 dashboard 純黑感 */
+    --jh-report-cell: 28 14% 12%;   /* 三欄記錄欄底，比 report-bg 高一階 */
   }
 }
 
@@ -448,11 +450,33 @@
     mix-blend-mode: screen !important;
     opacity: 0.06 !important;
   }
-  /* 戰報榜 → 持股卷宗 的轉場：夜間不要切到米白 */
+  /* 戰報榜 → 持股卷宗 的轉場：夜間不要切到米白，加暗金細線收邊 */
+  .jh-seam-report-to-stock {
+    position: relative;
+  }
+  .jh-seam-report-to-stock::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 12%; right: 12%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--jh-amber) / 0.32), transparent);
+    pointer-events: none;
+  }
   .dark .jh-seam-report-to-stock {
     background:
-      linear-gradient(180deg, hsl(var(--jh-report-bg)) 0%, hsl(var(--jh-ink-soft) / 0.85) 55%, hsl(var(--jh-ink-soft)) 100%) !important;
+      linear-gradient(180deg, hsl(var(--jh-report-bg)) 0%, hsl(var(--jh-report-bg) / 0.7) 45%, hsl(var(--jh-ink-soft)) 100%) !important;
   }
+
+  /* 戰報榜主 CTA 燭火 hover：節制亮度，不像現代 SaaS button */
+  .jh-report-cta:hover {
+    background: hsl(18 78% 53%) !important;
+    box-shadow:
+      inset 0 1px 0 hsl(var(--jh-amber-soft) / 0.35),
+      inset 0 -1px 0 hsl(0 0% 0% / 0.20),
+      0 0 18px hsl(var(--jh-candle) / 0.32),
+      0 8px 22px -10px hsl(var(--jh-candle) / 0.55) !important;
+  }
+
   /* 持股卷宗紅綠百分比：light = 低飽和墨紅/墨綠，dark = 提亮夜色版本 */
   .jh-pct-up   { color: hsl(0 55% 42%); }
   .jh-pct-down { color: hsl(140 30% 32%); }
