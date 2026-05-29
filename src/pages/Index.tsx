@@ -1338,17 +1338,19 @@ const Index = () => {
             <div
               className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 px-5 py-5"
               style={{
-                borderTop: '1px solid hsl(var(--jh-amber) / 0.18)',
-                background: 'linear-gradient(180deg, transparent, hsl(var(--jh-candle) / 0.04))',
+                borderTop: '1px solid hsl(var(--jh-amber) / 0.14)',
+                background: 'linear-gradient(180deg, transparent, hsl(var(--jh-candle) / 0.03))',
               }}
             >
               <Link
                 to="/experts?role=advisor"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-sm text-sm font-medium transition-all hover:brightness-110"
+                className="jh-report-cta w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-sm text-sm font-medium transition-all"
                 style={{
-                  background: 'hsl(var(--jh-candle))',
-                  color: 'hsl(var(--jh-ink))',
-                  boxShadow: '0 8px 24px -10px hsl(var(--jh-candle) / 0.6)',
+                  background: 'hsl(18 76% 50%)',
+                  color: 'hsl(var(--jh-bone))',
+                  border: '1px solid hsl(var(--jh-amber) / 0.45)',
+                  boxShadow:
+                    'inset 0 1px 0 hsl(var(--jh-amber-soft) / 0.25), inset 0 -1px 0 hsl(0 0% 0% / 0.18), 0 6px 18px -10px hsl(var(--jh-candle) / 0.45)',
                 }}
               >
                 <Trophy className="h-4 w-4" />
