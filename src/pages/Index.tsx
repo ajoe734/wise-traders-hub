@@ -1376,9 +1376,9 @@ const Index = () => {
         aria-hidden="true"
         className="relative w-full jh-seam-report-to-stock"
         style={{
-          height: 50,
+          height: 56,
           background:
-            'linear-gradient(180deg, hsl(var(--jh-report-bg)) 0%, hsl(var(--jh-report-bg) / 0.55) 45%, hsl(var(--jh-paper)) 100%)',
+            'linear-gradient(180deg, hsl(var(--jh-report-bg)) 0%, hsl(var(--jh-report-bg) / 0.72) 40%, hsl(var(--jh-paper) / 0.85) 80%, hsl(var(--jh-paper)) 100%)',
         }}
       />
       {/* Stock Dashboard Section - 持股卷宗（江湖卷宗風） */}
