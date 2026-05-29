@@ -404,11 +404,13 @@
   /* 選模式區的文字（原本是黑色 inline style，深色看不見） */
   .dark .jh-mode-eyebrow      { color: hsl(var(--jh-amber-soft)) !important; }
   .dark .jh-mode-title        { color: hsl(var(--jh-bone)) !important; }
-  .dark .jh-mode-sub          { color: hsl(var(--jh-bone) / 0.72) !important; }
-  .dark .jh-mode-sub-soft     { color: hsl(var(--jh-bone) / 0.55) !important; }
-  .dark .jh-mode-divider-text { color: hsl(var(--jh-bone) / 0.55) !important; }
-  .dark .jh-mode-cta-line     { color: hsl(var(--jh-bone) / 0.85) !important; }
-  .dark .jh-mode-footnote     { color: hsl(var(--jh-bone) / 0.62) !important; }
+  /* readability：sub 0.72→0.82、sub-soft 0.55→0.70（承載「持股局勢」說明）、
+     divider-text 0.55→0.68、footnote 0.62→0.74，皆高於 0.68 的可讀下限 */
+  .dark .jh-mode-sub          { color: hsl(var(--jh-bone) / 0.82) !important; }
+  .dark .jh-mode-sub-soft     { color: hsl(var(--jh-bone) / 0.70) !important; }
+  .dark .jh-mode-divider-text { color: hsl(var(--jh-bone) / 0.68) !important; }
+  .dark .jh-mode-cta-line     { color: hsl(var(--jh-bone) / 0.88) !important; }
+  .dark .jh-mode-footnote     { color: hsl(var(--jh-bone) / 0.74) !important; }
   /* Hero → 三招 / 選模式 → 戰情室 的縫合漸層在深色要換頭尾色 */
   .dark .jh-seam-hero-to-trio {
     background:
