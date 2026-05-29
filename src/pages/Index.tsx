@@ -1251,12 +1251,12 @@ const Index = () => {
               </p>
             </div>
 
-            {/* 3-column summary */}
+            {/* 3-column summary — 榜文三欄記錄，深褐墨色而非純黑 dashboard */}
             <div
               className="grid grid-cols-1 sm:grid-cols-3 gap-px"
               style={{
-                background: 'hsl(var(--jh-amber) / 0.14)',
-                borderTop: '1px solid hsl(var(--jh-amber) / 0.14)',
+                background: 'hsl(var(--jh-amber) / 0.08)',
+                borderTop: '1px solid hsl(var(--jh-amber) / 0.10)',
               }}
             >
               {[
@@ -1264,7 +1264,7 @@ const Index = () => {
                 { icon: History, label: '歷史命中', value: '回看過去漲停案例', sub: '理解起漲前線索' },
                 { icon: Calendar, label: '更新規則', value: '每日收盤後更新', sub: '以實際命中紀錄為準' },
               ].map((item, i) => (
-                <div key={i} className="px-5 py-4" style={{ background: 'hsl(var(--jh-ink-soft))' }}>
+                <div key={i} className="px-5 py-4" style={{ background: 'hsl(var(--jh-report-cell, var(--jh-ink-soft)))' }}>
                   <div className="flex items-center gap-1.5 mb-2">
                     <item.icon className="h-3.5 w-3.5" style={{ color: 'hsl(var(--jh-amber-soft))' }} />
                     <span
@@ -1285,7 +1285,7 @@ const Index = () => {
             </div>
 
             {/* Historical case preview — skeleton until real data */}
-            <div className="px-5 md:px-7 py-5" style={{ borderTop: '1px solid hsl(var(--jh-amber) / 0.14)' }}>
+            <div className="px-5 md:px-7 py-5" style={{ borderTop: '1px solid hsl(var(--jh-amber) / 0.10)' }}>
               <div className="flex items-center gap-2 mb-3">
                 <span
                   className="text-[10px] px-2 py-0.5 rounded-sm"
