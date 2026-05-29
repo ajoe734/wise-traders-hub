@@ -432,8 +432,10 @@
     --jh-bone:        28 13% 14%;   /* 燭火下的卷宗卡底 */
     /* 文字反轉：墨字 → 骨白 / 暗金 / 霧灰 */
     --jh-ink:         38 30% 90%;   /* 主文字（同 bone 原色） */
-    --jh-earth:       36 16% 68%;   /* 次文字（霧灰暖調） */
-    --jh-stone:       36 10% 56%;   /* tertiary、提示文字 */
+    /* readability：earth 68→78（副標／一般說明文字下限），stone 56→68
+       （持倉表 11px 註解「持有 X 股」），仍保留 vs --jh-ink(90%) 的層次 */
+    --jh-earth:       36 18% 78%;   /* 次文字（霧灰暖調，副標／說明） */
+    --jh-stone:       36 12% 68%;   /* tertiary、小字註解 */
   }
   .dark .jh-night-section {
     background-color: hsl(var(--jh-ink-soft)) !important;
