@@ -450,7 +450,22 @@
     mix-blend-mode: screen !important;
     opacity: 0.06 !important;
   }
-  /* 戰報榜 → 持股卷宗 的轉場：夜間不要切到米白，加暗金細線收邊 */
+  /* 戰報榜主卡片：非常淡的紙紋／磨損感（夜色卷宗，非 dashboard） */
+  .jh-report-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.78  0 0 0 0 0.62  0 0 0 0 0.34  0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode: overlay;
+    opacity: 0.05;
+    border-radius: inherit;
+  }
+  .dark .jh-report-card::after {
+    mix-blend-mode: soft-light;
+    opacity: 0.10;
+  }
+
   .jh-seam-report-to-stock {
     position: relative;
   }
