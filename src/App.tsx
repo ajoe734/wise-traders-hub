@@ -121,6 +121,7 @@ const CompanyMissingPrices = lazy(() => import("./pages/company/MissingPrices"))
 const CompanyMetaOverrides = lazy(() => import("./pages/company/MetaOverrides"));
 const CompanyUsers = lazy(() => import("./pages/company/Users"));
 const CompanyPerfMetrics = lazy(() => import("./pages/company/PerfMetrics"));
+const CompanyTraffic = lazy(() => import("./pages/company/Traffic"));
 
 const RealtimeBridge = () => {
   useSignalRealtimeInvalidation();
