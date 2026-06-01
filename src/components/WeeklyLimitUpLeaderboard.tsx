@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils';
 import { Trophy, Flame, ArrowRight, Target } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { avatarUrl } from '@/lib/imageTransform';
+import { useEffect } from 'react';
+import { trackEvent } from '@/lib/trafficTracker';
+
 
 export interface LeaderboardEntry {
   rank: number;
@@ -39,7 +42,9 @@ export function WeeklyLimitUpLeaderboard({
   className,
   isLoading,
 }: WeeklyLimitUpLeaderboardProps) {
+  useEffect(() => { if (!isLoading && entries?.length) trackEvent('leaderboard_view', { count: entries.length }); }, [isLoading, entries?.length]);
   return (
+
     <Card className={cn("overflow-hidden", className)}>
       <CardHeader className="pb-3 bg-gradient-to-r from-advisor/10 to-transparent">
         <div className="flex items-center justify-between">

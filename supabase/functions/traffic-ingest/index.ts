@@ -99,15 +99,31 @@ Deno.serve(async (req) => {
     if (kind === 'event') {
       const route = normalizeRoute(String(body.route || '/'));
       const referrer = typeof body.referrer === 'string' ? body.referrer.slice(0, 1000) : null;
+      const event_name = typeof body.event_name === 'string' ? body.event_name.slice(0, 80) : null;
+      const event_props = body.event_props && typeof body.event_props === 'object' ? body.event_props : null;
 
-      // Batch support: body.routes = string[]
-      const routes = Array.isArray(body.routes) ? (body.routes as string[]).slice(0, 50) : [route];
-      const rows = routes.map((r) => ({
-        visitor_id,
-        user_id: userId || null,
-        route: normalizeRoute(String(r || '/')),
-        referrer_host: safeHost(referrer),
-      }));
+      // Two paths:
+      //  - batch page views: body.routes = string[]  → many rows, no event_name
+      //  - single named event: body.event_name set   → one row with name+props
+      let rows: Array<Record<string, unknown>>;
+      if (event_name) {
+        rows = [{
+          visitor_id,
+          user_id: userId || null,
+          route,
+          referrer_host: safeHost(referrer),
+          event_name,
+          event_props,
+        }];
+      } else {
+        const routes = Array.isArray(body.routes) ? (body.routes as string[]).slice(0, 50) : [route];
+        rows = routes.map((r) => ({
+          visitor_id,
+          user_id: userId || null,
+          route: normalizeRoute(String(r || '/')),
+          referrer_host: safeHost(referrer),
+        }));
+      }
       await supabase.from('traffic_events').insert(rows);
 
       // Also bump traffic_visits.last_seen_at + user_id backfill (best-effort, async)
@@ -118,6 +134,7 @@ Deno.serve(async (req) => {
 
       return jsonResponse({ ok: true, count: rows.length });
     }
+
 
     return jsonResponse({ ok: false, error: 'unknown_kind' });
   } catch (e) {

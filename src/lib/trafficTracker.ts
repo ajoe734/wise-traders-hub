@@ -1,14 +1,17 @@
 /**
- * Anonymous + authenticated traffic tracker.
+ * Anonymous + authenticated traffic & feature-event tracker.
  *
  * Captures:
- *  - first-touch attribution (utm, referrer, landing) once per visitor
+ *  - first-touch attribution (utm, referrer, landing) per visitor
  *  - per-route page-view events (batched, flushed on visibility/pagehide)
+ *  - named feature events with optional jsonb props (funnel / heatmap)
  *
  * Sends to the `traffic-ingest` edge function via fetch + sendBeacon.
  *
- * Coexists with `useAttributionTracking` (legacy `referral_attributions`) —
- * both share the same `lf_visitor_id` localStorage key so analytics line up.
+ * Internal-mode opt-in: set `localStorage.lf_track_internal = '1'` to also
+ * log /company and /admin routes — used by Traffic admins to debug tracking.
+ *
+ * Visit-row throttle is 30 minutes (was 24h) so live-debugging is responsive.
  */
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -16,7 +19,8 @@ const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 const VISITOR_KEY = 'lf_visitor_id';
 const VISIT_LOGGED_KEY = 'lf_visit_logged_at';
-const VISIT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const INTERNAL_KEY = 'lf_track_internal';
+const VISIT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 function getOrCreateVisitorId(): string {
   try {
@@ -40,13 +44,25 @@ function isInternalRoute(path: string): boolean {
   return path.startsWith('/company') || path.startsWith('/admin');
 }
 
+function internalModeOn(): boolean {
+  try { return localStorage.getItem(INTERNAL_KEY) === '1'; } catch { return false; }
+}
+
+export function setInternalTracking(on: boolean) {
+  try {
+    if (on) localStorage.setItem(INTERNAL_KEY, '1');
+    else localStorage.removeItem(INTERNAL_KEY);
+  } catch { /* noop */ }
+}
+
+export function isInternalTrackingOn(): boolean { return internalModeOn(); }
+
 const INGEST_URL = `${SUPABASE_URL}/functions/v1/traffic-ingest`;
 
 async function post(payload: Record<string, unknown>): Promise<void> {
   const body = JSON.stringify(payload);
   try {
     if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
-      // Beacon doesn't send custom auth header, that's fine — endpoint is verify_jwt=false.
       const blob = new Blob([body], { type: 'application/json' });
       navigator.sendBeacon(INGEST_URL, blob);
       return;
@@ -63,36 +79,67 @@ async function post(payload: Record<string, unknown>): Promise<void> {
 }
 
 let inited = false;
-let queue: string[] = [];
+type QueuedItem = { kind: 'pv'; route: string } | { kind: 'ev'; name: string; props?: Record<string, unknown>; route: string };
+let queue: QueuedItem[] = [];
 let flushTimer: number | null = null;
 const visitor_id = (() => {
   try { return getOrCreateVisitorId(); } catch { return ''; }
 })();
 
-function flushEvents() {
-  if (!queue.length) return;
-  const routes = queue.slice(0, 50);
-  queue = queue.slice(routes.length);
-  post({ kind: 'event', visitor_id, routes, referrer: document.referrer || null });
+function shouldSkip(path: string): boolean {
+  if (!isInternalRoute(path)) return false;
+  return !internalModeOn();
 }
 
-function scheduleFlush() {
+function flushEvents() {
+  if (!queue.length) return;
+  const batch = queue.slice(0, 50);
+  queue = queue.slice(batch.length);
+  const pvRoutes = batch.filter((b): b is { kind: 'pv'; route: string } => b.kind === 'pv').map(b => b.route);
+  const named = batch.filter((b): b is { kind: 'ev'; name: string; props?: Record<string, unknown>; route: string } => b.kind === 'ev');
+  if (pvRoutes.length) {
+    post({ kind: 'event', visitor_id, routes: pvRoutes, referrer: document.referrer || null });
+  }
+  for (const ev of named) {
+    post({
+      kind: 'event', visitor_id,
+      route: ev.route, event_name: ev.name, event_props: ev.props ?? null,
+      referrer: document.referrer || null,
+    });
+  }
+}
+
+function scheduleFlush(delay = 2000) {
   if (flushTimer != null) return;
   flushTimer = window.setTimeout(() => {
     flushTimer = null;
     flushEvents();
-  }, 2000);
+  }, delay);
 }
 
 export function trackPageView(pathname: string) {
   if (!inited || !visitor_id) return;
-  if (isInternalRoute(pathname)) return;
-  queue.push(pathname);
+  if (shouldSkip(pathname)) return;
+  queue.push({ kind: 'pv', route: pathname });
   scheduleFlush();
+}
+
+/**
+ * Track a named feature event. Safe to call from anywhere — no-ops until init.
+ * Flushes within 500ms (faster than page-view batch) so clicks register quickly.
+ */
+export function trackEvent(name: string, props?: Record<string, unknown>) {
+  if (!inited || !visitor_id) return;
+  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  if (shouldSkip(path)) return;
+  queue.push({ kind: 'ev', name, props, route: path });
+  scheduleFlush(500);
 }
 
 function logFirstVisit() {
   if (!visitor_id) return;
+  const path = window.location.pathname;
+  if (shouldSkip(path)) return;
   try {
     const last = Number(localStorage.getItem(VISIT_LOGGED_KEY) || 0);
     if (Date.now() - last < VISIT_TTL_MS) return;
@@ -121,10 +168,9 @@ export function initTrafficTracker() {
   inited = true;
 
   const path = window.location.pathname;
-  if (!isInternalRoute(path)) {
+  if (!shouldSkip(path)) {
     logFirstVisit();
-    // First page view
-    queue.push(path);
+    queue.push({ kind: 'pv', route: path });
     scheduleFlush();
   }
 
