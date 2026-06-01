@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,12 +6,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { isInternalTrackingOn, setInternalTracking } from '@/lib/trafficTracker';
 
 const fmtMoney = (n: number) => `NT$${(n || 0).toLocaleString()}`;
 const fmtNum = (n: number) => (n || 0).toLocaleString();
+const fmtTs = (s?: string | null) => s ? new Date(s).toLocaleString('zh-TW', { hour12: false }) : '—';
 
 function getRange(preset: string): { from: Date; to: Date } {
   const now = new Date();
@@ -32,10 +36,24 @@ interface Overview {
 }
 
 interface AdSpendRow { id: string; utm_campaign: string; yyyymm: string; spend_amount: number; utm_source: string | null; utm_medium: string | null; note: string | null }
+interface FunnelStep { step: string; visitors: number; drop_from_prev: number | null }
+interface EventRow { event_name: string; total_count: number; unique_visitors: number; unique_users: number; last_seen: string }
+interface HealthInfo { visits_total: number; events_total: number; named_events_total: number; last_visit_at: string | null; last_event_at: string | null }
+
+const DEFAULT_FUNNEL = ['pricing_view', 'expert_profile_view', 'expert_subscribe_click', 'checkout_open', 'checkout_success'];
+const FUNNEL_LABEL: Record<string, string> = {
+  pricing_view: '訪問定價頁',
+  expert_profile_view: '看專家頁',
+  expert_subscribe_click: '點訂閱按鈕',
+  checkout_open: '進結帳頁',
+  checkout_success: '完成付款',
+  leaderboard_view: '看戰報榜',
+};
 
 export default function CompanyTraffic() {
   const [preset, setPreset] = useState('this_month');
   const range = useMemo(() => getRange(preset), [preset]);
+  const [internalOn, setInternalOn] = useState(isInternalTrackingOn());
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['traffic-overview', preset],
@@ -46,6 +64,41 @@ export default function CompanyTraffic() {
       });
       if (error) throw error;
       return data as unknown as Overview;
+    },
+  });
+
+  const { data: health, refetch: refetchHealth } = useQuery({
+    queryKey: ['traffic-health'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_traffic_health');
+      if (error) throw error;
+      return data as unknown as HealthInfo;
+    },
+    refetchInterval: 30_000,
+  });
+
+  const { data: funnel } = useQuery({
+    queryKey: ['traffic-funnel', preset],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_funnel_overview', {
+        _from: range.from.toISOString(),
+        _to: range.to.toISOString(),
+        _steps: DEFAULT_FUNNEL,
+      });
+      if (error) throw error;
+      return (data || []) as unknown as FunnelStep[];
+    },
+  });
+
+  const { data: heatmap } = useQuery({
+    queryKey: ['traffic-heatmap', preset],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_event_heatmap', {
+        _from: range.from.toISOString(),
+        _to: range.to.toISOString(),
+      });
+      if (error) throw error;
+      return (data || []) as unknown as EventRow[];
     },
   });
 
@@ -78,7 +131,16 @@ export default function CompanyTraffic() {
     refetchSpend();
   }
 
+  function toggleInternal(v: boolean) {
+    setInternalTracking(v);
+    setInternalOn(v);
+    toast.success(v ? '已開啟 Internal 追蹤（含 /company /admin）— 重新整理頁面後生效' : '已關閉 Internal 追蹤');
+  }
+
+  useEffect(() => { setInternalOn(isInternalTrackingOn()); }, []);
+
   const kpi = data?.kpi;
+  const totalFunnelStart = funnel?.[0]?.visitors || 0;
 
   return (
     <CompanyLayout>
@@ -86,7 +148,7 @@ export default function CompanyTraffic() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-semibold">流量監控</h1>
-            <p className="text-sm text-muted-foreground">流量來源、廣告活動、轉換營收一次看</p>
+            <p className="text-sm text-muted-foreground">流量來源、轉換漏斗、功能熱度、廣告 ROAS 一次看</p>
           </div>
           <div className="flex items-center gap-2">
             <Select value={preset} onValueChange={setPreset}>
@@ -99,9 +161,27 @@ export default function CompanyTraffic() {
                 <SelectItem value="last_3m">近 3 月</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>重新整理</Button>
+            <Button variant="outline" size="sm" onClick={() => { refetch(); refetchHealth(); }}>重新整理</Button>
           </div>
         </div>
+
+        {/* Health banner */}
+        <Card>
+          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+              <span className="text-muted-foreground">資料庫總筆數</span>
+              <span><span className="text-muted-foreground">訪客 </span><b>{fmtNum(health?.visits_total || 0)}</b></span>
+              <span><span className="text-muted-foreground">頁面事件 </span><b>{fmtNum(health?.events_total || 0)}</b></span>
+              <span><span className="text-muted-foreground">具名事件 </span><b>{fmtNum(health?.named_events_total || 0)}</b></span>
+              <span className="text-muted-foreground">上次寫入</span>
+              <span className="font-mono text-xs">{fmtTs(health?.last_event_at || health?.last_visit_at)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch id="internal-mode" checked={internalOn} onCheckedChange={toggleInternal} />
+              <Label htmlFor="internal-mode" className="text-xs cursor-pointer">追蹤 Internal 路徑（/company、/admin）</Label>
+            </div>
+          </CardContent>
+        </Card>
 
         {isLoading && <Card><CardContent className="p-6 text-sm text-muted-foreground">載入中…</CardContent></Card>}
 
@@ -121,6 +201,8 @@ export default function CompanyTraffic() {
         <Tabs defaultValue="overview">
           <TabsList>
             <TabsTrigger value="overview">總覽</TabsTrigger>
+            <TabsTrigger value="funnel">轉換漏斗</TabsTrigger>
+            <TabsTrigger value="events">功能熱度</TabsTrigger>
             <TabsTrigger value="sources">流量來源</TabsTrigger>
             <TabsTrigger value="campaigns">廣告與轉換營收</TabsTrigger>
           </TabsList>
@@ -149,6 +231,79 @@ export default function CompanyTraffic() {
                         <TableCell className="text-right">{fmtMoney(d.gross)}</TableCell>
                       </TableRow>
                     ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="funnel">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">訂閱轉換漏斗（不重複訪客）</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  追蹤步驟：定價頁 → 專家頁 → 按下訂閱 → 進結帳 → 完成付款
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {(funnel || []).map((step, i) => {
+                  const widthPct = totalFunnelStart > 0 ? Math.max(4, (step.visitors / totalFunnelStart) * 100) : 0;
+                  return (
+                    <div key={step.step} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{i + 1}. {FUNNEL_LABEL[step.step] ?? step.step}</span>
+                        <span className="text-muted-foreground">
+                          {fmtNum(step.visitors)} 訪客
+                          {step.drop_from_prev != null && <> · drop {step.drop_from_prev}%</>}
+                        </span>
+                      </div>
+                      <div className="h-6 bg-muted rounded">
+                        <div className="h-full bg-primary/80 rounded transition-all" style={{ width: `${widthPct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {(!funnel || funnel.length === 0) && (
+                  <p className="text-sm text-muted-foreground">尚無漏斗資料。先讓使用者實際操作，事件才會累積。</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="events">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">功能事件熱度</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  以 event_name 群組，顯示總次數、不重複訪客、登入會員數、最後發生時間
+                </p>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>事件</TableHead>
+                      <TableHead className="text-right">次數</TableHead>
+                      <TableHead className="text-right">不重複訪客</TableHead>
+                      <TableHead className="text-right">登入會員</TableHead>
+                      <TableHead className="text-right">人均</TableHead>
+                      <TableHead>最後發生</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(heatmap || []).map((r) => (
+                      <TableRow key={r.event_name}>
+                        <TableCell className="font-mono text-xs">{r.event_name}</TableCell>
+                        <TableCell className="text-right">{fmtNum(r.total_count)}</TableCell>
+                        <TableCell className="text-right">{fmtNum(r.unique_visitors)}</TableCell>
+                        <TableCell className="text-right">{fmtNum(r.unique_users)}</TableCell>
+                        <TableCell className="text-right">{r.unique_visitors > 0 ? (r.total_count / r.unique_visitors).toFixed(1) : '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{fmtTs(r.last_seen)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {(!heatmap || heatmap.length === 0) && (
+                      <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">尚無具名事件</TableCell></TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
