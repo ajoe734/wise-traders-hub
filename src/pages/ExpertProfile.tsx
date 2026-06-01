@@ -375,7 +375,7 @@ const ExpertProfile = () => {
                         <Button variant={isFollowerType ? 'advisor' as any : 'mentor' as any} size="xl" className="w-full" asChild>
                           <Link
                             to={`/checkout/${slug}/${plan.id}`}
-                            onClick={() => trackEvent('expert_subscribe_click', { expert_id: expert?.id, plan_id: plan.id, plan_type: plan.plan_type, price_monthly: plan.price_monthly })}
+                            onClick={() => trackEvent('expert_subscribe_click', { expert_id: expert?.id, plan_id: plan.id, plan_type: (plan as any).planType ?? (plan as any).plan_type, price_monthly: (plan as any).priceMonthly ?? (plan as any).price_monthly })}
                           >立即訂閱<ArrowRight className="h-4 w-4 ml-2" /></Link>
                         </Button>
 
