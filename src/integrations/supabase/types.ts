@@ -2570,6 +2570,8 @@ export type Database = {
       }
       traffic_events: {
         Row: {
+          event_name: string | null
+          event_props: Json | null
           id: string
           occurred_at: string
           referrer_host: string | null
@@ -2578,6 +2580,8 @@ export type Database = {
           visitor_id: string
         }
         Insert: {
+          event_name?: string | null
+          event_props?: Json | null
           id?: string
           occurred_at?: string
           referrer_host?: string | null
@@ -2586,6 +2590,8 @@ export type Database = {
           visitor_id: string
         }
         Update: {
+          event_name?: string | null
+          event_props?: Json | null
           id?: string
           occurred_at?: string
           referrer_host?: string | null
@@ -3049,12 +3055,27 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_event_heatmap: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          event_name: string
+          last_seen: string
+          total_count: number
+          unique_users: number
+          unique_visitors: number
+        }[]
+      }
       get_expert_capital_status: { Args: { _expert_id: string }; Returns: Json }
       get_expert_detail_bundle: { Args: { _slug: string }; Returns: Json }
+      get_funnel_overview: {
+        Args: { _from: string; _steps: string[]; _to: string }
+        Returns: Json
+      }
       get_knowledge_revision: { Args: never; Returns: string }
       get_perf_metrics_summary: { Args: { _days?: number }; Returns: Json }
       get_pricing_bundle: { Args: { _user_id?: string }; Returns: Json }
       get_public_experts_list: { Args: never; Returns: Json }
+      get_traffic_health: { Args: never; Returns: Json }
       get_traffic_overview: {
         Args: { _from: string; _to: string }
         Returns: Json
