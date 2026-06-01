@@ -9,6 +9,8 @@ import { PricingPlanCard, type PricingPlan } from './_pricing/PricingPlanCard';
 import { PricingExampleModal } from './_pricing/PricingExampleModal';
 import { PricingFaq } from './_pricing/PricingFaq';
 import { CheckupPlansSection } from './_pricing/CheckupPlansSection';
+import { trackEvent } from '@/lib/trafficTracker';
+
 
 const Pricing = () => {
   const [exampleModalOpen, setExampleModalOpen] = useState(false);
@@ -37,6 +39,9 @@ const Pricing = () => {
     const timer = setTimeout(() => setShowHint(false), 4000);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => { trackEvent('pricing_view'); }, []);
+
 
   const openExample = (type: 'follower' | 'cultivator') => {
     setActiveExample(type);

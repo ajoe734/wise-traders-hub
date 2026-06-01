@@ -18,6 +18,8 @@ import { PaymentMethodPicker } from './_checkout/PaymentMethodPicker';
 import { OrderSummaryCard } from './_checkout/OrderSummaryCard';
 import { CheckoutResultDialog, type CheckoutResult } from './_checkout/CheckoutResultDialog';
 import { RemittanceAccountCard } from './_remittance/RemittanceAccountCard';
+import { trackEvent } from '@/lib/trafficTracker';
+
 
 
 interface DbPlan {
@@ -72,8 +74,12 @@ const Checkout = () => {
     if (resultDialog?.open && resultDialog?.success) {
       (window as any).dataLayer = (window as any).dataLayer || [];
       (window as any).dataLayer.push({ event: 'Purchase' });
+      trackEvent('checkout_success', { plan_id: planId, slug });
     }
-  }, [resultDialog?.open, resultDialog?.success]);
+  }, [resultDialog?.open, resultDialog?.success, planId, slug]);
+
+  useEffect(() => { trackEvent('checkout_open', { plan_id: planId, slug }); }, [planId, slug]);
+
   // Idempotency key for remittance order creation — kept stable per page session
   const remittanceReqIdRef = useRef<string>(typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
   // Synchronous guard against rapid double-clicks before React re-renders isProcessing

@@ -13,6 +13,9 @@ import { avatarUrl } from '@/lib/imageTransform';
 import { LazyOnVisible } from '@/components/LazyOnVisible';
 import { useExpertDetailBundle } from '@/hooks/useExpert';
 import { ExpertFetchError } from '@/components/ExpertFetchError';
+import { useEffect } from 'react';
+import { trackEvent } from '@/lib/trafficTracker';
+
 
 const PerformanceOverviewPanel = lazy(() =>
   import('@/components/strategy/PerformanceOverviewPanel').then((m) => ({
@@ -48,6 +51,11 @@ const ExpertProfile = () => {
 
   const expertNotFound = bundleFetched && !expert;
   const loading = bundleLoading && !expert;
+
+  useEffect(() => {
+    if (expert?.id) trackEvent('expert_profile_view', { expert_id: expert.id, slug: expert.slug, role: expert.role });
+  }, [expert?.id, expert?.slug, expert?.role]);
+
 
   // Adapt `PersonWithPlans` → the panel/render shape this file used before.
   const expertInfo = expert
@@ -365,8 +373,12 @@ const ExpertProfile = () => {
                         </Button>
                       ) : (
                         <Button variant={isFollowerType ? 'advisor' as any : 'mentor' as any} size="xl" className="w-full" asChild>
-                          <Link to={`/checkout/${slug}/${plan.id}`}>立即訂閱<ArrowRight className="h-4 w-4 ml-2" /></Link>
+                          <Link
+                            to={`/checkout/${slug}/${plan.id}`}
+                            onClick={() => trackEvent('expert_subscribe_click', { expert_id: expert?.id, plan_id: plan.id, plan_type: plan.plan_type, price_monthly: plan.price_monthly })}
+                          >立即訂閱<ArrowRight className="h-4 w-4 ml-2" /></Link>
                         </Button>
+
                       )}
                     </CardContent>
                   </Card>
