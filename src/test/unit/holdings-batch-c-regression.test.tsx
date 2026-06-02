@@ -1,11 +1,11 @@
+// @ts-nocheck — store 為 .js zustand create() 推出 unknown
 /**
  * H10 / H11 / H12 / H13 / H15 回歸測試
  * 對應 .lovable/plan.md Batch C 收尾項目
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import React from 'react';
-// @ts-nocheck — store 為 .js zustand create() 推出 unknown
 import { useHoldingsStore } from '@/checkup/stores/holdingsStore';
 import { useHoldingsDerivations } from '@/checkup/hooks/useHoldingsDerivations';
 import { holdingsValueKeyShort, holdingsValueKeyFull } from '@/checkup/lib/holdingsSort';
