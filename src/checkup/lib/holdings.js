@@ -3,6 +3,9 @@
  *
  * This module handles all holdings-related calculations and normalizations.
  * It's designed to be pure and testable, with no side effects.
+ *
+ * H6（audit 2026-06）：所有 pnl/pct/value 計算必經 holdingMath.ts；本檔禁止
+ * 出現 `(price-cost)*qty` 字面 pattern（由 scripts/check-holdings-formula-singleton.mjs CI 守門）。
  */
 
 import {
@@ -10,6 +13,10 @@ import {
   calculateHoldingMarketValue,
   calculateHoldingReturnPct,
   calculateHoldingUnrealizedPnl,
+  calcPnlWithNet,
+  calcRemainingCostAfterPartialSell,
+  calcWeightedAvgCost,
+  toSafeNumber,
 } from './holdingMath.ts'
 
 // ── Price resolution ─────────────────────────────────────────────────────
@@ -61,29 +68,39 @@ export function getHoldingMarketValue(item, overridePrice = null) {
 }
 
 /**
- * Get unrealized P&L for a holding
+ * Get unrealized P&L for a holding.
+ * H6: 優先用 calcPnlWithNet（精確模式 / 統一公式入口），徹底消滅散落的 (price-cost)*qty。
  */
 export function getHoldingUnrealizedPnl(item, overridePrice = null) {
   if (!item || typeof item !== 'object') return 0
 
   // Use pre-calculated pnl if available
-  if (typeof item.pnl === 'number') return item.pnl
+  if (typeof item.pnl === 'number' && Number.isFinite(item.pnl)) return item.pnl
 
   const price = resolveHoldingPrice(item, overridePrice)
-  return calculateHoldingUnrealizedPnl(price, item?.qty, item?.cost)
+  const { pnl } = calcPnlWithNet(
+    { qty: item.qty, cost: item.cost, totalCost: item.totalCost, fee: item.fee, code: item.code },
+    price
+  )
+  return pnl
 }
 
 /**
  * Get return percentage for a holding
+ * H7: 透過 calcPnlWithNet 統一處理 cost=0 / Infinity 防護。
  */
 export function getHoldingReturnPct(item, overridePrice = null) {
   if (!item || typeof item !== 'object') return 0
 
   // Use pre-calculated pct if available
-  if (typeof item.pct === 'number') return item.pct
+  if (typeof item.pct === 'number' && Number.isFinite(item.pct)) return item.pct
 
   const price = resolveHoldingPrice(item, overridePrice)
-  return calculateHoldingReturnPct(price, item?.qty, item?.cost)
+  const { pct } = calcPnlWithNet(
+    { qty: item.qty, cost: item.cost, totalCost: item.totalCost, fee: item.fee, code: item.code },
+    price
+  )
+  return pct
 }
 
 /**
@@ -183,17 +200,25 @@ export function applyTradeEntryToHoldings(rows, trade, quotes = null) {
   if (trade.action === '買進') {
     if (idx >= 0) {
       const h = arr[idx]
-      const nq = (Number(h.qty) || 0) + qty
+      const currentQty = toSafeNumber(h.qty)
+      const nq = currentQty + qty
       if (nq === 0) return normalizeHoldings(arr, quotes)
 
-      const cost = Number(h.cost) || 0
-      const nc = (cost * (Number(h.qty) || 0) + price * qty) / nq
+      // H6/H8: 走 calcWeightedAvgCost 統一入口
+      const nc = calcWeightedAvgCost(toSafeNumber(h.cost), currentQty, price, qty)
+
+      // 加碼同步累加 totalCost / fee（精確模式才有意義；無則保持 null）
+      const addCost = price * qty
+      const newTotalCost = h.totalCost != null ? toSafeNumber(h.totalCost) + addCost : null
+      const newFee = h.fee != null ? toSafeNumber(h.fee) + toSafeNumber(trade.fee) : null
 
       arr[idx] = {
         ...h,
         qty: nq,
         price,
         cost: Math.round(nc * 100) / 100,
+        totalCost: newTotalCost,
+        fee: newFee,
       }
     } else {
       arr.push({
@@ -208,19 +233,27 @@ export function applyTradeEntryToHoldings(rows, trade, quotes = null) {
     return normalizeHoldings(arr, quotes)
   }
 
-  // Sell action
+  // Sell action — H8: 部分賣出需按比例縮減 totalCost / fee，否則平均成本失真
   if (idx >= 0) {
     const h = arr[idx]
-    const currentQty = Number(h.qty) || 0
+    const currentQty = toSafeNumber(h.qty)
     const nq = Math.max(0, currentQty - qty)
 
     if (nq === 0) {
       arr.splice(idx, 1)
     } else {
+      const { newTotalCost, newFee } = calcRemainingCostAfterPartialSell(
+        h.totalCost != null ? toSafeNumber(h.totalCost) : null,
+        h.fee != null ? toSafeNumber(h.fee) : null,
+        nq,
+        currentQty
+      )
       arr[idx] = {
         ...h,
         qty: nq,
         price,
+        totalCost: newTotalCost,
+        fee: newFee,
       }
     }
   }
@@ -343,24 +376,30 @@ export function groupHoldingsByType(holdings) {
 
 /**
  * Sort holdings by P&L
+ * H2 (audit 2026-06): 用 toSafeNumber 而非 `Number() || 0`，避免 pnl=0 被當缺值
  */
 export function sortHoldingsByPnl(holdings, direction = 'desc') {
   if (!Array.isArray(holdings)) return []
   return [...holdings].sort((a, b) => {
-    const aPnl = Number(a?.pnl) || 0
-    const bPnl = Number(b?.pnl) || 0
+    const aPnl = toSafeNumber(a?.pnl)
+    const bPnl = toSafeNumber(b?.pnl)
     return direction === 'desc' ? bPnl - aPnl : aPnl - bPnl
   })
 }
 
 /**
  * Sort holdings by return percentage
+ * H2 (audit 2026-06): pct=0 必須與 pct=null 區分（後者排到尾端）
  */
 export function sortHoldingsByReturn(holdings, direction = 'desc') {
   if (!Array.isArray(holdings)) return []
   return [...holdings].sort((a, b) => {
-    const aPct = Number(a?.pct) || 0
-    const bPct = Number(b?.pct) || 0
+    const aPct = a?.pct == null ? null : toSafeNumber(a.pct, null)
+    const bPct = b?.pct == null ? null : toSafeNumber(b.pct, null)
+    // null 永遠排到尾端
+    if (aPct == null && bPct == null) return 0
+    if (aPct == null) return 1
+    if (bPct == null) return -1
     return direction === 'desc' ? bPct - aPct : aPct - bPct
   })
 }

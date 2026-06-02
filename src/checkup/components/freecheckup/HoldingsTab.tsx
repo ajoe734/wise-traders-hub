@@ -5,6 +5,8 @@ import { useViewportWidth } from "@/hooks/useViewportWidth";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 import { useHoldingsDerivations } from "@/checkup/hooks/useHoldingsDerivations";
 import { validateProps } from "@/checkup/components/freecheckup/_validateProps.js";
+// @analytics-required: checkup_holdings_sort_change
+import { track } from "@/lib/analytics/events";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
 import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
@@ -270,8 +272,11 @@ function HoldingsTab(props) {
               aria-pressed={active}
               aria-label={`依${l}排序，目前${dirLabel}`}
               onClick={()=>{
-                if (active) setSortDir(d => d === "desc" ? "asc" : "desc");
-                else { setSortBy(k); setSortDir("desc"); }
+                let nextDir;
+                if (active) { nextDir = sortDir === "desc" ? "asc" : "desc"; setSortDir(nextDir); }
+                else { nextDir = "desc"; setSortBy(k); setSortDir("desc"); }
+                // H3: analytics
+                try { track('checkup_holdings_sort_change', { sort_by: k, sort_dir: nextDir }); } catch {}
               }}
               style={{
                 background:"transparent",

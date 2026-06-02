@@ -74,15 +74,26 @@ export const useHoldingsStore = create((set, get) => ({
   setReversalConditions: makeSetter('reversalConditions')(set),
 
   // Granular actions — Holdings
+  // H17 (audit 2026-06): 入口驗證 — 空 code / 非有限 qty / qty<=0 一律 no-op，
+  //                       避免污染 store 後 derive 出 NaN/Infinity。
   upsertHolding: (holding) => set((state) => {
+    const code = String(holding?.code || '').trim();
+    const qty = Number(holding?.qty);
+    if (!code || !Number.isFinite(qty) || qty <= 0) return {};
+    const sanitized = {
+      ...holding,
+      code,
+      qty,
+      price: Math.max(0, Number(holding?.price) || 0),
+    };
     const list = asArr(state.holdings);
-    const idx = list.findIndex(h => h.code === holding.code);
+    const idx = list.findIndex(h => h.code === code);
     if (idx >= 0) {
       const next = [...list];
-      next[idx] = holding;
+      next[idx] = sanitized;
       return { holdings: next };
     }
-    return { holdings: [...list, holding] };
+    return { holdings: [...list, sanitized] };
   }),
   removeHolding: (code) => set((state) => ({
     holdings: asArr(state.holdings).filter(h => h.code !== code),
@@ -129,23 +140,24 @@ export const useHoldingsStore = create((set, get) => ({
   // Selectors (null-tolerant)
   getHoldingByCode: (code) => asArr(get().holdings).find(h => h.code === code) || null,
 
+  // H2 (audit 2026-06): `||` → `??`，pnl=0 不被當缺值
   getHoldingsSummary: () => {
     const list = asArr(get().holdings);
-    const totalValue = list.reduce((sum, h) => sum + (h.value || 0), 0);
-    const totalCost = list.reduce((sum, h) => sum + (h.cost || 0) * (h.qty || 0), 0);
+    const totalValue = list.reduce((sum, h) => sum + (h.value ?? 0), 0);
+    const totalCost = list.reduce((sum, h) => sum + (h.cost ?? 0) * (h.qty ?? 0), 0);
     const totalPnl = totalValue - totalCost;
     const totalRetPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
     return { totalValue, totalCost, totalPnl, totalRetPct, count: list.length };
   },
 
   getTopGainers: (limit = 5) =>
-    [...asArr(get().holdings)].sort((a, b) => (b.pct || 0) - (a.pct || 0)).slice(0, limit),
+    [...asArr(get().holdings)].sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0)).slice(0, limit),
 
   getTopLosers: (limit = 5) =>
-    [...asArr(get().holdings)].sort((a, b) => (a.pct || 0) - (b.pct || 0)).slice(0, limit),
+    [...asArr(get().holdings)].sort((a, b) => (a.pct ?? 0) - (b.pct ?? 0)).slice(0, limit),
 
   getTop5: () =>
-    [...asArr(get().holdings)].sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 5),
+    [...asArr(get().holdings)].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, 5),
 
   getHoldingsWithAlerts: () =>
     asArr(get().holdings).filter(h => h.alert && h.alert.trim() !== ''),

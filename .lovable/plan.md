@@ -1,77 +1,138 @@
-# C 系列（CRITICAL 11 項）修復計畫
+# H 系列（HIGH 17 項）修復計畫
 
-## 關於 C1 後台權限的回答
+## 修復分批
 
-**會看得到，不受影響。** C1 的修法只擋「`expertId` 為 undefined 就不查」這個漏洞。
-後台 (company / admin) 看任何專家持倉時，都是**明確帶 `expertId` 參數**進 `useMyHoldings(expertId)`，hook 內會 `.eq('expert_id', expertId)`，所以後台一樣完整可見。
-真正被擋掉的只有「呼叫時忘了帶 ID → 回傳所有人 open 部位」這種洩漏路徑。
+### Batch A — 數字正確性（H1 / H2 / H6 / H7 / H8 / H9 / H17）
 
-修完後我會 grep 全站 `useMyHoldings(` 呼叫點，確認後台頁面（如 `company/Analysts.tsx`、`admin/*`）都有正確帶入，不會誤擋。
+集中收斂到 **3 個檔案**，避免散點補丁：
+
+1. **`src/checkup/lib/holdingMath.ts`**
+   - 新增 `toSafeNumber(v, fallback=0)`：`Number(v)` → `isFinite` → fallback，吸收 string/null/undefined（解 **H1 NaN**）
+   - 所有 `calculateHolding*` 函式內部一律走 `toSafeNumber`，禁止裸 `Number()` 減法
+   - `calculateHoldingReturnPct`：`costBasis <= 0` 已 return 0，補上 `!isFinite(costBasis)` 防呆（解 **H7 cost=0 Infinity**）
+
+2. **`src/checkup/lib/holdings.js`**
+   - `getHoldingUnrealizedPnl` / `getHoldingReturnPct` 內目前「有 item.pnl 就直接用」是 fallback 來源不一致的根（**H6**）。改：先檢查 `item.totalCost && item.fee` 走精確模式 `calcPnlWithNet`；否則才走 `(price-cost)*qty`，**唯一公式入口**
+   - `applyTradeEntryToHoldings` 賣出分支：呼叫 `calcRemainingCostAfterPartialSell` 同步縮減 `totalCost` / `fee`，避免「老 leg 殘留」總成本重複計（**H8**）
+   - 排序輔助 `sortHoldingsByPnl/Return`：`||` → `??`（**H2**）
+
+3. **`src/checkup/stores/holdingsStore.js`**
+   - `getTopGainers/Losers`：`(b.pct || 0)` → `(b.pct ?? 0)`（**H2**）
+   - `getHoldingsSummary`：同樣 `||` → `??`，並改用 `lib/holdings` 的 aggregation helper 統一公式（**H6** 連鎖）
+   - `upsertHolding` 入口驗證（**H17**）：
+     ```js
+     const code = String(holding?.code || '').trim();
+     const qty = Number(holding?.qty);
+     if (!code || !Number.isFinite(qty) || qty <= 0) return state; // no-op
+     const price = Math.max(0, Number(holding?.price) || 0);
+     ```
+   - **H9** map 殘留：`removeHolding` 已用 filter 正確，但 `applyTradeEntryToHoldings` 全部賣出後要從陣列 splice（目前 lib 已做，需在 store `upsertHolding` path 也對齊：qty=0 = remove）
+
+### Batch B — Analytics 三缺口（H3 / H4 / H5）
+
+集中在 `src/lib/analytics/events.ts` 新增三個 event，並補打點：
+
+1. **H3 — `checkup_holdings_sort_change`**
+   - 加事件型別到 events.ts
+   - `HoldingsTab.tsx` L267-289 排序按鈕 onClick 內 `track('checkup_holdings_sort_change', { sortBy, sortDir })`
+
+2. **H4 — filter / toggle 事件**
+   - `HoldingsFilterBar` 內 6 個 setFilter* 與 toggleSetItem 統一封裝為 `useTrackedFilter`，發送 `checkup_holdings_filter_change`
+
+3. **H5 — `onUpdateTarget` / `onUpdateAlert` 落地**
+   - `HoldingsTable.jsx` L55-60 的 callback 內補 `track('checkup_holding_target_set' / '_alert_set', { code })`
+   - `usePortfolioPanelsContextComposer.js` L247-248 的 wrapper 同步打點（cover 卡片版入口）
+
+### Batch C — 效能 + 穩定性（H10 / H11 / H12 / H13 / H14 / H15 / H16）
+
+1. **H11 `holdingsValueKey` deps 失準**：`useRouteHoldingsPage.js` L24/27 已用 valueKey 鎖 reference，但 L27 `useMemo(() => holdingsRaw || EMPTY, [holdingsValueKey])` deps **少了 `holdingsRaw`**，eslint-disable 註解要拿掉，補成 `[holdingsValueKey, holdingsRaw]`（valueKey 變 → raw 必變，不會破壞穩定性）
+2. **H12 variantsMap memo**：`useHoldingsDerivations.js` 的 `variantsMap` deps 為 `[displayed, safeDecisionsMap]`，但 `safeDecisionsMap` 是 `decisionsMap || {}` 每次新物件 → memo 永遠失效。改為 `useMemo(() => decisionsMap || EMPTY_OBJ, [decisionsMap])` 後再傳入
+3. **H13 `Short` key 不穩**：`holdingsSort.ts` `holdingsValueKeyShort` 只取前幾碼會碰撞；改用 `holdingsValueKeyFull` 或加上 length suffix
+4. **H14 URGENCY_RANK 不一致**：
+   - `holdingsSort.ts`：`{ now, soon, monitor }`
+   - `useHoldingDecision.js`：`{ high, medium, low }`
+   - **統一為 `{ now: 3, soon: 2, monitor: 1 }`**（與 decision text 對齊），`useHoldingDecision` 內所有產出 urgency 的地方一併校正；加 unit test 鎖死
+5. **H15 render 內 `.sort()`**：`HoldingsTab.tsx` L296 `sorted.find(...)` 是 O(n) find OK；但 L350 `orderedDisplayed.map` 來源 `orderedDisplayed` 已是 useMemo，OK。真正問題在 `holdingsStore` selector `getTop*` 每次呼叫都 spread+sort — 改成 zustand selector + shallow，或把計算丟到 `useHoldingsDerivations`
+6. **H16 useEffect ref 同步缺 dep**：找 `HoldingsTab` 內所有 `useRef` + `useEffect` pairing，eslint `react-hooks/exhaustive-deps` 跑過一次補齊
+7. **H10 ErrorBoundary / Suspense**：
+   - `HoldingsPage.jsx` 包一層 `<HoldingsErrorBoundary>` + `<Suspense fallback={<HoldingsSkeleton/>}>`
+   - 新增 `src/checkup/components/holdings/HoldingsErrorBoundary.tsx`（class component，捕捉 + 上報 + 重置 CTA）
 
 ---
 
-## 修復順序與內容
+## 驗證流程（每批跑一次，全紅才放行下一批）
 
-### Batch A — 資料安全與崩潰防護（C1 / C2 / C11）
-- **C1** `src/hooks/useMyTradeRecordHoldings.ts`
-  - 加 `enabled: !!expertId`
-  - 移除 `if (expertId)` 條件分支，改成「沒 ID 就不查」
-- **C2** `src/checkup/stores/holdingsStore.js`
-  - `setHoldings` 等 setter 在 functional update 時，若 `prev == null` 直接 `return prev`，避免破壞 hydration sentinel
-- **C11** Holdings 渲染端
-  - `globalPriorityList?.map(...)`、`sorted?.slice(0,12) ?? []` 加防呆預設值
+```bash
+bunx vitest run src/test/unit/1.3-holding-math.test.ts \
+                src/test/unit/holdings-page.test.tsx \
+                src/test/unit/holdings-sort.test.ts \
+                src/test/unit/checkup-store-backed-hooks.test.tsx
+bunx playwright test e2e/freecheckup-card.spec.ts
+node scripts/check-freecheckup-rwd.mjs
+```
 
-### Batch B — Rules of Hooks（C3）
-- `HoldingsTab.jsx`：`useCheckupMode()` 移至元件頂層，預設 `{ isDemo: false }`
-
-### Batch C — 計算正確性（C5 / C6 / C9）
-- **C5** 定位佔比分母改為 `posTotal`（該持倉小計），非 `indTotal`（產業總和）
-- **C6** `useRouteHoldingsPage.js` + `holdings.js`
-  - `totalCost` / `totalVal` / pnl 聚合**排除 `integrityIssue === 'missing-price'`**
-  - 同時擴充 `buildHoldingPriceHints`：補上「最近一次收盤價」fallback 來源（從 `analysis_history` + `stock_prices` 表 / Edge function），讓缺價持倉盡量拿到價，治本
-- **C9** `shouldAdoptCloudHoldings` 比較鍵加上 `alert` 與 `targetPrice`
-
-### Batch D — 行動版 RWD（C8 / C10）
-- **C8** HoldingCard 的 ROI class 名稱與 `<style>` block 對齊（`wb-card-pnl-num` / `wb-roi` 兩個都加上）
-- **C10** ROI 字級從 `fontSize: 32` 改為 `clamp(18px, 4vw, 22px)` + `≤560px` / `≤380px` media query
-
-### C4 / C7 — 不改
-- C4 灰跌色為刻意設計，保留
-- C7 demo 顯示一次收盤分析為產品設計，保留
+新增測試（鎖死回歸）：
+- `holding-math.test.ts`：`toSafeNumber('5.2')`、`null`、`undefined`、`NaN`、`'abc'` → 正確 fallback；`pnl(cost=0)` → 0 而非 Infinity；`pnl(qty='100')` → 正確
+- `holdings-sort.test.ts`：`URGENCY_RANK` 三值排序、`pct=0` 不被當缺值
+- 新增 `holdings-store.test.ts`：`upsertHolding({qty:0})` no-op、`upsertHolding({code:''})` no-op、partial sale 後 `totalCost` 等比例縮減
+- 新增 `holdings-analytics.test.ts`：mock `track`，斷言 sort / filter / target / alert 點擊各觸發一次
 
 ---
 
-## 驗證（每個 batch 修完跑一次）
+## 5 輪自我檢討（一勞永逸防回歸）
 
-1. `bunx vitest run src/test/unit/1.3-holding-math.test.ts src/test/unit/holdings-page.test.tsx src/test/unit/holdings-sort.test.ts src/test/unit/checkup-store-backed-hooks.test.tsx`
-2. `bunx playwright test e2e/freecheckup-card.spec.ts`
-3. `node scripts/check-freecheckup-rwd.mjs`
-4. grep 確認後台 `useMyHoldings(` 全部有帶 `expertId`
-5. 手動 QA（preview）：
-   - `/holding-checkup` 390/560/768 三斷點檢視 ROI 不溢出
-   - 持倉看板有缺價標的時，總報酬率不再被汙染
-   - 修改 alert / targetPrice 後雲端同步會觸發
+### 第 1 輪 — 「補丁是否變成新地雷？」
+- ❌ `||→??` 散落 10+ 處：每次改都要記得，未來必回歸
+  - ✅ 修法：寫 ESLint custom rule `no-or-zero-on-pct`（或用 `no-restricted-syntax` 樣板）禁止 `pct || ` / `pnl || `，CI 擋下
+- ❌ `Number()` 裸用同理
+  - ✅ 強制走 `toSafeNumber`，加 ESLint 禁 `holdings.js` / `holdingMath.ts` 以外檔案直接 `Number(item.qty|cost|price|pct|pnl)`
 
-驗證有任何一條紅，就回到對應 batch 補修，不放行下一批。
+### 第 2 輪 — 「公式真的只剩一處嗎？」
+- 目前 PnL 算法散在：`holdings.js`、`holdingMath.ts`、`holdingsStore` selector、`HoldingsHero` props 預算、`useRouteHoldingsPage` aggregate、`HoldingCard` 顯示時 fallback
+- ✅ 規約：**所有 pnl/pct/value 必經 `holdingMath.ts` 函式**；其它檔案 import，禁止再寫 `(price-cost)*qty`
+- ✅ 加 grep gate：`scripts/check-holdings-formula-singleton.mjs`，掃描 `*qty.*-.*cost|cost.*\*.*qty` 字面 pattern，白名單只放 `holdingMath.ts`，CI 跑
+
+### 第 3 輪 — 「Analytics 缺口會不會再次出現？」
+- 根因：track 是 fire-and-forget，沒回呼，漏寫無人知
+- ✅ 在 `src/lib/analytics/events.ts` 定義 `HoldingsEventMap` discriminated union；
+- ✅ `HoldingsTab` / `HoldingsFilterBar` / `HoldingsTable` 三個檔案頂端各放 `// @analytics-required: sort_change, filter_change, target_set, alert_set` 註解 + 對應 unit test 透過 fast-glob 掃註解 → 確保註解列出的事件名稱實際被 import/呼叫
+- ✅ 一旦未來新增 filter 維度，TypeScript event payload 缺欄位會編譯失敗
+
+### 第 4 輪 — 「memo / deps 漏洞還有沒有？」
+- 風險清單（這次審計外）：
+  - `useHoldingsDerivations` 其餘 5 個 useMemo
+  - `HoldingsTab` 內 `cardGridCols` (已 OK)、`renderCard` 非 memo（每次 new fn，但傳入 memo 子元件無影響因 HoldingCard 用 React.memo + dep 比較）
+  - `useRouteHoldingsPage` return 物件每次新建（已用 useMemo 包，OK）
+- ✅ 動作：開啟 `react-hooks/exhaustive-deps` 為 **error** 等級（目前是 warn），全部 eslint-disable 註解要附 PR 連結+理由
+- ✅ 補 React DevTools Profiler 截圖規範：每次改 HoldingsTab 必貼「同樣操作 commit 數對比」
+
+### 第 5 輪 — 「ErrorBoundary 真的接得住嗎？」
+- 風險：ErrorBoundary 只接 render 期，event handler / async 不接
+- ✅ `HoldingsErrorBoundary` 接 render 期錯誤
+- ✅ `holdingsStore` setter 既有 try/catch 接 functional updater 拋錯
+- ✅ 補 global `window.addEventListener('unhandledrejection', ...)` 在 `App.tsx`（若已有則覆寫白名單），把 holdings 相關 async 失敗上報
+- ✅ 加 e2e：故意傳 `upsertHolding({code:null})`、`setHoldings(()=>{throw 1})`，斷言 UI 不變白屏
 
 ---
 
-## 技術細節（給工程參考）
+## 一勞永逸護欄總表（修完後永久啟用）
 
-- C2 setter 範例：
-  ```js
-  const makeSetter = (key) => (set) => (next) =>
-    set((state) => {
-      if (typeof next !== 'function') return { [key]: next }
-      const prev = state[key]
-      if (prev == null) return {} // sentinel 保護
-      return { [key]: next(prev) }
-    })
-  ```
-- C6 聚合範例：
-  ```js
-  const valid = holdings.filter(h => h.integrityIssue !== 'missing-price')
-  const totalVal  = valid.reduce((s,h) => s + (h.value||0), 0)
-  const totalCost = valid.reduce((s,h) => s + (Number(h.cost)||0)*(Number(h.qty)||0), 0)
-  ```
-- C6 補價來源優先序：`quotes` → `priceHints(analysis_history)` → 新增 `stock_prices` 表最近收盤 → `item.price`
+| 護欄 | 阻擋 | 位置 |
+|---|---|---|
+| ESLint `no-or-zero-on-pct` | H2 回歸 | `eslint.config.js` |
+| ESLint 禁裸 `Number(item.qty\|cost...)` | H1 回歸 | `eslint.config.js` |
+| `check-holdings-formula-singleton.mjs` | H6 回歸 | CI |
+| `URGENCY_RANK` 單一 export from `holdingsSort.ts` | H14 回歸 | grep gate |
+| `react-hooks/exhaustive-deps: error` | H11/H12/H16 回歸 | `eslint.config.js` |
+| `HoldingsEventMap` + `@analytics-required` 註解掃描 | H3/H4/H5 回歸 | unit test |
+| `HoldingsErrorBoundary` + unhandledrejection | H10 回歸 | App 啟動 |
+| `upsertHolding` 入口驗證 + unit test | H17 回歸 | store |
+
+---
+
+## 不在 H 系列範圍（保留現狀）
+- C4 灰跌色（刻意設計）
+- C7 demo 收盤分析顯示策略
+- 後台 `useMyHoldings(expertId)` 路徑（C1 已驗證不受影響）
+
+驗證任何一條紅 → 回到對應 batch 補修，不放行。完成後 mem 記錄「H 系列護欄憲法」。

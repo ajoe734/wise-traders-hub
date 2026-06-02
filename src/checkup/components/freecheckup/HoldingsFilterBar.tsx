@@ -1,8 +1,22 @@
 // HoldingsFilterBar — 抽自 FreeCheckup.jsx (原 IIFE @ L3739-L3858)。
 // 行為對等：搜尋框 + 折疊式 Filter chips + Active tags + 計數器。
 // React.memo 保護：父層每秒 quote tick 不會 re-render filter bar，但 Set props 變動時仍會更新。
+// @analytics-required: checkup_holdings_filter_change
 import { memo } from 'react';
 import { validateProps } from './_validateProps.js';
+import { track } from '@/lib/analytics/events';
+
+const trackFilter = (dimension, setter) => (value) => {
+  let action = 'add';
+  try {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) { next.delete(value); action = 'remove'; } else { next.add(value); action = 'add'; }
+      return next;
+    });
+    track('checkup_holdings_filter_change', { dimension, value: String(value), action });
+  } catch {}
+};
 
 const SCHEMA = {
   totalCount: 'number',
@@ -52,12 +66,19 @@ function chipBtn(active, onClick, label, key, C, alpha) {
   );
 }
 
-function FilterGroup({ label, options, set, setter, toggleSetItem, C, alpha }) {
+function FilterGroup({ label, dimension, options, set, setter, toggleSetItem, C, alpha }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <span style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.08em', fontWeight: 400, minWidth: 36 }}>{label}</span>
       {options.map(([val, l]) =>
-        chipBtn(set.has(val), () => toggleSetItem(setter)(val), l, val, C, alpha)
+        chipBtn(set.has(val), () => {
+          toggleSetItem(setter)(val);
+          try {
+            track('checkup_holdings_filter_change', {
+              dimension, value: String(val), action: set.has(val) ? 'remove' : 'add',
+            });
+          } catch {}
+        }, l, val, C, alpha)
       )}
     </div>
   );
@@ -129,13 +150,13 @@ function HoldingsFilterBarImpl(props) {
           Filters {activeTags.length > 0 ? `(${activeTags.length})` : ''} <span style={{ opacity: 0.5, marginLeft: 4 }}>▾</span>
         </summary>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-          <FilterGroup label="決策" options={DEC_OPTS} set={filterDecision} setter={setFilterDecision} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
-          <FilterGroup label="論點" options={TH_OPTS} set={filterThesis} setter={setFilterThesis} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
-          <FilterGroup label="緊急" options={UR_OPTS} set={filterUrgency} setter={setFilterUrgency} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
-          <FilterGroup label="衝突" options={CF_OPTS} set={filterConflict} setter={setFilterConflict} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
-          <FilterGroup label="損益" options={PNL_OPTS} set={filterPnl} setter={setFilterPnl} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+          <FilterGroup label="決策" dimension="decision" options={DEC_OPTS} set={filterDecision} setter={setFilterDecision} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+          <FilterGroup label="論點" dimension="thesis" options={TH_OPTS} set={filterThesis} setter={setFilterThesis} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+          <FilterGroup label="緊急" dimension="urgency" options={UR_OPTS} set={filterUrgency} setter={setFilterUrgency} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+          <FilterGroup label="衝突" dimension="conflict" options={CF_OPTS} set={filterConflict} setter={setFilterConflict} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+          <FilterGroup label="損益" dimension="pnl" options={PNL_OPTS} set={filterPnl} setter={setFilterPnl} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
           {strategyOptions.length > 0 && (
-            <FilterGroup label="題材" options={strategyOptions.map((s) => [s, s])} set={filterStrategy} setter={setFilterStrategy} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+            <FilterGroup label="題材" dimension="strategy" options={strategyOptions.map((s) => [s, s])} set={filterStrategy} setter={setFilterStrategy} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
           )}
         </div>
       </details>
