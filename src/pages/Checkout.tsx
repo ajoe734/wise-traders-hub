@@ -4,13 +4,11 @@ import { PortalLayout } from '@/components/layouts/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-
-import { supabase } from '@/integrations/supabase/client';
 import { useCrossProductDiscount } from '@/hooks/useCrossProductDiscount';
-import { readAttribution } from '@/hooks/useAttributionTracking';
-import { calcUpgradeProration } from '@/lib/revenueSplit';
 import { useAcpaySdk } from '@/hooks/checkout/useAcpaySdk';
 import { useSubscriptionConfirmation } from '@/hooks/checkout/useSubscriptionConfirmation';
+import { useCheckoutData } from '@/hooks/checkout/useCheckoutData';
+import { supabase } from '@/integrations/supabase/client';
 import { Loader2, ArrowLeft, Check } from 'lucide-react';
 import { CheckoutConsentDialog } from './_checkout/CheckoutConsentDialog';
 import { PlanInfoCard } from './_checkout/PlanInfoCard';
@@ -19,55 +17,34 @@ import { OrderSummaryCard } from './_checkout/OrderSummaryCard';
 import { CheckoutResultDialog, type CheckoutResult } from './_checkout/CheckoutResultDialog';
 import { RemittanceAccountCard } from './_remittance/RemittanceAccountCard';
 import { trackEvent } from '@/lib/trafficTracker';
-
-
-
-interface DbPlan {
-  id: string;
-  name: string;
-  plan_type: string;
-  price_monthly: number;
-  price_yearly: number | null;
-  description: string | null;
-  features: any;
-  expert_id: string;
-}
-
-interface DbExpert {
-  id: string;
-  name: string;
-  slug: string;
-  avatar_url: string | null;
-  role: string;
-}
-
-interface PaymentProvider {
-  id: string;
-  display_name: string;
-  provider_type: string;
-  is_active: boolean;
-  is_default: boolean;
-  env?: string | null;
-}
+import {
+  dispatchLinePay, dispatchEcpay, dispatchAcpay, dispatchRemittance,
+  submitEcpayForm, validateAcpayCardholder, type DispatchCtx,
+} from './_checkout/paymentDispatchers';
 
 const Checkout = () => {
   const { slug, planId } = useParams<{ slug: string; planId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   const fromAccount = searchParams.get('from') === 'account';
 
-  const [plan, setPlan] = useState<DbPlan | null>(null);
-  const [expert, setExpert] = useState<DbExpert | null>(null);
-  const [providers, setProviders] = useState<PaymentProvider[]>([]);
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [alreadySubscribed, setAlreadySubscribed] = useState(false);
   const [resultDialog, setResultDialog] = useState<CheckoutResult | null>(null);
+
+  const {
+    loading, plan, expert, providers, defaultProviderId,
+    alreadySubscribed, upgradeCredit, upgradeFromSubId,
+  } = useCheckoutData({ planId, slug, userId: user?.id, billingCycle });
+
+  // Initialize selected provider once providers load
+  useEffect(() => {
+    if (!selectedProvider && defaultProviderId) setSelectedProvider(defaultProviderId);
+  }, [defaultProviderId, selectedProvider]);
 
   // GTM Purchase event — fires once when success dialog opens
   useEffect(() => {
@@ -80,38 +57,35 @@ const Checkout = () => {
 
   useEffect(() => { trackEvent('checkout_open', { plan_id: planId, slug }); }, [planId, slug]);
 
-  // Track payment method change
   useEffect(() => {
     if (!selectedProvider) return;
     const obj = providers.find(p => p.id === selectedProvider);
     if (obj) trackEvent('checkout_payment_method_select', { method: obj.provider_type });
   }, [selectedProvider, providers]);
 
-  // Track payment failure
   useEffect(() => {
     if (resultDialog?.open && resultDialog?.success === false) {
       trackEvent('checkout_failure', { reason: resultDialog.message || 'unknown', plan_id: planId });
     }
   }, [resultDialog?.open, resultDialog?.success, resultDialog?.message, planId]);
 
-  // Idempotency key for remittance order creation — kept stable per page session
-  const remittanceReqIdRef = useRef<string>(typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
-  // Synchronous guard against rapid double-clicks before React re-renders isProcessing
+  const remittanceReqIdRef = useRef<string>(
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`,
+  );
   const submittingRef = useRef(false);
   const [consentOpen, setConsentOpen] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
 
-  // ACpay cardholder form fields
+  // ACpay cardholder form
   const [cardHolderName, setCardHolderName] = useState('');
   const [cardHolderEmail, setCardHolderEmail] = useState('');
   const [cardHolderPhone, setCardHolderPhone] = useState('');
   const [countryCode, setCountryCode] = useState('886');
   const [cardFieldErrors, setCardFieldErrors] = useState<{ name?: string; email?: string; phone?: string }>({});
-
-  // ACpay SDK — 共用 useAcpaySdk
   const acpayCardRef = useRef<HTMLDivElement>(null);
 
-  // Determine if selected provider is ACpay
   const selectedProviderObj = providers.find(p => p.id === selectedProvider);
   const isAcpay = selectedProviderObj?.provider_type === 'acpay';
   const isSandbox = (selectedProviderObj?.env ?? 'production') !== 'production';
@@ -122,7 +96,7 @@ const Checkout = () => {
     ccvEl: '#portal-acpay-ccv',
   });
 
-  // ACpay 回跳確認 — 共用 hook
+  // ACpay return confirm
   useSubscriptionConfirmation({
     table: 'member_subscriptions',
     userId: user?.id,
@@ -133,7 +107,7 @@ const Checkout = () => {
     onConfirmed: (r) => setResultDialog({ open: true, success: r.success, message: r.message }),
   });
 
-  // Handle LINE Pay return
+  // LINE Pay return — kept inline because it calls confirm-linepay (not part of subscription poll)
   useEffect(() => {
     const linepay = searchParams.get('linepay');
     const transactionId = searchParams.get('transactionId');
@@ -144,11 +118,9 @@ const Checkout = () => {
         setIsConfirming(true);
         try {
           const returnedBillingCycle = searchParams.get('billingCycle') || billingCycle;
-          
           const currentPrice = returnedBillingCycle === 'yearly'
             ? (plan.price_yearly || plan.price_monthly * 12)
             : plan.price_monthly;
-
           const isSimulate = searchParams.get('simulate') === 'true';
           const { data, error } = await supabase.functions.invoke('confirm-linepay', {
             body: {
@@ -161,7 +133,6 @@ const Checkout = () => {
               simulate: isSimulate,
             },
           });
-
           if (error || !data?.success) {
             console.error('LINE Pay confirm error:', error || data);
             setResultDialog({ open: true, success: false, message: '付款確認失敗' });
@@ -181,7 +152,7 @@ const Checkout = () => {
     }
   }, [searchParams, plan, user]);
 
-  // Handle ECPay return — 共用 useSubscriptionConfirmation
+  // ECPay return
   useSubscriptionConfirmation({
     table: 'member_subscriptions',
     userId: user?.id,
@@ -192,101 +163,11 @@ const Checkout = () => {
     onConfirmed: (r) => setResultDialog({ open: true, success: r.success, message: r.message }),
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!planId || !slug) return;
-
-      // Fire plan + providers + existing-subscription check in parallel.
-      // Previously these ran serially (plan → expert → providers → subs),
-      // costing ~3 sequential RTTs. expert still depends on plan.expert_id
-      // so it stays sequential, but it now overlaps with providers/subs.
-      const [planRes, providerRes, subsRes] = await Promise.all([
-        supabase
-          .from('expert_plans')
-          .select('id, name, plan_type, price_monthly, price_yearly, description, features, expert_id')
-          .eq('id', planId)
-          .single(),
-        supabase
-          .from('payment_providers_safe')
-          .select('id, display_name, provider_type, is_active, is_default, env')
-          .eq('is_active', true)
-          .order('is_default', { ascending: false }),
-        user
-          ? supabase
-              .from('member_subscriptions')
-              .select('id')
-              .eq('user_id', user.id)
-              .eq('plan_id', planId)
-              .eq('status', 'active')
-          : Promise.resolve({ data: null as { id: string }[] | null }),
-      ]);
-
-      const planData = planRes.data;
-      if (!planData) {
-        setLoading(false);
-        return;
-      }
-      setPlan(planData);
-
-      // Fetch expert (depends on plan.expert_id — must follow plan)
-      const { data: expertData } = await supabase
-        .from('experts')
-        .select('id, name, slug, avatar_url, role')
-        .eq('id', planData.expert_id)
-        .single();
-      setExpert(expertData);
-
-      if (providerRes.data && providerRes.data.length > 0) {
-        setProviders(providerRes.data);
-        setSelectedProvider(providerRes.data[0].id);
-      }
-
-      if (subsRes.data && subsRes.data.length > 0) {
-        setAlreadySubscribed(true);
-      }
-
-      setLoading(false);
-    };
-
-    fetchData();
-  }, [planId, slug, user]);
-
-  // Hooks must be called unconditionally — keep above any early returns
   const { amount: crossDiscount, reason: crossReason } = useCrossProductDiscount({ productKind: 'expert_plan' });
-
-  // Stage 3: month→year upgrade proration
-  const [upgradeCredit, setUpgradeCredit] = useState(0);
-  const [upgradeFromSubId, setUpgradeFromSubId] = useState<string | null>(null);
-  useEffect(() => {
-    (async () => {
-      if (!user?.id || billingCycle !== 'yearly' || !plan?.price_yearly) {
-        setUpgradeCredit(0); setUpgradeFromSubId(null); return;
-      }
-      const { data: existing } = await supabase
-        .from('member_subscriptions')
-        .select('id, started_at, expires_at')
-        .eq('user_id', user.id)
-        .eq('plan_id', plan.id)
-        .eq('status', 'active')
-        .maybeSingle();
-      if (!existing) { setUpgradeCredit(0); setUpgradeFromSubId(null); return; }
-      const startedAt = new Date(existing.started_at);
-      const expiresAt = new Date(existing.expires_at);
-      const spanDays = (expiresAt.getTime() - startedAt.getTime()) / (1000 * 60 * 60 * 24);
-      if (spanDays > 35) { setUpgradeCredit(0); setUpgradeFromSubId(null); return; }
-      const { creditAmount } = calcUpgradeProration({
-        monthlyPrice: plan.price_monthly,
-        yearlyPrice: plan.price_yearly,
-        startedAt, expiresAt,
-      });
-      setUpgradeCredit(creditAmount);
-      setUpgradeFromSubId(existing.id);
-    })();
-  }, [user?.id, billingCycle, plan?.id, plan?.price_monthly, plan?.price_yearly]);
 
   if (loading) {
     return (
-       <PortalLayout hideAppEntry hideHeader>
+      <PortalLayout hideAppEntry hideHeader>
         <div className="flex justify-center items-center py-24">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -296,7 +177,7 @@ const Checkout = () => {
 
   if (!plan || !expert) {
     return (
-       <PortalLayout hideAppEntry hideHeader>
+      <PortalLayout hideAppEntry hideHeader>
         <div className="container py-12 text-center">
           <h1 className="text-2xl font-bold mb-4">找不到此方案</h1>
           <Button asChild>
@@ -330,16 +211,6 @@ const Checkout = () => {
     }
   };
 
-  const getProviderIcon = (providerType: string) => {
-    switch (providerType) {
-      case 'acpay': return '💳';
-      case 'ecpay': return '🏦';
-      case 'line_pay': return '💚';
-      case 'newebpay': return '🔵';
-      default: return '💳';
-    }
-  };
-
   const handleCheckout = async () => {
     if (!user) {
       try {
@@ -348,124 +219,41 @@ const Checkout = () => {
       navigate('/auth/login');
       return;
     }
-
     if (!selectedProvider) {
       setResultDialog({ open: true, success: false, message: '請選擇付款方式' });
       return;
     }
-
-    // Show consent dialog for all plan types
     setConsentChecked(false);
     setConsentOpen(true);
-    return;
   };
 
   const proceedCheckout = async () => {
-    if (submittingRef.current) return;
+    if (submittingRef.current || !user || !plan || !expert) return;
     submittingRef.current = true;
     setIsProcessing(true);
-    const _method = providers.find(p => p.id === selectedProvider)?.provider_type;
-    trackEvent('checkout_submit', { plan_id: planId, method: _method });
+    const provider = providers.find(p => p.id === selectedProvider);
+    trackEvent('checkout_submit', { plan_id: planId, method: provider?.provider_type });
+
+    const ctx: DispatchCtx = {
+      plan, expert, slug,
+      userId: user.id,
+      billingCycle,
+      basePrice, price, totalDiscount,
+      discountReason,
+      upgradeFromSubscriptionId: upgradeCredit > 0 ? upgradeFromSubId : null,
+      origin: window.location.origin,
+    };
 
     try {
-      // Check if selected provider is LINE Pay
-      const provider = providers.find(p => p.id === selectedProvider);
-      
+      let result;
       if (provider?.provider_type === 'line_pay') {
-        // Call create-linepay-order edge function
-        const attribution = readAttribution();
-        const { data, error } = await supabase.functions.invoke('create-linepay-order', {
-          body: {
-            planId: plan.id,
-            billingCycle,
-            slug,
-            amount: price,
-            originalAmount: basePrice,
-            discountAmount: totalDiscount,
-            discountReason,
-            attribution,
-            expertId: plan.expert_id,
-            upgradeFromSubscriptionId: upgradeCredit > 0 ? upgradeFromSubId : null,
-            userId: user.id,
-            planName: plan.name,
-            expertName: expert.name,
-            origin: window.location.origin,
-          },
-        });
-
-        if (error || !data?.paymentUrl) {
-          console.error('Create LINE Pay order error:', error || data);
-          setResultDialog({ open: true, success: false, message: '建立 LINE Pay 訂單失敗，請稍後再試' });
-          return;
-        }
-
-        // Redirect to LINE Pay
-        window.location.href = data.paymentUrl;
-        return;
-      }
-
-      if (provider?.provider_type === 'ecpay') {
-        const attribution = readAttribution();
-        const { data, error } = await supabase.functions.invoke('create-ecpay-order', {
-          body: {
-            planId: plan.id,
-            billingCycle,
-            slug,
-            amount: price,
-            originalAmount: basePrice,
-            discountAmount: totalDiscount,
-            discountReason,
-            attribution,
-            expertId: plan.expert_id,
-            upgradeFromSubscriptionId: upgradeCredit > 0 ? upgradeFromSubId : null,
-            planName: plan.name,
-            expertName: expert.name,
-            origin: window.location.origin,
-            userId: user.id,
-          },
-        });
-
-        if (error || !data?.actionUrl || !data?.params) {
-          console.error('Create ECPay order error:', error || data);
-          setResultDialog({ open: true, success: false, message: '建立綠界訂單失敗，請稍後再試' });
-          return;
-        }
-
-        // Create and submit a hidden form to ECPay in a new window
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = data.actionUrl;
-        form.style.display = 'none';
-
-        for (const [key, value] of Object.entries(data.params)) {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = key;
-          input.value = String(value);
-          form.appendChild(input);
-        }
-
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
-        return;
-      }
-
-      if (provider?.provider_type === 'acpay') {
-        // Validate cardholder fields
-        const cErrors: { name?: string; email?: string; phone?: string } = {};
-        if (!cardHolderName.trim()) cErrors.name = '請輸入英文姓名';
-        else if (!/^[a-zA-Z\s]+$/.test(cardHolderName.trim())) cErrors.name = '姓名須為英文字母';
-        if (!cardHolderEmail.trim()) cErrors.email = '請輸入電子郵件';
-        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cardHolderEmail.trim())) cErrors.email = '電子郵件格式不正確';
-        if (!cardHolderPhone.trim()) cErrors.phone = '請輸入手機號碼';
-        else if (!/^\d{9,10}$/.test(cardHolderPhone.trim())) cErrors.phone = '手機號碼須為 9-10 位數字';
-        if (Object.keys(cErrors).length > 0) {
-          setCardFieldErrors(cErrors);
-          return;
-        }
+        result = await dispatchLinePay(ctx);
+      } else if (provider?.provider_type === 'ecpay') {
+        result = await dispatchEcpay(ctx);
+      } else if (provider?.provider_type === 'acpay') {
+        const v = validateAcpayCardholder({ cardHolderName, cardHolderEmail, cardHolderPhone });
+        if (!v.ok) { setCardFieldErrors(v.errors); return; }
         setCardFieldErrors({});
-
         let prime: string;
         try {
           prime = await acpayGetPrime();
@@ -474,95 +262,33 @@ const Checkout = () => {
           setResultDialog({ open: true, success: false, message: e.message || '信用卡資訊有誤，請確認後重試' });
           return;
         }
-
-        const acpayAttribution = readAttribution();
-        const { data, error } = await supabase.functions.invoke('create-acpay-order', {
-          body: {
-            prime,
-            amount: price,
-            phone: cardHolderPhone,
-            countryCode,
-            cardHolderName,
-            cardHolderEmail,
-            planId: plan.id,
-            billingCycle,
-            userId: user.id,
-            origin: window.location.origin,
-            slug,
-            planName: plan.name,
-            expertName: expert.name,
-            // Stage 3: attribution + discount snapshot
-            originalAmount: basePrice,
-            discountAmount: totalDiscount,
-            discountReason,
-            attribution: acpayAttribution,
-            expertId: plan.expert_id,
-            upgradeFromSubscriptionId: upgradeCredit > 0 ? upgradeFromSubId : null,
-          },
+        result = await dispatchAcpay(ctx, {
+          prime, phone: cardHolderPhone, countryCode, cardHolderName, cardHolderEmail,
         });
+      } else {
+        result = await dispatchRemittance(ctx, remittanceReqIdRef.current);
+      }
 
-        if (error) {
-          console.error('ACpay checkout error:', error);
-          setResultDialog({ open: true, success: false, message: '建立 ACpay 訂單失敗，請稍後再試' });
-          return;
-        }
-
-        // 3DS flow: redirect to code_url for OTP
-        if (data?.threeDS && data?.codeUrl) {
-          window.location.href = data.codeUrl;
-          return;
-        }
-
-        // non-3DS flow: synchronous success
-        if (data?.success) {
+      switch (result.kind) {
+        case 'success':
           setResultDialog({ open: true, success: true });
           return;
-        }
-
-        setResultDialog({ open: true, success: false, message: '付款失敗，請稍後再試' });
-        return;
+        case 'failure':
+          setResultDialog({ open: true, success: false, message: result.message, canRetry: result.canRetry });
+          return;
+        case 'redirect':
+          window.location.href = result.url;
+          return;
+        case 'ecpay_form':
+          submitEcpayForm(result.actionUrl, result.params);
+          return;
+        case 'remittance':
+          setResultDialog({ open: true, success: true, message: result.message });
+          navigate('/account/remittance', {
+            state: { from: { pathname: window.location.pathname, search: window.location.search } },
+          });
+          return;
       }
-
-      // Remittance / other manual providers: create a remittance_orders row via edge function.
-      // Subscription is only created by admin via confirm-remittance after payment is verified.
-      const remitAttribution = readAttribution();
-      const { data: remitData, error: remitError } = await supabase.functions.invoke(
-        'create-expert-remittance',
-        {
-          body: {
-            planId: plan.id,
-            billingCycle,
-            originalAmount: basePrice,
-            discountAmount: totalDiscount,
-            discountReason,
-            attribution: remitAttribution,
-            upgradeFromSubscriptionId: upgradeCredit > 0 ? upgradeFromSubId : null,
-            clientRequestId: remittanceReqIdRef.current,
-          },
-        },
-      );
-
-      if (remitError || !remitData?.orderId) {
-        console.error('Create remittance order error:', remitError || remitData);
-        setResultDialog({
-          open: true,
-          success: false,
-          message: '建立匯款訂單失敗，請稍後再試',
-          canRetry: true,
-        });
-        return;
-      }
-
-      // Navigate to remittance orders page so the user can fill in last-5 / payer name
-      setResultDialog({
-        open: true,
-        success: true,
-        message: '已建立匯款訂單。請於 3 日內完成銀行轉帳，並回到「會員中心 → 我的匯款訂單」補填末五碼與匯款人姓名。您可以隨時離開本頁稍後再回來。',
-      });
-      navigate('/account/remittance', {
-        state: { from: { pathname: window.location.pathname, search: window.location.search } },
-      });
-      return;
     } catch (err: any) {
       console.error('Checkout error:', err);
       setResultDialog({ open: true, success: false, message: err.message || '請稍後再試', canRetry: true });
@@ -574,7 +300,6 @@ const Checkout = () => {
 
   return (
     <PortalLayout hideAppEntry hideHeader>
-      {/* Blocking overlay while confirming payment */}
       {isConfirming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -582,7 +307,6 @@ const Checkout = () => {
       )}
       <div className="container py-8 md:py-12">
         <div className="max-w-4xl mx-auto">
-          {/* Back */}
           <Button variant="ghost" size="sm" className="mb-6 gap-2" asChild>
             <Link to={`/expert/${slug}${fromAccount ? '?from=account' : ''}#plans`}>
               <ArrowLeft className="h-4 w-4" />
@@ -605,7 +329,6 @@ const Checkout = () => {
           )}
 
           <div className="grid md:grid-cols-5 gap-8">
-            {/* Left: Order Summary */}
             <div className="md:col-span-3 space-y-6">
               <PlanInfoCard
                 plan={plan}
@@ -642,8 +365,6 @@ const Checkout = () => {
               )}
             </div>
 
-
-            {/* Right: Payment Summary */}
             <div className="md:col-span-2">
               <OrderSummaryCard
                 plan={plan}
@@ -665,7 +386,6 @@ const Checkout = () => {
             </div>
           </div>
 
-          {/* Compliance */}
           <div className="mt-8 text-center">
             <p className="text-xs text-muted-foreground">
               過去績效不代表未來表現，投資有風險，請謹慎評估。
@@ -674,7 +394,6 @@ const Checkout = () => {
         </div>
       </div>
 
-      {/* Consent Dialog — content varies by plan type */}
       <CheckoutConsentDialog
         open={consentOpen}
         onOpenChange={(open) => { if (!open) setConsentOpen(false); }}
@@ -688,7 +407,6 @@ const Checkout = () => {
           proceedCheckout();
         }}
       />
-
 
       <CheckoutResultDialog
         resultDialog={resultDialog}
