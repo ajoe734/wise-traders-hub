@@ -1,101 +1,99 @@
-## 為什麼流量頁看起來「沒資料」
+## 為什麼之前像土法煉鋼
 
-我直接查了資料庫，事實如下：
+之前是想到一個埋一個，沒對齊任何業界 schema。這次照 **GA4 + PostHog + Mixpanel 三家共通的 Event Taxonomy** 重做：
 
-- `traffic_visits` 全表只有 **1 筆**（2026-05-28，channel=direct，landing=`/`）
-- `traffic_events` 全表只有 **2 筆**
-
-這不是頁面壞掉，是 **資料根本沒被收進來**。原因有三個，全部是設計時就埋的：
-
-1. **Tracker 主動忽略 `/company` 與 `/admin`**（見 `src/lib/trafficTracker.ts` L36-38 `isInternalRoute`）。
-   你（公司端）平常開的就是這兩個前綴，所以你自己怎麼點都不會留下紀錄。
-2. **訪客級節流 24 小時**（`VISIT_TTL_MS`）。一個 visitor 一天最多寫一次 visit row。
-3. **正式站流量極低**：站上實際公開流量本來就少，加上前兩條過濾後，幾乎不會寫進來。
-
-加上更嚴重的一點：**目前只追頁面瀏覽，完全沒有「功能使用 / 按鈕點擊 / 轉換漏斗」事件**。
-你說「沒有流量監控的感覺」是對的——現在這頁就是個只看 PV / UTM 的雛形，不是產品分析。
+- **命名規範**：`object_action`（`signal_view`、`holding_card_click`、`checkout_submit`）
+- **必帶 props**：`page_path`、`page_section`、`source_module`、`user_role`（visitor/member/expert/admin）、`is_internal`
+- **語義分類**：`page_view` / `feature_view`（曝光）/ `feature_interact`（互動）/ `conversion_step`（漏斗）/ `content_engagement`（內容）
+- **個股 props**：`instrument` / `symbol` 進 `event_props`，可看「哪些股票最常被點開」
+- **內部隔離**：Admin/Mentor/Company 全收 `is_internal=true`，KPI 預設 `WHERE NOT is_internal`，分析頁加開關才看得到
+- **保留期**：traffic_events 從 90 天 → **180 天**（已採納個股粒度）
 
 ---
 
-## 建議要做的事（一次補齊，分三塊）
+## 全站埋點清單（窮舉）
 
-### A. 讓資料先進得來（5 分鐘層級）
+### A. 公開頁
+| 事件 | 觸發 | 狀態 |
+|---|---|---|
+| `home_view` / `home_section_view` / `home_cta_click` | `/` 各區塊 | 新增 |
+| `experts_list_view` / `expert_card_click` | `/experts` | 新增 |
+| `expert_profile_view` | `/experts/:slug` | ✅ 已有 |
+| `leaderboard_view` / `leaderboard_card_click` | 漲停榜 | 部分 |
+| `pricing_view` | `/pricing` | ✅ 已有 |
 
-1. **新增「Internal 模式」開關**：`/company/traffic` 右上加一個 toggle，預設關閉外部流量過濾，讓 company_admin 看到自己（與其他內部使用者）的真實點擊路徑。底層改 `trafficTracker.ts`：允許用 `localStorage.lf_track_internal=1` 強制把 `/company`、`/admin` 也送出。
-2. **降低 visit 節流到 30 分鐘**（從 24h），與一般分析工具對齊。
-3. **頁面顯示「目前時間區間」與「總筆數 / 上次寫入時間」的健康燈號**——讓你一眼知道是「沒人來」還是「tracker 壞了」。
+### B. 修煉派 FreeCheckup
+`checkup_view` / `checkup_tab_change` / `checkup_holding_expand`（帶 `code`）/ `checkup_holding_target_update` / `checkup_holding_alert_update` / `checkup_holdings_sort_change` / `checkup_demo_click` / `checkup_analysis_run` / `checkup_quota_blocked` / `checkup_upgrade_click`
 
-### B. 補上「功能使用量」事件追蹤（核心缺口）
+### C. 跟單派 App
+`app_dashboard_view` / `signal_view`（帶 `instrument`）/ `signal_card_click` / `holdings_dashboard_view` / `holding_card_click`（帶 `instrument`、`pnl_bucket`）/ `journal_view` / `journal_card_click` / `subscribed_experts_view` / `expert_detail_view`
 
-新增一張 `feature_events`（或沿用 `traffic_events`，加 `event_name` / `event_props jsonb` 兩個欄位），並提供一個全站 helper：
+### D. 訂閱／結帳漏斗
+`expert_subscribe_click` ✅ / `checkout_open` ✅ / `checkout_consent_accept` 新增 / `checkout_payment_method_select`（含 `method`）新增 / `checkout_submit` 新增 / `checkout_success` ✅ / `checkout_failure`（含 `reason`）新增 / `subscription_cancel_click` / `subscription_renew_click`
 
-```ts
-trackEvent('signal_view', { signal_id, mentor_id });
-trackEvent('expert_subscribe_click', { plan_id, price });
-trackEvent('checkup_tab_change', { tab });
-trackEvent('checkout_step', { step: 'consent' | 'pay' | 'success' });
-```
+### E. 學習中心
+`learning_view` / `system_detail_view` / `learning_card_click`
 
-第一波要埋的關鍵點（高訊號、低成本）：
-- 訂閱漏斗：`pricing_view` → `plan_select` → `checkout_open` → `checkout_pay_click` → `checkout_success`
-- 專家頁：`expert_profile_view` → `expert_subscribe_click`
-- 戰報榜：`leaderboard_view` → `leaderboard_card_click`
-- FreeCheckup：`checkup_tab_view`（六個 tab 分別計）、`checkup_demo_click`
-- 江湖首頁：`hero_cta_click`、`brand_section_view`
+### F. 帳號／通知
+`notifications_open` / `notification_click` / `profile_view` / `line_binding_start` / `line_binding_success`
 
-### C. 把分析頁從 KPI Dashboard 升級成「漏斗 + 功能熱度」
-
-在 `Traffic.tsx` 既有的三個 Tab 之外，新增：
-
-- **轉換漏斗 Tab**：以 `feature_events` + `conversions` 算出
-  `訪客 → pricing_view → checkout_open → checkout_success` 的每一步留存率與 drop-off
-- **功能熱度 Tab**：依 `event_name` 群組，列出近 7／30 天事件次數、unique users、人均次數，並支援 source breakdown
-- **頁面轉換 Tab**：每條路徑的 `entries / exits / next_route / 到 checkout_success 的轉換率`
-- **使用者旅程**：以 visitor_id 為單位，倒敘 timeline（前 50 筆事件）
-
-### D. 收尾與限制
-
-- 不動既有 `traffic_visits` / `traffic_events` 寫入欄位，只新增欄位或新表，避免破壞舊資料
-- 不動側欄、路由結構、其他頁面
-- 不打開公開可讀；所有新表維持 `company_admin` only
-- 不引入第三方分析（GA4、PostHog 等）——保持自家後端
+### G. 內部後台（`is_internal=true`，預設不看）
+`admin_page_view` / `signal_publish` / `signal_recall` / `journal_publish` / `mentor_dashboard_view` / `company_page_view`
 
 ---
 
-## 技術細節
+## 分析頁 `/company/traffic` 重寫成 6 tab（PostHog 風格）
 
-**Schema 變更**
-```sql
-ALTER TABLE traffic_events
-  ADD COLUMN event_name text,        -- null = 純 page view（向下相容）
-  ADD COLUMN event_props jsonb;
-CREATE INDEX traffic_events_event_name_idx ON traffic_events(event_name, occurred_at DESC);
-```
-（GRANT / RLS 沿用現有 traffic_events 的設定，不變。）
+1. **總覽**：KPI 卡 + 趨勢圖 + Top 來源/落地頁
+2. **產品線拆解**：修煉派 / 跟單派 / 學習中心 三條 DAU、停留、回訪
+3. **漏斗（4 條並列）**：
+   - 訂閱：`pricing_view → expert_profile_view → expert_subscribe_click → checkout_open → checkout_success`
+   - 修煉派轉付費：`checkup_view → checkup_analysis_run → checkup_quota_blocked → checkup_upgrade_click → checkout_success`
+   - 跟單派回訪：`app_dashboard_view → signal_view → expert_detail_view → expert_subscribe_click`
+   - 持股看板深度：`app_dashboard_view → holdings_dashboard_view → holding_card_click → signal_view`
+4. **功能熱度**：event_name 排序，含 unique users / 次數 / 人均次數，可依 `user_role` 切片
+5. **頁面**：path × PV/UV/停留/跳出/下一步
+6. **使用者旅程**：選 `visitor_id` 看時序
 
-**Edge function**：擴充 `traffic-ingest` 支援 `kind=event` 時帶入 `event_name` / `event_props`，沿用 sendBeacon 路徑。
-
-**前端 helper**：在 `src/lib/trafficTracker.ts` export `trackEvent(name, props?)`，batched flush 共用既有 queue。
-
-**新 RPC**：
-- `get_funnel_overview(_from, _to, _steps text[])` → 回傳每步 count / drop
-- `get_event_heatmap(_from, _to)` → event_name 群組
-
-**Internal 模式**：`trafficTracker.ts` 初始化時若偵測 `localStorage.lf_track_internal === '1'`，跳過 `isInternalRoute` 過濾；`/company/traffic` 提供切換按鈕設定該 flag。
+頂部固定控制：日期範圍、`is_internal` 開關、`user_role` 篩選、UTM source 篩選、**熱門個股 Top 20**（從 event_props 的 `instrument` 聚合）。
 
 ---
 
-## 不會做的事
+## 技術實作
 
-- 不重做戰報榜、持股、結帳等 UI
-- 不改文案、不改首頁區塊順序
-- 不接 GA4 / PostHog / Mixpanel
-- 不對既有 RLS / GRANT 動手腳
+### 1. 集中事件 schema
+新增 `src/lib/analytics/events.ts`，TypeScript 型別鎖死事件名 + 必填 props，呼叫端傳錯會編譯失敗。
+
+### 2. 自動 `page_view`
+`App.tsx` 加 `useLocation` 監聽，每次路由變化自動發 `page_view`，全站零改動就有 PV。
+
+### 3. 曝光自動化
+新增 `<TrackOnVisible event="..." props={...}>` 用 IntersectionObserver，section 滾入畫面自動發 `*_view`。
+
+### 4. 後端
+- traffic_events 保留期 migration：90 天 → **180 天**（改 `cleanup_old_traffic`）
+- traffic_events 加 `is_internal boolean DEFAULT false` 欄位 + 索引
+- 新增 RPC：
+  - `get_product_breakdown(_from, _to, _include_internal)` — 三產品線指標
+  - `get_page_analytics(_from, _to, _include_internal)` — 每 path 的 PV/UV/停留/下一步
+  - `get_user_journey(_visitor_id, _from, _to)` — 時序事件流
+  - `get_top_instruments(_from, _to, _limit)` — 從 event_props->>'instrument' 聚合熱門個股
+- 既有 `get_traffic_overview` / `get_funnel_overview` 加上 `_include_internal` 參數
+
+### 5. 取樣與成本
+- 曝光 / 互動 100% 收
+- 滾動深度事件取樣 25%（量太大）
+- 180 天自動清理
 
 ---
 
-## 給你的決策點
+## 執行順序（4 commit 分次驗收）
 
-如果你 OK，我會一次做 **A + B 第一波（訂閱漏斗 + 專家頁 + 戰報榜共 8 個事件）+ C 的「漏斗」與「功能熱度」兩個 Tab**。FreeCheckup 與更細的旅程 Tab 留下一輪，避免一次改太多文件。
+| # | 範圍 | 驗收 |
+|---|---|---|
+| **1** | `analytics/events.ts` 型別 + 自動 `page_view` + `TrackOnVisible` + migration（保留期改 180 天 + `is_internal` 欄位） | 隨便逛 5 頁，看 traffic_events 5 筆 PV |
+| **2** | 修煉派 + 跟單派 + 持股看板全部事件埋上（含 `instrument` props） | demo 跑一輪，事件 tab 出對應事件 + 個股名 |
+| **3** | 訂閱漏斗補完 + 學習 + 帳號 + 後台 `is_internal=true` 全埋 | 走完訂閱流程，4 條漏斗每步都有數 |
+| **4** | 重寫 `/company/traffic` 6 tab + 4 個新 RPC + 熱門個股 Top 20 | 開頁看到產品線拆解、4 漏斗、頁面熱度、旅程、個股榜 |
 
-要不要照這個範圍進？或你只想先做 A（讓自己看得到資料）？
+你按「Implement plan」我就從 commit 1 開始。
