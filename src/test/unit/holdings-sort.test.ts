@@ -100,12 +100,21 @@ describe('holdingsValueKeyShort (FreeCheckup B-P2)', () => {
     expect(holdingsValueKeyShort(a)).not.toBe(holdingsValueKeyShort(b));
   });
 
-  it('多筆持股 → 用 ; 串接', () => {
+  it('多筆持股 → 用 ; 串接，含 length 前綴', () => {
     const k = holdingsValueKeyShort([
       { code: 'A', qty: 1, price: 10, cost: 9 },
       { code: 'B', qty: 2, price: 20, cost: 18 },
     ]);
-    expect(k).toBe('A|1|10|9;B|2|20|18');
+    expect(k).toBe('n=2:A|1|10|9;B|2|20|18');
+  });
+
+  it('H13：length 前綴可區分不同長度避免碰撞', () => {
+    const a = holdingsValueKeyShort([{ code: 'A', qty: 1, price: 1, cost: 1 }]);
+    const b = holdingsValueKeyShort([
+      { code: 'A', qty: 1, price: 1, cost: 1 },
+      { code: '', qty: undefined, price: undefined, cost: undefined },
+    ]);
+    expect(a).not.toBe(b);
   });
 });
 
@@ -115,11 +124,11 @@ describe('holdingsValueKeyFull (useRouteHoldingsPage D-Perf-R6)', () => {
     expect(holdingsValueKeyFull(null)).toBe('');
   });
 
-  it('包含 value / pct / integrityIssue 7 個欄位', () => {
+  it('包含 value / pct / integrityIssue 7 個欄位 + length 前綴', () => {
     const k = holdingsValueKeyFull([
       { code: '2330', qty: 10, price: 1000, cost: 950, value: 10000, pct: 5.26, integrityIssue: '' },
     ]);
-    expect(k).toBe('2330|10|1000|950|10000|5.26|');
+    expect(k).toBe('n=1:2330|10|1000|950|10000|5.26|');
   });
 
   it('integrityIssue 變化 → key 改變', () => {
