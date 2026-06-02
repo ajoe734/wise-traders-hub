@@ -252,9 +252,10 @@ describe('drift-detection: production 頁面使用安全視圖（非底層資料
     expect(src).toContain('expert_line_channels_public');
   });
 
-  it('drift: Checkout.tsx 查詢金流提供者使用 payment_providers_safe（防止改用底層 payment_providers 表）', () => {
+  it('drift: useCheckoutData 查詢金流提供者使用 payment_providers_safe（防止改用底層 payment_providers 表）', () => {
+    // Refactored 2026-06: Checkout data layer moved to src/hooks/checkout/useCheckoutData.ts
     const src = readFileSync(
-      resolve(process.cwd(), 'src/pages/Checkout.tsx'),
+      resolve(process.cwd(), 'src/hooks/checkout/useCheckoutData.ts'),
       'utf-8',
     );
     expect(src).toContain('payment_providers_safe');
