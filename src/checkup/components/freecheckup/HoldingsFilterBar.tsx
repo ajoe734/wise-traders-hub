@@ -1,8 +1,22 @@
 // HoldingsFilterBar — 抽自 FreeCheckup.jsx (原 IIFE @ L3739-L3858)。
 // 行為對等：搜尋框 + 折疊式 Filter chips + Active tags + 計數器。
 // React.memo 保護：父層每秒 quote tick 不會 re-render filter bar，但 Set props 變動時仍會更新。
+// @analytics-required: checkup_holdings_filter_change
 import { memo } from 'react';
 import { validateProps } from './_validateProps.js';
+import { track } from '@/lib/analytics/events';
+
+const trackFilter = (dimension, setter) => (value) => {
+  let action = 'add';
+  try {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) { next.delete(value); action = 'remove'; } else { next.add(value); action = 'add'; }
+      return next;
+    });
+    track('checkup_holdings_filter_change', { dimension, value: String(value), action });
+  } catch {}
+};
 
 const SCHEMA = {
   totalCount: 'number',

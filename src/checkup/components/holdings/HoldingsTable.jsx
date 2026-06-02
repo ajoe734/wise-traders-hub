@@ -6,6 +6,8 @@ import {
   getHoldingReturnPct,
   getHoldingUnrealizedPnl,
 } from '../../lib/holdings.js'
+// @analytics-required: checkup_holding_target_update, checkup_holding_alert_update
+import { track } from '@/lib/analytics/events'
 
 /* ── 是枝裕和《小偷家族》×《海街日記》美學 ──
  * - 移除 mini 色條，損益只用文字顏色
@@ -52,11 +54,17 @@ function HoldingRowImpl({
 }) {
   const handleToggle = useCallback(() => onToggle(holding.code), [onToggle, holding.code])
   const handleUpdateTarget = useCallback(
-    (e) => onUpdateTarget(holding.code, e.target.value ? Number(e.target.value) : null),
+    (e) => {
+      onUpdateTarget(holding.code, e.target.value ? Number(e.target.value) : null)
+      try { track('checkup_holding_target_update', { code: holding.code, source: 'table' }) } catch {}
+    },
     [onUpdateTarget, holding.code]
   )
   const handleUpdateAlert = useCallback(
-    (e) => onUpdateAlert(holding.code, e.target.value),
+    (e) => {
+      onUpdateAlert(holding.code, e.target.value)
+      try { track('checkup_holding_alert_update', { code: holding.code, source: 'table' }) } catch {}
+    },
     [onUpdateAlert, holding.code]
   )
   const pnl = getHoldingUnrealizedPnl(holding)
