@@ -376,24 +376,30 @@ export function groupHoldingsByType(holdings) {
 
 /**
  * Sort holdings by P&L
+ * H2 (audit 2026-06): 用 toSafeNumber 而非 `Number() || 0`，避免 pnl=0 被當缺值
  */
 export function sortHoldingsByPnl(holdings, direction = 'desc') {
   if (!Array.isArray(holdings)) return []
   return [...holdings].sort((a, b) => {
-    const aPnl = Number(a?.pnl) || 0
-    const bPnl = Number(b?.pnl) || 0
+    const aPnl = toSafeNumber(a?.pnl)
+    const bPnl = toSafeNumber(b?.pnl)
     return direction === 'desc' ? bPnl - aPnl : aPnl - bPnl
   })
 }
 
 /**
  * Sort holdings by return percentage
+ * H2 (audit 2026-06): pct=0 必須與 pct=null 區分（後者排到尾端）
  */
 export function sortHoldingsByReturn(holdings, direction = 'desc') {
   if (!Array.isArray(holdings)) return []
   return [...holdings].sort((a, b) => {
-    const aPct = Number(a?.pct) || 0
-    const bPct = Number(b?.pct) || 0
+    const aPct = a?.pct == null ? null : toSafeNumber(a.pct, null)
+    const bPct = b?.pct == null ? null : toSafeNumber(b.pct, null)
+    // null 永遠排到尾端
+    if (aPct == null && bPct == null) return 0
+    if (aPct == null) return 1
+    if (bPct == null) return -1
     return direction === 'desc' ? bPct - aPct : aPct - bPct
   })
 }
