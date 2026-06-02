@@ -69,6 +69,14 @@ vi.mock('@/integrations/supabase/client', () => ({
       if (table === 'experts') return buildExpertsBuilder();
       throw new Error(`unexpected table: ${table}`);
     },
+    // useExperts(default mode) 走 RPC bundle，回傳已經是攤平後的 row 陣列。
+    rpc: async (fn: string) => {
+      if (fn === 'get_public_experts_list') {
+        expertsFetches.list += 1;
+        return { data: listRows, error: null };
+      }
+      throw new Error(`unexpected rpc: ${fn}`);
+    },
   },
 }));
 
