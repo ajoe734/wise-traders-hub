@@ -3,6 +3,9 @@
  *
  * This module handles all holdings-related calculations and normalizations.
  * It's designed to be pure and testable, with no side effects.
+ *
+ * H6（audit 2026-06）：所有 pnl/pct/value 計算必經 holdingMath.ts；本檔禁止
+ * 出現 `(price-cost)*qty` 字面 pattern（由 scripts/check-holdings-formula-singleton.mjs CI 守門）。
  */
 
 import {
@@ -10,6 +13,10 @@ import {
   calculateHoldingMarketValue,
   calculateHoldingReturnPct,
   calculateHoldingUnrealizedPnl,
+  calcPnlWithNet,
+  calcRemainingCostAfterPartialSell,
+  calcWeightedAvgCost,
+  toSafeNumber,
 } from './holdingMath.ts'
 
 // ── Price resolution ─────────────────────────────────────────────────────
