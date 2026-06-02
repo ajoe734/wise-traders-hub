@@ -1,22 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { Eye, UserPlus, MessageCircle, Key, Mail, Send } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { logAdminAction } from '@/lib/auditLog';
-import { avatarUrl } from '@/lib/imageTransform';
-import { useSessionString, useSessionBool, useSessionNullable } from '@/hooks/useSessionState';
+import { useSessionString, useSessionBool } from '@/hooks/useSessionState';
+import { useLineChannelEditor } from '@/hooks/company/useLineChannelEditor';
+import { useAnalystAccount } from '@/hooks/company/useAnalystAccount';
+import { AnalystsTable } from '@/pages/_companyAnalysts/AnalystsTable';
+import { CreateAnalystDialog } from '@/pages/_companyAnalysts/CreateAnalystDialog';
+import { LineChannelDialog } from '@/pages/_companyAnalysts/LineChannelDialog';
+import { AccountCredentialsDialog } from '@/pages/_companyAnalysts/AccountCredentialsDialog';
 
 const CompanyAnalysts = () => {
   const queryClient = useQueryClient();
@@ -31,9 +25,10 @@ const CompanyAnalysts = () => {
   const refetchExperts = () => queryClient.invalidateQueries({ queryKey: ['company-experts'] });
   const setExperts = (updater: (prev: any[]) => any[]) =>
     queryClient.setQueryData<any[]>(['company-experts'], (prev) => updater(prev || []));
+
   const [isCreateOpen, setIsCreateOpen] = useSessionBool('company_analyst_create_open', false);
 
-  // Create analyst form – persisted to sessionStorage per key
+  // Create analyst form
   const [email, setEmail] = useSessionString('ca_email');
   const [password, setPassword] = useSessionString('ca_password');
   const [name, setName] = useSessionString('ca_name');
@@ -46,29 +41,14 @@ const CompanyAnalysts = () => {
     ['ca_email','ca_password','ca_name','ca_slug','ca_role'].forEach(k => sessionStorage.removeItem(k));
   };
 
-  // LINE channel management — all persisted via useSessionState hooks
-  const [lineExpertId, setLineExpertId] = useSessionNullable('company_line_expert_id');
-  const [lineExpertName, setLineExpertName] = useSessionString('cl_name');
-  const [lineChannel, setLineChannel] = useState<any>(null);
-  const [lineLoading, setLineLoading] = useState(false);
-  const [lineChannelId, setLineChannelId] = useSessionString('cl_channelId');
-  const [lineToken, setLineToken] = useSessionString('cl_token');
-  const [lineChannelName, setLineChannelName] = useSessionString('cl_channelName');
-  const [lineOaId, setLineOaId] = useSessionString('cl_oaId');
-  const [lineQrCodeUrl, setLineQrCodeUrl] = useSessionString('cl_qrCode');
-  const [lineActive, setLineActive] = useSessionBool('cl_active', true);
-  const [savingLine, setSavingLine] = useState(false);
-  const [lineBindingsCount, setLineBindingsCount] = useState(0);
+  const lineEditor = useLineChannelEditor();
+  const account = useAnalystAccount();
 
-  // Restore LINE dialog title on mount when experts arrive — sole remaining effect
+  // Restore LINE dialog title when experts arrive
   useEffect(() => {
-    if (lineExpertId && experts.length > 0 && !lineExpertName) {
-      const exp = experts.find(e => e.id === lineExpertId);
-      if (exp) setLineExpertName(exp.name);
-    }
-  }, [lineExpertId, experts, lineExpertName, setLineExpertName]);
-
-  const fetchExperts = () => refetchExperts();
+    lineEditor.restoreTitle(experts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [experts, lineEditor.lineExpertId]);
 
   const handleCreate = async () => {
     if (!email || !password || !name || !slug || !role) {
@@ -93,7 +73,7 @@ const CompanyAnalysts = () => {
     });
     setIsCreateOpen(false);
     clearForm();
-    fetchExperts();
+    refetchExperts();
   };
 
   const toggleStatus = async (id: string, currentStatus: string) => {
@@ -119,219 +99,6 @@ const CompanyAnalysts = () => {
     toast.success(newStatus === 'suspended' ? '已停用' : '已啟用');
   };
 
-  // LINE channel management
-  const clearLineForm = () => {
-    setLineChannel(null);
-    setLineChannelId('');
-    setLineToken('');
-    setLineChannelName('');
-    setLineOaId('');
-    setLineQrCodeUrl('');
-    setLineActive(true);
-    setLineBindingsCount(0);
-    ['cl_channelId','cl_token','cl_channelName','cl_oaId','cl_qrCode','cl_active'].forEach(k => sessionStorage.removeItem(k));
-  };
-
-  const openLineSettings = (expert: any) => {
-    clearLineForm();
-    setLineExpertId(expert.id);
-    setLineExpertName(expert.name);
-    setLineLoading(true);
-    (async () => {
-      const { data: ch } = await supabase
-        .from('expert_line_channels')
-        .select('*')
-        .eq('expert_id', expert.id)
-        .single();
-      if (ch) {
-        setLineChannel(ch);
-        setLineChannelId(ch.channel_id);
-        setLineToken(ch.channel_access_token);
-        setLineChannelName(ch.channel_name || '');
-        setLineOaId(ch.line_oa_id || '');
-        setLineQrCodeUrl(ch.qr_code_url || '');
-        setLineActive(ch.is_active);
-      }
-      const { count } = await supabase
-        .from('member_line_bindings_analyst')
-        .select('id', { count: 'exact', head: true })
-        .eq('expert_id', expert.id)
-        .eq('is_active', true);
-      setLineBindingsCount(count || 0);
-      setLineLoading(false);
-    })();
-  };
-
-  const closeLineSettings = () => {
-    setLineExpertId(null);
-    setLineExpertName('');
-    setLineChannel(null);
-    clearLineForm();
-  };
-
-  const handleSaveLine = async () => {
-    if (!lineExpertId || !lineChannelId || !lineToken) {
-      toast.error('請填寫 Channel ID 和 Access Token');
-      return;
-    }
-    setSavingLine(true);
-    if (lineChannel) {
-      const { error } = await supabase
-        .from('expert_line_channels')
-        .update({
-          channel_id: lineChannelId,
-          channel_access_token: lineToken,
-          channel_name: lineChannelName || null,
-          line_oa_id: lineOaId || null,
-          qr_code_url: lineQrCodeUrl || null,
-          is_active: lineActive,
-        })
-        .eq('id', lineChannel.id);
-      if (error) { toast.error('更新失敗'); setSavingLine(false); return; }
-      await logAdminAction({
-        action: 'analyst.line_channel_update',
-        targetType: 'expert_line_channels',
-        targetId: lineChannel.id,
-        detail: {
-          before: { channel_id: lineChannel.channel_id, is_active: lineChannel.is_active, channel_name: lineChannel.channel_name },
-          after: { channel_id: lineChannelId, is_active: lineActive, channel_name: lineChannelName || null },
-          context: { expert_id: lineExpertId, expert_name: lineExpertName },
-        },
-      });
-      toast.success('LINE 設定已更新');
-    } else {
-      const { data: inserted, error } = await supabase
-        .from('expert_line_channels')
-        .insert({
-          expert_id: lineExpertId,
-          channel_id: lineChannelId,
-          channel_access_token: lineToken,
-          channel_name: lineChannelName || null,
-          line_oa_id: lineOaId || null,
-          qr_code_url: lineQrCodeUrl || null,
-          is_active: lineActive,
-        })
-        .select('id')
-        .single();
-      if (error) { toast.error('建立失敗'); setSavingLine(false); return; }
-      await logAdminAction({
-        action: 'analyst.line_channel_create',
-        targetType: 'expert_line_channels',
-        targetId: inserted?.id ?? null,
-        detail: {
-          after: { channel_id: lineChannelId, is_active: lineActive, channel_name: lineChannelName || null },
-          context: { expert_id: lineExpertId, expert_name: lineExpertName },
-        },
-      });
-      toast.success('LINE 設定已儲存');
-    }
-    setSavingLine(false);
-    closeLineSettings();
-  };
-
-  // ── Account credentials management ──────────────────────────────
-  const [acctExpert, setAcctExpert] = useState<{ id: string; name: string } | null>(null);
-  const [acctTab, setAcctTab] = useState<'email' | 'password' | 'reset'>('email');
-  const [acctCurrentEmail, setAcctCurrentEmail] = useState('');
-  const [acctIsLineVirtual, setAcctIsLineVirtual] = useState(false);
-  const [acctLoading, setAcctLoading] = useState(false);
-  const [acctNewEmail, setAcctNewEmail] = useState('');
-  const [acctNewPassword, setAcctNewPassword] = useState('');
-  const [acctConfirmPassword, setAcctConfirmPassword] = useState('');
-  const [acctSubmitting, setAcctSubmitting] = useState(false);
-
-  const openAccountDialog = async (exp: any) => {
-    setAcctExpert({ id: exp.id, name: exp.name });
-    setAcctTab('email');
-    setAcctNewEmail('');
-    setAcctNewPassword('');
-    setAcctConfirmPassword('');
-    setAcctCurrentEmail('');
-    setAcctIsLineVirtual(false);
-    setAcctLoading(true);
-    const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
-      body: { expert_id: exp.id, action: 'fetch_email' },
-    });
-    setAcctLoading(false);
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || '無法讀取帳號資訊');
-      return;
-    }
-    setAcctCurrentEmail(data.email || '');
-    setAcctIsLineVirtual(!!data.is_line_virtual);
-    setAcctNewEmail(data.email || '');
-  };
-
-  const closeAccountDialog = () => {
-    setAcctExpert(null);
-    setAcctNewEmail('');
-    setAcctNewPassword('');
-    setAcctConfirmPassword('');
-  };
-
-  const handleUpdateEmail = async () => {
-    if (!acctExpert) return;
-    if (!acctNewEmail || acctNewEmail === acctCurrentEmail) {
-      toast.error('請輸入新的 Email');
-      return;
-    }
-    setAcctSubmitting(true);
-    const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
-      body: { expert_id: acctExpert.id, action: 'update_email', email: acctNewEmail.trim() },
-    });
-    setAcctSubmitting(false);
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || '更新失敗');
-      return;
-    }
-    toast.success('Email 已更新');
-    setAcctCurrentEmail(data.email);
-  };
-
-  const handleResetPassword = async () => {
-    if (!acctExpert) return;
-    if (!acctNewPassword || acctNewPassword.length < 8) {
-      toast.error('密碼至少 8 碼');
-      return;
-    }
-    if (!/[A-Za-z]/.test(acctNewPassword) || !/[0-9]/.test(acctNewPassword)) {
-      toast.error('密碼需包含英文字母與數字');
-      return;
-    }
-    if (acctNewPassword !== acctConfirmPassword) {
-      toast.error('兩次密碼輸入不一致');
-      return;
-    }
-    if (!confirm(`確定要將 ${acctExpert.name} 的密碼重設為新密碼？此動作會立即生效。`)) return;
-    setAcctSubmitting(true);
-    const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
-      body: { expert_id: acctExpert.id, action: 'reset_password', new_password: acctNewPassword },
-    });
-    setAcctSubmitting(false);
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || '重設失敗');
-      return;
-    }
-    toast.success('密碼已重設');
-    setAcctNewPassword('');
-    setAcctConfirmPassword('');
-  };
-
-  const handleSendResetEmail = async () => {
-    if (!acctExpert) return;
-    if (!confirm(`寄送密碼重設信至 ${acctCurrentEmail}？`)) return;
-    setAcctSubmitting(true);
-    const { data, error } = await supabase.functions.invoke('update-analyst-credentials', {
-      body: { expert_id: acctExpert.id, action: 'send_reset_email' },
-    });
-    setAcctSubmitting(false);
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || '寄送失敗');
-      return;
-    }
-    toast.success(`已寄送至 ${data.sent_to}`);
-  };
-
   return (
     <CompanyLayout>
       <div className="space-y-6">
@@ -340,246 +107,31 @@ const CompanyAnalysts = () => {
             <h1 className="text-2xl font-bold">分析師管理</h1>
             <p className="text-muted-foreground text-sm mt-1">管理所有分析師帳號與權限</p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="bg-company hover:bg-company/90 text-white" onClick={() => { clearForm(); setIsCreateOpen(true); }}><UserPlus className="h-4 w-4 mr-2" />新增分析師</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>新增分析師帳號</DialogTitle></DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="analyst@example.com" type="email" />
-                </div>
-                <div className="space-y-2">
-                  <Label>密碼</Label>
-                  <Input value={password} onChange={e => setPassword(e.target.value)} placeholder="至少 6 位" type="password" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>姓名</Label>
-                    <Input value={name} onChange={e => setName(e.target.value)} placeholder="趙鵬博" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Slug（URL識別）</Label>
-                    <Input value={slug} onChange={e => setSlug(e.target.value)} placeholder="zhao-pengbo" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>角色</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger><SelectValue placeholder="選擇角色" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="advisor">投顧分析師</SelectItem>
-                      <SelectItem value="mentor">實戰導師</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>取消</Button>
-                  <Button onClick={handleCreate} disabled={creating}>{creating ? '建立中...' : '建立帳號'}</Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <CreateAnalystDialog
+            open={isCreateOpen}
+            setOpen={setIsCreateOpen}
+            email={email} setEmail={setEmail}
+            password={password} setPassword={setPassword}
+            name={name} setName={setName}
+            slug={slug} setSlug={setSlug}
+            role={role} setRole={setRole}
+            creating={creating}
+            clearForm={clearForm}
+            onCreate={handleCreate}
+          />
         </div>
 
-        <Card>
-          <CardContent className="p-0">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-sm text-muted-foreground">
-                  <th className="p-4">分析師</th>
-                  <th className="p-4">角色</th>
-                  <th className="p-4">Slug</th>
-                  <th className="p-4">狀態</th>
-                  <th className="p-4">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">載入中...</td></tr>
-                ) : experts.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground text-sm">尚無分析師</td></tr>
-                ) : (
-                  experts.map(exp => (
-                    <tr key={exp.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <img src={avatarUrl(exp.avatar_url, 64)} alt={exp.name} loading="lazy" decoding="async" className="shrink-0 h-8 w-8 rounded-full object-cover object-[center_15%]" />
-                          <p className="font-medium text-sm">{exp.name}</p>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <Badge variant={exp.role === 'advisor' ? 'default' : 'secondary'} className="text-xs">
-                          {exp.role === 'advisor' ? '投顧分析師' : '實戰導師'}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-sm text-muted-foreground">{exp.slug}</td>
-                      <td className="p-4">
-                        <Badge 
-                          className={`text-xs ${exp.status === 'suspended' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}
-                        >
-                          {exp.status === 'suspended' ? '已停用' : '啟用中'}
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openLineSettings(exp)}>
-                            <MessageCircle className="h-3 w-3 mr-1" />LINE
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openAccountDialog(exp)}>
-                            <Key className="h-3 w-3 mr-1" />帳號
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                            <Link to={`/admin/${exp.slug}`}><Eye className="h-3 w-3 mr-1" />後台</Link>
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleStatus(exp.id, exp.status)}>
-                            {exp.status === 'suspended' ? '啟用' : '停用'}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+        <AnalystsTable
+          loading={loading}
+          experts={experts}
+          onOpenLine={lineEditor.openLineSettings}
+          onOpenAccount={account.openAccountDialog}
+          onToggleStatus={toggleStatus}
+        />
       </div>
 
-      {/* LINE Channel Settings Dialog */}
-      <Dialog open={!!lineExpertId} onOpenChange={(open) => { if (!open) closeLineSettings(); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{lineExpertName} — LINE 設定</DialogTitle>
-          </DialogHeader>
-          {lineLoading ? (
-            <p className="text-sm text-muted-foreground text-center py-4">載入中...</p>
-          ) : (
-            <div className="space-y-4 mt-2">
-              <div className="space-y-2">
-                <Label>Channel ID</Label>
-                <Input value={lineChannelId} onChange={e => setLineChannelId(e.target.value)} placeholder="LINE Channel ID" />
-              </div>
-              <div className="space-y-2">
-                <Label>Channel Access Token</Label>
-                <Input value={lineToken} onChange={e => setLineToken(e.target.value)} placeholder="長期 Channel Access Token" type="password" />
-              </div>
-              <div className="space-y-2">
-                <Label>顯示名稱（選填）</Label>
-                <Input value={lineChannelName} onChange={e => setLineChannelName(e.target.value)} placeholder="例：趙鵬博｜訊號通知" />
-              </div>
-              <div className="space-y-2">
-                <Label>Bot Basic ID</Label>
-                <Input value={lineOaId} onChange={e => setLineOaId(e.target.value)} placeholder="例：@zhao-pengbo" />
-                <p className="text-xs text-muted-foreground">訂閱者透過此 ID 搜尋並加入官方帳號</p>
-              </div>
-              <div className="space-y-2">
-                <Label>QR Code 網址</Label>
-                <Input value={lineQrCodeUrl} onChange={e => setLineQrCodeUrl(e.target.value)} placeholder="https://qr-official.line.me/..." />
-                <p className="text-xs text-muted-foreground">訂閱者可掃描 QR Code 加入官方帳號</p>
-              </div>
-              <div className="flex items-center justify-between">
-                <Label>啟用推播</Label>
-                <Switch checked={lineActive} onCheckedChange={setLineActive} />
-              </div>
-              <div className="text-xs text-muted-foreground">
-                已綁定訂閱者：{lineBindingsCount} 人
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="outline" onClick={closeLineSettings}>取消</Button>
-                <Button onClick={handleSaveLine} disabled={savingLine}>
-                  {savingLine ? '儲存中...' : lineChannel ? '更新設定' : '儲存設定'}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Account Credentials Dialog */}
-      <Dialog open={!!acctExpert} onOpenChange={(open) => { if (!open) closeAccountDialog(); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{acctExpert?.name} — 帳號設定</DialogTitle>
-            <DialogDescription>
-              目前 Email：<span className="font-mono">{acctLoading ? '載入中...' : acctCurrentEmail || '—'}</span>
-              {acctIsLineVirtual && <span className="block mt-1 text-amber-500">⚠ 此帳號透過 LINE 登入，僅可重設密碼</span>}
-            </DialogDescription>
-          </DialogHeader>
-
-          <Tabs value={acctTab} onValueChange={(v) => setAcctTab(v as any)} className="mt-2">
-            <TabsList className="grid grid-cols-3 w-full">
-              <TabsTrigger value="email" disabled={acctIsLineVirtual}><Mail className="h-3 w-3 mr-1" />改 Email</TabsTrigger>
-              <TabsTrigger value="password"><Key className="h-3 w-3 mr-1" />重設密碼</TabsTrigger>
-              <TabsTrigger value="reset" disabled={acctIsLineVirtual}><Send className="h-3 w-3 mr-1" />寄重設信</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="email" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>新 Email</Label>
-                <Input
-                  type="email"
-                  value={acctNewEmail}
-                  onChange={(e) => setAcctNewEmail(e.target.value)}
-                  placeholder="new@example.com"
-                  disabled={acctIsLineVirtual}
-                />
-                <p className="text-xs text-muted-foreground">更新後該分析師需以新 Email 登入。系統會自動標記新 Email 為已驗證。</p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={closeAccountDialog}>取消</Button>
-                <Button onClick={handleUpdateEmail} disabled={acctSubmitting || acctIsLineVirtual}>
-                  {acctSubmitting ? '更新中...' : '更新 Email'}
-                </Button>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="password" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>新密碼</Label>
-                <Input
-                  type="password"
-                  value={acctNewPassword}
-                  onChange={(e) => setAcctNewPassword(e.target.value)}
-                  placeholder="至少 8 碼，需含英文與數字"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>確認新密碼</Label>
-                <Input
-                  type="password"
-                  value={acctConfirmPassword}
-                  onChange={(e) => setAcctConfirmPassword(e.target.value)}
-                  placeholder="再次輸入"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">立即覆蓋密碼。請務必透過安全管道告知該分析師。</p>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={closeAccountDialog}>取消</Button>
-                <Button onClick={handleResetPassword} disabled={acctSubmitting}>
-                  {acctSubmitting ? '處理中...' : '立即重設'}
-                </Button>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="reset" className="space-y-4 mt-4">
-              <p className="text-sm">
-                系統將寄出含一次性重設連結的郵件至：
-                <span className="block mt-1 font-mono text-foreground">{acctCurrentEmail || '—'}</span>
-              </p>
-              <p className="text-xs text-muted-foreground">分析師收到信後，可自行設定新密碼（連結 60 分鐘內有效）。</p>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={closeAccountDialog}>取消</Button>
-                <Button onClick={handleSendResetEmail} disabled={acctSubmitting || acctIsLineVirtual || !acctCurrentEmail}>
-                  {acctSubmitting ? '寄送中...' : '發送重設密碼信'}
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
+      <LineChannelDialog editor={lineEditor} />
+      <AccountCredentialsDialog account={account} />
     </CompanyLayout>
   );
 };

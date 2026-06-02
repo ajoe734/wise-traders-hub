@@ -43,8 +43,12 @@ describe('Batch 5b — React Query keys & invalidation contract', () => {
   });
 
   it('BacktestMonitor: single snapshot key + invalidation', () => {
-    const src = read('BacktestMonitor.tsx');
-    expect(src).toMatch(/queryKey:\s*\['company',\s*'backtest-monitor'\]/);
-    expect(src).toMatch(/invalidateQueries\(\{\s*queryKey:\s*\['company',\s*'backtest-monitor'\]/);
+    // Refactored: query key + invalidation live in hooks/company/useBacktestMonitor.ts
+    const hookSrc = readFileSync(
+      join(__dirname, '..', '..', 'hooks', 'company', 'useBacktestMonitor.ts'),
+      'utf-8',
+    );
+    expect(hookSrc).toMatch(/queryKey:\s*\['company',\s*'backtest-monitor'\]/);
+    expect(hookSrc).toMatch(/invalidateQueries\(\{\s*queryKey:\s*\['company',\s*'backtest-monitor'\]/);
   });
 });

@@ -260,9 +260,10 @@ describe('drift-detection: production 頁面使用安全視圖（非底層資料
     expect(src).toContain('payment_providers_safe');
   });
 
-  it('drift: Analysts.tsx 查詢 LINE 綁定使用 member_line_bindings_analyst（防止改用底層 member_line_bindings 表）', () => {
+  it('drift: Analysts LINE 綁定查詢使用 member_line_bindings_analyst（防止改用底層 member_line_bindings 表）', () => {
+    // Refactored: LINE channel editor + binding count query moved to hooks/company/useLineChannelEditor.ts
     const src = readFileSync(
-      resolve(process.cwd(), 'src/pages/company/Analysts.tsx'),
+      resolve(process.cwd(), 'src/hooks/company/useLineChannelEditor.ts'),
       'utf-8',
     );
     expect(src).toContain('member_line_bindings_analyst');
