@@ -101,7 +101,7 @@ function HoldingCardImpl(props) {
 
   const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal >= 0 ? '+' : ''}${pctVal.toFixed(2)}%，損益 ${pnlVal >= 0 ? '+' : ''}${pnlVal.toLocaleString()}`;
 
-  const handleClick = () => onSelect(h.code);
+  const handleClick = () => { try { (window as any).__lf_track?.('checkup_holding_expand', { code: h.code }); } catch {} onSelect(h.code); };
   const handleDoubleClick = () => onOpenDrawer(h.code);
   const handleKeyDown = (e) => {
     if (e.shiftKey && (e.key === 'Enter' || e.key === ' ')) {
