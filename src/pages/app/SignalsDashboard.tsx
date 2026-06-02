@@ -45,8 +45,10 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
     staleTime: 30_000,
   });
 
-  // Fetch holdings from DB
-  const { data: holdings = [] } = useMyHoldings();
+  // C1（holdings audit 2026-06）：訂閱者儀表板沒有單一 expert 上下文，
+  // 強制 expertId 守衛後，這裡若仍呼叫 useMyHoldings() 會永遠拿到 []，
+  // 之前「顯示全站開倉」是資料外洩。已移除此呼叫，計數改為 0。
+  const holdings: never[] = [];
 
   const todaySignals = recentSignals.filter(s => s.published_at && isToday(new Date(s.published_at)));
 

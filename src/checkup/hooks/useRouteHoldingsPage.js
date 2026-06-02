@@ -27,15 +27,19 @@ export function useRouteHoldingsPage() {
   const holdings = useMemo(() => holdingsRaw || EMPTY_HOLDINGS, [holdingsValueKey])
 
   return useMemo(() => {
-    const totalVal = holdings.reduce((sum, item) => sum + (item.value || 0), 0)
-    const totalCost = holdings.reduce(
+    // C6 (audit 2026-06)：缺價（integrityIssue==='missing-price'）的持倉，value=0 但 cost*qty 仍會被算進總成本，
+    // 造成總報酬率系統性偏低。聚合總值/總成本/勝負時排除這些缺價標的，
+    // 改由 holdingsIntegrityIssues 獨立呈現，讓使用者知道有幾檔待補價。
+    const validHoldings = holdings.filter((item) => item.integrityIssue !== 'missing-price')
+    const totalVal = validHoldings.reduce((sum, item) => sum + (item.value || 0), 0)
+    const totalCost = validHoldings.reduce(
       (sum, item) => sum + (Number(item.cost) || 0) * (Number(item.qty) || 0),
       0
     )
-    const winners = [...holdings]
+    const winners = [...validHoldings]
       .filter((item) => (item.pct || 0) > 0)
       .sort((a, b) => (b.pct || 0) - (a.pct || 0))
-    const losers = [...holdings]
+    const losers = [...validHoldings]
       .filter((item) => (item.pct || 0) < 0)
       .sort((a, b) => (a.pct || 0) - (b.pct || 0))
     const holdingsIntegrityIssues = holdings.filter(

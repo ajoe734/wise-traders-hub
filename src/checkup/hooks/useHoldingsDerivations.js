@@ -36,19 +36,25 @@ export function useHoldingsDerivations({
   showAll,
   globalPriorityList,
 }) {
+  // C11 (audit 2026-06)：所有輸入做防呆預設，避免 bootstrap 尚未完成 / 上游回傳 undefined 時崩潰。
+  const safeSorted = Array.isArray(sorted) ? sorted : [];
+  const safeDecisionsMap = decisionsMap || {};
+  const safeStockMeta = stockMeta || {};
+  const safeGlobalPriorityList = Array.isArray(globalPriorityList) ? globalPriorityList : [];
+
   // 1. displayed — 不展開時 slice(0, 12)
   const displayed = useMemo(
-    () => (showAll ? sorted : sorted.slice(0, 12)),
-    [showAll, sorted]
+    () => (showAll ? safeSorted : safeSorted.slice(0, 12)),
+    [showAll, safeSorted]
   );
 
   // 2. variantsMap — 卡片 ink/accent/plain 配額
   const variantsMap = useMemo(
     () => assignCardVariants(displayed, {
-      getActionType: (it) => decisionsMap[it.code]?.actionType || 'hold',
+      getActionType: (it) => safeDecisionsMap[it.code]?.actionType || 'hold',
       getPct: (it) => it.pct ?? 0,
     }),
-    [displayed, decisionsMap]
+    [displayed, safeDecisionsMap]
   );
 
   // 3. orderedDisplayed — 依 variant 重新排序（ink → accent → plain）
@@ -72,8 +78,8 @@ export function useHoldingsDerivations({
   // 5. actionPriorityItems — 預先組裝（含 tag/desc），避免子元件接 decisionsMap+stockMeta 全表
   const actionPriorityItems = useMemo(
     () =>
-      globalPriorityList.map((h) => {
-        const dec = decisionsMap[h.code];
+      safeGlobalPriorityList.map((h) => {
+        const dec = safeDecisionsMap[h.code];
         const tag =
           dec?.actionType === 'exit'
             ? 'EXIT'
@@ -84,21 +90,21 @@ export function useHoldingsDerivations({
           ? dec.actionText.length > 32
             ? dec.actionText.slice(0, 30) + '…'
             : dec.actionText
-          : stockMeta[h.code]?.strategy || '持續監控';
+          : safeStockMeta[h.code]?.strategy || '持續監控';
         return { code: h.code, name: h.name, pct: h.pct ?? 0, tag, desc };
       }),
-    [globalPriorityList, decisionsMap, stockMeta]
+    [safeGlobalPriorityList, safeDecisionsMap, safeStockMeta]
   );
 
   // 6. strategyOptions — 篩選器的動態題材選項
   const strategyOptions = useMemo(() => {
     const set = new Set();
     (holdings || []).forEach((h) => {
-      const s = stockMeta[h.code]?.strategy;
+      const s = safeStockMeta[h.code]?.strategy;
       if (s) set.add(s);
     });
     return Array.from(set).sort();
-  }, [holdings, stockMeta]);
+  }, [holdings, safeStockMeta]);
 
   return {
     displayed,

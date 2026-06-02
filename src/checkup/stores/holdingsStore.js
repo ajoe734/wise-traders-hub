@@ -38,10 +38,19 @@ const asObj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 
 // Functional setter — supports both setX(value) and setX(prev => next),
 // matching React's useState contract so call sites don't have to change.
+//
+// C2（holdings audit 2026-06）：hydration sentinel 保護。
+//   slice 預設為 `null`（= 未 hydrate）。若 functional updater 在 hydrate 完成前抵達
+//   （例如 quote tick 先於 bootstrap），會把 `null` 餵給 callback，要嘛 .map() 噴錯，
+//   要嘛沉默地把 sentinel 變成 `[]`，使後續 usePortfolioPersistence 把「未載入」誤認為「載入後空」。
+//   現在：prev == null 時直接 return prev，updater 等到 hydrate 後第一次 explicit set 才接管。
 const makeSetter = (key) => (set) => (next) =>
-  set((state) =>
-    typeof next === 'function' ? { [key]: next(state[key]) } : { [key]: next }
-  );
+  set((state) => {
+    if (typeof next !== 'function') return { [key]: next };
+    const prev = state[key];
+    if (prev == null) return {}; // sentinel 保護：不破壞「未 hydrate」狀態
+    return { [key]: next(prev) };
+  });
 
 export const useHoldingsStore = create((set, get) => ({
   // State
