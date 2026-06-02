@@ -2573,6 +2573,7 @@ export type Database = {
           event_name: string | null
           event_props: Json | null
           id: string
+          is_internal: boolean
           occurred_at: string
           referrer_host: string | null
           route: string
@@ -2583,6 +2584,7 @@ export type Database = {
           event_name?: string | null
           event_props?: Json | null
           id?: string
+          is_internal?: boolean
           occurred_at?: string
           referrer_host?: string | null
           route: string
@@ -2593,6 +2595,7 @@ export type Database = {
           event_name?: string | null
           event_props?: Json | null
           id?: string
+          is_internal?: boolean
           occurred_at?: string
           referrer_host?: string | null
           route?: string
