@@ -140,24 +140,28 @@ export const useHoldingsStore = create((set, get) => ({
   // Selectors (null-tolerant)
   getHoldingByCode: (code) => asArr(get().holdings).find(h => h.code === code) || null,
 
-  // H2 (audit 2026-06): `||` → `??`，pnl=0 不被當缺值
+  // H15 (audit 2026-06)：getTop* / getHoldingsSummary 過去每次呼叫都 spread + sort，
+  //   在 quote tick / re-render 熱路徑會浪費 O(n log n)。改用 WeakMap 以 holdings 陣列 reference
+  //   作 key 快取結果；只要 store 沒換陣列（snapshot 未變）就回同一份結果。
+  // H2 (audit 2026-06): `||` → `??`，pnl=0 不被當缺值。
   getHoldingsSummary: () => {
     const list = asArr(get().holdings);
-    const totalValue = list.reduce((sum, h) => sum + (h.value ?? 0), 0);
-    const totalCost = list.reduce((sum, h) => sum + (h.cost ?? 0) * (h.qty ?? 0), 0);
-    const totalPnl = totalValue - totalCost;
-    const totalRetPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
-    return { totalValue, totalCost, totalPnl, totalRetPct, count: list.length };
+    return _getOrCompute(_summaryCache, list, () => {
+      const totalValue = list.reduce((sum, h) => sum + (h.value ?? 0), 0);
+      const totalCost = list.reduce((sum, h) => sum + (h.cost ?? 0) * (h.qty ?? 0), 0);
+      const totalPnl = totalValue - totalCost;
+      const totalRetPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+      return { totalValue, totalCost, totalPnl, totalRetPct, count: list.length };
+    });
   },
 
   getTopGainers: (limit = 5) =>
-    [...asArr(get().holdings)].sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0)).slice(0, limit),
+    _topByPct(_gainersCache, asArr(get().holdings), limit, 'desc'),
 
   getTopLosers: (limit = 5) =>
-    [...asArr(get().holdings)].sort((a, b) => (a.pct ?? 0) - (b.pct ?? 0)).slice(0, limit),
+    _topByPct(_losersCache, asArr(get().holdings), limit, 'asc'),
 
-  getTop5: () =>
-    [...asArr(get().holdings)].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, 5),
+  getTop5: () => _top5ByValue(asArr(get().holdings)),
 
   getHoldingsWithAlerts: () =>
     asArr(get().holdings).filter(h => h.alert && h.alert.trim() !== ''),
