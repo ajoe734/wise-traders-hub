@@ -80,6 +80,20 @@ const Checkout = () => {
 
   useEffect(() => { trackEvent('checkout_open', { plan_id: planId, slug }); }, [planId, slug]);
 
+  // Track payment method change
+  useEffect(() => {
+    if (!selectedProvider) return;
+    const obj = providers.find(p => p.id === selectedProvider);
+    if (obj) trackEvent('checkout_payment_method_select', { method: obj.provider_type });
+  }, [selectedProvider, providers]);
+
+  // Track payment failure
+  useEffect(() => {
+    if (resultDialog?.open && resultDialog?.success === false) {
+      trackEvent('checkout_failure', { reason: resultDialog.message || 'unknown', plan_id: planId });
+    }
+  }, [resultDialog?.open, resultDialog?.success, resultDialog?.message, planId]);
+
   // Idempotency key for remittance order creation — kept stable per page session
   const remittanceReqIdRef = useRef<string>(typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
   // Synchronous guard against rapid double-clicks before React re-renders isProcessing
@@ -350,6 +364,8 @@ const Checkout = () => {
     if (submittingRef.current) return;
     submittingRef.current = true;
     setIsProcessing(true);
+    const _method = providers.find(p => p.id === selectedProvider)?.provider_type;
+    trackEvent('checkout_submit', { plan_id: planId, method: _method });
 
     try {
       // Check if selected provider is LINE Pay
@@ -667,6 +683,7 @@ const Checkout = () => {
         consentChecked={consentChecked}
         setConsentChecked={setConsentChecked}
         onProceed={() => {
+          trackEvent('checkout_consent_accept', { plan_id: planId });
           setConsentOpen(false);
           proceedCheckout();
         }}

@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { trackRaw } from '@/lib/analytics/events';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,6 +35,7 @@ const PREF_LABELS: Record<keyof typeof PREF_DEFAULTS, { title: string; desc: str
 };
 
 export default function AccountNotifications() {
+  useEffect(() => { trackRaw('notifications_open'); }, []);
   const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();

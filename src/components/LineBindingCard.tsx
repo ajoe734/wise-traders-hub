@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { avatarUrl } from '@/lib/imageTransform';
+import { trackRaw } from '@/lib/analytics/events';
 
 interface LineBindingCardProps {
   expertId: string;
@@ -102,6 +103,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
 
       setBindingCode(code);
       setCodeExpiresAt(expiresAt);
+      trackRaw('line_binding_start', { expert_slug: expertSlug });
     } catch (err: any) {
       console.error('Generate code error:', err);
       toast({

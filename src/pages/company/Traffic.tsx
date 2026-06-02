@@ -412,6 +412,68 @@ export default function CompanyTraffic() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="pages">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">頁面分析（PV / UV / 登入會員）</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">依路徑彙總；右上方開關控制是否包含 /company /admin 內部流量</p>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>路徑</TableHead>
+                    <TableHead className="text-right">PV</TableHead>
+                    <TableHead className="text-right">UV</TableHead>
+                    <TableHead className="text-right">登入會員</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {(pages || []).map((p) => (
+                      <TableRow key={p.path}>
+                        <TableCell className="font-mono text-xs">{p.path}</TableCell>
+                        <TableCell className="text-right">{fmtNum(p.page_views)}</TableCell>
+                        <TableCell className="text-right">{fmtNum(p.unique_visitors)}</TableCell>
+                        <TableCell className="text-right">{fmtNum(p.logged_in_visitors)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {(!pages || pages.length === 0) && (
+                      <TableRow><TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">尚無資料</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="instruments">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">熱門個股 Top 30</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">從事件 event_props 的 instrument 欄位聚合（持股看板、訊號、漲停榜）</p>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>個股</TableHead>
+                    <TableHead className="text-right">事件數</TableHead>
+                    <TableHead className="text-right">不重複訪客</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {(instruments || []).map((i) => (
+                      <TableRow key={i.instrument}>
+                        <TableCell className="font-mono text-xs">{i.instrument}</TableCell>
+                        <TableCell className="text-right">{fmtNum(i.events)}</TableCell>
+                        <TableCell className="text-right">{fmtNum(i.unique_visitors)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {(!instruments || instruments.length === 0) && (
+                      <TableRow><TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-6">尚無個股事件</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="sources" className="space-y-4">
             <Card>
               <CardHeader><CardTitle className="text-base">Channel 分布</CardTitle></CardHeader>

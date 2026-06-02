@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { trackRaw } from '@/lib/analytics/events';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,6 +43,7 @@ const contentCategories = [
 ];
 
 export function LearningDashboard({ subscriptions, userName }: LearningDashboardProps) {
+  useEffect(() => { trackRaw('learning_view'); }, []);
   // No journals table yet - show empty state for journals, keep static course/learning data
   const primaryMentor = subscriptions[0]?.person || subscriptions[0]?.expert;
 

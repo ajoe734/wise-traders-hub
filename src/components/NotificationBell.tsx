@@ -10,6 +10,7 @@ import { Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { fetchMemberNotifications } from '@/lib/memberDataAccess';
+import { trackRaw } from '@/lib/analytics/events';
 
 export function NotificationBell() {
   const { user } = useAuth();
@@ -47,6 +48,7 @@ export function NotificationBell() {
   };
 
   const handleClick = async (notif: any) => {
+    trackRaw('notification_click', { notification_id: notif.id });
     if (!notif.is_read) {
       setLocal((n) => (n.id === notif.id ? { ...n, is_read: true } : n));
       await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id);
@@ -66,7 +68,7 @@ export function NotificationBell() {
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (v) trackRaw('notifications_open'); }}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm" className="relative">
           <Bell className="h-4 w-4" />
