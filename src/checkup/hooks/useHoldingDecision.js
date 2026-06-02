@@ -1,11 +1,13 @@
 /**
  * useHoldingDecision
  * 從 holding + dossier 推算決策狀態（hold / review / exit / add）
- * 與 urgency（high / medium / low）
+ * 與 urgency（now / soon / monitor）— H14：與 holdingsSort.URGENCY_RANK 對齊，
+ * 全站 urgency 詞彙唯一來源為 @/checkup/lib/holdingsSort。
  *
  * 並提供 assignCardVariants：依排序產生 ink/accent/plain 配額
  */
 import { useMemo } from 'react'
+import { URGENCY_RANK as SHARED_URGENCY_RANK } from '@/checkup/lib/holdingsSort'
 import {
   getHoldingMarketValue,
   getHoldingReturnPct,
