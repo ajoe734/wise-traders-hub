@@ -1,11 +1,13 @@
 /**
  * useHoldingDecision
  * 從 holding + dossier 推算決策狀態（hold / review / exit / add）
- * 與 urgency（high / medium / low）
+ * 與 urgency（now / soon / monitor）— H14：與 holdingsSort.URGENCY_RANK 對齊，
+ * 全站 urgency 詞彙唯一來源為 @/checkup/lib/holdingsSort。
  *
  * 並提供 assignCardVariants：依排序產生 ink/accent/plain 配額
  */
 import { useMemo } from 'react'
+import { URGENCY_RANK as SHARED_URGENCY_RANK } from '@/checkup/lib/holdingsSort'
 import {
   getHoldingMarketValue,
   getHoldingReturnPct,
@@ -38,11 +40,12 @@ const decisionFor = (holding, dossier) => {
 }
 
 const urgencyFor = (decision, pct) => {
-  if (decision.kind === 'exit') return 'high'
-  if (decision.kind === 'review' && Math.abs(pct) >= 15) return 'high'
-  if (decision.kind === 'review') return 'medium'
-  if (decision.kind === 'add') return 'medium'
-  return 'low'
+  // H14：統一使用 now/soon/monitor 詞彙（與 holdingsSort.URGENCY_RANK 對齊）
+  if (decision.kind === 'exit') return 'now'
+  if (decision.kind === 'review' && Math.abs(pct) >= 15) return 'now'
+  if (decision.kind === 'review') return 'soon'
+  if (decision.kind === 'add') return 'soon'
+  return 'monitor'
 }
 
 const todayChangeFor = (holding) => {
@@ -78,13 +81,14 @@ export function useHoldingDecisions(holdings = [], holdingDossiers = []) {
         decision,
         urgency,
         today,
-        isFeatured: urgency === 'high' || decision.kind === 'exit' || decision.kind === 'review',
+        isFeatured: urgency === 'now' || decision.kind === 'exit' || decision.kind === 'review',
       }
     })
   }, [holdings, holdingDossiers])
 }
 
-export const URGENCY_RANK = { high: 3, medium: 2, low: 1 }
+// H14：URGENCY_RANK 單一來源 = @/checkup/lib/holdingsSort，這裡只 re-export 以維持 BC
+export const URGENCY_RANK = SHARED_URGENCY_RANK
 
 /**
  * 配額規則：限制畫面上強視覺卡片數量
