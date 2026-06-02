@@ -68,29 +68,39 @@ export function getHoldingMarketValue(item, overridePrice = null) {
 }
 
 /**
- * Get unrealized P&L for a holding
+ * Get unrealized P&L for a holding.
+ * H6: 優先用 calcPnlWithNet（精確模式 / 統一公式入口），徹底消滅散落的 (price-cost)*qty。
  */
 export function getHoldingUnrealizedPnl(item, overridePrice = null) {
   if (!item || typeof item !== 'object') return 0
 
   // Use pre-calculated pnl if available
-  if (typeof item.pnl === 'number') return item.pnl
+  if (typeof item.pnl === 'number' && Number.isFinite(item.pnl)) return item.pnl
 
   const price = resolveHoldingPrice(item, overridePrice)
-  return calculateHoldingUnrealizedPnl(price, item?.qty, item?.cost)
+  const { pnl } = calcPnlWithNet(
+    { qty: item.qty, cost: item.cost, totalCost: item.totalCost, fee: item.fee, code: item.code },
+    price
+  )
+  return pnl
 }
 
 /**
  * Get return percentage for a holding
+ * H7: 透過 calcPnlWithNet 統一處理 cost=0 / Infinity 防護。
  */
 export function getHoldingReturnPct(item, overridePrice = null) {
   if (!item || typeof item !== 'object') return 0
 
   // Use pre-calculated pct if available
-  if (typeof item.pct === 'number') return item.pct
+  if (typeof item.pct === 'number' && Number.isFinite(item.pct)) return item.pct
 
   const price = resolveHoldingPrice(item, overridePrice)
-  return calculateHoldingReturnPct(price, item?.qty, item?.cost)
+  const { pct } = calcPnlWithNet(
+    { qty: item.qty, cost: item.cost, totalCost: item.totalCost, fee: item.fee, code: item.code },
+    price
+  )
+  return pct
 }
 
 /**
