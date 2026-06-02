@@ -357,6 +357,8 @@ const Checkout = () => {
     if (submittingRef.current) return;
     submittingRef.current = true;
     setIsProcessing(true);
+    const _method = providers.find(p => p.id === selectedProvider)?.provider_type;
+    trackEvent('checkout_submit', { plan_id: planId, method: _method });
 
     try {
       // Check if selected provider is LINE Pay
