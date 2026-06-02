@@ -40,16 +40,22 @@ const asObj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 // matching React's useState contract so call sites don't have to change.
 //
 // C2（holdings audit 2026-06）：hydration sentinel 保護。
-//   slice 預設為 `null`（= 未 hydrate）。若 functional updater 在 hydrate 完成前抵達
-//   （例如 quote tick 先於 bootstrap），會把 `null` 餵給 callback，要嘛 .map() 噴錯，
-//   要嘛沉默地把 sentinel 變成 `[]`，使後續 usePortfolioPersistence 把「未載入」誤認為「載入後空」。
-//   現在：prev == null 時直接 return prev，updater 等到 hydrate 後第一次 explicit set 才接管。
+//   slice 預設為 `null`（= 未 hydrate）。tick-path（quote tick 等）updater 多半假設
+//   prev 是陣列/物件，遇到 null sentinel 會丟 TypeError 或沉默地把 sentinel 變成 `[]`，
+//   使後續 usePortfolioPersistence 把「未載入」誤判為「載入後空」。
+//   策略：try/catch 包住 updater：
+//     - 正常 updater（如 useTransientUiActions 用 `prev || {}` 防呆）→ 直接寫入，正常初始化
+//     - 拋錯的 updater（tick callback 假設陣列）+ prev==null → 保留 sentinel，等真正 hydrate
 const makeSetter = (key) => (set) => (next) =>
   set((state) => {
     if (typeof next !== 'function') return { [key]: next };
     const prev = state[key];
-    if (prev == null) return {}; // sentinel 保護：不破壞「未 hydrate」狀態
-    return { [key]: next(prev) };
+    try {
+      return { [key]: next(prev) };
+    } catch (err) {
+      if (prev == null) return {}; // sentinel 保護
+      throw err;
+    }
   });
 
 export const useHoldingsStore = create((set, get) => ({
