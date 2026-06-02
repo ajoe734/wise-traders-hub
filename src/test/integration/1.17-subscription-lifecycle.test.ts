@@ -291,9 +291,9 @@ describe('drift-detection: 訂閱生命週期各節點', () => {
     expect(src).toContain('You cannot modify subscription expiry');
   });
 
-  it('Account.tsx 主動取消路徑呼叫 cancelSubscriptionInDB（4.3-3）', () => {
+  it('useAccountData 主動取消路徑呼叫 cancelSubscriptionInDB（4.3-3）', () => {
     const src = readFileSync(
-      resolve(process.cwd(), 'src/pages/app/Account.tsx'),
+      resolve(process.cwd(), 'src/hooks/app/useAccountData.ts'),
       'utf-8',
     );
     expect(src).toContain('cancelSubscriptionInDB');

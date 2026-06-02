@@ -276,9 +276,9 @@ describe('drift-detection: Edge Functions 使用共用 _shared/refundProcessor.t
     expect(src).toContain('processRefundInDB');
   });
 
-  it("Account.tsx import cancelSubscriptionInDB 並呼叫 invoke('process-refund')", () => {
+  it("useAccountData import cancelSubscriptionInDB 並呼叫 invoke('process-refund')", () => {
     const src = readFileSync(
-      resolve(process.cwd(), 'src/pages/app/Account.tsx'),
+      resolve(process.cwd(), 'src/hooks/app/useAccountData.ts'),
       'utf-8',
     );
     expect(src).toContain('cancelSubscriptionInDB');
