@@ -107,16 +107,18 @@ export default function CompanyTraffic() {
     refetchInterval: 30_000,
   });
 
-  const { data: funnel } = useQuery({
-    queryKey: ['traffic-funnel', preset],
+  const { data: funnels } = useQuery({
+    queryKey: ['traffic-funnels-all', preset],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_funnel_overview', {
-        _from: range.from.toISOString(),
-        _to: range.to.toISOString(),
-        _steps: DEFAULT_FUNNEL,
-      });
-      if (error) throw error;
-      return (data || []) as unknown as FunnelStep[];
+      const out: Record<string, FunnelStep[]> = {};
+      for (const key of Object.keys(FUNNELS)) {
+        const { data, error } = await supabase.rpc('get_funnel_overview', {
+          _from: range.from.toISOString(), _to: range.to.toISOString(), _steps: FUNNELS[key],
+        });
+        if (error) throw error;
+        out[key] = (data || []) as unknown as FunnelStep[];
+      }
+      return out;
     },
   });
 
@@ -124,11 +126,45 @@ export default function CompanyTraffic() {
     queryKey: ['traffic-heatmap', preset],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_event_heatmap', {
-        _from: range.from.toISOString(),
-        _to: range.to.toISOString(),
+        _from: range.from.toISOString(), _to: range.to.toISOString(),
       });
       if (error) throw error;
       return (data || []) as unknown as EventRow[];
+    },
+  });
+
+  const [showInternal, setShowInternal] = useState(false);
+
+  const { data: products } = useQuery({
+    queryKey: ['traffic-products', preset],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_product_breakdown', {
+        _from: range.from.toISOString(), _to: range.to.toISOString(),
+      });
+      if (error) throw error;
+      return (data || []) as unknown as ProductRow[];
+    },
+  });
+
+  const { data: pages } = useQuery({
+    queryKey: ['traffic-pages', preset, showInternal],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_page_analytics', {
+        _from: range.from.toISOString(), _to: range.to.toISOString(), _include_internal: showInternal,
+      });
+      if (error) throw error;
+      return (data || []) as unknown as PageRow[];
+    },
+  });
+
+  const { data: instruments } = useQuery({
+    queryKey: ['traffic-instruments', preset],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_top_instruments', {
+        _from: range.from.toISOString(), _to: range.to.toISOString(), _limit: 30,
+      });
+      if (error) throw error;
+      return (data || []) as unknown as InstrumentRow[];
     },
   });
 
