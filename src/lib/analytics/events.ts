@@ -27,9 +27,10 @@ export type AnalyticsEvent =
   | { name: 'checkup_view'; props?: { tab?: string } }
   | { name: 'checkup_tab_change'; props: { tab: string } }
   | { name: 'checkup_holding_expand'; props: { code: string } }
-  | { name: 'checkup_holding_target_update'; props: { code: string } }
-  | { name: 'checkup_holding_alert_update'; props: { code: string } }
-  | { name: 'checkup_holdings_sort_change'; props: { sort_by: string } }
+  | { name: 'checkup_holding_target_update'; props: { code: string; source?: 'card' | 'table' } }
+  | { name: 'checkup_holding_alert_update'; props: { code: string; source?: 'card' | 'table' } }
+  | { name: 'checkup_holdings_sort_change'; props: { sort_by: string; sort_dir?: 'asc' | 'desc' } }
+  | { name: 'checkup_holdings_filter_change'; props: { dimension: 'decision' | 'thesis' | 'urgency' | 'conflict' | 'pnl' | 'strategy'; value: string; action: 'add' | 'remove' } }
   | { name: 'checkup_demo_click'; props?: Record<string, unknown> }
   | { name: 'checkup_analysis_run'; props?: { kind?: string } }
   | { name: 'checkup_quota_blocked'; props?: { reason?: string } }
