@@ -1,0 +1,61 @@
+export interface PerfRow {
+  id: string;
+  instrument: string;
+  symbol: string;
+  name: string | null;
+  entry_price: number | null;
+  current_price: number | null;
+  pnl: number | null;
+  pnl_percent: number | null;
+  quantity: number;
+  quantity_unit: string;
+  status: string;
+}
+
+export interface RealizedRow {
+  id: string;
+  instrument: string;
+  entry_price: number | null;
+  exit_price: number | null;
+  entry_date: string | null;
+  exit_date: string | null;
+  pnl_percent: number | null;
+  status: string;
+}
+
+export interface CapitalStatus {
+  starting_capital: number;
+  available_cash: number;
+  open_cost_value: number;
+  realized_pnl_amount: number;
+}
+
+export type RealizedPeriod = 'week' | 'month' | 'year';
+
+export const periodLabel: Record<RealizedPeriod, string> = {
+  week: '近一週',
+  month: '近一月',
+  year: '近一年',
+};
+
+export const pnlColor = (val: number | null) =>
+  val != null && val > 0
+    ? 'text-red-600 dark:text-red-400'
+    : val != null && val < 0
+      ? 'text-green-600 dark:text-green-400'
+      : 'text-foreground';
+
+export const fmtPnl = (v: number) => `${v > 0 ? '+' : ''}${v.toLocaleString()}`;
+export const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
+export const fmtDate = (d: string | null) => {
+  if (!d) return '-';
+  return new Date(d).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+};
+
+// instrument 格式: "2330 台積電"
+export const parseInstrument = (inst: string) => {
+  const parts = inst.split(' ');
+  const symbol = parts[0] || inst;
+  const name = parts.slice(1).join(' ') || null;
+  return { symbol, name };
+};
