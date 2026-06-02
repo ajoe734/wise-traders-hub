@@ -308,9 +308,10 @@ describe('drift-detection: 分析師資料隔離 RLS 政策存在於 migration S
     expect(src).toContain('@/lib/analystDataAccess');
   });
 
-  it('drift: admin/Signals.tsx 使用 fetchAnalystSignals（防止 expert_signals expert_id 過濾被繞過）', () => {
+  it('drift: useAdminSignals.ts 使用 fetchAnalystSignals（防止 expert_signals expert_id 過濾被繞過）', () => {
+    // admin/Signals.tsx 已於 2026-06 重構抽出，資料層改放在 src/hooks/useAdminSignals.ts
     const src = readFileSync(
-      resolve(process.cwd(), 'src/pages/admin/Signals.tsx'),
+      resolve(process.cwd(), 'src/hooks/useAdminSignals.ts'),
       'utf-8',
     );
     expect(src).toContain('fetchAnalystSignals');
