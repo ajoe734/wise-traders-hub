@@ -66,12 +66,19 @@ function chipBtn(active, onClick, label, key, C, alpha) {
   );
 }
 
-function FilterGroup({ label, options, set, setter, toggleSetItem, C, alpha }) {
+function FilterGroup({ label, dimension, options, set, setter, toggleSetItem, C, alpha }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <span style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.08em', fontWeight: 400, minWidth: 36 }}>{label}</span>
       {options.map(([val, l]) =>
-        chipBtn(set.has(val), () => toggleSetItem(setter)(val), l, val, C, alpha)
+        chipBtn(set.has(val), () => {
+          toggleSetItem(setter)(val);
+          try {
+            track('checkup_holdings_filter_change', {
+              dimension, value: String(val), action: set.has(val) ? 'remove' : 'add',
+            });
+          } catch {}
+        }, l, val, C, alpha)
       )}
     </div>
   );
