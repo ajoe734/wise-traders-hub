@@ -314,7 +314,7 @@ grep -cE 'useMutation\('      # mu
 - [ ] **company/Payments 864 行**：抽 hook + 拆 table/dialog
 - [ ] **company/Plans 742 行**：同上
 - [x] **admin/Profile 610 → 198 行**（2026-06-02）：抽 `useAdminProfile` hook（2 query + 3 mutation，集中 avatar storage + capital RPC + profile update），拆 6 個子卡片到 `src/pages/_adminProfile/*`。tsc 0 error。
-- [ ] **admin/Performance 695 行 + 5 ue**：抽 hook + 拆元件（無 recharts，lazy 不適用）
+- [x] **admin/Performance 695 → 69 行**（2026-06-02）：抽 `useAdminPerformanceData` hook 集中 expert 解析 / capital RPC / perf stats / 持倉 + 3 realtime channel，拆 `_adminPerformance/{CapitalSummaryCard,UnrealizedTab,RealizedTab}`，順手用 ref 修掉 realtime 內 fetchRealized 的 stale-closure 隱患。tsc 0 error + 359 tests pass。
 - [ ] **admin/Signals 1246 行**：B4 二輪，拆 detail dialog
 - [x] ~~**admin/Dashboard 10 sb**~~：已查證為單 query Promise.all，非 N+1
 - [x] ~~**Users.tsx 合約脫鉤**~~：已查證實作為 `useQuery<UserRow[]>(['company','users',debouncedSearch])`，合約對齊
