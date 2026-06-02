@@ -7,6 +7,22 @@ vi.mock('@/components/layouts/UnifiedAppLayout', () => ({
   UnifiedAppLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
+// Mock auth — AppCheckout reads useAuth() to identify the buyer
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'u1', email: 'u1@test.io' }, isLoading: false }),
+}));
+
+// Mock the subscription confirmation hook (uses useNavigate internally),
+// since the test isn't exercising the ACpay return-redirect path.
+vi.mock('@/hooks/checkout/useSubscriptionConfirmation', () => ({
+  useSubscriptionConfirmation: () => ({}),
+}));
+
+// Mock the ACpay SDK loader so we don't try to inject a real script tag
+vi.mock('@/hooks/checkout/useAcpaySdk', () => ({
+  useAcpaySdk: () => ({ getPrime: async () => 'SIMULATE_PRIME' }),
+}));
+
 // Mock plan loader
 vi.mock('@/hooks/useExpertPlans', () => ({
   usePlan: () => ({

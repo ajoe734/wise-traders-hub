@@ -368,3 +368,13 @@ grep -c '^#### `/' .lovable/perf-audit-2026-06.md
 - `src/pages/FreeCheckup.jsx`：移除 top-level `edgeCoerce` import 與 prop pass-through
 
 預估：landing 初始 JS -31 KB（helmet），FreeCheckup 主 chunk -5 KB（coerce）。社群爬蟲 og:* 仍走 `index.html` 站級靜態 meta，無 SEO 風險。
+
+## P2-1 · admin/Plans + admin/SignalEditor 收斂（完成 2026-06-02）
+
+- `admin/Plans.tsx`：482 → 126（-356）
+  - 新增 `src/hooks/admin/useAdminPlansData.ts`（experts + expert_plans + member_subscriptions counts 整併為單一 React Query）
+  - 新增 `src/pages/_adminPlans/{constants.ts,PlansTable.tsx,PlanFormDialog.tsx}`
+- `admin/SignalEditor.tsx`：524 → 353（-171）
+  - 新增 `src/hooks/admin/useSignalEditorData.ts`（expert/templates/openPositions/capital + 編輯模式 batch 回填）
+  - 新增 `src/pages/_signalEditor/derive.ts`（validate / buildCashSimTrades / buildSimulatedPositions / buildPublishRows）
+- 全量回歸：861/861 pass，tsc 0 errors。
