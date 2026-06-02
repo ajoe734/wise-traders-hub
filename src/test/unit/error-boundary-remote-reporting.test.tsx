@@ -28,11 +28,14 @@ function Ok() {
 describe('ErrorBoundary remote reporting', () => {
   beforeEach(() => {
     resetRuntimeDiagnosticsState();
-    // Enable remote pipeline with deterministic sample rate.
+    // Enable remote pipeline with deterministic sample rate. `enabled` is
+    // derived from analytics.enabled || sentry.enabled — flip sentry on so
+    // the queue accepts entries, but skip bootstrap so only our test sink
+    // is registered (no real Sentry client side-effects).
     (window as any).__PORTFOLIO_RUNTIME_MONITORING__ = {
       sampleRate: 1,
       analytics: { enabled: false },
-      sentry: { enabled: false },
+      sentry: { enabled: true, useGlobal: false, client: null },
       queue: { flushIntervalMs: 10, batchSize: 50 },
     };
     vi.spyOn(console, 'error').mockImplementation(() => {});
