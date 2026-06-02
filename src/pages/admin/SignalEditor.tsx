@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,17 +11,20 @@ import { isPublishingWindowOpen } from '@/lib/publishingWindow';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { LazyRichTextEditor as RichTextEditor } from '@/components/admin/LazyRichTextEditor';
 import { sanitizeRichHtml, htmlToPlainText } from '@/lib/sanitizeHtml';
-import { simulatePositions, TradeAction } from '@/lib/simulatePositions';
 import { normalizeSignalQuantityToShares, simulateCashAfterTrades } from '@/lib/signalTradeLogic';
 import { cn } from '@/lib/utils';
 import { Plus, Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  emptyTrade, newUid, fmtMoney, actionLabels,
-  type TradeDraft, type CapitalStatus, type OpenPosition, type AIAssistFn,
+  emptyTrade, newUid,
+  type TradeDraft, type AIAssistFn,
 } from '@/pages/_signalEditor/types';
 import { CapitalPanel } from '@/pages/_signalEditor/CapitalPanel';
 import { TradeCard } from '@/pages/_signalEditor/TradeCard';
+import {
+  buildCashSimTrades, buildPublishRows, buildSimulatedPositions, validateSignalBatch,
+} from '@/pages/_signalEditor/derive';
+import { useSignalEditorData } from '@/hooks/admin/useSignalEditorData';
 
 const SignalEditor = () => {
   const { expertSlug, batchId: editBatchId } = useParams<{ expertSlug: string; batchId?: string }>();
@@ -33,30 +36,38 @@ const SignalEditor = () => {
   const isOwner = !!user?.expertSlug && user.expertSlug === expertSlug;
   const canEdit = isCompanyAdmin || isOwner;
 
-  const [expert, setExpert] = useState<any>(null);
-  const [signalTemplates, setSignalTemplates] = useState<any[]>([]);
-  const [openPositions, setOpenPositions] = useState<{ symbol: string; quantity: number; instrument: string }[]>([]);
-  const [capital, setCapital] = useState<CapitalStatus | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-
-  const reloadCapital = useCallback(async (eid: string) => {
-    const { data } = await supabase.rpc('get_expert_capital_status' as any, { _expert_id: eid });
-    if (data) setCapital(data as unknown as CapitalStatus);
-  }, []);
-
-  // mentor 共用欄位
+  // ── Form state ────────────────────────────────────────────────────────
   const [teachingTopic, setTeachingTopic] = useState('');
   const [overallSummary, setOverallSummary] = useState('');
   const [learningPoints, setLearningPoints] = useState('');
-
   const [trades, setTrades] = useState<TradeDraft[]>([emptyTrade()]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // ── Data (expert / templates / open positions / capital) ──────────────
+  const {
+    expert, signalTemplates, openPositions, capital, loading, reloadCapital,
+  } = useSignalEditorData({
+    expertSlug,
+    editBatchId,
+    isEditing,
+    onBatchLoaded: ({ teachingTopic: tt, overallSummary: os, learningPoints: lp, trades: ts }) => {
+      setTeachingTopic(tt);
+      setOverallSummary(os);
+      setLearningPoints(lp);
+      setTrades(ts);
+    },
+    onMissingBatch: () => {
+      toast.error('找不到要編輯的批次');
+      navigate(`/admin/${expertSlug}/signals`, { replace: true });
+    },
+  });
 
   const isMentor = expert?.role === 'mentor';
   const publishWindow = isPublishingWindowOpen();
   const stockCacheRef = useRef<Map<string, string>>(new Map());
 
+  // ── Draft persistence ────────────────────────────────────────────────
   const DRAFT_KEY = `signal-editor-${expertSlug}`;
   const draftValue = useMemo(
     () => ({ teachingTopic, overallSummary, learningPoints, trades }),
@@ -77,98 +88,31 @@ const SignalEditor = () => {
     { enabled: !isEditing },
   );
 
-  // 載入 expert / 模板 / 持倉
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!expertSlug) return;
-      setLoading(true);
-      const { data: exp } = await supabase.from('experts').select('*').eq('slug', expertSlug).single();
-      if (cancelled) return;
-      setExpert(exp);
-      if (exp) {
-        const [{ data: tpl }, { data: openTrades }, { data: cap }] = await Promise.all([
-          supabase
-            .from('expert_signal_templates' as any)
-            .select('id, title, action, reason, risk_note, strategy_note')
-            .eq('expert_id', exp.id)
-            .order('sort_order', { ascending: true }),
-          supabase
-            .from('trade_records')
-            .select('instrument, quantity')
-            .eq('expert_id', exp.id)
-            .eq('status', 'open'),
-          supabase.rpc('get_expert_capital_status' as any, { _expert_id: exp.id }),
-        ]);
-        if (cancelled) return;
-        setSignalTemplates((tpl as any) || []);
-        setOpenPositions(
-          (openTrades || []).map((t: any) => ({
-            instrument: t.instrument,
-            symbol: String(t.instrument || '').split(' ')[0],
-            quantity: t.quantity || 0,
-          })),
-        );
-        if (cap) setCapital(cap as unknown as CapitalStatus);
-      }
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [expertSlug]);
+  // ── Permission guard ─────────────────────────────────────────────────
+  if (!loading && expert && !canEdit) {
+    toast.error('沒有編輯權限');
+    navigate(`/admin/${expertSlug}/signals`, { replace: true });
+  }
 
-  // 編輯模式：載入既有 batch
-  useEffect(() => {
-    if (!isEditing || !expert) return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from('expert_signals')
-        .select('*')
-        .eq('expert_id', expert.id)
-        .eq('batch_id', editBatchId as any)
-        .order('executed_at', { ascending: true });
-      if (cancelled) return;
-      if (error || !data || data.length === 0) {
-        toast.error('找不到要編輯的批次');
-        navigate(`/admin/${expertSlug}/signals`, { replace: true });
-        return;
-      }
-      const first: any = data[0];
-      setTeachingTopic(first.teaching_topic || '');
-      setOverallSummary(first.overall_summary || '');
-      setLearningPoints(first.learning_points || '');
-      setTrades(
-        data.map((row: any) => {
-          const inst = String(row.instrument || '');
-          const [code, ...rest] = inst.split(' ');
-          const dt = row.executed_at ? new Date(row.executed_at) : new Date(row.published_at || Date.now());
-          const pad = (n: number) => String(n).padStart(2, '0');
-          return {
-            uid: row.id,
-            executedAt: `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`,
-            stockCode: code || '',
-            stockName: rest.join(' '),
-            action: (row.action || '') as TradeAction,
-            priceHint: row.price_hint != null ? String(row.price_hint) : '',
-            quantity: row.quantity != null ? String(row.quantity) : '',
-            quantityUnit: (row.quantity_unit || '張') as '張' | '股',
-            reasonSummary: row.reason_summary || '',
-            reasonDetail: row.reason_detail || '',
-            riskNotes: row.risk_notes || '',
-          };
-        }),
-      );
-    })();
-    return () => { cancelled = true; };
-  }, [isEditing, editBatchId, expert, expertSlug, navigate]);
+  // ── Trade-row mutators ───────────────────────────────────────────────
+  const updateTrade = useCallback((idx: number, patch: Partial<TradeDraft>) =>
+    setTrades((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t))), []);
+  const addTrade = useCallback(() => setTrades((prev) => [...prev, emptyTrade()]), []);
+  const removeTrade = useCallback(
+    (idx: number) => setTrades((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx))),
+    [],
+  );
+  const moveTrade = useCallback((idx: number, dir: -1 | 1) => {
+    setTrades((prev) => {
+      const next = [...prev];
+      const j = idx + dir;
+      if (j < 0 || j >= next.length) return prev;
+      [next[idx], next[j]] = [next[j], next[idx]];
+      return next;
+    });
+  }, []);
 
-  useEffect(() => {
-    if (!loading && expert && !canEdit) {
-      toast.error('沒有編輯權限');
-      navigate(`/admin/${expertSlug}/signals`, { replace: true });
-    }
-  }, [loading, expert, canEdit, expertSlug, navigate]);
-
+  // ── Stock-name lookup ────────────────────────────────────────────────
   const fetchStockInfo = useCallback(async (idx: number, code: string) => {
     const c = code.trim();
     if (!c || c.length < 4) return;
@@ -184,27 +128,10 @@ const SignalEditor = () => {
         stockCacheRef.current.set(c, name);
         setTrades((prev) => prev.map((t, i) => (i === idx && !t.stockName ? { ...t, stockName: name } : t)));
       }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
   }, []);
 
-  const updateTrade = useCallback((idx: number, patch: Partial<TradeDraft>) =>
-    setTrades((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t))), []);
-
-  const addTrade = useCallback(() => setTrades((prev) => [...prev, emptyTrade()]), []);
-  const removeTrade = useCallback(
-    (idx: number) => setTrades((prev) => prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)),
-    [],
-  );
-  const moveTrade = useCallback((idx: number, dir: -1 | 1) => {
-    setTrades((prev) => {
-      const next = [...prev];
-      const j = idx + dir;
-      if (j < 0 || j >= next.length) return prev;
-      [next[idx], next[j]] = [next[j], next[idx]];
-      return next;
-    });
-  }, []);
-
+  // ── AI assist passthrough ────────────────────────────────────────────
   const callAIAssist = useCallback<AIAssistFn>(async (field, mode, currentHtml, instruction, context) => {
     try {
       const { data, error } = await supabase.functions.invoke('signal-ai-assist', {
@@ -226,102 +153,25 @@ const SignalEditor = () => {
     }
   }, []);
 
-  const buildCashSimTrades = useCallback(() => {
-    const posMap = new Map<string, OpenPosition>();
-    (capital?.open_positions || []).forEach((p) => posMap.set(p.symbol, p));
-    return trades.map((t) => {
-      const shares = normalizeSignalQuantityToShares(parseInt(t.quantity || '0', 10) || 0, t.quantityUnit);
-      const code = t.stockCode.trim();
-      const pos = posMap.get(code);
-      return {
-        action: (t.action || '') as any,
-        price: parseFloat(t.priceHint || '0') || 0,
-        shares,
-        exitShares: pos?.quantity_shares,
-        exitAvgPrice: pos?.entry_price,
-      };
-    });
-  }, [trades, capital]);
-
+  // ── Simulation ───────────────────────────────────────────────────────
   const cashSim = useMemo(() => {
     const start = capital?.available_cash || 0;
-    return simulateCashAfterTrades(start, buildCashSimTrades());
-  }, [capital, buildCashSimTrades]);
-
-  const simulatedPositions = useMemo(() => {
-    const initial = (capital?.open_positions || []).map((p) => ({
-      symbol: p.symbol,
-      quantity: p.quantity_shares,
-    }));
-    const simTrades = trades
-      .filter((t) => t.stockCode.trim() && t.action)
-      .map((t) => ({
-        symbol: t.stockCode.trim(),
-        action: t.action as TradeAction,
-        quantity: normalizeSignalQuantityToShares(parseInt(t.quantity || '0', 10) || 0, t.quantityUnit),
-      }));
-    return simulatePositions(initial, simTrades);
+    return simulateCashAfterTrades(start, buildCashSimTrades(trades, capital));
   }, [capital, trades]);
 
-  const validate = (): string | null => {
-    if (!expert) return '找不到分析師資料';
-    if (trades.length === 0) return '至少要有一檔股票';
+  const simulatedPositions = useMemo(
+    () => buildSimulatedPositions(trades, capital),
+    [trades, capital],
+  );
 
-    const initial = openPositions.map((p) => ({ symbol: p.symbol, quantity: p.quantity }));
-    const simulated: { symbol: string; action: TradeAction; quantity: number }[] = [];
-
-    let remaining = capital?.available_cash || 0;
-    const posMap = new Map<string, OpenPosition>();
-    (capital?.open_positions || []).forEach((p) => posMap.set(p.symbol, p));
-
-    for (let i = 0; i < trades.length; i++) {
-      const t = trades[i];
-      const tag = `第 ${i + 1} 檔`;
-      if (!t.stockCode.trim()) return `${tag}：請填股票代碼`;
-      if (!t.action) return `${tag}：請選操作方向`;
-      if (!t.executedAt) return `${tag}：請填操作時間`;
-      const qty = parseInt(t.quantity || '0', 10);
-      if (!qty || qty <= 0) return `${tag}：請填數量`;
-      const price = parseFloat(t.priceHint || '0');
-      if (!price || price <= 0) return `${tag}：請填參考價格`;
-
-      const code = t.stockCode.trim();
-      const shares = normalizeSignalQuantityToShares(qty, t.quantityUnit);
-
-      if (['add', 'trim', 'sell', 'exit'].includes(t.action)) {
-        const sim = simulatePositions(initial, simulated);
-        const cur = sim.get(code) || 0;
-        if (cur <= 0) return `${tag}：尚無 ${code} 的未平倉部位，無法執行${actionLabels[t.action]}`;
-        if ((t.action === 'trim' || t.action === 'sell') && qty > cur) {
-          return `${tag}：減碼數量 (${qty}) 超過模擬持倉 (${cur})`;
-        }
-      }
-
-      if (t.action === 'buy' || t.action === 'add') {
-        const required = price * shares;
-        if (required > remaining) {
-          return `${tag}：本筆需 ${fmtMoney(required)}，剩餘可用現金僅 ${fmtMoney(remaining)}，已超過操作金額上限`;
-        }
-        remaining -= required;
-      } else if (t.action === 'sell' || t.action === 'trim') {
-        remaining += price * shares;
-      } else if (t.action === 'exit') {
-        const pos = posMap.get(code);
-        remaining += (pos?.entry_price || price) * (pos?.quantity_shares || shares);
-      }
-
-      simulated.push({ symbol: code, action: t.action as TradeAction, quantity: qty });
-    }
-    return null;
-  };
-
+  // ── Publish ──────────────────────────────────────────────────────────
   const handlePublish = async () => {
     if (!canEdit) return;
     if (!publishWindow.open) {
       toast.error(publishWindow.reason || '目前不在發布時段');
       return;
     }
-    const err = validate();
+    const err = validateSignalBatch({ expert, trades, openPositions, capital });
     if (err) { toast.error(err); return; }
 
     setSubmitting(true);
@@ -329,31 +179,13 @@ const SignalEditor = () => {
       const batchId = isEditing ? (editBatchId as string) : crypto.randomUUID();
       const status = isMentor ? 'pending' : 'published';
 
-      const rows = trades.map((t, idx) => {
-        const instrument = t.stockName.trim()
-          ? `${t.stockCode.trim()} ${t.stockName.trim()}`
-          : t.stockCode.trim();
-        return {
-          expert_id: expert.id,
-          plan_id: null,
-          batch_id: batchId,
-          instrument,
-          action: t.action as any,
-          price_hint: parseFloat(t.priceHint),
-          quantity: parseInt(t.quantity, 10),
-          quantity_unit: t.quantityUnit,
-          executed_at: new Date(t.executedAt).toISOString(),
-          reason_summary: sanitizeRichHtml(t.reasonSummary),
-          reason_detail: sanitizeRichHtml(t.reasonDetail),
-          risk_notes: sanitizeRichHtml(t.riskNotes),
-          teaching_topic: idx === 0 && isMentor ? teachingTopic || null : null,
-          overall_summary: idx === 0 && isMentor ? sanitizeRichHtml(overallSummary) || null : null,
-          learning_points: idx === 0 && isMentor ? sanitizeRichHtml(learningPoints) || null : null,
-          status: status as any,
-        } as any;
+      const rows = buildPublishRows({
+        expertId: expert.id, batchId, status, isMentor,
+        teachingTopic, overallSummary, learningPoints, trades,
       });
 
       if (isEditing) {
+        // 先刪舊 trade_records → 再刪舊 expert_signals（FK 依賴順序）
         await supabase.from('trade_records').delete().eq('expert_id', expert.id).in(
           'signal_id',
           (
@@ -371,11 +203,8 @@ const SignalEditor = () => {
           const { data: pushData, error: pushErr } = await supabase.functions.invoke('line-push-signal', {
             body: { expert_id: expert.id, batch_id: batchId, type: 'publish', is_update: isEditing },
           });
-          if (pushErr) {
-            console.warn('LINE push (batch) failed:', pushErr);
-          } else if (pushData?.pushed) {
-            console.log('LINE batch pushed:', pushData);
-          }
+          if (pushErr) console.warn('LINE push (batch) failed:', pushErr);
+          else if (pushData?.pushed) console.log('LINE batch pushed:', pushData);
         } catch (e) {
           console.warn('LINE push exception:', e);
         }
