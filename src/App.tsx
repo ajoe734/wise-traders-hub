@@ -23,6 +23,7 @@ if (typeof window !== "undefined") {
 
 import { useSignalRealtimeInvalidation } from "@/hooks/useSignalRealtimeInvalidation";
 import { useAttributionTracking } from "@/hooks/useAttributionTracking";
+import { useAutoPageView } from "@/hooks/useAutoPageView";
 
 // Index is eagerly imported — it's the highest-traffic route, so we skip
 // the Suspense fallback round-trip to remove the initial loading spinner.
@@ -147,6 +148,7 @@ const persistOptions = queryPersister
 
 const AttributionTracker = () => {
   useAttributionTracking();
+  useAutoPageView();
   useEffect(() => {
     prefetchHighTrafficRoutes();
   }, []);

@@ -28,6 +28,10 @@ function normalizeRoute(path: string): string {
     .slice(0, 200);
 }
 
+function isInternalRoute(path: string): boolean {
+  return path.startsWith('/company') || path.startsWith('/admin');
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflight();
   if (req.method !== 'POST') {
@@ -114,15 +118,20 @@ Deno.serve(async (req) => {
           referrer_host: safeHost(referrer),
           event_name,
           event_props,
+          is_internal: isInternalRoute(route),
         }];
       } else {
         const routes = Array.isArray(body.routes) ? (body.routes as string[]).slice(0, 50) : [route];
-        rows = routes.map((r) => ({
-          visitor_id,
-          user_id: userId || null,
-          route: normalizeRoute(String(r || '/')),
-          referrer_host: safeHost(referrer),
-        }));
+        rows = routes.map((r) => {
+          const nr = normalizeRoute(String(r || '/'));
+          return {
+            visitor_id,
+            user_id: userId || null,
+            route: nr,
+            referrer_host: safeHost(referrer),
+            is_internal: isInternalRoute(nr),
+          };
+        });
       }
       await supabase.from('traffic_events').insert(rows);
 
