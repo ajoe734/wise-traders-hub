@@ -305,15 +305,6 @@ export default function CompanyTraffic() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="funnel">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">訂閱轉換漏斗（不重複訪客）</CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">
-                  追蹤步驟：定價頁 → 專家頁 → 按下訂閱 → 進結帳 → 完成付款
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-2">
           <TabsContent value="products">
             <Card>
               <CardHeader>
