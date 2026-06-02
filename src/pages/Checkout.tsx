@@ -87,6 +87,13 @@ const Checkout = () => {
     if (obj) trackEvent('checkout_payment_method_select', { method: obj.provider_type });
   }, [selectedProvider, providers]);
 
+  // Track payment failure
+  useEffect(() => {
+    if (resultDialog?.open && resultDialog?.success === false) {
+      trackEvent('checkout_failure', { reason: resultDialog.message || 'unknown', plan_id: planId });
+    }
+  }, [resultDialog?.open, resultDialog?.success, resultDialog?.message, planId]);
+
   // Idempotency key for remittance order creation — kept stable per page session
   const remittanceReqIdRef = useRef<string>(typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
   // Synchronous guard against rapid double-clicks before React re-renders isProcessing
