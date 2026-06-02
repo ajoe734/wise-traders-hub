@@ -16,6 +16,7 @@ import { validateProps } from './_validateProps.js';
 import { useInView } from '@/checkup/hooks/useInView.js';
 import { WB, Sparkline } from '@/pages/_freeCheckup/constants.jsx';
 import { alpha } from '@/checkup/theme.js';
+import { trackRaw } from '@/lib/analytics/events';
 
 // ── 模組層常數（搬離 renderCard 內部，避免每次重建） ──
 const SRC_LABEL = { screenshot: '截圖', live: '即時', high: '最高', ask: '賣一', yclose: '昨收' };
@@ -101,7 +102,7 @@ function HoldingCardImpl(props) {
 
   const ariaLabel = `${h.name || ''} ${h.code}，決策 ${actionLabel === 'EXIT' ? '建議出場' : actionLabel === 'REVIEW' ? '需要檢查' : '維持持有'}，報酬率 ${pctVal >= 0 ? '+' : ''}${pctVal.toFixed(2)}%，損益 ${pnlVal >= 0 ? '+' : ''}${pnlVal.toLocaleString()}`;
 
-  const handleClick = () => onSelect(h.code);
+  const handleClick = () => { trackRaw('checkup_holding_expand', { code: h.code }); onSelect(h.code); };
   const handleDoubleClick = () => onOpenDrawer(h.code);
   const handleKeyDown = (e) => {
     if (e.shiftKey && (e.key === 'Enter' || e.key === ' ')) {

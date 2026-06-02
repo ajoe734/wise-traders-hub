@@ -18,7 +18,8 @@ import {
 import { cn } from '@/lib/utils';
 import { avatarUrl } from '@/lib/imageTransform';
 import { intentHandlers } from '@/lib/routePrefetch';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { track } from '@/lib/analytics/events';
 
 type DbSubscription = MemberSubscriptionRow;
 
@@ -95,6 +96,8 @@ function AnnouncementBanner() {
 const AppHome = () => {
   const { user } = useAuth();
   const { data: subs = [] } = useMemberSubscriptions();
+
+  useEffect(() => { track('app_dashboard_view'); }, []);
 
   const advisorSubs = useMemo(
     () => subs.filter(s => s.plan_type === 'analyst_signal_l1' || s.plan_type === 'analyst_signal_diag_l2'),

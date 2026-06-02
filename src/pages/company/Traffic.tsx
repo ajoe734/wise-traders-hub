@@ -39,8 +39,24 @@ interface AdSpendRow { id: string; utm_campaign: string; yyyymm: string; spend_a
 interface FunnelStep { step: string; visitors: number; drop_from_prev: number | null }
 interface EventRow { event_name: string; total_count: number; unique_visitors: number; unique_users: number; last_seen: string }
 interface HealthInfo { visits_total: number; events_total: number; named_events_total: number; last_visit_at: string | null; last_event_at: string | null }
+interface ProductRow { product: string; events: number; unique_visitors: number; logged_in_visitors: number }
+interface PageRow { path: string; page_views: number; unique_visitors: number; logged_in_visitors: number }
+interface InstrumentRow { instrument: string; events: number; unique_visitors: number }
+interface JourneyRow { occurred_at: string; route: string; event_name: string | null; event_props: Record<string, unknown> | null; is_internal: boolean }
 
 const DEFAULT_FUNNEL = ['pricing_view', 'expert_profile_view', 'expert_subscribe_click', 'checkout_open', 'checkout_success'];
+const FUNNELS: Record<string, string[]> = {
+  subscribe: ['pricing_view', 'expert_profile_view', 'expert_subscribe_click', 'checkout_open', 'checkout_success'],
+  checkup_to_paid: ['checkup_view', 'checkup_analysis_run', 'checkup_quota_blocked', 'checkup_upgrade_click', 'checkout_success'],
+  signals_retention: ['app_dashboard_view', 'signal_view', 'expert_detail_view', 'expert_subscribe_click'],
+  holdings_depth: ['app_dashboard_view', 'holdings_dashboard_view', 'holding_card_click', 'signal_view'],
+};
+const FUNNEL_TITLES: Record<string, string> = {
+  subscribe: '訂閱付款',
+  checkup_to_paid: '修煉派轉付費',
+  signals_retention: '跟單派回訪',
+  holdings_depth: '持股看板深度',
+};
 const FUNNEL_LABEL: Record<string, string> = {
   pricing_view: '訪問定價頁',
   expert_profile_view: '看專家頁',
@@ -48,6 +64,20 @@ const FUNNEL_LABEL: Record<string, string> = {
   checkout_open: '進結帳頁',
   checkout_success: '完成付款',
   leaderboard_view: '看戰報榜',
+  checkup_view: '進修煉派',
+  checkup_analysis_run: '跑分析',
+  checkup_quota_blocked: '配額擋住',
+  checkup_upgrade_click: '點升級',
+  app_dashboard_view: '看跟單派首頁',
+  signal_view: '看訊號',
+  expert_detail_view: '看專家詳情',
+  holdings_dashboard_view: '看持股看板',
+  holding_card_click: '點持股卡',
+};
+const PRODUCT_LABEL: Record<string, string> = {
+  checkup: '修煉派',
+  signals: '跟單派',
+  learning: '學習中心',
 };
 
 export default function CompanyTraffic() {
@@ -77,16 +107,18 @@ export default function CompanyTraffic() {
     refetchInterval: 30_000,
   });
 
-  const { data: funnel } = useQuery({
-    queryKey: ['traffic-funnel', preset],
+  const { data: funnels } = useQuery({
+    queryKey: ['traffic-funnels-all', preset],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_funnel_overview', {
-        _from: range.from.toISOString(),
-        _to: range.to.toISOString(),
-        _steps: DEFAULT_FUNNEL,
-      });
-      if (error) throw error;
-      return (data || []) as unknown as FunnelStep[];
+      const out: Record<string, FunnelStep[]> = {};
+      for (const key of Object.keys(FUNNELS)) {
+        const { data, error } = await supabase.rpc('get_funnel_overview', {
+          _from: range.from.toISOString(), _to: range.to.toISOString(), _steps: FUNNELS[key],
+        });
+        if (error) throw error;
+        out[key] = (data || []) as unknown as FunnelStep[];
+      }
+      return out;
     },
   });
 
@@ -94,11 +126,45 @@ export default function CompanyTraffic() {
     queryKey: ['traffic-heatmap', preset],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_event_heatmap', {
-        _from: range.from.toISOString(),
-        _to: range.to.toISOString(),
+        _from: range.from.toISOString(), _to: range.to.toISOString(),
       });
       if (error) throw error;
       return (data || []) as unknown as EventRow[];
+    },
+  });
+
+  const [showInternal, setShowInternal] = useState(false);
+
+  const { data: products } = useQuery({
+    queryKey: ['traffic-products', preset],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_product_breakdown', {
+        _from: range.from.toISOString(), _to: range.to.toISOString(),
+      });
+      if (error) throw error;
+      return (data || []) as unknown as ProductRow[];
+    },
+  });
+
+  const { data: pages } = useQuery({
+    queryKey: ['traffic-pages', preset, showInternal],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_page_analytics', {
+        _from: range.from.toISOString(), _to: range.to.toISOString(), _include_internal: showInternal,
+      });
+      if (error) throw error;
+      return (data || []) as unknown as PageRow[];
+    },
+  });
+
+  const { data: instruments } = useQuery({
+    queryKey: ['traffic-instruments', preset],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_top_instruments', {
+        _from: range.from.toISOString(), _to: range.to.toISOString(), _limit: 30,
+      });
+      if (error) throw error;
+      return (data || []) as unknown as InstrumentRow[];
     },
   });
 
@@ -140,7 +206,6 @@ export default function CompanyTraffic() {
   useEffect(() => { setInternalOn(isInternalTrackingOn()); }, []);
 
   const kpi = data?.kpi;
-  const totalFunnelStart = funnel?.[0]?.visitors || 0;
 
   return (
     <CompanyLayout>
@@ -177,8 +242,8 @@ export default function CompanyTraffic() {
               <span className="font-mono text-xs">{fmtTs(health?.last_event_at || health?.last_visit_at)}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Switch id="internal-mode" checked={internalOn} onCheckedChange={toggleInternal} />
-              <Label htmlFor="internal-mode" className="text-xs cursor-pointer">追蹤 Internal 路徑（/company、/admin）</Label>
+              <Switch id="show-internal" checked={showInternal} onCheckedChange={setShowInternal} />
+              <Label htmlFor="show-internal" className="text-xs cursor-pointer">在頁面分析顯示 /company /admin 內部流量</Label>
             </div>
           </CardContent>
         </Card>
@@ -199,12 +264,15 @@ export default function CompanyTraffic() {
         )}
 
         <Tabs defaultValue="overview">
-          <TabsList>
+          <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="overview">總覽</TabsTrigger>
+            <TabsTrigger value="products">產品線</TabsTrigger>
             <TabsTrigger value="funnel">轉換漏斗</TabsTrigger>
             <TabsTrigger value="events">功能熱度</TabsTrigger>
+            <TabsTrigger value="pages">頁面分析</TabsTrigger>
+            <TabsTrigger value="instruments">熱門個股</TabsTrigger>
             <TabsTrigger value="sources">流量來源</TabsTrigger>
-            <TabsTrigger value="campaigns">廣告與轉換營收</TabsTrigger>
+            <TabsTrigger value="campaigns">廣告與營收</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -246,28 +314,71 @@ export default function CompanyTraffic() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-2">
-                {(funnel || []).map((step, i) => {
-                  const widthPct = totalFunnelStart > 0 ? Math.max(4, (step.visitors / totalFunnelStart) * 100) : 0;
-                  return (
-                    <div key={step.step} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{i + 1}. {FUNNEL_LABEL[step.step] ?? step.step}</span>
-                        <span className="text-muted-foreground">
-                          {fmtNum(step.visitors)} 訪客
-                          {step.drop_from_prev != null && <> · drop {step.drop_from_prev}%</>}
-                        </span>
-                      </div>
-                      <div className="h-6 bg-muted rounded">
-                        <div className="h-full bg-primary/80 rounded transition-all" style={{ width: `${widthPct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-                {(!funnel || funnel.length === 0) && (
-                  <p className="text-sm text-muted-foreground">尚無漏斗資料。先讓使用者實際操作，事件才會累積。</p>
-                )}
+          <TabsContent value="products">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">產品線拆解（修煉派 / 跟單派 / 學習中心）</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">依路徑與事件名稱自動分流</p>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>產品線</TableHead>
+                    <TableHead className="text-right">事件數</TableHead>
+                    <TableHead className="text-right">不重複訪客</TableHead>
+                    <TableHead className="text-right">登入會員</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {(products || []).map((p) => (
+                      <TableRow key={p.product}>
+                        <TableCell className="font-medium">{PRODUCT_LABEL[p.product] ?? p.product}</TableCell>
+                        <TableCell className="text-right">{fmtNum(p.events)}</TableCell>
+                        <TableCell className="text-right">{fmtNum(p.unique_visitors)}</TableCell>
+                        <TableCell className="text-right">{fmtNum(p.logged_in_visitors)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {(!products || products.length === 0) && (
+                      <TableRow><TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">尚無資料</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="funnel" className="space-y-4">
+            {Object.keys(FUNNELS).map((key) => {
+              const steps = funnels?.[key] || [];
+              const start = steps[0]?.visitors || 0;
+              return (
+                <Card key={key}>
+                  <CardHeader>
+                    <CardTitle className="text-base">{FUNNEL_TITLES[key]}</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-1 font-mono">{FUNNELS[key].join(' → ')}</p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {steps.map((step, i) => {
+                      const widthPct = start > 0 ? Math.max(4, (step.visitors / start) * 100) : 0;
+                      return (
+                        <div key={step.step} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="font-medium">{i + 1}. {FUNNEL_LABEL[step.step] ?? step.step}</span>
+                            <span className="text-muted-foreground">
+                              {fmtNum(step.visitors)} 訪客
+                              {step.drop_from_prev != null && <> · drop {step.drop_from_prev}%</>}
+                            </span>
+                          </div>
+                          <div className="h-5 bg-muted rounded">
+                            <div className="h-full bg-primary/80 rounded transition-all" style={{ width: `${widthPct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {steps.length === 0 && <p className="text-sm text-muted-foreground">尚無資料</p>}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </TabsContent>
 
           <TabsContent value="events">
