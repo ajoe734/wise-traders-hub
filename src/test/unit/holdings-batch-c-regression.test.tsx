@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import React from 'react';
+// @ts-nocheck — store 為 .js zustand create() 推出 unknown
 import { useHoldingsStore } from '@/checkup/stores/holdingsStore';
 import { useHoldingsDerivations } from '@/checkup/hooks/useHoldingsDerivations';
 import { holdingsValueKeyShort, holdingsValueKeyFull } from '@/checkup/lib/holdingsSort';
