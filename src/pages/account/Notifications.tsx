@@ -35,6 +35,7 @@ const PREF_LABELS: Record<keyof typeof PREF_DEFAULTS, { title: string; desc: str
 };
 
 export default function AccountNotifications() {
+  useEffect(() => { trackRaw('notifications_open'); }, []);
   const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
