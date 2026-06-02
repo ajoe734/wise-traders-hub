@@ -206,7 +206,6 @@ export default function CompanyTraffic() {
   useEffect(() => { setInternalOn(isInternalTrackingOn()); }, []);
 
   const kpi = data?.kpi;
-  const totalFunnelStart = funnel?.[0]?.visitors || 0;
 
   return (
     <CompanyLayout>
@@ -243,8 +242,8 @@ export default function CompanyTraffic() {
               <span className="font-mono text-xs">{fmtTs(health?.last_event_at || health?.last_visit_at)}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Switch id="internal-mode" checked={internalOn} onCheckedChange={toggleInternal} />
-              <Label htmlFor="internal-mode" className="text-xs cursor-pointer">追蹤 Internal 路徑（/company、/admin）</Label>
+              <Switch id="show-internal" checked={showInternal} onCheckedChange={setShowInternal} />
+              <Label htmlFor="show-internal" className="text-xs cursor-pointer">在頁面分析顯示 /company /admin 內部流量</Label>
             </div>
           </CardContent>
         </Card>
@@ -265,12 +264,15 @@ export default function CompanyTraffic() {
         )}
 
         <Tabs defaultValue="overview">
-          <TabsList>
+          <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="overview">總覽</TabsTrigger>
+            <TabsTrigger value="products">產品線</TabsTrigger>
             <TabsTrigger value="funnel">轉換漏斗</TabsTrigger>
             <TabsTrigger value="events">功能熱度</TabsTrigger>
+            <TabsTrigger value="pages">頁面分析</TabsTrigger>
+            <TabsTrigger value="instruments">熱門個股</TabsTrigger>
             <TabsTrigger value="sources">流量來源</TabsTrigger>
-            <TabsTrigger value="campaigns">廣告與轉換營收</TabsTrigger>
+            <TabsTrigger value="campaigns">廣告與營收</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -312,28 +314,71 @@ export default function CompanyTraffic() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-2">
-                {(funnel || []).map((step, i) => {
-                  const widthPct = totalFunnelStart > 0 ? Math.max(4, (step.visitors / totalFunnelStart) * 100) : 0;
-                  return (
-                    <div key={step.step} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{i + 1}. {FUNNEL_LABEL[step.step] ?? step.step}</span>
-                        <span className="text-muted-foreground">
-                          {fmtNum(step.visitors)} 訪客
-                          {step.drop_from_prev != null && <> · drop {step.drop_from_prev}%</>}
-                        </span>
-                      </div>
-                      <div className="h-6 bg-muted rounded">
-                        <div className="h-full bg-primary/80 rounded transition-all" style={{ width: `${widthPct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-                {(!funnel || funnel.length === 0) && (
-                  <p className="text-sm text-muted-foreground">尚無漏斗資料。先讓使用者實際操作，事件才會累積。</p>
-                )}
+          <TabsContent value="products">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">產品線拆解（修煉派 / 跟單派 / 學習中心）</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">依路徑與事件名稱自動分流</p>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>產品線</TableHead>
+                    <TableHead className="text-right">事件數</TableHead>
+                    <TableHead className="text-right">不重複訪客</TableHead>
+                    <TableHead className="text-right">登入會員</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {(products || []).map((p) => (
+                      <TableRow key={p.product}>
+                        <TableCell className="font-medium">{PRODUCT_LABEL[p.product] ?? p.product}</TableCell>
+                        <TableCell className="text-right">{fmtNum(p.events)}</TableCell>
+                        <TableCell className="text-right">{fmtNum(p.unique_visitors)}</TableCell>
+                        <TableCell className="text-right">{fmtNum(p.logged_in_visitors)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {(!products || products.length === 0) && (
+                      <TableRow><TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">尚無資料</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="funnel" className="space-y-4">
+            {Object.keys(FUNNELS).map((key) => {
+              const steps = funnels?.[key] || [];
+              const start = steps[0]?.visitors || 0;
+              return (
+                <Card key={key}>
+                  <CardHeader>
+                    <CardTitle className="text-base">{FUNNEL_TITLES[key]}</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-1 font-mono">{FUNNELS[key].join(' → ')}</p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {steps.map((step, i) => {
+                      const widthPct = start > 0 ? Math.max(4, (step.visitors / start) * 100) : 0;
+                      return (
+                        <div key={step.step} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="font-medium">{i + 1}. {FUNNEL_LABEL[step.step] ?? step.step}</span>
+                            <span className="text-muted-foreground">
+                              {fmtNum(step.visitors)} 訪客
+                              {step.drop_from_prev != null && <> · drop {step.drop_from_prev}%</>}
+                            </span>
+                          </div>
+                          <div className="h-5 bg-muted rounded">
+                            <div className="h-full bg-primary/80 rounded transition-all" style={{ width: `${widthPct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {steps.length === 0 && <p className="text-sm text-muted-foreground">尚無資料</p>}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </TabsContent>
 
           <TabsContent value="events">
