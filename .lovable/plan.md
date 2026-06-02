@@ -43,20 +43,20 @@
    - `HoldingsTable.jsx` L55-60 的 callback 內補 `track('checkup_holding_target_set' / '_alert_set', { code })`
    - `usePortfolioPanelsContextComposer.js` L247-248 的 wrapper 同步打點（cover 卡片版入口）
 
-### Batch C — 效能 + 穩定性（H10 / H11 / H12 / H13 / H14 / H15 / H16）
+### Batch C — 效能 + 穩定性（H10 / H11 / H12 / H13 / H14 / H15 / H16）✅ 2026-06-02 完成
 
-1. **H11 `holdingsValueKey` deps 失準**：`useRouteHoldingsPage.js` L24/27 已用 valueKey 鎖 reference，但 L27 `useMemo(() => holdingsRaw || EMPTY, [holdingsValueKey])` deps **少了 `holdingsRaw`**，eslint-disable 註解要拿掉，補成 `[holdingsValueKey, holdingsRaw]`（valueKey 變 → raw 必變，不會破壞穩定性）
-2. **H12 variantsMap memo**：`useHoldingsDerivations.js` 的 `variantsMap` deps 為 `[displayed, safeDecisionsMap]`，但 `safeDecisionsMap` 是 `decisionsMap || {}` 每次新物件 → memo 永遠失效。改為 `useMemo(() => decisionsMap || EMPTY_OBJ, [decisionsMap])` 後再傳入
-3. **H13 `Short` key 不穩**：`holdingsSort.ts` `holdingsValueKeyShort` 只取前幾碼會碰撞；改用 `holdingsValueKeyFull` 或加上 length suffix
-4. **H14 URGENCY_RANK 不一致**：
-   - `holdingsSort.ts`：`{ now, soon, monitor }`
-   - `useHoldingDecision.js`：`{ high, medium, low }`
-   - **統一為 `{ now: 3, soon: 2, monitor: 1 }`**（與 decision text 對齊），`useHoldingDecision` 內所有產出 urgency 的地方一併校正；加 unit test 鎖死
-5. **H15 render 內 `.sort()`**：`HoldingsTab.tsx` L296 `sorted.find(...)` 是 O(n) find OK；但 L350 `orderedDisplayed.map` 來源 `orderedDisplayed` 已是 useMemo，OK。真正問題在 `holdingsStore` selector `getTop*` 每次呼叫都 spread+sort — 改成 zustand selector + shallow，或把計算丟到 `useHoldingsDerivations`
-6. **H16 useEffect ref 同步缺 dep**：找 `HoldingsTab` 內所有 `useRef` + `useEffect` pairing，eslint `react-hooks/exhaustive-deps` 跑過一次補齊
-7. **H10 ErrorBoundary / Suspense**：
-   - `HoldingsPage.jsx` 包一層 `<HoldingsErrorBoundary>` + `<Suspense fallback={<HoldingsSkeleton/>}>`
-   - 新增 `src/checkup/components/holdings/HoldingsErrorBoundary.tsx`（class component，捕捉 + 上報 + 重置 CTA）
+1. **H11 ✅** `useRouteHoldingsPage.js` 改用 `holdingsRawRef` 暫存最新 raw，memo deps 只看 `holdingsValueKey`，移除唯一一處 `eslint-disable react-hooks/exhaustive-deps`
+2. **H12 ✅** `useHoldingsDerivations.js` `safeDecisionsMap` / `safeStockMeta` / `safeGlobalPriorityList` 改 `useMemo`，下游 `variantsMap` / `actionPriorityItems` 不再每 render 失效
+3. **H13 ✅** `holdingsValueKeyShort` / `holdingsValueKeyFull` 加上 `n=<length>:` 前綴，避免分隔符碰撞；test fixture 同步更新
+4. **H14 ✅** 已於 2026-06-02 立 [統一憲法](mem://style/holdings/h14-urgency-constitution) + CI guard
+5. **H15 ✅** `holdingsStore` `getTopGainers` / `getTopLosers` / `getTop5` / `getHoldingsSummary` 改 WeakMap-by-array-ref 快取，store 沒換陣列 → 回同份結果
+6. **H16 ✅** 全檔 grep 確認 `HoldingsTab.tsx` 內無任何 `useEffect`/`useRef`；H11 已消除唯一 eslint-disable，無遺漏
+7. **H10 ✅** `HoldingsPage.jsx` 改用 `ErrorBoundary` 包裝 + `Suspense` fallback，捕捉 render 期錯誤；class boundary 已存在於 `src/checkup/components/ErrorBoundary.jsx`，重用而非新建
+
+驗證：
+- `vitest`：8 files / 116 tests 全綠（含新增 `holdings-batch-c-regression.test.tsx`）
+- `node scripts/check-freecheckup-rwd.mjs`：靜態檢查通過
+- `bunx playwright test e2e/freecheckup-card.spec.ts`：12/12 通過
 
 ---
 
