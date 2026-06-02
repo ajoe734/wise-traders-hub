@@ -85,9 +85,9 @@ grep -cE 'useMutation\('      # mu
 #### `/plan/:slug/:planId` PlanDetail.tsx — 167 行 / ue 0 / sb 0 / rq 0
 - ✅ 純展示，由 hook 取資料。無動作。
 
-#### `/checkout/:slug/:planId` Checkout.tsx — **808 行 / ue 6 / sb 5** / rq 0 / mu 0
-- 🟠 **[P1]** 結帳流程 808 行 + 5 個 supabase 直查 + 6 個 effect，**未走 react-query**。3 個共用子元件已抽 (`_checkout/*`)，但主檔仍承擔狀態機。
-- 🟠 **[P1]** 行動：5 個 `supabase.*` 抽 `useCheckout()` hook，effect → query/mutation。降至 ~400 行。
+#### `/checkout/:slug/:planId` Checkout.tsx — **435 行** ✅（808→645→435）
+- ✅ **[已修 2026-06-02]** 抽 `src/hooks/checkout/useCheckoutData.ts`（plan + expert + providers + alreadySubscribed + upgrade proration）。
+- ✅ 抽 `src/pages/_checkout/paymentDispatchers.ts`（dispatchLinePay/Ecpay/Acpay/Remittance + submitEcpayForm + validateAcpayCardholder），主檔僅剩 orchestration 與 UI。
 
 #### `/checkout/checkup/:planId` CheckupCheckout.tsx — 363 行 / ue 2 / sb 4 / rq 0
 - 🟡 **[P2]** 同上但較輕；和 Checkout.tsx 高度重複，**考慮共用 useCheckoutBase 抽象**。
