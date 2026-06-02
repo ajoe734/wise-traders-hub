@@ -244,9 +244,9 @@ describe('drift-detection: 安全視圖 SELECT 明確排除敏感欄位，且以
 });
 
 describe('drift-detection: production 頁面使用安全視圖（非底層資料表）', () => {
-  it('drift: Account.tsx 查詢 LINE 頻道使用 expert_line_channels_public（防止改用底層 expert_line_channels 表）', () => {
+  it('drift: useAccountData 查詢 LINE 頻道使用 expert_line_channels_public（防止改用底層 expert_line_channels 表）', () => {
     const src = readFileSync(
-      resolve(process.cwd(), 'src/pages/app/Account.tsx'),
+      resolve(process.cwd(), 'src/hooks/app/useAccountData.ts'),
       'utf-8',
     );
     expect(src).toContain('expert_line_channels_public');

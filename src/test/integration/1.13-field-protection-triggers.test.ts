@@ -231,9 +231,9 @@ describe('drift-detection: protect_subscription_fields trigger（migration 20260
     expect(src).toContain('RETURN NEW');
   });
 
-  it('drift: Account.tsx import cancelSubscriptionInDB（防止年繳取消路徑繞過 helper）', () => {
+  it('drift: useAccountData import cancelSubscriptionInDB（防止年繳取消路徑繞過 helper）', () => {
     const src = readFileSync(
-      resolve(process.cwd(), 'src/pages/app/Account.tsx'),
+      resolve(process.cwd(), 'src/hooks/app/useAccountData.ts'),
       'utf-8',
     );
     expect(src).toContain('cancelSubscriptionInDB');
