@@ -80,6 +80,13 @@ const Checkout = () => {
 
   useEffect(() => { trackEvent('checkout_open', { plan_id: planId, slug }); }, [planId, slug]);
 
+  // Track payment method change
+  useEffect(() => {
+    if (!selectedProvider) return;
+    const obj = providers.find(p => p.id === selectedProvider);
+    if (obj) trackEvent('checkout_payment_method_select', { method: obj.provider_type });
+  }, [selectedProvider, providers]);
+
   // Idempotency key for remittance order creation — kept stable per page session
   const remittanceReqIdRef = useRef<string>(typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
   // Synchronous guard against rapid double-clicks before React re-renders isProcessing
