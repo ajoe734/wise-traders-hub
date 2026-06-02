@@ -1,4 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+vi.mock('web-vitals/attribution', () => ({
+  onCLS: () => {},
+  onFCP: () => {},
+  onINP: () => {},
+  onLCP: () => {},
+  onTTFB: () => {},
+}));
 import { render, screen, act } from '@testing-library/react';
 import { createElement as h } from 'react';
 import { ErrorBoundary } from '@/checkup/components/ErrorBoundary.jsx';
