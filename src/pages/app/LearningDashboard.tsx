@@ -43,6 +43,7 @@ const contentCategories = [
 ];
 
 export function LearningDashboard({ subscriptions, userName }: LearningDashboardProps) {
+  useEffect(() => { trackRaw('learning_view'); }, []);
   // No journals table yet - show empty state for journals, keep static course/learning data
   const primaryMentor = subscriptions[0]?.person || subscriptions[0]?.expert;
 
