@@ -437,8 +437,11 @@ const Index = () => {
                 <img
                   src={iconLightningCircle}
                   alt=""
+                  width={48}
+                  height={48}
                   className="w-10 h-10 md:w-12 md:h-12 mb-3"
                   loading="lazy"
+                  decoding="async"
                 />
                 <h3
                   className="text-2xl md:text-[32px] font-bold text-white mb-1.5"
@@ -558,8 +561,11 @@ const Index = () => {
                 <img
                   src={iconBookCircle}
                   alt=""
+                  width={48}
+                  height={48}
                   className="w-10 h-10 md:w-12 md:h-12 mb-3"
                   loading="lazy"
+                  decoding="async"
                 />
                 <h3
                   className="text-2xl md:text-[32px] font-bold text-white mb-1.5"
