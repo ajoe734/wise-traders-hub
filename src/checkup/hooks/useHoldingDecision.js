@@ -81,13 +81,14 @@ export function useHoldingDecisions(holdings = [], holdingDossiers = []) {
         decision,
         urgency,
         today,
-        isFeatured: urgency === 'high' || decision.kind === 'exit' || decision.kind === 'review',
+        isFeatured: urgency === 'now' || decision.kind === 'exit' || decision.kind === 'review',
       }
     })
   }, [holdings, holdingDossiers])
 }
 
-export const URGENCY_RANK = { high: 3, medium: 2, low: 1 }
+// H14：URGENCY_RANK 單一來源 = @/checkup/lib/holdingsSort，這裡只 re-export 以維持 BC
+export const URGENCY_RANK = SHARED_URGENCY_RANK
 
 /**
  * 配額規則：限制畫面上強視覺卡片數量
