@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { avatarUrl } from '@/lib/imageTransform';
+import { trackRaw } from '@/lib/analytics/events';
 
 interface LineBindingCardProps {
   expertId: string;
