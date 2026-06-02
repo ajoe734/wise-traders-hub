@@ -252,7 +252,7 @@ const Checkout = () => {
         result = await dispatchEcpay(ctx);
       } else if (provider?.provider_type === 'acpay') {
         const v = validateAcpayCardholder({ cardHolderName, cardHolderEmail, cardHolderPhone });
-        if (!v.ok) { setCardFieldErrors(v.errors); return; }
+        if (v.ok === false) { setCardFieldErrors(v.errors); return; }
         setCardFieldErrors({});
         let prime: string;
         try {
