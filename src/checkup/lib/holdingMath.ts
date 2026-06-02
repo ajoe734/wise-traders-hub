@@ -1,3 +1,15 @@
+/**
+ * Holding math primitives — 唯一公式入口（憲法）
+ *
+ * H 系列修復（2026-06）：
+ *   - 新增 toSafeNumber：吸收 string/null/undefined/NaN/Infinity，禁止裸 Number()（H1）
+ *   - calculateHoldingReturnPct: costBasis 非有限數 / <=0 一律 0，杜絕 Infinity/NaN（H7）
+ *   - 任何 *qty/-cost 公式只允許出現在本檔；其它檔案禁止實作（H6 護欄）
+ *
+ * 護欄腳本：scripts/check-holdings-formula-singleton.mjs 會掃描其它檔案，
+ * 出現 `qty.*-.*cost|cost.*\\*.*qty` 字面 pattern 即 CI 阻擋。
+ */
+
 export interface HoldingLike {
   code?: string | null;
   name?: string | null;
@@ -13,17 +25,23 @@ export interface PriceMap {
   [code: string]: number | undefined;
 }
 
-function toFiniteNumber(value: unknown): number {
+/**
+ * Coerce any input to a finite number; fall back to `fallback` (default 0).
+ * 唯一允許在 holdings 數學中對外部資料做數字轉換的入口。
+ */
+export function toSafeNumber(value: unknown, fallback = 0): number {
+  if (value == null) return fallback;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : 0;
+  return Number.isFinite(numeric) ? numeric : fallback;
 }
 
 export function calculateHoldingCostBasis(cost: unknown, qty: unknown): number {
-  return toFiniteNumber(cost) * toFiniteNumber(qty);
+  return toSafeNumber(cost) * toSafeNumber(qty);
 }
 
 export function calculateHoldingMarketValue(price: unknown, qty: unknown): number {
-  return toFiniteNumber(price) * toFiniteNumber(qty);
+  return toSafeNumber(price) * toSafeNumber(qty);
 }
 
 export function calculateHoldingUnrealizedPnl(price: unknown, qty: unknown, cost: unknown): number {
@@ -32,8 +50,11 @@ export function calculateHoldingUnrealizedPnl(price: unknown, qty: unknown, cost
 
 export function calculateHoldingReturnPct(price: unknown, qty: unknown, cost: unknown): number {
   const costBasis = calculateHoldingCostBasis(cost, qty);
-  if (costBasis <= 0) return 0;
-  return (calculateHoldingUnrealizedPnl(price, qty, cost) / costBasis) * 100;
+  // H7 (audit 2026-06): cost=0 / 負數 / 非有限數 → 一律 0，杜絕 Infinity/NaN
+  if (!Number.isFinite(costBasis) || costBasis <= 0) return 0;
+  const pnl = calculateHoldingUnrealizedPnl(price, qty, cost);
+  if (!Number.isFinite(pnl)) return 0;
+  return (pnl / costBasis) * 100;
 }
 
 /**
@@ -46,9 +67,13 @@ export function calcWeightedAvgCost(
   addPrice: number,
   addQty: number,
 ): number {
-  const totalQty = currentQty + addQty;
+  const cc = toSafeNumber(currentCost);
+  const cq = toSafeNumber(currentQty);
+  const ap = toSafeNumber(addPrice);
+  const aq = toSafeNumber(addQty);
+  const totalQty = cq + aq;
   if (totalQty === 0) return 0;
-  return (currentCost * currentQty + addPrice * addQty) / totalQty;
+  return (cc * cq + ap * aq) / totalQty;
 }
 
 /**
@@ -60,9 +85,11 @@ export function calcNetSettlement(
   fee: number | null | undefined,
   code: string,
 ): number {
-  const taxRate = (code || '').length === 6 ? 0.001 : 0.003;
-  const tax = Math.round(marketValue * taxRate);
-  return marketValue - (fee || 0) - tax;
+  const mv = toSafeNumber(marketValue);
+  const f = toSafeNumber(fee);
+  const taxRate = String(code || '').length === 6 ? 0.001 : 0.003;
+  const tax = Math.round(mv * taxRate);
+  return mv - f - tax;
 }
 
 export interface PnlInput {
@@ -85,17 +112,20 @@ export interface PnlResult {
  * Fallback：pnl = round((newPrice - cost) × qty)
  */
 export function calcPnlWithNet(h: PnlInput, newPrice: number): PnlResult {
-  const newValue = Math.round(newPrice * h.qty);
-  const hasCostAndFee = h.totalCost != null && h.fee != null;
+  const qty = toSafeNumber(h?.qty);
+  const np = toSafeNumber(newPrice);
+  const newValue = Math.round(np * qty);
+  const hasCostAndFee = h?.totalCost != null && h?.fee != null;
   if (hasCostAndFee) {
     const net = calcNetSettlement(newValue, h.fee, h.code || '');
-    const pnl = net - h.totalCost!;
-    const pct = h.totalCost! > 0 ? Math.round((pnl / h.totalCost!) * 10000) / 100 : 0;
+    const totalCost = toSafeNumber(h.totalCost);
+    const pnl = net - totalCost;
+    const pct = totalCost > 0 ? Math.round((pnl / totalCost) * 10000) / 100 : 0;
     return { value: newValue, pnl, pct };
   }
-  const cost = h.cost ?? 0;
-  const pnl = Math.round((newPrice - cost) * h.qty);
-  const pct = cost > 0 ? Math.round((newPrice / cost - 1) * 10000) / 100 : 0;
+  const cost = toSafeNumber(h?.cost);
+  const pnl = Math.round((np - cost) * qty);
+  const pct = cost > 0 ? Math.round((np / cost - 1) * 10000) / 100 : 0;
   return { value: newValue, pnl, pct };
 }
 
@@ -119,9 +149,9 @@ export function calcRemainingCostAfterPartialSell(
 
 export function calculateTotalMarketValue(holdings: HoldingLike[], prices: PriceMap = {}): number {
   return (Array.isArray(holdings) ? holdings : []).reduce((total, holding) => {
-    const code = String(holding?.code || "").trim();
-    const marketPrice = code ? toFiniteNumber(prices[code]) : 0;
-    const fallbackPrice = marketPrice > 0 ? marketPrice : toFiniteNumber(holding?.cost);
+    const code = String(holding?.code || '').trim();
+    const marketPrice = code ? toSafeNumber(prices[code]) : 0;
+    const fallbackPrice = marketPrice > 0 ? marketPrice : toSafeNumber(holding?.cost);
     return total + calculateHoldingMarketValue(fallbackPrice, holding?.qty);
   }, 0);
 }
