@@ -53,9 +53,15 @@ export function LazyOnVisible({
   }, [mode, rootMargin, visible]);
 
   if (mode === "content-visibility") {
+    // Use `auto Npx` so the browser caches the last-rendered size for the
+    // element and uses it as the intrinsic size on subsequent visits.
+    // This eliminates the CLS spike that happens when the placeholder
+    // minHeight estimate doesn't match the real section height at the
+    // current viewport — the first visit still uses minHeight, but every
+    // visit after that locks to the real measured size.
     const style: CSSProperties = {
       contentVisibility: "auto" as CSSProperties["contentVisibility"],
-      containIntrinsicSize: `${minHeight}px`,
+      containIntrinsicSize: `auto ${minHeight}px`,
     };
     return (
       <div ref={ref} className={className} style={style}>

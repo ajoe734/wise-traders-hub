@@ -94,7 +94,10 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40 animate-fade-in" style={{ animationDuration: '1.5s' }} />
         
         <div className="container relative z-10 py-section">
-          <div className="max-w-xl animate-fade-in">
+          {/* LCP candidate (`h1`) must paint immediately — no fade-in on the
+              wrapper or it pushes p95 LCP past hero animation duration. */}
+          <div className="max-w-xl">
+
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-md text-primary-foreground leading-[1.15] drop-shadow-lg">
               讀萬卷書，不如緊跟大戶
             </h1>
@@ -437,8 +440,11 @@ const Index = () => {
                 <img
                   src={iconLightningCircle}
                   alt=""
+                  width={48}
+                  height={48}
                   className="w-10 h-10 md:w-12 md:h-12 mb-3"
                   loading="lazy"
+                  decoding="async"
                 />
                 <h3
                   className="text-2xl md:text-[32px] font-bold text-white mb-1.5"
@@ -558,8 +564,11 @@ const Index = () => {
                 <img
                   src={iconBookCircle}
                   alt=""
+                  width={48}
+                  height={48}
                   className="w-10 h-10 md:w-12 md:h-12 mb-3"
                   loading="lazy"
+                  decoding="async"
                 />
                 <h3
                   className="text-2xl md:text-[32px] font-bold text-white mb-1.5"
