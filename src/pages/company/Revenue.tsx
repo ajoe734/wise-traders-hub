@@ -1,216 +1,36 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-// recharts is lazy-loaded via RevenueCharts (≈107 KB gz off the company entry chunk)
-const MonthTrendChart = lazy(() => import('@/components/company/RevenueCharts').then(m => ({ default: m.MonthTrendChart })));
-const SourceBreakdownChart = lazy(() => import('@/components/company/RevenueCharts').then(m => ({ default: m.SourceBreakdownChart })));
-const CheckupTrendChart = lazy(() => import('@/components/company/RevenueCharts').then(m => ({ default: m.CheckupTrendChart })));
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { useRevenueData, type RevenuePreset } from '@/hooks/useRevenueData';
+import { useRevenueRefund } from '@/hooks/company/useRevenueRefund';
+import { fmtDate } from '@/pages/_companyRevenue/utils';
+import { OverviewTab } from '@/pages/_companyRevenue/OverviewTab';
+import { SubscriptionsTab } from '@/pages/_companyRevenue/SubscriptionsTab';
+import { TransactionsTab } from '@/pages/_companyRevenue/TransactionsTab';
+import { PayoutsTab } from '@/pages/_companyRevenue/PayoutsTab';
+import { CheckupTab } from '@/pages/_companyRevenue/CheckupTab';
+import { RefundDialog } from '@/pages/_companyRevenue/RefundDialog';
 
-const ChartFallback = ({ height = 260 }: { height?: number }) => (
-  <div className="flex items-center justify-center text-xs text-muted-foreground" style={{ height }}>
-    載入圖表…
-  </div>
-);
-import {
-  Download, Undo2, AlertTriangle, ChevronDown, ChevronRight, Search,
-} from 'lucide-react';
-import { toast } from 'sonner';
-
-/* ----------------------------- 工具 ----------------------------- */
-const fmtMoney = (n: number) => `NT$${(n || 0).toLocaleString()}`;
-const fmtDate = (d?: string | null) => {
-  if (!d) return '-';
-  const x = new Date(d);
-  return `${x.getFullYear()}/${String(x.getMonth() + 1).padStart(2, '0')}/${String(x.getDate()).padStart(2, '0')}`;
-};
-const fmtDateTime = (d?: string | null) => {
-  if (!d) return '-';
-  const x = new Date(d);
-  return `${fmtDate(d)} ${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
-};
-
-function getRangePreset(preset: string): { from: Date; to: Date } {
-  const now = new Date();
-  if (preset === 'this_month') {
-    return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: now };
-  }
-  if (preset === 'last_month') {
-    const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-    return { from, to };
-  }
-  if (preset === 'last_3m') {
-    return { from: new Date(now.getFullYear(), now.getMonth() - 2, 1), to: now };
-  }
-  // ytd
-  return { from: new Date(now.getFullYear(), 0, 1), to: now };
-}
-
-function exportCSV(filename: string, rows: (string | number)[][]) {
-  const csv = rows.map(r => r.map(c => {
-    const s = String(c ?? '');
-    return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
-  }).join(',')).join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-import { useRevenueData, providerTypeLabels, type RevenuePreset } from '@/hooks/useRevenueData';
-
-const ruleSourceLabels: Record<string, string> = {
-  plan_override: '方案覆寫',
-  standard_default: '標準預設',
-  checkup_default: '健檢預設',
-};
-
-/* ============================== 主元件 ============================== */
 const CompanyRevenue = () => {
-  const { user } = useAuth();
   const [preset, setPreset] = useState<RevenuePreset>('this_month');
 
-  const [refundingTx, setRefundingTx] = useState<any>(null);
-  const [refundReason, setRefundReason] = useState('');
-
   const {
-    splits, transactions, remittance, subscriptions, checkupSubs,
-    experts, plans, checkupPlans, profiles, providers,
+    subscriptions, checkupSubs, experts, checkupSubsRaw,
     paidTxTotalCount, splitTotalCount,
-    expertMap, planMap, checkupPlanMap, profileMap, providerMap, subMap,
+    expertMap, planMap, checkupPlanMap, profileMap, providerMap,
     overview, monthTrend, sourceBreakdown, txMerged,
     expertPayouts, splitsByExpert, checkupOverview, checkupTrend,
     range,
     invalidate: fetchAll,
-  } = useRevenueData(preset);
+  } = useRevenueData(preset) as any;
 
-  /* ----------------- 訂閱明細篩選 ----------------- */
-  const [subFilter, setSubFilter] = useState({ expert: 'all', role: 'all', status: 'all', autorenew: 'all' });
-  const filteredSubs = useMemo(() => {
-    return subscriptions.filter((s: any) => {
-      const plan = planMap[s.plan_id];
-      const exp = plan ? expertMap[plan.expert_id] : null;
-      if (subFilter.expert !== 'all' && plan?.expert_id !== subFilter.expert) return false;
-      if (subFilter.role !== 'all' && exp?.role !== subFilter.role) return false;
-      if (subFilter.status !== 'all' && s.status !== subFilter.status) return false;
-      if (subFilter.autorenew === 'on' && !s.auto_renew) return false;
-      if (subFilter.autorenew === 'off' && s.auto_renew) return false;
-      return true;
-    });
-  }, [subscriptions, subFilter, planMap, expertMap]);
+  const {
+    refundingTx, setRefundingTx, refundReason, setRefundReason, handleRefund, close,
+  } = useRevenueRefund(providerMap, fetchAll);
 
-  /* ----------------- 金流明細本地篩選 ----------------- */
-  const [txSearch, setTxSearch] = useState('');
-  const [txStatus, setTxStatus] = useState<'all' | 'paid' | 'refunded' | 'pending' | 'failed'>('all');
-  const filteredTx = useMemo(() => {
-    return txMerged.filter((r: any) => {
-      if (txStatus !== 'all' && r.status !== txStatus) return false;
-      if (txSearch.trim()) {
-        const q = txSearch.trim().toLowerCase();
-        if (
-          !r.buyer_name.toLowerCase().includes(q) &&
-          !(r.expert_name || '').toLowerCase().includes(q) &&
-          !(r.product || '').toLowerCase().includes(q) &&
-          !(r.provider_tx_id || '').toLowerCase().includes(q) &&
-          !String(r.amount).includes(q)
-        ) return false;
-      }
-      return true;
-    });
-  }, [txMerged, txSearch, txStatus]);
-
-  /* ----------------- 專家分潤 UI 展開狀態 ----------------- */
-  const [expandedExpert, setExpandedExpert] = useState<string | null>(null);
-
-
-  /* ----------------- 退款 ----------------- */
-  const handleRefund = async () => {
-    if (!refundingTx) return;
-    const tx = refundingTx.raw;
-    const prov = providerMap[tx.provider_id];
-    const providerType = prov?.provider_type;
-
-    // LINE Pay 暫不支援後台自動退款
-    if (providerType === 'line_pay') {
-      toast.error('LINE Pay 退款請至 LINE Pay 商家後台處理，本系統不支援自動退款');
-      return;
-    }
-
-    // 沒有 subscription_id 的交易（早期一次性付款）→ 仍允許僅更新狀態並警示
-    if (!tx.subscription_id) {
-      const ok = window.confirm('此筆交易未綁定訂閱（無法觸發金流商退款 API），是否僅更新本系統的退款狀態？');
-      if (!ok) return;
-      const { error } = await supabase.from('payment_transactions').update({ status: 'refunded' as any }).eq('id', tx.id);
-      if (error) { toast.error(error.message); return; }
-      await supabase.from('audit_logs').insert({
-        action: 'payment.refund',
-        actor_id: user?.id,
-        target_type: 'payment_transactions',
-        target_id: tx.id,
-        detail: { reason: refundReason, amount: tx.amount, tx_id: tx.provider_tx_id, mode: 'db_only', context: { reason: refundReason, amount: tx.amount } },
-      });
-      toast.success('退款狀態已更新（未呼叫金流商）');
-      setRefundingTx(null); setRefundReason(''); fetchAll();
-      return;
-    }
-
-    // 呼叫對應 edge function 真退款
-    const fnName = providerType === 'acpay' ? 'acpay-refund' : 'process-refund';
-    const { data, error: fnErr } = await supabase.functions.invoke(fnName, {
-      body: {
-        subscription_id: tx.subscription_id,
-        refund_amount: Math.abs(tx.amount || 0),
-        original_amount: tx.original_amount || tx.amount,
-        reason: refundReason || '管理員後台退款',
-      },
-    });
-
-    if (fnErr || (data as any)?.error) {
-      const msg = fnErr?.message || (data as any)?.error || '退款失敗';
-      toast.error(`金流商退款失敗：${msg}`);
-      await supabase.from('audit_logs').insert({
-        action: 'payment.refund_failed',
-        actor_id: user?.id,
-        target_type: 'payment_transactions',
-        target_id: tx.id,
-        detail: { reason: refundReason, error: msg, provider: providerType, context: { reason: msg } },
-      });
-      return;
-    }
-
-    await supabase.from('audit_logs').insert({
-      action: 'payment.refund',
-      actor_id: user?.id,
-      target_type: 'payment_transactions',
-      target_id: tx.id,
-      detail: { reason: refundReason, amount: tx.amount, tx_id: tx.provider_tx_id, provider: providerType, context: { reason: refundReason, amount: tx.amount } },
-    });
-    toast.success('退款完成（已呼叫金流商）');
-    setRefundingTx(null);
-    setRefundReason('');
-    fetchAll();
-  };
-
-  /* ============================== Render ============================== */
   return (
     <CompanyLayout>
       <div className="space-y-6">
@@ -233,7 +53,6 @@ const CompanyRevenue = () => {
           </div>
         </div>
 
-        {/* 對帳健康度警示 */}
         {paidTxTotalCount !== splitTotalCount && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -254,488 +73,46 @@ const CompanyRevenue = () => {
             <TabsTrigger value="checkup">健檢營收</TabsTrigger>
           </TabsList>
 
-          {/* ====================== 總覽 ====================== */}
-          <TabsContent value="overview" className="mt-4 space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard label="毛收" value={fmtMoney(overview.gross)} hint={`${overview.splitsCount} 筆分潤`} />
-              <StatCard label="折扣" value={fmtMoney(overview.discount)} />
-              <StatCard label="淨收（會計口徑）" value={fmtMoney(overview.net)} hint="不含退款" />
-              <StatCard label="退款" value={fmtMoney(overview.refundAmount)} hint={`${overview.refundCount} 筆`} variant="destructive" />
-              <StatCard label="平台應得" value={fmtMoney(overview.platformAmount)} variant="primary" />
-              <StatCard label="專家應分總額" value={fmtMoney(overview.expertAmount)} variant="primary" />
-              <StatCard label="訂閱毛收" value={fmtMoney(overview.subscriptionGross)} />
-              <StatCard label="健檢毛收" value={fmtMoney(overview.checkupGross)} />
-            </div>
+          <OverviewTab overview={overview} monthTrend={monthTrend} sourceBreakdown={sourceBreakdown} />
 
-            <Card>
-              <CardContent className="p-4 text-xs text-muted-foreground space-y-1">
-                <p>• 「淨收」= revenue_splits 加總，不會因退款回沖。</p>
-                <p>• 「實際淨收」≈ 淨收 − 退款 = <span className="font-medium text-foreground">{fmtMoney(overview.net - overview.refundAmount)}</span></p>
-                <p>• 退款獨立顯示，金流商退款 API 只更新 payment_transactions.status，不反沖 revenue_splits。</p>
-              </CardContent>
-            </Card>
+          <SubscriptionsTab
+            subscriptions={subscriptions}
+            experts={experts}
+            planMap={planMap}
+            expertMap={expertMap}
+            profileMap={profileMap}
+          />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader><CardTitle className="text-base">月營收趨勢</CardTitle></CardHeader>
-                <CardContent>
-                  {monthTrend.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">尚無資料</p>
-                  ) : (
-                    <Suspense fallback={<ChartFallback height={260} />}>
-                      <MonthTrendChart data={monthTrend} />
-                    </Suspense>
-                  )}
-                </CardContent>
-              </Card>
+          <TransactionsTab
+            txMerged={txMerged}
+            onRefund={(r) => { setRefundingTx(r); setRefundReason(''); }}
+          />
 
-              <Card>
-                <CardHeader><CardTitle className="text-base">金流來源拆分</CardTitle></CardHeader>
-                <CardContent>
-                  {sourceBreakdown.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">尚無資料</p>
-                  ) : (
-                    <Suspense fallback={<ChartFallback height={260} />}>
-                      <SourceBreakdownChart data={sourceBreakdown} />
-                    </Suspense>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+          <PayoutsTab
+            expertPayouts={expertPayouts}
+            splitsByExpert={splitsByExpert}
+            planMap={planMap}
+          />
 
-          {/* ====================== 訂閱明細 ====================== */}
-          <TabsContent value="subscriptions" className="mt-4 space-y-4">
-            <div className="flex flex-wrap gap-2 items-center">
-              <Select value={subFilter.expert} onValueChange={(v) => setSubFilter(s => ({ ...s, expert: v }))}>
-                <SelectTrigger className="w-[180px] h-9"><SelectValue placeholder="全部專家" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部專家</SelectItem>
-                  {experts.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={subFilter.role} onValueChange={(v) => setSubFilter(s => ({ ...s, role: v }))}>
-                <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部角色</SelectItem>
-                  <SelectItem value="advisor">分析師</SelectItem>
-                  <SelectItem value="mentor">實戰導師</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={subFilter.status} onValueChange={(v) => setSubFilter(s => ({ ...s, status: v }))}>
-                <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部狀態</SelectItem>
-                  <SelectItem value="active">啟用</SelectItem>
-                  <SelectItem value="cancelled">已取消</SelectItem>
-                  <SelectItem value="expired">已到期</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={subFilter.autorenew} onValueChange={(v) => setSubFilter(s => ({ ...s, autorenew: v }))}>
-                <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部</SelectItem>
-                  <SelectItem value="off">手動續訂</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="ml-auto">
-                <Button variant="outline" size="sm" onClick={() => {
-                  exportCSV(`subscriptions-${new Date().toISOString().slice(0, 10)}.csv`, [
-                    ['訂閱者', '方案', '專家', '角色', '週期', '狀態', '續訂模式', '起始日', '到期日'],
-                    ...filteredSubs.map(s => {
-                      const plan = planMap[s.plan_id];
-                      const exp = plan ? expertMap[plan.expert_id] : null;
-                      const buyer = profileMap[s.user_id];
-                      return [
-                        buyer?.display_name || '-',
-                        plan?.name || '-',
-                        exp?.name || '-',
-                        exp?.role === 'mentor' ? '導師' : '分析師',
-                        s.billing_cycle === 'yearly' ? '年' : '月',
-                        s.status,
-                        s.auto_renew ? '自動' : '手動',
-                        fmtDate(s.started_at),
-                        fmtDate(s.expires_at),
-                      ];
-                    }),
-                  ]);
-                }}>
-                  <Download className="h-4 w-4 mr-2" />匯出
-                </Button>
-              </div>
-            </div>
-
-            <Card>
-              <CardContent className="p-0 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="p-3">訂閱者</th>
-                      <th className="p-3">方案</th>
-                      <th className="p-3">專家</th>
-                      <th className="p-3">週期</th>
-                      <th className="p-3">狀態</th>
-                      <th className="p-3">續訂模式</th>
-                      <th className="p-3">起始日</th>
-                      <th className="p-3">到期日</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSubs.length === 0 ? (
-                      <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">無資料</td></tr>
-                    ) : filteredSubs.map(s => {
-                      const plan = planMap[s.plan_id];
-                      const exp = plan ? expertMap[plan.expert_id] : null;
-                      const buyer = profileMap[s.user_id];
-                      return (
-                        <tr key={s.id} className="border-b last:border-0">
-                          <td className="p-3">{buyer?.display_name || '-'}</td>
-                          <td className="p-3">{plan?.name || '-'}</td>
-                          <td className="p-3">
-                            {exp ? (
-                              <span className="inline-flex items-center gap-2">
-                                {exp.name}
-                                {exp.role === 'mentor' && <Badge className="bg-mentor text-white text-xs">導師</Badge>}
-                              </span>
-                            ) : '-'}
-                          </td>
-                          <td className="p-3">{s.billing_cycle === 'yearly' ? '年' : '月'}</td>
-                          <td className="p-3">
-                            <Badge variant={s.status === 'active' ? 'default' : 'outline'} className="text-xs">{s.status}</Badge>
-                          </td>
-                          <td className="p-3">{s.auto_renew ? '自動' : '手動'}</td>
-                          <td className="p-3">{fmtDate(s.started_at)}</td>
-                          <td className="p-3">{fmtDate(s.expires_at)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ====================== 金流明細 ====================== */}
-          <TabsContent value="transactions" className="mt-4 space-y-4">
-            <div className="flex flex-wrap gap-2 items-center">
-              <div className="relative w-[260px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input className="pl-9 h-9" placeholder="搜尋訂閱者/專家/方案..." value={txSearch} onChange={e => setTxSearch(e.target.value)} />
-              </div>
-              <Select value={txStatus} onValueChange={(v) => setTxStatus(v as any)}>
-                <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部狀態</SelectItem>
-                  <SelectItem value="paid">已付款</SelectItem>
-                  <SelectItem value="refunded">已退款</SelectItem>
-                  <SelectItem value="pending">處理中</SelectItem>
-                  <SelectItem value="failed">失敗</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="ml-auto">
-                <Button variant="outline" size="sm" onClick={() => {
-                  exportCSV(`transactions-${new Date().toISOString().slice(0, 10)}.csv`, [
-                    ['時間', '訂閱者', '產品', '專家', '原價', '折扣', '實收', '金流', '狀態', '交易編號'],
-                    ...filteredTx.map(r => [
-                      fmtDateTime(r.created_at),
-                      r.buyer_name, r.product, r.expert_name,
-                      r.original_amount || r.amount, r.discount || 0, r.amount,
-                      r.provider_label, r.status, r.provider_tx_id || r.id.slice(0, 8),
-                    ]),
-                  ]);
-                }}>
-                  <Download className="h-4 w-4 mr-2" />匯出
-                </Button>
-              </div>
-            </div>
-
-            <Card>
-              <CardContent className="p-0 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="p-3">時間</th>
-                      <th className="p-3">訂閱者</th>
-                      <th className="p-3">產品</th>
-                      <th className="p-3">專家</th>
-                      <th className="p-3 text-right">原價</th>
-                      <th className="p-3 text-right">折扣</th>
-                      <th className="p-3 text-right">實收</th>
-                      <th className="p-3">金流</th>
-                      <th className="p-3">狀態</th>
-                      <th className="p-3">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTx.length === 0 ? (
-                      <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">無資料</td></tr>
-                    ) : filteredTx.map(r => (
-                      <tr key={`${r.kind}-${r.id}`} className="border-b last:border-0">
-                        <td className="p-3 text-xs whitespace-nowrap">{fmtDateTime(r.created_at)}</td>
-                        <td className="p-3">{r.buyer_name}</td>
-                        <td className="p-3 text-xs">{r.product}</td>
-                        <td className="p-3">{r.expert_name}</td>
-                        <td className="p-3 text-right">{fmtMoney(r.original_amount || r.amount)}</td>
-                        <td className="p-3 text-right text-muted-foreground">{r.discount ? `-${fmtMoney(r.discount)}` : '-'}</td>
-                        <td className="p-3 text-right font-medium">{fmtMoney(r.amount)}</td>
-                        <td className="p-3"><Badge variant="outline" className="text-xs">{r.provider_label}</Badge></td>
-                        <td className="p-3">
-                          <Badge
-                            variant={r.status === 'paid' ? 'default' : r.status === 'refunded' ? 'destructive' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {r.status === 'paid' ? '已付款' : r.status === 'refunded' ? '已退款' : r.status === 'pending' ? '處理中' : r.status === 'failed' ? '失敗' : r.status}
-                          </Badge>
-                        </td>
-                        <td className="p-3">
-                          {r.kind === 'card' && r.status === 'paid' && (
-                            <Button variant="ghost" size="sm" className="h-7 text-xs text-company hover:bg-company/10"
-                              onClick={() => { setRefundingTx(r); setRefundReason(''); }}>
-                              <Undo2 className="h-3.5 w-3.5 mr-1" />退款
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ====================== 專家分潤對帳 ====================== */}
-          <TabsContent value="payouts" className="mt-4 space-y-4">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">本期應分給每位專家的金額（從 revenue_splits 聚合，不含退款）</p>
-              <Button variant="outline" size="sm" onClick={() => {
-                exportCSV(`expert-payouts-${new Date().toISOString().slice(0, 10)}.csv`, [
-                  ['專家', '角色', '筆數', '毛收', '折扣', '淨收', '平台', '專家應分'],
-                  ...expertPayouts.map(p => [
-                    p.expertInfo?.name || p.expert_id,
-                    p.expertInfo?.role === 'mentor' ? '導師' : '分析師',
-                    p.count, p.gross, p.discount, p.net, p.platform, p.expert_amount,
-                  ]),
-                ]);
-              }}>
-                <Download className="h-4 w-4 mr-2" />匯出
-              </Button>
-            </div>
-
-            <Card>
-              <CardContent className="p-0 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="p-3 w-8"></th>
-                      <th className="p-3">專家</th>
-                      <th className="p-3 text-right">筆數</th>
-                      <th className="p-3 text-right">毛收</th>
-                      <th className="p-3 text-right">折扣</th>
-                      <th className="p-3 text-right">淨收</th>
-                      <th className="p-3 text-right">平台</th>
-                      <th className="p-3 text-right">專家應分</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {expertPayouts.length === 0 ? (
-                      <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">本期尚無專家分潤紀錄</td></tr>
-                    ) : expertPayouts.map(p => {
-                      const open = expandedExpert === p.expert_id;
-                      const detail = splitsByExpert[p.expert_id] || [];
-                      return (
-                        <>
-                          <tr key={p.expert_id} className="border-b cursor-pointer hover:bg-muted/40"
-                              onClick={() => setExpandedExpert(open ? null : p.expert_id)}>
-                            <td className="p-3">{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</td>
-                            <td className="p-3">
-                              <span className="inline-flex items-center gap-2">
-                                {p.expertInfo?.name || p.expert_id.slice(0, 8)}
-                                {p.expertInfo?.role === 'mentor' && <Badge className="bg-mentor text-white text-xs">導師</Badge>}
-                              </span>
-                            </td>
-                            <td className="p-3 text-right">{p.count}</td>
-                            <td className="p-3 text-right">{fmtMoney(p.gross)}</td>
-                            <td className="p-3 text-right text-muted-foreground">-{fmtMoney(p.discount)}</td>
-                            <td className="p-3 text-right">{fmtMoney(p.net)}</td>
-                            <td className="p-3 text-right">{fmtMoney(p.platform)}</td>
-                            <td className="p-3 text-right font-medium text-primary">{fmtMoney(p.expert_amount)}</td>
-                          </tr>
-                          {open && (
-                            <tr key={`${p.expert_id}-detail`} className="bg-muted/20">
-                              <td colSpan={8} className="p-3">
-                                <ScrollArea className="max-h-[320px]">
-                                  <table className="w-full text-xs">
-                                    <thead>
-                                      <tr className="text-left text-muted-foreground">
-                                        <th className="p-2">日期</th>
-                                        <th className="p-2">方案</th>
-                                        <th className="p-2 text-right">毛收</th>
-                                        <th className="p-2 text-right">折扣</th>
-                                        <th className="p-2 text-right">淨收</th>
-                                        <th className="p-2 text-right">平台</th>
-                                        <th className="p-2 text-right">專家</th>
-                                        <th className="p-2">規則來源</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {detail.map(d => (
-                                        <tr key={d.id} className="border-t border-border/40">
-                                          <td className="p-2 whitespace-nowrap">{fmtDate(d.created_at)}</td>
-                                          <td className="p-2">{planMap[d.plan_id]?.name || '-'}</td>
-                                          <td className="p-2 text-right">{fmtMoney(d.gross)}</td>
-                                          <td className="p-2 text-right">-{fmtMoney(d.discount)}</td>
-                                          <td className="p-2 text-right">{fmtMoney(d.net)}</td>
-                                          <td className="p-2 text-right">{fmtMoney(d.platform_amount)}</td>
-                                          <td className="p-2 text-right text-primary">{fmtMoney(d.expert_amount)}</td>
-                                          <td className="p-2"><Badge variant="outline" className="text-xs">{ruleSourceLabels[d.rule_source] || d.rule_source}</Badge></td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </ScrollArea>
-                              </td>
-                            </tr>
-                          )}
-                        </>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ====================== 健檢營收 ====================== */}
-          <TabsContent value="checkup" className="mt-4 space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard label="健檢毛收" value={fmtMoney(checkupOverview.gross)} hint={`${checkupOverview.count} 筆`} />
-              <StatCard label="健檢折扣" value={fmtMoney(checkupOverview.discount)} />
-              <StatCard label="健檢淨收" value={fmtMoney(checkupOverview.net)} variant="primary" />
-              <StatCard label="活躍訂閱" value={String(checkupSubs.filter(c => c.status === 'active').length)} />
-            </div>
-
-            <Card>
-              <CardContent className="p-4 text-xs text-muted-foreground">
-                健檢方案規則：平台 100%、專家 0%（不分潤）。所有健檢淨收皆計入平台口袋。
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader><CardTitle className="text-base">健檢月趨勢</CardTitle></CardHeader>
-              <CardContent>
-                {checkupTrend.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">尚無資料</p>
-                ) : (
-                  <Suspense fallback={<ChartFallback height={240} />}>
-                    <CheckupTrendChart data={checkupTrend} />
-                  </Suspense>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => {
-                exportCSV(`checkup-subs-${new Date().toISOString().slice(0, 10)}.csv`, [
-                  ['用戶', '方案', '週期', '狀態', '續訂模式', '起始日', '到期日'],
-                  ...checkupSubs.map(c => {
-                    const buyer = profileMap[c.user_id];
-                    const plan = checkupPlanMap[c.plan_id];
-                    return [
-                      buyer?.display_name || '-',
-                      plan?.name || '-',
-                      c.billing_cycle === 'yearly' ? '年' : '月',
-                      c.status,
-                      c.auto_renew ? '自動' : '手動',
-                      fmtDate(c.started_at),
-                      fmtDate(c.expires_at),
-                    ];
-                  }),
-                ]);
-              }}>
-                <Download className="h-4 w-4 mr-2" />匯出健檢訂閱
-              </Button>
-            </div>
-
-            <Card>
-              <CardContent className="p-0 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="p-3">用戶</th>
-                      <th className="p-3">方案</th>
-                      <th className="p-3">週期</th>
-                      <th className="p-3">狀態</th>
-                      <th className="p-3">續訂模式</th>
-                      <th className="p-3">起始日</th>
-                      <th className="p-3">到期日</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {checkupSubs.length === 0 ? (
-                      <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">尚無健檢訂閱</td></tr>
-                    ) : checkupSubs.map(c => {
-                      const buyer = profileMap[c.user_id];
-                      const plan = checkupPlanMap[c.plan_id];
-                      return (
-                        <tr key={c.id} className="border-b last:border-0">
-                          <td className="p-3">{buyer?.display_name || '-'}</td>
-                          <td className="p-3">{plan?.name || '-'}</td>
-                          <td className="p-3">{c.billing_cycle === 'yearly' ? '年' : '月'}</td>
-                          <td className="p-3"><Badge variant={c.status === 'active' ? 'default' : 'outline'} className="text-xs">{c.status}</Badge></td>
-                          <td className="p-3">{c.auto_renew ? '自動' : '手動'}</td>
-                          <td className="p-3">{fmtDate(c.started_at)}</td>
-                          <td className="p-3">{fmtDate(c.expires_at)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <CheckupTab
+            checkupOverview={checkupOverview}
+            checkupTrend={checkupTrend}
+            checkupSubs={checkupSubs ?? checkupSubsRaw ?? []}
+            checkupPlanMap={checkupPlanMap}
+            profileMap={profileMap}
+          />
         </Tabs>
 
-        {/* 退款 Dialog */}
-        <AlertDialog open={!!refundingTx} onOpenChange={(o) => { if (!o) setRefundingTx(null); }}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>確認退款</AlertDialogTitle>
-              <AlertDialogDescription>
-                將對交易 {refundingTx?.provider_tx_id || refundingTx?.id?.slice(0, 8)} 進行退款，金額 {fmtMoney(refundingTx?.amount || 0)}。
-                注意：退款只會更新交易狀態，<strong>不會反沖 revenue_splits 的分潤紀錄</strong>，請於對帳時手動扣除。
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="space-y-2 py-2">
-              <Label>退款原因</Label>
-              <Textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} placeholder="請填寫退款原因..." rows={3} />
-            </div>
-            <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction onClick={handleRefund} className="bg-company hover:bg-company/90 text-white">確認退款</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <RefundDialog
+          refundingTx={refundingTx}
+          refundReason={refundReason}
+          setRefundReason={setRefundReason}
+          onClose={close}
+          onConfirm={handleRefund}
+        />
       </div>
     </CompanyLayout>
   );
 };
-
-/* ----------------- 子元件 ----------------- */
-function StatCard({
-  label, value, hint, variant,
-}: { label: string; value: string; hint?: string; variant?: 'primary' | 'destructive' }) {
-  const valueClass =
-    variant === 'destructive' ? 'text-destructive' :
-    variant === 'primary' ? 'text-primary' : '';
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground mb-1">{label}</p>
-        <p className={`text-xl font-bold ${valueClass}`}>{value}</p>
-        {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
-      </CardContent>
-    </Card>
-  );
-}
 
 export default CompanyRevenue;
