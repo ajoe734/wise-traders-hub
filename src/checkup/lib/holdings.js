@@ -200,17 +200,25 @@ export function applyTradeEntryToHoldings(rows, trade, quotes = null) {
   if (trade.action === '買進') {
     if (idx >= 0) {
       const h = arr[idx]
-      const nq = (Number(h.qty) || 0) + qty
+      const currentQty = toSafeNumber(h.qty)
+      const nq = currentQty + qty
       if (nq === 0) return normalizeHoldings(arr, quotes)
 
-      const cost = Number(h.cost) || 0
-      const nc = (cost * (Number(h.qty) || 0) + price * qty) / nq
+      // H6/H8: 走 calcWeightedAvgCost 統一入口
+      const nc = calcWeightedAvgCost(toSafeNumber(h.cost), currentQty, price, qty)
+
+      // 加碼同步累加 totalCost / fee（精確模式才有意義；無則保持 null）
+      const addCost = price * qty
+      const newTotalCost = h.totalCost != null ? toSafeNumber(h.totalCost) + addCost : null
+      const newFee = h.fee != null ? toSafeNumber(h.fee) + toSafeNumber(trade.fee) : null
 
       arr[idx] = {
         ...h,
         qty: nq,
         price,
         cost: Math.round(nc * 100) / 100,
+        totalCost: newTotalCost,
+        fee: newFee,
       }
     } else {
       arr.push({
@@ -225,19 +233,27 @@ export function applyTradeEntryToHoldings(rows, trade, quotes = null) {
     return normalizeHoldings(arr, quotes)
   }
 
-  // Sell action
+  // Sell action — H8: 部分賣出需按比例縮減 totalCost / fee，否則平均成本失真
   if (idx >= 0) {
     const h = arr[idx]
-    const currentQty = Number(h.qty) || 0
+    const currentQty = toSafeNumber(h.qty)
     const nq = Math.max(0, currentQty - qty)
 
     if (nq === 0) {
       arr.splice(idx, 1)
     } else {
+      const { newTotalCost, newFee } = calcRemainingCostAfterPartialSell(
+        h.totalCost != null ? toSafeNumber(h.totalCost) : null,
+        h.fee != null ? toSafeNumber(h.fee) : null,
+        nq,
+        currentQty
+      )
       arr[idx] = {
         ...h,
         qty: nq,
         price,
+        totalCost: newTotalCost,
+        fee: newFee,
       }
     }
   }
