@@ -48,6 +48,7 @@ export function NotificationBell() {
   };
 
   const handleClick = async (notif: any) => {
+    trackRaw('notification_click', { notification_id: notif.id });
     if (!notif.is_read) {
       setLocal((n) => (n.id === notif.id ? { ...n, is_read: true } : n));
       await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id);
