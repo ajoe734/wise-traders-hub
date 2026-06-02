@@ -683,6 +683,7 @@ const Checkout = () => {
         consentChecked={consentChecked}
         setConsentChecked={setConsentChecked}
         onProceed={() => {
+          trackEvent('checkout_consent_accept', { plan_id: planId });
           setConsentOpen(false);
           proceedCheckout();
         }}
