@@ -205,16 +205,19 @@ describe('drift-detection: suspended 專家 RLS 與 client-side 過濾', () => {
     expect(src).toContain("'privileged'");
   });
 
-  it('ExpertProfile.tsx inline 能見度檢查：active 或（draft AND isTester），suspended 被排除（3.7-1）', () => {
-    // ExpertProfile.tsx 不走 useExpert hook，而是自行查詢 experts 後以 inline 條件判斷；
-    // 此 drift test 守護該條件不被移除，確保 suspended 無法透過 profile 頁面曝光。
-    const src = readFileSync(
-      resolve(process.cwd(), 'src/pages/ExpertProfile.tsx'),
-      'utf-8',
-    );
-    expect(src).toContain("status === 'active'");
-    expect(src).toContain("status === 'draft'");
-    expect(src).toContain('isTester');
+  it('ExpertProfile.tsx 改走 useExpertDetailBundle，suspended 過濾由 hook 層保障（3.7-1）', () => {
+    // 歷史備註：ExpertProfile 原本 inline 查 experts 並自行判斷 status，
+    // 後改用 useExpertDetailBundle（RPC bundle）。此 drift test 守護兩件事：
+    //   1) Profile 仍走 bundle hook（而非繞過 visibility 直連 supabase）。
+    //   2) hook 層仍是 active 或 (draft AND isTester)、suspended 排除。
+    const src = readFileSync(resolve(process.cwd(), 'src/pages/ExpertProfile.tsx'), 'utf-8');
+    expect(src).toContain('useExpertDetailBundle');
+    expect(src).not.toMatch(/from\(['"]experts['"]\)/);
+
+    const hookSrc = readFileSync(resolve(process.cwd(), 'src/hooks/useExpert.ts'), 'utf-8');
+    expect(hookSrc).toContain("status === 'active'");
+    expect(hookSrc).toContain("status === 'draft'");
+    expect(hookSrc).toContain('isTester');
   });
 
   it('expert_plans RLS migration 20260411134638：公開 SELECT 條件為 is_active = true（未關聯 expert.status）', () => {
