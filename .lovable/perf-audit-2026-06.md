@@ -182,9 +182,9 @@ grep -cE 'useMutation\('      # mu
 #### `/admin/:slug` Dashboard.tsx — 248 / ue 1 / **sb 10** / rq 2
 - ✅ **[已查證・非 N+1]** 10 個 sb 全部在單一 `useQuery` 內以 `Promise.all` 並行（L36-44），另 1 個 capital query。grep 數字誤導，實際健康。
 
-#### `/admin/:slug/signals` Signals.tsx — **1246 行** / ue 1 / **sb 14** / rq 0
-- 🟠 **[P1]** B4 已抽 `useAdminSignals` hook + `PreviewTradeItem` 子元件，但主檔仍 1246 行。下一輪繼續抽 detail dialog / batch table row。
-- 🟠 **[P1]** 14 sb 直查在 hook 內，需確認 hook 是否真用 react-query 包；若是裸 supabase + setState 就會在 Tab 切換時重抓。
+#### `/admin/:slug/signals` Signals.tsx — **257 行** ✅（1099 → 257）
+- ✅ **[已修]** 抽出 `_adminSignals/derive.ts`（純函數：filter / addBuy / batch / holding）、`SignalsTable.tsx`、`SignalCreateDialog.tsx`（form + draft + publish + preview）。
+- ✅ `useAdminSignals` 已包 react-query（30s staleTime），Tab 切換不會重抓。
 
 #### `/admin/:slug/signals/new`、`/edit/:batchId` SignalEditor.tsx — 524 / ue 3 / sb 9 / rq 0
 - 🟠 **[P1]** B8 已抽 CapitalPanel / TradeCard 從 931 → 524。`LazyRichTextEditor` 已就位 ✅。剩下 9 個 sb 直查可走 query。

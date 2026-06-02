@@ -1,0 +1,542 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Eye, Loader2, Undo2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useFormDraft } from '@/hooks/useFormDraft';
+import { avatarUrl } from '@/lib/imageTransform';
+import { actionLabels } from './actionLabels';
+import { PreviewTradeItem } from './PreviewTradeItem';
+import { isMarketClosed } from './derive';
+
+interface Props {
+  expert: any;
+  signalTemplates: any[];
+  isMentor: boolean;
+  isAdvisor: boolean;
+  expertSlug?: string;
+  isCreateOpen: boolean;
+  setIsCreateOpen: (v: boolean) => void;
+  onPublished: () => void;
+}
+
+export function SignalCreateDialog({
+  expert, signalTemplates, isMentor, isAdvisor, expertSlug,
+  isCreateOpen, setIsCreateOpen, onPublished,
+}: Props) {
+  const FORM_KEY = `signal-form-${expertSlug}`;
+  const DRAFT_KEY = `signal-draft-${expertSlug}`;
+
+  const [stockCode, setStockCode] = useState('');
+  const [stockName, setStockName] = useState('');
+  const [action, setAction] = useState('');
+  const [priceHint, setPriceHint] = useState('');
+  const [reasonSummary, setReasonSummary] = useState('');
+  const [reasonDetail, setReasonDetail] = useState('');
+  const [riskNotes, setRiskNotes] = useState('');
+  const [learningPoints, setLearningPoints] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [quantityUnit, setQuantityUnit] = useState('張');
+  const [teachingTopic, setTeachingTopic] = useState('');
+  const [overallSummary, setOverallSummary] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+  const [fetchingQuote, setFetchingQuote] = useState(false);
+  const [linePushing, setLinePushing] = useState(false);
+  const [linePushed, setLinePushed] = useState(false);
+  const [recalling, setRecalling] = useState(false);
+  const [, setLastPublishedId] = useState<string | null>(null);
+  const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (isCreateOpen) sessionStorage.setItem(FORM_KEY, JSON.stringify({ _open: true }));
+    else sessionStorage.removeItem(FORM_KEY);
+  }, [isCreateOpen, FORM_KEY]);
+
+  const draftValue = useMemo(() => ({
+    stockCode, stockName, action, priceHint, quantity, quantityUnit,
+    reasonSummary, reasonDetail, riskNotes, learningPoints, teachingTopic, overallSummary,
+  }), [stockCode, stockName, action, priceHint, quantity, quantityUnit,
+      reasonSummary, reasonDetail, riskNotes, learningPoints, teachingTopic, overallSummary]);
+
+  const { discard: discardDraft } = useFormDraft(
+    DRAFT_KEY,
+    draftValue,
+    (saved) => {
+      if (typeof saved.stockCode === 'string') setStockCode(saved.stockCode);
+      if (typeof saved.stockName === 'string') setStockName(saved.stockName);
+      if (typeof saved.action === 'string') setAction(saved.action);
+      if (typeof saved.priceHint === 'string') setPriceHint(saved.priceHint);
+      if (typeof saved.quantity === 'string') setQuantity(saved.quantity);
+      if (typeof saved.quantityUnit === 'string') setQuantityUnit(saved.quantityUnit);
+      if (typeof saved.reasonSummary === 'string') setReasonSummary(saved.reasonSummary);
+      if (typeof saved.reasonDetail === 'string') setReasonDetail(saved.reasonDetail);
+      if (typeof saved.riskNotes === 'string') setRiskNotes(saved.riskNotes);
+      if (typeof saved.learningPoints === 'string') setLearningPoints(saved.learningPoints);
+      if (typeof saved.teachingTopic === 'string') setTeachingTopic(saved.teachingTopic);
+      if (typeof saved.overallSummary === 'string') setOverallSummary(saved.overallSummary);
+    },
+    { enabled: isCreateOpen },
+  );
+
+  const clearForm = useCallback(() => {
+    setStockCode(''); setStockName(''); setAction(''); setPriceHint(''); setQuantity(''); setQuantityUnit('張');
+    setReasonSummary(''); setReasonDetail(''); setRiskNotes(''); setLearningPoints('');
+    setTeachingTopic(''); setOverallSummary('');
+    setLinePushed(false); setLinePushing(false); setLastPublishedId(null);
+    setShowPreview(false);
+    sessionStorage.removeItem(FORM_KEY);
+    discardDraft();
+  }, [FORM_KEY, discardDraft]);
+
+  const fetchStockInfo = useCallback(async (code: string) => {
+    if (!code.trim() || code.trim().length < 4) return;
+    setFetchingQuote(true);
+    try {
+      if (isMarketClosed() && expert?.user_id) {
+        const { data: perf } = await supabase
+          .from('user_performances')
+          .select('name, current_price')
+          .eq('user_id', expert.user_id)
+          .eq('symbol', code.trim())
+          .limit(1)
+          .maybeSingle();
+        if (perf) {
+          if (perf.name) setStockName(perf.name);
+          if (perf.current_price != null) setPriceHint(String(perf.current_price));
+          setFetchingQuote(false);
+          return;
+        }
+      }
+      const { resolveStockName } = await import('@/lib/stockNameResolver');
+      const name = await resolveStockName(code.trim());
+      if (name) setStockName(name);
+    } catch (e) {
+      console.error('stock_info fetch error:', e);
+    }
+    setFetchingQuote(false);
+  }, [expert?.user_id]);
+
+  const handleStockCodeChange = (value: string) => {
+    setStockCode(value);
+    if (fetchTimer.current) clearTimeout(fetchTimer.current);
+    if (value.trim().length >= 4) {
+      fetchTimer.current = setTimeout(() => fetchStockInfo(value), 500);
+    }
+  };
+
+  const canPublish = isMentor
+    ? !!expert && !!stockCode.trim() && !!action && !!teachingTopic.trim()
+    : !!expert && !!stockCode.trim() && !!action;
+
+  const handlePublish = async () => {
+    if (!expert) { toast.error('找不到分析師資料，請重新整理後再試'); return; }
+    if (!stockCode.trim() || !action) { toast.error('請先填寫「代碼」與「操作方向」'); return; }
+    if (!quantity || parseInt(quantity) <= 0) { toast.error('請輸入數量'); return; }
+    if (!priceHint || parseFloat(priceHint) <= 0) { toast.error('請輸入參考價格'); return; }
+
+    const latestName = stockName.trim();
+
+    if (['add', 'trim', 'sell', 'exit'].includes(action)) {
+      const { data: openPos } = await supabase
+        .from('trade_records')
+        .select('id, quantity')
+        .eq('expert_id', expert.id)
+        .ilike('instrument', `${stockCode.trim()}%`)
+        .eq('status', 'open')
+        .limit(1)
+        .maybeSingle();
+      if (!openPos) {
+        toast.error(`尚無 ${stockCode.trim()} 的未平倉部位，無法執行${action === 'add' ? '加碼' : action === 'exit' ? '平損' : '減碼'}操作`);
+        return;
+      }
+      if (['trim', 'sell'].includes(action) && parseInt(quantity) > openPos.quantity) {
+        toast.error(`減碼數量 (${quantity}) 超過持倉量 (${openPos.quantity})`);
+        return;
+      }
+    }
+    const latestPrice = priceHint;
+    const instrument = latestName ? `${stockCode.trim()} ${latestName}` : stockCode.trim();
+    const { data: inserted, error } = await supabase.from('expert_signals').insert({
+      expert_id: expert.id,
+      plan_id: null,
+      instrument,
+      action: action as any,
+      price_hint: latestPrice ? parseFloat(latestPrice) : null,
+      quantity: quantity ? parseInt(quantity) : null,
+      quantity_unit: quantityUnit,
+      reason_summary: reasonSummary,
+      reason_detail: reasonDetail,
+      risk_notes: riskNotes,
+      learning_points: learningPoints || null,
+      teaching_topic: teachingTopic || null,
+      overall_summary: overallSummary || null,
+      status: (isMentor ? 'pending' : 'published') as any,
+    } as any).select('id').single();
+    if (error) { toast.error(error.message); return; }
+
+    if (expert.user_id) {
+      const entryPrice = latestPrice ? parseFloat(latestPrice) : 0;
+      if (action === 'exit') {
+        await supabase.from('trade_signals').update({ status: 'closed' } as any)
+          .eq('user_id', expert.user_id).eq('symbol', stockCode.trim()).eq('status', 'open');
+        await supabase.from('user_performances').delete()
+          .eq('user_id', expert.user_id).eq('symbol', stockCode.trim());
+      } else if (action === 'sell' || action === 'trim') {
+        const { data: remainingTrade } = await supabase
+          .from('trade_records').select('id')
+          .eq('expert_id', expert.id)
+          .eq('instrument', `${stockCode.trim()} ${latestName || ''}`.trim())
+          .eq('status', 'open').limit(1);
+        if (!remainingTrade || remainingTrade.length === 0) {
+          await supabase.from('trade_signals').update({ status: 'closed' } as any)
+            .eq('user_id', expert.user_id).eq('symbol', stockCode.trim()).eq('status', 'open');
+          await supabase.from('user_performances').delete()
+            .eq('user_id', expert.user_id).eq('symbol', stockCode.trim());
+        }
+      } else if (action === 'add') {
+        const { data: existing } = await supabase
+          .from('trade_signals').select('id')
+          .eq('user_id', expert.user_id).eq('symbol', stockCode.trim()).eq('status', 'open').limit(1);
+        if (!existing || existing.length === 0) {
+          const { data: tsData } = await supabase.from('trade_signals').insert({
+            user_id: expert.user_id, symbol: stockCode.trim(),
+            name: latestName || null, entry_price: entryPrice, status: 'open',
+          } as any).select('id').single();
+          if (tsData) {
+            await supabase.from('user_performances').insert({
+              user_id: expert.user_id, signal_id: (tsData as any).id,
+              symbol: stockCode.trim(), name: latestName || null,
+              entry_price: entryPrice, current_price: entryPrice, pnl: 0, pnl_percent: 0,
+            } as any);
+          }
+        }
+      } else {
+        const { data: tsData, error: tsError } = await supabase.from('trade_signals').insert({
+          user_id: expert.user_id, symbol: stockCode.trim(),
+          name: latestName || null, entry_price: entryPrice, status: 'open',
+        } as any).select('id').single();
+        if (tsError) {
+          console.error('trade_signals insert failed:', tsError);
+          toast.error('持倉記錄寫入失敗');
+        }
+        if (tsData) {
+          await supabase.from('user_performances').insert({
+            user_id: expert.user_id, signal_id: (tsData as any).id,
+            symbol: stockCode.trim(), name: latestName || null,
+            entry_price: entryPrice, current_price: entryPrice, pnl: 0, pnl_percent: 0,
+          } as any);
+        }
+      }
+    }
+
+    toast.success(isMentor ? '週記已儲存，將於本週五 20:00 統一發布' : '訊號已發布');
+    setIsCreateOpen(false);
+    clearForm();
+
+    const skipLinePush = isMentor || (isAdvisor && linePushed);
+    if (inserted?.id && !skipLinePush) {
+      supabase.functions.invoke('line-push-signal', {
+        body: { signal_id: inserted.id, expert_id: expert.id },
+      }).then(({ data: pushData, error: pushError }) => {
+        if (pushError) toast.error(`LINE 推播失敗：${pushError.message}`);
+        else if (pushData?.pushed) toast.success(`已推播給 ${pushData.count} 位訂閱者`);
+        else if (pushData?.reason) toast.info(`LINE 推播略過：${pushData.reason}`);
+      }).catch((err) => {
+        console.error('LINE push invoke error:', err);
+        toast.error('LINE 推播呼叫失敗');
+      });
+    }
+    onPublished();
+  };
+
+  return (
+    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader><DialogTitle>發布新{isMentor ? '週記' : '訊號'}</DialogTitle></DialogHeader>
+        <div className="space-y-4 mt-4 overflow-y-auto flex-1 px-1 -mx-1">
+          {isMentor && (
+            <div className="space-y-2">
+              <Label>教學主題</Label>
+              <Input value={teachingTopic} onChange={(e) => setTeachingTopic(e.target.value)} />
+            </div>
+          )}
+          {isMentor && (
+            <div className="space-y-2">
+              <Label>整體摘要</Label>
+              <Textarea value={overallSummary} onChange={(e) => setOverallSummary(e.target.value)} rows={2} />
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>股票代碼</Label>
+              <Input value={stockCode} onChange={(e) => handleStockCodeChange(e.target.value)} placeholder="例:2330" />
+            </div>
+            <div className="space-y-2">
+              <Label>股票名稱 {fetchingQuote && <Loader2 className="inline h-3 w-3 animate-spin text-muted-foreground" />}</Label>
+              <Input value={stockName} onChange={(e) => setStockName(e.target.value)} />
+            </div>
+          </div>
+          {signalTemplates.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">訊號模板</Label>
+              <div className="flex flex-wrap gap-1.5 max-h-16 overflow-y-auto">
+                {signalTemplates.map((tpl) => {
+                  const actionColor: Record<string, string> = {
+                    buy: 'border-success text-success hover:bg-success/10',
+                    sell: 'border-destructive text-destructive hover:bg-destructive/10',
+                    add: 'border-blue-500 text-blue-500 hover:bg-blue-500/10',
+                    trim: 'border-amber-500 text-amber-500 hover:bg-amber-500/10',
+                    exit: 'border-slate-500 text-slate-500 hover:bg-slate-500/10',
+                  };
+                  return (
+                    <Button
+                      key={tpl.id}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className={cn('h-6 text-xs px-2', actionColor[tpl.action] || '')}
+                      onClick={() => {
+                        if (!action) setAction(tpl.action);
+                        if (!reasonSummary) setReasonSummary(tpl.reason);
+                        if (!riskNotes) setRiskNotes(tpl.risk_note);
+                        if (!reasonDetail) setReasonDetail(tpl.strategy_note);
+                      }}
+                    >
+                      {tpl.title}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>操作方向</Label>
+              <Select value={action} onValueChange={setAction}>
+                <SelectTrigger><SelectValue placeholder="選擇" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="buy">買進</SelectItem>
+                  <SelectItem value="sell">賣出</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>參考價位</Label>
+              <Input value={priceHint} onChange={(e) => setPriceHint(e.target.value)} type="number" placeholder="890" />
+            </div>
+          </div>
+          {action && (
+            <div className="space-y-2">
+              <Label>數量</Label>
+              <div className="flex items-center gap-2">
+                <Input value={quantity} onChange={(e) => { const v = e.target.value; if (v === '' || Number(v) >= 0) setQuantity(v); }} type="number" min="0" placeholder="1" className="w-32" />
+                <Select value={quantityUnit} onValueChange={setQuantityUnit}>
+                  <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="張">張</SelectItem>
+                    <SelectItem value="股">股</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label>為什麼這樣操作？</Label>
+            <Textarea value={reasonSummary} onChange={(e) => setReasonSummary(e.target.value)} rows={2} />
+            {isAdvisor && canPublish && (
+              <div className="flex gap-2 mt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn('flex-1 border-advisor text-advisor hover:bg-advisor/10', linePushed && 'opacity-60 cursor-default')}
+                  disabled={linePushing || linePushed || !reasonSummary.trim()}
+                  onClick={async () => {
+                    if (!expert) return;
+                    if (!quantity || parseInt(quantity) <= 0) { toast.error('請輸入數量'); return; }
+                    if (!priceHint || parseFloat(priceHint) <= 0) { toast.error('請輸入參考價格'); return; }
+                    setLinePushing(true);
+                    try {
+                      const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
+                      const { data: pushData, error: pushError } = await supabase.functions.invoke('line-push-signal', {
+                        body: {
+                          expert_id: expert.id, mode: 'preview',
+                          signal_data: {
+                            action, instrument,
+                            price_hint: priceHint ? parseFloat(priceHint) : null,
+                            quantity: quantity ? parseInt(quantity) : null,
+                            quantity_unit: quantityUnit, reason_summary: reasonSummary,
+                          },
+                        },
+                      });
+                      if (pushError) toast.error(`LINE 推播失敗：${pushError.message}`);
+                      else if (pushData?.pushed) {
+                        toast.success(`已推播給 ${pushData.count} 位訂閱者`);
+                        setLinePushed(true);
+                        setLastPublishedId('preview');
+                      } else if (pushData?.reason) {
+                        toast.info(`LINE 推播略過：${pushData.reason}`);
+                        setLinePushed(true);
+                      }
+                    } catch (err) {
+                      console.error('LINE preview push error:', err);
+                      toast.error('LINE 推播呼叫失敗');
+                    }
+                    setLinePushing(false);
+                  }}
+                >
+                  {linePushing ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />推播中...</> : linePushed ? '✅ 已成功發布' : '優先發布(Line推播)'}
+                </Button>
+                {linePushed && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="shrink-0"
+                    disabled={recalling}
+                    onClick={async () => {
+                      if (!expert) return;
+                      setRecalling(true);
+                      try {
+                        const instrument = stockName.trim() ? `${stockCode.trim()} ${stockName.trim()}` : stockCode.trim();
+                        await supabase.functions.invoke('line-push-signal', {
+                          body: {
+                            expert_id: expert.id, mode: 'preview',
+                            signal_data: { action, instrument, price_hint: priceHint ? parseFloat(priceHint) : null },
+                            type: 'recall',
+                          },
+                        });
+                        toast.success('已推播收回通知');
+                        setLastPublishedId(null);
+                        setLinePushed(false);
+                      } catch (err) {
+                        console.error('Recall preview push error:', err);
+                        toast.error('收回推播失敗');
+                      }
+                      setRecalling(false);
+                    }}
+                  >
+                    {recalling ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Undo2 className="h-4 w-4 mr-1" />收回</>}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>部位控管想法</Label>
+            <Textarea value={reasonDetail} onChange={(e) => setReasonDetail(e.target.value)} rows={3} />
+          </div>
+          <div className="space-y-2">
+            <Label>風險提醒</Label>
+            <Textarea value={riskNotes} onChange={(e) => setRiskNotes(e.target.value)} rows={2} />
+          </div>
+          {isMentor && (
+            <div className="space-y-2">
+              <Label>教學重點</Label>
+              <Textarea value={learningPoints} onChange={(e) => setLearningPoints(e.target.value)} rows={3} />
+            </div>
+          )}
+          {isMentor && canPublish && (
+            <>
+              <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setShowPreview(true)}>
+                <Eye className="h-4 w-4 mr-2" />訂閱者預覽
+              </Button>
+              <Dialog open={showPreview} onOpenChange={setShowPreview}>
+                <DialogContent className="max-w-[80vw] max-h-[80vh] overflow-y-auto p-0">
+                  <div className="p-4 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <img src={avatarUrl(expert?.avatar_url, 80)} alt={expert?.name} loading="lazy" decoding="async" className="shrink-0 h-10 w-10 rounded-full object-cover object-[center_15%]" />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{expert?.name}</span>
+                          <Badge variant="secondary" className="text-[10px]">實戰導師</Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>📅 本週週記預覽</span>
+                      <Badge variant="outline" className="text-[10px] bg-mentor/10 text-mentor border-mentor/20">T+7 歷史</Badge>
+                    </div>
+                    {teachingTopic && <h1 className="text-xl font-bold">📚 {teachingTopic}</h1>}
+                    {overallSummary && (
+                      <Card><CardContent className="p-4">
+                        <h2 className="font-semibold mb-2">本週整體摘要</h2>
+                        <p className="text-sm text-muted-foreground whitespace-pre-line">{overallSummary}</p>
+                      </CardContent></Card>
+                    )}
+                    <div>
+                      <h2 className="font-semibold mb-3">本週操作列表</h2>
+                      <Card><CardContent className="p-0">
+                        <div className="divide-y divide-border">
+                          <PreviewTradeItem
+                            action={action}
+                            instrument={`${stockCode} ${stockName}`}
+                            priceHint={priceHint ? parseFloat(priceHint) : null}
+                            reasonSummary={reasonSummary}
+                            reasonDetail={reasonDetail}
+                            riskNotes={riskNotes}
+                          />
+                        </div>
+                      </CardContent></Card>
+                    </div>
+                    {learningPoints && (
+                      <Card><CardContent className="p-4">
+                        <h2 className="font-semibold mb-2 flex items-center gap-2">
+                          <span className="text-mentor">📖</span> 本週教學重點
+                        </h2>
+                        <ul className="space-y-2">
+                          {learningPoints.split('\n').filter((l) => l.trim()).map((point, idx) => (
+                            <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                              <span className="text-mentor">•</span> {point.replace(/^[•·．‧●○◆■□▪▫※☆★→➤➜▸▹►▻‣⁃–—\-]\s*/gm, '')}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent></Card>
+                    )}
+                    <Card className="bg-muted/30"><CardContent className="p-4 flex items-start gap-2">
+                      <span className="text-muted-foreground mt-0.5 flex-shrink-0">🛡️</span>
+                      <p className="text-xs text-muted-foreground">
+                        本頁內容為一週前之操作回顧（T+7），僅供教學用途，不構成任何即時投資建議。
+                      </p>
+                    </CardContent></Card>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+          {isAdvisor && canPublish && (
+            <Card className="bg-muted/50"><CardContent className="p-4 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">📋 訂閱者預覽</p>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs">{actionLabels[action]?.label || action}</Badge>
+                <span className="font-medium text-sm">{stockCode} {stockName}</span>
+                {priceHint && <span className="text-sm text-muted-foreground">@ {priceHint}</span>}
+                {quantity && <span className="text-sm text-muted-foreground">{quantity} {quantityUnit}</span>}
+              </div>
+              {reasonSummary && <p className="text-sm">{reasonSummary}</p>}
+              {reasonDetail && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{reasonDetail}</p>}
+              {riskNotes && <p className="text-xs text-destructive">⚠️ {riskNotes}</p>}
+            </CardContent></Card>
+          )}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => { setIsCreateOpen(false); clearForm(); }}>取消</Button>
+            <Button
+              onClick={handlePublish}
+              disabled={!canPublish}
+              className={cn(isAdvisor ? 'bg-advisor hover:bg-advisor/90' : 'bg-mentor hover:bg-mentor/90')}
+            >
+              立即發布
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
