@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DEMO_DATA_VERSION } from '@/checkup/data/demoData';
+import { DEMO_DATA_VERSION } from '@/checkup/data/demoDataVersion';
 
 /**
  * Demo Banner — sticky 提示條，僅在 isDemo 時顯示。
