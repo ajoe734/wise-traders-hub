@@ -150,13 +150,13 @@ function HoldingsFilterBarImpl(props) {
           Filters {activeTags.length > 0 ? `(${activeTags.length})` : ''} <span style={{ opacity: 0.5, marginLeft: 4 }}>▾</span>
         </summary>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-          <FilterGroup label="決策" options={DEC_OPTS} set={filterDecision} setter={setFilterDecision} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
-          <FilterGroup label="論點" options={TH_OPTS} set={filterThesis} setter={setFilterThesis} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
-          <FilterGroup label="緊急" options={UR_OPTS} set={filterUrgency} setter={setFilterUrgency} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
-          <FilterGroup label="衝突" options={CF_OPTS} set={filterConflict} setter={setFilterConflict} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
-          <FilterGroup label="損益" options={PNL_OPTS} set={filterPnl} setter={setFilterPnl} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+          <FilterGroup label="決策" dimension="decision" options={DEC_OPTS} set={filterDecision} setter={setFilterDecision} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+          <FilterGroup label="論點" dimension="thesis" options={TH_OPTS} set={filterThesis} setter={setFilterThesis} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+          <FilterGroup label="緊急" dimension="urgency" options={UR_OPTS} set={filterUrgency} setter={setFilterUrgency} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+          <FilterGroup label="衝突" dimension="conflict" options={CF_OPTS} set={filterConflict} setter={setFilterConflict} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+          <FilterGroup label="損益" dimension="pnl" options={PNL_OPTS} set={filterPnl} setter={setFilterPnl} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
           {strategyOptions.length > 0 && (
-            <FilterGroup label="題材" options={strategyOptions.map((s) => [s, s])} set={filterStrategy} setter={setFilterStrategy} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
+            <FilterGroup label="題材" dimension="strategy" options={strategyOptions.map((s) => [s, s])} set={filterStrategy} setter={setFilterStrategy} toggleSetItem={toggleSetItem} C={C} alpha={alpha} />
           )}
         </div>
       </details>
