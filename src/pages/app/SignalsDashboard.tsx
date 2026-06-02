@@ -18,6 +18,8 @@ import { format, isToday, differenceInMinutes } from 'date-fns';
 import { useMyHoldings } from '@/hooks/useMyTradeRecordHoldings';
 import { richHtmlPreview } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
+import { useEffect } from 'react';
+import { track } from '@/lib/analytics/events';
 
 interface SignalsDashboardProps {
   subscriptions: any[];
@@ -47,6 +49,10 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
   const { data: holdings = [] } = useMyHoldings();
 
   const todaySignals = recentSignals.filter(s => s.published_at && isToday(new Date(s.published_at)));
+
+  useEffect(() => {
+    track('holdings_dashboard_view', { holdings_count: holdings.length });
+  }, [holdings.length]);
 
   const getActionColor = (action: string) => {
     switch (action) {
@@ -105,7 +111,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
         {recentSignals.length > 0 ? (
           <div className="space-y-2">
             {recentSignals.map((signal) => (
-              <Link key={signal.id} to={`/app/signal/${signal.id}`}>
+              <Link key={signal.id} to={`/app/signal/${signal.id}`} onClick={() => track('signal_card_click', { instrument: signal.instrument, signal_id: signal.id })}>
                 <FeatureCard theme="signals" className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -149,7 +155,7 @@ export function SignalsDashboard({ subscriptions, userName }: SignalsDashboardPr
         {holdings.length > 0 ? (
           <FeatureCard theme="signals" className="divide-y divide-foreground/[0.08]">
             {holdings.map((holding) => (
-              <div key={holding.id} className="p-4 flex items-center justify-between">
+              <div key={holding.id} className="p-4 flex items-center justify-between cursor-pointer" onClick={() => track('holding_card_click', { instrument: holding.instrument, pnl_bucket: holding.pnl_percent == null ? 'na' : holding.pnl_percent >= 10 ? 'big_gain' : holding.pnl_percent >= 0 ? 'gain' : holding.pnl_percent >= -10 ? 'loss' : 'big_loss' })}>
                 <div>
                   <p className="font-medium">{holding.instrument}</p>
                   <p className="text-xs text-muted-foreground font-mono">
