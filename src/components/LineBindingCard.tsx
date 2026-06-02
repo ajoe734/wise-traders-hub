@@ -103,6 +103,7 @@ export const LineBindingCard = ({ expertId, expertSlug, expertName, expertAvatar
 
       setBindingCode(code);
       setCodeExpiresAt(expiresAt);
+      trackRaw('line_binding_start', { expert_slug: expertSlug });
     } catch (err: any) {
       console.error('Generate code error:', err);
       toast({
