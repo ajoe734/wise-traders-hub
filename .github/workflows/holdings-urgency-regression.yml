@@ -1,0 +1,80 @@
+name: H14 Urgency Vocab Regression
+
+# H14「統一憲法」防回退守門員：
+#   全站 urgency 詞彙唯一來源 = @/checkup/lib/holdingsSort.URGENCY_RANK ({ now, soon, monitor })
+#   useHoldingDecision / holdingsSort / HoldingsFilterBar / events.ts 必須共用同一物件參考
+#
+# 觸發策略：每個 PR 與 push 一律跑（無 paths filter），避免動到不相關檔案時漏跑
+# 同時保留 paths filter 版本的 freecheckup-rwd.yml 跑 Playwright 視覺基準
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, 'feat/**']
+  workflow_dispatch:
+
+concurrency:
+  group: h14-urgency-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  urgency-vocab:
+    name: H14 urgency vocab (unit + analytics + integration)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Guard — URGENCY_RANK 單一來源
+        # 禁止 holdingsSort.ts 以外的檔案宣告 URGENCY_RANK = ...
+        run: |
+          set -e
+          echo "::group::Scanning for rogue URGENCY_RANK declarations"
+          # 允許清單：定義檔本身、re-export、測試
+          matches=$(grep -rEn "URGENCY_RANK\s*=\s*\{" src/ \
+            --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" \
+            | grep -v "src/checkup/lib/holdingsSort.ts" \
+            | grep -v "src/test/" || true)
+          if [ -n "$matches" ]; then
+            echo "❌ 違反 H14 憲法：URGENCY_RANK 只能在 src/checkup/lib/holdingsSort.ts 宣告"
+            echo "$matches"
+            exit 1
+          fi
+          echo "✅ URGENCY_RANK 單一來源檢查通過"
+          echo "::endgroup::"
+
+      - name: Guard — 禁止 high/medium/low 舊詞彙出現在 urgency 程式碼
+        # 掃 holdings 相關檔案內 urgency 上下文不能出現舊三字
+        run: |
+          set -e
+          echo "::group::Scanning for legacy urgency vocab (high/medium/low)"
+          legacy=$(grep -rEn "urgency.*['\"](high|medium|low)['\"]|['\"](high|medium|low)['\"].*urgency" \
+            src/checkup/ src/lib/analytics/ src/hooks/ \
+            --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" || true)
+          if [ -n "$legacy" ]; then
+            echo "❌ 違反 H14 憲法：urgency 不得使用 high/medium/low，必須用 now/soon/monitor"
+            echo "$legacy"
+            exit 1
+          fi
+          echo "✅ 無舊詞彙殘留"
+          echo "::endgroup::"
+
+      - name: Run H14 unit tests (vocab + analytics)
+        run: |
+          bunx vitest run \
+            src/test/unit/holdings-urgency-vocab.test.ts \
+            src/test/unit/holdings-urgency-analytics.test.ts \
+            src/test/unit/holdings-sort.test.ts
+
+      - name: Run H14 integration test (shared constants reference)
+        run: |
+          bunx vitest run \
+            src/test/integration/holdings-urgency-shared-constants.test.tsx
