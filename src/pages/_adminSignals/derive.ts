@@ -1,0 +1,146 @@
+// Pure helpers extracted from admin/Signals.tsx
+
+export const actionLabelMap: Record<string, string> = { '買進': 'buy', '賣出': 'sell', '平損': 'exit' };
+export const statusOnlyKeywords = ['持有中', '已平倉', '待發布'];
+
+/** 台灣休市時段（週五 13:30 ~ 週一 09:00, UTC+8） */
+export function isMarketClosed(now: Date = new Date()): boolean {
+  const twOffset = 8 * 60;
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const tw = new Date(utcMs + twOffset * 60000);
+  const day = tw.getDay();
+  const hhmm = tw.getHours() * 100 + tw.getMinutes();
+  if (day === 0 || day === 6) return true;
+  if (day === 5 && hhmm >= 1330) return true;
+  if (day === 1 && hhmm < 900) return true;
+  return false;
+}
+
+/** 判斷 buy signal 實際是否為「加碼」（同標的後續買進） */
+export function computeAddBuySignalIds(signals: any[], openInstruments: Set<string>): Set<string> {
+  const ids = new Set<string>();
+  const sorted = [...signals].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const openPositions = new Map<string, boolean>();
+  for (const s of sorted) {
+    const inst = s.instrument;
+    if (s.action === 'buy') {
+      if (openPositions.get(inst)) ids.add(s.id);
+      else openPositions.set(inst, true);
+    } else if (s.action === 'add') {
+      openPositions.set(inst, true);
+    } else if (s.action === 'exit') {
+      openPositions.set(inst, false);
+    } else if (s.action === 'sell' || s.action === 'trim') {
+      if (!openInstruments.has(inst)) openPositions.set(inst, false);
+    }
+  }
+  return ids;
+}
+
+export function getDisplayStatus(
+  s: any,
+  openInstruments: Set<string>,
+  addBuySignalIds: Set<string>,
+): string {
+  if (s.status === 'pending') return '待發布';
+  if (s.action === 'exit') return '已平倉';
+  if (['sell', 'trim'].includes(s.action)) return openInstruments.has(s.instrument) ? '減碼' : '已平倉';
+  if (s.action === 'add') return '加碼';
+  if (s.action === 'buy' && addBuySignalIds.has(s.id)) return '加碼';
+  return '持有中';
+}
+
+export function filterSignals(
+  signals: any[],
+  searchQuery: string,
+  openInstruments: Set<string>,
+  addBuySignalIds: Set<string>,
+): any[] {
+  return signals.filter((s) => {
+    if (!searchQuery.trim()) return true;
+    const conditions = searchQuery.split('、').map((c) => c.trim()).filter(Boolean);
+    const sigDateFull = s.published_at
+      ? new Date(s.published_at).toLocaleString('zh-TW', {
+          year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+        })
+      : '';
+    const displayStatus = getDisplayStatus(s, openInstruments, addBuySignalIds);
+
+    return conditions.every((cond) => {
+      const lower = cond.toLowerCase();
+      if (actionLabelMap[cond]) return s.action === actionLabelMap[cond];
+      if (statusOnlyKeywords.includes(cond)) return displayStatus === cond;
+      if (cond === '加碼') return s.action === 'add' || displayStatus === '加碼';
+      if (cond === '減碼') return s.action === 'trim' || displayStatus === '減碼';
+      return (
+        s.instrument?.toLowerCase().includes(lower) ||
+        sigDateFull.includes(cond) ||
+        (typeof s.reason_summary === 'string' && s.reason_summary.toLowerCase().includes(lower))
+      );
+    });
+  });
+}
+
+export function computeBatchInfo(signals: any[]): Map<string, { count: number; instruments: string[] }> {
+  const m = new Map<string, { count: number; instruments: string[] }>();
+  signals.forEach((s: any) => {
+    if (!s.batch_id) return;
+    const cur = m.get(s.batch_id) || { count: 0, instruments: [] };
+    cur.count += 1;
+    if (!cur.instruments.includes(s.instrument)) cur.instruments.push(s.instrument);
+    m.set(s.batch_id, cur);
+  });
+  return m;
+}
+
+export interface HoldingSummaryRow {
+  instrument: string;
+  zhangQty: number;
+  guQty: number;
+  cost: number;
+}
+
+export function computeHoldingSummary(
+  filtered: any[],
+  searchQuery: string,
+): HoldingSummaryRow[] | null {
+  if (!searchQuery.trim()) return null;
+  const instrumentMap = new Map<string, { zhangQty: number; guQty: number; zhangCost: number; guCost: number }>();
+  const sorted = [...filtered].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  for (const s of sorted) {
+    const inst = s.instrument;
+    const qty = s.quantity || 1;
+    const unit = s.quantity_unit || '張';
+    const price = s.price_hint || 0;
+    const current = instrumentMap.get(inst) || { zhangQty: 0, guQty: 0, zhangCost: 0, guCost: 0 };
+    const lineCost = unit === '張' ? price * qty * 1000 : price * qty;
+
+    if (s.action === 'buy' || s.action === 'add') {
+      if (unit === '張') { current.zhangQty += qty; current.zhangCost += lineCost; }
+      else { current.guQty += qty; current.guCost += lineCost; }
+      instrumentMap.set(inst, current);
+    } else if (s.action === 'sell' || s.action === 'trim') {
+      if (unit === '張') {
+        current.zhangQty = Math.max(0, current.zhangQty - qty);
+        current.zhangCost = Math.max(0, current.zhangCost - lineCost);
+      } else {
+        current.guQty = Math.max(0, current.guQty - qty);
+        current.guCost = Math.max(0, current.guCost - lineCost);
+      }
+      instrumentMap.set(inst, current);
+    } else if (s.action === 'exit') {
+      instrumentMap.set(inst, { zhangQty: 0, guQty: 0, zhangCost: 0, guCost: 0 });
+    }
+  }
+
+  const entries = Array.from(instrumentMap.entries()).filter(([, v]) => v.zhangQty > 0 || v.guQty > 0);
+  if (entries.length === 0) return null;
+
+  return entries.map(([inst, v]) => ({
+    instrument: inst,
+    zhangQty: v.zhangQty,
+    guQty: v.guQty,
+    cost: v.zhangCost + v.guCost,
+  }));
+}
