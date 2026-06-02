@@ -3075,12 +3075,28 @@ export type Database = {
         Returns: Json
       }
       get_knowledge_revision: { Args: never; Returns: string }
+      get_page_analytics: {
+        Args: { _from: string; _include_internal?: boolean; _to: string }
+        Returns: Json
+      }
       get_perf_metrics_summary: { Args: { _days?: number }; Returns: Json }
       get_pricing_bundle: { Args: { _user_id?: string }; Returns: Json }
+      get_product_breakdown: {
+        Args: { _from: string; _to: string }
+        Returns: Json
+      }
       get_public_experts_list: { Args: never; Returns: Json }
+      get_top_instruments: {
+        Args: { _from: string; _limit?: number; _to: string }
+        Returns: Json
+      }
       get_traffic_health: { Args: never; Returns: Json }
       get_traffic_overview: {
         Args: { _from: string; _to: string }
+        Returns: Json
+      }
+      get_user_journey: {
+        Args: { _from: string; _to: string; _visitor_id: string }
         Returns: Json
       }
       get_weekly_limit_up_leaderboard: {
