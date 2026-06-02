@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { useBrainStore } from '../stores/brainStore.js'
 import { usePortfolioRouteContext } from '../pages/usePortfolioRouteContext.js'
 import { holdingsValueKeyFull } from '../lib/holdingsSort'
@@ -17,14 +17,18 @@ export function useRouteHoldingsPage() {
   const expandedStock = useBrainStore((state) => state.expandedStock)
   const setExpandedStock = useBrainStore((state) => state.setExpandedStock)
 
-  // D-Perf-R6 (holdings audit 2026-05 第二輪)：對齊 FreeCheckup B-P2，
-  // store push 雖然每次 spread 新陣列，但若值未變則 valueKey 不變 → 同一 reference。
-  // 下游 winners/losers/integrityIssues/total* 等 derived 全部命中快取。
-  // G-Coverage: 抽到 lib/holdingsSort
+  // D-Perf-R6 / H11 (audit 2026-06)：
+  //   store 每次 push 都會 spread 新陣列，holdingsRaw reference 每 tick 都變。
+  //   但若各欄位值未變，valueKey 不變 → 下游 derived 應命中快取。
+  //   為了讓 useMemo deps 只看 valueKey 又不違反 exhaustive-deps，
+  //   用 ref 暫存最新 raw，於 memo body 讀取，避免 eslint-disable。
   const holdingsValueKey = useMemo(() => holdingsValueKeyFull(holdingsRaw), [holdingsRaw])
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const holdings = useMemo(() => holdingsRaw || EMPTY_HOLDINGS, [holdingsValueKey])
+  const holdingsRawRef = useRef(holdingsRaw)
+  holdingsRawRef.current = holdingsRaw
+  const holdings = useMemo(
+    () => holdingsRawRef.current || EMPTY_HOLDINGS,
+    [holdingsValueKey]
+  )
 
   return useMemo(() => {
     // C6 (audit 2026-06)：缺價（integrityIssue==='missing-price'）的持倉，value=0 但 cost*qty 仍會被算進總成本，
