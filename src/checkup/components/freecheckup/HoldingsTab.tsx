@@ -1,10 +1,11 @@
-// @ts-nocheck — 漸進式 .jsx→.tsx 遷移（F-Maint-R4），完整型別化留待後續批次
+// @analytics-required: checkup_holdings_sort_change
 import { memo, lazy, Suspense, useState, useCallback, useMemo } from "react";
 import { useBrainStore } from "@/checkup/stores/brainStore";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
 import { useCheckupMode } from "@/checkup/contexts/CheckupModeContext";
 import { useHoldingsDerivations } from "@/checkup/hooks/useHoldingsDerivations";
 import { validateProps } from "@/checkup/components/freecheckup/_validateProps.js";
+import { track } from "@/lib/analytics/events";
 import HoldingsActionPriority from "@/checkup/components/freecheckup/HoldingsActionPriority";
 import HoldingCard from "@/checkup/components/freecheckup/HoldingCard";
 import HoldingsHero from "@/checkup/components/freecheckup/HoldingsHero";
