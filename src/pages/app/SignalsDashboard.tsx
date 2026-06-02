@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isToday, differenceInMinutes } from 'date-fns';
-import { useMyHoldings } from '@/hooks/useMyTradeRecordHoldings';
+// C1 (audit 2026-06): useMyHoldings removed — see note below.
 import { richHtmlPreview } from '@/components/SafeRichHtml';
 import { avatarUrl } from '@/lib/imageTransform';
 import { useEffect } from 'react';
