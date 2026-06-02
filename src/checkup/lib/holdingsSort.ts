@@ -35,19 +35,22 @@ export function makeCompareByPriority(decisionsMap = {}) {
 /**
  * FreeCheckup 版 valueKey：code|qty|price|cost。
  * 用於穩定 H reference（B-P2 holdings audit 2026-05）。
+ * H13 (audit 2026-06)：補上 `n=<length>:` 前綴，避免欄位分隔符（`|`/`;`）若被惡意/異常 code
+ *                       字串包含時造成 key 碰撞（雖然台股 code 為純數字/字母，仍做防呆）。
  */
 export function holdingsValueKeyShort(holdings) {
   if (!Array.isArray(holdings) || holdings.length === 0) return '';
-  return holdings.map((h) => `${h.code}|${h.qty}|${h.price}|${h.cost}`).join(';');
+  return `n=${holdings.length}:` + holdings.map((h) => `${h.code}|${h.qty}|${h.price}|${h.cost}`).join(';');
 }
 
 /**
  * useRouteHoldingsPage 版 valueKey：code|qty|price|cost|value|pct|integrityIssue。
  * 用於 store push 後 value 未變時 derived 全部命中快取（D-Perf-R6）。
+ * H13 (audit 2026-06)：同上加 length 前綴。
  */
 export function holdingsValueKeyFull(holdings) {
   if (!Array.isArray(holdings) || holdings.length === 0) return '';
-  return holdings
+  return `n=${holdings.length}:` + holdings
     .map((h) => `${h.code}|${h.qty}|${h.price}|${h.cost}|${h.value}|${h.pct}|${h.integrityIssue || ''}`)
     .join(';');
 }
