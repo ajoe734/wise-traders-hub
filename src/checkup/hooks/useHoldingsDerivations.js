@@ -37,10 +37,16 @@ export function useHoldingsDerivations({
   globalPriorityList,
 }) {
   // C11 (audit 2026-06)：所有輸入做防呆預設，避免 bootstrap 尚未完成 / 上游回傳 undefined 時崩潰。
+  // H12 (audit 2026-06)：safeDecisionsMap / safeStockMeta / safeGlobalPriorityList 用 useMemo
+  //                       穩定 reference，否則 `decisionsMap || {}` 每 render 都產生新物件，
+  //                       導致下游 variantsMap / actionPriorityItems memo 全部失效。
   const safeSorted = Array.isArray(sorted) ? sorted : [];
-  const safeDecisionsMap = decisionsMap || {};
-  const safeStockMeta = stockMeta || {};
-  const safeGlobalPriorityList = Array.isArray(globalPriorityList) ? globalPriorityList : [];
+  const safeDecisionsMap = useMemo(() => decisionsMap || {}, [decisionsMap]);
+  const safeStockMeta = useMemo(() => stockMeta || {}, [stockMeta]);
+  const safeGlobalPriorityList = useMemo(
+    () => (Array.isArray(globalPriorityList) ? globalPriorityList : []),
+    [globalPriorityList]
+  );
 
   // 1. displayed — 不展開時 slice(0, 12)
   const displayed = useMemo(
