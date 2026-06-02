@@ -86,9 +86,10 @@ const visitor_id = (() => {
   try { return getOrCreateVisitorId(); } catch { return ''; }
 })();
 
-function shouldSkip(path: string): boolean {
-  if (!isInternalRoute(path)) return false;
-  return !internalModeOn();
+function shouldSkip(_path: string): boolean {
+  // Always log — backend tags internal routes with is_internal=true
+  // and dashboards filter them out by default.
+  return false;
 }
 
 function flushEvents() {
