@@ -39,8 +39,24 @@ interface AdSpendRow { id: string; utm_campaign: string; yyyymm: string; spend_a
 interface FunnelStep { step: string; visitors: number; drop_from_prev: number | null }
 interface EventRow { event_name: string; total_count: number; unique_visitors: number; unique_users: number; last_seen: string }
 interface HealthInfo { visits_total: number; events_total: number; named_events_total: number; last_visit_at: string | null; last_event_at: string | null }
+interface ProductRow { product: string; events: number; unique_visitors: number; logged_in_visitors: number }
+interface PageRow { path: string; page_views: number; unique_visitors: number; logged_in_visitors: number }
+interface InstrumentRow { instrument: string; events: number; unique_visitors: number }
+interface JourneyRow { occurred_at: string; route: string; event_name: string | null; event_props: Record<string, unknown> | null; is_internal: boolean }
 
 const DEFAULT_FUNNEL = ['pricing_view', 'expert_profile_view', 'expert_subscribe_click', 'checkout_open', 'checkout_success'];
+const FUNNELS: Record<string, string[]> = {
+  subscribe: ['pricing_view', 'expert_profile_view', 'expert_subscribe_click', 'checkout_open', 'checkout_success'],
+  checkup_to_paid: ['checkup_view', 'checkup_analysis_run', 'checkup_quota_blocked', 'checkup_upgrade_click', 'checkout_success'],
+  signals_retention: ['app_dashboard_view', 'signal_view', 'expert_detail_view', 'expert_subscribe_click'],
+  holdings_depth: ['app_dashboard_view', 'holdings_dashboard_view', 'holding_card_click', 'signal_view'],
+};
+const FUNNEL_TITLES: Record<string, string> = {
+  subscribe: '訂閱付款',
+  checkup_to_paid: '修煉派轉付費',
+  signals_retention: '跟單派回訪',
+  holdings_depth: '持股看板深度',
+};
 const FUNNEL_LABEL: Record<string, string> = {
   pricing_view: '訪問定價頁',
   expert_profile_view: '看專家頁',
@@ -48,6 +64,20 @@ const FUNNEL_LABEL: Record<string, string> = {
   checkout_open: '進結帳頁',
   checkout_success: '完成付款',
   leaderboard_view: '看戰報榜',
+  checkup_view: '進修煉派',
+  checkup_analysis_run: '跑分析',
+  checkup_quota_blocked: '配額擋住',
+  checkup_upgrade_click: '點升級',
+  app_dashboard_view: '看跟單派首頁',
+  signal_view: '看訊號',
+  expert_detail_view: '看專家詳情',
+  holdings_dashboard_view: '看持股看板',
+  holding_card_click: '點持股卡',
+};
+const PRODUCT_LABEL: Record<string, string> = {
+  checkup: '修煉派',
+  signals: '跟單派',
+  learning: '學習中心',
 };
 
 export default function CompanyTraffic() {
