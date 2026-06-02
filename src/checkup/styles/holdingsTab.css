@@ -71,6 +71,9 @@
 @media (max-width: 560px) {
   .holdings-empty-guide { padding: 32px 16px !important; gap: 20px !important; }
   .holdings-empty-steps { grid-template-columns: 1fr !important; }
+  /* C10 (audit 2026-06)：≤560 必須對 ROI 數字降級，否則 fontSize clamp 下限 36-40px 在 iPhone 寬度會擠壓行內 +/% 標記 */
+  .wb-card .wb-roi { font-size: clamp(32px, 9vw, 40px) !important; }
+  .wb-card-feature .wb-roi { font-size: clamp(36px, 10vw, 48px) !important; }
 }
 
 @media (max-width: 380px) {
@@ -78,6 +81,9 @@
   .wb-card .wb-spark { display: none !important; }
   .wb-card .wb-bottom .wb-bottom-val { letter-spacing: 0 !important; }
   .wb-card .wb-bottom-val { font-size: clamp(9.5px, 2.4vw, 11px) !important; }
+  /* C10 (audit 2026-06)：≤380 再降一級 */
+  .wb-card .wb-roi { font-size: clamp(28px, 9vw, 36px) !important; }
+  .wb-card-feature .wb-roi { font-size: clamp(32px, 10vw, 42px) !important; }
 }
 
 /* 極窄寬度安全溢出策略：縮放 ROI 數字避免擠壓換行 */

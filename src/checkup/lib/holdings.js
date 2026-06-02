@@ -230,6 +230,9 @@ export function applyTradeEntryToHoldings(rows, trade, quotes = null) {
 
 /**
  * Determine if cloud holdings should replace local holdings
+ *
+ * C9 (audit 2026-06)：比對欄位除了 qty/cost 外，必須包含 alert 與 targetPrice，
+ * 否則使用者在 A 裝置設了目標價/警示，B 裝置雲端同步進來時會被判定「無差異」而忽略。
  */
 export function shouldAdoptCloudHoldings(localRows, cloudRows) {
   const local = Array.isArray(localRows) ? localRows : []
@@ -240,6 +243,12 @@ export function shouldAdoptCloudHoldings(localRows, cloudRows) {
 
   const localByCode = new Map(local.map((item) => [String(item?.code || '').trim(), item]))
 
+  const normAlert = (v) => (v == null ? '' : String(v))
+  const normTarget = (v) => {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+  }
+
   for (const cloudItem of cloud) {
     const code = String(cloudItem?.code || '').trim()
     if (!code) continue
@@ -248,6 +257,8 @@ export function shouldAdoptCloudHoldings(localRows, cloudRows) {
     if (!localItem) return true
     if ((Number(localItem?.qty) || 0) !== (Number(cloudItem?.qty) || 0)) return true
     if ((Number(localItem?.cost) || 0) !== (Number(cloudItem?.cost) || 0)) return true
+    if (normAlert(localItem?.alert) !== normAlert(cloudItem?.alert)) return true
+    if (normTarget(localItem?.targetPrice) !== normTarget(cloudItem?.targetPrice)) return true
   }
 
   return false

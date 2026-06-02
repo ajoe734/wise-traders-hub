@@ -203,8 +203,35 @@ export function CheckupModeProvider({ children }) {
   )
 }
 
+// C3（holdings audit 2026-06）：缺 provider 時回安全預設，不再 throw。
+//   原本 throw 配合呼叫端 try/catch 等於把 useContext 包進可拋區塊，
+//   雖然 useContext 本身不會破壞 hook 順序，但 try/catch 後再用變數會誤導 reviewer，
+//   且 throw-then-catch 是效能與心智的雙重浪費。讓 hook 自身穩態。
+const CHECKUP_MODE_FALLBACK = Object.freeze({
+  mode: 'demo',
+  tier: 'guest',
+  tierLabel: '訪客',
+  quota: null,
+  remainingQuota: 0,
+  hasQuota: false,
+  periodLabel: '本月',
+  isDemo: true,
+  isReady: false,
+  canUpload: false,
+  canRefreshManually: false,
+  hasReachedDailyLimit: false,
+  needsAddFriend: false,
+  isLineFriend: false,
+  lineProfile: null,
+  supabaseUser: null,
+  demoData: null,
+  refreshQuota: async () => null,
+  applyQuotaFromResponse: () => {},
+  incrementUploadCount: async () => {},
+  startLineLogin: () => {},
+})
+
 export function useCheckupMode() {
   const ctx = useContext(CheckupModeContext)
-  if (!ctx) throw new Error('useCheckupMode must be used within CheckupModeProvider')
-  return ctx
+  return ctx || CHECKUP_MODE_FALLBACK
 }

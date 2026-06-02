@@ -335,14 +335,18 @@ export function PortfolioHealthCheck({ holdings }) {
         </div>
         <div>
           <div style={{ fontSize: 9, color: C.textMute, marginBottom: 6, letterSpacing: '0.08em', fontWeight: 400 }}>定位</div>
-          {Object.entries(posMap)
-            .sort((a, b) => b[1] - a[1])
-            .map(([p, val]) => (
-              <div key={p} style={{ fontSize: 10, color: C.textSec, marginBottom: 3, fontWeight: 400 }}>
-                {p}{' '}
-                <span style={{ color: C.text, fontWeight: 500 }}>{`${((val / indTotal) * 100).toFixed(0)}%`}</span>
-              </div>
-            ))}
+          {/* C5 (audit 2026-06)：定位佔比分母原為 indTotal（產業總值），語義錯誤 → 應為 posMap 自身總和。 */}
+          {(() => {
+            const posTotal = Object.values(posMap).reduce((s, v) => s + (v || 0), 0) || 1;
+            return Object.entries(posMap)
+              .sort((a, b) => b[1] - a[1])
+              .map(([p, val]) => (
+                <div key={p} style={{ fontSize: 10, color: C.textSec, marginBottom: 3, fontWeight: 400 }}>
+                  {p}{' '}
+                  <span style={{ color: C.text, fontWeight: 500 }}>{`${((val / posTotal) * 100).toFixed(0)}%`}</span>
+                </div>
+              ));
+          })()}
         </div>
       </div>
     </div>

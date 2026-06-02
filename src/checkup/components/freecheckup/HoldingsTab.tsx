@@ -115,12 +115,12 @@ function HoldingsTab(props) {
     setTab,
   } = props;
 
-  // E-Maint-R7: isDemo / startLineLogin 優先由 CheckupModeContext 取得，
-  // 缺少 provider 時（例如效能測試 fixture）退回 props，保持向後相容。
-  let _mode = null;
-  try { _mode = useCheckupMode(); } catch { _mode = null; }
-  const isDemo = _mode ? _mode.isDemo : props.isDemo;
-  const startLineLogin = _mode ? _mode.startLineLogin : props.startLineLogin;
+  // E-Maint-R7 + C3 (audit 2026-06)：useCheckupMode 現在缺 provider 也回安全預設，
+  // 不再 throw，可以直接在元件頂層無條件呼叫，符合 Rules of Hooks。
+  // 若預設值的 isDemo/startLineLogin 與 props 並存（測試 fixture），優先用 props 覆寫。
+  const _mode = useCheckupMode();
+  const isDemo = props.isDemo !== undefined ? props.isDemo : _mode.isDemo;
+  const startLineLogin = props.startLineLogin !== undefined ? props.startLineLogin : _mode.startLineLogin;
 
   // E-Maint-R1: 6 個 derived useMemo 下沉
   const sorted = filteredSortedList; // 命名相容性
