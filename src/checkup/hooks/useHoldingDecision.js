@@ -40,11 +40,12 @@ const decisionFor = (holding, dossier) => {
 }
 
 const urgencyFor = (decision, pct) => {
-  if (decision.kind === 'exit') return 'high'
-  if (decision.kind === 'review' && Math.abs(pct) >= 15) return 'high'
-  if (decision.kind === 'review') return 'medium'
-  if (decision.kind === 'add') return 'medium'
-  return 'low'
+  // H14：統一使用 now/soon/monitor 詞彙（與 holdingsSort.URGENCY_RANK 對齊）
+  if (decision.kind === 'exit') return 'now'
+  if (decision.kind === 'review' && Math.abs(pct) >= 15) return 'now'
+  if (decision.kind === 'review') return 'soon'
+  if (decision.kind === 'add') return 'soon'
+  return 'monitor'
 }
 
 const todayChangeFor = (holding) => {
