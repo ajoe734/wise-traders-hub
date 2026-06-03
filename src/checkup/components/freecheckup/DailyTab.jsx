@@ -3,6 +3,14 @@ import { validateProps } from './_validateProps';
 
 const Md = lazy(() => import('@/checkup/components/Md'));
 
+function formatLineUsedYMD(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const tw = new Date(d.getTime() + 8 * 3600 * 1000);
+  return `${tw.getUTCFullYear()}/${String(tw.getUTCMonth() + 1).padStart(2, '0')}/${String(tw.getUTCDate()).padStart(2, '0')}`;
+}
+
 /**
  * DailyTab — Free Checkup「收盤分析」tab。
  * 抽自 FreeCheckup.jsx L4747-L5229（純展示，無內部 state）。
