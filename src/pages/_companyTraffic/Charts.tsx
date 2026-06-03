@@ -54,6 +54,7 @@ export function Sparkline({
 export function DailyTrendChart({
   data,
 }: { data: Array<{ day: string; visitors: number; page_views: number; orders: number; gross: number }> }) {
+  if (!data || data.length === 0) return <EmptyChart height={320} />;
   return (
     <ResponsiveContainer width="100%" height={320}>
       <ComposedChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
