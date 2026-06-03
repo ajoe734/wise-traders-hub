@@ -265,7 +265,10 @@ async function handleList(url: URL) {
     rows,
     total: totalCount,
     returned: rows.length,
-    filters: { tier, reason: reasonFilter, date_from: dateFrom, date_to: dateTo, limit, offset },
+    page,
+    page_size: pageSize,
+    total_pages: totalPages,
+    filters: { tier, reason: reasonFilter, date_from: dateFrom, date_to: dateTo },
     fetched_at: new Date().toISOString(),
   });
 }
