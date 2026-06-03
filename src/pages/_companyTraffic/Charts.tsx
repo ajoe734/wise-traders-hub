@@ -180,6 +180,7 @@ export function HorizontalBar({
 export function ProductStackedBar({
   data,
 }: { data: Array<{ product: string; events: number; unique_visitors: number; logged_in_visitors: number }> }) {
+  if (!data || data.length === 0) return <EmptyChart height={260} />;
   return (
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
