@@ -261,8 +261,24 @@ export default function CheckupQuotaAudit() {
 
         {listData && (
           <div className="mt-4">
-            <div className="text-xs text-muted-foreground mb-2">
-              共符合 {listData.total} 筆，本頁顯示 {listData.rows.length} 筆（已套用 tier/reason 過濾）
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div className="text-xs text-muted-foreground">
+                共符合 {listData.total} 筆，第 {listData.page} / {listData.total_pages || 1} 頁，本頁 {listData.rows.length} 筆（tier/reason 過濾後）
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => runList(Math.max(1, listData.page - 1))}
+                  disabled={listLoading || listData.page <= 1}
+                  className="px-2 py-1 border rounded text-xs disabled:opacity-40"
+                  aria-label="上一頁"
+                >上一頁</button>
+                <button
+                  onClick={() => runList(listData.page + 1)}
+                  disabled={listLoading || listData.page >= (listData.total_pages || 1)}
+                  className="px-2 py-1 border rounded text-xs disabled:opacity-40"
+                  aria-label="下一頁"
+                >下一頁</button>
+              </div>
             </div>
             {listData.rows.length === 0 ? (
               <div className="text-sm text-muted-foreground py-6 text-center">無符合條件的紀錄</div>
@@ -292,9 +308,9 @@ export default function CheckupQuotaAudit() {
                         <td className="px-2 py-1.5"><code className="text-[11px]">{r.reason}</code></td>
                         <td className="px-2 py-1.5">{r.billing_cycle || '—'}</td>
                         <td className="px-2 py-1.5"><code className="text-[11px]">{r.kind}</code></td>
-                        <td className="px-2 py-1.5 font-mono">{formatTaipeiYMDHM(r.used_at)}</td>
+                        <td className="px-2 py-1.5 font-mono">{formatTaipeiYMDHMWithFallback(r.used_at)}</td>
                         <td className="px-2 py-1.5">{r.used ?? '?'}/{r.limit ?? '?'}</td>
-                        <td className="px-2 py-1.5 font-mono">{formatTaipeiYMDHM(r.last_used_at) || '—'}</td>
+                        <td className="px-2 py-1.5 font-mono">{formatTaipeiYMDHMWithFallback(r.last_used_at)}</td>
                       </tr>
                     ))}
                   </tbody>
