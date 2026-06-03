@@ -157,6 +157,7 @@ export function HorizontalBar({
   height?: number;
 }) {
   const h = height ?? Math.max(160, data.length * 26 + 20);
+  if (!data || data.length === 0) return <EmptyChart height={160} />;
   return (
     <ResponsiveContainer width="100%" height={h}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
