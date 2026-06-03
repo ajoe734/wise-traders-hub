@@ -285,18 +285,27 @@ export default function CompanyTraffic() {
 
         {isLoading && <Card><CardContent className="p-6 text-sm text-muted-foreground">載入中…</CardContent></Card>}
 
-        {kpi && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Kpi label="獨立訪客" value={fmtNum(kpi.visitors)} />
-            <Kpi label="瀏覽數" value={fmtNum(kpi.page_views)} />
-            <Kpi label="註冊數" value={fmtNum(kpi.signups)} />
-            <Kpi label="訂單數" value={fmtNum(kpi.orders)} />
-            <Kpi label="毛收" value={fmtMoney(kpi.gross)} />
-            <Kpi label="平台分潤" value={fmtMoney(kpi.platform)} />
-            <Kpi label="CVR" value={kpi.visitors > 0 ? `${((kpi.orders / kpi.visitors) * 100).toFixed(2)}%` : '—'} />
-            <Kpi label="ARPU" value={kpi.orders > 0 ? fmtMoney(Math.round(kpi.gross / kpi.orders)) : '—'} />
-          </div>
-        )}
+        {kpi && (() => {
+          const prev = prevData?.kpi;
+          const daily = data?.daily || [];
+          const spark = (key: 'visitors' | 'page_views' | 'orders' | 'gross') => daily.map(d => Number(d[key]) || 0);
+          const cvr = kpi.visitors > 0 ? (kpi.orders / kpi.visitors) * 100 : 0;
+          const prevCvr = prev && prev.visitors > 0 ? (prev.orders / prev.visitors) * 100 : 0;
+          const arpu = kpi.orders > 0 ? kpi.gross / kpi.orders : 0;
+          const prevArpu = prev && prev.orders > 0 ? prev.gross / prev.orders : 0;
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Kpi label="獨立訪客" value={fmtNum(kpi.visitors)} delta={prev && pct(kpi.visitors, prev.visitors)} spark={spark('visitors')} />
+              <Kpi label="瀏覽數" value={fmtNum(kpi.page_views)} delta={prev && pct(kpi.page_views, prev.page_views)} spark={spark('page_views')} />
+              <Kpi label="註冊數" value={fmtNum(kpi.signups)} delta={prev && pct(kpi.signups, prev.signups)} />
+              <Kpi label="訂單數" value={fmtNum(kpi.orders)} delta={prev && pct(kpi.orders, prev.orders)} spark={spark('orders')} />
+              <Kpi label="毛收" value={fmtMoney(kpi.gross)} delta={prev && pct(kpi.gross, prev.gross)} spark={spark('gross')} sparkColor="hsl(var(--mentor))" />
+              <Kpi label="平台分潤" value={fmtMoney(kpi.platform)} delta={prev && pct(kpi.platform, prev.platform)} />
+              <Kpi label="CVR" value={kpi.visitors > 0 ? `${cvr.toFixed(2)}%` : '—'} delta={prev && pct(cvr, prevCvr)} />
+              <Kpi label="ARPU" value={kpi.orders > 0 ? fmtMoney(Math.round(arpu)) : '—'} delta={prev && pct(arpu, prevArpu)} />
+            </div>
+          );
+        })()}
 
         <Tabs defaultValue="overview">
           <TabsList className="flex flex-wrap h-auto">
