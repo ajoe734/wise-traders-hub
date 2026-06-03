@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { lazy, Suspense, useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,9 +13,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { isInternalTrackingOn, setInternalTracking } from '@/lib/trafficTracker';
 
+const Charts = {
+  Sparkline: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.Sparkline }))),
+  DailyTrendChart: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.DailyTrendChart }))),
+  FunnelWaterfall: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.FunnelWaterfall }))),
+  ChannelDonut: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.ChannelDonut }))),
+  HorizontalBar: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.HorizontalBar }))),
+  ProductStackedBar: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.ProductStackedBar }))),
+  RoasScatter: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.RoasScatter }))),
+};
+const ChartFallback = ({ h = 240 }: { h?: number }) => (
+  <div className="flex items-center justify-center text-xs text-muted-foreground" style={{ height: h }}>載入圖表…</div>
+);
+
 const fmtMoney = (n: number) => `NT$${(n || 0).toLocaleString()}`;
 const fmtNum = (n: number) => (n || 0).toLocaleString();
 const fmtTs = (s?: string | null) => s ? new Date(s).toLocaleString('zh-TW', { hour12: false }) : '—';
+const pct = (curr: number, prev: number): { v: number; up: boolean } | null => {
+  if (!prev || prev === 0) return null;
+  const v = ((curr - prev) / prev) * 100;
+  return { v: Math.round(v * 10) / 10, up: v >= 0 };
+};
 
 function getRange(preset: string): { from: Date; to: Date } {
   const now = new Date();
@@ -85,12 +103,29 @@ export default function CompanyTraffic() {
   const range = useMemo(() => getRange(preset), [preset]);
   const [internalOn, setInternalOn] = useState(isInternalTrackingOn());
 
+  const prevRange = useMemo(() => {
+    const span = range.to.getTime() - range.from.getTime();
+    return { from: new Date(range.from.getTime() - span), to: new Date(range.from.getTime()) };
+  }, [range]);
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['traffic-overview', preset],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_traffic_overview', {
         _from: range.from.toISOString(),
         _to: range.to.toISOString(),
+      });
+      if (error) throw error;
+      return data as unknown as Overview;
+    },
+  });
+
+  const { data: prevData } = useQuery({
+    queryKey: ['traffic-overview-prev', preset],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_traffic_overview', {
+        _from: prevRange.from.toISOString(),
+        _to: prevRange.to.toISOString(),
       });
       if (error) throw error;
       return data as unknown as Overview;
@@ -250,18 +285,27 @@ export default function CompanyTraffic() {
 
         {isLoading && <Card><CardContent className="p-6 text-sm text-muted-foreground">載入中…</CardContent></Card>}
 
-        {kpi && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Kpi label="獨立訪客" value={fmtNum(kpi.visitors)} />
-            <Kpi label="瀏覽數" value={fmtNum(kpi.page_views)} />
-            <Kpi label="註冊數" value={fmtNum(kpi.signups)} />
-            <Kpi label="訂單數" value={fmtNum(kpi.orders)} />
-            <Kpi label="毛收" value={fmtMoney(kpi.gross)} />
-            <Kpi label="平台分潤" value={fmtMoney(kpi.platform)} />
-            <Kpi label="CVR" value={kpi.visitors > 0 ? `${((kpi.orders / kpi.visitors) * 100).toFixed(2)}%` : '—'} />
-            <Kpi label="ARPU" value={kpi.orders > 0 ? fmtMoney(Math.round(kpi.gross / kpi.orders)) : '—'} />
-          </div>
-        )}
+        {kpi && (() => {
+          const prev = prevData?.kpi;
+          const daily = data?.daily || [];
+          const spark = (key: 'visitors' | 'page_views' | 'orders' | 'gross') => daily.map(d => Number(d[key]) || 0);
+          const cvr = kpi.visitors > 0 ? (kpi.orders / kpi.visitors) * 100 : 0;
+          const prevCvr = prev && prev.visitors > 0 ? (prev.orders / prev.visitors) * 100 : 0;
+          const arpu = kpi.orders > 0 ? kpi.gross / kpi.orders : 0;
+          const prevArpu = prev && prev.orders > 0 ? prev.gross / prev.orders : 0;
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Kpi label="獨立訪客" value={fmtNum(kpi.visitors)} delta={prev && pct(kpi.visitors, prev.visitors)} spark={spark('visitors')} />
+              <Kpi label="瀏覽數" value={fmtNum(kpi.page_views)} delta={prev && pct(kpi.page_views, prev.page_views)} spark={spark('page_views')} />
+              <Kpi label="註冊數" value={fmtNum(kpi.signups)} delta={prev && pct(kpi.signups, prev.signups)} />
+              <Kpi label="訂單數" value={fmtNum(kpi.orders)} delta={prev && pct(kpi.orders, prev.orders)} spark={spark('orders')} />
+              <Kpi label="毛收" value={fmtMoney(kpi.gross)} delta={prev && pct(kpi.gross, prev.gross)} spark={spark('gross')} sparkColor="hsl(var(--mentor))" />
+              <Kpi label="平台分潤" value={fmtMoney(kpi.platform)} delta={prev && pct(kpi.platform, prev.platform)} />
+              <Kpi label="CVR" value={kpi.visitors > 0 ? `${cvr.toFixed(2)}%` : '—'} delta={prev && pct(cvr, prevCvr)} />
+              <Kpi label="ARPU" value={kpi.orders > 0 ? fmtMoney(Math.round(arpu)) : '—'} delta={prev && pct(arpu, prevArpu)} />
+            </div>
+          );
+        })()}
 
         <Tabs defaultValue="overview">
           <TabsList className="flex flex-wrap h-auto">
@@ -275,43 +319,64 @@ export default function CompanyTraffic() {
             <TabsTrigger value="campaigns">廣告與營收</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview">
+          <TabsContent value="overview" className="space-y-4">
             <Card>
-              <CardHeader><CardTitle className="text-base">每日流量與營收</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">每日趨勢</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">柱：訪客 / 瀏覽（左軸）；線：訂單 / 毛收（右軸）</p>
+              </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>日期</TableHead>
-                      <TableHead className="text-right">訪客</TableHead>
-                      <TableHead className="text-right">瀏覽</TableHead>
-                      <TableHead className="text-right">訂單</TableHead>
-                      <TableHead className="text-right">毛收</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(data?.daily || []).map((d) => (
-                      <TableRow key={d.day}>
-                        <TableCell>{d.day}</TableCell>
-                        <TableCell className="text-right">{fmtNum(d.visitors)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(d.page_views)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(d.orders)}</TableCell>
-                        <TableCell className="text-right">{fmtMoney(d.gross)}</TableCell>
+                <Suspense fallback={<ChartFallback h={320} />}>
+                  <Charts.DailyTrendChart data={data?.daily || []} />
+                </Suspense>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">逐日明細</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <details>
+                  <summary className="text-xs text-muted-foreground cursor-pointer mb-2">展開精確數字</summary>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>日期</TableHead>
+                        <TableHead className="text-right">訪客</TableHead>
+                        <TableHead className="text-right">瀏覽</TableHead>
+                        <TableHead className="text-right">訂單</TableHead>
+                        <TableHead className="text-right">毛收</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {(data?.daily || []).map((d) => (
+                        <TableRow key={d.day}>
+                          <TableCell>{d.day}</TableCell>
+                          <TableCell className="text-right">{fmtNum(d.visitors)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(d.page_views)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(d.orders)}</TableCell>
+                          <TableCell className="text-right">{fmtMoney(d.gross)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </details>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="products">
+          <TabsContent value="products" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">產品線拆解（修煉派 / 跟單派 / 學習中心）</CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">依路徑與事件名稱自動分流</p>
               </CardHeader>
               <CardContent>
+                <Suspense fallback={<ChartFallback h={260} />}>
+                  <Charts.ProductStackedBar
+                    data={(products || []).map(p => ({ ...p, product: PRODUCT_LABEL[p.product] ?? p.product }))}
+                  />
+                </Suspense>
                 <Table>
                   <TableHeader><TableRow>
                     <TableHead>產品線</TableHead>
@@ -337,42 +402,50 @@ export default function CompanyTraffic() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="funnel" className="space-y-4">
-            {Object.keys(FUNNELS).map((key) => {
-              const steps = funnels?.[key] || [];
-              const start = steps[0]?.visitors || 0;
-              return (
-                <Card key={key}>
-                  <CardHeader>
-                    <CardTitle className="text-base">{FUNNEL_TITLES[key]}</CardTitle>
-                    <p className="text-xs text-muted-foreground mt-1 font-mono">{FUNNELS[key].join(' → ')}</p>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {steps.map((step, i) => {
-                      const widthPct = start > 0 ? Math.max(4, (step.visitors / start) * 100) : 0;
-                      return (
-                        <div key={step.step} className="space-y-1">
-                          <div className="flex justify-between text-sm">
-                            <span className="font-medium">{i + 1}. {FUNNEL_LABEL[step.step] ?? step.step}</span>
-                            <span className="text-muted-foreground">
-                              {fmtNum(step.visitors)} 訪客
-                              {step.drop_from_prev != null && <> · drop {step.drop_from_prev}%</>}
-                            </span>
-                          </div>
-                          <div className="h-5 bg-muted rounded">
-                            <div className="h-full bg-primary/80 rounded transition-all" style={{ width: `${widthPct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {steps.length === 0 && <p className="text-sm text-muted-foreground">尚無資料</p>}
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <TabsContent value="funnel">
+            <div className="grid md:grid-cols-2 gap-4">
+              {Object.keys(FUNNELS).map((key) => {
+                const steps = funnels?.[key] || [];
+                return (
+                  <Card key={key}>
+                    <CardHeader>
+                      <CardTitle className="text-base">{FUNNEL_TITLES[key]}</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1 font-mono break-all">{FUNNELS[key].join(' → ')}</p>
+                    </CardHeader>
+                    <CardContent>
+                      {steps.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
+                      ) : (
+                        <Suspense fallback={<ChartFallback h={220} />}>
+                          <Charts.FunnelWaterfall steps={steps} labelMap={FUNNEL_LABEL} />
+                        </Suspense>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </TabsContent>
 
-          <TabsContent value="events">
+          <TabsContent value="events" className="space-y-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Top 15 事件（依不重複訪客）</CardTitle></CardHeader>
+              <CardContent>
+                {(heatmap || []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-6 text-center">尚無具名事件</p>
+                ) : (
+                  <Suspense fallback={<ChartFallback h={400} />}>
+                    <Charts.HorizontalBar
+                      data={[...(heatmap || [])]
+                        .sort((a, b) => b.unique_visitors - a.unique_visitors)
+                        .slice(0, 15)
+                        .map(r => ({ name: r.event_name, value: r.unique_visitors }))}
+                      valueLabel="訪客"
+                    />
+                  </Suspense>
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">功能事件熱度</CardTitle>
@@ -412,7 +485,24 @@ export default function CompanyTraffic() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="pages">
+          <TabsContent value="pages" className="space-y-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Top 15 頁面（依 UV）</CardTitle></CardHeader>
+              <CardContent>
+                {(pages || []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
+                ) : (
+                  <Suspense fallback={<ChartFallback h={400} />}>
+                    <Charts.HorizontalBar
+                      data={[...(pages || [])]
+                        .sort((a, b) => b.unique_visitors - a.unique_visitors)
+                        .slice(0, 15)
+                        .map(p => ({ name: p.path, value: p.unique_visitors }))}
+                    />
+                  </Suspense>
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">頁面分析（PV / UV / 登入會員）</CardTitle>
@@ -444,7 +534,23 @@ export default function CompanyTraffic() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="instruments">
+          <TabsContent value="instruments" className="space-y-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Top 20 個股（依事件數）</CardTitle></CardHeader>
+              <CardContent>
+                {(instruments || []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-6 text-center">尚無個股事件</p>
+                ) : (
+                  <Suspense fallback={<ChartFallback h={500} />}>
+                    <Charts.HorizontalBar
+                      data={(instruments || []).slice(0, 20).map(i => ({ name: i.instrument, value: i.events }))}
+                      valueLabel="次"
+                      color="hsl(var(--mentor))"
+                    />
+                  </Suspense>
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">熱門個股 Top 30</CardTitle>
@@ -475,56 +581,91 @@ export default function CompanyTraffic() {
           </TabsContent>
 
           <TabsContent value="sources" className="space-y-4">
-            <Card>
-              <CardHeader><CardTitle className="text-base">Channel 分布</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader><TableRow><TableHead>Channel</TableHead><TableHead className="text-right">訪客</TableHead><TableHead className="text-right">訂單</TableHead><TableHead className="text-right">毛收</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {(data?.channels || []).map((c) => (
-                      <TableRow key={c.channel}>
-                        <TableCell className="font-medium">{c.channel}</TableCell>
-                        <TableCell className="text-right">{fmtNum(c.visitors)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(c.orders)}</TableCell>
-                        <TableCell className="text-right">{fmtMoney(c.gross)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
             <div className="grid md:grid-cols-2 gap-4">
               <Card>
-                <CardHeader><CardTitle className="text-base">Top Referrers</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base">Channel 分布</CardTitle></CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader><TableRow><TableHead>Host</TableHead><TableHead className="text-right">訪客</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                      {(data?.referrers || []).map((r) => (
-                        <TableRow key={r.host}><TableCell className="font-mono text-xs">{r.host}</TableCell><TableCell className="text-right">{fmtNum(r.visitors)}</TableCell></TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  {(data?.channels || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
+                  ) : (
+                    <Suspense fallback={<ChartFallback h={260} />}>
+                      <Charts.ChannelDonut data={(data?.channels || []).map(c => ({ name: c.channel, value: c.visitors }))} />
+                    </Suspense>
+                  )}
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader><CardTitle className="text-base">Top Landing Pages</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base">Channel 營收</CardTitle></CardHeader>
                 <CardContent>
                   <Table>
-                    <TableHeader><TableRow><TableHead>路徑</TableHead><TableHead className="text-right">訪客</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Channel</TableHead><TableHead className="text-right">訪客</TableHead><TableHead className="text-right">訂單</TableHead><TableHead className="text-right">毛收</TableHead></TableRow></TableHeader>
                     <TableBody>
-                      {(data?.landings || []).map((l) => (
-                        <TableRow key={l.path}><TableCell className="font-mono text-xs">{l.path}</TableCell><TableCell className="text-right">{fmtNum(l.visitors)}</TableCell></TableRow>
+                      {(data?.channels || []).map((c) => (
+                        <TableRow key={c.channel}>
+                          <TableCell className="font-medium">{c.channel}</TableCell>
+                          <TableCell className="text-right">{fmtNum(c.visitors)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(c.orders)}</TableCell>
+                          <TableCell className="text-right">{fmtMoney(c.gross)}</TableCell>
+                        </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </CardContent>
               </Card>
             </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader><CardTitle className="text-base">Top Referrers</CardTitle></CardHeader>
+                <CardContent>
+                  {(data?.referrers || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
+                  ) : (
+                    <Suspense fallback={<ChartFallback h={280} />}>
+                      <Charts.HorizontalBar
+                        data={(data?.referrers || []).slice(0, 10).map(r => ({ name: r.host, value: r.visitors }))}
+                      />
+                    </Suspense>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="text-base">Top Landing Pages</CardTitle></CardHeader>
+                <CardContent>
+                  {(data?.landings || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
+                  ) : (
+                    <Suspense fallback={<ChartFallback h={280} />}>
+                      <Charts.HorizontalBar
+                        data={(data?.landings || []).slice(0, 10).map(l => ({ name: l.path, value: l.visitors }))}
+                        color="hsl(var(--mentor))"
+                      />
+                    </Suspense>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="campaigns" className="space-y-4">
+            {(data?.campaigns || []).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">ROAS 散佈圖</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">X = 花費、Y = 毛收、泡泡大小 = 訂單數。對角線越往左上越有效率。</p>
+                </CardHeader>
+                <CardContent>
+                  <Suspense fallback={<ChartFallback h={300} />}>
+                    <Charts.RoasScatter
+                      data={(data?.campaigns || []).map(c => {
+                        const spend = (adSpend || []).filter(s => s.utm_campaign === c.campaign).reduce((a, b) => a + (b.spend_amount || 0), 0);
+                        return { campaign: c.campaign, spend, gross: c.gross, orders: c.orders };
+                      }).filter(c => c.spend > 0 || c.gross > 0)}
+                    />
+                  </Suspense>
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardHeader><CardTitle className="text-base">Campaign 轉換營收</CardTitle></CardHeader>
               <CardContent>
@@ -603,11 +744,33 @@ export default function CompanyTraffic() {
   );
 }
 
-function Kpi({ label, value }: { label: string; value: string }) {
+function Kpi({
+  label, value, delta, spark, sparkColor,
+}: {
+  label: string;
+  value: string;
+  delta?: { v: number; up: boolean } | null;
+  spark?: number[];
+  sparkColor?: string;
+}) {
   return (
     <Card><CardContent className="p-4">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-xl font-semibold mt-1">{value}</div>
+      <div className="flex items-end justify-between gap-2 mt-1">
+        <div className="text-xl font-semibold">{value}</div>
+        {delta && (
+          <div className={`text-[11px] font-medium ${delta.up ? 'text-[hsl(var(--mentor))]' : 'text-muted-foreground'}`}>
+            {delta.up ? '▲' : '▼'} {Math.abs(delta.v)}%
+          </div>
+        )}
+      </div>
+      {spark && spark.length > 1 && (
+        <div className="mt-2 -mx-1">
+          <Suspense fallback={<div style={{ height: 36 }} />}>
+            <Charts.Sparkline data={spark} color={sparkColor} />
+          </Suspense>
+        </div>
+      )}
     </CardContent></Card>
   );
 }
