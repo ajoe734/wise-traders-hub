@@ -103,12 +103,29 @@ export default function CompanyTraffic() {
   const range = useMemo(() => getRange(preset), [preset]);
   const [internalOn, setInternalOn] = useState(isInternalTrackingOn());
 
+  const prevRange = useMemo(() => {
+    const span = range.to.getTime() - range.from.getTime();
+    return { from: new Date(range.from.getTime() - span), to: new Date(range.from.getTime()) };
+  }, [range]);
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['traffic-overview', preset],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_traffic_overview', {
         _from: range.from.toISOString(),
         _to: range.to.toISOString(),
+      });
+      if (error) throw error;
+      return data as unknown as Overview;
+    },
+  });
+
+  const { data: prevData } = useQuery({
+    queryKey: ['traffic-overview-prev', preset],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_traffic_overview', {
+        _from: prevRange.from.toISOString(),
+        _to: prevRange.to.toISOString(),
       });
       if (error) throw error;
       return data as unknown as Overview;
