@@ -20,6 +20,17 @@ import {
 const fmtNum = (v: number) => (v || 0).toLocaleString();
 const fmtMoney = (v: number) => `NT$${(v || 0).toLocaleString()}`;
 
+function EmptyChart({ height = 200, label = '此區間尚無資料' }: { height?: number; label?: string }) {
+  return (
+    <div
+      className="flex items-center justify-center text-xs text-muted-foreground border border-dashed border-border rounded-md"
+      style={{ height }}
+    >
+      {label}
+    </div>
+  );
+}
+
 /* ──────────────────────────────────────────────────────────── */
 /* Sparkline (KPI card inset)                                    */
 /* ──────────────────────────────────────────────────────────── */
@@ -43,6 +54,7 @@ export function Sparkline({
 export function DailyTrendChart({
   data,
 }: { data: Array<{ day: string; visitors: number; page_views: number; orders: number; gross: number }> }) {
+  if (!data || data.length === 0) return <EmptyChart height={320} />;
   return (
     <ResponsiveContainer width="100%" height={320}>
       <ComposedChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
@@ -82,6 +94,7 @@ export function FunnelWaterfall({
     drop: s.drop_from_prev,
   }));
   const height = Math.max(140, data.length * 44);
+  if (!data.length) return <EmptyChart height={140} />;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 60, left: 8, bottom: 4 }}>
@@ -115,6 +128,7 @@ const DONUT_COLORS = [
   'hsl(var(--muted-foreground))',
 ];
 export function ChannelDonut({ data }: { data: Array<{ name: string; value: number }> }) {
+  if (!data || data.length === 0) return <EmptyChart height={260} />;
   return (
     <ResponsiveContainer width="100%" height={260}>
       <PieChart>
@@ -143,6 +157,7 @@ export function HorizontalBar({
   height?: number;
 }) {
   const h = height ?? Math.max(160, data.length * 26 + 20);
+  if (!data || data.length === 0) return <EmptyChart height={160} />;
   return (
     <ResponsiveContainer width="100%" height={h}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
@@ -165,6 +180,7 @@ export function HorizontalBar({
 export function ProductStackedBar({
   data,
 }: { data: Array<{ product: string; events: number; unique_visitors: number; logged_in_visitors: number }> }) {
+  if (!data || data.length === 0) return <EmptyChart height={260} />;
   return (
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
@@ -190,6 +206,7 @@ export function ProductStackedBar({
 export function RoasScatter({
   data,
 }: { data: Array<{ campaign: string; spend: number; gross: number; orders: number }> }) {
+  if (!data || data.length === 0) return <EmptyChart height={300} label="尚無 campaign 花費或營收資料" />;
   return (
     <ResponsiveContainer width="100%" height={300}>
       <ScatterChart margin={{ top: 12, right: 24, left: 8, bottom: 8 }}>
