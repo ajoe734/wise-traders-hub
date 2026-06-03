@@ -1,89 +1,67 @@
-// checkup-quota-audit — 公司管理員查詢任一用戶的健檢配額稽核資料。
-// 回傳：tier 快照 + 最近 N 筆 checkup_usage 扣次紀錄 + 訂閱來源（推斷扣費原因）。
+// checkup-quota-audit — 公司管理員稽核健檢配額。
+// 兩種模式：
+//   1) 單筆 (mode=single 或省略，需 user_id/email)：回傳 quota 快照 + 該用戶 usage + subs。
+//   2) 批次 (mode=list)：依 tier / reason / 日期範圍篩選 checkup_usage，並合併 profile + 最新 sub。
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'GET' && req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'METHOD_NOT_ALLOWED' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
   }
 
-  const authHeader = req.headers.get('Authorization') || '';
-  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!jwt) {
-    return json({ error: 'AUTH_REQUIRED' }, 401);
-  }
+  const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (!jwt) return json({ error: 'AUTH_REQUIRED' }, 401);
 
-  // 1) 驗證 JWT → 取 callerId
+  // verify caller
   let callerId = '';
   try {
     const ur = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_ROLE_KEY },
     });
-    if (!ur.ok) {
-      return json({ error: 'AUTH_FAILED' }, 401);
-    }
-    const u = await ur.json();
-    callerId = u?.id || '';
+    if (!ur.ok) return json({ error: 'AUTH_FAILED' }, 401);
+    callerId = (await ur.json())?.id || '';
   } catch (e) {
     console.error('[quota-audit] getUser failed', e);
     return json({ error: 'AUTH_FAILED' }, 401);
   }
   if (!callerId) return json({ error: 'AUTH_FAILED' }, 401);
 
-  // 2) 檢查 caller 是否 company_admin（用 has_role RPC）
+  // company_admin only
   const roleRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/has_role`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-    },
+    headers: jsonHeaders(),
     body: JSON.stringify({ _user_id: callerId, _role: 'company_admin' }),
   });
-  if (!roleRes.ok) {
-    return json({ error: 'ROLE_CHECK_FAILED' }, 500);
-  }
-  const isAdmin = await roleRes.json();
-  if (isAdmin !== true) {
+  if (!roleRes.ok) return json({ error: 'ROLE_CHECK_FAILED' }, 500);
+  if ((await roleRes.json()) !== true) {
     return json({ error: 'FORBIDDEN', message: '僅限公司管理員存取' }, 403);
   }
 
-  // 3) 解析查詢參數
   const url = new URL(req.url);
+  const mode = (url.searchParams.get('mode') || 'single').toLowerCase();
+
+  if (mode === 'list') return handleList(url);
+  return handleSingle(url);
+});
+
+// ---------- single user ----------
+async function handleSingle(url: URL) {
   let targetUserId = url.searchParams.get('user_id') || '';
   const email = url.searchParams.get('email') || '';
-  const limitRaw = Number(url.searchParams.get('limit') || '100');
-  const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 100, 1), 500);
+  const limit = clamp(Number(url.searchParams.get('limit') || '100'), 1, 500);
 
   if (!targetUserId && !email) {
     return json({ error: 'MISSING_PARAM', message: '請提供 user_id 或 email' }, 400);
   }
-
-  // 若只有 email，先從 auth.users 查
   if (!targetUserId && email) {
-    const eRes = await fetch(
-      `${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
-      { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` } },
-    );
-    if (eRes.ok) {
-      const eu = await eRes.json();
-      targetUserId = eu?.users?.[0]?.id || '';
-    }
-    if (!targetUserId) {
-      return json({ error: 'USER_NOT_FOUND' }, 404);
-    }
+    targetUserId = await resolveUserIdByEmail(email);
+    if (!targetUserId) return json({ error: 'USER_NOT_FOUND' }, 404);
   }
 
-  // 4) 平行抓 quota 快照 + 最近扣次 + 最新訂閱
   const [quotaRes, usageRes, subRes, profileRes] = await Promise.all([
     fetch(`${SUPABASE_URL}/rest/v1/rpc/check_checkup_quota`, {
       method: 'POST',
@@ -108,18 +86,7 @@ Deno.serve(async (req: Request) => {
   const usage = usageRes.ok ? await usageRes.json() : [];
   const subs = subRes.ok ? await subRes.json() : [];
   const profile = profileRes.ok ? (await profileRes.json())?.[0] || null : null;
-
-  // 推斷「扣費原因」：用當前 quota.tier 對應到訂閱
-  const activeSub = (subs as any[]).find(
-    (s) => s.status === 'active' && (!s.expires_at || new Date(s.expires_at) > new Date()),
-  ) || null;
-  const reason = profile?.is_tester
-    ? 'tester'
-    : activeSub
-      ? `subscription:${activeSub.billing_cycle || 'unknown'}`
-      : profile?.line_user_id
-        ? 'line_free_gift'
-        : 'none';
+  const reason = inferReason(profile, subs);
 
   return json({
     target_user_id: targetUserId,
@@ -130,7 +97,144 @@ Deno.serve(async (req: Request) => {
     subscriptions: subs,
     fetched_at: new Date().toISOString(),
   });
-});
+}
+
+// ---------- batch list ----------
+async function handleList(url: URL) {
+  const tier = (url.searchParams.get('tier') || '').trim();           // line_free|none|basic|pro|""
+  const reasonFilter = (url.searchParams.get('reason') || '').trim(); // line_free_gift|subscription|tester|none|""
+  const dateFrom = url.searchParams.get('date_from') || '';           // ISO
+  const dateTo = url.searchParams.get('date_to') || '';
+  const limit = clamp(Number(url.searchParams.get('limit') || '500'), 1, 2000);
+  const offset = clamp(Number(url.searchParams.get('offset') || '0'), 0, 100000);
+
+  // 1) fetch usage page filtered by date
+  const params = new URLSearchParams();
+  params.set('select', 'id,user_id,kind,used_at');
+  params.set('order', 'used_at.desc');
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+  if (dateFrom) params.append('used_at', `gte.${dateFrom}`);
+  if (dateTo) params.append('used_at', `lte.${dateTo}`);
+
+  const usageRes = await fetch(`${SUPABASE_URL}/rest/v1/checkup_usage?${params}`, {
+    headers: { ...jsonHeaders(), Prefer: 'count=exact' },
+  });
+  if (!usageRes.ok) {
+    return json({ error: 'USAGE_QUERY_FAILED', detail: await usageRes.text() }, 500);
+  }
+  const usageRows: Array<{ id: string; user_id: string; kind: string; used_at: string }> =
+    await usageRes.json();
+  const totalCount = Number(usageRes.headers.get('content-range')?.split('/')?.[1] || usageRows.length);
+
+  const uids = Array.from(new Set(usageRows.map((r) => r.user_id))).filter(Boolean);
+  if (uids.length === 0) {
+    return json({ rows: [], total: totalCount, returned: 0, fetched_at: new Date().toISOString() });
+  }
+
+  // 2) batch fetch profiles + subs + quota snapshots
+  const inList = `(${uids.map((u) => `"${u}"`).join(',')})`;
+  const [profRes, subsRes] = await Promise.all([
+    fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?user_id=in.${inList}&select=user_id,display_name,is_tester,line_user_id`,
+      { headers: jsonHeaders() },
+    ),
+    fetch(
+      `${SUPABASE_URL}/rest/v1/checkup_subscriptions?user_id=in.${inList}&select=user_id,plan_id,status,billing_cycle,started_at,expires_at,canceled_at&order=started_at.desc`,
+      { headers: jsonHeaders() },
+    ),
+  ]);
+  const profiles: any[] = profRes.ok ? await profRes.json() : [];
+  const subs: any[] = subsRes.ok ? await subsRes.json() : [];
+  const profileByUid = new Map(profiles.map((p) => [p.user_id, p]));
+  const subsByUid = new Map<string, any[]>();
+  for (const s of subs) {
+    if (!subsByUid.has(s.user_id)) subsByUid.set(s.user_id, []);
+    subsByUid.get(s.user_id)!.push(s);
+  }
+
+  // quota snapshots — parallel but limited
+  const quotaMap = new Map<string, any>();
+  await Promise.all(
+    uids.map(async (uid) => {
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_checkup_quota`, {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify({ _user_id: uid }),
+        });
+        if (r.ok) quotaMap.set(uid, await r.json());
+      } catch (_) { /* ignore */ }
+    }),
+  );
+
+  // 3) compose rows + filter by tier/reason in-memory
+  let rows = usageRows.map((u) => {
+    const prof = profileByUid.get(u.user_id) || null;
+    const userSubs = subsByUid.get(u.user_id) || [];
+    const reason = inferReason(prof, userSubs);
+    const q = quotaMap.get(u.user_id) || null;
+    const activeSub = userSubs.find(
+      (s) => s.status === 'active' && (!s.expires_at || new Date(s.expires_at) > new Date()),
+    );
+    return {
+      usage_id: u.id,
+      user_id: u.user_id,
+      display_name: prof?.display_name || null,
+      is_tester: !!prof?.is_tester,
+      line_user_id: prof?.line_user_id || null,
+      kind: u.kind,
+      used_at: u.used_at,
+      tier: q?.tier || 'unknown',
+      period: q?.period || null,
+      used: q?.used ?? null,
+      limit: q?.limit ?? null,
+      remaining: q?.remaining ?? null,
+      last_used_at: q?.last_used_at || null,
+      reason,
+      billing_cycle: activeSub?.billing_cycle || null,
+      plan_id: activeSub?.plan_id || null,
+    };
+  });
+
+  if (tier) rows = rows.filter((r) => r.tier === tier);
+  if (reasonFilter) {
+    rows = rows.filter((r) =>
+      reasonFilter === 'subscription'
+        ? r.reason.startsWith('subscription')
+        : r.reason === reasonFilter,
+    );
+  }
+
+  return json({
+    rows,
+    total: totalCount,
+    returned: rows.length,
+    filters: { tier, reason: reasonFilter, date_from: dateFrom, date_to: dateTo, limit, offset },
+    fetched_at: new Date().toISOString(),
+  });
+}
+
+// ---------- helpers ----------
+function inferReason(profile: any, subs: any[]): string {
+  if (profile?.is_tester) return 'tester';
+  const activeSub = (subs || []).find(
+    (s) => s.status === 'active' && (!s.expires_at || new Date(s.expires_at) > new Date()),
+  );
+  if (activeSub) return `subscription:${activeSub.billing_cycle || 'unknown'}`;
+  if (profile?.line_user_id) return 'line_free_gift';
+  return 'none';
+}
+
+async function resolveUserIdByEmail(email: string): Promise<string> {
+  const r = await fetch(
+    `${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
+    { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` } },
+  );
+  if (!r.ok) return '';
+  const eu = await r.json();
+  return eu?.users?.[0]?.id || '';
+}
 
 function json(body: any, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -145,4 +249,9 @@ function jsonHeaders() {
     apikey: SERVICE_ROLE_KEY,
     Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
   };
+}
+
+function clamp(n: number, min: number, max: number) {
+  if (!Number.isFinite(n)) return min;
+  return Math.min(Math.max(n, min), max);
 }
