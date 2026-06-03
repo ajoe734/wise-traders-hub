@@ -44,9 +44,35 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const mode = (url.searchParams.get('mode') || 'single').toLowerCase();
 
+  // Audit the admin lookup itself (fire-and-forget, never blocks the response)
+  void writeAuditLog(callerId, mode, url).catch((e) =>
+    console.warn('[quota-audit] audit log insert failed', e),
+  );
+
   if (mode === 'list') return handleList(url);
   return handleSingle(url);
 });
+
+async function writeAuditLog(actorId: string, mode: string, url: URL) {
+  const filters: Record<string, string> = {};
+  for (const k of ['user_id', 'email', 'tier', 'reason', 'date_from', 'date_to', 'limit', 'offset']) {
+    const v = url.searchParams.get(k);
+    if (v) filters[k] = v;
+  }
+  const targetId =
+    mode === 'single' && /^[0-9a-f-]{36}$/i.test(filters.user_id || '') ? filters.user_id : null;
+  await fetch(`${SUPABASE_URL}/rest/v1/audit_logs`, {
+    method: 'POST',
+    headers: { ...jsonHeaders(), Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      actor_id: actorId,
+      action: 'checkup_quota.audit_query',
+      target_type: 'checkup_quota_audit',
+      target_id: targetId,
+      detail: { mode, filters, at: new Date().toISOString() },
+    }),
+  });
+}
 
 // ---------- single user ----------
 async function handleSingle(url: URL) {
