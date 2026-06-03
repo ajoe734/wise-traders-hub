@@ -24,8 +24,8 @@ describe('CheckupQuotaAudit page — pagination + fallback', () => {
   });
 
   it('runList 必須帶 page / page_size 參數', () => {
-    expect(SRC).toMatch(/params\.set\(\s*['"]page['"],\s*String\(/);
-    expect(SRC).toMatch(/params\.set\(\s*['"]page_size['"],\s*String\(/);
+    expect(SRC).toMatch(/page:\s*String\(targetPage\)/);
+    expect(SRC).toMatch(/page_size:\s*String\(pageSize\)/);
   });
 
   it('有「上一頁 / 下一頁」按鈕', () => {
