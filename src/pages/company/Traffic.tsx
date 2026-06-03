@@ -402,39 +402,29 @@ export default function CompanyTraffic() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="funnel" className="space-y-4">
-            {Object.keys(FUNNELS).map((key) => {
-              const steps = funnels?.[key] || [];
-              const start = steps[0]?.visitors || 0;
-              return (
-                <Card key={key}>
-                  <CardHeader>
-                    <CardTitle className="text-base">{FUNNEL_TITLES[key]}</CardTitle>
-                    <p className="text-xs text-muted-foreground mt-1 font-mono">{FUNNELS[key].join(' → ')}</p>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {steps.map((step, i) => {
-                      const widthPct = start > 0 ? Math.max(4, (step.visitors / start) * 100) : 0;
-                      return (
-                        <div key={step.step} className="space-y-1">
-                          <div className="flex justify-between text-sm">
-                            <span className="font-medium">{i + 1}. {FUNNEL_LABEL[step.step] ?? step.step}</span>
-                            <span className="text-muted-foreground">
-                              {fmtNum(step.visitors)} 訪客
-                              {step.drop_from_prev != null && <> · drop {step.drop_from_prev}%</>}
-                            </span>
-                          </div>
-                          <div className="h-5 bg-muted rounded">
-                            <div className="h-full bg-primary/80 rounded transition-all" style={{ width: `${widthPct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {steps.length === 0 && <p className="text-sm text-muted-foreground">尚無資料</p>}
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <TabsContent value="funnel">
+            <div className="grid md:grid-cols-2 gap-4">
+              {Object.keys(FUNNELS).map((key) => {
+                const steps = funnels?.[key] || [];
+                return (
+                  <Card key={key}>
+                    <CardHeader>
+                      <CardTitle className="text-base">{FUNNEL_TITLES[key]}</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1 font-mono break-all">{FUNNELS[key].join(' → ')}</p>
+                    </CardHeader>
+                    <CardContent>
+                      {steps.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
+                      ) : (
+                        <Suspense fallback={<ChartFallback h={220} />}>
+                          <Charts.FunnelWaterfall steps={steps} labelMap={FUNNEL_LABEL} />
+                        </Suspense>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </TabsContent>
 
           <TabsContent value="events">
