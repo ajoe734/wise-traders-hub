@@ -427,7 +427,25 @@ export default function CompanyTraffic() {
             </div>
           </TabsContent>
 
-          <TabsContent value="events">
+          <TabsContent value="events" className="space-y-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Top 15 事件（依不重複訪客）</CardTitle></CardHeader>
+              <CardContent>
+                {(heatmap || []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-6 text-center">尚無具名事件</p>
+                ) : (
+                  <Suspense fallback={<ChartFallback h={400} />}>
+                    <Charts.HorizontalBar
+                      data={[...(heatmap || [])]
+                        .sort((a, b) => b.unique_visitors - a.unique_visitors)
+                        .slice(0, 15)
+                        .map(r => ({ name: r.event_name, value: r.unique_visitors }))}
+                      valueLabel="訪客"
+                    />
+                  </Suspense>
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">功能事件熱度</CardTitle>
