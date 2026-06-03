@@ -59,6 +59,10 @@ export function CheckupPlansSection() {
             <span className="font-semibold text-foreground mx-1">{quota.remaining}</span>
             <span className="text-muted-foreground">/ {quota.limit} 次</span>
           </span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">
+            使用日 <span className="text-foreground font-mono">{formatTaipeiYMDWithFallback((quota as any).last_used_at)}</span>
+          </span>
         </div>
       )}
 
