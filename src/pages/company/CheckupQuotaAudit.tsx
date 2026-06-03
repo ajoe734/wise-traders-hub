@@ -213,8 +213,9 @@ export default function CheckupQuotaAudit() {
             onClick={exportListCSV}
             disabled={!listData || listData.rows.length === 0}
             className="px-3 py-1.5 border rounded text-xs disabled:opacity-40"
+            title="僅匯出目前頁，請逐頁下載或調大每頁筆數"
           >
-            下載 CSV（{listData?.rows.length ?? 0} 筆）
+            下載目前頁 CSV（{listData?.rows.length ?? 0} 筆）
           </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
