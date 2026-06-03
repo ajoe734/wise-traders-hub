@@ -1,78 +1,51 @@
-## 目標
+## 你說的對
 
-把「LINE 註冊禮：第一次免費、第二次付費」整條使用路徑做到端到端可驗證、後端容錯、稽核可追、時區一致。共 4 個子目標、6 個檔案新增、5 個檔案修改。
+`/company/traffic` 目前 8 個 tab 幾乎都是純表格，連最基本的「每日趨勢線」「Channel 佔比圓餅」「漏斗瀑布圖」都沒有。GA4、Plausible、Fathom、Mixpanel、PostHog 沒人這樣做後台。專案內已經安裝 `recharts`（`PerfMetricsChart.tsx`、`RevenueCharts.tsx` 都在用），純粹是這頁沒畫而已。
 
----
+## 要加什麼（對齊業界做法）
 
-### 1. 統一時區 — Asia/Taipei 共用 helper（先做，其他都依賴）
+### 1. KPI 卡加 sparkline + 增減％
+8 張 KPI 卡每張右下角嵌一條 30 天 `<Sparkline>`（recharts `<Line>` 無軸），並顯示「vs 前一週期 ±x%」。GA4、Vercel Analytics、Plausible 都這樣做。
 
-新增 `src/checkup/utils/formatTaipeiDate.ts`：
-- `formatTaipeiYMD(iso: string | null | undefined): string` — 回傳 `YYYY/MM/DD`，無效或 null → `''`
-- `formatTaipeiYMDWithFallback(iso, fallback = '尚未使用'): string` — null/invalid 都回 fallback
-- 內部用 `Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', ... })`，取代現有 `+8*3600*1000` 的手算偏移（DST 安全 + 跨年正確）
+### 2. 總覽 tab：每日趨勢圖（取代純表格）
+- 主圖：`ComposedChart`，左軸訪客/PV（bar），右軸訂單/毛收（line）。
+- 下方保留小型 daily table（可摺疊）作為精確查表用。
+- 顆粒度切換：日 / 週（用 `range` 計算 bucket）。
 
-修改：
-- `HoldingsQuotaMeter.tsx` 拿掉內部 `formatYMD`，改 import
-- `DailyTab.jsx` 同上
-- `CheckupPlansSection.tsx`（若有顯示日期則同步）
+### 3. 漏斗 tab：瀑布漏斗圖
+- 用 recharts `BarChart` + `layout="vertical"` 畫真正的漏斗（每階長度按人數，標示 conversion% 與 drop%）。
+- 4 個漏斗排成 2×2 grid，視窗一眼看完。
 
-新增測試 `src/test/unit/format-taipei-date.test.ts`：
-- 12 case：跨日（UTC 16:00 → 隔日台北）、跨月、跨年、月初、月底、閏年、null、undefined、空字串、`not-a-date`、ISO 帶毫秒、ISO 不帶時區（視為 UTC）
+### 4. 流量來源 tab：Channel donut + Referrer 橫條圖
+- `PieChart`（donut）顯示 Channel 訪客佔比。
+- Top Referrers / Landings 改 horizontal `BarChart`（前 10 名 + 其他摺疊）。
 
-### 2. 後端 last_used_at 容錯
+### 5. 功能熱度 tab：Top 15 事件 horizontal bar
+表格保留作為完整清單，上方加一張 Top 15 `BarChart`（unique_visitors 排序）。
 
-新 migration：`check_checkup_quota` 在 `v_last_used_at` 查詢用 `COALESCE` 包裹、`limit=0` 時顯式 NULL、加上 `EXCEPTION WHEN OTHERS` 兜底（回 NULL 不丟錯）。
+### 6. 產品線 tab：堆疊長條
+修煉派 / 跟單派 / 學習中心 三條 stacked bar（事件 / UV / 登入會員）。
 
-前端 fallback：
-- `HoldingsQuotaMeter.tsx`：`line_free + remain=0 + last_used_at=null` → 顯示「LINE 註冊禮已用完・**使用日：尚未紀錄**・升級後可繼續使用」
-- `DailyTab.jsx`：同樣 fallback 文案
+### 7. 廣告營收 tab：ROAS scatter
+`ScatterChart`：X = spend、Y = gross、bubble 大小 = orders，hover 顯示 campaign。一眼看出哪個 campaign 投產比最高。
 
-更新 `checkup-quota-display.test.tsx` 補 1 個 case：`last_used_at=null` 時顯示「使用日：尚未紀錄」而非整段消失。
+## 技術細節
 
-### 3. 配額稽核頁 / 查詢 API
+- 全部用既有 `recharts`（不裝新套件），沿用 `PerfMetricsChart.tsx` 的 `ResponsiveContainer` + `hsl(var(--primary))` 寫法，符合設計系統。
+- 新增 `src/pages/_companyTraffic/` 目錄，把每張圖切成獨立元件（`DailyTrendChart`、`FunnelWaterfall`、`ChannelDonut`、`EventsTopBar`、`SparklineKpi`、`RoasScatter`），`Traffic.tsx` 只負責資料與排版，控制在 300 行以內。
+- KPI 「vs 前期」用同一支 `get_traffic_overview` RPC 多打一次（傳前一週期區間）來算，不改後端。
+- Sparkline 資料來自既有 `data.daily`，無需新 RPC。
+- 色票：訪客 `--primary`、營收 `--mentor`（已是 trading-up 色）、訂單 `--accent`、drop 用 `--muted-foreground`，遵守 Taiwan 紅漲綠跌憲法（這頁沒有漲跌語意所以用品牌色即可）。
 
-新 edge function：`supabase/functions/checkup-quota-audit/index.ts`
-- 只允許 `company_admin`（驗 JWT + `has_role`）
-- Query：`?user_id=...&limit=100`
-- 回傳：該用戶當前 `tier / period / limit / used / remaining / resets_at / last_used_at` + 最近 N 筆 `checkup_usage`（id, kind, used_at）
-- 同時回傳該用戶 `checkup_subscriptions` 最近一筆（plan_id, status, expires_at, billing_cycle）作為「扣費原因」
+## 不做
 
-新頁面：`src/pages/company/CheckupQuotaAudit.tsx`
-- 輸入 user_id / email → 查詢
-- 顯示 tier 卡片、最近扣次列表（含每筆使用日 YYYY/MM/DD HH:mm 台北時區）、訂閱來源
-- 路由加到 `CompanyLayout` 子路由 `/company/checkup-quota-audit`
+- 不動 RPC / 後端 / migration（資料已經夠畫）。
+- 不動首頁、pricing、持股看板、收盤分析。
+- 不加新 tab、不加新指標、不加 export。
 
-不新增資料表（`checkup_usage` 已有完整紀錄，sub 表已有來源）。
+## 風險
 
-### 4. E2E 測試 — LINE 註冊禮一次免費 → 二次付費
+- recharts bundle 已被 `RevenueCharts` 載入，這頁多用幾張圖不會額外增加首屏 bundle（這頁本來就在 `/company` lazy chunk）。
+- 多打一次 `get_traffic_overview` 算「前期對比」會讓首次載入多 1 個 RPC，但 React Query 會 cache。
 
-新檔 `e2e/line-checkup-free-gift.spec.ts`，用 `e2e/helpers/supabase-mock.ts` 模擬：
-
-**Scenario A（首次免費）**：
-- mock `check_checkup_quota` → `{ tier: 'line_free', period: 'lifetime', limit: 1, used: 0, remaining: 1, resets_at: 'infinity', last_used_at: null }`
-- 進入 `/portfolio/holdings` → 斷言 HoldingsQuotaMeter 文案含「LINE 註冊禮：第一次免費；第二次起需付費・還剩 1 次」、無「使用日」
-- 進入 daily tab → 斷言「還可使用 1 次」
-
-**Scenario B（已用完）**：
-- mock → `{ ..., used: 1, remaining: 0, last_used_at: '2026-06-03T05:30:00Z' }`
-- 斷言「LINE 註冊禮已用完・使用日 2026/06/03・升級後可繼續使用」
-- 斷言 CTA「查看訂閱方案」連結 `/pricing#checkup`
-- 斷言 DailyTab 顯示「（已用完・使用日 2026/06/03）」
-
-**Scenario C（last_used_at null fallback）**：
-- mock → `{ ..., used: 1, remaining: 0, last_used_at: null }`
-- 斷言「使用日：尚未紀錄」出現
-
----
-
-### 技術備註
-
-- 所有日期顯示一律走新 helper，禁止散落 `new Date().toLocaleDateString` 或手算 `+8*3600*1000`
-- E2E 用 route intercept mock RPC，不打真 DB；audit 頁也加 1 個 vitest 渲染測試
-- 不動 `consume_checkup_quota` 行為（user 沒要求改扣點邏輯）
-
-### 交付清單
-
-新增：`src/checkup/utils/formatTaipeiDate.ts`、`src/test/unit/format-taipei-date.test.ts`、`supabase/functions/checkup-quota-audit/index.ts`、`src/pages/company/CheckupQuotaAudit.tsx`、`e2e/line-checkup-free-gift.spec.ts`、1 個 migration
-
-修改：`HoldingsQuotaMeter.tsx`、`DailyTab.jsx`、`CheckupPlansSection.tsx`（如需）、`checkup-quota-display.test.tsx`、`CompanyLayout` 路由
+要我直接動工嗎？如果想先砍範圍（例如「只加總覽趨勢圖 + 漏斗瀑布」），跟我說。
