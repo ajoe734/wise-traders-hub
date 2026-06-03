@@ -647,11 +647,33 @@ export default function CompanyTraffic() {
   );
 }
 
-function Kpi({ label, value }: { label: string; value: string }) {
+function Kpi({
+  label, value, delta, spark, sparkColor,
+}: {
+  label: string;
+  value: string;
+  delta?: { v: number; up: boolean } | null;
+  spark?: number[];
+  sparkColor?: string;
+}) {
   return (
     <Card><CardContent className="p-4">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-xl font-semibold mt-1">{value}</div>
+      <div className="flex items-end justify-between gap-2 mt-1">
+        <div className="text-xl font-semibold">{value}</div>
+        {delta && (
+          <div className={`text-[11px] font-medium ${delta.up ? 'text-[hsl(var(--mentor))]' : 'text-muted-foreground'}`}>
+            {delta.up ? '▲' : '▼'} {Math.abs(delta.v)}%
+          </div>
+        )}
+      </div>
+      {spark && spark.length > 1 && (
+        <div className="mt-2 -mx-1">
+          <Suspense fallback={<div style={{ height: 36 }} />}>
+            <Charts.Sparkline data={spark} color={sparkColor} />
+          </Suspense>
+        </div>
+      )}
     </CardContent></Card>
   );
 }
