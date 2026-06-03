@@ -51,3 +51,15 @@ export function formatTaipeiYMDHM(iso: string | Date | null | undefined): string
   // en-CA 輸出 "YYYY-MM-DD, HH:mm"
   return YMDHM_FORMATTER.format(d).replace(/-/g, '/').replace(', ', ' ');
 }
+
+/**
+ * 帶 fallback 的 YMDHM 版本：null / invalid / 空 → fallback（預設「尚未紀錄」）。
+ * 用於稽核表格與匯出檔，避免顯示空白欄位或壞掉格式。
+ */
+export function formatTaipeiYMDHMWithFallback(
+  iso: string | Date | null | undefined,
+  fallback: string = '尚未紀錄',
+): string {
+  const r = formatTaipeiYMDHM(iso);
+  return r || fallback;
+}
