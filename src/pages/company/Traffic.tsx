@@ -319,32 +319,48 @@ export default function CompanyTraffic() {
             <TabsTrigger value="campaigns">廣告與營收</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview">
+          <TabsContent value="overview" className="space-y-4">
             <Card>
-              <CardHeader><CardTitle className="text-base">每日流量與營收</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">每日趨勢</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">柱：訪客 / 瀏覽（左軸）；線：訂單 / 毛收（右軸）</p>
+              </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>日期</TableHead>
-                      <TableHead className="text-right">訪客</TableHead>
-                      <TableHead className="text-right">瀏覽</TableHead>
-                      <TableHead className="text-right">訂單</TableHead>
-                      <TableHead className="text-right">毛收</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(data?.daily || []).map((d) => (
-                      <TableRow key={d.day}>
-                        <TableCell>{d.day}</TableCell>
-                        <TableCell className="text-right">{fmtNum(d.visitors)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(d.page_views)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(d.orders)}</TableCell>
-                        <TableCell className="text-right">{fmtMoney(d.gross)}</TableCell>
+                <Suspense fallback={<ChartFallback h={320} />}>
+                  <Charts.DailyTrendChart data={data?.daily || []} />
+                </Suspense>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">逐日明細</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <details>
+                  <summary className="text-xs text-muted-foreground cursor-pointer mb-2">展開精確數字</summary>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>日期</TableHead>
+                        <TableHead className="text-right">訪客</TableHead>
+                        <TableHead className="text-right">瀏覽</TableHead>
+                        <TableHead className="text-right">訂單</TableHead>
+                        <TableHead className="text-right">毛收</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {(data?.daily || []).map((d) => (
+                        <TableRow key={d.day}>
+                          <TableCell>{d.day}</TableCell>
+                          <TableCell className="text-right">{fmtNum(d.visitors)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(d.page_views)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(d.orders)}</TableCell>
+                          <TableCell className="text-right">{fmtMoney(d.gross)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </details>
               </CardContent>
             </Card>
           </TabsContent>
