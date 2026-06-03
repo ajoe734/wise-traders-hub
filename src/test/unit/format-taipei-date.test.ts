@@ -77,3 +77,27 @@ describe('formatTaipeiYMDHM', () => {
     expect(formatTaipeiYMDHM('xxx')).toBe('');
   });
 });
+
+describe('formatTaipeiYMDHMWithFallback', () => {
+  it('有效 → YMD HH:mm', () => {
+    expect(formatTaipeiYMDHMWithFallback('2026-06-03T05:00:00Z')).toBe('2026/06/03 13:00');
+  });
+  it('null → fallback 預設「尚未紀錄」', () => {
+    expect(formatTaipeiYMDHMWithFallback(null)).toBe('尚未紀錄');
+  });
+  it('undefined → fallback', () => {
+    expect(formatTaipeiYMDHMWithFallback(undefined)).toBe('尚未紀錄');
+  });
+  it('空字串 → fallback', () => {
+    expect(formatTaipeiYMDHMWithFallback('')).toBe('尚未紀錄');
+  });
+  it('invalid → fallback', () => {
+    expect(formatTaipeiYMDHMWithFallback('not-a-date')).toBe('尚未紀錄');
+  });
+  it('自訂 fallback', () => {
+    expect(formatTaipeiYMDHMWithFallback(null, '—')).toBe('—');
+  });
+  it('Date 物件依然會 format', () => {
+    expect(formatTaipeiYMDHMWithFallback(new Date('2026-06-03T05:00:00Z'))).toBe('2026/06/03 13:00');
+  });
+});
