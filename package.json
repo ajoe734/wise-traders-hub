@@ -14,6 +14,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:line-checkup": "playwright test --project=desktop-line-checkup",
     "test:e2e:update": "playwright test --update-snapshots",
     "check:freecheckup-rwd": "node scripts/check-freecheckup-rwd.mjs",
     "check:freecheckup-i18n": "node scripts/check-freecheckup-i18n.mjs"
