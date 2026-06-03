@@ -581,50 +581,67 @@ export default function CompanyTraffic() {
           </TabsContent>
 
           <TabsContent value="sources" className="space-y-4">
-            <Card>
-              <CardHeader><CardTitle className="text-base">Channel 分布</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader><TableRow><TableHead>Channel</TableHead><TableHead className="text-right">訪客</TableHead><TableHead className="text-right">訂單</TableHead><TableHead className="text-right">毛收</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {(data?.channels || []).map((c) => (
-                      <TableRow key={c.channel}>
-                        <TableCell className="font-medium">{c.channel}</TableCell>
-                        <TableCell className="text-right">{fmtNum(c.visitors)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(c.orders)}</TableCell>
-                        <TableCell className="text-right">{fmtMoney(c.gross)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
             <div className="grid md:grid-cols-2 gap-4">
               <Card>
-                <CardHeader><CardTitle className="text-base">Top Referrers</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base">Channel 分布</CardTitle></CardHeader>
+                <CardContent>
+                  {(data?.channels || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
+                  ) : (
+                    <Suspense fallback={<ChartFallback h={260} />}>
+                      <Charts.ChannelDonut data={(data?.channels || []).map(c => ({ name: c.channel, value: c.visitors }))} />
+                    </Suspense>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="text-base">Channel 營收</CardTitle></CardHeader>
                 <CardContent>
                   <Table>
-                    <TableHeader><TableRow><TableHead>Host</TableHead><TableHead className="text-right">訪客</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Channel</TableHead><TableHead className="text-right">訪客</TableHead><TableHead className="text-right">訂單</TableHead><TableHead className="text-right">毛收</TableHead></TableRow></TableHeader>
                     <TableBody>
-                      {(data?.referrers || []).map((r) => (
-                        <TableRow key={r.host}><TableCell className="font-mono text-xs">{r.host}</TableCell><TableCell className="text-right">{fmtNum(r.visitors)}</TableCell></TableRow>
+                      {(data?.channels || []).map((c) => (
+                        <TableRow key={c.channel}>
+                          <TableCell className="font-medium">{c.channel}</TableCell>
+                          <TableCell className="text-right">{fmtNum(c.visitors)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(c.orders)}</TableCell>
+                          <TableCell className="text-right">{fmtMoney(c.gross)}</TableCell>
+                        </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </CardContent>
               </Card>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader><CardTitle className="text-base">Top Referrers</CardTitle></CardHeader>
+                <CardContent>
+                  {(data?.referrers || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
+                  ) : (
+                    <Suspense fallback={<ChartFallback h={280} />}>
+                      <Charts.HorizontalBar
+                        data={(data?.referrers || []).slice(0, 10).map(r => ({ name: r.host, value: r.visitors }))}
+                      />
+                    </Suspense>
+                  )}
+                </CardContent>
+              </Card>
               <Card>
                 <CardHeader><CardTitle className="text-base">Top Landing Pages</CardTitle></CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader><TableRow><TableHead>路徑</TableHead><TableHead className="text-right">訪客</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                      {(data?.landings || []).map((l) => (
-                        <TableRow key={l.path}><TableCell className="font-mono text-xs">{l.path}</TableCell><TableCell className="text-right">{fmtNum(l.visitors)}</TableCell></TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  {(data?.landings || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
+                  ) : (
+                    <Suspense fallback={<ChartFallback h={280} />}>
+                      <Charts.HorizontalBar
+                        data={(data?.landings || []).slice(0, 10).map(l => ({ name: l.path, value: l.visitors }))}
+                        color="hsl(var(--mentor))"
+                      />
+                    </Suspense>
+                  )}
                 </CardContent>
               </Card>
             </div>
