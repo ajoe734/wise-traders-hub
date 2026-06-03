@@ -35,13 +35,25 @@ function HoldingsQuotaMeterImpl(props) {
   }
 
   const used = Number(quota.used || 0);
-  const limit = Math.max(Number(quota.limit || 1), 1);
+  const limit = Math.max(Number(quota.limit || 0), 0);
   const remain = Math.max(limit - used, 0);
-  const pct = Math.min(100, Math.max(0, (used / limit) * 100));
-  const ratio = remain / limit;
+  const pct = limit > 0 ? Math.min(100, Math.max(0, (used / limit) * 100)) : 100;
+  const ratio = limit > 0 ? remain / limit : 0;
   const barColor = remain === 0 ? C.down : ratio <= 0.2 ? C.amber : C.teal;
-  const periodCN = quota.period === 'week' ? '本週' : '本月';
-  const showUpgrade = tier === 'free' || tier === 'basic';
+  const periodCN = quota.period === 'lifetime' ? '終身'
+    : quota.period === 'week' ? '本週'
+    : '本月';
+  const showUpgrade = tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none';
+  const isNone = tier === 'none';
+  const isLineFree = tier === 'line_free';
+  const upgradeBlurb = isNone
+    ? '收盤分析為訂閱功能，訂閱 Basic（每週 1 次）或 Pro（每月 22 次）即可使用'
+    : isLineFree
+      ? 'LINE 註冊禮已用完，升級 Basic（每週 1 次）或 Pro（每月 22 次）繼續使用'
+      : tier === 'free'
+        ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
+        : '升級 Pro 即可每月使用 22 次';
+  const ctaLabel = (isNone || isLineFree || tier === 'free') ? '查看訂閱方案' : '升級 Pro';
 
   return (
     <div className="checkup-quota-meter" style={{
@@ -58,28 +70,38 @@ function HoldingsQuotaMeterImpl(props) {
             padding: '2px 7px', border: `1px solid ${C.border}`, borderRadius: 4,
           }}>{tierLabel}</span>
           <span style={{ fontSize: 12, color: C.textSec, fontWeight: 400, letterSpacing: '0.02em' }}>
-            {periodCN} AI 健檢
+            {isNone ? '收盤分析（訂閱解鎖）' : `${periodCN} AI 健檢`}
           </span>
         </div>
-        <div style={{ fontSize: 13, color: C.text, fontWeight: 500, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em' }}>
-          <span style={{ color: remain === 0 ? C.down : C.text }}>{used}</span>
-          <span style={{ color: C.textMute, margin: '0 2px' }}>/</span>
-          <span style={{ color: C.textMute }}>{limit}</span>
+        {!isNone && (
+          <div style={{ fontSize: 13, color: C.text, fontWeight: 500, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em' }}>
+            <span style={{ color: remain === 0 ? C.down : C.text }}>{used}</span>
+            <span style={{ color: C.textMute, margin: '0 2px' }}>/</span>
+            <span style={{ color: C.textMute }}>{limit}</span>
+          </div>
+        )}
+      </div>
+      {!isNone && (
+        <div style={{ height: 4, background: alpha(C.textMute, '18'), borderRadius: 2, overflow: 'hidden', marginBottom: 8 }}>
+          <div style={{
+            height: '100%',
+            width: `${pct}%`,
+            background: barColor,
+            transition: 'width 360ms ease, background-color 200ms',
+          }} />
         </div>
-      </div>
-      <div style={{ height: 4, background: alpha(C.textMute, '18'), borderRadius: 2, overflow: 'hidden', marginBottom: 8 }}>
-        <div style={{
-          height: '100%',
-          width: `${pct}%`,
-          background: barColor,
-          transition: 'width 360ms ease, background-color 200ms',
-        }} />
-      </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 11, color: C.textMute, letterSpacing: '0.02em', lineHeight: 1.6 }}>
-          {remain === 0
-            ? <>已用完・<span style={{ color: C.textSec }}>{formatResetCountdown(quota.resets_at)}</span></>
-            : <>還剩 <span style={{ color: C.text, fontWeight: 500 }}>{remain}</span> 次・{formatResetCountdown(quota.resets_at)}</>
+          {isNone
+            ? '尚未訂閱，無法使用 AI 收盤分析'
+            : isLineFree
+              ? (remain === 0
+                  ? <>LINE 註冊禮已用完・<span style={{ color: C.textSec }}>升級後可繼續使用</span></>
+                  : <>LINE 註冊禮・還剩 <span style={{ color: C.text, fontWeight: 500 }}>{remain}</span> 次</>)
+              : (remain === 0
+                  ? <>已用完・<span style={{ color: C.textSec }}>{formatResetCountdown(quota.resets_at)}</span></>
+                  : <>還剩 <span style={{ color: C.text, fontWeight: 500 }}>{remain}</span> 次・{formatResetCountdown(quota.resets_at)}</>)
           }
         </div>
         {showUpgrade && (
@@ -89,7 +111,7 @@ function HoldingsQuotaMeterImpl(props) {
           }}>升級 →</a>
         )}
       </div>
-      {remain === 1 && showUpgrade && (
+      {!isNone && !isLineFree && remain === 1 && showUpgrade && (
         <div style={{
           marginTop: 8,
           padding: '6px 10px',
@@ -104,7 +126,7 @@ function HoldingsQuotaMeterImpl(props) {
           <span style={{ color: C.textSec }}>用完前先升級，下期不間斷</span>
         </div>
       )}
-      {remain === 0 && showUpgrade && (
+      {(isNone || remain === 0) && showUpgrade && (
         <div style={{
           marginTop: 8,
           padding: '8px 10px',
@@ -114,15 +136,11 @@ function HoldingsQuotaMeterImpl(props) {
           fontSize: 11, color: C.text, letterSpacing: '0.02em', lineHeight: 1.6,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap',
         }}>
-          <span style={{ color: C.textSec }}>
-            {tier === 'free'
-              ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
-              : '升級 Pro 即可每月使用 22 次'}
-          </span>
+          <span style={{ color: C.textSec }}>{upgradeBlurb}</span>
           <a href="/pricing#checkup" style={{
             fontSize: 11, fontWeight: 500, color: '#fff', background: C.blue,
             padding: '4px 10px', borderRadius: 4, textDecoration: 'none', letterSpacing: '0.02em', whiteSpace: 'nowrap',
-          }}>{tier === 'free' ? '查看升級方案' : '升級 Pro'}</a>
+          }}>{ctaLabel}</a>
         </div>
       )}
       <div style={{ fontSize: 10, color: C.textMute, marginTop: 6, opacity: 0.7, letterSpacing: '0.02em' }}>

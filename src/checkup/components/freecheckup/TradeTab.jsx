@@ -166,25 +166,33 @@ function TradeTabImpl({
           borderRadius:10, textAlign:"center",
         }}>
           <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
-            {tier === 'free'  && '本月 1 次 AI 健檢已用完'}
-            {tier === 'basic' && '本週 1 次 AI 健檢已用完'}
-            {tier === 'pro'   && '本月 22 次 AI 健檢已用完'}
+            {tier === 'none'      && '收盤分析為訂閱功能'}
+            {tier === 'line_free' && 'LINE 註冊禮 1 次已用完'}
+            {tier === 'free'      && '本月 1 次 AI 健檢已用完'}
+            {tier === 'basic'     && '本週 1 次 AI 健檢已用完'}
+            {tier === 'pro'       && '本月 22 次 AI 健檢已用完'}
           </div>
-          <div style={{fontSize:12,color:C.textMute,lineHeight:1.7,marginBottom:(tier==='free'||tier==='basic')?12:0}}>
-            重置時間：<span style={{color:C.textSec}}>{formatResetDateTime(quota?.resets_at) || '—'}</span>
-            <br/>
-            <span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
-            {tier === 'free'  && <><br/>想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）</>}
-            {tier === 'basic' && <><br/>升級 Pro 即可每月使用 22 次</>}
+          <div style={{fontSize:12,color:C.textMute,lineHeight:1.7,marginBottom:(tier==='free'||tier==='basic'||tier==='line_free'||tier==='none')?12:0}}>
+            {tier !== 'none' && tier !== 'line_free' && (
+              <>
+                重置時間：<span style={{color:C.textSec}}>{formatResetDateTime(quota?.resets_at) || '—'}</span>
+                <br/>
+                <span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
+              </>
+            )}
+            {tier === 'none'      && <>請訂閱 Basic（每週 1 次）或 Pro（每月 22 次）後使用</>}
+            {tier === 'line_free' && <>LINE 註冊禮為一次性贈送，升級訂閱方案後可繼續使用</>}
+            {tier === 'free'      && <><br/>想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）</>}
+            {tier === 'basic'     && <><br/>升級 Pro 即可每月使用 22 次</>}
           </div>
-          {(tier === 'free' || tier === 'basic') && (
+          {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
             <a href="/pricing#checkup" style={{
               display:"inline-block", marginTop:4,
               background:C.blue, color:"#fff", border:"none",
               borderRadius:8, padding:"9px 22px", fontSize:12, fontWeight:500,
               textDecoration:"none", letterSpacing:"0.02em",
             }}>
-              {tier === 'free' ? '查看升級方案' : '升級 Pro'}
+              {tier === 'basic' ? '升級 Pro' : '查看訂閱方案'}
             </a>
           )}
         </div>

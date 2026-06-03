@@ -3360,15 +3360,32 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       {/* ══════════ 配額不足 Modal（429 QUOTA_EXCEEDED 兜底）══════════ */}
       {quotaModal && (() => {
         const used = Number(quota?.used || 0);
-        const limit = Math.max(Number(quota?.limit || 1), 1);
-        const periodCN = quota?.period === 'week' ? '本週' : '本月';
-        const showUpgrade = tier === 'free' || tier === 'basic';
+        const limit = Math.max(Number(quota?.limit || 0), 0);
+        const periodCN = quota?.period === 'lifetime' ? '終身'
+          : quota?.period === 'week' ? '本週'
+          : '本月';
+        const showUpgrade = tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none';
+        const isNone = tier === 'none';
+        const isLineFree = tier === 'line_free';
         const triggerLabel = {
           parse: '截圖解析',
           daily: '收盤分析',
           predict: '事件預測',
           research: '系統審視',
         }[quotaModal.trigger] || 'AI 健檢';
+        const headline = isNone
+          ? '收盤分析為訂閱功能'
+          : isLineFree
+            ? 'LINE 註冊禮 1 次已用完'
+            : `${periodCN} AI 健檢配額已用完`;
+        const upgradeBlurb = isNone
+          ? '訂閱 Basic（每週 1 次）或 Pro（每月 22 次）後即可使用'
+          : isLineFree
+            ? 'LINE 註冊禮為一次性贈送，訂閱方案後可繼續使用'
+            : tier === 'free'
+              ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
+              : '升級 Pro 即可每月使用 22 次';
+        const ctaLabel = tier === 'basic' ? '升級 Pro' : '查看訂閱方案';
         return (
           <div
             role="dialog"
@@ -3395,12 +3412,20 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                 {tierLabel} · {triggerLabel}
               </div>
               <div style={{fontSize:16,fontWeight:500,color:C.text,marginBottom:10,letterSpacing:"0.02em"}}>
-                {periodCN} AI 健檢配額已用完
+                {headline}
               </div>
               <div style={{fontSize:12,color:C.textMute,lineHeight:1.8,marginBottom:14}}>
-                已使用 <span style={{color:C.text,fontWeight:500}}>{used} / {limit}</span> 次<br/>
-                重置時間：<span style={{color:C.textSec}}>{formatResetDateTime(quota?.resets_at) || '—'}</span><br/>
-                <span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
+                {isNone ? (
+                  <>尚未訂閱，無法使用 AI 收盤分析</>
+                ) : isLineFree ? (
+                  <>已使用 <span style={{color:C.text,fontWeight:500}}>{used} / {limit}</span> 次（一次性贈送、用完不重置）</>
+                ) : (
+                  <>
+                    已使用 <span style={{color:C.text,fontWeight:500}}>{used} / {limit}</span> 次<br/>
+                    重置時間：<span style={{color:C.textSec}}>{formatResetDateTime(quota?.resets_at) || '—'}</span><br/>
+                    <span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
+                  </>
+                )}
               </div>
               {showUpgrade && (
                 <div style={{
@@ -3408,9 +3433,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                   padding:"10px 12px",background:alpha(C.blue,'06'),
                   border:`1px solid ${alpha(C.blue,'22')}`,borderRadius:8,marginBottom:14,
                 }}>
-                  {tier === 'free'
-                    ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
-                    : '升級 Pro 即可每月使用 22 次'}
+                  {upgradeBlurb}
                 </div>
               )}
               <div style={{display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
@@ -3442,7 +3465,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
                       fontSize:12,fontWeight:500,textDecoration:"none",letterSpacing:"0.02em",
                       outline:`2px solid ${alpha(C.blue,'33')}`, outlineOffset:2,
                     }}
-                  >{tier === 'free' ? '查看升級方案' : '升級 Pro'}</a>
+                  >{ctaLabel}</a>
                 )}
                 </div>
               </div>

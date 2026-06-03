@@ -34,7 +34,7 @@ export function CheckupPlansSection() {
   if (plans.length === 0) return null;
 
   const currentTier = quota?.tier || (userId ? 'free' : null);
-  const tierLabel = (t: string) => t === 'pro' ? 'Pro' : t === 'basic' ? 'Basic' : t === 'free' ? '免費版' : '訪客';
+  const tierLabel = (t: string) => t === 'pro' ? 'Pro' : t === 'basic' ? 'Basic' : t === 'line_free' ? 'LINE 註冊禮' : t === 'none' ? '未訂閱' : t === 'free' ? '免費版' : '訪客';
 
 
   return (

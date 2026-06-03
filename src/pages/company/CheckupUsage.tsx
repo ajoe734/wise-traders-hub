@@ -39,11 +39,14 @@ const tierLabel: Record<string, string> = {
   free: 'Free',
   basic: 'Basic',
   pro: 'Pro',
+  line_free: 'LINE 註冊禮',
+  none: '未訂閱',
 };
 
 const periodLabel: Record<string, string> = {
   month: '本月',
   week: '本週',
+  lifetime: '終身',
 };
 
 export default function CheckupUsagePage() {
