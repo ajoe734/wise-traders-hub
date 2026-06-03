@@ -54,4 +54,25 @@ describe('checkup-quota-audit edge function — 安全/稽核合約', () => {
     expect(SRC).toMatch(/line_user_id[\s\S]*?return 'line_free_gift'/);
     expect(SRC).toMatch(/return 'none'/);
   });
+
+  it('list 模式支援 page / page_size 分頁並回傳 total_pages', () => {
+    expect(SRC).toMatch(/page_size/);
+    expect(SRC).toMatch(/searchParams\.get\('page'\)/);
+    expect(SRC).toMatch(/searchParams\.get\('page_size'\)/);
+    expect(SRC).toMatch(/total_pages/);
+  });
+
+  it('page_size 必須有最大值上限，避免一次拉太多資料', () => {
+    expect(SRC).toMatch(/MAX_PAGE_SIZE\s*=\s*\d+/);
+    // 上限不得超過 1000，避免濫用
+    const m = SRC.match(/MAX_PAGE_SIZE\s*=\s*(\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeLessThanOrEqual(1000);
+    expect(SRC).toMatch(/clamp\(Number\(pageSizeParam[\s\S]*?MAX_PAGE_SIZE\)/);
+  });
+
+  it('保留 legacy limit/offset 路徑以維持向後相容', () => {
+    expect(SRC).toMatch(/searchParams\.get\('limit'\)/);
+    expect(SRC).toMatch(/searchParams\.get\('offset'\)/);
+  });
 });
