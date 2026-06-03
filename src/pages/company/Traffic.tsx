@@ -648,6 +648,24 @@ export default function CompanyTraffic() {
           </TabsContent>
 
           <TabsContent value="campaigns" className="space-y-4">
+            {(data?.campaigns || []).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">ROAS 散佈圖</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">X = 花費、Y = 毛收、泡泡大小 = 訂單數。對角線越往左上越有效率。</p>
+                </CardHeader>
+                <CardContent>
+                  <Suspense fallback={<ChartFallback h={300} />}>
+                    <Charts.RoasScatter
+                      data={(data?.campaigns || []).map(c => {
+                        const spend = (adSpend || []).filter(s => s.utm_campaign === c.campaign).reduce((a, b) => a + (b.spend_amount || 0), 0);
+                        return { campaign: c.campaign, spend, gross: c.gross, orders: c.orders };
+                      }).filter(c => c.spend > 0 || c.gross > 0)}
+                    />
+                  </Suspense>
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardHeader><CardTitle className="text-base">Campaign 轉換營收</CardTitle></CardHeader>
               <CardContent>
