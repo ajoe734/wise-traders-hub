@@ -20,6 +20,17 @@ import {
 const fmtNum = (v: number) => (v || 0).toLocaleString();
 const fmtMoney = (v: number) => `NT$${(v || 0).toLocaleString()}`;
 
+function EmptyChart({ height = 200, label = '此區間尚無資料' }: { height?: number; label?: string }) {
+  return (
+    <div
+      className="flex items-center justify-center text-xs text-muted-foreground border border-dashed border-border rounded-md"
+      style={{ height }}
+    >
+      {label}
+    </div>
+  );
+}
+
 /* ──────────────────────────────────────────────────────────── */
 /* Sparkline (KPI card inset)                                    */
 /* ──────────────────────────────────────────────────────────── */
