@@ -3,6 +3,7 @@
 // React.memo 於父層每秒 quote tick 時可跳過 re-render（quota 物件 reference 穩定）。
 import { memo } from 'react';
 import { validateProps } from './_validateProps.js';
+import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 
 const SCHEMA = {
   isDemo: 'boolean',
@@ -13,14 +14,6 @@ const SCHEMA = {
   alpha: 'function',
   formatResetCountdown: 'function',
 };
-
-function formatYMD(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const tw = new Date(d.getTime() + 8 * 3600 * 1000);
-  return `${tw.getUTCFullYear()}/${String(tw.getUTCMonth() + 1).padStart(2, '0')}/${String(tw.getUTCDate()).padStart(2, '0')}`;
-}
 
 function HoldingsQuotaMeterImpl(props) {
   validateProps('HoldingsQuotaMeter', props, SCHEMA);
