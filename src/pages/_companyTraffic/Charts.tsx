@@ -128,6 +128,7 @@ const DONUT_COLORS = [
   'hsl(var(--muted-foreground))',
 ];
 export function ChannelDonut({ data }: { data: Array<{ name: string; value: number }> }) {
+  if (!data || data.length === 0) return <EmptyChart height={260} />;
   return (
     <ResponsiveContainer width="100%" height={260}>
       <PieChart>
