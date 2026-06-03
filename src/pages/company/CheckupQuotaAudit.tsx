@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { formatTaipeiYMD, formatTaipeiYMDHM } from '@/checkup/utils/formatTaipeiDate';
+import { formatTaipeiYMD, formatTaipeiYMDHM, formatTaipeiYMDHMWithFallback } from '@/checkup/utils/formatTaipeiDate';
 import SEO from '@/components/SEO';
 
 interface QuotaSnapshot {
