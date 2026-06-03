@@ -51,6 +51,9 @@ interface ListResp {
   rows: ListRow[];
   total: number;
   returned: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
   filters: Record<string, unknown>;
   fetched_at: string;
 }
