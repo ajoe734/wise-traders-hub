@@ -485,7 +485,24 @@ export default function CompanyTraffic() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="pages">
+          <TabsContent value="pages" className="space-y-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Top 15 頁面（依 UV）</CardTitle></CardHeader>
+              <CardContent>
+                {(pages || []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-6 text-center">尚無資料</p>
+                ) : (
+                  <Suspense fallback={<ChartFallback h={400} />}>
+                    <Charts.HorizontalBar
+                      data={[...(pages || [])]
+                        .sort((a, b) => b.unique_visitors - a.unique_visitors)
+                        .slice(0, 15)
+                        .map(p => ({ name: p.path, value: p.unique_visitors }))}
+                    />
+                  </Suspense>
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">頁面分析（PV / UV / 登入會員）</CardTitle>
