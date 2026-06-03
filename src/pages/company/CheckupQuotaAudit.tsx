@@ -117,11 +117,11 @@ export default function CheckupQuotaAudit() {
       meta.quota?.tier || '',
       meta.reason,
       u.kind,
-      formatTaipeiYMDHM(u.used_at),
+      formatTaipeiYMDHMWithFallback(u.used_at),
       meta.quota?.used ?? '',
       meta.quota?.limit ?? '',
       meta.quota?.remaining ?? '',
-      formatTaipeiYMDHM(meta.quota?.last_used_at) || '尚未使用',
+      formatTaipeiYMDHMWithFallback(meta.quota?.last_used_at),
     ]);
     downloadCSV(
       `quota-audit-${meta.target_user_id.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.csv`,
