@@ -132,14 +132,16 @@ function DailyTabImpl({
                  cursor:hasReachedDailyLimit ? "not-allowed" : "pointer",
                  opacity:hasReachedDailyLimit ? 0.5 : 1,
                  letterSpacing:"0.04em"}}>
-                 {hasReachedDailyLimit ? `🔒 ${quota?.period === 'week' ? '本週' : '本月'}配額已用完` : "開始今日收盤分析"}
+                 {hasReachedDailyLimit ? `🔒 ${tier === 'none' ? '需訂閱方案' : tier === 'line_free' ? 'LINE 註冊禮已用完' : (quota?.period === 'week' ? '本週' : '本月') + '配額已用完'}` : "開始今日收盤分析"}
                 </button>
                 <div style={{fontSize:11,color:C.textMute,marginTop:10,opacity:0.75,lineHeight:1.7}}>
                   {hasReachedDailyLimit
                     ? <>
-                        {formatResetCountdown(quota?.resets_at)}
-                        {(tier === 'free' || tier === 'basic') && (
-                          <>　・　<a href="/pricing#checkup" style={{color:C.blue,textDecoration:"none"}}>升級方案 →</a></>
+                        {(tier !== 'none' && tier !== 'line_free') && formatResetCountdown(quota?.resets_at)}
+                        {tier === 'line_free' && '一次性贈送、用完不重置'}
+                        {tier === 'none' && '訂閱後即可開始使用'}
+                        {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
+                          <>　・　<a href="/pricing#checkup" style={{color:C.blue,textDecoration:"none"}}>查看訂閱方案 →</a></>
                         )}
                       </>
                     : "收盤後按下即可開始分析"}
