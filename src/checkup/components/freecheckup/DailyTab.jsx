@@ -1,15 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import { validateProps } from './_validateProps';
+import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 
 const Md = lazy(() => import('@/checkup/components/Md'));
-
-function formatLineUsedYMD(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const tw = new Date(d.getTime() + 8 * 3600 * 1000);
-  return `${tw.getUTCFullYear()}/${String(tw.getUTCMonth() + 1).padStart(2, '0')}/${String(tw.getUTCDate()).padStart(2, '0')}`;
-}
 
 /**
  * DailyTab — Free Checkup「收盤分析」tab。
