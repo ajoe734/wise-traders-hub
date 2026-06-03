@@ -14,6 +14,14 @@ const SCHEMA = {
   formatResetCountdown: 'function',
 };
 
+function formatYMD(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const tw = new Date(d.getTime() + 8 * 3600 * 1000);
+  return `${tw.getUTCFullYear()}/${String(tw.getUTCMonth() + 1).padStart(2, '0')}/${String(tw.getUTCDate()).padStart(2, '0')}`;
+}
+
 function HoldingsQuotaMeterImpl(props) {
   validateProps('HoldingsQuotaMeter', props, SCHEMA);
   const { isDemo, quota, tier, tierLabel, C, alpha, formatResetCountdown } = props;
