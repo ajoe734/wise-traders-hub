@@ -7,6 +7,7 @@ import { Stethoscope, CheckCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePricingBundle } from '@/hooks/usePricingBundle';
+import { formatTaipeiYMDWithFallback } from '@/checkup/utils/formatTaipeiDate';
 
 export function CheckupPlansSection() {
   const { user } = useAuth();
