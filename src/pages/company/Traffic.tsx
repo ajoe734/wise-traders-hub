@@ -653,6 +653,7 @@ export default function CompanyTraffic() {
                 <CardHeader>
                   <CardTitle className="text-base">ROAS 散佈圖</CardTitle>
                   <p className="text-xs text-muted-foreground mt-1">X = 花費、Y = 毛收、泡泡大小 = 訂單數。對角線越往左上越有效率。</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">⚠️ 花費以「月」為單位（ad_spend yyyymm），毛收 / 訂單依目前區間統計，時間軸不對齊，僅供大致比例參考。</p>
                 </CardHeader>
                 <CardContent>
                   <Suspense fallback={<ChartFallback h={300} />}>
