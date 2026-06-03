@@ -1,0 +1,43 @@
+name: E2E – LINE checkup free-gift
+
+on:
+  push:
+    branches: [main, 'feat/**']
+    paths:
+      - 'src/checkup/**'
+      - 'src/pages/_pricing/**'
+      - 'e2e/line-checkup-free-gift.spec.ts'
+      - 'e2e/helpers/supabase-mock.ts'
+      - 'playwright.config.ts'
+      - '.github/workflows/line-checkup-e2e.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run LINE checkup E2E
+        run: npm run test:e2e:line-checkup
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
