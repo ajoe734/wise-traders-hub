@@ -64,14 +64,15 @@ describe('HoldingsQuotaMeter — tier × last_used_at 文案矩陣', () => {
     expect(t).toMatch(/查看訂閱方案/);
   });
 
-  it('tier=line_free + remain=0 + 無 last_used_at → 不顯示「使用日」', () => {
+  it('tier=line_free + remain=0 + 無 last_used_at → 顯示「使用日 尚未紀錄」fallback', () => {
     const { container } = renderMeter(
       { tier: 'line_free', period: 'lifetime', limit: 1, used: 1, remaining: 0, resets_at: 'infinity', last_used_at: null },
       'line_free', 'LINE 註冊禮',
     );
     const t = text(container);
     expect(t).toMatch(/LINE 註冊禮已用完/);
-    expect(t).not.toMatch(/使用日/);
+    expect(t).toContain('使用日 尚未紀錄');
+    expect(t).toMatch(/升級後可繼續使用/);
   });
 
   it('tier=none → 「收盤分析（訂閱解鎖）」+ 隱藏使用數字 + 升級 CTA', () => {
