@@ -94,6 +94,7 @@ export function FunnelWaterfall({
     drop: s.drop_from_prev,
   }));
   const height = Math.max(140, data.length * 44);
+  if (!data.length) return <EmptyChart height={140} />;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 60, left: 8, bottom: 4 }}>
