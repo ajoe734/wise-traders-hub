@@ -1,15 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import { validateProps } from './_validateProps';
+import { formatTaipeiYMD } from '@/checkup/utils/formatTaipeiDate';
 
 const Md = lazy(() => import('@/checkup/components/Md'));
-
-function formatLineUsedYMD(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const tw = new Date(d.getTime() + 8 * 3600 * 1000);
-  return `${tw.getUTCFullYear()}/${String(tw.getUTCMonth() + 1).padStart(2, '0')}/${String(tw.getUTCDate()).padStart(2, '0')}`;
-}
 
 /**
  * DailyTab — Free Checkup「收盤分析」tab。
@@ -146,7 +139,7 @@ function DailyTabImpl({
                   {hasReachedDailyLimit
                     ? <>
                         {(tier !== 'none' && tier !== 'line_free') && formatResetCountdown(quota?.resets_at)}
-                        {tier === 'line_free' && <>LINE 註冊禮：第一次免費；第二次起需付費（已用完{quota?.last_used_at ? `・使用日 ${formatLineUsedYMD(quota.last_used_at)}` : ''}）</>}
+                        {tier === 'line_free' && <>LINE 註冊禮：第一次免費；第二次起需付費（已用完・使用日 {formatTaipeiYMD(quota?.last_used_at) || '尚未紀錄'}）</>}
                         {tier === 'none' && '訂閱後即可開始使用'}
                         {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
                           <>　・　<a href="/pricing#checkup" style={{color:C.blue,textDecoration:"none"}}>查看訂閱方案 →</a></>
