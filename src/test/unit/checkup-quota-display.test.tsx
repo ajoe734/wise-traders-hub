@@ -125,14 +125,13 @@ describe('HoldingsQuotaMeter — last_used_at 日期格式化（Asia/Taipei）',
     expect(text(container)).toContain(`使用日 ${expected}`);
   });
 
-  it('iso=invalid → 不渲染「使用日」段（safe fallback）', () => {
+  it('iso=invalid → fallback「使用日 尚未紀錄」（safe fallback，不渲染壞日期）', () => {
     const { container } = renderMeter(
       { tier: 'line_free', period: 'lifetime', limit: 1, used: 1, remaining: 0, resets_at: 'infinity', last_used_at: 'not-a-date' },
       'line_free', 'LINE 註冊禮',
     );
     const t = text(container);
-    // formatYMD 回空字串 → 整段「・使用日 」也不會出現（因為條件式 ternary 由 last_used_at truthy 觸發，
-    // 但日期字串會是空的）。這裡只要不出現有效日期即可。
     expect(t).not.toMatch(/使用日 \d{4}\/\d{2}\/\d{2}/);
+    expect(t).toContain('使用日 尚未紀錄');
   });
 });
