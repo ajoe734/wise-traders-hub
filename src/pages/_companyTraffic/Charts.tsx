@@ -206,6 +206,7 @@ export function ProductStackedBar({
 export function RoasScatter({
   data,
 }: { data: Array<{ campaign: string; spend: number; gross: number; orders: number }> }) {
+  if (!data || data.length === 0) return <EmptyChart height={300} label="尚無 campaign 花費或營收資料" />;
   return (
     <ResponsiveContainer width="100%" height={300}>
       <ScatterChart margin={{ top: 12, right: 24, left: 8, bottom: 8 }}>
