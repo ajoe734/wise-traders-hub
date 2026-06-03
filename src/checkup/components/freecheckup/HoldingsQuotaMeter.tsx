@@ -98,7 +98,7 @@ function HoldingsQuotaMeterImpl(props) {
             ? '尚未訂閱，無法使用 AI 收盤分析'
             : isLineFree
               ? (remain === 0
-                  ? <>LINE 註冊禮已用完{quota.last_used_at ? <>・<span style={{ color: C.textSec }}>使用日 {formatYMD(quota.last_used_at)}</span></> : null}・<span style={{ color: C.textSec }}>升級後可繼續使用</span></>
+                  ? <>LINE 註冊禮已用完・<span style={{ color: C.textSec }}>使用日 {formatTaipeiYMD(quota.last_used_at) || '尚未紀錄'}</span>・<span style={{ color: C.textSec }}>升級後可繼續使用</span></>
                   : <>LINE 註冊禮：第一次免費；第二次起需付費・還剩 <span style={{ color: C.text, fontWeight: 500 }}>{remain}</span> 次</>)
               : (remain === 0
                   ? <>已用完・<span style={{ color: C.textSec }}>{formatResetCountdown(quota.resets_at)}</span></>
