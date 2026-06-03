@@ -135,32 +135,44 @@ export default function CheckupQuotaAudit() {
   const [reason, setReason] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [listLimit, setListLimit] = useState(500);
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(1);
   const [listData, setListData] = useState<ListResp | null>(null);
   const [listLoading, setListLoading] = useState(false);
   const [listErr, setListErr] = useState<string | null>(null);
 
-  async function runList() {
-    setListLoading(true); setListErr(null); setListData(null);
+  async function runList(targetPage: number = page) {
+    setListLoading(true); setListErr(null);
     try {
-      const params = new URLSearchParams({ mode: 'list', limit: String(listLimit) });
+      const params = new URLSearchParams({
+        mode: 'list',
+        page: String(targetPage),
+        page_size: String(pageSize),
+      });
       if (tier) params.set('tier', tier);
       if (reason) params.set('reason', reason);
       if (dateFrom) params.set('date_from', new Date(dateFrom).toISOString());
       if (dateTo) {
-        // include the full end day
+        // include the full end day (Asia/Taipei local end-of-day → UTC)
         const end = new Date(dateTo); end.setHours(23, 59, 59, 999);
         params.set('date_to', end.toISOString());
       }
-      setListData(await callAudit(params));
+      const resp: ListResp = await callAudit(params);
+      setListData(resp);
+      setPage(resp.page || targetPage);
     } catch (e: any) { setListErr(e?.message || String(e)); }
     finally { setListLoading(false); }
+  }
+
+  function applyFilters() {
+    setPage(1);
+    void runList(1);
   }
 
   function exportListCSV() {
     if (!listData) return;
     const rows = listData.rows.map((r, i) => [
-      i + 1,
+      (listData.page - 1) * listData.page_size + i + 1,
       r.user_id,
       r.display_name || '',
       r.is_tester ? 'Y' : '',
@@ -170,11 +182,11 @@ export default function CheckupQuotaAudit() {
       r.billing_cycle || '',
       r.plan_id || '',
       r.kind,
-      formatTaipeiYMDHM(r.used_at),
+      formatTaipeiYMDHMWithFallback(r.used_at),
       r.used ?? '',
       r.limit ?? '',
       r.remaining ?? '',
-      formatTaipeiYMDHM(r.last_used_at) || '尚未使用',
+      formatTaipeiYMDHMWithFallback(r.last_used_at),
     ]);
     downloadCSV(
       `quota-audit-list-${new Date().toISOString().slice(0, 10)}.csv`,
