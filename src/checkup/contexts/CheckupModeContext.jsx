@@ -114,9 +114,13 @@ export function CheckupModeProvider({ children }) {
   // Convenience: AI quota status
   const remainingQuota = quota?.remaining ?? 0
   const hasQuota = remainingQuota > 0
-  const periodLabel = quota?.period === 'week' ? '本週' : '本月'
+  const periodLabel = quota?.period === 'lifetime' ? '終身'
+    : quota?.period === 'week' ? '本週'
+    : '本月'
   const tierLabel = tier === 'pro' ? 'Pro'
     : tier === 'basic' ? 'Basic'
+    : tier === 'line_free' ? 'LINE 註冊禮'
+    : tier === 'none' ? '未訂閱'
     : tier === 'free' ? '免費版'
     : '訪客'
 
