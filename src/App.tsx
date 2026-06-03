@@ -118,6 +118,7 @@ const CompanyRemittance = lazy(() => import("./pages/company/Remittance"));
 const CompanyPaymentSettings = lazy(() => import("./pages/company/PaymentSettings"));
 const CompanyReferralChannels = lazy(() => import("./pages/company/ReferralChannels"));
 const CompanyCheckupUsage = lazy(() => import("./pages/company/CheckupUsage"));
+const CompanyCheckupQuotaAudit = lazy(() => import("./pages/company/CheckupQuotaAudit"));
 const CompanyMissingPrices = lazy(() => import("./pages/company/MissingPrices"));
 const CompanyMetaOverrides = lazy(() => import("./pages/company/MetaOverrides"));
 const CompanyUsers = lazy(() => import("./pages/company/Users"));
