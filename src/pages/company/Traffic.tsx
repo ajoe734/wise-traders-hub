@@ -365,13 +365,18 @@ export default function CompanyTraffic() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="products">
+          <TabsContent value="products" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">產品線拆解（修煉派 / 跟單派 / 學習中心）</CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">依路徑與事件名稱自動分流</p>
               </CardHeader>
               <CardContent>
+                <Suspense fallback={<ChartFallback h={260} />}>
+                  <Charts.ProductStackedBar
+                    data={(products || []).map(p => ({ ...p, product: PRODUCT_LABEL[p.product] ?? p.product }))}
+                  />
+                </Suspense>
                 <Table>
                   <TableHeader><TableRow>
                     <TableHead>產品線</TableHead>
