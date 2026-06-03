@@ -234,15 +234,17 @@ export default function CheckupQuotaAudit() {
           <Lbl label="結束日">
             <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-2 py-1.5 border rounded text-sm" />
           </Lbl>
-          <Lbl label="筆數上限">
-            <input
-              type="number" min={1} max={2000} value={listLimit}
-              onChange={(e) => setListLimit(Number(e.target.value) || 500)}
+          <Lbl label="每頁筆數">
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value) || 50)}
               className="w-full px-2 py-1.5 border rounded text-sm"
-            />
+            >
+              {[25, 50, 100, 200, 500].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
           </Lbl>
           <button
-            onClick={runList}
+            onClick={applyFilters}
             disabled={listLoading}
             className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50"
           >
