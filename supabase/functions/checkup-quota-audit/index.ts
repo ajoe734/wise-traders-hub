@@ -126,19 +126,42 @@ async function handleSingle(url: URL) {
 }
 
 // ---------- batch list ----------
+//
+// Pagination contract:
+//   - Preferred: ?page=1&page_size=50 (page_size capped at MAX_PAGE_SIZE)
+//   - Back-compat: ?limit=&offset= still works when page/page_size absent.
+//   - Response always includes page, page_size, total, total_pages so the
+//     client can render a pager and avoid silent truncation.
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 500;
+
 async function handleList(url: URL) {
   const tier = (url.searchParams.get('tier') || '').trim();           // line_free|none|basic|pro|""
   const reasonFilter = (url.searchParams.get('reason') || '').trim(); // line_free_gift|subscription|tester|none|""
   const dateFrom = url.searchParams.get('date_from') || '';           // ISO
   const dateTo = url.searchParams.get('date_to') || '';
-  const limit = clamp(Number(url.searchParams.get('limit') || '500'), 1, 2000);
-  const offset = clamp(Number(url.searchParams.get('offset') || '0'), 0, 100000);
+
+  const pageParam = url.searchParams.get('page');
+  const pageSizeParam = url.searchParams.get('page_size');
+  let pageSize: number;
+  let offset: number;
+  let page: number;
+  if (pageParam !== null || pageSizeParam !== null) {
+    pageSize = clamp(Number(pageSizeParam ?? DEFAULT_PAGE_SIZE), 1, MAX_PAGE_SIZE);
+    page = Math.max(1, Math.floor(Number(pageParam ?? '1')) || 1);
+    offset = (page - 1) * pageSize;
+  } else {
+    // legacy limit/offset path
+    pageSize = clamp(Number(url.searchParams.get('limit') || String(DEFAULT_PAGE_SIZE)), 1, MAX_PAGE_SIZE);
+    offset = clamp(Number(url.searchParams.get('offset') || '0'), 0, 1_000_000);
+    page = Math.floor(offset / pageSize) + 1;
+  }
 
   // 1) fetch usage page filtered by date
   const params = new URLSearchParams();
   params.set('select', 'id,user_id,kind,used_at');
   params.set('order', 'used_at.desc');
-  params.set('limit', String(limit));
+  params.set('limit', String(pageSize));
   params.set('offset', String(offset));
   if (dateFrom) params.append('used_at', `gte.${dateFrom}`);
   if (dateTo) params.append('used_at', `lte.${dateTo}`);
@@ -152,10 +175,16 @@ async function handleList(url: URL) {
   const usageRows: Array<{ id: string; user_id: string; kind: string; used_at: string }> =
     await usageRes.json();
   const totalCount = Number(usageRes.headers.get('content-range')?.split('/')?.[1] || usageRows.length);
+  const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 1;
 
   const uids = Array.from(new Set(usageRows.map((r) => r.user_id))).filter(Boolean);
   if (uids.length === 0) {
-    return json({ rows: [], total: totalCount, returned: 0, fetched_at: new Date().toISOString() });
+    return json({
+      rows: [], total: totalCount, returned: 0,
+      page, page_size: pageSize, total_pages: totalPages,
+      filters: { tier, reason: reasonFilter, date_from: dateFrom, date_to: dateTo },
+      fetched_at: new Date().toISOString(),
+    });
   }
 
   // 2) batch fetch profiles + subs + quota snapshots
