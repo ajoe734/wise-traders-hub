@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { formatTaipeiYMD, formatTaipeiYMDHM } from '@/checkup/utils/formatTaipeiDate';
+import { formatTaipeiYMD, formatTaipeiYMDHM, formatTaipeiYMDHMWithFallback } from '@/checkup/utils/formatTaipeiDate';
 import SEO from '@/components/SEO';
 
 interface QuotaSnapshot {
@@ -51,6 +51,9 @@ interface ListResp {
   rows: ListRow[];
   total: number;
   returned: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
   filters: Record<string, unknown>;
   fetched_at: string;
 }
@@ -114,11 +117,11 @@ export default function CheckupQuotaAudit() {
       meta.quota?.tier || '',
       meta.reason,
       u.kind,
-      formatTaipeiYMDHM(u.used_at),
+      formatTaipeiYMDHMWithFallback(u.used_at),
       meta.quota?.used ?? '',
       meta.quota?.limit ?? '',
       meta.quota?.remaining ?? '',
-      formatTaipeiYMDHM(meta.quota?.last_used_at) || '尚未使用',
+      formatTaipeiYMDHMWithFallback(meta.quota?.last_used_at),
     ]);
     downloadCSV(
       `quota-audit-${meta.target_user_id.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -132,32 +135,44 @@ export default function CheckupQuotaAudit() {
   const [reason, setReason] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [listLimit, setListLimit] = useState(500);
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(1);
   const [listData, setListData] = useState<ListResp | null>(null);
   const [listLoading, setListLoading] = useState(false);
   const [listErr, setListErr] = useState<string | null>(null);
 
-  async function runList() {
-    setListLoading(true); setListErr(null); setListData(null);
+  async function runList(targetPage: number = page) {
+    setListLoading(true); setListErr(null);
     try {
-      const params = new URLSearchParams({ mode: 'list', limit: String(listLimit) });
+      const params = new URLSearchParams({
+        mode: 'list',
+        page: String(targetPage),
+        page_size: String(pageSize),
+      });
       if (tier) params.set('tier', tier);
       if (reason) params.set('reason', reason);
       if (dateFrom) params.set('date_from', new Date(dateFrom).toISOString());
       if (dateTo) {
-        // include the full end day
+        // include the full end day (Asia/Taipei local end-of-day → UTC)
         const end = new Date(dateTo); end.setHours(23, 59, 59, 999);
         params.set('date_to', end.toISOString());
       }
-      setListData(await callAudit(params));
+      const resp: ListResp = await callAudit(params);
+      setListData(resp);
+      setPage(resp.page || targetPage);
     } catch (e: any) { setListErr(e?.message || String(e)); }
     finally { setListLoading(false); }
+  }
+
+  function applyFilters() {
+    setPage(1);
+    void runList(1);
   }
 
   function exportListCSV() {
     if (!listData) return;
     const rows = listData.rows.map((r, i) => [
-      i + 1,
+      (listData.page - 1) * listData.page_size + i + 1,
       r.user_id,
       r.display_name || '',
       r.is_tester ? 'Y' : '',
@@ -167,11 +182,11 @@ export default function CheckupQuotaAudit() {
       r.billing_cycle || '',
       r.plan_id || '',
       r.kind,
-      formatTaipeiYMDHM(r.used_at),
+      formatTaipeiYMDHMWithFallback(r.used_at),
       r.used ?? '',
       r.limit ?? '',
       r.remaining ?? '',
-      formatTaipeiYMDHM(r.last_used_at) || '尚未使用',
+      formatTaipeiYMDHMWithFallback(r.last_used_at),
     ]);
     downloadCSV(
       `quota-audit-list-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -198,8 +213,9 @@ export default function CheckupQuotaAudit() {
             onClick={exportListCSV}
             disabled={!listData || listData.rows.length === 0}
             className="px-3 py-1.5 border rounded text-xs disabled:opacity-40"
+            title="僅匯出目前頁，請逐頁下載或調大每頁筆數"
           >
-            下載 CSV（{listData?.rows.length ?? 0} 筆）
+            下載目前頁 CSV（{listData?.rows.length ?? 0} 筆）
           </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
@@ -219,15 +235,17 @@ export default function CheckupQuotaAudit() {
           <Lbl label="結束日">
             <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-2 py-1.5 border rounded text-sm" />
           </Lbl>
-          <Lbl label="筆數上限">
-            <input
-              type="number" min={1} max={2000} value={listLimit}
-              onChange={(e) => setListLimit(Number(e.target.value) || 500)}
+          <Lbl label="每頁筆數">
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value) || 50)}
               className="w-full px-2 py-1.5 border rounded text-sm"
-            />
+            >
+              {[25, 50, 100, 200, 500].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
           </Lbl>
           <button
-            onClick={runList}
+            onClick={applyFilters}
             disabled={listLoading}
             className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50"
           >
@@ -243,8 +261,24 @@ export default function CheckupQuotaAudit() {
 
         {listData && (
           <div className="mt-4">
-            <div className="text-xs text-muted-foreground mb-2">
-              共符合 {listData.total} 筆，本頁顯示 {listData.rows.length} 筆（已套用 tier/reason 過濾）
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div className="text-xs text-muted-foreground">
+                共符合 {listData.total} 筆，第 {listData.page} / {listData.total_pages || 1} 頁，本頁 {listData.rows.length} 筆（tier/reason 過濾後）
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => runList(Math.max(1, listData.page - 1))}
+                  disabled={listLoading || listData.page <= 1}
+                  className="px-2 py-1 border rounded text-xs disabled:opacity-40"
+                  aria-label="上一頁"
+                >上一頁</button>
+                <button
+                  onClick={() => runList(listData.page + 1)}
+                  disabled={listLoading || listData.page >= (listData.total_pages || 1)}
+                  className="px-2 py-1 border rounded text-xs disabled:opacity-40"
+                  aria-label="下一頁"
+                >下一頁</button>
+              </div>
             </div>
             {listData.rows.length === 0 ? (
               <div className="text-sm text-muted-foreground py-6 text-center">無符合條件的紀錄</div>
@@ -274,9 +308,9 @@ export default function CheckupQuotaAudit() {
                         <td className="px-2 py-1.5"><code className="text-[11px]">{r.reason}</code></td>
                         <td className="px-2 py-1.5">{r.billing_cycle || '—'}</td>
                         <td className="px-2 py-1.5"><code className="text-[11px]">{r.kind}</code></td>
-                        <td className="px-2 py-1.5 font-mono">{formatTaipeiYMDHM(r.used_at)}</td>
+                        <td className="px-2 py-1.5 font-mono">{formatTaipeiYMDHMWithFallback(r.used_at)}</td>
                         <td className="px-2 py-1.5">{r.used ?? '?'}/{r.limit ?? '?'}</td>
-                        <td className="px-2 py-1.5 font-mono">{formatTaipeiYMDHM(r.last_used_at) || '—'}</td>
+                        <td className="px-2 py-1.5 font-mono">{formatTaipeiYMDHMWithFallback(r.last_used_at)}</td>
                       </tr>
                     ))}
                   </tbody>

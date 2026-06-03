@@ -76,6 +76,12 @@ export default defineConfig({
       testMatch: /batch3-.*\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
+    {
+      // LINE 註冊禮配額流程 — 桌面寬度即可，UI 文案+CTA 為主
+      name: 'desktop-line-checkup',
+      testMatch: /line-checkup-free-gift\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+    },
   ],
   webServer: {
     command: 'bun run dev',

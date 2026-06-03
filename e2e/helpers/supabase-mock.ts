@@ -99,7 +99,10 @@ export async function installRoutes(page: Page, handlers: RouteHandlers) {
   await page.route(`${SUPABASE_HOST}/rest/v1/**`, async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace('/rest/v1/', '');
-    const table = path.split('?')[0].split('/')[0];
+    const segments = path.split('?')[0].split('/');
+    // RPC calls land at /rest/v1/rpc/<fn_name> — dispatch by function name so
+    // handlers.rest[fn_name] still works as users intuitively expect.
+    const table = segments[0] === 'rpc' && segments[1] ? segments[1] : segments[0];
     const method = route.request().method();
     handlers.onRest?.(table, method);
 

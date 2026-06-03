@@ -29,7 +29,7 @@ async function gotoCheckupWithQuota(page, quota: any) {
     },
     functions: {},
   });
-  await page.goto('/checkup');
+  await page.goto('/holding-checkup');
   await page.waitForLoadState('networkidle');
 }
 
