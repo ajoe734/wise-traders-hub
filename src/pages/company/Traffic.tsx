@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { lazy, Suspense, useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CompanyLayout } from '@/components/layouts/CompanyLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,9 +13,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { isInternalTrackingOn, setInternalTracking } from '@/lib/trafficTracker';
 
+const Charts = {
+  Sparkline: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.Sparkline }))),
+  DailyTrendChart: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.DailyTrendChart }))),
+  FunnelWaterfall: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.FunnelWaterfall }))),
+  ChannelDonut: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.ChannelDonut }))),
+  HorizontalBar: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.HorizontalBar }))),
+  ProductStackedBar: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.ProductStackedBar }))),
+  RoasScatter: lazy(() => import('@/pages/_companyTraffic/Charts').then(m => ({ default: m.RoasScatter }))),
+};
+const ChartFallback = ({ h = 240 }: { h?: number }) => (
+  <div className="flex items-center justify-center text-xs text-muted-foreground" style={{ height: h }}>載入圖表…</div>
+);
+
 const fmtMoney = (n: number) => `NT$${(n || 0).toLocaleString()}`;
 const fmtNum = (n: number) => (n || 0).toLocaleString();
 const fmtTs = (s?: string | null) => s ? new Date(s).toLocaleString('zh-TW', { hour12: false }) : '—';
+const pct = (curr: number, prev: number): { v: number; up: boolean } | null => {
+  if (!prev || prev === 0) return null;
+  const v = ((curr - prev) / prev) * 100;
+  return { v: Math.round(v * 10) / 10, up: v >= 0 };
+};
 
 function getRange(preset: string): { from: Date; to: Date } {
   const now = new Date();
