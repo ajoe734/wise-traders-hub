@@ -13,23 +13,11 @@ interface QuotaSnapshot {
   last_used_at: string | null;
 }
 
-interface UsageRow {
-  id: string;
-  kind: string;
-  used_at: string;
-}
-
+interface UsageRow { id: string; kind: string; used_at: string; }
 interface SubRow {
-  id: string;
-  plan_id: string;
-  status: string;
-  billing_cycle: string | null;
-  started_at: string;
-  expires_at: string | null;
-  auto_renew: boolean;
-  canceled_at: string | null;
+  id: string; plan_id: string; status: string; billing_cycle: string | null;
+  started_at: string; expires_at: string | null; auto_renew: boolean; canceled_at: string | null;
 }
-
 interface AuditResp {
   target_user_id: string;
   profile: { user_id: string; display_name: string | null; is_tester: boolean; line_user_id: string | null } | null;
@@ -40,177 +28,382 @@ interface AuditResp {
   fetched_at: string;
 }
 
+interface ListRow {
+  usage_id: string;
+  user_id: string;
+  display_name: string | null;
+  is_tester: boolean;
+  line_user_id: string | null;
+  kind: string;
+  used_at: string;
+  tier: string;
+  period: string | null;
+  used: number | null;
+  limit: number | null;
+  remaining: number | null;
+  last_used_at: string | null;
+  reason: string;
+  billing_cycle: string | null;
+  plan_id: string | null;
+}
+
+interface ListResp {
+  rows: ListRow[];
+  total: number;
+  returned: number;
+  filters: Record<string, unknown>;
+  fetched_at: string;
+}
+
+const TIER_OPTIONS = ['', 'line_free', 'none', 'basic', 'pro'];
+const REASON_OPTIONS = ['', 'line_free_gift', 'subscription', 'tester', 'none'];
+
+async function callAudit(params: URLSearchParams) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/checkup-quota-audit?${params}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${session?.access_token || ''}` } });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.message || json?.error || `HTTP ${res.status}`);
+  return json;
+}
+
+function csvEscape(v: unknown): string {
+  const s = v == null ? '' : String(v);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function downloadCSV(filename: string, header: string[], rows: (unknown[])[]) {
+  const body = [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + body], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function CheckupQuotaAudit() {
+  // ---- single mode ----
   const [userIdInput, setUserIdInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
-  const [data, setData] = useState<AuditResp | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [singleData, setSingleData] = useState<AuditResp | null>(null);
+  const [singleLoading, setSingleLoading] = useState(false);
+  const [singleErr, setSingleErr] = useState<string | null>(null);
 
   async function lookup() {
-    setLoading(true);
-    setError(null);
-    setData(null);
+    setSingleLoading(true); setSingleErr(null); setSingleData(null);
     try {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ mode: 'single', limit: '200' });
       if (userIdInput.trim()) params.set('user_id', userIdInput.trim());
       else if (emailInput.trim()) params.set('email', emailInput.trim());
-      else {
-        setError('請輸入 user_id 或 email');
-        setLoading(false);
-        return;
+      else { setSingleErr('請輸入 user_id 或 email'); return; }
+      setSingleData(await callAudit(params));
+    } catch (e: any) { setSingleErr(e?.message || String(e)); }
+    finally { setSingleLoading(false); }
+  }
+
+  function exportSingleCSV() {
+    if (!singleData) return;
+    const meta = singleData;
+    const rows = meta.usage.map((u, i) => [
+      i + 1,
+      meta.target_user_id,
+      meta.profile?.display_name || '',
+      meta.quota?.tier || '',
+      meta.reason,
+      u.kind,
+      formatTaipeiYMDHM(u.used_at),
+      meta.quota?.used ?? '',
+      meta.quota?.limit ?? '',
+      meta.quota?.remaining ?? '',
+      formatTaipeiYMDHM(meta.quota?.last_used_at) || '尚未使用',
+    ]);
+    downloadCSV(
+      `quota-audit-${meta.target_user_id.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['#', 'user_id', 'display_name', 'tier', 'reason', 'kind', 'used_at(Asia/Taipei)', 'used', 'limit', 'remaining', 'last_used_at'],
+      rows,
+    );
+  }
+
+  // ---- list mode ----
+  const [tier, setTier] = useState('');
+  const [reason, setReason] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [listLimit, setListLimit] = useState(500);
+  const [listData, setListData] = useState<ListResp | null>(null);
+  const [listLoading, setListLoading] = useState(false);
+  const [listErr, setListErr] = useState<string | null>(null);
+
+  async function runList() {
+    setListLoading(true); setListErr(null); setListData(null);
+    try {
+      const params = new URLSearchParams({ mode: 'list', limit: String(listLimit) });
+      if (tier) params.set('tier', tier);
+      if (reason) params.set('reason', reason);
+      if (dateFrom) params.set('date_from', new Date(dateFrom).toISOString());
+      if (dateTo) {
+        // include the full end day
+        const end = new Date(dateTo); end.setHours(23, 59, 59, 999);
+        params.set('date_to', end.toISOString());
       }
-      params.set('limit', '200');
-      const { data: { session } } = await supabase.auth.getSession();
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/checkup-quota-audit?${params}`;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json?.message || json?.error || `HTTP ${res.status}`);
-      } else {
-        setData(json);
-      }
-    } catch (e: any) {
-      setError(e?.message || String(e));
-    } finally {
-      setLoading(false);
-    }
+      setListData(await callAudit(params));
+    } catch (e: any) { setListErr(e?.message || String(e)); }
+    finally { setListLoading(false); }
+  }
+
+  function exportListCSV() {
+    if (!listData) return;
+    const rows = listData.rows.map((r, i) => [
+      i + 1,
+      r.user_id,
+      r.display_name || '',
+      r.is_tester ? 'Y' : '',
+      r.line_user_id || '',
+      r.tier,
+      r.reason,
+      r.billing_cycle || '',
+      r.plan_id || '',
+      r.kind,
+      formatTaipeiYMDHM(r.used_at),
+      r.used ?? '',
+      r.limit ?? '',
+      r.remaining ?? '',
+      formatTaipeiYMDHM(r.last_used_at) || '尚未使用',
+    ]);
+    downloadCSV(
+      `quota-audit-list-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['#', 'user_id', 'display_name', 'is_tester', 'line_user_id',
+        'tier', 'reason', 'billing_cycle', 'plan_id',
+        'kind', 'used_at(Asia/Taipei)', 'used', 'limit', 'remaining', 'last_used_at'],
+      rows,
+    );
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <SEO title="健檢配額稽核" description="查詢用戶配額、扣次紀錄與訂閱來源" />
       <h1 className="text-2xl font-medium mb-2">健檢配額稽核</h1>
       <p className="text-sm text-muted-foreground mb-6">
-        追蹤每位用戶的 tier、last_used_at、used 次數與扣費原因（line_free_gift / subscription / tester）。
+        單筆查詢追蹤特定用戶；批次稽核可依 tier、扣費原因、日期區間篩選並匯出 CSV。
       </p>
 
-      <div className="flex flex-wrap gap-3 items-end mb-6 p-4 border rounded-lg bg-card">
-        <div className="flex-1 min-w-[260px]">
-          <label className="text-xs text-muted-foreground block mb-1">User ID (UUID)</label>
-          <input
-            value={userIdInput}
-            onChange={(e) => setUserIdInput(e.target.value)}
-            placeholder="00000000-0000-0000-0000-000000000000"
-            className="w-full px-3 py-2 border rounded text-sm font-mono"
-          />
+      {/* ===== 批次稽核 ===== */}
+      <section className="border rounded-lg p-4 mb-8 bg-card">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-medium">批次稽核（依篩選條件）</h2>
+          <button
+            onClick={exportListCSV}
+            disabled={!listData || listData.rows.length === 0}
+            className="px-3 py-1.5 border rounded text-xs disabled:opacity-40"
+          >
+            下載 CSV（{listData?.rows.length ?? 0} 筆）
+          </button>
         </div>
-        <div className="flex-1 min-w-[200px]">
-          <label className="text-xs text-muted-foreground block mb-1">或 Email</label>
-          <input
-            value={emailInput}
-            onChange={(e) => setEmailInput(e.target.value)}
-            placeholder="user@example.com"
-            className="w-full px-3 py-2 border rounded text-sm"
-          />
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+          <Lbl label="Tier">
+            <select value={tier} onChange={(e) => setTier(e.target.value)} className="w-full px-2 py-1.5 border rounded text-sm">
+              {TIER_OPTIONS.map((t) => <option key={t} value={t}>{t || '全部'}</option>)}
+            </select>
+          </Lbl>
+          <Lbl label="扣費原因">
+            <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-2 py-1.5 border rounded text-sm">
+              {REASON_OPTIONS.map((r) => <option key={r} value={r}>{r || '全部'}</option>)}
+            </select>
+          </Lbl>
+          <Lbl label="起始日">
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full px-2 py-1.5 border rounded text-sm" />
+          </Lbl>
+          <Lbl label="結束日">
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-2 py-1.5 border rounded text-sm" />
+          </Lbl>
+          <Lbl label="筆數上限">
+            <input
+              type="number" min={1} max={2000} value={listLimit}
+              onChange={(e) => setListLimit(Number(e.target.value) || 500)}
+              className="w-full px-2 py-1.5 border rounded text-sm"
+            />
+          </Lbl>
+          <button
+            onClick={runList}
+            disabled={listLoading}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50"
+          >
+            {listLoading ? '查詢中…' : '套用篩選'}
+          </button>
         </div>
-        <button
-          onClick={lookup}
-          disabled={loading}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50"
-        >
-          {loading ? '查詢中…' : '查詢'}
-        </button>
-      </div>
 
-      {error && (
-        <div className="p-3 mb-4 border border-destructive/40 bg-destructive/10 text-destructive text-sm rounded">
-          {error}
-        </div>
-      )}
+        {listErr && (
+          <div className="mt-3 p-3 border border-destructive/40 bg-destructive/10 text-destructive text-sm rounded">
+            {listErr}
+          </div>
+        )}
 
-      {data && (
-        <div className="space-y-6">
-          {/* Profile + Quota 快照 */}
-          <section className="border rounded-lg p-4">
-            <h2 className="text-sm font-medium mb-3 text-muted-foreground tracking-wider">配額快照</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <Field label="User ID" value={<span className="font-mono text-xs">{data.target_user_id}</span>} />
-              <Field label="顯示名稱" value={data.profile?.display_name || '—'} />
-              <Field label="Tester" value={data.profile?.is_tester ? '是' : '否'} />
-              <Field label="LINE ID" value={data.profile?.line_user_id || '—'} />
-              <Field label="Tier" value={<strong>{data.quota?.tier || 'n/a'}</strong>} />
-              <Field label="Period" value={data.quota?.period || 'n/a'} />
-              <Field label="Used / Limit" value={`${data.quota?.used ?? '?'} / ${data.quota?.limit ?? '?'}`} />
-              <Field label="Remaining" value={String(data.quota?.remaining ?? '?')} />
-              <Field label="Last Used At" value={formatTaipeiYMDHM(data.quota?.last_used_at) || '尚未使用'} />
-              <Field label="Resets At" value={
-                data.quota?.resets_at === 'infinity' || !data.quota?.resets_at
-                  ? '—'
-                  : formatTaipeiYMDHM(data.quota.resets_at)
-              } />
-              <Field label="扣費原因" value={<code className="text-xs">{data.reason}</code>} />
-              <Field label="抓取時間" value={formatTaipeiYMDHM(data.fetched_at)} />
+        {listData && (
+          <div className="mt-4">
+            <div className="text-xs text-muted-foreground mb-2">
+              共符合 {listData.total} 筆，本頁顯示 {listData.rows.length} 筆（已套用 tier/reason 過濾）
             </div>
-          </section>
-
-          {/* 訂閱 */}
-          <section className="border rounded-lg p-4">
-            <h2 className="text-sm font-medium mb-3 text-muted-foreground tracking-wider">
-              訂閱來源（最近 {data.subscriptions.length} 筆）
-            </h2>
-            {data.subscriptions.length === 0 ? (
-              <div className="text-sm text-muted-foreground">無訂閱紀錄</div>
+            {listData.rows.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-6 text-center">無符合條件的紀錄</div>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="text-xs text-muted-foreground border-b">
-                  <tr>
-                    <th className="text-left py-2">Plan</th>
-                    <th className="text-left">狀態</th>
-                    <th className="text-left">週期</th>
-                    <th className="text-left">起算</th>
-                    <th className="text-left">到期</th>
-                    <th className="text-left">取消</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.subscriptions.map((s) => (
-                    <tr key={s.id} className="border-b last:border-0">
-                      <td className="py-2 font-mono text-xs">{s.plan_id.slice(0, 8)}…</td>
-                      <td>{s.status}</td>
-                      <td>{s.billing_cycle || '—'}</td>
-                      <td>{formatTaipeiYMD(s.started_at)}</td>
-                      <td>{formatTaipeiYMD(s.expires_at) || '—'}</td>
-                      <td>{formatTaipeiYMD(s.canceled_at) || '—'}</td>
+              <div className="overflow-auto border rounded">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50 text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-2 py-1.5">用戶</th>
+                      <th className="text-left px-2 py-1.5">Tier</th>
+                      <th className="text-left px-2 py-1.5">扣費原因</th>
+                      <th className="text-left px-2 py-1.5">週期/Plan</th>
+                      <th className="text-left px-2 py-1.5">Kind</th>
+                      <th className="text-left px-2 py-1.5">扣次時間</th>
+                      <th className="text-left px-2 py-1.5">Used/Limit</th>
+                      <th className="text-left px-2 py-1.5">Last Used</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {listData.rows.map((r) => (
+                      <tr key={r.usage_id} className="border-t">
+                        <td className="px-2 py-1.5">
+                          <div className="font-medium">{r.display_name || '—'}</div>
+                          <div className="font-mono text-[10px] text-muted-foreground">{r.user_id.slice(0, 8)}…</div>
+                        </td>
+                        <td className="px-2 py-1.5"><strong>{r.tier}</strong>{r.is_tester && <span className="ml-1 text-[10px] text-muted-foreground">(tester)</span>}</td>
+                        <td className="px-2 py-1.5"><code className="text-[11px]">{r.reason}</code></td>
+                        <td className="px-2 py-1.5">{r.billing_cycle || '—'}</td>
+                        <td className="px-2 py-1.5"><code className="text-[11px]">{r.kind}</code></td>
+                        <td className="px-2 py-1.5 font-mono">{formatTaipeiYMDHM(r.used_at)}</td>
+                        <td className="px-2 py-1.5">{r.used ?? '?'}/{r.limit ?? '?'}</td>
+                        <td className="px-2 py-1.5 font-mono">{formatTaipeiYMDHM(r.last_used_at) || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </section>
+          </div>
+        )}
+      </section>
 
-          {/* 扣次紀錄 */}
-          <section className="border rounded-lg p-4">
-            <h2 className="text-sm font-medium mb-3 text-muted-foreground tracking-wider">
-              扣次紀錄（最近 {data.usage.length} 筆）
-            </h2>
-            {data.usage.length === 0 ? (
-              <div className="text-sm text-muted-foreground">尚未使用</div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="text-xs text-muted-foreground border-b">
-                  <tr>
-                    <th className="text-left py-2">#</th>
-                    <th className="text-left">Kind</th>
-                    <th className="text-left">使用時間（Asia/Taipei）</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.usage.map((u, i) => (
-                    <tr key={u.id} className="border-b last:border-0">
-                      <td className="py-2 text-muted-foreground">{i + 1}</td>
-                      <td><code className="text-xs">{u.kind}</code></td>
-                      <td className="font-mono text-xs">{formatTaipeiYMDHM(u.used_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </section>
+      {/* ===== 單筆查詢 ===== */}
+      <section className="border rounded-lg p-4 bg-card">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-medium">單筆查詢</h2>
+          <button
+            onClick={exportSingleCSV}
+            disabled={!singleData}
+            className="px-3 py-1.5 border rounded text-xs disabled:opacity-40"
+          >
+            下載 CSV
+          </button>
         </div>
-      )}
+        <div className="flex flex-wrap gap-3 items-end mb-4">
+          <div className="flex-1 min-w-[260px]">
+            <label className="text-xs text-muted-foreground block mb-1">User ID (UUID)</label>
+            <input value={userIdInput} onChange={(e) => setUserIdInput(e.target.value)}
+              placeholder="00000000-…" className="w-full px-3 py-2 border rounded text-sm font-mono" />
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <label className="text-xs text-muted-foreground block mb-1">或 Email</label>
+            <input value={emailInput} onChange={(e) => setEmailInput(e.target.value)}
+              placeholder="user@example.com" className="w-full px-3 py-2 border rounded text-sm" />
+          </div>
+          <button onClick={lookup} disabled={singleLoading}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50">
+            {singleLoading ? '查詢中…' : '查詢'}
+          </button>
+        </div>
+
+        {singleErr && (
+          <div className="p-3 mb-4 border border-destructive/40 bg-destructive/10 text-destructive text-sm rounded">
+            {singleErr}
+          </div>
+        )}
+
+        {singleData && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xs font-medium mb-2 text-muted-foreground tracking-wider">配額快照</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <Field label="User ID" value={<span className="font-mono text-xs">{singleData.target_user_id}</span>} />
+                <Field label="顯示名稱" value={singleData.profile?.display_name || '—'} />
+                <Field label="Tester" value={singleData.profile?.is_tester ? '是' : '否'} />
+                <Field label="LINE ID" value={singleData.profile?.line_user_id || '—'} />
+                <Field label="Tier" value={<strong>{singleData.quota?.tier || 'n/a'}</strong>} />
+                <Field label="Period" value={singleData.quota?.period || 'n/a'} />
+                <Field label="Used / Limit" value={`${singleData.quota?.used ?? '?'} / ${singleData.quota?.limit ?? '?'}`} />
+                <Field label="Remaining" value={String(singleData.quota?.remaining ?? '?')} />
+                <Field label="Last Used At" value={formatTaipeiYMDHM(singleData.quota?.last_used_at) || '尚未使用'} />
+                <Field label="Resets At" value={
+                  singleData.quota?.resets_at === 'infinity' || !singleData.quota?.resets_at
+                    ? '—' : formatTaipeiYMDHM(singleData.quota.resets_at)
+                } />
+                <Field label="扣費原因" value={<code className="text-xs">{singleData.reason}</code>} />
+                <Field label="抓取時間" value={formatTaipeiYMDHM(singleData.fetched_at)} />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-medium mb-2 text-muted-foreground tracking-wider">
+                訂閱來源（最近 {singleData.subscriptions.length} 筆）
+              </h3>
+              {singleData.subscriptions.length === 0 ? (
+                <div className="text-sm text-muted-foreground">無訂閱紀錄</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="text-xs text-muted-foreground border-b">
+                    <tr>
+                      <th className="text-left py-2">Plan</th><th className="text-left">狀態</th>
+                      <th className="text-left">週期</th><th className="text-left">起算</th>
+                      <th className="text-left">到期</th><th className="text-left">取消</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {singleData.subscriptions.map((s) => (
+                      <tr key={s.id} className="border-b last:border-0">
+                        <td className="py-2 font-mono text-xs">{s.plan_id.slice(0, 8)}…</td>
+                        <td>{s.status}</td><td>{s.billing_cycle || '—'}</td>
+                        <td>{formatTaipeiYMD(s.started_at)}</td>
+                        <td>{formatTaipeiYMD(s.expires_at) || '—'}</td>
+                        <td>{formatTaipeiYMD(s.canceled_at) || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div>
+              <h3 className="text-xs font-medium mb-2 text-muted-foreground tracking-wider">
+                扣次紀錄（最近 {singleData.usage.length} 筆）
+              </h3>
+              {singleData.usage.length === 0 ? (
+                <div className="text-sm text-muted-foreground">尚未使用</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="text-xs text-muted-foreground border-b">
+                    <tr>
+                      <th className="text-left py-2">#</th><th className="text-left">Kind</th>
+                      <th className="text-left">使用時間（Asia/Taipei）</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {singleData.usage.map((u, i) => (
+                      <tr key={u.id} className="border-b last:border-0">
+                        <td className="py-2 text-muted-foreground">{i + 1}</td>
+                        <td><code className="text-xs">{u.kind}</code></td>
+                        <td className="font-mono text-xs">{formatTaipeiYMDHM(u.used_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -220,6 +413,15 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
     <div>
       <div className="text-xs text-muted-foreground mb-1">{label}</div>
       <div>{value}</div>
+    </div>
+  );
+}
+
+function Lbl({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-xs text-muted-foreground block mb-1">{label}</label>
+      {children}
     </div>
   );
 }
