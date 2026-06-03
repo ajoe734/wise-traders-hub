@@ -76,11 +76,15 @@ export function CheckupPlansSection() {
               <span className="text-3xl font-bold">0</span>
               <span className="text-muted-foreground text-sm">／月</span>
             </div>
-            <p className="text-xs text-muted-foreground">登入即可使用</p>
+            <p className="text-xs text-muted-foreground">LINE 註冊禮：第一次免費；第二次起需付費</p>
             <ul className="space-y-1.5">
               <li className="flex items-center gap-2 text-sm">
                 <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                <span>每月 1 次 AI 健檢</span>
+                <span>LINE 註冊：終身 1 次 AI 健檢</span>
+              </li>
+              <li className="flex items-center gap-2 text-sm">
+                <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                <span>Email 註冊：需訂閱後使用</span>
               </li>
               <li className="flex items-center gap-2 text-sm">
                 <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
