@@ -534,7 +534,23 @@ export default function CompanyTraffic() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="instruments">
+          <TabsContent value="instruments" className="space-y-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Top 20 個股（依事件數）</CardTitle></CardHeader>
+              <CardContent>
+                {(instruments || []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-6 text-center">尚無個股事件</p>
+                ) : (
+                  <Suspense fallback={<ChartFallback h={500} />}>
+                    <Charts.HorizontalBar
+                      data={(instruments || []).slice(0, 20).map(i => ({ name: i.instrument, value: i.events }))}
+                      valueLabel="次"
+                      color="hsl(var(--mentor))"
+                    />
+                  </Suspense>
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">熱門個股 Top 30</CardTitle>
