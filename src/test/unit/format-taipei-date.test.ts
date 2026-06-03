@@ -3,6 +3,7 @@ import {
   formatTaipeiYMD,
   formatTaipeiYMDWithFallback,
   formatTaipeiYMDHM,
+  formatTaipeiYMDHMWithFallback,
 } from '@/checkup/utils/formatTaipeiDate';
 
 describe('formatTaipeiYMD', () => {
