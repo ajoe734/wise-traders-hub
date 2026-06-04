@@ -88,7 +88,8 @@ const handler = withLogging('checkup-research-extract', async (req, log) => {
     });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
-    const quotaResult = await consumeCheckupQuota(req, 'research-extract', corsHeaders);
+    // 研究資料抽取不扣配額（僅需登入）— 屬資料整理工具
+    const quotaResult = await requireCheckupAuth(req, corsHeaders);
     if (!quotaResult.ok) return quotaErrorResponse(quotaResult, corsHeaders);
 
     const { report, stock, dossier } = body;

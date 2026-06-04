@@ -428,9 +428,10 @@ const handler = withLogging('checkup-predict-events', async (req, log) => {
       }
     }
 
-    // Cache miss → consume one quota credit before doing AI work
-    const quota = await consumeCheckupQuota(req, 'predict-events', corsHeaders);
+    // 事件預測不扣配額（背景自動觸發 / 資料工具，僅需登入）
+    const quota = await requireCheckupAuth(req, corsHeaders);
     if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+
 
     // Collect stock codes
     const allCodes = new Set<string>();
