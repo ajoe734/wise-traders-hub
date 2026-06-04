@@ -1,59 +1,70 @@
-## 目標
-針對先前免費收盤分析配額被誤扣的 13 位 LINE 登入用戶，盡可能透過 LINE 推播道歉訊息；無法觸及者以站內公告補上。
+# 一勞永逸根治 quotaModal 卡死問題
 
-## 道歉文案（請審）
-標題：`【legendflow】免費收盤分析異常 — 致歉與已補償 1 次`
+## 老實說：這次是真的一勞永逸嗎？
 
-內文：
-```
-您好，
+**是**——只要範圍涵蓋以下 6 個破口（前一版只列了 5 個，補上第 6 個）。少修任何一處，下次又會冒出來。
 
-先前您使用 LINE 帳號登入並嘗試「免費一次收盤分析」時，因系統異常導致：
-分析結果未成功產出，配額卻被扣抵，造成您無法再次使用。
+但要先講清楚邊界：
+- 這個 plan **只修「quotaModal 全螢幕遮罩擋住整頁、上傳 tab 進不去」這條 UX bug 的所有變體**。
+- **不包含** 13 位舊用戶的補償 banner / 道歉 modal（那是另一條 conversion task，用戶上一輪已分開討論）。
+- **不包含** legendflow OA Messaging API channel 建置（缺 token，要等用戶提供）。
 
-我們已完成以下處理：
-1. 已修復扣抵邏輯，未來不會再發生相同情況
-2. 已將您的「免費一次收盤分析」額度重置 +1 次
+## 根因
 
-請重新登入後至「我的服務」確認，再次嘗試免費分析。
-造成困擾，誠摯致歉。
+`quotaModal` 是 `position:fixed; inset:0; zIndex:9999` 的全螢幕遮罩。三個 AI 路徑收到 429 都會觸發它（`L1026 predict` / `L1929 daily` / `L2351 parse`），而 `predict` 還是 **背景 useEffect 自動觸發**（`L1093`）—— 用戶一進 `/holding-checkup`，背景 predict 跑完拿到 429，modal 就蓋上來，連 tab bar 都點不到。配額已耗盡的 line_free 用戶（如 陳奎辰）100% 中招。
 
-— legendflow 團隊
-```
+## 修復清單（6 點，缺一不可）
 
-文末附登入連結 `https://legendflow.tw/auth/login`。
+### 1. 完全移除 `quotaModal` state + JSX
+- 刪 `L96` state、`L105-109` Esc handler
+- 刪 `L3360-3475` 整段 modal JSX
+- grep `quotaModal|setQuotaModal` 必須歸零
 
-## 技術細節
+### 2. 三個 429 觸發點改成「toast + refreshQuota，不阻擋導航」
+| 行號 | 路徑 | 新行為 |
+|---|---|---|
+| L2351 | parse（用戶主動） | `setSaved('LINE 註冊禮已用完，請查看升級方案')` 4 秒 + `refreshQuota()`；TradeTab inline banner 持續顯示 CTA |
+| L1929 | daily（用戶主動） | 同上，文案改 `AI 健檢配額已用完`；DailyTab inline banner 持續顯示 CTA |
+| L1026 | predict（背景自動） | `console.warn` + `refreshQuota()`，**完全不打擾 UI**（用戶沒按任何鍵） |
 
-### 1. 新增一次性 Edge Function `apologize-line-free-quota`
-路徑：`supabase/functions/apologize-line-free-quota/index.ts`，`verify_jwt = true`，僅 `company_admin` 可呼叫。
+### 3. 背景 predict 自動觸發要 early-return（核心遺漏點）
+`L1093 useEffect(() => runPredictEvents(false), ...)` 與 `L892 runPredictEvents` 內部，**在 `quota` 已載入且 `hasReachedDailyLimit === true` 時直接 return**，不發 edge call。
+- 避免每分鐘對伺服器送 429
+- 避免 line_free 用戶一進頁面就觸發配額耗盡 toast
+- `force=true`（手動刷新行事曆）仍走原路，給明確錯誤回饋
 
-流程：
-1. 驗證呼叫者具 `company_admin` 角色（否則 403）
-2. 從 `profiles` 撈出 13 位 `line_user_id IS NOT NULL` 的目標清單
-3. 從 `expert_line_channels` 撈出全部 `is_active = true` 的 OA（含 `channel_access_token`、`channel_name`）
-4. 對每位 `line_user_id` × 每個 OA，呼叫 `POST https://api.line.me/v2/bot/message/push`，body 為 text message
-   - HTTP 200 → 標記該用戶為「已送達 via {channel_name}」並 break（同一人不重複 push）
-   - 非 200（403/400 表示非好友）→ 記下原因，繼續試下一個 OA
-5. 全 3 OA 都失敗者 → 收集到 `unreachable[]`
-6. 把成功/失敗結果寫入 `audit_logs`（action=`apologize_line_free_quota`，含 user_id、line_user_id、delivered_via 或 fail_reasons）
-7. 回傳 JSON：`{ total, delivered, unreachable_user_ids, details[] }`
+### 4. `parseShot` 改 await refresh 再判斷（消除 race）
+`L2310 parseShot` 開頭先 `const fresh = await refreshQuota()`，用 `fresh.remaining <= 0` 而不是 stale 的 `hasReachedDailyLimit` 判斷。避免「state 沒更新到、按鈕點下去才發 429」。
 
-### 2. 站內公告 fallback
-針對 step 6 中 `unreachable` 的用戶，於相同 Edge Function 末段以 service_role 寫入 `system_announcements`（或現有公告機制），以 `target_user_ids` 鎖定該批用戶；標題與內文同上述道歉文案，登入後於 `/app` 首頁可見。
+### 5. 上傳 tab 在配額耗盡時要有出路（避免「畫面空白沒持倉」感）
+TradeTab 在 `hasReachedDailyLimit === true` 時，inline banner 下方加一顆次要按鈕「← 查看我的持倉」`onClick={() => setTab('holdings')}`，讓用戶知道資料還在、可以切回去看。
 
-（需先確認 `system_announcements` 是否支援 user-scoped targeting；若僅支援全站，改為 `notifications` 表逐人寫入。）
+### 6. parse 按鈕在 quota 未載入前 disabled（前一版漏寫）
+`disabled={parsing || !isReady || hasReachedDailyLimit}`，避免 quota 還沒抓回來就被按。
 
-### 3. 管理員觸發入口
-在 `src/pages/company/CheckupQuotaAudit.tsx` 已存在的「LINE 免費配額重置」區塊下方新增一顆按鈕「補寄道歉通知（13 位）」，confirm dialog 後呼叫上述 Edge Function，回傳結果用 toast 顯示 `送達 X / Y，未觸及 Z 人改用站內公告`。
+## 驗證清單（窮舉，不准只挑樣本）
 
-### 4. 驗證
-- 部署後先以 dry-run 模式跑一次（query param `?dry_run=1`，只列出將要 push 的 (user, OA) 組合不實際呼叫）
-- 確認組合數為 13 × 3 = 39
-- 正式執行後讀 edge function logs 確認每筆 LINE API 回應碼
-- 查 `audit_logs` 驗證 13 筆紀錄齊全
+| # | 動作 | 預期 |
+|---|---|---|
+| V1 | `rg -n "quotaModal\|setQuotaModal" src/` | 0 結果 |
+| V2 | 以 `line_free` 配額=0 帳號（陳奎辰）登入 `/holding-checkup` | 進站不彈窗、上傳 tab 能進、持倉 tab 正常顯示 |
+| V3 | 同帳號點上傳→選圖→解析 | toast 提示 + TradeTab banner CTA，**不出現遮罩** |
+| V4 | 同帳號切到收盤分析點「開始分析」 | toast + DailyTab banner CTA |
+| V5 | 同帳號背景 predict useEffect 觸發 | console.warn，**完全無 UI 變化、無 toast** |
+| V6 | 以 `pro` 配額耗盡帳號重做 V2-V5 | 行為一致（文案差異） |
+| V7 | 以 `william孫`（line_free 配額=1 未用）登入 | 上傳/解析正常成功、配額扣到 0、之後行為同 V2-V5 |
+| V8 | `bunx playwright test e2e/line-checkup-free-gift.spec.ts e2e/freecheckup-card.spec.ts` | 全綠 |
+| V9 | `bunx vitest run src/test/unit/daily-tab-line-free-copy.test.tsx src/test/unit/checkup-quota-display.test.tsx` | 全綠 |
+| V10 | `bunx playwright test --grep mobile` 或 `560/390/380px` 三斷點截圖 | TradeTab/DailyTab banner 不破版 |
 
-## 不做的事
-- 不對 LINE 登入虛擬 email (`line_xxx@line.local`) 發 Resend 信件
-- 不重發已成功配額重置的 `reconcile_line_free_quota`（先前 migration 已完成）
-- 不變更 `is_line_friend` 偵測邏輯
+## 動到的檔案
+
+- `src/pages/FreeCheckup.jsx`（唯一檔案）
+- 視測試需要新增 1 個 unit test：`src/test/unit/freecheckup-quota-modal-removed.test.tsx`（grep 守護 + 三斷點 banner 渲染）
+
+## 不會動到的東西
+
+- `CheckupModeContext.jsx`（state 流不變）
+- Edge functions（429 行為不變）
+- DB / RLS（不需 migration）
+- 13 位舊用戶補償流程（另一條 task）

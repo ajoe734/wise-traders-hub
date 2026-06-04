@@ -92,21 +92,14 @@ export default function App() {
   const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota, applyQuotaFromResponse, supabaseUser } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
   useEffect(() => { trackRaw('checkup_view', { tab: 'holdings' }); }, []);
-  // 配額不足彈窗（429 QUOTA_EXCEEDED 兜底）
-  const [quotaModal, setQuotaModal] = useState(null); // null | { trigger: 'parse'|'daily'|'predict'|'research' }
+  // 配額耗盡採 inline banner（TradeTab L162 / DailyTab）+ toast 提示，
+  // 不再使用全螢幕 modal，避免擋住 tab 導航（見 .lovable/plan.md）
   // 每分鐘 tick 一次，重新計算「距離重置」倒數
   const [, setQuotaTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setQuotaTick(n => n + 1), 60000);
     return () => clearInterval(t);
   }, []);
-  // ESC 關閉配額 Modal
-  useEffect(() => {
-    if (!quotaModal) return;
-    const onKey = (e) => { if (e.key === 'Escape') setQuotaModal(null); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [quotaModal]);
   const [ready, setReady] = useState(false);
 
   // AI 覆蓋的 meta（產業/策略/領頭/部位），優先於 STOCK_META
@@ -900,6 +893,10 @@ export default function App() {
       }
       return;
     }
+    // 配額已耗盡時，背景自動觸發直接跳過，避免每分鐘對伺服器送 429（手動 force 仍走原路給明確錯誤）
+    if (!force && !isDemo && hasReachedDailyLimit) {
+      return;
+    }
     // 重試上限與冷卻檢查（僅作用於 force 觸發；自動觸發不受限）
     if (force) {
       const now = Date.now();
@@ -1021,9 +1018,10 @@ export default function App() {
           const dataCode = body?.code || body?.error_code || body?.error?.code;
           const dataMsg = String(body?.error || body?.message || "");
           if (status === 429 && (dataCode === 'QUOTA_EXCEEDED' || dataMsg.includes('QUOTA_EXCEEDED'))) {
+            // 背景自動觸發配額用盡：完全不打擾 UI（用戶沒按任何鍵），只 refresh quota
             try { await refreshQuota?.(); } catch {}
             needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
-            setQuotaModal({ trigger: 'predict' });
+            console.warn('[predict] background QUOTA_EXCEEDED, silenced');
             setPredictingEvents(false);
             setPredictAutoStatus({ status: 'idle', msg: '' });
             return;
@@ -1923,10 +1921,10 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
           clearTimeout(analyzeTimer);
           aiHttpStatus = e?.status || 0;
           aiErrBody = typeof e?.body === 'object' ? JSON.stringify(e.body) : (e?.message || '');
-          // 配額用盡兜底：彈 modal 而不是當錯誤
+          // 配額用盡：toast + 仰賴 DailyTab inline banner 顯示完整升級 CTA
           if (aiHttpStatus === 429 && (e?.body?.error === 'QUOTA_EXCEEDED' || /QUOTA_EXCEEDED/.test(aiErrBody))) {
             try { await refreshQuota?.(); } catch {}
-            setQuotaModal({ trigger: 'daily' });
+            toast.error('AI 健檢配額已用完，請查看升級方案');
             setAnalyzing(false); setAnalyzeStep("");
             return;
           }
@@ -2314,10 +2312,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       startLineLogin();
       return;
     }
-    // LINE 免費用戶每日限制
-    if (hasReachedDailyLimit) {
-      setSaved("今日免費健檢次數已用完，明天再來");
-      setTimeout(() => setSaved(""), 4000);
+    // 先 await 最新 quota，避免 stale state 導致 race（按下去才發 429）
+    let freshQuota = null;
+    try { freshQuota = await refreshQuota?.(); } catch {}
+    const remaining = freshQuota?.remaining ?? (hasReachedDailyLimit ? 0 : 1);
+    if (remaining <= 0) {
+      toast.error('AI 健檢配額已用完，請查看升級方案');
       return;
     }
     setParsing(true); setParseErr(null);
@@ -2346,10 +2346,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           });
         } catch (e) {
           // 配額用盡兜底（截圖解析）
+          // 配額用盡：toast + 仰賴 TradeTab inline banner（L162）顯示完整升級 CTA
           if (e?.status === 429 && (e?.body?.error === 'QUOTA_EXCEEDED' || /QUOTA_EXCEEDED/.test(JSON.stringify(e?.body || {})))) {
             try { await refreshQuota?.(); } catch {}
-            setQuotaModal({ trigger: 'parse' });
-            setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請查看右上方升級提示' });
+            toast.error('LINE 註冊禮已用完，請查看升級方案');
+            setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請見下方升級方案' });
             setParsing(false);
             return;
           }
@@ -3357,122 +3358,8 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
         </SheetContent>
       </Sheet>
 
-      {/* ══════════ 配額不足 Modal（429 QUOTA_EXCEEDED 兜底）══════════ */}
-      {quotaModal && (() => {
-        const used = Number(quota?.used || 0);
-        const limit = Math.max(Number(quota?.limit || 0), 0);
-        const periodCN = quota?.period === 'lifetime' ? '終身'
-          : quota?.period === 'week' ? '本週'
-          : '本月';
-        const showUpgrade = tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none';
-        const isNone = tier === 'none';
-        const isLineFree = tier === 'line_free';
-        const triggerLabel = {
-          parse: '截圖解析',
-          daily: '收盤分析',
-          predict: '事件預測',
-          research: '系統審視',
-        }[quotaModal.trigger] || 'AI 健檢';
-        const headline = isNone
-          ? '收盤分析為訂閱功能'
-          : isLineFree
-            ? 'LINE 註冊禮 1 次已用完'
-            : `${periodCN} AI 健檢配額已用完`;
-        const upgradeBlurb = isNone
-          ? '訂閱 Basic（每週 1 次）或 Pro（每月 22 次）後即可使用'
-          : isLineFree
-            ? 'LINE 註冊禮為一次性贈送，訂閱方案後可繼續使用'
-            : tier === 'free'
-              ? '想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）'
-              : '升級 Pro 即可每月使用 22 次';
-        const ctaLabel = tier === 'basic' ? '升級 Pro' : '查看訂閱方案';
-        return (
-          <div
-            role="dialog"
-            aria-modal="true"
-            onClick={() => setQuotaModal(null)}
-            style={{
-              position:"fixed", inset:0, zIndex:9999,
-              background:"rgba(20,18,15,0.45)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              padding:16,
-            }}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                width:"100%", maxWidth:380,
-                background:C.card,
-                border:`1px solid ${C.border}`,
-                borderRadius:12,
-                padding:"22px 20px",
-              }}
-            >
-              <div style={{fontSize:10,letterSpacing:"0.12em",color:C.textMute,marginBottom:8,fontWeight:500}}>
-                {tierLabel} · {triggerLabel}
-              </div>
-              <div style={{fontSize:16,fontWeight:500,color:C.text,marginBottom:10,letterSpacing:"0.02em"}}>
-                {headline}
-              </div>
-              <div style={{fontSize:12,color:C.textMute,lineHeight:1.8,marginBottom:14}}>
-                {isNone ? (
-                  <>尚未訂閱，無法使用 AI 收盤分析</>
-                ) : isLineFree ? (
-                  <>已使用 <span style={{color:C.text,fontWeight:500}}>{used} / {limit}</span> 次（一次性贈送、用完不重置）</>
-                ) : (
-                  <>
-                    已使用 <span style={{color:C.text,fontWeight:500}}>{used} / {limit}</span> 次<br/>
-                    重置時間：<span style={{color:C.textSec}}>{formatResetDateTime(quota?.resets_at) || '—'}</span><br/>
-                    <span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
-                  </>
-                )}
-              </div>
-              {showUpgrade && (
-                <div style={{
-                  fontSize:11,color:C.textMute,lineHeight:1.7,
-                  padding:"10px 12px",background:alpha(C.blue,'06'),
-                  border:`1px solid ${alpha(C.blue,'22')}`,borderRadius:8,marginBottom:14,
-                }}>
-                  {upgradeBlurb}
-                </div>
-              )}
-              <div style={{display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
-                <button
-                  onClick={() => { setQuotaModal(null); setTab('holdings'); }}
-                  style={{
-                    padding:"8px 14px",borderRadius:6,
-                    border:"none",background:"transparent",
-                    color:C.textMute,fontSize:12,cursor:"pointer",letterSpacing:"0.02em",
-                  }}
-                >← 回到持倉</button>
-                <div style={{display:"flex",gap:8}}>
-                <button
-                  onClick={() => setQuotaModal(null)}
-                  style={{
-                    padding:"8px 16px",borderRadius:6,
-                    border:`1px solid ${C.border}`,background:"transparent",
-                    color:C.textSec,fontSize:12,cursor:"pointer",letterSpacing:"0.02em",
-                  }}
-                >我知道了</button>
-                {showUpgrade && (
-                  <a
-                    href="/pricing#checkup"
-                    autoFocus
-                    ref={(el) => { if (el) { try { el.focus(); } catch {} } }}
-                    style={{
-                      padding:"8px 18px",borderRadius:6,
-                      background:C.blue,color:"#fff",
-                      fontSize:12,fontWeight:500,textDecoration:"none",letterSpacing:"0.02em",
-                      outline:`2px solid ${alpha(C.blue,'33')}`, outlineOffset:2,
-                    }}
-                  >{ctaLabel}</a>
-                )}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* 配額不足 modal 已移除（2026-06）— 全螢幕遮罩會擋住 tab 導航，
+          現改用 TradeTab/DailyTab inline banner + toast 提示。見 .lovable/plan.md */}
     </div>
   );
 }
