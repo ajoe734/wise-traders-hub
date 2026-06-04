@@ -231,6 +231,23 @@ serve(async (req) => {
       }
     }
 
+    // Auto-reconcile free-tier checkup quota for this LINE user. If the user
+    // was charged a usage row but no analysis result was ever stored
+    // (e.g. mid-flow crash), refund the row so the free analysis is usable.
+    // Fire-and-forget: never block the login redirect on this.
+    try {
+      const rec = await supabaseAdmin.rpc('reconcile_line_free_quota', { _user_id: userId });
+      if (rec.error) {
+        console.warn('[LINE-CB-FN] reconcile_line_free_quota error:', rec.error.message);
+      } else {
+        console.log('[LINE-CB-FN] reconcile_line_free_quota:', JSON.stringify(rec.data));
+      }
+    } catch (e) {
+      console.warn('[LINE-CB-FN] reconcile_line_free_quota threw:', (e as Error).message);
+    }
+
+
+
     // Generate a magic link, then consume it server-side to obtain durable
     // access_token + refresh_token. Storing those behind a one-time nonce
     // prevents IAB / iOS link-preview pre-fetches from killing the user's
