@@ -8,6 +8,7 @@ import { useAccountData } from '@/hooks/app/useAccountData';
 import { SubscriptionCard } from '@/pages/_appAccount/SubscriptionCard';
 import { LinePartySection } from '@/pages/_appAccount/LinePartySection';
 import { FreeCheckupQuotaCard } from '@/pages/_appAccount/FreeCheckupQuotaCard';
+import { PredictEventsCard } from '@/pages/_appAccount/PredictEventsCard';
 
 
 const Account = () => {
@@ -59,6 +60,7 @@ const Account = () => {
         </Card>
 
         <FreeCheckupQuotaCard />
+        <PredictEventsCard />
 
         <div className="space-y-3">
           <h2 className="text-lg font-semibold flex items-center gap-2">

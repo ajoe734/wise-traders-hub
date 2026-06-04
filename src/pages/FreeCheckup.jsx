@@ -1048,6 +1048,15 @@ export default function App() {
           pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg:data.error || `fallback (${data.code || 'unknown'})` });
           return;
         }
+        if (data?.gated) {
+          // Gate 規則命中（免費永久停 / 付費視窗外 / 付費今日已用）
+          needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
+          const gateMsg = data.message || '事件預測目前無法執行';
+          try { toast.error(gateMsg); } catch {}
+          flashPredictStatus('error', gateMsg);
+          pushUpdateLog({ source:'predict', trigger, status:'error', key:batchKey, msg: `gated:${data.code || 'UNKNOWN'}` });
+          return;
+        }
         if (data?.quota) { try { applyQuotaFromResponse?.(data); } catch {} }
         const preds = data?.predictions || [];
 
