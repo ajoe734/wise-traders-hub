@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.derive_traffic_channel(text, text, text) FROM PUBLIC;
