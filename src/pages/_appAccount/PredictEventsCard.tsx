@@ -230,3 +230,23 @@ function StatusPill({ decision }: { decision: ReturnType<typeof evaluatePredictG
     </span>
   );
 }
+
+/** 計算「視窗結束」UTC：對應台北時間當日 13:40。 */
+function windowEndUtc(now: Date): Date {
+  const tp = toTaipei(now);
+  const dayStart = new Date(`${tp.ymd}T00:00:00+08:00`);
+  return new Date(dayStart.getTime() + (13 * 60 + 40) * 60 * 1000);
+}
+
+/** 將兩個時刻差距格式化為「X 小時 Y 分鐘」或「Y 分鐘 Z 秒」。 */
+function formatCountdown(from: Date, to: Date): string {
+  let ms = to.getTime() - from.getTime();
+  if (ms <= 0) return '0 分鐘';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h} 小時 ${m} 分鐘`;
+  if (m > 0) return `${m} 分鐘 ${s} 秒`;
+  return `${s} 秒`;
+}
