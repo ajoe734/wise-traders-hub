@@ -29,7 +29,7 @@ import {
 type DeniedDecision = Extract<GateDecision, { allowed: false }>;
 const denied = (d: GateDecision): DeniedDecision => {
   if (d.allowed) throw new Error('expected denied decision');
-  return d;
+  return d as DeniedDecision;
 };
 
 const UTC = (iso: string) => new Date(iso + 'Z');
