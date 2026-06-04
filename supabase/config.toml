@@ -121,3 +121,8 @@ verify_jwt = false
 [functions.traffic-cleanup]
 verify_jwt = false
 
+[functions.line-login-exchange-nonce]
+verify_jwt = false
+
+
+

@@ -231,45 +231,86 @@ serve(async (req) => {
       }
     }
 
-    // Generate a magic link token for the client to establish a real Supabase session
+    // Generate a magic link, then consume it server-side to obtain durable
+    // access_token + refresh_token. Storing those behind a one-time nonce
+    // prevents IAB / iOS link-preview pre-fetches from killing the user's
+    // session (the previous flow exposed a single-use OTP to the client).
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email,
+      options: {
+        redirectTo: `${siteUrl}/auth/line-callback`,
+      },
     });
 
-    if (linkError || !linkData) {
-      console.error('Failed to generate magic link:', linkError);
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error('[LINE-CB-FN] generateLink failed:', linkError);
       return new Response(null, {
         status: 302,
         headers: { Location: `${siteUrl}${safeReturnTo}?line_error=session_failed` },
       });
     }
 
-    // Extract token_hash from the generated link
-    const tokenHash = linkData.properties?.hashed_token;
-    if (!tokenHash) {
-      console.error('No hashed_token in link data');
+    // Server-side follow the magic link with redirect:'manual' to capture
+    // the Supabase auth redirect whose URL fragment contains the tokens.
+    let accessToken: string | null = null;
+    let refreshToken: string | null = null;
+    try {
+      const verifyRes = await fetch(linkData.properties.action_link, { redirect: 'manual' });
+      const loc = verifyRes.headers.get('Location') || verifyRes.headers.get('location');
+      if (loc) {
+        // Tokens are in the URL fragment: ...#access_token=...&refresh_token=...
+        const hashIdx = loc.indexOf('#');
+        if (hashIdx >= 0) {
+          const frag = new URLSearchParams(loc.slice(hashIdx + 1));
+          accessToken = frag.get('access_token');
+          refreshToken = frag.get('refresh_token');
+        }
+      }
+    } catch (e) {
+      console.error('[LINE-CB-FN] follow magic link failed:', (e as Error).message);
+    }
+
+    if (!accessToken || !refreshToken) {
+      console.error('[LINE-CB-FN] could not extract tokens from magic link redirect');
       return new Response(null, {
         status: 302,
         headers: { Location: `${siteUrl}${safeReturnTo}?line_error=session_failed` },
       });
     }
 
-    // Redirect to client with token_hash for session exchange
+    // Persist nonce (60s TTL). Single-use; client exchanges via line-login-exchange-nonce.
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+    const { data: nonceRow, error: nonceError } = await supabaseAdmin
+      .from('line_login_nonces')
+      .insert({
+        user_id: userId,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+      })
+      .select('nonce')
+      .single();
+
+    if (nonceError || !nonceRow?.nonce) {
+      console.error('[LINE-CB-FN] nonce insert failed:', nonceError);
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `${siteUrl}${safeReturnTo}?line_error=session_failed` },
+      });
+    }
+
     const params = new URLSearchParams({
-      token_hash: tokenHash,
-      type: 'magiclink',
+      nonce: nonceRow.nonce as string,
       return_to: safeReturnTo,
     });
 
     const finalUrl = `${siteUrl}/auth/line-callback?${params.toString()}`;
-    console.log('[LINE-CB-FN] ✅ Final redirect:', finalUrl);
+    console.log('[LINE-CB-FN] ✅ Final redirect (nonce flow):', finalUrl);
 
     return new Response(null, {
       status: 302,
-      headers: {
-        Location: finalUrl,
-      },
+      headers: { Location: finalUrl },
     });
   } catch (error) {
     console.error('LINE callback error:', error);
@@ -280,3 +321,4 @@ serve(async (req) => {
     });
   }
 });
+
