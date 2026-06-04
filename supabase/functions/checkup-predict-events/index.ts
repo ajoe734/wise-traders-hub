@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
-import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
+import { requireCheckupAuth, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
@@ -428,9 +428,10 @@ const handler = withLogging('checkup-predict-events', async (req, log) => {
       }
     }
 
-    // Cache miss → consume one quota credit before doing AI work
-    const quota = await consumeCheckupQuota(req, 'predict-events', corsHeaders);
+    // 事件預測不扣配額（背景自動觸發 / 資料工具，僅需登入）
+    const quota = await requireCheckupAuth(req, corsHeaders);
     if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
+
 
     // Collect stock codes
     const allCodes = new Set<string>();
@@ -532,7 +533,6 @@ ${eventsForPrompt}
 
     return new Response(JSON.stringify({
       predictions,
-      quota: quota.quota,
       ...(debugInfo ? { debug: debugInfo } : {}),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

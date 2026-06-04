@@ -135,3 +135,43 @@ export function quotaErrorResponse(
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
+
+/**
+ * Verify JWT only (no quota consumption).
+ * Use for free AI entries that should still require login but not burn quota
+ * (e.g. parse, predict-events, research-extract).
+ *
+ * Returns ok:true with userId, or ok:false with 401 body.
+ */
+export async function requireCheckupAuth(
+  req: Request,
+  _corsHeaders: Record<string, string> = {},
+): Promise<QuotaResult> {
+  const authHeader = req.headers.get('Authorization') || '';
+  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!jwt) {
+    return {
+      ok: false,
+      status: 401,
+      body: { code: 'AUTH_REQUIRED', error: 'AUTH_REQUIRED', message: '請先登入再使用 AI 功能' },
+    };
+  }
+  try {
+    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { Authorization: `Bearer ${jwt}`, apikey: SERVICE_ROLE_KEY },
+    });
+    if (!userRes.ok) {
+      return { ok: false, status: 401, body: { code: 'AUTH_FAILED', error: 'AUTH_FAILED', message: 'JWT 無效或已過期' } };
+    }
+    const u = await userRes.json();
+    const userId = u?.id || '';
+    if (!userId) {
+      return { ok: false, status: 401, body: { code: 'AUTH_FAILED', error: 'AUTH_FAILED', message: '找不到使用者' } };
+    }
+    return { ok: true, userId };
+  } catch (err) {
+    console.error('[auth] getUser failed', err);
+    return { ok: false, status: 401, body: { code: 'AUTH_FAILED', error: 'AUTH_FAILED', message: 'JWT 驗證失敗' } };
+  }
+}
+

@@ -1,7 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
-import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
+import { requireCheckupAuth, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
@@ -92,11 +92,10 @@ Deno.serve(withLogging('checkup-parse', async (req) => {
     const { systemPrompt, base64, mediaType } = body;
     const mType = mediaType || 'image/jpeg';
 
-    // 配額消耗：截圖解析每次 +1（與其他 AI 入口共用 monthly/weekly quota）
-    const quotaResult = await consumeCheckupQuota(req, 'parse', corsHeaders);
-    if (!quotaResult.ok) {
-      return quotaErrorResponse(quotaResult, corsHeaders);
-    }
+    // 截圖解析不扣配額（僅需登入）— 屬資料工具，非核心 AI 價值
+    const authResult = await requireCheckupAuth(req, corsHeaders);
+    if (!authResult.ok) return quotaErrorResponse(authResult, corsHeaders);
+
 
     for (let i = 0; i < MODELS.length; i++) {
       const model = MODELS[i];
@@ -106,7 +105,7 @@ Deno.serve(withLogging('checkup-parse', async (req) => {
 
       if (result.ok) {
         console.log(`${model} succeeded`);
-        return new Response(JSON.stringify({ content: [{ text: result.text }], quota: quotaResult.quota }), {
+        return new Response(JSON.stringify({ content: [{ text: result.text }] }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

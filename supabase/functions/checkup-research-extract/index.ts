@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
-import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
+import { requireCheckupAuth, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
@@ -88,7 +88,8 @@ const handler = withLogging('checkup-research-extract', async (req, log) => {
     });
     if (issues.length) return validationResponse(issues, corsHeaders);
 
-    const quotaResult = await consumeCheckupQuota(req, 'research-extract', corsHeaders);
+    // 研究資料抽取不扣配額（僅需登入）— 屬資料整理工具
+    const quotaResult = await requireCheckupAuth(req, corsHeaders);
     if (!quotaResult.ok) return quotaErrorResponse(quotaResult, corsHeaders);
 
     const { report, stock, dossier } = body;
@@ -215,7 +216,6 @@ ${report.text}
       fundamentals: parsed?.fundamentals || null,
       targets: parsed?.targets || { reports: [] },
       meta: parsed?.meta || null,
-      quota: quotaResult.quota,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
