@@ -116,10 +116,10 @@ export function PredictEventsCard() {
                 <span className="text-foreground font-medium">目前狀態：</span>
                 {decision.allowed
                   ? '可立即執行事件預測'
-                  : decision.message}
+                  : (decision as Extract<typeof decision, { allowed: false }>).message}
               </p>
               {!decision.allowed && 'nextWindowUtc' in decision && (
-                <p>下次可預測時間：{formatNextWindowLabel(decision.nextWindowUtc)}</p>
+                <p>下次可預測時間：{formatNextWindowLabel((decision as { nextWindowUtc: string }).nextWindowUtc)}</p>
               )}
               {decision.allowed && !free && (
                 <p>視窗：台灣時間 13:30–13:40（目前 {inWindow ? '在視窗內' : '不在視窗內'}）</p>
@@ -179,14 +179,15 @@ function StatusPill({ decision }: { decision: ReturnType<typeof evaluatePredictG
       </span>
     );
   }
-  if (decision.code === 'PAID_TIER_OUT_OF_WINDOW') {
+  const denied = decision as Extract<typeof decision, { allowed: false }>;
+  if (denied.code === 'PAID_TIER_OUT_OF_WINDOW') {
     return (
       <span className="text-xs px-2 py-0.5 rounded-full border border-amber-500/40 bg-amber-50 text-amber-700 inline-flex items-center gap-1">
         <Clock className="h-3 w-3" /> 視窗外
       </span>
     );
   }
-  if (decision.code === 'PAID_TIER_DAILY_USED') {
+  if (denied.code === 'PAID_TIER_DAILY_USED') {
     return (
       <span className="text-xs px-2 py-0.5 rounded-full border border-muted-foreground/30 bg-muted text-muted-foreground inline-flex items-center gap-1">
         <CheckCircle2 className="h-3 w-3" /> 今日已用
