@@ -892,6 +892,9 @@ export default function App() {
         startLineLogin?.();
       }
       return;
+    // 配額已耗盡時，背景自動觸發直接跳過，避免每分鐘對伺服器送 429（手動 force 仍走原路給明確錯誤）
+    if (!force && !isDemo && hasReachedDailyLimit) {
+      return;
     }
     // 重試上限與冷卻檢查（僅作用於 force 觸發；自動觸發不受限）
     if (force) {
