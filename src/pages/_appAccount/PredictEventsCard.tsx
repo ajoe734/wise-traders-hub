@@ -91,6 +91,7 @@ export function PredictEventsCard() {
   });
   const nextLabel = formatNextWindowLabel(nextPredictWindow(tickNow).toISOString());
   const inWindow = isInPredictWindow(tickNow);
+  void nextLabel;
 
   return (
     <Card>
@@ -113,20 +114,49 @@ export function PredictEventsCard() {
           <>
             <div className="text-xs text-muted-foreground space-y-1 border-t pt-3">
               <p>
+                <span className="text-foreground font-medium">目前台灣時間：</span>
+                {formatTaipeiYMDHM(tickNow.toISOString()) || '—'}
+              </p>
+              <p>
                 <span className="text-foreground font-medium">目前狀態：</span>
                 {decision.allowed
                   ? '可立即執行事件預測'
                   : (decision as Extract<typeof decision, { allowed: false }>).message}
               </p>
-              {!decision.allowed && 'nextWindowUtc' in decision && (
-                <p>下次可預測時間：{formatNextWindowLabel((decision as { nextWindowUtc: string }).nextWindowUtc)}</p>
+
+              {/* Free tier 被永久停 */}
+              {!decision.allowed && (decision as { code: string }).code === 'FREE_TIER_PREDICT_DISABLED' && (
+                <p className="text-amber-700">
+                  已執行過收盤分析共 {dailyAnalysisCount} 次；訂閱付費方案後可恢復每日 1 次預測。
+                </p>
               )}
+
+              {/* Paid 視窗外：顯示具體區間與倒數 */}
+              {!decision.allowed && (decision as { code: string }).code === 'PAID_TIER_OUT_OF_WINDOW' && (
+                <>
+                  <p>允許執行區間：每日台灣時間 <span className="text-foreground font-medium">13:30 – 13:40</span>（收盤後 10 分鐘內）</p>
+                  <p>目前 {inWindow ? '在視窗內' : '不在視窗內'}；距下次視窗開啟：
+                    <span className="text-foreground font-medium"> {formatCountdown(tickNow, new Date((decision as { nextWindowUtc: string }).nextWindowUtc))}</span>
+                  </p>
+                  <p>下次可預測時間：{formatNextWindowLabel((decision as { nextWindowUtc: string }).nextWindowUtc)}</p>
+                </>
+              )}
+
+              {/* Paid 今日已用：顯示已用的時間戳 */}
+              {!decision.allowed && (decision as { code: string }).code === 'PAID_TIER_DAILY_USED' && (
+                <>
+                  {todayRows[0] && (
+                    <p>今日已於 <span className="text-foreground font-medium">{formatTaipeiYMDHM(todayRows[0].used_at)}</span> 使用</p>
+                  )}
+                  <p>下次可預測時間：{formatNextWindowLabel((decision as { nextWindowUtc: string }).nextWindowUtc)}</p>
+                </>
+              )}
+
+              {/* Paid 可使用：顯示視窗倒數結束 */}
               {decision.allowed && !free && (
-                <p>視窗：台灣時間 13:30–13:40（目前 {inWindow ? '在視窗內' : '不在視窗內'}）</p>
+                <p>視窗：台灣時間 13:30–13:40（目前 {inWindow ? '在視窗內' : '不在視窗內'}{inWindow ? `，剩餘 ${formatCountdown(tickNow, windowEndUtc(tickNow))}` : ''}）</p>
               )}
-              {!free && !decision.allowed && (
-                <p>提示：下一次視窗起始 — {nextLabel}</p>
-              )}
+
               <p>
                 <span className="text-foreground font-medium">方案：</span>
                 {free ? '免費（line_free / none）' : `付費（${tier}）`}
@@ -134,9 +164,9 @@ export function PredictEventsCard() {
             </div>
 
             <div className="border-t pt-3">
-              <div className="text-xs text-foreground font-medium mb-2">今日（台灣時區）</div>
+              <div className="text-xs text-foreground font-medium mb-2">今日（台灣時區） {todayRows.length}/1</div>
               {todayRows.length === 0 ? (
-                <p className="text-xs text-muted-foreground">尚未使用 0 / 1</p>
+                <p className="text-xs text-muted-foreground">尚未使用</p>
               ) : (
                 <ul className="space-y-1">
                   {todayRows.map(r => (
@@ -199,4 +229,24 @@ function StatusPill({ decision }: { decision: ReturnType<typeof evaluatePredictG
       <XCircle className="h-3 w-3" /> 已停用
     </span>
   );
+}
+
+/** 計算「視窗結束」UTC：對應台北時間當日 13:40。 */
+function windowEndUtc(now: Date): Date {
+  const tp = toTaipei(now);
+  const dayStart = new Date(`${tp.ymd}T00:00:00+08:00`);
+  return new Date(dayStart.getTime() + (13 * 60 + 40) * 60 * 1000);
+}
+
+/** 將兩個時刻差距格式化為「X 小時 Y 分鐘」或「Y 分鐘 Z 秒」。 */
+function formatCountdown(from: Date, to: Date): string {
+  let ms = to.getTime() - from.getTime();
+  if (ms <= 0) return '0 分鐘';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h} 小時 ${m} 分鐘`;
+  if (m > 0) return `${m} 分鐘 ${s} 秒`;
+  return `${s} 秒`;
 }
