@@ -2346,10 +2346,11 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           });
         } catch (e) {
           // 配額用盡兜底（截圖解析）
+          // 配額用盡：toast + 仰賴 TradeTab inline banner（L162）顯示完整升級 CTA
           if (e?.status === 429 && (e?.body?.error === 'QUOTA_EXCEEDED' || /QUOTA_EXCEEDED/.test(JSON.stringify(e?.body || {})))) {
             try { await refreshQuota?.(); } catch {}
-            setQuotaModal({ trigger: 'parse' });
-            setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請查看右上方升級提示' });
+            toast.error('LINE 註冊禮已用完，請查看升級方案');
+            setParseStep({ stage: 'error', label: '配額已用完', progress: 0, detail: '請見下方升級方案' });
             setParsing(false);
             return;
           }
