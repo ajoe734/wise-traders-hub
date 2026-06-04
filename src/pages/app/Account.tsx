@@ -58,6 +58,8 @@ const Account = () => {
           </CardContent>
         </Card>
 
+        <FreeCheckupQuotaCard />
+
         <div className="space-y-3">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Calendar className="h-5 w-5" />
