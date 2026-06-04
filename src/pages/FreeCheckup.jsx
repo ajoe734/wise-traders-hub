@@ -2312,10 +2312,12 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       startLineLogin();
       return;
     }
-    // LINE 免費用戶每日限制
-    if (hasReachedDailyLimit) {
-      setSaved("今日免費健檢次數已用完，明天再來");
-      setTimeout(() => setSaved(""), 4000);
+    // 先 await 最新 quota，避免 stale state 導致 race（按下去才發 429）
+    let freshQuota = null;
+    try { freshQuota = await refreshQuota?.(); } catch {}
+    const remaining = freshQuota?.remaining ?? (hasReachedDailyLimit ? 0 : 1);
+    if (remaining <= 0) {
+      toast.error('AI 健檢配額已用完，請查看升級方案');
       return;
     }
     setParsing(true); setParseErr(null);
