@@ -431,7 +431,19 @@ export default function CheckupQuotaAudit() {
                 <Field label="User ID" value={<span className="font-mono text-xs">{singleData.target_user_id}</span>} />
                 <Field label="顯示名稱" value={singleData.profile?.display_name || '—'} />
                 <Field label="Tester" value={singleData.profile?.is_tester ? '是' : '否'} />
-                <Field label="LINE ID" value={singleData.profile?.line_user_id || '—'} />
+                <Field label="LINE ID" value={
+                  singleData.profile?.line_user_id ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="font-mono text-xs">{singleData.profile.line_user_id}</span>
+                      <button
+                        onClick={() => resetLineQuota(singleData.profile!.line_user_id!)}
+                        disabled={resetLoading}
+                        className="px-2 py-0.5 text-[11px] border border-destructive/40 text-destructive rounded hover:bg-destructive/10 disabled:opacity-40"
+                        title="清除 checkup_usage（非 brain-update），重新給 1 次免費額度"
+                      >重置免費額度</button>
+                    </span>
+                  ) : '—'
+                } />
                 <Field label="Tier" value={<strong>{singleData.quota?.tier || 'n/a'}</strong>} />
                 <Field label="Period" value={singleData.quota?.period || 'n/a'} />
                 <Field label="Used / Limit" value={`${singleData.quota?.used ?? '?'} / ${singleData.quota?.limit ?? '?'}`} />
