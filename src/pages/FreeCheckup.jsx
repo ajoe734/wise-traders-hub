@@ -1014,9 +1014,10 @@ export default function App() {
           const dataCode = body?.code || body?.error_code || body?.error?.code;
           const dataMsg = String(body?.error || body?.message || "");
           if (status === 429 && (dataCode === 'QUOTA_EXCEEDED' || dataMsg.includes('QUOTA_EXCEEDED'))) {
+            // 背景自動觸發配額用盡：完全不打擾 UI（用戶沒按任何鍵），只 refresh quota
             try { await refreshQuota?.(); } catch {}
             needsPrediction.forEach(e => predictedIdsRef.current.delete(e.id));
-            setQuotaModal({ trigger: 'predict' });
+            console.warn('[predict] background QUOTA_EXCEEDED, silenced');
             setPredictingEvents(false);
             setPredictAutoStatus({ status: 'idle', msg: '' });
             return;
