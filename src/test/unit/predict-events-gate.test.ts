@@ -23,7 +23,14 @@ import {
   FREE_TIERS,
   PREDICT_WINDOW_START_MIN,
   PREDICT_WINDOW_END_MIN,
+  type GateDecision,
 } from '@/checkup/lib/predictEventsGate';
+
+type DeniedDecision = Extract<GateDecision, { allowed: false }>;
+const denied = (d: GateDecision): DeniedDecision => {
+  if (d.allowed) throw new Error('expected denied decision');
+  return d;
+};
 
 const UTC = (iso: string) => new Date(iso + 'Z');
 
