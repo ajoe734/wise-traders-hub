@@ -1921,10 +1921,10 @@ ${autoVerified.map(v => `- ${v.title}：預測${v.pred==="up"?"看漲":"看跌"}
           clearTimeout(analyzeTimer);
           aiHttpStatus = e?.status || 0;
           aiErrBody = typeof e?.body === 'object' ? JSON.stringify(e.body) : (e?.message || '');
-          // 配額用盡兜底：彈 modal 而不是當錯誤
+          // 配額用盡：toast + 仰賴 DailyTab inline banner 顯示完整升級 CTA
           if (aiHttpStatus === 429 && (e?.body?.error === 'QUOTA_EXCEEDED' || /QUOTA_EXCEEDED/.test(aiErrBody))) {
             try { await refreshQuota?.(); } catch {}
-            setQuotaModal({ trigger: 'daily' });
+            toast.error('AI 健檢配額已用完，請查看升級方案');
             setAnalyzing(false); setAnalyzeStep("");
             return;
           }
