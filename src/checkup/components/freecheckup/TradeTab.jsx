@@ -195,6 +195,17 @@ function TradeTabImpl({
               {tier === 'basic' ? '升級 Pro' : '查看訂閱方案'}
             </a>
           )}
+          <div style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              onClick={() => setTab?.('holdings')}
+              style={{
+                background: 'transparent', border: 'none',
+                color: C.textMute, fontSize: 12, cursor: 'pointer',
+                letterSpacing: '0.02em', padding: '4px 8px',
+              }}
+            >← 查看我的持倉</button>
+          </div>
         </div>
       )}
       {!parsed && !isDemo && !hasReachedDailyLimit && (
