@@ -197,6 +197,35 @@ export default function CheckupQuotaAudit() {
     );
   }
 
+  // ---- LINE quota reset ----
+  const [resetLineId, setResetLineId] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
+  const [resetErr, setResetErr] = useState<string | null>(null);
+
+  async function resetLineQuota(targetLineId?: string) {
+    const lid = (targetLineId ?? resetLineId).trim();
+    if (!lid) { setResetErr('請輸入 LINE userId（U 開頭）'); setResetMsg(null); return; }
+    if (!confirm(`確定要重置 ${lid} 的免費收盤分析額度？\n（清除非 brain-update 的 checkup_usage 紀錄）`)) return;
+    setResetLoading(true); setResetErr(null); setResetMsg(null);
+    try {
+      const { data, error } = await supabase.rpc('admin_reset_line_free_quota', { _line_user_id: lid });
+      if (error) throw error;
+      const d: any = data || {};
+      setResetMsg(
+        `✅ 已重置 user=${(d.user_id || '').slice(0,8)}… 刪除 ${d.deleted_count} 筆 usage`
+        + `（重置前 used=${d.before?.used ?? '?'} / limit=${d.before?.limit ?? '?'}，`
+        + `重置後 used=${d.after?.used ?? '?'} / remaining=${d.after?.remaining ?? '?'}）`
+      );
+      // Refresh single-mode view if same user is loaded
+      if (singleData?.profile?.line_user_id === lid) void lookup();
+    } catch (e: any) {
+      setResetErr(e?.message || String(e));
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <SEO title="健檢配額稽核" description="查詢用戶配額、扣次紀錄與訂閱來源" />
@@ -204,6 +233,44 @@ export default function CheckupQuotaAudit() {
       <p className="text-sm text-muted-foreground mb-6">
         單筆查詢追蹤特定用戶；批次稽核可依 tier、扣費原因、日期區間篩選並匯出 CSV。
       </p>
+
+      {/* ===== LINE 免費額度一鍵重置 ===== */}
+      <section className="border rounded-lg p-4 mb-8 bg-card">
+        <h2 className="text-base font-medium mb-2">LINE 免費收盤分析重置</h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          針對指定 LINE userId，清除 checkup_usage（保留 brain-update 類），重新給 1 次免費額度。操作會寫入 audit_logs。
+        </p>
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-[280px]">
+            <label className="text-xs text-muted-foreground block mb-1">LINE userId</label>
+            <input
+              value={resetLineId}
+              onChange={(e) => setResetLineId(e.target.value)}
+              placeholder="U0123456789abcdef..."
+              className="w-full px-3 py-2 border rounded text-sm font-mono"
+            />
+          </div>
+          <button
+            onClick={() => resetLineQuota()}
+            disabled={resetLoading}
+            className="px-4 py-2 bg-destructive text-destructive-foreground rounded text-sm font-medium disabled:opacity-50"
+          >
+            {resetLoading ? '處理中…' : '一鍵重置'}
+          </button>
+        </div>
+        {resetErr && (
+          <div className="mt-3 p-2 border border-destructive/40 bg-destructive/10 text-destructive text-xs rounded">
+            {resetErr}
+          </div>
+        )}
+        {resetMsg && (
+          <div className="mt-3 p-2 border border-emerald-500/40 bg-emerald-50 text-emerald-800 text-xs rounded">
+            {resetMsg}
+          </div>
+        )}
+      </section>
+
+
 
       {/* ===== 批次稽核 ===== */}
       <section className="border rounded-lg p-4 mb-8 bg-card">
