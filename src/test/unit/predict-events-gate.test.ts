@@ -101,7 +101,7 @@ describe('evaluatePredictGate — 免費 tier', () => {
     it(`${tier || '(empty)'} 做過 daily-analysis → FREE_TIER_PREDICT_DISABLED`, () => {
       const d = evaluatePredictGate({ tier, hasDailyAnalysis: true, paidUsedToday: false, now: inWindow });
       expect(d.allowed).toBe(false);
-      if (!d.allowed) {
+      if (d.allowed === false) {
         expect(d.code).toBe('FREE_TIER_PREDICT_DISABLED');
         expect(d.message).toContain('收盤分析');
       }
@@ -117,7 +117,7 @@ describe('evaluatePredictGate — 付費 tier', () => {
     it(`${tier} 視窗外 → PAID_TIER_OUT_OF_WINDOW（即使未使用）`, () => {
       const d = evaluatePredictGate({ tier, hasDailyAnalysis: false, paidUsedToday: false, now: outWindow });
       expect(d.allowed).toBe(false);
-      if (!d.allowed) {
+      if (d.allowed === false) {
         expect(d.code).toBe('PAID_TIER_OUT_OF_WINDOW');
         expect(d.message).toContain('13:30');
         expect(d.message).toContain('13:40');
@@ -133,7 +133,7 @@ describe('evaluatePredictGate — 付費 tier', () => {
     it(`${tier} 視窗內今日已用 → PAID_TIER_DAILY_USED`, () => {
       const d = evaluatePredictGate({ tier, hasDailyAnalysis: false, paidUsedToday: true, now: inWindow });
       expect(d.allowed).toBe(false);
-      if (!d.allowed) {
+      if (d.allowed === false) {
         expect(d.code).toBe('PAID_TIER_DAILY_USED');
         expect(d.message).toContain('明日');
       }
