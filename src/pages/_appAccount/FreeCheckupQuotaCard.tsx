@@ -126,7 +126,7 @@ function inferReason(q: QuotaSnapshot | null, isTester?: boolean, isLine?: boole
         : `您已訂閱 ${q.tier === 'pro' ? '進階' : '基本'} 方案，本月配額已用完，下個週期會自動重置。`;
     case 'none':
     default:
-      if (isLine) return '您的 LINE 帳號目前沒有可用額度（可能 cookie 異常或方案變更，請聯絡客服）。';
-      return '尚未訂閱任何健檢方案，所以沒有可用額度。請使用 Email 註冊並用 LINE 登入即可取得 1 次免費額度，或直接訂閱付費方案。';
+      if (isLine) return '您的 LINE 帳號目前沒有可用額度，請聯絡客服協助核對。';
+      return '您目前未訂閱付費方案，亦無免費額度（免費 1 次額度限 LINE 登入會員）。如需使用收盤分析請訂閱方案，或以 LINE 帳號登入。';
   }
 }
