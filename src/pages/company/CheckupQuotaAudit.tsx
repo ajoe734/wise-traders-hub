@@ -226,6 +226,38 @@ export default function CheckupQuotaAudit() {
     }
   }
 
+  // ---- LINE 道歉補寄 ----
+  const [apolLoading, setApolLoading] = useState(false);
+  const [apolMsg, setApolMsg] = useState<string | null>(null);
+  const [apolErr, setApolErr] = useState<string | null>(null);
+
+  async function runApology(dryRun: boolean) {
+    const verb = dryRun ? '預覽（dry-run）' : '正式發送';
+    if (!confirm(`確定要${verb}「免費收盤分析」道歉通知給所有 LINE 登入用戶？\n（會先試所有 expert OA 推播，失敗者改寫站內通知）`)) return;
+    setApolLoading(true); setApolErr(null); setApolMsg(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const qs = dryRun ? '?dry_run=1' : '';
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/apologize-line-free-quota${qs}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.message || j?.error || `HTTP ${res.status}`);
+      if (dryRun) {
+        setApolMsg(`🔎 dry-run：目標 ${j.targets} 位用戶 × ${j.oas?.length ?? 0} 個 OA = ${j.total_attempts} 次嘗試`);
+      } else {
+        setApolMsg(`✅ 完成：共 ${j.total} 位，LINE 推播成功 ${j.delivered} 位，站內通知 fallback ${j.fallback} 位`);
+      }
+      console.log('[apologize] result', j);
+    } catch (e: any) {
+      setApolErr(e?.message || String(e));
+    } finally {
+      setApolLoading(false);
+    }
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <SEO title="健檢配額稽核" description="查詢用戶配額、扣次紀錄與訂閱來源" />
