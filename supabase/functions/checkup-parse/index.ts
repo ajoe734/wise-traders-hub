@@ -1,7 +1,7 @@
 // deno-lint-ignore-file
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
-import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
+import { requireCheckupAuth, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
@@ -105,7 +105,7 @@ Deno.serve(withLogging('checkup-parse', async (req) => {
 
       if (result.ok) {
         console.log(`${model} succeeded`);
-        return new Response(JSON.stringify({ content: [{ text: result.text }], quota: quotaResult.quota }), {
+        return new Response(JSON.stringify({ content: [{ text: result.text }] }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

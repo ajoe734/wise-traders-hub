@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { codedErrorResponse } from '../_shared/errorCodes.ts';
 import { validateInput, validationResponse } from "../_shared/inputValidator.ts";
-import { consumeCheckupQuota, quotaErrorResponse } from "../_shared/checkupQuota.ts";
+import { requireCheckupAuth, quotaErrorResponse } from "../_shared/checkupQuota.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabaseClients.ts";
 import { withLogging } from "../_shared/edgeLogger.ts";
@@ -533,7 +533,6 @@ ${eventsForPrompt}
 
     return new Response(JSON.stringify({
       predictions,
-      quota: quota.quota,
       ...(debugInfo ? { debug: debugInfo } : {}),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
