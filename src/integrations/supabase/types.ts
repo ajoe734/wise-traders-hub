@@ -3040,6 +3040,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_reset_line_free_quota: {
+        Args: { _line_user_id: string }
+        Returns: Json
+      }
       archive_and_promote_knowledge: {
         Args: {
           _new_confidence?: number
@@ -3167,6 +3171,7 @@ export type Database = {
         Returns: boolean
       }
       is_tester: { Args: { _user_id: string }; Returns: boolean }
+      reconcile_line_free_quota: { Args: { _user_id: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
