@@ -432,6 +432,46 @@ const handler = withLogging('checkup-predict-events', async (req, log) => {
     const quota = await requireCheckupAuth(req, corsHeaders);
     if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
 
+    // Gate：免費用戶（line_free / none）一旦做過 daily-analysis，就停止事件預測；
+    // 付費用戶（pro 等）不受限。避免免費額度耗盡後仍持續背景跑 AI。
+    try {
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+      const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      const tierRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_checkup_quota`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({ _user_id: quota.userId }),
+      });
+      const tierInfo = tierRes.ok ? await tierRes.json() : null;
+      const tier = String(tierInfo?.tier || '');
+      const isFreeTier = tier === 'line_free' || tier === 'none' || tier === '';
+      if (isFreeTier) {
+        const dailyRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/checkup_usage?select=id&user_id=eq.${quota.userId}&kind=eq.daily-analysis&limit=1`,
+          { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` } },
+        );
+        if (dailyRes.ok) {
+          const rows = await dailyRes.json();
+          if (Array.isArray(rows) && rows.length > 0) {
+            return new Response(JSON.stringify({
+              predictions: [],
+              gated: true,
+              code: 'FREE_TIER_PREDICT_DISABLED',
+              message: '免費用戶在使用過收盤分析後，事件預測會停止；訂閱後可持續使用。',
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+        }
+      }
+    } catch (gateErr) {
+      console.warn('[predict-events] tier gate check failed (fail-open):', gateErr);
+    }
+
+
+
 
     // Collect stock codes
     const allCodes = new Set<string>();
