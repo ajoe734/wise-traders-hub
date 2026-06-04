@@ -92,21 +92,14 @@ export default function App() {
   const { isDemo, isReady: authReady, canUpload, hasReachedDailyLimit, startLineLogin, incrementUploadCount, lineProfile, demoData, tier, tierLabel, quota, remainingQuota, periodLabel, refreshQuota, applyQuotaFromResponse, supabaseUser } = useCheckupMode();
   const [tab, setTab]     = useState("holdings");
   useEffect(() => { trackRaw('checkup_view', { tab: 'holdings' }); }, []);
-  // 配額不足彈窗（429 QUOTA_EXCEEDED 兜底）
-  const [quotaModal, setQuotaModal] = useState(null); // null | { trigger: 'parse'|'daily'|'predict'|'research' }
+  // 配額耗盡採 inline banner（TradeTab L162 / DailyTab）+ toast 提示，
+  // 不再使用全螢幕 modal，避免擋住 tab 導航（見 .lovable/plan.md）
   // 每分鐘 tick 一次，重新計算「距離重置」倒數
   const [, setQuotaTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setQuotaTick(n => n + 1), 60000);
     return () => clearInterval(t);
   }, []);
-  // ESC 關閉配額 Modal
-  useEffect(() => {
-    if (!quotaModal) return;
-    const onKey = (e) => { if (e.key === 'Escape') setQuotaModal(null); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [quotaModal]);
   const [ready, setReady] = useState(false);
 
   // AI 覆蓋的 meta（產業/策略/領頭/部位），優先於 STOCK_META
