@@ -302,6 +302,42 @@ export default function CheckupQuotaAudit() {
         )}
       </section>
 
+      {/* ===== LINE 道歉補寄 ===== */}
+      <section className="border rounded-lg p-4 mb-8 bg-card">
+        <h2 className="text-base font-medium mb-2">免費收盤分析 — 道歉通知補寄</h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          對所有 profiles.line_user_id 非空的用戶嘗試以全部啟用的 expert OA push 道歉訊息；
+          全失敗者改寫入站內 notifications（type=system_apology）。執行結果寫入 audit_logs。
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => runApology(true)}
+            disabled={apolLoading}
+            className="px-4 py-2 border rounded text-sm disabled:opacity-50"
+          >
+            {apolLoading ? '處理中…' : '預覽（dry-run）'}
+          </button>
+          <button
+            onClick={() => runApology(false)}
+            disabled={apolLoading}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50"
+          >
+            {apolLoading ? '處理中…' : '正式發送'}
+          </button>
+        </div>
+        {apolErr && (
+          <div className="mt-3 p-2 border border-destructive/40 bg-destructive/10 text-destructive text-xs rounded">
+            {apolErr}
+          </div>
+        )}
+        {apolMsg && (
+          <div className="mt-3 p-2 border border-emerald-500/40 bg-emerald-50 text-emerald-800 text-xs rounded">
+            {apolMsg}
+          </div>
+        )}
+      </section>
+
+
 
 
       {/* ===== 批次稽核 ===== */}
