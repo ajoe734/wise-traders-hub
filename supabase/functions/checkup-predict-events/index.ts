@@ -432,11 +432,13 @@ const handler = withLogging('checkup-predict-events', async (req, log) => {
     const quota = await requireCheckupAuth(req, corsHeaders);
     if (!quota.ok) return quotaErrorResponse(quota, corsHeaders);
 
-    // Gate：免費用戶（line_free / none）一旦做過 daily-analysis，就停止事件預測；
-    // 付費用戶（pro 等）不受限。避免免費額度耗盡後仍持續背景跑 AI。
+    // Gate 規則：
+    //  - 免費用戶（line_free / none）：一旦做過 daily-analysis 即停止事件預測，引導訂閱
+    //  - 付費用戶：每日 1 次，且僅限收盤後 10 分鐘內（台灣時間 13:30–13:40）
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+    const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    let userTier = '';
     try {
-      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
-      const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
       const tierRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_checkup_quota`, {
         method: 'POST',
         headers: {
@@ -447,9 +449,20 @@ const handler = withLogging('checkup-predict-events', async (req, log) => {
         body: JSON.stringify({ _user_id: quota.userId }),
       });
       const tierInfo = tierRes.ok ? await tierRes.json() : null;
-      const tier = String(tierInfo?.tier || '');
-      const isFreeTier = tier === 'line_free' || tier === 'none' || tier === '';
-      if (isFreeTier) {
+      userTier = String(tierInfo?.tier || '');
+    } catch (gateErr) {
+      console.warn('[predict-events] tier lookup failed (fail-open):', gateErr);
+    }
+
+    const isFreeTier = userTier === 'line_free' || userTier === 'none' || userTier === '';
+
+    // 共用：查 user 今日（台灣時區）某 kind 的 usage 數
+    const taipeiNow = new Date(Date.now() + 8 * 60 * 60 * 1000); // shift to UTC+8 wall clock
+    const taipeiYmd = taipeiNow.toISOString().slice(0, 10); // YYYY-MM-DD in Taipei
+    const taipeiDayStartUtc = new Date(`${taipeiYmd}T00:00:00+08:00`).toISOString();
+
+    if (isFreeTier) {
+      try {
         const dailyRes = await fetch(
           `${SUPABASE_URL}/rest/v1/checkup_usage?select=id&user_id=eq.${quota.userId}&kind=eq.daily-analysis&limit=1`,
           { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` } },
@@ -458,17 +471,44 @@ const handler = withLogging('checkup-predict-events', async (req, log) => {
           const rows = await dailyRes.json();
           if (Array.isArray(rows) && rows.length > 0) {
             return new Response(JSON.stringify({
-              predictions: [],
-              gated: true,
+              predictions: [], gated: true,
               code: 'FREE_TIER_PREDICT_DISABLED',
               message: '免費用戶在使用過收盤分析後，事件預測會停止；訂閱後可持續使用。',
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
           }
         }
+      } catch (e) { console.warn('[predict-events] free gate check failed (fail-open):', e); }
+    } else {
+      // 付費：時段窗 + 每日 1 次
+      const taipeiMinutes = taipeiNow.getUTCHours() * 60 + taipeiNow.getUTCMinutes(); // already shifted
+      const WINDOW_START = 13 * 60 + 30; // 13:30
+      const WINDOW_END = 13 * 60 + 40;   // 13:40
+      const inWindow = taipeiMinutes >= WINDOW_START && taipeiMinutes < WINDOW_END;
+      if (!inWindow) {
+        return new Response(JSON.stringify({
+          predictions: [], gated: true,
+          code: 'PAID_TIER_OUT_OF_WINDOW',
+          message: '事件預測每日僅於台灣時間 13:30–13:40（收盤後 10 分鐘內）執行一次。',
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-    } catch (gateErr) {
-      console.warn('[predict-events] tier gate check failed (fail-open):', gateErr);
+      try {
+        const usedRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/checkup_usage?select=id&user_id=eq.${quota.userId}&kind=eq.predict-events&used_at=gte.${encodeURIComponent(taipeiDayStartUtc)}&limit=1`,
+          { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` } },
+        );
+        if (usedRes.ok) {
+          const rows = await usedRes.json();
+          if (Array.isArray(rows) && rows.length > 0) {
+            return new Response(JSON.stringify({
+              predictions: [], gated: true,
+              code: 'PAID_TIER_DAILY_USED',
+              message: '事件預測每日 1 次額度已用，請明日 13:30 後再試。',
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+        }
+      } catch (e) { console.warn('[predict-events] paid daily check failed (fail-open):', e); }
     }
+
 
 
 
