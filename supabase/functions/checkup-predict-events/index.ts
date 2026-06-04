@@ -611,6 +611,22 @@ ${eventsForPrompt}
       if (event?.id) setCachedPrediction(supabase, event.id, predictions[i]).catch(() => {});
     }
 
+    // 付費用戶：寫入 predict-events usage row（不扣 quota，只作為「每日 1 次」憑據）
+    if (!isFreeTier) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/checkup_usage`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+            Prefer: 'return=minimal',
+          },
+          body: JSON.stringify({ user_id: quota.userId, kind: 'predict-events' }),
+        });
+      } catch (e) { console.warn('[predict-events] usage log failed:', e); }
+    }
+
     return new Response(JSON.stringify({
       predictions,
       ...(debugInfo ? { debug: debugInfo } : {}),
