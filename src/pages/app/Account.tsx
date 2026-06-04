@@ -7,6 +7,8 @@ import { User, MessageCircle, Calendar, ExternalLink, Radio, Settings, Loader2 }
 import { useAccountData } from '@/hooks/app/useAccountData';
 import { SubscriptionCard } from '@/pages/_appAccount/SubscriptionCard';
 import { LinePartySection } from '@/pages/_appAccount/LinePartySection';
+import { FreeCheckupQuotaCard } from '@/pages/_appAccount/FreeCheckupQuotaCard';
+
 
 const Account = () => {
   const { user } = useAuth();
