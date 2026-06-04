@@ -31,6 +31,7 @@ const EventsTab = lazy(() => import("@/checkup/components/freecheckup/EventsTab"
 const DailyTab = lazy(() => import("@/checkup/components/freecheckup/DailyTab"));
 const LogTab = lazy(() => import("@/checkup/components/freecheckup/LogTab"));
 const TradeTab = lazy(() => import("@/checkup/components/freecheckup/TradeTab"));
+const ResearchTab = lazy(() => import("@/checkup/components/freecheckup/ResearchTab"));
 
 // Phase 3 A1: lazy-load heavy/conditional UI to shrink initial bundle
 const Md = lazy(() => import("@/checkup/components/Md"));
@@ -144,6 +145,7 @@ export default function App() {
     news:   { title: '這是 DEMO 事件分析', body: '範例事件已套用策略大腦邏輯。登入後 AI 會即時抓取個股新聞、進行事件影響評估與命中率追蹤。' },
     daily:  { title: '這是 DEMO 收盤分析', body: '點「開始今日收盤分析」會以模擬延遲呈現範例報告。登入後系統會根據你的實際持倉與盤後資料生成個人化分析。' },
     log:    { title: '這是 DEMO 交易日誌', body: '訪客看到的是空白範本。登入後上傳成交截圖即可自動寫入交易日誌與 Q&A 反思。' },
+    research: { title: '這是 DEMO 深度研究', body: '預覽個股研究與策略大腦評估的輸出範例。登入後可對任一持股啟動 3 輪迭代 AI 研究，或對整體組合執行策略大腦進化。' },
   };
 
   // dashboard UI
@@ -2569,6 +2571,7 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
     {k:"events",   label:`行事曆${urgentCount>0?" ·":""}`},
     {k:"news",     label:"事件分析"},
     {k:"daily",    label:analyzing?"分析中...":"收盤分析"},
+    {k:"research", label:"深度研究"},
     {k:"trade",    label:"上傳成交"},
     {k:"log",      label:"交易日誌"},
   ];
@@ -3062,6 +3065,23 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
           </Suspense>
         )}
         {/* #endregion Tab: News */}
+
+        {tab==="research" && (
+          <Suspense fallback={null}>
+            <ResearchTab
+              isDemo={isDemo}
+              C={C}
+              alpha={alpha}
+              card={card}
+              lbl={lbl}
+              DEMO_TAB_NOTICE_COPY={DEMO_TAB_NOTICE_COPY}
+              holdings={holdings}
+              navigate={navigate}
+              startLineLogin={startLineLogin}
+              setTab={setTab}
+            />
+          </Suspense>
+        )}
 
       </div>
       {/* Decision Debug toggle */}
