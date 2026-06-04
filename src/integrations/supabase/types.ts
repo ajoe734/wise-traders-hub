@@ -1682,6 +1682,36 @@ export type Database = {
           },
         ]
       }
+      line_login_nonces: {
+        Row: {
+          access_token: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          nonce: string
+          refresh_token: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          nonce?: string
+          refresh_token: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          nonce?: string
+          refresh_token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       member_line_bindings: {
         Row: {
           bound_at: string
