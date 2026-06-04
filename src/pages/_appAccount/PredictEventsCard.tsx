@@ -91,6 +91,7 @@ export function PredictEventsCard() {
   });
   const nextLabel = formatNextWindowLabel(nextPredictWindow(tickNow).toISOString());
   const inWindow = isInPredictWindow(tickNow);
+  void nextLabel;
 
   return (
     <Card>
