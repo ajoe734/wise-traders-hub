@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { RemittanceAccountCard } from "./_remittance/RemittanceAccountCard";
+import { gtmPush } from "@/lib/analytics/gtm";
 
 
 type Method = "ecpay" | "remittance";
@@ -40,10 +41,14 @@ export default function CheckupCheckout() {
   // GTM Purchase event — fires once when success dialog opens
   useEffect(() => {
     if (resultDialog?.open && resultDialog?.success) {
-      (window as any).dataLayer = (window as any).dataLayer || [];
-      (window as any).dataLayer.push({ event: 'Purchase' });
+      gtmPush('Purchase', {
+        plan_id: planId,
+        product: 'checkup',
+        billing_cycle: billingCycle,
+        currency: 'TWD',
+      });
     }
-  }, [resultDialog?.open, resultDialog?.success]);
+  }, [resultDialog?.open, resultDialog?.success, planId, billingCycle]);
 
   // 收款帳號改由 <RemittanceAccountCard /> 內部 react-query 撈取
 
