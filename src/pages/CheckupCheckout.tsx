@@ -101,6 +101,14 @@ export default function CheckupCheckout() {
       return;
     }
     setIsProcessing(true);
+    gtmPush('BeginCheckout', {
+      plan_id: planId,
+      product: 'checkup',
+      method,
+      billing_cycle: billingCycle,
+      value: price,
+      currency: 'TWD',
+    });
     try {
       const attribution = readAttribution();
       if (method === "ecpay") {
