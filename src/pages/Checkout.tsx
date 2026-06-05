@@ -17,6 +17,7 @@ import { OrderSummaryCard } from './_checkout/OrderSummaryCard';
 import { CheckoutResultDialog, type CheckoutResult } from './_checkout/CheckoutResultDialog';
 import { RemittanceAccountCard } from './_remittance/RemittanceAccountCard';
 import { trackEvent } from '@/lib/trafficTracker';
+import { gtmPush } from '@/lib/analytics/gtm';
 import {
   dispatchLinePay, dispatchEcpay, dispatchAcpay, dispatchRemittance,
   submitEcpayForm, validateAcpayCardholder, type DispatchCtx,
