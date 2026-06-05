@@ -301,10 +301,9 @@ export function useTradeCaptureRuntime({
         flashSaved('🔒 訪客模式不能解析成交，請先用 Line 登入', 4000)
         return false
       }
-      if (hasQuota === false) {
-        flashSaved('📉 本期 AI 解析額度已用完，請升級方案後再試', 4500)
-        return false
-      }
+      // 註：checkup-parse edge 為 auth-only（不消耗 quota），
+      // 前端不再因收盤分析額度用完而擋成交解析。
+
 
       updateUploadById(uploadId, (u) => ({ ...u, parseErr: '' }))
 
