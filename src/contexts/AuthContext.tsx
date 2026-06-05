@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { supabase } from '@/integrations/supabase/client';
 import { queryClient } from '@/lib/queryClient';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
+import { gtmPush } from '@/lib/analytics/gtm';
 
 type AppRole = 'company_admin' | 'analyst';
 

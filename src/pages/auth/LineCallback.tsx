@@ -113,6 +113,7 @@ export default function LineCallback() {
           return;
         }
 
+        gtmPush('Login', { method: 'line' });
         console.log(DBG, `✅ Redirecting to: ${safeReturnTo}`);
         window.location.replace(safeReturnTo);
       } catch (e) {
