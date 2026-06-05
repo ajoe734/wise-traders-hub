@@ -95,10 +95,9 @@ export function useTradeCaptureRuntime({
         flashSaved('🔒 訪客模式不能上傳成交，請先用 Line 登入', 4000)
         return
       }
-      if (hasQuota === false) {
-        flashSaved('🔒 本期 AI 解析額度已用完，請升級方案後再試', 4500)
-        return
-      }
+      // 註：不再因「收盤分析額度用完」就擋上傳。
+      // 上傳成交 = auth gate；收盤分析 = quota gate；兩條規則嚴格分離。
+
 
       const { accepted, rejected, overflow } = partitionUploadFiles(incomingFiles, {
         existingCount: uploadsRef.current.length,

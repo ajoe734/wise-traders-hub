@@ -1,67 +1,108 @@
-# GTM dataLayer 廣告事件埋設計畫
+# 修正計畫：把「成交上傳」從「收盤分析額度」完全拆開
 
-GTM 容器（`GTM-PBH8J4VD`）已在 `index.html` 載入，目前只在兩個結帳頁推 `Purchase`。內部分析已有 `src/lib/analytics/events.ts`（走 trafficTracker），但**廣告 / 媒體投放追蹤需要的是 GTM dataLayer**——兩者目的不同，需並行不取代。
+## 問題已確認
+目前程式裡有**互相矛盾的 gate**，這就是你看到的錯誤行為來源：
 
-## 一、建立統一推送工具
+1. **權限定義寫的是：已登入就能上傳成交**
+   - `src/checkup/contexts/CheckupModeContext.jsx`
+   - 這裡明寫：`canUpload = mode !== 'demo'`
+   - 註解也明寫：**配額只限制 AI 呼叫，不限制資料輸入**
 
-新增 `src/lib/analytics/gtm.ts`：
+2. **但成交流程實作卻拿 daily quota 直接擋掉**
+   - `src/checkup/hooks/useTradeCaptureRuntime.js`
+   - `enqueueFiles()` 與 `parseUploadById()` 都有 `hasQuota === false` 就直接擋
+   - 所以只要收盤分析額度用完，成交上傳/解析也一起被封
 
-```ts
-export function gtmPush(event: string, params: Record<string, unknown> = {}) {
-  if (typeof window === 'undefined') return;
-  (window as any).dataLayer = (window as any).dataLayer || [];
-  (window as any).dataLayer.push({ event, ...params });
-}
+3. **Trade UI 也被綁到收盤分析額度**
+   - `src/checkup/components/freecheckup/TradeTab.jsx`
+   - `src/pages/FreeCheckup.jsx`
+   - 目前 `hasReachedDailyLimit` 會直接把「上傳成交」整區改成升級／配額用盡提示
+   - 這等於把「上傳成交」錯誤當成「收盤分析訂閱功能」
+
+4. **但後端成交解析其實本來就是 auth-only，不扣 quota**
+   - `supabase/functions/checkup-parse/index.ts`
+   - 用的是 `requireCheckupAuth()`，不是 `consumeCheckupQuota()`
+   - 也就是：**後端本來允許已登入者解析成交，前端卻自己多擋了一層**
+
+## 我要做的修正
+
+### 1. 重新切清三種權限，不再混用
+把 checkup 權限拆成三條獨立規則：
+
+- **成交上傳**：只看是否已登入 / 非 demo
+- **成交解析**：只看是否已登入（沿用現有 edge auth-only 規則）
+- **收盤分析 / predict-events**：才看訂閱、補償、每日/每週/每月額度與時間窗
+
+這樣舊會員、補償會員、LINE 註冊禮、一般已登入會員，都不會再因為「收盤分析額度」被連帶封死成交上傳。
+
+### 2. 修正前端所有錯誤 gate 點
+會一起改完整範圍，不只改一個按鈕：
+
+- `src/checkup/hooks/useTradeCaptureRuntime.js`
+  - 移除 `hasQuota === false` 對成交上傳/解析的封鎖
+  - 改成只在 `isDemo` / 未登入情境擋下
+- `src/checkup/components/freecheckup/TradeTab.jsx`
+  - 不再用 `hasReachedDailyLimit` 隱藏上傳區或顯示錯誤升級文案
+  - 已登入但分析額度用完者，仍可正常上傳成交
+- `src/pages/FreeCheckup.jsx`
+  - Trade tab 傳入的 gate 改成 upload/auth gate，不再共用 daily gate
+- 若 `/holding-checkup` 主路由也有同類判斷，會同步整理，避免兩套頁面再次分裂
+
+### 3. 對齊「舊會員 / 補償會員」業務規則
+我會把這次規則固定成一致行為：
+
+- **補送的收盤分析權利** 只影響收盤分析本身
+- **成交上傳與持倉建立** 不能再被補償方案或 daily quota 牽連
+- 若程式內還有其他 legacy/補償判斷（例如 `line_free_gift`、舊會員補償流），會一併檢查是否被誤接到 trade flow
+
+## 會改的檔案
+- `src/checkup/contexts/CheckupModeContext.jsx`
+- `src/checkup/hooks/useTradeCaptureRuntime.js`
+- `src/checkup/components/freecheckup/TradeTab.jsx`
+- `src/pages/FreeCheckup.jsx`
+- 視實際串接需要，補改：
+  - `src/checkup/hooks/useRouteTradePage.js`
+  - `src/checkup/hooks/useAppRuntimeComposer.js`
+  - `src/checkup/hooks/useAppRuntimeWorkflows.js`
+
+## 自動化測試會補到的範圍
+我會補**完整回歸**，避免之後又把成交上傳跟分析額度綁回去：
+
+1. **runtime gate 測試**
+   - 已登入 + `hasQuota=false` → 仍可上傳成交
+   - demo / 未登入 → 仍然要被擋
+
+2. **TradeTab UI 測試**
+   - `tier=none` 且已登入 → 要看到上傳成交，不是「收盤分析為訂閱功能」
+   - `line_free` 已用完 → 收盤分析可鎖，但成交上傳不可鎖
+   - `basic/pro` 額度耗盡 → 成交上傳仍可用
+
+3. **edge / 合約測試**
+   - `checkup-parse` 維持 auth-only，不消耗 quota
+   - `checkup-analyze` 仍維持 consume quota
+   - 確保兩者權限模型分離
+
+4. **雙入口回歸**
+   - `/checkup` 的 Trade tab
+   - `/holding-checkup` / route trade page
+   - 兩邊行為一致
+
+## 完成後的正確結果
+修完後會變成：
+
+- **舊會員 / 補償會員 / 已登入會員**：都能上傳成交、建立持倉、寫交易日誌
+- **收盤分析額度用完**：只會擋收盤分析與其衍生配額功能，不會再擋成交上傳
+- **訪客 / demo**：仍然不能上傳成交
+
+## 技術細節
+```text
+Auth gate
+  └─ trade upload / trade parse
+      = authenticated only
+
+Quota gate
+  └─ daily analysis / predict-events / paid AI quotas
+      = subscription + quota + time-window rules
+
+這兩條不能再共用 hasReachedDailyLimit / hasQuota
 ```
-
-理由：避免每個檔案重寫 `window.dataLayer.push`、方便日後加 `user_id` hash / consent 判斷 / debug。
-
-## 二、要埋的關鍵節點（漏斗順序）
-
-| # | 事件名 | 觸發點（檔案） | 主要參數 |
-|---|---|---|---|
-| 1 | `Login` | `AuthContext.login` 成功後、`LineCallback` 兌換成功後 | `method: 'email' \| 'line'` |
-| 2 | `SignUp` | `AuthContext.register` 成功後 | `method: 'email'` |
-| 3 | `Function`（你提的「使用功能」） | 進入 `/app`、`/checkup`、`/app/research` 等首次互動 | `feature: 'checkup' \| 'app' \| 'research' \| 'log'` |
-| 4 | `ViewExpert` | `ExpertProfile` mount | `expert_slug` |
-| 5 | `ViewPricing` | `Pricing` / `CheckupCheckout` 頁載入 | `plan_id?` |
-| 6 | `BeginCheckout` | `Checkout` / `CheckupCheckout` 點「確認付款」當下 | `plan_id, amount, method` |
-| 7 | `Purchase` ✅ 已有 | 付款回呼成功頁 | 補上 `value, currency:'TWD', plan_id, transaction_id` |
-| 8 | `SubscribeExpertClick` | 專家頁訂閱 CTA | `expert_slug, plan_id?` |
-| 9 | `LineBindStart` / `LineBindSuccess` | LINE 綁定按鈕 / webhook callback 回前端 | `expert_slug?` |
-| 10 | `CheckupAnalysisRun` | 收盤分析 / 個股研究 / 深度研究 / 事件預測 成功回應 | `kind: 'daily' \| 'stock' \| 'deep' \| 'predict'` |
-| 11 | `QuotaBlocked` | 額度耗盡 toast 顯示時 | `kind, reason` |
-| 12 | `UpgradeClick` | 任何「升級 / 解鎖」CTA | `from` |
-
-> 1、6、7 是廣告（Meta / Google Ads）最常用的轉換事件；其他屬於再行銷與漏斗分析。
-
-## 三、與內部 analytics 的關係
-
-- 內部 `track()`（`src/lib/analytics/events.ts`）→ 寫入自家 `traffic_events` 資料表。
-- GTM `gtmPush()` → 送給 Meta / Google Ads / GA4。
-- **同一個關鍵節點同時呼叫兩者**，由統一 helper 包起來（例如 `trackConversion('login', {...})` 內部一次推兩邊），避免日後遺漏。
-
-## 四、Consent / 隱私
-
-- 在 `gtmPush` 內檢查使用者是否已接受 cookie consent（目前專案若無 CMP，預設全部送出；之後加 CMP 只要改一個地方）。
-- 不送 PII：`user_id` 若要附帶，用 SHA-256 hash。
-
-## 五、QA
-
-- 用 GTM Preview 模式 + Tag Assistant 一次走完 12 個事件。
-- 加 `src/test/unit/gtm-events.test.ts`：mock `window.dataLayer`，驗證每個 helper 呼叫後 push 的 payload schema。
-
-## 六、實作順序
-
-1. 建 `gtm.ts` + 單元測試
-2. 補 Login / SignUp / Function（3 個最高優先）
-3. 強化既有 Purchase（補 value / transaction_id）+ 新增 BeginCheckout
-4. 其餘節點（Expert / Checkup / Quota）
-5. 文件：新增 `docs/gtm-events.md` 列出事件字典給行銷團隊在 GTM 設 Trigger
-
----
-
-請確認：
-- 事件名稱要用你給的 `Login` / `Function` 這種 PascalCase？還是改 GA4 慣例的 `login` / `sign_up` / `begin_checkout` / `purchase`（推薦，GTM 內建範本可直接用）？
-- 第 7 點 Purchase 是否要帶金額與 transaction_id（Meta Conversions API / GA4 ecommerce 需要）？
-- 是否需要同時送 Meta Pixel / GA4 `gtag`，還是全部交給 GTM 在容器內分流？
