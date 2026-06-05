@@ -47,21 +47,11 @@ const Checkout = () => {
     if (!selectedProvider && defaultProviderId) setSelectedProvider(defaultProviderId);
   }, [defaultProviderId, selectedProvider]);
 
-  // GTM Purchase event — fires once when success dialog opens
-  useEffect(() => {
-    if (resultDialog?.open && resultDialog?.success) {
-      gtmPush('Purchase', {
-        plan_id: planId,
-        expert_slug: slug,
-        value: typeof price === 'number' ? price : undefined,
-        currency: 'TWD',
-        billing_cycle: billingCycle,
-      });
-      trackEvent('checkout_success', { plan_id: planId, slug });
-    }
-  }, [resultDialog?.open, resultDialog?.success, planId, slug, price, billingCycle]);
+  // GTM Purchase event — fires once when success dialog opens.
+  // (Defined as a callback below; effect placed after `price` is computed.)
 
   useEffect(() => { trackEvent('checkout_open', { plan_id: planId, slug }); }, [planId, slug]);
+
 
   useEffect(() => {
     if (!selectedProvider) return;
