@@ -75,8 +75,8 @@ export type AnalyticsEvent =
   // Generic page_view (auto-fired by router listener)
   | { name: 'page_view'; props?: { path?: string; from?: string } };
 
-import { trackEvent as rawTrack } from '@/lib/trafficTracker';
 import { gtmPush, type GtmEvent } from '@/lib/analytics/gtm';
+
 
 // Internal analytics event → GTM advertising event mirror.
 // Only conversion / funnel events are mirrored; product-only events stay
