@@ -58,7 +58,7 @@ export function useTradeCaptureRuntime({
   const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
   let modeCtx = null
   try { modeCtx = useCheckupMode() } catch { /* test env / no provider */ }
-  const { hasQuota, applyQuotaFromResponse } = modeCtx || {}
+  const { applyQuotaFromResponse } = modeCtx || {}
   const [dragOver, setDragOver] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [parseProgress, setParseProgress] = useState({ current: 0, total: 0 })
