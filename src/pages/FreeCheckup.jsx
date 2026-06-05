@@ -2323,14 +2323,9 @@ ${JSON.stringify(strategyBrain || { rules: [], lessons: [], commonMistakes: [], 
       startLineLogin();
       return;
     }
-    // 先 await 最新 quota，避免 stale state 導致 race（按下去才發 429）
-    let freshQuota = null;
-    try { freshQuota = await refreshQuota?.(); } catch {}
-    const remaining = freshQuota?.remaining ?? (hasReachedDailyLimit ? 0 : 1);
-    if (remaining <= 0) {
-      toast.error('AI 健檢配額已用完，請查看升級方案');
-      return;
-    }
+    // 截圖解析 = auth-only（checkup-parse edge 不扣 quota）
+    // 不在前端做 quota 攔截，避免 line_free 用完的使用者被擋在上傳/建立持倉之外
+    // 若後端規則改變回 429，下方 catch 區塊仍有兜底處理
     setParsing(true); setParseErr(null);
     setParseStep({ stage: 'upload', label: '上傳截圖至 AI Vision', progress: 10, detail: `影像大小約 ${Math.round((b64?.length || 0) * 0.75 / 1024)} KB` });
 
