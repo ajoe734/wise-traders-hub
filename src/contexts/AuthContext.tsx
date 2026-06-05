@@ -266,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return { success: false, error: mapAuthError(error, 'login') };
     }
+    gtmPush('Login', { method: 'email' });
     return { success: true };
   }, [clearAuth]);
 
@@ -281,6 +282,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       return { success: false, error: mapAuthError(error, 'register') };
     }
+    gtmPush('SignUp', { method: 'email' });
     return { success: true };
   }, []);
 
