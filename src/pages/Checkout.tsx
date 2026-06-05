@@ -60,7 +60,7 @@ const Checkout = () => {
     }
   }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle]);
 
-
+  useEffect(() => { trackEvent('checkout_open', { plan_id: planId, slug }); }, [planId, slug]);
 
   useEffect(() => {
     if (!selectedProvider) return;
