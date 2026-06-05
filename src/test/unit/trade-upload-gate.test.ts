@@ -62,4 +62,16 @@ describe('成交上傳/解析 gate 與收盤分析配額嚴格分離', () => {
     expect(src).not.toMatch(/canUpload\s*=\s*mode[\s\S]{0,40}hasQuota/);
     expect(src).not.toMatch(/canUpload\s*=\s*mode[\s\S]{0,40}hasReachedDailyLimit/);
   });
+
+  it('FreeCheckup.parseShot：截圖解析路徑禁止 quota 前置攔截', () => {
+    const src = read('src/pages/FreeCheckup.jsx');
+    const m = src.match(/const\s+parseShot\s*=\s*async[\s\S]*?\n  \};/);
+    expect(m, 'parseShot 函式必須能被定位').toBeTruthy();
+    const body = m![0];
+    // parseShot 內不可再用 hasReachedDailyLimit / remaining<=0 擋掉解析
+    expect(body).not.toMatch(/hasReachedDailyLimit/);
+    expect(body).not.toMatch(/remaining\s*<=\s*0/);
+    // 「AI 健檢配額已用完」屬於收盤分析文案，不可出現在截圖解析路徑
+    expect(body).not.toMatch(/AI 健檢配額已用完/);
+  });
 });
