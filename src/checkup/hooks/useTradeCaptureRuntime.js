@@ -150,8 +150,9 @@ export function useTradeCaptureRuntime({
         flashSaved(`❌ 讀取截圖失敗：${error.message || '請重新選擇圖片'}`, 4000)
       }
     },
-    [flashSaved, toSlashDate, isDemo, hasQuota]
+    [flashSaved, toSlashDate, isDemo]
   )
+
 
   const processFile = useCallback(
     (file) => {
