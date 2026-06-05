@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { supabase } from '@/integrations/supabase/client';
 import { queryClient } from '@/lib/queryClient';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
+import { gtmPush } from '@/lib/analytics/gtm';
 
 type AppRole = 'company_admin' | 'analyst';
 
@@ -266,6 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return { success: false, error: mapAuthError(error, 'login') };
     }
+    gtmPush('Login', { method: 'email' });
     return { success: true };
   }, [clearAuth]);
 
@@ -281,6 +283,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       return { success: false, error: mapAuthError(error, 'register') };
     }
+    gtmPush('SignUp', { method: 'email' });
     return { success: true };
   }, []);
 

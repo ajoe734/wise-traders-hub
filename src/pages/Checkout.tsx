@@ -17,6 +17,7 @@ import { OrderSummaryCard } from './_checkout/OrderSummaryCard';
 import { CheckoutResultDialog, type CheckoutResult } from './_checkout/CheckoutResultDialog';
 import { RemittanceAccountCard } from './_remittance/RemittanceAccountCard';
 import { trackEvent } from '@/lib/trafficTracker';
+import { gtmPush } from '@/lib/analytics/gtm';
 import {
   dispatchLinePay, dispatchEcpay, dispatchAcpay, dispatchRemittance,
   submitEcpayForm, validateAcpayCardholder, type DispatchCtx,
@@ -49,11 +50,15 @@ const Checkout = () => {
   // GTM Purchase event — fires once when success dialog opens
   useEffect(() => {
     if (resultDialog?.open && resultDialog?.success) {
-      (window as any).dataLayer = (window as any).dataLayer || [];
-      (window as any).dataLayer.push({ event: 'Purchase' });
+      gtmPush('Purchase', {
+        plan_id: planId,
+        expert_slug: slug,
+        currency: 'TWD',
+        billing_cycle: billingCycle,
+      });
       trackEvent('checkout_success', { plan_id: planId, slug });
     }
-  }, [resultDialog?.open, resultDialog?.success, planId, slug]);
+  }, [resultDialog?.open, resultDialog?.success, planId, slug, billingCycle]);
 
   useEffect(() => { trackEvent('checkout_open', { plan_id: planId, slug }); }, [planId, slug]);
 
@@ -233,6 +238,14 @@ const Checkout = () => {
     setIsProcessing(true);
     const provider = providers.find(p => p.id === selectedProvider);
     trackEvent('checkout_submit', { plan_id: planId, method: provider?.provider_type });
+    gtmPush('BeginCheckout', {
+      plan_id: planId,
+      expert_slug: slug,
+      value: typeof price === 'number' ? price : undefined,
+      currency: 'TWD',
+      method: provider?.provider_type,
+      billing_cycle: billingCycle,
+    });
 
     const ctx: DispatchCtx = {
       plan, expert, slug,

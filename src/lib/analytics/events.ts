@@ -75,12 +75,34 @@ export type AnalyticsEvent =
   // Generic page_view (auto-fired by router listener)
   | { name: 'page_view'; props?: { path?: string; from?: string } };
 
-/** Type-safe wrapper around the raw tracker. */
+import { gtmPush, type GtmEvent } from '@/lib/analytics/gtm';
+
+
+// Internal analytics event → GTM advertising event mirror.
+// Only conversion / funnel events are mirrored; product-only events stay
+// internal to avoid noise in GTM.
+const GTM_MIRROR: Partial<Record<string, { event: GtmEvent; pick?: (p?: Record<string, unknown>) => Record<string, unknown> }>> = {
+  expert_profile_view:   { event: 'ViewExpert',           pick: (p) => ({ expert_slug: p?.expert_slug }) },
+  pricing_view:          { event: 'ViewPricing' },
+  expert_subscribe_click:{ event: 'SubscribeExpertClick', pick: (p) => ({ expert_slug: p?.expert_slug, plan_id: p?.plan_id }) },
+  line_binding_start:    { event: 'LineBindStart',        pick: (p) => ({ expert_slug: p?.expert_slug }) },
+  line_binding_success:  { event: 'LineBindSuccess',      pick: (p) => ({ expert_slug: p?.expert_slug }) },
+  checkup_analysis_run:  { event: 'CheckupAnalysisRun',   pick: (p) => ({ kind: p?.kind }) },
+  checkup_quota_blocked: { event: 'QuotaBlocked',         pick: (p) => ({ reason: p?.reason }) },
+  checkup_upgrade_click: { event: 'UpgradeClick',         pick: (p) => ({ from: p?.from }) },
+};
+
+/** Type-safe wrapper around the raw tracker. Mirrors conversion events to GTM. */
 export function track<E extends AnalyticsEvent>(name: E['name'], props?: E['props']) {
   rawTrack(name, props as Record<string, unknown> | undefined);
+  const mirror = GTM_MIRROR[name];
+  if (mirror) gtmPush(mirror.event, mirror.pick ? mirror.pick(props as Record<string, unknown> | undefined) : {});
 }
 
 /** Convenience: subset for non-typed callers (legacy code). */
 export function trackRaw(name: string, props?: Record<string, unknown>) {
   rawTrack(name, props);
+  const mirror = GTM_MIRROR[name];
+  if (mirror) gtmPush(mirror.event, mirror.pick ? mirror.pick(props) : {});
 }
+
