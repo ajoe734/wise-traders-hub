@@ -350,7 +350,7 @@ export function useTradeCaptureRuntime({
         return false
       }
     },
-    [applyQuotaFromResponse, flashSaved, hasQuota, isDemo, toSlashDate, updateUploadById]
+    [applyQuotaFromResponse, flashSaved, isDemo, toSlashDate, updateUploadById]
   )
 
   const parseShot = useCallback(async () => {
