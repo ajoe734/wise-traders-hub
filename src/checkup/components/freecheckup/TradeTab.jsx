@@ -158,57 +158,45 @@ function TradeTabImpl({
           </button>
         </div>
       )}
-      {/* 配額用盡提示 — 結合具體重置時間與升級路徑 */}
+      {/* 收盤分析配額用盡 — 僅作為「分析」資訊提示，**不阻擋成交上傳** */}
       {hasReachedDailyLimit && !isDemo && (
         <div style={{
-          marginBottom:16, padding:"20px 16px",
-          background:alpha(C.blue,'06'), border:`1px solid ${alpha(C.blue,'25')}`,
-          borderRadius:10, textAlign:"center",
+          marginBottom:16, padding:"14px 16px",
+          background:alpha(C.blue,'04'), border:`1px solid ${alpha(C.blue,'20')}`,
+          borderRadius:10,
         }}>
-          <div style={{fontSize:13,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
-            {tier === 'none'      && '收盤分析為訂閱功能'}
-            {tier === 'line_free' && 'LINE 註冊禮 1 次已用完'}
-            {tier === 'free'      && '本月 1 次 AI 健檢已用完'}
-            {tier === 'basic'     && '本週 1 次 AI 健檢已用完'}
-            {tier === 'pro'       && '本月 22 次 AI 健檢已用完'}
+          <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:6,letterSpacing:"0.02em"}}>
+            {tier === 'none'      && '收盤分析為訂閱功能（不影響成交上傳）'}
+            {tier === 'line_free' && 'LINE 註冊禮 1 次收盤分析已用完（不影響成交上傳）'}
+            {tier === 'free'      && '本月 1 次收盤分析已用完（不影響成交上傳）'}
+            {tier === 'basic'     && '本週 1 次收盤分析已用完（不影響成交上傳）'}
+            {tier === 'pro'       && '本月 22 次收盤分析已用完（不影響成交上傳）'}
           </div>
-          <div style={{fontSize:12,color:C.textMute,lineHeight:1.7,marginBottom:(tier==='free'||tier==='basic'||tier==='line_free'||tier==='none')?12:0}}>
+          <div style={{fontSize:11,color:C.textMute,lineHeight:1.7}}>
             {tier !== 'none' && tier !== 'line_free' && (
               <>
                 重置時間：<span style={{color:C.textSec}}>{formatResetDateTime(quota?.resets_at) || '—'}</span>
-                <br/>
-                <span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
+                ・<span style={{opacity:0.85}}>{formatResetCountdown(quota?.resets_at)}</span>
               </>
             )}
-            {tier === 'none'      && <>請訂閱 Basic（每週 1 次）或 Pro（每月 22 次）後使用</>}
-            {tier === 'line_free' && <>LINE 註冊禮為一次性贈送，升級訂閱方案後可繼續使用</>}
-            {tier === 'free'      && <><br/>想立即繼續？升級 Basic（每週 1 次）或 Pro（每月 22 次）</>}
-            {tier === 'basic'     && <><br/>升級 Pro 即可每月使用 22 次</>}
+            {tier === 'none'      && <>仍可繼續上傳成交、建立持倉。訂閱後即可使用 AI 收盤分析。</>}
+            {tier === 'line_free' && <>仍可繼續上傳成交、建立持倉。升級訂閱方案後可繼續使用 AI 收盤分析。</>}
           </div>
           {(tier === 'free' || tier === 'basic' || tier === 'line_free' || tier === 'none') && (
             <a href="/pricing#checkup" style={{
-              display:"inline-block", marginTop:4,
-              background:C.blue, color:"#fff", border:"none",
-              borderRadius:8, padding:"9px 22px", fontSize:12, fontWeight:500,
+              display:"inline-block", marginTop:8,
+              background:"transparent", color:C.blue,
+              border:`1px solid ${alpha(C.blue,'40')}`,
+              borderRadius:8, padding:"6px 14px", fontSize:11, fontWeight:500,
               textDecoration:"none", letterSpacing:"0.02em",
             }}>
-              {tier === 'basic' ? '升級 Pro' : '查看訂閱方案'}
+              {tier === 'basic' ? '升級 Pro' : '查看訂閱方案'} →
             </a>
           )}
-          <div style={{ marginTop: 10 }}>
-            <button
-              type="button"
-              onClick={() => setTab?.('holdings')}
-              style={{
-                background: 'transparent', border: 'none',
-                color: C.textMute, fontSize: 12, cursor: 'pointer',
-                letterSpacing: '0.02em', padding: '4px 8px',
-              }}
-            >← 查看我的持倉</button>
-          </div>
         </div>
       )}
-      {!parsed && !isDemo && !hasReachedDailyLimit && (
+      {!parsed && !isDemo && (
+
         <>
           <div
             onDragOver={e=>{e.preventDefault();setDragOver(true)}}

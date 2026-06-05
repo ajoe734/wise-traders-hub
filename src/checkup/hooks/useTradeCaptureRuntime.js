@@ -58,7 +58,7 @@ export function useTradeCaptureRuntime({
   const setTradeLog = useHoldingsStore((s) => s.setTradeLog)
   let modeCtx = null
   try { modeCtx = useCheckupMode() } catch { /* test env / no provider */ }
-  const { hasQuota, applyQuotaFromResponse } = modeCtx || {}
+  const { applyQuotaFromResponse } = modeCtx || {}
   const [dragOver, setDragOver] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [parseProgress, setParseProgress] = useState({ current: 0, total: 0 })
@@ -95,10 +95,9 @@ export function useTradeCaptureRuntime({
         flashSaved('🔒 訪客模式不能上傳成交，請先用 Line 登入', 4000)
         return
       }
-      if (hasQuota === false) {
-        flashSaved('🔒 本期 AI 解析額度已用完，請升級方案後再試', 4500)
-        return
-      }
+      // 註：不再因「收盤分析額度用完」就擋上傳。
+      // 上傳成交 = auth gate；收盤分析 = quota gate；兩條規則嚴格分離。
+
 
       const { accepted, rejected, overflow } = partitionUploadFiles(incomingFiles, {
         existingCount: uploadsRef.current.length,
@@ -151,8 +150,9 @@ export function useTradeCaptureRuntime({
         flashSaved(`❌ 讀取截圖失敗：${error.message || '請重新選擇圖片'}`, 4000)
       }
     },
-    [flashSaved, toSlashDate, isDemo, hasQuota]
+    [flashSaved, toSlashDate, isDemo]
   )
+
 
   const processFile = useCallback(
     (file) => {
@@ -301,10 +301,9 @@ export function useTradeCaptureRuntime({
         flashSaved('🔒 訪客模式不能解析成交，請先用 Line 登入', 4000)
         return false
       }
-      if (hasQuota === false) {
-        flashSaved('📉 本期 AI 解析額度已用完，請升級方案後再試', 4500)
-        return false
-      }
+      // 註：checkup-parse edge 為 auth-only（不消耗 quota），
+      // 前端不再因收盤分析額度用完而擋成交解析。
+
 
       updateUploadById(uploadId, (u) => ({ ...u, parseErr: '' }))
 
@@ -351,7 +350,7 @@ export function useTradeCaptureRuntime({
         return false
       }
     },
-    [applyQuotaFromResponse, flashSaved, hasQuota, isDemo, toSlashDate, updateUploadById]
+    [applyQuotaFromResponse, flashSaved, isDemo, toSlashDate, updateUploadById]
   )
 
   const parseShot = useCallback(async () => {
